@@ -3,34 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parenting Test 01</title>
-    <link rel="stylesheet" href="style_parenting_01.css">
+    <title>Parenting</title>
+    <link rel="stylesheet" href="style_parenting_02.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>Parenting Choices</h1>
+    <div class="container">
+        <h1>Parenting</h1>
 
-    <!-- Year and Question --> 
-    <div id="question-block">
-        <p id="year">Year: 1</p>
-        <p id="question-text">Do you want to breastfeed your child?</p>
-        <button id="yes">Yes</button>
-        <button id="no">No</button>
+        <!-- Year and Question --> 
+        <div id="question-block">
+            <p id="year">Year: 1</p>
+            <p id="question-text">Do you want to breastfeed your child?</p>
+            <button id="yes">Yes</button>
+            <button id="no">No</button>
+        </div>
+
+        <!-- Choice Output-->
+        <div id="choice-output">
+            <h2>You Choices:</h2>
+            <ul id="choices-list"></ul>
+        </div>
+
+        <!-- Result -->
+        <div id="result-block" style="display: none;">
+            <h2>Results:</h2>
+            <p id="final-result"></p>
+            <button id="restart" style="display: none;">Try to be a better parent</button>
+        </div>
     </div>
-
-    <!-- Choice Output-->
-    <div id="choice-output">
-        <h2>You Choices:</h2>
-        <ul id="choices-list"></ul>
-    </div>
-
-    <!-- Result -->
-    <div id="result-block" style="display: none;">
-        <h2>Results:</h2>
-        <p id="final-result"></p>
-        <button id="restart" style="display: none;">Try again to be a better parent</button>
-    </div>
-
     <!-- JavaScript -->
-    <script src="script_parenting_01.js"></script>
+    <script src="script_parenting_02.js"></script>
 </body>
+<footer>
+    Created by <a href="https://www.linkedin.com/in/joe-morrissey-2773202/">Joe Morrissey</a>
 </html>
