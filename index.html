@@ -3,37 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parenting</title>
-    <link rel="stylesheet" href="style_parenting_02.css">
+    <title>Terrible Parent</title>
+    <link rel="stylesheet" href="style_parenting_03.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
-        <h1>Parenting</h1>
+        <h1>Are you a terrible parent?</h1>
 
         <!-- Year and Question --> 
+        <div id="year-block">
+            <p id="year">Your child is 1</p>
+        </div>
+
+        <!-- Stats Block -->
+         <div id="stats">
+            <div class="stat">
+                <p class="stat-number" id="happiness-number">50</p>
+                <p class="stat-label">Happiness</p>
+            </div>
+            <div class="stat">
+                <p class="stat-number" id="resilience-number">50</p>
+                <p class="stat-label">Resilience</p>
+            </div>
+            <div class="stat">
+                <p class="stat-number" id="social-number">50</p>
+                <p class="stat-label">Social</p>
+            </div>
+            <div class="stat">
+                <p class="stat-number" id="independence-number">50</p>
+                <p class="stat-label">Independence</p>
+            </div>
+         </div>
+
+        <!-- Question Block-->
         <div id="question-block">
-            <p id="year">Year: 1</p>
+            <hr>
             <p id="question-text">Do you want to breastfeed your child?</p>
             <button id="yes">Yes</button>
             <button id="no">No</button>
         </div>
 
-        <!-- Choice Output-->
-        <div id="choice-output">
-            <h2>You Choices:</h2>
-            <ul id="choices-list"></ul>
-        </div>
-
         <!-- Result -->
         <div id="result-block" style="display: none;">
             <h2>Results:</h2>
-            <p id="final-result"></p>
+            <h2 id="final-title"></h2>
+            <p id="final-description"></p>
+            <!-- <p id="final-result"></p> -->
             <button id="restart" style="display: none;">Try to be a better parent</button>
+            <br>
+        </div>
+
+        <button id="get-results" style="display: none;">Find out if you are a terrible parent</button>
+
+        <!-- Choice Output-->
+        <div id="choice-output">
+            <hr>
+            <h2>Your Choices:</h2>
+            <ul id="choices-list"></ul>
         </div>
     </div>
     <!-- JavaScript -->
-    <script src="script_parenting_02.js"></script>
+    <script src="script_parenting_03.js"></script>
 </body>
 <footer>
     Created by <a href="https://www.linkedin.com/in/joe-morrissey-2773202/">Joe Morrissey</a>
