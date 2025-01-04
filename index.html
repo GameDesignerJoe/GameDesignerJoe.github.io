@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terrible Parent</title>
-    <link rel="stylesheet" href="style_parenting_03.css">
+    <link rel="stylesheet" href="style_parenting_04.css">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -49,7 +49,6 @@
             <h2>Results:</h2>
             <h2 id="final-title"></h2>
             <p id="final-description"></p>
-            <!-- <p id="final-result"></p> -->
             <button id="restart" style="display: none;">Try to be a better parent</button>
             <br>
         </div>
@@ -60,11 +59,34 @@
         <div id="choice-output">
             <hr>
             <h2>Your Choices:</h2>
-            <ul id="choices-list"></ul>
+            <!-- Baby to Toddler -->
+             <div id="group-baby-toddler" style="display: none;">
+                <h3>Baby to Toddler (1-4)</h3>
+                <p id="choices-baby-toddler"></p>
+            </div>
+
+            <!-- Elementary School -->
+            <div id="group-elementary" style="display: none;">
+                <h3>Elementary School (5-10)</h3>
+                <p id="choices-elementary"></p>
+            </div> 
+
+            <!-- Middle School -->
+            <div id="group-middle" style="display: none;">
+                <h3>Middle School (11-13)</h3>
+                <p id="choices-middle"></p>
+            </div> 
+
+            <!-- High School -->
+            <div id="group-highschool" style="display: none;">
+                <h3>High School (14-18)</h3>
+                <p id="choices-highschool"></p>
+            </div>
         </div>
     </div>
+
     <!-- JavaScript -->
-    <script src="script_parenting_03.js"></script>
+    <script src="script_parenting_04.js"></script>
 </body>
 <footer>
     Created by <a href="https://www.linkedin.com/in/joe-morrissey-2773202/">Joe Morrissey</a>
