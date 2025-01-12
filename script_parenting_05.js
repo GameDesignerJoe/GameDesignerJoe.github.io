@@ -1,6 +1,6 @@
 import { questions } from './questions.js';
 
-let currentLevel = 2; // Tracks the level of the game
+let currentLevel = 1; // Tracks the level of the game
 console.log("Current level:", currentLevel);
 
 const buttonClickedSound = new Audio("audio/mouse-click.wav"); // button sound
@@ -145,7 +145,7 @@ const hauntedEffects = {
                 }, 1000); // Reset after 500ms
             }
         },        
-        4: () => { // Year 3 effect
+        4: () => { // Haunting Effect: Pulsing Letters
             const questionElement = document.getElementById("question-text");
         
             if (questionElement) {
