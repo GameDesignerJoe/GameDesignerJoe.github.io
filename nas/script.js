@@ -22,6 +22,12 @@ let hasVisitedSouthPole = false; // Track if the South Pole has been visited
 let viewportX = 0; // Top-left corner of the viewport
 let viewportY = 0;
 
+// Player movement
+let isMoving = false; // Track if the player is currently moving
+
+// Game over
+let gameOver = false;
+
 // Ensure South Pole is not at the starting position
 do {
     southPolePosition = {
@@ -134,9 +140,10 @@ function checkHealthDecay() {
     }
 
     // Check for player death
-    if (playerStats.health <= 0) {
+    if (playerStats.health <= 0 && !gameOver) {
+        gameOver = true; // Ensure the alert only happens once
         alert("You have perished in the icy wilderness!");
-        resetGame(); // Reset the game or end it
+        restartGame(); // Trigger restart
     }
 }
 
@@ -183,13 +190,23 @@ function attemptMove(newX, newY) {
 
 // Handle tile clicks or touch inputs
 function handleTileClick(x, y) {
+    if (isMoving) return; // Ignore if already moving
+
     // Validate that the clicked/tapped tile is adjacent
     const dx = Math.abs(x - playerPosition.x);
     const dy = Math.abs(y - playerPosition.y);
 
-    if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+    if ((dx <= 1 && dy <= 1) && (dx + dy > 0)) { // Allow diagonal and adjacent movement
+        isMoving = true; // Lock movement
         attemptMove(x, y);
+
+        // Add a small delay before allowing another move
+        setTimeout(() => {
+            isMoving = false;
+        }, 300); // 300ms delay (adjust for your desired pace)
     }
+
+    highlightTargetCell(x, y); // Highlight the target tile
 }
 
 // Update the player's position in the grid
@@ -203,6 +220,30 @@ function updatePlayerPosition() {
     revealTiles(playerPosition.x, playerPosition.y); // Reveal tiles around the player
     checkEvents();
     updateViewport();
+}
+
+gridElement.addEventListener("touchstart", (event) => {
+    const touch = event.touches[0]; // Get the first touch point
+    const rect = gridElement.getBoundingClientRect();
+
+    // Calculate the grid coordinates from the touch position
+    const x = Math.floor((touch.clientX - rect.left) / tileSize);
+    const y = Math.floor((touch.clientY - rect.top) / tileSize);
+
+    handleTileClick(x, y); // Handle the movement
+    event.preventDefault(); // Prevent additional touch events
+}, { passive: false });
+
+
+// highlight the target cell during movement
+function highlightTargetCell(x, y) {
+    const index = y * gridWidth + x;
+    const cells = gridElement.querySelectorAll(".grid-cell");
+
+    cells.forEach((cell) => cell.classList.remove("highlight"));
+    if (index >= 0 && index < cells.length) {
+        cells[index].classList.add("highlight");
+    }
 }
 
 // Update the viewport position
@@ -257,8 +298,26 @@ document.addEventListener("keydown", (event) => {
         case "d":
             attemptMove(playerPosition.x + 1, playerPosition.y);
             break;
+        case "q": // Diagonal Up-Left
+            attemptMove(playerPosition.x - 1, playerPosition.y - 1);
+            break;
+        case "e": // Diagonal Up-Right
+            attemptMove(playerPosition.x + 1, playerPosition.y - 1);
+            break;
+        case "z": // Diagonal Down-Left
+            attemptMove(playerPosition.x - 1, playerPosition.y + 1);
+            break;
+        case "c": // Diagonal Down-Right
+            attemptMove(playerPosition.x + 1, playerPosition.y + 1);
+            break;
     }
 });
+
+// Restart the game
+function restartGame() {
+    location.reload(); // Refresh the page to restart the game
+}
+
 
 // Initialize the grid
 initializeGrid();

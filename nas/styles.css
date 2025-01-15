@@ -99,3 +99,7 @@ h1 {
     background-color: blue;
     color: white;
 }
+
+.grid-cell.highlight {
+    outline: 2px solid yellow;
+}
