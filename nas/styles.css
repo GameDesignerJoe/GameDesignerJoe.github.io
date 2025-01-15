@@ -1,105 +1,83 @@
+/* Styles for the hex grid game */
 body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background-color: #f4f4f4;
     margin: 0;
-    padding: 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Old Standard TT', serif;
+    background-color: #f0f0f0;
 }
 
 h1 {
-    margin-bottom: 10px;
+    margin: 20px 0 10px 0;
+    font-weight: 700;
 }
 
-/* Parent container for grid and stats */
-#main-container {
-    display: flex;
-    justify-content: center; /* Center the container horizontally */
-    align-items: flex-start; /* Align the grid and stats at the top */
-    gap: 20px; /* Add space between the grid and stats */
-    margin: 0 auto; /* Center container on the page */
-    max-width: fit-content; /* Prevent excessive stretching of the container */
-}
-
-/* Grid container styles */
-#grid-container {
-    position: relative;
-    width: calc(7 * 42px); /* 7 tiles wide (40px + 2px gap) */
-    height: calc(9 * 42px); /* 9 tiles tall */
-    overflow: hidden;
+canvas {
     border: 1px solid black;
+    margin: 20px 0;
 }
 
-/* Stats container styles */
 #stats-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px; /* Add spacing between each stat */
-    align-items: flex-start;
+    width: 300px;
+    padding: 15px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
 }
 
-/* Stat bar styles */
 .stat {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
+    margin: 10px 0;
+}
+
+.stat-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
 }
 
 .stat-bar {
-    width: 150px;
+    width: 100%;
     height: 20px;
-    background-color: #ccc;
-    border: 1px solid #aaa;
-    position: relative;
+    background-color: #eee;
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 .stat-fill {
     height: 100%;
-    width: 100%;
-    background-color: green;
-    transition: width 0.3s ease; /* Smooth transitions */
+    width: 0%;
+    transition: all 0.3s ease;
 }
 
-.grid {
-    position: absolute;
-    display: grid;
-    grid-template-columns: repeat(10, 40px); /* Full grid width */
-    grid-template-rows: repeat(20, 40px); /* Full grid height */
-    gap: 2px;
+#health-bar {
+    background-color: #ff4444;
 }
 
-.grid-cell {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px solid #ccc;
-    background-color: white;
-    font-size: 14px;
-    font-weight: bold;
+#stamina-bar {
+    background-color: #44aaff;
 }
 
-.grid-cell.hidden {
-    background-color: #999; /* Gray for hidden tiles */
-    opacity: 0.6; /* Slight transparency */
+#hunger-bar {
+    background-color: #ffaa44;
 }
 
-.grid-cell.base-camp {
-    background-color: gold; /* Gold for Base Camp */
-    border: 1px solid #b8860b; /* Darker border for visibility */
+/* Animation for low stamina warning */
+@keyframes pulseRed {
+    0% {
+        background-color: #44aaff;
+    }
+    50% {
+        background-color: #ff4444;
+    }
+    100% {
+        background-color: #44aaff;
+    }
 }
 
-.grid-cell.player {
-    background-color: green;
-    color: white;
-}
-
-.grid-cell.south-pole {
-    background-color: blue;
-    color: white;
-}
-
-.grid-cell.highlight {
-    outline: 2px solid yellow;
+.pulse-warning {
+    animation: pulseRed 0.5s ease-in-out 3;
 }

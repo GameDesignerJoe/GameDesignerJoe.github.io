@@ -1,325 +1,359 @@
-// Player stats object
-const playerStats = {
-    health: 100, // Max: 100
-    stamina: 100, // Max: 100
-    hunger: 100 // Max: 100
+// JavaScript for Hex Grid Game Using Honeycomb.js
+
+// Game Configuration
+const GAME_CONFIG = {
+    // Grid settings
+    HEX_SIZE: 30,
+    GRID_WIDTH: 15,
+    GRID_HEIGHT: 30,
+    
+    // Visual settings
+    PLAYER_CIRCLE_SIZE: 0.4,   // Size of player circle relative to hex size (0-1)
+    
+    // Colors
+    COLORS: {
+        PLAYER: "green",           // Player circle color
+        BASE_CAMP: "gold",         // Base camp hex color
+        SOUTH_POLE: "blue",        // South pole hex color
+        VISITED_HEX: "lightgray",  // Color of hexes player has visited
+        FOG_OF_WAR: "darkgray",    // Color of unexplored hexes
+        HEX_BORDER: "white"        // Color of hex borders
+    },
+
+    // Starting stats
+    STARTING_STATS: {
+        HEALTH: 100,
+        STAMINA: 100,
+        HUNGER: 100
+    },
+    
+    // Stats decay rates (per second)
+    HEALTH_DECAY_RATE: 1,    // Lose 0.5% health per second when not at base
+    HUNGER_DECAY_RATE: 0.5,   // Lose 0.25% hunger per second
+    
+    // Movement and stamina
+    MOVE_STAMINA_COST: 10,      // Stamina cost per move
+    STAMINA_REGEN_RATE: 3,     // Gain 2% stamina per second when not moving
+    
+    // Recovery rates at base camp (per second)
+    BASE_HEALTH_REGEN: 10,      // Gain 1% health per second at base
+    BASE_HUNGER_REGEN: 1,    // Gain 0.5% hunger per second at base
+    BASE_STAMINA_REGEN: 10,     // Gain 3% stamina per second at base
+    
+    // Canvas dimensions
+    CANVAS_WIDTH: 450,
+    CANVAS_HEIGHT: 450
 };
 
-// Grid and viewport dimensions
-const gridWidth = 10; // Total columns
-const gridHeight = 20; // Total rows
-const tileSize = 42; // Tile size (including gap)
-const viewportWidth = 7; // Number of visible columns
-const viewportHeight = 9; // Number of visible rows
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+canvas.width = GAME_CONFIG.CANVAS_WIDTH;
+canvas.height = GAME_CONFIG.CANVAS_HEIGHT;
 
-// Player, Base Camp, and South Pole positions
-let playerPosition = { x: Math.floor(gridWidth / 2), y: 0 }; // Start at top-center
-const startingPosition = { ...playerPosition }; // Base Camp
-let southPolePosition;
-let hasVisitedSouthPole = false; // Track if the South Pole has been visited
+const Honeycomb = window.Honeycomb;
+const Hex = Honeycomb.extendHex({
+    size: GAME_CONFIG.HEX_SIZE
+});
+const Grid = Honeycomb.defineGrid(Hex);
 
-// Viewport position
-let viewportX = 0; // Top-left corner of the viewport
+// Create a grid
+const grid = Grid.rectangle({ 
+    width: GAME_CONFIG.GRID_WIDTH, 
+    height: GAME_CONFIG.GRID_HEIGHT 
+});
+
+// Calculate grid boundaries
+const gridBounds = {
+    minX: Math.min(...grid.map(hex => hex.toPoint().x)),
+    maxX: Math.max(...grid.map(hex => hex.toPoint().x)),
+    minY: Math.min(...grid.map(hex => hex.toPoint().y)),
+    maxY: Math.max(...grid.map(hex => hex.toPoint().y))
+};
+
+// Game state
+let playerHex = grid.filter(hex => hex.y === 0)[Math.floor(grid.filter(hex => hex.y === 0).length / 2)];
+const baseCamp = playerHex;
+let southPole = grid.filter(hex => hex.y === Math.max(...grid.map(h => h.y)))[Math.floor(Math.random() * GAME_CONFIG.GRID_WIDTH)];
+let hoveredHex = null;
+let southPoleVisited = false;
+
+// Track visited hexes
+let visitedHexes = new Set([playerHex.toString()]); // Initialize with starting position
+
+// Stats
+let stamina = GAME_CONFIG.STARTING_STATS.STAMINA;
+let health = GAME_CONFIG.STARTING_STATS.HEALTH;
+let hunger = GAME_CONFIG.STARTING_STATS.HUNGER;
+let gameRunning = true;
+let lastStatUpdate = Date.now();
+let lastMoveTime = Date.now();
+
+// Viewport state
+let viewportX = 0;
 let viewportY = 0;
 
-// Player movement
-let isMoving = false; // Track if the player is currently moving
-
-// Game over
-let gameOver = false;
-
-// Ensure South Pole is not at the starting position
-do {
-    southPolePosition = {
-        x: Math.floor(Math.random() * gridWidth),
-        y: gridHeight - 1 // Last row
-    };
-} while (southPolePosition.x === startingPosition.x && southPolePosition.y === startingPosition.y);
-
-// DOM Elements
-const gridContainer = document.getElementById("grid-container");
-const gridElement = document.createElement("div");
-gridElement.classList.add("grid");
-gridContainer.appendChild(gridElement);
-
-// Initialize the grid
-function initializeGrid() {
-    for (let y = 0; y < gridHeight; y++) {
-        for (let x = 0; x < gridWidth; x++) {
-            const cell = document.createElement("div");
-            cell.classList.add("grid-cell", "hidden"); // All cells start hidden
-
-            if (x === startingPosition.x && y === startingPosition.y) {
-                cell.classList.add("base-camp"); // Mark Base Camp
-            } else if (x === playerPosition.x && y === playerPosition.y) {
-                cell.classList.add("player"); // Mark the player
-            }
-
-            // Add click and touch event listeners for movement
-            cell.addEventListener("click", () => handleTileClick(x, y));
-            cell.addEventListener("touchstart", () => handleTileClick(x, y));
-
-            gridElement.appendChild(cell);
-        }
-    }
-
-    // Reveal initial tiles around the player
-    revealTiles(playerPosition.x, playerPosition.y);
-    updateViewport();
+function calculateViewportPosition() {
+    const playerPos = playerHex.toPoint();
+    
+    // Always try to center the player
+    let targetX = canvas.width / 2 - playerPos.x;
+    let targetY = canvas.height / 2 - playerPos.y;
+    
+    // Calculate the boundaries where we should stop scrolling
+    const rightBoundary = canvas.width - gridBounds.maxX - 50;  // 50px margin
+    const leftBoundary = -gridBounds.minX + 50;
+    const bottomBoundary = canvas.height - gridBounds.maxY - 50;
+    const topBoundary = -gridBounds.minY + 50;
+    
+    // Constrain the viewport to the boundaries
+    targetX = Math.min(leftBoundary, Math.max(rightBoundary, targetX));
+    targetY = Math.min(topBoundary, Math.max(bottomBoundary, targetY));
+    
+    // Smooth transition for viewport movement
+    viewportX = viewportX + (targetX - viewportX) * 0.1;
+    viewportY = viewportY + (targetY - viewportY) * 0.1;
+    
+    return { x: viewportX, y: viewportY };
 }
 
-// Reveal a tile and its neighbors
-function revealTiles(x, y) {
-    for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-            const nx = x + dx;
-            const ny = y + dy;
+function updateViewport() {
+    const { x, y } = calculateViewportPosition();
+    ctx.setTransform(1, 0, 0, 1, Math.round(x), Math.round(y));
+}
 
-            // Ensure the tile is within bounds
-            if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
-                const index = ny * gridWidth + nx;
-                const cell = gridElement.children[index];
-                cell.classList.remove("hidden");
+function getHexUnderMouse(event) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    
+    // Convert mouse position to hex coordinates, accounting for viewport transform
+    const adjustedX = mouseX - viewportX;
+    const adjustedY = mouseY - viewportY;
+    
+    return Grid.pointToHex([adjustedX, adjustedY]);
+}
 
-                // Dynamically reveal the South Pole
-                if (nx === southPolePosition.x && ny === southPolePosition.y) {
-                    cell.classList.add("south-pole");
+function isHexVisible(hex) {
+    // Base camp is always visible
+    if (hex.toString() === baseCamp.toString()) {
+        return true;
+    }
+    
+    // For all other hexes (including south pole), they must be either:
+    // 1. Adjacent to player, or
+    // 2. Previously visited
+    return playerHex.distance(hex) <= 1 || visitedHexes.has(hex.toString());
+}
+
+// Helper function to adjust color brightness
+function adjustColor(color, amount) {
+    if (color.startsWith('#')) {
+        color = color.slice(1);
+    } else if (color === 'lightgray') {
+        return `rgb(${169 + amount}, ${169 + amount}, ${169 + amount})`;
+    } else if (color === 'gray') {
+        return `rgb(${128 + amount}, ${128 + amount}, ${128 + amount})`;
+    }
+    return color;
+}
+
+function drawHex(x, y, hex, baseColor) {
+    // Draw the hex shape
+    ctx.beginPath();
+    const corners = hex.corners();
+    corners.forEach((corner, index) => {
+        const cornerX = x + corner.x;
+        const cornerY = y + corner.y;
+        if (index === 0) ctx.moveTo(cornerX, cornerY);
+        else ctx.lineTo(cornerX, cornerY);
+    });
+    ctx.closePath();
+    
+    // Determine if hex is adjacent to player
+    const isAdjacent = playerHex.distance(hex) === 1;
+    
+    // Apply different shades based on hover and adjacency
+    let color = baseColor;
+    if (hex === hoveredHex && isAdjacent && stamina >= GAME_CONFIG.MOVE_STAMINA_COST) {
+        // Darken the color for hoverable hexes
+        color = adjustColor(baseColor, -30);
+    }
+    
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = GAME_CONFIG.COLORS.HEX_BORDER;
+    ctx.stroke();
+}
+
+let lastRenderTime = 0;
+function initializeGrid(timestamp) {
+    // Limit rendering to 60 FPS
+    if (timestamp - lastRenderTime < 16) {  // 16ms = ~60 FPS
+        requestAnimationFrame(initializeGrid);
+        return;
+    }
+    lastRenderTime = timestamp;
+    
+    ctx.clearRect(-viewportX, -viewportY, canvas.width, canvas.height);
+    updateViewport();
+
+    // Draw regular hexes first
+    grid.forEach(hex => {
+        if (hex !== baseCamp && hex !== playerHex) {
+            const { x, y } = hex.toPoint();
+            const visible = isHexVisible(hex);
+            
+            // For south pole
+            if (hex === southPole) {
+                if (visible) {
+                    drawHex(x, y, hex, GAME_CONFIG.COLORS.SOUTH_POLE);
+                } else {
+                    drawHex(x, y, hex, GAME_CONFIG.COLORS.FOG_OF_WAR);
                 }
             }
+            // For all other hexes
+            else {
+                const color = visible ? GAME_CONFIG.COLORS.VISITED_HEX : GAME_CONFIG.COLORS.FOG_OF_WAR;
+                drawHex(x, y, hex, color);
+            }
         }
-    }
+    });
+
+    // Draw base camp
+    drawHex(baseCamp.toPoint().x, baseCamp.toPoint().y, baseCamp, GAME_CONFIG.COLORS.BASE_CAMP);
+    
+    // Draw player circle (always on top)
+    const { x, y } = playerHex.toPoint();
+    ctx.beginPath();
+    const center = playerHex.center();
+    ctx.arc(x + center.x, y + center.y, GAME_CONFIG.HEX_SIZE * GAME_CONFIG.PLAYER_CIRCLE_SIZE, 0, Math.PI * 2);
+    ctx.fillStyle = GAME_CONFIG.COLORS.PLAYER;
+    ctx.fill();
+    ctx.strokeStyle = GAME_CONFIG.COLORS.HEX_BORDER;
+    ctx.stroke();
+    
+    requestAnimationFrame(initializeGrid);
 }
 
-// Function to update stat bars
-function updateStatBars() {
-    document.getElementById("health-bar").style.width = `${playerStats.health}%`;
-    document.getElementById("stamina-bar").style.width = `${playerStats.stamina}%`;
-    document.getElementById("hunger-bar").style.width = `${playerStats.hunger}%`;
+function updateStats() {
+    if (!gameRunning) return;
 
-    // Update colors based on values
-    updateStatColor("health-bar", playerStats.health);
-    updateStatColor("stamina-bar", playerStats.stamina);
-    updateStatColor("hunger-bar", playerStats.hunger);
-}
+    const now = Date.now();
+    const deltaTime = (now - lastStatUpdate) / 1000; // Convert to seconds
+    lastStatUpdate = now;
 
-// Function to change bar color based on value
-function updateStatColor(barId, value) {
-    const bar = document.getElementById(barId);
-    if (value > 50) {
-        bar.style.backgroundColor = "green";
-    } else if (value > 20) {
-        bar.style.backgroundColor = "yellow";
+    if (playerHex.toString() === baseCamp.toString()) {
+        // Recovery at base camp
+        health = Math.min(100, health + GAME_CONFIG.BASE_HEALTH_REGEN * deltaTime);
+        hunger = Math.min(100, hunger + GAME_CONFIG.BASE_HUNGER_REGEN * deltaTime);
+        stamina = Math.min(100, stamina + GAME_CONFIG.STAMINA_REGEN_RATE * deltaTime);
     } else {
-        bar.style.backgroundColor = "red";
-    }
-}
-
-// Regenerate stamina over time
-setInterval(() => {
-    regenerateStamina();
-}, 1000); // Trigger every second
-
-// Check for health decay over time
-setInterval(() => {
-    checkHealthDecay();
-}, 1000); // Trigger every second
-
-// Function to regenerate stamina
-function regenerateStamina() {
-    if (playerStats.stamina < 100) {
-        playerStats.stamina = Math.min(100, playerStats.stamina + 5); // Regenerate 5% per second
-        updateStatBars(); // Update the UI
-    }
-}
-
-function checkHealthDecay() {
-    // Check if the player is NOT on Base Camp
-    if (playerPosition.x !== startingPosition.x || playerPosition.y !== startingPosition.y) {
-        playerStats.health = Math.max(0, playerStats.health - 1); // Reduce health by 1 per second
-        updateStatBars(); // Update the UI
-    }
-
-    // Check for player death
-    if (playerStats.health <= 0 && !gameOver) {
-        gameOver = true; // Ensure the alert only happens once
-        alert("You have perished in the icy wilderness!");
-        restartGame(); // Trigger restart
-    }
-}
-
-// Apply effects when the player performs an action
-function applyStatEffects(action) {
-    if (action === "move") {
-        playerStats.stamina = Math.max(0, playerStats.stamina - 10); // Reduce stamina by 20%
-    }
-
-    // Gradual hunger decrease
-    playerStats.hunger = Math.max(0, playerStats.hunger - 0.5);
-
-    // Update the stat bars
-    updateStatBars();
-}
-
-
-
-// Attempt to move the player to a new position
-function attemptMove(newX, newY) {
-    // Prevent movement if stamina is 0 or less
-    if (playerStats.stamina <= 0) {
-        alert("You are too exhausted to move! Wait to recover stamina.");
-        return; // Exit the function early
-    }
-
-    // Check if the target position is within bounds
-    if (newX >= 0 && newX < gridWidth && newY >= 0 && newY < gridHeight) {
-        const index = newY * gridWidth + newX;
-        const cell = gridElement.children[index];
-
-        // Ensure the target tile is revealed (not hidden)
-        if (!cell.classList.contains("hidden")) {
-            playerPosition.x = newX;
-            playerPosition.y = newY;
-
-            // Update player position and apply movement effects
-            updatePlayerPosition();
-            applyStatEffects("move"); // Reduce stamina on movement
+        // Regular decay
+        health = Math.max(0, health - GAME_CONFIG.HEALTH_DECAY_RATE * deltaTime);
+        hunger = Math.max(0, hunger - GAME_CONFIG.HUNGER_DECAY_RATE * deltaTime);
+        
+        // Only regenerate stamina if we haven't moved recently
+        const timeSinceLastMove = (now - lastMoveTime) / 1000;
+        if (timeSinceLastMove > 0.5) { // Small delay before regenerating stamina
+            stamina = Math.min(100, stamina + GAME_CONFIG.STAMINA_REGEN_RATE * deltaTime);
         }
     }
+
+    // Check death conditions
+    if (hunger <= 0) {
+        alert("You starved to death!");
+        restartGame();
+        return;
+    }
+    if (health <= 0) {
+        alert("You froze to death!");
+        restartGame();
+        return;
+    }
+
+    updateStatsDisplay();
 }
 
+function updateStatsDisplay() {
+    const healthBar = document.getElementById("health-bar");
+    const staminaBar = document.getElementById("stamina-bar");
+    const hungerBar = document.getElementById("hunger-bar");
+    
+    // Update width with smooth transition (CSS handles the animation)
+    healthBar.style.width = `${Math.max(0, Math.min(100, health))}%`;
+    staminaBar.style.width = `${Math.max(0, Math.min(100, stamina))}%`;
+    hungerBar.style.width = `${Math.max(0, Math.min(100, hunger))}%`;
+}
 
-// Handle tile clicks or touch inputs
-function handleTileClick(x, y) {
-    if (isMoving) return; // Ignore if already moving
-
-    // Validate that the clicked/tapped tile is adjacent
-    const dx = Math.abs(x - playerPosition.x);
-    const dy = Math.abs(y - playerPosition.y);
-
-    if ((dx <= 1 && dy <= 1) && (dx + dy > 0)) { // Allow diagonal and adjacent movement
-        isMoving = true; // Lock movement
-        attemptMove(x, y);
-
-        // Add a small delay before allowing another move
+function movePlayer(newHex) {
+    if (!newHex || !gameRunning) return;
+    
+    // Check if trying to move too far
+    if (playerHex.distance(newHex) > 1) return;
+    
+    // If not enough stamina, trigger warning animation
+    if (stamina < GAME_CONFIG.MOVE_STAMINA_COST) {
+        const staminaBar = document.getElementById("stamina-bar");
+        staminaBar.classList.add("pulse-warning");
+        
+        // Remove the class after the animation completes
         setTimeout(() => {
-            isMoving = false;
-        }, 300); // 300ms delay (adjust for your desired pace)
+            staminaBar.classList.remove("pulse-warning");
+        }, 1500); // 1500ms = time for 3 pulses (3 * 0.5s)
+        
+        return;
     }
 
-    highlightTargetCell(x, y); // Highlight the target tile
-}
+    playerHex = newHex;
+    visitedHexes.add(playerHex.toString()); // Add new position to visited hexes
+    stamina = Math.max(0, stamina - GAME_CONFIG.MOVE_STAMINA_COST);
+    lastMoveTime = Date.now();
 
-// Update the player's position in the grid
-function updatePlayerPosition() {
-    const cells = gridElement.querySelectorAll(".grid-cell");
-    cells.forEach((cell) => cell.classList.remove("player"));
-
-    const index = playerPosition.y * gridWidth + playerPosition.x;
-    cells[index].classList.add("player");
-
-    revealTiles(playerPosition.x, playerPosition.y); // Reveal tiles around the player
-    checkEvents();
-    updateViewport();
-}
-
-gridElement.addEventListener("touchstart", (event) => {
-    const touch = event.touches[0]; // Get the first touch point
-    const rect = gridElement.getBoundingClientRect();
-
-    // Calculate the grid coordinates from the touch position
-    const x = Math.floor((touch.clientX - rect.left) / tileSize);
-    const y = Math.floor((touch.clientY - rect.top) / tileSize);
-
-    handleTileClick(x, y); // Handle the movement
-    event.preventDefault(); // Prevent additional touch events
-}, { passive: false });
-
-
-// highlight the target cell during movement
-function highlightTargetCell(x, y) {
-    const index = y * gridWidth + x;
-    const cells = gridElement.querySelectorAll(".grid-cell");
-
-    cells.forEach((cell) => cell.classList.remove("highlight"));
-    if (index >= 0 && index < cells.length) {
-        cells[index].classList.add("highlight");
+    if (playerHex.toString() === southPole.toString()) {
+        southPoleVisited = true;
+        alert("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.");
+    } else if (playerHex.toString() === baseCamp.toString() && southPoleVisited) {
+        alert("Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.");
+        restartGame();
     }
 }
 
-// Update the viewport position
-function updateViewport() {
-    // Adjust viewport position if the player is near the edge
-    if (playerPosition.x - viewportX <= 2 && viewportX > 0) {
-        viewportX--; // Shift viewport left
-    } else if (playerPosition.x - viewportX >= viewportWidth - 3 && viewportX + viewportWidth < gridWidth) {
-        viewportX++; // Shift viewport right
-    }
-    if (playerPosition.y - viewportY <= 2 && viewportY > 0) {
-        viewportY--; // Shift viewport up
-    } else if (playerPosition.y - viewportY >= viewportHeight - 3 && viewportY + viewportHeight < gridHeight) {
-        viewportY++; // Shift viewport down
-    }
-
-    // Apply the viewport position to the grid
-    gridElement.style.transform = `translate(-${viewportX * tileSize}px, -${viewportY * tileSize}px)`;
+function restartGame() {
+    stamina = GAME_CONFIG.STARTING_STATS.STAMINA;
+    health = GAME_CONFIG.STARTING_STATS.HEALTH;
+    hunger = GAME_CONFIG.STARTING_STATS.HUNGER;
+    playerHex = baseCamp;
+    southPoleVisited = false;
+    gameRunning = true;
+    visitedHexes = new Set([playerHex.toString()]); // Reset visited hexes
+    lastStatUpdate = Date.now();
+    lastMoveTime = Date.now();
 }
 
-// Check for events
-function checkEvents() {
-    // Reaching the South Pole
-    if (!hasVisitedSouthPole && playerPosition.x === southPolePosition.x && playerPosition.y === southPolePosition.y) {
-        hasVisitedSouthPole = true;
-        alert("Congratulations! You have reached the South Pole! Now, return to your starting position to win.");
+// Throttled hover check
+let lastHoverCheck = 0;
+canvas.addEventListener("mousemove", (event) => {
+    const now = performance.now();
+    if (now - lastHoverCheck < 32) { // Limit to ~30 checks per second
+        return;
     }
-
-    // Returning to Base Camp
-    if (hasVisitedSouthPole && playerPosition.x === startingPosition.x && playerPosition.y === startingPosition.y) {
-        alert("Victory! You have successfully completed your journey to the South Pole and back.");
-        hasVisitedSouthPole = false; // Reset for replayability (optional)
-        restartGame(); // Restart the game
-    }
-}
-
-// Keyboard controls
-document.addEventListener("keydown", (event) => {
-    switch (event.key) {
-        case "ArrowUp":
-        case "w":
-            attemptMove(playerPosition.x, playerPosition.y - 1);
-            break;
-        case "ArrowDown":
-        case "s":
-            attemptMove(playerPosition.x, playerPosition.y + 1);
-            break;
-        case "ArrowLeft":
-        case "a":
-            attemptMove(playerPosition.x - 1, playerPosition.y);
-            break;
-        case "ArrowRight":
-        case "d":
-            attemptMove(playerPosition.x + 1, playerPosition.y);
-            break;
-        case "q": // Diagonal Up-Left
-            attemptMove(playerPosition.x - 1, playerPosition.y - 1);
-            break;
-        case "e": // Diagonal Up-Right
-            attemptMove(playerPosition.x + 1, playerPosition.y - 1);
-            break;
-        case "z": // Diagonal Down-Left
-            attemptMove(playerPosition.x - 1, playerPosition.y + 1);
-            break;
-        case "c": // Diagonal Down-Right
-            attemptMove(playerPosition.x + 1, playerPosition.y + 1);
-            break;
+    lastHoverCheck = now;
+    
+    const newHoveredHex = getHexUnderMouse(event);
+    if (!hoveredHex || !newHoveredHex || hoveredHex.q !== newHoveredHex.q || hoveredHex.r !== newHoveredHex.r) {
+        hoveredHex = newHoveredHex;
     }
 });
 
-// Restart the game
-function restartGame() {
-    location.reload(); // Refresh the page to restart the game
-}
+canvas.addEventListener("click", (event) => {
+    const clickedHex = getHexUnderMouse(event);
+    movePlayer(clickedHex);
+});
 
-
-// Initialize the grid
-initializeGrid();
-updatePlayerPosition();
+// Start game
+viewportX = canvas.width / 2 - playerHex.toPoint().x;
+viewportY = canvas.height / 2 - playerHex.toPoint().y;
+lastStatUpdate = Date.now();
+lastMoveTime = Date.now();
+requestAnimationFrame(initializeGrid);
+setInterval(updateStats, 50); // Update stats more frequently (20 times per second)
