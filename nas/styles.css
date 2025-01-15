@@ -1,4 +1,27 @@
-/* Base styles */
+/* Add to your existing CSS */
+@supports (padding: max(0px)) {
+    .game-container {
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: max(20px, env(safe-area-inset-right));
+        padding-top: max(20px, env(safe-area-inset-top));
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
+
+/* For full-screen mode */
+@media all and (display-mode: standalone) {
+    body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+    }
+    
+    .game-container {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+    }
+}/* Base styles */
 * {
     margin: 0;
     padding: 0;
