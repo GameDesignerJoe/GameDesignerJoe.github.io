@@ -41,6 +41,7 @@ body {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
+    padding-top: env(safe-area-inset-top, 50px);  /* Use safe area or fallback to 50px */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -48,8 +49,13 @@ body {
 
 h1 {
     font-size: 2.5rem;
-    margin: 10px 0;
+    margin: 35px 0 10px 0;  /* Increased top margin */
     text-align: center;
+}
+
+/* Hide the subtitle paragraph since we're moving the title there */
+.subtitle {
+    display: none;
 }
 
 .subtitle {
