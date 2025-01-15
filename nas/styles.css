@@ -1,27 +1,4 @@
-/* Add to your existing CSS */
-@supports (padding: max(0px)) {
-    .game-container {
-        padding-left: max(20px, env(safe-area-inset-left));
-        padding-right: max(20px, env(safe-area-inset-right));
-        padding-top: max(20px, env(safe-area-inset-top));
-        padding-bottom: max(20px, env(safe-area-inset-bottom));
-    }
-}
-
-/* For full-screen mode */
-@media all and (display-mode: standalone) {
-    body {
-        margin: 0;
-        padding: 0;
-        min-height: 100vh;
-        min-height: -webkit-fill-available;
-    }
-    
-    .game-container {
-        min-height: 100vh;
-        min-height: -webkit-fill-available;
-    }
-}/* Base styles */
+/* Base styles */
 * {
     margin: 0;
     padding: 0;
@@ -48,20 +25,19 @@ body {
 }
 
 h1 {
+    font-family: 'Old Standard TT', serif;
     font-size: 2.5rem;
-    margin: 35px 0 10px 0;  /* Increased top margin */
+    margin: 35px 0 10px 0;
     text-align: center;
-}
-
-/* Hide the subtitle paragraph since we're moving the title there */
-.subtitle {
-    display: none;
+    font-weight: 700;
 }
 
 .subtitle {
+    font-family: 'Old Standard TT', serif;
     font-size: 1.1rem;
     margin-bottom: 20px;
     text-align: center;
+    font-style: italic;
 }
 
 #main-container {
@@ -93,6 +69,7 @@ canvas {
 }
 
 .stat-label {
+    font-family: 'Old Standard TT', serif;
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
@@ -159,12 +136,27 @@ canvas {
     }
 }
 
-/* Prevent text selection on mobile */
-* {
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+/* For full-screen mode */
+@media all and (display-mode: standalone) {
+    body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+    }
+    
+    .game-container {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+    }
+}
+
+/* Handle safe areas */
+@supports (padding: max(0px)) {
+    .game-container {
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: max(20px, env(safe-area-inset-right));
+        padding-top: max(50px, env(safe-area-inset-top));
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
 }
