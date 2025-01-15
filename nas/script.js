@@ -276,6 +276,7 @@ function checkEvents() {
     if (hasVisitedSouthPole && playerPosition.x === startingPosition.x && playerPosition.y === startingPosition.y) {
         alert("Victory! You have successfully completed your journey to the South Pole and back.");
         hasVisitedSouthPole = false; // Reset for replayability (optional)
+        restartGame(); // Restart the game
     }
 }
 
