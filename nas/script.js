@@ -28,17 +28,17 @@ const GAME_CONFIG = {
     },
     
     // Stats decay rates (per second)
-    HEALTH_DECAY_RATE: 1,    // Lose 0.5% health per second when not at base
-    HUNGER_DECAY_RATE: 0.5,   // Lose 0.25% hunger per second
+    HEALTH_DECAY_RATE: 0.5,    // Lose 0.5% health per second when not at base
+    HUNGER_DECAY_RATE: 0.25,   // Lose 0.25% hunger per second
     
     // Movement and stamina
-    MOVE_STAMINA_COST: 10,      // Stamina cost per move
-    STAMINA_REGEN_RATE: 3,     // Gain 2% stamina per second when not moving
+    MOVE_STAMINA_COST: 5,      // Stamina cost per move
+    STAMINA_REGEN_RATE: 2,     // Gain 2% stamina per second when not moving
     
     // Recovery rates at base camp (per second)
-    BASE_HEALTH_REGEN: 10,      // Gain 1% health per second at base
-    BASE_HUNGER_REGEN: 1,    // Gain 0.5% hunger per second at base
-    BASE_STAMINA_REGEN: 10,     // Gain 3% stamina per second at base
+    BASE_HEALTH_REGEN: 1,      // Gain 1% health per second at base
+    BASE_HUNGER_REGEN: 0.5,    // Gain 0.5% hunger per second at base
+    BASE_STAMINA_REGEN: 3,     // Gain 3% stamina per second at base
     
     // Canvas dimensions
     CANVAS_WIDTH: 450,
@@ -47,30 +47,25 @@ const GAME_CONFIG = {
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
+// Initialize basic canvas size
 canvas.width = GAME_CONFIG.CANVAS_WIDTH;
 canvas.height = GAME_CONFIG.CANVAS_HEIGHT;
 
+// Initialize Honeycomb grid
 const Honeycomb = window.Honeycomb;
 const Hex = Honeycomb.extendHex({
     size: GAME_CONFIG.HEX_SIZE
 });
 const Grid = Honeycomb.defineGrid(Hex);
 
-// Create a grid
+// Create initial grid
 const grid = Grid.rectangle({ 
     width: GAME_CONFIG.GRID_WIDTH, 
     height: GAME_CONFIG.GRID_HEIGHT 
 });
 
-// Calculate grid boundaries
-const gridBounds = {
-    minX: Math.min(...grid.map(hex => hex.toPoint().x)),
-    maxX: Math.max(...grid.map(hex => hex.toPoint().x)),
-    minY: Math.min(...grid.map(hex => hex.toPoint().y)),
-    maxY: Math.max(...grid.map(hex => hex.toPoint().y))
-};
-
-// Game state
+// Game state initialization
 let playerHex = grid.filter(hex => hex.y === 0)[Math.floor(grid.filter(hex => hex.y === 0).length / 2)];
 const baseCamp = playerHex;
 let southPole = grid.filter(hex => hex.y === Math.max(...grid.map(h => h.y)))[Math.floor(Math.random() * GAME_CONFIG.GRID_WIDTH)];
@@ -91,6 +86,33 @@ let lastMoveTime = Date.now();
 // Viewport state
 let viewportX = 0;
 let viewportY = 0;
+
+// Calculate grid boundaries
+let gridBounds = {
+    minX: Math.min(...grid.map(hex => hex.toPoint().x)),
+    maxX: Math.max(...grid.map(hex => hex.toPoint().x)),
+    minY: Math.min(...grid.map(hex => hex.toPoint().y)),
+    maxY: Math.max(...grid.map(hex => hex.toPoint().y))
+};
+
+function resizeCanvas() {
+    const maxWidth = Math.min(window.innerWidth - 40, 450); // 40px for padding
+    
+    canvas.width = maxWidth;
+    canvas.height = maxWidth;
+    
+    // Update the hex size based on the new canvas size
+    const newHexSize = Math.floor(maxWidth / (GAME_CONFIG.GRID_WIDTH * 2));
+    Hex.prototype.size = newHexSize;
+    
+    // Recalculate grid boundaries
+    gridBounds = {
+        minX: Math.min(...grid.map(hex => hex.toPoint().x)),
+        maxX: Math.max(...grid.map(hex => hex.toPoint().x)),
+        minY: Math.min(...grid.map(hex => hex.toPoint().y)),
+        maxY: Math.max(...grid.map(hex => hex.toPoint().y))
+    };
+}
 
 function calculateViewportPosition() {
     const playerPos = playerHex.toPoint();
@@ -119,18 +141,6 @@ function calculateViewportPosition() {
 function updateViewport() {
     const { x, y } = calculateViewportPosition();
     ctx.setTransform(1, 0, 0, 1, Math.round(x), Math.round(y));
-}
-
-function getHexUnderMouse(event) {
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseY = event.clientY - rect.top;
-    
-    // Convert mouse position to hex coordinates, accounting for viewport transform
-    const adjustedX = mouseX - viewportX;
-    const adjustedY = mouseY - viewportY;
-    
-    return Grid.pointToHex([adjustedX, adjustedY]);
 }
 
 function isHexVisible(hex) {
@@ -197,7 +207,7 @@ function initializeGrid(timestamp) {
     ctx.clearRect(-viewportX, -viewportY, canvas.width, canvas.height);
     updateViewport();
 
-    // Draw regular hexes first
+    // Draw all regular hexes first
     grid.forEach(hex => {
         if (hex !== baseCamp && hex !== playerHex) {
             const { x, y } = hex.toPoint();
@@ -330,30 +340,87 @@ function restartGame() {
     lastMoveTime = Date.now();
 }
 
-// Throttled hover check
-let lastHoverCheck = 0;
-canvas.addEventListener("mousemove", (event) => {
-    const now = performance.now();
-    if (now - lastHoverCheck < 32) { // Limit to ~30 checks per second
-        return;
-    }
-    lastHoverCheck = now;
+
+// It died here:
+
+function handlePointerEvent(event) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
+    const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
     
-    const newHoveredHex = getHexUnderMouse(event);
-    if (!hoveredHex || !newHoveredHex || hoveredHex.q !== newHoveredHex.q || hoveredHex.r !== newHoveredHex.r) {
-        hoveredHex = newHoveredHex;
-    }
-});
+    const mouseX = clientX - rect.left;
+    const mouseY = clientY - rect.top;
+    
+    // Convert mouse position to hex coordinates, accounting for viewport transform
+    const adjustedX = mouseX - viewportX;
+    const adjustedY = mouseY - viewportY;
+    
+    return Grid.pointToHex([adjustedX, adjustedY]);
+}
 
-canvas.addEventListener("click", (event) => {
-    const clickedHex = getHexUnderMouse(event);
-    movePlayer(clickedHex);
-});
+// Mouse/Touch event listeners
+function addEventListeners() {
+    let touchStartHex = null;
+    
+    // Mouse events
+    canvas.addEventListener('mousemove', (event) => {
+        const now = performance.now();
+        if (now - lastHoverCheck < 32) return; // Limit checks
+        lastHoverCheck = now;
+        
+        hoveredHex = handlePointerEvent(event);
+    });
+    
+    canvas.addEventListener('click', (event) => {
+        const clickedHex = handlePointerEvent(event);
+        movePlayer(clickedHex);
+    });
+    
+    // Touch events
+    canvas.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        touchStartHex = handlePointerEvent(event);
+        hoveredHex = touchStartHex;
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', (event) => {
+        event.preventDefault();
+        if (touchStartHex) {
+            movePlayer(touchStartHex);
+            touchStartHex = null;
+            hoveredHex = null;
+        }
+    }, { passive: false });
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        resizeCanvas();
+        requestAnimationFrame(initializeGrid);
+    });
+    
+    // Handle device orientation change
+    window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+            resizeCanvas();
+            requestAnimationFrame(initializeGrid);
+        }, 100);
+    });
+}
 
-// Start game
-viewportX = canvas.width / 2 - playerHex.toPoint().x;
-viewportY = canvas.height / 2 - playerHex.toPoint().y;
-lastStatUpdate = Date.now();
-lastMoveTime = Date.now();
-requestAnimationFrame(initializeGrid);
-setInterval(updateStats, 50); // Update stats more frequently (20 times per second)
+// Initialize game
+function initGame() {
+    resizeCanvas();
+    viewportX = canvas.width / 2 - playerHex.toPoint().x;
+    viewportY = canvas.height / 2 - playerHex.toPoint().y;
+    lastStatUpdate = Date.now();
+    lastMoveTime = Date.now();
+    addEventListeners();
+    requestAnimationFrame(initializeGrid);
+    setInterval(updateStats, 50);
+}
+
+// Initialize hover check timing
+let lastHoverCheck = 0;
+
+// Start the game
+initGame();

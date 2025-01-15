@@ -1,27 +1,58 @@
-/* Styles for the hex grid game */
-body {
+/* Base styles */
+* {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Old Standard TT', serif;
+    background-color: #f0f0f0;
+    min-height: 100vh;
+    width: 100%;
+    overscroll-behavior: none; /* Prevent pull-to-refresh on mobile */
+}
+
+.game-container {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    font-family: 'Old Standard TT', serif;
-    background-color: #f0f0f0;
 }
 
 h1 {
-    margin: 20px 0 10px 0;
-    font-weight: 700;
+    font-size: 2.5rem;
+    margin: 10px 0;
+    text-align: center;
+}
+
+.subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#main-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
 }
 
 canvas {
     border: 1px solid black;
-    margin: 20px 0;
+    max-width: 100%;
+    height: auto;
+    touch-action: none; /* Prevent default touch behaviors */
 }
 
 #stats-container {
-    width: 300px;
+    width: 100%;
+    max-width: 300px;
     padding: 15px;
     background-color: #fff;
     border: 1px solid #ccc;
@@ -65,19 +96,46 @@ canvas {
     background-color: #ffaa44;
 }
 
-/* Animation for low stamina warning */
 @keyframes pulseRed {
-    0% {
-        background-color: #44aaff;
-    }
-    50% {
-        background-color: #ff4444;
-    }
-    100% {
-        background-color: #44aaff;
-    }
+    0% { background-color: #44aaff; }
+    50% { background-color: #ff4444; }
+    100% { background-color: #44aaff; }
 }
 
 .pulse-warning {
     animation: pulseRed 0.5s ease-in-out 3;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 480px) {
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .subtitle {
+        font-size: 1rem;
+    }
+    
+    canvas {
+        width: 100%;
+        height: auto;
+    }
+    
+    #stats-container {
+        padding: 10px;
+    }
+    
+    .stat-bar {
+        height: 25px; /* Slightly larger for better touch targets */
+    }
+}
+
+/* Prevent text selection on mobile */
+* {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
