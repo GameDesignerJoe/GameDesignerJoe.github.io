@@ -1,49 +1,12 @@
+import { GAME_CONFIG, TERRAIN_TYPES } from './config.js';
+
+// Add these variables at the top of script.js with other state variables
+let selectedHex = null;
+let detailsPanel = null;
+let confirmButton = null;
+let cancelButton = null;
+
 // JavaScript for Hex Grid Game Using Honeycomb.js
-
-// Game Configuration
-const GAME_CONFIG = {
-    // Grid settings
-    HEX_SIZE: 30,
-    GRID_WIDTH: 15,
-    GRID_HEIGHT: 30,
-    
-    // Visual settings
-    PLAYER_CIRCLE_SIZE: 0.4,   // Size of player circle relative to hex size (0-1)
-    
-    // Colors
-    COLORS: {
-        PLAYER: "green",           // Player circle color
-        BASE_CAMP: "gold",         // Base camp hex color
-        SOUTH_POLE: "blue",        // South pole hex color
-        VISITED_HEX: "lightgray",  // Color of hexes player has visited
-        FOG_OF_WAR: "darkgray",    // Color of unexplored hexes
-        HEX_BORDER: "white"        // Color of hex borders
-    },
-
-    // Starting stats
-    STARTING_STATS: {
-        HEALTH: 100,
-        STAMINA: 100,
-        HUNGER: 100
-    },
-    
-    // Stats decay rates (per second)
-    HEALTH_DECAY_RATE: 0.5,    // Lose 0.5% health per second when not at base
-    HUNGER_DECAY_RATE: 0.25,   // Lose 0.25% hunger per second
-    
-    // Movement and stamina
-    MOVE_STAMINA_COST: 5,      // Stamina cost per move
-    STAMINA_REGEN_RATE: 2,     // Gain 2% stamina per second when not moving
-    
-    // Recovery rates at base camp (per second)
-    BASE_HEALTH_REGEN: 1,      // Gain 1% health per second at base
-    BASE_HUNGER_REGEN: 0.5,    // Gain 0.5% hunger per second at base
-    BASE_STAMINA_REGEN: 3,     // Gain 3% stamina per second at base
-    
-    // Canvas dimensions
-    CANVAS_WIDTH: 450,
-    CANVAS_HEIGHT: 450
-};
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -51,6 +14,100 @@ const ctx = canvas.getContext("2d");
 // Initialize basic canvas size
 canvas.width = GAME_CONFIG.CANVAS_WIDTH;
 canvas.height = GAME_CONFIG.CANVAS_HEIGHT;
+
+// Initialize the details panel elements
+function initializeDetailsPanel() {
+    detailsPanel = document.getElementById('details-panel');
+    confirmButton = document.getElementById('move-confirm');
+    cancelButton = document.getElementById('move-cancel');
+
+    confirmButton.addEventListener('click', () => {
+        if (selectedHex) {
+            movePlayer(selectedHex);
+            hideDetailsPanel();
+        }
+    });
+
+    cancelButton.addEventListener('click', hideDetailsPanel);
+}
+
+// Show the details panel for a hex
+function showDetailsPanel(hex) {
+    if (!detailsPanel) return;
+
+    // Get terrain type (we'll implement this in the next step)
+    const terrain = getHexTerrainType(hex);
+    
+    // Update panel content
+    document.getElementById('terrain-name').textContent = terrain.name;
+    document.getElementById('stamina-cost').textContent = terrain.staminaCost || 'None';
+    document.getElementById('health-risk').textContent = terrain.healthRisk ? `${terrain.healthRisk * 100}%` : 'None';
+    document.getElementById('terrain-description').textContent = terrain.description;
+    document.getElementById('terrain-quote').innerHTML = `<em>"${terrain.quote}"</em>`;
+
+    // Enable/disable move button based on passable and stamina
+    confirmButton.disabled = !terrain.passable || stamina < (terrain.staminaCost || 0);
+
+    // Position panel
+    if (window.innerWidth >= 768) {
+        // Desktop positioning - near the cursor
+        const rect = canvas.getBoundingClientRect();
+        const hexCenter = hex.toPoint();
+        const viewportAdjustedX = hexCenter.x + viewportX + rect.left;
+        const viewportAdjustedY = hexCenter.y + viewportY + rect.top;
+
+        // Ensure panel stays within viewport
+        const panelWidth = 300; // Match CSS width
+        const panelHeight = 400; // Match CSS max-height
+        
+        let left = Math.min(
+            Math.max(20, viewportAdjustedX), 
+            window.innerWidth - panelWidth - 20
+        );
+        let top = Math.min(
+            Math.max(20, viewportAdjustedY), 
+            window.innerHeight - panelHeight - 20
+        );
+
+        detailsPanel.style.left = `${left}px`;
+        detailsPanel.style.top = `${top}px`;
+    }
+
+    // Show panel with animation
+    detailsPanel.classList.add('show');
+}
+
+// Hide the details panel
+function hideDetailsPanel() {
+    if (!detailsPanel) return;
+    detailsPanel.classList.remove('show');
+    selectedHex = null;
+    hoveredHex = null;
+}
+
+// Get terrain type for a hex (placeholder until we implement terrain)
+function getHexTerrainType(hex) {
+    if (hex.toString() === baseCamp.toString()) {
+        return {
+            name: "Base Camp",
+            passable: true,
+            staminaCost: GAME_CONFIG.MOVE_STAMINA_COST,
+            description: "A safe haven where you can rest and recover.",
+            quote: "The familiar sight of base camp brings a sense of relief."
+        };
+    } else if (hex.toString() === southPole.toString() && isHexVisible(hex)) {
+        return {
+            name: "South Pole",
+            passable: true,
+            staminaCost: GAME_CONFIG.MOVE_STAMINA_COST,
+            description: "The ultimate goal of your expedition.",
+            quote: "Could this be it? The South Pole itself?"
+        };
+    }
+    
+    // Default to normal snow for now (we'll expand this later)
+    return TERRAIN_TYPES.NORMAL_SNOW;
+}
 
 // Initialize Honeycomb grid
 const Honeycomb = window.Honeycomb;
@@ -295,30 +352,37 @@ function updateStatsDisplay() {
     hungerBar.style.width = `${Math.max(0, Math.min(100, hunger))}%`;
 }
 
+// Update the movePlayer function to handle the new movement system
 function movePlayer(newHex) {
     if (!newHex || !gameRunning) return;
     
     // Check if trying to move too far
     if (playerHex.distance(newHex) > 1) return;
     
-    // If not enough stamina, trigger warning animation
-    if (stamina < GAME_CONFIG.MOVE_STAMINA_COST) {
+    const terrain = getHexTerrainType(newHex);
+    
+    // If not enough stamina, show warning
+    if (stamina < terrain.staminaCost) {
         const staminaBar = document.getElementById("stamina-bar");
         staminaBar.classList.add("pulse-warning");
-        
-        // Remove the class after the animation completes
         setTimeout(() => {
             staminaBar.classList.remove("pulse-warning");
-        }, 1500); // 1500ms = time for 3 pulses (3 * 0.5s)
-        
+        }, 1500);
         return;
     }
 
+    // Apply terrain effects
     playerHex = newHex;
-    visitedHexes.add(playerHex.toString()); // Add new position to visited hexes
-    stamina = Math.max(0, stamina - GAME_CONFIG.MOVE_STAMINA_COST);
+    visitedHexes.add(playerHex.toString());
+    stamina = Math.max(0, stamina - terrain.staminaCost);
+    
+    if (terrain.healthRisk) {
+        health = Math.max(0, health - terrain.healthRisk * 100);
+    }
+    
     lastMoveTime = Date.now();
 
+    // Check for reaching important locations
     if (playerHex.toString() === southPole.toString()) {
         southPoleVisited = true;
         alert("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.");
@@ -343,6 +407,7 @@ function restartGame() {
 
 // It died here:
 
+// Update the handlePointerEvent function to implement two-step movement
 function handlePointerEvent(event) {
     const rect = canvas.getBoundingClientRect();
     const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
@@ -358,9 +423,12 @@ function handlePointerEvent(event) {
     return Grid.pointToHex([adjustedX, adjustedY]);
 }
 
-// Mouse/Touch event listeners
+// Update event listeners for two-step movement
 function addEventListeners() {
     let touchStartHex = null;
+    
+    // Initialize details panel
+    initializeDetailsPanel();
     
     // Mouse events
     canvas.addEventListener('mousemove', (event) => {
@@ -373,7 +441,22 @@ function addEventListeners() {
     
     canvas.addEventListener('click', (event) => {
         const clickedHex = handlePointerEvent(event);
-        movePlayer(clickedHex);
+        
+        // Don't allow selecting hexes that are too far
+        if (!clickedHex || playerHex.distance(clickedHex) > 1) {
+            hideDetailsPanel();
+            return;
+        }
+        
+        // If clicking the same hex that's selected, move there
+        if (selectedHex && clickedHex.toString() === selectedHex.toString()) {
+            movePlayer(clickedHex);
+            hideDetailsPanel();
+        } else {
+            // Otherwise, show the details panel
+            selectedHex = clickedHex;
+            showDetailsPanel(clickedHex);
+        }
     });
     
     // Touch events
@@ -381,20 +464,20 @@ function addEventListeners() {
         event.preventDefault();
         touchStartHex = handlePointerEvent(event);
         hoveredHex = touchStartHex;
-    }, { passive: false });
-    
-    canvas.addEventListener('touchend', (event) => {
-        event.preventDefault();
-        if (touchStartHex) {
-            movePlayer(touchStartHex);
-            touchStartHex = null;
-            hoveredHex = null;
+        
+        if (!touchStartHex || playerHex.distance(touchStartHex) > 1) {
+            hideDetailsPanel();
+            return;
         }
+        
+        selectedHex = touchStartHex;
+        showDetailsPanel(touchStartHex);
     }, { passive: false });
     
     // Handle window resize
     window.addEventListener('resize', () => {
         resizeCanvas();
+        hideDetailsPanel(); // Hide panel on resize
         requestAnimationFrame(initializeGrid);
     });
     
@@ -402,8 +485,16 @@ function addEventListeners() {
     window.addEventListener('orientationchange', () => {
         setTimeout(() => {
             resizeCanvas();
+            hideDetailsPanel(); // Hide panel on orientation change
             requestAnimationFrame(initializeGrid);
         }, 100);
+    });
+    
+    // Handle clicks outside the canvas (to hide the panel)
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('#canvas') && !event.target.closest('#details-panel')) {
+            hideDetailsPanel();
+        }
     });
 }
 
