@@ -32,11 +32,10 @@ body {
     align-items: flex-start;
 }
 
-/* Typography */
 h1 {
     font-family: 'Old Standard TT', serif;
     font-size: 2.5rem;
-    margin: 35px 0 5px 0;
+    margin: 35px 0 10px 0;
     text-align: center;
     font-weight: 700;
 }
@@ -44,21 +43,19 @@ h1 {
 .subtitle {
     font-family: 'Old Standard TT', serif;
     font-size: 1.1rem;
-    margin-bottom: 5px;
+    margin-bottom: 20px;
     text-align: center;
     font-style: italic;
 }
 
-/* Main Container */
 #main-container {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 20px;
 }
 
-/* Canvas */
 canvas {
     border: 1px solid black;
     max-width: 100%;
@@ -66,52 +63,33 @@ canvas {
     touch-action: none;
 }
 
-/* Stats Container */
 #stats-container {
     width: 100%;
-    max-width: 450px;
-    padding: 0 10px;
-    margin-bottom: 2px;
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
+    max-width: 300px;
+    padding: 15px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
 }
 
 .stat {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
+    margin: 10px 0;
 }
 
-.stat-icon {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
-    filter: brightness(0) saturate(100%);
+.stat-label {
+    font-family: 'Old Standard TT', serif;
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
 }
 
-/* Icon Colors */
-.stat:nth-child(1) .stat-icon {
-    filter: brightness(0) saturate(100%) invert(56%) sepia(65%) saturate(6320%) hue-rotate(336deg) brightness(101%) contrast(101%);  /* #ff4444 */
-}
-
-.stat:nth-child(2) .stat-icon {
-    filter: brightness(0) saturate(100%) invert(58%) sepia(87%) saturate(845%) hue-rotate(182deg) brightness(101%) contrast(101%);  /* #44aaff */
-}
-
-.stat:nth-child(3) .stat-icon {
-    filter: brightness(0) saturate(100%) invert(77%) sepia(38%) saturate(836%) hue-rotate(334deg) brightness(101%) contrast(101%);  /* #ffaa44 */
-}
-
-/* Stat Bars */
 .stat-bar {
-    flex: 1;
-    height: 16px;
+    width: 100%;
+    height: 20px;
     background-color: #eee;
     border-radius: 4px;
     overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .stat-fill {
@@ -148,13 +126,14 @@ canvas {
     background-color: #fff;
     border-left: 1px solid #ccc;
     position: absolute;
-    left: 100%;
+    left: 100%; /* Position it right after the game container */
     top: 0;
-    margin-top: 142px;
+    margin-top: 142px; /* Account for header space - adjust based on your layout */
     display: flex;
     flex-direction: column;
 }
 
+/* Move the h2 styling to be with the other typography-related styles */
 .details-content h2 {
     font-family: 'Old Standard TT', serif;
     font-size: 1.5rem;
@@ -243,7 +222,6 @@ canvas {
     line-height: 1.4;
 }
 
-/* Buttons */
 .move-button {
     width: 100%;
     padding: 12px;
@@ -299,60 +277,4 @@ canvas {
         width: 100%;
         max-width: none;
     }
-}
-
-/* Handle safe areas */
-@supports (padding: max(0px)) {
-    .game-container {
-        padding-left: max(20px, env(safe-area-inset-left));
-        padding-right: max(20px, env(safe-area-inset-right));
-        padding-top: max(50px, env(safe-area-inset-top));
-        padding-bottom: max(20px, env(safe-area-inset-bottom));
-    }
-}
-
-#message-container {
-    width: 100%;
-    max-width: 600px;
-    height: 5.6em;
-    margin: 0px 0 0px 0;
-    padding: 0px 0px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-#game-message {
-    font-family: 'Old Standard TT', serif;
-    font-size: 1.0rem;
-    line-height: 1.4;
-    margin: 0;
-    font-style: italic;
-    text-align: left;
-    white-space: pre-line;
-    width: 100%;
-}
-
-#restart-button {
-    font-family: 'Old Standard TT', serif;
-    font-size: 1.1rem;
-    padding: 7px 20px;       /* Reduced vertical padding from 10px to 7px */
-    margin: 0 0 20px 0;
-    background-color: #44aaff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    transform: scale(0.75); /* This makes the entire button 75% of its original size */
-    transform-origin: center; /* This ensures it scales from the center */
-}
-
-#restart-button:hover {
-    background-color: #3399ee;
-}
-
-#restart-button.hidden {
-    display: none;
 }

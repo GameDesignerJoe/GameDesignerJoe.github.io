@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Not All Survive</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Not All Survive">
+    <meta name="theme-color" content="#f0f0f0">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="art/nas_192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="art/nas_512x512.png">
+    <link rel="apple-touch-icon" href="art/nas_192x192.png">
+
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Existing styles -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/honeycomb-grid@latest/dist/honeycomb.min.js"></script>
+</head>
+<body>
+    <div class="game-container">
+        <h1>NOT ALL SURVIVE</h1>
+        <p class="subtitle"><em>Locate the South Pole and return to base camp without dying.</em></p>
+        <div id="main-container">
+            <canvas id="canvas"></canvas>
+            <div id="stats-container">
+                <div class="stat">
+                    <span class="stat-label">HEALTH</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="health-bar"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">STAMINA</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="stamina-bar"></div>
+                    </div>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">HUNGER</span>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="hunger-bar"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- New Details Panel -->
+            <div id="details-panel" class="details-panel">
+                <div class="details-content">
+                    <h2 id="terrain-name">Terrain Name</h2>
+                    <div class="terrain-costs">
+                        <div class="cost-item">
+                            <span class="cost-label">Stamina Cost:</span>
+                            <span id="stamina-cost">5</span>
+                        </div>
+                        <div class="cost-item">
+                            <span class="cost-label">Health Risk:</span>
+                            <span id="health-risk">None</span>
+                        </div>
+                    </div>
+                    <p id="terrain-description" class="terrain-description">
+                        Terrain description will appear here.
+                    </p>
+                    <p id="terrain-quote" class="terrain-quote">
+                        <em>"Explorer's quote will appear here."</em>
+                    </p>
+                    <button id="move-confirm" class="move-button">Move Here</button>
+                    <button id="move-cancel" class="move-button cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="config.js" type="module"></script>
+    <script src="script.js" type="module" defer></script>
+</body>
+</html>

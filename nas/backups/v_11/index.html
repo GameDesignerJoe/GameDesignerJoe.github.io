@@ -30,33 +30,30 @@
 <body>
     <div class="game-container">
         <h1>NOT ALL SURVIVE</h1>
-        <div id="message-container">
-            <p id="game-message">Locate the South Pole and return to base camp without dying.</p>
-        </div>
-        <button id="restart-button" class="hidden">BEGIN A NEW EXPEDITION</button>
+        <p class="subtitle"><em>Locate the South Pole and return to base camp without dying.</em></p>
         <div class="game-layout">
             <div id="main-container">
+                <canvas id="canvas"></canvas>
                 <div id="stats-container">
                     <div class="stat">
-                        <img src="art/health.svg" alt="Health" class="stat-icon">
+                        <span class="stat-label">HEALTH</span>
                         <div class="stat-bar">
                             <div class="stat-fill" id="health-bar"></div>
                         </div>
                     </div>
                     <div class="stat">
-                        <img src="art/stamina.svg" alt="Stamina" class="stat-icon">
+                        <span class="stat-label">STAMINA</span>
                         <div class="stat-bar">
                             <div class="stat-fill" id="stamina-bar"></div>
                         </div>
                     </div>
                     <div class="stat">
-                        <img src="art/food.svg" alt="Hunger" class="stat-icon">
+                        <span class="stat-label">HUNGER</span>
                         <div class="stat-bar">
                             <div class="stat-fill" id="hunger-bar"></div>
                         </div>
                     </div>
                 </div>
-                <canvas id="canvas"></canvas>
             </div>
             
             <!-- New Details Sidebar -->

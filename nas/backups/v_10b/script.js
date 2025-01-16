@@ -118,7 +118,7 @@ let cancelButton = null;
 // Game state initialization
 let playerHex = grid.filter(hex => hex.y === 0)[Math.floor(grid.filter(hex => hex.y === 0).length / 2)];
 const baseCamp = playerHex;
-let southPole = grid.filter(hex => hex.y >= GAME_CONFIG.GRID_HEIGHT - 2)[Math.floor(Math.random() * GAME_CONFIG.GRID_WIDTH)];
+let southPole = grid.filter(hex => hex.y === Math.max(...grid.map(h => h.y)))[Math.floor(Math.random() * GAME_CONFIG.GRID_WIDTH)];
 let hoveredHex = null;
 let southPoleVisited = false;
 
@@ -254,22 +254,11 @@ function getHexTerrainType(hex) {
 // - Main rendering loop
 
 // Canvas Management
-// Update canvas resizing to match sidebar height
 function resizeCanvas() {
     const maxWidth = Math.min(window.innerWidth - 40, 450); // 40px for padding
     
     canvas.width = maxWidth;
-    canvas.height = maxWidth; // Keep it square
-    
-    // Get the canvas's actual position relative to the viewport
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Update the details sidebar height and position to exactly match canvas
-    const detailsSidebar = document.querySelector('.details-sidebar');
-    if (detailsSidebar) {
-        detailsSidebar.style.height = `${canvas.height}px`;
-        detailsSidebar.style.marginTop = `${canvasRect.top}px`;
-    }
+    canvas.height = maxWidth;
     
     // Update the hex size based on the new canvas size
     const newHexSize = Math.floor(maxWidth / (GAME_CONFIG.GRID_WIDTH * 2));
@@ -294,23 +283,14 @@ function calculateViewportPosition() {
     let targetY = canvas.height / 2 - playerPos.y;
     
     // Calculate the boundaries where we should stop scrolling
-    // Adjust margins to give more space at edges
-    const margin = GAME_CONFIG.HEX_SIZE * 2;
+    const rightBoundary = canvas.width - gridBounds.maxX - 50;  // 50px margin
+    const leftBoundary = -gridBounds.minX + 50;
+    const bottomBoundary = canvas.height - gridBounds.maxY - 50;
+    const topBoundary = -gridBounds.minY + 50;
     
-    // Calculate boundaries based on grid extents plus margin
-    const rightBoundary = canvas.width - gridBounds.maxX - margin;
-    const leftBoundary = -gridBounds.minX + margin;
-    const bottomBoundary = canvas.height - gridBounds.maxY - margin;
-    const topBoundary = -gridBounds.minY + margin;
-    
-    // Only constrain if the grid is larger than the viewport
-    if (gridBounds.maxX - gridBounds.minX + margin * 2 > canvas.width) {
-        targetX = Math.min(leftBoundary, Math.max(rightBoundary, targetX));
-    }
-    
-    if (gridBounds.maxY - gridBounds.minY + margin * 2 > canvas.height) {
-        targetY = Math.min(topBoundary, Math.max(bottomBoundary, targetY));
-    }
+    // Constrain the viewport to the boundaries
+    targetX = Math.min(leftBoundary, Math.max(rightBoundary, targetX));
+    targetY = Math.min(topBoundary, Math.max(bottomBoundary, targetY));
     
     // Smooth transition for viewport movement
     viewportX = viewportX + (targetX - viewportX) * 0.1;
@@ -360,31 +340,21 @@ function drawHex(x, y, hex, overrideColor = null) {
         color = adjustColor(color, -30);
     }
     
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Draw regular hex border
-    ctx.strokeStyle = GAME_CONFIG.COLORS.HEX_BORDER;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
     // Draw selected hex indicator
     if (selectedHex && hex.toString() === selectedHex.toString()) {
+        // Draw selection glow
         ctx.save();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-        // Draw the path again to ensure complete outline
-        ctx.beginPath();
-        corners.forEach((corner, index) => {
-            const cornerX = x + corner.x;
-            const cornerY = y + corner.y;
-            if (index === 0) ctx.moveTo(cornerX, cornerY);
-            else ctx.lineTo(cornerX, cornerY);
-        });
-        ctx.closePath();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
         ctx.stroke();
         ctx.restore();
     }
+
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = GAME_CONFIG.COLORS.HEX_BORDER;
+    ctx.lineWidth = 1;
+    ctx.stroke();
 }
 
 // Helper function to adjust color brightness
@@ -409,12 +379,7 @@ function initializeGrid(timestamp) {
     }
     lastRenderTime = timestamp;
     
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for full canvas operations
-    ctx.fillStyle = "#1B4B7C"; // Arctic ocean blue
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
-    
+    ctx.clearRect(-viewportX, -viewportY, canvas.width, canvas.height);
     updateViewport();
 
     // Draw all hexes
@@ -476,12 +441,12 @@ function updateStats() {
 
     // Check death conditions
     if (hunger <= 0) {
-        updateGameMessage("Your strength fails as hunger overtakes you. Your frozen body will remain here, a grim testament to the merciless Antarctic wasteland.", true);
+        alert("You starved to death!");
         restartGame();
         return;
     }
     if (health <= 0) {
-        updateGameMessage("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica."), true;
+        alert("You froze to death!");
         restartGame();
         return;
     }
@@ -501,16 +466,11 @@ function updateStatsDisplay() {
 }
 
 // Update the movePlayer function to handle the new movement system
-// Update movePlayer to include current location update
 function movePlayer(newHex) {
     if (!newHex || !gameRunning) return;
     
     // Check if trying to move too far
     if (playerHex.distance(newHex) > 1) return;
-    
-    // Check if the hex is within the grid
-    const isInGrid = grid.some(hex => hex.toString() === newHex.toString());
-    if (!isInGrid) return;
     
     const terrain = getHexTerrainType(newHex);
     debugMovement(playerHex, newHex, terrain);
@@ -539,11 +499,10 @@ function movePlayer(newHex) {
     // Check for reaching important locations
     if (playerHex.toString() === southPole.toString()) {
         southPoleVisited = true;
-        updateGameMessage("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp to tell the world.", true);
+        alert("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.");
     } else if (playerHex.toString() === baseCamp.toString() && southPoleVisited) {
-        updateGameMessage("Against all odds, you've done it! You've reached the South Pole and returned. Your name will be forever etched in the annals of exploration. Future generations will speak of your incredible feat.", true);
-        gameRunning = false; // Stop the game
-        document.getElementById('restart-button').classList.remove('hidden'); // Show restart button
+        alert("Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.");
+        restartGame();
     }
 }
 
@@ -557,8 +516,6 @@ function restartGame() {
     visitedHexes = new Set([playerHex.toString()]); // Reset visited hexes
     lastStatUpdate = Date.now();
     lastMoveTime = Date.now();
-    updateGameMessage("Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.", true);
-    document.getElementById('restart-button').classList.add('hidden'); // Hide restart button
 }
 
 
@@ -570,86 +527,6 @@ function restartGame() {
 // - Panel initialization and content updates
 // - Panel positioning and visibility
 // - Move confirmation interface
-
-function typewriterEffect(message, elementId, speed = 50) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    element.textContent = ''; // Clear existing text
-    element.classList.add('typing'); // Add typing class for cursor
-    let index = 0;
-    
-    function type() {
-        if (index < message.length) {
-            element.textContent += message.charAt(index);
-            index++;
-            setTimeout(type, speed);
-        } else {
-            element.classList.remove('typing'); // Remove cursor when done
-        }
-    }
-    
-    type();
-}
-
-function wrapText(text, maxWidth) {
-    const lines = [];
-    const words = text.split(' ');
-    let currentLine = '';
-    
-    // Create a temporary element for measuring
-    const temp = document.createElement('div');
-    temp.style.cssText = `
-        font-family: 'Old Standard TT', serif;
-        font-size: 1.0rem;
-        position: absolute;
-        visibility: hidden;
-        white-space: nowrap;
-        padding: 0 0px;
-    `;
-    document.body.appendChild(temp);
-
-    // Process each word
-    for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        temp.textContent = testLine;
-        
-        if (temp.offsetWidth <= maxWidth + 20) {
-            // This word fits on the current line
-            currentLine = testLine;
-        } else {
-            // Start a new line
-            if (currentLine) {
-                lines.push(currentLine);
-            }
-            currentLine = word;
-        }
-    }
-    
-    // Add the last line
-    if (currentLine) {
-        lines.push(currentLine);
-    }
-
-    document.body.removeChild(temp);
-    return lines.join('\n');
-}
-
-// Modify the updateGameMessage function
-function updateGameMessage(message, useTypewriter = false, speed = 50) {
-    const messageElement = document.getElementById('game-message');
-    if (messageElement) {
-        const container = document.getElementById('message-container');
-        const maxWidth = container.clientWidth - 40; // Account for padding
-        const wrappedMessage = wrapText(message, maxWidth);
-        
-        if (useTypewriter) {
-            typewriterEffect(wrappedMessage, 'game-message', speed);
-        } else {
-            messageElement.textContent = wrappedMessage;
-        }
-    }
-}
 
 // Initialize the details panel elements
 function initializeDetailsPanel() {
@@ -672,11 +549,9 @@ function showDetailsPanel(hex) {
     if (!detailsPanel) return;
 
     // Get terrain type
+    debugHexDetails(hex, 'Showing Details');
     const terrain = getHexTerrainType(hex);
-    
-    // Hide empty state and show terrain details
-    detailsPanel.querySelector('.empty-state').classList.add('hidden');
-    detailsPanel.querySelector('.terrain-details').classList.remove('hidden');
+    debugHexDetails(hex, 'Resolved Terrain', terrain);
     
     // Update panel content
     document.getElementById('terrain-name').textContent = terrain.name;
@@ -685,18 +560,54 @@ function showDetailsPanel(hex) {
     document.getElementById('terrain-description').textContent = terrain.description;
     document.getElementById('terrain-quote').innerHTML = `<em>"${terrain.quote}"</em>`;
 
+    // Ensure button functionality reflects terrain properties
+    document.getElementById('move-confirm').disabled = !terrain.passable || (terrain.staminaCost > stamina);
+
     // Enable/disable move button based on passable and stamina
-    const confirmButton = document.getElementById('move-confirm');
     confirmButton.disabled = !terrain.passable || stamina < (terrain.staminaCost || 0);
+
+    // Position panel
+    if (window.innerWidth >= 768) {
+        // Desktop positioning
+        const rect = canvas.getBoundingClientRect();
+        const hexPoint = hex.toPoint();
+        
+        // Convert hex coordinates to screen coordinates
+        const screenX = hexPoint.x + viewportX + rect.left;
+        const screenY = hexPoint.y + viewportY + rect.top;
+        
+        // Get the hex's center point for better positioning
+        const hexCenter = hex.center();
+        const centerX = screenX + hexCenter.x;
+        const centerY = screenY + hexCenter.y;
+
+        const panelWidth = 300;  // Match CSS width
+        const panelHeight = 400; // Match CSS max-height
+        const padding = 20;      // Padding from viewport edges
+        
+        // Position the panel to the right of the hex if possible, otherwise to the left
+        let left = centerX + GAME_CONFIG.HEX_SIZE + 10; // 10px gap from hex
+        if (left + panelWidth + padding > window.innerWidth) {
+            left = centerX - panelWidth - GAME_CONFIG.HEX_SIZE - 10;
+        }
+        
+        // Ensure panel stays within vertical bounds
+        let top = centerY - (panelHeight / 2);
+        top = Math.max(padding, Math.min(window.innerHeight - panelHeight - padding, top));
+
+        // Apply the position
+        detailsPanel.style.left = `${left}px`;
+        detailsPanel.style.top = `${top}px`;
+    }
+
+    // Show panel with animation
+    detailsPanel.classList.add('show');
 }
 
+// Hide the details panel
 function hideDetailsPanel() {
     if (!detailsPanel) return;
-    
-    // Show empty state and hide terrain details
-    detailsPanel.querySelector('.empty-state').classList.remove('hidden');
-    detailsPanel.querySelector('.terrain-details').classList.add('hidden');
-    
+    detailsPanel.classList.remove('show');
     selectedHex = null;
     hoveredHex = null;
 }
@@ -735,30 +646,18 @@ function isHexVisible(hex) {
 
 // Update the handlePointerEvent function to implement two-step movement
 function handlePointerEvent(event) {
-    // Get canvas position and size info
     const rect = canvas.getBoundingClientRect();
-    
-    // Get the click/touch coordinates
     const clientX = event.type.includes('touch') ? event.touches[0].clientX : event.clientX;
     const clientY = event.type.includes('touch') ? event.touches[0].clientY : event.clientY;
     
-    // Get position relative to canvas
     const mouseX = clientX - rect.left;
     const mouseY = clientY - rect.top;
     
-    // Calculate scaling factors in case canvas is resized
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Convert mouse position to hex coordinates, accounting for viewport transform
+    const adjustedX = mouseX - viewportX;
+    const adjustedY = mouseY - viewportY;
     
-    // Apply canvas scaling and viewport transformation
-    const adjustedX = (mouseX * scaleX) - viewportX;
-    const adjustedY = (mouseY * scaleY) - viewportY;
-    
-    // Convert the adjusted coordinates to hex coordinates
-    const hex = Grid.pointToHex([adjustedX, adjustedY]);
-    
-    // Return the corresponding hex
-    return hex;
+    return Grid.pointToHex([adjustedX, adjustedY]);
 }
 
 // Update event listeners for two-step movement
@@ -774,22 +673,14 @@ function addEventListeners() {
         if (now - lastHoverCheck < 32) return; // Limit checks
         lastHoverCheck = now;
         
-        const potentialHex = handlePointerEvent(event);
-        // Only set hoveredHex if it's within the grid
-        if (potentialHex && grid.some(hex => hex.toString() === potentialHex.toString())) {
-            hoveredHex = potentialHex;
-        } else {
-            hoveredHex = null;
-        }
+        hoveredHex = handlePointerEvent(event);
     });
     
     canvas.addEventListener('click', (event) => {
         const clickedHex = handlePointerEvent(event);
         
-        // Don't allow selecting hexes that are too far or outside the grid
-        if (!clickedHex || 
-            playerHex.distance(clickedHex) > 1 || 
-            !grid.some(hex => hex.toString() === clickedHex.toString())) {
+        // Don't allow selecting hexes that are too far
+        if (!clickedHex || playerHex.distance(clickedHex) > 1) {
             hideDetailsPanel();
             return;
         }
@@ -809,16 +700,13 @@ function addEventListeners() {
     canvas.addEventListener('touchstart', (event) => {
         event.preventDefault();
         touchStartHex = handlePointerEvent(event);
+        hoveredHex = touchStartHex;
         
-        // Don't allow selecting hexes that are too far or outside the grid
-        if (!touchStartHex || 
-            playerHex.distance(touchStartHex) > 1 || 
-            !grid.some(hex => hex.toString() === touchStartHex.toString())) {
+        if (!touchStartHex || playerHex.distance(touchStartHex) > 1) {
             hideDetailsPanel();
             return;
         }
         
-        hoveredHex = touchStartHex;
         selectedHex = touchStartHex;
         showDetailsPanel(touchStartHex);
     }, { passive: false });
@@ -949,7 +837,6 @@ function debugMovement(fromHex, toHex, terrain) {
 
 
 // Update initGame to include debug info
-// Update initGame to initialize current location display
 function initGame() {
     console.log('=== Game Initialization Start ===');
     resizeCanvas();
@@ -957,16 +844,14 @@ function initGame() {
     initializeGridTerrain();
     console.log('Grid terrain initialized');
     debugInitialization('Grid Terrain', 'Terrain initialized');
-    debugTerrainDistribution();
+    debugTerrainDistribution(); // Add this line to see terrain distribution
     viewportX = canvas.width / 2 - playerHex.toPoint().x;
     viewportY = canvas.height / 2 - playerHex.toPoint().y;
     lastStatUpdate = Date.now();
     lastMoveTime = Date.now();
     addEventListeners();
-    updateGameMessage("Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.", true);
     requestAnimationFrame(initializeGrid);
     setInterval(updateStats, 50);
-    document.getElementById('restart-button').addEventListener('click', restartGame);
 }
 
 // Start the game

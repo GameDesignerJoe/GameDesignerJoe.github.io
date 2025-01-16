@@ -2,8 +2,8 @@
 export const GAME_CONFIG = {
     // Grid settings
     HEX_SIZE: 40,
-    GRID_WIDTH: 10, // 20
-    GRID_HEIGHT: 20, // 40
+    GRID_WIDTH: 5, // 20
+    GRID_HEIGHT: 5, // 40
     
     // Visual settings
     PLAYER_CIRCLE_SIZE: 0.4,   // Size of player circle relative to hex size (0-1)
@@ -12,8 +12,8 @@ export const GAME_CONFIG = {
     COLORS: {
         PLAYER: "green",           // Player circle color
         BASE_CAMP: "gold",         // Base camp hex color
-        SOUTH_POLE: "#663399",        // South pole hex color
-        FOG_OF_WAR: "white",    // Color of unexplored hexes (dark gray)
+        SOUTH_POLE: "blue",        // South pole hex color
+        FOG_OF_WAR: "darkgray",    // Color of unexplored hexes
         HEX_BORDER: "white"        // Color of hex borders
     },
 
@@ -25,12 +25,12 @@ export const GAME_CONFIG = {
     },
     
     // Stats decay rates (per second)
-    HEALTH_DECAY_RATE: 1,    // Lose 0.5% health per second when not at base
-    HUNGER_DECAY_RATE: 0.5,   // Lose 0.25% hunger per second
+    HEALTH_DECAY_RATE: 0.5,    // Lose 0.5% health per second when not at base
+    HUNGER_DECAY_RATE: 0.25,   // Lose 0.25% hunger per second
     
     // Movement and stamina
     MOVE_STAMINA_COST: 5,      // Stamina cost per move
-    STAMINA_REGEN_RATE: 3,     // Gain 2% stamina per second when not moving
+    STAMINA_REGEN_RATE: 2,     // Gain 2% stamina per second when not moving
     
     // Recovery rates at base camp (per second)
     BASE_HEALTH_REGEN: 1,      // Gain 1% health per second at base
@@ -46,7 +46,7 @@ export const GAME_CONFIG = {
 export const TERRAIN_TYPES = {
     NORMAL_SNOW: {
         name: "Normal Snow",
-        color: "#B9D9EB",
+        color: "#FFFFFF",
         staminaCost: 5,
         passable: true,
         description: "A relatively firm snowpack that allows for steady progress.",
@@ -54,7 +54,7 @@ export const TERRAIN_TYPES = {
     },
     DEEP_SNOW: {
         name: "Deep Snow",
-        color: "#89CFF0",
+        color: "#CCCCCC",
         staminaCost: 8,
         passable: true,
         description: "Loose, deep snow that drains stamina more quickly.",
@@ -62,7 +62,7 @@ export const TERRAIN_TYPES = {
     },
     CLIFF: {
         name: "Cliff",
-        color: "#385F71",
+        color: "#666666",
         staminaCost: 15,
         passable: true,
         oneWay: true,
@@ -71,14 +71,14 @@ export const TERRAIN_TYPES = {
     },
     CREVASSE: {
         name: "Crevasse",
-        color: "#1B4B7C",
+        color: "#222222",
         passable: false,
         description: "A deep crack in the ice. Impossible to cross without proper equipment.",
         quote: "A yawning chasm splits the ice, far too wide to risk crossing."
     },
     ICE_FIELD: {
         name: "Ice Field",
-        color: "#7CB9E8",
+        color: "#CCE5FF",
         staminaCost: 3,
         healthRisk: 0.2,
         passable: true,
