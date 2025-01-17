@@ -13,12 +13,18 @@ function GameLayout({ canvasRef }) {
     height: window.innerHeight
   })
 
+  // First useEffect for resize handling
   useEffect(() => {
     const handleResize = () => {
       const width = Math.min(window.innerWidth, document.documentElement.clientWidth)
       const height = Math.min(window.innerHeight, document.documentElement.clientHeight)
       
-      console.log('Device dimensions:', { width, height, pixelRatio: window.devicePixelRatio });
+      console.log('🔍 Layout Debug:', { 
+        width,
+        height,
+        pixelRatio: window.devicePixelRatio,
+        isMobile: width <= 768
+      });
       
       setIsMobile(width <= 768)
       setDimensions({ width, height })
@@ -26,9 +32,20 @@ function GameLayout({ canvasRef }) {
       // Force canvas resize if it exists
       if (canvasRef.current) {
         const maxWidth = Math.min(width - 40, 450)
+        const currentWidth = canvasRef.current.width
         canvasRef.current.width = maxWidth
         canvasRef.current.height = maxWidth
-        console.log('Canvas resized to:', { width: maxWidth, height: maxWidth });
+        console.log('📱 Canvas Resized:', { 
+          oldWidth: currentWidth,
+          newWidth: maxWidth,
+          newHeight: maxWidth,
+          style: {
+            width: canvasRef.current.style.width,
+            height: canvasRef.current.style.height
+          }
+        });
+      } else {
+        console.warn('❌ Canvas ref not available during resize');
       }
     }
 
@@ -58,6 +75,34 @@ function GameLayout({ canvasRef }) {
     }
   }, [canvasRef])
 
+  // Second useEffect for touch events
+  useEffect(() => {
+    const logTouch = (e) => {
+      console.log('👆 Touch Event:', {
+        type: e.type,
+        touches: e.touches.length,
+        target: e.target.id,
+        coordinates: e.touches[0] ? {
+          clientX: e.touches[0].clientX,
+          clientY: e.touches[0].clientY,
+          screenX: e.touches[0].screenX,
+          screenY: e.touches[0].screenY
+        } : null
+      });
+    };
+  
+    document.addEventListener('touchstart', logTouch);
+    document.addEventListener('touchend', logTouch);
+    document.addEventListener('touchmove', logTouch);
+  
+    return () => {
+      document.removeEventListener('touchstart', logTouch);
+      document.removeEventListener('touchend', logTouch);
+      document.removeEventListener('touchmove', logTouch);
+    };
+  }, []);
+
+  // Rest of your component remains the same...
   return (
     <div className="game-container" style={{ 
       width: '100%',
