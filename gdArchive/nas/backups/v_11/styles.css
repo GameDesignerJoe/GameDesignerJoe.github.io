@@ -1,0 +1,280 @@
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Old Standard TT', serif;
+    background-color: #f0f0f0;
+    min-height: 100vh;
+    width: 100%;
+    overscroll-behavior: none;
+}
+
+.game-container {
+    width: 100%;
+    max-width: 450px; /* Match canvas max width */
+    margin: 0 auto;
+    padding: 20px;
+    padding-top: env(safe-area-inset-top, 50px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative; /* For positioning reference */
+}
+
+.game-layout {
+    width: 100%;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+h1 {
+    font-family: 'Old Standard TT', serif;
+    font-size: 2.5rem;
+    margin: 35px 0 10px 0;
+    text-align: center;
+    font-weight: 700;
+}
+
+.subtitle {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    text-align: center;
+    font-style: italic;
+}
+
+#main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+canvas {
+    border: 1px solid black;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
+}
+
+#stats-container {
+    width: 100%;
+    max-width: 300px;
+    padding: 15px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+.stat {
+    margin: 10px 0;
+}
+
+.stat-label {
+    font-family: 'Old Standard TT', serif;
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.stat-bar {
+    width: 100%;
+    height: 20px;
+    background-color: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.stat-fill {
+    height: 100%;
+    width: 0%;
+    transition: all 0.3s ease;
+}
+
+#health-bar {
+    background-color: #ff4444;
+}
+
+#stamina-bar {
+    background-color: #44aaff;
+}
+
+#hunger-bar {
+    background-color: #ffaa44;
+}
+
+@keyframes pulseRed {
+    0% { background-color: #44aaff; }
+    50% { background-color: #ff4444; }
+    100% { background-color: #44aaff; }
+}
+
+.pulse-warning {
+    animation: pulseRed 0.5s ease-in-out 3;
+}
+
+/* Details Sidebar Styles */
+.details-sidebar {
+    width: 300px;
+    background-color: #fff;
+    border-left: 1px solid #ccc;
+    position: absolute;
+    left: 100%; /* Position it right after the game container */
+    top: 0;
+    margin-top: 142px; /* Account for header space - adjust based on your layout */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Move the h2 styling to be with the other typography-related styles */
+.details-content h2 {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.current-location {
+    background-color: #f8f8f8;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.current-location h3,
+.target-location h3 {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.current-location h4 {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    color: #444;
+}
+
+.divider {
+    height: 1px;
+    background-color: #ccc;
+    margin: 0 -20px;
+}
+
+.empty-state {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.terrain-details {
+    display: none;
+}
+
+.terrain-details.show {
+    display: block;
+}
+
+.terrain-costs {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+}
+
+.cost-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.cost-label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.terrain-description {
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+.terrain-quote {
+    font-style: italic;
+    color: #666;
+    margin-bottom: 20px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.move-button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.move-button:not(.cancel) {
+    background-color: #44aaff;
+    color: white;
+}
+
+.move-button.cancel {
+    background-color: #f5f5f5;
+    color: #666;
+}
+
+.move-button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+
+.move-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    .game-container {
+        padding: 20px;
+    }
+
+    .details-sidebar {
+        position: static;
+        width: 100%;
+        margin-top: 20px;
+        height: auto;
+        min-height: 300px;
+        border-left: none;
+        border-top: 1px solid #ccc;
+    }
+
+    canvas {
+        width: 100%;
+        max-width: none;
+    }
+}

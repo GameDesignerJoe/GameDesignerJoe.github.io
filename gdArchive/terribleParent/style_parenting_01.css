@@ -1,0 +1,48 @@
+body {
+    background-color: azure;
+    /* background-image: url("https://thumbs.dreamstime.com/b/parent-child-silhouette-walking-away-guidance-concept-art-parenting-guiding-abstract-paint-color-illustration-333919141.jpg");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+    height: 100vh; */
+
+    font-family: 'Veranda', 'Roboto', 'Oswald', 'Arial', 'Helvetica', sans-serif;
+    text-align: center;
+    margin: 20px;
+}
+
+button {
+    border-radius: 10px;
+    padding: 10px 20px;
+    margin: 10px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#content {
+    background: rgba (0, 0, 0, 0.5); /* Add some transparency */
+    padding: 20px;
+    border-radius: 10px;
+}
+#choices-list {
+    text-align: left;
+    display: inline-block;
+    margin-top: 20px;
+}
+
+#result-block {
+    margin-top: 30px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+#restart {
+    display: block; /* Make it a block-level element */
+    margin: 20px auto; /* Center it */
+    padding: 10px 20px; /* Add some padding for better appearance */
+    font-size: 16px; /* Increase font size */
+    cursor: pointer; /* Change cursor to pointer */
+    background-color: #f44336;
+    color: white;
+    border: none;
+}

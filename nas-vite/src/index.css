@@ -1,0 +1,33 @@
+:root {
+    font-family: 'Old Standard TT', serif;
+  }
+  
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+    overscroll-behavior: none;
+  }
+  
+  /* Keep your existing css that's still needed */
+  #health-bar {
+    background-color: #ff4444;
+  }
+  
+  #stamina-bar {
+    background-color: #44aaff;
+  }
+  
+  #hunger-bar {
+    background-color: #ffaa44;
+  }
+  
+  @keyframes pulseRed {
+    0% { background-color: #44aaff; }
+    50% { background-color: #ff4444; }
+    100% { background-color: #44aaff; }
+  }
+  
+  .pulse-warning {
+    animation: pulseRed 0.5s ease-in-out 3;
+  }

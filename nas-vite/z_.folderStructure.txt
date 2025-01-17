@@ -1,0 +1,31 @@
+nas-vite/
+├── src/
+│   ├── game/
+│   │   ├── core/
+│   │   │   ├── grid.js
+│   │   │   ├── state.js
+│   │   │   ├── terrain.js
+│   │   │   └── viewport.js
+│   │   ├── ui/
+│   │   │   ├── messages.js
+│   │   │   └── details.js
+│   │   ├── index.js
+│   │   ├── input.js
+│   │   ├── stats.js
+│   │   ├── render.js      // <-- Was missing from previous map
+│   │   └── movement.js    // <-- Was missing from previous map
+│   ├── components/
+│   │   └── GameLayout.jsx
+│   ├── config/
+│   │   └── config.js
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+├── index.html
+├── package.json
+├── manifest.json          // <-- Was missing from previous map
+├── tailwind.config.js     // <-- Was missing from previous map
+├── postcss.config.js      // <-- Was missing from previous map
+├── pnpm-lock.yaml        // <-- Was missing from previous map
+└── .gitignore            // <-- Was missing from previous map
+|---- vite.config.js

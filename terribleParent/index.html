@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrible Parent</title>
+    <link rel="stylesheet" href="style_parenting_05.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1 id="page-title">Are you a terrible parent?</h1>
+
+        <!-- Year and Question --> 
+        <div id="year-block">
+            <p id="year">Your child is <span id="year-value">1</span></p>
+        </div>
+        
+
+        <!-- Stats Block -->
+         <div id="stats">
+            <div class="stat">
+                <p class="stat-number" id="happiness-number">50</p>
+                <p class="stat-label">Happiness</p>
+            </div>
+            <div class="stat">
+                <p class="stat-number" id="resilience-number">50</p>
+                <p class="stat-label">Resilience</p>
+            </div>
+            <div class="stat">
+                <p class="stat-number" id="social-number">50</p>
+                <p class="stat-label">Social</p>
+            </div>
+            <div class="stat">
+                <p class="stat-number" id="independence-number">50</p>
+                <p class="stat-label">Independence</p>
+            </div>
+         </div>
+
+        <!-- Question Block-->
+        <div id="question-block">
+            <hr>
+            <p id="question-text">Do you want to breastfeed your child?</p>
+            <button id="yes">Yes</button>
+            <button id="no">No</button>
+        </div>
+
+        <!-- Result -->
+        <div id="result-block" style="display: none;">
+            <h2>Results:</h2>
+            <h2 id="final-title"></h2>
+            <p id="final-description"></p>
+            <button id="restart" style="display: none;">Try to be a better parent</button>
+            <br>
+        </div>
+
+        <button id="get-results" style="display: none;">Find out if you are a terrible parent</button>
+
+        <!-- Choice Output-->
+        <div id="choice-output">
+            <hr>
+            <h2>Your Choices:</h2>
+            <!-- Baby to Toddler -->
+             <div id="group-baby-toddler" style="display: none;">
+                <h3>Baby to Toddler (1-4)</h3>
+                <p id="choices-baby-toddler"></p>
+            </div>
+
+            <!-- Elementary School -->
+            <div id="group-elementary" style="display: none;">
+                <h3>Elementary School (5-10)</h3>
+                <p id="choices-elementary"></p>
+            </div> 
+
+            <!-- Middle School -->
+            <div id="group-middle" style="display: none;">
+                <h3>Middle School (11-13)</h3>
+                <p id="choices-middle"></p>
+            </div> 
+
+            <!-- High School -->
+            <div id="group-highschool" style="display: none;">
+                <h3>High School (14-18)</h3>
+                <p id="choices-highschool"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script type="module" src="script_parenting_05.js"></script>
+</body>
+<footer>
+    Created by <a href="https://www.linkedin.com/in/joe-morrissey-2773202/">Joe Morrissey </a> <a href="nas/index.html">@</a>
+</html>

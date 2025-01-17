@@ -1,0 +1,177 @@
+body {
+    margin: 0;
+    font-family: 'Nunito', Arial, sans-serif;
+    background-image: url("https://thumbs.dreamstime.com/b/parent-child-silhouette-walking-away-guidance-concept-art-parenting-guiding-abstract-paint-color-illustration-333919141.jpg");
+    background-size: cover;
+    background-position: center;
+    color: white;
+    display: flex;
+    flex-direction: column; /* Allow content to flow vertically */
+    justify-content: flex-start; 
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    overflow-y: auto;
+    /* overflow: hidden; */
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+p {
+    font-size: 1.2rem;
+}
+
+.container {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 600px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+#stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px 0;
+    padding: 10px;
+    /* background: rgba(0, 0, 0, 0.5); */
+    border-radius: 10px;
+    color: white;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 25%;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+button {
+    background: linear-gradient(135deg, #4CAF50, #81C784);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-family: 'Nunito', Arial, sans-serif;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+button:hover {
+    transform: scale(1.1);
+    background: linear-gradient(135deg, #388E3C, #66BB6A);
+}
+
+button:active {
+    transform: scale(1.05);
+}
+
+#content {
+    background: rgba (0, 0, 0, 0.5); /* Add some transparency */
+    padding: 20px;
+    border-radius: 10px;
+}
+
+#question-block {
+    animation: fadeIn 1s ease-in-out;
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+#choices-list {
+    text-align: left;
+    display: inline-block;
+    margin-top: 20px;
+}
+
+#choice-output div {
+    margin-top: 20px;
+}
+
+#choice-output h3 {
+    font-size: 1.2rem;
+    color: #4caf50;
+}
+
+#choice-output p {
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-top: 10px;
+}
+
+#result-block {
+    margin-top: 30px;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+#get-results {
+    display: non;
+    padding: 10px;
+    font-size: 1.2rem;
+    background: linear-gradient(135deg, #ff5722, #ffc107);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    margin: 20px auto;
+}
+
+#get-results:hover {
+    background: linear-gradient(135deg, #e64a19, #ffa000);
+}
+
+#restart {
+    display: block; /* Make it a block-level element */
+    margin: 20px auto; /* Center it */
+    padding: 10px 20px; /* Add some padding for better appearance */
+    font-size: 16px; /* Increase font size */
+    cursor: pointer; /* Change cursor to pointer */
+    background-color: #f44336;
+    color: white;
+    border: none;
+}
+
+footer {
+    text-align: center;
+    margin-top: 20px; /* Add some space at the top */
+    color: white;
+    font-size: 0.7rem;    
+}
+
+a {
+    color: white;
+    text-decoration: none;
+    font-size: 0.7rem;    
+}

@@ -1,0 +1,23 @@
+{
+    "name": "Not All Survive",
+    "short_name": "Not All Survive",
+    "description": "Antarctic exploration survival game",
+    "start_url": "/nas/index.html",
+    "scope": "/nas/",
+    "display": "standalone",
+    "background_color": "#f0f0f0",
+    "theme_color": "#f0f0f0",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "art/nas_192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "art/nas_512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

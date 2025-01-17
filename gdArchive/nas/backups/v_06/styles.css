@@ -1,0 +1,59 @@
+/* Styles for the hex grid game */
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+}
+
+canvas {
+    border: 1px solid black;
+    margin: 20px 0;
+}
+
+/* Stats Display */
+#stats {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+    background-color: #fff;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    width: 300px;
+}
+
+/* Stat Bar Container */
+.stat-bar {
+    position: relative;
+    width: 100%;
+    height: 20px;
+    margin: 5px 0;
+    background-color: #ddd;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Dynamic Stat Bar Fill */
+.bar {
+    height: 100%;
+    transition: width 0.5s ease-in-out;
+}
+
+.bar.health {
+    background-color: #ff6666; /* Red for health */
+}
+
+.bar.stamina {
+    background-color: #66ccff; /* Blue for stamina */
+}
+
+.bar.hunger {
+    background-color: #ffcc66; /* Orange for hunger */
+}
