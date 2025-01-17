@@ -292,8 +292,12 @@ function resizeCanvas() {
     
     console.log('Canvas dimensions:', { width: canvas.width, height: canvas.height }); // Debug
     
+    // Center the viewport
+    viewportX = (canvas.width / 2) - (gridBounds.maxX - gridBounds.minX) / 2;
+    viewportY = (canvas.height / 2) - (gridBounds.maxY - gridBounds.minY) / 2;
+    
     // Update the hex size based on the new canvas size
-    const newHexSize = Math.floor(maxWidth / (GAME_CONFIG.GRID_WIDTH * 2));
+    const newHexSize = Math.floor(maxWidth / (GAME_CONFIG.GRID_WIDTH * 2.5)); // Adjusted multiplier for better fit
     Hex.prototype.size = newHexSize;
     
     // Force a redraw
@@ -308,12 +312,11 @@ function resizeCanvas() {
 function calculateViewportPosition() {
     const playerPos = playerHex.toPoint();
     
-    // Always try to center the player
-    let targetX = canvas.width / 2 - playerPos.x;
-    let targetY = canvas.height / 2 - playerPos.y;
+    // Center on the canvas, adjusting for player position
+    let targetX = (canvas.width / 2) - playerPos.x;
+    let targetY = (canvas.height / 2) - playerPos.y;
     
     // Calculate the boundaries where we should stop scrolling
-    // Adjust margins to give more space at edges
     const margin = GAME_CONFIG.HEX_SIZE * 2;
     
     // Calculate boundaries based on grid extents plus margin
@@ -418,31 +421,48 @@ function adjustColor(color, amount) {
     return color;
 }
 
-// Render Loop
 let lastRenderTime = 0;
 function initializeGrid(timestamp) {
+    if (!ctx || !canvas) {
+        console.error('Canvas or context not available');
+        return;
+    }
+
     // Limit rendering to 60 FPS
     if (timestamp - lastRenderTime < 16) {  // 16ms = ~60 FPS
         requestAnimationFrame(initializeGrid);
         return;
     }
     lastRenderTime = timestamp;
+
+    // Clear the entire canvas first
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for full canvas operations
+    // Draw background
     ctx.fillStyle = "#1B4B7C"; // Arctic ocean blue
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    
+    // Check if we're on mobile and adjust hex size if needed
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        const newHexSize = Math.floor(canvas.width / (GAME_CONFIG.GRID_WIDTH * 2.5)); // Adjusted multiplier
+        Hex.prototype.size = newHexSize;
+        
+        // Recalculate grid boundaries after hex size update
+        gridBounds = {
+            minX: Math.min(...grid.map(hex => hex.toPoint().x)),
+            maxX: Math.max(...grid.map(hex => hex.toPoint().x)),
+            minY: Math.min(...grid.map(hex => hex.toPoint().y)),
+            maxY: Math.max(...grid.map(hex => hex.toPoint().y))
+        };
+    }
     
     updateViewport();
 
     // Draw all hexes
     grid.forEach(hex => {
         const { x, y } = hex.toPoint();
-        // console.log(hex.toString(), hex.terrain);
-        
-        // Always draw the hex with its proper terrain color
-        // drawHex will handle visibility and special cases
         drawHex(x, y, hex);
     });
 
@@ -927,7 +947,7 @@ export function initGame(canvasElement) {
         console.error('Could not get 2D context');
         return;
     }
-    
+
     // Wait a short moment for React components to mount
     setTimeout(() => {
         console.log('initGame called with:', canvasElement);

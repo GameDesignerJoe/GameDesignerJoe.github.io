@@ -28,8 +28,9 @@ body {
 .game-layout {
   width: 100%;
   display: flex;
-  gap: 20px;
-  align-items: flex-start;
+  flex-direction: column; /* Change to column to stack elements */
+  align-items: center;
+  position: relative;
 }
 
 /* Typography */
@@ -43,19 +44,20 @@ h1 {
 
 /* Main Container */
 #main-container {
-  flex: 1;
+  width: 100%;        /* Take full width */
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
 
-/* Canvas */
+/* Adjust canvas size and centering */
 canvas {
-  border: 1px solid black;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  max-width: 450px;
+  aspect-ratio: 1;    /* Keep it square */
   touch-action: none;
+  border: 1px solid black;
 }
 
 /* Stats Container */
@@ -112,18 +114,13 @@ canvas {
 
 /* Details Panel */
 .details-sidebar {
+  position: absolute;
+  right: -320px;      /* Position it outside the main container */
+  top: 0;
   width: 300px;
-  max-height: calc(100% - 20px); /* Prevent overflow */
-  overflow-y: auto; /* Allow scrolling if needed */
+  height: 100%;
   background-color: #fff;
   border-left: 1px solid #ccc;
-  position: absolute;
-  left: 100%;
-  top: 0;
-  margin-left: 20px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .details-content {
@@ -151,55 +148,77 @@ canvas {
 }
 
 /* Mobile Styles */
+/* Add or update these mobile-specific styles */
 @media (max-width: 768px) {
+  body {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
   .game-container {
     padding: 10px;
-    width: 100vw;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    /* Debug outline */
-    border: 1px solid red;
+    max-width: 100%;
+    justify-content: flex-start; /* Adjust for mobile */
   }
 
   #main-container {
     width: 100%;
-    /* Debug outline */
-    border: 1px solid blue;
+    height: auto;
+    position: relative;
   }
 
   canvas {
     width: 100% !important;
     height: auto !important;
-    display: block;
     touch-action: none;
-    /* Debug outline */
-    border: 1px solid green;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
-  /* Ensure stats are visible */
   #stats-container {
     width: 100%;
     padding: 5px;
-    margin-bottom: 5px;
-  }
-
-  /* Adjust messaging for mobile */
-  #message-container {
-    width: 100%;
-    min-height: 4em;
-    margin: 5px 0;
-    padding: 8px;
-  }
-  
-  .details-sidebar.show {
-      transform: translateY(0);
+    background-color: rgba(255, 255, 255, 0.9);
   }
 
   h1 {
-      font-size: 2rem;
-      margin: 15px 0;
+    font-size: 1.8rem;
+    margin: 10px 0;
+  }
+
+  #message-container {
+    font-size: 0.9rem;
+    min-height: 3em;
+    margin: 5px 0 10px 0;
+  }
+
+  .details-sidebar {
+    position: fixed;
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+    left: 0;
+    bottom: 0;
+    top: auto;
+    transform: none;
+    margin-left: 0;
+    border-left: none;
+    border-top: 1px solid #ccc;
+    transform: translateY(100%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .details-sidebar.show {
+    transform: translateY(0);
+  }
+
+  .game-layout {
+    height: auto;
+    margin-top: auto;
+    margin-bottom: auto;
   }
 }
 
