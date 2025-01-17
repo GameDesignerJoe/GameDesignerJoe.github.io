@@ -1,33 +1,30 @@
 import { useEffect, useRef } from 'react'
-import { GAME_CONFIG } from './config/config.js'
 import GameLayout from './components/GameLayout'
+import { initGame } from './game/engine.js'
 
 function App() {
-  // We'll use this ref to access the canvas element
   const canvasRef = useRef(null)
 
   useEffect(() => {
+    // Make sure canvas exists
     if (!canvasRef.current) return
 
-    // Here we'll initialize the game
-    // This is where we'll move the game initialization logic
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
+    // Wait for next frame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      try {
+        initGame(canvasRef.current)
+      } catch (error) {
+        console.error('Error initializing game:', error)
+      }
+    })
 
-    // Initialize canvas size
-    canvas.width = GAME_CONFIG.CANVAS_WIDTH
-    canvas.height = GAME_CONFIG.CANVAS_HEIGHT
-
-    // We'll move the game initialization here
-
+    // Cleanup function
     return () => {
-      // Cleanup if needed
+      // Add any cleanup needed when component unmounts
     }
-  }, [])
+  }, []) // Empty dependency array means this runs once on mount
 
-  return (
-    <GameLayout canvasRef={canvasRef} />
-  )
+  return <GameLayout canvasRef={canvasRef} />
 }
 
 export default App

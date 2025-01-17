@@ -5,8 +5,6 @@ package-lock.json
 
 # Project-specific folders
 nas-vite/node_modules/
-nas-vite/public/
-#OLD-GameDesignerJoe.github.io/
 
 # Editor and system files
 .vscode/

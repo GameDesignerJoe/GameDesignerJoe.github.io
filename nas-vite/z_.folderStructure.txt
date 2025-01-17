@@ -1,31 +1,32 @@
 nas-vite/
 ├── src/
 │   ├── game/
-│   │   ├── core/
-│   │   │   ├── grid.js
-│   │   │   ├── state.js
-│   │   │   ├── terrain.js
-│   │   │   └── viewport.js
-│   │   ├── ui/
-│   │   │   ├── messages.js
-│   │   │   └── details.js
-│   │   ├── index.js
-│   │   ├── input.js
-│   │   ├── stats.js
-│   │   ├── render.js      // <-- Was missing from previous map
-│   │   └── movement.js    // <-- Was missing from previous map
-│   ├── components/
-│   │   └── GameLayout.jsx
+│   │   ├── core/           # Core game mechanics
+│   │   │   ├── grid.js     # Hex grid system
+│   │   │   ├── state.js    # Game state management
+│   │   │   ├── terrain.js  # Terrain generation/management
+│   │   │   └── viewport.js # Canvas viewport handling
+│   │   ├── ui/             # UI interactions
+│   │   │   ├── messages.js # Game messages
+│   │   │   ├── details.js  # Details panel
+│   │   │   └── engine.js   # Main game engine
+│   │   ├── index.js        # Game initialization
+│   │   ├── input.js        # Input handling
+│   │   ├── stats.js        # Player stats
+│   │   ├── render.js       # Game rendering
+│   │   └── movement.js     # Player movement
+│   ├── components/         # React components
+│   │   └── GameLayout.jsx  # Main game layout
 │   ├── config/
-│   │   └── config.js
+│   │   └── config.js       # Game configuration
 │   ├── App.jsx
 │   ├── main.jsx
 │   └── index.css
 ├── index.html
 ├── package.json
-├── manifest.json          // <-- Was missing from previous map
-├── tailwind.config.js     // <-- Was missing from previous map
-├── postcss.config.js      // <-- Was missing from previous map
-├── pnpm-lock.yaml        // <-- Was missing from previous map
-└── .gitignore            // <-- Was missing from previous map
-|---- vite.config.js
+├── manifest.json
+├── tailwind.config.js
+├── postcss.config.js
+├── pnpm-lock.yaml
+├── .gitignore
+└── vite.config.js

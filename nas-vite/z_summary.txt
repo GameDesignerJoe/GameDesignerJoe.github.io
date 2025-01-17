@@ -1,0 +1,33 @@
+1/17/24: 
+Here's a summary of what we've been doing:
+
+We're converting your vanilla JavaScript game "Not All Survive" to use React while keeping the core game engine intact. The approach is a hybrid where:
+React handles the UI layout and component structure
+The original game engine remains largely unchanged but is properly modularized
+We're using Vite as the build tool
+
+
+Current Status:
+Basic React setup is working
+Game layout is converted to React components
+Working on connecting the game engine to React properly
+Fixed initial canvas initialization issues
+
+
+Next Steps:
+Debug any remaining canvas rendering issues
+Ensure all DOM interactions work properly with React
+Test mobile responsiveness
+Consider gradual migration of more features to React components
+
+Key Technical Decisions:
+Keep the game engine mostly as-is initially
+Use React for layout and UI management
+Maintain original CSS but prepare for potential Tailwind integration
+Use Vite for modern build tooling and development experience
+
+
+Current Issues Being Worked On:
+Canvas initialization timing
+DOM element access from game engine
+Event listener management
