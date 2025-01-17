@@ -278,32 +278,29 @@ function getHexTerrainType(hex) {
 // Canvas Management
 // Update canvas resizing to match sidebar height
 function resizeCanvas() {
-    const maxWidth = Math.min(window.innerWidth - 40, 450); // 40px for padding
+    // Get the actual viewport width, accounting for mobile
+    const viewportWidth = Math.min(window.innerWidth, document.documentElement.clientWidth);
+    const viewportHeight = Math.min(window.innerHeight, document.documentElement.clientHeight);
+    
+    console.log('Viewport dimensions:', { width: viewportWidth, height: viewportHeight }); // Debug
+    
+    // Calculate maximum size while maintaining aspect ratio
+    const maxWidth = Math.min(viewportWidth - 40, 450); // 40px for padding
     
     canvas.width = maxWidth;
     canvas.height = maxWidth; // Keep it square
     
-    // Get the canvas's actual position relative to the viewport
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Update the details sidebar height and position to exactly match canvas
-    const detailsSidebar = document.querySelector('.details-sidebar');
-    if (detailsSidebar) {
-        detailsSidebar.style.height = `${canvas.height}px`;
-        detailsSidebar.style.marginTop = `${canvasRect.top}px`;
-    }
+    console.log('Canvas dimensions:', { width: canvas.width, height: canvas.height }); // Debug
     
     // Update the hex size based on the new canvas size
     const newHexSize = Math.floor(maxWidth / (GAME_CONFIG.GRID_WIDTH * 2));
     Hex.prototype.size = newHexSize;
     
-    // Recalculate grid boundaries
-    gridBounds = {
-        minX: Math.min(...grid.map(hex => hex.toPoint().x)),
-        maxX: Math.max(...grid.map(hex => hex.toPoint().x)),
-        minY: Math.min(...grid.map(hex => hex.toPoint().y)),
-        maxY: Math.max(...grid.map(hex => hex.toPoint().y))
-    };
+    // Force a redraw
+    if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(initializeGrid);
+    }
 }
 
 
@@ -905,6 +902,32 @@ function debugMovement(fromHex, toHex, terrain) {
 // Update initGame to initialize current location display
 
 export function initGame(canvasElement) {
+    console.log('Mobile check:', {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio
+    });
+    
+    // Set up canvas and context
+    canvas = canvasElement;
+    if (!canvas) {
+        console.error('No canvas element provided');
+        return;
+    }
+    
+    console.log('Canvas element:', {
+        width: canvas.width,
+        height: canvas.height,
+        offsetWidth: canvas.offsetWidth,
+        offsetHeight: canvas.offsetHeight
+    });
+
+    ctx = canvas.getContext("2d");
+    if (!ctx) {
+        console.error('Could not get 2D context');
+        return;
+    }
+    
     // Wait a short moment for React components to mount
     setTimeout(() => {
         console.log('initGame called with:', canvasElement);

@@ -10,6 +10,24 @@ function GameLayout({ canvasRef }) {
   const [showRestart, setShowRestart] = useState(false)
 
   useEffect(() => {
+    const logTouchEvent = (e) => {
+      console.log('Touch event:', {
+        type: e.type,
+        touches: e.touches.length,
+        targetId: e.target.id
+      });
+    };
+  
+    document.addEventListener('touchstart', logTouchEvent);
+    document.addEventListener('touchend', logTouchEvent);
+  
+    return () => {
+      document.removeEventListener('touchstart', logTouchEvent);
+      document.removeEventListener('touchend', logTouchEvent);
+    };
+  }, []);
+  
+  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768)
     }
