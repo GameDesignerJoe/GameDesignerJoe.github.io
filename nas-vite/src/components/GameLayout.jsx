@@ -13,25 +13,12 @@ function GameLayout({ canvasRef }) {
     height: window.innerHeight
   })
 
-  // At the top of GameLayout with other useEffect hooks
-  useEffect(() => {
-    console.log('Setting up updateGameMessage');
-    window.updateGameMessage = (newMessage, showRestartButton = false) => {
-      console.log('updateGameMessage called:', { newMessage, showRestartButton });
-      setMessage(newMessage);
-      setShowRestart(showRestartButton);
-    };
-
-    return () => {
-      console.log('Cleaning up updateGameMessage');
-      delete window.updateGameMessage;
-    };
-  }, []);
-
   useEffect(() => {
     const handleResize = () => {
       const width = Math.min(window.innerWidth, document.documentElement.clientWidth)
       const height = Math.min(window.innerHeight, document.documentElement.clientHeight)
+      
+      console.log('Device dimensions:', { width, height, pixelRatio: window.devicePixelRatio });
       
       setIsMobile(width <= 768)
       setDimensions({ width, height })
@@ -41,20 +28,33 @@ function GameLayout({ canvasRef }) {
         const maxWidth = Math.min(width - 40, 450)
         canvasRef.current.width = maxWidth
         canvasRef.current.height = maxWidth
+        console.log('Canvas resized to:', { width: maxWidth, height: maxWidth });
       }
     }
 
+    // Set up window.updateGameMessage
+    window.updateGameMessage = (newMessage, showRestartButton = false) => {
+      console.log('updateGameMessage called:', { newMessage, showRestartButton });
+      setMessage(newMessage);
+      setShowRestart(showRestartButton);
+    };
+
+    // Add event listeners
     window.addEventListener('resize', handleResize)
     window.addEventListener('orientationchange', () => {
+      console.log('Orientation changed');
       setTimeout(handleResize, 100)
     })
 
-    // Initial size setup
+    // Initial setup
     handleResize()
+    console.log('Initial mobile state:', isMobile);
 
+    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', handleResize)
+      delete window.updateGameMessage;
     }
   }, [canvasRef])
 
@@ -62,7 +62,8 @@ function GameLayout({ canvasRef }) {
     <div className="game-container" style={{ 
       width: '100%',
       minHeight: '100vh',
-      maxWidth: isMobile ? '100%' : '450px'
+      maxWidth: isMobile ? '100%' : '450px',
+      backgroundColor: 'rgba(255, 0, 0, 0.1)' // Debug background
     }}>
       <h1>NOT ALL SURVIVE</h1>
       <div id="message-container">
@@ -82,11 +83,10 @@ function GameLayout({ canvasRef }) {
               width: '100%',
               height: 'auto',
               touchAction: 'none',
-              display: 'block'
+              display: 'block',
+              border: '1px solid red' // Debug border
             }}
           />
-
-          {/* Update the RestartButton component in GameLayout.jsx */}
           <RestartButton 
             visible={showRestart} 
             onClick={() => {
@@ -97,77 +97,65 @@ function GameLayout({ canvasRef }) {
           />
         </div>
         
-        {/* In GameLayout.jsx, update the details panel content: */}
-{isMobile ? (
-  <div id="details-panel" className={`details-sidebar ${detailsPanelVisible ? 'show' : ''}`}
-       style={{
-         position: 'fixed',
-         bottom: 0,
-         left: 0,
-         width: '100%',
-         maxHeight: '50vh',
-         backgroundColor: 'white',
-         transform: detailsPanelVisible ? 'translateY(0)' : 'translateY(100%)',
-         transition: 'transform 0.3s ease-in-out',
-         zIndex: 1000
-       }}>
-    <div className="details-content">
-      <div className="empty-state">
-        Select a hex to view details
-      </div>
-      <div className="terrain-details hidden">
-        <h2 id="terrain-name">Terrain Name</h2>
-        <div className="terrain-costs">
-          <div className="cost-item">
-            <span className="cost-label">Stamina Cost:</span>
-            <span id="stamina-cost">5</span>
+        {isMobile ? (
+          <div id="details-panel" className={`details-sidebar ${detailsPanelVisible ? 'show' : ''}`}
+               style={{
+                 position: 'fixed',
+                 bottom: 0,
+                 left: 0,
+                 width: '100%',
+                 maxHeight: '50vh',
+                 backgroundColor: 'white',
+                 transform: detailsPanelVisible ? 'translateY(0)' : 'translateY(100%)',
+                 transition: 'transform 0.3s ease-in-out',
+                 zIndex: 1000
+               }}>
+            <div className="details-content">
+              {/* Terrain panel content */}
+              <TerrainPanelContent />
+            </div>
           </div>
-          <div className="cost-item">
-            <span className="cost-label">Health Risk:</span>
-            <span id="health-risk">None</span>
+        ) : (
+          <div id="details-panel" className={`details-sidebar ${detailsPanelVisible ? 'show' : ''}`}>
+            <div className="details-content">
+              {/* Terrain panel content */}
+              <TerrainPanelContent />
+            </div>
           </div>
-        </div>
-        <p id="terrain-description" className="terrain-description">
-          Terrain description will appear here.
-        </p>
-        <p id="terrain-quote" className="terrain-quote">
-          <em>"Explorer's quote will appear here."</em>
-        </p>
-      </div>
-    </div>
-  </div>
-) : (
-  // Copy the same content for desktop
-  <div id="details-panel" className={`details-sidebar ${detailsPanelVisible ? 'show' : ''}`}>
-    <div className="details-content">
-      <div className="empty-state">
-        Select a hex to view details
-      </div>
-      <div className="terrain-details hidden">
-        <h2 id="terrain-name">Terrain Name</h2>
-        <div className="terrain-costs">
-          <div className="cost-item">
-            <span className="cost-label">Stamina Cost:</span>
-            <span id="stamina-cost">5</span>
-          </div>
-          <div className="cost-item">
-            <span className="cost-label">Health Risk:</span>
-            <span id="health-risk">None</span>
-          </div>
-        </div>
-        <p id="terrain-description" className="terrain-description">
-          Terrain description will appear here.
-        </p>
-        <p id="terrain-quote" className="terrain-quote">
-          <em>"Explorer's quote will appear here."</em>
-        </p>
-      </div>
-    </div>
-  </div>
-)}
+        )}
       </div>
     </div>
   )
 }
 
-export default GameLayout  // Make sure this line exists
+// Separate component for terrain panel content to avoid duplication
+function TerrainPanelContent() {
+  return (
+    <>
+      <div className="empty-state">
+        Select a hex to view details
+      </div>
+      <div className="terrain-details hidden">
+        <h2 id="terrain-name">Terrain Name</h2>
+        <div className="terrain-costs">
+          <div className="cost-item">
+            <span className="cost-label">Stamina Cost:</span>
+            <span id="stamina-cost">5</span>
+          </div>
+          <div className="cost-item">
+            <span className="cost-label">Health Risk:</span>
+            <span id="health-risk">None</span>
+          </div>
+        </div>
+        <p id="terrain-description" className="terrain-description">
+          Terrain description will appear here.
+        </p>
+        <p id="terrain-quote" className="terrain-quote">
+          <em>"Explorer's quote will appear here."</em>
+        </p>
+      </div>
+    </>
+  )
+}
+
+export default GameLayout

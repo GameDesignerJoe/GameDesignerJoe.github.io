@@ -5,7 +5,7 @@ const Stats = () => {
     <div id="stats-container">
       <div className="stat">
         <img 
-          src="/art/health.svg" 
+          src="/nas-vite/art/health.svg" 
           alt="Health" 
           className="stat-icon"
           style={{
@@ -18,7 +18,7 @@ const Stats = () => {
       </div>
       <div className="stat">
         <img 
-          src="/art/stamina.svg" 
+          src="/nas-vite/art/stamina.svg" 
           alt="Stamina" 
           className="stat-icon"
           style={{
@@ -31,7 +31,7 @@ const Stats = () => {
       </div>
       <div className="stat">
         <img 
-          src="/art/food.svg" 
+          src="/nas-vite/art/food.svg" 
           alt="Hunger" 
           className="stat-icon"
           style={{
