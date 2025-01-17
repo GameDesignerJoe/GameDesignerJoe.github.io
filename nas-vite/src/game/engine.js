@@ -196,12 +196,17 @@ function initializeHexTerrain(hex) {
     // Check for base camp and south pole using the new toString method
     if (hex.toString() === baseCamp.toString()) {
         hex.terrain = 'BASE_CAMP';
+        debugTerrainAssignment(hex, 'BASE_CAMP');
         return;
     }
     if (hex.toString() === southPole.toString()) {
         hex.terrain = 'SOUTH_POLE';
+        debugTerrainAssignment(hex, 'SOUTH_POLE');
         return;
     }
+
+    // Ensure terrain is initially set to NORMAL_SNOW as fallback
+    hex.terrain = 'NORMAL_SNOW';
 
     // Terrain distribution weights
     const weights = {
@@ -223,6 +228,13 @@ function initializeHexTerrain(hex) {
             debugTerrainAssignment(hex, terrain);
             break;
         }
+    }
+
+    // Verify terrain was assigned
+    if (!hex.terrain) {
+        console.error('No terrain assigned to hex:', hex);
+        hex.terrain = 'NORMAL_SNOW';
+        debugTerrainAssignment(hex, 'NORMAL_SNOW');
     }
 }
 
@@ -611,10 +623,26 @@ window.restartGame = function() {
 // - Panel positioning and visibility
 // - Move confirmation interface
 
-function updateGameMessage(message) {
-    if (window.updateGameMessage && typeof message === 'string') {
-        // Ensure we're passing a clean string
-        window.updateGameMessage(message.trim());
+function updateGameMessage(message, showButton = false) {
+    console.log('Attempting to update message:', message, showButton);
+    
+    // Guard against invalid states
+    if (!window.updateGameMessage) {
+        console.error('updateGameMessage not available on window');
+        return;
+    }
+    
+    if (typeof message !== 'string') {
+        console.error('Message must be string, got:', typeof message);
+        return;
+    }
+    
+    // Call the React component's update function
+    try {
+        window.updateGameMessage(message, showButton);
+        console.log('Message updated successfully');
+    } catch (error) {
+        console.error('Error updating message:', error);
     }
 }
 
@@ -639,7 +667,14 @@ function initializeDetailsPanel() {
 
 // Show the details panel for a hex
 function showDetailsPanel(hex) {
-    if (!detailsPanel) return;
+    if (!detailsPanel || !hex) return;
+    const emptyState = detailsPanel.querySelector('.empty-state');
+    const terrainDetails = detailsPanel.querySelector('.terrain-details');
+    
+    if (!emptyState || !terrainDetails) {
+        console.error('Required elements not found in details panel');
+        return;
+    }
 
     // Get terrain type
     const terrain = getHexTerrainType(hex);
@@ -662,6 +697,13 @@ function showDetailsPanel(hex) {
 
 function hideDetailsPanel() {
     if (!detailsPanel) return;
+    const emptyState = detailsPanel.querySelector('.empty-state');
+    const terrainDetails = detailsPanel.querySelector('.terrain-details');
+    
+    if (!emptyState || !terrainDetails) {
+        console.error('Required elements not found in details panel');
+        return;
+    }
     
     // Show empty state and hide terrain details
     detailsPanel.querySelector('.empty-state').classList.remove('hidden');
