@@ -1,54 +1,86 @@
 import { useState, useEffect } from 'react'
+import TypewriterMessage from './TypewriterMessage'
+import Stats from './Stats'
+import RestartButton from './RestartButton'
 
 function GameLayout({ canvasRef }) {
-   // Debug log to verify the ref
-   console.log('GameLayout rendering with canvasRef:', canvasRef);
-
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+  const [detailsPanelVisible, setDetailsPanelVisible] = useState(false)
+  const [message, setMessage] = useState("Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.")
+  const [showRestart, setShowRestart] = useState(false)
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768)
+    }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Effect to handle game messages
+  useEffect(() => {
+    window.updateGameMessage = (newMessage, showRestartButton = false) => {
+      setMessage(newMessage);
+      setShowRestart(showRestartButton);
+    }
+    return () => {
+      delete window.updateGameMessage;
+    }
+  }, [])
+
+  // Add observer for terrain selection
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.target.classList.contains('terrain-details')) {
+          // If terrain details are shown (no longer hidden), show panel
+          if (!mutation.target.classList.contains('hidden')) {
+            setDetailsPanelVisible(true)
+          } else {
+            setDetailsPanelVisible(false)
+          }
+        }
+      })
+    })
+
+    const terrainDetails = document.querySelector('.terrain-details')
+    if (terrainDetails) {
+      observer.observe(terrainDetails, { 
+        attributes: true, 
+        attributeFilter: ['class'] 
+      })
+    }
+
+    return () => observer.disconnect()
   }, [])
 
   return (
     <div className="game-container">
       <h1>NOT ALL SURVIVE</h1>
       <div id="message-container">
-        <p id="game-message">Locate the South Pole and return to base camp without dying.</p>
+        <TypewriterMessage 
+          message={message} 
+          speed={50} 
+        />
       </div>
       <div className="game-layout">
         <div id="main-container">
-          <div id="stats-container">
-            <div className="stat">
-              <img src="/art/health.svg" alt="Health" className="stat-icon" />
-              <div className="stat-bar">
-                <div className="stat-fill" id="health-bar"></div>
-              </div>
-            </div>
-            <div className="stat">
-              <img src="/art/stamina.svg" alt="Stamina" className="stat-icon" />
-              <div className="stat-bar">
-                <div className="stat-fill" id="stamina-bar"></div>
-              </div>
-            </div>
-            <div className="stat">
-              <img src="/art/food.svg" alt="Hunger" className="stat-icon" />
-              <div className="stat-bar">
-                <div className="stat-fill" id="hunger-bar"></div>
-              </div>
-            </div>
-          </div>
+          <Stats />
           <canvas 
-                    ref={canvasRef} 
-                    id="canvas"
-                    // Add key attributes for debugging
-                    data-testid="game-canvas"
-                ></canvas>
+            ref={canvasRef} 
+            id="canvas"
+            data-testid="game-canvas"
+          />
+          <RestartButton 
+            visible={showRestart} 
+            onClick={() => {
+              setShowRestart(false);
+              window.restartGame && window.restartGame();
+            }}
+          />
         </div>
         
-        <div id="details-panel" className="details-sidebar">
+        <div id="details-panel" className={`details-sidebar ${detailsPanelVisible ? 'show' : ''}`}>
           <div className="details-content">
             <div className="empty-state">
               Select a hex to view details
@@ -71,8 +103,6 @@ function GameLayout({ canvasRef }) {
               <p id="terrain-quote" className="terrain-quote">
                 <em>"Explorer's quote will appear here."</em>
               </p>
-              <button id="move-confirm" className="move-button">Move Here</button>
-              <button id="move-cancel" className="move-button cancel">Cancel</button>
             </div>
           </div>
         </div>

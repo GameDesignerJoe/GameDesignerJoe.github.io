@@ -77,11 +77,24 @@ let ctx;
 // Creates the game world's structure and layout
 
 // Initialize Honeycomb grid
+console.log('Honeycomb availability:', window.Honeycomb); // Add this line
 const Honeycomb = window.Honeycomb;
+if (!Honeycomb) {
+    console.error('Honeycomb not found! Make sure the script is loaded.');
+    throw new Error('Honeycomb library not loaded');
+}
+
 const Hex = Honeycomb.extendHex({
     size: GAME_CONFIG.HEX_SIZE,
-    terrain: null
+    orientation: 'flat',
+    origin: { x: 0, y: 0 },
+    terrain: null,
+    toString() {
+        // Ensure consistent string representation using cube coordinates
+        return `${this.q},${this.r},${this.s}`
+    }
 });
+
 const Grid = Honeycomb.defineGrid(Hex);
 
 // Create initial grid
@@ -172,15 +185,21 @@ function initializeGridTerrain() {
 
 // Initialize hex with terrain type
 function initializeHexTerrain(hex) {
-    // Don't assign terrain to base camp or south pole
+    console.log('Initializing terrain for hex:', hex.toString());
+    
+    // Check if hex is valid before proceeding
+    if (!hex || typeof hex.toString !== 'function') {
+        console.error('Invalid hex:', hex);
+        return;
+    }
+
+    // Check for base camp and south pole using the new toString method
     if (hex.toString() === baseCamp.toString()) {
         hex.terrain = 'BASE_CAMP';
-        debugTerrainAssignment(hex, 'BASE_CAMP');
         return;
     }
     if (hex.toString() === southPole.toString()) {
         hex.terrain = 'SOUTH_POLE';
-        debugTerrainAssignment(hex, 'SOUTH_POLE');
         return;
     }
 
@@ -497,10 +516,12 @@ function updateStatsDisplay() {
     const staminaBar = document.getElementById("stamina-bar");
     const hungerBar = document.getElementById("hunger-bar");
     
-    // Update width with smooth transition (CSS handles the animation)
-    healthBar.style.width = `${Math.max(0, Math.min(100, health))}%`;
-    staminaBar.style.width = `${Math.max(0, Math.min(100, stamina))}%`;
-    hungerBar.style.width = `${Math.max(0, Math.min(100, hunger))}%`;
+    // Only update if all elements exist
+    if (healthBar && staminaBar && hungerBar) {
+        healthBar.style.width = `${Math.max(0, Math.min(100, health))}%`;
+        staminaBar.style.width = `${Math.max(0, Math.min(100, stamina))}%`;
+        hungerBar.style.width = `${Math.max(0, Math.min(100, hunger))}%`;
+    }
 }
 
 // Update the movePlayer function to handle the new movement system
@@ -544,12 +565,13 @@ function movePlayer(newHex) {
         southPoleVisited = true;
         updateGameMessage("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.");
     } else if (playerHex.toString() === baseCamp.toString() && southPoleVisited) {
-        updateGameMessage("Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.");
-        restartGame();
+        updateGameMessage("Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.", true);  // Add true to show restart button
+        // Don't immediately restart - wait for button click
+        gameRunning = false;
     }
 }
 
-function restartGame() {
+window.restartGame = function() {
     stamina = GAME_CONFIG.STARTING_STATS.STAMINA;
     health = GAME_CONFIG.STARTING_STATS.HEALTH;
     hunger = GAME_CONFIG.STARTING_STATS.HUNGER;
@@ -559,7 +581,7 @@ function restartGame() {
     visitedHexes = new Set([playerHex.toString()]); // Reset visited hexes
     lastStatUpdate = Date.now();
     lastMoveTime = Date.now();
-    updateGameMessage("Locate the South Pole and return to base camp without dying.");
+    updateGameMessage("Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.");
 }
 
 
@@ -573,9 +595,9 @@ function restartGame() {
 // - Move confirmation interface
 
 function updateGameMessage(message) {
-    const messageElement = document.getElementById('game-message');
-    if (messageElement) {
-        messageElement.innerHTML = message;
+    if (window.updateGameMessage && typeof message === 'string') {
+        // Ensure we're passing a clean string
+        window.updateGameMessage(message.trim());
     }
 }
 
@@ -596,17 +618,6 @@ function updateCurrentLocationDetails() {
 // Initialize the details panel elements
 function initializeDetailsPanel() {
     detailsPanel = document.getElementById('details-panel');
-    confirmButton = document.getElementById('move-confirm');
-    cancelButton = document.getElementById('move-cancel');
-
-    confirmButton.addEventListener('click', () => {
-        if (selectedHex) {
-            movePlayer(selectedHex);
-            hideDetailsPanel();
-        }
-    });
-
-    cancelButton.addEventListener('click', hideDetailsPanel);
 }
 
 // Show the details panel for a hex
@@ -630,9 +641,6 @@ function showDetailsPanel(hex) {
     document.getElementById('terrain-description').textContent = terrain.description;
     document.getElementById('terrain-quote').innerHTML = `<em>"${terrain.quote}"</em>`;
 
-    // Enable/disable move button based on passable and stamina
-    const confirmButton = document.getElementById('move-confirm');
-    confirmButton.disabled = !terrain.passable || stamina < (terrain.staminaCost || 0);
 }
 
 function hideDetailsPanel() {
@@ -792,6 +800,7 @@ function addEventListeners() {
     });
 }
 
+updateStatsDisplay();
 
 
 // --------------------------------------------
@@ -896,42 +905,45 @@ function debugMovement(fromHex, toHex, terrain) {
 // Update initGame to initialize current location display
 
 export function initGame(canvasElement) {
-    console.log('initGame called with:', canvasElement); // Debug log
+    // Wait a short moment for React components to mount
+    setTimeout(() => {
+        console.log('initGame called with:', canvasElement);
 
-    // Set up canvas and context
-    canvas = canvasElement;
-    if (!canvas) {
-        console.error('No canvas element provided');
-        return;
-    }
+        // Set up canvas and context
+        canvas = canvasElement;
+        if (!canvas) {
+            console.error('No canvas element provided');
+            return;
+        }
 
-    ctx = canvas.getContext("2d");
-    if (!ctx) {
-        console.error('Could not get 2D context');
-        return;
-    }
+        ctx = canvas.getContext("2d");
+        if (!ctx) {
+            console.error('Could not get 2D context');
+            return;
+        }
 
-    console.log('Canvas and context initialized:', { canvas, ctx }); // Debug log
+        // Initialize basic canvas size
+        canvas.width = GAME_CONFIG.CANVAS_WIDTH;
+        canvas.height = GAME_CONFIG.CANVAS_HEIGHT;
 
-    // Initialize basic canvas size
-    canvas.width = GAME_CONFIG.CANVAS_WIDTH;
-    canvas.height = GAME_CONFIG.CANVAS_HEIGHT;
-
-    resizeCanvas();
-    console.log('Canvas resized');
-    initializeGridTerrain();
-    console.log('Grid terrain initialized');
-    debugInitialization('Grid Terrain', 'Terrain initialized');
-    debugTerrainDistribution();
-    viewportX = canvas.width / 2 - playerHex.toPoint().x;
-    viewportY = canvas.height / 2 - playerHex.toPoint().y;
-    lastStatUpdate = Date.now();
-    lastMoveTime = Date.now();
-    addEventListeners();
-    updateCurrentLocationDetails();
-    updateGameMessage("Locate the South Pole and return to base camp without dying.");
-    requestAnimationFrame(initializeGrid);
-    setInterval(updateStats, 50);
+        resizeCanvas();
+        initializeGridTerrain();
+        viewportX = canvas.width / 2 - playerHex.toPoint().x;
+        viewportY = canvas.height / 2 - playerHex.toPoint().y;
+        lastStatUpdate = Date.now();
+        lastMoveTime = Date.now();
+        addEventListeners();
+        updateCurrentLocationDetails();
+        
+        // Initialize starting stats
+        stamina = GAME_CONFIG.STARTING_STATS.STAMINA;
+        health = GAME_CONFIG.STARTING_STATS.HEALTH;
+        hunger = GAME_CONFIG.STARTING_STATS.HUNGER;
+        updateStatsDisplay();  // Update stats after initialization
+        
+        requestAnimationFrame(initializeGrid);
+        setInterval(updateStats, 50);
+    }, 100);  // Small delay to ensure DOM is ready
 }
 
 
