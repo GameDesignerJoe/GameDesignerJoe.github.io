@@ -50,31 +50,6 @@
             border-radius: 8px;
         }
 
-        .info-panel {
-            width: 100%;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            margin-top: 20px;
-            min-height: 100px;
-            text-align: center;
-        }
-
-        .info-panel h3 {
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-
-        .info-panel p {
-            margin-bottom: 10px;
-            line-height: 1.4;
-        }
-
-        .info-panel p:last-child {
-            font-style: italic;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
         .stats-container {
         width: 100%;
         display: flex;
@@ -133,49 +108,73 @@
         }
 
         #message-container {
-    width: 100%;
-    min-height: 5em;  /* Approximately 4 lines of text */
-    margin: 10px 0 20px 0;
-    padding: 10px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-}
+          width: 100%;
+          height: 160px; /* Fixed height */
+          margin: 10px 0 20px 0;
+          padding: 10px;
+          background-color: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+          overflow-y: auto; /* Allow scrolling if content is too long */
+        }
 
-#game-message {
-    font-family: 'Old Standard TT', serif;
-    font-size: 1.1rem;
-    text-align: center;
-    line-height: 1.4;
-    margin: 0;
-    font-style: italic;
-}
+        /* Optional: Hide scrollbar but keep functionality */
+        #message-container {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        #message-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
 
-#message-container {
-    width: 100%;
-    min-height: 5em;  /* Approximately 4 lines of text */
-    margin: 10px 0 20px 0;
-    padding: 10px;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-}
+        #game-message {
+            font-family: 'Old Standard TT', serif;
+            font-size: 1.1rem;
+            text-align: center;
+            line-height: 1.4;
+            margin: 0;
+        }
 
-#game-message {
-    font-family: 'Old Standard TT', serif;
-    font-size: 1.1rem;
-    text-align: center;
-    line-height: 1.4;
-    margin: 0;
-    font-style: italic;
-}
+        #game-message.narrative {
+        font-style: italic;
+        }
+
+        #game-message.terrain-info {
+            font-style: normal;
+        }
+
+        #message-container {
+          width: 100%;
+          min-height: 5em;  /* Approximately 4 lines of text */
+          margin: 10px 0 20px 0;
+          padding: 10px;
+          background-color: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        #game-message h3 {
+          font-size: 18px;
+          margin-bottom: 10px;
+        }
+
+        #game-message p {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        #game-message p:last-child {
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
     </style>
 </head>
 <body>
     <div class="game-container">
       <h1>NOT ALL SURVIVE</h1>
       <div id="message-container">
-        <p id="game-message">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
+        <p id="game-message" class="narrative">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
     </div>
         
       <!-- Add stats bars here -->
@@ -203,10 +202,6 @@
                     <!-- Hexes will be added here by JS -->
                 </g>
             </svg>
-        </div>
-
-        <div class="info-panel" id="infoPanel">
-            Tap a hex to view terrain details
         </div>
     </div>
 
@@ -333,9 +328,9 @@
     updateStatsDisplay();
     checkDeathCondition();
     
-    if (!selectedHex) {
-        updateCurrentLocationInfo();
-    }
+    // if (!selectedHex) {
+    //     updateCurrentLocationInfo();
+    // }
 }
 
 function updatePlayerPosition(newQ, newR) {
@@ -352,11 +347,12 @@ function updatePlayerPosition(newQ, newR) {
         // Apply immediate damage for stepping on ice
         stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
         // Add visual/text feedback
-        document.getElementById('infoPanel').innerHTML = `
-            <h3>Dangerous Ice!</h3>
-            <p>The bitter cold of the ice field bites into you.</p>
-            <p><em>"The ice here is dangerously cold..."</em></p>
-        `;
+        document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = `
+        <h3>Dangerous Ice!</h3>
+        <p>The bitter cold of the ice field bites into you.</p>
+        <p><em>"The ice here is dangerously cold..."</em></p>
+    `;
     }
     
     playerPosition = { q: newQ, r: newR };
@@ -371,13 +367,13 @@ function updatePlayerPosition(newQ, newR) {
           const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
           
           if (atBaseCamp) {
-              document.getElementById('infoPanel').innerHTML = `
+              document.getElementById('game-message').innerHTML = `
                   <h3>Base Camp</h3>
                   <p>A safe haven where you can rest and recover.</p>
                   <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
               `;
           } else if (atSouthPole) {
-              document.getElementById('infoPanel').innerHTML = `
+              document.getElementById('game-message').innerHTML = `
                   <h3>South Pole</h3>
                   <p>The ultimate goal of your expedition.</p>
                   <p><em>"Could this be it? The South Pole itself?"</em></p>
@@ -388,9 +384,8 @@ function updatePlayerPosition(newQ, newR) {
               if (currentHex) {
                   const terrain = currentHex.getAttribute('data-terrain');
                   const terrainInfo = TERRAIN_TYPES[terrain];
-                  document.getElementById('infoPanel').innerHTML = `
+                  document.getElementById('game-message').innerHTML = `
                       <h3>${terrainInfo.name}</h3>
-                      <p>${terrainInfo.description}</p>
                       <p><em>"${terrainInfo.quote}"</em></p>
                   `;
               }
@@ -508,88 +503,83 @@ function resetHexColors() {
     });
 }
 
-        // Handle hex selection and movement
-        // Replace the handleHexClick function with this complete version:
-        function handleHexClick(event) {
-        event.preventDefault();
-        const hex = event.target;
-        const q = parseInt(hex.getAttribute('data-q'));
-        const r = parseInt(hex.getAttribute('data-r'));
-        const hexId = `${q},${r}`;
-        const terrain = hex.getAttribute('data-terrain');
-    
-        // Only allow interaction with visible or visited hexes
-        if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
-            !(q === baseCamp.q && r === baseCamp.r)) {
-            return;
-        }
-    
-        // Get terrain info based on type
-        const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                          terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                          TERRAIN_TYPES[terrain];
-    
-        // Check if movement is possible
-        const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
-        const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
-        const canMove = isAdjacentToPlayer && 
-                      terrainInfo.passable && 
-                      stats.stamina >= staminaCost;
+function handleHexClick(event) {
+    event.preventDefault();
+    const hex = event.target;
+    const q = parseInt(hex.getAttribute('data-q'));
+    const r = parseInt(hex.getAttribute('data-r'));
+    const hexId = `${q},${r}`;
+    const terrain = hex.getAttribute('data-terrain');
 
-        // Reset all hex colors first
-        resetHexColors();
-
-        if (selectedHex && selectedHex === hex) {
-            // Second click on the same hex - attempt to move
-            if (isAdjacentToPlayer) {
-                if (!terrainInfo.passable) {
-                    // Show message about impassable terrain
-                    document.getElementById('infoPanel').innerHTML = `
-                        <h3>${terrainInfo.name}</h3>
-                        <p>This terrain is impassable!</p>
-                        <p>${terrainInfo.description}</p>
-                    `;
-                } else if (stats.stamina < staminaCost) {
-                    // Flash entire stamina bar red
-                    const staminaBar = document.getElementById('stamina-bar').parentElement;
-                    staminaBar.classList.add('pulse-warning');
-                    setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
-                    
-                    // Show message about insufficient stamina
-                    document.getElementById('infoPanel').innerHTML = `
-                        <h3>Not Enough Stamina</h3>
-                        <p>This ${terrainInfo.name.toLowerCase()} requires ${staminaCost} stamina to traverse.</p>
-                        <p>Rest to regain stamina.</p>
-                    `;
-                } else {
-                    // Move and apply stamina cost
-                    stats.stamina -= staminaCost;
-                    lastMoveTime = Date.now();
-                    updatePlayerPosition(q, r);
-                }
-            }
-            selectedHex = null;
-      } else {
-          // First click - show info and highlight
-          selectedHex = hex;
-          hex.setAttribute('fill', '#44aaff');
-          
-          // Update info panel with movement info
-          document.getElementById('infoPanel').innerHTML = `
-            <h3>${terrainInfo.name}</h3>
-            <p>${terrainInfo.description}</p>
-            <p><em>"${terrainInfo.quote}"</em></p>
-            ${isAdjacentToPlayer ? 
-                terrainInfo.passable ?
-                    `<p>Stamina cost: ${staminaCost}</p>` +
-                    `${terrainInfo.healthRisk ? `<p>Health risk: ${terrainInfo.healthRisk * 100}% damage</p>` : ''}` +
-                    `<p>${stats.stamina >= staminaCost ? 'Tap again to move here' : 'Not enough stamina to move here!'}</p>` :
-                    '<p>This terrain is impassable!</p>' :
-                ''
-            }
-        `;
-      }
+    // Only allow interaction with visible or visited hexes
+    if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
+        !(q === baseCamp.q && r === baseCamp.r)) {
+        return;
     }
+
+    // Get terrain info based on type
+    const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
+                      terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+                      TERRAIN_TYPES[terrain];
+
+    // Check if movement is possible
+    const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
+    const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
+    const canMove = isAdjacentToPlayer && 
+                  terrainInfo.passable && 
+                  stats.stamina >= staminaCost;
+
+    // Reset all hex colors first
+    resetHexColors();
+
+    if (selectedHex && selectedHex === hex) {
+        // Second click on the same hex - attempt to move
+        if (isAdjacentToPlayer) {
+            if (!terrainInfo.passable) {
+                // Show message about impassable terrain
+                document.getElementById('game-message').className = 'terrain-info';
+                document.getElementById('game-message').textContent = 
+                    `${terrainInfo.name} - This terrain is impassable!`;
+            } else if (stats.stamina < staminaCost) {
+                // Flash entire stamina bar red
+                const staminaBar = document.getElementById('stamina-bar').parentElement;
+                staminaBar.classList.add('pulse-warning');
+                setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+                
+                // Show message about insufficient stamina
+                document.getElementById('game-message').className = 'terrain-info';
+                document.getElementById('game-message').textContent = 
+                    `Not enough stamina to traverse ${terrainInfo.name.toLowerCase()}.`;
+            } else {
+                // Move and apply stamina cost
+                stats.stamina -= staminaCost;
+                lastMoveTime = Date.now();
+                updatePlayerPosition(q, r);
+            }
+        }
+        selectedHex = null;
+      } else {
+    // First click - show info and highlight
+    selectedHex = hex;
+    hex.setAttribute('stroke', '#ffffff');
+    hex.setAttribute('stroke-width', '3');
+    hex.setAttribute('stroke', '#000000');
+    hex.setAttribute('stroke-width', '1');
+    
+    // Update message with terrain info
+    document.getElementById('game-message').className = 'terrain-info';
+    document.getElementById('game-message').innerHTML = `
+    <h3>${terrainInfo.name}</h3>
+    <p><em>"${terrainInfo.quote}"</em></p>
+    ${isAdjacentToPlayer ? 
+        terrainInfo.passable ? +
+            `${terrainInfo.healthRisk ? `<p>Health risk: ${terrainInfo.healthRisk * 100}% damage</p>` : ''}` :
+            '<p>This terrain is impassable!</p>' :
+        ''
+    }
+`;
+}
+}
 
         // Create the hex grid
         function createHexGrid() {
@@ -609,8 +599,8 @@ function resetHexColors() {
     let southR;
     do {
         southQ = Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize;
-        southR = gridSize - Math.floor(Math.random() * 2);  // Either gridSize or gridSize-1
-    } while (southQ === baseQ && southR === baseR);  // Ensure it's not same as base camp
+        southR = gridSize;  // Force it to be in the bottom row
+    } while (southQ === baseQ && southR === baseR);
     southPole = { q: southQ, r: southR };
     
     // Create terrain hexes
