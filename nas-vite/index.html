@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>NAS Mobile Test</title>
+    <title>NOT ALL SURVIVVE</title>
     <style>
         * {
             margin: 0;
@@ -131,11 +131,52 @@
         pointer-events: none;  /* Allow clicks to pass through */
         transition: fill 0.3s ease;
         }
+
+        #message-container {
+    width: 100%;
+    min-height: 5em;  /* Approximately 4 lines of text */
+    margin: 10px 0 20px 0;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+#game-message {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.1rem;
+    text-align: center;
+    line-height: 1.4;
+    margin: 0;
+    font-style: italic;
+}
+
+#message-container {
+    width: 100%;
+    min-height: 5em;  /* Approximately 4 lines of text */
+    margin: 10px 0 20px 0;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+#game-message {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.1rem;
+    text-align: center;
+    line-height: 1.4;
+    margin: 0;
+    font-style: italic;
+}
     </style>
 </head>
 <body>
     <div class="game-container">
       <h1>NOT ALL SURVIVE</h1>
+      <div id="message-container">
+        <p id="game-message">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
+    </div>
         
       <!-- Add stats bars here -->
       <div class="stats-container">
@@ -363,16 +404,16 @@ function updatePlayerPosition(newQ, newR) {
         }
 
         function checkDeathCondition() {
-            if (stats.health <= 0) {
-                document.getElementById('infoPanel').innerHTML = 
-                    "The bitter cold claims another victim. Your journey ends here.";
-                // Could add game over handling here
-            } else if (stats.hunger <= 0) {
-                document.getElementById('infoPanel').innerHTML = 
-                    "Your strength fails as hunger overtakes you.";
-                // Could add game over handling here
-            }
-        }
+    if (stats.health <= 0) {
+        document.getElementById('game-message').textContent = 
+            "The bitter cold claims another victim. Your journey ends here.";
+        // Could add game over handling here
+    } else if (stats.hunger <= 0) {
+        document.getElementById('game-message').textContent = 
+            "Your strength fails as hunger overtakes you.";
+        // Could add game over handling here
+    }
+}
 
 
         // Helper functions remain the same
@@ -437,20 +478,15 @@ function updatePlayerPosition(newQ, newR) {
     if (newQ === southPole.q && newR === southPole.r) {
         if (!southPoleVisited) {
             southPoleVisited = true;
-            document.getElementById('infoPanel').innerHTML = `
-                <h3>South Pole Reached!</h3>
-                <p>You've made it to the South Pole! Now make your way back to base camp to complete your journey.</p>
-            `;
-        }
+            document.getElementById('game-message').textContent = 
+            "At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.";
+    }
     }
     
     if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-        document.getElementById('infoPanel').innerHTML = `
-            <h3>Victory!</h3>
-            <p>Congratulations! You've successfully reached the South Pole and returned to tell the tale!</p>
-            <p>Click anywhere to play again.</p>
-        `;
-    }
+      document.getElementById('game-message').textContent = 
+        "Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.";
+}
 
     selectedHex = null;
     resetHexColors();
@@ -671,15 +707,16 @@ function resetHexColors() {
         setInterval(updateStats, 50);
     
         function restartGame() {
-    stats.health = STATS.MAX_VALUE;
-    stats.stamina = STATS.MAX_VALUE;
-    stats.hunger = STATS.MAX_VALUE;
-    southPoleVisited = false;
-    visitedHexes.clear();
-    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
-    updatePlayerPosition(baseCamp.q, baseCamp.r);
-    document.getElementById('infoPanel').textContent = 'Tap a hex to view terrain details';
-}
+          stats.health = STATS.MAX_VALUE;
+          stats.stamina = STATS.MAX_VALUE;
+          stats.hunger = STATS.MAX_VALUE;
+          southPoleVisited = false;
+          visitedHexes.clear();
+          visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
+          updatePlayerPosition(baseCamp.q, baseCamp.r);
+          document.getElementById('game-message').textContent = 
+              "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
+        }
     </script>
 </body>
 </html>
