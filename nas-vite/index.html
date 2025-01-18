@@ -206,7 +206,7 @@
         };
 
         // Special locations
-        let baseCamp = { q: 0, r: 0 }; // Starting position
+        let baseCamp = null;
         let southPole = null;
         let southPoleVisited = false;
 
@@ -560,11 +560,22 @@ function resetHexColors() {
     const group = document.getElementById('hexGroup');
     const gridSize = 3;
     
-    // Set south pole location
-    southPole = {
-        q: Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize,
-        r: Math.floor(Math.random() * -gridSize)
-    };
+    // Position base camp in top two rows (highest negative r values)
+    const baseQ = Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize;  // Random q position
+    const baseR = -gridSize + Math.floor(Math.random() * 2);  // Either -gridSize or -gridSize+1
+    baseCamp = { q: baseQ, r: baseR };
+    
+    // Position player at base camp initially
+    playerPosition = { q: baseQ, r: baseR };
+    
+    // Position south pole in bottom two rows (highest positive r values)
+    let southQ;
+    let southR;
+    do {
+        southQ = Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize;
+        southR = gridSize - Math.floor(Math.random() * 2);  // Either gridSize or gridSize-1
+    } while (southQ === baseQ && southR === baseR);  // Ensure it's not same as base camp
+    southPole = { q: southQ, r: southR };
     
     // Create terrain hexes
     for (let q = -gridSize; q <= gridSize; q++) {
