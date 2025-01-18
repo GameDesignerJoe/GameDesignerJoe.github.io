@@ -185,29 +185,86 @@
             hunger: STATS.MAX_VALUE
         };
 
+        const BASE_HEALING = {
+        HEALTH_REGEN: 1,    // % per second
+        HUNGER_REGEN: 0.5,  // % per second
+        STAMINA_REGEN: 3    // % per second
+        };
+
+        // Special locations
+        let baseCamp = { q: 0, r: 0 }; // Starting position
+        let southPole = null;
+        let southPoleVisited = false;
+
         let lastStatUpdate = Date.now();
         let lastMoveTime = Date.now();
 
         function updateStats() {
-            if (stats.health <= 0 || stats.hunger <= 0) return;
+          if (stats.health <= 0 || stats.hunger <= 0) return;
 
-            const now = Date.now();
-            const deltaTime = (now - lastStatUpdate) / 1000;  // Convert to seconds
-            lastStatUpdate = now;
+          const now = Date.now();
+          const deltaTime = (now - lastStatUpdate) / 1000;
+          lastStatUpdate = now;
 
-            // Only regenerate stamina if we haven't moved recently
-            const timeSinceLastMove = (now - lastMoveTime) / 1000;
-            if (timeSinceLastMove > 0.5) {
-                stats.stamina = Math.min(STATS.MAX_VALUE, 
-                    stats.stamina + STATS.STAMINA_REGEN * deltaTime);
-            }
+          // Check if at base camp
+          const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+          
+          if (atBaseCamp) {
+              // Healing at base camp
+              stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
+              stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
+              stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
+          } else {
+              // Regular decay when not at base camp
+              stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
+              stats.hunger = Math.max(0, stats.hunger - STATS.HUNGER_DECAY * deltaTime);
+              
+              // Only regenerate stamina if we haven't moved recently
+              const timeSinceLastMove = (now - lastMoveTime) / 1000;
+              if (timeSinceLastMove > 0.5) {
+                  stats.stamina = Math.min(STATS.MAX_VALUE, 
+                      stats.stamina + STATS.STAMINA_REGEN * deltaTime);
+              }
+          }
 
-            // Regular decay
-            stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
-            stats.hunger = Math.max(0, stats.hunger - STATS.HUNGER_DECAY * deltaTime);
+          updateStatsDisplay();
+          checkDeathCondition();
+          
+          // Show current location info if no hex is selected
+          if (!selectedHex) {
+              updateCurrentLocationInfo();
+          }
+        }
 
-            updateStatsDisplay();
-            checkDeathCondition();
+        function updateCurrentLocationInfo() {
+          const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+          const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
+          
+          if (atBaseCamp) {
+              document.getElementById('infoPanel').innerHTML = `
+                  <h3>Base Camp</h3>
+                  <p>A safe haven where you can rest and recover.</p>
+                  <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
+              `;
+          } else if (atSouthPole) {
+              document.getElementById('infoPanel').innerHTML = `
+                  <h3>South Pole</h3>
+                  <p>The ultimate goal of your expedition.</p>
+                  <p><em>"Could this be it? The South Pole itself?"</em></p>
+              `;
+          } else {
+              // Find the hex at current position
+              const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
+              if (currentHex) {
+                  const terrain = currentHex.getAttribute('data-terrain');
+                  const terrainInfo = TERRAIN_TYPES[terrain];
+                  document.getElementById('infoPanel').innerHTML = `
+                      <h3>${terrainInfo.name}</h3>
+                      <p>${terrainInfo.description}</p>
+                      <p><em>"${terrainInfo.quote}"</em></p>
+                  `;
+              }
+          }
         }
 
         function updateStatsDisplay() {
@@ -272,25 +329,52 @@
         }
 
         function updatePlayerPosition(newQ, newR) {
-            const player = document.getElementById('player');
-            const center = getHexCenter(newQ, newR);
-            
-            player.setAttribute("cx", center.x);
-            player.setAttribute("cy", center.y);
-            
-            playerPosition = { q: newQ, r: newR };
+          const player = document.getElementById('player');
+          const center = getHexCenter(newQ, newR);
+          
+          player.setAttribute("cx", center.x);
+          player.setAttribute("cy", center.y);
+          
+          playerPosition = { q: newQ, r: newR };
 
-            // Reset selection and hex highlights
-            selectedHex = null;
-            resetHexColors();
+          // Check for reaching south pole
+          if (newQ === southPole.q && newR === southPole.r) {
+              if (!southPoleVisited) {
+                  southPoleVisited = true;
+                  document.getElementById('infoPanel').innerHTML = `
+                      <h3>South Pole Reached!</h3>
+                      <p>You've made it to the South Pole! Now make your way back to base camp to complete your journey.</p>
+                  `;
+              }
+          }
+          
+          // Check for returning to base camp after visiting south pole
+          if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+              document.getElementById('infoPanel').innerHTML = `
+                  <h3>Victory!</h3>
+                  <p>Congratulations! You've successfully reached the South Pole and returned to tell the tale!</p>
+                  <p>Click anywhere to play again.</p>
+              `;
+              // Add game restart functionality here
+          }
+
+          selectedHex = null;
+          resetHexColors();
+          updateCurrentLocationInfo();
         }
 
         function resetHexColors() {
-            document.querySelectorAll('polygon').forEach(hex => {
-                const terrain = hex.getAttribute('data-terrain');
-                hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
-            });
-        }
+          document.querySelectorAll('polygon').forEach(hex => {
+              const terrain = hex.getAttribute('data-terrain');
+              if (terrain === 'BASE_CAMP') {
+                  hex.setAttribute('fill', SPECIAL_LOCATIONS.BASE_CAMP.color);
+              } else if (terrain === 'SOUTH_POLE') {
+                  hex.setAttribute('fill', SPECIAL_LOCATIONS.SOUTH_POLE.color);
+              } else {
+                  hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
+              }
+          });
+      }
 
         // Handle hex selection and movement
         function handleHexClick(event) {
@@ -299,7 +383,9 @@
             const q = parseInt(hex.getAttribute('data-q'));
             const r = parseInt(hex.getAttribute('data-r'));
             const terrain = hex.getAttribute('data-terrain');
-            const terrainInfo = TERRAIN_TYPES[terrain];
+            const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
+                   terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+                   TERRAIN_TYPES[terrain];
             
             // Check if hex is adjacent to player
             const isAdjacentToPlayer = isAdjacent(
@@ -346,35 +432,52 @@
 
         // Create the hex grid
         function createHexGrid() {
-            const group = document.getElementById('hexGroup');
-            const gridSize = 3;
-            
-            for (let q = -gridSize; q <= gridSize; q++) {
-                for (let r = -gridSize; r <= gridSize; r++) {
-                    if (Math.abs(q + r) <= gridSize) {
-                        const x = hexWidth * (q + r/2);
-                        const y = hexHeight * (r * 3/4);
-                        
-                        const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                        const terrain = assignRandomTerrain();
-                        
-                        hex.setAttribute("points", createHexPoints(hexSize));
-                        hex.setAttribute("transform", `translate(${x}, ${y})`);
-                        hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
-                        hex.setAttribute("stroke", "#000000");
-                        hex.setAttribute("stroke-width", "1");
-                        hex.setAttribute("data-q", q);
-                        hex.setAttribute("data-r", r);
-                        hex.setAttribute("data-terrain", terrain);
-                        
-                        hex.addEventListener('pointerdown', handleHexClick);
-                        group.appendChild(hex);
-                    }
-                }
-            }
+          const group = document.getElementById('hexGroup');
+          const gridSize = 3;
+          
+          // Set south pole location (randomly in the upper half of the grid)
+          southPole = {
+              q: Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize,
+              r: Math.floor(Math.random() * -gridSize) // Negative to ensure it's in upper half
+          };
+          
+          for (let q = -gridSize; q <= gridSize; q++) {
+              for (let r = -gridSize; r <= gridSize; r++) {
+                  if (Math.abs(q + r) <= gridSize) {
+                      const x = hexWidth * (q + r/2);
+                      const y = hexHeight * (r * 3/4);
+                      
+                      const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                      
+                      // Determine if this is a special location
+                      let terrain;
+                      if (q === baseCamp.q && r === baseCamp.r) {
+                          terrain = 'BASE_CAMP';
+                          hex.setAttribute("fill", SPECIAL_LOCATIONS.BASE_CAMP.color);
+                      } else if (q === southPole.q && r === southPole.r) {
+                          terrain = 'SOUTH_POLE';
+                          hex.setAttribute("fill", SPECIAL_LOCATIONS.SOUTH_POLE.color);
+                      } else {
+                          terrain = assignRandomTerrain();
+                          hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
+                      }
+                      
+                      hex.setAttribute("points", createHexPoints(hexSize));
+                      hex.setAttribute("transform", `translate(${x}, ${y})`);
+                      hex.setAttribute("stroke", "#000000");
+                      hex.setAttribute("stroke-width", "1");
+                      hex.setAttribute("data-q", q);
+                      hex.setAttribute("data-r", r);
+                      hex.setAttribute("data-terrain", terrain);
+                      
+                      hex.addEventListener('pointerdown', handleHexClick);
+                      group.appendChild(hex);
+                  }
+              }
+          }
 
-            // Add player marker after creating grid
-            createPlayerMarker();
+          createPlayerMarker();
+          updateCurrentLocationInfo();
         }
 
         // Keep existing pan handling code
@@ -415,7 +518,15 @@
         createHexGrid();
         // Start the stats update loop
         setInterval(updateStats, 50);
-        
+    
+      function restartGame() {
+        stats.health = STATS.MAX_VALUE;
+        stats.stamina = STATS.MAX_VALUE;
+        stats.hunger = STATS.MAX_VALUE;
+        southPoleVisited = false;
+        updatePlayerPosition(baseCamp.q, baseCamp.r);
+        document.getElementById('infoPanel').textContent = 'Tap a hex to view terrain details';
+      }
     </script>
 </body>
 </html>
