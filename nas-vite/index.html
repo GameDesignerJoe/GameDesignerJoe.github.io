@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+<!-- Previous head section and styles remain the same but remove move-button styles -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NAS Mobile Test</title>
     <style>
+        /* Previous styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -80,7 +82,6 @@
     <div class="game-container">
         <h1>NOT ALL SURVIVE</h1>
         
-        <!-- SVG grid container -->
         <div class="grid-container">
             <svg id="gameGrid" width="100%" height="100%" viewBox="0 0 300 300">
                 <g id="hexGroup" transform="translate(150, 150)">
@@ -89,64 +90,23 @@
             </svg>
         </div>
 
-        <!-- Info panel -->
         <div class="info-panel" id="infoPanel">
             Tap a hex to view terrain details
         </div>
     </div>
 
+    <script src="src/config/config.js"></script>
     <script>
-        // Terrain configuration
-        const TERRAIN_TYPES = {
-            NORMAL_SNOW: {
-                name: "Normal Snow",
-                color: "#FFFFFF",
-                staminaCost: 5,
-                passable: true,
-                description: "A relatively firm snowpack that allows for steady progress.",
-                quote: "The surface here is even, the snow packed firm beneath our feet."
-            },
-            DEEP_SNOW: {
-                name: "Deep Snow",
-                color: "#CCCCCC",
-                staminaCost: 8,
-                passable: true,
-                description: "Loose, deep snow that drains stamina more quickly.",
-                quote: "Each step sinks deep into the powder, making progress exhausting."
-            },
-            CLIFF: {
-                name: "Cliff",
-                color: "#666666",
-                staminaCost: 15,
-                passable: true,
-                oneWay: true,
-                description: "A steep descent that can only be traversed downward.",
-                quote: "A sheer drop looms before us. Once we descend, there's no climbing back up."
-            },
-            CREVASSE: {
-                name: "Crevasse",
-                color: "#222222",
-                passable: false,
-                description: "A deep crack in the ice. Impossible to cross without proper equipment.",
-                quote: "A yawning chasm splits the ice, far too wide to risk crossing."
-            },
-            ICE_FIELD: {
-                name: "Ice Field",
-                color: "#CCE5FF",
-                staminaCost: 3,
-                healthRisk: 0.2,
-                passable: true,
-                description: "Smooth ice that's easy to traverse but dangerously cold.",
-                quote: "The ice stretches out like polished glass, beautiful but bitter cold."
-            }
-        };
-
-        // Basic hex grid setup
+        // Grid setup
         const hexSize = 30;
         const hexHeight = hexSize * 2;
         const hexWidth = Math.sqrt(3) * hexSize;
+        
+        // Player state
+        let playerPosition = { q: 0, r: 0 };
+        let selectedHex = null;
 
-        // Create hex points
+        // Helper functions remain the same
         function createHexPoints(size) {
             const points = [];
             for (let i = 0; i < 6; i++) {
@@ -156,32 +116,105 @@
             return points.join(' ');
         }
 
-        // Assign random terrain
-        function assignRandomTerrain() {
-            const weights = {
-                NORMAL_SNOW: 50,
-                DEEP_SNOW: 25,
-                ICE_FIELD: 15,
-                CLIFF: 7,
-                CREVASSE: 3
-            };
+        function getHexCenter(q, r) {
+            const x = hexWidth * (q + r/2);
+            const y = hexHeight * (r * 3/4);
+            return { x, y };
+        }
 
-            const total = Object.values(weights).reduce((a, b) => a + b, 0);
-            let random = Math.random() * total;
+        function hexDistance(hex1, hex2) {
+            return (Math.abs(hex1.q - hex2.q) + 
+                   Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
+                   Math.abs(hex1.r - hex2.r)) / 2;
+        }
 
-            for (const [terrain, weight] of Object.entries(weights)) {
-                random -= weight;
-                if (random <= 0) {
-                    return terrain;
+        function isAdjacent(hex1, hex2) {
+            return hexDistance(hex1, hex2) === 1;
+        }
+
+        // Create and update player marker
+        function createPlayerMarker() {
+            const player = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            const center = getHexCenter(playerPosition.q, playerPosition.r);
+            
+            player.setAttribute("cx", center.x);
+            player.setAttribute("cy", center.y);
+            player.setAttribute("r", hexSize * 0.3);
+            player.setAttribute("fill", "green");
+            player.setAttribute("id", "player");
+            player.setAttribute("stroke", "white");
+            player.setAttribute("stroke-width", "2");
+            
+            document.getElementById('hexGroup').appendChild(player);
+        }
+
+        function updatePlayerPosition(newQ, newR) {
+            const player = document.getElementById('player');
+            const center = getHexCenter(newQ, newR);
+            
+            player.setAttribute("cx", center.x);
+            player.setAttribute("cy", center.y);
+            
+            playerPosition = { q: newQ, r: newR };
+
+            // Reset selection and hex highlights
+            selectedHex = null;
+            resetHexColors();
+        }
+
+        function resetHexColors() {
+            document.querySelectorAll('polygon').forEach(hex => {
+                const terrain = hex.getAttribute('data-terrain');
+                hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
+            });
+        }
+
+        // Handle hex selection and movement
+        function handleHexClick(event) {
+            event.preventDefault();
+            const hex = event.target;
+            const q = parseInt(hex.getAttribute('data-q'));
+            const r = parseInt(hex.getAttribute('data-r'));
+            const terrain = hex.getAttribute('data-terrain');
+            const terrainInfo = TERRAIN_TYPES[terrain];
+            
+            // Check if hex is adjacent to player
+            const isAdjacentToPlayer = isAdjacent(
+                { q, r }, 
+                playerPosition
+            );
+
+            // Reset all hex colors first
+            resetHexColors();
+
+            if (selectedHex && selectedHex === hex) {
+                // Second click on the same hex - move if it's adjacent
+                if (isAdjacentToPlayer) {
+                    updatePlayerPosition(q, r);
+                    document.getElementById('infoPanel').textContent = 'Tap a hex to view terrain details';
                 }
+                selectedHex = null;
+            } else {
+                // First click - show info and highlight
+                selectedHex = hex;
+                
+                // Highlight the selected hex
+                hex.setAttribute('fill', '#44aaff');
+                
+                // Update info panel
+                document.getElementById('infoPanel').innerHTML = `
+                    <h3>${terrainInfo.name}</h3>
+                    <p>${terrainInfo.description}</p>
+                    <p>${terrainInfo.quote}</p>
+                    ${isAdjacentToPlayer ? '<p>Tap again to move here</p>' : ''}
+                `;
             }
-            return 'NORMAL_SNOW';
         }
 
         // Create the hex grid
         function createHexGrid() {
             const group = document.getElementById('hexGroup');
-            const gridSize = 3;  // 3x3 grid for testing
+            const gridSize = 3;
             
             for (let q = -gridSize; q <= gridSize; q++) {
                 for (let r = -gridSize; r <= gridSize; r++) {
@@ -206,24 +239,12 @@
                     }
                 }
             }
+
+            // Add player marker after creating grid
+            createPlayerMarker();
         }
 
-        // Handle hex selection
-        function handleHexClick(event) {
-            event.preventDefault();
-            const hex = event.target;
-            const terrain = hex.getAttribute('data-terrain');
-            const terrainInfo = TERRAIN_TYPES[terrain];
-            
-            // Update info panel
-            document.getElementById('infoPanel').innerHTML = `
-                <h3>${terrainInfo.name}</h3>
-                <p>${terrainInfo.description}</p>
-                <p>${terrainInfo.quote}</p>
-            `;
-        }
-
-        // Handle viewport panning
+        // Keep existing pan handling code
         let isPanning = false;
         let startX = 0;
         let startY = 0;
