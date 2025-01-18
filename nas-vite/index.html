@@ -113,9 +113,13 @@
         }
 
         @keyframes pulseRed {
-            0% { background-color: #44aaff; }
-            50% { background-color: #ff4444; }
-            100% { background-color: #44aaff; }
+            0% { background-color: rgba(255, 68, 68, 0.1); }
+            50% { background-color: rgba(255, 68, 68, 0.3); }
+            100% { background-color: rgba(255, 68, 68, 0.1); }
+        }
+
+        .stat-bar.pulse-warning {
+            animation: pulseRed 0.5s ease-in-out 3;
         }
 
         .pulse-warning {
@@ -249,41 +253,77 @@
         }
 
         function updateStats() {
-          if (stats.health <= 0 || stats.hunger <= 0) return;
+    if (stats.health <= 0 || stats.hunger <= 0) return;
 
-          const now = Date.now();
-          const deltaTime = (now - lastStatUpdate) / 1000;
-          lastStatUpdate = now;
+    const now = Date.now();
+    const deltaTime = (now - lastStatUpdate) / 1000;
+    lastStatUpdate = now;
 
-          // Check if at base camp
-          const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
-          
-          if (atBaseCamp) {
-              // Healing at base camp
-              stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
-              stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
-              stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
-          } else {
-              // Regular decay when not at base camp
-              stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
-              stats.hunger = Math.max(0, stats.hunger - STATS.HUNGER_DECAY * deltaTime);
-              
-              // Only regenerate stamina if we haven't moved recently
-              const timeSinceLastMove = (now - lastMoveTime) / 1000;
-              if (timeSinceLastMove > 0.5) {
-                  stats.stamina = Math.min(STATS.MAX_VALUE, 
-                      stats.stamina + STATS.STAMINA_REGEN * deltaTime);
-              }
-          }
+    // Check current terrain for effects
+    const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
+    const currentTerrain = currentHex ? TERRAIN_TYPES[currentHex.getAttribute('data-terrain')] : null;
 
-          updateStatsDisplay();
-          checkDeathCondition();
-          
-          // Show current location info if no hex is selected
-          if (!selectedHex) {
-              updateCurrentLocationInfo();
-          }
+    // Check if at base camp
+    const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+    
+    if (atBaseCamp) {
+        // Healing at base camp
+        stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
+        stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
+        stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
+    } else {
+        // Regular decay and terrain effects
+        stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
+        stats.hunger = Math.max(0, stats.hunger - STATS.HUNGER_DECAY * deltaTime);
+        
+        // Apply ice field damage over time if standing on ice
+        if (currentTerrain && currentTerrain.healthRisk) {
+            stats.health = Math.max(0, stats.health - (currentTerrain.healthRisk * 100 * deltaTime));
         }
+        
+        // Only regenerate stamina if we haven't moved recently
+        const timeSinceLastMove = (now - lastMoveTime) / 1000;
+        if (timeSinceLastMove > 0.5) {
+            stats.stamina = Math.min(STATS.MAX_VALUE, 
+                stats.stamina + STATS.STAMINA_REGEN * deltaTime);
+        }
+    }
+
+    updateStatsDisplay();
+    checkDeathCondition();
+    
+    if (!selectedHex) {
+        updateCurrentLocationInfo();
+    }
+}
+
+function updatePlayerPosition(newQ, newR) {
+    const player = document.getElementById('player');
+    const center = getHexCenter(newQ, newR);
+    
+    player.setAttribute("cx", center.x);
+    player.setAttribute("cy", center.y);
+    
+    // Check if moving onto ice field for initial damage
+    const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
+    const targetTerrain = TERRAIN_TYPES[targetHex.getAttribute('data-terrain')];
+    if (targetTerrain && targetTerrain.healthRisk) {
+        // Apply immediate damage for stepping on ice
+        stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
+        // Add visual/text feedback
+        document.getElementById('infoPanel').innerHTML = `
+            <h3>Dangerous Ice!</h3>
+            <p>The bitter cold of the ice field bites into you.</p>
+            <p><em>"The ice here is dangerously cold..."</em></p>
+        `;
+    }
+    
+    playerPosition = { q: newQ, r: newR };
+    visitedHexes.add(`${newQ},${newR}`);
+    updateVisibility();
+
+    // Rest of the function remains the same...
+}
 
         function updateCurrentLocationInfo() {
           const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
@@ -434,66 +474,86 @@ function resetHexColors() {
 
         // Handle hex selection and movement
         // Replace the handleHexClick function with this complete version:
-function handleHexClick(event) {
-    event.preventDefault();
-    const hex = event.target;
-    const q = parseInt(hex.getAttribute('data-q'));
-    const r = parseInt(hex.getAttribute('data-r'));
-    const hexId = `${q},${r}`;
-    const terrain = hex.getAttribute('data-terrain');
+        function handleHexClick(event) {
+        event.preventDefault();
+        const hex = event.target;
+        const q = parseInt(hex.getAttribute('data-q'));
+        const r = parseInt(hex.getAttribute('data-r'));
+        const hexId = `${q},${r}`;
+        const terrain = hex.getAttribute('data-terrain');
     
-    // Only allow interaction with visible or visited hexes
-    if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
-        !(q === baseCamp.q && r === baseCamp.r)) {
-        return;
-    }
-    
-    // Get terrain info based on type
-    const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                       terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                       TERRAIN_TYPES[terrain];
-    
-    // Check if hex is adjacent to player
-    const isAdjacentToPlayer = isAdjacent(
-        { q, r }, 
-        playerPosition
-    );
-
-    // Reset all hex colors first
-    resetHexColors();
-
-    if (selectedHex && selectedHex === hex) {
-        // Second click on the same hex - move if it's adjacent
-        if (isAdjacentToPlayer) {
-            // Add stamina check
-            if (stats.stamina >= STATS.MOVE_STAMINA_COST) {
-                stats.stamina -= STATS.MOVE_STAMINA_COST;
-                lastMoveTime = Date.now();
-                updatePlayerPosition(q, r);
-            } else {
-                // Flash stamina bar red to indicate not enough stamina
-                const staminaBar = document.getElementById('stamina-bar');
-                staminaBar.classList.add('pulse-warning');
-                setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
-            }
+        // Only allow interaction with visible or visited hexes
+        if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
+            !(q === baseCamp.q && r === baseCamp.r)) {
+            return;
         }
-        selectedHex = null;
-    } else {
-        // First click - show info and highlight
-        selectedHex = hex;
-        
-        // Highlight the selected hex
-        hex.setAttribute('fill', '#44aaff');
-        
-        // Update info panel
-        document.getElementById('infoPanel').innerHTML = `
+    
+        // Get terrain info based on type
+        const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
+                          terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+                          TERRAIN_TYPES[terrain];
+    
+        // Check if movement is possible
+        const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
+        const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
+        const canMove = isAdjacentToPlayer && 
+                      terrainInfo.passable && 
+                      stats.stamina >= staminaCost;
+
+        // Reset all hex colors first
+        resetHexColors();
+
+        if (selectedHex && selectedHex === hex) {
+            // Second click on the same hex - attempt to move
+            if (isAdjacentToPlayer) {
+                if (!terrainInfo.passable) {
+                    // Show message about impassable terrain
+                    document.getElementById('infoPanel').innerHTML = `
+                        <h3>${terrainInfo.name}</h3>
+                        <p>This terrain is impassable!</p>
+                        <p>${terrainInfo.description}</p>
+                    `;
+                } else if (stats.stamina < staminaCost) {
+                    // Flash entire stamina bar red
+                    const staminaBar = document.getElementById('stamina-bar').parentElement;
+                    staminaBar.classList.add('pulse-warning');
+                    setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+                    
+                    // Show message about insufficient stamina
+                    document.getElementById('infoPanel').innerHTML = `
+                        <h3>Not Enough Stamina</h3>
+                        <p>This ${terrainInfo.name.toLowerCase()} requires ${staminaCost} stamina to traverse.</p>
+                        <p>Rest to regain stamina.</p>
+                    `;
+                } else {
+                    // Move and apply stamina cost
+                    stats.stamina -= staminaCost;
+                    lastMoveTime = Date.now();
+                    updatePlayerPosition(q, r);
+                }
+            }
+            selectedHex = null;
+      } else {
+          // First click - show info and highlight
+          selectedHex = hex;
+          hex.setAttribute('fill', '#44aaff');
+          
+          // Update info panel with movement info
+          document.getElementById('infoPanel').innerHTML = `
             <h3>${terrainInfo.name}</h3>
             <p>${terrainInfo.description}</p>
             <p><em>"${terrainInfo.quote}"</em></p>
-            ${isAdjacentToPlayer ? '<p>Tap again to move here</p>' : ''}
+            ${isAdjacentToPlayer ? 
+                terrainInfo.passable ?
+                    `<p>Stamina cost: ${staminaCost}</p>` +
+                    `${terrainInfo.healthRisk ? `<p>Health risk: ${terrainInfo.healthRisk * 100}% damage</p>` : ''}` +
+                    `<p>${stats.stamina >= staminaCost ? 'Tap again to move here' : 'Not enough stamina to move here!'}</p>` :
+                    '<p>This terrain is impassable!</p>' :
+                ''
+            }
         `;
+      }
     }
-}
 
         // Create the hex grid
         function createHexGrid() {

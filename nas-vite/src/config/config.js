@@ -11,7 +11,7 @@ const TERRAIN_TYPES = {
     DEEP_SNOW: {
         name: "Deep Snow",
         color: "#CCCCCC",
-        staminaCost: 8,
+        staminaCost: 20,
         passable: true,
         description: "Loose, deep snow that drains stamina more quickly.",
         quote: "Each step sinks deep into the powder, making progress exhausting."
@@ -19,7 +19,7 @@ const TERRAIN_TYPES = {
     CLIFF: {
         name: "Cliff",
         color: "#666666",
-        staminaCost: 15,
+        staminaCost: 30,
         passable: true,
         oneWay: true,
         description: "A steep descent that can only be traversed downward.",
@@ -36,7 +36,7 @@ const TERRAIN_TYPES = {
         name: "Ice Field",
         color: "#CCE5FF",
         staminaCost: 3,
-        healthRisk: 0.2,
+        healthRisk: 0.02,
         passable: true,
         description: "Smooth ice that's easy to traverse but dangerously cold.",
         quote: "The ice stretches out like polished glass, beautiful but bitter cold."
