@@ -56,8 +56,23 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             margin-top: 20px;
-            min-height: 60px;
+            min-height: 100px;
             text-align: center;
+        }
+
+        .info-panel h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .info-panel p {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .info-panel p:last-child {
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.8);
         }
     </style>
 </head>
@@ -76,16 +91,61 @@
 
         <!-- Info panel -->
         <div class="info-panel" id="infoPanel">
-            Tap a hex to select it
+            Tap a hex to view terrain details
         </div>
     </div>
 
     <script>
+        // Terrain configuration
+        const TERRAIN_TYPES = {
+            NORMAL_SNOW: {
+                name: "Normal Snow",
+                color: "#FFFFFF",
+                staminaCost: 5,
+                passable: true,
+                description: "A relatively firm snowpack that allows for steady progress.",
+                quote: "The surface here is even, the snow packed firm beneath our feet."
+            },
+            DEEP_SNOW: {
+                name: "Deep Snow",
+                color: "#CCCCCC",
+                staminaCost: 8,
+                passable: true,
+                description: "Loose, deep snow that drains stamina more quickly.",
+                quote: "Each step sinks deep into the powder, making progress exhausting."
+            },
+            CLIFF: {
+                name: "Cliff",
+                color: "#666666",
+                staminaCost: 15,
+                passable: true,
+                oneWay: true,
+                description: "A steep descent that can only be traversed downward.",
+                quote: "A sheer drop looms before us. Once we descend, there's no climbing back up."
+            },
+            CREVASSE: {
+                name: "Crevasse",
+                color: "#222222",
+                passable: false,
+                description: "A deep crack in the ice. Impossible to cross without proper equipment.",
+                quote: "A yawning chasm splits the ice, far too wide to risk crossing."
+            },
+            ICE_FIELD: {
+                name: "Ice Field",
+                color: "#CCE5FF",
+                staminaCost: 3,
+                healthRisk: 0.2,
+                passable: true,
+                description: "Smooth ice that's easy to traverse but dangerously cold.",
+                quote: "The ice stretches out like polished glass, beautiful but bitter cold."
+            }
+        };
+
         // Basic hex grid setup
         const hexSize = 30;
         const hexHeight = hexSize * 2;
         const hexWidth = Math.sqrt(3) * hexSize;
-        
+
         // Create hex points
         function createHexPoints(size) {
             const points = [];
@@ -94,6 +154,28 @@
                 points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
             }
             return points.join(' ');
+        }
+
+        // Assign random terrain
+        function assignRandomTerrain() {
+            const weights = {
+                NORMAL_SNOW: 50,
+                DEEP_SNOW: 25,
+                ICE_FIELD: 15,
+                CLIFF: 7,
+                CREVASSE: 3
+            };
+
+            const total = Object.values(weights).reduce((a, b) => a + b, 0);
+            let random = Math.random() * total;
+
+            for (const [terrain, weight] of Object.entries(weights)) {
+                random -= weight;
+                if (random <= 0) {
+                    return terrain;
+                }
+            }
+            return 'NORMAL_SNOW';
         }
 
         // Create the hex grid
@@ -108,13 +190,16 @@
                         const y = hexHeight * (r * 3/4);
                         
                         const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                        const terrain = assignRandomTerrain();
+                        
                         hex.setAttribute("points", createHexPoints(hexSize));
                         hex.setAttribute("transform", `translate(${x}, ${y})`);
-                        hex.setAttribute("fill", "#FFFFFF");
+                        hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
                         hex.setAttribute("stroke", "#000000");
                         hex.setAttribute("stroke-width", "1");
                         hex.setAttribute("data-q", q);
                         hex.setAttribute("data-r", r);
+                        hex.setAttribute("data-terrain", terrain);
                         
                         hex.addEventListener('pointerdown', handleHexClick);
                         group.appendChild(hex);
@@ -127,20 +212,15 @@
         function handleHexClick(event) {
             event.preventDefault();
             const hex = event.target;
-            const q = hex.getAttribute('data-q');
-            const r = hex.getAttribute('data-r');
-            
-            // Reset all hexes
-            document.querySelectorAll('polygon').forEach(h => {
-                h.setAttribute('fill', '#FFFFFF');
-            });
-            
-            // Highlight selected hex
-            hex.setAttribute('fill', '#44aaff');
+            const terrain = hex.getAttribute('data-terrain');
+            const terrainInfo = TERRAIN_TYPES[terrain];
             
             // Update info panel
-            document.getElementById('infoPanel').textContent = 
-                `Selected hex: q=${q}, r=${r}`;
+            document.getElementById('infoPanel').innerHTML = `
+                <h3>${terrainInfo.name}</h3>
+                <p>${terrainInfo.description}</p>
+                <p>${terrainInfo.quote}</p>
+            `;
         }
 
         // Handle viewport panning
