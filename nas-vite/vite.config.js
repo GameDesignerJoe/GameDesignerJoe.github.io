@@ -14,5 +14,16 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html')
       }
     }
+  },
+  server: {
+    watch: {
+      usePolling: true
+    },
+    port: 5173
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src')
+    }
   }
 })
