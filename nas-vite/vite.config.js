@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/nas-vite/', // Replace 'nas-vite' with your repository name
+  base: '/nas-vite/',  // This matches your repository name
 })
