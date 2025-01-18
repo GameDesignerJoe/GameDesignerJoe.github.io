@@ -1,0 +1,257 @@
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Old Standard TT', serif;
+  background-color: #f0f0f0;
+  min-height: 100vh;
+  width: 100%;
+  overscroll-behavior: none;
+}
+
+.game-container {
+  width: 100%;
+  max-width: 450px; /* Match canvas max width */
+  margin: 0 auto;
+  padding: 20px;
+  padding-top: env(safe-area-inset-top, 50px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.game-layout {
+  width: 100%;
+  display: flex;
+  flex-direction: column; /* Change to column to stack elements */
+  align-items: center;
+  position: relative;
+}
+
+/* Typography */
+h1 {
+  font-family: 'Old Standard TT', serif;
+  font-size: 2.5rem;
+  margin: 20px 0 10px 0;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Main Container */
+#main-container {
+  width: 100%;        /* Take full width */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Adjust canvas size and centering */
+canvas {
+  width: 100%;
+  max-width: 450px;
+  aspect-ratio: 1;    /* Keep it square */
+  touch-action: none;
+  border: 1px solid black;
+}
+
+/* Stats Container */
+#stats-container {
+  width: 100%;
+  max-width: 450px;
+  padding: 0 10px;
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.stat-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Stat Bars */
+.stat-bar {
+  flex: 1;
+  height: 16px;
+  background-color: #eee;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.stat-fill {
+  height: 100%;
+  width: 0%;
+  transition: all 0.3s ease;
+}
+
+#health-bar {
+  background-color: #ff4444;
+}
+
+#stamina-bar {
+  background-color: #44aaff;
+}
+
+#hunger-bar {
+  background-color: #ffaa44;
+}
+
+/* Details Panel */
+.details-sidebar {
+  position: absolute;
+  right: -320px;      /* Position it outside the main container */
+  top: 0;
+  width: 300px;
+  height: 100%;
+  background-color: #fff;
+  border-left: 1px solid #ccc;
+}
+
+.details-content {
+  padding: 20px;
+}
+
+/* Message Container */
+#message-container {
+  width: 100%;
+  min-height: 5em;
+  margin: 10px 0 20px 0;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+#game-message {
+  font-family: 'Old Standard TT', serif;
+  font-size: 1.1rem;
+  text-align: center;
+  line-height: 1.4;
+  margin: 0;
+  font-style: italic;
+}
+
+/* Mobile Styles */
+/* Add or update these mobile-specific styles */
+@media (max-width: 768px) {
+  body {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .game-container {
+    padding: 10px;
+    max-width: 100%;
+    justify-content: flex-start; /* Adjust for mobile */
+  }
+
+  #main-container {
+    width: 100%;
+    height: auto;
+    position: relative;
+  }
+
+  canvas {
+    width: 100% !important;
+    height: auto !important;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #stats-container {
+    width: 100%;
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    margin: 10px 0;
+  }
+
+  #message-container {
+    font-size: 0.9rem;
+    min-height: 3em;
+    margin: 5px 0 10px 0;
+  }
+
+  .details-sidebar {
+    position: fixed;
+    width: 100%;
+    height: auto;
+    max-height: 50vh;
+    left: 0;
+    bottom: 0;
+    top: auto;
+    transform: none;
+    margin-left: 0;
+    border-left: none;
+    border-top: 1px solid #ccc;
+    transform: translateY(100%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .details-sidebar.show {
+    transform: translateY(0);
+  }
+
+  .game-layout {
+    height: auto;
+    margin-top: auto;
+    margin-bottom: auto;
+  }
+}
+
+/* Handle safe areas for mobile */
+@supports (padding: max(0px)) {
+  .game-container {
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+      padding-top: max(50px, env(safe-area-inset-top));
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+.restart-button-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+
+.restart-button {
+  background-color: #1B4B7C;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Old Standard TT', serif;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.restart-button:hover {
+  background-color: #2B5B8C;
+}

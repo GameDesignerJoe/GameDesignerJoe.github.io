@@ -1,32 +1,56 @@
-nas-vite/
-├── src/
-│   ├── game/
-│   │   ├── core/           # Core game mechanics
-│   │   │   ├── grid.js     # Hex grid system
-│   │   │   ├── state.js    # Game state management
-│   │   │   ├── terrain.js  # Terrain generation/management
-│   │   │   └── viewport.js # Canvas viewport handling
-│   │   ├── ui/             # UI interactions
-│   │   │   ├── messages.js # Game messages
-│   │   │   ├── details.js  # Details panel
-│   │   │   └── engine.js   # Main game engine
-│   │   ├── index.js        # Game initialization
-│   │   ├── input.js        # Input handling
-│   │   ├── stats.js        # Player stats
-│   │   ├── render.js       # Game rendering
-│   │   └── movement.js     # Player movement
-│   ├── components/         # React components
-│   │   └── GameLayout.jsx  # Main game layout
-│   ├── config/
-│   │   └── config.js       # Game configuration
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-├── index.html
-├── package.json
-├── manifest.json
-├── tailwind.config.js
-├── postcss.config.js
-├── pnpm-lock.yaml
-├── .gitignore
-└── vite.config.js
+GameDesignerJoe.github.io
+├── nas-vite
+│   ├── backup
+│   ├── dist
+│   │   ├── art
+│   │   │   ├── food.svg
+│   │   │   ├── health.svg
+│   │   │   ├── nas_192x192.png
+│   │   │   ├── nas_512x512.png
+│   │   │   └── stamina.svg
+│   │   ├── assets
+│   │   │   ├── main-D0D-eiSf.css
+│   │   │   └── main-weA6J3S7.js
+│   │   ├── index.html
+│   │   └── manifest.json
+│   ├── node_modules
+│   ├── public
+│   │   ├── art
+│   │   │   ├── food.svg
+│   │   │   ├── health.svg
+│   │   │   ├── nas_192x192.png
+│   │   │   ├── nas_512x512.png
+│   │   │   └── stamina.svg
+│   │   └── manifest.json
+│   ├── src
+│   │   ├── components
+│   │   │   ├── GameLayout.jsx
+│   │   │   ├── RestartButton.jsx
+│   │   │   ├── Stats.jsx
+│   │   │   └── TypewriterMessage.jsx
+│   │   ├── config
+│   │   │   └── config.js
+│   │   ├── game
+│   │   │   ├── core
+│   │   │   │   ├── grid.js.bak
+│   │   │   │   ├── state.js.bak
+│   │   │   │   ├── terrain.js
+│   │   │   │   └── viewport.js.bak
+│   │   │   └── ui
+│   │   │       ├── details.js
+│   │   │       ├── messages.js
+│   │   │       ├── index.js
+│   │   │       ├── input.js
+│   │   │       ├── movement.js
+│   │   │       ├── render.js
+│   │   │       └── stats.js
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── .gitignore
+│   ├── index.html
+│   ├── package.json
+│   ├── pnpm-lock.yaml
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   └── vite.config.js

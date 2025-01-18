@@ -1,37 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, minimal-ui" />
-    <title>Not All Survive</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NAS Mobile Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    <!-- PWA Meta Tags -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Not All Survive">
-    <meta name="theme-color" content="#f0f0f0">
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #1B4B7C;
+            color: white;
+            min-height: 100vh;
+            width: 100%;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
 
-    <!-- Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="./art/nas_192x192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="./art/nas_512x512.png">
-    <link rel="apple-touch-icon" href="./art/nas_192x192.png">
+        .game-container {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: env(safe-area-inset-top, 20px);
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
 
-    <!-- Web App Manifest -->
-    <link rel="manifest" href="./manifest.json">
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+        .grid-container {
+            width: 100%;
+            aspect-ratio: 1;
+            position: relative;
+            background: rgba(0, 0, 0, 0.2);
+            touch-action: none;
+            overflow: hidden;
+            border-radius: 8px;
+        }
 
-    <!-- Honeycomb -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
-    <script src="https://cdn.jsdelivr.net/npm/honeycomb-grid@3.1.0/dist/honeycomb.min.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./src/main.jsx"></script>
-  </body>
+        .info-panel {
+            width: 100%;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            margin-top: 20px;
+            min-height: 60px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>NOT ALL SURVIVE</h1>
+        
+        <!-- SVG grid container -->
+        <div class="grid-container">
+            <svg id="gameGrid" width="100%" height="100%" viewBox="0 0 300 300">
+                <g id="hexGroup" transform="translate(150, 150)">
+                    <!-- Hexes will be added here by JS -->
+                </g>
+            </svg>
+        </div>
+
+        <!-- Info panel -->
+        <div class="info-panel" id="infoPanel">
+            Tap a hex to select it
+        </div>
+    </div>
+
+    <script>
+        // Basic hex grid setup
+        const hexSize = 30;
+        const hexHeight = hexSize * 2;
+        const hexWidth = Math.sqrt(3) * hexSize;
+        
+        // Create hex points
+        function createHexPoints(size) {
+            const points = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (60 * i - 30) * Math.PI / 180;
+                points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
+            }
+            return points.join(' ');
+        }
+
+        // Create the hex grid
+        function createHexGrid() {
+            const group = document.getElementById('hexGroup');
+            const gridSize = 3;  // 3x3 grid for testing
+            
+            for (let q = -gridSize; q <= gridSize; q++) {
+                for (let r = -gridSize; r <= gridSize; r++) {
+                    if (Math.abs(q + r) <= gridSize) {
+                        const x = hexWidth * (q + r/2);
+                        const y = hexHeight * (r * 3/4);
+                        
+                        const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                        hex.setAttribute("points", createHexPoints(hexSize));
+                        hex.setAttribute("transform", `translate(${x}, ${y})`);
+                        hex.setAttribute("fill", "#FFFFFF");
+                        hex.setAttribute("stroke", "#000000");
+                        hex.setAttribute("stroke-width", "1");
+                        hex.setAttribute("data-q", q);
+                        hex.setAttribute("data-r", r);
+                        
+                        hex.addEventListener('pointerdown', handleHexClick);
+                        group.appendChild(hex);
+                    }
+                }
+            }
+        }
+
+        // Handle hex selection
+        function handleHexClick(event) {
+            event.preventDefault();
+            const hex = event.target;
+            const q = hex.getAttribute('data-q');
+            const r = hex.getAttribute('data-r');
+            
+            // Reset all hexes
+            document.querySelectorAll('polygon').forEach(h => {
+                h.setAttribute('fill', '#FFFFFF');
+            });
+            
+            // Highlight selected hex
+            hex.setAttribute('fill', '#44aaff');
+            
+            // Update info panel
+            document.getElementById('infoPanel').textContent = 
+                `Selected hex: q=${q}, r=${r}`;
+        }
+
+        // Handle viewport panning
+        let isPanning = false;
+        let startX = 0;
+        let startY = 0;
+        let currentTranslateX = 150;
+        let currentTranslateY = 150;
+
+        const hexGroup = document.getElementById('hexGroup');
+        const gameGrid = document.getElementById('gameGrid');
+
+        gameGrid.addEventListener('pointerdown', (e) => {
+            isPanning = true;
+            startX = e.clientX - currentTranslateX;
+            startY = e.clientY - currentTranslateY;
+        });
+
+        gameGrid.addEventListener('pointermove', (e) => {
+            if (!isPanning) return;
+            
+            currentTranslateX = e.clientX - startX;
+            currentTranslateY = e.clientY - startY;
+            
+            hexGroup.setAttribute('transform', 
+                `translate(${currentTranslateX}, ${currentTranslateY})`);
+        });
+
+        gameGrid.addEventListener('pointerup', () => {
+            isPanning = false;
+        });
+
+        gameGrid.addEventListener('pointercancel', () => {
+            isPanning = false;
+        });
+
+        // Initialize
+        createHexGrid();
+    </script>
+</body>
 </html>
