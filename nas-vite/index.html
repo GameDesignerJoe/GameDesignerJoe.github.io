@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- Previous head section and styles remain the same but remove move-button styles -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NAS Mobile Test</title>
     <style>
-        /* Previous styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -76,11 +74,77 @@
             font-style: italic;
             color: rgba(255, 255, 255, 0.8);
         }
+
+        .stats-container {
+        width: 100%;
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        padding: 0 10px;
+        }
+
+        .stat {
+            flex: 1;
+        }
+
+        .stat-bar {
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .stat-fill {
+            height: 100%;
+            width: 100%;
+            transition: width 0.3s ease;
+        }
+
+        #health-bar {
+            background-color: #ff4444;
+        }
+
+        #stamina-bar {
+            background-color: #44aaff;
+        }
+
+        #hunger-bar {
+            background-color: #ffaa44;
+        }
+
+        @keyframes pulseRed {
+            0% { background-color: #44aaff; }
+            50% { background-color: #ff4444; }
+            100% { background-color: #44aaff; }
+        }
+
+        .pulse-warning {
+            animation: pulseRed 0.5s ease-in-out 3;
+        }
     </style>
 </head>
 <body>
     <div class="game-container">
-        <h1>NOT ALL SURVIVE</h1>
+      <h1>NOT ALL SURVIVE</h1>
+        
+      <!-- Add stats bars here -->
+      <div class="stats-container">
+          <div class="stat">
+              <div class="stat-bar">
+                  <div class="stat-fill" id="health-bar"></div>
+              </div>
+          </div>
+          <div class="stat">
+              <div class="stat-bar">
+                  <div class="stat-fill" id="stamina-bar"></div>
+              </div>
+          </div>
+          <div class="stat">
+              <div class="stat-bar">
+                  <div class="stat-fill" id="hunger-bar"></div>
+              </div>
+          </div>
+      </div>
         
         <div class="grid-container">
             <svg id="gameGrid" width="100%" height="100%" viewBox="0 0 300 300">
@@ -105,6 +169,65 @@
         // Player state
         let playerPosition = { q: 0, r: 0 };
         let selectedHex = null;
+
+        // Stats system
+        const STATS = {
+            MAX_VALUE: 100,
+            HEALTH_DECAY: 0.5,    // % per second
+            HUNGER_DECAY: 0.25,   // % per second
+            MOVE_STAMINA_COST: 5,
+            STAMINA_REGEN: 2      // % per second
+        };
+
+        let stats = {
+            health: STATS.MAX_VALUE,
+            stamina: STATS.MAX_VALUE,
+            hunger: STATS.MAX_VALUE
+        };
+
+        let lastStatUpdate = Date.now();
+        let lastMoveTime = Date.now();
+
+        function updateStats() {
+            if (stats.health <= 0 || stats.hunger <= 0) return;
+
+            const now = Date.now();
+            const deltaTime = (now - lastStatUpdate) / 1000;  // Convert to seconds
+            lastStatUpdate = now;
+
+            // Only regenerate stamina if we haven't moved recently
+            const timeSinceLastMove = (now - lastMoveTime) / 1000;
+            if (timeSinceLastMove > 0.5) {
+                stats.stamina = Math.min(STATS.MAX_VALUE, 
+                    stats.stamina + STATS.STAMINA_REGEN * deltaTime);
+            }
+
+            // Regular decay
+            stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
+            stats.hunger = Math.max(0, stats.hunger - STATS.HUNGER_DECAY * deltaTime);
+
+            updateStatsDisplay();
+            checkDeathCondition();
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('health-bar').style.width = `${stats.health}%`;
+            document.getElementById('stamina-bar').style.width = `${stats.stamina}%`;
+            document.getElementById('hunger-bar').style.width = `${stats.hunger}%`;
+        }
+
+        function checkDeathCondition() {
+            if (stats.health <= 0) {
+                document.getElementById('infoPanel').innerHTML = 
+                    "The bitter cold claims another victim. Your journey ends here.";
+                // Could add game over handling here
+            } else if (stats.hunger <= 0) {
+                document.getElementById('infoPanel').innerHTML = 
+                    "Your strength fails as hunger overtakes you.";
+                // Could add game over handling here
+            }
+        }
+
 
         // Helper functions remain the same
         function createHexPoints(size) {
@@ -190,8 +313,18 @@
             if (selectedHex && selectedHex === hex) {
                 // Second click on the same hex - move if it's adjacent
                 if (isAdjacentToPlayer) {
-                    updatePlayerPosition(q, r);
-                    document.getElementById('infoPanel').textContent = 'Tap a hex to view terrain details';
+                    // Add stamina check
+                    if (stats.stamina >= STATS.MOVE_STAMINA_COST) {
+                        stats.stamina -= STATS.MOVE_STAMINA_COST;
+                        lastMoveTime = Date.now();
+                        updatePlayerPosition(q, r);
+                        document.getElementById('infoPanel').textContent = 'Tap a hex to view terrain details';
+                    } else {
+                        // Flash stamina bar red to indicate not enough stamina
+                        const staminaBar = document.getElementById('stamina-bar');
+                        staminaBar.classList.add('pulse-warning');
+                        setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+                    }
                 }
                 selectedHex = null;
             } else {
@@ -201,11 +334,11 @@
                 // Highlight the selected hex
                 hex.setAttribute('fill', '#44aaff');
                 
-                // Update info panel
+                // Update info panel with full terrain info
                 document.getElementById('infoPanel').innerHTML = `
                     <h3>${terrainInfo.name}</h3>
                     <p>${terrainInfo.description}</p>
-                    <p>${terrainInfo.quote}</p>
+                    <p><em>"${terrainInfo.quote}"</em></p>
                     ${isAdjacentToPlayer ? '<p>Tap again to move here</p>' : ''}
                 `;
             }
@@ -280,6 +413,9 @@
 
         // Initialize
         createHexGrid();
+        // Start the stats update loop
+        setInterval(updateStats, 50);
+        
     </script>
 </body>
 </html>
