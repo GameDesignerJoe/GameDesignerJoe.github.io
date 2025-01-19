@@ -2,7 +2,7 @@
 const TERRAIN_TYPES = {
     NORMAL_SNOW: {
         name: "Normal Snow",
-        color: "#FFFFFF",
+        color: "#E0F7FA",
         staminaCost: 5,
         passable: true,
         description: "A relatively firm snowpack that allows for steady progress.",
@@ -10,7 +10,7 @@ const TERRAIN_TYPES = {
     },
     DEEP_SNOW: {
         name: "Deep Snow",
-        color: "#CCCCCC",
+        color: "#A3CFE0",
         staminaCost: 20,
         passable: true,
         description: "Loose, deep snow that drains stamina more quickly.",
@@ -34,7 +34,7 @@ const TERRAIN_TYPES = {
     },
     ICE_FIELD: {
         name: "Ice Field",
-        color: "#CCE5FF",
+        color: "#CCE5FF", // CCE5FF
         staminaCost: 3,
         healthRisk: 0.02,
         passable: true,
@@ -54,7 +54,7 @@ const SPECIAL_LOCATIONS = {
     },
     SOUTH_POLE: {
         name: "South Pole",
-        color: "blue",
+        color: "#4B0082",
         passable: true,
         description: "The ultimate goal of your expedition.",
         quote: "Could this be it? The South Pole itself?"
