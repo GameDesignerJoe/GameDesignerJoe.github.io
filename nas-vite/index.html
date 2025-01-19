@@ -324,6 +324,7 @@ STAMINA_REGEN: 3    // % per second
 // Special locations
 let baseCamp = null;
 let southPole = null;
+let southPoleSpotted = false;
 let southPoleVisited = false;
 
 let lastStatUpdate = Date.now();
@@ -555,7 +556,7 @@ function handleDeath(message) {
   gameRunning = false;
   
   // Show death message as status message
-  showPlayerMessage(message, MESSAGE_TYPES.STATUS);
+  showPlayerMessage(message, MESSAGE_TYPES.TERRAIN);
   
   // Show death message in game message area
   document.getElementById('game-message').className = 'narrative';
@@ -725,40 +726,41 @@ function resetHexColors() {
 }
 
 function handleHexClick(event) {
-  // Clear any existing terrain messages when clicking a new hex
-  clearTerrainMessage();
+    clearTerrainMessage();
 
-  event.preventDefault();
-  const hex = event.target;
-  const q = parseInt(hex.getAttribute('data-q'));
-  const r = parseInt(hex.getAttribute('data-r'));
-  const hexId = `${q},${r}`;
-  const terrain = hex.getAttribute('data-terrain');
+    event.preventDefault();
+    const hex = event.target;
+    const q = parseInt(hex.getAttribute('data-q'));
+    const r = parseInt(hex.getAttribute('data-r'));
+    const hexId = `${q},${r}`;
+    const terrain = hex.getAttribute('data-terrain');
 
-  // Only allow interaction with visible or visited hexes
-  if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
-      !(q === baseCamp.q && r === baseCamp.r)) {
-      return;
-  }
+    // Only allow interaction with visible or visited hexes
+    if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
+        !(q === baseCamp.q && r === baseCamp.r)) {
+        return;
+    }
 
-  // Get terrain info based on type
-  const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                    terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                    TERRAIN_TYPES[terrain];
-  // Check for South Pole spotting
-  if (terrain === 'SOUTH_POLE' && !visitedHexes.has(hexId)) {
-      showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.STATUS);
-  }
+    // Get terrain info based on type
+    const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
+                      terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+                      TERRAIN_TYPES[terrain];
 
-  // Check if movement is possible
-  const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
-  const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
-  const canMove = isAdjacentToPlayer && 
-                terrainInfo.passable && 
-                stats.stamina >= staminaCost;
+    // Check for South Pole spotting first - always show this regardless of stamina
+    if (terrain === 'SOUTH_POLE' && !southPoleSpotted && !visitedHexes.has(hexId)) {
+        southPoleSpotted = true;
+        showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.TERRAIN);
+    }
 
-  // Reset all hex colors first
-  resetHexColors();
+    // Check if movement is possible
+    const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
+    const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
+    const canMove = isAdjacentToPlayer && 
+                  terrainInfo.passable && 
+                  stats.stamina >= staminaCost;
+
+    // Reset all hex colors first
+    resetHexColors();
 
     if (selectedHex && selectedHex === hex) {
         // Second click on the same hex - attempt to move
@@ -771,8 +773,9 @@ function handleHexClick(event) {
                     <h3>${terrainInfo.name}</h3>
                     <p><em>${terrainInfo.quote}</em></p>
                 `;
-            } else if (stats.stamina < staminaCost) {// Use TERRAIN type for exhaustion message
-              showPlayerMessage("You are too exhausted to move.", MESSAGE_TYPES.TERRAIN);
+            } else if (stats.stamina < staminaCost) {
+                // Use TERRAIN type for exhaustion message
+                showPlayerMessage("You are too exhausted to move.", MESSAGE_TYPES.TERRAIN);
                 // Keep terrain info in the info panel
                 document.getElementById('game-message').innerHTML = `
                     <h3>${terrainInfo.name}</h3>
@@ -923,6 +926,8 @@ function restartGame() {
     // Hide restart button
     document.getElementById('restart-button').classList.add('hidden');
     document.getElementById('restart-button').style.display = 'none';
+
+    southPoleSpotted = false;
     
     // Reset all stats
     stats.health = STATS.MAX_VALUE;

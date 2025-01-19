@@ -1,0 +1,166 @@
+### **Updated Milestone Plan for "Not All Survive"**
+
+---
+
+### **Milestone 1: Basic Hex Grid**
+**Status:** Completed
+- **Goal:** Create a visible hex grid using Honeycomb.js.
+- **Playable Experience:** Players can see the grid displayed, but no interactivity exists.
+
+---
+
+### **Milestone 2: Core Stats and UI Enhancements**
+**Status:** Completed
+- **Goal:** Add health, stamina, and hunger as core stats with UI elements reflecting their states.
+- **Playable Experience:** Provide a functional baseline where players manage their health, stamina, and hunger while visualizing these stats dynamically during gameplay.
+
+---
+
+### **Milestone 3: Environmental Mechanics**
+**Status:** In Progress
+- **Goal:** Create an immersive environment where the player must navigate and survive through increasingly challenging terrain and weather conditions.
+- **Playable Experience:** Players navigate the grid, encountering unique terrains and weather effects that impact their survival.
+
+#### Goals:
+1. **Terrain Types:**
+   - Introduce terrain tiles such as cliffs, crevasses, and snowfields.
+   - Different terrain types impact stamina usage and require specific tools for traversal.
+2. **Weather Effects:**
+   - Add dynamic weather, including snowstorms and whiteouts.
+   - Snowstorms hide previously revealed tiles and increase health decay rates.
+   - Add a "Temp Drop" weather effect where every tile begins to cause health damage.
+3. **Temperature and Wind Chill:**
+   - Implement a temperature system that dynamically affects health decay based on environmental conditions.
+4. **Player Movement Transition:**
+   - Ensure smooth transitions when the player moves from one hex to another.
+5. **Hex Descriptions:**
+   - Differentiate between descriptions for clicked hexes and descriptions when arriving at a hex.
+6. **Base Camp Visuals:**
+   - Update base camp color to a more thematic option and add visuals like circles or squares to represent camp elements.
+7. **Hex Size Testing:**
+   - Determine the smallest workable hex size for mobile devices.
+8. **Viewport Confinement:**
+   - Add a viewport to enhance the confined, immersive experience.
+9. **Grid Rotation:**
+   - Explore options for rotating the grid to create a unique perspective, particularly during storms.
+10. **Compass Feature:**
+    - Add a compass for navigation assistance.
+11. **Full Screen Experience on Mobile:**
+    - Implement full-screen mode for mobile devices to enhance immersion and usability.
+12. **Sweeping Weather Mechanic:**
+    - Introduce a mechanic where tiles progressively turn white from one side of the board and sweep across, resetting the map and clearing the fog of war.
+
+---
+
+### **Milestone 4: Map and Exploration Enhancements**
+- **Goal:** Allow players to explore a randomized, dynamic map with meaningful navigation challenges and tools to aid in exploration.
+- **Playable Experience:** Players explore the grid with tools and markers to assist navigation and handle impassable terrain.
+
+#### Goals:
+1. **Impassable Terrain:**
+   - Add obstacles (e.g., cliffs, crevasses) that force players to find alternate routes.
+2. **Random Map Generation:**
+   - Implement a system to randomize map layouts for replayability.
+3. **Navigation Tools:**
+   - Introduce tools like compasses or looking glasses to assist in exploration.
+   - Add map markers for discovered key locations.
+
+---
+
+### **Milestone 5: Camp and Rest System**
+- **Goal:** Introduce a system where players strategically set up camp to recover resources while navigating environmental limitations like weather.
+- **Playable Experience:** Players manage resources to set up camp, recover stamina, and survive weather conditions.
+
+#### Goals:
+1. **Resting:**
+   - Add a camp action for recovering stamina and hunger.
+   - Resting requires safe locations and consumes food and fuel.
+2. **Weather Interactions:**
+   - Snowstorms prevent resting unless specific tools are available (e.g., tents).
+3. **Camp UI:**
+   - Add a camp-specific UI showing available actions and effects.
+4. **Narrative Journaling:**
+   - Introduce journaling events triggered when players make camp, offering reflective or thematic narrative moments.
+5. **Camp Actions:**
+   - Add player activities like cooking, surveying, drawing, singing, or mending clothes to add depth and emotional resonance to gameplay.
+
+---
+
+### **Milestone 6: Packing, Inventory, and Encumbrance**
+- **Goal:** Deepen the survival mechanics by adding resource management, a packing mini-game, and inventory systems that highlight the harsh realities of Antarctic exploration.
+- **Playable Experience:** Players strategically manage their resources, pack supplies before starting, and adjust their inventory during gameplay to ensure survival.
+
+#### Goals:
+1. **Packing Mini-Game:**
+   - Introduce a mini-game for players to pack their supplies before starting the journey.
+   - Players must balance necessary items with encumbrance limits.
+2. **Resource Management:**
+   - Introduce items like food rations, fuel, and tools.
+   - Allow players to manage and adjust their inventory during the game.
+3. **Encumbrance System:**
+   - Add a weight system affecting movement speed and stamina usage.
+4. **Desperation Mechanics:**
+   - Allow desperate actions like consuming sled dogs or leather for survival.
+
+---
+
+### **Milestone 7: Camp Life**
+- **Goal:** Explore the thematic and immersive gameplay around what players do while camping to deepen the connection to the game's world.
+- **Playable Experience:** Players engage in meaningful, thematic activities while camping, providing emotional depth and varied gameplay.
+
+#### Goals:
+1. **Camp Activities:**
+   - Introduce activities like cooking, storytelling, repairing gear, and stargazing to engage players during rest periods.
+2. **Dynamic Narratives:**
+   - Add unique narrative moments that occur while camping, influenced by player actions and current conditions.
+3. **Environmental Reflection:**
+   - Create reflective gameplay mechanics, like journaling or observing the environment, to immerse players further into the Antarctic setting.
+4. **Team Dynamics:**
+   - If applicable, introduce interactions with NPCs or team members to simulate group survival experiences.
+
+---
+
+### **Milestone 8: Replayability and Long-Term Systems**
+- **Goal:** Ensure players have a reason to return to the game with persistent progression, achievements, and enhanced randomization.
+- **Playable Experience:** Players experience dynamic runs with persistent rewards and variety in each playthrough.
+
+#### Goals:
+1. **Achievements and Unlocks:**
+   - Add persistent progression systems like achievements or unlockable items.
+2. **Meta-Progression:**
+   - Introduce long-term progression mechanics tied to successful or failed runs.
+3. **Enhanced Randomization:**
+   - Expand map randomization and add more environmental variation for replayability.
+4. **Expedition Planning:**
+   - Allow players to choose their landing spot and time of year for the expedition, each with unique challenges.
+
+---
+
+### **Milestone 9: Art Pass & Polish**
+- **Goal:** Deliver a visually polished and cohesive experience that enhances immersion without distracting from the survival gameplay.
+- **Playable Experience:** Players enjoy a refined version of the game with engaging visuals and smooth UI.
+
+#### Goals:
+1. **Particle Effects:**
+   - Add visual effects like blowing snow, wind-driven particles, and frost overlays to simulate the harsh Antarctic environment.
+2. **Dynamic Weather Visuals:**
+   - Enhance weather systems with smooth transitions, snowstorms, and visual cues for high winds.
+3. **Environmental Animation:**
+   - Animate interactive elements like flapping tents, swinging ropes, or swaying flags to reflect environmental conditions.
+4. **UI Polish:**
+   - Refine UI elements for clarity and immersion, ensuring they fit seamlessly into the game's aesthetic.
+5. **Start Screen:**
+   - Add a start screen with options to begin a new game, view instructions, or adjust settings, providing a professional entry point to the game.
+6. **Win Condition and End Report:**
+   - Add a detailed end-game report showing stats like days survived, health lost, and key milestones achieved.
+7. **Settings Menu:**
+   - Add a gear icon for a settings menu, allowing players to open a window with options, including ending the current game.
+8. **Loading Screen and Transitions:**
+   - Add a loading screen with a thematic transition effect to improve the overall game experience.
+9. **Restart Button Placement:**
+   - Ensure the restart button is positioned at the bottom of the screen for accessibility.
+10. **Message Box Adjustment:**
+    - Reduce the game message box by one line for better readability.
+
+---
+
