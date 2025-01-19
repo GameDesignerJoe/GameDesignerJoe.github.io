@@ -51,29 +51,41 @@
         }
 
         .stats-container {
-        width: 100%;
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-        padding: 0 10px;
-        }
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 0 10px;
+}
 
-        .stat {
-            flex: 1;
-        }
+.stat {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: calc(33.33% - 6px); /* Equal width minus the gap */
+}
 
-        .stat-bar {
-            height: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            overflow: hidden;
-        }
+.stat-icon {
+    width: 20px;  /* Slightly smaller icons */
+    height: 20px;
+    flex-shrink: 0;
+}
 
-        .stat-fill {
-            height: 100%;
-            width: 100%;
-            transition: width 0.3s ease;
-        }
+.stat-bar {
+    flex: 1;
+    height: 16px;  /* Slightly smaller height */
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.stat-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+}
 
         #health-bar {
             background-color: #ff4444;
@@ -168,28 +180,54 @@
             color: rgba(255, 255, 255, 0.8);
         }
 
+    /* Restart button */
+    .restart-button {
+            padding: 12px 24px;
+            font-family: 'Old Standard TT', serif;
+            font-size: 18px;
+            background-color: #44aaff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: background-color 0.2s;
+            display: none;
+        }
+
+        .restart-button.hidden {
+            display: none;
+        }
+
+        .restart-button:hover {
+            background-color: #3399ee;
+        }
     </style>
 </head>
 <body>
-    <div class="game-container">
-      <h1>NOT ALL SURVIVE</h1>
-      <div id="message-container">
-        <p id="game-message" class="narrative">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
+  <div class="game-container">
+    <h1>NOT ALL SURVIVE</h1>
+    <div id="message-container">
+      <p id="game-message" class="narrative">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
     </div>
-        
+    <button id="restart-button" class="restart-button hidden">Start New Expedition</button>    
       <!-- Add stats bars here -->
+      <!-- Stats bars with icons -->
       <div class="stats-container">
           <div class="stat">
+              <img src="public/art/health.svg" alt="Health" class="stat-icon">
               <div class="stat-bar">
                   <div class="stat-fill" id="health-bar"></div>
               </div>
           </div>
           <div class="stat">
+              <img src="public/art/stamina.svg" alt="Stamina" class="stat-icon">
               <div class="stat-bar">
                   <div class="stat-fill" id="stamina-bar"></div>
               </div>
           </div>
           <div class="stat">
+              <img src="public/art/food.svg" alt="Hunger" class="stat-icon">
               <div class="stat-bar">
                   <div class="stat-fill" id="hunger-bar"></div>
               </div>
@@ -197,8 +235,8 @@
       </div>
         
         <div class="grid-container">
-            <svg id="gameGrid" width="100%" height="100%" viewBox="0 0 300 300">
-                <g id="hexGroup" transform="translate(150, 150)">
+          <svg id="gameGrid" width="100%" height="100%" viewBox="-150 -150 300 300">
+              <g id="hexGroup">
                     <!-- Hexes will be added here by JS -->
                 </g>
             </svg>
@@ -330,33 +368,55 @@
           checkDeathCondition();
         } 
 
-function updatePlayerPosition(newQ, newR) {
+        function updatePlayerPosition(newQ, newR) {
+    // 1. Update player marker
     const player = document.getElementById('player');
     const center = getHexCenter(newQ, newR);
-    
     player.setAttribute("cx", center.x);
     player.setAttribute("cy", center.y);
     
-    // Check if moving onto ice field for initial damage
+    // 2. Handle ice field damage before position update
     const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
     const targetTerrain = TERRAIN_TYPES[targetHex.getAttribute('data-terrain')];
     if (targetTerrain && targetTerrain.healthRisk) {
-        // Apply immediate damage for stepping on ice
         stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
-        // Add visual/text feedback
         document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = `
-        <h3>Dangerous Ice!</h3>
-        <p><em>The bitter cold of the ice field bites into you.</em></p>
-        <p><em>"The ice here is dangerously cold..."</em></p>
-    `;
+        document.getElementById('game-message').innerHTML = `
+            <h3>Dangerous Ice!</h3>
+            <p><em>The bitter cold of the ice field bites into you.</em></p>
+            <p><em>"The ice here is dangerously cold..."</em></p>
+        `;
     }
     
+    // 3. Update position and visited hexes
     playerPosition = { q: newQ, r: newR };
     visitedHexes.add(`${newQ},${newR}`);
+    
+    // 4. Update visibility before checking victory conditions
     updateVisibility();
+    
+    // 5. Check victory conditions
+    if (newQ === southPole.q && newR === southPole.r) {
+        if (!southPoleVisited) {
+            southPoleVisited = true;
+            handleVictoryPhase("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.");
+        }
+    }
 
-    // Rest of the function remains the same...
+    if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+        handleVictoryPhase("Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.");
+        const restartBtn = document.getElementById('restart-button');
+        restartBtn.classList.remove('hidden');
+        restartBtn.style.display = 'block';
+    }
+    
+    // 6. Update UI state
+    selectedHex = null;
+    resetHexColors();
+    updateCurrentLocationInfo();
+    
+    // 7. Center viewport last (after all position updates are done)
+    centerViewport();
 }
 
         function updateCurrentLocationInfo() {
@@ -401,28 +461,41 @@ function updatePlayerPosition(newQ, newR) {
           document.getElementById('hunger-bar').style.width = `${stats.hunger}%`;
         }
 
-        function checkDeathCondition() {
-          if (stats.health <= 0) {
-              document.getElementById('game-message').className = 'narrative';
-              document.getElementById('game-message').innerHTML = 
-                  "The bitter cold claims another victim. Your journey ends here.";
-              // Turn off the stats update loop?
-              return true;
-          } else if (stats.hunger <= 0) {
-              // Don't show message, just flash the bars
-              const healthBar = document.getElementById('health-bar').parentElement;
-              const hungerBar = document.getElementById('hunger-bar').parentElement;
-              healthBar.classList.add('pulse-warning');
-              hungerBar.classList.add('pulse-warning');
-              setTimeout(() => {
-                  healthBar.classList.remove('pulse-warning');
-                  hungerBar.classList.remove('pulse-warning');
-              }, 1500);
-              return false;
-          }
-          return false;
-        } 
+function handleDeath(message) {
+    // Stop the game
+    gameRunning = false;
+    
+    // Show death message
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = message;
+    
+    // Show and setup restart button
+    const restartBtn = document.getElementById('restart-button');
+    restartBtn.classList.remove('hidden');
+    restartBtn.style.display = 'block';
+    
+    // Remove old event listener if exists and add new one
+    restartBtn.replaceWith(restartBtn.cloneNode(true));
+    document.getElementById('restart-button').addEventListener('click', function() {
+        gameRunning = true;
+        restartGame();
+    });
+}
 
+function checkDeathCondition() {
+    if (stats.health <= 0) {
+        // Show restart button only when health hits zero
+        handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
+        return true;
+    } else if (stats.hunger <= 0) {
+        // Message indicating ongoing starvation
+        document.getElementById('game-message').className = 'narrative';
+        document.getElementById('game-message').innerHTML = 
+            "Starvation gnaws at your very being. Each step becomes more difficult as your body consumes itself to survive. Without food, your fate is sealed - it is only a matter of time.";
+        return true;
+    }
+    return false;
+}
 
         // Helper functions remain the same
         function createHexPoints(size) {
@@ -466,41 +539,85 @@ function updatePlayerPosition(newQ, newR) {
             document.getElementById('hexGroup').appendChild(player);
         }
 
-        function updatePlayerPosition(newQ, newR) {
-    const player = document.getElementById('player');
-    const center = getHexCenter(newQ, newR);
+        function centerViewport() {
+    const hexGroup = document.getElementById('hexGroup');
+    const gameGrid = document.getElementById('gameGrid');
     
-    player.setAttribute("cx", center.x);
-    player.setAttribute("cy", center.y);
+    // Get player position in pixel coordinates
+    const playerCenter = getHexCenter(playerPosition.q, playerPosition.r);
     
-    playerPosition = { q: newQ, r: newR };
-    
-    // Add new position to visited hexes
-    visitedHexes.add(`${newQ},${newR}`);
-    
-    
-    // Update fog of war
-    updateVisibility();
+    // Center the player by negating their position
+    hexGroup.setAttribute('transform', `translate(${-playerCenter.x}, ${-playerCenter.y})`);
+}
 
-    // Check for south pole and victory conditions...
-    if (newQ === southPole.q && newR === southPole.r) {
-    if (!southPoleVisited) {
-        southPoleVisited = true;
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = 
-            "At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.";
+function handleVictoryPhase(message) {
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = message;
+    
+    if (message.includes("forever etched")) {
+        // This is the final victory - returning to base camp
+        const restartBtn = document.getElementById('restart-button');
+        restartBtn.classList.remove('hidden');
+        restartBtn.style.display = 'block';
+        
+        // Remove old listener and add new one
+        restartBtn.replaceWith(restartBtn.cloneNode(true));
+        document.getElementById('restart-button').addEventListener('click', function() {
+            gameRunning = true;
+            restartGame();
+        });
     }
 }
 
-if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+function handleDeath(message) {
+    // Only called when health hits zero
+    gameRunning = false;
+    
     document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = 
-        "Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.";
+    document.getElementById('game-message').innerHTML = message;
+    
+    const restartBtn = document.getElementById('restart-button');
+    restartBtn.classList.remove('hidden');
+    restartBtn.style.display = 'block';
+    
+    restartBtn.replaceWith(restartBtn.cloneNode(true));
+    document.getElementById('restart-button').addEventListener('click', function() {
+        gameRunning = true;
+        restartGame();
+    });
 }
 
-    selectedHex = null;
-    resetHexColors();
-    updateCurrentLocationInfo();
+function restartGame() {
+    // Hide restart button
+    document.getElementById('restart-button').classList.add('hidden');
+    document.getElementById('restart-button').style.display = 'none';
+    
+    // Reset all game state
+    stats.health = STATS.MAX_VALUE;
+    stats.stamina = STATS.MAX_VALUE;
+    stats.hunger = STATS.MAX_VALUE;
+    southPoleVisited = false;
+    gameRunning = true;
+    
+    // Clear visited hexes except base camp
+    visitedHexes.clear();
+    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
+    
+    // Reset player position and update viewport
+    updatePlayerPosition(baseCamp.q, baseCamp.r);
+    
+    // Show starting message
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = 
+        "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
+    
+    // Reset timing
+    lastStatUpdate = Date.now();
+    lastMoveTime = Date.now();
+    
+    // Update displays
+    updateStatsDisplay();
+    updateVisibility();
 }
 
 
@@ -699,60 +816,86 @@ function handleHexClick(event) {
     // Initialize visibility
     visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
     createPlayerMarker();
+    centerViewport();
+
     updateVisibility();
     updateCurrentLocationInfo();
 }
 
         // Keep existing pan handling code
-        let isPanning = false;
-        let startX = 0;
-        let startY = 0;
-        let currentTranslateX = 150;
-        let currentTranslateY = 150;
+        // let isPanning = false;
+        // let startX = 0;
+        // let startY = 0;
+        // let currentTranslateX = 150;
+        // let currentTranslateY = 150;
 
-        const hexGroup = document.getElementById('hexGroup');
-        const gameGrid = document.getElementById('gameGrid');
+        // const hexGroup = document.getElementById('hexGroup');
+        // const gameGrid = document.getElementById('gameGrid');
 
-        gameGrid.addEventListener('pointerdown', (e) => {
-            isPanning = true;
-            startX = e.clientX - currentTranslateX;
-            startY = e.clientY - currentTranslateY;
-        });
+        // gameGrid.addEventListener('pointerdown', (e) => {
+        //     isPanning = true;
+        //     startX = e.clientX - currentTranslateX;
+        //     startY = e.clientY - currentTranslateY;
+        // });
 
-        gameGrid.addEventListener('pointermove', (e) => {
-            if (!isPanning) return;
+        // gameGrid.addEventListener('pointermove', (e) => {
+        //     if (!isPanning) return;
             
-            currentTranslateX = e.clientX - startX;
-            currentTranslateY = e.clientY - startY;
+        //     currentTranslateX = e.clientX - startX;
+        //     currentTranslateY = e.clientY - startY;
             
-            hexGroup.setAttribute('transform', 
-                `translate(${currentTranslateX}, ${currentTranslateY})`);
-        });
+        //     hexGroup.setAttribute('transform', 
+        //         `translate(${currentTranslateX}, ${currentTranslateY})`);
+        // });
 
-        gameGrid.addEventListener('pointerup', () => {
-            isPanning = false;
-        });
+        // gameGrid.addEventListener('pointerup', () => {
+        //     isPanning = false;
+        // });
 
-        gameGrid.addEventListener('pointercancel', () => {
-            isPanning = false;
-        });
+        // gameGrid.addEventListener('pointercancel', () => {
+        //     isPanning = false;
+        // });
 
         // Initialize
         createHexGrid();
         // Start the stats update loop
         setInterval(updateStats, 50);
+
+function restartGame() {
+    // Hide restart button
+    document.getElementById('restart-button').classList.add('hidden');
+    document.getElementById('restart-button').style.display = 'none';
     
-        function restartGame() {
-          stats.health = STATS.MAX_VALUE;
-          stats.stamina = STATS.MAX_VALUE;
-          stats.hunger = STATS.MAX_VALUE;
-          southPoleVisited = false;
-          visitedHexes.clear();
-          visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
-          updatePlayerPosition(baseCamp.q, baseCamp.r);
-          document.getElementById('game-message').textContent = 
-              "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
-        }
+    // Reset all stats
+    stats.health = STATS.MAX_VALUE;
+    stats.stamina = STATS.MAX_VALUE;
+    stats.hunger = STATS.MAX_VALUE;
+    southPoleVisited = false;
+    
+    // Clear visited hexes except base camp
+    visitedHexes.clear();
+    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
+    
+    // Reset player position and center viewport
+    const hexGroup = document.getElementById('hexGroup');
+    const gameGrid = document.getElementById('gameGrid');
+    const gridRect = gameGrid.getBoundingClientRect();
+    const center = getHexCenter(baseCamp.q, baseCamp.r);
+    const translateX = (gridRect.width / 2) - center.x;
+    const translateY = (gridRect.height / 2) - center.y;
+    hexGroup.setAttribute('transform', `translate(${translateX}, ${translateY})`);
+    
+    updatePlayerPosition(baseCamp.q, baseCamp.r);
+    
+    // Show starting message
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = 
+        "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
+    
+    // Reset last update times
+    lastStatUpdate = Date.now();
+    lastMoveTime = Date.now();
+}
     </script>
 </body>
 </html>

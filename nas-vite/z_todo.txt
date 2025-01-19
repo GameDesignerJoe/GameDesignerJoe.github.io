@@ -1,0 +1,11 @@
+TODO List
+When my food got down to zero, the text message that displayed made it sound like I had died, rather than just slowly starving to death. "Your strength fails as hunger overtakes you. Your frozen body will remain here, a grim testament to the merciless Antarctic wasteland." 
+
+I don't want it to say, "You are too exhaseted" but actually you might want that so you need to think about how you want to handle showing hex info and player journey emotions in this game. Both are important. 
+
+Don't like the all black coloring for cravasse. 
+
+Wrong font and coloring for main page.
+
+Base camp doesn't do the opening narrative text on first load. 
+
