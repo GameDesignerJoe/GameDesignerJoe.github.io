@@ -350,7 +350,7 @@ function updatePlayerPosition(newQ, newR) {
         document.getElementById('game-message').className = 'narrative';
     document.getElementById('game-message').innerHTML = `
         <h3>Dangerous Ice!</h3>
-        <p>The bitter cold of the ice field bites into you.</p>
+        <p><em>The bitter cold of the ice field bites into you.</em></p>
         <p><em>"The ice here is dangerously cold..."</em></p>
     `;
     }
@@ -471,15 +471,17 @@ function updatePlayerPosition(newQ, newR) {
 
     // Check for south pole and victory conditions...
     if (newQ === southPole.q && newR === southPole.r) {
-        if (!southPoleVisited) {
-            southPoleVisited = true;
-            document.getElementById('game-message').textContent = 
+    if (!southPoleVisited) {
+        southPoleVisited = true;
+        document.getElementById('game-message').className = 'narrative';
+        document.getElementById('game-message').innerHTML = 
             "At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.";
     }
-    }
-    
-    if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-      document.getElementById('game-message').textContent = 
+}
+
+if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = 
         "Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.";
 }
 
@@ -500,6 +502,9 @@ function resetHexColors() {
         } else {
             hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
         }
+        // Reset stroke to default
+        hex.setAttribute('stroke', '#000000');
+        hex.setAttribute('stroke-width', '1');
     });
 }
 
@@ -563,8 +568,6 @@ function handleHexClick(event) {
     selectedHex = hex;
     hex.setAttribute('stroke', '#ffffff');
     hex.setAttribute('stroke-width', '3');
-    hex.setAttribute('stroke', '#000000');
-    hex.setAttribute('stroke-width', '1');
     
     // Update message with terrain info
     document.getElementById('game-message').className = 'terrain-info';
@@ -572,7 +575,7 @@ function handleHexClick(event) {
     <h3>${terrainInfo.name}</h3>
     <p><em>"${terrainInfo.quote}"</em></p>
     ${isAdjacentToPlayer ? 
-        terrainInfo.passable ? +
+        terrainInfo.passable ?
             `${terrainInfo.healthRisk ? `<p>Health risk: ${terrainInfo.healthRisk * 100}% damage</p>` : ''}` :
             '<p>This terrain is impassable!</p>' :
         ''
@@ -586,20 +589,29 @@ function handleHexClick(event) {
     const group = document.getElementById('hexGroup');
     const gridSize = 3;
     
-    // Position base camp in top two rows (highest negative r values)
-    const baseQ = Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize;  // Random q position
-    const baseR = -gridSize + Math.floor(Math.random() * 2);  // Either -gridSize or -gridSize+1
+    // Position base camp in top row with valid q coordinate
+    let baseQ, baseR;
+    baseR = -gridSize;  // Force it to be in the top row
+    
+    // Calculate valid q range for this r value
+    const minQ = Math.max(-gridSize, -gridSize - baseR);
+    const maxQ = Math.min(gridSize, gridSize - baseR);
+    baseQ = minQ + Math.floor(Math.random() * (maxQ - minQ + 1));
+    
     baseCamp = { q: baseQ, r: baseR };
     
     // Position player at base camp initially
     playerPosition = { q: baseQ, r: baseR };
     
-    // Position south pole in bottom two rows (highest positive r values)
+    // Position south pole in bottom row
     let southQ;
     let southR;
     do {
-        southQ = Math.floor(Math.random() * (gridSize * 2 + 1)) - gridSize;
         southR = gridSize;  // Force it to be in the bottom row
+        // Use same q range calculation for bottom row
+        const minSouthQ = Math.max(-gridSize, -gridSize - southR);
+        const maxSouthQ = Math.min(gridSize, gridSize - southR);
+        southQ = minSouthQ + Math.floor(Math.random() * (maxSouthQ - minSouthQ + 1));
     } while (southQ === baseQ && southR === baseR);
     southPole = { q: southQ, r: southR };
     

@@ -39,7 +39,7 @@ const TERRAIN_TYPES = {
         healthRisk: 0.02,
         passable: true,
         description: "Smooth ice that's easy to traverse but dangerously cold.",
-        quote: "The ice stretches out like polished glass, beautiful but bitter cold."
+        quote: "The ice stretches out like polished glass, beautiful but punishing when you slip."
     }
 };
 
