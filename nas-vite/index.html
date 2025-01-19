@@ -202,6 +202,43 @@
         .restart-button:hover {
             background-color: #3399ee;
         }
+
+.message-slide-enter {
+  transform: translateY(-100%);
+}
+
+.message-slide-enter-active {
+  transform: translateY(0);
+  transition: transform 300ms ease-in-out;
+}
+
+.message-slide-exit {
+  transform: translateY(0);
+}
+
+.message-slide-exit-active {
+  transform: translateY(-100%);
+  transition: transform 300ms ease-in-out;
+}
+
+.player-message {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    font-style: italic;
+    transform: translateY(-100%);
+    transition: transform 300ms ease-in-out;
+    z-index: 1000;
+}
+
+.player-message.visible {
+    transform: translateY(0);
+}
     </style>
 </head>
 <body>
@@ -235,6 +272,9 @@
       </div>
         
         <div class="grid-container">
+          <div id="player-message" class="player-message">
+            <p id="player-message-text"></p>
+        </div>
           <svg id="gameGrid" width="100%" height="100%" viewBox="-150 -150 300 300">
               <g id="hexGroup">
                     <!-- Hexes will be added here by JS -->
@@ -244,50 +284,107 @@
     </div>
 
     <script src="src/config/config.js"></script>
-    <script>
-        // Grid setup
-        const hexSize = 30;
-        const hexHeight = hexSize * 2;
-        const hexWidth = Math.sqrt(3) * hexSize;
-        
-        // Player state
-        let playerPosition = { q: 0, r: 0 };
-        let selectedHex = null;
+<script>
+// Grid setup
+let gameRunning = true;
 
-        // Fog of war tracking
-        let visitedHexes = new Set();
-        let visibleHexes = new Set();
+const hexSize = 30;
+const hexHeight = hexSize * 2;
+const hexWidth = Math.sqrt(3) * hexSize;
 
-        // Stats system
-        const STATS = {
-            MAX_VALUE: 100,
-            HEALTH_DECAY: 0.5,    // % per second
-            HUNGER_DECAY: 0.25,   // % per second
-            MOVE_STAMINA_COST: 5,
-            STAMINA_REGEN: 2      // % per second
-        };
+// Player state
+let playerPosition = { q: 0, r: 0 };
+let selectedHex = null;
 
-        let stats = {
-            health: STATS.MAX_VALUE,
-            stamina: STATS.MAX_VALUE,
-            hunger: STATS.MAX_VALUE
-        };
+// Fog of war tracking
+let visitedHexes = new Set();
+let visibleHexes = new Set();
 
-        const BASE_HEALING = {
-        HEALTH_REGEN: 1,    // % per second
-        HUNGER_REGEN: 0.5,  // % per second
-        STAMINA_REGEN: 3    // % per second
-        };
+// Stats system
+const STATS = {
+    MAX_VALUE: 100,
+    HEALTH_DECAY: 0.5,    // % per second
+    HUNGER_DECAY: 0.25,   // % per second
+    MOVE_STAMINA_COST: 5,
+    STAMINA_REGEN: 2      // % per second
+};
 
-        // Special locations
-        let baseCamp = null;
-        let southPole = null;
-        let southPoleVisited = false;
+let stats = {
+    health: STATS.MAX_VALUE,
+    stamina: STATS.MAX_VALUE,
+    hunger: STATS.MAX_VALUE
+};
 
-        let lastStatUpdate = Date.now();
-        let lastMoveTime = Date.now();
+const BASE_HEALING = {
+HEALTH_REGEN: 1,    // % per second
+HUNGER_REGEN: 0.5,  // % per second
+STAMINA_REGEN: 3    // % per second
+};
 
-        function updateVisibility() {
+// Special locations
+let baseCamp = null;
+let southPole = null;
+let southPoleVisited = false;
+
+let lastStatUpdate = Date.now();
+let lastMoveTime = Date.now();
+
+let activeMessageTimeout = null;
+let currentMessageType = null;
+
+// Message types
+const MESSAGE_TYPES = {
+    TERRAIN: 'terrain',     // For terrain-related messages (impassable, exhaustion)
+    STATUS: 'status',       // For important status messages (starving, victory)
+};
+
+function showInitialMessage() {
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = 
+        "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
+}
+
+function showPlayerMessage(message, type = MESSAGE_TYPES.TERRAIN) {
+    // Don't override STATUS messages with TERRAIN messages
+    if (currentMessageType === MESSAGE_TYPES.STATUS && type === MESSAGE_TYPES.TERRAIN) {
+        return;
+    }
+
+    const messageContainer = document.getElementById('player-message');
+    const messageText = document.getElementById('player-message-text');
+    
+    // Clear any existing timeout
+    if (activeMessageTimeout) {
+        clearTimeout(activeMessageTimeout);
+    }
+    
+    // Update message text and show container
+    messageText.textContent = message;
+    messageContainer.classList.add('visible');
+    currentMessageType = type;
+    
+    // Only set timeout for TERRAIN messages
+    if (type === MESSAGE_TYPES.TERRAIN) {
+        activeMessageTimeout = setTimeout(() => {
+            messageContainer.classList.remove('visible');
+            currentMessageType = null;
+        }, 5000);
+    }
+}
+
+function clearTerrainMessage() {
+    if (currentMessageType === MESSAGE_TYPES.TERRAIN) {
+        const messageContainer = document.getElementById('player-message');
+        messageContainer.classList.remove('visible');
+        currentMessageType = null;
+        if (activeMessageTimeout) {
+            clearTimeout(activeMessageTimeout);
+            activeMessageTimeout = null;
+        }
+    }
+}
+
+function updateVisibility() {
     // Clear current visible hexes
     visibleHexes.clear();
     
@@ -368,24 +465,18 @@
           checkDeathCondition();
         } 
 
-        function updatePlayerPosition(newQ, newR) {
-    // 1. Update player marker
+function updatePlayerPosition(newQ, newR) {
     const player = document.getElementById('player');
     const center = getHexCenter(newQ, newR);
     player.setAttribute("cx", center.x);
     player.setAttribute("cy", center.y);
     
-    // 2. Handle ice field damage before position update
     const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
     const targetTerrain = TERRAIN_TYPES[targetHex.getAttribute('data-terrain')];
     if (targetTerrain && targetTerrain.healthRisk) {
         stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = `
-            <h3>Dangerous Ice!</h3>
-            <p><em>The bitter cold of the ice field bites into you.</em></p>
-            <p><em>"The ice here is dangerously cold..."</em></p>
-        `;
+        // Use player message for damage notification
+        window.showPlayerMessage("The bitter cold of the ice field bites into you.");
     }
     
     // 3. Update position and visited hexes
@@ -419,79 +510,82 @@
     centerViewport();
 }
 
-        function updateCurrentLocationInfo() {
-          const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
-          const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
-          
-          if (atBaseCamp) {
-              document.getElementById('game-message').innerHTML = `
-                  <h3>Base Camp</h3>
-                  <p>A safe haven where you can rest and recover.</p>
-                  <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
-              `;
-          } else if (atSouthPole) {
-              document.getElementById('game-message').innerHTML = `
-                  <h3>South Pole</h3>
-                  <p>The ultimate goal of your expedition.</p>
-                  <p><em>"Could this be it? The South Pole itself?"</em></p>
-              `;
-          } else {
-              // Find the hex at current position
-              const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
-              if (currentHex) {
-                  const terrain = currentHex.getAttribute('data-terrain');
-                  const terrainInfo = TERRAIN_TYPES[terrain];
-                  document.getElementById('game-message').innerHTML = `
-                      <h3>${terrainInfo.name}</h3>
-                      <p><em>"${terrainInfo.quote}"</em></p>
-                  `;
-              }
-          }
+function updateCurrentLocationInfo() {
+    const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+    const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
+    
+    if (atBaseCamp) {
+        document.getElementById('game-message').innerHTML = `
+            <h3>Base Camp</h3>
+            <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
+        `;
+    } else if (atSouthPole) {
+        document.getElementById('game-message').innerHTML = `
+            <h3>South Pole</h3>
+            <p><em>"Could this be it? The South Pole itself?"</em></p>
+        `;
+    } else {
+        // Find the hex at current position
+        const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
+        if (currentHex) {
+            const terrain = currentHex.getAttribute('data-terrain');
+            const terrainInfo = TERRAIN_TYPES[terrain];
+            document.getElementById('game-message').innerHTML = `
+                <h3>${terrainInfo.name}</h3>
+                <p><em>${terrainInfo.quote}</em></p>
+            `;
         }
+    }
+}
 
-        function updateStatsDisplay() {
-          // Ensure stats don't go below 0
-          stats.health = Math.max(0, stats.health);
-          stats.stamina = Math.max(0, stats.stamina);
-          stats.hunger = Math.max(0, stats.hunger);
-          
-          // Update the bars
-          document.getElementById('health-bar').style.width = `${stats.health}%`;
-          document.getElementById('stamina-bar').style.width = `${stats.stamina}%`;
-          document.getElementById('hunger-bar').style.width = `${stats.hunger}%`;
-        }
+function updateStatsDisplay() {
+  // Ensure stats don't go below 0
+  stats.health = Math.max(0, stats.health);
+  stats.stamina = Math.max(0, stats.stamina);
+  stats.hunger = Math.max(0, stats.hunger);
+  
+  // Update the bars
+  document.getElementById('health-bar').style.width = `${stats.health}%`;
+  document.getElementById('stamina-bar').style.width = `${stats.stamina}%`;
+  document.getElementById('hunger-bar').style.width = `${stats.hunger}%`;
+}
 
 function handleDeath(message) {
-    // Stop the game
-    gameRunning = false;
-    
-    // Show death message
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = message;
-    
-    // Show and setup restart button
-    const restartBtn = document.getElementById('restart-button');
-    restartBtn.classList.remove('hidden');
-    restartBtn.style.display = 'block';
-    
-    // Remove old event listener if exists and add new one
-    restartBtn.replaceWith(restartBtn.cloneNode(true));
-    document.getElementById('restart-button').addEventListener('click', function() {
-        gameRunning = true;
-        restartGame();
-    });
+  // Stop the game
+  gameRunning = false;
+  
+  // Show death message as status message
+  showPlayerMessage(message, MESSAGE_TYPES.STATUS);
+  
+  // Show death message in game message area
+  document.getElementById('game-message').className = 'narrative';
+  document.getElementById('game-message').innerHTML = message;
+  
+  // Show and setup restart button
+  const restartBtn = document.getElementById('restart-button');
+  restartBtn.classList.remove('hidden');
+  restartBtn.style.display = 'block';
+  
+  // Clear any existing event listeners
+  const newRestartBtn = restartBtn.cloneNode(true);
+  restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
+  
+  // Add new event listener
+  newRestartBtn.addEventListener('click', () => {
+      gameRunning = true;
+      restartGame();
+      // Clear any status messages when restarting
+      clearTerrainMessage();
+  });
 }
 
 function checkDeathCondition() {
     if (stats.health <= 0) {
-        // Show restart button only when health hits zero
         handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
         return true;
     } else if (stats.hunger <= 0) {
-        // Message indicating ongoing starvation
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = 
-            "Starvation gnaws at your very being. Each step becomes more difficult as your body consumes itself to survive. Without food, your fate is sealed - it is only a matter of time.";
+        // Use STATUS type for starvation warning
+        showPlayerMessage("Starvation gnaws at your very being. Each step becomes more difficult as your body consumes itself to survive.", MESSAGE_TYPES.STATUS);
         return true;
     }
     return false;
@@ -551,21 +645,15 @@ function checkDeathCondition() {
 }
 
 function handleVictoryPhase(message) {
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = message;
+    // Show victory messages in the player message system
+    window.showPlayerMessage(message);
     
     if (message.includes("forever etched")) {
-        // This is the final victory - returning to base camp
         const restartBtn = document.getElementById('restart-button');
         restartBtn.classList.remove('hidden');
         restartBtn.style.display = 'block';
-        
-        // Remove old listener and add new one
         restartBtn.replaceWith(restartBtn.cloneNode(true));
-        document.getElementById('restart-button').addEventListener('click', function() {
-            gameRunning = true;
-            restartGame();
-        });
+        document.getElementById('restart-button').addEventListener('click', restartGame);
     }
 }
 
@@ -588,278 +676,248 @@ function handleDeath(message) {
 }
 
 function restartGame() {
-    // Hide restart button
-    document.getElementById('restart-button').classList.add('hidden');
-    document.getElementById('restart-button').style.display = 'none';
-    
-    // Reset all game state
-    stats.health = STATS.MAX_VALUE;
-    stats.stamina = STATS.MAX_VALUE;
-    stats.hunger = STATS.MAX_VALUE;
-    southPoleVisited = false;
-    gameRunning = true;
-    
-    // Clear visited hexes except base camp
-    visitedHexes.clear();
-    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
-    
-    // Reset player position and update viewport
-    updatePlayerPosition(baseCamp.q, baseCamp.r);
-    
-    // Show starting message
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = 
-        "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
-    
-    // Reset timing
-    lastStatUpdate = Date.now();
-    lastMoveTime = Date.now();
-    
-    // Update displays
-    updateStatsDisplay();
-    updateVisibility();
+  // Hide restart button
+  document.getElementById('restart-button').classList.add('hidden');
+  document.getElementById('restart-button').style.display = 'none';
+  
+  // Reset all game state
+  stats.health = STATS.MAX_VALUE;
+  stats.stamina = STATS.MAX_VALUE;
+  stats.hunger = STATS.MAX_VALUE;
+  southPoleVisited = false;
+  gameRunning = true;
+  
+  // Clear visited hexes except base camp
+  visitedHexes.clear();
+  visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
+  
+  // Reset player position and update viewport
+  updatePlayerPosition(baseCamp.q, baseCamp.r);
+  
+  // Show starting message
+  showInitialMessage();
+  
+  // Reset timing
+  lastStatUpdate = Date.now();
+  lastMoveTime = Date.now();
+  
+  // Update displays
+  updateStatsDisplay();
+  updateVisibility();
 }
 
 
 function resetHexColors() {
-    // Only select polygons that have terrain data
-    document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-        const terrain = hex.getAttribute('data-terrain');
-        if (terrain === 'BASE_CAMP') {
-            hex.setAttribute('fill', SPECIAL_LOCATIONS.BASE_CAMP.color);
-        } else if (terrain === 'SOUTH_POLE') {
-            hex.setAttribute('fill', SPECIAL_LOCATIONS.SOUTH_POLE.color);
-        } else {
-            hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
-        }
-        // Reset stroke to white
-        hex.setAttribute('stroke', '#ffffff');
-        hex.setAttribute('stroke-width', '1');
-    });
+  // Only select polygons that have terrain data
+  document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+      const terrain = hex.getAttribute('data-terrain');
+      if (terrain === 'BASE_CAMP') {
+          hex.setAttribute('fill', SPECIAL_LOCATIONS.BASE_CAMP.color);
+      } else if (terrain === 'SOUTH_POLE') {
+          hex.setAttribute('fill', SPECIAL_LOCATIONS.SOUTH_POLE.color);
+      } else {
+          hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
+      }
+      // Reset stroke to white
+      hex.setAttribute('stroke', '#ffffff');
+      hex.setAttribute('stroke-width', '1');
+  });
 }
 
 function handleHexClick(event) {
-    event.preventDefault();
-    const hex = event.target;
-    const q = parseInt(hex.getAttribute('data-q'));
-    const r = parseInt(hex.getAttribute('data-r'));
-    const hexId = `${q},${r}`;
-    const terrain = hex.getAttribute('data-terrain');
+  // Clear any existing terrain messages when clicking a new hex
+  clearTerrainMessage();
 
-    // Only allow interaction with visible or visited hexes
-    if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
-        !(q === baseCamp.q && r === baseCamp.r)) {
-        return;
-    }
+  event.preventDefault();
+  const hex = event.target;
+  const q = parseInt(hex.getAttribute('data-q'));
+  const r = parseInt(hex.getAttribute('data-r'));
+  const hexId = `${q},${r}`;
+  const terrain = hex.getAttribute('data-terrain');
 
-    // Get terrain info based on type
-    const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                      terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                      TERRAIN_TYPES[terrain];
-
-    // Check if movement is possible
-    const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
-    const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
-    const canMove = isAdjacentToPlayer && 
-                  terrainInfo.passable && 
-                  stats.stamina >= staminaCost;
-
-    // Reset all hex colors first
-    resetHexColors();
-
-    if (selectedHex && selectedHex === hex) {
-    // Second click on the same hex - attempt to move
-    if (isAdjacentToPlayer) {
-        if (!terrainInfo.passable) {
-            // Show terrain info but add impassable note
-            document.getElementById('game-message').className = 'terrain-info';
-            document.getElementById('game-message').innerHTML = `
-                <h3>${terrainInfo.name}</h3>
-                <p><em>"${terrainInfo.quote}"</em></p>
-                <p>This terrain is impassable!</p>
-            `;
-        } else if (stats.stamina < staminaCost) {
-            // Show terrain info but add stamina warning
-            document.getElementById('game-message').className = 'terrain-info';
-            document.getElementById('game-message').innerHTML = `
-                <h3>${terrainInfo.name}</h3>
-                <p><em>"${terrainInfo.quote}"</em></p>
-                <p>You are too exhausted to move.</p>
-            `;
-            // Flash stamina bar
-            const staminaBar = document.getElementById('stamina-bar').parentElement;
-            staminaBar.classList.add('pulse-warning');
-            setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
-        } else {
-            // Move and handle consequences
-            stats.stamina -= staminaCost;
-            
-            // Handle hunger and its effects
-            if (stats.hunger > 5) {
-                stats.hunger -= 5;
-            } else {
-                stats.hunger = 0;
-                stats.health = Math.max(0, stats.health - 5);
-                stats.stamina = Math.max(0, stats.stamina - 5);
-                
-                // Flash health and stamina bars
-                const healthBar = document.getElementById('health-bar').parentElement;
-                const staminaBar = document.getElementById('stamina-bar').parentElement;
-                healthBar.classList.add('pulse-warning');
-                staminaBar.classList.add('pulse-warning');
-                setTimeout(() => {
-                    healthBar.classList.remove('pulse-warning');
-                    staminaBar.classList.remove('pulse-warning');
-                }, 1500);
-            }
-            
-            lastMoveTime = Date.now();
-            updateStatsDisplay();
-            updatePlayerPosition(q, r);
-        }
-    }
-    selectedHex = null;
-    } else {
-      // First click - always show terrain info
-      selectedHex = hex;
-      hex.setAttribute('stroke', '#000000');
-      hex.setAttribute('stroke-width', '3');
-      
-      // Always show terrain info
-      document.getElementById('game-message').className = 'terrain-info';
-      document.getElementById('game-message').innerHTML = `
-          <h3>${terrainInfo.name}</h3>
-          <p><em>"${terrainInfo.quote}"</em></p>
-          ${terrainInfo.healthRisk ? `<p>Health risk: ${terrainInfo.healthRisk * 100}% damage</p>` : ''}
-      `;
-    }
+  // Only allow interaction with visible or visited hexes
+  if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
+      !(q === baseCamp.q && r === baseCamp.r)) {
+      return;
   }
 
-        // Create the hex grid
-        function createHexGrid() {
-    const group = document.getElementById('hexGroup');
-    const gridSize = 3;
-    
-    // Position base camp in top row with valid q coordinate
-    let baseQ, baseR;
-    baseR = -gridSize;  // Force it to be in the top row
-    
-    // Calculate valid q range for this r value
-    const minQ = Math.max(-gridSize, -gridSize - baseR);
-    const maxQ = Math.min(gridSize, gridSize - baseR);
-    baseQ = minQ + Math.floor(Math.random() * (maxQ - minQ + 1));
-    
-    baseCamp = { q: baseQ, r: baseR };
-    
-    // Position player at base camp initially
-    playerPosition = { q: baseQ, r: baseR };
-    
-    // Position south pole in bottom row
-    let southQ;
-    let southR;
-    do {
-        southR = gridSize;  // Force it to be in the bottom row
-        // Use same q range calculation for bottom row
-        const minSouthQ = Math.max(-gridSize, -gridSize - southR);
-        const maxSouthQ = Math.min(gridSize, gridSize - southR);
-        southQ = minSouthQ + Math.floor(Math.random() * (maxSouthQ - minSouthQ + 1));
-    } while (southQ === baseQ && southR === baseR);
-    southPole = { q: southQ, r: southR };
-    
-    // Create terrain hexes
-    for (let q = -gridSize; q <= gridSize; q++) {
-        for (let r = -gridSize; r <= gridSize; r++) {
-            if (Math.abs(q + r) <= gridSize) {
-                const x = hexWidth * (q + r/2);
-                const y = hexHeight * (r * 3/4);
+  // Get terrain info based on type
+  const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
+                    terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+                    TERRAIN_TYPES[terrain];
+  // Check for South Pole spotting
+  if (terrain === 'SOUTH_POLE' && !visitedHexes.has(hexId)) {
+      showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.STATUS);
+  }
+
+  // Check if movement is possible
+  const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
+  const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
+  const canMove = isAdjacentToPlayer && 
+                terrainInfo.passable && 
+                stats.stamina >= staminaCost;
+
+  // Reset all hex colors first
+  resetHexColors();
+
+    if (selectedHex && selectedHex === hex) {
+        // Second click on the same hex - attempt to move
+        if (isAdjacentToPlayer) {
+            if (!terrainInfo.passable) {
+                // Use TERRAIN type for impassable message
+                showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
+                // Keep terrain info in the info panel
+                document.getElementById('game-message').innerHTML = `
+                    <h3>${terrainInfo.name}</h3>
+                    <p><em>${terrainInfo.quote}</em></p>
+                `;
+            } else if (stats.stamina < staminaCost) {// Use TERRAIN type for exhaustion message
+              showPlayerMessage("You are too exhausted to move.", MESSAGE_TYPES.TERRAIN);
+                // Keep terrain info in the info panel
+                document.getElementById('game-message').innerHTML = `
+                    <h3>${terrainInfo.name}</h3>
+                    <p><em>${terrainInfo.quote}</em></p>
+                `;
+                // Flash stamina bar
+                const staminaBar = document.getElementById('stamina-bar').parentElement;
+                staminaBar.classList.add('pulse-warning');
+                setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+            } else {
+                // Move and handle consequences
+                stats.stamina -= staminaCost;
                 
-                // Create terrain hex
-                const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                let terrain;
-                
-                if (q === baseCamp.q && r === baseCamp.r) {
-                    terrain = 'BASE_CAMP';
-                    hex.setAttribute("fill", SPECIAL_LOCATIONS.BASE_CAMP.color);
-                } else if (q === southPole.q && r === southPole.r) {
-                    terrain = 'SOUTH_POLE';
-                    hex.setAttribute("fill", SPECIAL_LOCATIONS.SOUTH_POLE.color);
+                if (stats.hunger > 5) {
+                    stats.hunger -= 5;
                 } else {
-                    terrain = assignRandomTerrain();
-                    hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
+                    stats.hunger = 0;
+                    stats.health = Math.max(0, stats.health - 5);
+                    stats.stamina = Math.max(0, stats.stamina - 5);
+                    // Use STATUS type for hunger effects
+                    showPlayerMessage("Your body weakens from hunger...", MESSAGE_TYPES.STATUS);
+                    
+                    // Flash health and stamina bars
+                    const healthBar = document.getElementById('health-bar').parentElement;
+                    const staminaBar = document.getElementById('stamina-bar').parentElement;
+                    healthBar.classList.add('pulse-warning');
+                    staminaBar.classList.add('pulse-warning');
+                    setTimeout(() => {
+                        healthBar.classList.remove('pulse-warning');
+                        staminaBar.classList.remove('pulse-warning');
+                    }, 1500);
                 }
                 
-                hex.setAttribute("points", createHexPoints(hexSize));
-                hex.setAttribute("transform", `translate(${x}, ${y})`);
-                hex.setAttribute("stroke", "#ffffff");
-                hex.setAttribute("stroke-width", "1");
-                hex.setAttribute("data-q", q);
-                hex.setAttribute("data-r", r);
-                hex.setAttribute("data-terrain", terrain);
-                
-                hex.addEventListener('pointerdown', handleHexClick);
-                group.appendChild(hex);
-                
-                // Create fog overlay for this hex
-                const fog = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                fog.setAttribute("points", createHexPoints(hexSize));
-                fog.setAttribute("transform", `translate(${x}, ${y})`);
-                fog.setAttribute("class", "fog");
-                fog.setAttribute("data-q", q);
-                fog.setAttribute("data-r", r);
-                fog.setAttribute("fill-opacity", "1");
-                fog.setAttribute("id", `fog-${q},${r}`);
-                group.appendChild(fog);
+                lastMoveTime = Date.now();
+                updateStatsDisplay();
+                updatePlayerPosition(q, r);
             }
         }
+        selectedHex = null;
+    } else {
+        // First click - show terrain info in info panel
+        selectedHex = hex;
+        hex.setAttribute('stroke', '#000000');
+        hex.setAttribute('stroke-width', '3');
+        
+        document.getElementById('game-message').className = 'terrain-info';
+        document.getElementById('game-message').innerHTML = `
+            <h3>${terrainInfo.name}</h3>
+            <p><em>${terrainInfo.quote}</em></p>
+        `;
     }
-
-    // Initialize visibility
-    visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
-    createPlayerMarker();
-    centerViewport();
-
-    updateVisibility();
-    updateCurrentLocationInfo();
 }
 
-        // Keep existing pan handling code
-        // let isPanning = false;
-        // let startX = 0;
-        // let startY = 0;
-        // let currentTranslateX = 150;
-        // let currentTranslateY = 150;
+// Create the hex grid
+function createHexGrid() {
+  const group = document.getElementById('hexGroup');
+  const gridSize = 3;
+    
+  // Position base camp in top row with valid q coordinate
+  let baseQ, baseR;
+  baseR = -gridSize;  // Force it to be in the top row
+    
+  // Calculate valid q range for this r value
+  const minQ = Math.max(-gridSize, -gridSize - baseR);
+  const maxQ = Math.min(gridSize, gridSize - baseR);
+  baseQ = minQ + Math.floor(Math.random() * (maxQ - minQ + 1));
+    
+  baseCamp = { q: baseQ, r: baseR };
+    
+  // Position player at base camp initially
+  playerPosition = { q: baseQ, r: baseR };
+    
+  // Position south pole in bottom row
+  let southQ;
+  let southR;
+  do {
+      southR = gridSize;  // Force it to be in the bottom row
+      // Use same q range calculation for bottom row
+      const minSouthQ = Math.max(-gridSize, -gridSize - southR);
+      const maxSouthQ = Math.min(gridSize, gridSize - southR);
+      southQ = minSouthQ + Math.floor(Math.random() * (maxSouthQ - minSouthQ + 1));
+  } while (southQ === baseQ && southR === baseR);
+  southPole = { q: southQ, r: southR };
+  
+  // Create terrain hexes
+  for (let q = -gridSize; q <= gridSize; q++) {
+      for (let r = -gridSize; r <= gridSize; r++) {
+          if (Math.abs(q + r) <= gridSize) {
+              const x = hexWidth * (q + r/2);
+              const y = hexHeight * (r * 3/4);
+              
+              // Create terrain hex
+              const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+              let terrain;
+              
+              if (q === baseCamp.q && r === baseCamp.r) {
+                  terrain = 'BASE_CAMP';
+                  hex.setAttribute("fill", SPECIAL_LOCATIONS.BASE_CAMP.color);
+              } else if (q === southPole.q && r === southPole.r) {
+                  terrain = 'SOUTH_POLE';
+                  hex.setAttribute("fill", SPECIAL_LOCATIONS.SOUTH_POLE.color);
+              } else {
+                  terrain = assignRandomTerrain();
+                  hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
+              }
+              
+              hex.setAttribute("points", createHexPoints(hexSize));
+              hex.setAttribute("transform", `translate(${x}, ${y})`);
+              hex.setAttribute("stroke", "#ffffff");
+              hex.setAttribute("stroke-width", "1");
+              hex.setAttribute("data-q", q);
+              hex.setAttribute("data-r", r);
+              hex.setAttribute("data-terrain", terrain);
+              
+              hex.addEventListener('pointerdown', handleHexClick);
+              group.appendChild(hex);
+              
+              // Create fog overlay for this hex
+              const fog = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+              fog.setAttribute("points", createHexPoints(hexSize));
+              fog.setAttribute("transform", `translate(${x}, ${y})`);
+              fog.setAttribute("class", "fog");
+              fog.setAttribute("data-q", q);
+              fog.setAttribute("data-r", r);
+              fog.setAttribute("fill-opacity", "1");
+              fog.setAttribute("id", `fog-${q},${r}`);
+              group.appendChild(fog);
+          }
+      }
+  }
 
-        // const hexGroup = document.getElementById('hexGroup');
-        // const gameGrid = document.getElementById('gameGrid');
+  // Initialize visibility
+  visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
+  createPlayerMarker();
+  centerViewport();
 
-        // gameGrid.addEventListener('pointerdown', (e) => {
-        //     isPanning = true;
-        //     startX = e.clientX - currentTranslateX;
-        //     startY = e.clientY - currentTranslateY;
-        // });
-
-        // gameGrid.addEventListener('pointermove', (e) => {
-        //     if (!isPanning) return;
-            
-        //     currentTranslateX = e.clientX - startX;
-        //     currentTranslateY = e.clientY - startY;
-            
-        //     hexGroup.setAttribute('transform', 
-        //         `translate(${currentTranslateX}, ${currentTranslateY})`);
-        // });
-
-        // gameGrid.addEventListener('pointerup', () => {
-        //     isPanning = false;
-        // });
-
-        // gameGrid.addEventListener('pointercancel', () => {
-        //     isPanning = false;
-        // });
+  updateVisibility();
+  updateCurrentLocationInfo();
+}
 
         // Initialize
         createHexGrid();
         // Start the stats update loop
         setInterval(updateStats, 50);
+        showInitialMessage();
 
 function restartGame() {
     // Hide restart button

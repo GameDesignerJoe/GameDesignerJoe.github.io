@@ -1,11 +1,16 @@
 TODO List
-When my food got down to zero, the text message that displayed made it sound like I had died, rather than just slowly starving to death. "Your strength fails as hunger overtakes you. Your frozen body will remain here, a grim testament to the merciless Antarctic wasteland." 
-
-I don't want it to say, "You are too exhaseted" but actually you might want that so you need to think about how you want to handle showing hex info and player journey emotions in this game. Both are important. 
-
 Don't like the all black coloring for cravasse. 
 
 Wrong font and coloring for main page.
 
 Base camp doesn't do the opening narrative text on first load. 
 
+We need to display status on death that you died. 
+
+The starving to death status should go away after 5 seconds... and maybe come back on a timer of every 15 seconds. 
+
+Popup text goes away too quickly. 
+
+The reaching south pole and coming back home messages need to beccome game messages, not status messages. 
+
+On initialy load the narrative doesn't show up, but on restart it does. 
