@@ -109,6 +109,19 @@ polygon[data-terrain] {
     flex-shrink: 0;
 }
 
+/* Add these new selectors to color the icons */
+#health-icon {
+    filter: invert(56%) sepia(82%) saturate(2695%) hue-rotate(325deg) brightness(100%) contrast(119%);
+}
+
+#stamina-icon {
+    filter: invert(58%) sepia(77%) saturate(845%) hue-rotate(182deg) brightness(103%) contrast(98%);
+}
+
+#hunger-icon {
+    filter: invert(50%) sepia(56%) saturate(1200%) hue-rotate(370deg) brightness(123%) contrast(90%);
+}
+
 .stat-bar {
     flex: 1;
     height: 16px;  /* Slightly smaller height */
@@ -121,7 +134,7 @@ polygon[data-terrain] {
 .stat-fill {
     height: 100%;
     width: 0%;
-    transition: width 0.4s ease;
+    transition: width 0.2s ease;
 }
 
 #health-bar {
@@ -148,11 +161,6 @@ polygon[data-terrain] {
 
 .pulse-warning {
     animation: pulseRed 0.5s ease-in-out 3;
-}
-
-/* Add transition for all stat colors */
-.stat-icon, .stat-bar, .stat-fill {
-    transition: all 5000ms;
 }
 
 /* Create whiteout versions of the stats */
@@ -183,7 +191,7 @@ polygon[data-terrain] {
 }
 
 .fog.movement-fade {
-    transition: fill-opacity 2s ease-in-out;  /* Normal movement transition */
+    transition: fill-opacity 1.5s ease-in-out;  /* Normal movement transition */
 }
 
 .fog.blizzard-fade {
@@ -204,9 +212,9 @@ polygon[data-terrain] {
 
 #message-container {
   width: 100%;
-  height: 160px; /* Fixed height */
-  margin: 10px 0 20px 0;
-  padding: 10px;
+  height: 120px; /* Fixed height */
+  margin: 5px 0;
+  padding: 5px;
   background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
@@ -265,6 +273,10 @@ font-style: italic;
 
 /* Restart button */
 .restart-button {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%);
     padding: 12px 24px;
     font-family: 'Old Standard TT', serif;
     font-size: 18px;
@@ -273,9 +285,11 @@ font-style: italic;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    margin: 10px 0;
     transition: background-color 0.2s;
     display: none;
+    z-index: 1000;
+    /* Account for iOS safe area */
+    padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 
 .restart-button.hidden {
@@ -331,7 +345,7 @@ font-style: italic;
     <div id="message-container">
       <p id="game-message" class="narrative">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
     </div>
-    <button id="restart-button" class="restart-button hidden">Start New Expedition</button>    
+    <button id="restart-button" class="restart-button hidden">START A NEW EXPEDITION</button>    
       <!-- Add stats bars here -->
       <!-- Stats bars with icons -->
       <div class="stats-container">
@@ -398,7 +412,7 @@ const STATS = {
     HEALTH_DECAY: 0.5,    // % per second
     HUNGER_DECAY: 0.25,   // % per second
     MOVE_STAMINA_COST: 5,
-    STAMINA_REGEN: 2      // % per second
+    STAMINA_REGEN: 0.8      // % per second
 };
 
 let stats = {
@@ -448,9 +462,9 @@ const WEATHER = {
     CONFIG: {
         WHITEOUT: {
             HEALTH_DECAY_MULTIPLIER: 1.05,
-            FADE_IN_DURATION: 10000,
+            FADE_IN_DURATION: 15000,
             HOLD_DURATION: 10000,
-            FADE_OUT_DURATION: 10000,
+            FADE_OUT_DURATION: 8000,
             MIN_INTERVAL: 120000,     // 2 minutes
             MAX_INTERVAL: 240000      // 4 minutes
         },
@@ -911,12 +925,14 @@ function updatePlayerPosition(newQ, newR) {
     }
     
     // Victory checks - reaching South Pole and returning to base camp
-    if (newQ === southPole.q && newR === southPole.r && !southPoleVisited) {
-        southPoleVisited = true;
-        handleVictoryPhase("At last! Through bitter cold and endless white, you've reached the South Pole! Now the treacherous journey back to base camp awaits...");
-    } else if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-        handleVictoryPhase("Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration.");
-    }
+if (newQ === southPole.q && newR === southPole.r && !southPoleVisited) {
+    southPoleVisited = true;
+    // Show reaching South Pole message in main game message window
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = "At last! Through bitter cold and endless white, you've reached the South Pole! Now the treacherous journey back to base camp awaits...";
+} else if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+    handleVictoryPhase("Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration.");
+}
     
     selectedHex = null;
     resetHexColors();
@@ -925,6 +941,15 @@ function updatePlayerPosition(newQ, newR) {
 }
 
 function updateCurrentLocationInfo() {
+  // Don't update if we're in a major game state
+  if (gameWon || southPoleVisited && playerPosition.q === southPole.q && playerPosition.r === southPole.r) {
+        return;
+    }
+    // If game is won, don't update location info
+    if (gameWon) {
+        return;
+    }
+
     if (WEATHER.state.whiteoutPhase) {
         document.getElementById('game-message').innerHTML = `
             <h3>White Out Conditions</h3>
@@ -945,7 +970,7 @@ function updateCurrentLocationInfo() {
     const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
     const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
     
-    if (atBaseCamp) {
+    if (atBaseCamp && !gameWon) {
         document.getElementById('game-message').innerHTML = `
             <h3>Base Camp</h3>
             <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
@@ -1020,6 +1045,7 @@ function handleDeath(message) {
 
 function checkDeathCondition() {
     if (stats.health <= 0) {
+      if (!gameRunning) return true; // Don't trigger death multiple times
         gameRunning = false;
         if (stats.hunger <= 0) {
             handleDeath("Starvation claims another victim. Your frozen body becomes one with the endless white of Antarctica.");
@@ -1109,14 +1135,12 @@ function handleVictoryPhase(message) {
         const newRestartBtn = restartBtn.cloneNode(true);
         restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
         newRestartBtn.addEventListener('click', restartGame);
+
+        // Set a permanent victory message in the game message area only
+        const finalVictoryMessage = "Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration. The bitter winds that once howled of challenge now sing of your triumph, as you stand at base camp, forever changed by your journey across the endless white.";
+        document.getElementById('game-message').className = 'narrative';
+        document.getElementById('game-message').innerHTML = finalVictoryMessage;
     }
-    
-    // Show victory message in the game message area
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = message;
-    
-    // Show victory message in the player message system
-    showPlayerMessage(message, MESSAGE_TYPES.STATUS);
 }
 
 // Add this new function to handle full weather reset
@@ -1154,10 +1178,13 @@ function resetWeatherState() {
 // Update the restartGame function
 function restartGame() {
     console.log('Restarting game...');
+
+    // Reset game state flags
     gameWon = false;
     gameRunning = true;
     southPoleSpotted = false;
     southPoleVisited = false;
+    shownStarvationThresholds.clear();
 
     // Reset all stats
     stats.health = STATS.MAX_VALUE;
@@ -1169,35 +1196,36 @@ function restartGame() {
     restartBtn.classList.add('hidden');
     restartBtn.style.display = 'none';
 
-    // Reset all weather states and effects
-    resetWeatherState();
+    // Reset player marker color and position
+    const player = document.getElementById('player');
+    if (player) {
+        player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
+        const center = getHexCenter(baseCamp.q, baseCamp.r);
+        player.setAttribute("cx", center.x);
+        player.setAttribute("cy", center.y);
+    }
+
+    // Reset player position
+    playerPosition = { q: baseCamp.q, r: baseCamp.r };
 
     // Clear visited hexes except base camp
     visitedHexes.clear();
     visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
 
-    // Reset player position to base camp
-    playerPosition = { q: baseCamp.q, r: baseCamp.r };
-    const player = document.getElementById('player');
-    const center = getHexCenter(baseCamp.q, baseCamp.r);
-    player.setAttribute("cx", center.x);
-    player.setAttribute("cy", center.y);
+    // Clear any selected hex state
+    selectedHex = null;
+    resetHexColors();
 
-    shownStarvationThresholds.clear();
-
-    // Make sure to reset player color
-    if (player) {
-        player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
-    }
-
-    
-    // Center the viewport
-    centerViewport();
+    // Reset all weather states and effects
+    resetWeatherState();
 
     // Reset visibility and update display
     updateVisibility(false);
     updateStatsDisplay();
     updateCurrentLocationInfo();
+
+    // Center the viewport
+    centerViewport();
 
     // Show starting message
     showInitialMessage();
@@ -1211,7 +1239,7 @@ function restartGame() {
         if (gameRunning && !gameWon) {
             scheduleNextWeather();
         }
-    }, 5000);
+    }, 5000);    
 }
 
 function resetHexColors() {
@@ -1232,11 +1260,7 @@ function resetHexColors() {
 }
 
 function handleHexClick(event) {
-  console.log('Game is over, no interaction allowed.');
-  if (!gameRunning) return;
-
-    clearTerrainMessage();
-    event.preventDefault();
+  if (!gameRunning || stats.health <= 0) return;
 
     clearTerrainMessage();
     event.preventDefault();
@@ -1276,45 +1300,49 @@ function handleHexClick(event) {
     const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
 
     // Handle hex selection and movement
-    if (selectedHex && selectedHex === hex) {
-        // Second click - attempt movement
-        if (isAdjacentToPlayer) {
-            if (!terrainInfo.passable) {
-                showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
-            } else if (stats.stamina < staminaCost) {
-                showPlayerMessage("You are too exhausted to move.", MESSAGE_TYPES.TERRAIN);
-                const staminaBar = document.getElementById('stamina-bar').parentElement;
-                staminaBar.classList.add('pulse-warning');
-                setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+if (selectedHex && selectedHex === hex) {
+    // Second click - attempt movement
+    if (isAdjacentToPlayer) {
+        // Calculate total stamina cost - base movement + terrain cost
+        const totalStaminaCost = STATS.MOVE_STAMINA_COST + (terrainInfo.staminaCost || 0);
+        
+        if (!terrainInfo.passable) {
+            showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
+        } else if (stats.stamina < totalStaminaCost) {
+            showPlayerMessage(`You are too exhausted`, MESSAGE_TYPES.TERRAIN);
+            const staminaBar = document.getElementById('stamina-bar').parentElement;
+            staminaBar.classList.add('pulse-warning');
+            setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+        } else {
+            // Simple stamina deduction
+            stats.stamina -= totalStaminaCost;
+
+            // Add hunger cost for movement
+            if (stats.hunger > 5) {
+                stats.hunger -= 5;
             } else {
-                // Move and handle consequences
-                stats.stamina -= staminaCost;
+                stats.hunger = 0;
+                stats.health = Math.max(0, stats.health - 5);
+                stats.stamina = Math.max(0, stats.stamina - 5);
                 
-                if (stats.hunger > 5) {
-                    stats.hunger -= 5;
-                } else {
-                    stats.hunger = 0;
-                    stats.health = Math.max(0, stats.health - 5);
-                    stats.stamina = Math.max(0, stats.stamina - 5);
-                    
-                    const healthBar = document.getElementById('health-bar').parentElement;
-                    const staminaBar = document.getElementById('stamina-bar').parentElement;
-                    healthBar.classList.add('pulse-warning');
-                    staminaBar.classList.add('pulse-warning');
-                    setTimeout(() => {
-                        healthBar.classList.remove('pulse-warning');
-                        staminaBar.classList.remove('pulse-warning');
-                    }, 1500);
-                }
-                
-                lastMoveTime = Date.now();
-                updateStatsDisplay();
-                updatePlayerPosition(q, r);
+                const healthBar = document.getElementById('health-bar').parentElement;
+                const staminaBar = document.getElementById('stamina-bar').parentElement;
+                healthBar.classList.add('pulse-warning');
+                staminaBar.classList.add('pulse-warning');
+                setTimeout(() => {
+                    healthBar.classList.remove('pulse-warning');
+                    staminaBar.classList.remove('pulse-warning');
+                }, 1500);
             }
+
+            lastMoveTime = Date.now();
+            updateStatsDisplay();
+            updatePlayerPosition(q, r);
         }
-        selectedHex = null;
-    } else {
-        // First click - show terrain info and highlight hex
+    }
+    selectedHex = null;
+} else {
+    // First click code remains the same...
         selectedHex = hex;
         hex.setAttribute('stroke', '#000000');
         hex.setAttribute('stroke-width', '3');
@@ -1424,44 +1452,6 @@ function createHexGrid() {
 
   updateVisibility();
   updateCurrentLocationInfo();
-}
-
-function restartGame() {
-    // Hide restart button
-    document.getElementById('restart-button').classList.add('hidden');
-    document.getElementById('restart-button').style.display = 'none';
-
-    southPoleSpotted = false;
-    
-    // Reset all stats
-    stats.health = STATS.MAX_VALUE;
-    stats.stamina = STATS.MAX_VALUE;
-    stats.hunger = STATS.MAX_VALUE;
-    southPoleVisited = false;
-    
-    // Clear visited hexes except base camp
-    visitedHexes.clear();
-    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
-    
-    // Reset player position and center viewport
-    const hexGroup = document.getElementById('hexGroup');
-    const gameGrid = document.getElementById('gameGrid');
-    const gridRect = gameGrid.getBoundingClientRect();
-    const center = getHexCenter(baseCamp.q, baseCamp.r);
-    const translateX = (gridRect.width / 2) - center.x;
-    const translateY = (gridRect.height / 2) - center.y;
-    hexGroup.setAttribute('transform', `translate(${translateX}, ${translateY})`);
-    
-    updatePlayerPosition(baseCamp.q, baseCamp.r);
-    
-    // Show starting message
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = 
-        "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
-    
-    // Reset last update times
-    lastStatUpdate = Date.now();
-    lastMoveTime = Date.now();
 }
 
 // Initialize

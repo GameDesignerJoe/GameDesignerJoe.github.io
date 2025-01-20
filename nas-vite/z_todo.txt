@@ -4,26 +4,13 @@ TODO List
 - If you die during a weather event, I don't think you get your last narrative message. 
 
 == SMALL (GPT) FIXES ==
-- Wrong font and coloring for main page.
-- Don't like the all black coloring for cravasse. 
 - Whiteout happens too fast. 
-- The message box for south pole needs to be better, same with base camp.
-- The new adjacent tiles don't appear fast enough. 
 - You should turn all the bars that same color blue when you die.
-- When you come out of whiteout, the background goes back to the old blue color you had. 
-- Shrink the whitespace between the text and the stats. 
 
 == BIGGER (CLAUDE) FIXES ==
-- You can still play after death.
-- The reaching south pole and coming back home messages need to beccome game messages, not status messages. 
-- When your health reach zero from starvvation, you don't get a reset button.
-- When you restart after dying, your health bar doesn't reset. 
-- When you die, your player icon doesn't reset either. 
-- You actually can't even play at all because it thinks you're dead.
 
 == MISC ==
 - Split out this index.html file into other files at some point.
-- It look like stamina is not going down fast enough. Likely because of the transitions on the bars maybe.
 
 
 == FUTURE FEATURES ==
@@ -45,4 +32,5 @@ TODO List
     Arrived at South pole
     Trigger Blizzard
     Trigger Whiteout
-
+- Consider a radial gradient for the blizzard effect.
+- Still need to do a tempurature drop effect. Freeze everything. 
