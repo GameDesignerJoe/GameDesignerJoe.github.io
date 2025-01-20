@@ -113,11 +113,31 @@
             animation: pulseRed 0.5s ease-in-out 3;
         }
 
-        .fog {
-        fill: white;  /* Match background color #1B4B7C */
-        pointer-events: none;  /* Allow clicks to pass through */
-        transition: fill 0.3s ease;
-        }
+.fog {
+    fill: white;
+    pointer-events: none;
+    transition: fill-opacity 2s ease-in-out;  /* Default movement transition */
+}
+
+.fog.movement-fade {
+    transition: fill-opacity 2s ease-in-out;  /* Normal movement transition */
+}
+
+.fog.blizzard-fade {
+    transition: fill-opacity 8s ease-in-out;  /* Slower blizzard transition */
+}
+
+.blizzard-overlay {
+    transition: opacity 5s ease-in-out;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.whiteout-overlay {
+    transition: opacity 10s ease-in-out;
+    pointer-events: none;
+    opacity: 0;
+}
 
         #message-container {
           width: 100%;
@@ -239,6 +259,7 @@
 .player-message.visible {
     transform: translateY(0);
 }
+
     </style>
 </head>
 <body>
@@ -339,38 +360,270 @@ const MESSAGE_TYPES = {
     STATUS: 'status',       // For important status messages (starving, victory)
 };
 
+// Weather system configuration and state
+// Weather system configuration and state
+const WEATHER = {
+    CONFIG: {
+        WHITEOUT: {
+            HEALTH_DECAY_MULTIPLIER: 1.05,
+            FADE_IN_DURATION: 10000,
+            HOLD_DURATION: 10000,
+            FADE_OUT_DURATION: 10000,
+            MIN_INTERVAL: 120000,     // 2 minutes
+            MAX_INTERVAL: 240000      // 4 minutes
+        },
+        BLIZZARD: {
+            HEALTH_DECAY_MULTIPLIER: 1.02,
+            FADE_IN_DURATION: 5000,   // Faster transition
+            HOLD_DURATION: 15000,     // Longer period of reduced visibility
+            FADE_OUT_DURATION: 10000,  // Faster transition
+            MIN_INTERVAL: 45000,      // 45 seconds
+            MAX_INTERVAL: 90000       // 1.5 minutes
+        }
+    },
+    state: {
+        whiteoutActive: false,
+        blizzardActive: false,
+        whiteoutPhase: false,        // Standardized naming
+        temporaryFog: new Set(),
+        weatherTimeout: null
+    }
+};
+
+// Debug test
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.altKey && e.key === 'w') {
+        console.log('Whiteout debug key pressed');
+        triggerWhiteout();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.altKey && e.key === 'b') {
+        console.log('Blizzard debug key pressed');
+        triggerBlizzard();
+    }
+});
+
+function createWeatherElements() {
+    // Create blizzard overlay
+    const blizzardRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    blizzardRect.setAttribute("id", "blizzardOverlay");
+    blizzardRect.setAttribute("class", "blizzard-overlay");
+    blizzardRect.setAttribute("x", "-150");
+    blizzardRect.setAttribute("y", "-150");
+    blizzardRect.setAttribute("width", "300");
+    blizzardRect.setAttribute("height", "300");
+    blizzardRect.setAttribute("fill", "white");
+
+    // Create whiteout overlay
+    const whiteoutRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    whiteoutRect.setAttribute("id", "whiteoutOverlay");
+    whiteoutRect.setAttribute("class", "whiteout-overlay");
+    whiteoutRect.setAttribute("x", "-150");
+    whiteoutRect.setAttribute("y", "-150");
+    whiteoutRect.setAttribute("width", "300");
+    whiteoutRect.setAttribute("height", "300");
+    whiteoutRect.setAttribute("fill", "white");
+
+    // Add both overlays to the game grid
+    const gameGrid = document.getElementById('gameGrid');
+    gameGrid.appendChild(blizzardRect);
+    gameGrid.appendChild(whiteoutRect);
+}
+
+function triggerBlizzard() {
+    if (WEATHER.state.blizzardActive || WEATHER.state.whiteoutActive) return;
+    
+    console.log('Weather Debug: Starting blizzard');
+    WEATHER.state.blizzardActive = true;
+    const blizzardOverlay = document.getElementById('blizzardOverlay');
+    
+    // Store current visibility state
+    WEATHER.state.temporaryFog = new Set([...visitedHexes]);
+    
+    // Start the blizzard fade effect
+    document.querySelectorAll('.fog').forEach(fogHex => {
+        const q = parseInt(fogHex.getAttribute('data-q'));
+        const r = parseInt(fogHex.getAttribute('data-r'));
+        const hexId = `${q},${r}`;
+        const isBaseCamp = q === baseCamp.q && r === baseCamp.r;
+        
+        // Add blizzard fade to all hexes except current position
+        if (!isBaseCamp && (hexId !== `${playerPosition.q},${playerPosition.r}`)) {
+            fogHex.classList.add('blizzard-fade');
+            // Start the fade to white
+            fogHex.setAttribute('fill-opacity', '1');
+        }
+    });
+    
+    showPlayerMessage("A blizzard sweeps in, obscuring your view...", MESSAGE_TYPES.STATUS);
+    setTimeout(() => clearTerrainMessage(), 5000);
+    
+    setTimeout(() => {
+        console.log('Weather Debug: Blizzard fade in');
+        blizzardOverlay.setAttribute("opacity", "0.5");
+        
+        setTimeout(() => {
+            console.log('Weather Debug: Blizzard peak intensity');
+            updateVisibility(true);
+            
+            setTimeout(() => {
+                console.log('Weather Debug: Blizzard starting fade out');
+                blizzardOverlay.setAttribute("opacity", "0");
+                
+                document.querySelectorAll('.fog').forEach(fogHex => {
+                    fogHex.classList.remove('blizzard-fade');
+                });
+                
+                WEATHER.state.weatherTimeout = setTimeout(() => {
+                    handleBlizzardComplete();
+                }, WEATHER.CONFIG.BLIZZARD.FADE_OUT_DURATION);
+                
+            }, WEATHER.CONFIG.BLIZZARD.HOLD_DURATION);
+            
+        }, WEATHER.CONFIG.BLIZZARD.FADE_IN_DURATION);
+    }, 100);
+}
+
+function handleBlizzardComplete() {
+    console.log('Weather Debug: Handling blizzard completion');
+    
+    if (!WEATHER.state.blizzardActive) {
+        console.log('Weather Debug: Blizzard already completed, skipping cleanup');
+        return;
+    }
+    
+    WEATHER.state.blizzardActive = false;
+    
+    // Restore previous visibility including adjacent hexes
+    visitedHexes = new Set([...WEATHER.state.temporaryFog]);
+    WEATHER.state.temporaryFog.clear();
+    updateVisibility(false);
+    
+    updateStatsDisplay();
+    updateCurrentLocationInfo();
+    
+    if (WEATHER.state.weatherTimeout) {
+        clearTimeout(WEATHER.state.weatherTimeout);
+        WEATHER.state.weatherTimeout = null;
+    }
+    
+    scheduleNextWeather();
+    showPlayerMessage("The blizzard subsides, your surroundings becoming familiar once again...", MESSAGE_TYPES.TERRAIN);
+    console.log('Weather Debug: Blizzard complete');
+}
+
+function triggerWhiteout() {
+    if (WEATHER.state.whiteoutActive || WEATHER.state.blizzardActive) {
+        console.log('Weather Debug: Cannot start whiteout - weather already active');
+        return;
+    }
+    
+    console.log('Weather Debug: Starting whiteout');
+    WEATHER.state.whiteoutActive = true;
+    const whiteoutOverlay = document.getElementById('whiteoutOverlay');
+    
+    // Show initial message with timeout
+    showPlayerMessage("The air grows thick with snow...", MESSAGE_TYPES.STATUS);
+    setTimeout(() => clearTerrainMessage(), 5000);
+    
+    setTimeout(() => {
+        console.log('Weather Debug: Whiteout fade in');
+        whiteoutOverlay.setAttribute("opacity", "1");
+        
+        setTimeout(() => {
+            console.log('Weather Debug: Whiteout peak intensity');
+            WEATHER.state.whiteoutPhase = true;
+            updateCurrentLocationInfo();
+            
+            setTimeout(() => {
+                console.log('Weather Debug: Whiteout starting fade out');
+                visitedHexes.clear();
+                visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
+                updateVisibility();
+                
+                whiteoutOverlay.setAttribute("opacity", "0");
+                WEATHER.state.whiteoutPhase = false;
+                
+                setTimeout(() => {
+                    console.log('Weather Debug: Whiteout fade out complete, calling handleWhiteoutComplete');
+                    handleWhiteoutComplete();
+                }, WEATHER.CONFIG.WHITEOUT.FADE_OUT_DURATION);
+                
+            }, WEATHER.CONFIG.WHITEOUT.HOLD_DURATION);
+            
+        }, WEATHER.CONFIG.WHITEOUT.FADE_IN_DURATION);
+    }, 100);
+}
+
+function handleWhiteoutComplete() {
+    WEATHER.state.whiteoutActive = false;
+    
+    // Update UI elements
+    updateStatsDisplay();
+    updateCurrentLocationInfo();
+    
+    // Schedule next storm
+    scheduleNextWeather();
+    
+    // Show completion message
+    showPlayerMessage("The white out phenomenon clears, but nothing looks familiar anymore...", MESSAGE_TYPES.TERRAIN);
+}
+
+function scheduleNextWeather() {
+    // Clear any existing timeout
+    if (WEATHER.state.weatherTimeout) {
+        clearTimeout(WEATHER.state.weatherTimeout);
+    }
+    
+    // Determine which type of storm comes next (70% chance of blizzard)
+    const isBlizzard = Math.random() < 0.7;
+    const config = isBlizzard ? WEATHER.CONFIG.BLIZZARD : WEATHER.CONFIG.WHITEOUT;
+    
+    const nextInterval = config.MIN_INTERVAL + 
+        Math.random() * (config.MAX_INTERVAL - config.MIN_INTERVAL);
+    
+    WEATHER.state.weatherTimeout = setTimeout(
+        isBlizzard ? triggerBlizzard : triggerWhiteout, 
+        nextInterval
+    );
+}
+
 function showInitialMessage() {
     document.getElementById('game-message').className = 'narrative';
     document.getElementById('game-message').innerHTML = 
         "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
 }
 
+// Modify the showPlayerMessage function to handle timeouts better
 function showPlayerMessage(message, type = MESSAGE_TYPES.TERRAIN) {
-    // Don't override STATUS messages with TERRAIN messages
-    if (currentMessageType === MESSAGE_TYPES.STATUS && type === MESSAGE_TYPES.TERRAIN) {
+    // Don't show messages during whiteout except for STATUS messages
+    if (WEATHER.state.whiteoutPhase && type !== MESSAGE_TYPES.STATUS) {
+        console.log('Message Debug: Suppressing message during whiteout:', message);
         return;
     }
 
-    const messageContainer = document.getElementById('player-message');
-    const messageText = document.getElementById('player-message-text');
-    
+    console.log('Message Debug: Showing message', { type, message });
+
     // Clear any existing timeout
     if (activeMessageTimeout) {
         clearTimeout(activeMessageTimeout);
     }
     
-    // Update message text and show container
+    const messageContainer = document.getElementById('player-message');
+    const messageText = document.getElementById('player-message-text');
+    
     messageText.textContent = message;
     messageContainer.classList.add('visible');
     currentMessageType = type;
     
-    // Only set timeout for TERRAIN messages
-    if (type === MESSAGE_TYPES.TERRAIN) {
-        activeMessageTimeout = setTimeout(() => {
-            messageContainer.classList.remove('visible');
-            currentMessageType = null;
-        }, 5000);
-    }
+    // Set timeout for all message types
+    activeMessageTimeout = setTimeout(() => {
+        console.log('Message Debug: Clearing message:', message);
+        messageContainer.classList.remove('visible');
+        currentMessageType = null;
+    }, type === MESSAGE_TYPES.TERRAIN ? 5000 : 5000); // Same timeout for both types now
 }
 
 function clearTerrainMessage() {
@@ -385,86 +638,114 @@ function clearTerrainMessage() {
     }
 }
 
-function updateVisibility() {
-    // Clear current visible hexes
+// Update visibility function to handle both weather conditions properly
+function updateVisibility(isBlizzard = false) {
     visibleHexes.clear();
-    
-    // Add current position and adjacent hexes
     visibleHexes.add(`${playerPosition.q},${playerPosition.r}`);
-    getAdjacentHexes(playerPosition).forEach(hex => {
-        visibleHexes.add(`${hex.q},${hex.r}`);
-    });
     
-    // Update fog overlay for all hexes
+    // Add adjacent hexes to visible set
+    if (!WEATHER.state.whiteoutPhase) {
+        getAdjacentHexes(playerPosition).forEach(hex => {
+            visibleHexes.add(`${hex.q},${hex.r}`);
+        });
+    }
+    
+    // Handle fog transitions
     document.querySelectorAll('.fog').forEach(fogHex => {
-        // Use data attributes instead of transform
         const q = parseInt(fogHex.getAttribute('data-q'));
         const r = parseInt(fogHex.getAttribute('data-r'));
         const hexId = `${q},${r}`;
         const isBaseCamp = q === baseCamp.q && r === baseCamp.r;
+        const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
         
-        if (isBaseCamp || visibleHexes.has(hexId) || visitedHexes.has(hexId)) {
-            fogHex.setAttribute('fill-opacity', '0');
+        if (isBlizzard) {
+            // During blizzard, everything except current position and base camp should be fogged
+            if (!isBaseCamp && !isCurrentPosition) {
+                if (!fogHex.classList.contains('blizzard-fade')) {
+                    fogHex.classList.add('blizzard-fade');
+                }
+                fogHex.setAttribute('fill-opacity', '1');
+            } else {
+                fogHex.setAttribute('fill-opacity', '0');
+            }
         } else {
-            fogHex.setAttribute('fill-opacity', '1');
+            // Normal visibility rules
+            fogHex.classList.remove('blizzard-fade');
+            fogHex.classList.add('movement-fade');
+            if (isBaseCamp || visibleHexes.has(hexId) || 
+                (!WEATHER.state.blizzardActive && visitedHexes.has(hexId))) {
+                fogHex.setAttribute('fill-opacity', '0');
+            } else {
+                fogHex.setAttribute('fill-opacity', '1');
+            }
         }
     });
 }
 
-        // Helper function to get adjacent hex coordinates
-        function getAdjacentHexes(hex) {
-            const directions = [
-                {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
-                {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
-            ];
-            
-            return directions.map(dir => ({
-                q: hex.q + dir.q,
-                r: hex.r + dir.r
-            }));
-        }
+// Helper function to get adjacent hex coordinates
+function getAdjacentHexes(hex) {
+    const directions = [
+        {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
+        {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
+    ];
+    
+    return directions.map(dir => ({
+        q: hex.q + dir.q,
+        r: hex.r + dir.r
+    }));
+}
 
-        function updateStats() {
-          // Only exit if health is zero, not if hunger is zero
-          if (stats.health <= 0) return;
+function updateStats() {
+  // Only exit if health is zero, not if hunger is zero
+  if (stats.health <= 0) return;
 
-          const now = Date.now();
-          const deltaTime = (now - lastStatUpdate) / 1000;
-          lastStatUpdate = now;
+  const now = Date.now();
+  const deltaTime = (now - lastStatUpdate) / 1000;
 
-          // Check current terrain for effects
-          const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
-          const currentTerrain = currentHex ? TERRAIN_TYPES[currentHex.getAttribute('data-terrain')] : null;
+  // Apply weather effects if active
+  if (WEATHER.state.whiteoutActive) {
+      stats.health = Math.max(0, stats.health - 
+          (STATS.HEALTH_DECAY * WEATHER.CONFIG.WHITEOUT.HEALTH_DECAY_MULTIPLIER * deltaTime));
+  } else if (WEATHER.state.blizzardActive) {
+      stats.health = Math.max(0, stats.health - 
+          (STATS.HEALTH_DECAY * WEATHER.CONFIG.BLIZZARD.HEALTH_DECAY_MULTIPLIER * deltaTime));
+  }
 
-          // Check if at base camp
-          const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
-          
-          if (atBaseCamp) {
-              // Healing at base camp
-              stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
-              stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
-              stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
-          } else {
-              // Only health decay when not at base camp
-              stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
-              
-              // Apply ice field damage over time if standing on ice
-              if (currentTerrain && currentTerrain.healthRisk) {
-                  stats.health = Math.max(0, stats.health - (currentTerrain.healthRisk * 100 * deltaTime));
-              }
-              
-              // Always try to regenerate stamina if we haven't moved recently
-              const timeSinceLastMove = (now - lastMoveTime) / 1000;
-              if (timeSinceLastMove > 0.5) {
-                  stats.stamina = Math.min(STATS.MAX_VALUE, 
-                      stats.stamina + STATS.STAMINA_REGEN * deltaTime);
-              }
-          }
-          
-          // Update stats display after all calculations
-          updateStatsDisplay();
-          checkDeathCondition();
-        } 
+  lastStatUpdate = now;
+
+  // Check current terrain for effects
+  const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
+  const currentTerrain = currentHex ? TERRAIN_TYPES[currentHex.getAttribute('data-terrain')] : null;
+
+  // Check if at base camp
+  const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+  
+  if (atBaseCamp) {
+      // Healing at base camp
+      stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
+      stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
+      stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
+  } else {
+      // Only health decay when not at base camp
+      stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
+      
+      // Apply ice field damage over time if standing on ice
+      if (currentTerrain && currentTerrain.healthRisk) {
+          stats.health = Math.max(0, stats.health - (currentTerrain.healthRisk * 100 * deltaTime));
+      }
+      
+      // Always try to regenerate stamina if we haven't moved recently
+      const timeSinceLastMove = (now - lastMoveTime) / 1000;
+      if (timeSinceLastMove > 0.5) {
+          stats.stamina = Math.min(STATS.MAX_VALUE, 
+              stats.stamina + STATS.STAMINA_REGEN * deltaTime);
+      }
+  }
+  
+  // Update stats display after all calculations
+  updateStatsDisplay();
+  checkDeathCondition();
+} 
 
 function updatePlayerPosition(newQ, newR) {
     const player = document.getElementById('player');
@@ -476,42 +757,60 @@ function updatePlayerPosition(newQ, newR) {
     const targetTerrain = TERRAIN_TYPES[targetHex.getAttribute('data-terrain')];
     if (targetTerrain && targetTerrain.healthRisk) {
         stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
-        // Use player message for damage notification
         window.showPlayerMessage("The bitter cold of the ice field bites into you.");
     }
     
-    // 3. Update position and visited hexes
+    // Update position and visited hexes
     playerPosition = { q: newQ, r: newR };
     visitedHexes.add(`${newQ},${newR}`);
     
-    // 4. Update visibility before checking victory conditions
-    updateVisibility();
+    // If during blizzard, update temporaryFog with new position and adjacents
+    if (WEATHER.state.blizzardActive) {
+        WEATHER.state.temporaryFog.add(`${newQ},${newR}`);
+        getAdjacentHexes(playerPosition).forEach(hex => {
+            WEATHER.state.temporaryFog.add(`${hex.q},${hex.r}`);
+        });
+        updateVisibility(true);
+    } else {
+        updateVisibility(false);
+    }
     
-    // 5. Check victory conditions
+    // Rest of the victory checks and UI updates
     if (newQ === southPole.q && newR === southPole.r) {
         if (!southPoleVisited) {
             southPoleVisited = true;
-            handleVictoryPhase("At last! Through bitter cold and endless white, you've reached the South Pole! You plant your flag in triumph, but your journey is far from over. You must now make the perilous trek back to base camp if you hope to tell the world of your discovery.");
+            handleVictoryPhase("At last! Through bitter cold and endless white, you've reached the South Pole!...");
         }
     }
 
     if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-        handleVictoryPhase("Against all odds, you've done it! You've not only reached the South Pole but survived the return journey. Your name will be forever etched in the annals of polar exploration. Future generations will speak of your incredible feat of survival and discovery.");
-        const restartBtn = document.getElementById('restart-button');
-        restartBtn.classList.remove('hidden');
-        restartBtn.style.display = 'block';
+        handleVictoryPhase("Against all odds, you've done it!...");
     }
     
-    // 6. Update UI state
     selectedHex = null;
     resetHexColors();
     updateCurrentLocationInfo();
-    
-    // 7. Center viewport last (after all position updates are done)
     centerViewport();
 }
 
 function updateCurrentLocationInfo() {
+    if (WEATHER.state.whiteOutPhase) {
+        document.getElementById('game-message').innerHTML = `
+            <h3>White Out Conditions</h3>
+            <p><em>"The world beyond arm's reach has vanished into white..."</em></p>
+        `;
+        return;
+    }
+
+    if (WEATHER.state.blizzardActive) {
+        document.getElementById('game-message').innerHTML = `
+            <h3>Blizzard Conditions</h3>
+            <p><em>"The howling wind makes it difficult to see far..."</em></p>
+        `;
+        return;
+    }
+
+    // Regular location info continues here...
     const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
     const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
     
@@ -727,61 +1026,50 @@ function resetHexColors() {
 
 function handleHexClick(event) {
     clearTerrainMessage();
-
     event.preventDefault();
+    
     const hex = event.target;
     const q = parseInt(hex.getAttribute('data-q'));
     const r = parseInt(hex.getAttribute('data-r'));
     const hexId = `${q},${r}`;
     const terrain = hex.getAttribute('data-terrain');
 
-    // Only allow interaction with visible or visited hexes
-    if (!visibleHexes.has(hexId) && !visitedHexes.has(hexId) && 
-        !(q === baseCamp.q && r === baseCamp.r)) {
-        return;
-    }
-
     // Get terrain info based on type
     const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
                       terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
                       TERRAIN_TYPES[terrain];
 
-    // Check for South Pole spotting first - always show this regardless of stamina
+    // Handle visibility restrictions based on weather
+    if (WEATHER.state.whiteoutPhase) {
+        // During whiteout, only allow interaction with adjacent hexes
+        if (!isAdjacent({ q, r }, playerPosition)) {
+            return;
+        }
+    } else if (!WEATHER.state.blizzardActive && !visibleHexes.has(hexId) && 
+              !visitedHexes.has(hexId) && !(q === baseCamp.q && r === baseCamp.r)) {
+        // Only apply normal visibility rules when not in a blizzard
+        return;
+    }
+
+    // Check for South Pole spotting
     if (terrain === 'SOUTH_POLE' && !southPoleSpotted && !visitedHexes.has(hexId)) {
         southPoleSpotted = true;
         showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.TERRAIN);
     }
 
-    // Check if movement is possible
+    // Reset hex colors and check movement possibility
+    resetHexColors();
     const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
     const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
-    const canMove = isAdjacentToPlayer && 
-                  terrainInfo.passable && 
-                  stats.stamina >= staminaCost;
 
-    // Reset all hex colors first
-    resetHexColors();
-
+    // Handle hex selection and movement
     if (selectedHex && selectedHex === hex) {
-        // Second click on the same hex - attempt to move
+        // Second click - attempt movement
         if (isAdjacentToPlayer) {
             if (!terrainInfo.passable) {
-                // Use TERRAIN type for impassable message
                 showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
-                // Keep terrain info in the info panel
-                document.getElementById('game-message').innerHTML = `
-                    <h3>${terrainInfo.name}</h3>
-                    <p><em>${terrainInfo.quote}</em></p>
-                `;
             } else if (stats.stamina < staminaCost) {
-                // Use TERRAIN type for exhaustion message
                 showPlayerMessage("You are too exhausted to move.", MESSAGE_TYPES.TERRAIN);
-                // Keep terrain info in the info panel
-                document.getElementById('game-message').innerHTML = `
-                    <h3>${terrainInfo.name}</h3>
-                    <p><em>${terrainInfo.quote}</em></p>
-                `;
-                // Flash stamina bar
                 const staminaBar = document.getElementById('stamina-bar').parentElement;
                 staminaBar.classList.add('pulse-warning');
                 setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
@@ -795,10 +1083,8 @@ function handleHexClick(event) {
                     stats.hunger = 0;
                     stats.health = Math.max(0, stats.health - 5);
                     stats.stamina = Math.max(0, stats.stamina - 5);
-                    // Use STATUS type for hunger effects
                     showPlayerMessage("Your body weakens from hunger...", MESSAGE_TYPES.STATUS);
                     
-                    // Flash health and stamina bars
                     const healthBar = document.getElementById('health-bar').parentElement;
                     const staminaBar = document.getElementById('stamina-bar').parentElement;
                     healthBar.classList.add('pulse-warning');
@@ -816,22 +1102,34 @@ function handleHexClick(event) {
         }
         selectedHex = null;
     } else {
-        // First click - show terrain info in info panel
+        // First click - show terrain info and highlight hex
         selectedHex = hex;
         hex.setAttribute('stroke', '#000000');
         hex.setAttribute('stroke-width', '3');
         
-        document.getElementById('game-message').className = 'terrain-info';
-        document.getElementById('game-message').innerHTML = `
-            <h3>${terrainInfo.name}</h3>
-            <p><em>${terrainInfo.quote}</em></p>
-        `;
+        // Only show terrain info during normal conditions or when on current hex during blizzard
+        if (!WEATHER.state.whiteoutPhase && 
+            (!WEATHER.state.blizzardActive || (q === playerPosition.q && r === playerPosition.r))) {
+            document.getElementById('game-message').className = 'terrain-info';
+            document.getElementById('game-message').innerHTML = `
+                <h3>${terrainInfo.name}</h3>
+                <p><em>${terrainInfo.quote}</em></p>
+            `;
+        }
     }
 }
 
 // Create the hex grid
 function createHexGrid() {
   const group = document.getElementById('hexGroup');
+    
+  // Add storm layer first, before other elements
+  // Add storm overlay first, before other elements
+  createWeatherElements();
+  
+  // Schedule first storm
+  scheduleNextWeather();
+  
   const gridSize = 3;
     
   // Position base camp in top row with valid q coordinate

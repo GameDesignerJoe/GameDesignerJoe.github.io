@@ -100,3 +100,41 @@ function updateTerrainInfo(terrainType) {
         <p><em>"${terrain.quote}"</em></p>
     `;
 }
+
+// Weather system configuration
+// const WEATHER_CONFIG = {
+//     STORM: {
+//         HEALTH_DECAY_MULTIPLIER: 1.05, // Additional 5% decay
+//         DURATION: 10000, // 10 seconds
+//         MIN_INTERVAL: 30000, // 30 seconds
+//         MAX_INTERVAL: 120000 // 2 minutes
+//     }
+// };
+
+// // Add to existing game state
+// let stormActive = false;
+// let stormDirection = null; // 0=North, 1=East, 2=South, 3=West
+// let stormProgress = 0;
+
+// // Storm effect handler
+// function handleStormEffects(deltaTime) {
+//     if (stormActive) {
+//         // Apply additional health decay during storm
+//         stats.health = Math.max(0, stats.health - 
+//             (STATS.HEALTH_DECAY * WEATHER_CONFIG.STORM.HEALTH_DECAY_MULTIPLIER * deltaTime));
+//     }
+// }
+
+// // Storm completion handler
+// function handleStormComplete() {
+//     stormActive = false;
+//     stormProgress = 0;
+    
+//     // Reset fog of war
+//     visitedHexes.clear();
+//     visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
+//     updateVisibility();
+    
+//     // Update UI elements
+//     updateStatsDisplay();
+// }

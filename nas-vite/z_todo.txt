@@ -14,3 +14,5 @@ Popup text goes away too quickly.
 The reaching south pole and coming back home messages need to beccome game messages, not status messages. 
 
 On initialy load the narrative doesn't show up, but on restart it does. 
+
+Blizzard text doesn't clear. 
