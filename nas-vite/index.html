@@ -5,52 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NOT ALL SURVIVVE</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
 
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #1B4B7C;
-            color: white;
-            min-height: 100vh;
-            width: 100%;
-            overscroll-behavior: none;
-            touch-action: none;
-        }
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: #1B4B7C;
+    color: white;
+    min-height: 100vh;
+    width: 100%;
+    overscroll-behavior: none;
+    touch-action: none;
+    transition: background-color 10s ease-in-out;
+}
 
-        .game-container {
-            width: 100%;
-            max-width: 450px;
-            margin: 0 auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: env(safe-area-inset-top, 20px);
-            padding-bottom: env(safe-area-inset-bottom, 20px);
-        }
+.game-container {
+    width: 100%;
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: env(safe-area-inset-top, 20px);
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    transition: background-color 10s ease-in-out;
+}
 
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
+h1 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+}
 
-        .grid-container {
-            width: 100%;
-            aspect-ratio: 1;
-            position: relative;
-            background: rgba(0, 0, 0, 0.2);
-            touch-action: none;
-            overflow: hidden;
-            border-radius: 8px;
-        }
+.grid-container {
+    width: 100%;
+    aspect-ratio: 1;
+    position: relative;
+    background: rgba(0, 0, 0, 0.2);
+    touch-action: none;
+    overflow: hidden;
+    border-radius: 8px;
+    transition: background-color 10s ease-in-out;
+}
 
-        .stats-container {
+#player {
+    transition: opacity 3000ms;
+}
+
+#player.whiteout-fade {
+    transition-delay: 2000ms;
+}
+
+polygon[data-terrain] {
+    transition: opacity 5000ms;
+}
+
+.stats-container {
     width: 100%;
     display: flex;
     gap: 8px;
@@ -87,31 +102,57 @@
     transition: width 0.3s ease;
 }
 
-        #health-bar {
-            background-color: #ff4444;
-        }
+#health-bar {
+    background-color: #ff4444;
+}
 
-        #stamina-bar {
-            background-color: #44aaff;
-        }
+#stamina-bar {
+    background-color: #44aaff;
+}
 
-        #hunger-bar {
-            background-color: #ffaa44;
-        }
+#hunger-bar {
+    background-color: #ffaa44;
+}
 
-        @keyframes pulseRed {
-            0% { background-color: rgba(255, 68, 68, 0.1); }
-            50% { background-color: rgba(255, 68, 68, 0.3); }
-            100% { background-color: rgba(255, 68, 68, 0.1); }
-        }
+@keyframes pulseRed {
+    0% { background-color: rgba(255, 68, 68, 0.1); }
+    50% { background-color: rgba(255, 68, 68, 0.3); }
+    100% { background-color: rgba(255, 68, 68, 0.1); }
+}
 
-        .stat-bar.pulse-warning {
-            animation: pulseRed 0.5s ease-in-out 3;
-        }
+.stat-bar.pulse-warning {
+    animation: pulseRed 0.5s ease-in-out 3;
+}
 
-        .pulse-warning {
-            animation: pulseRed 0.5s ease-in-out 3;
-        }
+.pulse-warning {
+    animation: pulseRed 0.5s ease-in-out 3;
+}
+
+/* Add transition for all stat colors */
+.stat-icon, .stat-bar, .stat-fill {
+    transition: all 5000ms;
+}
+
+/* Create whiteout versions of the stats */
+.whiteout-stats .stat-icon {
+    filter: brightness(0.95) saturate(0.1);  /* Makes icons slightly off-white */
+}
+
+.whiteout-stats .stat-bar {
+    background: rgba(255, 255, 255, 0.15);  /* Lighter background for bars */
+}
+
+.whiteout-stats #health-bar {
+    background-color: rgba(255, 240, 240, 0.5);  /* Muted red */
+}
+
+.whiteout-stats #stamina-bar {
+    background-color: rgba(240, 240, 255, 0.5);  /* Muted blue */
+}
+
+.whiteout-stats #hunger-bar {
+    background-color: rgba(255, 250, 240, 0.5);  /* Muted orange */
+}
 
 .fog {
     fill: white;
@@ -139,89 +180,89 @@
     opacity: 0;
 }
 
-        #message-container {
-          width: 100%;
-          height: 160px; /* Fixed height */
-          margin: 10px 0 20px 0;
-          padding: 10px;
-          background-color: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 4px;
-          overflow-y: auto; /* Allow scrolling if content is too long */
-        }
+#message-container {
+  width: 100%;
+  height: 160px; /* Fixed height */
+  margin: 10px 0 20px 0;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow-y: auto; /* Allow scrolling if content is too long */
+}
 
-        /* Optional: Hide scrollbar but keep functionality */
-        #message-container {
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE and Edge */
-        }
-        #message-container::-webkit-scrollbar {
-            display: none; /* Chrome, Safari, Opera */
-        }
+/* Optional: Hide scrollbar but keep functionality */
+#message-container {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+#message-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
 
-        #game-message {
-            font-family: 'Old Standard TT', serif;
-            font-size: 1.1rem;
-            text-align: center;
-            line-height: 1.4;
-            margin: 0;
-        }
+#game-message {
+    font-family: 'Old Standard TT', serif;
+    font-size: 1.1rem;
+    text-align: center;
+    line-height: 1.4;
+    margin: 0;
+}
 
-        #game-message.narrative {
-        font-style: italic;
-        }
+#game-message.narrative {
+font-style: italic;
+}
 
-        #game-message.terrain-info {
-            font-style: normal;
-        }
+#game-message.terrain-info {
+    font-style: normal;
+}
 
-        #message-container {
-          width: 100%;
-          min-height: 5em;  /* Approximately 4 lines of text */
-          margin: 10px 0 20px 0;
-          padding: 10px;
-          background-color: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 4px;
-        }
+#message-container {
+  width: 100%;
+  min-height: 5em;  /* Approximately 4 lines of text */
+  margin: 10px 0 20px 0;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
 
-        #game-message h3 {
-          font-size: 18px;
-          margin-bottom: 10px;
-        }
+#game-message h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
 
-        #game-message p {
-            margin-bottom: 10px;
-            line-height: 1.4;
-        }
+#game-message p {
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
 
-        #game-message p:last-child {
-            font-style: italic;
-            color: rgba(255, 255, 255, 0.8);
-        }
+#game-message p:last-child {
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.8);
+}
 
-    /* Restart button */
-    .restart-button {
-            padding: 12px 24px;
-            font-family: 'Old Standard TT', serif;
-            font-size: 18px;
-            background-color: #44aaff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 10px 0;
-            transition: background-color 0.2s;
-            display: none;
-        }
+/* Restart button */
+.restart-button {
+    padding: 12px 24px;
+    font-family: 'Old Standard TT', serif;
+    font-size: 18px;
+    background-color: #44aaff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 10px 0;
+    transition: background-color 0.2s;
+    display: none;
+}
 
-        .restart-button.hidden {
-            display: none;
-        }
+.restart-button.hidden {
+    display: none;
+}
 
-        .restart-button:hover {
-            background-color: #3399ee;
-        }
+.restart-button:hover {
+    background-color: #3399ee;
+}
 
 .message-slide-enter {
   transform: translateY(-100%);
@@ -310,13 +351,18 @@
 let gameRunning = true;
 let gameWon = false;
 
-const hexSize = 20; // 30
+const hexSize = 30; // 30
 const hexHeight = hexSize * 2;
 const hexWidth = Math.sqrt(3) * hexSize;
 
 // Player state
 let playerPosition = { q: 0, r: 0 };
 let selectedHex = null;
+
+const PLAYER_COLORS = {
+    DEFAULT: "green",
+    DEAD: "#000066"
+};
 
 // Fog of war tracking
 let visitedHexes = new Set();
@@ -342,6 +388,17 @@ HEALTH_REGEN: 1,    // % per second
 HUNGER_REGEN: 0.5,  // % per second
 STAMINA_REGEN: 3    // % per second
 };
+
+// Starvation thresholds
+const STARVATION_THRESHOLDS = {
+    75: "Your stomach gnaws with emptiness, making each step a struggle.",
+    50: "The hunger is all-consuming now, your thoughts growing dim like the Antarctic twilight.",
+    25: "Your body cannibalizes itself, strength fading with each painful heartbeat.",
+    10: "Death's cold embrace feels warmer now than this endless, gnawing emptiness."
+};
+
+// Add this to track which starvation messages we've shown
+let shownStarvationThresholds = new Set();
 
 // Special locations
 let baseCamp = null;
@@ -434,7 +491,7 @@ function createWeatherElements() {
 }
 
 function triggerBlizzard() {
-    if (WEATHER.state.blizzardActive || WEATHER.state.whiteoutActive) return;
+    if (!gameRunning || WEATHER.state.blizzardActive || WEATHER.state.whiteoutActive) return;
     
     console.log('Weather Debug: Starting blizzard');
     WEATHER.state.blizzardActive = true;
@@ -516,39 +573,75 @@ function handleBlizzardComplete() {
 }
 
 function triggerWhiteout() {
-    if (WEATHER.state.whiteoutActive || WEATHER.state.blizzardActive) {
+    if (!gameRunning || WEATHER.state.whiteoutActive || WEATHER.state.blizzardActive) {
         console.log('Weather Debug: Cannot start whiteout - weather already active');
         return;
     }
     
     console.log('Weather Debug: Starting whiteout');
     WEATHER.state.whiteoutActive = true;
+    WEATHER.state.whiteoutPhase = true;
     const whiteoutOverlay = document.getElementById('whiteoutOverlay');
+    const player = document.getElementById('player');
+    const statsContainer = document.querySelector('.stats-container');
     
-    // Show initial message with timeout
+    // Show initial message
     showPlayerMessage("The air grows thick with snow...", MESSAGE_TYPES.STATUS);
-    setTimeout(() => clearTerrainMessage(), 5000);
+    
+    // Add transition classes
+    player.classList.add('whiteout-fade');
     
     setTimeout(() => {
-        console.log('Weather Debug: Whiteout fade in');
+        // Start terrain fade
+        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+            hex.style.opacity = '0';
+        });
         whiteoutOverlay.setAttribute("opacity", "1");
         
+        // Player will start fading after delay (controlled by CSS)
+        player.style.opacity = '0';
+        
+        // Add whiteout effects to stats
+        statsContainer.classList.add('whiteout-stats');
+        
+        // Change background colors to white
+        document.body.style.backgroundColor = '#FFFFFF';
+        document.querySelector('.game-container').style.backgroundColor = '#FFFFFF';
+        document.querySelector('.grid-container').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        
+        updateVisibility(false);
+        updateCurrentLocationInfo();
+        
         setTimeout(() => {
+            // Hold at peak intensity
             console.log('Weather Debug: Whiteout peak intensity');
-            WEATHER.state.whiteoutPhase = true;
-            updateCurrentLocationInfo();
             
             setTimeout(() => {
+                // Start fade out
                 console.log('Weather Debug: Whiteout starting fade out');
                 visitedHexes.clear();
                 visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
-                updateVisibility();
                 
+                // Restore visibility
+                document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+                    hex.style.opacity = '1';
+                });
+                player.style.opacity = '1';
                 whiteoutOverlay.setAttribute("opacity", "0");
                 WEATHER.state.whiteoutPhase = false;
                 
+                // Remove whiteout effects from stats
+                statsContainer.classList.remove('whiteout-stats');
+                
+                // Restore original background colors
+                document.body.style.backgroundColor = '#1B4B7C';
+                document.querySelector('.game-container').style.backgroundColor = '';
+                document.querySelector('.grid-container').style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+                
+                updateVisibility(false);
+                
                 setTimeout(() => {
-                    console.log('Weather Debug: Whiteout fade out complete, calling handleWhiteoutComplete');
+                    player.classList.remove('whiteout-fade');
                     handleWhiteoutComplete();
                 }, WEATHER.CONFIG.WHITEOUT.FADE_OUT_DURATION);
                 
@@ -574,7 +667,7 @@ function handleWhiteoutComplete() {
 
 function scheduleNextWeather() {
     // Clear any existing timeout
-    if (gameWon) return;
+    if (!gameRunning || gameWon) return;
 
     if (WEATHER.state.weatherTimeout) {
         clearTimeout(WEATHER.state.weatherTimeout);
@@ -646,7 +739,7 @@ function updateVisibility(isBlizzard = false) {
     visibleHexes.clear();
     visibleHexes.add(`${playerPosition.q},${playerPosition.r}`);
     
-    // Add adjacent hexes to visible set
+    // During whiteout, only show current hex and adjacents
     if (!WEATHER.state.whiteoutPhase) {
         getAdjacentHexes(playerPosition).forEach(hex => {
             visibleHexes.add(`${hex.q},${hex.r}`);
@@ -660,8 +753,11 @@ function updateVisibility(isBlizzard = false) {
         const hexId = `${q},${r}`;
         const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
         
-        if (isBlizzard) {
-            // During blizzard, everything except current position and base camp should be fogged
+        if (WEATHER.state.whiteoutPhase) {
+            // During whiteout, everything including current position should be fogged
+            fogHex.setAttribute('fill-opacity', '1');
+        } else if (isBlizzard) {
+            // During blizzard, everything except current position should be fogged
             if (!isCurrentPosition) {
                 if (!fogHex.classList.contains('blizzard-fade')) {
                     fogHex.classList.add('blizzard-fade');
@@ -682,6 +778,14 @@ function updateVisibility(isBlizzard = false) {
             }
         }
     });
+
+    // Handle player visibility during whiteout
+    const player = document.getElementById('player');
+    if (WEATHER.state.whiteoutPhase) {
+        player.style.opacity = '0';  // Hide player during whiteout
+    } else {
+        player.style.opacity = '1';  // Show player otherwise
+    }
 }
 
 // Helper function to get adjacent hex coordinates
@@ -699,7 +803,7 @@ function getAdjacentHexes(hex) {
 
 function updateStats() {
   // Only exit if health is zero, not if hunger is zero
-  if (gameWon || stats.health <= 0) return;
+  if (!gameRunning || gameWon || stats.health <= 0) return;
 
   const now = Date.now();
   const deltaTime = (now - lastStatUpdate) / 1000;
@@ -727,6 +831,11 @@ function updateStats() {
       stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
       stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
       stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
+
+      // Reset starvation thresholds if health recovers above 75%
+    if (stats.health > 75 && stats.hunger > 0) {
+      shownStarvationThresholds.clear();
+    }
   } else {
       // Only health decay when not at base camp
       stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
@@ -792,7 +901,7 @@ function updatePlayerPosition(newQ, newR) {
 }
 
 function updateCurrentLocationInfo() {
-    if (WEATHER.state.whiteOutPhase) {
+    if (WEATHER.state.whiteoutPhase) {
         document.getElementById('game-message').innerHTML = `
             <h3>White Out Conditions</h3>
             <p><em>"The world beyond arm's reach has vanished into white..."</em></p>
@@ -849,89 +958,109 @@ function updateStatsDisplay() {
 }
 
 function handleDeath(message) {
-  // Stop the game
-  gameRunning = false;
-  
-  // Show death message as status message
-  showPlayerMessage(message, MESSAGE_TYPES.TERRAIN);
-  
-  // Show death message in game message area
-  document.getElementById('game-message').className = 'narrative';
-  document.getElementById('game-message').innerHTML = message;
-  
-  // Show and setup restart button
-  const restartBtn = document.getElementById('restart-button');
-  restartBtn.classList.remove('hidden');
-  restartBtn.style.display = 'block';
-  
-  // Clear any existing event listeners
-  const newRestartBtn = restartBtn.cloneNode(true);
-  restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
-  
-  // Add new event listener
-  newRestartBtn.addEventListener('click', () => {
-      gameRunning = true;
-      restartGame();
-      // Clear any status messages when restarting
-      clearTerrainMessage();
-  });
+    // Stop the game
+    gameRunning = false;
+    
+    // Clean up any active weather
+    resetWeatherState();
+
+    // Change player marker to dark blue
+    const player = document.getElementById('player');
+    player.setAttribute("fill", PLAYER_COLORS.DEAD);
+    
+    // Clear any selected hex state
+    selectedHex = null;
+    resetHexColors();
+
+    // Show death message in game message area
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = 
+        "The freezing wind howls no more of glory or challenge, for it has claimed its prize. In this vast Antarctic expanse that once promised immortality, you have found only that eternal rest beneath the ice.";
+    
+    // Show and setup restart button
+    const restartBtn = document.getElementById('restart-button');
+    restartBtn.classList.remove('hidden');
+    restartBtn.style.display = 'block';
+    
+    // Clear any existing event listeners
+    const newRestartBtn = restartBtn.cloneNode(true);
+    restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
+    
+    // Add new event listener
+    newRestartBtn.addEventListener('click', () => {
+        restartGame();
+        // Clear any status messages when restarting
+        clearTerrainMessage();
+    });
 }
 
 function checkDeathCondition() {
     if (stats.health <= 0) {
-        handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
-        return true;
+        gameRunning = false;
+        if (stats.hunger <= 0) {
+            handleDeath("Starvation claims another victim. Your frozen body becomes one with the endless white of Antarctica.");
+        } else {
+            handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
+        }
+        return true; // Ensure the function returns early
     } else if (stats.hunger <= 0) {
-        // Use STATUS type for starvation warning
-        showPlayerMessage("Starvation gnaws at your very being. Each step becomes more difficult as your body consumes itself to survive.", MESSAGE_TYPES.STATUS);
+        // Handle hunger-based warnings
+        const healthPercent = Math.floor(stats.health);
+        
+        for (const threshold of [75, 50, 25, 10]) {
+            if (healthPercent <= threshold && !shownStarvationThresholds.has(threshold)) {
+                showPlayerMessage(STARVATION_THRESHOLDS[threshold], MESSAGE_TYPES.STATUS);
+                shownStarvationThresholds.add(threshold);
+                break; // Show only one message at a time
+            }
+        }
         return true;
     }
     return false;
 }
 
-        // Helper functions remain the same
-        function createHexPoints(size) {
-            const points = [];
-            for (let i = 0; i < 6; i++) {
-                const angle = (60 * i - 30) * Math.PI / 180;
-                points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
-            }
-            return points.join(' ');
-        }
+// Helper functions remain the same
+function createHexPoints(size) {
+    const points = [];
+    for (let i = 0; i < 6; i++) {
+        const angle = (60 * i - 30) * Math.PI / 180;
+        points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
+    }
+    return points.join(' ');
+}
 
-        function getHexCenter(q, r) {
-            const x = hexWidth * (q + r/2);
-            const y = hexHeight * (r * 3/4);
-            return { x, y };
-        }
+function getHexCenter(q, r) {
+    const x = hexWidth * (q + r/2);
+    const y = hexHeight * (r * 3/4);
+    return { x, y };
+}
 
-        function hexDistance(hex1, hex2) {
-            return (Math.abs(hex1.q - hex2.q) + 
-                   Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
-                   Math.abs(hex1.r - hex2.r)) / 2;
-        }
+function hexDistance(hex1, hex2) {
+    return (Math.abs(hex1.q - hex2.q) + 
+            Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
+            Math.abs(hex1.r - hex2.r)) / 2;
+}
 
-        function isAdjacent(hex1, hex2) {
-            return hexDistance(hex1, hex2) === 1;
-        }
+function isAdjacent(hex1, hex2) {
+    return hexDistance(hex1, hex2) === 1;
+}
 
-        // Create and update player marker
-        function createPlayerMarker() {
-            const player = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            const center = getHexCenter(playerPosition.q, playerPosition.r);
-            
-            player.setAttribute("cx", center.x);
-            player.setAttribute("cy", center.y);
-            player.setAttribute("r", hexSize * 0.3);
-            player.setAttribute("fill", "green");
-            player.setAttribute("id", "player");
-            player.setAttribute("stroke", "white");
-            player.setAttribute("stroke-width", "2");
-            
-            document.getElementById('hexGroup').appendChild(player);
-        }
+function createPlayerMarker() {
+    const player = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    const center = getHexCenter(playerPosition.q, playerPosition.r);
+    
+    player.setAttribute("cx", center.x);
+    player.setAttribute("cy", center.y);
+    player.setAttribute("r", hexSize * 0.3);
+    player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
+    player.setAttribute("id", "player");
+    player.setAttribute("stroke", "white");
+    player.setAttribute("stroke-width", "2");
+    
+    document.getElementById('hexGroup').appendChild(player);
+}
 
-        function centerViewport() {
+function centerViewport() {
     const hexGroup = document.getElementById('hexGroup');
     const gameGrid = document.getElementById('gameGrid');
     
@@ -966,24 +1095,6 @@ function handleVictoryPhase(message) {
     showPlayerMessage(message, MESSAGE_TYPES.STATUS);
 }
 
-function handleDeath(message) {
-    // Only called when health hits zero
-    gameRunning = false;
-    
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = message;
-    
-    const restartBtn = document.getElementById('restart-button');
-    restartBtn.classList.remove('hidden');
-    restartBtn.style.display = 'block';
-    
-    restartBtn.replaceWith(restartBtn.cloneNode(true));
-    document.getElementById('restart-button').addEventListener('click', function() {
-        gameRunning = true;
-        restartGame();
-    });
-}
-
 // Add this new function to handle full weather reset
 function resetWeatherState() {
     // Clear any active weather timeouts
@@ -1003,7 +1114,10 @@ function resetWeatherState() {
     const whiteoutOverlay = document.getElementById('whiteoutOverlay');
     if (blizzardOverlay) blizzardOverlay.setAttribute("opacity", "0");
     if (whiteoutOverlay) whiteoutOverlay.setAttribute("opacity", "0");
-
+    
+    // Reset stat appearances
+    document.querySelector('.stats-container').classList.remove('whiteout-stats');
+    
     // Reset all fog hexes to default state
     document.querySelectorAll('.fog').forEach(fogHex => {
         fogHex.classList.remove('blizzard-fade');
@@ -1045,6 +1159,14 @@ function restartGame() {
     player.setAttribute("cx", center.x);
     player.setAttribute("cy", center.y);
 
+    shownStarvationThresholds.clear();
+
+    // Make sure to reset player color
+    if (player) {
+        player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
+    }
+
+    
     // Center the viewport
     centerViewport();
 
@@ -1086,6 +1208,12 @@ function resetHexColors() {
 }
 
 function handleHexClick(event) {
+  console.log('Game is over, no interaction allowed.');
+  if (!gameRunning) return;
+
+    clearTerrainMessage();
+    event.preventDefault();
+
     clearTerrainMessage();
     event.preventDefault();
     
@@ -1144,7 +1272,6 @@ function handleHexClick(event) {
                     stats.hunger = 0;
                     stats.health = Math.max(0, stats.health - 5);
                     stats.stamina = Math.max(0, stats.stamina - 5);
-                    showPlayerMessage("Your body weakens from hunger...", MESSAGE_TYPES.STATUS);
                     
                     const healthBar = document.getElementById('health-bar').parentElement;
                     const staminaBar = document.getElementById('stamina-bar').parentElement;
@@ -1191,7 +1318,7 @@ function createHexGrid() {
   // Schedule first storm
   scheduleNextWeather();
   
-  const gridSize = 5; // Number of hexes from center hex to edge
+  const gridSize = 3; // Number of hexes from center hex to edge
     
   // Position base camp in top row with valid q coordinate
   let baseQ, baseR;
@@ -1275,12 +1402,6 @@ function createHexGrid() {
   updateCurrentLocationInfo();
 }
 
-        // Initialize
-        createHexGrid();
-        // Start the stats update loop
-        setInterval(updateStats, 50);
-        showInitialMessage();
-
 function restartGame() {
     // Hide restart button
     document.getElementById('restart-button').classList.add('hidden');
@@ -1318,6 +1439,18 @@ function restartGame() {
     lastStatUpdate = Date.now();
     lastMoveTime = Date.now();
 }
+
+// Initialize
+createHexGrid();
+
+// Start with full stats and immediately display them
+updateStatsDisplay()
+
+// Start the stats update loop
+setInterval(updateStats, 50);
+showInitialMessage();
+
+
     </script>
 </body>
 </html>

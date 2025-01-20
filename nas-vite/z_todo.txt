@@ -1,22 +1,46 @@
 TODO List
-Don't like the all black coloring for cravasse. 
 
-Wrong font and coloring for main page.
+== TO TEST ==
+- If you die during a weather event, I don't think you get your last narrative message. 
 
-Base camp doesn't do the opening narrative text on first load. 
+== SMALL (GPT) FIXES ==
+- Wrong font and coloring for main page.
+- Don't like the all black coloring for cravasse. 
+- Whiteout happens too fast. 
+- The message box for south pole needs to be better, same with base camp.
+- The new adjacent tiles don't appear fast enough. 
+- You should turn all the bars that same color blue when you die.
 
-We need to display status on death that you died. 
+== BIGGER (CLAUDE) FIXES ==
+- You can still play after death.
+- The reaching south pole and coming back home messages need to beccome game messages, not status messages. 
+- When your health reach zero from starvvation, you don't get a reset button.
+- When you restart after dying, your health bar doesn't reset. 
+- When you die, your player icon doesn't reset either. 
+- You actually can't even play at all because it thinks you're dead.
 
-The starving to death status should go away after 5 seconds... and maybe come back on a timer of every 15 seconds. 
+== MISC ==
+- Split out this index.html file into other files at some point.
+- It look like stamina is not going down fast enough. Likely because of the transitions on the bars maybe.
 
-Popup text goes away too quickly. 
 
-The reaching south pole and coming back home messages need to beccome game messages, not status messages. 
+== FUTURE FEATURES ==
+- ELEVATION > ++ VISIBIIITY: Have a tile that is a mountain to climb and when you do we pull the view out and let you see a lot more of the tiles around you. 
+- GENERAL ELEVAION CHANGES: In fact, I'd like to see the camera go in and out a lot more when you're traveling, even if it's minor. Each tile can have an elevation. High gets you move view, low gets you less. High cost more stamina and has risk of avalahce, low has risk of cave ins and finding an animal's den. 
+- NEW TERRAIN TILES: Add in ice caves. 
+- Resilience Bar: Need to add a Resilience meter that goes down if you are stationary, back track, or take more than a certain amount of turns to find the sout pole. 
+- GEAR VS. TERRAIN: You should have gear that you can bring, or not bring that lets you go through given terrain tiles. Climing gear, kayaks, etc. You can leave them all back on the Endurance or take them with you. However, they all weigh different things so there's a trade off. Also, inventory will have durability so things won't last forever. So the way to the pole, might not be the way home. 
+- DEBUG: You're going to have to make a debug system for mobile as well:
+    Full Invulerability
+    No Health loss
+    Kill me now
+    No Stamina
+    Drain me now
+    No Food
+    Starve me now
+    Reveal Fog of War
+    Zoom out map
+    Arrived at South pole
+    Trigger Blizzard
+    Trigger Whiteout
 
-On initialy load the narrative doesn't show up, but on restart it does. 
-
-Blizzard text doesn't clear. 
-
-The tiles don't appear fast enough. 
-
-The message box for south pole needs to be better, same with base camp.
