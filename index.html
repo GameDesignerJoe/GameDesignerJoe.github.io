@@ -3,6 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Link to the manifest file -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Meta tags for full-screen and mobile behavior -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Game Designer Joe">
+
+    <!-- Favicon and icons -->
+    <link rel="apple-touch-icon" href="nas-vite/public/art/nas_192x192.png">
+
     <title>Game Designer Joe</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
@@ -127,6 +139,15 @@
             <img src="/art/linkedin-50.png" alt="LinkedIn Profile">
         </a>
     </div>
-
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(reg => {
+                    console.log('Service worker registered.', reg);
+                });
+        });
+    }
+</script>
 </body>
 </html>

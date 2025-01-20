@@ -1,0 +1,22 @@
+{
+    "name": "Game Designer Joe",
+    "short_name": "Designer Joe",
+    "description": "A portfolio and collection of games by Joe Morrissey.",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#2c2f33",
+    "theme_color": "#23272a",
+    "icons": [
+      {
+        "src": "nas-vite/public/art/nas_192x192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "nas-vite/public/art/nas_512x512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }
+  
