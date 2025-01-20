@@ -35,3 +35,4 @@ TODO List
     Trigger Whiteout
 - Consider a radial gradient for the blizzard effect.
 - Still need to do a tempurature drop effect. Freeze everything. 
+- Should experiment with the size of the grid. Might be nice to try and fill the page and see what that looks like. 
