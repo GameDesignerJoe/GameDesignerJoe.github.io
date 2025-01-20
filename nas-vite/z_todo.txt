@@ -10,6 +10,8 @@ TODO List
 - The message box for south pole needs to be better, same with base camp.
 - The new adjacent tiles don't appear fast enough. 
 - You should turn all the bars that same color blue when you die.
+- When you come out of whiteout, the background goes back to the old blue color you had. 
+- Shrink the whitespace between the text and the stats. 
 
 == BIGGER (CLAUDE) FIXES ==
 - You can still play after death.

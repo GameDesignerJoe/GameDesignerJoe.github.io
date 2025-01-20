@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>NOT ALL SURVIVVE</title>
+    <title>NOT ALL SURVIVE</title>
     <style>
 * {
     margin: 0;
@@ -13,14 +13,14 @@
 }
 
 body {
-    font-family: system-ui, -apple-system, sans-serif;
-    background-color: #1B4B7C;
-    color: white;
-    min-height: 100vh;
-    width: 100%;
-    overscroll-behavior: none;
-    touch-action: none;
-    transition: background-color 10s ease-in-out;
+  font-family: 'Old Standard TT', serif;
+  background-color: #013A63; /* 1B4B7C  #013A63 */
+  color: white;
+  min-height: 100vh;
+  width: 100%;
+  overscroll-behavior: none;
+  touch-action: none;
+  transition: background-color 10s ease-in-out;
 }
 
 .game-container {
@@ -36,17 +36,39 @@ body {
     transition: background-color 10s ease-in-out;
 }
 
+#gameGrid {
+  background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
+  background-size: 400% 400%;
+  animation: waveEffect 8s ease-in-out infinite;
+}
+
+
+@keyframes waveEffect {
+    0% {
+        background-position: 50% 50%;
+    }
+    50% {
+        background-position: 75% 75%;
+    }
+    100% {
+        background-position: 50% 50%;
+    }
+}
+
+
 h1 {
-    font-size: 24px;
-    margin-bottom: 20px;
-    text-align: center;
+  font-family: 'Old Standard TT', serif;  
+  font-size: 24px;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
 .grid-container {
     width: 100%;
     aspect-ratio: 1;
     position: relative;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.0);
+    /* background: rgba(0, 0, 0, 0.2); */
     touch-action: none;
     overflow: hidden;
     border-radius: 8px;
@@ -69,8 +91,8 @@ polygon[data-terrain] {
     width: 100%;
     display: flex;
     gap: 8px;
-    margin-bottom: 20px;
-    padding: 0 10px;
+    margin-bottom: 5px;
+    padding: 0 0px;
 }
 
 .stat {
@@ -99,7 +121,7 @@ polygon[data-terrain] {
 .stat-fill {
     height: 100%;
     width: 0%;
-    transition: width 0.3s ease;
+    transition: width 0.4s ease;
 }
 
 #health-bar {
@@ -218,11 +240,11 @@ font-style: italic;
 
 #message-container {
   width: 100%;
-  min-height: 5em;  /* Approximately 4 lines of text */
-  margin: 10px 0 20px 0;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-height: 4em;  /* Approximately 4 lines of text */
+  margin: 0px 0 0px 0;
+  padding: 0px;
+  background-color: rgba(255, 255, 255, 0.0);
+  border: 1px solid rgba(255, 255, 255, 0.0);
   border-radius: 4px;
 }
 
@@ -314,19 +336,19 @@ font-style: italic;
       <!-- Stats bars with icons -->
       <div class="stats-container">
           <div class="stat">
-              <img src="public/art/health.svg" alt="Health" class="stat-icon">
+              <img src="public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
               <div class="stat-bar">
                   <div class="stat-fill" id="health-bar"></div>
               </div>
           </div>
           <div class="stat">
-              <img src="public/art/stamina.svg" alt="Stamina" class="stat-icon">
+              <img src="public/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
               <div class="stat-bar">
                   <div class="stat-fill" id="stamina-bar"></div>
               </div>
           </div>
           <div class="stat">
-              <img src="public/art/food.svg" alt="Hunger" class="stat-icon">
+              <img src="public/art/food.svg" id="hunger-icon" alt="Hunger" class="stat-icon">
               <div class="stat-bar">
                   <div class="stat-fill" id="hunger-bar"></div>
               </div>
@@ -347,6 +369,8 @@ font-style: italic;
 
     <script src="src/config/config.js"></script>
 <script>
+
+
 // Grid setup
 let gameRunning = true;
 let gameWon = false;
