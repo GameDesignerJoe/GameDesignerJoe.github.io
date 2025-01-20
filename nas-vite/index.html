@@ -308,8 +308,9 @@
 <script>
 // Grid setup
 let gameRunning = true;
+let gameWon = false;
 
-const hexSize = 30;
+const hexSize = 20; // 30
 const hexHeight = hexSize * 2;
 const hexWidth = Math.sqrt(3) * hexSize;
 
@@ -447,10 +448,10 @@ function triggerBlizzard() {
         const q = parseInt(fogHex.getAttribute('data-q'));
         const r = parseInt(fogHex.getAttribute('data-r'));
         const hexId = `${q},${r}`;
-        const isBaseCamp = q === baseCamp.q && r === baseCamp.r;
+        const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
         
         // Add blizzard fade to all hexes except current position
-        if (!isBaseCamp && (hexId !== `${playerPosition.q},${playerPosition.r}`)) {
+        if (!isCurrentPosition) {
             fogHex.classList.add('blizzard-fade');
             // Start the fade to white
             fogHex.setAttribute('fill-opacity', '1');
@@ -573,6 +574,8 @@ function handleWhiteoutComplete() {
 
 function scheduleNextWeather() {
     // Clear any existing timeout
+    if (gameWon) return;
+
     if (WEATHER.state.weatherTimeout) {
         clearTimeout(WEATHER.state.weatherTimeout);
     }
@@ -655,12 +658,11 @@ function updateVisibility(isBlizzard = false) {
         const q = parseInt(fogHex.getAttribute('data-q'));
         const r = parseInt(fogHex.getAttribute('data-r'));
         const hexId = `${q},${r}`;
-        const isBaseCamp = q === baseCamp.q && r === baseCamp.r;
         const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
         
         if (isBlizzard) {
             // During blizzard, everything except current position and base camp should be fogged
-            if (!isBaseCamp && !isCurrentPosition) {
+            if (!isCurrentPosition) {
                 if (!fogHex.classList.contains('blizzard-fade')) {
                     fogHex.classList.add('blizzard-fade');
                 }
@@ -672,7 +674,7 @@ function updateVisibility(isBlizzard = false) {
             // Normal visibility rules
             fogHex.classList.remove('blizzard-fade');
             fogHex.classList.add('movement-fade');
-            if (isBaseCamp || visibleHexes.has(hexId) || 
+            if (visibleHexes.has(hexId) || 
                 (!WEATHER.state.blizzardActive && visitedHexes.has(hexId))) {
                 fogHex.setAttribute('fill-opacity', '0');
             } else {
@@ -697,7 +699,7 @@ function getAdjacentHexes(hex) {
 
 function updateStats() {
   // Only exit if health is zero, not if hunger is zero
-  if (stats.health <= 0) return;
+  if (gameWon || stats.health <= 0) return;
 
   const now = Date.now();
   const deltaTime = (now - lastStatUpdate) / 1000;
@@ -775,16 +777,12 @@ function updatePlayerPosition(newQ, newR) {
         updateVisibility(false);
     }
     
-    // Rest of the victory checks and UI updates
-    if (newQ === southPole.q && newR === southPole.r) {
-        if (!southPoleVisited) {
-            southPoleVisited = true;
-            handleVictoryPhase("At last! Through bitter cold and endless white, you've reached the South Pole!...");
-        }
-    }
-
-    if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-        handleVictoryPhase("Against all odds, you've done it!...");
+    // Victory checks - reaching South Pole and returning to base camp
+    if (newQ === southPole.q && newR === southPole.r && !southPoleVisited) {
+        southPoleVisited = true;
+        handleVictoryPhase("At last! Through bitter cold and endless white, you've reached the South Pole! Now the treacherous journey back to base camp awaits...");
+    } else if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+        handleVictoryPhase("Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration.");
     }
     
     selectedHex = null;
@@ -945,16 +943,27 @@ function checkDeathCondition() {
 }
 
 function handleVictoryPhase(message) {
-    // Show victory messages in the player message system
-    window.showPlayerMessage(message);
-    
+    // Only set gameWon and show restart button if this is the final victory
     if (message.includes("forever etched")) {
+        gameWon = true;
+        
+        // Show restart button
         const restartBtn = document.getElementById('restart-button');
         restartBtn.classList.remove('hidden');
         restartBtn.style.display = 'block';
-        restartBtn.replaceWith(restartBtn.cloneNode(true));
-        document.getElementById('restart-button').addEventListener('click', restartGame);
+        
+        // Reset button event listener
+        const newRestartBtn = restartBtn.cloneNode(true);
+        restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
+        newRestartBtn.addEventListener('click', restartGame);
     }
+    
+    // Show victory message in the game message area
+    document.getElementById('game-message').className = 'narrative';
+    document.getElementById('game-message').innerHTML = message;
+    
+    // Show victory message in the player message system
+    showPlayerMessage(message, MESSAGE_TYPES.STATUS);
 }
 
 function handleDeath(message) {
@@ -975,37 +984,89 @@ function handleDeath(message) {
     });
 }
 
-function restartGame() {
-  // Hide restart button
-  document.getElementById('restart-button').classList.add('hidden');
-  document.getElementById('restart-button').style.display = 'none';
-  
-  // Reset all game state
-  stats.health = STATS.MAX_VALUE;
-  stats.stamina = STATS.MAX_VALUE;
-  stats.hunger = STATS.MAX_VALUE;
-  southPoleVisited = false;
-  gameRunning = true;
-  
-  // Clear visited hexes except base camp
-  visitedHexes.clear();
-  visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
-  
-  // Reset player position and update viewport
-  updatePlayerPosition(baseCamp.q, baseCamp.r);
-  
-  // Show starting message
-  showInitialMessage();
-  
-  // Reset timing
-  lastStatUpdate = Date.now();
-  lastMoveTime = Date.now();
-  
-  // Update displays
-  updateStatsDisplay();
-  updateVisibility();
+// Add this new function to handle full weather reset
+function resetWeatherState() {
+    // Clear any active weather timeouts
+    if (WEATHER.state.weatherTimeout) {
+        clearTimeout(WEATHER.state.weatherTimeout);
+        WEATHER.state.weatherTimeout = null;
+    }
+
+    // Reset all weather state flags
+    WEATHER.state.whiteoutActive = false;
+    WEATHER.state.blizzardActive = false;
+    WEATHER.state.whiteoutPhase = false;
+    WEATHER.state.temporaryFog.clear();
+
+    // Reset weather overlays
+    const blizzardOverlay = document.getElementById('blizzardOverlay');
+    const whiteoutOverlay = document.getElementById('whiteoutOverlay');
+    if (blizzardOverlay) blizzardOverlay.setAttribute("opacity", "0");
+    if (whiteoutOverlay) whiteoutOverlay.setAttribute("opacity", "0");
+
+    // Reset all fog hexes to default state
+    document.querySelectorAll('.fog').forEach(fogHex => {
+        fogHex.classList.remove('blizzard-fade');
+        fogHex.classList.remove('movement-fade');
+        fogHex.classList.add('movement-fade');
+        fogHex.setAttribute('fill-opacity', '1');
+    });
 }
 
+// Update the restartGame function
+function restartGame() {
+    console.log('Restarting game...');
+    gameWon = false;
+    gameRunning = true;
+    southPoleSpotted = false;
+    southPoleVisited = false;
+
+    // Reset all stats
+    stats.health = STATS.MAX_VALUE;
+    stats.stamina = STATS.MAX_VALUE;
+    stats.hunger = STATS.MAX_VALUE;
+
+    // Hide restart button
+    const restartBtn = document.getElementById('restart-button');
+    restartBtn.classList.add('hidden');
+    restartBtn.style.display = 'none';
+
+    // Reset all weather states and effects
+    resetWeatherState();
+
+    // Clear visited hexes except base camp
+    visitedHexes.clear();
+    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
+
+    // Reset player position to base camp
+    playerPosition = { q: baseCamp.q, r: baseCamp.r };
+    const player = document.getElementById('player');
+    const center = getHexCenter(baseCamp.q, baseCamp.r);
+    player.setAttribute("cx", center.x);
+    player.setAttribute("cy", center.y);
+
+    // Center the viewport
+    centerViewport();
+
+    // Reset visibility and update display
+    updateVisibility(false);
+    updateStatsDisplay();
+    updateCurrentLocationInfo();
+
+    // Show starting message
+    showInitialMessage();
+
+    // Reset timing
+    lastStatUpdate = Date.now();
+    lastMoveTime = Date.now();
+
+    // Schedule first weather event with a delay
+    setTimeout(() => {
+        if (gameRunning && !gameWon) {
+            scheduleNextWeather();
+        }
+    }, 5000);
+}
 
 function resetHexColors() {
   // Only select polygons that have terrain data
@@ -1130,7 +1191,7 @@ function createHexGrid() {
   // Schedule first storm
   scheduleNextWeather();
   
-  const gridSize = 3;
+  const gridSize = 5; // Number of hexes from center hex to edge
     
   // Position base camp in top row with valid q coordinate
   let baseQ, baseR;

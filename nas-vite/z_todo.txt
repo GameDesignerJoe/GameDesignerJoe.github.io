@@ -16,3 +16,7 @@ The reaching south pole and coming back home messages need to beccome game messa
 On initialy load the narrative doesn't show up, but on restart it does. 
 
 Blizzard text doesn't clear. 
+
+The tiles don't appear fast enough. 
+
+The message box for south pole needs to be better, same with base camp.
