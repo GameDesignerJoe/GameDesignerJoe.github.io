@@ -418,9 +418,9 @@ let visibleHexes = new Set();
 const STATS = {
     MAX_VALUE: 100,
     HEALTH_DECAY: 0.5,    // % per second
-    HUNGER_DECAY: 0.25,   // % per second
+    HUNGER_DECAY: 0.0,   // % per second 0.25
     MOVE_STAMINA_COST: 5,
-    STAMINA_REGEN: 0.8      // % per second
+    STAMINA_REGEN: 5      // % per second 0.8
 };
 
 let stats = {
@@ -1437,7 +1437,7 @@ function createHexGrid() {
   // Schedule first storm
   scheduleNextWeather();
   
-  const gridSize = 3; // Number of hexes from center hex to edge
+  const gridSize = 12; // Number of hexes from center hex to edge
     
   // Position base camp in top row with valid q coordinate
   let baseQ, baseR;
@@ -1453,17 +1453,18 @@ function createHexGrid() {
   // Position player at base camp initially
   playerPosition = { q: baseQ, r: baseR };
     
-  // Position south pole in bottom row
-  let southQ;
-  let southR;
-  do {
-      southR = gridSize;  // Force it to be in the bottom row
-      // Use same q range calculation for bottom row
-      const minSouthQ = Math.max(-gridSize, -gridSize - southR);
-      const maxSouthQ = Math.min(gridSize, gridSize - southR);
-      southQ = minSouthQ + Math.floor(Math.random() * (maxSouthQ - minSouthQ + 1));
-  } while (southQ === baseQ && southR === baseR);
-  southPole = { q: southQ, r: southR };
+ // Position south pole near the center of the grid with ±20% variation
+let southQ, southR;
+do {
+    // Calculate 20% of grid size for variation
+    const variation = Math.floor(gridSize * 0.2);
+    
+    // Generate random offsets within ±20% of grid size
+    southQ = Math.floor(Math.random() * (variation * 2 + 1)) - variation;
+    southR = Math.floor(Math.random() * (variation * 2 + 1)) - variation;
+    
+} while (southQ === baseQ && southR === baseR); // Ensure it's not at base camp
+southPole = { q: southQ, r: southR };
   
   // Create terrain hexes
   for (let q = -gridSize; q <= gridSize; q++) {
