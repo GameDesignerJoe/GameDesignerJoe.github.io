@@ -402,6 +402,14 @@ const PLAYER_COLORS = {
     DEAD: "#000066"
 };
 
+// Constants for animation
+const MOVEMENT = {
+    BASE_DURATION: 500,  // Base duration in milliseconds
+    STAMINA_FACTOR: 50,  // Additional ms per stamina point cost
+    MIN_DURATION: 500,   // Minimum animation duration
+    MAX_DURATION: 2000   // Maximum animation duration
+};
+
 // Fog of war tracking
 let visitedHexes = new Set();
 let visibleHexes = new Set();
@@ -500,6 +508,53 @@ document.addEventListener('keydown', (e) => {
         triggerBlizzard();
     }
 });
+
+// Calculate animation duration based on terrain stamina cost
+function calculateMovementDuration(terrainStaminaCost = 0) {
+    const duration = MOVEMENT.BASE_DURATION + (terrainStaminaCost * MOVEMENT.STAMINA_FACTOR);
+    return Math.min(Math.max(duration, MOVEMENT.MIN_DURATION), MOVEMENT.MAX_DURATION);
+}
+
+// Animate player movement between hexes
+function animatePlayerMovement(startQ, startR, endQ, endR, terrainStaminaCost = 0) {
+    return new Promise((resolve) => {
+        const player = document.getElementById('player');
+        const hexGroup = document.getElementById('hexGroup');
+        const startPos = getHexCenter(startQ, startR);
+        const endPos = getHexCenter(endQ, endR);
+        
+        const duration = calculateMovementDuration(terrainStaminaCost);
+        const startTime = performance.now();
+        
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function for smoother movement
+            const eased = progress < 0.5
+                ? 2 * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+            
+            // Update player position
+            const currentX = startPos.x + (endPos.x - startPos.x) * eased;
+            const currentY = startPos.y + (endPos.y - startPos.y) * eased;
+            
+            player.setAttribute("cx", currentX);
+            player.setAttribute("cy", currentY);
+            
+            // Update viewport position (negated to center on player)
+            hexGroup.setAttribute('transform', `translate(${-currentX}, ${-currentY})`);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                resolve();
+            }
+        }
+        
+        requestAnimationFrame(animate);
+    });
+}
 
 function createWeatherElements() {
     // Create blizzard overlay
@@ -896,24 +951,29 @@ function updateStats() {
   checkDeathCondition();
 } 
 
-function updatePlayerPosition(newQ, newR) {
-    const player = document.getElementById('player');
-    const center = getHexCenter(newQ, newR);
-    player.setAttribute("cx", center.x);
-    player.setAttribute("cy", center.y);
+// Updated updatePlayerPosition function
+async function updatePlayerPosition(newQ, newR) {
+    if (!gameRunning || gameWon) return;
     
+    const player = document.getElementById('player');
     const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
     const targetTerrain = TERRAIN_TYPES[targetHex.getAttribute('data-terrain')];
-    if (targetTerrain && targetTerrain.healthRisk) {
-        stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
-        window.showPlayerMessage("The bitter cold of the ice field bites into you.");
-    }
     
-    // Update position and visited hexes
+    // Store old position for animation
+    const oldQ = playerPosition.q;
+    const oldR = playerPosition.r;
+    
+    // Update game state
     playerPosition = { q: newQ, r: newR };
     visitedHexes.add(`${newQ},${newR}`);
     
-    // If during blizzard, update temporaryFog with new position and adjacents
+    // Apply ice field damage
+    if (targetTerrain && targetTerrain.healthRisk) {
+        stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
+        showPlayerMessage("The bitter cold of the ice field bites into you.");
+    }
+    
+    // Handle weather updates
     if (WEATHER.state.blizzardActive) {
         WEATHER.state.temporaryFog.add(`${newQ},${newR}`);
         getAdjacentHexes(playerPosition).forEach(hex => {
@@ -924,20 +984,27 @@ function updatePlayerPosition(newQ, newR) {
         updateVisibility(false);
     }
     
-    // Victory checks - reaching South Pole and returning to base camp
-if (newQ === southPole.q && newR === southPole.r && !southPoleVisited) {
-    southPoleVisited = true;
-    // Show reaching South Pole message in main game message window
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = "At last! Through bitter cold and endless white, you've reached the South Pole! Now the treacherous journey back to base camp awaits...";
-} else if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-    handleVictoryPhase("Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration.");
-}
+    // Animate the movement
+    await animatePlayerMovement(
+        oldQ, oldR, 
+        newQ, newR, 
+        targetTerrain?.staminaCost || 0
+    );
     
+    // Check victory conditions after movement completes
+    if (newQ === southPole.q && newR === southPole.r && !southPoleVisited) {
+        southPoleVisited = true;
+        document.getElementById('game-message').className = 'narrative';
+        document.getElementById('game-message').innerHTML = 
+            "At last! Through bitter cold and endless white, you've reached the South Pole! Now the treacherous journey back to base camp awaits...";
+    } else if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
+        handleVictoryPhase("Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration.");
+    }
+    
+    // Reset selection state and update UI
     selectedHex = null;
     resetHexColors();
     updateCurrentLocationInfo();
-    centerViewport();
 }
 
 function updateCurrentLocationInfo() {
@@ -1303,21 +1370,20 @@ function handleHexClick(event) {
 if (selectedHex && selectedHex === hex) {
     // Second click - attempt movement
     if (isAdjacentToPlayer) {
-        // Calculate total stamina cost - base movement + terrain cost
-        const totalStaminaCost = STATS.MOVE_STAMINA_COST + (terrainInfo.staminaCost || 0);
-        
-        if (!terrainInfo.passable) {
-            showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
-        } else if (stats.stamina < totalStaminaCost) {
-            showPlayerMessage(`You are too exhausted`, MESSAGE_TYPES.TERRAIN);
-            const staminaBar = document.getElementById('stamina-bar').parentElement;
-            staminaBar.classList.add('pulse-warning');
-            setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
-        } else {
-            // Simple stamina deduction
+    const totalStaminaCost = STATS.MOVE_STAMINA_COST + (terrainInfo.staminaCost || 0);
+    
+    if (!terrainInfo.passable) {
+        showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
+    } else if (stats.stamina < totalStaminaCost) {
+        showPlayerMessage(`You are too exhausted`, MESSAGE_TYPES.TERRAIN);
+        const staminaBar = document.getElementById('stamina-bar').parentElement;
+        staminaBar.classList.add('pulse-warning');
+        setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
+    } else {
+        // Make the movement handler async
+        (async () => {
             stats.stamina -= totalStaminaCost;
-
-            // Add hunger cost for movement
+            
             if (stats.hunger > 5) {
                 stats.hunger -= 5;
             } else {
@@ -1334,12 +1400,13 @@ if (selectedHex && selectedHex === hex) {
                     staminaBar.classList.remove('pulse-warning');
                 }, 1500);
             }
-
+            
             lastMoveTime = Date.now();
             updateStatsDisplay();
-            updatePlayerPosition(q, r);
-        }
+            await updatePlayerPosition(q, r);  // Now waits for animation
+        })();
     }
+}
     selectedHex = null;
 } else {
     // First click code remains the same...

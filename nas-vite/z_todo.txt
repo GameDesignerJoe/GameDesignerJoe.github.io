@@ -11,6 +11,7 @@ TODO List
 
 == MISC ==
 - Split out this index.html file into other files at some point.
+- Need to make a config file and have them pull all the magic numbers to one place so I can tweak them.
 
 
 == FUTURE FEATURES ==
