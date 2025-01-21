@@ -4,81 +4,86 @@ import { STATS } from './stats.js';
 import { VisibilityManager } from './visibility.js';
 
 export const DebugManager = {
-    // Track god mode state
-    godModeActive: false,
-    fogRevealActive: false,
-    originalUpdateStats: null,
-    lastGodModeToggleTime: 0,
+    // Existing properties...
+    zoomLevel: 1, // Default zoom level
+    maxZoomIn: 0.5, // Closest zoom
+    maxZoomOut: 2, // Furthest zoom
+    zoomSteps: 0.25, // How much to zoom each time
 
     setupListeners() {
         document.addEventListener('keydown', (e) => {
             // Prevent default and stop propagation for debug keys
             if (e.ctrlKey && e.altKey) {
                 switch (e.key) {
-                    case 'w': // Whiteout trigger
+                    // Existing debug cases...
+
+                    case '-': // Zoom out
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('Debug: Triggering whiteout');
-                        const originalWhiteoutGameRunning = window.gameRunning;
-                        window.gameRunning = true;
-                        WeatherManager.triggerWhiteout();
-                        window.gameRunning = originalWhiteoutGameRunning;
+                        console.log('Debug: Zooming Out');
+                        this.adjustZoom('out');
                         break;
 
-                    case 'b': // Blizzard trigger
+                    case '=': // Zoom in (also works with '+' key)
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('Debug: Triggering blizzard');
-                        const originalBlizzardGameRunning = window.gameRunning;
-                        window.gameRunning = true;
-                        WeatherManager.triggerBlizzard();
-                        window.gameRunning = originalBlizzardGameRunning;
-                        break;
-
-                    case 'h': // Reduce health
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Debug: Reducing player health');
-                        if (window.stats) {
-                            window.stats.health = Math.max(0, window.stats.health - 20);
-                            console.log('Current health:', window.stats.health);
-                            
-                            const healthBar = document.getElementById('health-bar');
-                            if (healthBar) {
-                                healthBar.style.width = `${window.stats.health}%`;
-                            }
-                            
-                            StatsManager.updateStatsDisplay();
-                            StatsManager.checkDeathCondition();
-                        }
-                        break;
-
-                    case 'g': // God Mode toggle
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const now = Date.now();
-                        if (now - this.lastGodModeToggleTime < 300) {
-                            console.log('God Mode: Rapid toggle prevented');
-                            return;
-                        }
-                        this.lastGodModeToggleTime = now;
-
-                        console.log('Debug: Toggling God Mode');
-                        this.toggleGodMode();
-                        break;
-
-                    case 'f': // Fog of War toggle
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Debug: Toggling Fog of War');
-                        this.toggleFogOfWar();
+                        console.log('Debug: Zooming In');
+                        this.adjustZoom('in');
                         break;
                 }
             }
         });
 
         console.log('Debug controls initialized');
+    },
+
+    adjustZoom(direction) {
+        const gameGrid = document.getElementById('gameGrid');
+        const hexGroup = document.getElementById('hexGroup');
+        const player = document.getElementById('player');
+    
+        if (!gameGrid || !hexGroup || !player) {
+            console.error('Could not find necessary elements for zoom');
+            return;
+        }
+    
+        // More precise zoom steps
+        const zoomSteps = [0.75, 1, 1.25, 1.5, 2, 3];
+        const currentIndex = zoomSteps.findIndex(step => Math.abs(this.zoomLevel - step) < 0.01);
+    
+        // Adjust zoom level
+        if (direction === 'in' && currentIndex > 0) {
+            this.zoomLevel = zoomSteps[currentIndex - 1];
+        } else if (direction === 'out' && currentIndex < zoomSteps.length - 1) {
+            this.zoomLevel = zoomSteps[currentIndex + 1];
+        }
+    
+        // Apply zoom via transform
+        gameGrid.style.transform = `scale(${this.zoomLevel})`;
+        
+        // Provide zoom level feedback
+        const messageContainer = document.getElementById('message-container');
+        const zoomMessage = document.createElement('p');
+        zoomMessage.id = 'zoom-debug-message';
+        zoomMessage.textContent = `ZOOM: ${this.zoomLevel.toFixed(2)}x`;
+        zoomMessage.style.color = 'yellow';
+        zoomMessage.style.fontWeight = 'bold';
+        
+        // Remove any existing zoom message
+        const existingMessage = document.getElementById('zoom-debug-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+        
+        messageContainer.appendChild(zoomMessage);
+    
+        // Remove message after a few seconds
+        setTimeout(() => {
+            const message = document.getElementById('zoom-debug-message');
+            if (message) message.remove();
+        }, 2000);
+    
+        console.log(`Zoom ${direction}: Current zoom level is ${this.zoomLevel}`);
     },
 
     toggleFogOfWar() {

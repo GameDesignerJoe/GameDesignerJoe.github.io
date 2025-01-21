@@ -58,6 +58,9 @@ h1 {
 background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
 background-size: 400% 400%;
 animation: waveEffect 8s ease-in-out infinite;
+/* DEBUG: Experimenting with zoom level */
+transform-origin: center;
+transition: transform 0.2s ease;
 }
 
 polygon[data-terrain] {
