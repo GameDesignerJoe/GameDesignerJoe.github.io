@@ -15,7 +15,7 @@
 
 
     <!-- Favicon and icons -->
-    <link rel="apple-touch-icon" href="nas-vite/public/art/nas_192x192.png">
+    <link rel="apple-touch-icon" href="art/joe_192.png">
 
     <title>Game Designer Joe</title>
     <style>
@@ -69,11 +69,25 @@
             border: 2px solid #ffffff;
             background-color: #23272a;
             border-radius: 30px;
+            aspect-ratio: 1 / 1;  /* This makes it square */
+            display: flex;        /* Add this */
+            justify-content: center; /* Add this */
+            align-items: center;    /* Add this */
         }
 
         .box img {
-            width: 75%;
-            display: block;
+            width: 100%;
+            height: 100%;    /* Add this */
+            object-fit: contain;  /* Add this */
+            margin: auto;   /* Add this */
+        }
+
+        .box a {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .overlay {
@@ -118,7 +132,7 @@
     <div class="grid">
         <div class="box">
             <a href="/nas-vite/index.html">
-                <img src="nas-vite\public\art\nas_192x192.png" alt="NOT ALL WILL SURVIVE">
+                <img src="art/nas_b_512.png" alt="NOT ALL WILL SURVIVE">
                 <div class="overlay">
                     <h3>NOT ALL WILL SURVIVE</h3>
                     <p>An Antarctic Exploration Survival Game</p>
@@ -127,7 +141,7 @@
         </div>
         <div class="box">
             <a href="/terribleParent/index.html">
-                <img src="/art/terribleParent_icon.png" alt="Project 3">
+                <img src="art/terribleParent_icon.png" alt="Project 3">
                 <div class="overlay">
                     <h3>Terrible Parent</h3>
                     <p>Are you a terrible parent?</p>
@@ -138,7 +152,7 @@
 
     <div class="footer">
         <a href="https://www.linkedin.com/in/joe-morrissey-2773202/" target="_blank">
-            <img src="/art/linkedin-50.png" alt="LinkedIn Profile">
+            <img src="art/linkedin-50.png" alt="LinkedIn Profile">
         </a>
     </div>
 <script>
