@@ -1,79 +1,143 @@
-function wrapText(text, maxWidth) {
-    const lines = [];
-    const words = text.split(' ')
-    let currentLine = ''
-    
-    // Create a temporary element for measuring
-    const temp = document.createElement('div')
-    temp.style.cssText = `
-        font-family: 'Old Standard TT', serif;
-        font-size: 1.0rem;
-        position: absolute;
-        visibility: hidden;
-        white-space: nowrap;
-        padding: 0 0px;
-    `
-    document.body.appendChild(temp)
+// src/game/ui/messages.js
 
-    // Process each word
-    for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word
-        temp.textContent = testLine
+// Message types
+export const MESSAGE_TYPES = {
+    TERRAIN: 'terrain',     // For terrain-related messages (impassable, exhaustion)
+    STATUS: 'status',       // For important status messages (starving, victory)
+};
+
+export const MessageManager = {
+    activeMessageTimeout: null,
+    currentMessageType: null,
+
+    // Modify the showPlayerMessage function to handle timeouts better
+    showPlayerMessage(message, type = MESSAGE_TYPES.TERRAIN) {
+        // Don't show messages during whiteout except for STATUS messages
+        if (WEATHER.state.whiteoutPhase && type !== MESSAGE_TYPES.STATUS) {
+            console.log('Message Debug: Suppressing message during whiteout:', message);
+            return;
+        }
+
+        // Clear any existing timeout
+        if (this.activeMessageTimeout) {
+            clearTimeout(this.activeMessageTimeout);
+        }
         
-        if (temp.offsetWidth <= maxWidth + 20) {
-            currentLine = testLine
-        } else {
-            if (currentLine) {
-                lines.push(currentLine)
+        const messageContainer = document.getElementById('player-message');
+        const messageText = document.getElementById('player-message-text');
+        
+        messageText.textContent = message;
+        messageContainer.classList.add('visible');
+        this.currentMessageType = type;
+        
+        // Set timeout for all message types
+        this.activeMessageTimeout = setTimeout(() => {
+            console.log('Message Debug: Clearing message:', message);
+            messageContainer.classList.remove('visible');
+            this.currentMessageType = null;
+        }, 5000);
+    },
+
+    clearTerrainMessage() {
+        if (this.currentMessageType === MESSAGE_TYPES.TERRAIN) {
+            const messageContainer = document.getElementById('player-message');
+            messageContainer.classList.remove('visible');
+            this.currentMessageType = null;
+            if (this.activeMessageTimeout) {
+                clearTimeout(this.activeMessageTimeout);
+                this.activeMessageTimeout = null;
             }
-            currentLine = word
         }
-    }
-    
-    if (currentLine) {
-        lines.push(currentLine)
-    }
+    },
 
-    document.body.removeChild(temp)
-    return lines.join('\n')
-}
+    showInitialMessage() {
+        const messageElement = document.getElementById('game-message');
+        messageElement.className = 'narrative';
+        messageElement.innerHTML = 
+            "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
+    },
 
-function typewriterEffect(message, elementId, speed = 50) {
-    const element = document.getElementById(elementId)
-    if (!element) return
-    
-    element.textContent = ''
-    element.classList.add('typing')
-    let index = 0
-    
-    function type() {
-        if (index < message.length) {
-            element.textContent += message.charAt(index)
-            index++
-            setTimeout(type, speed)
-        } else {
-            element.classList.remove('typing')
+    updateCurrentLocationInfo() {
+        // Don't update if we're in a major game state
+        if (gameWon || southPoleVisited && playerPosition.q === southPole.q && playerPosition.r === southPole.r) {
+            return;
         }
-    }
-    
-    type()
-}
+        // If game is won, don't update location info
+        if (gameWon) {
+            return;
+        }
 
-function updateGameMessage(message, useTypewriter = false, speed = 50) {
-    const messageElement = document.getElementById('game-message')
-    if (messageElement) {
-        const container = document.getElementById('message-container')
-        const maxWidth = container.clientWidth - 40
-        const wrappedMessage = wrapText(message, maxWidth)
+        if (WEATHER.state.whiteoutPhase) {
+            document.getElementById('game-message').innerHTML = `
+                <h3>White Out Conditions</h3>
+                <p><em>"The world beyond arm's reach has vanished into white..."</em></p>
+            `;
+            return;
+        }
+
+        if (WEATHER.state.blizzardActive) {
+            document.getElementById('game-message').innerHTML = `
+                <h3>Blizzard Conditions</h3>
+                <p><em>"The howling wind makes it difficult to see far..."</em></p>
+            `;
+            return;
+        }
+
+        // Regular location info continues here...
+        const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+        const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
         
-        if (useTypewriter) {
-            typewriterEffect(wrappedMessage, 'game-message', speed)
+        if (atBaseCamp && !gameWon) {
+            document.getElementById('game-message').innerHTML = `
+                <h3>Base Camp</h3>
+                <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
+            `;
+        } else if (atSouthPole) {
+            document.getElementById('game-message').innerHTML = `
+                <h3>South Pole</h3>
+                <p><em>"Could this be it? The South Pole itself?"</em></p>
+            `;
         } else {
-            messageElement.textContent = wrappedMessage
+            // Find the hex at current position
+            const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
+            if (currentHex) {
+                const terrain = currentHex.getAttribute('data-terrain');
+                const terrainInfo = TERRAIN_TYPES[terrain];
+                document.getElementById('game-message').innerHTML = `
+                    <h3>${terrainInfo.name}</h3>
+                    <p><em>${terrainInfo.quote}</em></p>
+                `;
+            }
+        }
+    },
+
+    showLocationMessage() {
+        const messageElement = document.getElementById('game-message');
+        const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
+        const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
+        
+        if (atBaseCamp && !gameWon) {
+            messageElement.innerHTML = `
+                <h3>Base Camp</h3>
+                <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
+            `;
+        } else if (atSouthPole) {
+            messageElement.innerHTML = `
+                <h3>South Pole</h3>
+                <p><em>"Could this be it? The South Pole itself?"</em></p>
+            `;
+        } else {
+            const currentHex = document.querySelector(
+                `polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`
+            );
+            if (currentHex) {
+                const terrain = currentHex.getAttribute('data-terrain');
+                const terrainInfo = TERRAIN_TYPES[terrain];
+                messageElement.innerHTML = `
+                    <h3>${terrainInfo.name}</h3>
+                    <p><em>${terrainInfo.quote}</em></p>
+                `;
+            }
         }
     }
-}
-
-export {
-    updateGameMessage
 }

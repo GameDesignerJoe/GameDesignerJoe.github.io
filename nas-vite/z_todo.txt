@@ -6,8 +6,11 @@ TODO List
 == SMALL (GPT) FIXES ==
 - Whiteout happens too fast. 
 - You should turn all the bars that same color blue when you die.
+- Final text gets swallowed by teh stats page. I think if you chnage the padding you should be good. 
 
 == BIGGER (CLAUDE) FIXES ==
+- Player doesn't say transparent during a Blizzard for some reason. There's a bug there.
+- Whiteout isn't working right... it's odd. 
 
 == MISC ==
 - Split out this index.html file into other files at some point.
@@ -36,3 +39,4 @@ TODO List
 - Consider a radial gradient for the blizzard effect.
 - Still need to do a tempurature drop effect. Freeze everything. 
 - Should experiment with the size of the grid. Might be nice to try and fill the page and see what that looks like. 
+- Try and make every tile unique, or as unique as you can. That way it won't feel like you're just walking over hexes. 

@@ -39,11 +39,11 @@ GameDesignerJoe.github.io
 │   │   │   └── ui
 │   │   │       ├── details.js
 │   │   │       ├── messages.js
-│   │   │       ├── index.js
-│   │   │       ├── input.js
-│   │   │       ├── movement.js
-│   │   │       ├── render.js
-│   │   │       └── stats.js
+│   │   │   ├── index.js
+│   │   │   ├── input.js
+│   │   │   ├── movement.js
+│   │   │   ├── render.js
+│   │   │   └── stats.js
 │   │   ├── App.jsx
 │   │   ├── index.css
 │   │   └── main.jsx

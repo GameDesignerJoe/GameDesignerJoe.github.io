@@ -4,339 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NOT ALL SURVIVE</title>
+    <link rel="stylesheet" href="src/index.css">
     <style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  font-family: 'Old Standard TT', serif;
-  background-color: #013A63; /* 1B4B7C  #013A63 */
-  color: white;
-  min-height: 100vh;
-  width: 100%;
-  overscroll-behavior: none;
-  touch-action: none;
-  transition: background-color 10s ease-in-out;
-}
-
-.game-container {
-    width: 100%;
-    max-width: 450px;
-    margin: 0 auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: env(safe-area-inset-top, 20px);
-    padding-bottom: env(safe-area-inset-bottom, 20px);
-    transition: background-color 10s ease-in-out;
-}
-
-#gameGrid {
-  background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
-  background-size: 400% 400%;
-  animation: waveEffect 8s ease-in-out infinite;
-}
-
-
-@keyframes waveEffect {
-    0% {
-        background-position: 50% 50%;
-    }
-    50% {
-        background-position: 75% 75%;
-    }
-    100% {
-        background-position: 50% 50%;
-    }
-}
-
-
-h1 {
-  font-family: 'Old Standard TT', serif;  
-  font-size: 24px;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.grid-container {
-    width: 100%;
-    aspect-ratio: 1;
-    position: relative;
-    background: rgba(0, 0, 0, 0.0);
-    /* background: rgba(0, 0, 0, 0.2); */
-    touch-action: none;
-    overflow: hidden;
-    border-radius: 8px;
-    transition: background-color 10s ease-in-out;
-}
-
-#player {
-    transition: opacity 3000ms;
-}
-
-#player.whiteout-fade {
-    transition-delay: 2000ms;
-}
-
-polygon[data-terrain] {
-    transition: opacity 5000ms;
-}
-
-.stats-container {
-    width: 100%;
-    display: flex;
-    gap: 8px;
-    margin-bottom: 5px;
-    padding: 0 0px;
-}
-
-.stat {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    width: calc(33.33% - 6px); /* Equal width minus the gap */
-}
-
-.stat-icon {
-    width: 20px;  /* Slightly smaller icons */
-    height: 20px;
-    flex-shrink: 0;
-}
-
-/* Add these new selectors to color the icons */
-#health-icon {
-    filter: invert(56%) sepia(82%) saturate(2695%) hue-rotate(325deg) brightness(100%) contrast(119%);
-}
-
-#stamina-icon {
-    filter: invert(58%) sepia(77%) saturate(845%) hue-rotate(182deg) brightness(103%) contrast(98%);
-}
-
-#hunger-icon {
-    filter: invert(50%) sepia(56%) saturate(1200%) hue-rotate(370deg) brightness(123%) contrast(90%);
-}
-
-.stat-bar {
-    flex: 1;
-    height: 16px;  /* Slightly smaller height */
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    overflow: hidden;
-    min-width: 0;
-}
-
-.stat-fill {
-    height: 100%;
-    width: 0%;
-    transition: width 0.2s ease;
-}
-
-#health-bar {
-    background-color: #ff4444;
-}
-
-#stamina-bar {
-    background-color: #44aaff;
-}
-
-#hunger-bar {
-    background-color: #ffaa44;
-}
-
-@keyframes pulseRed {
-    0% { background-color: rgba(255, 68, 68, 0.1); }
-    50% { background-color: rgba(255, 68, 68, 0.3); }
-    100% { background-color: rgba(255, 68, 68, 0.1); }
-}
-
-.stat-bar.pulse-warning {
-    animation: pulseRed 0.5s ease-in-out 3;
-}
-
-.pulse-warning {
-    animation: pulseRed 0.5s ease-in-out 3;
-}
-
-/* Create whiteout versions of the stats */
-.whiteout-stats .stat-icon {
-    filter: brightness(0.95) saturate(0.1);  /* Makes icons slightly off-white */
-}
-
-.whiteout-stats .stat-bar {
-    background: rgba(255, 255, 255, 0.15);  /* Lighter background for bars */
-}
-
-.whiteout-stats #health-bar {
-    background-color: rgba(255, 240, 240, 0.5);  /* Muted red */
-}
-
-.whiteout-stats #stamina-bar {
-    background-color: rgba(240, 240, 255, 0.5);  /* Muted blue */
-}
-
-.whiteout-stats #hunger-bar {
-    background-color: rgba(255, 250, 240, 0.5);  /* Muted orange */
-}
-
-.fog {
-    fill: white;
-    pointer-events: none;
-    transition: fill-opacity 2s ease-in-out;  /* Default movement transition */
-}
-
-.fog.movement-fade {
-    transition: fill-opacity 1.5s ease-in-out;  /* Normal movement transition */
-}
-
-.fog.blizzard-fade {
-    transition: fill-opacity 8s ease-in-out;  /* Slower blizzard transition */
-}
-
-.blizzard-overlay {
-    transition: opacity 5s ease-in-out;
-    pointer-events: none;
-    opacity: 0;
-}
-
-.whiteout-overlay {
-    transition: opacity 10s ease-in-out;
-    pointer-events: none;
-    opacity: 0;
-}
-
-#message-container {
-  width: 100%;
-  height: 140px; /* Fixed height */
-  margin: 5px 0;
-  padding: 5px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  overflow-y: auto; /* Allow scrolling if content is too long */
-}
-
-/* Optional: Hide scrollbar but keep functionality */
-#message-container {
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
-}
-#message-container::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
-}
-
-#game-message {
-    font-family: 'Old Standard TT', serif;
-    font-size: 1.1rem;
-    text-align: center;
-    line-height: 1.4;
-    margin: 0;
-}
-
-#game-message.narrative {
-font-style: italic;
-}
-
-#game-message.terrain-info {
-    font-style: normal;
-}
-
-#message-container {
-  width: 100%;
-  min-height: 4em;  /* Approximately 4 lines of text */
-  margin: 0px 0 0px 0;
-  padding: 0px;
-  background-color: rgba(255, 255, 255, 0.0);
-  border: 1px solid rgba(255, 255, 255, 0.0);
-  border-radius: 4px;
-}
-
-#game-message h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-}
-
-#game-message p {
-    margin-bottom: 10px;
-    line-height: 1.4;
-}
-
-#game-message p:last-child {
-    font-style: italic;
-    color: rgba(255, 255, 255, 0.8);
-}
-
-/* Restart button */
-.restart-button {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 24px;
-    font-family: 'Old Standard TT', serif;
-    font-size: 18px;
-    background-color: #44aaff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    display: none;
-    z-index: 1000;
-    /* Account for iOS safe area */
-    padding-bottom: env(safe-area-inset-bottom, 20px);
-}
-
-.restart-button.hidden {
-    display: none;
-}
-
-.restart-button:hover {
-    background-color: #3399ee;
-}
-
-.message-slide-enter {
-  transform: translateY(-100%);
-}
-
-.message-slide-enter-active {
-  transform: translateY(0);
-  transition: transform 300ms ease-in-out;
-}
-
-.message-slide-exit {
-  transform: translateY(0);
-}
-
-.message-slide-exit-active {
-  transform: translateY(-100%);
-  transition: transform 300ms ease-in-out;
-}
-
-.player-message {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    padding: 1rem;
-    text-align: center;
-    font-style: italic;
-    transform: translateY(-100%);
-    transition: transform 300ms ease-in-out;
-    z-index: 1000;
-}
-
-.player-message.visible {
-    transform: translateY(0);
-}
-
     </style>
 </head>
 <body>
@@ -346,8 +15,6 @@ font-style: italic;
       <p id="game-message" class="narrative">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
     </div>
     <button id="restart-button" class="restart-button hidden">START A NEW EXPEDITION</button>    
-      <!-- Add stats bars here -->
-      <!-- Stats bars with icons -->
       <div class="stats-container">
           <div class="stat">
               <img src="public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
@@ -382,20 +49,67 @@ font-style: italic;
     </div>
 
     <script src="src/config/config.js"></script>
-<script>
+<script type="module">
+  // Make necessary state variables global by adding 'window.'
+  window.gameWon = false;
+  window.gameRunning = true;
 
+  window.playerPosition = { q: 0, r: 0 };
+  window.southPole = null;
+  window.southPoleSpotted = false;
+  window.southPoleVisited = false;
+  window.baseCamp = null;
+  window.selectedHex = null;
+  window.visibleHexes = new Set();
+  window.visitedHexes = new Set();
 
-// Grid setup
-let gameRunning = true;
-let gameWon = false;
+  // In index.html, with other window.variables
+  window.WEATHER = {
+      CONFIG: {
+          WHITEOUT: {
+            HEALTH_DECAY_MULTIPLIER: 1.05,
+            FADE_IN_DURATION: 15000,
+            HOLD_DURATION: 10000,
+            FADE_OUT_DURATION: 8000,
+            MIN_INTERVAL: 120000,     // 2 minutes
+            MAX_INTERVAL: 240000      // 4 minutes.
+          },
+          BLIZZARD: {
+              HEALTH_DECAY_MULTIPLIER: 1.02,
+              FADE_IN_DURATION: 5000,   // Faster transition
+              HOLD_DURATION: 15000,     // Longer period of reduced visibility
+              FADE_OUT_DURATION: 10000,  // Faster transition
+              MIN_INTERVAL: 45000,      // 45 seconds
+              MAX_INTERVAL: 90000       // 1.5 minutes
+          }
+      },
+      state: {
+          whiteoutActive: false,
+          blizzardActive: false,
+          whiteoutPhase: false,
+          temporaryFog: new Set(),
+          weatherTimeout: null
+      }
+  };
+
+  import { MessageManager, MESSAGE_TYPES } from './src/game/ui/messages.js';
+  import { StatsManager, STATS, BASE_HEALING, stats, STARVATION_THRESHOLDS } from './src/game/stats.js';
+  import { WeatherManager, WEATHER } from './src/game/weather.js';
+  import { VisibilityManager } from './src/game/visibility.js';
+  import { DebugManager } from './src/game/debug.js';
+
+// Make sure this is after all other script imports
+// Near the top of your script, after imports
+window.stats = stats;
+window.StatsManager = StatsManager;
+window.STATS = STATS;
+DebugManager.setupListeners();
+console.log('Debug listeners should now be active');
 
 const hexSize = 30; // 30
 const hexHeight = hexSize * 2;
 const hexWidth = Math.sqrt(3) * hexSize;
 
-// Player state
-let playerPosition = { q: 0, r: 0 };
-let selectedHex = null;
 
 const PLAYER_COLORS = {
     DEFAULT: "green",
@@ -411,103 +125,16 @@ const MOVEMENT = {
 };
 
 // Fog of war tracking
-let visitedHexes = new Set();
-let visibleHexes = new Set();
 
-// Stats system
-const STATS = {
-    MAX_VALUE: 100,
-    HEALTH_DECAY: 0.5,    // % per second
-    HUNGER_DECAY: 0.0,   // % per second 0.25
-    MOVE_STAMINA_COST: 5,
-    STAMINA_REGEN: 5      // % per second 0.8
-};
 
-let stats = {
-    health: STATS.MAX_VALUE,
-    stamina: STATS.MAX_VALUE,
-    hunger: STATS.MAX_VALUE
-};
-
-const BASE_HEALING = {
-HEALTH_REGEN: 1,    // % per second
-HUNGER_REGEN: 0.5,  // % per second
-STAMINA_REGEN: 3    // % per second
-};
-
-// Starvation thresholds
-const STARVATION_THRESHOLDS = {
-    75: "Your stomach gnaws with emptiness, making each step a struggle.",
-    50: "The hunger is all-consuming now, your thoughts growing dim like the Antarctic twilight.",
-    25: "Your body cannibalizes itself, strength fading with each painful heartbeat.",
-    10: "Death's cold embrace feels warmer now than this endless, gnawing emptiness."
-};
-
-// Add this to track which starvation messages we've shown
-let shownStarvationThresholds = new Set();
 
 // Special locations
-let baseCamp = null;
-let southPole = null;
-let southPoleSpotted = false;
-let southPoleVisited = false;
-
 let lastStatUpdate = Date.now();
 let lastMoveTime = Date.now();
 
 let activeMessageTimeout = null;
 let currentMessageType = null;
 
-// Message types
-const MESSAGE_TYPES = {
-    TERRAIN: 'terrain',     // For terrain-related messages (impassable, exhaustion)
-    STATUS: 'status',       // For important status messages (starving, victory)
-};
-
-// Weather system configuration and state
-// Weather system configuration and state
-const WEATHER = {
-    CONFIG: {
-        WHITEOUT: {
-            HEALTH_DECAY_MULTIPLIER: 1.05,
-            FADE_IN_DURATION: 15000,
-            HOLD_DURATION: 10000,
-            FADE_OUT_DURATION: 8000,
-            MIN_INTERVAL: 120000,     // 2 minutes
-            MAX_INTERVAL: 240000      // 4 minutes
-        },
-        BLIZZARD: {
-            HEALTH_DECAY_MULTIPLIER: 1.02,
-            FADE_IN_DURATION: 5000,   // Faster transition
-            HOLD_DURATION: 15000,     // Longer period of reduced visibility
-            FADE_OUT_DURATION: 10000,  // Faster transition
-            MIN_INTERVAL: 45000,      // 45 seconds
-            MAX_INTERVAL: 90000       // 1.5 minutes
-        }
-    },
-    state: {
-        whiteoutActive: false,
-        blizzardActive: false,
-        whiteoutPhase: false,        // Standardized naming
-        temporaryFog: new Set(),
-        weatherTimeout: null
-    }
-};
-
-// Debug test
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.altKey && e.key === 'w') {
-        console.log('Whiteout debug key pressed');
-        triggerWhiteout();
-    }
-});
-
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.altKey && e.key === 'b') {
-        console.log('Blizzard debug key pressed');
-        triggerBlizzard();
-    }
-});
 
 // Calculate animation duration based on terrain stamina cost
 function calculateMovementDuration(terrainStaminaCost = 0) {
@@ -556,401 +183,6 @@ function animatePlayerMovement(startQ, startR, endQ, endR, terrainStaminaCost = 
     });
 }
 
-function createWeatherElements() {
-    // Create blizzard overlay
-    const blizzardRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    blizzardRect.setAttribute("id", "blizzardOverlay");
-    blizzardRect.setAttribute("class", "blizzard-overlay");
-    blizzardRect.setAttribute("x", "-150");
-    blizzardRect.setAttribute("y", "-150");
-    blizzardRect.setAttribute("width", "300");
-    blizzardRect.setAttribute("height", "300");
-    blizzardRect.setAttribute("fill", "white");
-
-    // Create whiteout overlay
-    const whiteoutRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    whiteoutRect.setAttribute("id", "whiteoutOverlay");
-    whiteoutRect.setAttribute("class", "whiteout-overlay");
-    whiteoutRect.setAttribute("x", "-150");
-    whiteoutRect.setAttribute("y", "-150");
-    whiteoutRect.setAttribute("width", "300");
-    whiteoutRect.setAttribute("height", "300");
-    whiteoutRect.setAttribute("fill", "white");
-
-    // Add both overlays to the game grid
-    const gameGrid = document.getElementById('gameGrid');
-    gameGrid.appendChild(blizzardRect);
-    gameGrid.appendChild(whiteoutRect);
-}
-
-function triggerBlizzard() {
-    if (!gameRunning || WEATHER.state.blizzardActive || WEATHER.state.whiteoutActive) return;
-    
-    console.log('Weather Debug: Starting blizzard');
-    WEATHER.state.blizzardActive = true;
-    const blizzardOverlay = document.getElementById('blizzardOverlay');
-    
-    // Store current visibility state
-    WEATHER.state.temporaryFog = new Set([...visitedHexes]);
-    
-    // Start the blizzard fade effect
-    document.querySelectorAll('.fog').forEach(fogHex => {
-        const q = parseInt(fogHex.getAttribute('data-q'));
-        const r = parseInt(fogHex.getAttribute('data-r'));
-        const hexId = `${q},${r}`;
-        const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
-        
-        // Add blizzard fade to all hexes except current position
-        if (!isCurrentPosition) {
-            fogHex.classList.add('blizzard-fade');
-            // Start the fade to white
-            fogHex.setAttribute('fill-opacity', '1');
-        }
-    });
-    
-    showPlayerMessage("A blizzard sweeps in, obscuring your view...", MESSAGE_TYPES.STATUS);
-    setTimeout(() => clearTerrainMessage(), 5000);
-    
-    setTimeout(() => {
-        console.log('Weather Debug: Blizzard fade in');
-        blizzardOverlay.setAttribute("opacity", "0.5");
-        
-        setTimeout(() => {
-            console.log('Weather Debug: Blizzard peak intensity');
-            updateVisibility(true);
-            
-            setTimeout(() => {
-                console.log('Weather Debug: Blizzard starting fade out');
-                blizzardOverlay.setAttribute("opacity", "0");
-                
-                document.querySelectorAll('.fog').forEach(fogHex => {
-                    fogHex.classList.remove('blizzard-fade');
-                });
-                
-                WEATHER.state.weatherTimeout = setTimeout(() => {
-                    handleBlizzardComplete();
-                }, WEATHER.CONFIG.BLIZZARD.FADE_OUT_DURATION);
-                
-            }, WEATHER.CONFIG.BLIZZARD.HOLD_DURATION);
-            
-        }, WEATHER.CONFIG.BLIZZARD.FADE_IN_DURATION);
-    }, 100);
-}
-
-function handleBlizzardComplete() {
-    console.log('Weather Debug: Handling blizzard completion');
-    
-    if (!WEATHER.state.blizzardActive) {
-        console.log('Weather Debug: Blizzard already completed, skipping cleanup');
-        return;
-    }
-    
-    WEATHER.state.blizzardActive = false;
-    
-    // Restore previous visibility including adjacent hexes
-    visitedHexes = new Set([...WEATHER.state.temporaryFog]);
-    WEATHER.state.temporaryFog.clear();
-    updateVisibility(false);
-    
-    updateStatsDisplay();
-    updateCurrentLocationInfo();
-    
-    if (WEATHER.state.weatherTimeout) {
-        clearTimeout(WEATHER.state.weatherTimeout);
-        WEATHER.state.weatherTimeout = null;
-    }
-    
-    scheduleNextWeather();
-    showPlayerMessage("The blizzard subsides, your surroundings becoming familiar once again...", MESSAGE_TYPES.TERRAIN);
-    console.log('Weather Debug: Blizzard complete');
-}
-
-function triggerWhiteout() {
-    if (!gameRunning || WEATHER.state.whiteoutActive || WEATHER.state.blizzardActive) {
-        console.log('Weather Debug: Cannot start whiteout - weather already active');
-        return;
-    }
-    
-    console.log('Weather Debug: Starting whiteout');
-    WEATHER.state.whiteoutActive = true;
-    WEATHER.state.whiteoutPhase = true;
-    const whiteoutOverlay = document.getElementById('whiteoutOverlay');
-    const player = document.getElementById('player');
-    const statsContainer = document.querySelector('.stats-container');
-    
-    // Show initial message
-    showPlayerMessage("The air grows thick with snow...", MESSAGE_TYPES.STATUS);
-    
-    // Add transition classes
-    player.classList.add('whiteout-fade');
-    
-    setTimeout(() => {
-        // Start terrain fade
-        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-            hex.style.opacity = '0';
-        });
-        whiteoutOverlay.setAttribute("opacity", "1");
-        
-        // Player will start fading after delay (controlled by CSS)
-        player.style.opacity = '0';
-        
-        // Add whiteout effects to stats
-        statsContainer.classList.add('whiteout-stats');
-        
-        // Change background colors to white
-        document.body.style.backgroundColor = '#FFFFFF';
-        document.querySelector('.game-container').style.backgroundColor = '#FFFFFF';
-        document.querySelector('.grid-container').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-        
-        updateVisibility(false);
-        updateCurrentLocationInfo();
-        
-        setTimeout(() => {
-            // Hold at peak intensity
-            console.log('Weather Debug: Whiteout peak intensity');
-            
-            setTimeout(() => {
-                // Start fade out
-                console.log('Weather Debug: Whiteout starting fade out');
-                visitedHexes.clear();
-                visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
-                
-                // Restore visibility
-                document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-                    hex.style.opacity = '1';
-                });
-                player.style.opacity = '1';
-                whiteoutOverlay.setAttribute("opacity", "0");
-                WEATHER.state.whiteoutPhase = false;
-                
-                // Remove whiteout effects from stats
-                statsContainer.classList.remove('whiteout-stats');
-                
-                // Restore original background colors
-                document.body.style.backgroundColor = '#1B4B7C';
-                document.querySelector('.game-container').style.backgroundColor = '';
-                document.querySelector('.grid-container').style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
-                
-                updateVisibility(false);
-                
-                setTimeout(() => {
-                    player.classList.remove('whiteout-fade');
-                    handleWhiteoutComplete();
-                }, WEATHER.CONFIG.WHITEOUT.FADE_OUT_DURATION);
-                
-            }, WEATHER.CONFIG.WHITEOUT.HOLD_DURATION);
-            
-        }, WEATHER.CONFIG.WHITEOUT.FADE_IN_DURATION);
-    }, 100);
-}
-
-function handleWhiteoutComplete() {
-    WEATHER.state.whiteoutActive = false;
-    
-    // Update UI elements
-    updateStatsDisplay();
-    updateCurrentLocationInfo();
-    
-    // Schedule next storm
-    scheduleNextWeather();
-    
-    // Show completion message
-    showPlayerMessage("The white out phenomenon clears, but nothing looks familiar anymore...", MESSAGE_TYPES.TERRAIN);
-}
-
-function scheduleNextWeather() {
-    // Clear any existing timeout
-    if (!gameRunning || gameWon) return;
-
-    if (WEATHER.state.weatherTimeout) {
-        clearTimeout(WEATHER.state.weatherTimeout);
-    }
-    
-    // Determine which type of storm comes next (70% chance of blizzard)
-    const isBlizzard = Math.random() < 0.7;
-    const config = isBlizzard ? WEATHER.CONFIG.BLIZZARD : WEATHER.CONFIG.WHITEOUT;
-    
-    const nextInterval = config.MIN_INTERVAL + 
-        Math.random() * (config.MAX_INTERVAL - config.MIN_INTERVAL);
-    
-    WEATHER.state.weatherTimeout = setTimeout(
-        isBlizzard ? triggerBlizzard : triggerWhiteout, 
-        nextInterval
-    );
-}
-
-function showInitialMessage() {
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = 
-        "Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.";
-}
-
-// Modify the showPlayerMessage function to handle timeouts better
-function showPlayerMessage(message, type = MESSAGE_TYPES.TERRAIN) {
-    // Don't show messages during whiteout except for STATUS messages
-    if (WEATHER.state.whiteoutPhase && type !== MESSAGE_TYPES.STATUS) {
-        console.log('Message Debug: Suppressing message during whiteout:', message);
-        return;
-    }
-
-    console.log('Message Debug: Showing message', { type, message });
-
-    // Clear any existing timeout
-    if (activeMessageTimeout) {
-        clearTimeout(activeMessageTimeout);
-    }
-    
-    const messageContainer = document.getElementById('player-message');
-    const messageText = document.getElementById('player-message-text');
-    
-    messageText.textContent = message;
-    messageContainer.classList.add('visible');
-    currentMessageType = type;
-    
-    // Set timeout for all message types
-    activeMessageTimeout = setTimeout(() => {
-        console.log('Message Debug: Clearing message:', message);
-        messageContainer.classList.remove('visible');
-        currentMessageType = null;
-    }, type === MESSAGE_TYPES.TERRAIN ? 5000 : 5000); // Same timeout for both types now
-}
-
-function clearTerrainMessage() {
-    if (currentMessageType === MESSAGE_TYPES.TERRAIN) {
-        const messageContainer = document.getElementById('player-message');
-        messageContainer.classList.remove('visible');
-        currentMessageType = null;
-        if (activeMessageTimeout) {
-            clearTimeout(activeMessageTimeout);
-            activeMessageTimeout = null;
-        }
-    }
-}
-
-// Update visibility function to handle both weather conditions properly
-function updateVisibility(isBlizzard = false) {
-    visibleHexes.clear();
-    visibleHexes.add(`${playerPosition.q},${playerPosition.r}`);
-    
-    // During whiteout, only show current hex and adjacents
-    if (!WEATHER.state.whiteoutPhase) {
-        getAdjacentHexes(playerPosition).forEach(hex => {
-            visibleHexes.add(`${hex.q},${hex.r}`);
-        });
-    }
-    
-    // Handle fog transitions
-    document.querySelectorAll('.fog').forEach(fogHex => {
-        const q = parseInt(fogHex.getAttribute('data-q'));
-        const r = parseInt(fogHex.getAttribute('data-r'));
-        const hexId = `${q},${r}`;
-        const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
-        
-        if (WEATHER.state.whiteoutPhase) {
-            // During whiteout, everything including current position should be fogged
-            fogHex.setAttribute('fill-opacity', '1');
-        } else if (isBlizzard) {
-            // During blizzard, everything except current position should be fogged
-            if (!isCurrentPosition) {
-                if (!fogHex.classList.contains('blizzard-fade')) {
-                    fogHex.classList.add('blizzard-fade');
-                }
-                fogHex.setAttribute('fill-opacity', '1');
-            } else {
-                fogHex.setAttribute('fill-opacity', '0');
-            }
-        } else {
-            // Normal visibility rules
-            fogHex.classList.remove('blizzard-fade');
-            fogHex.classList.add('movement-fade');
-            if (visibleHexes.has(hexId) || 
-                (!WEATHER.state.blizzardActive && visitedHexes.has(hexId))) {
-                fogHex.setAttribute('fill-opacity', '0');
-            } else {
-                fogHex.setAttribute('fill-opacity', '1');
-            }
-        }
-    });
-
-    // Handle player visibility during whiteout
-    const player = document.getElementById('player');
-    if (WEATHER.state.whiteoutPhase) {
-        player.style.opacity = '0';  // Hide player during whiteout
-    } else {
-        player.style.opacity = '1';  // Show player otherwise
-    }
-}
-
-// Helper function to get adjacent hex coordinates
-function getAdjacentHexes(hex) {
-    const directions = [
-        {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
-        {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
-    ];
-    
-    return directions.map(dir => ({
-        q: hex.q + dir.q,
-        r: hex.r + dir.r
-    }));
-}
-
-function updateStats() {
-  // Only exit if health is zero, not if hunger is zero
-  if (!gameRunning || gameWon || stats.health <= 0) return;
-
-  const now = Date.now();
-  const deltaTime = (now - lastStatUpdate) / 1000;
-
-  // Apply weather effects if active
-  if (WEATHER.state.whiteoutActive) {
-      stats.health = Math.max(0, stats.health - 
-          (STATS.HEALTH_DECAY * WEATHER.CONFIG.WHITEOUT.HEALTH_DECAY_MULTIPLIER * deltaTime));
-  } else if (WEATHER.state.blizzardActive) {
-      stats.health = Math.max(0, stats.health - 
-          (STATS.HEALTH_DECAY * WEATHER.CONFIG.BLIZZARD.HEALTH_DECAY_MULTIPLIER * deltaTime));
-  }
-
-  lastStatUpdate = now;
-
-  // Check current terrain for effects
-  const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
-  const currentTerrain = currentHex ? TERRAIN_TYPES[currentHex.getAttribute('data-terrain')] : null;
-
-  // Check if at base camp
-  const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
-  
-  if (atBaseCamp) {
-      // Healing at base camp
-      stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
-      stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
-      stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
-
-      // Reset starvation thresholds if health recovers above 75%
-    if (stats.health > 75 && stats.hunger > 0) {
-      shownStarvationThresholds.clear();
-    }
-  } else {
-      // Only health decay when not at base camp
-      stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
-      
-      // Apply ice field damage over time if standing on ice
-      if (currentTerrain && currentTerrain.healthRisk) {
-          stats.health = Math.max(0, stats.health - (currentTerrain.healthRisk * 100 * deltaTime));
-      }
-      
-      // Always try to regenerate stamina if we haven't moved recently
-      const timeSinceLastMove = (now - lastMoveTime) / 1000;
-      if (timeSinceLastMove > 0.5) {
-          stats.stamina = Math.min(STATS.MAX_VALUE, 
-              stats.stamina + STATS.STAMINA_REGEN * deltaTime);
-      }
-  }
-  
-  // Update stats display after all calculations
-  updateStatsDisplay();
-  checkDeathCondition();
-} 
-
 // Updated updatePlayerPosition function
 async function updatePlayerPosition(newQ, newR) {
     if (!gameRunning || gameWon) return;
@@ -970,18 +202,18 @@ async function updatePlayerPosition(newQ, newR) {
     // Apply ice field damage
     if (targetTerrain && targetTerrain.healthRisk) {
         stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
-        showPlayerMessage("The bitter cold of the ice field bites into you.");
+        MessageManager.showPlayerMessage("The bitter cold of the ice field bites into you.");
     }
     
     // Handle weather updates
     if (WEATHER.state.blizzardActive) {
         WEATHER.state.temporaryFog.add(`${newQ},${newR}`);
-        getAdjacentHexes(playerPosition).forEach(hex => {
+        VisibilityManager.getAdjacentHexes(playerPosition).forEach(hex => {
             WEATHER.state.temporaryFog.add(`${hex.q},${hex.r}`);
         });
-        updateVisibility(true);
+        VisibilityManager.updateVisibility(true);
     } else {
-        updateVisibility(false);
+      VisibilityManager.updateVisibility(false);
     }
     
     // Animate the movement
@@ -1002,138 +234,9 @@ async function updatePlayerPosition(newQ, newR) {
     }
     
     // Reset selection state and update UI
-    selectedHex = null;
+    
     resetHexColors();
-    updateCurrentLocationInfo();
-}
-
-function updateCurrentLocationInfo() {
-  // Don't update if we're in a major game state
-  if (gameWon || southPoleVisited && playerPosition.q === southPole.q && playerPosition.r === southPole.r) {
-        return;
-    }
-    // If game is won, don't update location info
-    if (gameWon) {
-        return;
-    }
-
-    if (WEATHER.state.whiteoutPhase) {
-        document.getElementById('game-message').innerHTML = `
-            <h3>White Out Conditions</h3>
-            <p><em>"The world beyond arm's reach has vanished into white..."</em></p>
-        `;
-        return;
-    }
-
-    if (WEATHER.state.blizzardActive) {
-        document.getElementById('game-message').innerHTML = `
-            <h3>Blizzard Conditions</h3>
-            <p><em>"The howling wind makes it difficult to see far..."</em></p>
-        `;
-        return;
-    }
-
-    // Regular location info continues here...
-    const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
-    const atSouthPole = southPole && playerPosition.q === southPole.q && playerPosition.r === southPole.r;
-    
-    if (atBaseCamp && !gameWon) {
-        document.getElementById('game-message').innerHTML = `
-            <h3>Base Camp</h3>
-            <p><em>"The familiar sight of base camp brings a sense of relief."</em></p>
-        `;
-    } else if (atSouthPole) {
-        document.getElementById('game-message').innerHTML = `
-            <h3>South Pole</h3>
-            <p><em>"Could this be it? The South Pole itself?"</em></p>
-        `;
-    } else {
-        // Find the hex at current position
-        const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
-        if (currentHex) {
-            const terrain = currentHex.getAttribute('data-terrain');
-            const terrainInfo = TERRAIN_TYPES[terrain];
-            document.getElementById('game-message').innerHTML = `
-                <h3>${terrainInfo.name}</h3>
-                <p><em>${terrainInfo.quote}</em></p>
-            `;
-        }
-    }
-}
-
-function updateStatsDisplay() {
-  // Ensure stats don't go below 0
-  stats.health = Math.max(0, stats.health);
-  stats.stamina = Math.max(0, stats.stamina);
-  stats.hunger = Math.max(0, stats.hunger);
-  
-  // Update the bars
-  document.getElementById('health-bar').style.width = `${stats.health}%`;
-  document.getElementById('stamina-bar').style.width = `${stats.stamina}%`;
-  document.getElementById('hunger-bar').style.width = `${stats.hunger}%`;
-}
-
-function handleDeath(message) {
-    // Stop the game
-    gameRunning = false;
-    
-    // Clean up any active weather
-    resetWeatherState();
-
-    // Change player marker to dark blue
-    const player = document.getElementById('player');
-    player.setAttribute("fill", PLAYER_COLORS.DEAD);
-    
-    // Clear any selected hex state
-    selectedHex = null;
-    resetHexColors();
-
-    // Show death message in game message area
-    document.getElementById('game-message').className = 'narrative';
-    document.getElementById('game-message').innerHTML = 
-        "The freezing wind howls no more of glory or challenge, for it has claimed its prize. In this vast Antarctic expanse that once promised immortality, you have found only that eternal rest beneath the ice.";
-    
-    // Show and setup restart button
-    const restartBtn = document.getElementById('restart-button');
-    restartBtn.classList.remove('hidden');
-    restartBtn.style.display = 'block';
-    
-    // Clear any existing event listeners
-    const newRestartBtn = restartBtn.cloneNode(true);
-    restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
-    
-    // Add new event listener
-    newRestartBtn.addEventListener('click', () => {
-        restartGame();
-        // Clear any status messages when restarting
-        clearTerrainMessage();
-    });
-}
-
-function checkDeathCondition() {
-    if (stats.health <= 0) {
-      if (!gameRunning) return true; // Don't trigger death multiple times
-        gameRunning = false;
-        if (stats.hunger <= 0) {
-            handleDeath("Starvation claims another victim. Your frozen body becomes one with the endless white of Antarctica.");
-        } else {
-            handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
-        }
-        return true; // Ensure the function returns early
-    } else if (stats.hunger <= 0) {
-        // Handle hunger-based warnings
-        const healthPercent = Math.floor(stats.health);
-        
-        for (const threshold of [75, 50, 25, 10]) {
-            if (healthPercent <= threshold && !shownStarvationThresholds.has(threshold)) {
-                showPlayerMessage(STARVATION_THRESHOLDS[threshold], MESSAGE_TYPES.STATUS);
-                shownStarvationThresholds.add(threshold);
-                break; // Show only one message at a time
-            }
-        }
-        return true;
-    }
-    return false;
+    MessageManager.updateCurrentLocationInfo();
 }
 
 // Helper functions remain the same
@@ -1210,38 +313,6 @@ function handleVictoryPhase(message) {
     }
 }
 
-// Add this new function to handle full weather reset
-function resetWeatherState() {
-    // Clear any active weather timeouts
-    if (WEATHER.state.weatherTimeout) {
-        clearTimeout(WEATHER.state.weatherTimeout);
-        WEATHER.state.weatherTimeout = null;
-    }
-
-    // Reset all weather state flags
-    WEATHER.state.whiteoutActive = false;
-    WEATHER.state.blizzardActive = false;
-    WEATHER.state.whiteoutPhase = false;
-    WEATHER.state.temporaryFog.clear();
-
-    // Reset weather overlays
-    const blizzardOverlay = document.getElementById('blizzardOverlay');
-    const whiteoutOverlay = document.getElementById('whiteoutOverlay');
-    if (blizzardOverlay) blizzardOverlay.setAttribute("opacity", "0");
-    if (whiteoutOverlay) whiteoutOverlay.setAttribute("opacity", "0");
-    
-    // Reset stat appearances
-    document.querySelector('.stats-container').classList.remove('whiteout-stats');
-    
-    // Reset all fog hexes to default state
-    document.querySelectorAll('.fog').forEach(fogHex => {
-        fogHex.classList.remove('blizzard-fade');
-        fogHex.classList.remove('movement-fade');
-        fogHex.classList.add('movement-fade');
-        fogHex.setAttribute('fill-opacity', '1');
-    });
-}
-
 // Update the restartGame function
 function restartGame() {
     console.log('Restarting game...');
@@ -1284,18 +355,18 @@ function restartGame() {
     resetHexColors();
 
     // Reset all weather states and effects
-    resetWeatherState();
+    WeatherManager.resetWeatherState();
 
     // Reset visibility and update display
-    updateVisibility(false);
-    updateStatsDisplay();
-    updateCurrentLocationInfo();
+    VisibilityManager.updateVisibility(false);
+    StatsManager.updateStatsDisplay();
+    MessageManager.updateCurrentLocationInfo();
 
     // Center the viewport
     centerViewport();
 
     // Show starting message
-    showInitialMessage();
+    MessageManager.showInitialMessage();
 
     // Reset timing
     lastStatUpdate = Date.now();
@@ -1304,7 +375,7 @@ function restartGame() {
     // Schedule first weather event with a delay
     setTimeout(() => {
         if (gameRunning && !gameWon) {
-            scheduleNextWeather();
+            WeatherManager.scheduleNextWeather();
         }
     }, 5000);    
 }
@@ -1329,7 +400,7 @@ function resetHexColors() {
 function handleHexClick(event) {
   if (!gameRunning || stats.health <= 0) return;
 
-    clearTerrainMessage();
+  MessageManager.clearTerrainMessage();
     event.preventDefault();
     
     const hex = event.target;
@@ -1358,7 +429,7 @@ function handleHexClick(event) {
     // Check for South Pole spotting
     if (terrain === 'SOUTH_POLE' && !southPoleSpotted && !visitedHexes.has(hexId)) {
         southPoleSpotted = true;
-        showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.TERRAIN);
+        MessageManager.showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.TERRAIN);
     }
 
     // Reset hex colors and check movement possibility
@@ -1373,9 +444,9 @@ if (selectedHex && selectedHex === hex) {
     const totalStaminaCost = STATS.MOVE_STAMINA_COST + (terrainInfo.staminaCost || 0);
     
     if (!terrainInfo.passable) {
-        showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
+      MessageManager.showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
     } else if (stats.stamina < totalStaminaCost) {
-        showPlayerMessage(`You are too exhausted`, MESSAGE_TYPES.TERRAIN);
+      MessageManager.showPlayerMessage(`You are too exhausted`, MESSAGE_TYPES.TERRAIN);
         const staminaBar = document.getElementById('stamina-bar').parentElement;
         staminaBar.classList.add('pulse-warning');
         setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
@@ -1402,7 +473,7 @@ if (selectedHex && selectedHex === hex) {
             }
             
             lastMoveTime = Date.now();
-            updateStatsDisplay();
+            StatsManager.updateStatsDisplay();
             await updatePlayerPosition(q, r);  // Now waits for animation
         })();
     }
@@ -1432,10 +503,10 @@ function createHexGrid() {
     
   // Add storm layer first, before other elements
   // Add storm overlay first, before other elements
-  createWeatherElements();
+  WeatherManager.createWeatherElements();
   
   // Schedule first storm
-  scheduleNextWeather();
+  WeatherManager.scheduleNextWeather();
   
   const gridSize = 12; // Number of hexes from center hex to edge
     
@@ -1518,20 +589,19 @@ southPole = { q: southQ, r: southR };
   createPlayerMarker();
   centerViewport();
 
-  updateVisibility();
-  updateCurrentLocationInfo();
+  VisibilityManager.updateVisibility();
+  MessageManager.updateCurrentLocationInfo();
 }
 
 // Initialize
 createHexGrid();
 
-// Start with full stats and immediately display them
-updateStatsDisplay()
-
 // Start the stats update loop
-setInterval(updateStats, 50);
-showInitialMessage();
+setInterval(() => StatsManager.updateStats(), 50);
+MessageManager.showInitialMessage();
 
+// Set up debug listeners
+DebugManager.setupListeners();
 
     </script>
 </body>

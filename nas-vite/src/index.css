@@ -1,105 +1,130 @@
-/* Base styles */
+/* src/index.css */
+
 * {
-  margin: 0;
+  margin: 10;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: 'Old Standard TT', serif;
-  background-color: #f0f0f0;
-  min-height: 100vh;
-  width: 100%;
-  overscroll-behavior: none;
+font-family: 'Old Standard TT', serif;
+background-color: #013A63; /* 1B4B7C  #013A63 */
+color: white;
+min-height: 100vh;
+width: 100%;
+overscroll-behavior: none;
+touch-action: none;
+transition: background-color 10s ease-in-out;
 }
 
+
+/* GAME CONTAINER */
 .game-container {
   width: 100%;
-  max-width: 450px; /* Match canvas max width */
+  max-width: 450px;
   margin: 0 auto;
   padding: 20px;
-  padding-top: env(safe-area-inset-top, 50px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
+  padding-top: env(safe-area-inset-top, 20px);
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+  transition: background-color 10s ease-in-out;
 }
 
-.game-layout {
-  width: 100%;
-  display: flex;
-  flex-direction: column; /* Change to column to stack elements */
-  align-items: center;
-  position: relative;
-}
-
-/* Typography */
 h1 {
-  font-family: 'Old Standard TT', serif;
-  font-size: 2.5rem;
-  margin: 20px 0 10px 0;
+  font-family: 'Old Standard TT', serif;  
+  font-size: 24px;
+  margin-bottom: 0px;
   text-align: center;
-  font-weight: 700;
-}
+  }
 
-/* Main Container */
-#main-container {
-  width: 100%;        /* Take full width */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
 
-/* Adjust canvas size and centering */
-canvas {
+/* GRID & HEXES */
+.grid-container {
   width: 100%;
-  max-width: 450px;
-  aspect-ratio: 1;    /* Keep it square */
+  aspect-ratio: 1;
+  position: relative;
+  background: rgba(0, 0, 0, 0.0);
+  /* background: rgba(0, 0, 0, 0.2); */
   touch-action: none;
-  border: 1px solid black;
+  overflow: hidden;
+  border-radius: 8px;
+  transition: background-color 10s ease-in-out;
 }
 
-/* Stats Container */
-#stats-container {
+#gameGrid {
+background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
+background-size: 400% 400%;
+animation: waveEffect 8s ease-in-out infinite;
+}
+
+polygon[data-terrain] {
+  transition: opacity 5000ms;
+}
+
+@keyframes waveEffect {
+  0% { background-position: 50% 50%;  }
+  50% { background-position: 75% 75%;  }
+  100% { background-position: 50% 50%;  }
+}
+
+
+/* Stats Display */
+.stats-container {
   width: 100%;
-  max-width: 450px;
-  padding: 0 10px;
-  margin-bottom: 2px;
   display: flex;
-  justify-content: space-between;
   gap: 8px;
+  margin-bottom: 5px;
+  padding: 0 0px;
 }
 
 .stat {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
+  gap: 4px;
+  width: calc(33.33% - 6px); /* Equal width minus the gap */
 }
 
 .stat-icon {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
+  width: 20px;  /* Slightly smaller icons */
+  height: 20px;
+  flex-shrink: 0;
 }
 
-/* Stat Bars */
 .stat-bar {
   flex: 1;
-  height: 16px;
-  background-color: #eee;
-  border-radius: 4px;
+  height: 16px;  /* Slightly smaller height */
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  min-width: 0;
 }
 
 .stat-fill {
   height: 100%;
   width: 0%;
-  transition: all 0.3s ease;
+  transition: width 0.2s ease;
 }
 
+
+/* Stat Icons */
+#health-icon {
+  filter: invert(56%) sepia(82%) saturate(2695%) hue-rotate(325deg) brightness(100%) contrast(119%);
+}
+
+#stamina-icon {
+  filter: invert(58%) sepia(77%) saturate(845%) hue-rotate(182deg) brightness(103%) contrast(98%);
+}
+
+#hunger-icon {
+  filter: invert(50%) sepia(56%) saturate(1200%) hue-rotate(370deg) brightness(123%) contrast(90%);
+}
+
+
+/* Stat Bars */
 #health-bar {
   background-color: #ff4444;
 }
@@ -112,30 +137,120 @@ canvas {
   background-color: #ffaa44;
 }
 
-/* Details Panel */
-.details-sidebar {
-  position: absolute;
-  right: -320px;      /* Position it outside the main container */
-  top: 0;
-  width: 300px;
-  height: 100%;
-  background-color: #fff;
-  border-left: 1px solid #ccc;
+
+/* ANIMATIONS */
+@keyframes pulseRed {
+  0% { background-color: rgba(255, 68, 68, 0.1); }
+  50% { background-color: rgba(255, 68, 68, 0.3); }
+  100% { background-color: rgba(255, 68, 68, 0.1); }
 }
 
-.details-content {
-  padding: 20px;
+.stat-bar.pulse-warning {
+  animation: pulseRed 0.5s ease-in-out 3;
 }
+
+.pulse-warning {
+  animation: pulseRed 0.5s ease-in-out 3;
+}
+
+
+/* Weather Effects */
+#player {
+  transition: opacity 3000ms;
+}
+
+/* Blizzard Player Fade Stages */
+.blizzard-player-fade-in {
+  animation: blizzard-fade-in 5s ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+.blizzard-player-hold {
+  opacity: 0.25;
+}
+
+.blizzard-player-fade-out {
+  animation: blizzard-fade-out 8s ease-in-out;
+  animation-fill-mode: forwards;
+}
+
+@keyframes blizzard-fade-in {
+  0% { opacity: 1; }
+  100% { opacity: 0.25; }
+}
+
+@keyframes blizzard-fade-out {
+  0% { opacity: 0.25; }
+  100% { opacity: 1; }
+}
+
+#player.whiteout-fade {
+  transition-delay: 2000ms;
+}
+
+.whiteout-stats .stat-icon {
+  filter: brightness(0.95) saturate(0.1);  /* Makes icons slightly off-white */
+}
+
+.whiteout-stats .stat-bar {
+  background: rgba(255, 255, 255, 0.15);  /* Lighter background for bars */
+}
+
+.whiteout-stats #health-bar {
+  background-color: rgba(255, 240, 240, 0.5);  /* Muted red */
+}
+
+.whiteout-stats #stamina-bar {
+  background-color: rgba(240, 240, 255, 0.5);  /* Muted blue */
+}
+
+.whiteout-stats #hunger-bar {
+  background-color: rgba(255, 250, 240, 0.5);  /* Muted orange */
+}
+
+
+/* Fog and Weather Overlays */
+.fog {
+  fill: white;
+  pointer-events: none;
+  transition: fill-opacity 2s ease-in-out;  /* Default movement transition */
+}
+
+.fog.movement-fade {
+  transition: fill-opacity 1.5s ease-in-out;  /* Normal movement transition */
+}
+
+.fog.blizzard-fade {
+  transition: fill-opacity 8s ease-in-out;  /* Slower blizzard transition */
+}
+
+.blizzard-overlay {
+  transition: opacity 5s ease-in-out;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.whiteout-overlay {
+  transition: opacity 10s ease-in-out;
+  pointer-events: none;
+  opacity: 0;
+}
+
 
 /* Message Container */
 #message-container {
-  width: 100%;
-  min-height: 5em;
-  margin: 10px 0 20px 0;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+width: 100%;
+height: 140px; /* Fixed height */
+margin: 5px 0;
+padding: 0px;
+background-color: rgba(255, 255, 255, 0.0);
+border: 1px solid rgba(255, 255, 255, 0.0);
+border-radius: 4px;
+overflow-y: auto; /* Allow scrolling if content is too long */
+}
+
+#message-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 #game-message {
@@ -144,114 +259,101 @@ canvas {
   text-align: center;
   line-height: 1.4;
   margin: 0;
+}
+
+#game-message.narrative {
+font-style: italic;
+}
+
+#game-message.terrain-info {
+  font-style: normal;
+}
+
+
+#game-message h3 {
+font-size: 18px;
+margin-bottom: 10px;
+}
+
+#game-message p {
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+#game-message p:last-child {
   font-style: italic;
+  color: rgba(255, 255, 255, 0.8);
 }
 
-/* Mobile Styles */
-/* Add or update these mobile-specific styles */
-@media (max-width: 768px) {
-  body {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
 
-  .game-container {
-    padding: 10px;
-    max-width: 100%;
-    justify-content: flex-start; /* Adjust for mobile */
-  }
-
-  #main-container {
-    width: 100%;
-    height: auto;
-    position: relative;
-  }
-
-  canvas {
-    width: 100% !important;
-    height: auto !important;
-    touch-action: none;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  #stats-container {
-    width: 100%;
-    padding: 5px;
-    background-color: rgba(255, 255, 255, 0.9);
-  }
-
-  h1 {
-    font-size: 1.8rem;
-    margin: 10px 0;
-  }
-
-  #message-container {
-    font-size: 0.9rem;
-    min-height: 3em;
-    margin: 5px 0 10px 0;
-  }
-
-  .details-sidebar {
-    position: fixed;
-    width: 100%;
-    height: auto;
-    max-height: 50vh;
-    left: 0;
-    bottom: 0;
-    top: auto;
-    transform: none;
-    margin-left: 0;
-    border-left: none;
-    border-top: 1px solid #ccc;
-    transform: translateY(100%);
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .details-sidebar.show {
-    transform: translateY(0);
-  }
-
-  .game-layout {
-    height: auto;
-    margin-top: auto;
-    margin-bottom: auto;
-  }
-}
-
-/* Handle safe areas for mobile */
-@supports (padding: max(0px)) {
-  .game-container {
-      padding-left: max(20px, env(safe-area-inset-left));
-      padding-right: max(20px, env(safe-area-inset-right));
-      padding-top: max(50px, env(safe-area-inset-top));
-      padding-bottom: max(20px, env(safe-area-inset-bottom));
-  }
-}
-
-.restart-button-container {
+/* Player Message */
+.player-message {
   position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  font-style: italic;
+  transform: translateY(-100%);
+  transition: transform 300ms ease-in-out;
+  z-index: 1000;
+}
+
+.player-message.visible {
+  transform: translateY(0);
+}
+
+
+/* Restart button */
+.restart-button {
+  position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
-}
-
-.restart-button {
-  background-color: #1B4B7C;
-  color: white;
+  transform: translateX(-50%);
   padding: 12px 24px;
+  font-family: 'Old Standard TT', serif;
+  font-size: 18px;
+  background-color: #44aaff;
+  color: white;
   border: none;
   border-radius: 4px;
-  font-family: 'Old Standard TT', serif;
-  font-size: 1.2rem;
   cursor: pointer;
   transition: background-color 0.2s;
+  display: none;
+  z-index: 1000;
+  /* Account for iOS safe area */
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+.restart-button.hidden {
+  display: none;
 }
 
 .restart-button:hover {
-  background-color: #2B5B8C;
+  background-color: #3399ee;
 }
+
+
+/* Message Animations */
+.message-slide-enter {
+transform: translateY(-100%);
+}
+
+.message-slide-enter-active {
+transform: translateY(0);
+transition: transform 300ms ease-in-out;
+}
+
+.message-slide-exit {
+transform: translateY(0);
+}
+
+.message-slide-exit-active {
+transform: translateY(-100%);
+transition: transform 300ms ease-in-out;
+}
+
+
