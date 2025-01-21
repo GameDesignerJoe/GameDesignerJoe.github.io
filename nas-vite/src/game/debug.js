@@ -4,18 +4,41 @@ import { STATS } from './stats.js';
 import { VisibilityManager } from './visibility.js';
 
 export const DebugManager = {
-    // Existing properties...
-    zoomLevel: 1, // Default zoom level
-    maxZoomIn: 0.5, // Closest zoom
-    maxZoomOut: 2, // Furthest zoom
-    zoomSteps: 0.25, // How much to zoom each time
+    // Add these properties at the top of the object
+    fogRevealActive: false,
+    lastFogToggleTime: 0,
+    godModeActive: false,
+    originalUpdateStats: null,
 
     setupListeners() {
         document.addEventListener('keydown', (e) => {
             // Prevent default and stop propagation for debug keys
             if (e.ctrlKey && e.altKey) {
                 switch (e.key) {
-                    // Existing debug cases...
+                    case 'f': // Fog reveal toggle
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Debug: Toggling Fog Reveal');
+                        this.toggleFogOfWar();
+                        break;
+
+                    case 'g': // God mode toggle
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Debug: Toggling God Mode');
+                        this.toggleGodMode();
+                        break;
+
+                    case 'h': // Lower health
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Debug: Lowering Health');
+                        if (window.stats) {
+                            window.stats.health -= 20;
+                            if (window.stats.health < 0) window.stats.health = 0;
+                            StatsManager.updateStatsDisplay();
+                        }
+                        break;
 
                     case '-': // Zoom out
                         e.preventDefault();

@@ -93,40 +93,24 @@
   };
 
   import { MessageManager, MESSAGE_TYPES } from './src/game/ui/messages.js';
-  import { StatsManager, STATS, BASE_HEALING, stats, STARVATION_THRESHOLDS } from './src/game/stats.js';
-  import { WeatherManager, WEATHER } from './src/game/weather.js';
-  import { VisibilityManager } from './src/game/visibility.js';
-  import { DebugManager } from './src/game/debug.js';
+import { WeatherManager, WEATHER } from './src/game/weather.js';
+import { GridManager } from './src/game/core/grid.js';
+import { VisibilityManager } from './src/game/visibility.js';
+import { GRID, PLAYER_COLORS, MOVEMENT } from './src/game/constants.js';
+import { MovementManager } from './src/game/movement.js';
+import { StatsManager, STATS, BASE_HEALING, stats, STARVATION_THRESHOLDS, shownStarvationThresholds } from './src/game/stats.js';
+import { DebugManager } from './src/game/debug.js';
 
 // Make sure this is after all other script imports
 // Near the top of your script, after imports
 window.stats = stats;
 window.StatsManager = StatsManager;
 window.STATS = STATS;
+window.handleVictoryPhase = handleVictoryPhase;
+window.restartGame = restartGame;
+window.shownStarvationThresholds = shownStarvationThresholds;
 DebugManager.setupListeners();
 console.log('Debug listeners should now be active');
-
-const hexSize = 30; // 30
-const hexHeight = hexSize * 2;
-const hexWidth = Math.sqrt(3) * hexSize;
-
-
-const PLAYER_COLORS = {
-    DEFAULT: "green",
-    DEAD: "#000066"
-};
-
-// Constants for animation
-const MOVEMENT = {
-    BASE_DURATION: 500,  // Base duration in milliseconds
-    STAMINA_FACTOR: 50,  // Additional ms per stamina point cost
-    MIN_DURATION: 500,   // Minimum animation duration
-    MAX_DURATION: 2000   // Maximum animation duration
-};
-
-// Fog of war tracking
-
-
 
 // Special locations
 let lastStatUpdate = Date.now();
@@ -135,161 +119,12 @@ let lastMoveTime = Date.now();
 let activeMessageTimeout = null;
 let currentMessageType = null;
 
-
-// Calculate animation duration based on terrain stamina cost
-function calculateMovementDuration(terrainStaminaCost = 0) {
-    const duration = MOVEMENT.BASE_DURATION + (terrainStaminaCost * MOVEMENT.STAMINA_FACTOR);
-    return Math.min(Math.max(duration, MOVEMENT.MIN_DURATION), MOVEMENT.MAX_DURATION);
-}
-
-// Animate player movement between hexes
-function animatePlayerMovement(startQ, startR, endQ, endR, terrainStaminaCost = 0) {
-    return new Promise((resolve) => {
-        const player = document.getElementById('player');
-        const hexGroup = document.getElementById('hexGroup');
-        const startPos = getHexCenter(startQ, startR);
-        const endPos = getHexCenter(endQ, endR);
-        
-        const duration = calculateMovementDuration(terrainStaminaCost);
-        const startTime = performance.now();
-        
-        function animate(currentTime) {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            // Easing function for smoother movement
-            const eased = progress < 0.5
-                ? 2 * progress * progress
-                : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-            
-            // Update player position
-            const currentX = startPos.x + (endPos.x - startPos.x) * eased;
-            const currentY = startPos.y + (endPos.y - startPos.y) * eased;
-            
-            player.setAttribute("cx", currentX);
-            player.setAttribute("cy", currentY);
-            
-            // Update viewport position (negated to center on player)
-            hexGroup.setAttribute('transform', `translate(${-currentX}, ${-currentY})`);
-            
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            } else {
-                resolve();
-            }
-        }
-        
-        requestAnimationFrame(animate);
-    });
-}
-
-// Updated updatePlayerPosition function
-async function updatePlayerPosition(newQ, newR) {
-    if (!gameRunning || gameWon) return;
-    
-    const player = document.getElementById('player');
-    const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
-    const targetTerrain = TERRAIN_TYPES[targetHex.getAttribute('data-terrain')];
-    
-    // Store old position for animation
-    const oldQ = playerPosition.q;
-    const oldR = playerPosition.r;
-    
-    // Update game state
-    playerPosition = { q: newQ, r: newR };
-    visitedHexes.add(`${newQ},${newR}`);
-    
-    // Apply ice field damage
-    if (targetTerrain && targetTerrain.healthRisk) {
-        stats.health = Math.max(0, stats.health - (targetTerrain.healthRisk * 100));
-        MessageManager.showPlayerMessage("The bitter cold of the ice field bites into you.");
-    }
-    
-    // Handle weather updates
-    if (WEATHER.state.blizzardActive) {
-        WEATHER.state.temporaryFog.add(`${newQ},${newR}`);
-        VisibilityManager.getAdjacentHexes(playerPosition).forEach(hex => {
-            WEATHER.state.temporaryFog.add(`${hex.q},${hex.r}`);
-        });
-        VisibilityManager.updateVisibility(true);
-    } else {
-      VisibilityManager.updateVisibility(false);
-    }
-    
-    // Animate the movement
-    await animatePlayerMovement(
-        oldQ, oldR, 
-        newQ, newR, 
-        targetTerrain?.staminaCost || 0
-    );
-    
-    // Check victory conditions after movement completes
-    if (newQ === southPole.q && newR === southPole.r && !southPoleVisited) {
-        southPoleVisited = true;
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = 
-            "At last! Through bitter cold and endless white, you've reached the South Pole! Now the treacherous journey back to base camp awaits...";
-    } else if (southPoleVisited && newQ === baseCamp.q && newR === baseCamp.r) {
-        handleVictoryPhase("Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration.");
-    }
-    
-    // Reset selection state and update UI
-    
-    resetHexColors();
-    MessageManager.updateCurrentLocationInfo();
-}
-
-// Helper functions remain the same
-function createHexPoints(size) {
-    const points = [];
-    for (let i = 0; i < 6; i++) {
-        const angle = (60 * i - 30) * Math.PI / 180;
-        points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
-    }
-    return points.join(' ');
-}
-
-function getHexCenter(q, r) {
-    const x = hexWidth * (q + r/2);
-    const y = hexHeight * (r * 3/4);
-    return { x, y };
-}
-
 function hexDistance(hex1, hex2) {
     return (Math.abs(hex1.q - hex2.q) + 
             Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
             Math.abs(hex1.r - hex2.r)) / 2;
 }
 
-function isAdjacent(hex1, hex2) {
-    return hexDistance(hex1, hex2) === 1;
-}
-
-function createPlayerMarker() {
-    const player = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    const center = getHexCenter(playerPosition.q, playerPosition.r);
-    
-    player.setAttribute("cx", center.x);
-    player.setAttribute("cy", center.y);
-    player.setAttribute("r", hexSize * 0.3);
-    player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
-    player.setAttribute("id", "player");
-    player.setAttribute("stroke", "white");
-    player.setAttribute("stroke-width", "2");
-    
-    document.getElementById('hexGroup').appendChild(player);
-}
-
-function centerViewport() {
-    const hexGroup = document.getElementById('hexGroup');
-    const gameGrid = document.getElementById('gameGrid');
-    
-    // Get player position in pixel coordinates
-    const playerCenter = getHexCenter(playerPosition.q, playerPosition.r);
-    
-    // Center the player by negating their position
-    hexGroup.setAttribute('transform', `translate(${-playerCenter.x}, ${-playerCenter.y})`);
-}
 
 function handleVictoryPhase(message) {
     // Only set gameWon and show restart button if this is the final victory
@@ -338,7 +173,7 @@ function restartGame() {
     const player = document.getElementById('player');
     if (player) {
         player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
-        const center = getHexCenter(baseCamp.q, baseCamp.r);
+        const center = MovementManager.getHexCenter(baseCamp.q, baseCamp.r);
         player.setAttribute("cx", center.x);
         player.setAttribute("cy", center.y);
     }
@@ -352,7 +187,7 @@ function restartGame() {
 
     // Clear any selected hex state
     selectedHex = null;
-    resetHexColors();
+    MovementManager.resetHexColors();
 
     // Reset all weather states and effects
     WeatherManager.resetWeatherState();
@@ -380,221 +215,8 @@ function restartGame() {
     }, 5000);    
 }
 
-function resetHexColors() {
-  // Only select polygons that have terrain data
-  document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-      const terrain = hex.getAttribute('data-terrain');
-      if (terrain === 'BASE_CAMP') {
-          hex.setAttribute('fill', SPECIAL_LOCATIONS.BASE_CAMP.color);
-      } else if (terrain === 'SOUTH_POLE') {
-          hex.setAttribute('fill', SPECIAL_LOCATIONS.SOUTH_POLE.color);
-      } else {
-          hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
-      }
-      // Reset stroke to white
-      hex.setAttribute('stroke', '#ffffff');
-      hex.setAttribute('stroke-width', '1');
-  });
-}
-
-function handleHexClick(event) {
-  if (!gameRunning || stats.health <= 0) return;
-
-  MessageManager.clearTerrainMessage();
-    event.preventDefault();
-    
-    const hex = event.target;
-    const q = parseInt(hex.getAttribute('data-q'));
-    const r = parseInt(hex.getAttribute('data-r'));
-    const hexId = `${q},${r}`;
-    const terrain = hex.getAttribute('data-terrain');
-
-    // Get terrain info based on type
-    const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                      terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                      TERRAIN_TYPES[terrain];
-
-    // Handle visibility restrictions based on weather
-    if (WEATHER.state.whiteoutPhase) {
-        // During whiteout, only allow interaction with adjacent hexes
-        if (!isAdjacent({ q, r }, playerPosition)) {
-            return;
-        }
-    } else if (!WEATHER.state.blizzardActive && !visibleHexes.has(hexId) && 
-              !visitedHexes.has(hexId) && !(q === baseCamp.q && r === baseCamp.r)) {
-        // Only apply normal visibility rules when not in a blizzard
-        return;
-    }
-
-    // Check for South Pole spotting
-    if (terrain === 'SOUTH_POLE' && !southPoleSpotted && !visitedHexes.has(hexId)) {
-        southPoleSpotted = true;
-        MessageManager.showPlayerMessage("Your heart pounds as you spot a dark shape through the swirling snow. After all this struggle, could it truly be the Pole?", MESSAGE_TYPES.TERRAIN);
-    }
-
-    // Reset hex colors and check movement possibility
-    resetHexColors();
-    const isAdjacentToPlayer = isAdjacent({ q, r }, playerPosition);
-    const staminaCost = terrainInfo.staminaCost || STATS.MOVE_STAMINA_COST;
-
-    // Handle hex selection and movement
-if (selectedHex && selectedHex === hex) {
-    // Second click - attempt movement
-    if (isAdjacentToPlayer) {
-    const totalStaminaCost = STATS.MOVE_STAMINA_COST + (terrainInfo.staminaCost || 0);
-    
-    if (!terrainInfo.passable) {
-      MessageManager.showPlayerMessage("This terrain is impassable!", MESSAGE_TYPES.TERRAIN);
-    } else if (stats.stamina < totalStaminaCost) {
-      MessageManager.showPlayerMessage(`You are too exhausted`, MESSAGE_TYPES.TERRAIN);
-        const staminaBar = document.getElementById('stamina-bar').parentElement;
-        staminaBar.classList.add('pulse-warning');
-        setTimeout(() => staminaBar.classList.remove('pulse-warning'), 1500);
-    } else {
-        // Make the movement handler async
-        (async () => {
-            stats.stamina -= totalStaminaCost;
-            
-            if (stats.hunger > 5) {
-                stats.hunger -= 5;
-            } else {
-                stats.hunger = 0;
-                stats.health = Math.max(0, stats.health - 5);
-                stats.stamina = Math.max(0, stats.stamina - 5);
-                
-                const healthBar = document.getElementById('health-bar').parentElement;
-                const staminaBar = document.getElementById('stamina-bar').parentElement;
-                healthBar.classList.add('pulse-warning');
-                staminaBar.classList.add('pulse-warning');
-                setTimeout(() => {
-                    healthBar.classList.remove('pulse-warning');
-                    staminaBar.classList.remove('pulse-warning');
-                }, 1500);
-            }
-            
-            lastMoveTime = Date.now();
-            StatsManager.updateStatsDisplay();
-            await updatePlayerPosition(q, r);  // Now waits for animation
-        })();
-    }
-}
-    selectedHex = null;
-} else {
-    // First click code remains the same...
-        selectedHex = hex;
-        hex.setAttribute('stroke', '#000000');
-        hex.setAttribute('stroke-width', '3');
-        
-        // Only show terrain info during normal conditions or when on current hex during blizzard
-        if (!WEATHER.state.whiteoutPhase && 
-            (!WEATHER.state.blizzardActive || (q === playerPosition.q && r === playerPosition.r))) {
-            document.getElementById('game-message').className = 'terrain-info';
-            document.getElementById('game-message').innerHTML = `
-                <h3>${terrainInfo.name}</h3>
-                <p><em>${terrainInfo.quote}</em></p>
-            `;
-        }
-    }
-}
-
-// Create the hex grid
-function createHexGrid() {
-  const group = document.getElementById('hexGroup');
-    
-  // Add storm layer first, before other elements
-  // Add storm overlay first, before other elements
-  WeatherManager.createWeatherElements();
-  
-  // Schedule first storm
-  WeatherManager.scheduleNextWeather();
-  
-  const gridSize = 12; // Number of hexes from center hex to edge
-    
-  // Position base camp in top row with valid q coordinate
-  let baseQ, baseR;
-  baseR = -gridSize;  // Force it to be in the top row
-    
-  // Calculate valid q range for this r value
-  const minQ = Math.max(-gridSize, -gridSize - baseR);
-  const maxQ = Math.min(gridSize, gridSize - baseR);
-  baseQ = minQ + Math.floor(Math.random() * (maxQ - minQ + 1));
-    
-  baseCamp = { q: baseQ, r: baseR };
-    
-  // Position player at base camp initially
-  playerPosition = { q: baseQ, r: baseR };
-    
- // Position south pole near the center of the grid with ±20% variation
-let southQ, southR;
-do {
-    // Calculate 20% of grid size for variation
-    const variation = Math.floor(gridSize * 0.2);
-    
-    // Generate random offsets within ±20% of grid size
-    southQ = Math.floor(Math.random() * (variation * 2 + 1)) - variation;
-    southR = Math.floor(Math.random() * (variation * 2 + 1)) - variation;
-    
-} while (southQ === baseQ && southR === baseR); // Ensure it's not at base camp
-southPole = { q: southQ, r: southR };
-  
-  // Create terrain hexes
-  for (let q = -gridSize; q <= gridSize; q++) {
-      for (let r = -gridSize; r <= gridSize; r++) {
-          if (Math.abs(q + r) <= gridSize) {
-              const x = hexWidth * (q + r/2);
-              const y = hexHeight * (r * 3/4);
-              
-              // Create terrain hex
-              const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-              let terrain;
-              
-              if (q === baseCamp.q && r === baseCamp.r) {
-                  terrain = 'BASE_CAMP';
-                  hex.setAttribute("fill", SPECIAL_LOCATIONS.BASE_CAMP.color);
-              } else if (q === southPole.q && r === southPole.r) {
-                  terrain = 'SOUTH_POLE';
-                  hex.setAttribute("fill", SPECIAL_LOCATIONS.SOUTH_POLE.color);
-              } else {
-                  terrain = assignRandomTerrain();
-                  hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
-              }
-              
-              hex.setAttribute("points", createHexPoints(hexSize));
-              hex.setAttribute("transform", `translate(${x}, ${y})`);
-              hex.setAttribute("stroke", "#ffffff");
-              hex.setAttribute("stroke-width", "1");
-              hex.setAttribute("data-q", q);
-              hex.setAttribute("data-r", r);
-              hex.setAttribute("data-terrain", terrain);
-              
-              hex.addEventListener('pointerdown', handleHexClick);
-              group.appendChild(hex);
-              
-              // Create fog overlay for this hex
-              const fog = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-              fog.setAttribute("points", createHexPoints(hexSize));
-              fog.setAttribute("transform", `translate(${x}, ${y})`);
-              fog.setAttribute("class", "fog");
-              fog.setAttribute("data-q", q);
-              fog.setAttribute("data-r", r);
-              fog.setAttribute("fill-opacity", "1");
-              fog.setAttribute("id", `fog-${q},${r}`);
-              group.appendChild(fog);
-          }
-      }
-  }
-
-  // Initialize visibility
-  visitedHexes.add(`${playerPosition.q},${playerPosition.r}`);
-  createPlayerMarker();
-  centerViewport();
-
-  VisibilityManager.updateVisibility();
-  MessageManager.updateCurrentLocationInfo();
-}
-
 // Initialize
-createHexGrid();
+GridManager.createHexGrid();
 
 // Start the stats update loop
 setInterval(() => StatsManager.updateStats(), 50);

@@ -7,10 +7,15 @@ TODO List
 - Whiteout happens too fast. 
 - You should turn all the bars that same color blue when you die.
 - Final text gets swallowed by teh stats page. I think if you chnage the padding you should be good. 
+- Debug blizzard and white out and health drop don't work.
+- Movement shouldn't just automatically take health. 
+- Restart button doesn't need to be all floating. It can appear at the bottom of the game screen. 
+
 
 == BIGGER (CLAUDE) FIXES ==
 - Player doesn't say transparent during a Blizzard for some reason. There's a bug there.
 - Whiteout isn't working right... it's odd. 
+- If you die in the game the restart button doesn't show up.
 
 == MISC ==
 - Split out this index.html file into other files at some point.

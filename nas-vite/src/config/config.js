@@ -1,5 +1,5 @@
 // Terrain configuration
-const TERRAIN_TYPES = {
+window.TERRAIN_TYPES = {
     NORMAL_SNOW: {
         name: "Normal Snow",
         color: "#E0F7FA",
@@ -44,7 +44,7 @@ const TERRAIN_TYPES = {
 };
 
 // Special locations
-const SPECIAL_LOCATIONS = {
+window.SPECIAL_LOCATIONS = {
     BASE_CAMP: {
         name: "Base Camp",
         color: "gold",
@@ -62,7 +62,7 @@ const SPECIAL_LOCATIONS = {
 };
 
 // Function to randomly assign terrain to a hex
-function assignRandomTerrain() {
+window.assignRandomTerrain = function assignRandomTerrain() {
     // Terrain distribution weights
     const weights = {
         NORMAL_SNOW: 35,
@@ -85,12 +85,12 @@ function assignRandomTerrain() {
 }
 
 // Get details for a terrain type
-function getTerrainDetails(terrainType) {
+window.getTerrainDetails = function(terrainType) {
     return TERRAIN_TYPES[terrainType] || TERRAIN_TYPES.NORMAL_SNOW;
 }
 
 // Function to update info panel with terrain details
-function updateTerrainInfo(terrainType) {
+window.updateTerrainInfo = function(terrainType) {
     const terrain = getTerrainDetails(terrainType);
     const infoPanel = document.getElementById('infoPanel');
     
@@ -100,3 +100,10 @@ function updateTerrainInfo(terrainType) {
         <p><em>"${terrain.quote}"</em></p>
     `;
 }
+
+// Add everything to window object
+window.TERRAIN_TYPES = TERRAIN_TYPES;
+window.SPECIAL_LOCATIONS = SPECIAL_LOCATIONS;
+window.assignRandomTerrain = assignRandomTerrain;
+window.getTerrainDetails = getTerrainDetails;
+window.updateTerrainInfo = updateTerrainInfo;

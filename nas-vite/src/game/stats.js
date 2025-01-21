@@ -2,6 +2,7 @@
 
 import { WeatherManager } from './weather.js';
 import { DebugManager } from './debug.js';
+import { MessageManager, MESSAGE_TYPES } from './ui/messages.js';
 
 // Stats system constants
 export const STATS = {
@@ -27,7 +28,8 @@ export const STARVATION_THRESHOLDS = {
 };
 
 // Track shown starvation messages
-let shownStarvationThresholds = new Set();
+export let shownStarvationThresholds = new Set();
+window.shownStarvationThresholds = shownStarvationThresholds;
 
 // Stats timing
 let lastStatUpdate = Date.now();
@@ -121,10 +123,9 @@ export const StatsManager = {
     },
 
     checkDeathCondition() {
-        // console.log('Checking death condition - Health:', stats.health); // Add this line
-
+        // Always check health first, since zero health means death regardless of hunger
         if (stats.health <= 0) {
-            console.log('Death condition triggered'); // Add this line
+            console.log('Death condition triggered'); 
             if (!gameRunning) return true; // Don't trigger death multiple times
             gameRunning = false;
             if (stats.hunger <= 0) {
@@ -132,16 +133,18 @@ export const StatsManager = {
             } else {
                 this.handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
             }
-            return true; // Ensure the function returns early
-        } else if (stats.hunger <= 0) {
-            // Handle hunger-based warnings
+            return true;
+        }
+    
+        // Handle hunger warnings, but only if we're still alive
+        if (stats.hunger <= 0) {
             const healthPercent = Math.floor(stats.health);
             
             for (const threshold of [75, 50, 25, 10]) {
                 if (healthPercent <= threshold && !shownStarvationThresholds.has(threshold)) {
                     MessageManager.showPlayerMessage(STARVATION_THRESHOLDS[threshold], MESSAGE_TYPES.STATUS);
                     shownStarvationThresholds.add(threshold);
-                    break; // Show only one message at a time
+                    break;
                 }
             }
             return true;
@@ -150,20 +153,17 @@ export const StatsManager = {
     },
 
     handleDeath(message) {
+        console.log('Handling death...');
         // Stop the game
-        gameRunning = false;
+        window.gameRunning = false;
         
         // Clean up any active weather
         WeatherManager.resetWeatherState();
-
+    
         // Change player marker to dark blue
-        const player = document.getElementById('player');
-        player.setAttribute("fill", PLAYER_COLORS.DEAD);
+        const deadColor = window.PLAYER_COLORS?.DEAD || "#000066";  // Fallback color if undefined
+    player.setAttribute("fill", deadColor);
         
-        // Clear any selected hex state
-        selectedHex = null;
-        resetHexColors();
-
         // Show death message in game message area
         document.getElementById('game-message').className = 'narrative';
         document.getElementById('game-message').innerHTML = 
@@ -174,15 +174,18 @@ export const StatsManager = {
         restartBtn.classList.remove('hidden');
         restartBtn.style.display = 'block';
         
-        // Clear any existing event listeners
+        // Clear any existing event listeners and create new button
         const newRestartBtn = restartBtn.cloneNode(true);
         restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
         
         // Add new event listener
         newRestartBtn.addEventListener('click', () => {
-            restartGame();
-            // Clear any status messages when restarting
-            MessageManager.clearTerrainMessage();
+            if (typeof window.restartGame === 'function') {
+                window.restartGame();
+                MessageManager.clearTerrainMessage();
+            } else {
+                console.error('Restart game function not found');
+            }
         });
     }
 };
