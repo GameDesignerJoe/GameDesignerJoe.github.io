@@ -9,6 +9,7 @@ export const DebugManager = {
     lastFogToggleTime: 0,
     godModeActive: false,
     originalUpdateStats: null,
+    zoomLevel: 1,
 
     setupListeners() {
         document.addEventListener('keydown', (e) => {
@@ -20,6 +21,28 @@ export const DebugManager = {
                         e.stopPropagation();
                         console.log('Debug: Toggling Fog Reveal');
                         this.toggleFogOfWar();
+                        break;
+
+                    case 'b': // Trigger blizzard
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Debug: Triggering Blizzard');
+                        WeatherManager.triggerBlizzard();
+                        break;
+
+                    case 'w': // Trigger whiteout
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Debug: Triggering Whiteout');
+                        WeatherManager.triggerWhiteout();
+                        break;
+
+                    // Add weather clear control
+                    case 'c': // Clear weather effects
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Debug: Clearing Weather Effects');
+                        WeatherManager.resetWeatherState();
                         break;
 
                     case 'g': // God mode toggle
@@ -202,41 +225,42 @@ export const DebugManager = {
             // Store original method if not already stored
             if (!this.originalUpdateStats) {
                 this.originalUpdateStats = StatsManager.updateStats;
-            }
-    
-            // Override the stats update method to prevent stat changes
-            StatsManager.updateStats = () => {
-                // Completely lock stats at max
-                window.stats.health = STATS.MAX_VALUE;
-                window.stats.stamina = STATS.MAX_VALUE;
-                window.stats.hunger = STATS.MAX_VALUE;
-    
-                // Ensure display is updated to max
-                const statBars = {
-                    health: document.getElementById('health-bar'),
-                    stamina: document.getElementById('stamina-bar'),
-                    hunger: document.getElementById('hunger-bar')
+                
+                // Create a new update function that checks the god mode flag
+                const newUpdateStats = function(force = false) {
+                    // If god mode is active, maintain max stats
+                    if (DebugManager.godModeActive) {
+                        // Set stats to max
+                        window.stats.health = STATS.MAX_VALUE;
+                        window.stats.stamina = STATS.MAX_VALUE;
+                        window.stats.hunger = STATS.MAX_VALUE;
+                        
+                        // Update display without triggering full update
+                        StatsManager.updateStatsDisplay();
+                        return false;
+                    }
+                    
+                    // Call original update if god mode is off
+                    return DebugManager.originalUpdateStats.apply(this, arguments);
                 };
-    
-                // Directly set bar widths to 100%
-                Object.values(statBars).forEach(bar => {
-                    if (bar) bar.style.width = '100%';
-                });
-    
-                // Prevent any decay or changes
-                return false;
-            };
+                
+                // Bind the new function to maintain context
+                StatsManager.updateStats = newUpdateStats.bind(StatsManager);
+            }
     
             // Provide visual feedback
             const messageContainer = document.getElementById('message-container');
-            const godModeMessage = document.createElement('p');
-            godModeMessage.id = 'god-mode-message';
-            godModeMessage.textContent = 'GOD MODE ACTIVATED';
-            godModeMessage.style.color = 'yellow';
-            godModeMessage.style.fontWeight = 'bold';
-            messageContainer.appendChild(godModeMessage);
+            const existingMessage = document.getElementById('god-mode-message');
+            if (!existingMessage) {
+                const godModeMessage = document.createElement('p');
+                godModeMessage.id = 'god-mode-message';
+                godModeMessage.textContent = 'GOD MODE ACTIVATED';
+                godModeMessage.style.color = 'yellow';
+                godModeMessage.style.fontWeight = 'bold';
+                messageContainer.appendChild(godModeMessage);
+            }
     
-            // Force update to max stats
+            // Force immediate stats update
             window.stats.health = STATS.MAX_VALUE;
             window.stats.stamina = STATS.MAX_VALUE;
             window.stats.hunger = STATS.MAX_VALUE;
@@ -244,9 +268,10 @@ export const DebugManager = {
         } else {
             console.log('God Mode DEACTIVATED: Normal stat changes resumed');
             
-            // Restore original updateStats method
+            // Only restore original method if we have it stored
             if (this.originalUpdateStats) {
                 StatsManager.updateStats = this.originalUpdateStats;
+                this.originalUpdateStats = null;
             }
     
             // Remove god mode message

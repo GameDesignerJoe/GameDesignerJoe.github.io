@@ -5,7 +5,29 @@ export const VisibilityManager = {
         visibleHexes.clear();
         visibleHexes.add(`${playerPosition.q},${playerPosition.r}`);
         
-        // During whiteout, only show current hex and adjacents
+        // During whiteout, handle ALL hexes specially
+        if (WEATHER.state.whiteoutPhase) {
+            // Make sure ALL hexes are white
+            document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+                hex.style.opacity = '0';  // Hide terrain
+            });
+    
+            document.querySelectorAll('.fog').forEach(fogHex => {
+                fogHex.classList.remove('movement-fade', 'blizzard-fade');
+                fogHex.setAttribute('fill-opacity', '1');
+                fogHex.setAttribute('fill', 'white');
+                // Force the fog to be on top
+                fogHex.parentElement.appendChild(fogHex);
+            });
+            return;
+        }
+        
+        // Add adjacent hexes for non-whiteout conditions
+        this.getAdjacentHexes(playerPosition).forEach(hex => {
+            visibleHexes.add(`${hex.q},${hex.r}`);
+        });
+        
+        // Add adjacent hexes to visible set (unless in whiteout)
         if (!WEATHER.state.whiteoutPhase) {
             this.getAdjacentHexes(playerPosition).forEach(hex => {
                 visibleHexes.add(`${hex.q},${hex.r}`);
@@ -20,11 +42,14 @@ export const VisibilityManager = {
             const isCurrentPosition = hexId === `${playerPosition.q},${playerPosition.r}`;
             
             if (WEATHER.state.whiteoutPhase) {
-                // During whiteout, everything including current position should be fogged
+                // During whiteout, everything should be fogged
+                fogHex.classList.remove('movement-fade', 'blizzard-fade');
                 fogHex.setAttribute('fill-opacity', '1');
+                fogHex.setAttribute('fill', 'white');
             } else if (isBlizzard) {
                 // During blizzard, everything except current position should be fogged
                 if (!isCurrentPosition) {
+                    fogHex.classList.remove('movement-fade');
                     if (!fogHex.classList.contains('blizzard-fade')) {
                         fogHex.classList.add('blizzard-fade');
                     }
@@ -44,7 +69,7 @@ export const VisibilityManager = {
                 }
             }
         });
-
+    
         // Handle player visibility during whiteout
         const player = document.getElementById('player');
         if (WEATHER.state.whiteoutPhase) {

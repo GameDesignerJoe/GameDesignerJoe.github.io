@@ -191,6 +191,14 @@ polygon[data-terrain] {
   transition-delay: 2000ms;
 }
 
+/* Add new whiteout overrides */
+.whiteout-stats #health-icon,
+.whiteout-stats #stamina-icon,
+.whiteout-stats #hunger-icon {
+  filter: brightness(0) invert(1);  /* This will make icons pure white */
+  transition: filter 2s ease-in-out;
+}
+
 .whiteout-stats .stat-icon {
   filter: brightness(0.95) saturate(0.1);  /* Makes icons slightly off-white */
 }
@@ -305,10 +313,21 @@ margin-bottom: 10px;
   z-index: 1000;
 }
 
+.player-message.whiteout-message,
+.player-message.blizzard-message {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: black;
+}
+
 .player-message.visible {
   transform: translateY(0);
 }
 
+/* Optional: Add a subtle text shadow to help readability */
+.player-message.whiteout-message #player-message-text,
+.player-message.blizzard-message #player-message-text {
+    text-shadow: 0px 0px 1px rgba(0, 0, 0, 0.2);
+}
 
 /* Restart button */
 .restart-button {

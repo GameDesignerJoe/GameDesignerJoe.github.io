@@ -17,7 +17,7 @@ export const MessageManager = {
             console.log('Message Debug: Suppressing message during whiteout:', message);
             return;
         }
-
+    
         // Clear any existing timeout
         if (this.activeMessageTimeout) {
             clearTimeout(this.activeMessageTimeout);
@@ -25,6 +25,16 @@ export const MessageManager = {
         
         const messageContainer = document.getElementById('player-message');
         const messageText = document.getElementById('player-message-text');
+        
+        // Remove any existing weather classes first
+        messageContainer.classList.remove('whiteout-message', 'blizzard-message');
+        
+        // Add weather-specific classes
+        if (WEATHER.state.whiteoutPhase) {
+            messageContainer.classList.add('whiteout-message');
+        } else if (WEATHER.state.blizzardActive) {
+            messageContainer.classList.add('blizzard-message');
+        }
         
         messageText.textContent = message;
         messageContainer.classList.add('visible');
@@ -66,17 +76,24 @@ export const MessageManager = {
         if (gameWon) {
             return;
         }
-
+    
+        const messageElement = document.getElementById('game-message');
+        
+        // Add/remove weather classes for styling
+        messageElement.classList.remove('whiteout-message', 'blizzard-message');
+    
         if (WEATHER.state.whiteoutPhase) {
-            document.getElementById('game-message').innerHTML = `
+            messageElement.classList.add('whiteout-message');
+            messageElement.innerHTML = `
                 <h3>White Out Conditions</h3>
                 <p><em>"The world beyond arm's reach has vanished into white..."</em></p>
             `;
             return;
         }
-
+    
         if (WEATHER.state.blizzardActive) {
-            document.getElementById('game-message').innerHTML = `
+            messageElement.classList.add('blizzard-message');
+            messageElement.innerHTML = `
                 <h3>Blizzard Conditions</h3>
                 <p><em>"The howling wind makes it difficult to see far..."</em></p>
             `;

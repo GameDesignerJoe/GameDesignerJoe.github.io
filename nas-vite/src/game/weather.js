@@ -159,7 +159,6 @@ export const WeatherManager = {
     },
 
     triggerWhiteout() {
-        // Access global variables using window
         if (!window.gameRunning || WEATHER.state.whiteoutActive || WEATHER.state.blizzardActive) return;
         
         WEATHER.state.whiteoutActive = true;
@@ -172,16 +171,32 @@ export const WeatherManager = {
         player.classList.add('whiteout-fade');
         
         setTimeout(() => {
+            // First, ensure terrain is hidden
             document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
                 hex.style.opacity = '0';
             });
+        
+            // Make sure ALL fog hexes are white and on top
+            document.querySelectorAll('.fog').forEach(fogHex => {
+                fogHex.classList.remove('movement-fade');
+                fogHex.classList.remove('blizzard-fade');
+                fogHex.setAttribute('fill-opacity', '1');
+                fogHex.setAttribute('fill', 'white');
+                // Move fog hex to end of parent element to ensure it's on top
+                fogHex.parentElement.appendChild(fogHex);
+            });
+            
             whiteoutOverlay.setAttribute("opacity", "1");
             player.style.opacity = '0';
             statsContainer.classList.add('whiteout-stats');
             
+            // Set ALL background elements to white
             document.body.style.backgroundColor = '#FFFFFF';
             document.querySelector('.game-container').style.backgroundColor = '#FFFFFF';
-            document.querySelector('.grid-container').style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+            document.querySelector('.grid-container').style.backgroundColor = '#FFFFFF';
+            
+            // Also hide the game grid background gradient during whiteout
+            document.getElementById('gameGrid').style.background = 'white';
             
             VisibilityManager.updateVisibility(false);
             MessageManager.updateCurrentLocationInfo();
@@ -191,15 +206,28 @@ export const WeatherManager = {
                     window.visitedHexes.clear();
                     window.visitedHexes.add(`${window.playerPosition.q},${window.playerPosition.r}`);
                     
+                    // Restore terrain visibility
                     document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
                         hex.style.opacity = '1';
                     });
+
+                    // Reset fog hexes
+                    document.querySelectorAll('.fog').forEach(fogHex => {
+                        fogHex.classList.add('movement-fade');
+                        fogHex.setAttribute('fill', 'white');
+                        fogHex.setAttribute('fill-opacity', '1');
+                    });
+
+                    // Restore game grid background
+                    document.getElementById('gameGrid').style.background = '';  // Remove override
+                    
                     player.style.opacity = '1';
                     whiteoutOverlay.setAttribute("opacity", "0");
                     WEATHER.state.whiteoutPhase = false;
                     
                     statsContainer.classList.remove('whiteout-stats');
                     
+                    // Restore original background colors
                     document.body.style.backgroundColor = '#1B4B7C';
                     document.querySelector('.game-container').style.backgroundColor = '';
                     document.querySelector('.grid-container').style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
@@ -302,12 +330,5 @@ export const WeatherManager = {
         if (gridContainer) gridContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
     },
 
-    // Add debug method to manually trigger weather
-    debugTriggerWeather(type) {
-        if (type === 'blizzard') {
-            this.triggerBlizzard();
-        } else if (type === 'whiteout') {
-            this.triggerWhiteout();
-        }
-    }
+    
 };
