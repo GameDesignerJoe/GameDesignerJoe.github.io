@@ -1,5 +1,10 @@
 TODO List
 
+== NEW TRANSITION UGS ==
+- Debug commands don't work.
+- Health bar gets darker the more you lose it looks like. 
+- Restart expedition doesn't restart everything. You're still at the same location.
+
 == TO TEST ==
 - If you die during a weather event, I don't think you get your last narrative message. 
 

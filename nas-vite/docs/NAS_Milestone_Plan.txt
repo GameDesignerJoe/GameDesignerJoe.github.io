@@ -1,0 +1,176 @@
+Revised Milestones Plan
+
+Milestone 2: Core Stats and UI Enhancements
+
+Status: Completed
+
+Playable Experience Goal: Provide a functional baseline where players manage their health, stamina, and hunger while visualizing these stats dynamically during gameplay.
+
+Goals:
+
+Implement core stats: health, stamina, hunger.
+
+Dynamic progress bars to visually represent stats.
+
+Automatic health decay when away from Base Camp.
+
+Fix erratic movement on touch devices.
+
+Milestone 3: Environmental Mechanics
+
+Playable Experience Goal: Create an immersive environment where the player must navigate and survive through increasingly challenging terrain and weather conditions, making strategic decisions to conserve stamina and health.
+
+Goals:
+
+Terrain Types:
+
+Introduce terrain tiles such as cliffs, crevasses, and snowfields.
+
+Different terrain types impact stamina usage and require specific tools for traversal.
+
+Weather Effects:
+
+Add dynamic weather, including snowstorms and whiteouts.
+
+Snowstorms hide previously revealed tiles and increase health decay rates.
+
+Temperature and Wind Chill:
+
+Implement a temperature system that dynamically affects health decay based on environmental conditions.
+
+Stretch Goals:
+
+Add environmental hazards, such as collapsing ice or wildlife encounters, to increase tension and unpredictability.
+
+Milestone 4: Map and Exploration Enhancements
+
+Playable Experience Goal: Allow players to explore a randomized, dynamic map with meaningful navigation challenges and tools to aid in exploration.
+
+Goals:
+
+Impassable Terrain:
+
+Add obstacles (e.g., cliffs, crevasses) that force players to find alternate routes.
+
+Random Map Generation:
+
+Implement a system to randomize map layouts for replayability.
+
+Navigation Tools:
+
+Introduce tools like compasses or looking glasses to assist in exploration.
+
+Add map markers for discovered key locations.
+
+Milestone 5: Camp and Rest System
+
+Playable Experience Goal: Introduce a system where players strategically set up camp to recover resources while navigating environmental limitations like weather.
+
+Goals:
+
+Resting:
+
+Add a camp action for recovering stamina and hunger.
+
+Resting requires safe locations and consumes food and fuel.
+
+Weather Interactions:
+
+Snowstorms prevent resting unless specific tools are available (e.g., tents).
+
+Camp UI:
+
+Add a camp-specific UI showing available actions and effects.
+
+Milestone 6: Advanced Gameplay Mechanics
+
+Playable Experience Goal: Deepen the survival mechanics by adding resource management, inventory systems, and desperate actions that highlight the harsh realities of Antarctic exploration.
+
+Goals:
+
+Resource Management:
+
+Introduce items like food rations, fuel, and tools.
+
+Implement an inventory system for players to manage supplies.
+
+Encumbrance System:
+
+Add a weight system affecting movement speed and stamina usage.
+
+Desperation Mechanics:
+
+Allow desperate actions like consuming sled dogs or leather for survival.
+
+Milestone 7: Narrative Systems
+
+Playable Experience Goal: Add narrative depth through event-driven moments, character development, and dynamic storytelling that reflects the player's journey and decisions.
+
+Goals:
+
+Event-Driven Story Moments:
+
+Introduce narrative events triggered by exploration, survival, or weather conditions.
+
+Character Development:
+
+Add text-based moments of reflection or character thoughts tied to survival progress.
+
+Dynamic Narrative:
+
+Adjust narrative outcomes based on player actions (e.g., reaching the South Pole, surviving hardships).
+
+Journal System:
+
+Allow players to document their journey through auto-generated or player-created logs.
+
+Stretch Goals:
+
+Branching narrative paths based on player decisions.
+
+Milestone 8: Replayability and Long-Term Systems
+
+Playable Experience Goal: Ensure players have a reason to return to the game with persistent progression, achievements, and enhanced randomization for varied and engaging runs.
+
+Goals:
+
+Achievements and Unlocks:
+
+Add persistent progression systems like achievements or unlockable items.
+
+Meta-Progression:
+
+Introduce long-term progression mechanics tied to successful or failed runs.
+
+Enhanced Randomization:
+
+Expand map randomization and add more environmental variation for replayability.
+
+Milestone 9: Art Pass & Polish
+
+Playable Experience Goal: Deliver a visually polished and cohesive experience that enhances immersion without distracting from the survival gameplay.
+
+Goals:
+
+Particle Effects:
+
+Add visual effects like blowing snow, wind-driven particles, and frost overlays to simulate the harsh Antarctic environment.
+
+Dynamic Weather Visuals:
+
+Enhance weather systems with smooth transitions, snowstorms, and visual cues for high winds.
+
+Environmental Animation:
+
+Animate interactive elements like flapping tents, swinging ropes, or swaying flags to reflect environmental conditions.
+
+UI Polish:
+
+Refine UI elements for clarity and immersion, ensuring they fit seamlessly into the game's aesthetic.
+
+Start Screen:
+
+Add a start screen with options to begin a new game, view instructions, or adjust settings, providing a professional entry point to the game.
+
+Let me know if you'd like additional refinements or adjustments to this milestone plan!
+

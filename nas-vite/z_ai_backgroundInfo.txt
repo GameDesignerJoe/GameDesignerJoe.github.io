@@ -1,0 +1,76 @@
+# Not All Survive - Development Context
+
+## Project Overview
+"Not All Survive" is a survival strategy game set in Antarctica, using a hexagonal grid system. The game is currently implemented using SVG for rendering, with vanilla JavaScript for game logic. The core gameplay involves navigating through different terrain types while managing health, stamina, and hunger stats.
+
+## Technical Context
+- **Implementation**: Pure JavaScript and SVG, no frameworks
+- **Core Systems**:
+  - Grid system using SVG hexagons
+  - Weather effects (blizzards and whiteouts)
+  - Player movement
+  - Resource management (health, stamina, hunger)
+  - Fog of war/visibility system
+
+## Current Development State
+- Basic movement and grid system are implemented
+- Core stats (health, stamina, hunger) are functioning
+- Weather effects are partially implemented
+- Basic terrain types exist
+
+## Known Issues
+1. Restart functionality is incomplete/buggy
+2. Weather effects need refinement
+3. Stats management needs balancing
+4. Code organization needs improvement
+5. Game state management is scattered across multiple files
+
+## Development Goals
+1. Clean up and organize existing codebase
+2. Implement proper state management
+3. Fix core functionality bugs
+4. Establish clear patterns for future feature implementation
+
+## File Structure Overview
+- `gameState.js`: Core game state management
+- `gameInit.js`: Game initialization
+- `stats.js`: Player stats management
+- `visibility.js`: Fog of war system
+- `weather.js`: Weather effects
+- `movement.js`: Player movement
+- `grid.js`: Hex grid system
+
+## Development Approach Notes
+- Developer needs step-by-step guidance for code implementation
+- Code suggestions should include specific file locations and context
+- Prefer incremental improvements over large rewrites
+- Focus on maintaining readable, well-documented code
+
+## Immediate Priorities
+1. Fix restart functionality
+2. Clean up state management
+3. Improve code organization
+4. Document core systems
+5. Fix critical bugs in basic gameplay
+
+## Game Design Document Context
+The game is based on Antarctic exploration themes with:
+- Focus on survival mechanics
+- Weather as a core challenge
+- Resource management
+- Strategic movement decisions
+- Multiple terrain types affecting gameplay
+
+## Long-term Development Goals
+1. Implement camping system
+2. Add inventory management
+3. Enhance weather effects
+4. Add narrative elements
+5. Implement proper win/loss conditions
+6. Add sound effects and visual polish
+
+## Development Notes
+- Keep code modular and well-documented
+- Maintain focus on core gameplay before adding features
+- Test thoroughly after each change
+- Document any new systems or major changes

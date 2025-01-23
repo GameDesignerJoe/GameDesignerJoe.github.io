@@ -5,226 +5,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NOT ALL SURVIVE</title>
     <link rel="stylesheet" href="src/index.css">
-    <style>
-    </style>
 </head>
 <body>
-  <div class="game-container">
-    <h1>NOT ALL SURVIVE</h1>
-    <div id="message-container">
-      <p id="game-message" class="narrative">Before you lies the vast Antarctic expanse, untamed and unforgiving. The freezing wind howls a challenge promising either immortal glory or eternal rest beneath the ice.</p>
-    </div>
-    <button id="restart-button" class="restart-button hidden">START A NEW EXPEDITION</button>    
-      <div class="stats-container">
-          <div class="stat">
-              <img src="public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
-              <div class="stat-bar">
-                  <div class="stat-fill" id="health-bar"></div>
-              </div>
-          </div>
-          <div class="stat">
-              <img src="public/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
-              <div class="stat-bar">
-                  <div class="stat-fill" id="stamina-bar"></div>
-              </div>
-          </div>
-          <div class="stat">
-              <img src="public/art/food.svg" id="hunger-icon" alt="Hunger" class="stat-icon">
-              <div class="stat-bar">
-                  <div class="stat-fill" id="hunger-bar"></div>
-              </div>
-          </div>
-      </div>
+    <div class="game-container">
+        <h1>NOT ALL SURVIVE</h1>
         
-        <div class="grid-container">
-          <div id="player-message" class="player-message">
-            <p id="player-message-text"></p>
+        <!-- Message Container -->
+        <div id="message-container">
+            <p id="game-message" class="narrative">
+                Before you lies the vast Antarctic expanse, untamed and unforgiving. 
+                The freezing wind howls a challenge promising either immortal glory 
+                or eternal rest beneath the ice.
+            </p>
         </div>
-          <svg id="gameGrid" width="100%" height="100%" viewBox="-150 -150 300 300">
-              <g id="hexGroup">
+
+        <!-- Restart Button -->
+        <button id="restart-button" class="restart-button hidden">
+            START A NEW EXPEDITION
+        </button>    
+
+        <!-- Stats Display -->
+        <div class="stats-container">
+            <div class="stat">
+                <img src="public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="health-bar"></div>
+                </div>
+            </div>
+            <div class="stat">
+                <img src="public/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="stamina-bar"></div>
+                </div>
+            </div>
+            <div class="stat">
+                <img src="public/art/food.svg" id="hunger-icon" alt="Hunger" class="stat-icon">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="hunger-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Grid -->
+        <div class="grid-container">
+            <div id="player-message" class="player-message">
+                <p id="player-message-text"></p>
+            </div>
+            <svg id="gameGrid" width="100%" height="100%" viewBox="-150 -150 300 300">
+                <g id="hexGroup">
                     <!-- Hexes will be added here by JS -->
                 </g>
             </svg>
         </div>
     </div>
 
-    <script src="src/config/config.js"></script>
-<script type="module">
-  // Make necessary state variables global by adding 'window.'
-  window.gameWon = false;
-  window.gameRunning = true;
-
-  window.playerPosition = { q: 0, r: 0 };
-  window.southPole = null;
-  window.southPoleSpotted = false;
-  window.southPoleVisited = false;
-  window.baseCamp = null;
-  window.selectedHex = null;
-  window.visibleHexes = new Set();
-  window.visitedHexes = new Set();
-
-  // In index.html, with other window.variables
-  window.WEATHER = {
-      CONFIG: {
-          WHITEOUT: {
-            HEALTH_DECAY_MULTIPLIER: 1.05,
-            FADE_IN_DURATION: 15000,
-            HOLD_DURATION: 10000,
-            FADE_OUT_DURATION: 8000,
-            MIN_INTERVAL: 120000,     // 2 minutes
-            MAX_INTERVAL: 240000      // 4 minutes.
-          },
-          BLIZZARD: {
-              HEALTH_DECAY_MULTIPLIER: 1.02,
-              FADE_IN_DURATION: 5000,   // Faster transition
-              HOLD_DURATION: 15000,     // Longer period of reduced visibility
-              FADE_OUT_DURATION: 10000,  // Faster transition
-              MIN_INTERVAL: 45000,      // 45 seconds
-              MAX_INTERVAL: 90000       // 1.5 minutes
-          }
-      },
-      state: {
-          whiteoutActive: false,
-          blizzardActive: false,
-          whiteoutPhase: false,
-          temporaryFog: new Set(),
-          weatherTimeout: null
-      }
-  };
-
-  import { MessageManager, MESSAGE_TYPES } from './src/game/ui/messages.js';
-import { WeatherManager, WEATHER } from './src/game/weather.js';
-import { GridManager } from './src/game/core/grid.js';
-import { VisibilityManager } from './src/game/visibility.js';
-import { GRID, PLAYER_COLORS, MOVEMENT } from './src/game/constants.js';
-import { MovementManager } from './src/game/movement.js';
-import { StatsManager, STATS, BASE_HEALING, stats, STARVATION_THRESHOLDS, shownStarvationThresholds } from './src/game/stats.js';
-import { DebugManager } from './src/game/debug.js';
-
-// Make sure this is after all other script imports
-// Near the top of your script, after imports
-window.stats = stats;
-window.StatsManager = StatsManager;
-window.STATS = STATS;
-window.handleVictoryPhase = handleVictoryPhase;
-window.restartGame = restartGame;
-window.shownStarvationThresholds = shownStarvationThresholds;
-DebugManager.setupListeners();
-console.log('Debug listeners should now be active');
-
-// Special locations
-let lastStatUpdate = Date.now();
-let lastMoveTime = Date.now();
-
-let activeMessageTimeout = null;
-let currentMessageType = null;
-
-function hexDistance(hex1, hex2) {
-    return (Math.abs(hex1.q - hex2.q) + 
-            Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
-            Math.abs(hex1.r - hex2.r)) / 2;
-}
-
-
-function handleVictoryPhase(message) {
-    // Only set gameWon and show restart button if this is the final victory
-    if (message.includes("forever etched")) {
-        gameWon = true;
-        
-        // Show restart button
-        const restartBtn = document.getElementById('restart-button');
-        restartBtn.classList.remove('hidden');
-        restartBtn.style.display = 'block';
-        
-        // Reset button event listener
-        const newRestartBtn = restartBtn.cloneNode(true);
-        restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
-        newRestartBtn.addEventListener('click', restartGame);
-
-        // Set a permanent victory message in the game message area only
-        const finalVictoryMessage = "Against all odds, you've done it! You've reached the South Pole and returned to tell the tale. Your name will be forever etched in the annals of polar exploration. The bitter winds that once howled of challenge now sing of your triumph, as you stand at base camp, forever changed by your journey across the endless white.";
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = finalVictoryMessage;
-    }
-}
-
-// Update the restartGame function
-function restartGame() {
-    console.log('Restarting game...');
-
-    // Reset game state flags
-    gameWon = false;
-    gameRunning = true;
-    southPoleSpotted = false;
-    southPoleVisited = false;
-    shownStarvationThresholds.clear();
-
-    // Reset all stats
-    stats.health = STATS.MAX_VALUE;
-    stats.stamina = STATS.MAX_VALUE;
-    stats.hunger = STATS.MAX_VALUE;
-
-    // Hide restart button
-    const restartBtn = document.getElementById('restart-button');
-    restartBtn.classList.add('hidden');
-    restartBtn.style.display = 'none';
-
-    // Reset player marker color and position
-    const player = document.getElementById('player');
-    if (player) {
-        player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
-        const center = MovementManager.getHexCenter(baseCamp.q, baseCamp.r);
-        player.setAttribute("cx", center.x);
-        player.setAttribute("cy", center.y);
-    }
-
-    // Reset player position
-    playerPosition = { q: baseCamp.q, r: baseCamp.r };
-
-    // Clear visited hexes except base camp
-    visitedHexes.clear();
-    visitedHexes.add(`${baseCamp.q},${baseCamp.r}`);
-
-    // Clear any selected hex state
-    selectedHex = null;
-    MovementManager.resetHexColors();
-
-    // Reset all weather states and effects
-    WeatherManager.resetWeatherState();
-
-    // Reset visibility and update display
-    VisibilityManager.updateVisibility(false);
-    StatsManager.updateStatsDisplay();
-    MessageManager.updateCurrentLocationInfo();
-
-    // Center the viewport
-    centerViewport();
-
-    // Show starting message
-    MessageManager.showInitialMessage();
-
-    // Reset timing
-    lastStatUpdate = Date.now();
-    lastMoveTime = Date.now();
-
-    // Schedule first weather event with a delay
-    setTimeout(() => {
-        if (gameRunning && !gameWon) {
-            WeatherManager.scheduleNextWeather();
-        }
-    }, 5000);    
-}
-
-// Initialize
-GridManager.createHexGrid();
-
-// Start the stats update loop
-setInterval(() => StatsManager.updateStats(), 50);
-MessageManager.showInitialMessage();
-
-// Set up debug listeners
-DebugManager.setupListeners();
-
+    <!-- Game Initialization -->
+    <script type="module">
+        import { GameInitializer } from './src/game/core/gameInit.js';
+        document.addEventListener('DOMContentLoaded', () => {
+            GameInitializer.init();
+        });
     </script>
 </body>
 </html>

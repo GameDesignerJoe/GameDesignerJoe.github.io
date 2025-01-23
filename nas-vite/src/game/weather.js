@@ -1,39 +1,16 @@
-// Import dependencies
-import { MessageManager, MESSAGE_TYPES } from './ui/messages.js';
-import { StatsManager } from './stats.js';
-import { VisibilityManager } from './visibility.js';
+// src/game/weather.js
 
-// Weather configuration
-export const WEATHER = {
-    CONFIG: {
-        WHITEOUT: {
-            HEALTH_DECAY_MULTIPLIER: 1.05,
-            FADE_IN_DURATION: 15000,
-            HOLD_DURATION: 10000,
-            FADE_OUT_DURATION: 8000,
-            MIN_INTERVAL: 120000,     // 2 minutes
-            MAX_INTERVAL: 240000      // 4 minutes
-        },
-        BLIZZARD: {
-            HEALTH_DECAY_MULTIPLIER: 1.02,
-            FADE_IN_DURATION: 5000,   // Faster transition
-            HOLD_DURATION: 15000,     // Longer period of reduced visibility
-            FADE_OUT_DURATION: 10000,  // Faster transition
-            MIN_INTERVAL: 45000,      // 45 seconds
-            MAX_INTERVAL: 90000       // 1.5 minutes
-        }
-    },
-    state: {
-        whiteoutActive: false,
-        blizzardActive: false,
-        whiteoutPhase: false,
-        temporaryFog: new Set(),
-        weatherTimeout: null
-    }
-};
+import { WeatherState, WEATHER_CONFIG, WEATHER_EFFECTS } from './core/weatherState.js';
+import { GameState } from './core/gameState.js';
+import { MessageManager, MESSAGE_TYPES } from './ui/messages.js';
+import { VisibilityManager } from './visibility.js';
+import { StatsManager } from './stats.js';
 
 export const WeatherManager = {
     createWeatherElements() {
+        const gameGrid = document.getElementById('gameGrid');
+        if (!gameGrid) return;
+
         // Create blizzard overlay
         const blizzardRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         blizzardRect.setAttribute("id", "blizzardOverlay");
@@ -43,7 +20,8 @@ export const WeatherManager = {
         blizzardRect.setAttribute("width", "300");
         blizzardRect.setAttribute("height", "300");
         blizzardRect.setAttribute("fill", "white");
-    
+        blizzardRect.setAttribute("opacity", "0");
+
         // Create whiteout overlay
         const whiteoutRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         whiteoutRect.setAttribute("id", "whiteoutOverlay");
@@ -53,34 +31,30 @@ export const WeatherManager = {
         whiteoutRect.setAttribute("width", "300");
         whiteoutRect.setAttribute("height", "300");
         whiteoutRect.setAttribute("fill", "white");
-    
-        // Add both overlays to the game grid
-        const gameGrid = document.getElementById('gameGrid');
+        whiteoutRect.setAttribute("opacity", "0");
+
         gameGrid.appendChild(blizzardRect);
         gameGrid.appendChild(whiteoutRect);
     },
 
     triggerBlizzard() {
-        // Access global variables using window
-        if (!window.gameRunning || WEATHER.state.blizzardActive || WEATHER.state.whiteoutActive) return;
+        if (!GameState.game.running || WeatherState.effects.blizzardActive || WeatherState.effects.whiteoutActive) return;
+
+        // Initialize blizzard state
+        WeatherState.methods.startWeatherEvent('BLIZZARD');
         
-        console.log('Weather Debug: Starting blizzard');
-        WEATHER.state.blizzardActive = true;
         const blizzardOverlay = document.getElementById('blizzardOverlay');
         const player = document.getElementById('player');
         
-        // Explicitly set initial opacity to ensure CSS takes control
-        player.style.opacity = '1';
+        // Store visibility state before blizzard
+        WeatherState.visibility.temporaryFog = new Set([...GameState.world.visitedHexes]);
         
-        // Store current visibility state
-        WEATHER.state.temporaryFog = new Set([...window.visitedHexes]);
-        
-        // Start the blizzard fade effect
+        // Start visual transition
         document.querySelectorAll('.fog').forEach(fogHex => {
             const q = parseInt(fogHex.getAttribute('data-q'));
             const r = parseInt(fogHex.getAttribute('data-r'));
             const hexId = `${q},${r}`;
-            const isCurrentPosition = hexId === `${window.playerPosition.q},${window.playerPosition.r}`;
+            const isCurrentPosition = hexId === `${GameState.player.position.q},${GameState.player.position.r}`;
             
             if (!isCurrentPosition) {
                 fogHex.classList.add('blizzard-fade');
@@ -88,31 +62,26 @@ export const WeatherManager = {
             }
         });
         
-        // Fade out the player
+        // Player fade effect
         player.classList.add('blizzard-player-fade-in');
         
         MessageManager.showPlayerMessage("A blizzard sweeps in, obscuring your view...", MESSAGE_TYPES.STATUS);
-        setTimeout(() => MessageManager.clearTerrainMessage(), 5000);
         
+        // Blizzard phases
         setTimeout(() => {
-            console.log('Weather Debug: Blizzard fade in');
-            blizzardOverlay.setAttribute("opacity", "0.5");
+            WeatherState.methods.updateWeatherPhase('fadeIn');
+            blizzardOverlay.setAttribute("opacity", String(WEATHER_EFFECTS.OVERLAY_OPACITY.BLIZZARD));
             
-            // Switch to full blizzard opacity
             setTimeout(() => {
-                // Remove fade-in, add hold class
                 player.classList.remove('blizzard-player-fade-in');
                 player.classList.add('blizzard-player-hold');
+                player.style.opacity = String(WEATHER_EFFECTS.PLAYER_OPACITY.BLIZZARD);
                 
-                // Explicitly set opacity via style to counteract any global resets
-                player.style.opacity = '0.25';
-                
-                console.log('Weather Debug: Blizzard peak intensity');
+                WeatherState.methods.updateWeatherPhase('hold');
                 VisibilityManager.updateVisibility(true);
                 
-                // Start fade out
                 setTimeout(() => {
-                    console.log('Weather Debug: Blizzard starting fade out');
+                    WeatherState.methods.updateWeatherPhase('fadeOut');
                     blizzardOverlay.setAttribute("opacity", "0");
                     
                     player.classList.remove('blizzard-player-hold');
@@ -122,47 +91,45 @@ export const WeatherManager = {
                         fogHex.classList.remove('blizzard-fade');
                     });
                     
-                    WEATHER.state.weatherTimeout = setTimeout(() => {
-                        // Completely remove blizzard classes
+                    WeatherState.effects.weatherTimeout = setTimeout(() => {
                         player.classList.remove('blizzard-player-fade-out');
-                        player.style.opacity = '1';  // Ensure full opacity at end
+                        player.style.opacity = String(WEATHER_EFFECTS.PLAYER_OPACITY.NORMAL);
                         
                         this.handleBlizzardComplete();
-                    }, WEATHER.CONFIG.BLIZZARD.FADE_OUT_DURATION);
+                    }, WEATHER_CONFIG.BLIZZARD.transitions.fadeOut);
                     
-                }, WEATHER.CONFIG.BLIZZARD.HOLD_DURATION);
+                }, WEATHER_CONFIG.BLIZZARD.transitions.hold);
                 
-            }, WEATHER.CONFIG.BLIZZARD.FADE_IN_DURATION);
+            }, WEATHER_CONFIG.BLIZZARD.transitions.fadeIn);
         }, 100);
     },
 
     handleBlizzardComplete() {
-        if (!WEATHER.state.blizzardActive) return;
+        if (!WeatherState.effects.blizzardActive) return;
         
-        WEATHER.state.blizzardActive = false;
+        // Reset weather state
+        WeatherState.methods.clearWeather();
         
-        // Restore previous visibility including adjacent hexes
-        visitedHexes = new Set([...WEATHER.state.temporaryFog]);
-        WEATHER.state.temporaryFog.clear();
+        // Restore visibility
+        GameState.world.visitedHexes = new Set([...WeatherState.visibility.temporaryFog]);
+        WeatherState.visibility.temporaryFog.clear();
         VisibilityManager.updateVisibility(false);
         
+        // Update UI
         StatsManager.updateStatsDisplay();
         MessageManager.updateCurrentLocationInfo();
-        
-        if (WEATHER.state.weatherTimeout) {
-            clearTimeout(WEATHER.state.weatherTimeout);
-            WEATHER.state.weatherTimeout = null;
-        }
-        
-        this.scheduleNextWeather();
         MessageManager.showPlayerMessage("The blizzard subsides, your surroundings becoming familiar once again...", MESSAGE_TYPES.TERRAIN);
+        
+        // Schedule next weather event
+        this.scheduleNextWeather();
     },
 
     triggerWhiteout() {
-        if (!window.gameRunning || WEATHER.state.whiteoutActive || WEATHER.state.blizzardActive) return;
+        if (!GameState.game.running || WeatherState.effects.whiteoutActive || WeatherState.effects.blizzardActive) return;
         
-        WEATHER.state.whiteoutActive = true;
-        WEATHER.state.whiteoutPhase = true;
+        // Initialize whiteout state
+        WeatherState.methods.startWeatherEvent('WHITEOUT');
+        
         const whiteoutOverlay = document.getElementById('whiteoutOverlay');
         const player = document.getElementById('player');
         const statsContainer = document.querySelector('.stats-container');
@@ -171,164 +138,160 @@ export const WeatherManager = {
         player.classList.add('whiteout-fade');
         
         setTimeout(() => {
-            // First, ensure terrain is hidden
-            document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-                hex.style.opacity = '0';
-            });
-        
-            // Make sure ALL fog hexes are white and on top
-            document.querySelectorAll('.fog').forEach(fogHex => {
-                fogHex.classList.remove('movement-fade');
-                fogHex.classList.remove('blizzard-fade');
-                fogHex.setAttribute('fill-opacity', '1');
-                fogHex.setAttribute('fill', 'white');
-                // Move fog hex to end of parent element to ensure it's on top
-                fogHex.parentElement.appendChild(fogHex);
-            });
-            
-            whiteoutOverlay.setAttribute("opacity", "1");
-            player.style.opacity = '0';
-            statsContainer.classList.add('whiteout-stats');
-            
-            // Set ALL background elements to white
-            document.body.style.backgroundColor = '#FFFFFF';
-            document.querySelector('.game-container').style.backgroundColor = '#FFFFFF';
-            document.querySelector('.grid-container').style.backgroundColor = '#FFFFFF';
-            
-            // Also hide the game grid background gradient during whiteout
-            document.getElementById('gameGrid').style.background = 'white';
-            
-            VisibilityManager.updateVisibility(false);
-            MessageManager.updateCurrentLocationInfo();
+            this.applyWhiteoutEffects(player, whiteoutOverlay, statsContainer);
             
             setTimeout(() => {
                 setTimeout(() => {
-                    window.visitedHexes.clear();
-                    window.visitedHexes.add(`${window.playerPosition.q},${window.playerPosition.r}`);
-                    
-                    // Restore terrain visibility
-                    document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-                        hex.style.opacity = '1';
-                    });
-
-                    // Reset fog hexes
-                    document.querySelectorAll('.fog').forEach(fogHex => {
-                        fogHex.classList.add('movement-fade');
-                        fogHex.setAttribute('fill', 'white');
-                        fogHex.setAttribute('fill-opacity', '1');
-                    });
-
-                    // Restore game grid background
-                    document.getElementById('gameGrid').style.background = '';  // Remove override
-                    
-                    player.style.opacity = '1';
-                    whiteoutOverlay.setAttribute("opacity", "0");
-                    WEATHER.state.whiteoutPhase = false;
-                    
-                    statsContainer.classList.remove('whiteout-stats');
-                    
-                    // Restore original background colors
-                    document.body.style.backgroundColor = '#1B4B7C';
-                    document.querySelector('.game-container').style.backgroundColor = '';
-                    document.querySelector('.grid-container').style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
-                    
-                    VisibilityManager.updateVisibility(false);
+                    this.removeWhiteoutEffects(player, whiteoutOverlay, statsContainer);
                     
                     setTimeout(() => {
                         player.classList.remove('whiteout-fade');
                         this.handleWhiteoutComplete();
-                    }, WEATHER.CONFIG.WHITEOUT.FADE_OUT_DURATION);
+                    }, WEATHER_CONFIG.WHITEOUT.transitions.fadeOut);
                     
-                }, WEATHER.CONFIG.WHITEOUT.HOLD_DURATION);
+                }, WEATHER_CONFIG.WHITEOUT.transitions.hold);
                 
-            }, WEATHER.CONFIG.WHITEOUT.FADE_IN_DURATION);
+            }, WEATHER_CONFIG.WHITEOUT.transitions.fadeIn);
         }, 100);
     },
 
+    applyWhiteoutEffects(player, whiteoutOverlay, statsContainer) {
+        // Hide terrain
+        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+            hex.style.opacity = String(WEATHER_EFFECTS.TERRAIN_OPACITY.HIDDEN);
+        });
+
+        // Update fog hexes
+        document.querySelectorAll('.fog').forEach(fogHex => {
+            fogHex.classList.remove('movement-fade', 'blizzard-fade');
+            fogHex.setAttribute('fill-opacity', '1');
+            fogHex.setAttribute('fill', 'white');
+            fogHex.parentElement.appendChild(fogHex);
+        });
+        
+        // Apply overlay effects
+        whiteoutOverlay.setAttribute("opacity", String(WEATHER_EFFECTS.OVERLAY_OPACITY.WHITEOUT));
+        player.style.opacity = String(WEATHER_EFFECTS.PLAYER_OPACITY.WHITEOUT);
+        statsContainer.classList.add('whiteout-stats');
+        
+        // Whiten background elements
+        document.body.style.backgroundColor = '#FFFFFF';
+        document.querySelector('.game-container').style.backgroundColor = '#FFFFFF';
+        document.querySelector('.grid-container').style.backgroundColor = '#FFFFFF';
+        document.getElementById('gameGrid').style.background = 'white';
+        
+        VisibilityManager.updateVisibility(false);
+        MessageManager.updateCurrentLocationInfo();
+    },
+
+    removeWhiteoutEffects(player, whiteoutOverlay, statsContainer) {
+        // Reset visited hexes except current position
+        GameState.world.visitedHexes.clear();
+        GameState.world.visitedHexes.add(
+            `${GameState.player.position.q},${GameState.player.position.r}`
+        );
+        
+        // Restore terrain and fog visibility
+        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+            hex.style.opacity = String(WEATHER_EFFECTS.TERRAIN_OPACITY.NORMAL);
+        });
+
+        document.querySelectorAll('.fog').forEach(fogHex => {
+            fogHex.classList.add('movement-fade');
+            fogHex.setAttribute('fill', 'white');
+            fogHex.setAttribute('fill-opacity', '1');
+        });
+
+        // Reset visual effects
+        document.getElementById('gameGrid').style.background = '';
+        player.style.opacity = String(WEATHER_EFFECTS.PLAYER_OPACITY.NORMAL);
+        whiteoutOverlay.setAttribute("opacity", "0");
+        WeatherState.effects.whiteoutPhase = false;
+        statsContainer.classList.remove('whiteout-stats');
+        
+        // Restore background colors
+        document.body.style.backgroundColor = '#1B4B7C';
+        document.querySelector('.game-container').style.backgroundColor = '';
+        document.querySelector('.grid-container').style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+        
+        VisibilityManager.updateVisibility(false);
+    },
+
     handleWhiteoutComplete() {
-        WEATHER.state.whiteoutActive = false;
+        WeatherState.methods.clearWeather();
         StatsManager.updateStatsDisplay();
         MessageManager.updateCurrentLocationInfo();
         this.scheduleNextWeather();
-        MessageManager.showPlayerMessage("The white out phenomenon clears, but nothing looks familiar anymore...", MESSAGE_TYPES.TERRAIN);
+        MessageManager.showPlayerMessage(
+            "The white out phenomenon clears, but nothing looks familiar anymore...", 
+            MESSAGE_TYPES.TERRAIN
+        );
     },
 
     scheduleNextWeather() {
-        // Access global variables using window
-        if (!window.gameRunning || window.gameWon) return;
-    
-        if (WEATHER.state.weatherTimeout) {
-            clearTimeout(WEATHER.state.weatherTimeout);
+        if (!GameState.game.running || GameState.game.won) return;
+
+        if (WeatherState.effects.weatherTimeout) {
+            clearTimeout(WeatherState.effects.weatherTimeout);
         }
         
         const isBlizzard = Math.random() < 0.7;
-        const config = isBlizzard ? WEATHER.CONFIG.BLIZZARD : WEATHER.CONFIG.WHITEOUT;
+        const config = isBlizzard ? WEATHER_CONFIG.BLIZZARD : WEATHER_CONFIG.WHITEOUT;
         
-        const nextInterval = config.MIN_INTERVAL + 
-            Math.random() * (config.MAX_INTERVAL - config.MIN_INTERVAL);
+        const nextInterval = config.scheduling.minInterval + 
+            Math.random() * (config.scheduling.maxInterval - config.scheduling.minInterval);
         
-        // Expose triggerBlizzard and triggerWhiteout to window for debug access
-        window.triggerBlizzard = () => this.triggerBlizzard();
-        window.triggerWhiteout = () => this.triggerWhiteout();
+        WeatherState.methods.scheduleNextWeather(Date.now() + nextInterval);
         
-        WEATHER.state.weatherTimeout = setTimeout(
+        WeatherState.effects.weatherTimeout = setTimeout(
             () => isBlizzard ? this.triggerBlizzard() : this.triggerWhiteout(),
             nextInterval
         );
     },
 
     resetWeatherState() {
-        // Clear timeouts
-        if (WEATHER.state.weatherTimeout) {
-            clearTimeout(WEATHER.state.weatherTimeout);
-            WEATHER.state.weatherTimeout = null;
-        }
-    
-        // Reset state flags
-        WEATHER.state.whiteoutActive = false;
-        WEATHER.state.blizzardActive = false;
-        WEATHER.state.whiteoutPhase = false;
-        WEATHER.state.temporaryFog.clear();
-    
-        // Reset overlays
+        WeatherState.methods.clearWeather();
+        
+        // Reset visual elements
         const blizzardOverlay = document.getElementById('blizzardOverlay');
         const whiteoutOverlay = document.getElementById('whiteoutOverlay');
-        const player = document.getElementById('player'); // Add player reference
+        const player = document.getElementById('player');
+        const statsContainer = document.querySelector('.stats-container');
+        
         if (blizzardOverlay) blizzardOverlay.setAttribute("opacity", "0");
         if (whiteoutOverlay) whiteoutOverlay.setAttribute("opacity", "0");
-        
-        // Reset player visual state
         if (player) {
-            player.classList.remove('blizzard-player-fade-in', 'blizzard-player-hold', 'blizzard-player-fade-out', 'whiteout-fade');
-            player.style.opacity = '1';
+            player.classList.remove(
+                'blizzard-player-fade-in',
+                'blizzard-player-hold',
+                'blizzard-player-fade-out',
+                'whiteout-fade'
+            );
+            player.style.opacity = String(WEATHER_EFFECTS.PLAYER_OPACITY.NORMAL);
         }
-        
-        // Reset terrain visibility
-        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-            hex.style.opacity = '1';
-        });
-        
-        // Reset stats container
-        const statsContainer = document.querySelector('.stats-container');
         if (statsContainer) {
             statsContainer.classList.remove('whiteout-stats');
         }
         
-        // Reset fog
+        // Reset terrain and fog
+        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+            hex.style.opacity = String(WEATHER_EFFECTS.TERRAIN_OPACITY.NORMAL);
+        });
+        
         document.querySelectorAll('.fog').forEach(fogHex => {
             fogHex.classList.remove('blizzard-fade');
             fogHex.classList.remove('movement-fade');
             fogHex.classList.add('movement-fade');
             fogHex.setAttribute('fill-opacity', '1');
         });
-    
-        // Reset body and container colors
+        
+        // Reset colors
         document.body.style.backgroundColor = '#1B4B7C';
         const gameContainer = document.querySelector('.game-container');
         const gridContainer = document.querySelector('.grid-container');
         if (gameContainer) gameContainer.style.backgroundColor = '';
         if (gridContainer) gridContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
-    },
-
-    
+    }
 };
+
+export default WeatherManager;

@@ -1,191 +1,216 @@
 // src/game/stats.js
 
-import { WeatherManager } from './weather.js';
-import { DebugManager } from './debug.js';
+import { GameState, PLAYER_STATS } from './core/gameState.js';
+import { WeatherState, WEATHER_CONFIG } from './core/weatherState.js';
 import { MessageManager, MESSAGE_TYPES } from './ui/messages.js';
-
-// Stats system constants
-export const STATS = {
-    MAX_VALUE: 100,
-    HEALTH_DECAY: 0.5,    // % per second
-    HUNGER_DECAY: 0.0,   // % per second 0.25
-    MOVE_STAMINA_COST: 5,
-    STAMINA_REGEN: 5      // % per second 0.8
-};
-
-export const BASE_HEALING = {
-    HEALTH_REGEN: 1,    // % per second
-    HUNGER_REGEN: 0.5,  // % per second
-    STAMINA_REGEN: 3    // % per second
-};
-
-// Starvation system
-export const STARVATION_THRESHOLDS = {
-    75: "Your stomach gnaws with emptiness, making each step a struggle.",
-    50: "The hunger is all-consuming now, your thoughts growing dim like the Antarctic twilight.",
-    25: "Your body cannibalizes itself, strength fading with each painful heartbeat.",
-    10: "Death's cold embrace feels warmer now than this endless, gnawing emptiness."
-};
-
-// Track shown starvation messages
-export let shownStarvationThresholds = new Set();
-window.shownStarvationThresholds = shownStarvationThresholds;
-
-// Stats timing
-let lastStatUpdate = Date.now();
-export let lastMoveTime = Date.now();  // We export this because movement.js will need it
-
-// Stats state
-export const stats = {
-    health: STATS.MAX_VALUE,
-    stamina: STATS.MAX_VALUE,
-    hunger: STATS.MAX_VALUE
-};
+import { PLAYER_COLORS } from './constants.js';
+import { MovementManager } from './movement.js';  // Added for getHexCenter in handleRestart
 
 export const StatsManager = {
     updateStats() {
-        // Only exit if health is zero, not if hunger is zero
-        if (!gameRunning || gameWon || stats.health <= 0) return;
+        if (!GameState.game.running || GameState.game.won) return;
 
-        const now = Date.now();
-        const deltaTime = (now - lastStatUpdate) / 1000;
-
-        // Apply weather effects if active
-        if (WEATHER.state.whiteoutActive) {
-            stats.health = Math.max(0, stats.health - 
-                (STATS.HEALTH_DECAY * WEATHER.CONFIG.WHITEOUT.HEALTH_DECAY_MULTIPLIER * deltaTime));
-        } else if (WEATHER.state.blizzardActive) {
-            stats.health = Math.max(0, stats.health - 
-                (STATS.HEALTH_DECAY * WEATHER.CONFIG.BLIZZARD.HEALTH_DECAY_MULTIPLIER * deltaTime));
-        }
-
-        lastStatUpdate = now;
-
-        // Check current terrain for effects
-        const currentHex = document.querySelector(`polygon[data-q="${playerPosition.q}"][data-r="${playerPosition.r}"]`);
-        const currentTerrain = currentHex ? TERRAIN_TYPES[currentHex.getAttribute('data-terrain')] : null;
+        const currentTime = Date.now();
+        const deltaTime = (currentTime - GameState.player.lastStatUpdate) / 1000;
+        
+        // Update only if enough time has passed
+        if (deltaTime < 0.05) return;
 
         // Check if at base camp
-        const atBaseCamp = playerPosition.q === baseCamp.q && playerPosition.r === baseCamp.r;
-        
+        const atBaseCamp = GameState.player.position.q === GameState.world.baseCamp.q && 
+                          GameState.player.position.r === GameState.world.baseCamp.r;
+
         if (atBaseCamp) {
-            this.applyBaseCampHealing(deltaTime);
+            // At base camp: Heal everything at accelerated rate
+            GameState.player.stats.health = Math.min(
+                PLAYER_STATS.MAX_VALUE,
+                GameState.player.stats.health + (PLAYER_STATS.HEAL_RATE * 3 * deltaTime)
+            );
+            GameState.player.stats.stamina = Math.min(
+                PLAYER_STATS.MAX_VALUE,
+                GameState.player.stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * 3 * deltaTime)
+            );
+            GameState.player.stats.hunger = Math.min(
+                PLAYER_STATS.MAX_VALUE,
+                GameState.player.stats.hunger + (PLAYER_STATS.HUNGER_DECAY_RATE * 3 * deltaTime)
+            );
         } else {
-            this.applyNormalDecay(deltaTime, currentTerrain);
+            // Away from base camp: Normal mechanics
+            let healthDecayMultiplier = 1;
+            if (WeatherState.current.type === 'WHITEOUT') {
+                healthDecayMultiplier = WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier;
+            } else if (WeatherState.current.type === 'BLIZZARD') {
+                healthDecayMultiplier = WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier;
+            }
+
+            // Update health based on hunger and weather
+            if (GameState.player.stats.hunger <= 0) {
+                this.handleStarvation();
+            } else {
+                // Changed to use a fixed decay rate instead of HEAL_RATE
+                const HEALTH_DECAY_RATE = 0.5; // 0.5 health lost per second
+                const healthLoss = HEALTH_DECAY_RATE * deltaTime * healthDecayMultiplier;
+                GameState.player.stats.health = Math.max(
+                    0, 
+                    GameState.player.stats.health - healthLoss
+                );
+            }
+
+            // Update stamina recovery
+            const timeSinceLastMove = (currentTime - GameState.player.lastMoveTime) / 1000;
+            if (timeSinceLastMove > 2) {  // Start recovering stamina after 2 seconds of no movement
+                GameState.player.stats.stamina = Math.min(
+                    PLAYER_STATS.MAX_VALUE,
+                    GameState.player.stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * deltaTime)
+                );
+            }
         }
-        
-        // Update stats display after all calculations
+
+        // Check for death condition
+        if (GameState.player.stats.health <= 0) {
+            this.handleDeath();
+            return;
+        }
+
+        // Update time tracking and UI
+        GameState.player.lastStatUpdate = currentTime;
         this.updateStatsDisplay();
-        this.checkDeathCondition();
     },
 
-    clearStarvationThresholds() {
-        shownStarvationThresholds.clear();
+    handleStarvation() {
+        GameState.player.stats.health = Math.max(
+            0,
+            GameState.player.stats.health - 0.5
+        );
+        GameState.player.stats.stamina = Math.max(
+            0,
+            GameState.player.stats.stamina - 0.5
+        );
+
+        this.checkStarvationThresholds();
     },
 
-    getShownStarvationThresholds() {
-        return shownStarvationThresholds;
-    },
-
-    applyBaseCampHealing(deltaTime) {
-        stats.health = Math.min(STATS.MAX_VALUE, stats.health + BASE_HEALING.HEALTH_REGEN * deltaTime);
-        stats.hunger = Math.min(STATS.MAX_VALUE, stats.hunger + BASE_HEALING.HUNGER_REGEN * deltaTime);
-        stats.stamina = Math.min(STATS.MAX_VALUE, stats.stamina + BASE_HEALING.STAMINA_REGEN * deltaTime);
-
-        // Reset starvation thresholds if health recovers above 75%
-        if (stats.health > 75 && stats.hunger > 0) {
-            shownStarvationThresholds.clear();
-        }
-    },
-
-    applyNormalDecay(deltaTime, currentTerrain) {
-        stats.health = Math.max(0, stats.health - STATS.HEALTH_DECAY * deltaTime);
+    checkStarvationThresholds() {
+        const { health } = GameState.player.stats;
+        const thresholdsToShow = new Set([75, 50, 25, 10]);
         
-        if (currentTerrain?.healthRisk) {
-            stats.health = Math.max(0, stats.health - (currentTerrain.healthRisk * 100 * deltaTime));
+        thresholdsToShow.forEach(threshold => {
+            if (health <= threshold && !GameState.hasShownThreshold(threshold)) {
+                GameState.markThresholdShown(threshold);
+                
+                const messages = {
+                    75: "Your strength begins to fade as hunger gnaws at you...",
+                    50: "The lack of food is taking its toll. Your vision swims...",
+                    25: "Every step is agony. The hunger is unbearable...",
+                    10: "You can barely move. Death's icy grip tightens..."
+                };
+
+                MessageManager.showPlayerMessage(messages[threshold], MESSAGE_TYPES.STATUS);
+            }
+        });
+    },
+
+    handleDeath() {
+        GameState.game.running = false;
+        
+        const player = document.getElementById('player');
+        if (player) {
+            player.setAttribute("fill", PLAYER_COLORS.DEAD);
+        }
+
+        // Show and enable restart button
+        const restartBtn = document.getElementById('restart-button');
+        if (restartBtn) {
+            restartBtn.classList.remove('hidden');
+            restartBtn.style.display = 'block';
+            
+            // Remove any existing event listener
+            const newRestartBtn = restartBtn.cloneNode(true);
+            restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
+            
+            // Add new event listener
+            newRestartBtn.addEventListener('click', () => {
+                this.handleRestart();
+            });
         }
         
-        const timeSinceLastMove = (Date.now() - lastMoveTime) / 1000;
-        if (timeSinceLastMove > 0.5) {
-            stats.stamina = Math.min(STATS.MAX_VALUE, 
-                stats.stamina + STATS.STAMINA_REGEN * deltaTime);
+        document.getElementById('game-message').className = 'narrative';
+        document.getElementById('game-message').innerHTML = 
+            "The bitter Antarctic winds howl a mournful dirge as your frozen form becomes " +
+            "one with the endless white expanse. Your journey ends here, but the South Pole " +
+            "remains, waiting for the next brave soul to challenge its deadly embrace.";
+    },
+
+    handleRestart() {
+        // Reset game state
+        GameState.resetGame();
+        
+        // Reset UI elements
+        const restartBtn = document.getElementById('restart-button');
+        if (restartBtn) {
+            restartBtn.classList.add('hidden');
+            restartBtn.style.display = 'none';
         }
+
+        // Reset player marker
+        const player = document.getElementById('player');
+        if (player) {
+            player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
+            const center = MovementManager.getHexCenter(
+                GameState.world.baseCamp.q, 
+                GameState.world.baseCamp.r
+            );
+            player.setAttribute("cx", center.x);
+            player.setAttribute("cy", center.y);
+        }
+
+        // Reset other UI elements
+        this.updateStatsDisplay();
+        MessageManager.showInitialMessage();
     },
 
     updateStatsDisplay() {
-        stats.health = Math.max(0, stats.health);
-        stats.stamina = Math.max(0, stats.stamina);
-        stats.hunger = Math.max(0, stats.hunger);
+        const { health, stamina, hunger } = GameState.player.stats;
         
-        document.getElementById('health-bar').style.width = `${stats.health}%`;
-        document.getElementById('stamina-bar').style.width = `${stats.stamina}%`;
-        document.getElementById('hunger-bar').style.width = `${stats.hunger}%`;
+        // Update health bar
+        const healthBar = document.getElementById('health-bar');
+        if (healthBar) {
+            healthBar.style.width = `${health}%`;
+            healthBar.style.backgroundColor = this.getHealthColor(health);
+        }
+
+        // Update stamina bar
+        const staminaBar = document.getElementById('stamina-bar');
+        if (staminaBar) {
+            staminaBar.style.width = `${stamina}%`;
+            staminaBar.style.backgroundColor = this.getStaminaColor(stamina);
+        }
+
+        // Update hunger bar
+        const hungerBar = document.getElementById('hunger-bar');
+        if (hungerBar) {
+            hungerBar.style.width = `${hunger}%`;
+            hungerBar.style.backgroundColor = this.getHungerColor(hunger);
+        }
     },
 
-    checkDeathCondition() {
-        // Always check health first, since zero health means death regardless of hunger
-        if (stats.health <= 0) {
-            console.log('Death condition triggered'); 
-            if (!gameRunning) return true; // Don't trigger death multiple times
-            gameRunning = false;
-            if (stats.hunger <= 0) {
-                this.handleDeath("Starvation claims another victim. Your frozen body becomes one with the endless white of Antarctica.");
-            } else {
-                this.handleDeath("The bitter cold claims another victim. Your journey ends here, in the endless white of Antarctica.");
-            }
-            return true;
-        }
-    
-        // Handle hunger warnings, but only if we're still alive
-        if (stats.hunger <= 0) {
-            const healthPercent = Math.floor(stats.health);
-            
-            for (const threshold of [75, 50, 25, 10]) {
-                if (healthPercent <= threshold && !shownStarvationThresholds.has(threshold)) {
-                    MessageManager.showPlayerMessage(STARVATION_THRESHOLDS[threshold], MESSAGE_TYPES.STATUS);
-                    shownStarvationThresholds.add(threshold);
-                    break;
-                }
-            }
-            return true;
-        }
-        return false;
+    getHealthColor(value) {
+        if (value > 66) return '#FF0000';    // Full red for high health
+        if (value > 33) return '#FF4500';    // OrangeRed for medium health
+        return '#8B0000';                    // DarkRed for low health
     },
 
-    handleDeath(message) {
-        console.log('Handling death...');
-        // Stop the game
-        window.gameRunning = false;
-        
-        // Clean up any active weather
-        WeatherManager.resetWeatherState();
-    
-        // Change player marker to dark blue
-        const deadColor = window.PLAYER_COLORS?.DEAD || "#000066";  // Fallback color if undefined
-    player.setAttribute("fill", deadColor);
-        
-        // Show death message in game message area
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = 
-            "The freezing wind howls no more of glory or challenge, for it has claimed its prize. In this vast Antarctic expanse that once promised immortality, you have found only that eternal rest beneath the ice.";
-        
-        // Show and setup restart button
-        const restartBtn = document.getElementById('restart-button');
-        restartBtn.classList.remove('hidden');
-        restartBtn.style.display = 'block';
-        
-        // Clear any existing event listeners and create new button
-        const newRestartBtn = restartBtn.cloneNode(true);
-        restartBtn.parentNode.replaceChild(newRestartBtn, restartBtn);
-        
-        // Add new event listener
-        newRestartBtn.addEventListener('click', () => {
-            if (typeof window.restartGame === 'function') {
-                window.restartGame();
-                MessageManager.clearTerrainMessage();
-            } else {
-                console.error('Restart game function not found');
-            }
-        });
+    getStaminaColor(value) {
+        if (value > 66) return '#2196F3';
+        if (value > 33) return '#87CEEB';
+        return '#B0E0E6';
+    },
+
+    getHungerColor(value) {
+        if (value > 66) return '#D2691E';    // Chocolate
+        if (value > 33) return '#CD853F';    // Peru
+        return '#8B4513';                    // Saddle Brown
     }
 };
+
+export default StatsManager;

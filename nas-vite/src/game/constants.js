@@ -8,10 +8,11 @@ export const PLAYER_COLORS = {
 
 // Movement-related constants
 export const MOVEMENT = {
-    BASE_DURATION: 500,  // Base duration in milliseconds
-    STAMINA_FACTOR: 50,  // Additional ms per stamina point cost
-    MIN_DURATION: 500,   // Minimum animation duration
-    MAX_DURATION: 2000   // Maximum animation duration
+    BASE_DURATION: 500,     // Base duration in milliseconds
+    STAMINA_FACTOR: 50,     // Additional ms per stamina point cost
+    MIN_DURATION: 500,      // Minimum animation duration
+    MAX_DURATION: 2000,     // Maximum animation duration
+    STAMINA_COST: 2       // Base stamina cost for movement
 };
 
 // Grid-related constants

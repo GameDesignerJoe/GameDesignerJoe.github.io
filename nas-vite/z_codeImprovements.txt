@@ -1,0 +1,91 @@
+State Management Consolidation
+
+    nas-vite/
+    ├── src/
+    │   ├── components/           # React components
+    │   │   ├── game/            # Game-specific components
+    │   │   │   ├── Grid.jsx
+    │   │   │   ├── Player.jsx
+    │   │   │   └── Weather.jsx
+    │   │   └── ui/             # UI components
+    │   │       ├── Messages.jsx
+    │   │       ├── Stats.jsx
+    │   │       └── Controls.jsx
+    │   ├── state/              # State management
+    │   │   ├── game/
+    │   │   │   ├── gameState.js
+    │   │   │   ├── playerState.js
+    │   │   │   └── weatherState.js
+    │   │   └── store.js       # Central state management
+    │   ├── services/          # Game logic and services
+    │   │   ├── movement.js
+    │   │   ├── weather.js
+    │   │   ├── visibility.js
+    │   │   └── stats.js
+    │   ├── config/           # Configuration and constants
+    │   │   ├── constants.js
+    │   │   ├── terrain.js
+    │   │   └── weather.js
+    │   └── utils/           # Utility functions
+    │       ├── grid.js
+    │       └── math.js
+
+Proposed Folder StructureClick to open codeKey improvements to implement:
+
+State Management:
+
+Move all state-related code into a dedicated state directory
+Consider using a proper state management solution (like Zustand or Redux Toolkit)
+Separate player, game, and weather states into distinct modules
+
+
+Component Organization:
+
+Break down existing components into smaller, more focused ones
+Move game-specific components to a dedicated subfolder
+Separate UI components from game logic
+
+
+Service Layer:
+
+Create a dedicated services directory for game logic
+Move core gameplay functions out of components
+Create clear interfaces for each service
+
+
+Configuration:
+
+Consolidate all constants and configuration into the config directory
+Separate terrain and weather configs into their own files
+Create a central config export
+
+
+Specific Code Improvements:
+
+    javascriptCopy// Instead of:
+    window.gameState = GameState;
+    window.weatherState = WeatherState;
+
+    // Use a central store:
+    export const store = {
+        game: GameState,
+        weather: WeatherState,
+        // ... other states
+    };
+
+Immediate Tasks:
+
+Remove global window assignments
+Move weather-related code from movement.js to weather service
+Split the large gameState.js into smaller modules
+Convert class-based components to functional components with hooks
+Create proper TypeScript interfaces (if using TypeScript)
+
+
+Code Quality Improvements:
+
+Add proper error handling
+Implement proper event emitters instead of direct state mutations
+Add input validation
+Improve type safety
+Add proper documentation

@@ -23,7 +23,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src')
+      '@': resolve(__dirname, './src'),
+      '@game': resolve(__dirname, './src/game'),
+      '@core': resolve(__dirname, './src/game/core'),
+      '@ui': resolve(__dirname, './src/game/ui'),
+      '@config': resolve(__dirname, './src/config')
     }
   }
 })

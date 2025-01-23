@@ -1,25 +1,23 @@
-// Import dependencies
+// src/game/core/grid.js
+
 import { WeatherManager } from '../weather.js';
 import { MovementManager } from '../movement.js';
 import { MessageManager } from '../ui/messages.js';
 import { VisibilityManager } from '../visibility.js';
+import { GameState, TERRAIN_TYPES, SPECIAL_LOCATIONS } from './gameState.js';
 import { GRID, PLAYER_COLORS } from '../constants.js';
-
-// Hex grid utility functions
-export function hexDistance(hex1, hex2) {
-    return (Math.abs(hex1.q - hex2.q) + 
-            Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
-            Math.abs(hex1.r - hex2.r)) / 2;
-}
-
-export function isAdjacent(hex1, hex2) {
-    return hexDistance(hex1, hex2) === 1;
-}
+import { assignRandomTerrain } from '../../config/config.js';  
 
 export const GridManager = {
-    // Add the utility functions to the manager as well for convenience
-    hexDistance,
-    isAdjacent,
+    hexDistance(hex1, hex2) {
+        return (Math.abs(hex1.q - hex2.q) + 
+                Math.abs(hex1.q + hex1.r - hex2.q - hex2.r) + 
+                Math.abs(hex1.r - hex2.r)) / 2;
+    },
+
+    isAdjacent(hex1, hex2) {
+        return this.hexDistance(hex1, hex2) === 1;
+    },
 
     createHexPoints(size) {
         const points = [];
@@ -32,12 +30,15 @@ export const GridManager = {
 
     createPlayerMarker() {
         const player = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        const center = MovementManager.getHexCenter(window.playerPosition.q, window.playerPosition.r);
+        const center = MovementManager.getHexCenter(
+            GameState.player.position.q,
+            GameState.player.position.r
+        );
         
         player.setAttribute("cx", center.x);
         player.setAttribute("cy", center.y);
-        player.setAttribute("r", GRID.HEX_SIZE * 0.3);
-        player.setAttribute("fill", PLAYER_COLORS.DEFAULT);  // Changed this line
+        player.setAttribute("r", GRID.HEX_SIZE * 0.3);      // Player radius is 30% of hex size
+        player.setAttribute("fill", PLAYER_COLORS.DEFAULT);
         player.setAttribute("id", "player");
         player.setAttribute("stroke", "white");
         player.setAttribute("stroke-width", "2");
@@ -48,44 +49,60 @@ export const GridManager = {
     centerViewport() {
         const hexGroup = document.getElementById('hexGroup');
         const playerCenter = MovementManager.getHexCenter(
-            window.playerPosition.q, 
-            window.playerPosition.r
+            GameState.player.position.q,
+            GameState.player.position.r
         );
-        hexGroup.setAttribute('transform', `translate(${-playerCenter.x}, ${-playerCenter.y})`);
+        hexGroup.setAttribute('transform', 
+            `translate(${-playerCenter.x}, ${-playerCenter.y})`
+        );
     },
 
-    positionBaseCamp() {
-        // Calculate valid q range for base camp in top row
+    initializeSpecialLocations() {
+        // Position Base Camp
         const minQ = Math.max(-GRID.SIZE, -GRID.SIZE - (-GRID.SIZE));
         const maxQ = Math.min(GRID.SIZE, GRID.SIZE - (-GRID.SIZE));
         const baseQ = minQ + Math.floor(Math.random() * (maxQ - minQ + 1));
         
-        window.baseCamp = { q: baseQ, r: -GRID.SIZE };
-        window.playerPosition = { q: baseQ, r: -GRID.SIZE };
-    },
+        GameState.world.baseCamp = { q: baseQ, r: -GRID.SIZE };
+        GameState.player.position = { ...GameState.world.baseCamp };
 
-    positionSouthPole() {
+        // Position South Pole with variation
         const variation = Math.floor(GRID.SIZE * 0.2);
         let southQ, southR;
         
         do {
             southQ = Math.floor(Math.random() * (variation * 2 + 1)) - variation;
             southR = Math.floor(Math.random() * (variation * 2 + 1)) - variation;
-        } while (southQ === window.baseCamp.q && southR === window.baseCamp.r);
+        } while (southQ === GameState.world.baseCamp.q && 
+                 southR === GameState.world.baseCamp.r);
         
-        window.southPole = { q: southQ, r: southR };
+        GameState.world.southPole = { q: southQ, r: southR };
+    },
+
+    getTerrainType(q, r) {
+        // Check for special locations first
+        if (q === GameState.world.baseCamp.q && r === GameState.world.baseCamp.r) {
+            return 'BASE_CAMP';
+        }
+        if (q === GameState.world.southPole.q && r === GameState.world.southPole.r) {
+            return 'SOUTH_POLE';
+        }
+
+        // Get or generate terrain for this hex
+        const hexId = `${q},${r}`;
+        if (!GameState.world.terrain[hexId]) {
+            GameState.world.terrain[hexId] = assignRandomTerrain();
+        }
+        return GameState.world.terrain[hexId];
     },
 
     createHexGrid() {
         const group = document.getElementById('hexGroup');
         
-        // Initialize weather elements and scheduling
         WeatherManager.createWeatherElements();
         WeatherManager.scheduleNextWeather();
         
-        // Position special locations
-        this.positionBaseCamp();
-        this.positionSouthPole();
+        this.initializeSpecialLocations();
         
         // Create terrain hexes
         for (let q = -GRID.SIZE; q <= GRID.SIZE; q++) {
@@ -96,12 +113,21 @@ export const GridManager = {
             }
         }
 
-        // Initialize game state
-        window.visitedHexes.add(`${window.playerPosition.q},${window.playerPosition.r}`);
+        // Initialize visibility for base camp
+        GameState.world.visitedHexes.add(
+            `${GameState.player.position.q},${GameState.player.position.r}`
+        );
+        
+        // Make sure adjacent hexes are visible
+        const adjacentHexes = VisibilityManager.getAdjacentHexes(GameState.player.position);
+        adjacentHexes.forEach(hex => {
+            GameState.world.visibleHexes.add(`${hex.q},${hex.r}`);
+        });
+
         this.createPlayerMarker();
         this.centerViewport();
 
-        VisibilityManager.updateVisibility();
+        VisibilityManager.updateVisibility(false);
         MessageManager.updateCurrentLocationInfo();
     },
 
@@ -109,11 +135,9 @@ export const GridManager = {
         const x = GRID.HEX_WIDTH * (q + r/2);
         const y = GRID.HEX_HEIGHT * (r * 3/4);
         
-        // Create terrain hex
         const hex = this.createTerrainHex(q, r, x, y);
         group.appendChild(hex);
         
-        // Create fog overlay
         const fog = this.createFogOverlay(q, r, x, y);
         group.appendChild(fog);
     },
@@ -122,15 +146,16 @@ export const GridManager = {
         const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
         let terrain;
         
-        if (q === window.baseCamp.q && r === window.baseCamp.r) {
+        if (q === GameState.world.baseCamp.q && r === GameState.world.baseCamp.r) {
             terrain = 'BASE_CAMP';
-            hex.setAttribute("fill", window.SPECIAL_LOCATIONS.BASE_CAMP.color);
-        } else if (q === window.southPole.q && r === window.southPole.r) {
+            hex.setAttribute("fill", SPECIAL_LOCATIONS.BASE_CAMP.color);
+        } else if (q === GameState.world.southPole.q && r === GameState.world.southPole.r) {
             terrain = 'SOUTH_POLE';
-            hex.setAttribute("fill", window.SPECIAL_LOCATIONS.SOUTH_POLE.color);
+            hex.setAttribute("fill", SPECIAL_LOCATIONS.SOUTH_POLE.color);
         } else {
-            terrain = window.assignRandomTerrain();
-            hex.setAttribute("fill", window.TERRAIN_TYPES[terrain].color);
+            // Use the imported assignRandomTerrain function directly, not as a method
+            terrain = assignRandomTerrain();
+            hex.setAttribute("fill", TERRAIN_TYPES[terrain].color);
         }
         
         hex.setAttribute("points", this.createHexPoints(GRID.HEX_SIZE));
@@ -141,7 +166,6 @@ export const GridManager = {
         hex.setAttribute("data-r", r);
         hex.setAttribute("data-terrain", terrain);
         
-        hex.addEventListener('pointerdown', (event) => MovementManager.handleHexClick(event));
         return hex;
     },
 
@@ -154,6 +178,9 @@ export const GridManager = {
         fog.setAttribute("data-r", r);
         fog.setAttribute("fill-opacity", "1");
         fog.setAttribute("id", `fog-${q},${r}`);
+        fog.setAttribute("fill", "white");
         return fog;
     }
 };
+
+export default GridManager;

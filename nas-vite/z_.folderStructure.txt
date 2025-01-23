@@ -2,48 +2,48 @@ GameDesignerJoe.github.io
 ├── nas-vite
 │   ├── backup
 │   ├── dist
-│   │   ├── art
-│   │   │   ├── food.svg
-│   │   │   ├── health.svg
-│   │   │   ├── nas_192x192.png
-│   │   │   ├── nas_512x512.png
-│   │   │   └── stamina.svg
-│   │   ├── assets
-│   │   │   ├── main-D0D-eiSf.css
-│   │   │   └── main-weA6J3S7.js
-│   │   ├── index.html
-│   │   └── manifest.json
 │   ├── node_modules
 │   ├── public
 │   │   ├── art
 │   │   │   ├── food.svg
 │   │   │   ├── health.svg
-│   │   │   ├── nas_192x192.png
+│   │   │   ├── nas_192.png
+│   │   │   ├── nas_512.png
 │   │   │   ├── nas_512x512.png
+│   │   │   ├── nas_b_192.png
+│   │   │   ├── nas_b_512.png
+│   │   │   ├── nas_c_192.png
 │   │   │   └── stamina.svg
 │   │   └── manifest.json
 │   ├── src
 │   │   ├── components
 │   │   │   ├── GameLayout.jsx
+│   │   │   ├── PlayerMessages.jsx
 │   │   │   ├── RestartButton.jsx
 │   │   │   ├── Stats.jsx
 │   │   │   └── TypewriterMessage.jsx
+│   │   │   └── WeatherSystem.jsx
 │   │   ├── config
 │   │   │   └── config.js
 │   │   ├── game
 │   │   │   ├── core
-│   │   │   │   ├── grid.js.bak
-│   │   │   │   ├── state.js.bak
+│   │   │   │   ├── gameInuit.js        // Game initialization
+│   │   │   │   ├── gameState.js        // Core game state management
+│   │   │   │   ├── grid.js             // Hex grid system
 │   │   │   │   ├── terrain.js
-│   │   │   │   └── viewport.js.bak
+│   │   │   │   ├── weatherState.js
 │   │   │   └── ui
 │   │   │       ├── details.js
 │   │   │       ├── messages.js
+│   │   │   ├── constants.js
+│   │   │   ├── debug.js
 │   │   │   ├── index.js
 │   │   │   ├── input.js
-│   │   │   ├── movement.js
+│   │   │   ├── movement.js             // Player movement
 │   │   │   ├── render.js
-│   │   │   └── stats.js
+│   │   │   └── stats.js                // Player stats management
+│   │   │   └── visibility.js           // Fog of war system
+│   │   │   └── weather.js              // Weather effects
 │   │   ├── App.jsx
 │   │   ├── index.css
 │   │   └── main.jsx
@@ -54,3 +54,7 @@ GameDesignerJoe.github.io
 │   ├── postcss.config.js
 │   ├── tailwind.config.js
 │   └── vite.config.js
+│   └── z_.folderStructure.txt
+│   └── z_milestonePlan.txt
+│   └── z_summary.txt
+│   └── z_todo.txt
