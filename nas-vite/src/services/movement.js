@@ -1,13 +1,14 @@
 // src/services/movement.js
 
-import { gameStore } from '/src/state/store.js';
-import { MessageSystem, MESSAGE_CONFIG } from '../core/messages.js';  // Added MESSAGE_CONFIG import
-import { UI } from '/src/config/constants.js';
-import { StatsService } from '/src/services/stats.js';
-import { WeatherState } from '/src/state/game/weatherState.js';
-import { VisibilityManager } from '/src/services/visibility.js';
-import { MOVEMENT, PLAYER_COLORS, GRID } from '/src/config/constants.js';
-import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '/src/config/terrain.js';
+// src/services/movement.js
+import { gameStore } from '../state/store.js';
+import { MessageSystem, MESSAGE_CONFIG } from '../core/messages.js';
+import { UI } from '../config/constants.js';
+import { StatsService } from './stats.js';
+import { WeatherState } from '../state/game/weatherState.js';
+import { VisibilityManager } from './visibility.js';
+import { MOVEMENT, PLAYER_COLORS, GRID } from '../config/constants.js';
+import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '../config/terrain.js';
 
 export const MovementManager = {
     calculateMovementDuration(terrainStaminaCost = 0) {

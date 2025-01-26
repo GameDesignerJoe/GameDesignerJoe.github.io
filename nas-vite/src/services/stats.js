@@ -1,6 +1,6 @@
 // src/services/stats.js
 
-import { gameStore } from '/src/state/store.js';
+import { gameStore } from '../state/store.js';
 import { PLAYER_STATS } from '/src/config/constants.js';
 import { WEATHER_CONFIG } from '/src/config/weatherConfig.js';  // Moved to correct file
 import { MessageSystem } from '../core/messages.js';
