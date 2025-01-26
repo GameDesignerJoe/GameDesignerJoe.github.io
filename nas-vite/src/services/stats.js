@@ -1,10 +1,9 @@
 // src/services/stats.js
 
 import { gameStore } from '../state/store.js';
-import { PLAYER_STATS } from '/src/config/constants.js';
-import { WEATHER_CONFIG } from '/src/config/weatherConfig.js';  // Moved to correct file
+import { PLAYER_STATS, UI } from '../config/constants.js';  // Combined constants imports
+import { WEATHER_CONFIG } from '../config/weatherConfig.js';
 import { MessageSystem } from '../core/messages.js';
-import { UI } from '/src/config/constants.js';
 import { RestartSystem } from '../core/restart.js';
 
 export const StatsService = {
