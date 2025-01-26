@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NOT ALL SURVIVE</title>
-    <link rel="stylesheet" href="src/index.css">
+    <link rel="stylesheet" href="./src/index.css">
 </head>
 <body>
     <div class="game-container">
@@ -22,19 +22,19 @@
         <!-- Stats Display -->
         <div class="stats-container">
             <div class="stat">
-                <img src="/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
+                <img src="./public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="health-bar"></div>
                 </div>
             </div>
             <div class="stat">
-                <img src="/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
+                <img src="./public/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="stamina-bar"></div>
                 </div>
             </div>
             <div class="stat">
-                <img src="art/food.svg" id="hunger-icon" alt="Hunger" class="stat-icon">
+                <img src="./public/art/food.svg" id="hunger-icon" alt="Hunger" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="hunger-bar"></div>
                 </div>
@@ -56,7 +56,7 @@
 
     <!-- Game Initialization -->
     <script type="module">
-        import { GameInit } from '/src/services/gameInit.js';
+        import { GameInit } from './src/services/gameInit.js';
         document.addEventListener('DOMContentLoaded', () => {
             GameInit.init();
         });
