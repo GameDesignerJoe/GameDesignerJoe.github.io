@@ -12,6 +12,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html')
+      },
+      output: {
+        manualChunks: undefined
       }
     }
   },
@@ -21,6 +24,7 @@ export default defineConfig({
     },
     port: 5173
   },
+  optimizeDependencies: true,
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
