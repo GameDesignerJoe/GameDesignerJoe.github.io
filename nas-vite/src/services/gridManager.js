@@ -1,12 +1,12 @@
 // src/services/gridManager.js
-import { gameStore } from '/src/state/store.js';
-import { WeatherSystem } from '/src/core/weather.js';
+import { gameStore } from '../state/store.js';
+import { WeatherSystem } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
-import { VisibilityManager } from '/src/services/visibility.js';
-import { TERRAIN_TYPES, SPECIAL_LOCATIONS, assignRandomTerrain } from '/src/config/terrain.js';
-import { initializeGridState } from '/src/state/game/gridState.js';
-import { GRID } from '/src/config/constants.js';
-import { MovementManager } from './movement.js';  // Note the relative path since they're in the same directory
+import { VisibilityManager } from './visibility.js';
+import { TERRAIN_TYPES, SPECIAL_LOCATIONS, assignRandomTerrain } from '../config/terrain.js';
+import { initializeGridState } from '../state/game/gridState.js';
+import { GRID } from '../config/constants.js';
+import { MovementManager } from './movement.js';
 
 export const GridManager = {
     initializeGrid() {
