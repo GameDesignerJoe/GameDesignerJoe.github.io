@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NOT ALL SURVIVE</title>
+    <!-- Use relative path for CSS -->
     <link rel="stylesheet" href="./src/index.css">
 </head>
 <body>
@@ -22,6 +23,7 @@
         <!-- Stats Display -->
         <div class="stats-container">
             <div class="stat">
+                <!-- Update paths to use relative paths -->
                 <img src="./public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="health-bar"></div>
@@ -56,6 +58,7 @@
 
     <!-- Game Initialization -->
     <script type="module">
+        // Use relative path for importing
         import { GameInit } from './src/services/gameInit.js';
         document.addEventListener('DOMContentLoaded', () => {
             GameInit.init();
