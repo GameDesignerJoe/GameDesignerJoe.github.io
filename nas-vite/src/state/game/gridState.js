@@ -1,7 +1,7 @@
 // src/state/game/gridState.js
 
-import { assignRandomTerrain } from '../../config/terrain';
-import { GRID, GAME_CONFIG } from '../../config/constants';
+import { assignRandomTerrain } from '../../config/terrain.js';
+import { GRID, GAME_CONFIG } from '../../config/constants.js';
 
 export const initializeGridState = () => {
     // Position Base Camp

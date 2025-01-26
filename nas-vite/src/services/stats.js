@@ -1,7 +1,7 @@
 // src/services/stats.js
 
 import { gameStore } from '../state/store.js';
-import { PLAYER_STATS, UI } from '../config/constants.js';  // Combined constants imports
+import { PLAYER_STATS, UI } from '../config/constants.js';
 import { WEATHER_CONFIG } from '../config/weatherConfig.js';
 import { MessageSystem } from '../core/messages.js';
 import { RestartSystem } from '../core/restart.js';
