@@ -1,0 +1,82 @@
+# Not All Survive - Important Architectural Context
+
+While the project structure suggests a React application (with components/, hooks/, etc.), this game is and should remain a vanilla JavaScript application with SVG for rendering. Previous attempts to integrate React have been unsuccessful and led to unnecessary complexity.
+
+## Key Architecture Points
+
+1. **Core Technology Stack**
+   - Vanilla JavaScript for game logic
+   - SVG for rendering the game grid and visuals
+   - No React or other frontend frameworks
+   - Uses native DOM manipulation for UI updates
+
+2. **Why No React**
+   - The game's core functionality (grid system, weather effects, state management) is already working well in vanilla JS
+   - Previous React integration attempts caused complications without adding value
+   - The SVG-based rendering system is performant and doesn't benefit from React's virtual DOM
+   - The game's state management is already handled effectively through the gameStore
+
+## File Structure Issues & Recommendations
+
+1. **Current Problems**
+   - The React-style folder structure (components/, hooks/, etc.) adds unnecessary complexity
+   - Related functionality is split across multiple files and folders, making it harder to understand and maintain
+   - Both AI assistants and developers struggle to track functionality across dispersed files
+
+2. **Recommended Structure**
+   - Consolidate related functionality into fewer, more focused files
+   - Move away from the components/services/hooks pattern
+   - Group code by game systems rather than architectural patterns
+   - Consider a flatter file structure with clear naming conventions
+
+3. **Suggested Organization**
+   ```
+   src/
+   ├── core/                 // Core game systems
+   │   ├── game.js          // Main game logic
+   │   ├── grid.js          // Grid system
+   │   ├── weather.js       // Weather system
+   │   └── debug.js         // Debug functionality
+   ├── ui/                  // UI-related code
+   │   ├── messages.js      // Message system
+   │   └── stats.js         // Stats display
+   ├── utils/              // Utility functions
+   └── store.js            // Game state
+   ```
+
+## Development Guidelines
+
+1. **New Features**
+   - Implement using vanilla JavaScript
+   - Use SVG for visual elements
+   - Integrate with existing gameStore for state management
+   - Keep related code together rather than splitting across multiple files
+
+2. **Refactoring Priorities**
+   - Consolidate scattered functionality into cohesive files
+   - Remove unnecessary folder nesting
+   - Simplify the file structure to make code easier to find and modify
+   - Focus on logical grouping over architectural patterns
+
+3. **State Management**
+   - Continue using the gameStore pattern
+   - Avoid introducing React-style state management
+   - Keep state management code centralized and simple
+
+## Future Considerations
+
+1. **Code Organization**
+   - Prioritize simplicity and clarity over architectural patterns
+   - Keep related code together
+   - Avoid premature abstractions and over-organization
+   - Make it easy to find and modify code
+
+2. **Framework Adoption**
+   - Any future framework adoption should be a complete, planned rewrite
+   - Maintain the current vanilla JS + SVG implementation until then
+   - Base framework decisions on technical needs rather than convention
+
+3. **Refactoring Goals**
+   - Work towards consolidating the scattered files
+   - Simplify the directory structure
+   - Make the codebase more approachable for both developers and AI assistants

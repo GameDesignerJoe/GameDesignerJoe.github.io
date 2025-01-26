@@ -1,0 +1,72 @@
+nas-vite/                               // Main project folder
+├── .memory/                             // Useful ai files
+├── backup/                             // Backup files
+├── dist/                               // Build output
+├── docs/                               // Documentation
+├── node_modules/                       // Dependencies
+├── public/                             // Static assets
+│   ├── art/
+│   │   ├── camp.svg                  // UI icon for camping
+│   │   ├── health.svg                  // UI icon for health stat
+│   │   ├── nas_192.png                 // App icons
+│   │   ├── nas_512.png                 // Key art
+│   │   ├── nas_512x512.png             // Key art
+│   │   ├── nas_b_192.png               // favicon
+│   │   ├── nas_b_512.png               // favicon
+│   │   ├── nas_c_192.png               // favicon
+│   │   └── stamina.svg                 // UI icon for stamina stat
+│   └── manifest.json                   // PWA manifest
+├── src/                                // Source code
+│   ├── components/               
+│   │   ├── game/                       // Game-specific components
+│   │   │   ├── GameLayout.jsx
+│   │   │   ├── Grid.jsx                // Main SVG grid component with weather overlays
+│   │   │   ├── Player.jsx
+│   │   │   └── Weather.jsx.bak
+│   │   ├── ui/                         // UI components
+│   │   │   ├── Controls.jsx
+│   │   │   ├── Messages.jsx.bak        // To delete
+│   │   │   └── Stats.jsx
+│   │   ├── PlayerMessages.jsx.bak
+│   │   ├── RestartButton.jsx.bak
+│   │   └── TypewriterMessage.jsx
+│   ├── config/                         // Configuration files
+│   │   ├── config.js
+│   │   ├── constants.js
+│   │   ├── terrain.js
+│   │   └── weatherConfig.js
+│   ├── core/                          
+│   │   ├── messages.js                 // Where all messaging is handled
+│   │   ├── restart.js                  // All restart functionality
+│   │   ├── weather.js                  // All weather functionality 
+│   ├── services/                       // Game services
+│   │   ├── gameInit.js                 // Game initialization
+│   │   ├── gridManager.js              // Handles grid creation and hex management
+│   │   ├── messageManager.js.bak       // To delete
+│   │   ├── movement.js                 // Player movement logic
+│   │   ├── stats.js                    // Player stats management
+│   │   ├── visibility.js               // Fog of war system
+│   │   └── weatherManager.js.bak       // To delete
+│   ├── state/                          // State management
+│   │   ├── game/
+│   │   │   ├── gameState.js            // Core game state management
+│   │   │   ├── gridState.js            // Manages grid initialization and state
+│   │   │   ├── messageState.js.bak     // To delete
+│   │   │   ├── playerState.js          // Manages player stats and position
+│   │   │   └── weatherState.js         // Stores weather system state
+│   │   └── store.js                    // Central game state store
+│   ├── utils/                          // Utility functions
+│   │   ├── debug.js
+│   │   ├── details.js.bak              // To delete
+│   │   ├── grid.js                     // Grid utility functions and calculations
+│   │   └── math.js
+│   ├── App.jsx                         // Main React component
+│   ├── index.css                       // Global styles including messages and weather effects
+│   └── main.jsx                        // React entry point
+├── .gitignore
+├── index.html                          // HTML entry point
+├── package.json                        // Project configuration
+├── pnpm-lock.yaml                      // Package lock file
+├── postcss.config.js                   // PostCSS configuration
+├── tailwind.config.js                  // Tailwind CSS configuration
+└── vite.config.js                      // Vite configuration

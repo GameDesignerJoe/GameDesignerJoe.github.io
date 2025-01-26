@@ -1,0 +1,129 @@
+State Management Consolidation
+
+nas-vite/                               // Main project folder
+├── backup/                             // Backup files
+├── dist/                               // Build output
+├── docs/                               // Documentation
+├── node_modules/                       // Dependencies
+├── public/                             // Static assets
+│   ├── art/
+│   │   ├── food.svg                    // UI icon for food/hunger stat
+│   │   ├── health.svg                  // UI icon for health stat
+│   │   ├── nas_192.png                 // App icons
+│   │   ├── nas_512.png                 // Key art
+│   │   ├── nas_512x512.png             // Key art
+│   │   ├── nas_b_192.png               // favicon
+│   │   ├── nas_b_512.png               // favicon
+│   │   ├── nas_c_192.png               // favicon
+│   │   └── stamina.svg                 // UI icon for stamina stat
+│   └── manifest.json                   // PWA manifest
+├── src/                                // Source code
+│   ├── components/               
+│   │   ├── game/                       // Game-specific components
+│   │   │   ├── GameLayout.jsx
+│   │   │   ├── Grid.jsx                // Main SVG grid component with weather overlays
+│   │   │   ├── Player.jsx
+│   │   │   └── Weather.jsx
+│   │   ├── ui/                         // UI components
+│   │   │   ├── Controls.jsx
+│   │   │   ├── Messages.jsx            // Handles game message display and typewriter effects
+│   │   │   └── Stats.jsx
+│   │   ├── PlayerMessages.jsx
+│   │   ├── RestartButton.jsx.bak
+│   │   └── TypewriterMessage.jsx
+│   ├── config/                         // Configuration files
+│   │   ├── config.js
+│   │   ├── constants.js
+│   │   ├── terrain.js
+│   │   └── weatherConfig.js
+│   ├── services/                       // Game services
+│   │   ├── gameInit.js                 // Game initialization
+│   │   ├── gridManager.js              // Handles grid creation and hex management
+│   │   ├── messageManager.js           // Manages game messages and updates
+│   │   ├── movement.js                 // Player movement logic
+│   │   ├── stats.js                    // Player stats management
+│   │   ├── visibility.js               // Fog of war system
+│   │   └── weatherManager.js           // Controls weather effects and transitions
+│   ├── state/                          // State management
+│   │   ├── game/
+│   │   │   ├── gameState.js            // Core game state management
+│   │   │   ├── gridState.js            // Manages grid initialization and state
+│   │   │   ├── messageState.js         // Stores message state and methods
+│   │   │   ├── playerState.js          // Manages player stats and position
+│   │   │   └── weatherState.js         // Stores weather system state
+│   │   └── store.js                    // Central game state store
+│   ├── utils/                          // Utility functions
+│   │   ├── debug.js
+│   │   ├── details.js
+│   │   ├── grid.js                     // Grid utility functions and calculations
+│   │   └── math.js
+│   ├── App.jsx                         // Main React component
+│   ├── index.css                       // Global styles including messages and weather effects
+│   └── main.jsx                        // React entry point
+├── .gitignore
+├── index.html                          // HTML entry point
+├── package.json                        // Project configuration
+├── pnpm-lock.yaml                      // Package lock file
+├── postcss.config.js                   // PostCSS configuration
+├── tailwind.config.js                  // Tailwind CSS configuration
+└── vite.config.js                      // Vite configuration
+
+Proposed Folder StructureClick to open codeKey improvements to implement:
+
+State Management:
+
+Move all state-related code into a dedicated state directory
+Consider using a proper state management solution (like Zustand or Redux Toolkit)
+Separate player, game, and weather states into distinct modules
+
+
+Component Organization:
+
+Break down existing components into smaller, more focused ones
+Move game-specific components to a dedicated subfolder
+Separate UI components from game logic
+
+
+Service Layer:
+
+Create a dedicated services directory for game logic
+Move core gameplay functions out of components
+Create clear interfaces for each service
+
+
+Configuration:
+
+Consolidate all constants and configuration into the config directory
+Separate terrain and weather configs into their own files
+Create a central config export
+
+
+Specific Code Improvements:
+
+    javascriptCopy// Instead of:
+    window.gameState = GameState;
+    window.weatherState = WeatherState;
+
+    // Use a central store:
+    export const store = {
+        game: GameState,
+        weather: WeatherState,
+        // ... other states
+    };
+
+Immediate Tasks:
+
+Remove global window assignments
+Move weather-related code from movement.js to weather service
+Split the large gameState.js into smaller modules
+Convert class-based components to functional components with hooks
+Create proper TypeScript interfaces (if using TypeScript)
+
+
+Code Quality Improvements:
+
+Add proper error handling
+Implement proper event emitters instead of direct state mutations
+Add input validation
+Improve type safety
+Add proper documentation

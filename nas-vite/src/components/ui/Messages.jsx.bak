@@ -1,0 +1,121 @@
+// src/components/ui/Messages.jsx
+import React, { useState, useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
+import { UI } from '../../config/constants.js';
+import { gameStore } from '../../state/store.js';
+import { MessageSystem } from '../core/messages.js';
+
+const TypewriterMessage = ({ message, onComplete }) => {
+    const [displayedMessage, setDisplayedMessage] = useState('');
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    useEffect(() => {
+        if (currentIndex < message.length) {
+            const timer = setTimeout(() => {
+                setDisplayedMessage(prev => prev + message[currentIndex]);
+                setCurrentIndex(currentIndex + 1);
+            }, 30);
+            return () => clearTimeout(timer);
+        } else if (onComplete) {
+            onComplete();
+        }
+    }, [currentIndex, message, onComplete]);
+
+    return <span>{displayedMessage}</span>;
+};
+
+const TemporaryMessage = ({ gridRef }) => {
+    const [message, setMessage] = useState(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+        const checkForNewMessage = () => {
+            const messages = gameStore.messages?.messages || [];
+            const latestMessage = messages[messages.length - 1];
+            
+            if (latestMessage && 
+                (latestMessage.type === UI.MESSAGE_TYPES.TERRAIN || 
+                 latestMessage.type === UI.MESSAGE_TYPES.WEATHER)) {
+                setMessage(latestMessage);
+                setIsVisible(true);
+
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                }
+                
+                timeoutRef.current = setTimeout(() => {
+                    setIsVisible(false);
+                }, 3000);
+            }
+        };
+
+        const interval = setInterval(checkForNewMessage, 100);
+        return () => {
+            clearInterval(interval);
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
+
+    if (!message || !gridRef.current) return null;
+
+    return createPortal(
+        <div 
+            className={`player-message ${isVisible ? 'visible' : ''} ${
+                message.type === UI.MESSAGE_TYPES.WEATHER ? 'weather-message' : ''
+            }`}
+        >
+            {message.text}
+        </div>,
+        gridRef.current
+    );
+};
+
+const Messages = () => {
+    const gridRef = useRef(null);
+    const currentMessage = gameStore.messages?.currentMessage || '';
+    const isTyping = gameStore.messages?.isTyping || false;
+
+    useEffect(() => {
+        // Get reference to grid container
+        gridRef.current = document.querySelector('.grid-container');
+        
+        // Show initial message if needed
+        if (!gameStore.messages?.messages?.length) {
+            gameStore.messages.showInitialMessage();
+        }
+    }, []);
+
+    return (
+        <>
+            <div id="message-container" className={currentMessage ? 'has-message' : ''}>
+                <p id="game-message" className="narrative">
+                    {isTyping ? (
+                        <TypewriterMessage 
+                            message={currentMessage} 
+                            onComplete={() => {
+                                gameStore.messages.setTyping(false);
+                            }}
+                        />
+                    ) : (
+                        currentMessage
+                    )}
+                </p>
+            </div>
+            <TemporaryMessage gridRef={gridRef} />
+        </>
+    );
+};
+
+export function mountMessages() {
+    const messagesRoot = document.getElementById('messages-root');
+    if (messagesRoot) {
+        const root = createRoot(messagesRoot);
+        root.render(<Messages />);
+    }
+}
+
+export default Messages;

@@ -1,7 +1,7 @@
-// src/game/visibility.js
-
-import { GameState } from './core/gameState.js';
-import { WeatherState, WEATHER_CONFIG } from './core/weatherState.js';
+// src/services/visibility.js
+import { gameStore } from '/src/state/store.js';
+import { WeatherState } from '/src/state/game/weatherState.js';
+import { WEATHER_CONFIG } from '/src/config/weatherConfig.js';
 
 export const VisibilityManager = {
     getAdjacentHexes(position) {
@@ -18,7 +18,7 @@ export const VisibilityManager = {
 
     isHexVisible(hexId) {
         // Base case: hex is visited
-        if (GameState.world.visitedHexes.has(hexId)) {
+        if (gameStore.game.world.visitedHexes.has(hexId)) {
             return true;
         }
 
@@ -27,7 +27,7 @@ export const VisibilityManager = {
             const [q, r] = hexId.split(',').map(Number);
             const distance = this.getHexDistance(
                 {q, r}, 
-                GameState.player.position
+                gameStore.playerPosition
             );
             return distance <= WEATHER_CONFIG.WHITEOUT.visibility.range;
         }
@@ -37,7 +37,7 @@ export const VisibilityManager = {
         }
 
         // Default visibility rules
-        return GameState.world.visibleHexes.has(hexId);
+        return gameStore.game.world.visibleHexes.has(hexId);
     },
 
     getHexDistance(hex1, hex2) {
@@ -50,8 +50,6 @@ export const VisibilityManager = {
         // First, update visible hexes
         this.updateVisibleHexes();
         
-        console.log('Updating visibility. Visible hexes:', Array.from(GameState.world.visibleHexes));
-        
         const fogElements = document.querySelectorAll('.fog');
         
         fogElements.forEach(fogHex => {
@@ -59,10 +57,8 @@ export const VisibilityManager = {
             const r = parseInt(fogHex.getAttribute('data-r'));
             const hexId = `${q},${r}`;
             
-            // Check if hex should be visible
             const isVisible = this.isHexVisible(hexId);
             
-            // Update fog opacity based on visibility and weather
             if (isWeatherEvent) {
                 if (WeatherState.current.type === 'BLIZZARD') {
                     const opacity = isVisible ? '0.8' : '1';
@@ -78,19 +74,16 @@ export const VisibilityManager = {
             }
         });
 
-        // Update temporary fog for weather events
         if (isWeatherEvent && WeatherState.current.type === 'BLIZZARD') {
             this.updateTemporaryFog();
         }
     },
 
     updateTemporaryFog() {
-        // Get adjacent hexes for blizzard visibility
-        const adjacentHexes = this.getAdjacentHexes(GameState.player.position);
+        const adjacentHexes = this.getAdjacentHexes(gameStore.playerPosition);
         
-        // Add current and adjacent hexes to temporary fog
         WeatherState.visibility.temporaryFog.add(
-            `${GameState.player.position.q},${GameState.player.position.r}`
+            `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
         adjacentHexes.forEach(hex => {
@@ -98,25 +91,23 @@ export const VisibilityManager = {
         });
     },
 
-    // Helper function to check if a hex is adjacent to current position
     isAdjacent(hex1, hex2) {
         const distance = this.getHexDistance(hex1, hex2);
         return distance === 1;
     },
 
-    // Function to update visible hexes based on current position
     updateVisibleHexes() {
-        GameState.world.visibleHexes.clear();
+        gameStore.game.world.visibleHexes.clear();
         
         // Always add current position
-        GameState.world.visibleHexes.add(
-            `${GameState.player.position.q},${GameState.player.position.r}`
+        gameStore.game.world.visibleHexes.add(
+            `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
         // Add adjacent hexes
-        const adjacentHexes = this.getAdjacentHexes(GameState.player.position);
+        const adjacentHexes = this.getAdjacentHexes(gameStore.playerPosition);
         adjacentHexes.forEach(hex => {
-            GameState.world.visibleHexes.add(`${hex.q},${hex.r}`);
+            gameStore.game.world.visibleHexes.add(`${hex.q},${hex.r}`);
         });
     }
 };

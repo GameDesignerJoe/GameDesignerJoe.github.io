@@ -9,6 +9,9 @@ TODO List
 - If you die during a weather event, I don't think you get your last narrative message. 
 
 == SMALL (GPT) FIXES ==
+weatherManager.js:46 Uncaught TypeError: Cannot read properties of null (reading 'setAttribute')
+    at weatherManager.js:46:29
+    
 - Whiteout happens too fast. 
 - You should turn all the bars that same color blue when you die.
 - Final text gets swallowed by teh stats page. I think if you chnage the padding you should be good. 

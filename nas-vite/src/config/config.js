@@ -1,6 +1,6 @@
 // src/game/config/config.js
 
-import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '../game/core/gameState.js';
+import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '../state/game/gameState.js';
 
 // Function to randomly assign terrain to a hex
 export function assignRandomTerrain() {

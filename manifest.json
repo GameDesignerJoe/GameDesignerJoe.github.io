@@ -8,12 +8,12 @@
     "theme_color": "#23272a",
     "icons": [
       {
-        "src": "nas-vite/public/art/nas_192x192.png",
+        "src": "/art/nas_192x192.png",
         "sizes": "192x192",
         "type": "image/png"
       },
       {
-        "src": "nas-vite/public/art/nas_512x512.png",
+        "src": "/art/nas_512x512.png",
         "sizes": "512x512",
         "type": "image/png"
       }

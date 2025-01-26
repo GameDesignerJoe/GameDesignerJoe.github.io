@@ -1,0 +1,100 @@
+# Core Component Files
+
+## Messages.jsx (src/components/ui/Messages.jsx)
+- Handles all game messaging functionality
+- Uses TypewriterMessage component for animated text display
+- Manages two types of messages:
+  1. Permanent narrative messages in the message container
+  2. Temporary sliding messages for terrain and weather events
+- Key functions:
+  - `TypewriterMessage`: Handles letter-by-letter text animation
+  - `mountMessages`: Mounts the Messages component into the DOM
+  - Uses React portals for temporary messages in the grid
+
+## Grid.jsx (src/components/game/Grid.jsx)
+- Main SVG container for the game's hexagonal grid
+- Contains weather overlay elements
+- Provides base structure for hex tiles and player marker
+- Houses the game's visual elements and weather effects
+
+# State Management
+
+## store.js (src/state/store.js)
+- Central state management for the entire game
+- Combines all sub-states (game, weather, player, messages)
+- Provides convenience getters for commonly accessed properties
+- Contains debug helpers for development
+- Key states managed:
+  - Player position and stats
+  - Game world state
+  - Weather conditions
+  - Message system
+
+## messageState.js (src/state/game/messageState.js)
+- Manages message state for the game
+- Tracks current message, message history, and typing state
+- Key methods:
+  - `addMessage`: Adds new messages to the system
+  - `setTyping`: Controls typewriter effect state
+  - `clearMessages`: Resets message state
+
+## gridState.js (src/state/game/gridState.js)
+- Handles grid initialization and terrain generation
+- Places special locations (Base Camp, South Pole)
+- Manages terrain assignments for hexes
+- Maintains visited and visible hex sets
+
+# Service Managers
+
+## messageManager.js (src/services/messageManager.js)
+- Controls message display and updates
+- Handles different message types (status, terrain, weather)
+- Key functions:
+  - `showPlayerMessage`: Displays messages to the player
+  - `updateCurrentLocationInfo`: Shows terrain information
+  - `showWeatherMessage`: Displays weather events
+  - Special message handlers for death, victory, etc.
+
+## gridManager.js (src/services/gridManager.js)
+- Manages grid creation and hex management
+- Creates and positions hex tiles
+- Handles hex click events
+- Creates player marker and fog overlays
+- Key functions:
+  - `createHexGrid`: Generates the game grid
+  - `createHexAtPosition`: Creates individual hex tiles
+  - `createPlayerMarker`: Initializes player position
+  - `centerViewport`: Handles grid centering
+
+## weatherManager.js (src/services/weatherManager.js)
+- Controls weather effects and transitions
+- Manages blizzards and whiteouts
+- Handles weather-related visibility changes
+- Schedules weather events
+- Key functions:
+  - `triggerBlizzard`/`triggerWhiteout`: Initiates weather events
+  - `scheduleNextWeather`: Plans future weather events
+  - `resetWeatherState`: Cleans up weather effects
+
+# Styling
+
+## index.css
+- Contains all game styling
+- Includes animations for messages and weather effects
+- Manages grid and hex appearances
+- Key sections:
+  - Message container and animation styles
+  - Weather effect styles
+  - Grid and hex styling
+  - Stats display formatting
+  - Player marker appearance
+
+# Infrastructure
+
+## index.html
+- Main entry point for the game
+- Sets up basic game structure
+- Contains static UI elements (stats, grid container)
+- Provides mount points for React components
+
+These components work together to create a hexagonal grid-based survival game with weather effects, terrain interaction, and a message system for player feedback. The state management is centralized through gameStore, with various managers handling specific aspects of gameplay.

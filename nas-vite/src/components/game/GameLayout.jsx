@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import TypewriterMessage from './TypewriterMessage'
-import Stats from './Stats'
-import RestartButton from './RestartButton'
+import TypewriterMessage from '../TypewriterMessage'
+import Stats from '../ui/Stats'  // Updated import path
+import RestartButton from '../RestartButton.jsx.bak'
+import DebugUI from '../debug/DebugUI'
 
 function GameLayout({ canvasRef }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
@@ -19,55 +20,31 @@ function GameLayout({ canvasRef }) {
       const width = Math.min(window.innerWidth, document.documentElement.clientWidth)
       const height = Math.min(window.innerHeight, document.documentElement.clientHeight)
       
-      console.log('🔍 Layout Debug:', { 
-        width,
-        height,
-        pixelRatio: window.devicePixelRatio,
-        isMobile: width <= 768
-      });
-      
       setIsMobile(width <= 768)
       setDimensions({ width, height })
       
-      // Force canvas resize if it exists
       if (canvasRef.current) {
         const maxWidth = Math.min(width - 40, 450)
         const currentWidth = canvasRef.current.width
         canvasRef.current.width = maxWidth
         canvasRef.current.height = maxWidth
-        console.log('📱 Canvas Resized:', { 
-          oldWidth: currentWidth,
-          newWidth: maxWidth,
-          newHeight: maxWidth,
-          style: {
-            width: canvasRef.current.style.width,
-            height: canvasRef.current.style.height
-          }
-        });
       } else {
         console.warn('❌ Canvas ref not available during resize');
       }
     }
 
-    // Set up window.updateGameMessage
     window.updateGameMessage = (newMessage, showRestartButton = false) => {
-      console.log('updateGameMessage called:', { newMessage, showRestartButton });
       setMessage(newMessage);
       setShowRestart(showRestartButton);
     };
 
-    // Add event listeners
     window.addEventListener('resize', handleResize)
     window.addEventListener('orientationchange', () => {
-      console.log('Orientation changed');
       setTimeout(handleResize, 100)
     })
 
-    // Initial setup
     handleResize()
-    console.log('Initial mobile state:', isMobile);
 
-    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', handleResize)
@@ -75,20 +52,10 @@ function GameLayout({ canvasRef }) {
     }
   }, [canvasRef])
 
-  // Second useEffect for touch events
   useEffect(() => {
     const logTouch = (e) => {
-      console.log('👆 Touch Event:', {
-        type: e.type,
-        touches: e.touches.length,
-        target: e.target.id,
-        coordinates: e.touches[0] ? {
-          clientX: e.touches[0].clientX,
-          clientY: e.touches[0].clientY,
-          screenX: e.touches[0].screenX,
-          screenY: e.touches[0].screenY
-        } : null
-      });
+      // Touch logging code...
+      console.log('Touch event:', e.type);
     };
   
     document.addEventListener('touchstart', logTouch);
@@ -102,13 +69,12 @@ function GameLayout({ canvasRef }) {
     };
   }, []);
 
-  // Rest of your component remains the same...
   return (
     <div className="game-container" style={{ 
       width: '100%',
       minHeight: '100vh',
       maxWidth: isMobile ? '100%' : '450px',
-      backgroundColor: 'rgba(255, 0, 0, 0.1)' // Debug background
+      backgroundColor: 'rgba(255, 0, 0, 0.1)'
     }}>
       <h1>NOT ALL SURVIVE</h1>
       <div id="message-container">
@@ -129,13 +95,12 @@ function GameLayout({ canvasRef }) {
               height: 'auto',
               touchAction: 'none',
               display: 'block',
-              border: '1px solid red' // Debug border
+              border: '1px solid red'
             }}
           />
           <RestartButton 
             visible={showRestart} 
             onClick={() => {
-              console.log('Restart clicked, current state:', { showRestart });
               setShowRestart(false);
               window.restartGame && window.restartGame();
             }}
@@ -156,24 +121,23 @@ function GameLayout({ canvasRef }) {
                  zIndex: 1000
                }}>
             <div className="details-content">
-              {/* Terrain panel content */}
               <TerrainPanelContent />
             </div>
           </div>
         ) : (
           <div id="details-panel" className={`details-sidebar ${detailsPanelVisible ? 'show' : ''}`}>
             <div className="details-content">
-              {/* Terrain panel content */}
               <TerrainPanelContent />
             </div>
           </div>
         )}
       </div>
+      
+      <DebugUI />
     </div>
   )
 }
 
-// Separate component for terrain panel content to avoid duplication
 function TerrainPanelContent() {
   return (
     <>

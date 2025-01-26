@@ -1,17 +1,27 @@
 // src/state/store.js
+import { GameState } from './game/gameState.js';
+import { WeatherState } from './game/weatherState.js';
+import { PlayerState } from './game/playerState.js';
 
-import { GameState } from './game/gameState';
-import { WeatherState } from './core/weatherState';
+// Simplified Debug State - only stores state, no functionality
+const DebugState = {
+    fogRevealActive: false,
+    godModeActive: false,
+    zoomLevel: 1,
+    originalVisitedHexes: new Set()
+};
 
 // Create a central store object that will replace window assignments
 export const gameStore = {
-    // Core state
+    // Core states
     game: GameState,
     weather: WeatherState,
+    player: PlayerState,
+    debug: DebugState,
 
-    // Commonly accessed properties (for convenience and backward compatibility)
+    // Commonly accessed properties (for convenience)
     get playerPosition() {
-        return this.game.player.position;
+        return this.player.position;
     },
     
     get visitedHexes() {
@@ -38,20 +48,26 @@ export const gameStore = {
         return this.game.won;
     },
 
-    // Debug helpers (only in development)
-    ...(process.env.NODE_ENV === 'development' ? {
-        DEBUG: {
-            getFullState() {
-                return {
-                    game: { ...gameStore.game },
-                    weather: { ...gameStore.weather }
-                };
-            }
+    messages: null,
+    
+    // Simplified DEBUG object - just for state inspection
+    DEBUG: {
+        getFullState() {
+            return {
+                game: { ...gameStore.game },
+                weather: { ...gameStore.weather },
+                player: { ...gameStore.player },
+                debug: { ...gameStore.debug }
+            };
+        },
+        logState() {
+            console.log('Current Game State:', this.getFullState());
         }
-    } : {})
+    }
 };
 
 // Prevent direct modifications in production
-if (process.env.NODE_ENV === 'production') {
+const isDevelopment = true;  // Match your existing development flag
+if (!isDevelopment) {
     Object.freeze(gameStore);
 }

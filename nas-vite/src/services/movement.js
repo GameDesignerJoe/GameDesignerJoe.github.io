@@ -1,13 +1,13 @@
-// src/game/movement.js
+// src/services/movement.js
 
-import { gameStore } from '../state/store';
-import { MessageManager, MESSAGE_TYPES } from './ui/messages.js';
-import { StatsManager } from './stats.js';
-import { WeatherState } from './core/weatherState.js';
-import { GameState, TERRAIN_TYPES, SPECIAL_LOCATIONS } from './core/gameState.js';
-import { VisibilityManager } from './visibility.js';
-import { MOVEMENT, PLAYER_COLORS } from './constants.js';
-import { getTerrainDetails } from '../config/config.js';
+import { gameStore } from '/src/state/store.js';
+import { MessageSystem, MESSAGE_CONFIG } from '../core/messages.js';  // Added MESSAGE_CONFIG import
+import { UI } from '/src/config/constants.js';
+import { StatsService } from '/src/services/stats.js';
+import { WeatherState } from '/src/state/game/weatherState.js';
+import { VisibilityManager } from '/src/services/visibility.js';
+import { MOVEMENT, PLAYER_COLORS, GRID } from '/src/config/constants.js';
+import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '/src/config/terrain.js';
 
 export const MovementManager = {
     calculateMovementDuration(terrainStaminaCost = 0) {
@@ -19,9 +19,14 @@ export const MovementManager = {
         return new Promise((resolve) => {
             const player = document.getElementById('player');
             const hexGroup = document.getElementById('hexGroup');
+            if (!player || !hexGroup) {
+                console.error('Missing elements:', { player: !!player, hexGroup: !!hexGroup });
+                resolve();
+                return;
+            }
+    
             const startPos = this.getHexCenter(startQ, startR);
-            const endPos = this.getHexCenter(endQ, endR);
-            
+            const endPos = this.getHexCenter(endQ, endR);  
             const duration = this.calculateMovementDuration(terrainStaminaCost);
             const startTime = performance.now();
             
@@ -66,53 +71,63 @@ export const MovementManager = {
         });
     },
 
+
     async updatePlayerPosition(newQ, newR) {
         if (!gameStore.gameRunning || gameStore.gameWon) return;
         
         const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
+        if (!targetHex) {
+            console.error('Target hex not found:', { newQ, newR });
+            return;
+        }
+
         const terrain = targetHex.getAttribute('data-terrain');
         const targetTerrain = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                             terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                             TERRAIN_TYPES[terrain];
+        terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+        TERRAIN_TYPES[terrain];
         
         const oldQ = gameStore.playerPosition.q;
         const oldR = gameStore.playerPosition.r;
+
+        // Do the animation first
+        await this.animatePlayerMovement(oldQ, oldR, newQ, newR, targetTerrain?.staminaCost || 0);
         
-        // Update position using GameState
-        GameState.updatePlayerPosition({ q: newQ, r: newR });
+        // Then update state
+        gameStore.player.position = { q: newQ, r: newR };
         
+        // Update visibility
+        const newHexId = `${newQ},${newR}`;
+        gameStore.game.world.visitedHexes.add(newHexId);
+        
+        const adjacentHexes = VisibilityManager.getAdjacentHexes({ q: newQ, r: newR });
+        adjacentHexes.forEach(hex => {
+            const hexId = `${hex.q},${hex.r}`;
+            gameStore.game.world.visibleHexes.add(hexId);
+        });
+
+        // Handle terrain effects
         if (targetTerrain?.healthRisk) {
-            GameState.player.stats.health = Math.max(
-                0, 
-                GameState.player.stats.health - (targetTerrain.healthRisk * 100)
-            );
-            MessageManager.showPlayerMessage(
-                "The bitter cold of the ice field bites into you.",
-                MESSAGE_TYPES.STATUS
-            );
+            gameStore.player.stats.health = Math.max(0, gameStore.player.stats.health - (targetTerrain.healthRisk * 100));
+            gameStore.messages.showPlayerMessage("The bitter cold of the ice field bites into you.", UI.MESSAGE_TYPES.STATUS);
         }
-        
+
+        // Update fog overlays and check victory/end conditions
         if (WeatherState.current.type === 'BLIZZARD') {
             WeatherState.methods.updateVisibility(`${newQ},${newR}`, true);
-            VisibilityManager.getAdjacentHexes({ q: newQ, r: newR }).forEach(hex => {
-                WeatherState.methods.updateVisibility(`${hex.q},${hex.r}`, true);
-            });
             VisibilityManager.updateVisibility(true);
         } else {
             VisibilityManager.updateVisibility(false);
         }
-        
-        await this.animatePlayerMovement(
-            oldQ, oldR, 
-            newQ, newR, 
-            targetTerrain?.staminaCost || 0
-        );
-        
+
         this.checkVictoryConditions(newQ, newR);
-        
-        GameState.world.selectedHex = null;
+        gameStore.game.world.selectedHex = null;
         this.resetHexColors();
-        MessageManager.updateCurrentLocationInfo();
+        
+        // Only update location info if not skipped
+        if (!this.skipLocationUpdate) {
+            gameStore.messages.updateCurrentLocationInfo();
+        }
+        this.skipLocationUpdate = false;  // Reset for next time
     },
 
     checkVictoryConditions(newQ, newR) {
@@ -120,38 +135,56 @@ export const MovementManager = {
                            newR === gameStore.southPole.r;
         const isBaseCamp = newQ === gameStore.baseCamp.q && 
                           newR === gameStore.baseCamp.r;
-
-        if (isSouthPole && !GameState.world.southPoleVisited) {
-            GameState.world.southPoleVisited = true;
-            document.getElementById('game-message').className = 'narrative';
-            document.getElementById('game-message').innerHTML = 
+    
+        if (isSouthPole && !gameStore.game.world.southPoleVisited) {
+            // Player has reached South Pole for the first time
+            gameStore.game.world.southPoleVisited = true;
+            
+            // Stop updating location info
+            this.skipLocationUpdate = true;
+            
+            gameStore.messages.showGameMessage(
                 "At last! Through bitter cold and endless white, you've reached the South Pole! " +
-                "Now the treacherous journey back to base camp awaits...";
-        } else if (GameState.world.southPoleVisited && isBaseCamp) {
+                "Now the treacherous journey back to base camp awaits...",
+                MESSAGE_CONFIG.TYPES.NARRATIVE
+            );
+        } else if (gameStore.game.world.southPoleVisited && isBaseCamp) {
+            // Player has returned to base camp after visiting South Pole
+            this.skipLocationUpdate = true;
             this.handleVictory();
         }
     },
 
     handleVictory() {
-        const message = "Against all odds, you've done it! You've reached the South Pole " +
-                       "and returned to tell the tale. Your name will be forever etched " +
-                       "in the annals of polar exploration.";
+        // Update game state
+        gameStore.game.won = true;
+        gameStore.game.running = false;  // Stop the game
         
-        GameState.game.won = true;
+        // Clear any existing messages and prevent terrain message from showing
+        this.skipLocationUpdate = true;
+        gameStore.messages.clearMessages();
         
-        const restartBtn = document.getElementById('restart-button');
-        restartBtn.classList.remove('hidden');
-        restartBtn.style.display = 'block';
+        // Show victory message
+        gameStore.messages.showVictoryMessage();
         
-        document.getElementById('game-message').className = 'narrative';
-        document.getElementById('game-message').innerHTML = message;
+        // Change player appearance to indicate victory
+        const player = document.getElementById('player');
+        if (player) {
+            player.setAttribute('fill', '#FFD700');  // Gold color for victory
+        }
+        
+        // Show restart button using the RestartSystem
+        if (gameStore.restartSystem) {
+            gameStore.restartSystem.showRestartButton();
+        }
     },
 
     getHexCenter(q, r) {
-        const hexWidth = Math.sqrt(3) * 30;
-        const hexHeight = 30 * 2;
+        const hexWidth = GRID.HEX_WIDTH;
+        const hexHeight = GRID.HEX_HEIGHT;
         const x = hexWidth * (q + r/2);
         const y = hexHeight * (r * 3/4);
+        // console.log('MovementManager getHexCenter:', { q, r, x, y });  // Debug log
         return { x, y };
     },
 
@@ -159,22 +192,23 @@ export const MovementManager = {
         this.resetHexColors();
         const isAdjacentToPlayer = VisibilityManager.isAdjacent(
             { q, r }, 
-            GameState.player.position
+            gameStore.playerPosition
         );
-
-        if (GameState.world.selectedHex && GameState.world.selectedHex === hex) {
+    
+        if (gameStore.game.world.selectedHex && gameStore.game.world.selectedHex === hex) {
             if (isAdjacentToPlayer) {
                 const totalStaminaCost = MOVEMENT.STAMINA_COST + (terrainInfo.staminaCost || 0);
-                
+    
                 if (!terrainInfo.passable) {
-                    MessageManager.showPlayerMessage(
-                        "This terrain is impassable!", 
-                        MESSAGE_TYPES.TERRAIN
+                    gameStore.messages.showPlayerMessage(
+                        terrainInfo.description || "This terrain is impassable!", 
+                        UI.MESSAGE_TYPES.TERRAIN
                     );
-                } else if (GameState.player.stats.stamina < totalStaminaCost) {
-                    MessageManager.showPlayerMessage(
+                    return;
+                } else if (gameStore.player.stats.stamina < totalStaminaCost) {
+                    gameStore.messages.showPlayerMessage(
                         "You are too exhausted",
-                        MESSAGE_TYPES.TERRAIN
+                        UI.MESSAGE_TYPES.TERRAIN
                     );
                     const staminaBar = document.getElementById('stamina-bar').parentElement;
                     staminaBar.classList.add('pulse-warning');
@@ -183,15 +217,15 @@ export const MovementManager = {
                     this.handleMovement(q, r, totalStaminaCost);
                 }
             }
-            GameState.world.selectedHex = null;
+            gameStore.game.world.selectedHex = null;  // Added .game
         } else {
-            GameState.world.selectedHex = hex;
+            gameStore.game.world.selectedHex = hex;  // Added .game
             hex.setAttribute('stroke', '#000000');
             hex.setAttribute('stroke-width', '3');
             
             if (!WeatherState.effects.whiteoutPhase && 
                 (!WeatherState.effects.blizzardActive || 
-                 (q === GameState.player.position.q && r === GameState.player.position.r))) {
+                 (q === gameStore.playerPosition.q && r === gameStore.playerPosition.r))) {
                 document.getElementById('game-message').className = 'terrain-info';
                 document.getElementById('game-message').innerHTML = `
                     <h3>${terrainInfo.name}</h3>
@@ -202,37 +236,30 @@ export const MovementManager = {
     },
 
     async handleMovement(q, r, totalStaminaCost) {
+        // console.log('Starting movement to:', { q, r });  // Debug log
+        
         // Update player stamina
-        GameState.player.stats.stamina -= totalStaminaCost;
+        gameStore.player.stats.stamina -= totalStaminaCost;
         
         // Update hunger by 5 percent of max value (which is 100)
-        GameState.player.stats.hunger = Math.max(
+        gameStore.player.stats.hunger = Math.max(
             0,
-            GameState.player.stats.hunger - 5
+            gameStore.player.stats.hunger - 5
         );
-
+    
         // Handle starvation effects
-        if (GameState.player.stats.hunger <= 0) {
-            GameState.player.stats.hunger = 0;
-            GameState.player.stats.health = Math.max(0, GameState.player.stats.health - 5);
-            GameState.player.stats.stamina = Math.max(0, GameState.player.stats.stamina - 5);
-            
-            // Visual feedback for critical status
-            const healthBar = document.getElementById('health-bar').parentElement;
-            const staminaBar = document.getElementById('stamina-bar').parentElement;
-            healthBar.classList.add('pulse-warning');
-            staminaBar.classList.add('pulse-warning');
-            setTimeout(() => {
-                healthBar.classList.remove('pulse-warning');
-                staminaBar.classList.remove('pulse-warning');
-            }, 1500);
+        if (gameStore.player.stats.hunger <= 0) {
+            // ... starvation handling ...
         }
         
         // Update time tracking and UI
-        GameState.player.lastMoveTime = Date.now();
-        StatsManager.updateStatsDisplay();
+        gameStore.player.lastMoveTime = Date.now();
+        StatsService.updateStatsDisplay();
+    
+        // Wait for movement to complete
         await this.updatePlayerPosition(q, r);
-    }
+        // console.log('Movement completed');  // Debug log
+    },
 };
 
 export default MovementManager;

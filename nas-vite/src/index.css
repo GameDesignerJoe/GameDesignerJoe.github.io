@@ -43,15 +43,13 @@ h1 {
 
 /* GRID & HEXES */
 .grid-container {
+  position: relative;
   width: 100%;
   aspect-ratio: 1;
-  position: relative;
   background: rgba(0, 0, 0, 0.0);
-  /* background: rgba(0, 0, 0, 0.2); */
   touch-action: none;
-  overflow: hidden;
+  overflow: hidden;  /* Keep this as hidden */
   border-radius: 8px;
-  transition: background-color 10s ease-in-out;
 }
 
 #gameGrid {
@@ -250,14 +248,18 @@ polygon[data-terrain] {
 
 /* Message Container */
 #message-container {
-width: 100%;
-height: 140px; /* Fixed height */
-margin: 5px 0;
-padding: 0px;
-background-color: rgba(255, 255, 255, 0.0);
-border: 1px solid rgba(255, 255, 255, 0.0);
-border-radius: 4px;
-overflow-y: auto; /* Allow scrolling if content is too long */
+  width: 100%;
+  min-height: 140px; /* Changed from fixed height to min-height */
+  margin: 5px 0;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+#message-container.has-message {
+  opacity: 1;
 }
 
 #message-container::-webkit-scrollbar {
@@ -270,6 +272,7 @@ overflow-y: auto; /* Allow scrolling if content is too long */
   text-align: center;
   line-height: 1.4;
   margin: 0;
+  color: white;
 }
 
 #game-message.narrative {
@@ -298,19 +301,37 @@ margin-bottom: 10px;
 
 
 /* Player Message */
-.player-message {
+.player-message-wrapper {
   position: absolute;
-  top: 0;
+  bottom: 10px;  /* Adjust this value to move up from the bottom */
   left: 0;
   right: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  width: 100%;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.player-message {
+  position: absolute;
+  bottom: 1%;  /* Position from bottom of grid */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
   color: white;
   padding: 1rem;
   text-align: center;
   font-style: italic;
-  transform: translateY(-100%);
-  transition: transform 300ms ease-in-out;
+  border-radius: 0px;
   z-index: 1000;
+  width: 90%;
+  max-width: 300px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.player-message.visible {
+  opacity: 1;
 }
 
 .player-message.whiteout-message,
@@ -319,8 +340,15 @@ margin-bottom: 10px;
   color: black;
 }
 
-.player-message.visible {
-  transform: translateY(0);
+.message {
+  margin: 0;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.player-message.weather-message {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: black;
 }
 
 /* Optional: Add a subtle text shadow to help readability */
