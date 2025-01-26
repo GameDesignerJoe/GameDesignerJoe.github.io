@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>NOT ALL SURVIVE</title>
+  <script type="module" crossorigin src="/nas-vite/assets/main-BqiJgWpP.js"></script>
+  <link rel="stylesheet" crossorigin href="/nas-vite/assets/main-BqP3PZ4g.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>NOT ALL SURVIVE</h1>
+        
+        <!-- Message Container -->
+        <div id="message-container">
+            <p id="game-message"></p>
+        </div>
+        <!-- Restart Button -->
+        <button id="restart-button" class="restart-button hidden">
+            START A NEW EXPEDITION
+        </button>    
+
+        <!-- Stats Display -->
+        <div class="stats-container">
+            <div class="stat">
+                <img src="/nas-vite/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="health-bar"></div>
+                </div>
+            </div>
+            <div class="stat">
+                <img src="/nas-vite/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="stamina-bar"></div>
+                </div>
+            </div>
+            <div class="stat">
+                <img src="art/food.svg" id="hunger-icon" alt="Hunger" class="stat-icon">
+                <div class="stat-bar">
+                    <div class="stat-fill" id="hunger-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Game Grid -->
+        <div class="grid-container">
+            <svg id="gameGrid" width="100%" height="100%" viewBox="-150 -150 300 300">
+                <g id="hexGroup">
+                    <!-- Hexes will be added here by JS -->
+                </g>
+            </svg>
+            <!-- Player Messages will overlay the game -->
+            <div id="player-message-container" class="player-message">
+                <p id="player-message-text"></p>
+            </div>
+        </div>
+
+    <!-- Game Initialization -->
+</body>
+</html>
