@@ -1,6 +1,6 @@
 // src/core/weather.js
 
-const WEATHER_CONFIG = {
+export const WEATHER_CONFIG = {
     WHITEOUT: {
         name: "Whiteout",
         healthDecayMultiplier: 1.05,
@@ -37,7 +37,7 @@ const WEATHER_CONFIG = {
     }
 };
 
-const WEATHER_EFFECTS = {
+export const WEATHER_EFFECTS = {
     OVERLAY_OPACITY: {
         BLIZZARD: 0.5,
         WHITEOUT: 1.0

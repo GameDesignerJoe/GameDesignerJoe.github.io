@@ -14,24 +14,9 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html')
       },
       output: {
-        manualChunks: undefined
+        entryFileNames: 'assets/[name]-[hash].js',
       }
     }
   },
-  server: {
-    watch: {
-      usePolling: true
-    },
-    port: 5173
-  },
-  optimizeDependencies: true,
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src'),
-      '@game': resolve(__dirname, './src/game'),
-      '@core': resolve(__dirname, './src/game/core'),
-      '@ui': resolve(__dirname, './src/game/ui'),
-      '@config': resolve(__dirname, './src/config')
-    }
-  }
+  optimizeDependencies: true
 })

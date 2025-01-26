@@ -1,7 +1,7 @@
 // src/services/visibility.js
 import { gameStore } from '../state/store.js';
 import { WeatherState } from '../state/game/weatherState.js';
-import { WEATHER_CONFIG } from '../config/weatherConfig.js';
+import { WEATHER_CONFIG } from '../core/weather.js';
 
 export const VisibilityManager = {
     getAdjacentHexes(position) {

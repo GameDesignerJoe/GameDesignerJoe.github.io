@@ -2,7 +2,7 @@
 
 import { gameStore } from '../state/store.js';
 import { PLAYER_STATS, UI } from '../config/constants.js';
-import { WEATHER_CONFIG } from '../config/weatherConfig.js';
+import { WEATHER_CONFIG } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
 import { RestartSystem } from '../core/restart.js';
 
