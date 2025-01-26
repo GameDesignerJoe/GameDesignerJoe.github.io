@@ -1,7 +1,7 @@
 // src/state/game/weatherState.js
 
 // src/state/game/weatherState.js
-import { WEATHER_CONFIG, WEATHER_EFFECTS } from '/src/config/weatherConfig.js';
+import { WEATHER_CONFIG } from '../config/weatherConfig.js';
 
 const createWeatherState = () => ({
     // Current weather conditions
