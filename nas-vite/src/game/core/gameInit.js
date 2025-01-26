@@ -2,7 +2,7 @@
 
 const isDevelopment = true;  // Will be false in production builds
 
-// src/game/core/gameInit.js
+import { gameStore } from '../../state/store';
 import { GameState, TERRAIN_TYPES, SPECIAL_LOCATIONS } from './gameState.js';
 import { WeatherState } from './weatherState.js';
 import { GridManager } from './grid.js';
@@ -48,18 +48,7 @@ export const GameInitializer = {
         GameState.world.baseCamp = { q: 0, r: 0 };
         GameState.player.position = { ...GameState.world.baseCamp };
         GameState.world.visitedHexes.add(`${GameState.world.baseCamp.q},${GameState.world.baseCamp.r}`);
-        
-        // Expose necessary state to window for existing code compatibility
-        // TODO: Remove these once all modules are updated to use GameState
-        window.gameState = GameState;
-        window.weatherState = WeatherState;
-        window.playerPosition = GameState.player.position;
-        window.visitedHexes = GameState.world.visitedHexes;
-        window.visibleHexes = GameState.world.visibleHexes;
-        window.baseCamp = GameState.world.baseCamp;
-        window.southPole = GameState.world.southPole;
-        window.gameRunning = GameState.game.running;
-        window.gameWon = GameState.game.won;
+    
     },
 
     setupEventListeners() {
@@ -156,12 +145,10 @@ export const GameInitializer = {
 
     setupDebugFeatures() {
         // Make key functions available in console for debugging
-        window.DEBUG = {
-            triggerBlizzard: () => WeatherManager.triggerBlizzard(),
-            triggerWhiteout: () => WeatherManager.triggerWhiteout(),
-            getGameState: () => ({ ...GameState }),
-            getWeatherState: () => ({ ...WeatherState })
-        };
+        if (process.env.NODE_ENV === 'development') {
+            window.DEBUG = gameStore.DEBUG;
+            console.log('Debug mode active - use window.DEBUG to access debug functions');
+        }
 
         console.log('Debug mode active - use window.DEBUG to access debug functions');
     }

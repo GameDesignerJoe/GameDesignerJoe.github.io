@@ -1,5 +1,6 @@
 // src/game/movement.js
 
+import { gameStore } from '../state/store';
 import { MessageManager, MESSAGE_TYPES } from './ui/messages.js';
 import { StatsManager } from './stats.js';
 import { WeatherState } from './core/weatherState.js';
@@ -66,7 +67,7 @@ export const MovementManager = {
     },
 
     async updatePlayerPosition(newQ, newR) {
-        if (!GameState.game.running || GameState.game.won) return;
+        if (!gameStore.gameRunning || gameStore.gameWon) return;
         
         const targetHex = document.querySelector(`polygon[data-q="${newQ}"][data-r="${newR}"]`);
         const terrain = targetHex.getAttribute('data-terrain');
@@ -74,10 +75,10 @@ export const MovementManager = {
                              terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
                              TERRAIN_TYPES[terrain];
         
-        const oldQ = GameState.player.position.q;
-        const oldR = GameState.player.position.r;
+        const oldQ = gameStore.playerPosition.q;
+        const oldR = gameStore.playerPosition.r;
         
-        // Update using the direct method now
+        // Update position using GameState
         GameState.updatePlayerPosition({ q: newQ, r: newR });
         
         if (targetTerrain?.healthRisk) {
@@ -115,10 +116,10 @@ export const MovementManager = {
     },
 
     checkVictoryConditions(newQ, newR) {
-        const isSouthPole = newQ === GameState.world.southPole.q && 
-                          newR === GameState.world.southPole.r;
-        const isBaseCamp = newQ === GameState.world.baseCamp.q && 
-                          newR === GameState.world.baseCamp.r;
+        const isSouthPole = newQ === gameStore.southPole.q && 
+                           newR === gameStore.southPole.r;
+        const isBaseCamp = newQ === gameStore.baseCamp.q && 
+                          newR === gameStore.baseCamp.r;
 
         if (isSouthPole && !GameState.world.southPoleVisited) {
             GameState.world.southPoleVisited = true;
