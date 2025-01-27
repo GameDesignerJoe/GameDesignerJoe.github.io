@@ -54,7 +54,7 @@ export const SPECIAL_LOCATIONS = {
     },
     SOUTH_POLE: {
         name: "South Pole",
-        color: "#000080",
+        color: "#CCE5FF", // CCE5FF, 000080
         staminaCost: 5,
         passable: true,
         quote: "Could this be it? The goal of your expedition stands before you."
