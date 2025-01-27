@@ -2,7 +2,7 @@
 import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '../config/terrain.js';
 
 export const MESSAGE_CONFIG = {
-    DISPLAY_TIME: 5000,
+    DISPLAY_TIME: 3000,
     FADE_TIME: 300,
     TYPES: {
         STATUS: 'status',
@@ -67,25 +67,26 @@ export class MessageSystem {
 
     showPlayerMessage(message, type = MESSAGE_CONFIG.TYPES.STATUS) {
         if (!this.playerMessageContainer || !this.playerMessageText) return;
-
+    
         // Clear any existing timeout
         if (this.playerMessageTimeout) {
             clearTimeout(this.playerMessageTimeout);
         }
-
-        // Update text and show message
-        this.playerMessageText.textContent = message;
+    
+        // Split message into lines and wrap each in a span
+        const lines = message.split('\n');
+        const wrappedText = lines.map(line => `<span>${line}</span>`).join('<br>');
+        this.playerMessageText.innerHTML = wrappedText;
         this.playerMessageContainer.className = `player-message ${type}-message visible`;
-
+    
         // Only set timeout for non-narrative messages
         if (type !== MESSAGE_CONFIG.TYPES.NARRATIVE) {
             this.playerMessageTimeout = setTimeout(() => {
                 this.playerMessageContainer.classList.remove('visible');
                 
-                // Clear message after animation
                 setTimeout(() => {
                     if (this.playerMessageText) {
-                        this.playerMessageText.textContent = '';
+                        this.playerMessageText.innerHTML = '';
                     }
                 }, MESSAGE_CONFIG.FADE_TIME);
             }, MESSAGE_CONFIG.DISPLAY_TIME);

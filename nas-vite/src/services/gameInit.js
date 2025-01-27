@@ -7,6 +7,7 @@ import { VisibilityManager } from './visibility.js';
 import { StatsService } from './stats.js';
 import { DebugManager } from "../components/game/utils/debug.js";
 import { RestartSystem } from '../core/restart.js';
+import { CompassSystem } from '../core/compass.js';
 
 export const GameInit = {
     debugManager: null,
@@ -26,6 +27,10 @@ export const GameInit = {
             VisibilityManager,
             StatsService
         );
+    
+        // Initialize compass system
+        this.compassSystem = new CompassSystem(gameStore, this.messageSystem);
+        gameStore.compassSystem = this.compassSystem;
     
         // Initialize restart system and store it in gameStore
         this.restartSystem = new RestartSystem(
@@ -111,6 +116,12 @@ export const GameInit = {
         
         // Reset player state (which includes camping)
         gameStore.player.resetStats();
+        
+        // Reset compass state
+        gameStore.compass.methods.reset();
+        if (gameStore.compassSystem) {
+            gameStore.compassSystem.deactivateCompass();
+        }
         
         // Update camping visuals
         GridManager.createCampingVisual();

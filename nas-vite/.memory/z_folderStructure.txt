@@ -6,7 +6,9 @@ nas-vite/                               // Main project folder
 ├── node_modules/                       // Dependencies
 ├── public/                             // Static assets
 │   ├── art/
-│   │   ├── camp.svg                  // UI icon for camping
+│   │   ├── camp.svg                    // UI icon for camping
+│   │   ├── compass-icon.svg            // UI icon for compass-icon
+│   │   ├── compass.svg                 // UI  for compass
 │   │   ├── health.svg                  // UI icon for health stat
 │   │   ├── nas_192.png                 // App icons
 │   │   ├── nas_512.png                 // Key art
@@ -35,6 +37,7 @@ nas-vite/                               // Main project folder
 │   │   ├── constants.js
 │   │   ├── terrain.js
 │   ├── core/                          
+│   │   ├── compass.js                  // compass
 │   │   ├── messages.js                 // Where all messaging is handled
 │   │   ├── restart.js                  // All restart functionality
 │   │   └─  weather.js                  // All weather functionality 
@@ -46,6 +49,7 @@ nas-vite/                               // Main project folder
 │   │   └─  visibility.js               // Fog of war system
 │   ├── state/                          // State management
 │   │   ├── game/
+│   │   │   ├── compassState.js            // Compass state management
 │   │   │   ├── gameState.js            // Core game state management
 │   │   │   ├── gridState.js            // Manages grid initialization and state
 │   │   │   ├── playerState.js          // Manages player stats and position

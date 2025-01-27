@@ -257,7 +257,7 @@ polygon[data-terrain] {
 /* Message Container */
 #message-container {
   width: 100%;
-  min-height: 140px; /* Changed from fixed height to min-height */
+  height: fit-content;
   margin: 5px 0;
   padding: 10px;
   background-color: rgba(255, 255, 255, 0.1);
@@ -321,21 +321,31 @@ margin-bottom: 10px;
 
 .player-message {
   position: absolute;
-  bottom: 1%;  /* Position from bottom of grid */
+  bottom: 1%;
   left: 50%;
   transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  padding: 1rem;
   text-align: center;
   font-style: italic;
-  border-radius: 0px;
   z-index: 1000;
-  width: 90%;
-  max-width: 300px;
+  width: auto;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
+  background: none;  /* Remove container background */
+}
+
+#player-message-text {
+  display: inline;
+  color: white;
+  padding: 0;
+  margin: 0;
+}
+
+#player-message-text span {
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 3px 6px;
+  line-height: 1.8;  /* This creates space between lines if text wraps */
 }
 
 .player-message.visible {
@@ -484,4 +494,64 @@ transition: transform 300ms ease-in-out;
 /* Camping Hex Visual */
 #camp-hex {
   transition: opacity 0.3s ease-in-out;
+}
+
+/* Compass */
+.compass-button {
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  pointer-events: all;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.compass-button:hover {
+  background: rgba(70, 130, 180, 0.2);
+}
+
+.compass-button.active {
+  background: rgba(70, 130, 180, 0.3);
+  box-shadow: 0 0 0 2px rgba(70, 130, 180, 0.5);
+}
+
+.compass-icon {
+  width: 32px;
+  height: 32px;
+  transition: filter 0.2s;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.compass {
+  transition: opacity 0.3s ease-in-out;
+}
+
+.compass.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Weather effect animations */
+.compass.blizzard {
+  filter: blur(2px);
+  opacity: 0.7;
+}
+
+.compass.whiteout {
+  opacity: 0;
 }

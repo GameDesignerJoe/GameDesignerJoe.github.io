@@ -311,6 +311,8 @@ export const GridManager = {
         });
 
         controlsContainer.appendChild(campButton);
+        // Initialize compass button after camp button
+        this.initializeCompassButton();
         
         requestAnimationFrame(() => {
             this.updateCampingButton();
@@ -368,6 +370,46 @@ export const GridManager = {
         const hexGroup = document.getElementById('hexGroup');
         const player = document.getElementById('player');
         hexGroup.insertBefore(campHex, player);
+    },
+
+    initializeCompassButton() {
+        // Make sure controls container exists
+        let controlsContainer = document.querySelector('.controls-container');
+        if (!controlsContainer) return;
+    
+        // Don't create if already exists
+        if (document.querySelector('.compass-button')) return;
+    
+        const compassButton = document.createElement('button');
+        compassButton.className = 'game-button compass-button';
+        compassButton.innerHTML = `<img src="art/compass-icon.svg" alt="Compass" class="compass-icon">`;
+    
+        // Add click handler that will use the CompassSystem
+        compassButton.addEventListener('click', () => {
+            if (gameStore.compassSystem) {
+                gameStore.compassSystem.toggleCompass();
+            }
+        });
+    
+        controlsContainer.appendChild(compassButton);
+    
+        requestAnimationFrame(() => {
+            this.updateCompassButton();
+        });
+    },
+    
+    updateCompassButton() {
+        const compassButton = document.querySelector('.compass-button');
+        if (!compassButton) return;
+    
+        const compassIcon = compassButton.querySelector('.compass-icon');
+        
+        // Update active state
+        if (gameStore.compass.isActive) {
+            compassButton.classList.add('active');
+        } else {
+            compassButton.classList.remove('active');
+        }
     }
 };
 

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Base circle -->
+  <circle cx="50" cy="50" r="45" fill="#e5e5e5" stroke="#333" stroke-width="2"/>
+  
+  <!-- Compass ring -->
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#666" stroke-width="1"/>
+  
+  <!-- Cardinal direction marks -->
+  <line x1="50" y1="15" x2="50" y2="25" stroke="#333" stroke-width="2"/>
+  <line x1="50" y1="75" x2="50" y2="85" stroke="#333" stroke-width="2"/>
+  <line x1="15" y1="50" x2="25" y2="50" stroke="#333" stroke-width="2"/>
+  <line x1="75" y1="50" x2="85" y2="50" stroke="#333" stroke-width="2"/>
+  
+  <!-- Compass needle -->
+  <g id="needle" transform="translate(50,50)">
+    <!-- North half (Silver) -->
+    <path d="M0,-35 L5,-5 L0,0 L-5,-5 Z" fill="#C0C0C0"/>
+    <!-- South half (Red) -->
+    <path d="M0,35 L5,5 L0,0 L-5,5 Z" fill="#FF0000"/>
+  </g>
+  
+  <!-- Center pin -->
+  <circle cx="50" cy="50" r="3" fill="#333"/>
+</svg>

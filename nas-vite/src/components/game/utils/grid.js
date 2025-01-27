@@ -1,6 +1,6 @@
 // src/utils/grid.js
 
-import { GRID } from '../config/constants';
+import { GRID } from '../../../config/constants.js';
 
 export const createHexPoints = (size) => {
     const points = [];

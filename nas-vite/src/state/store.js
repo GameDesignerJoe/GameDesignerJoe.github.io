@@ -2,6 +2,7 @@
 import { GameState } from './game/gameState.js';
 import { WeatherState } from './game/weatherState.js';
 import { PlayerState } from './game/playerState.js';
+import { CompassState } from './game/compassState.js';
 
 // Simplified Debug State - only stores state, no functionality
 const DebugState = {
@@ -17,6 +18,7 @@ export const gameStore = {
     game: GameState,
     weather: WeatherState,
     player: PlayerState,
+    compass: CompassState,
     debug: DebugState,
 
     // Commonly accessed properties (for convenience)
@@ -48,7 +50,12 @@ export const gameStore = {
         return this.game.won;
     },
 
+    get isUsingCompass() {
+        return this.compass.isActive;
+    },
+
     messages: null,
+    compassSystem: null,
     
     // Simplified DEBUG object - just for state inspection
     DEBUG: {
@@ -57,6 +64,7 @@ export const gameStore = {
                 game: { ...gameStore.game },
                 weather: { ...gameStore.weather },
                 player: { ...gameStore.player },
+                compass: { ...gameStore.compass },
                 debug: { ...gameStore.debug }
             };
         },

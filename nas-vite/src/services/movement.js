@@ -189,8 +189,9 @@ export const MovementManager = {
         return { x, y };
     },
 
+    // Update handleHexSelection in MovementManager
     handleHexSelection(hex, q, r, terrainInfo) {
-        // First check if camping - if so, don't allow movement
+        // Check camping only
         if (gameStore.player.isCamping) {
             gameStore.messages.showPlayerMessage(
                 "You must break camp before moving.",
@@ -229,7 +230,7 @@ export const MovementManager = {
             }
             gameStore.game.world.selectedHex = null;
         } else {
-            // Don't allow hex selection if camping
+            // Only check camping here, let compass stay active
             if (gameStore.player.isCamping) {
                 return;
             }
@@ -240,7 +241,7 @@ export const MovementManager = {
             
             if (!WeatherState.effects.whiteoutPhase && 
                 (!WeatherState.effects.blizzardActive || 
-                 (q === gameStore.playerPosition.q && r === gameStore.playerPosition.r))) {
+                (q === gameStore.playerPosition.q && r === gameStore.playerPosition.r))) {
                 document.getElementById('game-message').className = 'terrain-info';
                 document.getElementById('game-message').innerHTML = `
                     <h3>${terrainInfo.name}</h3>
@@ -251,7 +252,10 @@ export const MovementManager = {
     },
 
     async handleMovement(q, r, totalStaminaCost) {
-        // console.log('Starting movement to:', { q, r });  // Debug log
+        // Deactivate compass at start of movement
+        if (gameStore.compassSystem?.isActive) {
+            gameStore.compassSystem.deactivateCompass();
+        }
         
         // Update player stamina
         gameStore.player.stats.stamina -= totalStaminaCost;
@@ -262,7 +266,7 @@ export const MovementManager = {
     
         // Wait for movement to complete
         await this.updatePlayerPosition(q, r);
-    },
+    }
 };
 
 export default MovementManager;
