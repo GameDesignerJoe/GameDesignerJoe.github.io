@@ -5,6 +5,8 @@ export class DebugManager {
         this.store = gameStore;
         this.WeatherSystem = WeatherSystem;
         this.godModeActive = false;
+        this.zoomLevel = 1;  // Add initial zoom level
+        this.fogRevealActive = false;  // Add initial fog reveal state
         
         // Create persistent god mode indicator
         this.createGodModeIndicator();
@@ -91,7 +93,7 @@ export class DebugManager {
             const stats = this.store.player.stats;
             stats.health = 100;
             stats.stamina = 100;
-            stats.hunger = 100;
+            stats.food = 100;
         }
         
         // Show temporary message
@@ -101,14 +103,6 @@ export class DebugManager {
         const indicator = document.getElementById('god-mode-indicator');
         if (indicator) {
             indicator.style.display = this.godModeActive ? 'block' : 'none';
-        }
-    }
-
-    cleanup() {
-        document.removeEventListener('keydown', this.handleDebugCommand);
-        const indicator = document.getElementById('god-mode-indicator');
-        if (indicator) {
-            indicator.remove();
         }
     }
 
@@ -175,5 +169,9 @@ export class DebugManager {
 
     cleanup() {
         document.removeEventListener('keydown', this.handleDebugCommand);
+        const indicator = document.getElementById('god-mode-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
     }
 }

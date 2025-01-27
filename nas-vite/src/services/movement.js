@@ -190,6 +190,15 @@ export const MovementManager = {
     },
 
     handleHexSelection(hex, q, r, terrainInfo) {
+        // First check if camping - if so, don't allow movement
+        if (gameStore.player.isCamping) {
+            gameStore.messages.showPlayerMessage(
+                "You must break camp before moving.",
+                UI.MESSAGE_TYPES.STATUS
+            );
+            return;
+        }
+    
         this.resetHexColors();
         const isAdjacentToPlayer = VisibilityManager.isAdjacent(
             { q, r }, 
@@ -218,9 +227,14 @@ export const MovementManager = {
                     this.handleMovement(q, r, totalStaminaCost);
                 }
             }
-            gameStore.game.world.selectedHex = null;  // Added .game
+            gameStore.game.world.selectedHex = null;
         } else {
-            gameStore.game.world.selectedHex = hex;  // Added .game
+            // Don't allow hex selection if camping
+            if (gameStore.player.isCamping) {
+                return;
+            }
+            
+            gameStore.game.world.selectedHex = hex;
             hex.setAttribute('stroke', '#000000');
             hex.setAttribute('stroke-width', '3');
             
@@ -242,24 +256,12 @@ export const MovementManager = {
         // Update player stamina
         gameStore.player.stats.stamina -= totalStaminaCost;
         
-        // Update hunger by 5 percent of max value (which is 100)
-        gameStore.player.stats.hunger = Math.max(
-            0,
-            gameStore.player.stats.hunger - 5
-        );
-    
-        // Handle starvation effects
-        if (gameStore.player.stats.hunger <= 0) {
-            // ... starvation handling ...
-        }
-        
         // Update time tracking and UI
         gameStore.player.lastMoveTime = Date.now();
         StatsService.updateStatsDisplay();
     
         // Wait for movement to complete
         await this.updatePlayerPosition(q, r);
-        // console.log('Movement completed');  // Debug log
     },
 };
 

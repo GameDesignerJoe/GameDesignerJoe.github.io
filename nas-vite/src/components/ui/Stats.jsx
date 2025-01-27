@@ -7,7 +7,7 @@ const Stats = () => {
     const [stats, setStats] = useState({
         health: 100,
         stamina: 100,
-        hunger: 100
+        food: 100
     });
 
     useEffect(() => {
@@ -41,12 +41,12 @@ const Stats = () => {
                 </div>
             </div>
             <div className="stat">
-                <img src="/art/food.svg" id="hunger-icon" alt="Hunger" className="stat-icon" />
+                <img src="/art/food.svg" id="food-icon" alt="food" className="stat-icon" />
                 <div className="stat-bar">
                     <div 
                         className="stat-fill" 
-                        id="hunger-bar" 
-                        style={{ width: `${stats.hunger}%` }}
+                        id="food-bar" 
+                        style={{ width: `${stats.food}%` }}
                     />
                 </div>
             </div>

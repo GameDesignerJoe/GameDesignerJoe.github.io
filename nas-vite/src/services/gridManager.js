@@ -5,7 +5,7 @@ import { MessageSystem } from '../core/messages.js';
 import { VisibilityManager } from './visibility.js';
 import { TERRAIN_TYPES, SPECIAL_LOCATIONS, assignRandomTerrain } from '../config/terrain.js';
 import { initializeGridState } from '../state/game/gridState.js';
-import { GRID } from '../config/constants.js';
+import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
 export const GridManager = {
@@ -151,10 +151,15 @@ export const GridManager = {
     },
 
     createPlayerMarker() {
+        const existingPlayer = document.getElementById('player');
+        if (existingPlayer) {
+            existingPlayer.remove();
+        }
+
         const player = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         const center = this.getHexCenter(
-            gameStore.playerPosition.q,
-            gameStore.playerPosition.r
+            gameStore.player.position.q,
+            gameStore.player.position.r
         );
         
         player.setAttribute("cx", center.x);
@@ -166,6 +171,22 @@ export const GridManager = {
         player.setAttribute("stroke-width", "2");
         
         document.getElementById('hexGroup').appendChild(player);
+    },
+
+    updatePlayerMarker() {
+        const player = document.getElementById('player');
+        if (!player) {
+            this.createPlayerMarker();
+            return;
+        }
+
+        const center = this.getHexCenter(
+            gameStore.player.position.q,
+            gameStore.player.position.r
+        );
+        
+        player.setAttribute("cx", center.x);
+        player.setAttribute("cy", center.y);
     },
 
     getHexCenter(q, r) {
@@ -221,6 +242,132 @@ export const GridManager = {
         // Create player marker and center view
         this.createPlayerMarker();
         this.centerViewport();
+    },
+
+    isAtBaseCamp(position) {
+        const baseCamp = gameStore.game.world.baseCamp;
+        return position.q === baseCamp.q && position.r === baseCamp.r;
+    },
+
+    initializeCampingButton() {
+        // First, find or create the game-controls-area
+        let controlsArea = document.querySelector('.game-controls-area');
+        if (!controlsArea) {
+            controlsArea = document.createElement('div');
+            controlsArea.className = 'game-controls-area';
+            // Insert it after the game container
+            const gameContainer = document.querySelector('.game-container');
+            gameContainer.appendChild(controlsArea);
+        }
+
+        // Then find or create the controls container
+        let controlsContainer = document.querySelector('.controls-container');
+        if (!controlsContainer) {
+            controlsContainer = document.createElement('div');
+            controlsContainer.className = 'controls-container';
+            controlsArea.appendChild(controlsContainer);
+        }
+
+        if (document.getElementById('camp-button')) {
+            return;
+        }
+
+        const campButton = document.createElement('button');
+        campButton.id = 'camp-button';
+        campButton.className = 'game-button camp-button';
+        campButton.innerHTML = `<img src="art/camp.svg" alt="Camp" class="camp-icon">`;
+
+        // Add click handler
+        campButton.addEventListener('click', () => {
+            if (this.isAtBaseCamp(gameStore.player.position)) {
+                gameStore.messages.showPlayerMessage(
+                    "You can't camp here.", 
+                    UI.MESSAGE_TYPES.STATUS
+                );
+                return;
+            }
+            
+            // Store current camping state before toggling
+            const wasCamping = gameStore.player.isCamping;
+            const success = gameStore.player.toggleCamping();
+            
+            if (success) {
+                this.updateCampingButton();
+                this.createCampingVisual();
+                
+                // Show appropriate message based on camping state
+                if (!wasCamping) {
+                    gameStore.messages.showPlayerMessage(
+                        "You set up camp, taking shelter from the bitter cold...",
+                        UI.MESSAGE_TYPES.STATUS
+                    );
+                } else {
+                    gameStore.messages.showPlayerMessage(
+                        "You break camp and prepare to move on...",
+                        UI.MESSAGE_TYPES.STATUS
+                    );
+                }
+            }
+        });
+
+        controlsContainer.appendChild(campButton);
+        
+        requestAnimationFrame(() => {
+            this.updateCampingButton();
+        });
+    },
+
+    updateCampingButton() {
+        const campButton = document.getElementById('camp-button');
+        if (!campButton) return;
+
+        const campIcon = campButton.querySelector('.camp-icon');
+        const isAtBase = this.isAtBaseCamp(gameStore.player.position);
+        
+        // Remove disabled state first
+        campButton.classList.remove('disabled');
+        campIcon.classList.remove('grayscale');
+        
+        // Then add if needed
+        if (isAtBase) {
+            campButton.classList.add('disabled');
+            campIcon.classList.add('grayscale');
+        }
+        
+        if (gameStore.player.isCamping) {
+            campButton.classList.add('active');
+        } else {
+            campButton.classList.remove('active');
+        }
+    },
+
+    createCampingVisual() {
+        const existingCamp = document.getElementById('camp-hex');
+        if (existingCamp) {
+            existingCamp.remove();
+        }
+
+        if (!gameStore.player.isCamping) return;
+
+        const center = this.getHexCenter(
+            gameStore.player.position.q,
+            gameStore.player.position.r
+        );
+
+        const campHex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        const campSize = GRID.HEX_SIZE * 0.75; // 75% of normal hex size
+        
+        campHex.setAttribute("points", this.createHexPoints(campSize));
+        campHex.setAttribute("transform", `translate(${center.x}, ${center.y})`);
+        campHex.setAttribute("fill", "#DAA520"); // Same color as base camp
+        campHex.setAttribute("stroke", "#B8860B");
+        campHex.setAttribute("stroke-width", "2");
+        campHex.setAttribute("id", "camp-hex");
+
+        // Insert before player marker for proper layering
+        const hexGroup = document.getElementById('hexGroup');
+        const player = document.getElementById('player');
+        hexGroup.insertBefore(campHex, player);
     }
 };
 

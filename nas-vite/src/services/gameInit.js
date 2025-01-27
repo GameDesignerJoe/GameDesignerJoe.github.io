@@ -33,13 +33,14 @@ export const GameInit = {
             this.weatherSystem,
             StatsService
         );
-        gameStore.restartSystem = this.restartSystem;  // Add this line
+        gameStore.restartSystem = this.restartSystem;
         
         // Initialize StatsService with restart system
         StatsService.init(this.restartSystem);
         
-        // Set up the game grid
+        // Set up the game grid and camping system
         GridManager.initializeGrid();
+        GridManager.initializeCampingButton();
         
         // Initialize debug features (which needs weatherSystem)
         this.setupDebugFeatures();
@@ -108,6 +109,13 @@ export const GameInit = {
         GridManager.initializeGrid();
         VisibilityManager.updateVisibility(false);
         
+        // Reset player state (which includes camping)
+        gameStore.player.resetStats();
+        
+        // Update camping visuals
+        GridManager.createCampingVisual();
+        GridManager.updateCampingButton();
+
         // Reset weather
         this.WeatherSystem.resetWeatherState();
         

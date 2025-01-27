@@ -30,7 +30,7 @@ export const PLAYER_STATS = {
     MOVE_STAMINA_COST: 10,
     HEAL_RATE: 0.5,             // Default health drop rate
     STAMINA_RECOVERY_RATE: 0.4,
-    HUNGER_DECAY_RATE: 0.5
+    FOOD_DECAY_RATE: 0.5
 };
 
 // Game configuration constants

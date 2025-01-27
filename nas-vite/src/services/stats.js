@@ -21,7 +21,7 @@ export const StatsService = {
             const stats = gameStore.player.stats;
             stats.health = 100;
             stats.stamina = 100;
-            stats.hunger = 100;
+            stats.food = 100;
             this.updateStatsDisplay();
             return;
         }
@@ -64,9 +64,9 @@ export const StatsService = {
             PLAYER_STATS.MAX_VALUE,
             stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * 3 * deltaTime)
         );
-        stats.hunger = Math.min(
+        stats.food = Math.min(
             PLAYER_STATS.MAX_VALUE,
-            stats.hunger + (PLAYER_STATS.HUNGER_DECAY_RATE * 3 * deltaTime)
+            stats.food + (PLAYER_STATS.FOOD_DECAY_RATE * 3 * deltaTime)
         );
     },
 
@@ -78,15 +78,21 @@ export const StatsService = {
         const { stats } = gameStore.player;
         let healthDecayMultiplier = 1;
 
-        // Apply weather effects
+        // Apply weather effects, but reduce them if camping
         if (gameStore.weather.current.type === 'WHITEOUT') {
-            healthDecayMultiplier = WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier;
+            healthDecayMultiplier = gameStore.player.isCamping ? 
+                WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier * 0.3 : // Only 30% of normal weather penalty while camping
+                WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier;
         } else if (gameStore.weather.current.type === 'BLIZZARD') {
-            healthDecayMultiplier = WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier;
+            healthDecayMultiplier = gameStore.player.isCamping ?
+                WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier * 0.3 : // Only 30% of normal weather penalty while camping
+                WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier;
+        } else if (gameStore.player.isCamping) {
+            healthDecayMultiplier = 0; // No health decay in normal weather while camping
         }
 
-        // Update health based on hunger and weather
-        if (stats.hunger <= 0) {
+        // Update health based on food and weather
+        if (stats.food <= 0) {
             this.handleStarvation();
         } else {
             const HEALTH_DECAY_RATE = 0.5; // 0.5 health lost per second
@@ -125,9 +131,9 @@ export const StatsService = {
                 gameStore.game.markThresholdShown(threshold);
                 
                 const messages = {
-                    75: "Your strength begins to fade as hunger gnaws at you...",
+                    75: "Your strength begins to fade as food gnaws at you...",
                     50: "The lack of food is taking its toll. Your vision swims...",
-                    25: "Every step is agony. The hunger is unbearable...",
+                    25: "Every step is agony. The food is unbearable...",
                     10: "You can barely move. Death's icy grip tightens..."
                 };
 
@@ -158,7 +164,7 @@ export const StatsService = {
     },
 
     updateStatsDisplay() {
-        const { health, stamina, hunger } = gameStore.player.stats;
+        const { health, stamina, food } = gameStore.player.stats;
         
         // Update health bar
         const healthBar = document.getElementById('health-bar');
@@ -174,11 +180,11 @@ export const StatsService = {
             staminaBar.style.backgroundColor = this.getStaminaColor(stamina);
         }
 
-        // Update hunger bar
-        const hungerBar = document.getElementById('hunger-bar');
-        if (hungerBar) {
-            hungerBar.style.width = `${hunger}%`;
-            hungerBar.style.backgroundColor = this.getHungerColor(hunger);
+        // Update food bar
+        const foodBar = document.getElementById('food-bar');
+        if (foodBar) {
+            foodBar.style.width = `${food}%`;
+            foodBar.style.backgroundColor = this.getFoodColor(food);
         }
     },
 
@@ -194,7 +200,7 @@ export const StatsService = {
         return '#B0E0E6';
     },
 
-    getHungerColor(value) {
+    getFoodColor(value) {
         if (value > 66) return '#D2691E';    // Chocolate
         if (value > 33) return '#CD853F';    // Peru
         return '#8B4513';                    // Saddle Brown

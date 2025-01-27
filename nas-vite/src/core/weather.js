@@ -3,7 +3,7 @@
 export const WEATHER_CONFIG = {
     WHITEOUT: {
         name: "Whiteout",
-        healthDecayMultiplier: 1.05,
+        healthDecayMultiplier: 1.20,
         transitions: {
             fadeIn: 15000,
             hold: 10000,
@@ -20,7 +20,7 @@ export const WEATHER_CONFIG = {
     },
     BLIZZARD: {
         name: "Blizzard",
-        healthDecayMultiplier: 1.02,
+        healthDecayMultiplier: 1.10,
         transitions: {
             fadeIn: 5000,
             hold: 15000,

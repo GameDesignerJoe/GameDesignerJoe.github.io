@@ -33,6 +33,14 @@ transition: background-color 10s ease-in-out;
   transition: background-color 10s ease-in-out;
 }
 
+.game-controls-area {
+  width: 100%;
+  padding: 10px 0;
+  display: flex;
+  justify-content: flex-start;  /* Align items to the left */
+  align-items: center;
+}
+
 h1 {
   font-family: 'Old Standard TT', serif;  
   font-size: 24px;
@@ -120,7 +128,7 @@ polygon[data-terrain] {
   filter: invert(58%) sepia(77%) saturate(845%) hue-rotate(182deg) brightness(103%) contrast(98%);
 }
 
-#hunger-icon {
+#food-icon {
   filter: invert(50%) sepia(56%) saturate(1200%) hue-rotate(370deg) brightness(123%) contrast(90%);
 }
 
@@ -134,7 +142,7 @@ polygon[data-terrain] {
   background-color: #44aaff;
 }
 
-#hunger-bar {
+#food-bar {
   background-color: #ffaa44;
 }
 
@@ -192,7 +200,7 @@ polygon[data-terrain] {
 /* Add new whiteout overrides */
 .whiteout-stats #health-icon,
 .whiteout-stats #stamina-icon,
-.whiteout-stats #hunger-icon {
+.whiteout-stats #food-icon {
   filter: brightness(0) invert(1);  /* This will make icons pure white */
   transition: filter 2s ease-in-out;
 }
@@ -213,7 +221,7 @@ polygon[data-terrain] {
   background-color: rgba(240, 240, 255, 0.5);  /* Muted blue */
 }
 
-.whiteout-stats #hunger-bar {
+.whiteout-stats #food-bar {
   background-color: rgba(255, 250, 240, 0.5);  /* Muted orange */
 }
 
@@ -406,4 +414,74 @@ transform: translateY(-100%);
 transition: transform 300ms ease-in-out;
 }
 
+/* Camping Controls */
+.controls-container {
+  bottom: 20px;
+  position: static;
+  left: 20px;  /* Changed from 50% */
+  transform: none;  /* Remove the translateX since we're using absolute positioning */
+  display: flex;
+  gap: 10px;
+  z-index: 1000;
+  padding: 0;
+  /* Account for iOS safe area */
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
 
+.camp-button {
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  pointer-events: all;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent any browser defaults */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.camp-button:not(.disabled):hover {
+  background: rgba(218, 165, 32, 0.2);
+}
+
+.camp-button.active {
+  background: rgba(218, 165, 32, 0.3);
+  box-shadow: 0 0 0 2px rgba(218, 165, 32, 0.5);
+}
+
+.camp-button.disabled {
+  opacity: 0.5;
+  /* Set pointer-events to none instead of using cursor: not-allowed */
+  pointer-events: all;
+  cursor: default;
+}
+
+.camp-icon {
+  width: 32px;
+  height: 32px;
+  transition: filter 0.2s;
+  pointer-events: none;  /* Prevent the icon from interfering with button clicks */
+  /* Prevent dragging of the icon */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.camp-icon.grayscale {
+  filter: grayscale(100%);
+}
+
+/* Camping Hex Visual */
+#camp-hex {
+  transition: opacity 0.3s ease-in-out;
+}
