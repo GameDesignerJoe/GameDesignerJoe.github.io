@@ -8,6 +8,8 @@ import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
+const getAssetPath = (filename) => `${import.meta.env.BASE_URL}art/${filename}`;
+
 export const GridManager = {
     initializeGrid() {
         // console.log("Starting grid initialization");
@@ -275,7 +277,7 @@ export const GridManager = {
         const campButton = document.createElement('button');
         campButton.id = 'camp-button';
         campButton.className = 'game-button camp-button';
-        campButton.innerHTML = `<img src="/nas-vite/art/camp.svg" alt="Camp" class="camp-icon">`;
+        campButton.innerHTML = `<img src="${getAssetPath('camp.svg')}" alt="Camp" class="camp-icon">`;
 
         // Add click handler
         campButton.addEventListener('click', () => {
@@ -382,7 +384,7 @@ export const GridManager = {
     
         const compassButton = document.createElement('button');
         compassButton.className = 'game-button compass-button';
-        compassButton.innerHTML = `<img src="/nas-vite/art/compass-icon.svg" alt="Compass" class="compass-icon">`;
+        compassButton.innerHTML = `<img src="${getAssetPath('compass-icon.svg')}" alt="Compass" class="compass-icon">`;
     
         // Add click handler that will use the CompassSystem
         compassButton.addEventListener('click', () => {
