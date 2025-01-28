@@ -41,6 +41,15 @@ export const TERRAIN_TYPES = {
         passable: true,
         description: "Smooth ice that's easy to traverse but dangerously cold.",
         quote: "The ice stretches out like polished glass, beautiful but punishing when you slip."
+    },
+    MOUNTAIN: {
+        name: "Mountain",
+        color: "#E8E9EB",
+        passable: false,
+        description: "A towering mountain of ice and rock, impossible to traverse.",
+        quote: "The mountain rises before us, its peak lost in the swirling snow.",
+        isMultiHex: true,
+        alwaysVisible: true
     }
 };
 
@@ -54,33 +63,79 @@ export const SPECIAL_LOCATIONS = {
     },
     SOUTH_POLE: {
         name: "South Pole",
-        color: "#CCE5FF", // CCE5FF, 000080
+        color: "#CCE5FF",
         staminaCost: 5,
         passable: true,
         quote: "Could this be it? The goal of your expedition stands before you."
     }
 };
 
-// Helper function for random terrain generation
+// Helper function to get adjacent hex coordinates
+const getAdjacentHexes = (center) => {
+    const directions = [
+        {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
+        {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
+    ];
+    
+    return directions.map(dir => ({
+        q: center.q + dir.q,
+        r: center.r + dir.r
+    }));
+};
+
+// Function to check if a position can be a mountain center
+const canPlaceMountain = (position, existingTerrain) => {
+    // Check center position
+    const centerKey = `${position.q},${position.r}`;
+    if (existingTerrain[centerKey]) return false;
+
+    // Check all adjacent positions
+    const adjacentHexes = getAdjacentHexes(position);
+    return adjacentHexes.every(hex => {
+        const hexKey = `${hex.q},${hex.r}`;
+        return !existingTerrain[hexKey];
+    });
+};
+
+// Function to place a mountain and its surrounding tiles
+const placeMountain = (center, terrain) => {
+    // Place center
+    terrain[`${center.q},${center.r}`] = 'MOUNTAIN';
+    
+    // Place surrounding mountain tiles
+    const adjacentHexes = getAdjacentHexes(center);
+    adjacentHexes.forEach(hex => {
+        terrain[`${hex.q},${hex.r}`] = 'MOUNTAIN';
+    });
+};
+
+// Updated random terrain generation (rolling a weighted die)
 export const assignRandomTerrain = () => {
-    const terrainTypes = Object.keys(TERRAIN_TYPES);
     const weights = {
-        NORMAL_SNOW: 0.4,
-        DEEP_SNOW: 0.3,
+        NORMAL_SNOW: 0.35,
+        DEEP_SNOW: 0.25,
         CLIFF: 0.1,
         CREVASSE: 0.1,
-        ICE_FIELD: 0.1
+        ICE_FIELD: 0.1,
+        MOUNTAIN: 0.02
     };
 
     const random = Math.random();
     let cumulativeWeight = 0;
 
-    for (const terrain of terrainTypes) {
-        cumulativeWeight += weights[terrain];
+    for (const [terrain, weight] of Object.entries(weights)) {
+        cumulativeWeight += weight;
         if (random < cumulativeWeight) {
             return terrain;
         }
     }
     
-    return 'NORMAL_SNOW'; // Default fallback
+    return 'NORMAL_SNOW';
+};
+
+// Export mountain-specific functions for use in grid generation
+export const mountainUtils = {
+    canPlaceMountain,
+    placeMountain,
+    getAdjacentHexes
 };

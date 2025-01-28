@@ -2,6 +2,7 @@
 import { gameStore } from '../state/store.js';
 import { WeatherState } from '../state/game/weatherState.js';
 import { WEATHER_CONFIG } from '../core/weather.js';
+import { TERRAIN_TYPES } from '../config/terrain.js';
 
 export const VisibilityManager = {
     // New method to get hexes within a radius
@@ -41,7 +42,23 @@ export const VisibilityManager = {
         return this.getHexesInRadius(position, radius);
     },
 
+    isMountainHex(q, r) {
+        const hexId = `${q},${r}`;
+        return gameStore.game.world.terrain[hexId] === 'MOUNTAIN';
+    },
+
     isHexVisible(hexId) {
+        const [q, r] = hexId.split(',').map(Number);
+
+        // Check if it's a mountain first
+        if (this.isMountainHex(q, r)) {
+            // Mountains are always visible except during whiteouts
+            if (WeatherState.current.type === 'WHITEOUT') {
+                return false;
+            }
+            return true;
+        }
+
         // Base case: hex is visited
         if (gameStore.game.world.visitedHexes.has(hexId)) {
             return true;
@@ -49,7 +66,6 @@ export const VisibilityManager = {
 
         // Handle weather conditions
         if (WeatherState.current.type === 'WHITEOUT') {
-            const [q, r] = hexId.split(',').map(Number);
             const distance = this.getHexDistance(
                 {q, r}, 
                 gameStore.playerPosition
@@ -72,7 +88,6 @@ export const VisibilityManager = {
     },
 
     updateVisibility(isWeatherEvent = false) {
-        // First, update visible hexes
         this.updateVisibleHexes();
         
         const fogElements = document.querySelectorAll('.fog');
@@ -83,19 +98,23 @@ export const VisibilityManager = {
             const hexId = `${q},${r}`;
             
             const isVisible = this.isHexVisible(hexId);
+            const isMountain = this.isMountainHex(q, r);
             
             if (isWeatherEvent) {
                 if (WeatherState.current.type === 'BLIZZARD') {
-                    const opacity = isVisible ? '0.8' : '1';
+                    // Mountains are visible but obscured during blizzards
+                    const opacity = isMountain ? '0.5' : (isVisible ? '0.8' : '1');
                     fogHex.setAttribute('fill-opacity', opacity);
-                    if (isVisible) {
+                    if (isVisible || isMountain) {
                         WeatherState.visibility.affectedHexes.add(hexId);
                     }
                 } else if (WeatherState.current.type === 'WHITEOUT') {
+                    // Mountains are hidden during whiteouts
                     fogHex.setAttribute('fill-opacity', '1');
                 }
             } else {
-                fogHex.setAttribute('fill-opacity', isVisible ? '0' : '1');
+                // Normal visibility conditions
+                fogHex.setAttribute('fill-opacity', isVisible || isMountain ? '0' : '1');
             }
         });
 

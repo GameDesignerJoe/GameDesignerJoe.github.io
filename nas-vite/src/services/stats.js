@@ -95,7 +95,7 @@ export const StatsService = {
         if (stats.food <= 0) {
             this.handleStarvation();
         } else {
-            const HEALTH_DECAY_RATE = 0.5; // 0.5 health lost per second
+            const HEALTH_DECAY_RATE = .75; // 0.5 health lost per second
             const healthLoss = HEALTH_DECAY_RATE * deltaTime * healthDecayMultiplier;
             stats.health = Math.max(0, stats.health - healthLoss);
         }
