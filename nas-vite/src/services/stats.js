@@ -62,7 +62,7 @@ export const StatsService = {
         );
         stats.stamina = Math.min(
             PLAYER_STATS.MAX_VALUE,
-            stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * 3 * deltaTime)
+            stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * 12 * deltaTime)
         );
         stats.food = Math.min(
             PLAYER_STATS.MAX_VALUE,
@@ -102,7 +102,7 @@ export const StatsService = {
 
         // Update stamina recovery
         const timeSinceLastMove = (Date.now() - gameStore.player.lastMoveTime) / 1000;
-        if (timeSinceLastMove > 2) {  // Start recovering stamina after 2 seconds of no movement
+        if (timeSinceLastMove > 1) {  // Start recovering stamina after 2 seconds of no movement
             stats.stamina = Math.min(
                 PLAYER_STATS.MAX_VALUE,
                 stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * deltaTime)

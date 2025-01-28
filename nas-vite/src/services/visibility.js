@@ -4,16 +4,41 @@ import { WeatherState } from '../state/game/weatherState.js';
 import { WEATHER_CONFIG } from '../core/weather.js';
 
 export const VisibilityManager = {
-    getAdjacentHexes(position) {
-        const directions = [
-            {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
-            {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
-        ];
-        
-        return directions.map(dir => ({
-            q: position.q + dir.q,
-            r: position.r + dir.r
-        }));
+    // New method to get hexes within a radius
+    getHexesInRadius(position, radius) {
+        const hexes = [];
+        for (let q = -radius; q <= radius; q++) {
+            const r1 = Math.max(-radius, -q - radius);
+            const r2 = Math.min(radius, -q + radius);
+            for (let r = r1; r <= r2; r++) {
+                const hex = {
+                    q: position.q + q,
+                    r: position.r + r
+                };
+                // Only add if within the specified radius
+                if (this.getHexDistance(position, hex) <= radius) {
+                    hexes.push(hex);
+                }
+            }
+        }
+        return hexes;
+    },
+
+    // Modified to use radius parameter, defaulting to 1 for backwards compatibility
+    getAdjacentHexes(position, radius = 1) {
+        if (radius === 1) {
+            // Original adjacent hex logic for radius 1
+            const directions = [
+                {q: 1, r: 0}, {q: 1, r: -1}, {q: 0, r: -1},
+                {q: -1, r: 0}, {q: -1, r: 1}, {q: 0, r: 1}
+            ];
+            return directions.map(dir => ({
+                q: position.q + dir.q,
+                r: position.r + dir.r
+            }));
+        }
+        // Use new radius-based method for larger visibility
+        return this.getHexesInRadius(position, radius);
     },
 
     isHexVisible(hexId) {
@@ -80,13 +105,14 @@ export const VisibilityManager = {
     },
 
     updateTemporaryFog() {
-        const adjacentHexes = this.getAdjacentHexes(gameStore.playerPosition);
+        // Use the same visibility radius for temporary fog
+        const visibleHexes = this.getAdjacentHexes(gameStore.playerPosition, 2); // You can adjust this radius
         
         WeatherState.visibility.temporaryFog.add(
             `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
-        adjacentHexes.forEach(hex => {
+        visibleHexes.forEach(hex => {
             WeatherState.visibility.temporaryFog.add(`${hex.q},${hex.r}`);
         });
     },
@@ -104,9 +130,9 @@ export const VisibilityManager = {
             `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
-        // Add adjacent hexes
-        const adjacentHexes = this.getAdjacentHexes(gameStore.playerPosition);
-        adjacentHexes.forEach(hex => {
+        // Add hexes within visibility radius (change this number to adjust visibility range)
+        const visibleHexes = this.getAdjacentHexes(gameStore.playerPosition, 2); // Adjust this number to change visibility radius
+        visibleHexes.forEach(hex => {
             gameStore.game.world.visibleHexes.add(`${hex.q},${hex.r}`);
         });
     }

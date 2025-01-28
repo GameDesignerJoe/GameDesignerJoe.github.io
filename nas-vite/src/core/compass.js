@@ -93,10 +93,10 @@ export class CompassSystem {
         if (!compass) return;
 
         compass.classList.remove('hidden');
-        this.messageSystem.showPlayerMessage(
-            "You pull out your compass to help navigate.",
-            "STATUS"
-        );
+        // this.messageSystem.showPlayerMessage(
+        //     "You pull out your compass to help navigate.",
+        //     "STATUS"
+        // );
 
         // Calculate initial sway based on distance to South Pole
         const distance = hexDistance(
@@ -117,10 +117,10 @@ export class CompassSystem {
         if (!compass) return;
 
         compass.classList.add('hidden');
-        this.messageSystem.showPlayerMessage(
-            "You put away your compass.",
-            "STATUS"
-        );
+        // this.messageSystem.showPlayerMessage(
+        //     "You put away your compass.",
+        //     "STATUS"
+        // );
 
         if (this.animationFrame) {
             cancelAnimationFrame(this.animationFrame);

@@ -24,12 +24,12 @@ export const PlayerState = {
 
     // Camping configuration
     campingConfig: {
-        foodDrainInterval: 5000,    // 5 seconds
-        foodDrainAmount: 10,        // 10% per interval
+        foodDrainInterval: 3000,    // 5 seconds
+        foodDrainAmount: 5,        // 10% per interval
         healthRegainAmount: 20,     // 20% per food drain
-        staminaRecoveryRate: 5,      // 5x normal stamina recovery
-        fullHealthFoodRate: 0.05,   // 1/4 of normal food consumption
-        fullHealthStaminaMultiplier: 5  // 3x faster than normal camping stamina recovery
+        staminaRecoveryRate: 20,      // 5x normal stamina recovery
+        fullHealthFoodRate: 0.00,   // 1/4 of normal food consumption
+        fullHealthStaminaMultiplier: 40  // 3x faster than normal camping stamina recovery
     },
 
     // Methods

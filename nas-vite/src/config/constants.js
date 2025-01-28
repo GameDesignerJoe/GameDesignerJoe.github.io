@@ -17,8 +17,8 @@ export const MOVEMENT = {
 
 // Grid-related constants
 export const GRID = {
-    SIZE: 12,  // Number of hexes from center hex to edge
-    HEX_SIZE: 30,
+    SIZE: 24,  // Number of hexes from center hex to edge
+    HEX_SIZE: 20,
     get HEX_HEIGHT() { return this.HEX_SIZE * 2; },
     get HEX_WIDTH() { return Math.sqrt(3) * this.HEX_SIZE; }
 };
