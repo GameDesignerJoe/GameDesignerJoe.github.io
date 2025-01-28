@@ -9,7 +9,7 @@ import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
 const getAssetPath = (filename) => {
-    return `/art/${filename}`;
+    return `./public/art/${filename}`;
 };
 
 export const GridManager = {
