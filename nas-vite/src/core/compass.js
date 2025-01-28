@@ -67,7 +67,7 @@ export class CompassSystem {
         const compassButton = document.createElement('button');
         compassButton.className = 'compass-button';
         compassButton.innerHTML = `
-            <img src="/art/compass-icon.svg" alt="Compass" />
+            <img src="./art/compass-icon.svg" alt="Compass" />
             <span>Compass</span>
         `;
         
