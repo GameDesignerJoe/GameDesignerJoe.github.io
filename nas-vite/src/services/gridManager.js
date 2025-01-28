@@ -9,9 +9,11 @@ import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
 const getAssetPath = (filename) => {
-    const path = `/nas-vite/art/${filename}`;
-    console.log('Attempting to load:', path); // Debug log
-    return path;
+    // Since you're deploying to GH Pages with base '/nas-vite/'
+    const isDev = window.location.hostname === 'localhost' || 
+                 window.location.hostname === '127.0.0.1';
+    const basePath = isDev ? '' : '/nas-vite';
+    return `${basePath}/art/${filename}`;
 };
 
 export const GridManager = {
