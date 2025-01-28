@@ -8,12 +8,10 @@ import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
+// Replace the current getAssetPath function
 const getAssetPath = (filename) => {
-    // Since you're deploying to GH Pages with base '/nas-vite/'
-    const isDev = window.location.hostname === 'localhost' || 
-                 window.location.hostname === '127.0.0.1';
-    const basePath = isDev ? '' : '/nas-vite';
-    return `${basePath}/art/${filename}`;
+    // We know the files are always in the art directory relative to the base URL
+    return `./art/${filename}`;
 };
 
 export const GridManager = {
