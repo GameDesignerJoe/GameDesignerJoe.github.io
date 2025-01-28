@@ -8,10 +8,8 @@ import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
-// Replace the current getAssetPath function
 const getAssetPath = (filename) => {
-    // We know the files are always in the art directory relative to the base URL
-    return `./art/${filename}`;
+    return `/art/${filename}`;
 };
 
 export const GridManager = {
