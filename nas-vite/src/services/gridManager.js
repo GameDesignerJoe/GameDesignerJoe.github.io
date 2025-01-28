@@ -275,7 +275,7 @@ export const GridManager = {
         const campButton = document.createElement('button');
         campButton.id = 'camp-button';
         campButton.className = 'game-button camp-button';
-        campButton.innerHTML = `<img src="./art/camp.svg" alt="Camp" class="camp-icon">`;
+        campButton.innerHTML = `<img src="/nas-vite/art/camp.svg" alt="Camp" class="camp-icon">`;
 
         // Add click handler
         campButton.addEventListener('click', () => {
@@ -382,7 +382,7 @@ export const GridManager = {
     
         const compassButton = document.createElement('button');
         compassButton.className = 'game-button compass-button';
-        compassButton.innerHTML = `<img src="./art/compass-icon.svg" alt="Compass" class="compass-icon">`;
+        compassButton.innerHTML = `<img src="/nas-vite/art/compass-icon.svg" alt="Compass" class="compass-icon">`;
     
         // Add click handler that will use the CompassSystem
         compassButton.addEventListener('click', () => {
