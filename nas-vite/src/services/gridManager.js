@@ -8,7 +8,14 @@ import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
 
-const getAssetPath = (filename) => `${import.meta.env.BASE_URL}art/${filename}`;
+const getAssetPath = (filename) => {
+    // Try to get the base URL from Vite's env, fallback to '/nas-vite/' if not available
+    const baseUrl = typeof import.meta.env.BASE_URL !== 'undefined' 
+        ? import.meta.env.BASE_URL 
+        : '/nas-vite/';
+    
+    return `${baseUrl}art/${filename}`;
+};
 
 export const GridManager = {
     initializeGrid() {
