@@ -8,18 +8,72 @@ import { StatsService } from './stats.js';
 import { DebugManager } from "../components/game/utils/debug.js";
 import { RestartSystem } from '../core/restart.js';
 import { CompassSystem } from '../core/compass.js';
+import { PackingManager } from './packingManager.js';
 
 export const GameInit = {
     debugManager: null,
+    packingManager: null,
 
     init() {
+        // Hide game container initially
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.style.display = 'none';
+        }
+
         // Initialize core game state
         this.initializeState();
         
-        // Initialize message system first (since other systems need it)
+        // Initialize message system first
         this.messageSystem = new MessageSystem(gameStore);
         gameStore.messages = this.messageSystem;
+
+        // Initialize packing screen
+        this.initializePackingScreen();
+    },
+
+    initializePackingScreen() {
+        const packingContainer = document.getElementById('packing-screen');
+        if (!packingContainer) return;
+
+        // Initialize packing manager
+        this.packingManager = new PackingManager(packingContainer);
         
+        // Set up embark callback
+        this.packingManager.onEmbarked = (gameItems) => {
+            // Show game container
+            const gameContainer = document.querySelector('.game-container');
+            if (gameContainer) {
+                gameContainer.style.display = 'flex';
+            }
+            
+            // Initialize game with selected items
+            this.initializeGameWithItems(gameItems);
+        };
+        
+        gameStore.packingSystem = this.packingManager;
+    },
+
+    initializeGameWithItems(gameItems) {
+        // Set player inventory
+        if (gameStore?.player) {
+            if (typeof gameStore.player.initializeInventory === 'function') {
+                gameStore.player.initializeInventory(gameItems);
+            } else {
+                gameStore.player.inventory = gameItems;
+            }
+        }
+        
+        // Initialize game systems
+        this.initializeGameSystems();
+        
+        // Start the game
+        if (gameStore?.game) {
+            gameStore.game.running = true;
+        }
+    },
+
+    initializeGameSystems() {
         // Initialize weather system
         this.weatherSystem = new WeatherSystem(
             gameStore,
@@ -47,7 +101,7 @@ export const GameInit = {
         GridManager.initializeGrid();
         GridManager.initializeCampingButton();
         
-        // Initialize debug features (which needs weatherSystem)
+        // Initialize debug features
         this.setupDebugFeatures();
         
         // Start game loops
@@ -56,6 +110,24 @@ export const GameInit = {
         // Show initial message
         gameStore.messages.showInitialMessage();
     },
+
+    // startGame(selectedItems) {
+    //     // Hide packing screen
+    //     const packingScreen = document.getElementById('packing-screen');
+    //     if (packingScreen) {
+    //         packingScreen.style.display = 'none';
+    //     }
+
+    //     // Show game elements
+    //     const gameElements = document.querySelectorAll('.game-element');
+    //     gameElements.forEach(el => el.style.display = 'block');
+
+    //     // Initialize player inventory with selected items
+    //     gameStore.player.initializeInventory(selectedItems);
+
+    //     // Initialize rest of game systems
+    //     this.initializeGameSystems();
+    // },
 
     initializeState() {
         // Initialize visibility for base camp
@@ -75,10 +147,9 @@ export const GameInit = {
         setInterval(() => StatsService.updateStats(), 50);
         
         // Schedule first weather event with delay
-        const self = this;  // Store reference to 'this' for the timeout
         setTimeout(() => {
             if (gameStore.gameRunning && !gameStore.gameWon) {
-                self.weatherSystem.scheduleNextWeather();
+                this.weatherSystem.scheduleNextWeather();
             }
         }, 5000);
     },
@@ -99,53 +170,11 @@ export const GameInit = {
             triggerWhiteout: () => this.weatherSystem.triggerWhiteout(),
             getGameState: () => ({ ...gameStore.game }),
             getWeatherState: () => ({ ...gameStore.weather }),
+            getPackingState: () => ({ ...gameStore.packing }),
             toggleFogOfWar: () => this.debugManager.toggleFogOfWar(),
             toggleGodMode: () => this.debugManager.toggleGodMode(),
             adjustZoom: (direction) => this.debugManager.adjustZoom(direction)
         };
-    },
-
-    handleRestart() {
-        // Reset game state
-        gameStore.game.resetGame();
-        gameStore.player.resetStats();
-        
-        // Reset grid and visibility
-        GridManager.initializeGrid();
-        VisibilityManager.updateVisibility(false);
-        
-        // Reset player state (which includes camping)
-        gameStore.player.resetStats();
-        
-        // Reset compass state
-        gameStore.compass.methods.reset();
-        if (gameStore.compassSystem) {
-            gameStore.compassSystem.deactivateCompass();
-        }
-        
-        // Update camping visuals
-        GridManager.createCampingVisual();
-        GridManager.updateCampingButton();
-
-        // Reset weather
-        this.WeatherSystem.resetWeatherState();
-        
-        // Clean up and reinitialize debug manager
-        if (this.debugManager) {
-            this.debugManager.cleanup();
-        }
-        this.setupDebugFeatures();
-        
-        // Update UI
-        StatsService.updateStatsDisplay();
-        gameStore.messages.showInitialMessage();
-        
-        // Schedule new weather events
-        setTimeout(() => {
-            if (gameStore.gameRunning && !gameStore.gameWon) {
-                this.WeatherSystem.scheduleNextWeather();
-            }
-        }, 5000);
     }
 };
 

@@ -1,0 +1,50 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#f8f9fa"/>
+  
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" font-size="24" fill="#2c3e50">Expedition Supplies</text>
+  
+  <!-- Available Items Column with Categories -->
+  <rect x="50" y="80" width="340" height="440" fill="white" stroke="#dee2e6"/>
+  <text x="220" y="110" text-anchor="middle" font-size="18" fill="#2c3e50">Available Items</text>
+  
+  <!-- Category: Food -->
+  <rect x="70" y="130" width="300" height="30" fill="#e9ecef"/>
+  <text x="85" y="150" font-size="16" fill="#2c3e50">Food</text>
+  
+  <!-- Sample Food Item -->
+  <rect x="70" y="160" width="300" height="50" fill="#f8f9fa" stroke="#dee2e6"/>
+  <text x="85" y="185" font-size="14" fill="#2c3e50">Pemmican</text>
+  <rect x="280" y="170" width="70" height="30" rx="5" fill="#007bff"/>
+  <text x="315" y="190" text-anchor="middle" font-size="14" fill="white">Take</text>
+  
+  <!-- Category: Tools -->
+  <rect x="70" y="220" width="300" height="30" fill="#e9ecef"/>
+  <text x="85" y="240" font-size="16" fill="#2c3e50">Tools</text>
+  
+  <!-- Selected Items Column -->
+  <rect x="410" y="80" width="340" height="440" fill="white" stroke="#dee2e6"/>
+  <text x="580" y="110" text-anchor="middle" font-size="18" fill="#2c3e50">Your Pack</text>
+  
+  <!-- Sample Selected Item -->
+  <rect x="430" y="130" width="300" height="50" fill="#f8f9fa" stroke="#dee2e6"/>
+  <text x="445" y="155" font-size="14" fill="#2c3e50">Pemmican (x3)</text>
+  <rect x="640" y="140" width="70" height="30" rx="5" fill="#dc3545"/>
+  <text x="675" y="160" text-anchor="middle" font-size="14" fill="white">Remove</text>
+  
+  <!-- Tooltip Example -->
+  <rect x="430" y="200" width="200" height="80" rx="5" fill="#495057" opacity="0.9"/>
+  <text x="445" y="225" font-size="14" fill="white">Pemmican</text>
+  <text x="445" y="245" font-size="12" fill="#ced4da">High-energy dried meat mix.</text>
+  <text x="445" y="265" font-size="12" fill="#ced4da">Used by Antarctic explorers</text>
+  
+  <!-- Weight and Buttons -->
+  <text x="430" y="500" font-size="16" fill="#2c3e50">Total Weight: 45/100 lbs</text>
+  
+  <rect x="410" y="540" width="160" height="40" rx="5" fill="#28a745"/>
+  <text x="490" y="565" text-anchor="middle" font-size="16" fill="white">Standard Load</text>
+  
+  <rect x="590" y="540" width="160" height="40" rx="5" fill="#007bff"/>
+  <text x="670" y="565" text-anchor="middle" font-size="16" fill="white">EMBARK!</text>
+</svg>

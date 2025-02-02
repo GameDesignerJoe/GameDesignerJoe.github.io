@@ -3,6 +3,7 @@ import { GameState } from './game/gameState.js';
 import { WeatherState } from './game/weatherState.js';
 import { PlayerState } from './game/playerState.js';
 import { CompassState } from './game/compassState.js';
+import { PackingState } from './game/packingState.js';
 
 // Simplified Debug State - only stores state, no functionality
 const DebugState = {
@@ -19,6 +20,7 @@ export const gameStore = {
     weather: WeatherState,
     player: PlayerState,
     compass: CompassState,
+    packing: PackingState,  // Add packing state
     debug: DebugState,
 
     // Commonly accessed properties (for convenience)
@@ -54,8 +56,14 @@ export const gameStore = {
         return this.compass.isActive;
     },
 
+    // Add packing-related getter
+    get selectedItems() {
+        return Array.from(this.packing.selectedItems.values());
+    },
+
     messages: null,
     compassSystem: null,
+    packingSystem: null,  // Add reference to packing system
     
     // Simplified DEBUG object - just for state inspection
     DEBUG: {
@@ -65,6 +73,7 @@ export const gameStore = {
                 weather: { ...gameStore.weather },
                 player: { ...gameStore.player },
                 compass: { ...gameStore.compass },
+                packing: { ...gameStore.packing },
                 debug: { ...gameStore.debug }
             };
         },

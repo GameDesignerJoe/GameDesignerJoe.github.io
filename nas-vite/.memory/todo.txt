@@ -54,3 +54,6 @@ weatherManager.js:46 Uncaught TypeError: Cannot read properties of null (reading
 - Still need to do a tempurature drop effect. Freeze everything. 
 - Should experiment with the size of the grid. Might be nice to try and fill the page and see what that looks like. 
 - Try and make every tile unique, or as unique as you can. That way it won't feel like you're just walking over hexes. 
+- Figure out what the actual distance is for each hex. This way you can start doing numbers for how far you can travel with the gear you have. 
+- Have if you buy maps the edges of the continent are revealed, but the inner parts are not. 
+- Offer a 'mapping' option that lets players map surrounding areas. 

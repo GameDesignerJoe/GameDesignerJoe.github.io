@@ -1,0 +1,5 @@
+DO NOT USE REACT COMPONENTS!
+
+We are using basic vanilla JavaScript.
+
+We are using vite, so we have to use relative pathing like this: '../config/itemsDatabase.js'

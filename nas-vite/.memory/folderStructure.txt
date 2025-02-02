@@ -35,6 +35,7 @@ nas-vite/                               // Main project folder
 │   ├── config/                         // Configuration files
 │   │   ├── config.js
 │   │   ├── constants.js
+│   │   ├── itemsDatabase.js
 │   │   ├── terrain.js
 │   ├── core/                          
 │   │   ├── compass.js                  // compass
@@ -45,6 +46,7 @@ nas-vite/                               // Main project folder
 │   │   ├── gameInit.js                 // Game initialization
 │   │   ├── gridManager.js              // Handles grid creation and hex management
 │   │   ├── movement.js                 // Player movement logic
+│   │   ├── packingManager.js           // 
 │   │   ├── stats.js                    // Player stats management
 │   │   └─  visibility.js               // Fog of war system
 │   ├── state/                          // State management
@@ -52,6 +54,7 @@ nas-vite/                               // Main project folder
 │   │   │   ├── compassState.js            // Compass state management
 │   │   │   ├── gameState.js            // Core game state management
 │   │   │   ├── gridState.js            // Manages grid initialization and state
+│   │   │   ├── packingState.js         // 
 │   │   │   ├── playerState.js          // Manages player stats and position
 │   │   │   └── weatherState.js         // Stores weather system state
 │   │   └── store.js                    // Central game state store
