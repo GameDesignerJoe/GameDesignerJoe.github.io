@@ -555,3 +555,107 @@ transition: transform 300ms ease-in-out;
 .compass.whiteout {
   opacity: 0;
 }
+
+/* Loading Screen Styles - Add to index.css */
+
+.loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  z-index: 1000;
+  background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
+  background-size: 400% 400%;
+  animation: waveEffect 8s ease-in-out infinite;
+}
+
+.title-text {
+  font-family: 'Old Standard TT', serif;
+  font-size: 84px;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 2s ease-in-out, transform 2s ease-in-out;
+  margin-bottom: 40px;
+}
+
+.title-text.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.advertisement {
+  max-width: 600px;
+  padding: 30px;
+  /* background-color: rgba(57, 56, 31, 0.9); */
+  background-color: rgba(255, 253, 208, 0.9); /* Aged paper color */
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 24px;
+  color: rgba(0, 0, 0, 0.9); /* Dark, slightly softened text */
+  text-align: center;
+  line-height: 1.6;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 2s ease-in-out, transform 2s ease-in-out;
+  margin: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  background-size: 20px 20px;
+  position: relative;
+  letter-spacing: 1px;
+  background-size: 20px 20px;
+}
+
+.advertisement::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(227, 220, 170, 0.1);
+  pointer-events: none;
+}
+
+.advertisement.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.start-button {
+  margin-top: 40px;
+  padding: 12px 24px;
+  font-family: 'Old Standard TT', serif;
+  font-size: 24px;
+  background-color: #44aaff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 1s ease-in-out, transform 1s ease-in-out, background-color 0.2s;
+}
+
+.start-button.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.start-button:hover {
+  background-color: #3399ee;
+}
+
+/* Animation for the waves effect */
+.loading-screen {
+  background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
+  background-size: 400% 400%;
+  animation: waveEffect 8s ease-in-out infinite;
+}

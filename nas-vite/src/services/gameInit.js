@@ -15,10 +15,15 @@ export const GameInit = {
     packingManager: null,
 
     init() {
-        // Hide game container initially
+        // Hide all game elements initially
         const gameContainer = document.querySelector('.game-container');
         if (gameContainer) {
             gameContainer.style.display = 'none';
+        }
+
+        const packingScreen = document.getElementById('packing-screen');
+        if (packingScreen) {
+            packingScreen.style.display = 'none';
         }
 
         // Initialize core game state
@@ -28,8 +33,18 @@ export const GameInit = {
         this.messageSystem = new MessageSystem(gameStore);
         gameStore.messages = this.messageSystem;
 
-        // Initialize packing screen
-        this.initializePackingScreen();
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+            // Initialize packing screen
+            this.initializePackingScreen();
+            
+            // Show packing screen with a slight delay to ensure smooth transition
+            setTimeout(() => {
+                if (packingScreen) {
+                    packingScreen.style.display = 'block';
+                }
+            }, 100);
+        });
     },
 
     initializePackingScreen() {
@@ -110,24 +125,6 @@ export const GameInit = {
         // Show initial message
         gameStore.messages.showInitialMessage();
     },
-
-    // startGame(selectedItems) {
-    //     // Hide packing screen
-    //     const packingScreen = document.getElementById('packing-screen');
-    //     if (packingScreen) {
-    //         packingScreen.style.display = 'none';
-    //     }
-
-    //     // Show game elements
-    //     const gameElements = document.querySelectorAll('.game-element');
-    //     gameElements.forEach(el => el.style.display = 'block');
-
-    //     // Initialize player inventory with selected items
-    //     gameStore.player.initializeInventory(selectedItems);
-
-    //     // Initialize rest of game systems
-    //     this.initializeGameSystems();
-    // },
 
     initializeState() {
         // Initialize visibility for base camp

@@ -5,6 +5,14 @@ export const PackingState = {
     selectedItems: new Map(),
     totalWeight: 0,
     MAX_WEIGHT: 600,
+    initialized: false,
+
+    init(store) {
+        if (this.initialized) return;
+        this.store = store;
+        this.reset();
+        this.initialized = true;
+    },
 
     // Reset state
     reset() {
@@ -14,6 +22,7 @@ export const PackingState = {
 
     // Add an item to selection
     addItem(item) {
+        console.log('Adding item:', item.name);
         if (this.totalWeight + item.weight > this.MAX_WEIGHT) {
             return false;
         }
@@ -42,6 +51,7 @@ export const PackingState = {
 
     // Load standard expedition loadout
     loadStandardLoadout() {
+        console.log('Loading standard loadout');
         this.reset();
         const standardLoadout = {
             'Sledge': 1,
@@ -69,13 +79,15 @@ export const PackingState = {
         };
 
         Object.entries(standardLoadout).forEach(([itemName, quantity]) => {
-            for (let i = 0; i < quantity; i++) {
-                const itemTemplate = ITEMS_DATABASE[itemName];
-                if (itemTemplate) {
+            const itemTemplate = ITEMS_DATABASE[itemName];
+            if (itemTemplate) {
+                for (let i = 0; i < quantity; i++) {
                     this.addItem(itemTemplate);
                 }
             }
         });
+
+        console.log('Standard loadout complete', this.selectedItems.size, 'items loaded');
     },
 
     getGameItems() {

@@ -262,22 +262,24 @@ body.packing-active {
 .panels-container {
     flex: 1;
     position: relative;
-    min-height: 0;
+    min-height: 400px;  /* Give it a minimum height */
     width: 100%;
+    flex-direction: column;
+    overflow: hidden;  /* Contain the scrollable panels */
 }
 
 /* Scrollable panels */
 .scrollable-panel {
-    position: absolute;
+    position: relative;
     width: 100%;  
     max-width: 100%;
     margin: 0 auto; 
     display: none;
     height: 100%;
+    min-height: 400px;
     overflow-y: auto;
     font-family: 'Old Standard TT', serif;
     background: transparent;
-    /* background: rgba(0, 0, 0, 0.2); */
     border-radius: 4px;
     padding: 8px;
     scrollbar-width: none;

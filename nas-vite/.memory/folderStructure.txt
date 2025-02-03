@@ -25,13 +25,13 @@ nas-vite/                               // Main project folder
 │   │   │   │   ├── debug.js
 │   │   │   │   ├── grid.js
 │   │   │   │   ├── math.js
-│   │   │   ├── GameLayout.jsx
+│   │   │   ├── GameLayout.jsx          // NOT USING. IGNORE
 │   │   │   ├── Grid.jsx                // Main SVG grid component with weather overlays
-│   │   │   ├── Player.jsx
+│   │   │   ├── Player.jsx              // NOT USING. IGNORE
 │   │   ├── ui/                         // UI components
-│   │   │   ├── Controls.jsx
-│   │   │   └── Stats.jsx
-│   │   └── TypewriterMessage.jsx
+│   │   │   ├── Controls.jsx            // NOT USING. IGNORE.
+│   │   │   └── Stats.jsx               // NOT USING. IGNORE.
+│   │   └── TypewriterMessage.jsx       // NOT USING. IGNORE.
 │   ├── config/                         // Configuration files
 │   │   ├── config.js
 │   │   ├── constants.js
@@ -39,6 +39,7 @@ nas-vite/                               // Main project folder
 │   │   ├── terrain.js
 │   ├── core/                          
 │   │   ├── compass.js                  // compass
+│   │   ├── loadingScreen.js                 // loading screen
 │   │   ├── messages.js                 // Where all messaging is handled
 │   │   ├── restart.js                  // All restart functionality
 │   │   └─  weather.js                  // All weather functionality 
@@ -46,7 +47,8 @@ nas-vite/                               // Main project folder
 │   │   ├── gameInit.js                 // Game initialization
 │   │   ├── gridManager.js              // Handles grid creation and hex management
 │   │   ├── movement.js                 // Player movement logic
-│   │   ├── packingManager.js           // 
+│   │   ├── packingManager.css          // all the .css info for the packing screen.
+│   │   ├── packingManager.js           // all information about the packing screen
 │   │   ├── stats.js                    // Player stats management
 │   │   └─  visibility.js               // Fog of war system
 │   ├── state/                          // State management
