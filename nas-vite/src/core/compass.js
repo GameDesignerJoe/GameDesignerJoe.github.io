@@ -61,20 +61,7 @@ export class CompassSystem {
     }
 
     initCompassButton() {
-        const campButton = document.querySelector('.camp-button');
-        if (!campButton) return;
-
-        const compassButton = document.createElement('button');
-        compassButton.className = 'compass-button';
-        compassButton.innerHTML = `
-            <img src="./art/compass-icon.svg" alt="Compass" />
-            <span>Compass</span>
-        `;
-        
-        compassButton.addEventListener('click', () => this.toggleCompass());
-        
-        // Insert after camp button
-        campButton.parentNode.insertBefore(compassButton, campButton.nextSibling);
+        // Button is now initialized by GridManager
     }
 
     toggleCompass() {
