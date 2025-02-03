@@ -13,41 +13,16 @@
 
 /* Header styles */
 .packing-header {
-    text-align: center;
+    text-align: left;
     margin-bottom: 20px;
-}
-
-.packing-header h1 {
-    font-family: 'Old Standard TT', serif;
-    font-size: 24px;
-    margin-bottom: 4px;
-    color: white;
 }
 
 .packing-header h2 {
     font-family: 'Old Standard TT', serif;
-    font-size: 16px;
+    font-size: 26px;
     margin: 0;
     color: rgba(255, 255, 255, 0.8);
-    font-style: italic;
-}
-
-/* Title matches game container style */
-#packing-screen h1 {
-    font-family: 'Old Standard TT', serif;
-    font-size: 24px;
-    margin-bottom: 4px;
-    text-align: center;
-    color: white;
-}
-
-#packing-screen h2 {
-    font-family: 'Old Standard TT', serif;
-    font-size: 26px;
-    margin: 0 0 0px 0;
-    text-align: center;
-    color: rgba(255, 255, 255, 0.8);
-    font-style: italic;
+    text-transform: uppercase;
 }
 
 /* Main packing interface */

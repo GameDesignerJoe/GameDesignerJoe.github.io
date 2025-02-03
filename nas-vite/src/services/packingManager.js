@@ -78,13 +78,9 @@ export class PackingManager {
         const titleDiv = document.createElement('div');
         titleDiv.className = 'packing-header';
         
-        const h1 = document.createElement('h1');
-        h1.textContent = "NOT ALL SURVIVE";
-        
         const h2 = document.createElement('h2');
         h2.textContent = "Expedition Supplies";
         
-        titleDiv.appendChild(h1);
         titleDiv.appendChild(h2);
         
         this.container.appendChild(titleDiv);
