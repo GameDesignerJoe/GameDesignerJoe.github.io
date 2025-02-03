@@ -44,10 +44,19 @@ body {
 
 h1 {
   font-family: 'Old Standard TT', serif;  
-  font-size: 24px;
+  font-size: 32px;
   margin-bottom: 0px;
   text-align: center;
+  line-height: 1.2;
+}
+
+@media screen and (max-width: 768px) {
+  h1 {
+    font-size: 28px;
+    white-space: pre-line;
+    content: "NOT ALL\nSURVIVE";
   }
+}
 
 
 /* GRID & HEXES */
@@ -662,10 +671,10 @@ transition: transform 300ms ease-in-out;
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 1s ease-in-out, transform 1s ease-in-out, background-color 0.2s;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  margin-bottom: env(safe-area-inset-bottom, 20px);
   width: 90%;
   max-width: 300px;
+  height: fit-content;
+  line-height: 1;
 }
 
 @media screen and (min-width: 769px) {
