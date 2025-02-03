@@ -5,7 +5,6 @@
     width: 100%;
     max-width: 450px;
     margin: 0 auto;
-    height: 100vh;
     display: flex;
     flex-direction: column;
     padding: 8px;
@@ -32,7 +31,7 @@
     padding: 8px;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 16px);
+    height: 90vh;
     overflow: hidden;
 }
 
@@ -196,7 +195,7 @@ body.packing-active {
     max-width: 100%;
     margin: 0 auto; 
     display: none;
-    max-height: calc(100vh - 200px);
+    height: calc(90vh - 150px);
     overflow-y: auto;
     font-family: 'Old Standard TT', serif;
     background: transparent;
@@ -226,6 +225,6 @@ body.packing-active {
     text-align: center;
     font-family: 'Old Standard TT', serif;
     font-size: 16px;
-    margin: 8px 0;
+    margin: 4px 0;
     color: #f0f0f0;
 }
