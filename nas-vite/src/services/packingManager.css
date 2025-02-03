@@ -5,16 +5,16 @@
     width: 100%;
     max-width: 450px;
     margin: 0 auto;
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    padding: 8px;
 }
 
 /* Header styles */
 .packing-header {
     text-align: left;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .packing-header h2 {
@@ -29,10 +29,11 @@
 .packing-container {
     background-color: #01497C;
     border-radius: 8px;
-    padding: 10px 10px, 10px, 10px;
-    flex: 1;
+    padding: 8px;
     display: flex;
     flex-direction: column;
+    height: calc(100vh - 16px);
+    overflow: hidden;
 }
 
 /* Main content area */
@@ -40,9 +41,9 @@
     background-color: #01497C;
     border-radius: 8px;
     padding: 0px;
-    min-height: 600px;
     display: flex;
     flex-direction: column;
+    flex: 1;
 }
 
 .packing-svg {
@@ -56,34 +57,6 @@
     color: white;
     font-family: 'Old Standard TT', serif;
 }
-
-/* .category-header {
-    background: #777777;
-    padding: 5px 10px;
-    margin-bottom: 5px;
-    font-size: 16px;
-    font-weight: bold;
-} */
-
-/* Item entries */
-/* .item-entry {
-    display: flex;
-    align-items: center;
-    padding: 8px;
-    margin-bottom: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
-
-.item-entry span:first-child {
-    flex: 1;
-}
-
-.item-entry span:nth-child(2) {
-    width: 80px;
-    text-align: right;
-    margin: 0 16px;
-} */
 
 /* Take/Remove buttons */
 .item-button {
@@ -118,8 +91,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    padding: 0px;
-    margin-top: auto;
+    padding: 10px 0 0 0;
 }
 
 .control-button {
@@ -151,33 +123,8 @@
 }
 
 .spacer {
-    height: 20px;
+    height: 10px;
 }
-
-/* Bottom buttons */
-/* .bottom-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: auto;
-    padding-top: 20px;
-} */
-
-/* .bottom-button {
-    padding: 12px 24px;
-    font-size: 16px;
-    background-color: #44aaff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    font-family: 'Old Standard TT', serif;
-} */
-
-/* .bottom-button:hover {
-    background-color: #3399ee;
-} */
 
 /* Animation */
 @keyframes waveEffect {
@@ -204,7 +151,7 @@ body.packing-active {
 
 /* Tabs container */
 .tabs-container {
-    margin-bottom: 0px;
+    margin-bottom: 10px;
     display: flex;
     gap: 5px;
     padding: 0;
@@ -213,7 +160,7 @@ body.packing-active {
 
 .tab-button {
     flex: 1;
-    padding: 12px;
+    padding: 10px;
     background: rgba(255, 255, 255, 0.1);
     border: none;
     border-radius: 4px;
@@ -235,12 +182,11 @@ body.packing-active {
 
 /* Panels container */
 .panels-container {
-    flex: 1;
     position: relative;
-    min-height: 400px;  /* Give it a minimum height */
     width: 100%;
     flex-direction: column;
-    overflow: hidden;  /* Contain the scrollable panels */
+    overflow: hidden;
+    flex: 1;
 }
 
 /* Scrollable panels */
@@ -250,31 +196,16 @@ body.packing-active {
     max-width: 100%;
     margin: 0 auto; 
     display: none;
-    height: 100%;
-    min-height: 400px;
+    max-height: calc(100vh - 200px);
     overflow-y: auto;
     font-family: 'Old Standard TT', serif;
     background: transparent;
     border-radius: 4px;
-    padding: 8px;
+    padding: 4px;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
 }
 
-/* .scrollable-panel {
-    position: absolute;
-    width: 100%;
-    max-width: 100%;
-    height: 405px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    background: transparent;
-    color: white;
-    font-family: 'Old Standard TT', serif;
-    padding: 0 20px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-} */
 .scrollable-panel.active {
     display: block;
 }
@@ -291,23 +222,10 @@ body.packing-active {
     display: none;
 }
 
-/* .scrollable-panel.left {
-    left: 50%;
-    transform: translateX(-100%);
-    top: 95px;
-}
-
-.scrollable-panel.right {
-    left: 50%;
-    transform: translateX(0%);
-    top: 95px;
-} */
-
-
 .weight-display {
     text-align: center;
     font-family: 'Old Standard TT', serif;
     font-size: 16px;
-    margin: 16px 0;
+    margin: 8px 0;
     color: #f0f0f0;
 }
