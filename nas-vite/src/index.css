@@ -1,21 +1,22 @@
 /* src/index.css */
 
 * {
-  margin: 10;
+  margin: 0;
   padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
-font-family: 'Old Standard TT', serif;
-background-color: #013A63; /* 1B4B7C  #013A63 */
-color: white;
-min-height: 100vh;
-width: 100%;
-overscroll-behavior: none;
-touch-action: none;
-transition: background-color 10s ease-in-out;
+  font-family: 'Old Standard TT', serif;
+  background-color: #013A63;
+  color: white;
+  min-height: 100vh;
+  width: 100%;
+  overscroll-behavior: none;
+  touch-action: none;
+  transition: background-color 10s ease-in-out;
+  overflow: hidden;
 }
 
 
@@ -563,27 +564,38 @@ transition: transform 300ms ease-in-out;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 20px;
   padding: 20px;
   z-index: 1000;
   background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
   background-size: 400% 400%;
   animation: waveEffect 8s ease-in-out infinite;
+  overflow: hidden;
+}
+
+@media screen and (max-width: 768px) {
+  .loading-screen {
+    padding: env(safe-area-inset-top, 40px) 20px env(safe-area-inset-bottom, 20px);
+    height: -webkit-fill-available;
+    gap: 10px;
+  }
 }
 
 .title-text {
   font-family: 'Old Standard TT', serif;
-  font-size: 84px;
+  font-size: clamp(36px, 10vw, 84px);
   color: rgb(255, 255, 255);
   text-align: center;
   opacity: 0;
   transform: translateY(-20px);
   transition: opacity 2s ease-in-out, transform 2s ease-in-out;
-  margin-bottom: 40px;
+  margin: 20px 0;
+  padding-top: env(safe-area-inset-top, 20px);
 }
 
 .title-text.visible {
@@ -593,13 +605,13 @@ transition: transform 300ms ease-in-out;
 
 .advertisement {
   max-width: 600px;
+  width: 90%;
   padding: 30px;
-  /* background-color: rgba(57, 56, 31, 0.9); */
-  background-color: rgba(255, 253, 208, 0.9); /* Aged paper color */
+  background-color: rgba(255, 253, 208, 0.9);
   border-radius: 4px;
   font-family: 'Courier New', Courier, monospace;
   font-size: 24px;
-  color: rgba(0, 0, 0, 0.9); /* Dark, slightly softened text */
+  color: rgba(0, 0, 0, 0.9);
   text-align: center;
   line-height: 1.6;
   opacity: 0;
@@ -607,10 +619,16 @@ transition: transform 300ms ease-in-out;
   transition: opacity 2s ease-in-out, transform 2s ease-in-out;
   margin: 20px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  background-size: 20px 20px;
   position: relative;
   letter-spacing: 1px;
-  background-size: 20px 20px;
+}
+
+@media screen and (max-width: 768px) {
+  .advertisement {
+    padding: 20px;
+    font-size: clamp(16px, 4vw, 24px);
+    margin: 20px 0;
+  }
 }
 
 .advertisement::before {
@@ -642,6 +660,15 @@ transition: transform 300ms ease-in-out;
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 1s ease-in-out, transform 1s ease-in-out, background-color 0.2s;
+}
+
+@media screen and (max-width: 768px) {
+  .start-button {
+    margin: 20px 0;
+    font-size: clamp(18px, 4vw, 24px);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    margin-bottom: env(safe-area-inset-bottom, 20px);
+  }
 }
 
 .start-button.visible {
