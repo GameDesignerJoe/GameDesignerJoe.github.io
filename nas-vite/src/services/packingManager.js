@@ -131,7 +131,9 @@ export class PackingManager {
             </div>
             <div class="item-details-quantity">
                 <label>Quantity (Recommended: ${recommendedQuantity}):</label>
-                <input type="number" min="0" max="${maxQuantity}" value="${initialQuantity}" id="quantity-input">
+                <input type="number" min="0" max="${maxQuantity}" value="${initialQuantity}" id="quantity-input" 
+                    inputmode="numeric" pattern="[0-9]*" 
+                    onkeypress="return event.charCode >= 48 && event.charCode <= 57">
                 <div class="item-details-quantity-info">Maximum: ${maxQuantity} (based on weight limit)</div>
             </div>
             <div class="item-details-weight">
