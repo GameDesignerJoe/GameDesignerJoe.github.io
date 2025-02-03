@@ -40,6 +40,9 @@ export class PackingManager {
         // Create bottom buttons - using the existing method name
         this.createControlButtons();
         
+        // Add this line to initialize the weight display immediately
+        this.updateWeightDisplay();
+        
         this.setupEventListeners();
     }
 
@@ -275,7 +278,7 @@ export class PackingManager {
 
     // Add initial spacing div
     const spacerDiv = document.createElement('div');
-    spacerDiv.style.height = '20px';  // Adjust this value to move content down
+    spacerDiv.style.height = '0px';  // Adjust this value to move content down
     container.appendChild(spacerDiv);
 
     const categorizedItems = Object.values(ITEMS_DATABASE).reduce((categories, item) => {
@@ -307,31 +310,43 @@ export class PackingManager {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 5px 10px;
+                    padding: 5px 0px;
                     margin: 2px 0;
                     //background: #555555;
-                    max-width: 950px;  // Add this to limit width
+                    max-width: 100%;  // Add this to limit width
                 `;
 
+                // In the items.forEach section:
                 itemDiv.innerHTML = `
-                    <span style="flex: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                    <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
-                    <button style="
-                        background: #007bff;
-                        color: white;
-                        border: none;
-                        padding: 2px 6px;
-                        min-width: 50px;
-                        cursor: pointer;
-                        font-family: inherit;
-                        font-style: italic;
-                    ">Take</button>
+                <span style="flex: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
+                <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
+                <button style="
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 2px 6px;
+                    min-width: 50px;
+                    cursor: pointer;
+                    font-family: inherit;
+                    font-style: italic;
+                    transition: background-color 0.15s ease, color 0.15s ease;
+                ">Take</button>
                 `;
-    
+
                 const button = itemDiv.querySelector('button');
+                button.onmousedown = () => {
+                button.style.backgroundColor = 'white';
+                button.style.color = '#007bff';
+                };
+
+                button.onmouseup = () => {
+                button.style.backgroundColor = '#007bff';
+                button.style.color = 'white';
+                };
+
                 button.onclick = () => {
-                    this.gameStore.packing.addItem(item);
-                    this.updateUI();
+                this.gameStore.packing.addItem(item);
+                this.updateUI();
                 };
     
                 container.appendChild(itemDiv);
@@ -348,7 +363,7 @@ export class PackingManager {
     
         // Add initial spacing div
         const spacerDiv = document.createElement('div');
-        spacerDiv.style.height = '20px';
+        spacerDiv.style.height = '0px';
         container.appendChild(spacerDiv);
     
         // Add selected items
@@ -359,29 +374,38 @@ export class PackingManager {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 3px 8px;  // Even smaller padding
-                margin: 1px 0;     // Smaller margin
-                background: #555555;
-                max-width: 950px;
+                padding: 5px 0px;  // Match Available Items padding
+                margin: 2px 0;
+                max-width: 100%;   // Match Available Items width
             `;
 
             itemDiv.innerHTML = `
-                <span style="flex: 0.5; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                <span style="width: 50px; font-size: 14px; text-align: right;">${item.weight} lbs</span>
+                <span style="flex: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${item.name}</span>
+                <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
                 <button style="
-                    background:rgb(255, 60, 0);
+                    background: rgb(255, 60, 0);
                     color: white;
                     border: none;
                     padding: 2px 6px;
-                    min-width: 45px;
-                    font-size: 12px;
+                    min-width: 50px;
                     cursor: pointer;
                     font-family: inherit;
                     font-style: italic;
+                    transition: background-color 0.15s ease, color 0.15s ease;
                 ">Remove</button>
             `;
-    
+
             const button = itemDiv.querySelector('button');
+            button.onmousedown = () => {
+                button.style.backgroundColor = 'white';
+                button.style.color = 'rgb(255, 60, 0)';
+            };
+
+            button.onmouseup = () => {
+                button.style.backgroundColor = 'rgb(255, 60, 0)';
+                button.style.color = 'white';
+            };
+
             button.onclick = () => {
                 this.gameStore.packing.removeItem(item.id);
                 this.updateUI();
@@ -392,10 +416,10 @@ export class PackingManager {
     }
 
     updateWeightDisplay() {
-        const weight = this.gameStore.packing.totalWeight;
+        const weight = this.gameStore.packing.totalWeight || 0;  // Use 0 if totalWeight is falsy
         const maxWeight = this.gameStore.packing.MAX_WEIGHT;
         
-        // Update or create weight display
+        // Create weight display if it doesn't exist
         if (!this.weightDisplay) {
             this.weightDisplay = document.createElement('div');
             this.weightDisplay.className = 'weight-display';
@@ -404,6 +428,7 @@ export class PackingManager {
             this.wrapper.insertBefore(this.weightDisplay, bottomControls);
         }
         
+        // Always display the weight
         this.weightDisplay.textContent = `Total Weight: ${weight}/${maxWeight} lbs`;
         
         // Update color based on weight
