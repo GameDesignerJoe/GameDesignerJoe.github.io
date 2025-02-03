@@ -137,9 +137,9 @@ class PerformanceMonitor {
             frameStats.innerHTML = `
                 <div class="stat-row ${this.frameTime.current > 16 ? 'error' : ''}">
                     <div class="frame-stats-group">
-                        <span class="stat-label">Crt:${this.frameTime.current.toFixed(1)}</span>
+                        <span class="stat-label">Current:${this.frameTime.current.toFixed(1)}</span>
                         <span class="stat-label">Avg:${this.frameTime.avg.toFixed(1)}</span>
-                        <span class="stat-label">${this.frameTime.min.toFixed(1)}/${this.frameTime.max.toFixed(1)}</span>
+                        <span class="stat-label">Min/Max:${this.frameTime.min.toFixed(1)}/${this.frameTime.max.toFixed(1)}</span>
                     </div>
                 </div>
             `;
