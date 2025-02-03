@@ -18,11 +18,9 @@ export const GridManager = {
         // Wrap key methods for performance monitoring
         const methodsToTrack = [
             'createHexGrid',
-            'createHexAtPosition',
             'updatePlayerMarker',
             'centerViewport',
-            'createTerrainHex',
-            'updateVisibility'
+            'createHexAndFog'
         ];
 
         methodsToTrack.forEach(method => {
@@ -31,15 +29,11 @@ export const GridManager = {
     },
 
     initializeGrid() {
-        // console.log("Starting grid initialization");
-        
         // Initialize grid state
         const gridState = initializeGridState();
-        // console.log("Grid state initialized:", gridState);
         
         // Update player position first
         gameStore.player.position = { ...gridState.baseCamp };
-        // console.log("Player position set:", gameStore.player.position);
         
         // Then update game world
         Object.assign(gameStore.game.world, gridState);
@@ -52,15 +46,11 @@ export const GridManager = {
             `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
-        // console.log("Visited hexes:", gameStore.game.world.visitedHexes);
-        
         // Make adjacent hexes visible
         const adjacentHexes = VisibilityManager.getAdjacentHexes(gameStore.playerPosition);
         adjacentHexes.forEach(hex => {
             gameStore.game.world.visibleHexes.add(`${hex.q},${hex.r}`);
         });
-        
-        // console.log("Visible hexes:", gameStore.game.world.visibleHexes);
 
         VisibilityManager.updateVisibility(false);
         gameStore.messages.updateCurrentLocationInfo();
@@ -89,55 +79,60 @@ export const GridManager = {
             console.error('No hexGroup element found');
             return;
         }
+
+        // Create a document fragment to batch DOM operations
+        const fragment = document.createDocumentFragment();
+        
+        // Pre-calculate hex points for reuse
+        const hexPoints = this.createHexPoints(GRID.HEX_SIZE);
         
         // Create terrain hexes
         for (let q = -GRID.SIZE; q <= GRID.SIZE; q++) {
             for (let r = -GRID.SIZE; r <= GRID.SIZE; r++) {
                 if (Math.abs(q + r) <= GRID.SIZE) {
-                    this.createHexAtPosition(group, q, r);
+                    const x = GRID.HEX_WIDTH * (q + r/2);
+                    const y = GRID.HEX_HEIGHT * (r * 3/4);
+                    
+                    // Create hex and fog in one pass
+                    const [hex, fog] = this.createHexAndFog(q, r, x, y, hexPoints);
+                    fragment.appendChild(hex);
+                    fragment.appendChild(fog);
                 }
             }
         }
-    
-        // Add click handlers
-        // console.log('Setting up hex click handlers');
-        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-            hex.addEventListener('click', () => {
-                const q = parseInt(hex.getAttribute('data-q'));
-                const r = parseInt(hex.getAttribute('data-r'));
-                // console.log('Hex clicked:', { q, r });
-                const terrain = hex.getAttribute('data-terrain');
-                const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                                 terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                                 TERRAIN_TYPES[terrain];
-                MovementManager.handleHexSelection(hex, q, r, terrainInfo);
-            });
+        
+        // Add event delegation for hex clicks
+        group.addEventListener('click', (event) => {
+            const hex = event.target.closest('polygon[data-terrain]');
+            if (!hex) return;
+            
+            const q = parseInt(hex.getAttribute('data-q'));
+            const r = parseInt(hex.getAttribute('data-r'));
+            const terrain = hex.getAttribute('data-terrain');
+            const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
+                             terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
+                             TERRAIN_TYPES[terrain];
+            
+            MovementManager.handleHexSelection(hex, q, r, terrainInfo);
         });
+        
+        // Batch append all elements
+        group.appendChild(fragment);
     
         // Create player marker and center view
-        this.createPlayerMarker();  // Keep only the original marker, remove debug marker
+        this.createPlayerMarker();
         this.centerViewport();
     },
 
-    createHexAtPosition(group, q, r) {
-        const x = GRID.HEX_WIDTH * (q + r/2);
-        const y = GRID.HEX_HEIGHT * (r * 3/4);
-        
-        const hex = this.createTerrainHex(q, r, x, y);
-        group.appendChild(hex);
-        
-        const fog = this.createFogOverlay(q, r, x, y);
-        group.appendChild(fog);
-    },
-
-    createTerrainHex(q, r, x, y) {
+    createHexAndFog(q, r, x, y, hexPoints) {
+        // Create terrain hex
         const hex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
         const terrain = this.getTerrainType(q, r);
         const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
                            terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
                            TERRAIN_TYPES[terrain];
         
-        hex.setAttribute("points", this.createHexPoints(GRID.HEX_SIZE));
+        hex.setAttribute("points", hexPoints);
         hex.setAttribute("transform", `translate(${x}, ${y})`);
         hex.setAttribute("fill", terrainInfo.color);
         hex.setAttribute("stroke", "#ffffff");
@@ -146,7 +141,18 @@ export const GridManager = {
         hex.setAttribute("data-r", r);
         hex.setAttribute("data-terrain", terrain);
         
-        return hex;
+        // Create fog overlay
+        const fog = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        fog.setAttribute("points", hexPoints);
+        fog.setAttribute("transform", `translate(${x}, ${y})`);
+        fog.setAttribute("class", "fog");
+        fog.setAttribute("data-q", q);
+        fog.setAttribute("data-r", r);
+        fog.setAttribute("fill-opacity", "1");
+        fog.setAttribute("id", `fog-${q},${r}`);
+        fog.setAttribute("fill", "white");
+        
+        return [hex, fog];
     },
 
     createHexPoints(size) {
@@ -156,19 +162,6 @@ export const GridManager = {
             points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
         }
         return points.join(' ');
-    },
-
-    createFogOverlay(q, r, x, y) {
-        const fog = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        fog.setAttribute("points", this.createHexPoints(GRID.HEX_SIZE));
-        fog.setAttribute("transform", `translate(${x}, ${y})`);
-        fog.setAttribute("class", "fog");
-        fog.setAttribute("data-q", q);
-        fog.setAttribute("data-r", r);
-        fog.setAttribute("fill-opacity", "1");
-        fog.setAttribute("id", `fog-${q},${r}`);
-        fog.setAttribute("fill", "white");
-        return fog;
     },
 
     createPlayerMarker() {
@@ -227,42 +220,6 @@ export const GridManager = {
         hexGroup.setAttribute('transform', 
             `translate(${-playerCenter.x}, ${-playerCenter.y})`
         );
-    },
-
-    createHexGrid() {
-        const group = document.getElementById('hexGroup');
-        if (!group) {
-            console.error('No hexGroup element found');
-            return;
-        }
-        
-        // Create terrain hexes
-        for (let q = -GRID.SIZE; q <= GRID.SIZE; q++) {
-            for (let r = -GRID.SIZE; r <= GRID.SIZE; r++) {
-                if (Math.abs(q + r) <= GRID.SIZE) {
-                    this.createHexAtPosition(group, q, r);
-                }
-            }
-        }
-    
-        // Add click handlers
-        // console.log('Setting up hex click handlers');
-        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-            hex.addEventListener('click', () => {
-                const q = parseInt(hex.getAttribute('data-q'));
-                const r = parseInt(hex.getAttribute('data-r'));
-                // console.log('Hex clicked:', { q, r });
-                const terrain = hex.getAttribute('data-terrain');
-                const terrainInfo = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP :
-                                 terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE :
-                                 TERRAIN_TYPES[terrain];
-                MovementManager.handleHexSelection(hex, q, r, terrainInfo);
-            });
-        });
-    
-        // Create player marker and center view
-        this.createPlayerMarker();
-        this.centerViewport();
     },
 
     isAtBaseCamp(position) {

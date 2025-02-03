@@ -40,10 +40,7 @@ class PerformanceMonitor {
         panel.id = 'performance-panel';
         panel.className = 'performance-panel hidden';
         panel.innerHTML = `
-            <div class="performance-header">
-                <h3>Performance Monitor</h3>
-                <button class="close-button">×</button>
-            </div>
+            <button class="close-button">×</button>
             <div class="performance-content">
                 <div class="performance-section">
                     <h4>Frame Time</h4>
@@ -140,9 +137,9 @@ class PerformanceMonitor {
             frameStats.innerHTML = `
                 <div class="stat-row ${this.frameTime.current > 16 ? 'error' : ''}">
                     <div class="frame-stats-group">
-                        <span class="stat-label">Crt: ${this.frameTime.current.toFixed(2)}ms</span>
-                        <span class="stat-label">Avg: ${this.frameTime.avg.toFixed(2)}ms</span>
-                        <span class="stat-label">Min/Max: ${this.frameTime.min.toFixed(2)}/${this.frameTime.max.toFixed(2)}ms</span>
+                        <span class="stat-label">Crt:${this.frameTime.current.toFixed(1)}</span>
+                        <span class="stat-label">Avg:${this.frameTime.avg.toFixed(1)}</span>
+                        <span class="stat-label">${this.frameTime.min.toFixed(1)}/${this.frameTime.max.toFixed(1)}</span>
                     </div>
                 </div>
             `;
