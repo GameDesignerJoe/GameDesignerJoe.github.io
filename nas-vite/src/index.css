@@ -38,8 +38,16 @@ body {
   width: 100%;
   padding: 10px 0;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.controls-container {
+  width: 100%;
+  display: flex;
   justify-content: flex-start;  /* Align items to the left */
   align-items: center;
+  gap: 10px;
 }
 
 h1 {
@@ -566,8 +574,7 @@ transition: transform 300ms ease-in-out;
   opacity: 0;
 }
 
-/* Loading Screen Styles - Add to index.css */
-
+/* Loading Screen Styles */
 .loading-screen {
   position: fixed;
   top: 0;
@@ -695,9 +702,162 @@ transition: transform 300ms ease-in-out;
   background-color: #3399ee;
 }
 
-/* Animation for the waves effect */
-.loading-screen {
-  background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
-  background-size: 400% 400%;
-  animation: waveEffect 8s ease-in-out infinite;
+/* Settings Button */
+.settings-button {
+    padding: 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    background: transparent;
+    border: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    pointer-events: all;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    margin-left: auto; /* Push to the right */
+}
+
+.settings-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.settings-button.active {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.settings-icon {
+    width: 32px;
+    height: 32px;
+    transition: filter 0.2s, opacity 0.2s;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    filter: invert(1);
+    opacity: 0.3;
+}
+
+.settings-button:hover .settings-icon,
+.settings-button.active .settings-icon {
+    opacity: 0.8;
+}
+
+/* Performance Panel */
+.performance-panel {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid #666;
+    border-radius: 8px;
+    color: white;
+    font-family: monospace;
+    margin-top: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Customize scrollbar for the performance panel */
+.performance-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.performance-panel::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.performance-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+.performance-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.performance-panel.hidden {
+    display: none;
+}
+
+.performance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #666;
+    position: sticky;
+    top: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1;
+}
+
+.performance-header h3 {
+    margin: 0;
+    color: #fff;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 8px;
+}
+
+.performance-content {
+    padding: 10px;
+}
+
+.performance-section {
+    margin-bottom: 15px;
+}
+
+.performance-section h4 {
+    margin: 0 0 8px 0;
+    color: #aaa;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 4px 0;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.frame-stats-group {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.stat-label {
+    color: #fff;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+.stat-row.warning {
+    background: rgba(255, 165, 0, 0.2);
+}
+
+.stat-row.error {
+    background: rgba(255, 0, 0, 0.2);
+}
+
+.stat-name {
+    color: #aaa;
+}
+
+.stat-value {
+    color: #fff;
 }

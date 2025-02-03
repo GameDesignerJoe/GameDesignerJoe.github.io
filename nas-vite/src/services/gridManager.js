@@ -7,12 +7,29 @@ import { TERRAIN_TYPES, SPECIAL_LOCATIONS, assignRandomTerrain } from '../config
 import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
 import { MovementManager } from './movement.js';
+import perfMonitor from '../core/performanceMonitor.js';
 
 const getAssetPath = (filename) => {
     return `./public/art/${filename}`;
 };
 
 export const GridManager = {
+    init() {
+        // Wrap key methods for performance monitoring
+        const methodsToTrack = [
+            'createHexGrid',
+            'createHexAtPosition',
+            'updatePlayerMarker',
+            'centerViewport',
+            'createTerrainHex',
+            'updateVisibility'
+        ];
+
+        methodsToTrack.forEach(method => {
+            perfMonitor.wrapMethod(this, method, 'gridManager.js');
+        });
+    },
+
     initializeGrid() {
         // console.log("Starting grid initialization");
         
@@ -397,9 +414,28 @@ export const GridManager = {
     
         controlsContainer.appendChild(compassButton);
     
+        // Initialize settings button after compass button
+        this.initializeSettingsButton();
+    
         requestAnimationFrame(() => {
             this.updateCompassButton();
         });
+    },
+
+    initializeSettingsButton() {
+        let controlsContainer = document.querySelector('.controls-container');
+        if (!controlsContainer || document.querySelector('.settings-button')) return;
+
+        const settingsButton = document.createElement('button');
+        settingsButton.className = 'game-button settings-button';
+        settingsButton.innerHTML = `<img src="${getAssetPath('settings-icon.svg')}" alt="Settings" class="settings-icon">`;
+        
+        // Add click handler
+        settingsButton.addEventListener('click', () => {
+            perfMonitor.togglePanel();
+        });
+
+        controlsContainer.appendChild(settingsButton);
     },
     
     updateCompassButton() {

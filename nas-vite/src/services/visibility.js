@@ -3,8 +3,24 @@ import { gameStore } from '../state/store.js';
 import { WeatherState } from '../state/game/weatherState.js';
 import { WEATHER_CONFIG } from '../core/weather.js';
 import { TERRAIN_TYPES } from '../config/terrain.js';
+import perfMonitor from '../core/performanceMonitor.js';
 
 export const VisibilityManager = {
+    init() {
+        // Wrap key methods for performance monitoring
+        const methodsToTrack = [
+            'updateVisibility',
+            'getHexesInRadius',
+            'isHexVisible',
+            'updateTemporaryFog',
+            'updateVisibleHexes'
+        ];
+
+        methodsToTrack.forEach(method => {
+            perfMonitor.wrapMethod(this, method, 'visibility.js');
+        });
+    },
+
     // Cache for DOM elements and calculations
     _cache: {
         fogElements: null,

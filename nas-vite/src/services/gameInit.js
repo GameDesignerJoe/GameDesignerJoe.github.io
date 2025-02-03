@@ -4,6 +4,7 @@ import { WeatherSystem } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
 import { GridManager } from './gridManager.js';
 import { VisibilityManager } from './visibility.js';
+import { MovementManager } from './movement.js';
 import { StatsService } from './stats.js';
 import { DebugManager } from "../components/game/utils/debug.js";
 import { RestartSystem } from '../core/restart.js';
@@ -89,6 +90,11 @@ export const GameInit = {
     },
 
     initializeGameSystems() {
+        // Initialize performance monitoring for core systems
+        VisibilityManager.init();
+        GridManager.init();
+        MovementManager.init();
+
         // Initialize weather system
         this.weatherSystem = new WeatherSystem(
             gameStore,

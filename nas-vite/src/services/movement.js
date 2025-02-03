@@ -1,6 +1,4 @@
 // src/services/movement.js
-
-// src/services/movement.js
 import { gameStore } from '../state/store.js';
 import { MessageSystem, MESSAGE_CONFIG } from '../core/messages.js';
 import { UI } from '../config/constants.js';
@@ -9,8 +7,23 @@ import { WeatherState } from '../state/game/weatherState.js';
 import { VisibilityManager } from './visibility.js';
 import { MOVEMENT, PLAYER_COLORS, GRID } from '../config/constants.js';
 import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '../config/terrain.js';
+import perfMonitor from '../core/performanceMonitor.js';
 
 export const MovementManager = {
+    init() {
+        // Wrap key methods for performance monitoring
+        const methodsToTrack = [
+            'animatePlayerMovement',
+            'updatePlayerPosition',
+            'handleMovement',
+            'handleHexSelection'
+        ];
+
+        methodsToTrack.forEach(method => {
+            perfMonitor.wrapMethod(this, method, 'movement.js');
+        });
+    },
+
     calculateMovementDuration(terrainStaminaCost = 0) {
         const duration = MOVEMENT.BASE_DURATION + (terrainStaminaCost * MOVEMENT.STAMINA_FACTOR);
         return Math.min(Math.max(duration, MOVEMENT.MIN_DURATION), MOVEMENT.MAX_DURATION);
