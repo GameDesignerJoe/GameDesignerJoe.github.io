@@ -7,7 +7,13 @@
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    padding: 8px;
+    padding: env(safe-area-inset-top, 40px) env(safe-area-inset-right, 8px) env(safe-area-inset-bottom, 8px) env(safe-area-inset-left, 8px);
+}
+
+@media screen and (min-width: 769px) {
+    #packing-screen {
+        padding: 8px;
+    }
 }
 
 /* Mobile styles */
@@ -154,7 +160,14 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    padding: 10px 0 0 0;
+    padding: 10px env(safe-area-inset-right, 8px) env(safe-area-inset-bottom, 8px) env(safe-area-inset-left, 8px);
+    margin-top: auto;
+}
+
+@media screen and (min-width: 769px) {
+    .bottom-controls {
+        padding: 10px 0 0 0;
+    }
 }
 
 .control-button {
