@@ -597,7 +597,7 @@ transition: transform 300ms ease-in-out;
 
 .title-text {
   font-family: 'Old Standard TT', serif;
-  font-size: clamp(36px, 8vw, 84px);
+  font-size: clamp(72px, 16vw, 84px);
   color: rgb(255, 255, 255);
   text-align: center;
   opacity: 0;
