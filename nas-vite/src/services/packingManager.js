@@ -1,15 +1,14 @@
 // src/services/packingManager.js
 import { gameStore } from '../state/store.js';
 import { ITEMS_DATABASE } from '../config/itemsDatabase.js';
-// CSS is now loaded via HTML link tag
 
 export class PackingManager {
     constructor(containerElement) {
         this.container = containerElement;
         this.gameStore = gameStore;
         this.tooltipElement = null;
+        this.currentDetailsItem = null;
         
-        // Add class to body when packing manager is active
         document.body.classList.add('packing-active');
         
         this.initializeUI();
@@ -17,32 +16,22 @@ export class PackingManager {
     }
 
     initializeUI() {
-        // Create title first, before the wrapper
         this.createTitle();
         
-        // Create wrapper
         this.wrapper = document.createElement('div');
         this.wrapper.className = 'packing-container';
         this.container.appendChild(this.wrapper);
         
-        // Create tabs BEFORE the items panels
         this.createTabs();
         
-        // Create item panels container
         const panelsContainer = document.createElement('div');
         panelsContainer.className = 'panels-container';
         this.wrapper.appendChild(panelsContainer);
         
-        // Create panels
         this.createAvailableItemsPanel(panelsContainer);
         this.createSelectedItemsPanel(panelsContainer);
-        
-        // Create bottom buttons - using the existing method name
         this.createControlButtons();
-        
-        // Add this line to initialize the weight display immediately
         this.updateWeightDisplay();
-        
         this.setupEventListeners();
     }
 
@@ -58,16 +47,13 @@ export class PackingManager {
             button.onclick = () => this.switchTab(button.dataset.panel);
         });
         
-        // Add to wrapper instead of SVG
         this.wrapper.appendChild(tabsDiv);
     }
     
     switchTab(panelName) {
-        // Update panel visibility
         this.availableItemsContainer.classList.toggle('active', panelName === 'available');
         this.selectedItemsContainer.classList.toggle('active', panelName === 'packed');
         
-        // Update tab button styles
         const buttons = document.querySelectorAll('.tab-button');
         buttons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.panel === panelName);
@@ -82,13 +68,12 @@ export class PackingManager {
         h2.textContent = "Expedition Supplies";
         
         titleDiv.appendChild(h2);
-        
         this.container.appendChild(titleDiv);
     }
     
     createAvailableItemsPanel(container) {
         const scrollableDiv = document.createElement('div');
-        scrollableDiv.className = 'scrollable-panel active'; // Start with available items visible
+        scrollableDiv.className = 'scrollable-panel active';
         container.appendChild(scrollableDiv);
         this.availableItemsContainer = scrollableDiv;
     }
@@ -100,73 +85,307 @@ export class PackingManager {
         this.selectedItemsContainer = scrollableDiv;
     }
 
-    createItemEntry(container, item, isAvailable) {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'item-entry';
-    
-        itemDiv.innerHTML = `
-            <span>${item.name}</span>
-            <span>${item.weight} lbs</span>
-            <button class="item-button ${isAvailable ? 'take' : 'remove'}">
-                ${isAvailable ? 'Take' : 'Remove'}
-            </button>
+    showItemDetails(item, currentQuantity = 0) {
+        this.currentDetailsItem = item;
+        
+        const standardLoadout = {
+            'Sledge': 1, 'Canvas Tent': 1, 'Primus Stove': 1, 'Ice Axe': 1,
+            'Pemmican': 10, 'Ship\'s Biscuits': 3, 'Dried Milk': 4,
+            'Chocolate Blocks': 8, 'Emergency Seal Meat': 1, 'Paraffin Fuel': 3,
+            'Sextant': 1, 'Compass': 1, 'Maps & Charts': 1,
+            'Burberry Windproof Suit': 1, 'Woolen Underwear': 2,
+            'Finnesko Boots': 1, 'Snow Goggles': 1, 'Medical Kit': 1,
+            'Emergency Rope': 1, 'Basic Sewing Kit': 1,
+            'Sledge Repair Kit': 1, 'Tool Maintenance Kit': 1
+        };
+        
+        const recommendedQuantity = standardLoadout[item.name] || 1;
+        
+        const overlay = document.createElement('div');
+        overlay.className = 'item-details-overlay';
+        overlay.onclick = (e) => {
+            if (e.target === overlay) this.closeItemDetails();
+        };
+        
+        const panel = document.createElement('div');
+        panel.className = 'item-details-panel';
+        
+        // Calculate max quantity based on remaining weight plus current items if editing
+        const remainingWeight = this.gameStore.packing.MAX_WEIGHT - this.gameStore.packing.totalWeight;
+        const currentItemsWeight = currentQuantity * item.weight;
+        const maxQuantity = Math.floor((remainingWeight + currentItemsWeight) / item.weight);
+        
+        // Set initial quantity - use current quantity for existing items, or 1 for new items from Take button
+        const initialQuantity = currentQuantity > 0 ? currentQuantity : 1;
+        
+        panel.innerHTML = `
+            <div class="item-details-title">${item.name}</div>
+            <div class="item-details-description">${item.tooltip}</div>
+            <div class="item-details-effects">
+                <h3>Effects & Properties</h3>
+                <ul>
+                    ${item.effects ? `<li>${item.effects}</li>` : ''}
+                    ${item.special ? `<li>${item.special}</li>` : ''}
+                    ${item.duration ? `<li>${item.duration}</li>` : ''}
+                </ul>
+            </div>
+            <div class="item-details-quantity">
+                <label>Quantity (Recommended: ${recommendedQuantity}):</label>
+                <input type="number" min="0" max="${maxQuantity}" value="${initialQuantity}" id="quantity-input">
+                <div class="item-details-quantity-info">Maximum: ${maxQuantity} (based on weight limit)</div>
+            </div>
+            <div class="item-details-weight">
+                Total Weight: ${(initialQuantity * item.weight).toFixed(2)} lbs
+            </div>
+            <div class="item-details-buttons">
+                <button class="item-details-button cancel">Cancel</button>
+                <button class="item-details-button confirm">Confirm</button>
+            </div>
         `;
-    
-        const button = itemDiv.querySelector('button');
-        button.onclick = () => {
-            if (isAvailable) {
-                this.gameStore.packing.addItem(item);
-            } else {
-                this.gameStore.packing.removeItem(item.id);
+        
+        const quantityInput = panel.querySelector('#quantity-input');
+        const weightDisplay = panel.querySelector('.item-details-weight');
+        
+        // Update weight display when quantity changes
+        quantityInput.addEventListener('input', () => {
+            const quantity = parseInt(quantityInput.value) || 0;
+            const totalWeight = (quantity * item.weight).toFixed(2);
+            weightDisplay.textContent = `Total Weight: ${totalWeight} lbs`;
+        });
+        
+        panel.querySelector('.cancel').onclick = () => this.closeItemDetails();
+        panel.querySelector('.confirm').onclick = () => {
+            // Get and validate the input value
+            const rawValue = quantityInput.value.trim();
+            console.log('Raw input value:', rawValue);
+            
+            if (rawValue === '' || isNaN(rawValue)) {
+                console.log('Invalid quantity input');
+                return;
             }
+            
+            const quantity = parseInt(rawValue);
+            console.log('Parsed quantity:', quantity);
+            
+            // Remove existing items first
+            const itemsToRemove = Array.from(this.gameStore.packing.selectedItems.values())
+                .filter(i => i.name === item.name);
+            console.log('Removing existing items:', itemsToRemove.length);
+            itemsToRemove.forEach(i => this.gameStore.packing.removeItem(i.id));
+            
+            // Add new items if quantity > 0
+            if (quantity > 0) {
+                console.log('Adding new quantity:', quantity);
+                let addedCount = 0;
+                for (let i = 0; i < quantity; i++) {
+                    const success = this.gameStore.packing.addItem(item);
+                    if (!success) {
+                        console.log(`Failed to add item ${i + 1}, stopping`);
+                        if (addedCount === 0) {
+                            alert('Could not add items due to weight limit');
+                        }
+                        break;
+                    }
+                    addedCount++;
+                    console.log(`Added item ${i + 1} successfully`);
+                }
+            }
+            
+            this.closeItemDetails();
             this.updateUI();
         };
+        
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeItemDetails();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
     
-        container.appendChild(itemDiv);
+    closeItemDetails() {
+        const overlay = document.querySelector('.item-details-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+        this.currentDetailsItem = null;
     }
 
-    createButton(text, x, y, width, height, color, onClick) {
-        const button = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        button.style.cursor = 'pointer';
-        
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", x);
-        rect.setAttribute("y", y);
-        rect.setAttribute("width", width);
-        rect.setAttribute("height", height);
-        rect.setAttribute("fill", color);
-        rect.setAttribute("rx", "4");
-        
-        const textElement = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        textElement.setAttribute("x", x + width/2);
-        textElement.setAttribute("y", y + height/2 + 6);
-        textElement.setAttribute("text-anchor", "middle");
-        textElement.setAttribute("font-size", "16");
-        textElement.setAttribute("fill", "white");
-        textElement.setAttribute("font-family", "'Old Standard TT', serif");
-        textElement.textContent = text;
+    updateAvailableItemsPanel() {
+        const container = this.availableItemsContainer;
+        if (!container) return;
+
+        container.innerHTML = '';
+        const spacerDiv = document.createElement('div');
+        spacerDiv.style.height = '0px';
+        container.appendChild(spacerDiv);
+
+        const categorizedItems = Object.values(ITEMS_DATABASE).reduce((categories, item) => {
+            if (!categories.has(item.category)) {
+                categories.set(item.category, []);
+            }
+            categories.get(item.category).push(item);
+            return categories;
+        }, new Map());
     
-        button.appendChild(rect);
-        button.appendChild(textElement);
+        categorizedItems.forEach((items, category) => {
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = `
+                background: #007bff;
+                padding: 3px 8px;
+                margin-bottom: 3px;
+                font-size: 20px;
+                font-weight: bold;
+                max-width: 950px;
+            `;
+            headerDiv.textContent = category;
+            container.appendChild(headerDiv);
+    
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.style.cssText = `
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 5px 0px;
+                    margin: 2px 0;
+                    max-width: 100%;
+                `;
+
+                // Count existing quantity of this item
+                const existingCount = Array.from(this.gameStore.packing.selectedItems.values())
+                    .filter(i => i.name === item.name).length;
+
+                itemDiv.innerHTML = `
+                    <span style="flex: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
+                    <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
+                    <button style="
+                        background: #007bff;
+                        color: white;
+                        border: none;
+                        padding: 2px 6px;
+                        min-width: 50px;
+                        cursor: pointer;
+                        font-family: inherit;
+                        font-style: italic;
+                        transition: background-color 0.15s ease, color 0.15s ease;
+                    ">Take</button>
+                `;
+
+                const button = itemDiv.querySelector('button');
+                button.onmousedown = () => {
+                    button.style.backgroundColor = 'white';
+                    button.style.color = '#007bff';
+                };
+
+                button.onmouseup = () => {
+                    button.style.backgroundColor = '#007bff';
+                    button.style.color = 'white';
+                };
+
+                button.onclick = () => {
+                    this.showItemDetails(item, existingCount);
+                };
+    
+                container.appendChild(itemDiv);
+            });
+        });
+    }
+
+    updateSelectedItemsPanel() {
+        const container = this.selectedItemsContainer;
+        if (!container) return;
+    
+        container.innerHTML = '';
+        const spacerDiv = document.createElement('div');
+        spacerDiv.style.height = '0px';
+        container.appendChild(spacerDiv);
+    
+        // Group items by name and count quantities
+        const itemGroups = new Map();
+        Array.from(this.gameStore.packing.selectedItems.values()).forEach(item => {
+            if (!itemGroups.has(item.name)) {
+                itemGroups.set(item.name, {
+                    item: item,
+                    count: 1
+                });
+            } else {
+                itemGroups.get(item.name).count++;
+            }
+        });
+    
+        itemGroups.forEach(({item, count}) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.cssText = `
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 5px 0px;
+                margin: 2px 0;
+                max-width: 100%;
+            `;
+
+            const totalWeight = (count * item.weight).toFixed(2);
+            itemDiv.innerHTML = `
+                <span style="flex: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${item.name}</span>
+                <span style="width: 140px; text-align: right; white-space: nowrap;">(${count} × ${item.weight} lbs) ${totalWeight} lbs</span>
+                <button style="
+                    background: rgb(255, 60, 0);
+                    color: white;
+                    border: none;
+                    padding: 2px 6px;
+                    min-width: 50px;
+                    cursor: pointer;
+                    font-family: inherit;
+                    font-style: italic;
+                    transition: background-color 0.15s ease, color 0.15s ease;
+                ">Change</button>
+            `;
+
+            const button = itemDiv.querySelector('button');
+            button.onmousedown = () => {
+                button.style.backgroundColor = 'white';
+                button.style.color = 'rgb(255, 60, 0)';
+            };
+
+            button.onmouseup = () => {
+                button.style.backgroundColor = 'rgb(255, 60, 0)';
+                button.style.color = 'white';
+            };
+
+            button.onclick = () => {
+                this.showItemDetails(ITEMS_DATABASE[item.name], count);
+            };
+    
+            container.appendChild(itemDiv);
+        });
+    }
+
+    updateWeightDisplay() {
+        const weight = this.gameStore.packing.totalWeight || 0;
+        const maxWeight = this.gameStore.packing.MAX_WEIGHT;
         
-        button.addEventListener("mouseover", () => {
-            rect.setAttribute("fill", "#3399ee");
-        });
-        button.addEventListener("mouseout", () => {
-            rect.setAttribute("fill", color);
-        });
-        button.addEventListener("mousedown", () => {
-            rect.setAttribute("fill", "#2288dd");
-        });
-        button.addEventListener("mouseup", () => {
-            rect.setAttribute("fill", "#3399ee");
-        });
+        if (!this.weightDisplay) {
+            this.weightDisplay = document.createElement('div');
+            this.weightDisplay.className = 'weight-display';
+            const bottomControls = this.wrapper.querySelector('.bottom-controls');
+            this.wrapper.insertBefore(this.weightDisplay, bottomControls);
+        }
         
-        button.addEventListener("click", (e) => {
-            console.log('Button clicked:', text);
-            onClick(e);
-        });
-        return button;
+        this.weightDisplay.textContent = `Total Weight: ${weight}/${maxWeight} lbs`;
+        
+        const weightPercentage = (weight / maxWeight) * 100;
+        if (weightPercentage > 90) {
+            this.weightDisplay.style.color = "#dc3545";
+        } else if (weightPercentage > 75) {
+            this.weightDisplay.style.color = "#ffc107";
+        } else {
+            this.weightDisplay.style.color = "#f0f0f0";
+        }
     }
 
     createControlButtons() {
@@ -189,291 +408,22 @@ export class PackingManager {
         this.wrapper.appendChild(controlsDiv);
     }
 
-    createCategoryHeader(panel, category, yOffset) {
-        const header = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        
-        // Background
-        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bg.setAttribute("x", "0");
-        bg.setAttribute("y", yOffset);
-        bg.setAttribute("width", "300");
-        bg.setAttribute("height", "30");
-        bg.setAttribute("fill", "#777777");
-        header.appendChild(bg);
-
-        // Text
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", "15");
-        text.setAttribute("y", yOffset + 20);
-        text.setAttribute("font-size", "16");
-        text.setAttribute("font-weight", "600");
-        text.setAttribute("fill", "#f0f0f0");
-        text.textContent = category;
-        header.appendChild(text);
-
-        panel.appendChild(header);
-        return yOffset + 35; // Return next Y position with some padding
-    }
-
-    createItemEntry(container, item, isAvailable) {
-        const itemDiv = document.createElement('div');
-        itemDiv.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 5px 10px;
-            margin: 2px 0;
-            margin-bottom: 2px;
-            background: #555555;
-            color: #f0f0f0;
-            font-family: 'Vollkorn', serif;
-            font-style: italic;
-        `;
-    
-        itemDiv.innerHTML = `
-            <span>${item.name}</span>
-            <span>${item.weight} lbs</span>
-            <button class="${isAvailable ? 'take-btn' : 'remove-btn'}"
-                    style="
-                        padding: 2px 8px;
-                        background: ${isAvailable ? '#007bff' : '#dc3545'};
-                        color: white;
-                        border: none;
-                        cursor: pointer;
-                        font-family: inherit;
-                        font-style: italic;
-                    "
-            >${isAvailable ? 'Take' : 'Remove'}</button>
-        `;
-    
-        const button = itemDiv.querySelector('button');
-        button.onclick = () => {
-            if (isAvailable) {
-                this.gameStore.packing.addItem(item);
-            } else {
-                this.gameStore.packing.removeItem(item.id);
-            }
-            this.updateUI();
-        };
-    
-        container.appendChild(itemDiv);
-    }
-    
-    updateUI() {
-        this.updateSelectedItemsPanel();
-        this.updateAvailableItemsPanel();
-        this.updateWeightDisplay();
-    }
-
-    updateAvailableItemsPanel() {
-    const container = this.availableItemsContainer;
-    if (!container) return;
-
-    // Clear existing items
-    container.innerHTML = '';
-
-    // Add initial spacing div
-    const spacerDiv = document.createElement('div');
-    spacerDiv.style.height = '0px';  // Adjust this value to move content down
-    container.appendChild(spacerDiv);
-
-    const categorizedItems = Object.values(ITEMS_DATABASE).reduce((categories, item) => {
-        if (!categories.has(item.category)) {
-            categories.set(item.category, []);
-        }
-        categories.get(item.category).push(item);
-        return categories;
-    }, new Map());
-    
-        categorizedItems.forEach((items, category) => {
-            // Add category header
-            const headerDiv = document.createElement('div');
-            headerDiv.style.cssText = `
-                background: #007bff;;
-                padding: 3px 8px;  
-                margin-bottom: 3px;  
-                font-size: 20px;  
-                font-weight: bold;
-                max-width: 950px;  
-            `;
-            headerDiv.textContent = category;
-            container.appendChild(headerDiv);
-    
-            // Add items
-            items.forEach(item => {
-                const itemDiv = document.createElement('div');
-                itemDiv.style.cssText = `
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 5px 0px;
-                    margin: 2px 0;
-                    //background: #555555;
-                    max-width: 100%;  // Add this to limit width
-                `;
-
-                // In the items.forEach section:
-                itemDiv.innerHTML = `
-                <span style="flex: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
-                <button style="
-                    background: #007bff;
-                    color: white;
-                    border: none;
-                    padding: 2px 6px;
-                    min-width: 50px;
-                    cursor: pointer;
-                    font-family: inherit;
-                    font-style: italic;
-                    transition: background-color 0.15s ease, color 0.15s ease;
-                ">Take</button>
-                `;
-
-                const button = itemDiv.querySelector('button');
-                button.onmousedown = () => {
-                button.style.backgroundColor = 'white';
-                button.style.color = '#007bff';
-                };
-
-                button.onmouseup = () => {
-                button.style.backgroundColor = '#007bff';
-                button.style.color = 'white';
-                };
-
-                button.onclick = () => {
-                this.gameStore.packing.addItem(item);
-                this.updateUI();
-                };
-    
-                container.appendChild(itemDiv);
-            });
-        });
-    }
-
-    updateSelectedItemsPanel() {
-        const container = this.selectedItemsContainer;
-        if (!container) return;
-    
-        // Clear existing items
-        container.innerHTML = '';
-    
-        // Add initial spacing div
-        const spacerDiv = document.createElement('div');
-        spacerDiv.style.height = '0px';
-        container.appendChild(spacerDiv);
-    
-        // Add selected items
-        const items = Array.from(this.gameStore.packing.selectedItems.values());
-        items.forEach(item => {
-            const itemDiv = document.createElement('div');
-            itemDiv.style.cssText = `
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 5px 0px;  // Match Available Items padding
-                margin: 2px 0;
-                max-width: 100%;   // Match Available Items width
-            `;
-
-            itemDiv.innerHTML = `
-                <span style="flex: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${item.name}</span>
-                <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
-                <button style="
-                    background: rgb(255, 60, 0);
-                    color: white;
-                    border: none;
-                    padding: 2px 6px;
-                    min-width: 50px;
-                    cursor: pointer;
-                    font-family: inherit;
-                    font-style: italic;
-                    transition: background-color 0.15s ease, color 0.15s ease;
-                ">Remove</button>
-            `;
-
-            const button = itemDiv.querySelector('button');
-            button.onmousedown = () => {
-                button.style.backgroundColor = 'white';
-                button.style.color = 'rgb(255, 60, 0)';
-            };
-
-            button.onmouseup = () => {
-                button.style.backgroundColor = 'rgb(255, 60, 0)';
-                button.style.color = 'white';
-            };
-
-            button.onclick = () => {
-                this.gameStore.packing.removeItem(item.id);
-                this.updateUI();
-            };
-    
-            container.appendChild(itemDiv);
-        });
-    }
-
-    updateWeightDisplay() {
-        const weight = this.gameStore.packing.totalWeight || 0;  // Use 0 if totalWeight is falsy
-        const maxWeight = this.gameStore.packing.MAX_WEIGHT;
-        
-        // Create weight display if it doesn't exist
-        if (!this.weightDisplay) {
-            this.weightDisplay = document.createElement('div');
-            this.weightDisplay.className = 'weight-display';
-            // Add it before the bottom controls
-            const bottomControls = this.wrapper.querySelector('.bottom-controls');
-            this.wrapper.insertBefore(this.weightDisplay, bottomControls);
-        }
-        
-        // Always display the weight
-        this.weightDisplay.textContent = `Total Weight: ${weight}/${maxWeight} lbs`;
-        
-        // Update color based on weight
-        const weightPercentage = (weight / maxWeight) * 100;
-        if (weightPercentage > 90) {
-            this.weightDisplay.style.color = "#dc3545";
-        } else if (weightPercentage > 75) {
-            this.weightDisplay.style.color = "#ffc107";
-        } else {
-            this.weightDisplay.style.color = "#f0f0f0";
-        }
-    }
-
     setupEventListeners() {
-        // Global mouse move for tooltip positioning
-        document.addEventListener('mousemove', (e) => {
-            if (this.tooltipElement && this.tooltipElement.style.display === 'block') {
-                const x = e.pageX + 10;
-                const y = e.pageY + 10;
-                this.tooltipElement.style.left = `${x}px`;
-                this.tooltipElement.style.top = `${y}px`;
-            }
-        });
-
-        // ESC key to close tooltip
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.tooltipElement) {
-                this.hideTooltip();
+            if (e.key === 'Escape' && this.currentDetailsItem) {
+                this.closeItemDetails();
             }
         });
     }
 
     handleStandardLoad() {
-        console.log('Standard Load clicked');
-        console.log('Packing state:', this.gameStore?.packing);
         if (this.gameStore?.packing?.loadStandardLoadout) {
-            console.log('Calling loadStandardLoadout');
             this.gameStore.packing.loadStandardLoadout();
-        } else {
-            console.error('Packing state not properly initialized');
         }
         this.updateUI();
     }
-    
 
     handleEmbark() {
-        console.log('Embark clicked');
-        console.log('Selected items:', this.gameStore?.packing?.selectedItems.size);
-        
         if (this.gameStore.packing.selectedItems.size === 0) {
             if (!confirm("Are you sure you want to embark with no items?")) {
                 return;
@@ -481,26 +431,23 @@ export class PackingManager {
         }
     
         const gameItems = this.gameStore.packing.getGameItems();
-        console.log('Game items:', gameItems);
-        
-        // Remove body class when packing manager is closed
         document.body.classList.remove('packing-active');
-        
-        // Hide packing screen and remove it from DOM
         this.container.style.display = "none";
         this.container.remove();
         
-        // Show game elements
         document.querySelectorAll('.game-element').forEach(el => {
             el.style.display = 'block';
         });
         
         if (this.onEmbarked) {
-            console.log('Calling onEmbarked callback');
             this.onEmbarked(gameItems);
-        } else {
-            console.error('No onEmbarked callback set');
         }
+    }
+
+    updateUI() {
+        this.updateSelectedItemsPanel();
+        this.updateAvailableItemsPanel();
+        this.updateWeightDisplay();
     }
 }
 

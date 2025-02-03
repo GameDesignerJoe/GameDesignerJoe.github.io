@@ -22,19 +22,29 @@ export const PackingState = {
 
     // Add an item to selection
     addItem(item) {
-        console.log('Adding item:', item.name);
+        console.log('Adding item:', item.name, 'Weight:', item.weight, 'Current total:', this.totalWeight);
+        
+        // Check if adding this item would exceed weight limit
         if (this.totalWeight + item.weight > this.MAX_WEIGHT) {
+            console.log('Would exceed weight limit');
             return false;
         }
 
-        const itemId = `${item.name}-${Date.now()}`;
+        // Generate unique ID with timestamp and random number to avoid collisions
+        const itemId = `${item.name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Add item to selection
         this.selectedItems.set(itemId, {
             ...item,
             id: itemId,
             durability: 100,
             durabilityState: 'Pristine'
         });
+        
+        // Update total weight
         this.totalWeight += item.weight;
+        console.log('New total weight:', this.totalWeight);
+        
         return true;
     },
 

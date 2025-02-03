@@ -19,7 +19,7 @@
 /* Mobile styles */
 @media screen and (max-width: 768px) {
     #packing-screen {
-        padding: env(safe-area-inset-top, 40px) 8px 8px 8px;
+        padding: calc(env(safe-area-inset-top, 40px) + 20px) 8px 8px 8px;
         height: 100vh;
         height: -webkit-fill-available;
         position: fixed;
@@ -30,14 +30,18 @@
     }
 
     .packing-container {
-        height: calc(100vh - env(safe-area-inset-top, 40px));
-        padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 120px);
+        height: calc(100vh - env(safe-area-inset-top, 40px) - 20px);
+        padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 80px);
     }
 
     .scrollable-panel {
-        height: calc(100vh - 350px); /* Further reduced for mobile to prevent overlap */
+        height: calc(100vh - 280px);
         font-size: 14px;
         padding-bottom: 20px;
+    }
+
+    .packing-header {
+        padding-top: env(safe-area-inset-top, 20px);
     }
 
     .tab-button {
@@ -153,6 +157,176 @@
 
 .item-button.remove:hover {
     background-color: #ee3333;
+}
+
+/* Item Details Panel */
+.item-details-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 450px;
+    background-color: #01497C;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 20px;
+    color: white;
+    font-family: 'Old Standard TT', serif;
+    z-index: 1100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.item-details-title {
+    font-size: 24px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.item-details-description {
+    font-style: italic;
+    margin-bottom: 20px;
+    line-height: 1.4;
+}
+
+.item-details-effects {
+    margin-bottom: 20px;
+}
+
+.item-details-effects h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.item-details-effects ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.item-details-effects li {
+    margin-bottom: 8px;
+    padding-left: 20px;
+    position: relative;
+}
+
+.item-details-effects li:before {
+    content: "•";
+    position: absolute;
+    left: 0;
+}
+
+.item-details-quantity {
+    margin-bottom: 20px;
+}
+
+.item-details-quantity label {
+    display: block;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+.item-details-quantity input {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    color: white;
+    font-family: inherit;
+    font-size: 16px;
+}
+
+.item-details-quantity-info {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 4px;
+    font-style: italic;
+}
+
+@media screen and (max-width: 768px) {
+    .item-details-panel {
+        width: 95%;
+        padding: 16px;
+        max-height: 90vh;
+        overflow-y: auto;
+        top: 55%;
+        background-color: #01497C;
+    }
+
+    .item-details-title {
+        font-size: 20px;
+    }
+
+    .item-details-description {
+        font-size: 14px;
+    }
+
+    .item-details-effects {
+        font-size: 14px;
+    }
+
+    .item-details-effects h3 {
+        font-size: 16px;
+    }
+
+    .item-details-quantity input {
+        width: 100%;
+        max-width: 200px;
+    }
+
+    .item-details-button {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
+
+.item-details-weight {
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+.item-details-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.item-details-button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.item-details-button.confirm {
+    background-color: #44aaff;
+    color: white;
+}
+
+.item-details-button.confirm:hover {
+    background-color: #3399ee;
+}
+
+.item-details-button.cancel {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.item-details-button.cancel:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.item-details-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
 }
 
 /* Bottom controls */
