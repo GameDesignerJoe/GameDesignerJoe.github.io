@@ -80,26 +80,8 @@ export const GridManager = {
             return;
         }
 
-        // Create a document fragment to batch DOM operations
-        const fragment = document.createDocumentFragment();
-        
         // Pre-calculate hex points for reuse
         const hexPoints = this.createHexPoints(GRID.HEX_SIZE);
-        
-        // Create terrain hexes
-        for (let q = -GRID.SIZE; q <= GRID.SIZE; q++) {
-            for (let r = -GRID.SIZE; r <= GRID.SIZE; r++) {
-                if (Math.abs(q + r) <= GRID.SIZE) {
-                    const x = GRID.HEX_WIDTH * (q + r/2);
-                    const y = GRID.HEX_HEIGHT * (r * 3/4);
-                    
-                    // Create hex and fog in one pass
-                    const [hex, fog] = this.createHexAndFog(q, r, x, y, hexPoints);
-                    fragment.appendChild(hex);
-                    fragment.appendChild(fog);
-                }
-            }
-        }
         
         // Add event delegation for hex clicks
         group.addEventListener('click', (event) => {
@@ -115,13 +97,27 @@ export const GridManager = {
             
             MovementManager.handleHexSelection(hex, q, r, terrainInfo);
         });
-        
-        // Batch append all elements
-        group.appendChild(fragment);
+
+        // Create initial visible hexes
+        this.recycleHexes(
+            gameStore.player.position.q,
+            gameStore.player.position.r,
+            group,
+            hexPoints
+        );
     
         // Create player marker and center view
         this.createPlayerMarker();
         this.centerViewport();
+    },
+
+    createHexPoints(size) {
+        const points = [];
+        for (let i = 0; i < 6; i++) {
+            const angle = (60 * i - 30) * Math.PI / 180;
+            points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
+        }
+        return points.join(' ');
     },
 
     createHexAndFog(q, r, x, y, hexPoints) {
@@ -153,15 +149,6 @@ export const GridManager = {
         fog.setAttribute("fill", "white");
         
         return [hex, fog];
-    },
-
-    createHexPoints(size) {
-        const points = [];
-        for (let i = 0; i < 6; i++) {
-            const angle = (60 * i - 30) * Math.PI / 180;
-            points.push(`${size * Math.cos(angle)},${size * Math.sin(angle)}`);
-        }
-        return points.join(' ');
     },
 
     createPlayerMarker() {
@@ -201,6 +188,71 @@ export const GridManager = {
         
         player.setAttribute("cx", center.x);
         player.setAttribute("cy", center.y);
+
+        // Update visible hexes
+        const group = document.getElementById('hexGroup');
+        if (group) {
+            this.recycleHexes(
+                gameStore.player.position.q,
+                gameStore.player.position.r,
+                group,
+                this.createHexPoints(GRID.HEX_SIZE)
+            );
+        }
+    },
+
+    recycleHexes(playerQ, playerR, group, hexPoints) {
+        const visibleRange = 5;
+        const visibleHexes = new Set();
+        const fragment = document.createDocumentFragment();
+        
+        // Get visible hexes
+        for (let q = -visibleRange; q <= visibleRange; q++) {
+            for (let r = -visibleRange; r <= visibleRange; r++) {
+                if (Math.abs(q + r) <= visibleRange) {
+                    const hexQ = playerQ + q;
+                    const hexR = playerR + r;
+                    const key = `${hexQ},${hexR}`;
+                    visibleHexes.add(key);
+                }
+            }
+        }
+
+        // Remove hexes that are too far away
+        group.querySelectorAll('polygon[data-terrain]').forEach(hex => {
+            const q = parseInt(hex.getAttribute('data-q'));
+            const r = parseInt(hex.getAttribute('data-r'));
+            const key = `${q},${r}`;
+            if (!visibleHexes.has(key)) {
+                hex.remove();
+            }
+        });
+
+        group.querySelectorAll('.fog').forEach(fog => {
+            const q = parseInt(fog.getAttribute('data-q'));
+            const r = parseInt(fog.getAttribute('data-r'));
+            const key = `${q},${r}`;
+            if (!visibleHexes.has(key)) {
+                fog.remove();
+            }
+        });
+
+        // Add new hexes that are now visible
+        visibleHexes.forEach(key => {
+            const [q, r] = key.split(',').map(Number);
+            const existingHex = group.querySelector(`polygon[data-q="${q}"][data-r="${r}"]`);
+            if (!existingHex) {
+                const x = GRID.HEX_WIDTH * (q + r/2);
+                const y = GRID.HEX_HEIGHT * (r * 3/4);
+                const [hex, fog] = this.createHexAndFog(q, r, x, y, hexPoints);
+                fragment.appendChild(hex);
+                fragment.appendChild(fog);
+            }
+        });
+
+        if (fragment.children.length > 0) {
+            group.appendChild(fragment);
+        }
     },
 
     getHexCenter(q, r) {
