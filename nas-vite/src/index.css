@@ -787,36 +787,43 @@ transition: transform 300ms ease-in-out;
     display: none;
 }
 
-.close-button {
-    position: absolute;
+.performance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #666;
+    position: sticky;
     top: 0;
-    right: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1;
+}
+
+.performance-header h3 {
+    margin: 0;
+    color: #fff;
+}
+
+.close-button {
     background: none;
     border: none;
     color: #fff;
-    font-size: 20px;
+    font-size: 24px;
     cursor: pointer;
-    padding: 2px 8px;
-    opacity: 0.7;
-    z-index: 2;
-}
-
-.close-button:hover {
-    opacity: 1;
+    padding: 0 8px;
 }
 
 .performance-content {
-    padding: 5px 8px;
+    padding: 10px;
 }
 
 .performance-section {
-    margin-bottom: 8px;
+    margin-bottom: 15px;
 }
 
 .performance-section h4 {
-    margin: 0 0 4px 0;
+    margin: 0 0 8px 0;
     color: #aaa;
-    font-size: 0.9em;
 }
 
 .stat-row {
