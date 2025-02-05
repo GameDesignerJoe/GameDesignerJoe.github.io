@@ -90,18 +90,76 @@ export const MovementManager = {
         });
     },
 
+    // Cache for hex elements
+    _hexCache: {
+        elements: null,
+        lastSelected: null
+    },
+
+    // Initialize hex cache
+    initHexCache() {
+        if (!this._hexCache.elements) {
+            const hexes = document.querySelectorAll('polygon[data-terrain]');
+            this._hexCache.elements = new Map();
+            hexes.forEach(hex => {
+                const q = hex.getAttribute('data-q');
+                const r = hex.getAttribute('data-r');
+                this._hexCache.elements.set(`${q},${r}`, hex);
+            });
+        }
+    },
+
+    // Reset only the necessary hex colors
     resetHexColors() {
-        document.querySelectorAll('polygon[data-terrain]').forEach(hex => {
-            const terrain = hex.getAttribute('data-terrain');
-            if (terrain === 'BASE_CAMP') {
-                hex.setAttribute('fill', SPECIAL_LOCATIONS.BASE_CAMP.color);
-            } else if (terrain === 'SOUTH_POLE') {
-                hex.setAttribute('fill', SPECIAL_LOCATIONS.SOUTH_POLE.color);
-            } else {
-                hex.setAttribute('fill', TERRAIN_TYPES[terrain].color);
+        this.initHexCache();
+        
+        requestAnimationFrame(() => {
+            const start = performance.now();
+            
+            // If we have a previously selected hex, reset only that one
+            if (this._hexCache.lastSelected) {
+                const hex = this._hexCache.lastSelected;
+                const terrain = hex.getAttribute('data-terrain');
+                const color = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP.color :
+                            terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE.color :
+                            TERRAIN_TYPES[terrain].color;
+                
+                hex.setAttribute('fill', color);
+                hex.setAttribute('stroke', '#ffffff');
+                hex.setAttribute('stroke-width', '1');
+                this._hexCache.lastSelected = null;
             }
-            hex.setAttribute('stroke', '#ffffff');
-            hex.setAttribute('stroke-width', '1');
+            
+            const end = performance.now();
+            perfMonitor.trackMethod('resetHexColors', 'movement.js', end - start);
+        });
+    },
+
+    // Update hex selection visuals
+    updateHexSelection(hex) {
+        requestAnimationFrame(() => {
+            const start = performance.now();
+            
+            // Reset previous selection if it exists
+            if (this._hexCache.lastSelected && this._hexCache.lastSelected !== hex) {
+                const prevHex = this._hexCache.lastSelected;
+                const terrain = prevHex.getAttribute('data-terrain');
+                const color = terrain === 'BASE_CAMP' ? SPECIAL_LOCATIONS.BASE_CAMP.color :
+                            terrain === 'SOUTH_POLE' ? SPECIAL_LOCATIONS.SOUTH_POLE.color :
+                            TERRAIN_TYPES[terrain].color;
+                
+                prevHex.setAttribute('fill', color);
+                prevHex.setAttribute('stroke', '#ffffff');
+                prevHex.setAttribute('stroke-width', '1');
+            }
+            
+            // Update new selection
+            hex.setAttribute('stroke', '#000000');
+            hex.setAttribute('stroke-width', '3');
+            this._hexCache.lastSelected = hex;
+            
+            const end = performance.now();
+            perfMonitor.trackMethod('updateHexSelection', 'movement.js', end - start);
         });
     },
 
@@ -222,7 +280,6 @@ export const MovementManager = {
         return { x, y };
     },
 
-    // Update handleHexSelection in MovementManager
     handleHexSelection(hex, q, r, terrainInfo) {
         // Check camping only
         if (gameStore.player.isCamping) {
@@ -233,13 +290,13 @@ export const MovementManager = {
             return;
         }
     
-        this.resetHexColors();
         const isAdjacentToPlayer = VisibilityManager.isAdjacent(
             { q, r }, 
             gameStore.playerPosition
         );
     
         if (gameStore.game.world.selectedHex && gameStore.game.world.selectedHex === hex) {
+            this.resetHexColors();
             if (isAdjacentToPlayer) {
                 const totalStaminaCost = MOVEMENT.STAMINA_COST + (terrainInfo.staminaCost || 0);
     
@@ -269,17 +326,22 @@ export const MovementManager = {
             }
             
             gameStore.game.world.selectedHex = hex;
-            hex.setAttribute('stroke', '#000000');
-            hex.setAttribute('stroke-width', '3');
+            this.updateHexSelection(hex);
             
             if (!WeatherState.effects.whiteoutPhase && 
                 (!WeatherState.effects.blizzardActive || 
                 (q === gameStore.playerPosition.q && r === gameStore.playerPosition.r))) {
-                document.getElementById('game-message').className = 'terrain-info';
-                document.getElementById('game-message').innerHTML = `
-                    <h3>${terrainInfo.name}</h3>
-                    <p><em>${terrainInfo.quote}</em></p>
-                `;
+                requestAnimationFrame(() => {
+                    const start = performance.now();
+                    const gameMessage = document.getElementById('game-message');
+                    gameMessage.className = 'terrain-info';
+                    gameMessage.innerHTML = `
+                        <h3>${terrainInfo.name}</h3>
+                        <p><em>${terrainInfo.quote}</em></p>
+                    `;
+                    const end = performance.now();
+                    perfMonitor.trackMethod('updateTerrainInfo', 'movement.js', end - start);
+                });
             }
         }
     },

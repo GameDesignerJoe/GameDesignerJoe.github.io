@@ -1,5 +1,6 @@
 // src/services/gameInit.js
 import { gameStore } from '../state/store.js';
+import perfMonitor from '../core/performanceMonitor.js';
 import { WeatherSystem } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
 import { GridManager } from './gridManager.js';
@@ -115,17 +116,26 @@ export const GameInit = {
         );
         gameStore.restartSystem = this.restartSystem;
         
-        // Initialize StatsService with restart system
+        // Initialize StatsService with restart system and set initial stats
         StatsService.init(this.restartSystem);
+        gameStore.player.stats = {
+            health: 100,
+            stamina: 100,
+            food: 100
+        };
+        StatsService.updateStatsDisplay();
         
-        // Set up the game grid and camping system
+        // Set up the game grid and UI
         GridManager.initializeGrid();
-        GridManager.initializeCampingButton();
+        GridManager.initializeGameControls();
+        
+        // Force an initial stats display update
+        StatsService.updateStatsDisplay();
         
         // Initialize debug features
         this.setupDebugFeatures();
         
-        // Start game loops
+        // Start game loops with performance monitoring
         this.startGameLoops();
         
         // Show initial message
@@ -146,8 +156,16 @@ export const GameInit = {
     },
 
     startGameLoops() {
-        // Start the stats update loop
-        setInterval(() => StatsService.updateStats(), 50);
+        // Start the stats update loop with performance monitoring
+        const statsInterval = setInterval(() => {
+            const start = performance.now();
+            StatsService.updateStats();
+            const end = performance.now();
+            perfMonitor.trackMethod('statsUpdate', 'stats.js', end - start);
+        }, 250); // Reduced frequency to every 250ms instead of 50ms
+        
+        // Store interval for cleanup
+        this.statsInterval = statsInterval;
         
         // Schedule first weather event with delay
         setTimeout(() => {
@@ -158,26 +176,37 @@ export const GameInit = {
     },
 
     setupDebugFeatures() {
-        // Clean up existing debug manager if it exists
-        if (this.debugManager) {
-            this.debugManager.cleanup();
+        try {
+            // Clean up existing debug manager if it exists
+            if (this.debugManager) {
+                this.debugManager.cleanup();
+            }
+        
+            // Create new debug manager
+            this.debugManager = new DebugManager(gameStore, this.weatherSystem);
+        
+            // Make debug functions available in console for direct access
+            const debugFunctions = {
+                ...gameStore.DEBUG,
+                triggerBlizzard: () => this.weatherSystem.triggerBlizzard(),
+                triggerWhiteout: () => this.weatherSystem.triggerWhiteout(),
+                getGameState: () => ({ ...gameStore.game }),
+                getWeatherState: () => ({ ...gameStore.weather }),
+                getPackingState: () => ({ ...gameStore.packing }),
+                toggleFogOfWar: () => this.debugManager.toggleFogOfWar(),
+                toggleGodMode: () => this.debugManager.toggleGodMode(),
+                adjustZoom: (direction) => this.debugManager.adjustZoom(direction)
+            };
+
+            // Ensure all debug functions are properly bound
+            Object.entries(debugFunctions).forEach(([key, func]) => {
+                debugFunctions[key] = func.bind(this);
+            });
+
+            window.DEBUG = debugFunctions;
+        } catch (error) {
+            console.error('Failed to initialize debug features:', error);
         }
-    
-        // Create new debug manager
-        this.debugManager = new DebugManager(gameStore, this.weatherSystem);
-    
-        // Make debug functions available in console for direct access
-        window.DEBUG = {
-            ...gameStore.DEBUG,
-            triggerBlizzard: () => this.weatherSystem.triggerBlizzard(),
-            triggerWhiteout: () => this.weatherSystem.triggerWhiteout(),
-            getGameState: () => ({ ...gameStore.game }),
-            getWeatherState: () => ({ ...gameStore.weather }),
-            getPackingState: () => ({ ...gameStore.packing }),
-            toggleFogOfWar: () => this.debugManager.toggleFogOfWar(),
-            toggleGodMode: () => this.debugManager.toggleGodMode(),
-            adjustZoom: (direction) => this.debugManager.adjustZoom(direction)
-        };
     }
 };
 

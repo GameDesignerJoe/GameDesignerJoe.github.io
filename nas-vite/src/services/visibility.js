@@ -259,18 +259,57 @@ export const VisibilityManager = {
         }
     },
 
+    // Cache for adjacent hex calculations
+    _adjacencyCache: new Map(),
+
+    // Get cached key for adjacency check
+    getAdjacencyKey(hex1, hex2) {
+        return `${hex1.q},${hex1.r}-${hex2.q},${hex2.r}`;
+    },
+
     isAdjacent(hex1, hex2) {
-        const distance = this.getHexDistance(hex1, hex2);
-        return distance === 1;
+        const key = this.getAdjacencyKey(hex1, hex2);
+        const reverseKey = this.getAdjacencyKey(hex2, hex1);
+        
+        // Check cache first
+        if (this._adjacencyCache.has(key)) {
+            return this._adjacencyCache.get(key);
+        }
+        if (this._adjacencyCache.has(reverseKey)) {
+            return this._adjacencyCache.get(reverseKey);
+        }
+
+        // For adjacent hexes, at least one coordinate difference must be 1
+        // and the sum of absolute differences must be either 1 or 2
+        const qDiff = Math.abs(hex1.q - hex2.q);
+        const rDiff = Math.abs(hex1.r - hex2.r);
+        const result = (qDiff + rDiff === 1) || (qDiff === 1 && rDiff === 1);
+        
+        // Cache the result
+        this._adjacencyCache.set(key, result);
+        
+        // Limit cache size
+        if (this._adjacencyCache.size > 1000) {
+            const firstKey = this._adjacencyCache.keys().next().value;
+            this._adjacencyCache.delete(firstKey);
+        }
+        
+        return result;
+    },
+
+    // Clear adjacency cache when position changes
+    clearAdjacencyCache() {
+        this._adjacencyCache.clear();
     },
 
     updateVisibleHexes() {
         const currentPosition = gameStore.playerPosition;
         const positionKey = `${currentPosition.q},${currentPosition.r}`;
         
-        // Clear visibility cache when position changes
+        // Clear caches when position changes
         if (this._lastPosition !== positionKey) {
             this.clearCaches();
+            this.clearAdjacencyCache();
             this._lastPosition = positionKey;
         }
         

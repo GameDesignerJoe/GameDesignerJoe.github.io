@@ -1,6 +1,7 @@
 // src/services/stats.js
 
 import { gameStore } from '../state/store.js';
+import perfMonitor from '../core/performanceMonitor.js';
 import { PLAYER_STATS, UI } from '../config/constants.js';
 import { WEATHER_CONFIG } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
@@ -11,6 +12,16 @@ export const StatsService = {
 
     init(restartSystem) {
         this.restartSystem = restartSystem;
+    },
+
+    // Cache for stats calculations
+    _statsCache: {
+        lastHealthUpdate: 0,
+        lastStaminaUpdate: 0,
+        lastFoodUpdate: 0,
+        healthUpdateInterval: 50, // More frequent health updates for smoother depletion
+        staminaUpdateInterval: 500, // Update stamina every 500ms
+        foodUpdateInterval: 1000 // Update food every 1000ms
     },
 
     updateStats() {
@@ -27,29 +38,53 @@ export const StatsService = {
         }
 
         const currentTime = Date.now();
-        const deltaTime = (currentTime - gameStore.player.lastStatUpdate) / 1000;
         
-        // Update only if enough time has passed
-        if (deltaTime < 0.05) return;
+        // Update health on its interval
+        if (currentTime - this._statsCache.lastHealthUpdate >= this._statsCache.healthUpdateInterval) {
+            const deltaTime = (currentTime - this._statsCache.lastHealthUpdate) / 1000;
+            this._statsCache.lastHealthUpdate = currentTime;
 
-        // Check if at base camp
-        const atBaseCamp = gameStore.playerPosition.q === gameStore.baseCamp.q && 
-                          gameStore.playerPosition.r === gameStore.baseCamp.r;
+            // Check if at base camp
+            const atBaseCamp = gameStore.playerPosition.q === gameStore.baseCamp.q && 
+                             gameStore.playerPosition.r === gameStore.baseCamp.r;
 
-        if (atBaseCamp) {
-            this.handleBaseCampHealing(deltaTime);
-        } else {
-            this.handleFieldConditions(deltaTime);
+            if (atBaseCamp) {
+                this.handleBaseCampHealing(deltaTime);
+            } else {
+                this.handleFieldConditions(deltaTime);
+            }
+
+            // Check for death condition
+            if (gameStore.player.stats.health <= 0) {
+                this.handleDeath();
+                return;
+            }
         }
 
-        // Check for death condition
-        if (gameStore.player.stats.health <= 0) {
-            this.handleDeath();
-            return;
+        // Update stamina on its interval
+        if (currentTime - this._statsCache.lastStaminaUpdate >= this._statsCache.staminaUpdateInterval) {
+            const deltaTime = (currentTime - this._statsCache.lastStaminaUpdate) / 1000;
+            this._statsCache.lastStaminaUpdate = currentTime;
+
+            // Update stamina recovery
+            const timeSinceLastMove = (currentTime - gameStore.player.lastMoveTime) / 1000;
+            if (timeSinceLastMove > 1) {
+                const stats = gameStore.player.stats;
+                stats.stamina = Math.min(
+                    100,
+                    stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * deltaTime)
+                );
+            }
         }
 
-        // Update time tracking
-        gameStore.player.lastStatUpdate = currentTime;
+        // Update food on its interval
+        if (currentTime - this._statsCache.lastFoodUpdate >= this._statsCache.foodUpdateInterval) {
+            this._statsCache.lastFoodUpdate = currentTime;
+            // Food updates can be less frequent since they're not as critical
+            // Add food update logic here if needed
+        }
+
+        // Update display
         this.updateStatsDisplay();
     },
 
@@ -78,6 +113,9 @@ export const StatsService = {
         const { stats } = gameStore.player;
         let healthDecayMultiplier = 1;
 
+        // Base health decay when not at base camp
+        const BASE_HEALTH_DECAY = 0.75; // Base health loss per second
+
         // Apply weather effects, but reduce them if camping
         if (gameStore.weather.current.type === 'WHITEOUT') {
             healthDecayMultiplier = gameStore.player.isCamping ? 
@@ -88,21 +126,21 @@ export const StatsService = {
                 WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier * 0.3 : // Only 30% of normal weather penalty while camping
                 WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier;
         } else if (gameStore.player.isCamping) {
-            healthDecayMultiplier = 0; // No health decay in normal weather while camping
+            healthDecayMultiplier = 0.3; // Reduced health decay while camping in normal weather
         }
 
         // Update health based on food and weather
         if (stats.food <= 0) {
             this.handleStarvation();
         } else {
-            const HEALTH_DECAY_RATE = .75; // 0.5 health lost per second
-            const healthLoss = HEALTH_DECAY_RATE * deltaTime * healthDecayMultiplier;
+            // Apply constant health decay plus weather effects
+            const healthLoss = BASE_HEALTH_DECAY * deltaTime * healthDecayMultiplier;
             stats.health = Math.max(0, stats.health - healthLoss);
         }
 
         // Update stamina recovery
         const timeSinceLastMove = (Date.now() - gameStore.player.lastMoveTime) / 1000;
-        if (timeSinceLastMove > 1) {  // Start recovering stamina after 2 seconds of no movement
+        if (timeSinceLastMove > 1) {
             stats.stamina = Math.min(
                 PLAYER_STATS.MAX_VALUE,
                 stats.stamina + (PLAYER_STATS.STAMINA_RECOVERY_RATE * deltaTime)

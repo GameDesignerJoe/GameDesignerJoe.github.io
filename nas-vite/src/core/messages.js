@@ -1,5 +1,6 @@
 // src/core/messages.js
 import { TERRAIN_TYPES, SPECIAL_LOCATIONS } from '../config/terrain.js';
+import perfMonitor from '../core/performanceMonitor.js';
 
 export const MESSAGE_CONFIG = {
     DISPLAY_TIME: 3000,
@@ -19,6 +20,40 @@ export class MessageSystem {
         this.initializeElements();
         this.currentPlayerMessage = null;
         this.playerMessageTimeout = null;
+        
+        // Initialize performance monitoring
+        this.initPerformanceMonitoring();
+    }
+
+    initPerformanceMonitoring() {
+        const methodsToTrack = [
+            'showGameMessage',
+            'showPlayerMessage',
+            'updateCurrentLocationInfo',
+            'showWeatherMessage',
+            'clearMessages'
+        ];
+
+        methodsToTrack.forEach(method => {
+            const original = this[method];
+            this[method] = (...args) => {
+                const start = performance.now();
+                const result = original.apply(this, args);
+                const end = performance.now();
+                perfMonitor.trackMethod(`messages.${method}`, 'messages.js', end - start);
+                return result;
+            };
+        });
+
+        // Create wrapped version of DOM updates
+        this._wrappedDOMUpdate = (callback) => {
+            requestAnimationFrame(() => {
+                const start = performance.now();
+                callback();
+                const end = performance.now();
+                perfMonitor.trackMethod('messagesDOMUpdate', 'messages.js', end - start);
+            });
+        };
     }
 
     initializeElements() {
@@ -57,12 +92,15 @@ export class MessageSystem {
     showGameMessage(message, type = MESSAGE_CONFIG.TYPES.STATUS) {
         if (!this.gameMessageElement) return;
         
-        this.gameMessageElement.className = type;
-        this.gameMessageElement.innerHTML = message;
-        this.gameMessageContainer.classList.add('has-message');
-        
-        // Store in game state
-        this.store.messages.currentMessage = message;
+        // Batch DOM updates
+        this._wrappedDOMUpdate(() => {
+            this.gameMessageElement.className = type;
+            this.gameMessageElement.innerHTML = message;
+            this.gameMessageContainer.classList.add('has-message');
+            
+            // Store in game state
+            this.store.messages.currentMessage = message;
+        });
     }
 
     showPlayerMessage(message, type = MESSAGE_CONFIG.TYPES.STATUS) {
@@ -73,20 +111,27 @@ export class MessageSystem {
             clearTimeout(this.playerMessageTimeout);
         }
     
-        // Split message into lines and wrap each in a span
-        const lines = message.split('\n');
-        const wrappedText = lines.map(line => `<span>${line}</span>`).join('<br>');
-        this.playerMessageText.innerHTML = wrappedText;
-        this.playerMessageContainer.className = `player-message ${type}-message visible`;
+        // Batch DOM updates
+        this._wrappedDOMUpdate(() => {
+            // Split message into lines and wrap each in a span
+            const lines = message.split('\n');
+            const wrappedText = lines.map(line => `<span>${line}</span>`).join('<br>');
+            this.playerMessageText.innerHTML = wrappedText;
+            this.playerMessageContainer.className = `player-message ${type}-message visible`;
+        });
     
         // Only set timeout for non-narrative messages
         if (type !== MESSAGE_CONFIG.TYPES.NARRATIVE) {
             this.playerMessageTimeout = setTimeout(() => {
-                this.playerMessageContainer.classList.remove('visible');
+                this._wrappedDOMUpdate(() => {
+                    this.playerMessageContainer.classList.remove('visible');
+                });
                 
                 setTimeout(() => {
                     if (this.playerMessageText) {
-                        this.playerMessageText.innerHTML = '';
+                        this._wrappedDOMUpdate(() => {
+                            this.playerMessageText.innerHTML = '';
+                        });
                     }
                 }, MESSAGE_CONFIG.FADE_TIME);
             }, MESSAGE_CONFIG.DISPLAY_TIME);

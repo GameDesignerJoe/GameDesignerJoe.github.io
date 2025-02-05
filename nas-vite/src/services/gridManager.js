@@ -253,18 +253,19 @@ export const GridManager = {
         return position.q === baseCamp.q && position.r === baseCamp.r;
     },
 
-    initializeCampingButton() {
-        // First, find or create the game-controls-area
+    initializeGameControls() {
+        // Create game controls area if it doesn't exist
         let controlsArea = document.querySelector('.game-controls-area');
         if (!controlsArea) {
             controlsArea = document.createElement('div');
             controlsArea.className = 'game-controls-area';
-            // Insert it after the game container
             const gameContainer = document.querySelector('.game-container');
-            gameContainer.appendChild(controlsArea);
+            if (gameContainer) {
+                gameContainer.appendChild(controlsArea);
+            }
         }
 
-        // Then find or create the controls container
+        // Create controls container if it doesn't exist
         let controlsContainer = document.querySelector('.controls-container');
         if (!controlsContainer) {
             controlsContainer = document.createElement('div');
@@ -272,14 +273,25 @@ export const GridManager = {
             controlsArea.appendChild(controlsContainer);
         }
 
-        if (document.getElementById('camp-button')) {
-            return;
-        }
+        // Initialize all buttons in a single frame
+        requestAnimationFrame(() => {
+            this.initializeCampingButton(controlsContainer);
+            this.initializeCompassButton(controlsContainer);
+            this.initializeSettingsButton(controlsContainer);
+            
+            // Update button states
+            this.updateCampingButton();
+            this.updateCompassButton();
+        });
+    },
+
+    initializeCampingButton(controlsContainer) {
+        if (document.getElementById('camp-button')) return;
 
         const campButton = document.createElement('button');
         campButton.id = 'camp-button';
         campButton.className = 'game-button camp-button';
-        campButton.innerHTML = `<img src="${getAssetPath('camp.svg')}" alt="Camp" class="camp-icon">`;
+        campButton.innerHTML = `<img src="./public/art/camp.svg" alt="Camp" class="camp-icon">`;
 
         // Add click handler
         campButton.addEventListener('click', () => {
@@ -315,12 +327,6 @@ export const GridManager = {
         });
 
         controlsContainer.appendChild(campButton);
-        // Initialize compass button after camp button
-        this.initializeCompassButton();
-
-        requestAnimationFrame(() => {
-            this.updateCampingButton();
-        });
     },
 
     updateCampingButton() {
@@ -394,17 +400,12 @@ export const GridManager = {
         hexGroup.insertBefore(campHex, player);
     },
 
-    initializeCompassButton() {
-        // Make sure controls container exists
-        let controlsContainer = document.querySelector('.controls-container');
-        if (!controlsContainer) return;
-    
-        // Don't create if already exists
+    initializeCompassButton(controlsContainer) {
         if (document.querySelector('.compass-button')) return;
     
         const compassButton = document.createElement('button');
         compassButton.className = 'game-button compass-button';
-        compassButton.innerHTML = `<img src="${getAssetPath('compass-icon.svg')}" alt="Compass" class="compass-icon">`;
+        compassButton.innerHTML = `<img src="./public/art/compass-icon.svg" alt="Compass" class="compass-icon">`;
     
         // Add click handler that will use the CompassSystem
         compassButton.addEventListener('click', () => {
@@ -414,22 +415,14 @@ export const GridManager = {
         });
     
         controlsContainer.appendChild(compassButton);
-    
-        // Initialize settings button after compass button
-        this.initializeSettingsButton();
-    
-        requestAnimationFrame(() => {
-            this.updateCompassButton();
-        });
     },
 
-    initializeSettingsButton() {
-        let controlsContainer = document.querySelector('.controls-container');
-        if (!controlsContainer || document.querySelector('.settings-button')) return;
+    initializeSettingsButton(controlsContainer) {
+        if (document.querySelector('.settings-button')) return;
 
         const settingsButton = document.createElement('button');
         settingsButton.className = 'game-button settings-button';
-        settingsButton.innerHTML = `<img src="${getAssetPath('settings-icon.svg')}" alt="Settings" class="settings-icon">`;
+        settingsButton.innerHTML = `<img src="./public/art/settings-icon.svg" alt="Settings" class="settings-icon">`;
         
         // Add click handler
         settingsButton.addEventListener('click', () => {

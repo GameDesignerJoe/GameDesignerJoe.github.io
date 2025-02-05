@@ -1,4 +1,5 @@
 // src/core/weather.js
+import perfMonitor from './performanceMonitor.js';
 
 export const WEATHER_CONFIG = {
     WHITEOUT: {
