@@ -40,10 +40,6 @@ class PerformanceMonitor {
         panel.id = 'performance-panel';
         panel.className = 'performance-panel hidden';
         panel.innerHTML = `
-            <div class="performance-header">
-                <h3>Performance Monitor</h3>
-                <button class="close-button">×</button>
-            </div>
             <div class="performance-content">
                 <div class="performance-section">
                     <h4>Frame Time</h4>
@@ -55,16 +51,6 @@ class PerformanceMonitor {
                 </div>
             </div>
         `;
-
-        // Add event listeners
-        panel.querySelector('.close-button').addEventListener('click', () => {
-            this.togglePanel();
-            // Also update settings button state
-            const settingsButton = document.querySelector('.settings-button');
-            if (settingsButton) {
-                settingsButton.classList.remove('active');
-            }
-        });
 
         // Insert after the controls container
         const controlsContainer = document.querySelector('.controls-container');
