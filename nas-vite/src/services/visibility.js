@@ -16,22 +16,69 @@ export const VisibilityManager = {
             'updateVisibleHexes',
             'initCache',
             'getHexDistance',
-            'updateFogElements', // New method we'll create
+            'updateFogElements',
             'clearCaches',
             'isAdjacent'
         ];
 
         methodsToTrack.forEach(method => {
-            perfMonitor.wrapMethod(this, method, 'visibility.js');
+            const original = this[method];
+            this[method] = (...args) => {
+                const start = performance.now();
+                const result = original.apply(this, args);
+                const end = performance.now();
+                
+                // Track method execution time
+                perfMonitor.trackMethod(method, 'visibility.js', end - start);
+                
+                // Track DOM operations separately
+                if (method === 'updateFogElements' || method === 'updateVisibility') {
+                    const domOperations = {
+                        method,
+                        type: 'DOM_Update',
+                        elements: this._cache.fogElements?.length || 0,
+                        updates: this._cache.lastUpdate?.size || 0
+                    };
+                    perfMonitor.trackEvent('DOMOperation', domOperations, end - start);
+                }
+                
+                // Track expensive operations
+                if (end - start > 16) {
+                    perfMonitor.trackEvent('LongOperation', {
+                        method,
+                        file: 'visibility.js',
+                        duration: end - start,
+                        cacheSize: this._cache.fogElementsMap.size
+                    }, end - start);
+                }
+                
+                return result;
+            };
         });
 
-        // Create a wrapped version of requestAnimationFrame callback
+        // Enhanced RAF wrapper with more detailed tracking
         this._wrappedRAF = (callback) => {
             return requestAnimationFrame((timestamp) => {
                 const start = performance.now();
+                const frameStart = performance.now();
+                
                 callback(timestamp);
-                const end = performance.now();
-                perfMonitor.trackMethod('animationFrame', 'visibility.js', end - start);
+                
+                const frameEnd = performance.now();
+                const frameDuration = frameEnd - frameStart;
+                
+                // Track frame execution
+                perfMonitor.trackMethod('animationFrame', 'visibility.js', frameDuration);
+                
+                // Track if frame took too long
+                if (frameDuration > 16) {
+                    perfMonitor.trackEvent('LongFrame', {
+                        duration: frameDuration,
+                        timestamp: Date.now(),
+                        visibleHexes: gameStore.game.world.visibleHexes.size,
+                        weatherType: WeatherState.current.type
+                    }, frameDuration);
+                }
             });
         };
     },

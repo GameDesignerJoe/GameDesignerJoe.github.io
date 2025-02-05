@@ -20,11 +20,30 @@ export const MovementManager = {
             'resetHexColors',
             'getHexCenter',
             'checkVictoryConditions',
-            'updateAnimationFrame' // New method we'll create
+            'updateAnimationFrame',
+            'updateHexSelection',
+            'updateTerrainInfo'
         ];
 
         methodsToTrack.forEach(method => {
-            perfMonitor.wrapMethod(this, method, 'movement.js');
+            const original = this[method];
+            this[method] = (...args) => {
+                const start = performance.now();
+                const result = original.apply(this, args);
+                const end = performance.now();
+                
+                // Track both method execution and any DOM operations
+                perfMonitor.trackMethod(method, 'movement.js', end - start);
+                if (end - start > 16) {
+                    perfMonitor.trackEvent('LongOperation', {
+                        method,
+                        file: 'movement.js',
+                        duration: end - start
+                    }, end - start);
+                }
+                
+                return result;
+            };
         });
 
         // Create a wrapped version of requestAnimationFrame callback

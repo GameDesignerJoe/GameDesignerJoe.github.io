@@ -32,6 +32,7 @@ body {
   padding-top: env(safe-area-inset-top, 20px);
   padding-bottom: env(safe-area-inset-bottom, 20px);
   transition: background-color 10s ease-in-out;
+  overflow: visible; /* Allow content to be visible when scrolling */
 }
 
 .game-controls-area {
@@ -759,90 +760,51 @@ transition: transform 300ms ease-in-out;
     border-radius: 8px;
     color: white;
     font-family: monospace;
-    margin-top: 5px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-/* Customize scrollbar for the performance panel */
-.performance-panel::-webkit-scrollbar {
-    width: 8px;
-}
-
-.performance-panel::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
-
-.performance-panel::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-}
-
-.performance-panel::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
+    margin-top: 10px;
+    font-size: 12px;
 }
 
 .performance-panel.hidden {
     display: none;
 }
 
-.performance-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    border-bottom: 1px solid #666;
-    position: sticky;
-    top: 0;
-    background: rgba(0, 0, 0, 0.85);
-    z-index: 1;
-}
-
-.performance-header h3 {
-    margin: 0;
-    color: #fff;
-}
-
-.close-button {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0 8px;
-}
-
 .performance-content {
-    padding: 10px;
+    padding: 8px;
 }
 
 .performance-section {
-    margin-bottom: 15px;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 8px;
 }
 
 .performance-section h4 {
     margin: 0 0 8px 0;
     color: #aaa;
+    font-size: 12px;
+    font-weight: normal;
 }
 
 .stat-row {
     display: flex;
     justify-content: space-between;
-    margin: 4px 0;
+    margin: 2px 0;
     padding: 4px;
     border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.2;
 }
 
 .frame-stats-group {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     width: 100%;
+    flex-wrap: wrap;
 }
 
 .stat-label {
     color: #fff;
-    font-size: 0.9em;
     white-space: nowrap;
 }
 
@@ -856,8 +818,58 @@ transition: transform 300ms ease-in-out;
 
 .stat-name {
     color: #aaa;
+    word-break: break-word;
+    margin-right: 8px;
+    flex: 1;
 }
 
 .stat-value {
     color: #fff;
+    white-space: nowrap;
+}
+
+.event-item {
+    font-size: 11px;
+    line-height: 1.2;
+    margin: 2px 0;
+}
+
+.event-name {
+    color: #aaa;
+    margin-right: 8px;
+}
+
+.event-value {
+    color: #fff;
+    white-space: nowrap;
+}
+
+/* Make the panel scrollable on mobile */
+@media screen and (max-width: 768px) {
+    .performance-panel {
+        max-height: 300px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .performance-panel::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .performance-panel::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .performance-panel::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 2px;
+    }
+
+    .stat-row, .event-item {
+        font-size: 10px;
+    }
+
+    .frame-stats-group {
+        gap: 4px;
+    }
 }
