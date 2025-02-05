@@ -7,6 +7,8 @@ export class DebugManager {
         this.godModeActive = false;
         this.zoomLevel = 1;  // Add initial zoom level
         this.fogRevealActive = false;  // Add initial fog reveal state
+        this.southPoleHighlightActive = false;  // Add initial south pole highlight state
+        this.originalSouthPoleColor = null;  // Store original color for toggling
         
         // Create persistent god mode indicator
         this.createGodModeIndicator();
@@ -123,12 +125,38 @@ export class DebugManager {
         this.showDebugMessage(`ZOOM: ${this.zoomLevel.toFixed(2)}x`);
     }
 
+    toggleSouthPoleHighlight() {
+        const { q, r } = this.store.southPole;
+        const southPoleHex = document.querySelector(`polygon[data-q="${q}"][data-r="${r}"]`);
+        
+        if (!southPoleHex) return;
+
+        if (!this.southPoleHighlightActive) {
+            // Store original color if not already stored
+            if (!this.originalSouthPoleColor) {
+                this.originalSouthPoleColor = southPoleHex.getAttribute('fill');
+            }
+            // Set to bright purple
+            southPoleHex.setAttribute('fill', '#FF00FF');
+            this.southPoleHighlightActive = true;
+            this.showDebugMessage('SOUTH POLE HIGHLIGHTED');
+        } else {
+            // Restore original color
+            southPoleHex.setAttribute('fill', this.originalSouthPoleColor);
+            this.southPoleHighlightActive = false;
+            this.showDebugMessage('SOUTH POLE HIGHLIGHT REMOVED');
+        }
+    }
+
     handleDebugCommand(e) {
         if (e.ctrlKey && e.altKey) {
             e.preventDefault();
             e.stopPropagation();
 
             switch (e.key) {
+                case 's': // Toggle South Pole highlight
+                    this.toggleSouthPoleHighlight();
+                    break;
                 case 'f': // Fog reveal toggle
                     this.toggleFogOfWar();
                     break;

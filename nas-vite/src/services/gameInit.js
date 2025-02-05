@@ -195,7 +195,8 @@ export const GameInit = {
                 getPackingState: () => ({ ...gameStore.packing }),
                 toggleFogOfWar: () => this.debugManager.toggleFogOfWar(),
                 toggleGodMode: () => this.debugManager.toggleGodMode(),
-                adjustZoom: (direction) => this.debugManager.adjustZoom(direction)
+                adjustZoom: (direction) => this.debugManager.adjustZoom(direction),
+                toggleSouthPoleHighlight: () => this.debugManager.toggleSouthPoleHighlight()
             };
 
             // Ensure all debug functions are properly bound
