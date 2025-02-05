@@ -13,12 +13,27 @@ export const VisibilityManager = {
             'getHexesInRadius',
             'isHexVisible',
             'updateTemporaryFog',
-            'updateVisibleHexes'
+            'updateVisibleHexes',
+            'initCache',
+            'getHexDistance',
+            'updateFogElements', // New method we'll create
+            'clearCaches',
+            'isAdjacent'
         ];
 
         methodsToTrack.forEach(method => {
             perfMonitor.wrapMethod(this, method, 'visibility.js');
         });
+
+        // Create a wrapped version of requestAnimationFrame callback
+        this._wrappedRAF = (callback) => {
+            return requestAnimationFrame((timestamp) => {
+                const start = performance.now();
+                callback(timestamp);
+                const end = performance.now();
+                perfMonitor.trackMethod('animationFrame', 'visibility.js', end - start);
+            });
+        };
     },
 
     // Cache for DOM elements and calculations
@@ -160,41 +175,49 @@ export const VisibilityManager = {
         return distance;
     },
 
+    // Separate method for updating fog elements to track performance
+    updateFogElements(isWeatherEvent) {
+        const currentUpdate = new Set();
+        
+        this._cache.fogElementsMap.forEach((fogHex, hexId) => {
+            const [q, r] = hexId.split(',').map(Number);
+            const isVisible = this.isHexVisible(hexId);
+            const isMountain = this.isMountainHex(q, r);
+            
+            // Only update if visibility state has changed
+            const stateKey = `${hexId}-${isVisible}-${isMountain}-${WeatherState.current.type}`;
+            if (this._cache.lastUpdate.has(stateKey)) {
+                return;
+            }
+            
+            currentUpdate.add(stateKey);
+            
+            if (isWeatherEvent) {
+                if (WeatherState.current.type === 'BLIZZARD') {
+                    const opacity = isMountain ? '0.5' : (isVisible ? '0.8' : '1');
+                    fogHex.style.fillOpacity = opacity;
+                    if (isVisible || isMountain) {
+                        WeatherState.visibility.affectedHexes.add(hexId);
+                    }
+                } else if (WeatherState.current.type === 'WHITEOUT') {
+                    fogHex.style.fillOpacity = '1';
+                }
+            } else {
+                fogHex.style.fillOpacity = isVisible || isMountain ? '0' : '1';
+            }
+        });
+        
+        return currentUpdate;
+    },
+
     updateVisibility(isWeatherEvent = false) {
         this.initCache();
         this.updateVisibleHexes();
         
-        // Track which hexes need updates
-        const currentUpdate = new Set();
-        
-        requestAnimationFrame(() => {
-            this._cache.fogElementsMap.forEach((fogHex, hexId) => {
-                const [q, r] = hexId.split(',').map(Number);
-                const isVisible = this.isHexVisible(hexId);
-                const isMountain = this.isMountainHex(q, r);
-                
-                // Only update if visibility state has changed
-                const stateKey = `${hexId}-${isVisible}-${isMountain}-${WeatherState.current.type}`;
-                if (this._cache.lastUpdate.has(stateKey)) {
-                    return;
-                }
-                
-                currentUpdate.add(stateKey);
-                
-                if (isWeatherEvent) {
-                    if (WeatherState.current.type === 'BLIZZARD') {
-                        const opacity = isMountain ? '0.5' : (isVisible ? '0.8' : '1');
-                        fogHex.style.fillOpacity = opacity;
-                        if (isVisible || isMountain) {
-                            WeatherState.visibility.affectedHexes.add(hexId);
-                        }
-                    } else if (WeatherState.current.type === 'WHITEOUT') {
-                        fogHex.style.fillOpacity = '1';
-                    }
-                } else {
-                    fogHex.style.fillOpacity = isVisible || isMountain ? '0' : '1';
-                }
-            });
+        // Use wrapped requestAnimationFrame
+        this._wrappedRAF(() => {
+            // Update fog elements and track performance
+            const currentUpdate = this.updateFogElements(isWeatherEvent);
             
             // Update cache for next comparison
             this._cache.lastUpdate = currentUpdate;

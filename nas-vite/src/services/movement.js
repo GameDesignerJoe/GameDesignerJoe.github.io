@@ -16,12 +16,51 @@ export const MovementManager = {
             'animatePlayerMovement',
             'updatePlayerPosition',
             'handleMovement',
-            'handleHexSelection'
+            'handleHexSelection',
+            'resetHexColors',
+            'getHexCenter',
+            'checkVictoryConditions',
+            'updateAnimationFrame' // New method we'll create
         ];
 
         methodsToTrack.forEach(method => {
             perfMonitor.wrapMethod(this, method, 'movement.js');
         });
+
+        // Create a wrapped version of requestAnimationFrame callback
+        this._wrappedRAF = (callback) => {
+            return requestAnimationFrame((timestamp) => {
+                const start = performance.now();
+                callback(timestamp);
+                const end = performance.now();
+                perfMonitor.trackMethod('movementAnimation', 'movement.js', end - start);
+            });
+        };
+    },
+
+    // New method to handle animation frame updates
+    updateAnimationFrame(currentTime, startTime, duration, startPos, endPos, player, hexGroup, resolve) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const eased = progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        
+        const currentX = startPos.x + (endPos.x - startPos.x) * eased;
+        const currentY = startPos.y + (endPos.y - startPos.y) * eased;
+        
+        player.setAttribute("cx", currentX);
+        player.setAttribute("cy", currentY);
+        hexGroup.setAttribute('transform', `translate(${-currentX}, ${-currentY})`);
+        
+        if (progress < 1) {
+            this._wrappedRAF((timestamp) => 
+                this.updateAnimationFrame(timestamp, startTime, duration, startPos, endPos, player, hexGroup, resolve)
+            );
+        } else {
+            resolve();
+        }
     },
 
     calculateMovementDuration(terrainStaminaCost = 0) {
@@ -44,29 +83,10 @@ export const MovementManager = {
             const duration = this.calculateMovementDuration(terrainStaminaCost);
             const startTime = performance.now();
             
-            const animate = (currentTime) => {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                
-                const eased = progress < 0.5
-                    ? 2 * progress * progress
-                    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-                
-                const currentX = startPos.x + (endPos.x - startPos.x) * eased;
-                const currentY = startPos.y + (endPos.y - startPos.y) * eased;
-                
-                player.setAttribute("cx", currentX);
-                player.setAttribute("cy", currentY);
-                hexGroup.setAttribute('transform', `translate(${-currentX}, ${-currentY})`);
-                
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    resolve();
-                }
-            };
-            
-            requestAnimationFrame(animate);
+            // Start the animation with wrapped requestAnimationFrame
+            this._wrappedRAF((timestamp) => 
+                this.updateAnimationFrame(timestamp, startTime, duration, startPos, endPos, player, hexGroup, resolve)
+            );
         });
     },
 
