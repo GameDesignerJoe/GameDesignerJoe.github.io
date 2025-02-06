@@ -37,9 +37,18 @@ export const VisibilityManager = {
                         method,
                         type: 'DOM_Update',
                         elements: this._cache.fogElements?.length || 0,
-                        updates: this._cache.lastUpdate?.size || 0
+                        updates: this._cache.pendingUpdates?.size || 0,
+                        visibleSections: this._cache.visibleSections?.size || 0
                     };
                     perfMonitor.trackEvent('DOMOperation', domOperations, end - start);
+                }
+
+                // Track batched updates separately
+                if (method === 'processPendingUpdates') {
+                    perfMonitor.trackEvent('BatchUpdate', {
+                        updates: this._cache.pendingUpdates?.size || 0,
+                        type: 'DOM_Batch'
+                    }, end - start);
                 }
                 
                 // Track expensive operations
@@ -88,9 +97,20 @@ export const VisibilityManager = {
         fogElements: null,
         fogElementsMap: new Map(),
         hexDistances: new Map(),
-        lastUpdate: new Set(),
+        stateCache: new Map(), // Replace lastUpdate with numeric state codes
         radiusCache: new Map(), // Cache for hex radius calculations
         temporaryFogCache: new Map(), // Cache for temporary fog calculations
+        visibleSections: new Set(), // Track visible viewport sections
+        pendingUpdates: new Map(), // Queue for batched updates
+    },
+
+    // State codes for faster comparison
+    _stateCode: {
+        VISIBLE: 1,
+        HIDDEN: 2,
+        MOUNTAIN: 3,
+        BLIZZARD: 4,
+        WHITEOUT: 5
     },
 
     // Initialize cache
@@ -102,6 +122,25 @@ export const VisibilityManager = {
                 const r = parseInt(element.getAttribute('data-r'));
                 this._cache.fogElementsMap.set(`${q},${r}`, element);
             });
+
+            // Initialize visible sections based on player position
+            const pos = gameStore.playerPosition;
+            const playerSection = Math.floor(pos.q/10) + ',' + Math.floor(pos.r/10);
+            this._cache.visibleSections.add(playerSection);
+            
+            // Add adjacent sections
+            const adjacentSections = [
+                `${Math.floor(pos.q/10)-1},${Math.floor(pos.r/10)}`,
+                `${Math.floor(pos.q/10)+1},${Math.floor(pos.r/10)}`,
+                `${Math.floor(pos.q/10)},${Math.floor(pos.r/10)-1}`,
+                `${Math.floor(pos.q/10)},${Math.floor(pos.r/10)+1}`,
+                // Add diagonals for smoother transitions
+                `${Math.floor(pos.q/10)-1},${Math.floor(pos.r/10)-1}`,
+                `${Math.floor(pos.q/10)-1},${Math.floor(pos.r/10)+1}`,
+                `${Math.floor(pos.q/10)+1},${Math.floor(pos.r/10)-1}`,
+                `${Math.floor(pos.q/10)+1},${Math.floor(pos.r/10)+1}`
+            ];
+            adjacentSections.forEach(s => this._cache.visibleSections.add(s));
         }
     },
 
@@ -172,7 +211,10 @@ export const VisibilityManager = {
         this._cache.hexDistances.clear();
         this._cache.radiusCache.clear();
         this._cache.temporaryFogCache.clear();
-        this._cache.lastUpdate.clear();
+        this._cache.stateCache.clear();
+        this._cache.visibleSections.clear();
+        this._cache.pendingUpdates.clear();
+        this._updateScheduled = false;
     },
 
     isHexVisible(hexId) {
@@ -222,53 +264,132 @@ export const VisibilityManager = {
         return distance;
     },
 
-    // Separate method for updating fog elements to track performance
+    // Get state code for a hex
+    getHexState(hexId, isVisible, isMountain) {
+        if (WeatherState.current.type === 'BLIZZARD') {
+            if (isMountain) return this._stateCode.MOUNTAIN;
+            return isVisible ? this._stateCode.BLIZZARD : this._stateCode.HIDDEN;
+        } else if (WeatherState.current.type === 'WHITEOUT') {
+            return this._stateCode.WHITEOUT;
+        } else {
+            if (isMountain || isVisible) return this._stateCode.VISIBLE;
+            return this._stateCode.HIDDEN;
+        }
+    },
+
+    // Update fog element classes based on state
+    updateFogElementClasses(fogHex, state, isWeatherEvent) {
+        // Remove existing state classes
+        fogHex.classList.remove('fog-visible', 'fog-hidden', 'fog-mountain', 'fog-blizzard', 'fog-whiteout');
+        
+        // Add transition class based on weather
+        fogHex.classList.remove('movement-fade', 'blizzard-fade', 'instant');
+        if (isWeatherEvent) {
+            fogHex.classList.add(WeatherState.current.type === 'BLIZZARD' ? 'blizzard-fade' : 'instant');
+        } else {
+            fogHex.classList.add('movement-fade');
+        }
+
+        // Add new state class
+        switch (state) {
+            case this._stateCode.VISIBLE:
+                fogHex.classList.add('fog-visible');
+                break;
+            case this._stateCode.HIDDEN:
+                fogHex.classList.add('fog-hidden');
+                break;
+            case this._stateCode.MOUNTAIN:
+                fogHex.classList.add('fog-mountain');
+                break;
+            case this._stateCode.BLIZZARD:
+                fogHex.classList.add('fog-blizzard');
+                break;
+            case this._stateCode.WHITEOUT:
+                fogHex.classList.add('fog-whiteout');
+                break;
+        }
+    },
+
+    // Optimized method for updating fog elements
     updateFogElements(isWeatherEvent) {
-        const currentUpdate = new Set();
+        const updates = new Map();
+        const visibleSections = new Set();
         
         this._cache.fogElementsMap.forEach((fogHex, hexId) => {
             const [q, r] = hexId.split(',').map(Number);
+            
             const isVisible = this.isHexVisible(hexId);
             const isMountain = this.isMountainHex(q, r);
+            const newState = this.getHexState(hexId, isVisible, isMountain);
             
-            // Only update if visibility state has changed
-            const stateKey = `${hexId}-${isVisible}-${isMountain}-${WeatherState.current.type}`;
-            if (this._cache.lastUpdate.has(stateKey)) {
-                return;
-            }
-            
-            currentUpdate.add(stateKey);
-            
-            if (isWeatherEvent) {
-                if (WeatherState.current.type === 'BLIZZARD') {
-                    const opacity = isMountain ? '0.5' : (isVisible ? '0.8' : '1');
-                    fogHex.style.fillOpacity = opacity;
-                    if (isVisible || isMountain) {
-                        WeatherState.visibility.affectedHexes.add(hexId);
-                    }
-                } else if (WeatherState.current.type === 'WHITEOUT') {
-                    fogHex.style.fillOpacity = '1';
+            // Only update if state has changed
+            if (this._cache.stateCache.get(hexId) !== newState) {
+                updates.set(hexId, {
+                    element: fogHex,
+                    state: newState,
+                    isWeatherEvent
+                });
+                this._cache.stateCache.set(hexId, newState);
+                
+                // Track section for visible hexes and their neighbors
+                const section = Math.floor(q/10) + ',' + Math.floor(r/10);
+                visibleSections.add(section);
+                
+                // Also add adjacent sections to ensure smooth transitions
+                const adjacentSections = [
+                    `${Math.floor(q/10)-1},${Math.floor(r/10)}`,
+                    `${Math.floor(q/10)+1},${Math.floor(r/10)}`,
+                    `${Math.floor(q/10)},${Math.floor(r/10)-1}`,
+                    `${Math.floor(q/10)},${Math.floor(r/10)+1}`
+                ];
+                adjacentSections.forEach(s => visibleSections.add(s));
+                
+                if (isWeatherEvent && (isVisible || isMountain) && 
+                    WeatherState.current.type === 'BLIZZARD') {
+                    WeatherState.visibility.affectedHexes.add(hexId);
                 }
-            } else {
-                fogHex.style.fillOpacity = isVisible || isMountain ? '0' : '1';
             }
+            
         });
         
-        return currentUpdate;
+        // Queue updates for next animation frame
+        if (updates.size > 0) {
+            this._cache.pendingUpdates = updates;
+            this.scheduleUpdate();
+        }
+        
+        this._cache.visibleSections = visibleSections;
+        return updates;
+    },
+
+    // Schedule batched update
+    scheduleUpdate() {
+        if (!this._updateScheduled) {
+            this._updateScheduled = true;
+            this._wrappedRAF(() => {
+                this.processPendingUpdates();
+                this._updateScheduled = false;
+            });
+        }
+    },
+
+    // Process queued updates
+    processPendingUpdates() {
+        const updates = this._cache.pendingUpdates;
+        if (!updates || updates.size === 0) return;
+
+        // Batch DOM reads/writes
+        updates.forEach(({element, state, isWeatherEvent}) => {
+            this.updateFogElementClasses(element, state, isWeatherEvent);
+        });
+
+        this._cache.pendingUpdates.clear();
     },
 
     updateVisibility(isWeatherEvent = false) {
         this.initCache();
         this.updateVisibleHexes();
-        
-        // Use wrapped requestAnimationFrame
-        this._wrappedRAF(() => {
-            // Update fog elements and track performance
-            const currentUpdate = this.updateFogElements(isWeatherEvent);
-            
-            // Update cache for next comparison
-            this._cache.lastUpdate = currentUpdate;
-        });
+        this.updateFogElements(isWeatherEvent);
 
         if (isWeatherEvent && WeatherState.current.type === 'BLIZZARD') {
             this.updateTemporaryFog();
