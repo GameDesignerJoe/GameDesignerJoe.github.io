@@ -252,12 +252,38 @@ polygon[data-terrain] {
   transition: fill-opacity 2s ease-in-out;  /* Default movement transition */
 }
 
+/* Fog visibility states */
+.fog-visible {
+  fill-opacity: 0 !important;
+}
+
+.fog-hidden {
+  fill-opacity: 1 !important;
+}
+
+.fog-mountain {
+  fill-opacity: 0.5 !important;
+}
+
+.fog-blizzard {
+  fill-opacity: 0.8 !important;
+}
+
+.fog-whiteout {
+  fill-opacity: 1 !important;
+}
+
+/* Fog transitions */
 .fog.movement-fade {
   transition: fill-opacity 1.5s ease-in-out;  /* Normal movement transition */
 }
 
 .fog.blizzard-fade {
   transition: fill-opacity 8s ease-in-out;  /* Slower blizzard transition */
+}
+
+.fog.instant {
+  transition: none !important;
 }
 
 .blizzard-overlay {
