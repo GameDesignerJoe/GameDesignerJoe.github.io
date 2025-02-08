@@ -11,6 +11,7 @@ export class DebugManager {
         this.fogRevealActive = false;  // Add initial fog reveal state
         this.southPoleHighlightActive = false;  // Add initial south pole highlight state
         this.originalSouthPoleColor = null;  // Store original color for toggling
+        this.weatherDisabled = false;  // Add weather disabled state
         
         // Create persistent god mode indicator
         this.createGodModeIndicator();
@@ -114,6 +115,22 @@ export class DebugManager {
         }
     }
 
+    toggleWeatherDisabled() {
+        this.weatherDisabled = !this.weatherDisabled;
+        this.WeatherSystem.weatherDisabled = this.weatherDisabled;
+        
+        if (this.weatherDisabled) {
+            // Clear any active weather
+            this.WeatherSystem.resetWeatherState();
+            // Clear any scheduled weather
+            if (this.WeatherSystem.store.weather.effects.weatherTimeout) {
+                clearTimeout(this.WeatherSystem.store.weather.effects.weatherTimeout);
+            }
+        }
+        
+        this.showDebugMessage(this.weatherDisabled ? 'WEATHER DISABLED' : 'WEATHER ENABLED');
+    }
+
     adjustZoom(direction) {
         const gameGrid = document.getElementById('gameGrid');
         if (!gameGrid) return;
@@ -160,6 +177,9 @@ export class DebugManager {
             e.stopPropagation();
 
             switch (e.key) {
+                case 'd': // Toggle weather disabled
+                    this.toggleWeatherDisabled();
+                    break;
                 case 's': // Toggle South Pole highlight
                     this.toggleSouthPoleHighlight();
                     break;

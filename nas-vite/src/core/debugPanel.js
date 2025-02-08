@@ -57,6 +57,10 @@ class DebugPanel {
                             Clear Weather
                             <span class="shortcut">Ctrl+Alt+C</span>
                         </button>
+                        <button class="debug-button" data-action="disableWeather">
+                            Disable Weather
+                            <span class="shortcut">Ctrl+Alt+D</span>
+                        </button>
                         <button class="debug-button" data-action="reduceHealth">
                             Reduce Health
                             <span class="shortcut">Ctrl+Alt+H</span>
@@ -218,6 +222,10 @@ class DebugPanel {
         if (!this.debugManager || !this.weatherSystem) return;
 
         switch (action) {
+            case 'disableWeather':
+                this.debugManager.toggleWeatherDisabled();
+                button.classList.toggle('active', this.debugManager.weatherDisabled);
+                break;
             case 'godMode':
                 this.debugManager.toggleGodMode();
                 button.classList.toggle('active', this.debugManager.godModeActive);
