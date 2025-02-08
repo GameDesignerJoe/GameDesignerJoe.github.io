@@ -325,6 +325,12 @@ export const MovementManager = {
                         UI.MESSAGE_TYPES.TERRAIN
                     );
                     return;
+                } else if (terrainInfo.name === "Cliff" && !Array.from(gameStore.packing.selectedItems.values()).some(item => item.name === "Climbing Equipment")) {
+                    gameStore.messages.showPlayerMessage(
+                        "Climbing Equipment required to traverse cliffs",
+                        UI.MESSAGE_TYPES.TERRAIN
+                    );
+                    return;
                 } else if (gameStore.player.stats.stamina < totalStaminaCost) {
                     gameStore.messages.showPlayerMessage(
                         "You are too exhausted",

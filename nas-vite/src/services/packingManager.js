@@ -110,10 +110,16 @@ export class PackingManager {
         const panel = document.createElement('div');
         panel.className = 'item-details-panel';
         
-        // Calculate max quantity based on remaining weight plus current items if editing
-        const remainingWeight = this.gameStore.packing.MAX_WEIGHT - this.gameStore.packing.totalWeight;
+        // If this is a sledge, show its effect on capacity
+        const isSledge = item.name === "Sledge";
+        const capacityNote = isSledge ? 
+            '<div style="margin-top: 10px; color: #ffc107;">Adding a Sledge increases your carrying capacity by 300 lbs (to 360 lbs total).</div>' : '';
+        
+        // For sledge, use the higher weight limit to calculate max quantity
+        const effectiveMaxWeight = isSledge ? this.gameStore.packing.BASE_WEIGHT + this.gameStore.packing.SLEDGE_BONUS : this.gameStore.packing.MAX_WEIGHT;
+        const remainingWeight = effectiveMaxWeight - this.gameStore.packing.totalWeight;
         const currentItemsWeight = currentQuantity * item.weight;
-        const maxQuantity = Math.floor((remainingWeight + currentItemsWeight) / item.weight);
+        const maxQuantity = isSledge ? 1 : Math.floor((remainingWeight + currentItemsWeight) / item.weight);
         
         // Set initial quantity - use current quantity for existing items, or 1 for new items from Take button
         const initialQuantity = currentQuantity > 0 ? currentQuantity : 1;
@@ -130,11 +136,12 @@ export class PackingManager {
                 </ul>
             </div>
             <div class="item-details-quantity">
-                <label>Quantity (Recommended: ${recommendedQuantity}):</label>
+                <label>Quantity ${isSledge ? '(Max: 1, Recommended: 1)' : `(Recommended: ${recommendedQuantity})`}:</label>
                 <input type="number" min="0" max="${maxQuantity}" value="${initialQuantity}" id="quantity-input" 
                     inputmode="numeric" pattern="[0-9]*" 
                     onkeypress="return event.charCode >= 48 && event.charCode <= 57">
                 <div class="item-details-quantity-info">Maximum: ${maxQuantity} (based on weight limit)</div>
+                ${capacityNote}
             </div>
             <div class="item-details-weight">
                 Total Weight: ${(initialQuantity * item.weight).toFixed(2)} lbs
@@ -426,6 +433,14 @@ export class PackingManager {
     }
 
     handleEmbark() {
+        // Check if weight is over limit
+        if (this.gameStore.packing.totalWeight > this.gameStore.packing.MAX_WEIGHT) {
+            alert(`You are carrying too much weight (${this.gameStore.packing.totalWeight.toFixed(1)} lbs). ` + 
+                  `Maximum allowed is ${this.gameStore.packing.MAX_WEIGHT} lbs. ` +
+                  `Add a Sledge to increase capacity by 300 lbs.`);
+            return;
+        }
+
         if (this.gameStore.packing.selectedItems.size === 0) {
             if (!confirm("Are you sure you want to embark with no items?")) {
                 return;

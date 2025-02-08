@@ -147,7 +147,8 @@ export const VisibilityManager = {
         HIDDEN: 2,
         MOUNTAIN: 3,
         BLIZZARD: 4,
-        WHITEOUT: 5
+        WHITEOUT: 5,
+        BLIZZARD_GOGGLES: 6
     },
 
     // Initialize cache
@@ -305,7 +306,13 @@ export const VisibilityManager = {
     getHexState(hexId, isVisible, isMountain) {
         if (WeatherState.current.type === 'BLIZZARD') {
             if (isMountain) return this._stateCode.MOUNTAIN;
-            return isVisible ? this._stateCode.BLIZZARD : this._stateCode.HIDDEN;
+            if (!isVisible) return this._stateCode.HIDDEN;
+            
+            // Check if player has Snow Goggles
+            const hasGoggles = Array.from(gameStore.packing.selectedItems.values())
+                .some(item => item.name === "Snow Goggles");
+            
+            return hasGoggles ? this._stateCode.BLIZZARD_GOGGLES : this._stateCode.BLIZZARD;
         } else if (WeatherState.current.type === 'WHITEOUT') {
             return this._stateCode.WHITEOUT;
         } else {
@@ -317,7 +324,7 @@ export const VisibilityManager = {
     // Update fog element classes based on state
     updateFogElementClasses(fogHex, state, isWeatherEvent) {
         // Remove existing state classes
-        fogHex.classList.remove('fog-visible', 'fog-hidden', 'fog-mountain', 'fog-blizzard', 'fog-whiteout');
+        fogHex.classList.remove('fog-visible', 'fog-hidden', 'fog-mountain', 'fog-blizzard', 'fog-blizzard-goggles', 'fog-whiteout');
         
         // Add transition class based on weather
         fogHex.classList.remove('movement-fade', 'blizzard-fade', 'instant');
@@ -340,6 +347,9 @@ export const VisibilityManager = {
                 break;
             case this._stateCode.BLIZZARD:
                 fogHex.classList.add('fog-blizzard');
+                break;
+            case this._stateCode.BLIZZARD_GOGGLES:
+                fogHex.classList.add('fog-blizzard-goggles');
                 break;
             case this._stateCode.WHITEOUT:
                 fogHex.classList.add('fog-whiteout');

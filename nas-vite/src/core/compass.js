@@ -1,7 +1,7 @@
 // src/core/compass.js
 
 import { hexDistance } from '../components/game/utils/grid.js';
-import { GRID } from '../config/constants.js';
+import { GRID, UI } from '../config/constants.js';
 
 export class CompassSystem {
     constructor(gameStore, messageSystem) {
@@ -74,6 +74,18 @@ export class CompassSystem {
 
     activateCompass() {
         if (this.isActive) return;
+        
+        // Check if player has a compass
+        const hasCompass = Array.from(this.store.packing.selectedItems.values())
+            .some(item => item.name === "Compass");
+            
+        if (!hasCompass) {
+            this.messageSystem.showPlayerMessage(
+                "You need a Compass to use this ability",
+                UI.MESSAGE_TYPES.STATUS
+            );
+            return;
+        }
         
         this.isActive = true;
         const compass = document.getElementById('compass');

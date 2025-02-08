@@ -114,9 +114,20 @@ export const StatsService = {
         let healthDecayMultiplier = 1;
 
         // Base health decay when not at base camp
-        const BASE_HEALTH_DECAY = 0.75; // Base health loss per second
+        const BASE_HEALTH_DECAY = 2.25; // Base health loss per second
 
-        // Apply weather effects, but reduce them if camping
+        // Calculate total weather protection from clothing (only count one of each type)
+        const uniqueClothing = new Set();
+        const protection = Array.from(gameStore.packing.selectedItems.values())
+            .reduce((total, item) => {
+                if (item.weatherProtection && !uniqueClothing.has(item.name)) {
+                    uniqueClothing.add(item.name);
+                    return total + item.weatherProtection;
+                }
+                return total;
+            }, 0);
+
+        // Apply weather effects and camping reduction
         if (gameStore.weather.current.type === 'WHITEOUT') {
             healthDecayMultiplier = gameStore.player.isCamping ? 
                 WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier * 0.3 : // Only 30% of normal weather penalty while camping
@@ -129,12 +140,15 @@ export const StatsService = {
             healthDecayMultiplier = 0.3; // Reduced health decay while camping in normal weather
         }
 
+        // Apply clothing protection before weather effects
+        const protectedDecay = BASE_HEALTH_DECAY * (1 - protection);
+
         // Update health based on food and weather
         if (stats.food <= 0) {
             this.handleStarvation();
         } else {
-            // Apply constant health decay plus weather effects
-            const healthLoss = BASE_HEALTH_DECAY * deltaTime * healthDecayMultiplier;
+            // Apply weather effects to protected decay rate
+            const healthLoss = protectedDecay * deltaTime * healthDecayMultiplier;
             stats.health = Math.max(0, stats.health - healthLoss);
         }
 

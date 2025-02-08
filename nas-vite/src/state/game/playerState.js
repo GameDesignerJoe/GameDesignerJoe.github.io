@@ -1,6 +1,6 @@
 // src/state/game/playerState.js
 
-import { PLAYER_STATS } from '../../config/constants.js';
+import { PLAYER_STATS, UI } from '../../config/constants.js';
 
 export const PlayerState = {
     position: { q: 0, r: 0 },
@@ -74,6 +74,18 @@ export const PlayerState = {
     // Camping Methods
     startCamping() {
         if (this.isCamping) return false;
+        
+        // Check if player has Canvas Tent
+        const hasTent = Array.from(window.gameStore.packing.selectedItems.values())
+            .some(item => item.name === "Canvas Tent");
+        
+        if (!hasTent) {
+            window.gameStore.messages.showPlayerMessage(
+                "You need a Canvas Tent to make camp",
+                UI.MESSAGE_TYPES.STATUS
+            );
+            return false;
+        }
         
         this.isCamping = true;
         // Update game state camping

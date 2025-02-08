@@ -404,6 +404,12 @@ export const GridManager = {
 
     initializeCompassButton(controlsContainer) {
         if (document.querySelector('.compass-button')) return;
+        
+        // Only show compass button if player has a compass
+        const hasCompass = Array.from(gameStore.packing.selectedItems.values())
+            .some(item => item.name === "Compass");
+            
+        if (!hasCompass) return;
     
         const compassButton = document.createElement('button');
         compassButton.className = 'game-button compass-button';

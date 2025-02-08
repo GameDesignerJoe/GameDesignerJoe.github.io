@@ -3,6 +3,10 @@
 -----------------------
 
 PC / MOBILE
+- Get rid of that alert when you don't pack anything with something better.
+- See your inventory on the game screen. need a backpack icon.
+- debug command for disabling weather
+- debug command for disabling the background wave
 - debug command to walk across anything really fast
 - Add an event system
 - Get the other items in your inventory to effect things. 
