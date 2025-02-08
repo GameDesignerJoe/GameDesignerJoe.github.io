@@ -300,10 +300,12 @@ export const MovementManager = {
     },
 
     handleHexSelection(hex, q, r, terrainInfo) {
-        // Check camping only
-        if (gameStore.player.isCamping) {
+        // Check camping and resting
+        if (gameStore.player.isCamping || gameStore.player.isResting) {
             gameStore.messages.showPlayerMessage(
-                "You must break camp before moving.",
+                gameStore.player.isCamping ? 
+                    "You must break camp before moving." :
+                    "You must stop resting before moving.",
                 UI.MESSAGE_TYPES.STATUS
             );
             return;
@@ -345,8 +347,8 @@ export const MovementManager = {
             }
             gameStore.game.world.selectedHex = null;
         } else {
-            // Only check camping here, let compass stay active
-            if (gameStore.player.isCamping) {
+            // Only check camping/resting here, let compass stay active
+            if (gameStore.player.isCamping || gameStore.player.isResting) {
                 return;
             }
             

@@ -127,17 +127,27 @@ export const StatsService = {
                 return total;
             }, 0);
 
-        // Apply weather effects and camping reduction
+        // Apply weather effects and camping/resting reduction
         if (gameStore.weather.current.type === 'WHITEOUT') {
-            healthDecayMultiplier = gameStore.player.isCamping ? 
-                WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier * 0.3 : // Only 30% of normal weather penalty while camping
-                WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier;
+            if (gameStore.player.isCamping) {
+                healthDecayMultiplier = WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier * 0.3; // 70% reduction with tent
+            } else if (gameStore.player.isResting) {
+                healthDecayMultiplier = WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier * 0.65; // 35% reduction without tent
+            } else {
+                healthDecayMultiplier = WEATHER_CONFIG.WHITEOUT.healthDecayMultiplier;
+            }
         } else if (gameStore.weather.current.type === 'BLIZZARD') {
-            healthDecayMultiplier = gameStore.player.isCamping ?
-                WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier * 0.3 : // Only 30% of normal weather penalty while camping
-                WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier;
+            if (gameStore.player.isCamping) {
+                healthDecayMultiplier = WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier * 0.3; // 70% reduction with tent
+            } else if (gameStore.player.isResting) {
+                healthDecayMultiplier = WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier * 0.65; // 35% reduction without tent
+            } else {
+                healthDecayMultiplier = WEATHER_CONFIG.BLIZZARD.healthDecayMultiplier;
+            }
         } else if (gameStore.player.isCamping) {
-            healthDecayMultiplier = 0.3; // Reduced health decay while camping in normal weather
+            healthDecayMultiplier = 0.3; // 70% reduction while camping in normal weather
+        } else if (gameStore.player.isResting) {
+            healthDecayMultiplier = 0.65; // 35% reduction while resting in normal weather
         }
 
         // Apply clothing protection before weather effects

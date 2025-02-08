@@ -14,9 +14,9 @@ export class FoodSystem {
     }
 
     handleFoodIconClick() {
-        if (!this.gameStore.player.isCamping) {
+        if (!this.gameStore.player.isCamping && !this.gameStore.player.isResting) {
             this.messageSystem.showPlayerMessage(
-                "You must make camp before eating.",
+                "You must make camp or rest before eating.",
                 "WARNING"
             );
             return;
