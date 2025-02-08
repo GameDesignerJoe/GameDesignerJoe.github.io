@@ -24,10 +24,6 @@
     
     <!-- Game Container -->
     <div class="game-container game-element" style="display: none;">
-        <!-- Message Container -->
-        <div id="message-container">
-            <p id="game-message"></p>
-        </div>
         <!-- Restart Button -->
         <button id="restart-button" class="restart-button hidden">
             START A NEW EXPEDITION
@@ -58,6 +54,10 @@
         
         <!-- Game Grid -->
         <div class="grid-container">
+            <!-- Message Container -->
+            <div id="message-container">
+                <p id="game-message"></p>
+            </div>
             <svg id="gameGrid" width="100%" height="100%" viewBox="-150 -150 300 300">
                 <g id="hexGroup">
                     <!-- Hexes will be added here by JS -->
