@@ -28,10 +28,10 @@ export class FoodSystem {
         
         const modalContent = document.createElement('div');
         modalContent.className = 'food-modal-content';
-        modalContent.style.maxWidth = '300px'; // Smaller modal
+        // Allow modal to size according to CSS
         
         modalContent.innerHTML = `
-            <h2>Food Inventory</h2>
+            <h2>FOOD INVENTORY</h2>
             <div class="food-list">
                 ${this.renderFoodItems()}
             </div>
@@ -41,8 +41,7 @@ export class FoodSystem {
         const gridContainer = document.querySelector('.grid-container');
         if (gridContainer) {
             const rect = gridContainer.getBoundingClientRect();
-            modalContent.style.width = `${rect.width}px`;
-            modalContent.style.maxHeight = `${rect.height}px`;
+            // Let CSS handle the sizing
         }
         
         modal.appendChild(modalContent);
