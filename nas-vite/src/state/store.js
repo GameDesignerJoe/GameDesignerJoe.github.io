@@ -4,6 +4,7 @@ import { WeatherState } from './game/weatherState.js';
 import { PlayerState } from './game/playerState.js';
 import { CompassState } from './game/compassState.js';
 import { PackingState } from './game/packingState.js';
+import { foodState } from './game/foodState.js';
 
 // Ensure all states are properly initialized before use
 const initializeGameStore = () => {
@@ -15,6 +16,7 @@ const initializeGameStore = () => {
         player: PlayerState,
         compass: CompassState,
         packing: PackingState,
+        food: foodState,
         debug: {
             fogRevealActive: false,
             godModeActive: false,
@@ -26,6 +28,7 @@ const initializeGameStore = () => {
         messages: null,
         compassSystem: null,
         packingSystem: null,
+        foodSystem: null,
 
         // Getters
         get playerPosition() {
@@ -55,6 +58,9 @@ const initializeGameStore = () => {
         get selectedItems() {
             return Array.from(this.packing.selectedItems.values());
         },
+        get isCamping() {
+            return this.game.isCamping;
+        },
 
         // Debug utilities
         DEBUG: {
@@ -65,6 +71,7 @@ const initializeGameStore = () => {
                     player: { ...store.player },
                     compass: { ...store.compass },
                     packing: { ...store.packing },
+                    food: { ...store.food },
                     debug: { ...store.debug }
                 };
             },
@@ -83,3 +90,8 @@ const initializeGameStore = () => {
 };
 
 export const gameStore = initializeGameStore();
+
+// Make gameStore globally available
+if (typeof window !== 'undefined') {
+    window.gameStore = gameStore;
+}

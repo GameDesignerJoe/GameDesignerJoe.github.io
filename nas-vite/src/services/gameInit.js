@@ -4,6 +4,7 @@ import perfMonitor from '../core/performanceMonitor.js';
 import { WeatherSystem } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
 import { GridManager } from './gridManager.js';
+import { FoodSystem } from '../core/foodSystem.js';
 import { VisibilityManager } from './visibility.js';
 import { MovementManager } from './movement.js';
 import { StatsService } from './stats.js';
@@ -94,6 +95,10 @@ export const GameInit = {
         // Initialize performance monitoring for core systems
         VisibilityManager.init();
         GridManager.init();
+        // Make GridManager globally accessible
+        if (typeof window !== 'undefined') {
+            window.gridManager = GridManager;
+        }
         MovementManager.init();
 
         // Initialize weather system
@@ -107,6 +112,10 @@ export const GameInit = {
         // Initialize compass system
         this.compassSystem = new CompassSystem(gameStore, this.messageSystem);
         gameStore.compassSystem = this.compassSystem;
+
+        // Initialize food system
+        this.foodSystem = new FoodSystem(gameStore, this.messageSystem);
+        gameStore.foodSystem = this.foodSystem;
     
         // Initialize restart system and store it in gameStore
         this.restartSystem = new RestartSystem(

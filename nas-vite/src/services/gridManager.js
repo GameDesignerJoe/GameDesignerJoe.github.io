@@ -277,11 +277,13 @@ export const GridManager = {
         requestAnimationFrame(() => {
             this.initializeCampingButton(controlsContainer);
             this.initializeCompassButton(controlsContainer);
+            this.initializeFoodButton(controlsContainer);
             this.initializeSettingsButton(controlsContainer);
             
             // Update button states
             this.updateCampingButton();
             this.updateCompassButton();
+            this.updateFoodButton();
         });
     },
 
@@ -443,6 +445,52 @@ export const GridManager = {
             compassButton.classList.add('active');
         } else {
             compassButton.classList.remove('active');
+        }
+    },
+
+    initializeFoodButton(controlsContainer) {
+        if (document.querySelector('.food-button')) return;
+
+        const foodButton = document.createElement('button');
+        foodButton.className = 'game-button food-button';
+        foodButton.innerHTML = `<img src="./public/art/food.svg" alt="Food" class="food-icon">`;
+
+        // Add click handler
+        foodButton.addEventListener('click', () => {
+            if (!gameStore.player.isCamping) {
+                gameStore.messages.showPlayerMessage(
+                    "You must make camp before eating.",
+                    UI.MESSAGE_TYPES.WARNING
+                );
+                return;
+            }
+
+            if (gameStore.foodSystem) {
+                gameStore.foodSystem.handleFoodIconClick();
+            }
+        });
+
+        controlsContainer.appendChild(foodButton);
+    },
+
+    updateFoodButton() {
+        const foodButton = document.querySelector('.food-button');
+        if (!foodButton) return;
+
+        const foodIcon = foodButton.querySelector('.food-icon');
+        
+        // Update active state based on food system
+        if (gameStore.food.isEating) {
+            foodButton.classList.add('active');
+        } else {
+            foodButton.classList.remove('active');
+        }
+
+        // Show/hide based on camping state
+        if (gameStore.player.isCamping) {
+            foodButton.style.display = 'flex';
+        } else {
+            foodButton.style.display = 'none';
         }
     }
 };

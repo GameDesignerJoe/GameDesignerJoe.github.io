@@ -48,41 +48,23 @@ export class LoadingScreen {
         // Add to document
         document.body.appendChild(this.container);
 
-        // Trigger animations with slight delays
-        requestAnimationFrame(() => {
-            setTimeout(() => ad.classList.add('visible'), 500);
-            setTimeout(() => title.classList.add('visible'), 2500);
-            setTimeout(() => button.classList.add('visible'), 4500);
-        });
+        // Elements are now visible by default through CSS
     }
 
     handleStart() {
-        // Fade out loading screen
-        this.container.style.transition = 'opacity 1s ease-in-out';
-        this.container.style.opacity = '0';
-
-        setTimeout(() => {
-            // Remove loading screen
-            document.body.removeChild(this.container);
-            
-            // Initialize game systems first
-            if (this.onComplete) {
-                this.onComplete();
-            }
-            
-            // Show packing screen only after game systems are initialized
-            requestAnimationFrame(() => {
-                const packingScreen = document.getElementById('packing-screen');
-                if (packingScreen) {
-                    packingScreen.style.display = 'block';
-                    packingScreen.style.opacity = '0';
-                    requestAnimationFrame(() => {
-                        packingScreen.style.transition = 'opacity 0.5s ease-in-out';
-                        packingScreen.style.opacity = '1';
-                    });
-                }
-            });
-        }, 1000);
+        // Remove loading screen immediately
+        document.body.removeChild(this.container);
+        
+        // Initialize game systems
+        if (this.onComplete) {
+            this.onComplete();
+        }
+        
+        // Show packing screen
+        const packingScreen = document.getElementById('packing-screen');
+        if (packingScreen) {
+            packingScreen.style.display = 'block';
+        }
     }
 }
 

@@ -24,11 +24,7 @@ export const PlayerState = {
 
     // Camping configuration
     campingConfig: {
-        foodDrainInterval: 3000,    // 5 seconds
-        foodDrainAmount: 5,        // 10% per interval
-        healthRegainAmount: 20,     // 20% per food drain
         staminaRecoveryRate: 20,      // 5x normal stamina recovery
-        fullHealthFoodRate: 0.00,   // 1/4 of normal food consumption
         fullHealthStaminaMultiplier: 40  // 3x faster than normal camping stamina recovery
     },
 
@@ -80,24 +76,19 @@ export const PlayerState = {
         if (this.isCamping) return false;
         
         this.isCamping = true;
+        // Update game state camping
+        if (window.gameStore?.game) {
+            window.gameStore.game.isCamping = true;
+        }
+        // Update food button visibility
+        const gridManager = window.gridManager;
+        if (gridManager && typeof gridManager.updateFoodButton === 'function') {
+            gridManager.updateFoodButton();
+        }
+        
         this.campingInterval = setInterval(() => {
-            // Determine if health is full
-            const isHealthFull = this.stats.health >= PLAYER_STATS.MAX_VALUE;
-            
-            // Calculate food drain amount based on health status
-            const foodDrainAmount = isHealthFull ? 
-                this.campingConfig.foodDrainAmount * this.campingConfig.fullHealthFoodRate :
-                this.campingConfig.foodDrainAmount;
-            
-            // Drain food
-            this.consumeFood(foodDrainAmount);
-
-            // Only heal if not at full health and have food
-            if (!isHealthFull && this.stats.food > 0) {
-                this.heal(this.campingConfig.healthRegainAmount);
-            }
-
             // Calculate stamina recovery rate based on health status
+            const isHealthFull = this.stats.health >= PLAYER_STATS.MAX_VALUE;
             const baseStaminaGain = this.campingConfig.staminaRecoveryRate;
             const staminaGain = isHealthFull ? 
                 baseStaminaGain * this.campingConfig.fullHealthStaminaMultiplier :
@@ -108,8 +99,7 @@ export const PlayerState = {
                 PLAYER_STATS.MAX_VALUE,
                 this.stats.stamina + staminaGain
             );
-
-        }, this.campingConfig.foodDrainInterval);
+        }, 3000);
 
         return true;
     },
@@ -118,6 +108,16 @@ export const PlayerState = {
         if (!this.isCamping) return false;
         
         this.isCamping = false;
+        // Update game state camping
+        if (window.gameStore?.game) {
+            window.gameStore.game.isCamping = false;
+        }
+        // Update food button visibility
+        const gridManager = window.gridManager;
+        if (gridManager && typeof gridManager.updateFoodButton === 'function') {
+            gridManager.updateFoodButton();
+        }
+        
         if (this.campingInterval) {
             clearInterval(this.campingInterval);
             this.campingInterval = null;
