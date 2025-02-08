@@ -3,6 +3,10 @@ import { gameStore } from '../state/store.js';
 import { ITEMS_DATABASE } from '../config/itemsDatabase.js';
 
 export class PackingManager {
+    formatWeight(weight) {
+        return weight < 1 ? weight.toFixed(2) : Math.round(weight);
+    }
+
     constructor(containerElement) {
         this.container = containerElement;
         this.gameStore = gameStore;
@@ -144,7 +148,7 @@ export class PackingManager {
                 ${capacityNote}
             </div>
             <div class="item-details-weight">
-                Total Weight: ${(initialQuantity * item.weight).toFixed(2)} lbs
+                Total Weight: ${this.formatWeight(initialQuantity * item.weight)} lbs
             </div>
             <div class="item-details-buttons">
                 <button class="item-details-button cancel">Cancel</button>
@@ -158,7 +162,7 @@ export class PackingManager {
         // Update weight display when quantity changes
         quantityInput.addEventListener('input', () => {
             const quantity = parseInt(quantityInput.value) || 0;
-            const totalWeight = (quantity * item.weight).toFixed(2);
+            const totalWeight = this.formatWeight(quantity * item.weight);
             weightDisplay.textContent = `Total Weight: ${totalWeight} lbs`;
         });
         
@@ -271,7 +275,7 @@ export class PackingManager {
 
                 itemDiv.innerHTML = `
                     <span style="flex: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                    <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
+                    <span style="width: 60px; text-align: right;">${this.formatWeight(item.weight)} lbs</span>
                     <button style="
                         background: #007bff;
                         color: white;
@@ -338,10 +342,10 @@ export class PackingManager {
                 max-width: 100%;
             `;
 
-            const totalWeight = (count * item.weight).toFixed(2);
+            const totalWeight = this.formatWeight(count * item.weight);
             itemDiv.innerHTML = `
                 <span style="flex: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${item.name}</span>
-                <span style="width: 140px; text-align: right; white-space: nowrap;">(${count} × ${item.weight} lbs) ${totalWeight} lbs</span>
+                <span style="width: 140px; text-align: right; white-space: nowrap;">(${count}) ${totalWeight} lbs</span>
                 <button style="
                     background: rgb(255, 60, 0);
                     color: white;
@@ -385,7 +389,7 @@ export class PackingManager {
             this.wrapper.insertBefore(this.weightDisplay, bottomControls);
         }
         
-        this.weightDisplay.textContent = `Total Weight: ${weight}/${maxWeight} lbs`;
+        this.weightDisplay.textContent = `Total Weight: ${this.formatWeight(weight)}/${this.formatWeight(maxWeight)} lbs`;
         
         const weightPercentage = (weight / maxWeight) * 100;
         if (weightPercentage > 90) {
@@ -435,8 +439,8 @@ export class PackingManager {
     handleEmbark() {
         // Check if weight is over limit
         if (this.gameStore.packing.totalWeight > this.gameStore.packing.MAX_WEIGHT) {
-            alert(`You are carrying too much weight (${this.gameStore.packing.totalWeight.toFixed(1)} lbs). ` + 
-                  `Maximum allowed is ${this.gameStore.packing.MAX_WEIGHT} lbs. ` +
+            alert(`You are carrying too much weight (${this.formatWeight(this.gameStore.packing.totalWeight)} lbs). ` + 
+                  `Maximum allowed is ${this.formatWeight(this.gameStore.packing.MAX_WEIGHT)} lbs. ` +
                   `Add a Sledge to increase capacity by 300 lbs.`);
             return;
         }

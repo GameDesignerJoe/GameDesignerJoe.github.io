@@ -3,7 +3,6 @@
 -----------------------
 
 PC / MOBILE
-- Update the standard load to be more accurate now.
 - Get rid of that alert when you don't pack anything with something better.
 - See your inventory on the game screen. need a backpack icon.
 - debug command for disabling weather
@@ -24,8 +23,9 @@ PC / MOBILE
 - Fix whiteout bugs
 - Move text to be by the avatar
 - Rewrite text to be first person
+- Experiment with making the game screen more vertically longer.
 
 MOBILE ONLY
 - Figure out why it runs like shit on mobile.
 - Fix Expedition Supplies overlapping window bug, the one that shows up under the buttons at the bottom.
-- Fix the Expedition Supplies bug that makes the winow at the bottom a different size than the items window. 
+- Fix the Expedition Supplies bug that makes the winow at the bottom a different size than the items window.

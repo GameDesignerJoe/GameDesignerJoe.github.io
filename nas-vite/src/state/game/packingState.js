@@ -105,25 +105,41 @@ export const PackingState = {
         console.log('Loading standard loadout');
         this.reset();
         const standardLoadout = {
+            // Essential Equipment
             'Sledge': 1,
             'Canvas Tent': 1,
             'Primus Stove': 1,
-            'Ice Axe': 1,
-            'Pemmican': 10,
-            'Ship\'s Biscuits': 3,
-            'Dried Milk': 4,
-            'Chocolate Blocks': 8,
-            'Emergency Seal Meat': 1,
-            'Paraffin Fuel': 3,
+
+            // Food & Cooking
+            'Pemmican': 15,
+            'Ship\'s Biscuits': 6,
+            'Dried Milk': 8,
+            'Chocolate Blocks': 10,
+            'Emergency Seal Meat': 2,
+            'Paraffin Fuel': 5,
+
+            // Weather Protection
+            'Burberry Windproof Suit': 1,
+            'Woolen Underwear': 1,
+            'Finnesko Boots': 1,
+            'Snow Goggles': 1,
+            'Fur-Lined Mittens': 1,
+            'Balaclava Cap': 1,
+            'Sealskin Face Mask': 1,
+            'Thick Wool Socks': 1,
+            'Jersey Sweater': 1,
+            'Fur-Lined Hood': 1,
+
+            // Navigation & Tools
             'Sextant': 1,
             'Compass': 1,
             'Maps & Charts': 1,
-            'Burberry Windproof Suit': 1,
-            'Woolen Underwear': 2,
-            'Finnesko Boots': 1,
-            'Snow Goggles': 1,
+
+            // Medical & Emergency
             'Medical Kit': 1,
             'Emergency Rope': 1,
+
+            // Repair Kits
             'Basic Sewing Kit': 1,
             'Sledge Repair Kit': 1,
             'Tool Maintenance Kit': 1
