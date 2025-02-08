@@ -50,22 +50,6 @@ body {
   gap: 10px;
 }
 
-h1 {
-  font-family: 'Old Standard TT', serif;  
-  font-size: 32px;
-  margin-bottom: 0px;
-  text-align: center;
-  line-height: 1.2;
-}
-
-@media screen and (max-width: 768px) {
-  h1 {
-    font-size: 28px;
-    white-space: pre-line;
-    content: "NOT ALL\nSURVIVE";
-  }
-}
-
 /* GRID & HEXES */
 .grid-container {
   position: relative;
