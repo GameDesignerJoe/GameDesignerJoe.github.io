@@ -1,0 +1,273 @@
+==================================
+========= MILESTONE PLAN =========
+==================================
+
+__________________________________
+Milestone: Basic Hex Grid
+    Status: COMPLETED
+    Goal: Create a visible hex grid using Honeycomb.js.
+    Tasks:
+        Set up the game canvas and integrate Honeycomb.js.
+        Define the size and shape of the hex grid.
+        Display the hex grid on the canvas.
+
+__________________________________
+Milestone: Core Stats UI
+    Status: COMPLETED
+    Goal: Add health, stamina, and hunger as core stats with simple UI elements.
+    Tasks:
+        Design UI bars for health, stamina, and hunger.
+        Position the bars above the grid for clear visibility.
+        Add placeholders for future dynamic updates.
+
+__________________________________
+Milestone: Dynamic Stats Update
+    Status: COMPLETED
+    Goal: Implement functionality to dynamically update health, stamina, and hunger.
+    Tasks:
+        Create functions to update health, stamina, and hunger based on in-game events.
+        Link the stat bars to these functions for real-time updates.
+        Test stat decay over time and during player actions.
+
+__________________________________
+Milestone: Basic Player Movement
+    Status: COMPLETED
+    Goal: Add basic player movement between adjacent hexes.
+    Tasks:
+        Implement click detection for hex tiles.
+        Restrict movement to adjacent hexes.
+        Update player position visually on the grid.
+        Test movement mechanics for accuracy.
+
+__________________________________
+Milestone: Hex Description System
+    Status: COMPLETED
+    Goal: Add functionality to display descriptions for hex tiles when clicked.
+    Tasks:
+        Create a details panel to display hex information.
+        Populate hex tiles with descriptive data (e.g., terrain type, stamina cost).
+        Link clicked hexes to the details panel.
+        Test for accurate display of information.
+
+__________________________________
+Milestone: Environmental Weather Effects - Part 1
+    Status: COMPLETED
+    Goal: Add snowstorms that obscure tiles and increase health decay rates.
+    Tasks:
+        Implement visual effects for snowstorms (e.g., fog overlay, particle effects).
+        Add logic to hide revealed tiles during storms.
+        Increase health decay rates during storms.
+        Test storm mechanics for consistency and balance.
+
+__________________________________
+Milestone: Environmental Weather Effects - Part 2
+    Status: COMPLETED
+    Goal: Add a sweeping weather mechanic where tiles progressively turn white, clearing fog of war.
+    Tasks:
+        Develop a system to gradually change tile states to "snow-covered."
+        Reset fog of war as the weather sweeps across the grid.
+        Test sweeping effects for performance and visual impact.
+
+__________________________________
+Milestone: Player Movement Transition
+    Status: COMPLETED
+    Goal: Implement smooth transitions when moving between hexes.
+    Tasks:
+        Add animation for player movement (e.g., linear interpolation).
+        Ensure movement transitions align with grid logic.
+        Test for visual consistency and responsiveness.
+
+__________________________________
+Milestone: Debug Commands
+    Status: COMPLETED
+    Goal: Get easy debug commands to run on PC and Mobile for quick testing
+    Tasks:
+        Design how it would work UX/UI wise (special UI screen toggle (gear icon) likely)
+        Make a list of debug commands and get them created.
+        Test.
+
+__________________________________
+Milestone: Better File Management
+    Status: COMPLETED
+    Goal: Get the bulk of the code out of index.html and into better places so it’s easier to parse.
+    Tasks:
+        Start with .css information.
+        Consider other, easy to split off elements like weather, death, restart
+        Get Claude to help you.
+
+__________________________________
+Milestone: Hex & Character Size Exploration
+    Status: COMPLETED
+    Goal: Determine the size of the hexes and the player in relation to the camera.
+    Tasks:
+        Adjust sizes to see if you can capture that ‘remote’ experience
+        Make sure it works on mobile still. 
+
+__________________________________
+Milestone: Inventory Management
+    Status: COMPLETED
+    Goal: Add an inventory system where players manage and adjust their supplies.
+    Tasks:
+        Create an inventory UI for managing items.
+        Implement logic for adding, removing, and using items.
+        Test for usability and functionality.
+
+
+__________________________________
+MILESTONE: Use Inventory
+    Status: In progress
+    Goal: To allow players to use items in their inventory while they are camping to heal.
+    Task:
+        While camping, make a 'Eat' icon visible at the bottom of the game screen. 
+        When the food button is clicked, bring up a window over the top of the game screen that displays all the food items to players
+        Allow them to 'eat' the food by pressing a button
+        Bring up a progress bar to represent them 'eating' 
+        Restore a portion of health or stamina depending on the item they ate
+        Decrease the amount of food that they ate from their inventory
+
+
+__________________________________
+Milestone: Encumbrance Mechanics
+    Status: Not Started
+    Goal: Implement a weight system that impacts movement speed and stamina usage.
+    Tasks:
+        Add weight calculations for inventory items.
+        Link encumbrance to stamina and movement speed.
+        Test for balance and player decision-making.
+
+__________________________________
+Milestone: Packing Mini-Game
+    Status: Not Started
+    Goal: Introduce a mini-game for players to pack supplies before starting the journey.
+    Tasks:
+        Design an interactive packing interface.
+        Add logic for item weight and volume constraints.
+        Test for strategic depth and ease of use.
+
+__________________________________
+Milestone: Compass Implementation
+    Status: COMPLETED
+    Goal: Add a compass to assist with navigation.
+    Tasks:
+        Design and position the compass on the UI.
+        Link the compass to player orientation.
+        Test for accuracy and usability.
+
+__________________________________
+Milestone: Viewport Confinement
+    Status: COMPLETED
+    Goal: Add a viewport that dynamically follows the player while maintaining immersion.
+    Tasks:
+        Implement a scrolling viewport centered on the player.
+        Restrict viewport movement to within grid boundaries.
+        Test for smooth scrolling and performance.
+
+__________________________________
+Milestone: Grid Rotation for Storms
+    Status: Not Started
+    Goal: Rotate the grid dynamically during storms to simulate disorientation.
+    Tasks:
+        Add logic to apply rotation effects to the grid.
+        Ensure player movement remains accurate despite rotation.
+        Test for visual impact and gameplay challenges.
+
+__________________________________
+Milestone: Base Camp Visuals
+    Status: Not Started
+    Goal: Update the base camp with thematic visuals like circles and squares.
+    Tasks:
+        Design and integrate custom visuals for the base camp.
+        Differentiate base camp visually from other hexes.
+        Test for clarity and player recognition.
+
+__________________________________
+Milestone: Temperature System
+    Status: Not Started
+    Goal: Implement temperature and wind chill mechanics that dynamically affect health decay.
+    Tasks:
+        Add temperature as a dynamic variable.
+        Link temperature to health decay rates.
+        Display temperature effects visually (e.g., frost overlays).
+        Test for balance and realism.
+
+__________________________________
+Milestone: Map Randomization
+    Status: COMPLETED
+    Goal: Add randomized map layouts for increased replayability.
+    Tasks:
+        Develop a system to generate random grid layouts.
+        Ensure terrain types and features are distributed logically.
+        Test for variety and playability.
+
+__________________________________
+Milestone: Desperation Mechanics
+    Status: Not Started
+    Goal: Allow desperate actions like consuming sled dogs or leather for survival.
+    Tasks:
+        Add options for desperate actions in the inventory UI.
+        Implement logic for resource consumption and health effects.
+        Test for thematic consistency and gameplay impact.
+
+__________________________________
+Milestone: Camp Life - Part 1
+    Status: Not Started
+    Goal: Introduce activities like cooking and repairing gear during camping.
+    Tasks:
+        Add mechanics for cooking food and repairing items.
+        Link activities to resource consumption and recovery.
+        Test for player engagement and variety.
+
+__________________________________
+Milestone: Camp Life - Part 2
+    Status: Not Started
+    Goal: Add narrative events and journaling options triggered during camping.
+    Tasks:
+        Implement a journaling system for players to record events.
+        Add dynamic narrative events influenced by player actions.
+        Test for immersion and replayability.
+
+__________________________________
+Milestone: Replayability Enhancements
+    Status: Not Started
+    Goal: Add achievements, unlocks, and meta-progression systems.
+    Tasks:
+        Design and implement achievement tracking.
+        Add unlockable items or features based on player progress.
+        Test for long-term player engagement.
+
+__________________________________
+Milestone: Expedition Planning
+    Status: Not Started
+    Goal: Allow players to choose their landing spot and time of year for the expedition.
+    Tasks:
+        Create a pre-expedition planning UI.
+        Add logic for landing options and seasonal effects.
+        Test for strategic depth and replayability.
+
+__________________________________
+Milestone: Art Pass & Polish - Part 1
+    Status: Not Started
+    Goal: Add particle effects, such as snow and wind-driven particles.
+    Tasks:
+        Design and integrate particle effects for weather.
+        Test for performance and visual impact.
+
+__________________________________
+Milestone: Art Pass & Polish - Part 2
+    Status: Not Started
+    Goal: Refine UI elements and add a detailed end-game report.
+    Tasks:
+        Polish the UI for clarity and aesthetics.
+        Add a post-expedition report summarizing player performance.
+        Test for usability and satisfaction.
+
+__________________________________
+Milestone: Art Pass & Polish - Part 3
+    Status: Not Started
+    Goal: Add a loading screen, thematic transitions, and a settings menu.
+    Tasks:
+        Design and implement a loading screen with transition effects.
+        Add a settings menu with options for restarting or exiting.
+        Test for smooth integration and user experience.
+
+
