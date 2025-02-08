@@ -3,6 +3,12 @@
 -----------------------
 
 PC / MOBILE
+- debug command to walk across anything really fast
+- Add an event system
+- Get the other items in your inventory to effect things. 
+- Make sure there's a clear path to the south pole. 
+- Get Compass to draw over the text.
+- Fix clear weather not working for blizzard.
 - Get restart working again. 
 - Fix formatting on packed items to just show the count and total weight.
 - Get a cheat code window that lets you toggle the codes on and off with a button press.

@@ -12,6 +12,7 @@ import { DebugManager } from "../components/game/utils/debug.js";
 import { RestartSystem } from '../core/restart.js';
 import { CompassSystem } from '../core/compass.js';
 import { PackingManager } from './packingManager.js';
+import { debugPanel } from '../core/debugPanel.js';
 
 export const GameInit = {
     debugManager: null,

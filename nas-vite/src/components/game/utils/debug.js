@@ -1,5 +1,7 @@
 // src/utils/debug.js
 
+import { debugPanel } from '../../../core/debugPanel.js';
+
 export class DebugManager {
     constructor(gameStore, WeatherSystem) {
         this.store = gameStore;
@@ -16,6 +18,10 @@ export class DebugManager {
         // Bind the event listener
         this.handleDebugCommand = this.handleDebugCommand.bind(this);
         document.addEventListener('keydown', this.handleDebugCommand);
+
+        // Connect to debug panel
+        debugPanel.setDebugManager(this);
+        debugPanel.setWeatherSystem(WeatherSystem);
     }
 
     showDebugMessage(message) {
