@@ -86,8 +86,8 @@ export class FoodSystem {
                 </div>
                 <div class="food-tooltip">${item.tooltip || ''}</div>
                 <button class="eat-button" onclick="window.eatFood('${name}')" 
-                    ${this.isEating || this.gameStore.player.stats.health >= PLAYER_STATS.MAX_VALUE ? 'disabled' : ''}>
-                    ${item.special?.includes('requires stove') ? 'Cook & Eat' : 'Eat'}
+                    ${this.getButtonDisabledState(item)}>
+                    ${this.getButtonText(item)}
                 </button>
             </div>
         `).join('');
@@ -121,14 +121,28 @@ export class FoodSystem {
             return;
         }
 
-        // Check if item needs cooking and has fuel
+        // Check if item needs cooking and has stove/fuel
         if (foodItem.special?.includes('requires stove')) {
+            const hasStove = Array.from(this.gameStore.packing.selectedItems.values())
+                .some(item => item.name === 'Primus Stove');
             const hasFuel = Array.from(this.gameStore.packing.selectedItems.values())
                 .some(item => item.name === 'Paraffin Fuel');
             
-            if (!hasFuel) {
+            if (!hasStove && !hasFuel) {
                 this.messageSystem.showPlayerMessage(
-                    "No fuel available to cook this food.",
+                    "You need both a stove and fuel to cook this food.",
+                    "WARNING"
+                );
+                return;
+            } else if (!hasStove) {
+                this.messageSystem.showPlayerMessage(
+                    "You need a stove to cook this food.",
+                    "WARNING"
+                );
+                return;
+            } else if (!hasFuel) {
+                this.messageSystem.showPlayerMessage(
+                    "You need fuel to cook this food.",
                     "WARNING"
                 );
                 return;
@@ -159,6 +173,49 @@ export class FoodSystem {
                 foodList.innerHTML = this.renderFoodItems();
             }
         }
+    }
+    getButtonDisabledState(item) {
+        if (this.isEating || this.gameStore.player.stats.health >= PLAYER_STATS.MAX_VALUE) {
+            return 'disabled';
+        }
+
+        if (item.special?.includes('requires stove')) {
+            const hasStove = Array.from(this.gameStore.packing.selectedItems.values())
+                .some(item => item.name === 'Primus Stove');
+            const hasFuel = Array.from(this.gameStore.packing.selectedItems.values())
+                .some(item => item.name === 'Paraffin Fuel');
+            
+            if (!hasStove || !hasFuel) {
+                return 'disabled';
+            }
+        }
+
+        return '';
+    }
+
+    getButtonText(item) {
+        if (this.gameStore.player.stats.health >= PLAYER_STATS.MAX_VALUE) {
+            return 'Full Health';
+        }
+
+        if (item.special?.includes('requires stove')) {
+            const hasStove = Array.from(this.gameStore.packing.selectedItems.values())
+                .some(item => item.name === 'Primus Stove');
+            const hasFuel = Array.from(this.gameStore.packing.selectedItems.values())
+                .some(item => item.name === 'Paraffin Fuel');
+            
+            if (!hasStove && !hasFuel) {
+                return 'No Stove or Fuel';
+            } else if (!hasFuel) {
+                return 'No Fuel';
+            } else if (!hasStove) {
+                return 'No Stove';
+            }
+            
+            return 'Cook & Eat';
+        }
+
+        return 'Eat';
     }
 }
 

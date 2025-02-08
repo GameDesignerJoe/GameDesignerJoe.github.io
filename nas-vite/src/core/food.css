@@ -36,7 +36,7 @@
     padding: 15px;
     overflow-y: auto;
     position: relative;
-    width: 4000px;
+    width: 495px; /* Increased from 413px by 20% */
     margin: 0 auto;
     max-height: 80vh;
     color: #f0f0f0;
