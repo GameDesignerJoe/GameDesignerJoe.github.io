@@ -3,6 +3,7 @@
 .food-icon {
     cursor: pointer;
     transition: transform 0.2s ease;
+    filter: brightness(0) invert(1);
 }
 
 .food-icon:hover {
@@ -19,23 +20,37 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(1, 58, 99, 0.95);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    padding-top: 80px;
     z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
 }
 
 .food-modal-content {
-    background: #1a1a1a;
-    border: 2px solid #333;
+    background: radial-gradient(circle, #013A63, #01497C, #0178B0);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 8px;
-    padding: 20px;
-    width: 90%;
-    max-width: 600px;
-    max-height: 80vh;
-    overflow-y: auto;
+    padding: 15px;
+    width: calc(100% - 650px);
+    margin-left: 150px;
+    max-width: none;
+    height: auto;
     color: #f0f0f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 .food-modal-content h2 {
@@ -49,72 +64,117 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    padding-right: 5px;
 }
 
 .food-item {
-    background: #2a2a2a;
-    border: 1px solid #444;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     padding: 15px;
+    transition: all 0.2s ease;
+}
+
+.food-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .food-item-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .food-name {
     font-size: 18px;
     font-weight: bold;
-    color: #007bff;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .food-quantity {
-    color: #888;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 14px;
 }
 
 .food-description {
-    margin-bottom: 8px;
-    color: #ddd;
+    margin-bottom: 12px;
+    color: rgba(255, 255, 255, 0.9);
     font-style: italic;
+    line-height: 1.4;
+}
+
+.food-details {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .food-effects {
-    color: #00ff00;
+    color: #64DFFF;
     margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.food-duration {
+    color: #90EE90;
+    margin-bottom: 8px;
+    font-size: 14px;
 }
 
 .food-special {
-    color: #ff9900;
+    color: #FFB347;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.food-tooltip {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.4;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
     margin-bottom: 12px;
 }
 
 .eat-button {
-    background: #007bff;
+    background: linear-gradient(to bottom right, #64DFFF, #0178B0);
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-radius: 4px;
     cursor: pointer;
     font-family: inherit;
-    transition: background-color 0.2s;
+    font-size: 16px;
+    transition: all 0.2s ease;
     width: 100%;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.eat-button:hover {
-    background: #0056b3;
+.eat-button:hover:not(:disabled) {
+    background: linear-gradient(to bottom right, #7AE7FF, #0189C7);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .eat-button:disabled {
-    background: #444;
+    background: rgba(255, 255, 255, 0.1);
     cursor: not-allowed;
-}
-
-.eat-button[disabled] {
-    background: #444;
-    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .no-food {

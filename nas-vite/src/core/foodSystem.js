@@ -36,6 +36,14 @@ export class FoodSystem {
                 ${this.renderFoodItems()}
             </div>
         `;
+
+        // Position the modal content to match grid container dimensions
+        const gridContainer = document.querySelector('.grid-container');
+        if (gridContainer) {
+            const rect = gridContainer.getBoundingClientRect();
+            modalContent.style.width = `${rect.width}px`;
+            modalContent.style.maxHeight = `${rect.height}px`;
+        }
         
         modal.appendChild(modalContent);
         document.body.appendChild(modal);
@@ -72,7 +80,12 @@ export class FoodSystem {
                     <span class="food-name">${name}</span>
                     <span class="food-quantity">x${count}</span>
                 </div>
-                <div class="food-description">${item.description || ''}</div>
+                <div class="food-details">
+                    ${item.effects ? `<div class="food-effects">✧ ${item.effects}</div>` : ''}
+                    ${item.duration ? `<div class="food-duration">⌛ ${item.duration}</div>` : ''}
+                    ${item.special ? `<div class="food-special">★ ${item.special}</div>` : ''}
+                </div>
+                <div class="food-tooltip">${item.tooltip || ''}</div>
                 <button class="eat-button" onclick="window.eatFood('${name}')" 
                     ${this.isEating || this.gameStore.player.stats.health >= PLAYER_STATS.MAX_VALUE ? 'disabled' : ''}>
                     ${item.special?.includes('requires stove') ? 'Cook & Eat' : 'Eat'}
