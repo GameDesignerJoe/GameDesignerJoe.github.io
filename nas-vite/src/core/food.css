@@ -1,0 +1,229 @@
+/* src/core/food.css */
+
+.food-icon {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    filter: brightness(0) invert(1);
+}
+
+.food-icon:hover {
+    transform: translate(40px, -130px) scale(0.8) !important;
+}
+
+.food-icon.hidden {
+    display: none;
+}
+
+.food-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(1, 58, 99, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 0px;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.food-modal-content {
+    background: radial-gradient(circle, #013A63, #01497C, #0178B0);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 15px;
+    overflow-y: auto;
+    position: relative;
+    width: 495px; /* Increased from 413px by 20% */
+    margin: 0 auto;
+    max-height: 80vh;
+    color: #f0f0f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.food-modal-content h2 {
+    margin: 0 0 20px 0;
+    color: #007bff;
+    text-align: center;
+    font-size: 24px;
+}
+
+.food-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding-right: 5px;
+}
+
+.food-item {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 15px;
+    transition: all 0.2s ease;
+}
+
+.food-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.food-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.food-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.food-quantity {
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 14px;
+}
+
+.food-description {
+    margin-bottom: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.food-details {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.food-effects {
+    color: #64DFFF;
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.food-duration {
+    color: #90EE90;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.food-special {
+    color: #FFB347;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.food-tooltip {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.4;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.eat-button {
+    background: linear-gradient(to bottom right, #64DFFF, #0178B0);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    width: 100%;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.eat-button:hover:not(:disabled) {
+    background: linear-gradient(to bottom right, #7AE7FF, #0189C7);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.eat-button:disabled {
+    background: rgba(255, 255, 255, 0.1);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.no-food {
+    text-align: center;
+    color: #888;
+    padding: 20px;
+}
+
+.eating-progress-container {
+    margin-top: 20px;
+    padding: 15px;
+    background: #2a2a2a;
+    border-radius: 4px;
+}
+
+.progress-label {
+    margin-bottom: 10px;
+    color: #007bff;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #007bff;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.cancel-button {
+    margin-top: 10px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background-color 0.2s;
+    width: 100%;
+}
+
+.cancel-button:hover {
+    background: #c82333;
+}

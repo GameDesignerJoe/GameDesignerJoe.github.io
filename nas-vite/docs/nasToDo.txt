@@ -1,0 +1,20 @@
+-----------------------
+======== TO DO ========
+-----------------------
+
+PC / MOBILE
+- Get restart working again. 
+- Fix formatting on packed items to just show the count and total weight.
+- Get a cheat code window that lets you toggle the codes on and off with a button press.
+- Get Morale in instead of Food
+- Get Durability in
+- Get Repair as a camping feature
+- Get Journaling as a camping freature
+- Fix whiteout bugs
+- Move text to be by the avatar
+- Rewrite text to be first person
+
+MOBILE ONLY
+- Figure out why it runs like shit on mobile.
+- Fix Expedition Supplies overlapping window bug, the one that shows up under the buttons at the bottom.
+- Fix the Expedition Supplies bug that makes the winow at the bottom a different size than the items window. 

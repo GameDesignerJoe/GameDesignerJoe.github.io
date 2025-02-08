@@ -9,6 +9,7 @@ export const GameState = {
     difficultyLevel: 1,
     timeElapsed: 0,
     lastUpdate: Date.now(),
+    isCamping: false,
 
     // World state
     world: {
@@ -28,6 +29,7 @@ export const GameState = {
         this.won = false;
         this.running = true;
         this.timeElapsed = 0;
+        this.isCamping = false;
         this.world.southPoleSpotted = false;
         this.world.southPoleVisited = false;
         this.world.visitedHexes.clear();

@@ -28,7 +28,7 @@ export const ITEMS_DATABASE = {
         weight: 0.5,
         durabilityPoints: 30,
         effects: "Restores 10% hunger, Minor stamina boost, +10% health recovery when resting if consumed with other food",
-        special: "Requires stove to prepare",
+        special: "requires stove",
         tooltip: "Mixed with snow, provided essential calcium and made hot drinks more filling"
     },
     "Chocolate Blocks": {
@@ -46,7 +46,7 @@ export const ITEMS_DATABASE = {
         weight: 5,
         durabilityPoints: 60,
         effects: "Restores 75% hunger, +10% health boost",
-        special: "Must be cooked (requires stove)",
+        special: "requires stove",
         duration: "Spoils after 5 days if not kept frozen",
         tooltip: "Frozen and preserved. Rich in calories and vitamin C, crucial for preventing scurvy"
     },
