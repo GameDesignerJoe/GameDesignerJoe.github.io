@@ -135,6 +135,20 @@ Milestone: Encumbrance Mechanics
         Link encumbrance to stamina and movement speed.
         Test for balance and player decision-making.
 
+
+__________________________________
+MILESTONE: Days Counter
+    Status: NOT Started
+    GOAL: Add a days counter to the screen somewhere so you know how long you survived before you starved to death. 
+    
+__________________________________
+MILESTONE: Add Morale or Resilience
+    Status: NOT Started
+    GOAL: To swap out the food meter for a morale meter that goes down when things aren't going well.
+    Tasks:
+        Swap out the icon and calls for food meter to be Morale
+        Come up with a rule set for when Morale would come into play and get reduced. 
+        Develop low morale effects
 __________________________________
 Milestone: Packing Mini-Game
     Status: Not Started
