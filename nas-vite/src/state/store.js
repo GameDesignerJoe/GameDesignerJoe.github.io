@@ -29,6 +29,7 @@ const initializeGameStore = () => {
         compassSystem: null,
         packingSystem: null,
         foodSystem: null,
+        inventorySystem: null,
 
         // Getters
         get playerPosition() {

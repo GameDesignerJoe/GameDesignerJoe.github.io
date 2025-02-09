@@ -3,6 +3,7 @@ import { gameStore } from '../state/store.js';
 import { WeatherSystem } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
 import { VisibilityManager } from './visibility.js';
+import { InventorySystem } from '../core/inventorySystem.js';
 import { TERRAIN_TYPES, SPECIAL_LOCATIONS, assignRandomTerrain } from '../config/terrain.js';
 import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
@@ -294,6 +295,7 @@ export const GridManager = {
 
         // Initialize all buttons in a single frame
         requestAnimationFrame(() => {
+            this.initializeInventoryButton(controlsContainer);
             this.initializeCampingButton(controlsContainer);
             this.initializeCompassButton(controlsContainer);
             this.initializeFoodButton(controlsContainer);
@@ -506,6 +508,24 @@ export const GridManager = {
         } else {
             compassButton.classList.remove('active');
         }
+    },
+
+    initializeInventoryButton(controlsContainer) {
+        if (document.querySelector('.inventory-button')) return;
+
+        const inventoryButton = document.createElement('button');
+        inventoryButton.className = 'game-button inventory-button';
+        inventoryButton.innerHTML = `<img src="./public/art/backpack-icon.svg" alt="Inventory" class="inventory-icon">`;
+
+        // Add click handler
+        inventoryButton.addEventListener('click', () => {
+            if (!gameStore.inventorySystem) {
+                gameStore.inventorySystem = new InventorySystem(gameStore);
+            }
+            gameStore.inventorySystem.handleInventoryIconClick();
+        });
+
+        controlsContainer.appendChild(inventoryButton);
     },
 
     initializeFoodButton(controlsContainer) {
