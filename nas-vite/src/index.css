@@ -683,6 +683,7 @@ polygon[data-terrain] {
 
 .compass {
   transition: opacity 0.3s ease-in-out;
+  z-index: 1001;
 }
 
 .compass.hidden {

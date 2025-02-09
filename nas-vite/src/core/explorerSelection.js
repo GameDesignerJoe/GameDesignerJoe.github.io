@@ -27,9 +27,10 @@ export class ExplorerSelection {
         this.container.style.display = 'flex';
         this.container.style.flexDirection = 'column';
         this.container.style.alignItems = 'center';
-        this.container.style.padding = '20px';
+        this.container.style.padding = 'calc(env(safe-area-inset-top, 40px) + 20px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 20px)';
         this.container.style.boxSizing = 'border-box';
-        this.container.style.overflowY = 'hidden';
+        this.container.style.overflowY = 'auto';
+        this.container.style.webkitOverflowScrolling = 'touch';
 
         // Create inner container with max width
         const innerContainer = document.createElement('div');
