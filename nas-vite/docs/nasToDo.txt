@@ -22,6 +22,7 @@ PC / MOBILE
 - Rewrite text to be first person
 - Experiment with making the game screen more vertically longer.
 - Look at adding in a character selection screen into the start after the loading screen and before the Expedition Supplies page.
+- Add validation to prevent advancing from explorer selection screen without selecting an explorer.
 
 MOBILE ONLY
 - Figure out why it runs like shit on mobile.

@@ -65,6 +65,10 @@ class DebugPanel {
                             Reduce Health
                             <span class="shortcut">Ctrl+Alt+H</span>
                         </button>
+                        <button class="debug-button" data-action="reload">
+                            Reload Page
+                            <span class="shortcut">-</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -256,6 +260,9 @@ class DebugPanel {
                 } else {
                     this.debugManager.showDebugMessage('HEALTH REDUCTION BLOCKED BY GOD MODE');
                 }
+                break;
+            case 'reload':
+                window.location.reload();
                 break;
         }
     }
