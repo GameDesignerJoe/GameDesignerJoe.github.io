@@ -142,6 +142,33 @@ class PerformanceMonitor {
                 background: rgba(255, 255, 255, 0.05);
                 border-radius: 2px;
             }
+            .stat-name {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .file-path {
+                font-size: 0.8em;
+                opacity: 0.7;
+            }
+            .stat-value {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                text-align: right;
+            }
+            .stat-timing {
+                font-size: 0.9em;
+                opacity: 0.9;
+            }
+            .stat-calls {
+                font-size: 0.85em;
+                opacity: 0.8;
+            }
+            .stat-max {
+                font-size: 0.8em;
+                opacity: 0.7;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -310,12 +337,15 @@ class PerformanceMonitor {
             functionStats.innerHTML = activeMethods.length > 0 ? 
                 activeMethods.map(([name, stats]) => `
                 <div class="stat-row ${stats.avgTime > 16 ? 'error' : stats.avgTime > 8 ? 'warning' : ''}">
-                    <span class="stat-name">${name} (${stats.file}):</span>
-                    <span class="stat-value">
-                        ${stats.avgTime.toFixed(2)}ms avg
-                        (${stats.recentCalls?.length || 0} recent / ${stats.calls} total calls, 
-                        max ${stats.maxTime.toFixed(2)}ms)
-                    </span>
+                    <div class="stat-name">
+                        <div>${name}</div>
+                        <div class="file-path">${stats.file}</div>
+                    </div>
+                    <div class="stat-value">
+                        <div class="stat-timing">${stats.avgTime.toFixed(2)}ms avg</div>
+                        <div class="stat-calls">${stats.recentCalls?.length || 0} recent / ${stats.calls} total calls</div>
+                        <div class="stat-max">max ${stats.maxTime.toFixed(2)}ms</div>
+                    </div>
                 </div>
             `).join('') :
                 '<div class="stat-row"><span class="stat-name">No active methods in the last 10 seconds</span></div>';

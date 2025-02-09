@@ -3,8 +3,8 @@
 -----------------------
 
 PC / MOBILE
-- Fix debug that makes the functions get clipped.
-- Make it more leathal when you go out without gear.
+- Fix Expedition Supplies overlapping window bug, the one that shows up under the buttons at the bottom.
+- Fix the Expedition Supplies bug that makes the winow at the bottom a different size than the items window.
 - debug command for disabling the background wave
 - debug command to walk across anything really fast
 - Add an random event system
@@ -22,5 +22,3 @@ PC / MOBILE
 
 MOBILE ONLY
 - Figure out why it runs like shit on mobile.
-- Fix Expedition Supplies overlapping window bug, the one that shows up under the buttons at the bottom.
-- Fix the Expedition Supplies bug that makes the winow at the bottom a different size than the items window.
