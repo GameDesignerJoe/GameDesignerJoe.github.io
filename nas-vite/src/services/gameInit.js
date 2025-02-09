@@ -86,6 +86,15 @@ export const GameInit = {
         // Initialize game systems
         this.initializeGameSystems();
         
+        // Show game container
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.style.display = 'flex';
+        }
+        
+        // Initialize grid and visibility
+        GridManager.initializeGrid();
+        
         // Start the game
         if (gameStore?.game) {
             gameStore.game.running = true;
@@ -135,8 +144,7 @@ export const GameInit = {
         };
         StatsService.updateStatsDisplay();
         
-        // Set up the game grid and UI
-        GridManager.initializeGrid();
+        // Set up game UI
         GridManager.initializeGameControls();
         
         // Force an initial stats display update

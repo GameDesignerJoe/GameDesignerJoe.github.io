@@ -8,7 +8,13 @@ export class LoadingScreen {
     }
 
     init() {
-        // First, hide everything
+        // Remove any existing loading screen
+        const existingScreen = document.querySelector('.loading-screen');
+        if (existingScreen) {
+            existingScreen.remove();
+        }
+
+        // Hide all game elements
         document.querySelectorAll('.game-element').forEach(el => {
             el.style.display = 'none';
         });
@@ -21,6 +27,7 @@ export class LoadingScreen {
         // Create loading screen container
         this.container = document.createElement('div');
         this.container.className = 'loading-screen';
+        this.container.style.display = 'flex';
 
         // Create title
         const title = document.createElement('div');

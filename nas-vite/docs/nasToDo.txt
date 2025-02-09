@@ -3,6 +3,8 @@
 -----------------------
 
 PC / MOBILE
+- Make it so there are less mountains. 
+- Make it more leathal when you go out without gear.
 - See your inventory on the game screen. need a backpack icon.
 - debug command for disabling the background wave
 - debug command to walk across anything really fast

@@ -19,6 +19,41 @@ export class PackingManager {
         this.updateAvailableItemsPanel();
     }
 
+    reset() {
+        // Clear all selected items
+        if (this.gameStore?.packing) {
+            this.gameStore.packing.selectedItems.clear();
+            this.gameStore.packing.totalWeight = 0;
+            this.gameStore.packing.MAX_WEIGHT = this.gameStore.packing.BASE_WEIGHT;
+        }
+
+        // Reset UI
+        this.updateUI();
+
+        // Show the packing screen
+        if (this.container) {
+            this.container.style.display = 'block';
+            document.body.classList.add('packing-active');
+            
+            // Reset scroll position
+            const scrollablePanels = this.container.querySelectorAll('.scrollable-panel');
+            scrollablePanels.forEach(panel => {
+                panel.scrollTop = 0;
+            });
+            
+            // Reset to available items tab
+            const availableTab = this.container.querySelector('[data-panel="available"]');
+            if (availableTab) {
+                availableTab.click();
+            }
+        }
+
+        // Hide game elements
+        document.querySelectorAll('.game-element').forEach(el => {
+            el.style.display = 'none';
+        });
+    }
+
     initializeUI() {
         this.createTitle();
         
@@ -517,12 +552,13 @@ export class PackingManager {
         const gameItems = this.gameStore.packing.getGameItems();
         document.body.classList.remove('packing-active');
         this.container.style.display = "none";
-        this.container.remove();
         
+        // Show game elements
         document.querySelectorAll('.game-element').forEach(el => {
             el.style.display = 'block';
         });
         
+        // Call onEmbarked with game items
         if (this.onEmbarked) {
             this.onEmbarked(gameItems);
         }

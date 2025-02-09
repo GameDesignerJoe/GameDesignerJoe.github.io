@@ -455,7 +455,7 @@ export const VisibilityManager = {
         }
         
         // Get visible hexes with optimized radius calculation
-        const visibleHexes = this.getAdjacentHexes(position, 2);
+        const visibleHexes = this.getHexesInRadius(position, 3);
         const fogHexes = new Set([`${position.q},${position.r}`]);
         
         // Batch add visible hexes
@@ -534,7 +534,7 @@ export const VisibilityManager = {
         gameStore.game.world.visibleHexes.add(positionKey);
         
         // Add hexes within visibility radius using cached results
-        const visibleHexes = this.getAdjacentHexes(currentPosition, 2);
+        const visibleHexes = this.getHexesInRadius(currentPosition, 3);
         
         // Batch update visible hexes
         const hexesToAdd = visibleHexes.map(hex => `${hex.q},${hex.r}`);

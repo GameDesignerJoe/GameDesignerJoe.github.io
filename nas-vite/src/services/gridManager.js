@@ -31,15 +31,19 @@ export const GridManager = {
     },
 
     initializeGrid() {
-        // console.log("Starting grid initialization");
+        // Remove any existing grid elements
+        const hexGroup = document.getElementById('hexGroup');
+        if (hexGroup) {
+            while (hexGroup.firstChild) {
+                hexGroup.removeChild(hexGroup.firstChild);
+            }
+        }
         
         // Initialize grid state
         const gridState = initializeGridState();
-        // console.log("Grid state initialized:", gridState);
         
         // Update player position first
         gameStore.player.position = { ...gridState.baseCamp };
-        // console.log("Player position set:", gameStore.player.position);
         
         // Then update game world
         Object.assign(gameStore.game.world, gridState);
@@ -52,18 +56,33 @@ export const GridManager = {
             `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
-        // console.log("Visited hexes:", gameStore.game.world.visitedHexes);
-        
         // Make adjacent hexes visible
         const adjacentHexes = VisibilityManager.getAdjacentHexes(gameStore.playerPosition);
         adjacentHexes.forEach(hex => {
             gameStore.game.world.visibleHexes.add(`${hex.q},${hex.r}`);
         });
-        
-        // console.log("Visible hexes:", gameStore.game.world.visibleHexes);
 
+        // Initialize visibility
+        VisibilityManager.clearCaches();
+        VisibilityManager.init();
+        
+        // Update visible hexes
+        VisibilityManager.updateVisibleHexes();
+        
+        // Force a full visibility update
         VisibilityManager.updateVisibility(false);
+        
+        // Update fog elements
+        VisibilityManager.updateFogElements(false);
+        
+        // Process any pending updates immediately
+        VisibilityManager.processPendingUpdates();
+        
+        // Update location info
         gameStore.messages.updateCurrentLocationInfo();
+        
+        // Center viewport on player
+        this.centerViewport();
     },
 
     getTerrainType(q, r) {

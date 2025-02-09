@@ -213,15 +213,23 @@ export const StatsService = {
             cause = 'BLIZZARD';
         }
 
-        // Use RestartSystem to handle death
-        if (this.restartSystem) {
-            this.restartSystem.handlePlayerDeath(cause);
-        }
-        
-        // Update player appearance
+        // Update player appearance first
         const player = document.getElementById('player');
         if (player) {
             player.setAttribute("fill", "#000066"); // Dead color
+        }
+
+        // Ensure game is paused
+        gameStore.game.pauseGame();
+
+        // Use RestartSystem to handle death with a slight delay
+        if (this.restartSystem) {
+            // Small delay to ensure UI updates are complete
+            setTimeout(() => {
+                this.restartSystem.handlePlayerDeath(cause);
+            }, 100);
+        } else {
+            console.error('RestartSystem not initialized');
         }
     },
 
