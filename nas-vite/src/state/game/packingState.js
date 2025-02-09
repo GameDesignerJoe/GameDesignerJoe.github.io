@@ -109,6 +109,7 @@ export const PackingState = {
             'Sledge': 1,
             'Canvas Tent': 1,
             'Primus Stove': 1,
+            'Climbing Equipment': 1,
 
             // Food & Cooking
             'Pemmican': 15,

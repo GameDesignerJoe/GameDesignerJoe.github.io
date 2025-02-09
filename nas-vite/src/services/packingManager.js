@@ -364,8 +364,8 @@ export class PackingManager {
                     .filter(i => i.name === item.name).length;
 
                 itemDiv.innerHTML = `
-                    <span style="flex: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                    <span style="width: 60px; text-align: right;">${this.formatWeight(item.weight)} lbs</span>
+                    <span style="flex: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 19px;">${item.name}</span>
+                    <span style="width: 60px; text-align: right; margin-right: 10px;">${this.formatWeight(item.weight)} lbs</span>
                     <button style="
                         background: #007bff;
                         color: white;
@@ -408,63 +408,83 @@ export class PackingManager {
         spacerDiv.style.height = '0px';
         container.appendChild(spacerDiv);
     
-        // Group items by name and count quantities
-        const itemGroups = new Map();
+        // First group items by category, then by name
+        const categorizedItems = new Map();
         Array.from(this.gameStore.packing.selectedItems.values()).forEach(item => {
-            if (!itemGroups.has(item.name)) {
-                itemGroups.set(item.name, {
+            if (!categorizedItems.has(item.category)) {
+                categorizedItems.set(item.category, new Map());
+            }
+            const categoryGroup = categorizedItems.get(item.category);
+            if (!categoryGroup.has(item.name)) {
+                categoryGroup.set(item.name, {
                     item: item,
                     count: 1
                 });
             } else {
-                itemGroups.get(item.name).count++;
+                categoryGroup.get(item.name).count++;
             }
         });
-    
-        itemGroups.forEach(({item, count}) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.style.cssText = `
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 5px 0px;
-                margin: 2px 0;
-                max-width: 100%;
+
+        // Render each category
+        categorizedItems.forEach((categoryItems, category) => {
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = `
+                background: #007bff;
+                padding: 3px 8px;
+                margin-bottom: 3px;
+                font-size: 20px;
+                font-weight: bold;
+                max-width: 950px;
             `;
+            headerDiv.textContent = category;
+            container.appendChild(headerDiv);
 
-            const totalWeight = this.formatWeight(count * item.weight);
-            itemDiv.innerHTML = `
-                <span style="flex: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${item.name}</span>
-                <span style="width: 140px; text-align: right; white-space: nowrap;">(${count}) ${totalWeight} lbs</span>
-                <button style="
-                    background: rgb(255, 60, 0);
-                    color: white;
-                    border: none;
-                    padding: 2px 6px;
-                    min-width: 50px;
-                    cursor: pointer;
-                    font-family: inherit;
-                    font-style: italic;
-                    transition: background-color 0.15s ease, color 0.15s ease;
-                ">Change</button>
-            `;
+            // Render items in this category
+            categoryItems.forEach(({item, count}) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.style.cssText = `
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 5px 0px;
+                    margin: 2px 0;
+                    max-width: 100%;
+                `;
 
-            const button = itemDiv.querySelector('button');
-            button.onmousedown = () => {
-                button.style.backgroundColor = 'white';
-                button.style.color = 'rgb(255, 60, 0)';
-            };
+                const totalWeight = this.formatWeight(count * item.weight);
+                itemDiv.innerHTML = `
+                    <span style="flex: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 19px;">${item.name}</span>
+                    <span style="width: 100px; text-align: right; white-space: nowrap; margin-right: 10px;">(${count}) ${totalWeight} lbs</span>
+                    <button style="
+                        background: rgb(255, 60, 0);
+                        color: white;
+                        border: none;
+                        padding: 2px 6px;
+                        min-width: 50px;
+                        cursor: pointer;
+                        font-family: inherit;
+                        font-style: italic;
+                        transition: background-color 0.15s ease, color 0.15s ease;
+                    ">Change</button>
+                `;
 
-            button.onmouseup = () => {
-                button.style.backgroundColor = 'rgb(255, 60, 0)';
-                button.style.color = 'white';
-            };
+                const button = itemDiv.querySelector('button');
+                button.onmousedown = () => {
+                    button.style.backgroundColor = 'white';
+                    button.style.color = 'rgb(255, 60, 0)';
+                };
 
-            button.onclick = () => {
-                this.showItemDetails(ITEMS_DATABASE[item.name], count);
-            };
-    
-            container.appendChild(itemDiv);
+                button.onmouseup = () => {
+                    button.style.backgroundColor = 'rgb(255, 60, 0)';
+                    button.style.color = 'white';
+                };
+
+                button.onclick = () => {
+                    this.showItemDetails(ITEMS_DATABASE[item.name], count);
+                };
+        
+                container.appendChild(itemDiv);
+            });
         });
     }
 

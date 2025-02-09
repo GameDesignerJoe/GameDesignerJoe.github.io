@@ -79,6 +79,10 @@ export class InventorySystem {
                 gap: 10px;
             }
 
+            .inventory-category {
+                margin-bottom: 15px;
+            }
+
             .inventory-item {
                 background: rgba(255, 255, 255, 0.1);
                 border-radius: 4px;
@@ -125,27 +129,44 @@ export class InventorySystem {
             return '<div class="no-items">No items in inventory</div>';
         }
 
-        // Group items by name
-        const groupedItems = new Map();
+        // First group items by category, then by name
+        const categorizedItems = new Map();
         items.forEach(item => {
-            if (!groupedItems.has(item.name)) {
-                groupedItems.set(item.name, { item: ITEMS_DATABASE[item.name], count: 1 });
+            const itemData = ITEMS_DATABASE[item.name];
+            if (!categorizedItems.has(itemData.category)) {
+                categorizedItems.set(itemData.category, new Map());
+            }
+            const categoryGroup = categorizedItems.get(itemData.category);
+            if (!categoryGroup.has(item.name)) {
+                categoryGroup.set(item.name, { item: itemData, count: 1 });
             } else {
-                groupedItems.get(item.name).count++;
+                categoryGroup.get(item.name).count++;
             }
         });
 
-        return Array.from(groupedItems.entries()).map(([name, { item, count }]) => `
-            <div class="inventory-item">
-                <div class="inventory-item-header">
-                    <span class="inventory-name">${name}</span>
-                    <span class="inventory-quantity">x${count}</span>
-                </div>
-                <div class="inventory-details">
-                    ${item.category ? `<div>Category: ${item.category}</div>` : ''}
-                    ${item.effects ? `<div>✧ ${item.effects}</div>` : ''}
-                    ${item.special ? `<div>★ ${item.special}</div>` : ''}
-                </div>
+        // Render each category
+        return Array.from(categorizedItems.entries()).map(([category, categoryItems]) => `
+            <div class="inventory-category">
+                <div class="inventory-category-header" style="
+                    background: #007bff;
+                    padding: 3px 8px;
+                    margin-bottom: 3px;
+                    font-size: 20px;
+                    font-weight: bold;
+                    max-width: 950px;
+                ">${category}</div>
+                ${Array.from(categoryItems.entries()).map(([name, { item, count }]) => `
+                    <div class="inventory-item">
+                        <div class="inventory-item-header">
+                            <span class="inventory-name">${name}</span>
+                            <span class="inventory-quantity">x${count}</span>
+                        </div>
+                        <div class="inventory-details">
+                            ${item.effects ? `<div>✧ ${item.effects}</div>` : ''}
+                            ${item.special ? `<div>★ ${item.special}</div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
             </div>
         `).join('');
     }
