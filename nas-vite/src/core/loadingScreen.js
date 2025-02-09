@@ -62,15 +62,9 @@ export class LoadingScreen {
         // Remove loading screen immediately
         document.body.removeChild(this.container);
         
-        // Initialize game systems
+        // Call onComplete callback to transition to explorer selection
         if (this.onComplete) {
             this.onComplete();
-        }
-        
-        // Show packing screen
-        const packingScreen = document.getElementById('packing-screen');
-        if (packingScreen) {
-            packingScreen.style.display = 'block';
         }
     }
 }
