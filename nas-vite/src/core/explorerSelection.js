@@ -4,6 +4,8 @@ export class ExplorerSelection {
     constructor() {
         this.container = null;
         this.onComplete = null;
+        this.selectedExplorer = null;
+        this.continueButton = null;
         this.init();
     }
 
@@ -130,6 +132,10 @@ export class ExplorerSelection {
                 selectedImg.style.top = '0';
                 selectedImg.style.left = '0';
                 selectedExplorer.appendChild(selectedImg);
+
+                // Update selection state and button
+                this.selectedExplorer = i;
+                this.updateContinueButton();
             });
             gridContainer.appendChild(cell);
         }
@@ -138,34 +144,64 @@ export class ExplorerSelection {
         innerContainer.appendChild(scrollContainer);
 
         // Create continue button
-        const button = document.createElement('button');
-        button.className = 'start-button';
-        button.textContent = 'CONFIRM EXPLORER';
-        button.style.padding = '20px 40px';
-        button.style.fontSize = '24px';
-        button.style.cursor = 'pointer';
-        button.style.backgroundColor = 'transparent';
-        button.style.color = '#fff';
-        button.style.border = '2px solid #fff';
-        button.style.textTransform = 'uppercase';
-        button.style.fontFamily = "'Old Standard TT', serif";
-        button.style.transition = 'all 0.3s ease';
-        button.addEventListener('mouseover', () => {
-            button.style.backgroundColor = '#fff';
-            button.style.color = '#000';
-        });
-        button.addEventListener('mouseout', () => {
-            button.style.backgroundColor = 'transparent';
-            button.style.color = '#fff';
-        });
-        button.addEventListener('click', () => this.handleContinue());
-        innerContainer.appendChild(button);
+        this.continueButton = document.createElement('button');
+        this.continueButton.className = 'start-button';
+        this.continueButton.style.padding = '20px 40px';
+        this.continueButton.style.fontSize = '24px';
+        this.continueButton.style.cursor = 'default';
+        this.continueButton.style.backgroundColor = '#666';
+        this.continueButton.style.color = '#aaa';
+        this.continueButton.style.border = '2px solid #666';
+        this.continueButton.style.textTransform = 'uppercase';
+        this.continueButton.style.fontFamily = "'Old Standard TT', serif";
+        this.continueButton.style.transition = 'all 0.3s ease';
+        this.continueButton.disabled = true;
+        this.continueButton.textContent = 'SELECT EXPLORER';
+        this.continueButton.addEventListener('click', () => this.handleContinue());
+        innerContainer.appendChild(this.continueButton);
+
+        // Initialize button state
+        this.updateContinueButton();
 
         // Add to document
         document.body.appendChild(this.container);
     }
 
+    updateContinueButton() {
+        if (this.selectedExplorer) {
+            this.continueButton.disabled = false;
+            this.continueButton.style.backgroundColor = 'transparent';
+            this.continueButton.style.color = '#fff';
+            this.continueButton.style.border = '2px solid #fff';
+            this.continueButton.style.cursor = 'pointer';
+            this.continueButton.textContent = 'CONFIRM EXPLORER';
+
+            // Add hover effects only when enabled
+            this.continueButton.addEventListener('mouseover', () => {
+                if (!this.continueButton.disabled) {
+                    this.continueButton.style.backgroundColor = '#fff';
+                    this.continueButton.style.color = '#000';
+                }
+            });
+            this.continueButton.addEventListener('mouseout', () => {
+                if (!this.continueButton.disabled) {
+                    this.continueButton.style.backgroundColor = 'transparent';
+                    this.continueButton.style.color = '#fff';
+                }
+            });
+        } else {
+            this.continueButton.disabled = true;
+            this.continueButton.style.backgroundColor = '#666';
+            this.continueButton.style.color = '#aaa';
+            this.continueButton.style.border = '2px solid #666';
+            this.continueButton.style.cursor = 'default';
+            this.continueButton.textContent = 'SELECT EXPLORER';
+        }
+    }
+
     handleContinue() {
+        if (!this.selectedExplorer) return;
+        
         // Remove explorer selection screen
         document.body.removeChild(this.container);
         
