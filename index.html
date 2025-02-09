@@ -56,7 +56,7 @@
 
     .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 20px;
         margin: 20px auto;
         width: 90%;
@@ -64,13 +64,21 @@
     }
 
     .game-title {
-        font-size: 1.5em;
+        font-size: clamp(1.2rem, 3vw, 1.8em);
         font-weight: bold;
         margin-bottom: 10px;
         color: #ffffff;
         text-transform: uppercase;
-        letter-spacing: 2px;
+        letter-spacing: 1px;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        white-space: nowrap;
+        width: 100%;
+        max-width: 250px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 0 15px;
+        box-sizing: border-box;
+        line-height: 1.2;
     }
 
         .box {
@@ -153,7 +161,7 @@
             </div>
         </div>
         <div>
-            <div class="game-title">ARE YOU A TERRIBLE PARENT?</div>
+            <div class="game-title">TERRIBLE PARENT?</div>
             <div class="box">
                 <a href="/terribleParent/index.html">
                     <img src="art/terribleParent_icon.png" alt="Project 3">
