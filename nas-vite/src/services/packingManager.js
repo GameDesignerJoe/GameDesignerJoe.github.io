@@ -195,7 +195,10 @@ export class PackingManager {
                     if (!success) {
                         console.log(`Failed to add item ${i + 1}, stopping`);
                         if (addedCount === 0) {
-                            alert('Could not add items due to weight limit');
+                            this.showWarningOverlay(
+                                'Weight Limit',
+                                'Could not add items due to weight limit'
+                            );
                         }
                         break;
                     }
@@ -226,6 +229,58 @@ export class PackingManager {
             overlay.remove();
         }
         this.currentDetailsItem = null;
+    }
+
+    showWarningOverlay(title, message, onContinue = null) {
+        const overlay = document.createElement('div');
+        overlay.className = 'warning-overlay';
+        
+        const panel = document.createElement('div');
+        panel.className = 'warning-panel';
+        
+        panel.innerHTML = `
+            <div class="warning-title">${title}</div>
+            <div class="warning-message">${message}</div>
+            <div class="warning-buttons">
+                <button class="warning-button cancel">Cancel</button>
+                ${onContinue ? '<button class="warning-button continue">Continue</button>' : ''}
+            </div>
+        `;
+        
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        
+        // Handle button clicks
+        const cancelBtn = panel.querySelector('.cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                document.body.removeChild(overlay);
+            };
+        }
+        
+        const continueBtn = panel.querySelector('.continue');
+        if (continueBtn && onContinue) {
+            continueBtn.onclick = () => {
+                document.body.removeChild(overlay);
+                onContinue();
+            };
+        }
+        
+        // Handle ESC key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(overlay);
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        
+        // Handle click outside
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
     }
 
     updateAvailableItemsPanel() {
@@ -439,18 +494,26 @@ export class PackingManager {
     handleEmbark() {
         // Check if weight is over limit
         if (this.gameStore.packing.totalWeight > this.gameStore.packing.MAX_WEIGHT) {
-            alert(`You are carrying too much weight (${this.formatWeight(this.gameStore.packing.totalWeight)} lbs). ` + 
-                  `Maximum allowed is ${this.formatWeight(this.gameStore.packing.MAX_WEIGHT)} lbs. ` +
-                  `Add a Sledge to increase capacity by 300 lbs.`);
+            this.showWarningOverlay(
+                'Weight Limit Exceeded',
+                `You are carrying too much weight (${this.formatWeight(this.gameStore.packing.totalWeight)} lbs). Maximum allowed is ${this.formatWeight(this.gameStore.packing.MAX_WEIGHT)} lbs. Add a Sledge to increase capacity by 300 lbs.`
+            );
             return;
         }
 
         if (this.gameStore.packing.selectedItems.size === 0) {
-            if (!confirm("Are you sure you want to embark with no items?")) {
-                return;
-            }
+            this.showWarningOverlay(
+                'Warning',
+                'Are you sure you want to embark with no items? The Antarctic is an unforgiving place.',
+                () => this.completeEmbark()
+            );
+            return;
         }
+        
+        this.completeEmbark();
+    }
     
+    completeEmbark() {
         const gameItems = this.gameStore.packing.getGameItems();
         document.body.classList.remove('packing-active');
         this.container.style.display = "none";

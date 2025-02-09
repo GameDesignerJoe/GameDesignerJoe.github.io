@@ -3,19 +3,14 @@
 -----------------------
 
 PC / MOBILE
-- Get rid of that alert when you don't pack anything with something better.
 - See your inventory on the game screen. need a backpack icon.
-- debug command for disabling weather
 - debug command for disabling the background wave
 - debug command to walk across anything really fast
-- Add an event system
-- Get the other items in your inventory to effect things. 
+- Add an random event system
 - Make sure there's a clear path to the south pole. 
 - Get Compass to draw over the text.
 - Fix clear weather not working for blizzard.
 - Get restart working again. 
-- Fix formatting on packed items to just show the count and total weight.
-- Get a cheat code window that lets you toggle the codes on and off with a button press.
 - Get Morale in instead of Food
 - Get Durability in
 - Get Repair as a camping feature
@@ -24,6 +19,7 @@ PC / MOBILE
 - Move text to be by the avatar
 - Rewrite text to be first person
 - Experiment with making the game screen more vertically longer.
+- Look at adding in a character selection screen into the start after the loading screen and before the Expedition Supplies page.
 
 MOBILE ONLY
 - Figure out why it runs like shit on mobile.
