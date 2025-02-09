@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '',
+  base: '/GameDesignerJoe.github.io/',
   publicDir: resolve(__dirname, 'public'),
   server: {
     port: 5173,
