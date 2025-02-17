@@ -1022,10 +1022,9 @@ polygon[data-terrain] {
   min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: flex-start;
   align-items: center;
-  gap: 20px;
-  padding: env(safe-area-inset-top, 40px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 20px);
+  padding: 40px 20px;
   z-index: 1000;
   background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
   background-size: 400% 400%;
@@ -1033,6 +1032,20 @@ polygon[data-terrain] {
   overflow: hidden;
   opacity: 1;
   transition: opacity 0.5s ease-in-out;
+}
+
+.loading-screen-button-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+  pointer-events: all;
+  padding-top: 60vh;
 }
 
 .loading-screen.hidden {
@@ -1092,7 +1105,7 @@ polygon[data-terrain] {
 }
 
 .start-button {
-  margin: 10px 0;
+  margin: 0;
   padding: 20px 40px;
   font-family: 'Old Standard TT', serif;
   font-size: clamp(20px, 4vw, 28px);
@@ -1112,6 +1125,20 @@ polygon[data-terrain] {
   font-weight: bold;
   text-transform: uppercase;
   transition: all 0.3s ease;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  position: relative;
+  z-index: 1001;
+  display: block;
+  touch-action: manipulation;
+}
+
+.start-button:active {
+  transform: scale(0.98);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
 .start-button:hover {

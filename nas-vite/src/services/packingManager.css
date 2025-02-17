@@ -32,13 +32,22 @@
     .packing-container {
         height: calc(100vh - env(safe-area-inset-top, 40px) - 20px);
         padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 80px);
+        position: relative;
     }
 
     .scrollable-panel {
         height: calc(100vh - 280px);
         font-size: 14px;
-        padding-bottom: 100px;
+        padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 120px);
         z-index: 1;
+        position: relative;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background-color: #01497C;
+        border-radius: 8px 8px 0 0;
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
     }
 
     .packing-header {
@@ -63,25 +72,36 @@
     .bottom-controls {
         position: fixed;
         bottom: env(safe-area-inset-bottom, 0);
-        left: 0;
-        right: 0;
+        left: 50%;
+        transform: translateX(-50%);
         background: #01497C;
         justify-content: center;
-        padding: 12px 8px;
-        z-index: 1000;
+        padding: 16px 8px;
+        z-index: 1002;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
         max-width: 450px;
+        box-shadow: 0 -8px 16px rgba(1, 73, 124, 0.95);
+        backdrop-filter: blur(8px);
+        height: 80px;
+        display: flex;
+        align-items: center;
+        border-radius: 0 0 8px 8px;
         margin: 0 auto;
     }
 
     .weight-display {
-        margin-bottom: calc(env(safe-area-inset-bottom, 20px) + 60px);
+        margin-bottom: calc(env(safe-area-inset-bottom, 20px) + 80px);
         padding: 12px 8px;
         background: #01497C;
         position: sticky;
         bottom: 0;
-        z-index: 999;
+        z-index: 1001;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
+        border-radius: 8px 8px 0 0;
     }
 }
 

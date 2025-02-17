@@ -32,20 +32,19 @@
         <!-- Stats Display -->
         <div class="stats-container">
             <div class="stat">
-                <!-- Update paths to use relative paths -->
-                <img src="./public/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
+                <img src="/art/health.svg" id="health-icon" alt="Health" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="health-bar"></div>
                 </div>
             </div>
             <div class="stat">
-                <img src="./public/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
+                <img src="/art/stamina.svg" id="stamina-icon" alt="Stamina" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="stamina-bar"></div>
                 </div>
             </div>
             <div class="stat">
-                <img src="./public/art/food.svg" id="food-icon" alt="Food" class="stat-icon">
+                <img src="/art/food.svg" id="food-icon" alt="Food" class="stat-icon">
                 <div class="stat-bar">
                     <div class="stat-fill" id="food-bar"></div>
                 </div>
@@ -69,7 +68,23 @@
             </div>
         </div>
 
+        </div>
+    </div>
+
     <!-- Game Initialization -->
     <script type="module" src="./src/main.js"></script>
+    <script>
+        // Debug click handler
+        document.addEventListener('click', (e) => {
+            console.log('Click at:', e.clientX, e.clientY);
+            console.log('Target:', e.target);
+            console.log('Target ID:', e.target.id);
+            console.log('Target classList:', e.target.classList);
+            console.log('Target dataset:', e.target.dataset);
+            if (e.target.matches('[data-testid="start-game-button"]')) {
+                console.log('Start game button clicked!');
+            }
+        });
+    </script>
 </body>
 </html>
