@@ -38,9 +38,9 @@
     }
 
     .scrollable-panel {
-        height: calc(100vh - 280px);
+        height: calc(100vh - 280px - env(safe-area-inset-bottom, 20px) - 120px);
         font-size: 14px;
-        padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 100px);
+        padding-bottom: 20px;
         z-index: 1;
         position: relative;
         overflow-y: auto;
@@ -50,7 +50,6 @@
         width: 100%;
         max-width: 450px;
         margin: 0 auto;
-        margin-bottom: 100px;
     }
 
     .packing-header {
@@ -103,8 +102,9 @@
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         width: 100%;
         max-width: 450px;
-        border-radius: 8px;
+        border-radius: 8px 8px 0 0;
         box-shadow: 0 -4px 8px rgba(1, 73, 124, 0.5);
+        margin: 0;
     }
 }
 
