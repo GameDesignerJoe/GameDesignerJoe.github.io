@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '',
+  base: '/nas-vite/',
   publicDir: resolve(__dirname, 'public'),
   server: {
     port: 5173,
