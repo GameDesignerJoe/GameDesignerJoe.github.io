@@ -103,7 +103,7 @@ export class ExplorerSelection {
 
             // Create image
             const img = document.createElement('img');
-            img.src = `/art/explorers/explorer_0${i}.png`;
+            img.src = `./art/explorers/explorer_0${i}.png`;
             img.style.width = '100%';
             img.style.height = '100%';
             img.style.objectFit = 'cover';
@@ -124,7 +124,7 @@ export class ExplorerSelection {
                 selectedExplorer.innerHTML = '';
                 selectedExplorer.style.border = '3px solid gold';
                 const selectedImg = document.createElement('img');
-                selectedImg.src = `/art/explorers/explorer_0${i}.png`;
+                selectedImg.src = `./art/explorers/explorer_0${i}.png`;
                 selectedImg.style.width = '100%';
                 selectedImg.style.height = '100%';
                 selectedImg.style.objectFit = 'cover';
