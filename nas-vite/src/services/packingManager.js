@@ -496,7 +496,7 @@ export class PackingManager {
             this.weightDisplay = document.createElement('div');
             this.weightDisplay.className = 'weight-display';
             const bottomControls = this.wrapper.querySelector('.bottom-controls');
-            this.wrapper.insertBefore(this.weightDisplay, bottomControls);
+            bottomControls.insertBefore(this.weightDisplay, bottomControls.firstChild);
         }
         
         this.weightDisplay.textContent = `Total Weight: ${this.formatWeight(weight)}/${this.formatWeight(maxWeight)} lbs`;
@@ -515,6 +515,9 @@ export class PackingManager {
         const controlsDiv = document.createElement('div');
         controlsDiv.className = 'bottom-controls';
         
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.className = 'buttons-container';
+        
         const standardLoadBtn = document.createElement('button');
         standardLoadBtn.className = 'control-button';
         standardLoadBtn.textContent = 'Standard Load';
@@ -525,8 +528,9 @@ export class PackingManager {
         embarkBtn.textContent = 'EMBARK!';
         embarkBtn.onclick = () => this.handleEmbark();
         
-        controlsDiv.appendChild(standardLoadBtn);
-        controlsDiv.appendChild(embarkBtn);
+        buttonsContainer.appendChild(standardLoadBtn);
+        buttonsContainer.appendChild(embarkBtn);
+        controlsDiv.appendChild(buttonsContainer);
         
         this.wrapper.appendChild(controlsDiv);
     }
