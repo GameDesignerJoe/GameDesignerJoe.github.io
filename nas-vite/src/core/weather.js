@@ -61,6 +61,7 @@ export class WeatherSystem {
         this.messageSystem = messageSystem;
         this.visibilityManager = visibilityManager;
         this.statsService = statsService;
+        this.weatherDisabled = false;
         
         // Initialize performance monitoring
         this.initPerformanceMonitoring();
@@ -161,7 +162,8 @@ export class WeatherSystem {
     triggerBlizzard() {
         if (!this.store.gameRunning || 
             this.store.weather.effects.blizzardActive || 
-            this.store.weather.effects.whiteoutActive) return;
+            this.store.weather.effects.whiteoutActive ||
+            this.weatherDisabled) return;
 
         // Initialize blizzard state
         this.store.weather.methods.startWeatherEvent('BLIZZARD');
@@ -265,7 +267,8 @@ export class WeatherSystem {
     triggerWhiteout() {
         if (!this.store.gameRunning || 
             this.store.weather.effects.whiteoutActive || 
-            this.store.weather.effects.blizzardActive) return;
+            this.store.weather.effects.blizzardActive ||
+            this.weatherDisabled) return;
 
         this.store.weather.methods.startWeatherEvent('WHITEOUT');
         
@@ -376,7 +379,7 @@ export class WeatherSystem {
     }
 
     scheduleNextWeather() {
-        if (!this.store.gameRunning || this.store.gameWon) return;
+        if (!this.store.gameRunning || this.store.gameWon || this.weatherDisabled) return;
 
         if (this.store.weather.effects.weatherTimeout) {
             clearTimeout(this.store.weather.effects.weatherTimeout);

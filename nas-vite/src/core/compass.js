@@ -1,7 +1,7 @@
 // src/core/compass.js
 
 import { hexDistance } from '../components/game/utils/grid.js';
-import { GRID } from '../config/constants.js';
+import { GRID, UI } from '../config/constants.js';
 
 export class CompassSystem {
     constructor(gameStore, messageSystem) {
@@ -27,7 +27,7 @@ export class CompassSystem {
         compass.setAttribute("class", "compass hidden");
         
         // Position it in the top middle
-        compass.setAttribute("transform", "translate(-40, -130) scale(0.75)"); // Reduced size by 25% and positioned up top
+        compass.setAttribute("transform", "translate(-40, -130) scale(0.75)"); // Original position above player
         
         // Inline SVG content
         compass.innerHTML = `
@@ -47,17 +47,33 @@ export class CompassSystem {
             <g id="needle" transform="translate(50,50)">
                 <!-- North half (Silver) -->
                 <path d="M0,-35 L5,-5 L0,0 L-5,-5 Z" fill="#C0C0C0"/>
-                <!-- South half (Red) -->
-                <path d="M0,35 L5,5 L0,0 L-5,5 Z" fill="#FF0000"/>
+                <!-- South half (Blue) -->
+                <path d="M0,35 L5,5 L0,0 L-5,5 Z" fill="#44aaff"/>
             </g>
             
             <!-- Center pin -->
             <circle cx="50" cy="50" r="3" fill="#333"/>
         `;
         
-        gameGrid.appendChild(compass);
-        
-        gameGrid.appendChild(compass);
+        // Create a div container for the compass that will sit above the message container
+        const compassContainer = document.createElement('div');
+        compassContainer.style.position = 'absolute';
+        compassContainer.style.top = '0';
+        compassContainer.style.left = '0';
+        compassContainer.style.width = '100%';
+        compassContainer.style.height = '100%';
+        compassContainer.style.pointerEvents = 'none';
+        compassContainer.style.zIndex = '1001';
+
+        const compassSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        compassSvg.setAttribute('width', '100%');
+        compassSvg.setAttribute('height', '100%');
+        compassSvg.setAttribute('viewBox', '-150 -150 300 300');
+        compassSvg.appendChild(compass);
+        compassContainer.appendChild(compassSvg);
+
+        const gridContainer = document.querySelector('.grid-container');
+        gridContainer.appendChild(compassContainer);
     }
 
     initCompassButton() {
@@ -74,6 +90,18 @@ export class CompassSystem {
 
     activateCompass() {
         if (this.isActive) return;
+        
+        // Check if player has a compass
+        const hasCompass = Array.from(this.store.packing.selectedItems.values())
+            .some(item => item.name === "Compass");
+            
+        if (!hasCompass) {
+            this.messageSystem.showPlayerMessage(
+                "You need a Compass to use this ability",
+                UI.MESSAGE_TYPES.STATUS
+            );
+            return;
+        }
         
         this.isActive = true;
         const compass = document.getElementById('compass');

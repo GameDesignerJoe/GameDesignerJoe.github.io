@@ -19,6 +19,83 @@ body {
   overflow: hidden;
 }
 
+/* Overlay Styles */
+.item-details-overlay, .warning-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1100;
+}
+
+.item-details-panel, .warning-panel {
+  background: #013A63;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  color: #f0f0f0;
+  position: relative;
+}
+
+.warning-panel {
+  text-align: center;
+}
+
+.warning-title {
+  font-family: 'Old Standard TT', serif;
+  font-size: 24px;
+  color: #ffc107;
+  margin-bottom: 15px;
+}
+
+.warning-message {
+  font-size: 18px;
+  line-height: 1.4;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.warning-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.warning-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Old Standard TT', serif;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.warning-button.continue {
+  background-color: #dc3545;
+  color: white;
+}
+
+.warning-button.continue:hover {
+  background-color: #c82333;
+}
+
+.warning-button.cancel {
+  background-color: #6c757d;
+  color: white;
+}
+
+.warning-button.cancel:hover {
+  background-color: #5a6268;
+}
+
 /* GAME CONTAINER */
 .game-container {
   width: 100%;
@@ -48,22 +125,6 @@ body {
   justify-content: flex-start;
   align-items: center;
   gap: 10px;
-}
-
-h1 {
-  font-family: 'Old Standard TT', serif;  
-  font-size: 32px;
-  margin-bottom: 0px;
-  text-align: center;
-  line-height: 1.2;
-}
-
-@media screen and (max-width: 768px) {
-  h1 {
-    font-size: 28px;
-    white-space: pre-line;
-    content: "NOT ALL\nSURVIVE";
-  }
 }
 
 /* GRID & HEXES */
@@ -100,7 +161,7 @@ polygon[data-terrain] {
   width: 100%;
   display: flex;
   gap: 8px;
-  margin-bottom: 5px;
+  margin: 20px 0 5px 0;
   padding: 0 0px;
 }
 
@@ -260,6 +321,10 @@ polygon[data-terrain] {
   fill-opacity: 0.8 !important;
 }
 
+.fog-blizzard-goggles {
+  fill-opacity: 0.4 !important;
+}
+
 .fog-whiteout {
   fill-opacity: 1 !important;
 }
@@ -291,14 +356,18 @@ polygon[data-terrain] {
 
 /* Message Container */
 #message-container {
+  position: absolute;
+  top: 0px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
   height: fit-content;
-  margin: 5px 0;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.1);
+  padding: 5px;
+  background-color: rgba(1, 58, 99, 0.8);
   border-radius: 4px;
   opacity: 0;
   transition: opacity 0.3s ease;
+  z-index: 1000;
 }
 
 #message-container.has-message {
@@ -313,7 +382,7 @@ polygon[data-terrain] {
   font-family: 'Old Standard TT', serif;
   font-size: 1.1rem;
   text-align: center;
-  line-height: 1.4;
+  line-height: 1;
   margin: 0;
   color: white;
 }
@@ -407,32 +476,58 @@ polygon[data-terrain] {
   text-shadow: 0px 0px 1px rgba(0, 0, 0, 0.2);
 }
 
-/* Restart button */
+/* Death State and Restart Button */
 .restart-button {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
+  position: relative !important; /* Changed to relative since it's in the overlay */
+  padding: 20px 40px;
   font-family: 'Old Standard TT', serif;
-  font-size: 18px;
+  font-size: 24px;
   background-color: #44aaff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s ease;
   display: none;
-  z-index: 1000;
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+  z-index: 99999 !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  pointer-events: auto;
+  opacity: 1;
+  margin: 0 20px;
+  letter-spacing: 0.5px;
+  font-weight: bold;
+  text-transform: uppercase;
 }
 
 .restart-button.hidden {
-  display: none;
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: scale(0.9);
 }
 
 .restart-button:hover {
   background-color: #3399ee;
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.restart-button:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Death Overlay Animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+[style*="z-index: 99998"] {
+  animation: fadeIn 0.5s ease-out;
+  backdrop-filter: blur(3px);
 }
 
 /* Message Animations */
@@ -561,7 +656,7 @@ polygon[data-terrain] {
   box-shadow: 0 0 0 2px rgba(255, 170, 68, 0.5);
 }
 
-.compass-icon, .food-icon {
+.compass-icon, .food-icon, .inventory-icon {
   width: 32px;
   height: 32px;
   transition: filter 0.2s;
@@ -570,6 +665,8 @@ polygon[data-terrain] {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  /* filter: invert(1); */
+  opacity: 0.9;
 }
 
 /* Navigation icons */
@@ -586,6 +683,7 @@ polygon[data-terrain] {
 
 .compass {
   transition: opacity 0.3s ease-in-out;
+  z-index: 1001;
 }
 
 .compass.hidden {
@@ -786,6 +884,42 @@ polygon[data-terrain] {
   opacity: 0.8;
 }
 
+/* Inventory Button */
+.inventory-button {
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  pointer-events: all;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.inventory-button:hover {
+  background: rgba(70, 130, 180, 0.2);
+}
+
+.inventory-button.active {
+  background: rgba(70, 130, 180, 0.3);
+  box-shadow: 0 0 0 2px rgba(70, 130, 180, 0.5);
+}
+
+
+.inventory-button:hover .inventory-icon,
+.inventory-button.active .inventory-icon {
+  opacity: 0.8;
+}
+
 /* Performance Panel */
 .performance-panel {
   width: 100%;
@@ -888,15 +1022,40 @@ polygon[data-terrain] {
   min-height: -webkit-fill-available;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: flex-start;
   align-items: center;
-  gap: 20px;
-  padding: env(safe-area-inset-top, 40px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 20px);
+  padding: 40px 20px;
   z-index: 1000;
   background: radial-gradient(circle, #013A63, #01497C, #0178B0, #01A3D6, #64DFFF);
   background-size: 400% 400%;
   animation: waveEffect 8s ease-in-out infinite;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.loading-screen-button-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+  pointer-events: all;
+  padding-top: 60vh;
+}
+
+.loading-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-screen * {
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
 }
 
 @media screen and (min-width: 769px) {
@@ -913,7 +1072,7 @@ polygon[data-terrain] {
   text-align: center;
   opacity: 1;
   margin: 0;
-  padding: env(safe-area-inset-top, 20px) 0;
+  padding: env(safe-area-inset-top, 10px) 0;
   width: 100%;
   max-width: 800px;
 }
@@ -930,7 +1089,7 @@ polygon[data-terrain] {
   text-align: center;
   line-height: 1.6;
   opacity: 1;
-  margin: 10px 0;
+  margin: 0;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   position: relative;
   letter-spacing: 1px;
@@ -945,22 +1104,52 @@ polygon[data-terrain] {
   }
 }
 
-
 .start-button {
-  margin: 10px 0;
-  padding: 12px 24px;
+  margin: 0;
+  padding: 20px 40px;
   font-family: 'Old Standard TT', serif;
-  font-size: clamp(18px, 4vw, 24px);
+  font-size: clamp(20px, 4vw, 28px);
   background-color: #44aaff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
   opacity: 1;
   width: 90%;
-  max-width: 300px;
+  max-width: 400px;
   height: fit-content;
   line-height: 1;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.5px;
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  position: relative;
+  z-index: 1001;
+  display: block;
+  touch-action: manipulation;
+}
+
+.start-button:active {
+  transform: scale(0.98);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.start-button:hover {
+  background-color: #3399ee;
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.start-button:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 @media screen and (min-width: 769px) {

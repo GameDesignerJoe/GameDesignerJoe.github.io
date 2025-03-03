@@ -69,14 +69,14 @@ export const ITEMS_DATABASE = {
         special: "Can be used without stove (destroys can)",
         tooltip: "Required for the Primus stove. Each can provided about one week of cooking and melting snow"
     },
-    "Ice Axe": {
-        name: "Ice Axe",
+    "Climbing Equipment": {
+        name: "Climbing Equipment",
         category: "Equipment",
         weight: 4,
         durabilityPoints: 150,
-        effects: "Required for glacier terrain, Reduces stamina cost on icy slopes by 50%",
-        special: "Can be used to build snow shelters",
-        tooltip: "Vital tool for testing ice, cutting steps in glaciers, and emergency shelter building"
+        effects: "Required for traversing cliffs",
+        special: "Essential for vertical terrain",
+        tooltip: "Vital equipment for navigating steep cliffs and vertical terrain"
     },
     "Canvas Tent": {
         name: "Canvas Tent",
@@ -132,8 +132,9 @@ export const ITEMS_DATABASE = {
         category: "Clothing",
         weight: 7,
         durabilityPoints: 150,
-        effects: "Reduces cold damage by 40%, Crucial in high winds",
-        special: "Degrades faster in harsh conditions",
+        weatherProtection: 0.25,
+        effects: "Provides 25% cold protection, Crucial in high winds",
+        special: "Only one can be worn at a time",
         tooltip: "Gabardine cotton outer layer. Revolutionary windproof design by Burberry"
     },
     "Woolen Underwear": {
@@ -141,8 +142,9 @@ export const ITEMS_DATABASE = {
         category: "Clothing",
         weight: 3,
         durabilityPoints: 80,
-        effects: "Reduces cold damage by 30%, Still works when wet",
-        special: "Degrades faster when wet",
+        weatherProtection: 0.05,
+        effects: "Provides 5% cold protection, Still works when wet",
+        special: "Only one set can be worn at a time",
         tooltip: "Multiple layers worn. Wool retained warmth even when damp"
     },
     "Finnesko Boots": {
@@ -150,9 +152,80 @@ export const ITEMS_DATABASE = {
         category: "Clothing",
         weight: 5,
         durabilityPoints: 120,
-        effects: "Normal movement speed in snow, Prevents frostbite damage",
-        special: "Degrades with use",
+        weatherProtection: 0.10,
+        effects: "Provides 10% cold protection, Normal movement speed in snow",
+        special: "Only one pair can be worn at a time",
         tooltip: "Reindeer-fur boots. Best performing footwear in extreme cold"
+    },
+    "Fur-Lined Mittens": {
+        name: "Fur-Lined Mittens",
+        category: "Clothing",
+        weight: 1,
+        durabilityPoints: 100,
+        weatherProtection: 0.10,
+        effects: "Provides 10% cold protection, Essential for handling equipment",
+        special: "Only one pair can be worn at a time",
+        tooltip: "Fur-lined mittens essential for handling equipment in extreme cold"
+    },
+    "Balaclava Cap": {
+        name: "Balaclava Cap",
+        category: "Clothing",
+        weight: 0.5,
+        durabilityPoints: 90,
+        weatherProtection: 0.15,
+        effects: "Provides 15% cold protection, Protects face and ears",
+        special: "Only one can be worn at a time",
+        tooltip: "Woolen head covering that protects face and ears from frostbite"
+    },
+    "Thick Wool Socks": {
+        name: "Thick Wool Socks",
+        category: "Clothing",
+        weight: 0.5,
+        durabilityPoints: 70,
+        weatherProtection: 0.05,
+        effects: "Provides 5% cold protection, Wicks away moisture",
+        special: "Only one pair can be worn at a time",
+        tooltip: "Multiple layers of wool socks for moisture control and warmth"
+    },
+    "Wool Muffler": {
+        name: "Wool Muffler",
+        category: "Clothing",
+        weight: 0.5,
+        durabilityPoints: 80,
+        weatherProtection: 0.05,
+        effects: "Provides 5% cold protection, Reduces stamina loss in blizzards",
+        special: "Only one can be worn at a time",
+        tooltip: "Traditional wool scarf for protecting neck and face"
+    },
+    "Sealskin Face Mask": {
+        name: "Sealskin Face Mask",
+        category: "Clothing",
+        weight: 0.5,
+        durabilityPoints: 100,
+        weatherProtection: 0.10,
+        effects: "Provides 10% cold protection, Extra protection in whiteouts",
+        special: "Only one can be worn at a time",
+        tooltip: "Sealskin mask providing crucial face protection in extreme conditions"
+    },
+    "Jersey Sweater": {
+        name: "Jersey Sweater",
+        category: "Clothing",
+        weight: 2,
+        durabilityPoints: 90,
+        weatherProtection: 0.10,
+        effects: "Provides 10% cold protection, Maintains warmth when wet",
+        special: "Only one can be worn at a time",
+        tooltip: "Mid-layer sweater worn between underwear and outer suit"
+    },
+    "Fur-Lined Hood": {
+        name: "Fur-Lined Hood",
+        category: "Clothing",
+        weight: 1,
+        durabilityPoints: 100,
+        weatherProtection: 0.05,
+        effects: "Provides 5% cold protection, Additional protection at night",
+        special: "Only one can be worn at a time",
+        tooltip: "Fur-lined hood providing essential head protection"
     },
 
     // Medical Supplies
@@ -170,9 +243,9 @@ export const ITEMS_DATABASE = {
         category: "Medical Supplies",
         weight: 0.5,
         durabilityPoints: 80,
-        effects: "Prevents snow blindness, Required for glacier travel",
-        special: "Can crack in extreme cold",
-        tooltip: "Essential protection against snow blindness. Made of leather with thin slits"
+        effects: "Prevents snow blindness, Increases visibility range by 50% during blizzards",
+        special: "Required for glacier travel, Can crack in extreme cold",
+        tooltip: "Essential protection against snow blindness and improved visibility in storms. Made of leather with thin slits"
     },
 
     // Emergency Supplies

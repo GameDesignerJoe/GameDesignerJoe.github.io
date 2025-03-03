@@ -142,6 +142,33 @@ class PerformanceMonitor {
                 background: rgba(255, 255, 255, 0.05);
                 border-radius: 2px;
             }
+            .stat-name {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .file-path {
+                font-size: 0.8em;
+                opacity: 0.7;
+            }
+            .stat-value {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                text-align: right;
+            }
+            .stat-timing {
+                font-size: 0.9em;
+                opacity: 0.9;
+            }
+            .stat-calls {
+                font-size: 0.85em;
+                opacity: 0.8;
+            }
+            .stat-max {
+                font-size: 0.8em;
+                opacity: 0.7;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -176,14 +203,33 @@ class PerformanceMonitor {
                 totalTime: 0,
                 avgTime: 0,
                 maxTime: 0,
-                lastUpdate: Date.now()
+                lastUpdate: Date.now(),
+                recentCalls: [], // Track recent calls for better averaging
+                recentTotal: 0
             });
         }
 
         const stats = this.methodStats.get(name);
         stats.calls++;
         stats.totalTime += executionTime;
-        stats.avgTime = stats.totalTime / stats.calls;
+        
+        // Track recent calls for a more accurate recent average
+        stats.recentCalls.push({
+            time: executionTime,
+            timestamp: Date.now()
+        });
+        stats.recentTotal += executionTime;
+        
+        // Keep only calls from the last 10 seconds
+        const tenSecondsAgo = Date.now() - 10000;
+        while (stats.recentCalls.length > 0 && stats.recentCalls[0].timestamp < tenSecondsAgo) {
+            stats.recentTotal -= stats.recentCalls[0].time;
+            stats.recentCalls.shift();
+        }
+        
+        stats.avgTime = stats.recentCalls.length > 0 ? 
+            stats.recentTotal / stats.recentCalls.length : 
+            stats.totalTime / stats.calls;
         stats.maxTime = Math.max(stats.maxTime, executionTime);
         stats.lastUpdate = Date.now();
     }
@@ -282,21 +328,27 @@ class PerformanceMonitor {
 
             // Update function stats with active time window (last 5 seconds)
             const now = Date.now();
-            const activeWindow = 5000; // 5 seconds
+            const activeWindow = 10000; // 10 seconds
             const activeMethods = Array.from(this.methodStats.entries())
                 .filter(([, stats]) => now - stats.lastUpdate < activeWindow)
                 .sort(([, a], [, b]) => b.avgTime - a.avgTime)
-                .slice(0, 10); // Show top 10 methods
+                .slice(0, 15); // Show top 15 methods
 
-            functionStats.innerHTML = activeMethods.map(([name, stats]) => `
+            functionStats.innerHTML = activeMethods.length > 0 ? 
+                activeMethods.map(([name, stats]) => `
                 <div class="stat-row ${stats.avgTime > 16 ? 'error' : stats.avgTime > 8 ? 'warning' : ''}">
-                    <span class="stat-name">${name} (${stats.file}):</span>
-                    <span class="stat-value">
-                        ${stats.avgTime.toFixed(2)}ms avg
-                        (${stats.calls} calls, max ${stats.maxTime.toFixed(2)}ms)
-                    </span>
+                    <div class="stat-name">
+                        <div>${name}</div>
+                        <div class="file-path">${stats.file}</div>
+                    </div>
+                    <div class="stat-value">
+                        <div class="stat-timing">${stats.avgTime.toFixed(2)}ms avg</div>
+                        <div class="stat-calls">${stats.recentCalls?.length || 0} recent / ${stats.calls} total calls</div>
+                        <div class="stat-max">max ${stats.maxTime.toFixed(2)}ms</div>
+                    </div>
                 </div>
-            `).join('');
+            `).join('') :
+                '<div class="stat-row"><span class="stat-name">No active methods in the last 10 seconds</span></div>';
         }
     }
 

@@ -32,13 +32,24 @@
     .packing-container {
         height: calc(100vh - env(safe-area-inset-top, 40px) - 20px);
         padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 80px);
+        position: relative;
+        display: flex;
+        flex-direction: column;
     }
 
     .scrollable-panel {
-        height: calc(100vh - 280px);
+        height: calc(100vh - 280px - env(safe-area-inset-bottom, 20px) - 160px);
         font-size: 14px;
-        padding-bottom: 100px;
+        padding-bottom: 20px;
         z-index: 1;
+        position: relative;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background-color: #01497C;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 450px;
+        margin: 0 auto;
     }
 
     .packing-header {
@@ -56,32 +67,46 @@
     }
 
     .control-button {
-        padding: 10px 20px;
-        font-size: 14px;
+        padding: 12px 24px;
+        font-size: 18px;
+        background-color: transparent;
+        border: 2px solid #fff;
+        text-transform: uppercase;
     }
 
     .bottom-controls {
         position: fixed;
-        bottom: env(safe-area-inset-bottom, 0);
-        left: 0;
-        right: 0;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
         background: #01497C;
         justify-content: center;
-        padding: 12px 8px;
-        z-index: 1000;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 8px 8px 0 8px;
+        z-index: 1002;
+        width: 100%;
         max-width: 450px;
-        margin: 0 auto;
+        box-shadow: 0 -8px 16px rgba(1, 73, 124, 0.95);
+        backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
     }
 
     .weight-display {
-        margin-bottom: calc(env(safe-area-inset-bottom, 20px) + 60px);
-        padding: 12px 8px;
+        padding: 4px 8px 8px 8px;
+        width: 100%;
+        text-align: center;
+        margin: 0;
+    }
+
+    .bottom-controls .buttons-container {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        width: 100%;
+        padding: 8px 0 calc(env(safe-area-inset-bottom, 20px) + 8px) 0;
         background: #01497C;
-        position: sticky;
-        bottom: 0;
-        z-index: 999;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 }
 
@@ -349,7 +374,7 @@
 /* Bottom controls */
 .bottom-controls {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 12px;
     padding: 10px env(safe-area-inset-right, 8px) env(safe-area-inset-bottom, 8px) env(safe-area-inset-left, 8px);
     margin-top: auto;
@@ -361,32 +386,34 @@
     }
 }
 
+.bottom-controls .control-button {
+    flex: 1;
+    max-width: 200px;
+}
+
 .control-button {
     padding: 12px 24px;
-    font-size: 16px;
-    background: #44aaff;
-    border: none;
+    font-size: 18px;
+    background-color: transparent;
+    border: 2px solid #fff;
     border-radius: 4px;
     color: white;
     font-family: 'Old Standard TT', serif;
     cursor: pointer;
-    transition: background-color 0.2s;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
 }
 
 .control-button:hover {
-    background: #3399ee;
+    background-color: #fff;
+    color: #000;
 }
 
-.control-button rect {
-    transition: fill 0.2s;
-}
-
-.control-button:hover rect {
-    fill: #3399ee;
-}
-
-.control-button:active rect {
-    fill: #2288dd;
+@media screen and (max-width: 768px) {
+    .control-button {
+        padding: 8px 16px;
+        font-size: 16px;
+    }
 }
 
 .spacer {
@@ -406,14 +433,17 @@ body {
 }
 
 body.packing-active {
-    background-color: #002847;
+    background-color: #01497C;
     margin: 0;
     padding: 0;
     width: 100%;
-    height: 100%;
-    position: absolute;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    position: fixed;
     top: 0;
     left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 /* Tabs container */

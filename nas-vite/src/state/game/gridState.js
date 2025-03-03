@@ -36,7 +36,7 @@ export const initializeGridState = () => {
                 if (Math.abs(q - southPole.q) <= 1 && Math.abs(r - southPole.r) <= 1) continue;
 
                 // Attempt to place mountain with low probability
-                if (Math.random() < 0.05 && mountainUtils.canPlaceMountain(position, terrain)) {
+                if (Math.random() < 0.02 && mountainUtils.canPlaceMountain(position, terrain)) {
                     mountainUtils.placeMountain(position, terrain);
                 }
             }

@@ -25,40 +25,77 @@ export const VisibilityManager = {
             const original = this[method];
             this[method] = (...args) => {
                 const start = performance.now();
-                const result = original.apply(this, args);
+                let result;
+
+                // Track specific operations within methods
+                if (method === 'updateVisibility') {
+                    const initStart = performance.now();
+                    this.initCache();
+                    const initEnd = performance.now();
+                    perfMonitor.trackMethod('initCache', 'visibility.js', initEnd - initStart);
+
+                    const hexStart = performance.now();
+                    this.updateVisibleHexes();
+                    const hexEnd = performance.now();
+                    perfMonitor.trackMethod('updateVisibleHexes', 'visibility.js', hexEnd - hexStart);
+
+                    const fogStart = performance.now();
+                    this.updateFogElements(args[0]);
+                    const fogEnd = performance.now();
+                    perfMonitor.trackMethod('updateFogElements', 'visibility.js', fogEnd - fogStart);
+
+                    if (args[0] && WeatherState.current.type === 'BLIZZARD') {
+                        const tempFogStart = performance.now();
+                        this.updateTemporaryFog();
+                        const tempFogEnd = performance.now();
+                        perfMonitor.trackMethod('updateTemporaryFog', 'visibility.js', tempFogEnd - tempFogStart);
+                    }
+
+                    result = undefined; // updateVisibility doesn't return anything
+                } else {
+                    result = original.apply(this, args);
+                }
+                
                 const end = performance.now();
+                const duration = end - start;
                 
-                // Track method execution time
-                perfMonitor.trackMethod(method, 'visibility.js', end - start);
+                // Track overall method execution time
+                perfMonitor.trackMethod(method, 'visibility.js', duration);
                 
-                // Track DOM operations separately
-                if (method === 'updateFogElements' || method === 'updateVisibility') {
+                // Track DOM operations with more detail
+                if (method === 'updateFogElements') {
                     const domOperations = {
                         method,
                         type: 'DOM_Update',
                         elements: this._cache.fogElements?.length || 0,
                         updates: this._cache.pendingUpdates?.size || 0,
-                        visibleSections: this._cache.visibleSections?.size || 0
+                        visibleSections: this._cache.visibleSections?.size || 0,
+                        updateDuration: duration,
+                        cacheHits: this._cache.stateCache.size
                     };
-                    perfMonitor.trackEvent('DOMOperation', domOperations, end - start);
+                    perfMonitor.trackEvent('DOMOperation', domOperations, duration);
                 }
 
-                // Track batched updates separately
+                // Enhanced batched updates tracking
                 if (method === 'processPendingUpdates') {
                     perfMonitor.trackEvent('BatchUpdate', {
                         updates: this._cache.pendingUpdates?.size || 0,
-                        type: 'DOM_Batch'
-                    }, end - start);
+                        type: 'DOM_Batch',
+                        duration: duration,
+                        timestamp: Date.now()
+                    }, duration);
                 }
                 
-                // Track expensive operations
-                if (end - start > 16) {
+                // Track expensive operations with more context
+                if (duration > 16) {
                     perfMonitor.trackEvent('LongOperation', {
                         method,
                         file: 'visibility.js',
-                        duration: end - start,
-                        cacheSize: this._cache.fogElementsMap.size
-                    }, end - start);
+                        duration: duration,
+                        cacheSize: this._cache.fogElementsMap.size,
+                        weatherType: WeatherState.current.type,
+                        visibleHexes: gameStore.game.world.visibleHexes.size
+                    }, duration);
                 }
                 
                 return result;
@@ -110,7 +147,8 @@ export const VisibilityManager = {
         HIDDEN: 2,
         MOUNTAIN: 3,
         BLIZZARD: 4,
-        WHITEOUT: 5
+        WHITEOUT: 5,
+        BLIZZARD_GOGGLES: 6
     },
 
     // Initialize cache
@@ -268,7 +306,13 @@ export const VisibilityManager = {
     getHexState(hexId, isVisible, isMountain) {
         if (WeatherState.current.type === 'BLIZZARD') {
             if (isMountain) return this._stateCode.MOUNTAIN;
-            return isVisible ? this._stateCode.BLIZZARD : this._stateCode.HIDDEN;
+            if (!isVisible) return this._stateCode.HIDDEN;
+            
+            // Check if player has Snow Goggles
+            const hasGoggles = Array.from(gameStore.packing.selectedItems.values())
+                .some(item => item.name === "Snow Goggles");
+            
+            return hasGoggles ? this._stateCode.BLIZZARD_GOGGLES : this._stateCode.BLIZZARD;
         } else if (WeatherState.current.type === 'WHITEOUT') {
             return this._stateCode.WHITEOUT;
         } else {
@@ -280,7 +324,7 @@ export const VisibilityManager = {
     // Update fog element classes based on state
     updateFogElementClasses(fogHex, state, isWeatherEvent) {
         // Remove existing state classes
-        fogHex.classList.remove('fog-visible', 'fog-hidden', 'fog-mountain', 'fog-blizzard', 'fog-whiteout');
+        fogHex.classList.remove('fog-visible', 'fog-hidden', 'fog-mountain', 'fog-blizzard', 'fog-blizzard-goggles', 'fog-whiteout');
         
         // Add transition class based on weather
         fogHex.classList.remove('movement-fade', 'blizzard-fade', 'instant');
@@ -303,6 +347,9 @@ export const VisibilityManager = {
                 break;
             case this._stateCode.BLIZZARD:
                 fogHex.classList.add('fog-blizzard');
+                break;
+            case this._stateCode.BLIZZARD_GOGGLES:
+                fogHex.classList.add('fog-blizzard-goggles');
                 break;
             case this._stateCode.WHITEOUT:
                 fogHex.classList.add('fog-whiteout');
@@ -408,7 +455,7 @@ export const VisibilityManager = {
         }
         
         // Get visible hexes with optimized radius calculation
-        const visibleHexes = this.getAdjacentHexes(position, 2);
+        const visibleHexes = this.getHexesInRadius(position, 2);
         const fogHexes = new Set([`${position.q},${position.r}`]);
         
         // Batch add visible hexes
@@ -487,7 +534,7 @@ export const VisibilityManager = {
         gameStore.game.world.visibleHexes.add(positionKey);
         
         // Add hexes within visibility radius using cached results
-        const visibleHexes = this.getAdjacentHexes(currentPosition, 2);
+        const visibleHexes = this.getHexesInRadius(currentPosition, 2);
         
         // Batch update visible hexes
         const hexesToAdd = visibleHexes.map(hex => `${hex.q},${hex.r}`);

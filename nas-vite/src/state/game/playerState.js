@@ -1,15 +1,17 @@
 // src/state/game/playerState.js
 
-import { PLAYER_STATS } from '../../config/constants.js';
+import { PLAYER_STATS, UI } from '../../config/constants.js';
 
 export const PlayerState = {
     position: { q: 0, r: 0 },
     lastMoveTime: Date.now(),
     lastStatUpdate: Date.now(),
     
-    // Add camping state
+    // Add camping and resting states
     isCamping: false,
+    isResting: false,
     campingInterval: null,
+    restingInterval: null,
     
     stats: {
         health: PLAYER_STATS.MAX_VALUE,
@@ -32,6 +34,9 @@ export const PlayerState = {
     updatePosition(newPos) {
         if (this.isCamping) {
             this.stopCamping();
+        }
+        if (this.isResting) {
+            this.stopResting();
         }
         this.position = { ...newPos };
         this.lastMoveTime = Date.now();
@@ -71,9 +76,15 @@ export const PlayerState = {
         return this.stats.health <= 0;
     },
 
+    // Helper method to check for tent
+    hasTent() {
+        return Array.from(window.gameStore.packing.selectedItems.values())
+            .some(item => item.name === "Canvas Tent");
+    },
+
     // Camping Methods
     startCamping() {
-        if (this.isCamping) return false;
+        if (this.isCamping || this.isResting) return false;
         
         this.isCamping = true;
         // Update game state camping
@@ -122,14 +133,75 @@ export const PlayerState = {
             clearInterval(this.campingInterval);
             this.campingInterval = null;
         }
-        return true;  // Return true to indicate successful stop
+        return true;
+    },
+
+    startResting() {
+        if (this.isResting || this.isCamping) return false;
+        
+        this.isResting = true;
+        // Update game state
+        if (window.gameStore?.game) {
+            window.gameStore.game.isResting = true;
+        }
+        // Update food button visibility
+        const gridManager = window.gridManager;
+        if (gridManager && typeof gridManager.updateFoodButton === 'function') {
+            gridManager.updateFoodButton();
+        }
+        
+        this.restingInterval = setInterval(() => {
+            // Calculate stamina recovery rate based on health status
+            const isHealthFull = this.stats.health >= PLAYER_STATS.MAX_VALUE;
+            const baseStaminaGain = this.campingConfig.staminaRecoveryRate * 0.5; // Half as effective
+            const staminaGain = isHealthFull ? 
+                baseStaminaGain * this.campingConfig.fullHealthStaminaMultiplier :
+                baseStaminaGain;
+
+            // Recover stamina
+            this.stats.stamina = Math.min(
+                PLAYER_STATS.MAX_VALUE,
+                this.stats.stamina + staminaGain
+            );
+        }, 3000);
+
+        return true;
+    },
+
+    stopResting() {
+        if (!this.isResting) return false;
+        
+        this.isResting = false;
+        // Update game state
+        if (window.gameStore?.game) {
+            window.gameStore.game.isResting = false;
+        }
+        // Update food button visibility
+        const gridManager = window.gridManager;
+        if (gridManager && typeof gridManager.updateFoodButton === 'function') {
+            gridManager.updateFoodButton();
+        }
+        
+        if (this.restingInterval) {
+            clearInterval(this.restingInterval);
+            this.restingInterval = null;
+        }
+        return true;
     },
 
     toggleCamping() {
+        // If already camping or resting, stop it
         if (this.isCamping) {
-            return this.stopCamping();  // Will return true when successfully stopped
+            return this.stopCamping();
+        } else if (this.isResting) {
+            return this.stopResting();
+        }
+        
+        // Check for tent and start appropriate action
+        if (this.hasTent()) {
+            return this.startCamping();
         } else {
-            return this.startCamping(); // Already returns true/false
+            return this.startResting();
         }
     }
 };

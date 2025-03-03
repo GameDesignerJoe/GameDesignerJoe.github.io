@@ -117,7 +117,7 @@ export const assignRandomTerrain = () => {
         CLIFF: 0.1,
         CREVASSE: 0.1,
         ICE_FIELD: 0.1,
-        MOUNTAIN: 0.02
+        MOUNTAIN: 0.01
     };
 
     const random = Math.random();

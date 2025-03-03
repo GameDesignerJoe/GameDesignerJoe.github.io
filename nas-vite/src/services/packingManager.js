@@ -3,6 +3,10 @@ import { gameStore } from '../state/store.js';
 import { ITEMS_DATABASE } from '../config/itemsDatabase.js';
 
 export class PackingManager {
+    formatWeight(weight) {
+        return weight < 1 ? weight.toFixed(2) : Math.round(weight);
+    }
+
     constructor(containerElement) {
         this.container = containerElement;
         this.gameStore = gameStore;
@@ -13,6 +17,41 @@ export class PackingManager {
         
         this.initializeUI();
         this.updateAvailableItemsPanel();
+    }
+
+    reset() {
+        // Clear all selected items
+        if (this.gameStore?.packing) {
+            this.gameStore.packing.selectedItems.clear();
+            this.gameStore.packing.totalWeight = 0;
+            this.gameStore.packing.MAX_WEIGHT = this.gameStore.packing.BASE_WEIGHT;
+        }
+
+        // Reset UI
+        this.updateUI();
+
+        // Show the packing screen
+        if (this.container) {
+            this.container.style.display = 'block';
+            document.body.classList.add('packing-active');
+            
+            // Reset scroll position
+            const scrollablePanels = this.container.querySelectorAll('.scrollable-panel');
+            scrollablePanels.forEach(panel => {
+                panel.scrollTop = 0;
+            });
+            
+            // Reset to available items tab
+            const availableTab = this.container.querySelector('[data-panel="available"]');
+            if (availableTab) {
+                availableTab.click();
+            }
+        }
+
+        // Hide game elements
+        document.querySelectorAll('.game-element').forEach(el => {
+            el.style.display = 'none';
+        });
     }
 
     initializeUI() {
@@ -110,10 +149,16 @@ export class PackingManager {
         const panel = document.createElement('div');
         panel.className = 'item-details-panel';
         
-        // Calculate max quantity based on remaining weight plus current items if editing
-        const remainingWeight = this.gameStore.packing.MAX_WEIGHT - this.gameStore.packing.totalWeight;
+        // If this is a sledge, show its effect on capacity
+        const isSledge = item.name === "Sledge";
+        const capacityNote = isSledge ? 
+            '<div style="margin-top: 10px; color: #ffc107;">Adding a Sledge increases your carrying capacity by 300 lbs (to 360 lbs total).</div>' : '';
+        
+        // For sledge, use the higher weight limit to calculate max quantity
+        const effectiveMaxWeight = isSledge ? this.gameStore.packing.BASE_WEIGHT + this.gameStore.packing.SLEDGE_BONUS : this.gameStore.packing.MAX_WEIGHT;
+        const remainingWeight = effectiveMaxWeight - this.gameStore.packing.totalWeight;
         const currentItemsWeight = currentQuantity * item.weight;
-        const maxQuantity = Math.floor((remainingWeight + currentItemsWeight) / item.weight);
+        const maxQuantity = isSledge ? 1 : Math.floor((remainingWeight + currentItemsWeight) / item.weight);
         
         // Set initial quantity - use current quantity for existing items, or 1 for new items from Take button
         const initialQuantity = currentQuantity > 0 ? currentQuantity : 1;
@@ -130,14 +175,15 @@ export class PackingManager {
                 </ul>
             </div>
             <div class="item-details-quantity">
-                <label>Quantity (Recommended: ${recommendedQuantity}):</label>
+                <label>Quantity ${isSledge ? '(Max: 1, Recommended: 1)' : `(Recommended: ${recommendedQuantity})`}:</label>
                 <input type="number" min="0" max="${maxQuantity}" value="${initialQuantity}" id="quantity-input" 
                     inputmode="numeric" pattern="[0-9]*" 
                     onkeypress="return event.charCode >= 48 && event.charCode <= 57">
                 <div class="item-details-quantity-info">Maximum: ${maxQuantity} (based on weight limit)</div>
+                ${capacityNote}
             </div>
             <div class="item-details-weight">
-                Total Weight: ${(initialQuantity * item.weight).toFixed(2)} lbs
+                Total Weight: ${this.formatWeight(initialQuantity * item.weight)} lbs
             </div>
             <div class="item-details-buttons">
                 <button class="item-details-button cancel">Cancel</button>
@@ -151,7 +197,7 @@ export class PackingManager {
         // Update weight display when quantity changes
         quantityInput.addEventListener('input', () => {
             const quantity = parseInt(quantityInput.value) || 0;
-            const totalWeight = (quantity * item.weight).toFixed(2);
+            const totalWeight = this.formatWeight(quantity * item.weight);
             weightDisplay.textContent = `Total Weight: ${totalWeight} lbs`;
         });
         
@@ -184,7 +230,10 @@ export class PackingManager {
                     if (!success) {
                         console.log(`Failed to add item ${i + 1}, stopping`);
                         if (addedCount === 0) {
-                            alert('Could not add items due to weight limit');
+                            this.showWarningOverlay(
+                                'Weight Limit',
+                                'Could not add items due to weight limit'
+                            );
                         }
                         break;
                     }
@@ -215,6 +264,58 @@ export class PackingManager {
             overlay.remove();
         }
         this.currentDetailsItem = null;
+    }
+
+    showWarningOverlay(title, message, onContinue = null) {
+        const overlay = document.createElement('div');
+        overlay.className = 'warning-overlay';
+        
+        const panel = document.createElement('div');
+        panel.className = 'warning-panel';
+        
+        panel.innerHTML = `
+            <div class="warning-title">${title}</div>
+            <div class="warning-message">${message}</div>
+            <div class="warning-buttons">
+                <button class="warning-button cancel">Cancel</button>
+                ${onContinue ? '<button class="warning-button continue">Continue</button>' : ''}
+            </div>
+        `;
+        
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        
+        // Handle button clicks
+        const cancelBtn = panel.querySelector('.cancel');
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                document.body.removeChild(overlay);
+            };
+        }
+        
+        const continueBtn = panel.querySelector('.continue');
+        if (continueBtn && onContinue) {
+            continueBtn.onclick = () => {
+                document.body.removeChild(overlay);
+                onContinue();
+            };
+        }
+        
+        // Handle ESC key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(overlay);
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        
+        // Handle click outside
+        overlay.onclick = (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
     }
 
     updateAvailableItemsPanel() {
@@ -263,8 +364,8 @@ export class PackingManager {
                     .filter(i => i.name === item.name).length;
 
                 itemDiv.innerHTML = `
-                    <span style="flex: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name}</span>
-                    <span style="width: 60px; text-align: right;">${item.weight} lbs</span>
+                    <span style="flex: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 19px;">${item.name}</span>
+                    <span style="width: 60px; text-align: right; margin-right: 10px;">${this.formatWeight(item.weight)} lbs</span>
                     <button style="
                         background: #007bff;
                         color: white;
@@ -307,63 +408,83 @@ export class PackingManager {
         spacerDiv.style.height = '0px';
         container.appendChild(spacerDiv);
     
-        // Group items by name and count quantities
-        const itemGroups = new Map();
+        // First group items by category, then by name
+        const categorizedItems = new Map();
         Array.from(this.gameStore.packing.selectedItems.values()).forEach(item => {
-            if (!itemGroups.has(item.name)) {
-                itemGroups.set(item.name, {
+            if (!categorizedItems.has(item.category)) {
+                categorizedItems.set(item.category, new Map());
+            }
+            const categoryGroup = categorizedItems.get(item.category);
+            if (!categoryGroup.has(item.name)) {
+                categoryGroup.set(item.name, {
                     item: item,
                     count: 1
                 });
             } else {
-                itemGroups.get(item.name).count++;
+                categoryGroup.get(item.name).count++;
             }
         });
-    
-        itemGroups.forEach(({item, count}) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.style.cssText = `
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 5px 0px;
-                margin: 2px 0;
-                max-width: 100%;
+
+        // Render each category
+        categorizedItems.forEach((categoryItems, category) => {
+            const headerDiv = document.createElement('div');
+            headerDiv.style.cssText = `
+                background: #007bff;
+                padding: 3px 8px;
+                margin-bottom: 3px;
+                font-size: 20px;
+                font-weight: bold;
+                max-width: 950px;
             `;
+            headerDiv.textContent = category;
+            container.appendChild(headerDiv);
 
-            const totalWeight = (count * item.weight).toFixed(2);
-            itemDiv.innerHTML = `
-                <span style="flex: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px;">${item.name}</span>
-                <span style="width: 140px; text-align: right; white-space: nowrap;">(${count} × ${item.weight} lbs) ${totalWeight} lbs</span>
-                <button style="
-                    background: rgb(255, 60, 0);
-                    color: white;
-                    border: none;
-                    padding: 2px 6px;
-                    min-width: 50px;
-                    cursor: pointer;
-                    font-family: inherit;
-                    font-style: italic;
-                    transition: background-color 0.15s ease, color 0.15s ease;
-                ">Change</button>
-            `;
+            // Render items in this category
+            categoryItems.forEach(({item, count}) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.style.cssText = `
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 5px 0px;
+                    margin: 2px 0;
+                    max-width: 100%;
+                `;
 
-            const button = itemDiv.querySelector('button');
-            button.onmousedown = () => {
-                button.style.backgroundColor = 'white';
-                button.style.color = 'rgb(255, 60, 0)';
-            };
+                const totalWeight = this.formatWeight(count * item.weight);
+                itemDiv.innerHTML = `
+                    <span style="flex: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 19px;">${item.name}</span>
+                    <span style="width: 100px; text-align: right; white-space: nowrap; margin-right: 10px;">(${count}) ${totalWeight} lbs</span>
+                    <button style="
+                        background: rgb(255, 60, 0);
+                        color: white;
+                        border: none;
+                        padding: 2px 6px;
+                        min-width: 50px;
+                        cursor: pointer;
+                        font-family: inherit;
+                        font-style: italic;
+                        transition: background-color 0.15s ease, color 0.15s ease;
+                    ">Change</button>
+                `;
 
-            button.onmouseup = () => {
-                button.style.backgroundColor = 'rgb(255, 60, 0)';
-                button.style.color = 'white';
-            };
+                const button = itemDiv.querySelector('button');
+                button.onmousedown = () => {
+                    button.style.backgroundColor = 'white';
+                    button.style.color = 'rgb(255, 60, 0)';
+                };
 
-            button.onclick = () => {
-                this.showItemDetails(ITEMS_DATABASE[item.name], count);
-            };
-    
-            container.appendChild(itemDiv);
+                button.onmouseup = () => {
+                    button.style.backgroundColor = 'rgb(255, 60, 0)';
+                    button.style.color = 'white';
+                };
+
+                button.onclick = () => {
+                    this.showItemDetails(ITEMS_DATABASE[item.name], count);
+                };
+        
+                container.appendChild(itemDiv);
+            });
         });
     }
 
@@ -375,10 +496,10 @@ export class PackingManager {
             this.weightDisplay = document.createElement('div');
             this.weightDisplay.className = 'weight-display';
             const bottomControls = this.wrapper.querySelector('.bottom-controls');
-            this.wrapper.insertBefore(this.weightDisplay, bottomControls);
+            bottomControls.insertBefore(this.weightDisplay, bottomControls.firstChild);
         }
         
-        this.weightDisplay.textContent = `Total Weight: ${weight}/${maxWeight} lbs`;
+        this.weightDisplay.textContent = `Total Weight: ${this.formatWeight(weight)}/${this.formatWeight(maxWeight)} lbs`;
         
         const weightPercentage = (weight / maxWeight) * 100;
         if (weightPercentage > 90) {
@@ -394,6 +515,9 @@ export class PackingManager {
         const controlsDiv = document.createElement('div');
         controlsDiv.className = 'bottom-controls';
         
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.className = 'buttons-container';
+        
         const standardLoadBtn = document.createElement('button');
         standardLoadBtn.className = 'control-button';
         standardLoadBtn.textContent = 'Standard Load';
@@ -404,8 +528,9 @@ export class PackingManager {
         embarkBtn.textContent = 'EMBARK!';
         embarkBtn.onclick = () => this.handleEmbark();
         
-        controlsDiv.appendChild(standardLoadBtn);
-        controlsDiv.appendChild(embarkBtn);
+        buttonsContainer.appendChild(standardLoadBtn);
+        buttonsContainer.appendChild(embarkBtn);
+        controlsDiv.appendChild(buttonsContainer);
         
         this.wrapper.appendChild(controlsDiv);
     }
@@ -426,21 +551,38 @@ export class PackingManager {
     }
 
     handleEmbark() {
-        if (this.gameStore.packing.selectedItems.size === 0) {
-            if (!confirm("Are you sure you want to embark with no items?")) {
-                return;
-            }
+        // Check if weight is over limit
+        if (this.gameStore.packing.totalWeight > this.gameStore.packing.MAX_WEIGHT) {
+            this.showWarningOverlay(
+                'Weight Limit Exceeded',
+                `You are carrying too much weight (${this.formatWeight(this.gameStore.packing.totalWeight)} lbs). Maximum allowed is ${this.formatWeight(this.gameStore.packing.MAX_WEIGHT)} lbs. Add a Sledge to increase capacity by 300 lbs.`
+            );
+            return;
         }
+
+        if (this.gameStore.packing.selectedItems.size === 0) {
+            this.showWarningOverlay(
+                'Warning',
+                'Are you sure you want to embark with no items? The Antarctic is an unforgiving place.',
+                () => this.completeEmbark()
+            );
+            return;
+        }
+        
+        this.completeEmbark();
+    }
     
+    completeEmbark() {
         const gameItems = this.gameStore.packing.getGameItems();
         document.body.classList.remove('packing-active');
         this.container.style.display = "none";
-        this.container.remove();
         
+        // Show game elements
         document.querySelectorAll('.game-element').forEach(el => {
             el.style.display = 'block';
         });
         
+        // Call onEmbarked with game items
         if (this.onEmbarked) {
             this.onEmbarked(gameItems);
         }

@@ -3,6 +3,7 @@ import { gameStore } from '../state/store.js';
 import { WeatherSystem } from '../core/weather.js';
 import { MessageSystem } from '../core/messages.js';
 import { VisibilityManager } from './visibility.js';
+import { InventorySystem } from '../core/inventorySystem.js';
 import { TERRAIN_TYPES, SPECIAL_LOCATIONS, assignRandomTerrain } from '../config/terrain.js';
 import { initializeGridState } from '../state/game/gridState.js';
 import { GRID, UI } from '../config/constants.js';  // Add UI to the import
@@ -31,15 +32,19 @@ export const GridManager = {
     },
 
     initializeGrid() {
-        // console.log("Starting grid initialization");
+        // Remove any existing grid elements
+        const hexGroup = document.getElementById('hexGroup');
+        if (hexGroup) {
+            while (hexGroup.firstChild) {
+                hexGroup.removeChild(hexGroup.firstChild);
+            }
+        }
         
         // Initialize grid state
         const gridState = initializeGridState();
-        // console.log("Grid state initialized:", gridState);
         
         // Update player position first
         gameStore.player.position = { ...gridState.baseCamp };
-        // console.log("Player position set:", gameStore.player.position);
         
         // Then update game world
         Object.assign(gameStore.game.world, gridState);
@@ -52,18 +57,33 @@ export const GridManager = {
             `${gameStore.playerPosition.q},${gameStore.playerPosition.r}`
         );
         
-        // console.log("Visited hexes:", gameStore.game.world.visitedHexes);
-        
         // Make adjacent hexes visible
         const adjacentHexes = VisibilityManager.getAdjacentHexes(gameStore.playerPosition);
         adjacentHexes.forEach(hex => {
             gameStore.game.world.visibleHexes.add(`${hex.q},${hex.r}`);
         });
-        
-        // console.log("Visible hexes:", gameStore.game.world.visibleHexes);
 
+        // Initialize visibility
+        VisibilityManager.clearCaches();
+        VisibilityManager.init();
+        
+        // Update visible hexes
+        VisibilityManager.updateVisibleHexes();
+        
+        // Force a full visibility update
         VisibilityManager.updateVisibility(false);
+        
+        // Update fog elements
+        VisibilityManager.updateFogElements(false);
+        
+        // Process any pending updates immediately
+        VisibilityManager.processPendingUpdates();
+        
+        // Update location info
         gameStore.messages.updateCurrentLocationInfo();
+        
+        // Center viewport on player
+        this.centerViewport();
     },
 
     getTerrainType(q, r) {
@@ -275,6 +295,7 @@ export const GridManager = {
 
         // Initialize all buttons in a single frame
         requestAnimationFrame(() => {
+            this.initializeInventoryButton(controlsContainer);
             this.initializeCampingButton(controlsContainer);
             this.initializeCompassButton(controlsContainer);
             this.initializeFoodButton(controlsContainer);
@@ -293,35 +314,42 @@ export const GridManager = {
         const campButton = document.createElement('button');
         campButton.id = 'camp-button';
         campButton.className = 'game-button camp-button';
-        campButton.innerHTML = `<img src="./public/art/camp.svg" alt="Camp" class="camp-icon">`;
+        
+        // Set initial icon based on tent availability
+        const hasTent = gameStore.player.hasTent();
+        campButton.innerHTML = `<img src="./public/art/${hasTent ? 'camp' : 'sleep-icon'}.svg" alt="${hasTent ? 'Camp' : 'Rest'}" class="camp-icon">`;
 
         // Add click handler
         campButton.addEventListener('click', () => {
             if (this.isAtBaseCamp(gameStore.player.position)) {
                 gameStore.messages.showPlayerMessage(
-                    "You can't camp here.", 
+                    "You can't rest here.", 
                     UI.MESSAGE_TYPES.STATUS
                 );
                 return;
             }
             
-            // Store current camping state before toggling
+            // Store current states before toggling
             const wasCamping = gameStore.player.isCamping;
+            const wasResting = gameStore.player.isResting;
             const success = gameStore.player.toggleCamping();
             
             if (success) {
                 this.updateCampingButton();
                 this.createCampingVisual();
                 
-                // Show appropriate message based on camping state
-                if (!wasCamping) {
+                // Show appropriate message based on state
+                if (!wasCamping && !wasResting) {
+                    const hasTent = gameStore.player.hasTent();
                     gameStore.messages.showPlayerMessage(
-                        "You set up camp, taking shelter from the bitter cold...",
+                        hasTent ? 
+                            "You set up camp, taking shelter from the bitter cold..." :
+                            "You try to find a moment's rest in the bitter cold...",
                         UI.MESSAGE_TYPES.STATUS
                     );
                 } else {
                     gameStore.messages.showPlayerMessage(
-                        "You break camp and prepare to move on...",
+                        "You prepare to move on...",
                         UI.MESSAGE_TYPES.STATUS
                     );
                 }
@@ -337,6 +365,11 @@ export const GridManager = {
 
         const campIcon = campButton.querySelector('.camp-icon');
         const isAtBase = this.isAtBaseCamp(gameStore.player.position);
+        const hasTent = gameStore.player.hasTent();
+        
+        // Update icon based on tent availability
+        campIcon.src = `./public/art/${hasTent ? 'camp' : 'sleep-icon'}.svg`;
+        campIcon.alt = hasTent ? 'Camp' : 'Rest';
         
         // Remove disabled state first
         campButton.classList.remove('disabled');
@@ -348,7 +381,7 @@ export const GridManager = {
             campIcon.classList.add('grayscale');
         }
         
-        if (gameStore.player.isCamping) {
+        if (gameStore.player.isCamping || gameStore.player.isResting) {
             campButton.classList.add('active');
         } else {
             campButton.classList.remove('active');
@@ -361,49 +394,78 @@ export const GridManager = {
             existingCamp.remove();
         }
 
-        if (!gameStore.player.isCamping) return;
+        if (!gameStore.player.isCamping && !gameStore.player.isResting) return;
 
         const center = this.getHexCenter(
             gameStore.player.position.q,
             gameStore.player.position.r
         );
 
-        // Create camp hex with batched attributes
-        const campHex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        const campSize = GRID.HEX_SIZE * 0.75; // 75% of normal hex size
-        
-        // Pre-calculate camp hex points
-        const campPoints = (() => {
-            const points = [];
-            for (let i = 0; i < 6; i++) {
-                const angle = (60 * i - 30) * Math.PI / 180;
-                points.push(`${campSize * Math.cos(angle)},${campSize * Math.sin(angle)}`);
-            }
-            return points.join(' ');
-        })();
-        
-        // Set attributes in batch
-        const campAttrs = {
-            "points": campPoints,
-            "transform": `translate(${center.x}, ${center.y})`,
-            "fill": "#DAA520",
-            "stroke": "#B8860B",
-            "stroke-width": "2",
-            "id": "camp-hex"
-        };
-        
-        Object.entries(campAttrs).forEach(([key, value]) => {
-            campHex.setAttribute(key, value);
-        });
+        if (gameStore.player.isCamping) {
+            // Create camp hex with batched attributes
+            const campHex = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            const campSize = GRID.HEX_SIZE * 0.75; // 75% of normal hex size
+            
+            // Pre-calculate camp hex points
+            const campPoints = (() => {
+                const points = [];
+                for (let i = 0; i < 6; i++) {
+                    const angle = (60 * i - 30) * Math.PI / 180;
+                    points.push(`${campSize * Math.cos(angle)},${campSize * Math.sin(angle)}`);
+                }
+                return points.join(' ');
+            })();
+            
+            // Set attributes in batch
+            const campAttrs = {
+                "points": campPoints,
+                "transform": `translate(${center.x}, ${center.y})`,
+                "fill": "#DAA520",
+                "stroke": "#B8860B",
+                "stroke-width": "2",
+                "id": "camp-hex"
+            };
+            
+            Object.entries(campAttrs).forEach(([key, value]) => {
+                campHex.setAttribute(key, value);
+            });
 
-        // Insert before player marker for proper layering
-        const hexGroup = document.getElementById('hexGroup');
-        const player = document.getElementById('player');
-        hexGroup.insertBefore(campHex, player);
+            // Insert before player marker for proper layering
+            const hexGroup = document.getElementById('hexGroup');
+            const player = document.getElementById('player');
+            hexGroup.insertBefore(campHex, player);
+        } else if (gameStore.player.isResting) {
+            // Create rest circle
+            const restCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            
+            // Set attributes in batch
+            const restAttrs = {
+                "cx": center.x,
+                "cy": center.y,
+                "r": GRID.HEX_SIZE * 0.56, // 70% of previous size (was 0.8)
+                "fill": "#D3D3D3", // Light grey
+                "id": "camp-hex" // Keep same ID for consistency with removal
+            };
+            
+            Object.entries(restAttrs).forEach(([key, value]) => {
+                restCircle.setAttribute(key, value);
+            });
+
+            // Insert before player marker for proper layering
+            const hexGroup = document.getElementById('hexGroup');
+            const player = document.getElementById('player');
+            hexGroup.insertBefore(restCircle, player);
+        }
     },
 
     initializeCompassButton(controlsContainer) {
         if (document.querySelector('.compass-button')) return;
+        
+        // Only show compass button if player has a compass
+        const hasCompass = Array.from(gameStore.packing.selectedItems.values())
+            .some(item => item.name === "Compass");
+            
+        if (!hasCompass) return;
     
         const compassButton = document.createElement('button');
         compassButton.className = 'game-button compass-button';
@@ -448,6 +510,24 @@ export const GridManager = {
         }
     },
 
+    initializeInventoryButton(controlsContainer) {
+        if (document.querySelector('.inventory-button')) return;
+
+        const inventoryButton = document.createElement('button');
+        inventoryButton.className = 'game-button inventory-button';
+        inventoryButton.innerHTML = `<img src="./public/art/backpack-icon.svg" alt="Inventory" class="inventory-icon">`;
+
+        // Add click handler
+        inventoryButton.addEventListener('click', () => {
+            if (!gameStore.inventorySystem) {
+                gameStore.inventorySystem = new InventorySystem(gameStore);
+            }
+            gameStore.inventorySystem.handleInventoryIconClick();
+        });
+
+        controlsContainer.appendChild(inventoryButton);
+    },
+
     initializeFoodButton(controlsContainer) {
         if (document.querySelector('.food-button')) return;
 
@@ -457,14 +537,6 @@ export const GridManager = {
 
         // Add click handler
         foodButton.addEventListener('click', () => {
-            if (!gameStore.player.isCamping) {
-                gameStore.messages.showPlayerMessage(
-                    "You must make camp before eating.",
-                    UI.MESSAGE_TYPES.WARNING
-                );
-                return;
-            }
-
             if (gameStore.foodSystem) {
                 gameStore.foodSystem.handleFoodIconClick();
             }
@@ -486,8 +558,8 @@ export const GridManager = {
             foodButton.classList.remove('active');
         }
 
-        // Show/hide based on camping state
-        if (gameStore.player.isCamping) {
+        // Show/hide based on camping/resting state
+        if (gameStore.player.isCamping || gameStore.player.isResting) {
             foodButton.style.display = 'flex';
         } else {
             foodButton.style.display = 'none';
