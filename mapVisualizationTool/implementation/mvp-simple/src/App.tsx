@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
+import backgroundImageSrc from './CruxMap_BW_trans.png';
 
 // Define types for map configuration
 interface MapConfig {
   width: number;
   height: number;
   hexSize: number;
+  showGrid: boolean;
+  gridOpacity: number;
 }
 
 // Define types for content types
@@ -28,12 +31,29 @@ export interface AnalysisData {
 }
 
 function App() {
+  // Canvas dimensions state (will be calculated based on container size)
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1800, height: 1350 });
+  
+  // Reference to the map container element
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+
   // State for map configuration
   const [mapConfig, setMapConfig] = useState<MapConfig>({
     width: 20,
     height: 15,
     hexSize: 30,
+    showGrid: true,
+    gridOpacity: 0.7,
   });
+
+  // State for transparency mask
+  const [transparencyMask, setTransparencyMask] = useState<boolean[][]>([]);
+  
+  // State for background image loaded status
+  const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
+  
+  // Reference to the background image to prevent reloading
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
 
   // State for content types
   const [contentTypes, setContentTypes] = useState<ContentType[]>([
@@ -52,6 +72,32 @@ function App() {
     densityMap: {},
     warnings: [],
   });
+
+  // Function to update canvas dimensions based on container size
+  const updateCanvasDimensions = () => {
+    if (mapContainerRef.current) {
+      const container = mapContainerRef.current;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      // Set canvas dimensions to match container size
+      setCanvasDimensions({ width, height });
+    }
+  };
+  
+  // Update canvas dimensions when window is resized
+  useEffect(() => {
+    // Initial update
+    updateCanvasDimensions();
+    
+    // Add resize event listener
+    window.addEventListener('resize', updateCanvasDimensions);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('resize', updateCanvasDimensions);
+    };
+  }, []);
 
   // Function to generate map data using flood fill algorithm for contiguous biomes
   const generateMap = () => {
@@ -248,20 +294,25 @@ function App() {
     color: string,
     strokeColor: string = '#ffffff',
   ) => {
+    // Use the full size without any gap
+    const cellSize = size;
+    
     // Fill
     ctx.fillStyle = color;
-    ctx.fillRect(x, y, size, size);
+    ctx.fillRect(x, y, cellSize, cellSize);
     
     // Stroke
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, size, size);
+    ctx.lineWidth = 0.5; // Thinner line for less visible grid
+    ctx.strokeRect(x, y, cellSize, cellSize);
   };
   
   // Function to get square coordinates
   const getSquareCoordinates = (col: number, row: number, size: number) => {
-    const x = col * (size + 2); // Add 2px gap between squares
-    const y = row * (size + 2); // Add 2px gap between squares
+    // Use the provided size parameter (hexSize) for calculating positions
+    // Calculate the position of the cell based on the size
+    const x = col * size;
+    const y = row * size;
     
     return { x, y };
   };
@@ -269,37 +320,138 @@ function App() {
   // Canvas reference
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Draw the map whenever mapData, mapConfig, or contentTypes change
+  // State for zoom level
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  
+  // Preload the background image once
   useEffect(() => {
+    if (!backgroundImageRef.current) {
+      const img = new Image();
+      img.src = backgroundImageSrc;
+      img.onload = () => {
+        backgroundImageRef.current = img;
+        setBackgroundImageLoaded(true);
+      };
+      img.onerror = () => {
+        console.error('Error loading background image');
+        setBackgroundImageLoaded(true);
+      };
+    }
+  }, []);
+  
+  // Function to draw the map with current zoom level
+  const drawMapWithZoom = () => {
+    if (!backgroundImageRef.current) return;
+    
     const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Calculate canvas dimensions based on square size
-    const squareSize = mapConfig.hexSize; // Reuse the hexSize parameter
+    // Ensure canvas has the dimensions from state
+    canvas.width = canvasDimensions.width;
+    canvas.height = canvasDimensions.height;
     
-    const canvasWidth = mapConfig.width * (squareSize + 2) + 10; // Add padding
-    const canvasHeight = mapConfig.height * (squareSize + 2) + 10; // Add padding
-    
-    // Set canvas dimensions
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    // Save the current transformation matrix
+    ctx.save();
     
     // Clear canvas
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
     
-    // Draw background
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    // Apply zoom transformation to the entire canvas
+    // Scale from the center of the canvas
+    ctx.translate(canvasDimensions.width / 2, canvasDimensions.height / 2);
+    ctx.scale(zoomLevel, zoomLevel);
+    ctx.translate(-canvasDimensions.width / 2, -canvasDimensions.height / 2);
     
-    // Draw square grid
+    // Draw the background image to fill the entire canvas
+    ctx.drawImage(backgroundImageRef.current, 0, 0, canvasDimensions.width, canvasDimensions.height);
+    
+    // Draw map data if available
     if (mapData.length > 0) {
-      // Draw filled squares based on mapData
-      for (let row = 0; row < mapData.length; row++) {
-        for (let col = 0; col < mapData[row].length; col++) {
-          const contentTypeId = mapData[row][col];
+      drawMapData(ctx, mapData, transparencyMask);
+    } else if (mapConfig.showGrid) {
+      // Draw empty grid if no data but grid is enabled
+      drawEmptyGrid(ctx, transparencyMask);
+    }
+    
+    // Restore the transformation matrix
+    ctx.restore();
+  };
+  
+  // Create transparency mask when map configuration changes
+  useEffect(() => {
+    if (!backgroundImageLoaded || !backgroundImageRef.current) return;
+    
+    const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Use dimensions from state
+    canvas.width = canvasDimensions.width;
+    canvas.height = canvasDimensions.height;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
+    
+    // Draw the background image without zoom to create the mask
+    ctx.drawImage(backgroundImageRef.current, 0, 0, canvasDimensions.width, canvasDimensions.height);
+    
+    // Create transparency mask
+    const imageData = ctx.getImageData(0, 0, canvasDimensions.width, canvasDimensions.height);
+    const mask: boolean[][] = [];
+    
+    // Initialize the mask array
+    for (let y = 0; y < mapConfig.height; y++) {
+      mask[y] = [];
+      for (let x = 0; x < mapConfig.width; x++) {
+        // Get the corresponding position on the image
+        const { x: pixelX, y: pixelY } = getSquareCoordinates(x, y, mapConfig.hexSize);
+        
+        // Sample the center of where the square would be
+        const centerX = pixelX + mapConfig.hexSize / 2;
+        const centerY = pixelY + mapConfig.hexSize / 2;
+        
+        // Check if this point is within canvas bounds
+        if (centerX < canvasDimensions.width && centerY < canvasDimensions.height) {
+          // Get the pixel index in the image data array
+          const pixelIndex = ((Math.floor(centerY) * canvasDimensions.width) + Math.floor(centerX)) * 4;
+          
+          // Check alpha channel (index + 3)
+          const alpha = imageData.data[pixelIndex + 3];
+          
+          // If alpha is above threshold (e.g., 50), consider it non-transparent
+          mask[y][x] = alpha > 50;
+        } else {
+          mask[y][x] = false;
+        }
+      }
+    }
+    
+    setTransparencyMask(mask);
+    
+    // Redraw with zoom
+    drawMapWithZoom();
+  }, [mapConfig.width, mapConfig.height, mapConfig.hexSize, backgroundImageLoaded, canvasDimensions]);
+  
+  // Function to draw map data with transparency mask
+  const drawMapData = (
+    ctx: CanvasRenderingContext2D, 
+    data: string[][], 
+    mask: boolean[][]
+  ) => {
+    // Set global alpha for semi-transparency
+    ctx.globalAlpha = mapConfig.gridOpacity;
+    
+    // Draw filled squares based on mapData, respecting the mask
+    for (let row = 0; row < data.length; row++) {
+      for (let col = 0; col < data[row].length; col++) {
+        // Only draw if this position is non-transparent in the mask
+        if (mask[row] && mask[row][col]) {
+          const contentTypeId = data[row][col];
           const contentType = contentTypes.find(type => type.id === contentTypeId);
           
           if (contentType) {
@@ -308,16 +460,69 @@ function App() {
           }
         }
       }
-    } else {
-      // Draw empty grid if no data
-      for (let row = 0; row < mapConfig.height; row++) {
-        for (let col = 0; col < mapConfig.width; col++) {
+    }
+    
+    // Reset global alpha
+    ctx.globalAlpha = 1.0;
+  };
+  
+  // Function to draw empty grid with transparency mask
+  const drawEmptyGrid = (
+    ctx: CanvasRenderingContext2D,
+    mask: boolean[][]
+  ) => {
+    // Set global alpha for semi-transparency
+    ctx.globalAlpha = mapConfig.gridOpacity;
+    
+    // Draw empty grid, respecting the mask
+    for (let row = 0; row < mapConfig.height; row++) {
+      for (let col = 0; col < mapConfig.width; col++) {
+        // Only draw if this position is non-transparent in the mask
+        if (mask[row] && mask[row][col]) {
           const { x, y } = getSquareCoordinates(col, row, mapConfig.hexSize);
           drawSquare(ctx, x, y, mapConfig.hexSize, '#e2e8f0', '#cbd5e1');
         }
       }
     }
-  }, [mapData, mapConfig, contentTypes]);
+    
+    // Reset global alpha
+    ctx.globalAlpha = 1.0;
+  };
+  
+  // Add mouse wheel event listener for zooming
+  useEffect(() => {
+    const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
+    if (!canvas) return;
+    
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      
+      // Determine zoom direction
+      const zoomDirection = e.deltaY < 0 ? 1 : -1;
+      
+      // Calculate new zoom level
+      const zoomFactor = 0.1; // 10% zoom per wheel tick
+      const newZoomLevel = Math.max(0.5, Math.min(3, zoomLevel + (zoomDirection * zoomFactor)));
+      
+      setZoomLevel(newZoomLevel);
+    };
+    
+    // Add wheel event listener
+    canvas.addEventListener('wheel', handleWheel);
+    
+    // Clean up event listener on unmount
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [zoomLevel]);
+  
+  // Draw the map whenever mapData, mapConfig, contentTypes, transparencyMask, or zoomLevel change
+  useEffect(() => {
+    if (!backgroundImageLoaded || !backgroundImageRef.current) return; // Wait for background image to load
+    
+    // Use the drawMapWithZoom function to redraw the map
+    drawMapWithZoom();
+  }, [mapData, mapConfig, contentTypes, transparencyMask, backgroundImageLoaded, zoomLevel, canvasDimensions]);
 
   return (
     <div className="app">
@@ -328,6 +533,14 @@ function App() {
       <main className="app-content">
         <div className="input-panel">
           <h2 className="panel-title">Input Panel</h2>
+          
+          <button
+            onClick={generateMap}
+            className="generate-button"
+            disabled={contentTypes.reduce((sum, type) => sum + type.percentage, 0) !== 100}
+          >
+            Generate Map
+          </button>
           
           <div className="panel-section">
             <h3>Map Configuration</h3>
@@ -372,6 +585,34 @@ function App() {
                 onChange={(e) => setMapConfig({...mapConfig, hexSize: parseInt(e.target.value, 10)})}
                 className="form-input"
               />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="showGrid">Show Grid:</label>
+              <input
+                type="checkbox"
+                id="showGrid"
+                name="showGrid"
+                checked={mapConfig.showGrid}
+                onChange={(e) => setMapConfig({...mapConfig, showGrid: e.target.checked})}
+                className="form-input"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="gridOpacity">Grid Opacity:</label>
+              <input
+                type="range"
+                id="gridOpacity"
+                name="gridOpacity"
+                min="0.1"
+                max="1.0"
+                step="0.1"
+                value={mapConfig.gridOpacity}
+                onChange={(e) => setMapConfig({...mapConfig, gridOpacity: parseFloat(e.target.value)})}
+                className="form-input"
+              />
+              <span>{mapConfig.gridOpacity.toFixed(1)}</span>
             </div>
           </div>
           
@@ -449,14 +690,6 @@ function App() {
               )}
             </div>
           </div>
-          
-          <button
-            onClick={generateMap}
-            className="generate-button"
-            disabled={contentTypes.reduce((sum, type) => sum + type.percentage, 0) !== 100}
-          >
-            Generate Map
-          </button>
         </div>
         
         <div className="map-panel">
@@ -482,7 +715,7 @@ function App() {
             </button>
           </div>
           
-          <div className="map-canvas-container">
+          <div className="map-canvas-container" ref={mapContainerRef}>
             <canvas id="map-canvas" className="map-canvas" />
             
             {mapData.length === 0 && (
@@ -490,6 +723,33 @@ function App() {
                 <p>Generate a map to see the visualization</p>
               </div>
             )}
+            
+            <div className="zoom-controls">
+              <span className="zoom-level">Zoom: {zoomLevel.toFixed(1)}x</span>
+              <div className="zoom-buttons">
+                <button 
+                  onClick={() => setZoomLevel(Math.min(3, zoomLevel + 0.1))}
+                  className="zoom-button"
+                  disabled={zoomLevel >= 3}
+                >
+                  +
+                </button>
+                <button 
+                  onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.1))}
+                  className="zoom-button"
+                  disabled={zoomLevel <= 0.5}
+                >
+                  -
+                </button>
+                <button 
+                  onClick={() => setZoomLevel(1)}
+                  className="zoom-button"
+                >
+                  Reset
+                </button>
+              </div>
+              <p className="zoom-hint">Use mouse wheel to zoom in/out</p>
+            </div>
           </div>
           
           {mapData.length > 0 && (
