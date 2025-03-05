@@ -1,0 +1,9 @@
+.canvas-container {
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.canvas-element {
+  display: block;
+}
