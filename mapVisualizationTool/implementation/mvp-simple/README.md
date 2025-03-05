@@ -1,94 +1,122 @@
-# Map Visualization Tool - MVP
+# Map Visualization Tool
 
-This is the MVP (Minimum Viable Product) implementation of the Map Visualization Tool, a web application for creating and visualizing map content distributions using a hexagonal grid system.
+A powerful tool for creating and visualizing map content distributions using a grid system.
 
 ## Features
 
 - **Three-Panel Interface**: Input Panel, Map Visualization Panel, and Analysis Panel
-- **Map Configuration**: Set width, height, and hex size for the map
+- **Map Configuration**: Set width, height, and cell size for the map
 - **Content Type Management**: Create, edit, and remove content types with custom colors and distribution percentages
-- **Hexagonal Grid Visualization**: View the generated map with a hexagonal grid
+- **Grid Visualization**: View the generated map with a grid
 - **Content Distribution Algorithm**: Generate maps based on specified content type percentages
 - **Analysis Metrics**: View distribution statistics and warnings
 - **Export Functionality**: Export the generated map as a PNG image
-
-## Technologies Used
-
-- **React**: A JavaScript library for building user interfaces
-- **TypeScript**: A typed superset of JavaScript
-- **Vite**: A fast build tool and development server
-- **HTML5 Canvas API**: For drawing the hexagonal grid and map visualization
-
-## Project Structure
-
-```
-mvp-simple/
-├── src/                 # Source code
-│   ├── App.tsx          # Main application component with all panels
-│   ├── App.css          # Application styles
-│   ├── main.tsx         # Application entry point
-│   └── index.css        # Global styles
-├── index.html           # HTML entry point
-├── package.json         # Project dependencies and scripts
-├── tsconfig.json        # TypeScript configuration
-├── vite.config.ts       # Vite configuration
-└── README.md            # Project documentation
-```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
+- Node.js 18.x or newer
+- npm or yarn
 
 ### Installation
 
-1. Clone the repository
-2. Navigate to the project directory
-3. Install dependencies:
+1. Clone the repository:
+   ```
+   git clone <repository-url>
+   cd map-visualization-tool
+   ```
+
+2. Install dependencies:
    ```
    npm install
    ```
 
 ### Running the Application
 
-1. Start the development server:
-   ```
-   npm run dev
-   ```
-2. Open your browser and navigate to the URL shown in the terminal (typically http://localhost:5173)
+#### Development Mode
 
-### Building for Production
+Start the development server:
+```
+npm run dev
+```
 
-1. Build the application:
-   ```
-   npm run build
-   ```
-2. The built files will be in the `dist` directory
+This will start the Vite development server at http://localhost:5173.
 
-## Usage
+#### Production Build
 
-1. Configure the map dimensions and hex size in the Input Panel
-2. Define content types with names, colors, and distribution percentages (must total 100%)
-3. Click "Generate Map" to create a visualization
-4. View the generated map in the Map Visualization Panel
-5. Analyze the content distribution and metrics in the Analysis Panel
-6. Export the map as a PNG image if desired
+Build the application for production:
+```
+npm run build
+```
 
-## Implementation Details
+Preview the production build:
+```
+npm run preview
+```
 
-### Content Distribution Algorithm
+### Static Demo
 
-The current implementation uses a simple random distribution algorithm that attempts to match the requested percentages for each content type. Future versions could implement more sophisticated algorithms such as:
+For a quick preview without running the development server, open:
+- `static-demo.html` - A static HTML demo of the interface
+- `simple-viewer.html` - Documentation and overview
 
-- Clustering algorithms for more realistic terrain generation
-- Noise-based generation (e.g., Perlin noise)
-- Rule-based generation with adjacency constraints
+## Project Structure
 
-### Hexagonal Grid System
+```
+mvp-simple/
+├── src/                 # Source code
+│   ├── App.tsx          # Main application component
+│   ├── App.css          # Application styles
+│   ├── main.tsx         # Application entry point
+│   ├── index.css        # Global styles
+│   └── types.d.ts       # TypeScript type definitions
+├── public/              # Static assets
+├── scripts/             # Utility scripts
+│   └── check-versions.js # Dependency compatibility checker
+├── index.html           # HTML entry point
+├── package.json         # Project dependencies and scripts
+├── tsconfig.json        # TypeScript configuration
+├── vite.config.js       # Vite configuration
+├── postcss.config.js    # PostCSS configuration
+├── tailwind.config.js   # Tailwind CSS configuration
+├── VERSION.md           # Version compatibility documentation
+└── README.md            # Project documentation
+```
 
-The map uses a hexagonal grid system with an offset coordinate system. Each hexagon represents a cell that can contain one type of content. The grid is rendered using the HTML5 Canvas API.
+## Configuration Files
+
+This project uses CommonJS format for all configuration files:
+- `vite.config.js`
+- `postcss.config.js`
+- `tailwind.config.js`
+
+## Version Compatibility
+
+This project uses pinned dependency versions to ensure compatibility:
+- React 19.0.0
+- TypeScript 5.8.2
+- Vite 6.2.0
+
+For more details on version compatibility, see [VERSION.md](./VERSION.md).
+
+## Dependency Verification
+
+The project includes a dependency compatibility checker that runs automatically during installation:
+
+```
+npm run check-versions
+```
+
+This script verifies that all dependencies are compatible with each other and that configuration files use consistent module formats.
+
+## Technologies Used
+
+- **React**: A JavaScript library for building user interfaces
+- **TypeScript**: A typed superset of JavaScript
+- **Vite**: A fast build tool and development server
+- **Tailwind CSS**: A utility-first CSS framework
+- **HTML5 Canvas API**: For drawing the grid and map visualization
 
 ## Future Enhancements
 

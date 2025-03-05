@@ -1,27 +1,41 @@
 {
   "name": "map-visualization-tool",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "preinstall": "node ./scripts/check-versions.js",
+    "check-versions": "node ./scripts/check-versions.js"
   },
-  "keywords": [],
+  "keywords": [
+    "map",
+    "visualization",
+    "react",
+    "typescript",
+    "vite"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A tool for visualizing and generating maps with customizable content types",
   "dependencies": {
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "typescript": "^5.8.2"
+    "react": "=19.0.0",
+    "react-dom": "=19.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.5.3",
-    "vite": "^6.2.0"
+    "@types/node": "=20.11.24",
+    "@types/react": "=19.0.10",
+    "@types/react-dom": "=19.0.4",
+    "@vitejs/plugin-react": "=4.3.4",
+    "autoprefixer": "=10.4.20",
+    "postcss": "=8.5.3",
+    "tailwindcss": "=3.4.1",
+    "typescript": "=5.8.2",
+    "vite": "=6.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

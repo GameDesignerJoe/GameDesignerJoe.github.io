@@ -39,9 +39,9 @@ function App() {
 
   // State for map configuration
   const [mapConfig, setMapConfig] = useState<MapConfig>({
-    width: 20,
-    height: 15,
-    hexSize: 30,
+    width: 60,
+    height: 50,
+    hexSize: 10,
     showGrid: true,
     gridOpacity: 0.7,
   });
@@ -552,7 +552,7 @@ function App() {
                 id="width"
                 name="width"
                 min="5"
-                max="50"
+                max="500"
                 value={mapConfig.width}
                 onChange={(e) => setMapConfig({...mapConfig, width: parseInt(e.target.value, 10)})}
                 className="form-input"
@@ -566,7 +566,7 @@ function App() {
                 id="height"
                 name="height"
                 min="5"
-                max="50"
+                max="500"
                 value={mapConfig.height}
                 onChange={(e) => setMapConfig({...mapConfig, height: parseInt(e.target.value, 10)})}
                 className="form-input"
