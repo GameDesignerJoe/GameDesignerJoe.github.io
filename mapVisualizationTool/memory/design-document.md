@@ -39,8 +39,8 @@ The tool will provide a three-panel interface:
 ### 3.2 Map Configuration
 Designers can specify:
 - Map dimensions (width and height in kilometers)
-- Hexagon size for the grid overlay
-- Visual parameters (background map, grid visibility)
+- Visual cell size for the grid overlay (visual representation only, each cell always represents 1 meter in-game)
+- Visual parameters (background map, grid visibility, grid opacity)
 
 ### 3.3 Content Definition
 Designers can create content types with properties including:
@@ -69,7 +69,8 @@ The map visualization will include:
 - Color-coded biomes
 - Icons/shapes for different content types
 - Legend for map elements
-- Optional grid overlay
+- Optional square grid overlay (only visible on non-transparent portions of the map)
+- Level of detail system that adapts grid visualization based on zoom level
 
 ### 3.7 Export/Sharing
 Designers can export:

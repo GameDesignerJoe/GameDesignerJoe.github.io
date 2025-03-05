@@ -14,8 +14,9 @@ Located at the top of the left panel, this section allows designers to set funda
 
 - **Map Width (km)**: Numeric input for setting the horizontal dimension of the map
 - **Map Height (km)**: Numeric input for setting the vertical dimension of the map
-- **Hex Size (m)**: Controls the granularity of the hexagonal grid overlay
+- **Visual Cell Size (px)**: Controls the visual size of grid cells (each cell always represents 1 meter in-game)
 - **Show Grid**: Toggle checkbox to display or hide the grid overlay
+- **Grid Opacity**: Slider to control the transparency of the grid
 
 ### Content Types Section
 The main area of the left panel displays all defined content types and provides tools for creating and editing them:
@@ -62,7 +63,7 @@ Located at the top of the center panel:
 The main content area displays:
 
 - **Background Map**: Terrain visualization with biome coloring
-- **Hexagonal Grid**: Optional overlay that represents the scale of the map
+- **Square Grid**: Optional overlay that represents the scale of the map (only visible on non-transparent portions of the map)
 - **Content Visualization**: Visual representation of all placed content:
   - Biomes shown as large colored regions
   - POIs shown as medium-sized shapes

@@ -85,7 +85,7 @@ The MVP will deliver essential functionality to provide immediate value:
 - Basic map configuration (dimensions, grid settings)
 - Support for 3-4 predefined content types
 - Simple content distribution algorithm
-- Basic visualization with hexagonal grid
+- Basic visualization with square grid (only on non-transparent portions of the map)
 - Core analysis metrics
 - PNG export capability
 
@@ -152,7 +152,7 @@ Focus on delivering core functionality with simple implementations.
 - Implement simple biome generation
 - Develop basic content placement algorithm
 - Create initial map rendering functionality
-- Implement hexagonal grid rendering
+- Implement square grid rendering with transparency mask support
 
 #### 5.1.3 Week 4: Content Types & Analysis
 - Implement predefined content types

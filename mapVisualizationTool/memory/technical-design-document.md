@@ -51,7 +51,7 @@ const mapConfiguration = {
   // Basic map properties
   width: 6000, // meters
   height: 4000, // meters
-  hexSize: 10, // meters per hex
+  visualCellSize: 10, // pixels per cell (visual representation only)
   seed: "random-seed-12345", // For reproducible generation
   
   // Visual settings
@@ -365,32 +365,64 @@ function renderContentItem(ctx, item, scale) {
 }
 ```
 
-### 4.4 Hexagonal Grid
-The hexagonal grid will be rendered as an overlay:
+### 4.4 Square Grid
+The square grid will be rendered as an overlay, only on non-transparent portions of the map:
 
 ```javascript
-function renderHexGrid(ctx, mapConfig, scale) {
-  const {width, height, hexSize} = mapConfig;
-  const hexWidth = hexSize * scale;
-  const hexHeight = hexSize * Math.sqrt(3) * scale;
+function renderSquareGrid(ctx, mapConfig, scale, transparencyMask) {
+  const {width, height, visualCellSize} = mapConfig;
   
-  ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
-  ctx.lineWidth = 0.5;
+  // Set global alpha for semi-transparency
+  ctx.globalAlpha = mapConfig.gridOpacity;
   
-  // Calculate grid dimensions
-  const cols = Math.ceil(width / (hexSize * 1.5));
-  const rows = Math.ceil(height / hexHeight);
+  // Calculate grid dimensions (each cell represents 1 meter in-game)
+  const cellSize = visualCellSize * scale;
+  const cols = Math.ceil(width);
+  const rows = Math.ceil(height);
   
-  for (let r = 0; r < rows; r++) {
-    for (let q = 0; q < cols; q++) {
-      const x = (q * hexWidth * 1.5) * scale;
-      const y = (r * hexHeight + (q % 2) * (hexHeight/2)) * scale;
-      
-      // Draw only if within map bounds
-      if (x < width * scale && y < height * scale) {
-        drawHexagon(ctx, x, y, hexWidth);
+  // Draw grid cells
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      // Only draw if this position is non-transparent in the mask
+      if (transparencyMask[row] && transparencyMask[row][col]) {
+        const x = col * cellSize;
+        const y = row * cellSize;
+        
+        // Draw square
+        ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, cellSize, cellSize);
       }
     }
+  }
+  
+  // Reset global alpha
+  ctx.globalAlpha = 1.0;
+}
+```
+
+### 4.4.1 Level of Detail System
+The grid visualization adapts based on zoom level to maintain usability:
+
+```javascript
+function getLevelOfDetail(zoomLevel) {
+  // At higher zoom levels, we show more detail
+  // At lower zoom levels, we show less detail
+  if (zoomLevel >= 2) {
+    return {
+      label: 'High',
+      metersPerCell: 1 // Each visible cell represents 1 meter
+    };
+  } else if (zoomLevel >= 1) {
+    return {
+      label: 'Medium',
+      metersPerCell: 10 // Each visible cell represents 10 meters
+    };
+  } else {
+    return {
+      label: 'Low',
+      metersPerCell: 100 // Each visible cell represents 100 meters
+    };
   }
 }
 ```
