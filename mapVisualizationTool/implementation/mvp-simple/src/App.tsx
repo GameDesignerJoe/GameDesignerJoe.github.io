@@ -53,26 +53,134 @@ function App() {
     warnings: [],
   });
 
-  // Function to generate map data
+  // Function to generate map data using flood fill algorithm for contiguous biomes
   const generateMap = () => {
-    // This is a placeholder for the actual map generation algorithm
-    // In the full implementation, this would use the content distribution algorithm
-    const newMapData: string[][] = [];
+    // Initialize empty map with null values
+    const newMapData: (string | null)[][] = Array(mapConfig.height)
+      .fill(null)
+      .map(() => Array(mapConfig.width).fill(null));
     
-    for (let y = 0; y < mapConfig.height; y++) {
-      const row: string[] = [];
-      for (let x = 0; x < mapConfig.width; x++) {
-        // Simple random distribution for now
-        const randomIndex = Math.floor(Math.random() * contentTypes.length);
-        row.push(contentTypes[randomIndex].id);
+    // Calculate total cells
+    const totalCells = mapConfig.width * mapConfig.height;
+    
+    // Sort content types by percentage (descending)
+    const sortedContentTypes = [...contentTypes].sort((a, b) => b.percentage - a.percentage);
+    
+    // For each content type, fill a contiguous region
+    for (const contentType of sortedContentTypes) {
+      // Calculate how many cells this content type should occupy
+      const targetCellCount = Math.floor((contentType.percentage / 100) * totalCells);
+      
+      // Find a valid starting point (an empty cell)
+      let startX = -1;
+      let startY = -1;
+      
+      // Try to find an empty cell
+      let attempts = 0;
+      while (startX === -1 && attempts < 100) {
+        const randomX = Math.floor(Math.random() * mapConfig.width);
+        const randomY = Math.floor(Math.random() * mapConfig.height);
+        
+        if (newMapData[randomY][randomX] === null) {
+          startX = randomX;
+          startY = randomY;
+        }
+        
+        attempts++;
       }
-      newMapData.push(row);
+      
+      // If we couldn't find an empty cell, just use the first null cell we find
+      if (startX === -1) {
+        for (let y = 0; y < mapConfig.height; y++) {
+          for (let x = 0; x < mapConfig.width; x++) {
+            if (newMapData[y][x] === null) {
+              startX = x;
+              startY = y;
+              break;
+            }
+          }
+          if (startX !== -1) break;
+        }
+      }
+      
+      // If we still couldn't find an empty cell, skip this content type
+      if (startX === -1) continue;
+      
+      // Perform flood fill from the starting point
+      let cellsToFill = targetCellCount;
+      let currentCells = 0;
+      
+      // Set the starting cell
+      newMapData[startY][startX] = contentType.id;
+      currentCells++;
+      
+      // Queue for BFS (Breadth-First Search)
+      const queue: [number, number][] = [[startX, startY]];
+      
+      // Directions for adjacent cells (4-way connectivity)
+      const directions = [
+        [0, 1],  // down
+        [1, 0],  // right
+        [0, -1], // up
+        [-1, 0]  // left
+      ];
+      
+      // Add diagonal directions for more natural-looking regions
+      directions.push([1, 1], [-1, -1], [1, -1], [-1, 1]);
+      
+      // Shuffle directions to create more natural-looking regions
+      directions.sort(() => Math.random() - 0.5);
+      
+      // Continue filling until we've reached the target or no more cells are available
+      while (queue.length > 0 && currentCells < cellsToFill) {
+        const [x, y] = queue.shift()!;
+        
+        // Shuffle directions for each cell to create more natural-looking regions
+        const shuffledDirections = [...directions].sort(() => Math.random() - 0.5);
+        
+        // Try each direction
+        for (const [dx, dy] of shuffledDirections) {
+          const newX = x + dx;
+          const newY = y + dy;
+          
+          // Check if the new position is valid and empty
+          if (
+            newX >= 0 && newX < mapConfig.width &&
+            newY >= 0 && newY < mapConfig.height &&
+            newMapData[newY][newX] === null
+          ) {
+            // Fill this cell
+            newMapData[newY][newX] = contentType.id;
+            currentCells++;
+            
+            // Add to queue for further expansion
+            queue.push([newX, newY]);
+            
+            // Stop if we've reached the target
+            if (currentCells >= cellsToFill) break;
+          }
+        }
+      }
     }
     
-    setMapData(newMapData);
+    // Fill any remaining empty cells with the first content type
+    for (let y = 0; y < mapConfig.height; y++) {
+      for (let x = 0; x < mapConfig.width; x++) {
+        if (newMapData[y][x] === null) {
+          newMapData[y][x] = sortedContentTypes[0].id;
+        }
+      }
+    }
+    
+    // Convert to string[][] (removing null values)
+    const finalMapData = newMapData.map(row => 
+      row.map(cell => cell === null ? sortedContentTypes[0].id : cell)
+    );
+    
+    setMapData(finalMapData);
     
     // Generate analysis data
-    analyzeMap(newMapData);
+    analyzeMap(finalMapData);
   };
 
   // Function to analyze map data
