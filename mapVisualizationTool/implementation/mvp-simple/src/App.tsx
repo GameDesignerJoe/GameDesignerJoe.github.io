@@ -4,18 +4,23 @@ import backgroundImageSrc from './CruxMap_BW_trans.png';
 
 // Define types for map configuration
 interface MapConfig {
-  width: number;
-  height: number;
-  hexSize: number;
+  widthKm: number;  // Width in kilometers
+  heightKm: number; // Height in kilometers
   showGrid: boolean;
   gridOpacity: number;
+  visualCellSize: number; // Visual size of each cell in pixels
 }
+
+// Constants for real-world units
+const METERS_PER_KM = 1000;
+const CELL_SIZE_METERS = 1; // Each cell is 1m x 1m
 
 // Define types for content types
 export interface ContentType {
   id: string;
   name: string;
   color: string;
+  borderColor: string;
   percentage: number;
 }
 
@@ -39,12 +44,16 @@ function App() {
 
   // State for map configuration
   const [mapConfig, setMapConfig] = useState<MapConfig>({
-    width: 60,
-    height: 50,
-    hexSize: 10,
+    widthKm: 5,
+    heightKm: 4,
     showGrid: true,
     gridOpacity: 0.7,
+    visualCellSize: 10, // Visual size of each cell in pixels
   });
+
+  // Helper functions for unit conversions
+  const getWidthInCells = () => Math.floor(mapConfig.widthKm * METERS_PER_KM / CELL_SIZE_METERS);
+  const getHeightInCells = () => Math.floor(mapConfig.heightKm * METERS_PER_KM / CELL_SIZE_METERS);
 
   // State for transparency mask
   const [transparencyMask, setTransparencyMask] = useState<boolean[][]>([]);
@@ -57,10 +66,10 @@ function App() {
 
   // State for content types
   const [contentTypes, setContentTypes] = useState<ContentType[]>([
-    { id: '1', name: 'Forest', color: '#2d6a4f', percentage: 40 },
-    { id: '2', name: 'Mountains', color: '#6c757d', percentage: 20 },
-    { id: '3', name: 'Water', color: '#0077b6', percentage: 30 },
-    { id: '4', name: 'Desert', color: '#e9c46a', percentage: 10 },
+    { id: '1', name: 'Forest', color: '#2d6a4f', borderColor: '#1b4332', percentage: 40 },
+    { id: '2', name: 'Mountains', color: '#6c757d', borderColor: '#495057', percentage: 20 },
+    { id: '3', name: 'Water', color: '#0077b6', borderColor: '#023e8a', percentage: 30 },
+    { id: '4', name: 'Desert', color: '#e9c46a', borderColor: '#ca6702', percentage: 10 },
   ]);
 
   // State for map data (will be generated)
@@ -101,13 +110,17 @@ function App() {
 
   // Function to generate map data using flood fill algorithm for contiguous biomes
   const generateMap = () => {
+    // Calculate grid dimensions in cells (1m per cell)
+    const widthInCells = getWidthInCells();
+    const heightInCells = getHeightInCells();
+    
     // Initialize empty map with null values
-    const newMapData: (string | null)[][] = Array(mapConfig.height)
+    const newMapData: (string | null)[][] = Array(heightInCells)
       .fill(null)
-      .map(() => Array(mapConfig.width).fill(null));
+      .map(() => Array(widthInCells).fill(null));
     
     // Calculate total cells
-    const totalCells = mapConfig.width * mapConfig.height;
+    const totalCells = widthInCells * heightInCells;
     
     // Sort content types by percentage (descending)
     const sortedContentTypes = [...contentTypes].sort((a, b) => b.percentage - a.percentage);
@@ -124,8 +137,8 @@ function App() {
       // Try to find an empty cell
       let attempts = 0;
       while (startX === -1 && attempts < 100) {
-        const randomX = Math.floor(Math.random() * mapConfig.width);
-        const randomY = Math.floor(Math.random() * mapConfig.height);
+        const randomX = Math.floor(Math.random() * widthInCells);
+        const randomY = Math.floor(Math.random() * heightInCells);
         
         if (newMapData[randomY][randomX] === null) {
           startX = randomX;
@@ -137,8 +150,8 @@ function App() {
       
       // If we couldn't find an empty cell, just use the first null cell we find
       if (startX === -1) {
-        for (let y = 0; y < mapConfig.height; y++) {
-          for (let x = 0; x < mapConfig.width; x++) {
+        for (let y = 0; y < heightInCells; y++) {
+          for (let x = 0; x < widthInCells; x++) {
             if (newMapData[y][x] === null) {
               startX = x;
               startY = y;
@@ -191,8 +204,8 @@ function App() {
           
           // Check if the new position is valid and empty
           if (
-            newX >= 0 && newX < mapConfig.width &&
-            newY >= 0 && newY < mapConfig.height &&
+            newX >= 0 && newX < widthInCells &&
+            newY >= 0 && newY < heightInCells &&
             newMapData[newY][newX] === null
           ) {
             // Fill this cell
@@ -210,8 +223,8 @@ function App() {
     }
     
     // Fill any remaining empty cells with the first content type
-    for (let y = 0; y < mapConfig.height; y++) {
-      for (let x = 0; x < mapConfig.width; x++) {
+    for (let y = 0; y < heightInCells; y++) {
+      for (let x = 0; x < widthInCells; x++) {
         if (newMapData[y][x] === null) {
           newMapData[y][x] = sortedContentTypes[0].id;
         }
@@ -247,7 +260,7 @@ function App() {
     });
     
     // Convert counts to percentages
-    const totalCells = mapConfig.width * mapConfig.height;
+    const totalCells = getWidthInCells() * getHeightInCells();
     Object.keys(distribution).forEach(key => {
       distribution[key] = Math.round((distribution[key] / totalCells) * 100);
     });
@@ -255,8 +268,8 @@ function App() {
     // Generate simple density map (placeholder)
     const densityMap: {[key: string]: number[][]} = {};
     contentTypes.forEach(type => {
-      densityMap[type.id] = Array(mapConfig.height).fill(0).map(() => 
-        Array(mapConfig.width).fill(0)
+      densityMap[type.id] = Array(getHeightInCells()).fill(0).map(() => 
+        Array(getWidthInCells()).fill(0)
       );
     });
     
@@ -309,12 +322,25 @@ function App() {
   
   // Function to get square coordinates
   const getSquareCoordinates = (col: number, row: number, size: number) => {
-    // Use the provided size parameter (hexSize) for calculating positions
+    // Use the provided size parameter (visualCellSize) for calculating positions
     // Calculate the position of the cell based on the size
     const x = col * size;
     const y = row * size;
     
     return { x, y };
+  };
+  
+  // Function to get level of detail based on zoom level
+  const getLevelOfDetail = () => {
+    // At higher zoom levels, we might want to show more detail
+    // At lower zoom levels, we might want to show less detail
+    if (zoomLevel >= 2) {
+      return 'High'; // High detail level
+    } else if (zoomLevel >= 1) {
+      return 'Medium'; // Medium detail level
+    } else {
+      return 'Low'; // Low detail level
+    }
   };
 
   // Canvas reference
@@ -322,6 +348,22 @@ function App() {
 
   // State for zoom level
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  
+  // Calculate the effective cell size based on zoom level
+  const getEffectiveCellSize = () => mapConfig.visualCellSize * zoomLevel;
+  
+  // Calculate what each cell represents in real-world units
+  const getCellRepresentation = () => {
+    // Each cell in the data is 1 meter
+    // The visual representation depends on the zoom level
+    
+    // Calculate the scale based on zoom level
+    const scale = zoomLevel >= 1 
+      ? `1:${Math.round(1 / zoomLevel)}`
+      : `${Math.round(zoomLevel * 100)}%`;
+    
+    return `1 square = ${CELL_SIZE_METERS} meter${CELL_SIZE_METERS !== 1 ? 's' : ''} (Scale ${scale})`;
+  };
   
   // Preload the background image once
   useEffect(() => {
@@ -405,15 +447,18 @@ function App() {
     const mask: boolean[][] = [];
     
     // Initialize the mask array
-    for (let y = 0; y < mapConfig.height; y++) {
+    const heightInCells = getHeightInCells();
+    const widthInCells = getWidthInCells();
+    
+    for (let y = 0; y < heightInCells; y++) {
       mask[y] = [];
-      for (let x = 0; x < mapConfig.width; x++) {
+      for (let x = 0; x < widthInCells; x++) {
         // Get the corresponding position on the image
-        const { x: pixelX, y: pixelY } = getSquareCoordinates(x, y, mapConfig.hexSize);
+        const { x: pixelX, y: pixelY } = getSquareCoordinates(x, y, mapConfig.visualCellSize);
         
         // Sample the center of where the square would be
-        const centerX = pixelX + mapConfig.hexSize / 2;
-        const centerY = pixelY + mapConfig.hexSize / 2;
+        const centerX = pixelX + mapConfig.visualCellSize / 2;
+        const centerY = pixelY + mapConfig.visualCellSize / 2;
         
         // Check if this point is within canvas bounds
         if (centerX < canvasDimensions.width && centerY < canvasDimensions.height) {
@@ -435,7 +480,7 @@ function App() {
     
     // Redraw with zoom
     drawMapWithZoom();
-  }, [mapConfig.width, mapConfig.height, mapConfig.hexSize, backgroundImageLoaded, canvasDimensions]);
+  }, [mapConfig.widthKm, mapConfig.heightKm, mapConfig.visualCellSize, backgroundImageLoaded, canvasDimensions]);
   
   // Function to draw map data with transparency mask
   const drawMapData = (
@@ -455,8 +500,8 @@ function App() {
           const contentType = contentTypes.find(type => type.id === contentTypeId);
           
           if (contentType) {
-            const { x, y } = getSquareCoordinates(col, row, mapConfig.hexSize);
-            drawSquare(ctx, x, y, mapConfig.hexSize, contentType.color);
+            const { x, y } = getSquareCoordinates(col, row, mapConfig.visualCellSize);
+            drawSquare(ctx, x, y, getEffectiveCellSize(), contentType.color, contentType.borderColor);
           }
         }
       }
@@ -475,12 +520,15 @@ function App() {
     ctx.globalAlpha = mapConfig.gridOpacity;
     
     // Draw empty grid, respecting the mask
-    for (let row = 0; row < mapConfig.height; row++) {
-      for (let col = 0; col < mapConfig.width; col++) {
+    const heightInCells = getHeightInCells();
+    const widthInCells = getWidthInCells();
+    
+    for (let row = 0; row < heightInCells; row++) {
+      for (let col = 0; col < widthInCells; col++) {
         // Only draw if this position is non-transparent in the mask
         if (mask[row] && mask[row][col]) {
-          const { x, y } = getSquareCoordinates(col, row, mapConfig.hexSize);
-          drawSquare(ctx, x, y, mapConfig.hexSize, '#e2e8f0', '#cbd5e1');
+          const { x, y } = getSquareCoordinates(col, row, mapConfig.visualCellSize);
+          drawSquare(ctx, x, y, getEffectiveCellSize(), '#e2e8f0', '#cbd5e1');
         }
       }
     }
@@ -546,43 +594,43 @@ function App() {
             <h3>Map Configuration</h3>
             
             <div className="form-group">
-              <label htmlFor="width">Width:</label>
+              <label htmlFor="widthKm">Width (km):</label>
               <input
                 type="number"
-                id="width"
-                name="width"
-                min="5"
-                max="500"
-                value={mapConfig.width}
-                onChange={(e) => setMapConfig({...mapConfig, width: parseInt(e.target.value, 10)})}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="height">Height:</label>
-              <input
-                type="number"
-                id="height"
-                name="height"
-                min="5"
-                max="500"
-                value={mapConfig.height}
-                onChange={(e) => setMapConfig({...mapConfig, height: parseInt(e.target.value, 10)})}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="hexSize">Square Size:</label>
-              <input
-                type="number"
-                id="hexSize"
-                name="hexSize"
-                min="10"
+                id="widthKm"
+                name="widthKm"
+                min="1"
                 max="100"
-                value={mapConfig.hexSize}
-                onChange={(e) => setMapConfig({...mapConfig, hexSize: parseInt(e.target.value, 10)})}
+                value={mapConfig.widthKm}
+                onChange={(e) => setMapConfig({...mapConfig, widthKm: parseInt(e.target.value, 10)})}
+                className="form-input"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="heightKm">Height (km):</label>
+              <input
+                type="number"
+                id="heightKm"
+                name="heightKm"
+                min="1"
+                max="100"
+                value={mapConfig.heightKm}
+                onChange={(e) => setMapConfig({...mapConfig, heightKm: parseInt(e.target.value, 10)})}
+                className="form-input"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="visualCellSize">Visual Cell Size (px):</label>
+              <input
+                type="number"
+                id="visualCellSize"
+                name="visualCellSize"
+                min="1"
+                max="50"
+                value={mapConfig.visualCellSize}
+                onChange={(e) => setMapConfig({...mapConfig, visualCellSize: parseInt(e.target.value, 10)})}
                 className="form-input"
               />
             </div>
@@ -622,18 +670,35 @@ function App() {
             <div className="content-types-list">
               {contentTypes.map(type => (
                 <div key={type.id} className="content-type-item">
-                  <div className="content-type-color" style={{ backgroundColor: type.color }}>
-                    <input
-                      type="color"
-                      value={type.color}
-                      onChange={(e) => {
-                        const updatedTypes = contentTypes.map(t => 
-                          t.id === type.id ? { ...t, color: e.target.value } : t
-                        );
-                        setContentTypes(updatedTypes);
-                      }}
-                      className="color-picker"
-                    />
+                  <div className="content-type-colors">
+                    <div className="content-type-color" style={{ backgroundColor: type.color }}>
+                      <input
+                        type="color"
+                        value={type.color}
+                        onChange={(e) => {
+                          const updatedTypes = contentTypes.map(t => 
+                            t.id === type.id ? { ...t, color: e.target.value } : t
+                          );
+                          setContentTypes(updatedTypes);
+                        }}
+                        className="color-picker"
+                        title="Fill Color"
+                      />
+                    </div>
+                    <div className="content-type-border-color" style={{ backgroundColor: type.borderColor }}>
+                      <input
+                        type="color"
+                        value={type.borderColor}
+                        onChange={(e) => {
+                          const updatedTypes = contentTypes.map(t => 
+                            t.id === type.id ? { ...t, borderColor: e.target.value } : t
+                          );
+                          setContentTypes(updatedTypes);
+                        }}
+                        className="color-picker"
+                        title="Border Color"
+                      />
+                    </div>
                   </div>
                   
                   <div className="content-type-details">
@@ -749,6 +814,11 @@ function App() {
                 </button>
               </div>
               <p className="zoom-hint">Use mouse wheel to zoom in/out</p>
+              <div className="cell-representation">
+                <span>{getCellRepresentation()}</span>
+                <span>Effective cell size: {getEffectiveCellSize().toFixed(1)}px</span>
+                <span>Detail level: {getLevelOfDetail()}</span>
+              </div>
             </div>
           </div>
           
