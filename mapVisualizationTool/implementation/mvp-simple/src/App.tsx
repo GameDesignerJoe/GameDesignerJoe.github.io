@@ -32,15 +32,15 @@ const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0];
 
 const DETAIL_LEVELS: DetailLevel[] = [
   // Level 0 (Most zoomed out): 400m cells at 0.5x zoom
-  { id: 'L0', category: 'Low', minZoom: 0.0, maxZoom: 1.0, metersPerCell: 400, displayName: 'Level 0 (400m)' },
+  { id: 'L0', category: 'Low', minZoom: 0.0, maxZoom: 1.0, metersPerCell: 400, displayName: '0 (400m)' },
   // Level 1: 200m cells at 1x zoom
-  { id: 'L1', category: 'Low', minZoom: 1.0, maxZoom: 2.0, metersPerCell: 200, displayName: 'Level 1 (200m)' },
+  { id: 'L1', category: 'Low', minZoom: 1.0, maxZoom: 2.0, metersPerCell: 200, displayName: '1 (200m)' },
   // Level 2: 100m cells at 2x zoom
-  { id: 'L2', category: 'Low', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: 'Level 2 (100m)' },
+  { id: 'L2', category: 'Low', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: '2 (100m)' },
   // Level 3: 50m cells at 4x zoom
-  { id: 'L3', category: 'Medium', minZoom: 4.0, maxZoom: 6.0, metersPerCell: 50, displayName: 'Level 3 (50m)' },
+  { id: 'L3', category: 'Medium', minZoom: 4.0, maxZoom: 6.0, metersPerCell: 50, displayName: '3 (50m)' },
   // Level 4: 10m cells at 8x zoom
-  { id: 'L4', category: 'High', minZoom: 6.0, maxZoom: Infinity, metersPerCell: 10, displayName: 'Level 4 (10m)' },
+  { id: 'L4', category: 'High', minZoom: 6.0, maxZoom: Infinity, metersPerCell: 10, displayName: '4 (10m)' },
 ];
 
 // Define types for content types
@@ -552,12 +552,7 @@ function App() {
       <main className="app-content">
         <div className="controls-panel">
           <div className="zoom-controls">
-            <button onClick={handleZoomIn}>Zoom In (+)</button>
-            <button onClick={handleZoomOut}>Zoom Out (-)</button>
-            <button onClick={handleResetZoom}>Reset Zoom</button>
-            <div className="zoom-info">
-              Zoom: {(zoomLevel * 100).toFixed(0)}%
-            </div>
+            <button onClick={handleResetZoom}>Reset Map</button>
           </div>
           <div className="grid-controls">
             <label>
@@ -581,7 +576,7 @@ function App() {
             />
           </div>
           <div className="detail-info">
-            Detail Level: {getCurrentDetailLevel().displayName}
+            Detail Level {getCurrentDetailLevel().displayName}
           </div>
         </div>
         
