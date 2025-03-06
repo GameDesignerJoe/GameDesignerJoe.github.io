@@ -53,57 +53,75 @@ Located at the bottom of the left panel, this button triggers the content distri
 
 ## Map Visualization Panel
 
-### Header Controls
+### Map Controls
 Located at the top of the center panel:
 
 - **Panel Title**: "Map Visualization"
-- **Export PNG Button**: Allows designers to save the current map view as an image
+- **Reset Map Button**: Returns the map to its initial position and zoom level
 
 ### Map Canvas
 The main content area displays:
 
 - **Background Map**: Terrain visualization with biome coloring
-- **Square Grid**: Optional overlay that represents the scale of the map (only visible on non-transparent portions of the map)
+- **Square Grid**: Optional overlay that represents the scale of the map:
+  - Only visible on non-transparent portions of the map
+  - Color customizable through color picker
+  - Opacity adjustable through slider
 - **Content Visualization**: Visual representation of all placed content:
   - Biomes shown as large colored regions
   - POIs shown as medium-sized shapes
   - Encounters shown as small shapes
   - Color coding matches the content type definitions
 
-### Zoom and Level of Detail Controls
-Located at the bottom of the map canvas:
+### Map Navigation
+The map supports intuitive navigation controls:
 
-- **Zoom Level Display**: Shows the current zoom level (e.g., "Zoom: 1.5x")
-- **Zoom Buttons**: 
-  - Plus (+) button to zoom in
-  - Minus (-) button to zoom out
-  - Reset button to return to default zoom (1.0x)
-- **Mouse Wheel Support**: Users can also zoom in/out using the mouse wheel
-- **Detail Level Information**:
-  - Current scale representation (e.g., "1 square = 5 meters")
-  - Effective cell size in pixels
-  - Detail level name (e.g., "High Detail (5m)")
+- **Pan**: Click and drag to move around the map
+  - Cursor changes to indicate when panning is available
+  - Smooth movement with acceleration
+  - Bounds checking to prevent over-panning
+- **Zoom**: 
+  - Mouse wheel to zoom in/out
+  - Maintains point under cursor while zooming
+  - Smooth transitions between detail levels
+- **Reset**: "Reset Map" button returns to initial view and position
+
+### Detail Level Display
+Shows the current map scale and grid cell size:
+
+- **Detail Level**: Shows current level (e.g., "Detail Level 0 (400m)")
+- **Grid Scale**: Each cell represents a specific real-world distance:
+  - Level 0: 400m per cell (0.5x zoom)
+  - Level 1: 200m per cell (1.0x zoom)
+  - Level 2: 100m per cell (2.0x zoom)
+  - Level 3: 50m per cell (4.0x zoom)
+  - Level 4: 10m per cell (8.0x zoom)
 
 ### Level of Detail System
 The visualization adapts based on zoom level to maintain usability with large maps:
 
-- **High Detail Levels** (Zoomed In):
-  - Ultra Detail (1m): Each cell represents 1 meter (zoom ≥ 2.5)
-  - Very High Detail (2m): Each cell represents 2 meters (zoom 2.0-2.5)
-  - High Detail (5m): Each cell represents 5 meters (zoom 1.5-2.0)
+The detail level system automatically adjusts the grid cell size based on the current zoom level:
 
-- **Medium Detail Levels**:
-  - Medium Detail (10m): Each cell represents 10 meters (zoom 1.2-1.5)
-  - Medium Detail (25m): Each cell represents 25 meters (zoom 1.0-1.2)
-  - Medium Detail (50m): Each cell represents 50 meters (zoom 0.8-1.0)
+1. **Zoom and Grid Relationship**:
+   - Image zoom and grid size are synchronized
+   - Grid cells scale proportionally with map zoom
+   - Maximum zoom shows 10m grid cells for precise measurement
+   - Smooth transitions between detail levels
 
-- **Low Detail Levels** (Zoomed Out):
-  - Low Detail (100m): Each cell represents 100 meters (zoom 0.6-0.8)
-  - Low Detail (250m): Each cell represents 250 meters (zoom 0.4-0.6)
-  - Very Low Detail (500m): Each cell represents 500 meters (zoom 0.2-0.4)
-  - Minimal Detail (1km): Each cell represents 1 kilometer (zoom < 0.2)
+2. **Detail Levels**:
+   - Level 0 (0.5x zoom): 400m cells for overview
+   - Level 1 (1.0x zoom): 200m cells for regions
+   - Level 2 (2.0x zoom): 100m cells for areas
+   - Level 3 (4.0x zoom): 50m cells for details
+   - Level 4 (8.0x zoom): 10m cells for precise work
 
-As the user zooms in or out, the system automatically transitions between these detail levels, aggregating or expanding content as appropriate. This allows for efficient visualization of very large maps (up to 50 square km) while maintaining the ability to examine fine details when needed.
+3. **Visual Feedback**:
+   - Detail level name updates automatically
+   - Grid lines maintain consistent visibility
+   - Cell size shown in meters for easy reference
+   - Grid only appears on map content (transparent areas excluded)
+
+This system ensures efficient visualization of large maps while maintaining precise control at higher zoom levels. The synchronized zoom and grid relationship makes it easy to understand the scale at any zoom level.
 
 ### Content Representation
 Each content type is represented according to its defined properties:

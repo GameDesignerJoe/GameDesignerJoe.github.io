@@ -39,8 +39,12 @@ The tool will provide a three-panel interface:
 ### 3.2 Map Configuration
 Designers can specify:
 - Map dimensions (width and height in kilometers)
-- Visual cell size for the grid overlay (visual representation only, each cell always represents 1 meter in-game)
-- Visual parameters (background map, grid visibility, grid opacity)
+- Visual cell size for the grid overlay (visual representation only)
+- Grid customization:
+  - Visibility toggle
+  - Color selection
+  - Opacity control
+- Grid only appears on non-transparent portions of the map
 
 ### 3.3 Content Definition
 Designers can create content types with properties including:
@@ -183,10 +187,14 @@ The map visualization will include:
 - Color and icon key for all content types
 - Scale indicator
 
-#### 5.3.3 Controls
-- Export button
-- Toggle controls for different content types
-- Basic zoom/pan functionality (future enhancement)
+#### 5.3.3 Map Navigation
+- Pan: Click and drag to move around the map
+- Zoom: Mouse wheel to zoom in/out
+- Reset: Return to initial view and position
+- Visual feedback:
+  - Cursor changes to indicate pan availability
+  - Detail level updates with zoom changes
+  - Grid scale adjusts automatically
 
 ## 6. Feature Roadmap
 
@@ -226,8 +234,11 @@ Essential functionality to provide immediate value:
 
 ### 7.2 Performance Considerations
 - Balance between visualization detail and performance
-- Consider rendering optimizations for large maps
-- Implement efficient algorithms for content placement
+- Efficient grid rendering with integer-aligned coordinates
+- Transparency mask caching per detail level
+- Optimized pixel sampling for mask generation
+- Memory-efficient content aggregation at different zoom levels
+- Smooth transitions between detail levels
 
 ### 7.3 Extensibility
 - Design for easy addition of new content types

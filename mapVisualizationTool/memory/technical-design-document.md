@@ -365,43 +365,162 @@ function renderContentItem(ctx, item, scale) {
 }
 ```
 
-### 4.4 Square Grid
-The square grid will be rendered as an overlay, only on non-transparent portions of the map:
+### 4.4 Square Grid and Level of Detail System
 
+The square grid is rendered as an overlay, synchronized with the map zoom level and only visible on non-transparent portions of the map. The system uses a sophisticated level of detail approach that adapts both the grid and image representation based on zoom level.
+
+#### 4.4.1 Grid Rendering
 ```javascript
 function renderSquareGrid(ctx, mapConfig, scale, transparencyMask) {
   const {width, height, visualCellSize} = mapConfig;
   
-  // Set global alpha for semi-transparency
+  // Set grid style with configurable color and opacity
+  ctx.strokeStyle = mapConfig.gridColor;
   ctx.globalAlpha = mapConfig.gridOpacity;
   
-  // Calculate grid dimensions (each cell represents 1 meter in-game)
-  const cellSize = visualCellSize * scale;
-  const cols = Math.ceil(width);
-  const rows = Math.ceil(height);
+  // Calculate grid dimensions based on current detail level
+  const detailLevel = getCurrentDetailLevel();
+  const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
+  const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
   
-  // Draw grid cells
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      // Only draw if this position is non-transparent in the mask
-      if (transparencyMask[row] && transparencyMask[row][col]) {
-        const x = col * cellSize;
-        const y = row * cellSize;
+  // Calculate scaled dimensions
+  const scaledCellWidth = Math.floor(pixelsPerCell * scale);
+  const scaledCellHeight = Math.floor(pixelsPerCell * scale);
+  
+  // Draw grid cells with integer-aligned coordinates
+  for (let row = 0; row < transparencyMask.length; row++) {
+    for (let col = 0; col < transparencyMask[row].length; col++) {
+      if (transparencyMask[row][col]) {
+        const x = Math.floor(offsetX + (col * scaledCellWidth));
+        const y = Math.floor(offsetY + (row * scaledCellHeight));
+        const right = Math.floor(x + scaledCellWidth);
+        const bottom = Math.floor(y + scaledCellHeight);
         
-        // Draw square
-        ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(x, y, cellSize, cellSize);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(right, y);
+        ctx.lineTo(right, bottom);
+        ctx.lineTo(x, bottom);
+        ctx.lineTo(x, y);
+        ctx.closePath();
+        ctx.stroke();
       }
     }
   }
   
-  // Reset global alpha
+  // Reset context state
   ctx.globalAlpha = 1.0;
 }
 ```
 
-### 4.4.1 Level of Detail System
+#### 4.4.2 Detail Level System
+
+The detail level system manages the relationship between zoom levels and grid cell sizes:
+
+```typescript
+// Define zoom stages that match grid size changes proportionally
+const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0];
+
+const DETAIL_LEVELS = [
+  // Level 0 (Most zoomed out): 400m cells at 0.5x zoom
+  { id: 'L0', minZoom: 0.0, maxZoom: 1.0, metersPerCell: 400, displayName: '0 (400m)' },
+  // Level 1: 200m cells at 1x zoom
+  { id: 'L1', minZoom: 1.0, maxZoom: 2.0, metersPerCell: 200, displayName: '1 (200m)' },
+  // Level 2: 100m cells at 2x zoom
+  { id: 'L2', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: '2 (100m)' },
+  // Level 3: 50m cells at 4x zoom
+  { id: 'L3', minZoom: 4.0, maxZoom: 6.0, metersPerCell: 50, displayName: '3 (50m)' },
+  // Level 4: 10m cells at 8x zoom
+  { id: 'L4', minZoom: 6.0, maxZoom: Infinity, metersPerCell: 10, displayName: '4 (10m)' }
+];
+```
+
+Key implementation details:
+
+1. Detail Level Selection:
+```typescript
+const getCurrentDetailLevel = useCallback((): DetailLevel => {
+  const matchingLevel = DETAIL_LEVELS.find(
+    level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
+  );
+  return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
+}, [zoomLevel]);
+```
+
+2. Cell Size Calculations:
+```typescript
+// Calculate cell dimensions based on detail level
+const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
+const cellsPerMeter = 1 / detailLevel.metersPerCell;
+const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
+
+// Scale for current zoom level
+const baseScale = canvasDimensions.height / img.height;
+const scale = baseScale * zoomLevel;
+const scaledCellWidth = Math.floor(cellWidth * scale);
+const scaledCellHeight = Math.floor(cellHeight * scale);
+```
+
+3. Performance Optimizations:
+```typescript
+// Cache transparency masks per detail level
+const [maskCache] = useState<Map<string, boolean[][]>>(new Map());
+
+// Efficient pixel sampling
+for (let y = startY; y < endY; y += 2) {
+  for (let x = startX; x < endX; x += 2) {
+    const index = (y * tempCanvas.width + x) * 4;
+    if (data[index + 3] > 128) {
+      nonTransparentCount += 4; // Account for skipped pixels
+      if (nonTransparentCount >= threshold) break;
+    }
+  }
+}
+
+// Integer-aligned drawing operations
+const x = Math.floor(offsetX + (col * scaledCellWidth));
+const y = Math.floor(offsetY + (row * scaledCellHeight));
+```
+
+4. Mouse Wheel Zoom Implementation:
+```typescript
+const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+  if (!backgroundImageRef.current) return;
+
+  const rect = event.currentTarget.getBoundingClientRect();
+  const cursorX = event.clientX - rect.left;
+  const cursorY = event.clientY - rect.top;
+
+  // Calculate zoom parameters
+  const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
+  const delta = Math.sign(-event.deltaY);
+  const nextIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentIndex + delta));
+  const newZoom = ZOOM_LEVELS[nextIndex];
+  
+  if (newZoom !== zoomLevel) {
+    // Calculate point under cursor for consistent zoom
+    const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
+    const oldScale = baseScale * zoomLevel;
+    const newScale = baseScale * newZoom;
+    
+    // Update zoom while maintaining cursor position
+    const imageX = Math.floor((cursorX - (oldCenterOffsetX + panOffset.x)) / oldScale);
+    const imageY = Math.floor((cursorY - (oldCenterOffsetY + panOffset.y)) / oldScale);
+    
+    setZoomLevel(newZoom);
+    setPanOffset(calculateNewPanOffset(imageX, imageY, newScale));
+  }
+}, [zoomLevel, panOffset, canvasDimensions]);
+```
+
+This implementation ensures:
+- Smooth transitions between detail levels
+- Consistent visual representation at all zoom levels
+- Efficient memory usage through caching
+- Optimal rendering performance
+- Accurate grid measurements (1 cell = 10m at maximum zoom)
+- Responsive user interaction with pan and zoom
+
 The grid visualization adapts based on zoom level to maintain usability, especially for large maps (up to 50 square km). The system uses multiple detail levels within each category:
 
 ```typescript

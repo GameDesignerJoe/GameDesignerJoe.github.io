@@ -145,15 +145,25 @@ Focus on delivering core functionality with simple implementations.
 #### 5.1.1 Week 2: Project Setup & Basic UI
 - Set up project structure and development environment
 - Implement three-panel UI layout
-- Create basic form inputs for map configuration
-- Implement canvas initialization
+- Create basic form inputs for map configuration:
+  - Map dimensions
+  - Grid visibility toggle
+  - Grid color picker
+  - Grid opacity slider
+- Implement canvas initialization with transparency mask support
 
 #### 5.1.2 Week 3: Core Algorithms & Basic Rendering
 - Implement simple biome generation
 - Develop basic content placement algorithm
 - Create initial map rendering functionality
-- Implement square grid rendering with transparency mask support
-- Develop level of detail system for efficient visualization of large maps
+- Implement square grid rendering with:
+  - Configurable color and opacity
+  - Transparency mask support
+  - Integer-aligned coordinates
+- Develop synchronized zoom and grid system:
+  - Detail levels from 400m to 10m cells
+  - Mouse wheel zoom with cursor position maintenance
+  - Pan functionality with bounds checking
 
 #### 5.1.3 Week 4: Content Types & Analysis
 - Implement predefined content types
@@ -178,6 +188,10 @@ Build upon the MVP to support more flexible content definition and management.
 - Improved distribution algorithms
 - Additional content types
 - More sophisticated biome generation
+- Enhanced grid visualization:
+  - Custom color schemes
+  - Advanced transparency handling
+  - Performance optimizations for large maps
 
 #### 5.2.2 User Stories
 1. As a designer, I can create custom content types with specific properties.
@@ -190,8 +204,14 @@ Build upon the MVP to support more flexible content definition and management.
 Enhance the visualization capabilities to provide more interactive and detailed views.
 
 #### 5.3.1 Key Deliverables
-- Interactive map (pan/zoom functionality)
-- Enhanced level of detail system for very large maps (up to 50 square km)
+- Enhanced map navigation:
+  - Smooth pan acceleration
+  - Improved zoom transitions
+  - Advanced cursor feedback
+- Optimized detail level system:
+  - Efficient transparency mask caching
+  - Improved cell aggregation
+  - Memory usage optimizations
 - Layer toggling for different content types
 - Detailed tooltips for map elements
 - Multiple visualization styles

@@ -63,6 +63,9 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  background-color: #3a3a3a;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
 }
 
 .grid-controls label {
@@ -70,6 +73,12 @@
   gap: 0.5rem;
   align-items: center;
   white-space: nowrap;
+  min-width: 85px; /* Ensure consistent width for the label */
+}
+
+.grid-controls input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
 }
 
 .grid-controls input[type="color"] {
@@ -78,8 +87,9 @@
   padding: 0;
   border: none;
   border-radius: 0.25rem;
-  background-color: #3a3a3a;
+  background-color: #4a4a4a;
   cursor: pointer;
+  margin: 0;
 }
 
 .grid-controls input[type="color"]::-webkit-color-swatch-wrapper {
@@ -94,10 +104,11 @@
 .grid-controls input[type="range"] {
   width: 100px;
   height: 24px;
-  background-color: #3a3a3a;
+  background-color: #4a4a4a;
   border-radius: 0.25rem;
   -webkit-appearance: none;
   appearance: none;
+  margin: 0;
 }
 
 .grid-controls input[type="range"]::-webkit-slider-thumb {
@@ -112,7 +123,7 @@
 
 .grid-controls input[type="range"]::-webkit-slider-runnable-track {
   height: 24px;
-  background: #3a3a3a;
+  background: #4a4a4a;
   border-radius: 0.25rem;
 }
 

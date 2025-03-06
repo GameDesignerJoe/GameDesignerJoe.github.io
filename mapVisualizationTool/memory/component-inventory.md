@@ -6,6 +6,7 @@
 | **MAP-CONFIG-02** | Map Height Input | Input | Set map vertical size | - Value (number)<br>- Range (1-20km)<br>- Default: 4km | - Updates map configuration<br>- Triggers canvas resize | - Affects generation time<br>- Influences content density |
 | **MAP-CONFIG-03** | Visual Cell Size Input | Input | Set visual size of grid cells | - Value (number)<br>- Range (1-50px)<br>- Default: 10px | - Updates grid visualization<br>- Controls visual representation only | - Each cell always represents 1 meter in-game<br>- Visual aid only, doesn't affect content placement |
 | **MAP-CONFIG-04** | Show Grid Toggle | Input | Show/hide square grid | - State (boolean)<br>- Default: true | - Toggles grid visibility | - Visual aid only<br>- Grid only shows on non-transparent portions of the map |
+| **MAP-CONFIG-05** | Grid Color Picker | Input | Set grid line color | - Color value (hex)<br>- Default: #666666 | - Updates grid color | - Color picker with hex input<br>- Matches theme styling |
 | **CT-LIST-01** | Content Type List | Input | Display defined content types | - Content types array<br>- Selection state | - Scrollable list<br>- Click to select | - Shows content type summary<br>- Visual indicators for color/shape |
 | **CT-FORM-01** | New Content Button | Input | Create new content type | - State (active/inactive) | - Opens empty content form<br>- Clears selection | - Prominent position for discoverability |
 | **CT-FORM-02** | Content Type Form | Input | Edit content properties | - Content type data<br>- Edit/create mode | - Input validation<br>- Save changes<br>- Cancel editing | - Provides fields for all content properties<br>- Adapts based on category |
@@ -23,8 +24,8 @@
 | **GEN-01** | Generate Map Button | Input | Run distribution algorithm | - State (enabled/processing/disabled) | - Triggers content generation<br>- Updates visualization and analysis | - Primary action button<br>- Shows processing state |
 | **MAP-01** | Map Canvas | Visualization | Display content visualization | - Canvas context<br>- Scale/dimensions<br>- Generated content data | - Visual representation of all content<br>- Optional: pan/zoom (future) | - HTML5 Canvas<br>- Needs efficient rendering for large maps |
 | **MAP-02** | Square Grid Overlay | Visualization | Show scale reference | - Visibility<br>- Cell size<br>- Color/opacity | - Visual grid | - Creates square pattern<br>- Only visible on non-transparent portions of the map<br>- Adapts detail level based on zoom |
-| **MAP-03** | Zoom Controls | Visualization | Adjust zoom level | - Current zoom level<br>- Min/max zoom<br>- Zoom buttons | - Zoom in/out<br>- Reset zoom<br>- Mouse wheel support | - Affects detail level<br>- Triggers content reaggregation<br>- Updates scale representation |
-| **MAP-04** | Detail Level Display | Visualization | Show current scale | - Current detail level<br>- Scale representation<br>- Cell size information | - Updates with zoom changes | - Shows what each cell represents<br>- Displays effective cell size<br>- Shows current detail level name |
+| **MAP-03** | Map Navigation | Visualization | Control map view | - Pan state<br>- Zoom level<br>- Reset button | - Click and drag to pan<br>- Mouse wheel to zoom<br>- Reset to initial view | - Cursor changes for pan<br>- Maintains point under cursor while zooming<br>- Bounds checking for pan limits |
+| **MAP-04** | Detail Level Display | Visualization | Show current scale | - Current detail level<br>- Scale representation<br>- Cell size information | - Updates with zoom changes | - Shows cell size in meters<br>- Synchronized with zoom level<br>- Maximum zoom shows 10m cells |
 | **MAP-05** | Export Button | Visualization | Save visualization | - State (enabled/processing) | - Generates PNG<br>- Triggers download | - Creates high-resolution image<br>- Includes all visible elements |
 | **ANA-01** | Content Distribution Section | Analysis | Show content breakdown | - Content counts by category | - Read-only display | - Updates after generation<br>- Categorizes all placed content |
 | **ANA-02** | Density Analysis Section | Analysis | Show space utilization | - Overall density<br>- Regional density | - Read-only display | - Calculates items per area<br>- Identifies high/low density regions |
@@ -43,12 +44,16 @@
 1. **Content Type List ↔ Content Type Form**: Selection in list populates form; changes in form update list
 2. **Map Configuration → Map Canvas**: Size settings affect canvas dimensions and scale
 3. **Generate Button → Map Canvas + Analysis**: Triggering generation updates both visualization and metrics
+4. **Zoom Level ↔ Detail Level**: Zoom changes trigger detail level updates and grid scale adjustments
+5. **Grid Color + Opacity → Grid Display**: Visual settings immediately reflect in grid appearance
 
 ### Functional Dependencies
 1. **Map Canvas** depends on **Generate Button** to have content to display
 2. **Analysis Panel** depends on **Generate Button** to have data to analyze
 3. **Export Button** depends on **Map Canvas** having content to export
 4. **Content Type Form** operation can depend on **Content Type List** selection
+5. **Detail Level Display** depends on current zoom level and grid settings
+6. **Grid Display** depends on transparency mask and grid settings
 
 ## Implementation Priorities
 
