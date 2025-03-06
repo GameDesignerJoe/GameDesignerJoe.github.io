@@ -195,8 +195,6 @@ function App() {
 
   // Handle mousewheel zoom
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    
     const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
     const delta = Math.sign(-event.deltaY); // -1 for zoom out, 1 for zoom in
     const nextIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentIndex + delta));
@@ -563,7 +561,8 @@ function App() {
           style={{ 
             WebkitUserSelect: 'none', 
             userSelect: 'none',
-            cursor: canPan() ? (isPanning ? 'grabbing' : 'grab') : 'default'
+            cursor: canPan() ? (isPanning ? 'grabbing' : 'grab') : 'default',
+            touchAction: 'none' // Prevent browser handling of all panning and zooming gestures
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
