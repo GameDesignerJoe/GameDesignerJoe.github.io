@@ -70,6 +70,41 @@ The main content area displays:
   - Encounters shown as small shapes
   - Color coding matches the content type definitions
 
+### Zoom and Level of Detail Controls
+Located at the bottom of the map canvas:
+
+- **Zoom Level Display**: Shows the current zoom level (e.g., "Zoom: 1.5x")
+- **Zoom Buttons**: 
+  - Plus (+) button to zoom in
+  - Minus (-) button to zoom out
+  - Reset button to return to default zoom (1.0x)
+- **Mouse Wheel Support**: Users can also zoom in/out using the mouse wheel
+- **Detail Level Information**:
+  - Current scale representation (e.g., "1 square = 5 meters")
+  - Effective cell size in pixels
+  - Detail level name (e.g., "High Detail (5m)")
+
+### Level of Detail System
+The visualization adapts based on zoom level to maintain usability with large maps:
+
+- **High Detail Levels** (Zoomed In):
+  - Ultra Detail (1m): Each cell represents 1 meter (zoom ≥ 2.5)
+  - Very High Detail (2m): Each cell represents 2 meters (zoom 2.0-2.5)
+  - High Detail (5m): Each cell represents 5 meters (zoom 1.5-2.0)
+
+- **Medium Detail Levels**:
+  - Medium Detail (10m): Each cell represents 10 meters (zoom 1.2-1.5)
+  - Medium Detail (25m): Each cell represents 25 meters (zoom 1.0-1.2)
+  - Medium Detail (50m): Each cell represents 50 meters (zoom 0.8-1.0)
+
+- **Low Detail Levels** (Zoomed Out):
+  - Low Detail (100m): Each cell represents 100 meters (zoom 0.6-0.8)
+  - Low Detail (250m): Each cell represents 250 meters (zoom 0.4-0.6)
+  - Very Low Detail (500m): Each cell represents 500 meters (zoom 0.2-0.4)
+  - Minimal Detail (1km): Each cell represents 1 kilometer (zoom < 0.2)
+
+As the user zooms in or out, the system automatically transitions between these detail levels, aggregating or expanding content as appropriate. This allows for efficient visualization of very large maps (up to 50 square km) while maintaining the ability to examine fine details when needed.
+
 ### Content Representation
 Each content type is represented according to its defined properties:
 

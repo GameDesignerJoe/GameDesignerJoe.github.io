@@ -1,23 +1,18 @@
-const { defineConfig } = require('vite');
-const react = require('@vitejs/plugin-react');
-const path = require('path');
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 // https://vitejs.dev/config/
-module.exports = defineConfig({
+export default defineConfig({
   plugins: [react()],
   server: {
-    hmr: {
-      overlay: false
-    },
-    port: 5173
+    port: 3000,
+    open: true
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      '@assets': path.resolve(__dirname, '../assets')
     }
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: true
   }
 });

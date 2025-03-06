@@ -23,7 +23,9 @@
 | **GEN-01** | Generate Map Button | Input | Run distribution algorithm | - State (enabled/processing/disabled) | - Triggers content generation<br>- Updates visualization and analysis | - Primary action button<br>- Shows processing state |
 | **MAP-01** | Map Canvas | Visualization | Display content visualization | - Canvas context<br>- Scale/dimensions<br>- Generated content data | - Visual representation of all content<br>- Optional: pan/zoom (future) | - HTML5 Canvas<br>- Needs efficient rendering for large maps |
 | **MAP-02** | Square Grid Overlay | Visualization | Show scale reference | - Visibility<br>- Cell size<br>- Color/opacity | - Visual grid | - Creates square pattern<br>- Only visible on non-transparent portions of the map<br>- Adapts detail level based on zoom |
-| **MAP-03** | Export Button | Visualization | Save visualization | - State (enabled/processing) | - Generates PNG<br>- Triggers download | - Creates high-resolution image<br>- Includes all visible elements |
+| **MAP-03** | Zoom Controls | Visualization | Adjust zoom level | - Current zoom level<br>- Min/max zoom<br>- Zoom buttons | - Zoom in/out<br>- Reset zoom<br>- Mouse wheel support | - Affects detail level<br>- Triggers content reaggregation<br>- Updates scale representation |
+| **MAP-04** | Detail Level Display | Visualization | Show current scale | - Current detail level<br>- Scale representation<br>- Cell size information | - Updates with zoom changes | - Shows what each cell represents<br>- Displays effective cell size<br>- Shows current detail level name |
+| **MAP-05** | Export Button | Visualization | Save visualization | - State (enabled/processing) | - Generates PNG<br>- Triggers download | - Creates high-resolution image<br>- Includes all visible elements |
 | **ANA-01** | Content Distribution Section | Analysis | Show content breakdown | - Content counts by category | - Read-only display | - Updates after generation<br>- Categorizes all placed content |
 | **ANA-02** | Density Analysis Section | Analysis | Show space utilization | - Overall density<br>- Regional density | - Read-only display | - Calculates items per area<br>- Identifies high/low density regions |
 | **ANA-03** | Travel Times Section | Analysis | Show player experience metrics | - Average/min/max travel times | - Read-only display | - Estimates based on player speed<br>- Measures content proximity |
@@ -65,8 +67,14 @@
 - Additional visualization options
 - Content library management
 
-### Phase 3/4 Extensions
+### Phase 3 Extensions
+- **MAP-03/04**: Zoom controls and detail level system
 - Interactive map manipulation
+- Layer toggling for content types
+- Enhanced visual representation
+
+### Phase 4 Extensions
 - Advanced analysis visualizations
 - Custom export options
 - Expanded content type properties
+- Progression path visualization

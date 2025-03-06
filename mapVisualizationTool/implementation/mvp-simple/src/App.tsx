@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
-import backgroundImageSrc from './CruxMap_BW_trans.png';
+
+// Import image from public directory
+const backgroundImageSrc = './CruxMap_BW_trans.png';
 
 // Define types for map configuration
 interface MapConfig {
@@ -13,10 +15,36 @@ interface MapConfig {
 
 // Constants for real-world units
 const METERS_PER_KM = 1000;
-const CELL_SIZE_METERS = 1; // Each cell is 1m x 1m
+const BASE_CELL_SIZE_METERS = 1; // Base cell size is 1m x 1m
+
+// Detail level definitions
+interface DetailLevel {
+  id: string;
+  category: 'High' | 'Medium' | 'Low';
+  minZoom: number;
+  maxZoom: number;
+  metersPerCell: number;
+  displayName: string;
+}
+
+// Define zoom stages with wider range for more gradual transitions
+const ZOOM_LEVELS = [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0];
+
+const DETAIL_LEVELS: DetailLevel[] = [
+  // Level 1-2 (Most zoomed out): 200m cells
+  { id: 'L1', category: 'Low', minZoom: 0.0, maxZoom: 1.6, metersPerCell: 200, displayName: 'Level 1 (200m)' },
+  // Level 3-4: 100m cells
+  { id: 'L2', category: 'Low', minZoom: 1.6, maxZoom: 2.5, metersPerCell: 100, displayName: 'Level 2 (100m)' },
+  // Level 5-6: 50m cells
+  { id: 'L3', category: 'Medium', minZoom: 2.5, maxZoom: 3.0, metersPerCell: 50, displayName: 'Level 3 (50m)' },
+  // Level 7-8: 10m cells
+  { id: 'L4', category: 'High', minZoom: 3.0, maxZoom: 4.0, metersPerCell: 10, displayName: 'Level 4 (10m)' },
+  // Level 9-10 (Most zoomed in): 1m cells
+  { id: 'L5', category: 'High', minZoom: 4.0, maxZoom: Infinity, metersPerCell: 1, displayName: 'Level 5 (1m)' },
+];
 
 // Define types for content types
-export interface ContentType {
+interface ContentType {
   id: string;
   name: string;
   color: string;
@@ -24,553 +52,466 @@ export interface ContentType {
   percentage: number;
 }
 
-// Define types for analysis data
-export interface AnalysisData {
-  contentDistribution: {
-    [key: string]: number;
-  };
-  densityMap: {
-    [key: string]: number[][];
-  };
-  warnings: string[];
-}
-
 function App() {
-  // Canvas dimensions state (will be calculated based on container size)
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1800, height: 1350 });
+  // Canvas dimensions state
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: Math.floor(1800), height: Math.floor(1350) });
   
-  // Reference to the map container element
+  // References
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
 
   // State for map configuration
   const [mapConfig, setMapConfig] = useState<MapConfig>({
-    widthKm: 5,
-    heightKm: 4,
+    widthKm: 6,  // 6km width to match image aspect ratio
+    heightKm: 4, // 4km height (24 sq km total area)
     showGrid: true,
     gridOpacity: 0.7,
     visualCellSize: 10, // Visual size of each cell in pixels
   });
 
-  // Helper functions for unit conversions
-  const getWidthInCells = () => Math.floor(mapConfig.widthKm * METERS_PER_KM / CELL_SIZE_METERS);
-  const getHeightInCells = () => Math.floor(mapConfig.heightKm * METERS_PER_KM / CELL_SIZE_METERS);
+  // State for zoom level
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+
+  // State for panning
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
   // State for transparency mask
   const [transparencyMask, setTransparencyMask] = useState<boolean[][]>([]);
   
   // State for background image loaded status
   const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
-  
-  // Reference to the background image to prevent reloading
-  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
 
-  // State for content types
-  const [contentTypes, setContentTypes] = useState<ContentType[]>([
-    { id: '1', name: 'Forest', color: '#2d6a4f', borderColor: '#1b4332', percentage: 40 },
-    { id: '2', name: 'Mountains', color: '#6c757d', borderColor: '#495057', percentage: 20 },
-    { id: '3', name: 'Water', color: '#0077b6', borderColor: '#023e8a', percentage: 30 },
-    { id: '4', name: 'Desert', color: '#e9c46a', borderColor: '#ca6702', percentage: 10 },
-  ]);
+  // Track current detail level for grid updates
+  const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
 
-  // State for map data (will be generated)
-  const [mapData, setMapData] = useState<string[][]>([]);
+  // Get current detail level based on zoom
+  const getCurrentDetailLevel = useCallback((): DetailLevel => {
+    const matchingLevel = DETAIL_LEVELS.find(
+      level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
+    );
+    return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
+  }, [zoomLevel]);
 
-  // State for analysis data
-  const [analysisData, setAnalysisData] = useState<AnalysisData>({
-    contentDistribution: {},
-    densityMap: {},
-    warnings: [],
-  });
-
-  // Function to update canvas dimensions based on container size
-  const updateCanvasDimensions = () => {
-    if (mapContainerRef.current) {
-      const container = mapContainerRef.current;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      // Set canvas dimensions to match container size
-      setCanvasDimensions({ width, height });
+  // Helper to check if panning is possible
+  const canPan = useCallback(() => {
+    if (!backgroundImageRef.current) {
+      return false;
     }
-  };
-  
-  // Update canvas dimensions when window is resized
-  useEffect(() => {
-    // Initial update
-    updateCanvasDimensions();
+
+    const baseScale = Math.min(
+      canvasDimensions.width / backgroundImageRef.current.width,
+      canvasDimensions.height / backgroundImageRef.current.height
+    );
+    const scale = baseScale * zoomLevel;
+    const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
+    const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
+
+    return scaledWidth > canvasDimensions.width || scaledHeight > canvasDimensions.height;
+  }, [canvasDimensions, zoomLevel]);
+
+  // Mouse event handlers
+  const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
     
-    // Add resize event listener
-    window.addEventListener('resize', updateCanvasDimensions);
+    if (!canPan()) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.floor(event.clientX - rect.left);
+    const y = Math.floor(event.clientY - rect.top);
+    setLastMousePos({ x, y });
+    setIsPanning(true);
+  }, [canPan]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !backgroundImageRef.current) {
+      return;
+    }
+    event.preventDefault();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.floor(event.clientX - rect.left);
+    const y = Math.floor(event.clientY - rect.top);
     
-    // Clean up
-    return () => {
-      window.removeEventListener('resize', updateCanvasDimensions);
-    };
+    const deltaX = Math.floor((x - lastMousePos.x) * 1.5);
+    const deltaY = Math.floor((y - lastMousePos.y) * 1.5);
+    
+    const baseScale = Math.min(
+      canvasDimensions.width / backgroundImageRef.current.width,
+      canvasDimensions.height / backgroundImageRef.current.height
+    );
+    const scale = baseScale * zoomLevel;
+    const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
+    const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
+    
+    const maxPanX = Math.floor(Math.max(0, (scaledWidth - canvasDimensions.width) / 2));
+    const maxPanY = Math.floor(Math.max(0, (scaledHeight - canvasDimensions.height) / 2));
+    
+    setPanOffset(prev => {
+      const newX = Math.floor(Math.max(-maxPanX, Math.min(maxPanX, prev.x + deltaX)));
+      const newY = Math.floor(Math.max(-maxPanY, Math.min(maxPanY, prev.y + deltaY)));
+      return { x: newX, y: newY };
+    });
+    
+    setLastMousePos({ x, y });
+  }, [isPanning, lastMousePos, canvasDimensions, zoomLevel]);
+
+  const handleMouseUp = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsPanning(false);
   }, []);
 
-  // Function to generate map data using flood fill algorithm for contiguous biomes
-  const generateMap = () => {
-    // Calculate grid dimensions in cells (1m per cell)
-    const widthInCells = getWidthInCells();
-    const heightInCells = getHeightInCells();
+  const handleMouseLeave = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsPanning(false);
+  }, []);
+
+  // Toggle grid handler
+  const handleToggleGrid = useCallback(() => {
+    setMapConfig(prev => ({
+      ...prev,
+      showGrid: !prev.showGrid
+    }));
+  }, []);
+
+  // Zoom handlers
+  const handleZoomIn = useCallback(() => {
+    const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
+    const nextIndex = Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1);
+    setZoomLevel(ZOOM_LEVELS[nextIndex]);
+  }, [zoomLevel]);
+
+  const handleZoomOut = useCallback(() => {
+    const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
+    const nextIndex = Math.max(currentIndex - 1, 0);
+    setZoomLevel(ZOOM_LEVELS[nextIndex]);
+  }, [zoomLevel]);
+
+  const handleResetZoom = useCallback(() => {
+    setZoomLevel(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  // Handle mousewheel zoom
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
     
-    // Initialize empty map with null values
-    const newMapData: (string | null)[][] = Array(heightInCells)
-      .fill(null)
-      .map(() => Array(widthInCells).fill(null));
+    const zoomDelta = -Math.sign(event.deltaY) * 0.2;
+    const currentZoom = zoomLevel;
+    const newZoom = Math.max(ZOOM_LEVELS[0], Math.min(ZOOM_LEVELS[ZOOM_LEVELS.length - 1], currentZoom + zoomDelta));
     
-    // Calculate total cells
-    const totalCells = widthInCells * heightInCells;
-    
-    // Sort content types by percentage (descending)
-    const sortedContentTypes = [...contentTypes].sort((a, b) => b.percentage - a.percentage);
-    
-    // For each content type, fill a contiguous region
-    for (const contentType of sortedContentTypes) {
-      // Calculate how many cells this content type should occupy
-      const targetCellCount = Math.floor((contentType.percentage / 100) * totalCells);
-      
-      // Find a valid starting point (an empty cell)
-      let startX = -1;
-      let startY = -1;
-      
-      // Try to find an empty cell
-      let attempts = 0;
-      while (startX === -1 && attempts < 100) {
-        const randomX = Math.floor(Math.random() * widthInCells);
-        const randomY = Math.floor(Math.random() * heightInCells);
-        
-        if (newMapData[randomY][randomX] === null) {
-          startX = randomX;
-          startY = randomY;
-        }
-        
-        attempts++;
-      }
-      
-      // If we couldn't find an empty cell, just use the first null cell we find
-      if (startX === -1) {
-        for (let y = 0; y < heightInCells; y++) {
-          for (let x = 0; x < widthInCells; x++) {
-            if (newMapData[y][x] === null) {
-              startX = x;
-              startY = y;
-              break;
-            }
-          }
-          if (startX !== -1) break;
-        }
-      }
-      
-      // If we still couldn't find an empty cell, skip this content type
-      if (startX === -1) continue;
-      
-      // Perform flood fill from the starting point
-      let cellsToFill = targetCellCount;
-      let currentCells = 0;
-      
-      // Set the starting cell
-      newMapData[startY][startX] = contentType.id;
-      currentCells++;
-      
-      // Queue for BFS (Breadth-First Search)
-      const queue: [number, number][] = [[startX, startY]];
-      
-      // Directions for adjacent cells (4-way connectivity)
-      const directions = [
-        [0, 1],  // down
-        [1, 0],  // right
-        [0, -1], // up
-        [-1, 0]  // left
-      ];
-      
-      // Add diagonal directions for more natural-looking regions
-      directions.push([1, 1], [-1, -1], [1, -1], [-1, 1]);
-      
-      // Shuffle directions to create more natural-looking regions
-      directions.sort(() => Math.random() - 0.5);
-      
-      // Continue filling until we've reached the target or no more cells are available
-      while (queue.length > 0 && currentCells < cellsToFill) {
-        const [x, y] = queue.shift()!;
-        
-        // Shuffle directions for each cell to create more natural-looking regions
-        const shuffledDirections = [...directions].sort(() => Math.random() - 0.5);
-        
-        // Try each direction
-        for (const [dx, dy] of shuffledDirections) {
-          const newX = x + dx;
-          const newY = y + dy;
-          
-          // Check if the new position is valid and empty
-          if (
-            newX >= 0 && newX < widthInCells &&
-            newY >= 0 && newY < heightInCells &&
-            newMapData[newY][newX] === null
-          ) {
-            // Fill this cell
-            newMapData[newY][newX] = contentType.id;
-            currentCells++;
-            
-            // Add to queue for further expansion
-            queue.push([newX, newY]);
-            
-            // Stop if we've reached the target
-            if (currentCells >= cellsToFill) break;
-          }
-        }
-      }
+    if (newZoom !== currentZoom) {
+      setZoomLevel(newZoom);
     }
+  }, [zoomLevel]);
+
+  // Drawing functions
+  const clearCanvas = useCallback(() => {
+    if (!contextRef.current) return;
+    contextRef.current.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
+  }, [canvasDimensions]);
+
+    const drawBackground = useCallback(() => {
+    if (!contextRef.current || !backgroundImageRef.current) return;
     
-    // Fill any remaining empty cells with the first content type
-    for (let y = 0; y < heightInCells; y++) {
-      for (let x = 0; x < widthInCells; x++) {
-        if (newMapData[y][x] === null) {
-          newMapData[y][x] = sortedContentTypes[0].id;
-        }
-      }
-    }
+    const ctx = contextRef.current;
+    const img = backgroundImageRef.current;
     
-    // Convert to string[][] (removing null values)
-    const finalMapData = newMapData.map(row => 
-      row.map(cell => cell === null ? sortedContentTypes[0].id : cell)
+    // Check if transparency mask is initialized
+    if (!transparencyMask.length) return;
+    
+    // Get current detail level
+    const detailLevel = getCurrentDetailLevel();
+    
+    // Calculate cell dimensions based on detail level
+    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
+    const cellsPerMeter = 1 / detailLevel.metersPerCell;
+    const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
+    
+    // Calculate grid dimensions
+    const cellWidth = Math.floor(pixelsPerCell);
+    const cellHeight = Math.floor(pixelsPerCell);
+    
+    // Calculate base scaling to match the background image
+    const baseScale = Math.min(
+      canvasDimensions.width / img.width,
+      canvasDimensions.height / img.height
     );
+    const scale = baseScale * zoomLevel;
     
-    setMapData(finalMapData);
+    // Scale the cell dimensions and ensure they're whole numbers
+    const scaledCellWidth = Math.floor(cellWidth * scale);
+    const scaledCellHeight = Math.floor(cellHeight * scale);
     
-    // Generate analysis data
-    analyzeMap(finalMapData);
-  };
+    // Calculate final dimensions based on cell count
+    const scaledWidth = Math.floor(scaledCellWidth * transparencyMask[0].length);
+    const scaledHeight = Math.floor(scaledCellHeight * transparencyMask.length);
+    
+    // Center the image and apply pan offset
+    const x = Math.floor((canvasDimensions.width - scaledWidth) / 2);
+    const y = Math.floor((canvasDimensions.height - scaledHeight) / 2);
+    const finalX = Math.floor(x + panOffset.x);
+    const finalY = Math.floor(y + panOffset.y);
+    
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, finalX, finalY, scaledWidth, scaledHeight);
+  }, [canvasDimensions, zoomLevel, panOffset, transparencyMask]);
 
-  // Function to analyze map data
-  const analyzeMap = (data: string[][]) => {
-    // This is a placeholder for the actual analysis algorithm
-    // In the full implementation, this would calculate various metrics
+  const drawGrid = useCallback(() => {
+    if (!contextRef.current || !mapConfig.showGrid || !transparencyMask.length || !backgroundImageRef.current) return;
     
-    // Count content distribution
-    const distribution: {[key: string]: number} = {};
-    contentTypes.forEach(type => {
-      distribution[type.id] = 0;
-    });
+    const ctx = contextRef.current;
+    const img = backgroundImageRef.current;
     
-    data.forEach(row => {
-      row.forEach(cell => {
-        distribution[cell]++;
-      });
-    });
+    // Get current detail level
+    const detailLevel = getCurrentDetailLevel();
     
-    // Convert counts to percentages
-    const totalCells = getWidthInCells() * getHeightInCells();
-    Object.keys(distribution).forEach(key => {
-      distribution[key] = Math.round((distribution[key] / totalCells) * 100);
-    });
+    // Calculate cell dimensions based on detail level
+    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
+    const cellsPerMeter = 1 / detailLevel.metersPerCell;
+    const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
     
-    // Generate simple density map (placeholder)
-    const densityMap: {[key: string]: number[][]} = {};
-    contentTypes.forEach(type => {
-      densityMap[type.id] = Array(getHeightInCells()).fill(0).map(() => 
-        Array(getWidthInCells()).fill(0)
-      );
-    });
+    // Calculate grid dimensions
+    const cellWidth = Math.floor(pixelsPerCell);
+    const cellHeight = Math.floor(pixelsPerCell);
     
-    // Generate warnings (placeholder)
-    const warnings: string[] = [];
+    // Calculate base scaling to match the background image
+    const baseScale = Math.min(
+      canvasDimensions.width / img.width,
+      canvasDimensions.height / img.height
+    );
+    const scale = baseScale * zoomLevel;
     
-    // Check if any content type has 0% distribution
-    contentTypes.forEach(type => {
-      if (distribution[type.id] === 0) {
-        warnings.push(`Warning: ${type.name} has 0% distribution in the generated map.`);
+    // Scale the cell dimensions and ensure they're whole numbers
+    const scaledCellWidth = Math.floor(cellWidth * scale);
+    const scaledCellHeight = Math.floor(cellHeight * scale);
+    
+    // Calculate final dimensions based on cell count
+    const adjustedScaledImgWidth = scaledCellWidth * transparencyMask[0].length;
+    const adjustedScaledImgHeight = scaledCellHeight * transparencyMask.length;
+    
+    // Calculate offset to center the grid with the image and apply pan offset
+    const baseOffsetX = Math.floor((canvasDimensions.width - adjustedScaledImgWidth) / 2);
+    const baseOffsetY = Math.floor((canvasDimensions.height - adjustedScaledImgHeight) / 2);
+    const offsetX = Math.floor(baseOffsetX + panOffset.x);
+    const offsetY = Math.floor(baseOffsetY + panOffset.y);
+    
+    // Set grid style with thicker lines for better visibility
+    ctx.strokeStyle = '#666666';
+    ctx.lineWidth = 1.0;
+    ctx.globalAlpha = mapConfig.gridOpacity;
+    ctx.imageSmoothingEnabled = false;
+    
+    // Draw grid only on non-transparent areas
+    for (let row = 0; row < transparencyMask.length; row++) {
+      for (let col = 0; col < transparencyMask[row].length; col++) {
+        if (transparencyMask[row][col]) {
+          // Calculate cell coordinates using consistent Math.floor
+          const x = Math.floor(offsetX + (col * scaledCellWidth));
+          const y = Math.floor(offsetY + (row * scaledCellHeight));
+          const right = Math.floor(x + scaledCellWidth);
+          const bottom = Math.floor(y + scaledCellHeight);
+          
+          // Draw cell borders without sub-pixel offsets
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(right, y);
+          ctx.lineTo(right, bottom);
+          ctx.lineTo(x, bottom);
+          ctx.lineTo(x, y);
+          ctx.closePath();
+          ctx.stroke();
+        }
       }
-    });
-    
-    // Check if distribution is significantly different from requested percentages
-    contentTypes.forEach(type => {
-      const diff = Math.abs(distribution[type.id] - type.percentage);
-      if (diff > 10) {
-        warnings.push(`Warning: ${type.name} distribution (${distribution[type.id]}%) differs significantly from requested (${type.percentage}%).`);
-      }
-    });
-    
-    setAnalysisData({
-      contentDistribution: distribution,
-      densityMap,
-      warnings,
-    });
-  };
-
-  // Function to draw a square
-  const drawSquare = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    size: number,
-    color: string,
-    strokeColor: string = '#ffffff',
-  ) => {
-    // Use the full size without any gap
-    const cellSize = size;
-    
-    // Fill
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, cellSize, cellSize);
-    
-    // Stroke
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = 0.5; // Thinner line for less visible grid
-    ctx.strokeRect(x, y, cellSize, cellSize);
-  };
-  
-  // Function to get square coordinates
-  const getSquareCoordinates = (col: number, row: number, size: number) => {
-    // Use the provided size parameter (visualCellSize) for calculating positions
-    // Calculate the position of the cell based on the size
-    const x = col * size;
-    const y = row * size;
-    
-    return { x, y };
-  };
-  
-  // Function to get level of detail based on zoom level
-  const getLevelOfDetail = () => {
-    // At higher zoom levels, we might want to show more detail
-    // At lower zoom levels, we might want to show less detail
-    if (zoomLevel >= 2) {
-      return 'High'; // High detail level
-    } else if (zoomLevel >= 1) {
-      return 'Medium'; // Medium detail level
-    } else {
-      return 'Low'; // Low detail level
     }
-  };
-
-  // Canvas reference
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  // State for zoom level
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  
-  // Calculate the effective cell size based on zoom level
-  const getEffectiveCellSize = () => mapConfig.visualCellSize * zoomLevel;
-  
-  // Calculate what each cell represents in real-world units
-  const getCellRepresentation = () => {
-    // Each cell in the data is 1 meter
-    // The visual representation depends on the zoom level
     
-    // Calculate the scale based on zoom level
-    const scale = zoomLevel >= 1 
-      ? `1:${Math.round(1 / zoomLevel)}`
-      : `${Math.round(zoomLevel * 100)}%`;
+    // Reset context state
+    ctx.globalAlpha = 1.0;
+  }, [mapConfig.showGrid, mapConfig.gridOpacity, transparencyMask, canvasDimensions, getCurrentDetailLevel, zoomLevel, panOffset]);
+
+  const render = useCallback(() => {
+    clearCanvas();
+    drawBackground();
+    if (mapConfig.showGrid) {
+      drawGrid();
+    }
     
-    return `1 square = ${CELL_SIZE_METERS} meter${CELL_SIZE_METERS !== 1 ? 's' : ''} (Scale ${scale})`;
-  };
-  
+    // Request next frame
+    animationFrameRef.current = requestAnimationFrame(render);
+  }, [clearCanvas, drawBackground, drawGrid, mapConfig.showGrid]);
+
+  // Set up canvas context and start render loop when ready
+  useEffect(() => {
+    if (!canvasRef.current || !backgroundImageLoaded || !transparencyMask.length) return;
+    
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d', { 
+      alpha: false,
+      willReadFrequently: true
+    });
+    
+    if (!context) {
+      console.error('Could not get canvas context');
+      return;
+    }
+    
+    context.imageSmoothingEnabled = false;
+    context.imageSmoothingQuality = 'high';
+    contextRef.current = context;
+    
+    // Start render loop
+    render();
+    
+    // Cleanup
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [render, backgroundImageLoaded, transparencyMask]);
+
   // Preload the background image once
   useEffect(() => {
     if (!backgroundImageRef.current) {
       const img = new Image();
       img.src = backgroundImageSrc;
+      
       img.onload = () => {
         backgroundImageRef.current = img;
         setBackgroundImageLoaded(true);
       };
-      img.onerror = () => {
-        console.error('Error loading background image');
+      
+      img.onerror = (e) => {
+        console.error("Error loading background image:", e);
         setBackgroundImageLoaded(true);
       };
     }
   }, []);
-  
-  // Function to draw the map with current zoom level
-  const drawMapWithZoom = () => {
-    if (!backgroundImageRef.current) return;
-    
-    const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Ensure canvas has the dimensions from state
-    canvas.width = canvasDimensions.width;
-    canvas.height = canvasDimensions.height;
-    
-    // Save the current transformation matrix
-    ctx.save();
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
-    
-    // Apply zoom transformation to the entire canvas
-    // Scale from the center of the canvas
-    ctx.translate(canvasDimensions.width / 2, canvasDimensions.height / 2);
-    ctx.scale(zoomLevel, zoomLevel);
-    ctx.translate(-canvasDimensions.width / 2, -canvasDimensions.height / 2);
-    
-    // Draw the background image to fill the entire canvas
-    ctx.drawImage(backgroundImageRef.current, 0, 0, canvasDimensions.width, canvasDimensions.height);
-    
-    // Draw map data if available
-    if (mapData.length > 0) {
-      drawMapData(ctx, mapData, transparencyMask);
-    } else if (mapConfig.showGrid) {
-      // Draw empty grid if no data but grid is enabled
-      drawEmptyGrid(ctx, transparencyMask);
-    }
-    
-    // Restore the transformation matrix
-    ctx.restore();
-  };
-  
-  // Create transparency mask when map configuration changes
+
+  // Create transparency mask when map configuration changes or zoom level changes
   useEffect(() => {
     if (!backgroundImageLoaded || !backgroundImageRef.current) return;
     
-    const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
-    if (!canvas) return;
+    const detailLevel = getCurrentDetailLevel();
+    // Calculate cell dimensions based on detail level
+    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / backgroundImageRef.current.width;
+    const cellsPerMeter = 1 / detailLevel.metersPerCell;
+    const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // Calculate grid dimensions
+    const cellWidth = Math.floor(pixelsPerCell);
+    const cellHeight = Math.floor(pixelsPerCell);
     
-    // Use dimensions from state
-    canvas.width = canvasDimensions.width;
-    canvas.height = canvasDimensions.height;
+    // Calculate number of cells
+    const widthInCells = Math.ceil(backgroundImageRef.current.width / cellWidth);
+    const heightInCells = Math.ceil(backgroundImageRef.current.height / cellHeight);
     
-    // Clear canvas
-    ctx.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
+    // Adjust cell counts to ensure we cover the entire image
+    const adjustedWidthInCells = Math.ceil(backgroundImageRef.current.width / cellWidth);
+    const adjustedHeightInCells = Math.ceil(backgroundImageRef.current.height / cellHeight);
     
-    // Draw the background image without zoom to create the mask
-    ctx.drawImage(backgroundImageRef.current, 0, 0, canvasDimensions.width, canvasDimensions.height);
+    // Create a temporary canvas to analyze the background image
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
     
-    // Create transparency mask
-    const imageData = ctx.getImageData(0, 0, canvasDimensions.width, canvasDimensions.height);
-    const mask: boolean[][] = [];
+    // Set canvas size to match the background image
+    tempCanvas.width = backgroundImageRef.current.width;
+    tempCanvas.height = backgroundImageRef.current.height;
     
-    // Initialize the mask array
-    const heightInCells = getHeightInCells();
-    const widthInCells = getWidthInCells();
+    // Draw the background image
+    tempCtx.drawImage(backgroundImageRef.current, 0, 0);
     
-    for (let y = 0; y < heightInCells; y++) {
-      mask[y] = [];
-      for (let x = 0; x < widthInCells; x++) {
-        // Get the corresponding position on the image
-        const { x: pixelX, y: pixelY } = getSquareCoordinates(x, y, mapConfig.visualCellSize);
+    // Get image data to analyze transparency
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+    
+    // Create a new mask array
+    const newMask: boolean[][] = [];
+    
+    // Add 2-pixel overlap to avoid missing pixels at edges
+    const overlap = 2;
+    
+    // For each cell, check if the corresponding area in the image has non-transparent pixels
+    for (let row = 0; row < adjustedHeightInCells; row++) {
+      const maskRow: boolean[] = [];
+      for (let col = 0; col < adjustedWidthInCells; col++) {
+        // Get the pixel region for this cell with overlap
+        const startX = Math.max(0, Math.floor(col * cellWidth) - overlap);
+        const startY = Math.max(0, Math.floor(row * cellHeight) - overlap);
+        const endX = Math.min(tempCanvas.width, Math.floor((col + 1) * cellWidth) + overlap);
+        const endY = Math.min(tempCanvas.height, Math.floor((row + 1) * cellHeight) + overlap);
         
-        // Sample the center of where the square would be
-        const centerX = pixelX + mapConfig.visualCellSize / 2;
-        const centerY = pixelY + mapConfig.visualCellSize / 2;
+        let hasContent = false;
         
-        // Check if this point is within canvas bounds
-        if (centerX < canvasDimensions.width && centerY < canvasDimensions.height) {
-          // Get the pixel index in the image data array
-          const pixelIndex = ((Math.floor(centerY) * canvasDimensions.width) + Math.floor(centerX)) * 4;
-          
-          // Check alpha channel (index + 3)
-          const alpha = imageData.data[pixelIndex + 3];
-          
-          // If alpha is above threshold (e.g., 50), consider it non-transparent
-          mask[y][x] = alpha > 50;
-        } else {
-          mask[y][x] = false;
+        // First try dense grid sampling
+        const sampleStepX = Math.max(1, Math.floor((endX - startX) / 20));
+        const sampleStepY = Math.max(1, Math.floor((endY - startY) / 20));
+        
+        // Sample in a dense grid pattern
+        for (let y = startY; y < endY; y += sampleStepY) {
+          for (let x = startX; x < endX; x += sampleStepX) {
+            const index = (y * tempCanvas.width + x) * 4;
+            if (data[index + 3] > 0) {
+              hasContent = true;
+              break;
+            }
+          }
+          if (hasContent) break;
         }
-      }
-    }
-    
-    setTransparencyMask(mask);
-    
-    // Redraw with zoom
-    drawMapWithZoom();
-  }, [mapConfig.widthKm, mapConfig.heightKm, mapConfig.visualCellSize, backgroundImageLoaded, canvasDimensions]);
-  
-  // Function to draw map data with transparency mask
-  const drawMapData = (
-    ctx: CanvasRenderingContext2D, 
-    data: string[][], 
-    mask: boolean[][]
-  ) => {
-    // Set global alpha for semi-transparency
-    ctx.globalAlpha = mapConfig.gridOpacity;
-    
-    // Draw filled squares based on mapData, respecting the mask
-    for (let row = 0; row < data.length; row++) {
-      for (let col = 0; col < data[row].length; col++) {
-        // Only draw if this position is non-transparent in the mask
-        if (mask[row] && mask[row][col]) {
-          const contentTypeId = data[row][col];
-          const contentType = contentTypes.find(type => type.id === contentTypeId);
-          
-          if (contentType) {
-            const { x, y } = getSquareCoordinates(col, row, mapConfig.visualCellSize);
-            drawSquare(ctx, x, y, getEffectiveCellSize(), contentType.color, contentType.borderColor);
+        
+        // If no content found in grid sampling, check every pixel in the cell
+        if (!hasContent) {
+          for (let y = startY; y < endY && !hasContent; y++) {
+            for (let x = startX; x < endX; x++) {
+              const index = (y * tempCanvas.width + x) * 4;
+              if (data[index + 3] > 0) {
+                hasContent = true;
+                break;
+              }
+            }
           }
         }
+        
+        maskRow.push(hasContent);
       }
+      newMask.push(maskRow);
     }
     
-    // Reset global alpha
-    ctx.globalAlpha = 1.0;
-  };
-  
-  // Function to draw empty grid with transparency mask
-  const drawEmptyGrid = (
-    ctx: CanvasRenderingContext2D,
-    mask: boolean[][]
-  ) => {
-    // Set global alpha for semi-transparency
-    ctx.globalAlpha = mapConfig.gridOpacity;
-    
-    // Draw empty grid, respecting the mask
-    const heightInCells = getHeightInCells();
-    const widthInCells = getWidthInCells();
-    
-    for (let row = 0; row < heightInCells; row++) {
-      for (let col = 0; col < widthInCells; col++) {
-        // Only draw if this position is non-transparent in the mask
-        if (mask[row] && mask[row][col]) {
-          const { x, y } = getSquareCoordinates(col, row, mapConfig.visualCellSize);
-          drawSquare(ctx, x, y, getEffectiveCellSize(), '#e2e8f0', '#cbd5e1');
-        }
-      }
-    }
-    
-    // Reset global alpha
-    ctx.globalAlpha = 1.0;
-  };
-  
-  // Add mouse wheel event listener for zooming
+    setTransparencyMask(newMask);
+  }, [mapConfig, backgroundImageLoaded, getCurrentDetailLevel, zoomLevel]);
+
+  // Update canvas dimensions when window is resized
   useEffect(() => {
-    const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
-    if (!canvas) return;
-    
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      
-      // Determine zoom direction
-      const zoomDirection = e.deltaY < 0 ? 1 : -1;
-      
-      // Calculate new zoom level
-      const zoomFactor = 0.1; // 10% zoom per wheel tick
-      const newZoomLevel = Math.max(0.5, Math.min(3, zoomLevel + (zoomDirection * zoomFactor)));
-      
-      setZoomLevel(newZoomLevel);
+    const updateCanvasDimensions = () => {
+      if (mapContainerRef.current) {
+        const containerWidth = mapContainerRef.current.clientWidth;
+        const containerHeight = mapContainerRef.current.clientHeight;
+        
+        setCanvasDimensions({
+          width: Math.floor(containerWidth - 40),
+          height: Math.floor(containerHeight - 40),
+        });
+      }
     };
     
-    // Add wheel event listener
-    canvas.addEventListener('wheel', handleWheel);
+    // Initial update
+    updateCanvasDimensions();
     
-    // Clean up event listener on unmount
+    // Add resize listener
+    window.addEventListener('resize', updateCanvasDimensions);
+    
+    // Cleanup
     return () => {
-      canvas.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('resize', updateCanvasDimensions);
     };
-  }, [zoomLevel]);
-  
-  // Draw the map whenever mapData, mapConfig, contentTypes, transparencyMask, or zoomLevel change
-  useEffect(() => {
-    if (!backgroundImageLoaded || !backgroundImageRef.current) return; // Wait for background image to load
-    
-    // Use the drawMapWithZoom function to redraw the map
-    drawMapWithZoom();
-  }, [mapData, mapConfig, contentTypes, transparencyMask, backgroundImageLoaded, zoomLevel, canvasDimensions]);
+  }, []);
 
   return (
     <div className="app">
@@ -579,348 +520,61 @@ function App() {
       </header>
       
       <main className="app-content">
-        <div className="input-panel">
-          <h2 className="panel-title">Input Panel</h2>
-          
-          <button
-            onClick={generateMap}
-            className="generate-button"
-            disabled={contentTypes.reduce((sum, type) => sum + type.percentage, 0) !== 100}
-          >
-            Generate Map
-          </button>
-          
-          <div className="panel-section">
-            <h3>Map Configuration</h3>
-            
-            <div className="form-group">
-              <label htmlFor="widthKm">Width (km):</label>
-              <input
-                type="number"
-                id="widthKm"
-                name="widthKm"
-                min="1"
-                max="100"
-                value={mapConfig.widthKm}
-                onChange={(e) => setMapConfig({...mapConfig, widthKm: parseInt(e.target.value, 10)})}
-                className="form-input"
-              />
+        <div className="controls-panel">
+          <div className="zoom-controls">
+            <button onClick={handleZoomIn}>Zoom In (+)</button>
+            <button onClick={handleZoomOut}>Zoom Out (-)</button>
+            <button onClick={handleResetZoom}>Reset Zoom</button>
+            <div className="zoom-info">
+              Zoom: {(zoomLevel * 100).toFixed(0)}%
             </div>
-            
-            <div className="form-group">
-              <label htmlFor="heightKm">Height (km):</label>
-              <input
-                type="number"
-                id="heightKm"
-                name="heightKm"
-                min="1"
-                max="100"
-                value={mapConfig.heightKm}
-                onChange={(e) => setMapConfig({...mapConfig, heightKm: parseInt(e.target.value, 10)})}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="visualCellSize">Visual Cell Size (px):</label>
-              <input
-                type="number"
-                id="visualCellSize"
-                name="visualCellSize"
-                min="1"
-                max="50"
-                value={mapConfig.visualCellSize}
-                onChange={(e) => setMapConfig({...mapConfig, visualCellSize: parseInt(e.target.value, 10)})}
-                className="form-input"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="showGrid">Show Grid:</label>
+          </div>
+          <div className="grid-controls">
+            <label>
               <input
                 type="checkbox"
-                id="showGrid"
-                name="showGrid"
                 checked={mapConfig.showGrid}
-                onChange={(e) => setMapConfig({...mapConfig, showGrid: e.target.checked})}
-                className="form-input"
+                onChange={handleToggleGrid}
               />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="gridOpacity">Grid Opacity:</label>
-              <input
-                type="range"
-                id="gridOpacity"
-                name="gridOpacity"
-                min="0.1"
-                max="1.0"
-                step="0.1"
-                value={mapConfig.gridOpacity}
-                onChange={(e) => setMapConfig({...mapConfig, gridOpacity: parseFloat(e.target.value)})}
-                className="form-input"
-              />
-              <span>{mapConfig.gridOpacity.toFixed(1)}</span>
-            </div>
+              Show Grid
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="1.0"
+              step="0.1"
+              value={mapConfig.gridOpacity}
+              onChange={e => setMapConfig(prev => ({
+                ...prev,
+                gridOpacity: parseFloat(e.target.value)
+              }))}
+            />
           </div>
-          
-          <div className="panel-section">
-            <h3>Content Types</h3>
-            
-            <div className="content-types-list">
-              {contentTypes.map(type => (
-                <div key={type.id} className="content-type-item">
-                  <div className="content-type-colors">
-                    <div className="content-type-color" style={{ backgroundColor: type.color }}>
-                      <input
-                        type="color"
-                        value={type.color}
-                        onChange={(e) => {
-                          const updatedTypes = contentTypes.map(t => 
-                            t.id === type.id ? { ...t, color: e.target.value } : t
-                          );
-                          setContentTypes(updatedTypes);
-                        }}
-                        className="color-picker"
-                        title="Fill Color"
-                      />
-                    </div>
-                    <div className="content-type-border-color" style={{ backgroundColor: type.borderColor }}>
-                      <input
-                        type="color"
-                        value={type.borderColor}
-                        onChange={(e) => {
-                          const updatedTypes = contentTypes.map(t => 
-                            t.id === type.id ? { ...t, borderColor: e.target.value } : t
-                          );
-                          setContentTypes(updatedTypes);
-                        }}
-                        className="color-picker"
-                        title="Border Color"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="content-type-details">
-                    <input
-                      type="text"
-                      value={type.name}
-                      onChange={(e) => {
-                        const updatedTypes = contentTypes.map(t => 
-                          t.id === type.id ? { ...t, name: e.target.value } : t
-                        );
-                        setContentTypes(updatedTypes);
-                      }}
-                      className="content-type-name"
-                      placeholder="Type name"
-                    />
-                    
-                    <div className="content-type-percentage">
-                      <input
-                        type="number"
-                        value={type.percentage}
-                        onChange={(e) => {
-                          const updatedTypes = contentTypes.map(t => 
-                            t.id === type.id ? { ...t, percentage: parseInt(e.target.value, 10) } : t
-                          );
-                          setContentTypes(updatedTypes);
-                        }}
-                        min="0"
-                        max="100"
-                        className="percentage-input"
-                      />
-                      <span>%</span>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => {
-                      setContentTypes(contentTypes.filter(t => t.id !== type.id));
-                    }}
-                    className="remove-button"
-                    aria-label="Remove content type"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-            
-            <div className="total-percentage">
-              Total: {contentTypes.reduce((sum, type) => sum + type.percentage, 0)}%
-              {contentTypes.reduce((sum, type) => sum + type.percentage, 0) !== 100 && (
-                <span className="percentage-warning">
-                  (Should be 100%)
-                </span>
-              )}
-            </div>
+          <div className="detail-info">
+            Detail Level: {getCurrentDetailLevel().displayName}
           </div>
         </div>
         
-        <div className="map-panel">
-          <div className="map-panel-header">
-            <h2 className="panel-title">Map Visualization</h2>
-            
-            <button 
-              className="export-button"
-              onClick={() => {
-                const canvas = document.getElementById('map-canvas') as HTMLCanvasElement;
-                if (canvas) {
-                  const link = document.createElement('a');
-                  link.download = 'map-visualization.png';
-                  link.href = canvas.toDataURL('image/png');
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }
-              }}
-              disabled={mapData.length === 0}
-            >
-              Export as PNG
-            </button>
-          </div>
-          
-          <div className="map-canvas-container" ref={mapContainerRef}>
-            <canvas id="map-canvas" className="map-canvas" />
-            
-            {mapData.length === 0 && (
-              <div className="empty-state">
-                <p>Generate a map to see the visualization</p>
-              </div>
-            )}
-            
-            <div className="zoom-controls">
-              <span className="zoom-level">Zoom: {zoomLevel.toFixed(1)}x</span>
-              <div className="zoom-buttons">
-                <button 
-                  onClick={() => setZoomLevel(Math.min(3, zoomLevel + 0.1))}
-                  className="zoom-button"
-                  disabled={zoomLevel >= 3}
-                >
-                  +
-                </button>
-                <button 
-                  onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.1))}
-                  className="zoom-button"
-                  disabled={zoomLevel <= 0.5}
-                >
-                  -
-                </button>
-                <button 
-                  onClick={() => setZoomLevel(1)}
-                  className="zoom-button"
-                >
-                  Reset
-                </button>
-              </div>
-              <p className="zoom-hint">Use mouse wheel to zoom in/out</p>
-              <div className="cell-representation">
-                <span>{getCellRepresentation()}</span>
-                <span>Effective cell size: {getEffectiveCellSize().toFixed(1)}px</span>
-                <span>Detail level: {getLevelOfDetail()}</span>
-              </div>
-            </div>
-          </div>
-          
-          {mapData.length > 0 && (
-            <div className="map-legend">
-              <h3>Legend</h3>
-              <div className="legend-items">
-                {contentTypes.map(type => (
-                  <div key={type.id} className="legend-item">
-                    <div 
-                      className="legend-color" 
-                      style={{ backgroundColor: type.color }}
-                    />
-                    <span className="legend-name">{type.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="analysis-panel">
-          <h2 className="panel-title">Analysis Panel</h2>
-          
-          {Object.keys(analysisData.contentDistribution).length === 0 ? (
-            <div className="empty-analysis">
-              <p>Generate a map to see analysis data</p>
-            </div>
-          ) : (
-            <div className="analysis-content">
-              <div className="panel-section">
-                <h3>Content Distribution</h3>
-                <div className="distribution-chart">
-                  {contentTypes.map(type => {
-                    const percentage = analysisData.contentDistribution[type.id] || 0;
-                    const requestedPercentage = type.percentage;
-                    
-                    // Determine if there's a significant difference
-                    const diff = Math.abs(percentage - requestedPercentage);
-                    const isSignificantDiff = diff > 10;
-                    
-                    return (
-                      <div key={type.id} className="chart-item">
-                        <div className="chart-label">
-                          <div 
-                            className="chart-color" 
-                            style={{ backgroundColor: type.color }}
-                          />
-                          <span className="chart-name">{type.name}</span>
-                        </div>
-                        
-                        <div className="chart-bars">
-                          <div className="chart-bar-container">
-                            <div 
-                              className="chart-bar actual"
-                              style={{ 
-                                width: `${percentage}%`,
-                                backgroundColor: type.color,
-                              }}
-                            />
-                            <span className="chart-value">{percentage}%</span>
-                          </div>
-                          
-                          <div className="chart-bar-container">
-                            <div 
-                              className="chart-bar requested"
-                              style={{ 
-                                width: `${requestedPercentage}%`,
-                                backgroundColor: `${type.color}80`, // 50% opacity
-                              }}
-                            />
-                            <span className="chart-value">{requestedPercentage}%</span>
-                          </div>
-                        </div>
-                        
-                        {isSignificantDiff && (
-                          <div className="chart-diff-warning">
-                            Significant difference detected
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              <div className="panel-section">
-                <h3>Warnings</h3>
-                {analysisData.warnings.length === 0 ? (
-                  <p className="no-warnings">No warnings detected</p>
-                ) : (
-                  <ul className="warnings-list">
-                    {analysisData.warnings.map((warning, index) => (
-                      <li key={index} className="warning-item">
-                        {warning}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
+        <div 
+          ref={mapContainerRef} 
+          className="map-container"
+          style={{ 
+            WebkitUserSelect: 'none', 
+            userSelect: 'none',
+            cursor: canPan() ? (isPanning ? 'grabbing' : 'grab') : 'default'
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
+          onWheel={handleWheel}
+        >
+          <canvas 
+            ref={canvasRef}
+            id="map-canvas"
+            width={canvasDimensions.width}
+            height={canvasDimensions.height}
+          />
         </div>
       </main>
     </div>

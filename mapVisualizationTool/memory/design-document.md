@@ -70,7 +70,20 @@ The map visualization will include:
 - Icons/shapes for different content types
 - Legend for map elements
 - Optional square grid overlay (only visible on non-transparent portions of the map)
-- Level of detail system that adapts grid visualization based on zoom level
+- Comprehensive level of detail system that adapts grid visualization based on zoom level
+
+#### 3.6.1 Level of Detail System
+The visualization implements a sophisticated level of detail system that enables efficient rendering and appropriate representation at different zoom levels:
+
+- **Multiple Detail Categories**: High, Medium, and Low detail levels
+- **Granular Detail Levels**: 10 distinct detail levels across the categories
+- **Adaptive Cell Representation**: Each cell represents between 1m and 1km based on zoom level
+- **Smooth Transitions**: Seamless transitions between detail levels while zooming
+- **Content Aggregation**: Intelligent aggregation of content at lower detail levels
+- **Performance Optimization**: Efficient rendering for very large maps (up to 50 square km)
+- **Visual Feedback**: Clear indication of current scale and detail level
+
+This system ensures that designers can work with maps of any size while maintaining both performance and visual clarity. At high zoom levels, fine details are visible for precise work, while at low zoom levels, the system provides an appropriate overview without overwhelming visual information.
 
 ### 3.7 Export/Sharing
 Designers can export:

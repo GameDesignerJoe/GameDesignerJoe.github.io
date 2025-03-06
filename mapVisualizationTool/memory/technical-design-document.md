@@ -402,28 +402,88 @@ function renderSquareGrid(ctx, mapConfig, scale, transparencyMask) {
 ```
 
 ### 4.4.1 Level of Detail System
-The grid visualization adapts based on zoom level to maintain usability:
+The grid visualization adapts based on zoom level to maintain usability, especially for large maps (up to 50 square km). The system uses multiple detail levels within each category:
 
-```javascript
-function getLevelOfDetail(zoomLevel) {
-  // At higher zoom levels, we show more detail
-  // At lower zoom levels, we show less detail
-  if (zoomLevel >= 2) {
-    return {
-      label: 'High',
-      metersPerCell: 1 // Each visible cell represents 1 meter
-    };
-  } else if (zoomLevel >= 1) {
-    return {
-      label: 'Medium',
-      metersPerCell: 10 // Each visible cell represents 10 meters
-    };
-  } else {
-    return {
-      label: 'Low',
-      metersPerCell: 100 // Each visible cell represents 100 meters
-    };
+```typescript
+// Detail level definitions
+interface DetailLevel {
+  id: string;
+  category: 'High' | 'Medium' | 'Low';
+  minZoom: number;
+  maxZoom: number;
+  metersPerCell: number;
+  displayName: string;
+}
+
+const DETAIL_LEVELS: DetailLevel[] = [
+  // High Detail Levels
+  { id: 'H1', category: 'High', minZoom: 2.5, maxZoom: Infinity, metersPerCell: 1, displayName: 'Ultra Detail (1m)' },
+  { id: 'H2', category: 'High', minZoom: 2.0, maxZoom: 2.5, metersPerCell: 2, displayName: 'Very High Detail (2m)' },
+  { id: 'H3', category: 'High', minZoom: 1.5, maxZoom: 2.0, metersPerCell: 5, displayName: 'High Detail (5m)' },
+  
+  // Medium Detail Levels
+  { id: 'M1', category: 'Medium', minZoom: 1.2, maxZoom: 1.5, metersPerCell: 10, displayName: 'Medium Detail (10m)' },
+  { id: 'M2', category: 'Medium', minZoom: 1.0, maxZoom: 1.2, metersPerCell: 25, displayName: 'Medium Detail (25m)' },
+  { id: 'M3', category: 'Medium', minZoom: 0.8, maxZoom: 1.0, metersPerCell: 50, displayName: 'Medium Detail (50m)' },
+  
+  // Low Detail Levels
+  { id: 'L1', category: 'Low', minZoom: 0.6, maxZoom: 0.8, metersPerCell: 100, displayName: 'Low Detail (100m)' },
+  { id: 'L2', category: 'Low', minZoom: 0.4, maxZoom: 0.6, metersPerCell: 250, displayName: 'Low Detail (250m)' },
+  { id: 'L3', category: 'Low', minZoom: 0.2, maxZoom: 0.4, metersPerCell: 500, displayName: 'Very Low Detail (500m)' },
+  { id: 'L4', category: 'Low', minZoom: 0, maxZoom: 0.2, metersPerCell: 1000, displayName: 'Minimal Detail (1km)' },
+];
+
+function getCurrentDetailLevel(zoomLevel) {
+  const matchingLevel = DETAIL_LEVELS.find(
+    level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
+  );
+  return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
+}
+```
+
+This approach allows for:
+
+1. **Smooth transitions** between detail levels as the user zooms
+2. **Appropriate representation** at each zoom level
+3. **Efficient rendering** for very large maps
+4. **Clear visual feedback** to the user about the current scale
+
+When the detail level changes, the map data is reaggregated to show the appropriate level of detail:
+
+```typescript
+function aggregateMapData(baseMapData, detailLevel) {
+  // If we're at the highest detail level (1m per cell), just return the base map data
+  if (detailLevel.metersPerCell === 1) {
+    return baseMapData;
   }
+  
+  // Calculate the dimensions of the aggregated map
+  const widthInCells = Math.ceil(baseMapData[0].length / detailLevel.metersPerCell);
+  const heightInCells = Math.ceil(baseMapData.length / detailLevel.metersPerCell);
+  
+  // Initialize the aggregated map
+  const aggregatedMapData = Array(heightInCells)
+    .fill('')
+    .map(() => Array(widthInCells).fill(''));
+  
+  // For each cell in the aggregated map, determine the dominant content type
+  for (let y = 0; y < heightInCells; y++) {
+    for (let x = 0; x < widthInCells; x++) {
+      // Calculate the corresponding region in the base map
+      const startX = x * detailLevel.metersPerCell;
+      const startY = y * detailLevel.metersPerCell;
+      const endX = Math.min(startX + detailLevel.metersPerCell, baseMapData[0].length);
+      const endY = Math.min(startY + detailLevel.metersPerCell, baseMapData.length);
+      
+      // Find the dominant content type in this region
+      const dominantContentType = findDominantContentType(baseMapData, startX, startY, endX, endY);
+      
+      // Set the dominant content type for this cell
+      aggregatedMapData[y][x] = dominantContentType;
+    }
+  }
+  
+  return aggregatedMapData;
 }
 ```
 
