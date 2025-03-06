@@ -27,20 +27,20 @@ interface DetailLevel {
   displayName: string;
 }
 
-// Define zoom stages with wider range for more gradual transitions
-const ZOOM_LEVELS = [1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0];
+// Define zoom stages that match grid size changes proportionally
+const ZOOM_LEVELS = [1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 15.0, 20.0];
 
 const DETAIL_LEVELS: DetailLevel[] = [
-  // Level 1-2 (Most zoomed out): 200m cells
-  { id: 'L1', category: 'Low', minZoom: 0.0, maxZoom: 1.6, metersPerCell: 200, displayName: 'Level 1 (200m)' },
-  // Level 3-4: 100m cells
-  { id: 'L2', category: 'Low', minZoom: 1.6, maxZoom: 2.5, metersPerCell: 100, displayName: 'Level 2 (100m)' },
-  // Level 5-6: 50m cells
-  { id: 'L3', category: 'Medium', minZoom: 2.5, maxZoom: 3.0, metersPerCell: 50, displayName: 'Level 3 (50m)' },
-  // Level 7-8: 10m cells
-  { id: 'L4', category: 'High', minZoom: 3.0, maxZoom: 4.0, metersPerCell: 10, displayName: 'Level 4 (10m)' },
-  // Level 9-10 (Most zoomed in): 1m cells
-  { id: 'L5', category: 'High', minZoom: 4.0, maxZoom: Infinity, metersPerCell: 1, displayName: 'Level 5 (1m)' },
+  // Level 1 (Most zoomed out): 200m cells at 1x zoom
+  { id: 'L1', category: 'Low', minZoom: 0.0, maxZoom: 2.0, metersPerCell: 200, displayName: 'Level 1 (200m)' },
+  // Level 2: 100m cells at 2x zoom
+  { id: 'L2', category: 'Low', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: 'Level 2 (100m)' },
+  // Level 3: 50m cells at 4x zoom
+  { id: 'L3', category: 'Medium', minZoom: 4.0, maxZoom: 8.0, metersPerCell: 50, displayName: 'Level 3 (50m)' },
+  // Level 4: 10m cells at 10x zoom
+  { id: 'L4', category: 'High', minZoom: 8.0, maxZoom: 15.0, metersPerCell: 10, displayName: 'Level 4 (10m)' },
+  // Level 5: 1m cells at 20x zoom
+  { id: 'L5', category: 'High', minZoom: 15.0, maxZoom: Infinity, metersPerCell: 1, displayName: 'Level 5 (1m)' },
 ];
 
 // Define types for content types
@@ -202,11 +202,12 @@ function App() {
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     
-    const zoomDelta = -Math.sign(event.deltaY) * 0.2;
-    const currentZoom = zoomLevel;
-    const newZoom = Math.max(ZOOM_LEVELS[0], Math.min(ZOOM_LEVELS[ZOOM_LEVELS.length - 1], currentZoom + zoomDelta));
+    const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
+    const delta = Math.sign(-event.deltaY); // -1 for zoom out, 1 for zoom in
+    const nextIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentIndex + delta));
+    const newZoom = ZOOM_LEVELS[nextIndex];
     
-    if (newZoom !== currentZoom) {
+    if (newZoom !== zoomLevel) {
       setZoomLevel(newZoom);
     }
   }, [zoomLevel]);
