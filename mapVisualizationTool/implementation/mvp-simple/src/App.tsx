@@ -28,11 +28,13 @@ interface DetailLevel {
 }
 
 // Define zoom stages that match grid size changes proportionally
-const ZOOM_LEVELS = [1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 15.0, 20.0];
+const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 15.0, 20.0];
 
 const DETAIL_LEVELS: DetailLevel[] = [
-  // Level 1 (Most zoomed out): 200m cells at 1x zoom
-  { id: 'L1', category: 'Low', minZoom: 0.0, maxZoom: 2.0, metersPerCell: 200, displayName: 'Level 1 (200m)' },
+  // Level 0 (Most zoomed out): 400m cells at 0.5x zoom
+  { id: 'L0', category: 'Low', minZoom: 0.0, maxZoom: 1.0, metersPerCell: 400, displayName: 'Level 0 (400m)' },
+  // Level 1: 200m cells at 1x zoom
+  { id: 'L1', category: 'Low', minZoom: 1.0, maxZoom: 2.0, metersPerCell: 200, displayName: 'Level 1 (200m)' },
   // Level 2: 100m cells at 2x zoom
   { id: 'L2', category: 'Low', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: 'Level 2 (100m)' },
   // Level 3: 50m cells at 4x zoom
@@ -73,7 +75,7 @@ function App() {
   });
 
   // State for zoom level
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [zoomLevel, setZoomLevel] = useState<number>(0.5);
 
   // State for panning
   const [isPanning, setIsPanning] = useState(false);
@@ -103,10 +105,7 @@ function App() {
       return false;
     }
 
-    const baseScale = Math.min(
-      canvasDimensions.width / backgroundImageRef.current.width,
-      canvasDimensions.height / backgroundImageRef.current.height
-    );
+    const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
     const scale = baseScale * zoomLevel;
     const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
     const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
@@ -142,10 +141,7 @@ function App() {
     const deltaX = Math.floor((x - lastMousePos.x) * 1.5);
     const deltaY = Math.floor((y - lastMousePos.y) * 1.5);
     
-    const baseScale = Math.min(
-      canvasDimensions.width / backgroundImageRef.current.width,
-      canvasDimensions.height / backgroundImageRef.current.height
-    );
+    const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
     const scale = baseScale * zoomLevel;
     const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
     const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
@@ -194,7 +190,7 @@ function App() {
   }, [zoomLevel]);
 
   const handleResetZoom = useCallback(() => {
-    setZoomLevel(1);
+    setZoomLevel(0.5); // Reset to most zoomed out level
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
@@ -239,11 +235,8 @@ function App() {
     const cellWidth = Math.floor(pixelsPerCell);
     const cellHeight = Math.floor(pixelsPerCell);
     
-    // Calculate base scaling to match the background image
-    const baseScale = Math.min(
-      canvasDimensions.width / img.width,
-      canvasDimensions.height / img.height
-    );
+    // Calculate base scaling to fit height
+    const baseScale = canvasDimensions.height / img.height;
     const scale = baseScale * zoomLevel;
     
     // Scale the cell dimensions and ensure they're whole numbers
@@ -282,11 +275,8 @@ function App() {
     const cellWidth = Math.floor(pixelsPerCell);
     const cellHeight = Math.floor(pixelsPerCell);
     
-    // Calculate base scaling to match the background image
-    const baseScale = Math.min(
-      canvasDimensions.width / img.width,
-      canvasDimensions.height / img.height
-    );
+    // Calculate base scaling to fit height
+    const baseScale = canvasDimensions.height / img.height;
     const scale = baseScale * zoomLevel;
     
     // Scale the cell dimensions and ensure they're whole numbers
@@ -495,9 +485,10 @@ function App() {
         const containerWidth = mapContainerRef.current.clientWidth;
         const containerHeight = mapContainerRef.current.clientHeight;
         
+        // Use the full container size
         setCanvasDimensions({
-          width: Math.floor(containerWidth - 40),
-          height: Math.floor(containerHeight - 40),
+          width: Math.floor(containerWidth),
+          height: Math.floor(containerHeight),
         });
       }
     };
