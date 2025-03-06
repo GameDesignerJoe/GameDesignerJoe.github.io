@@ -28,7 +28,7 @@ interface DetailLevel {
 }
 
 // Define zoom stages that match grid size changes proportionally
-const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 15.0, 20.0];
+const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0];
 
 const DETAIL_LEVELS: DetailLevel[] = [
   // Level 0 (Most zoomed out): 400m cells at 0.5x zoom
@@ -38,11 +38,9 @@ const DETAIL_LEVELS: DetailLevel[] = [
   // Level 2: 100m cells at 2x zoom
   { id: 'L2', category: 'Low', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: 'Level 2 (100m)' },
   // Level 3: 50m cells at 4x zoom
-  { id: 'L3', category: 'Medium', minZoom: 4.0, maxZoom: 8.0, metersPerCell: 50, displayName: 'Level 3 (50m)' },
-  // Level 4: 10m cells at 10x zoom
-  { id: 'L4', category: 'High', minZoom: 8.0, maxZoom: 15.0, metersPerCell: 10, displayName: 'Level 4 (10m)' },
-  // Level 5: 1m cells at 20x zoom
-  { id: 'L5', category: 'High', minZoom: 15.0, maxZoom: Infinity, metersPerCell: 1, displayName: 'Level 5 (1m)' },
+  { id: 'L3', category: 'Medium', minZoom: 4.0, maxZoom: 6.0, metersPerCell: 50, displayName: 'Level 3 (50m)' },
+  // Level 4: 10m cells at 8x zoom
+  { id: 'L4', category: 'High', minZoom: 6.0, maxZoom: Infinity, metersPerCell: 10, displayName: 'Level 4 (10m)' },
 ];
 
 // Define types for content types
@@ -82,8 +80,9 @@ function App() {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
-  // State for transparency mask
+  // State for transparency mask and cache
   const [transparencyMask, setTransparencyMask] = useState<boolean[][]>([]);
+  const [maskCache] = useState<Map<string, boolean[][]>>(new Map());
   
   // State for background image loaded status
   const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
@@ -385,11 +384,20 @@ function App() {
     }
   }, []);
 
-  // Create transparency mask when map configuration changes or zoom level changes
+  // Create or retrieve transparency mask when detail level changes
   useEffect(() => {
     if (!backgroundImageLoaded || !backgroundImageRef.current) return;
     
     const detailLevel = getCurrentDetailLevel();
+    const cacheKey = detailLevel.id;
+    
+    // Check if we have a cached mask for this detail level
+    const cachedMask = maskCache.get(cacheKey);
+    if (cachedMask) {
+      setTransparencyMask(cachedMask);
+      return;
+    }
+    
     // Calculate cell dimensions based on detail level
     const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / backgroundImageRef.current.width;
     const cellsPerMeter = 1 / detailLevel.metersPerCell;
@@ -475,8 +483,10 @@ function App() {
       newMask.push(maskRow);
     }
     
+    // Cache the mask for this detail level
+    maskCache.set(cacheKey, newMask);
     setTransparencyMask(newMask);
-  }, [mapConfig, backgroundImageLoaded, getCurrentDetailLevel, zoomLevel]);
+  }, [mapConfig, backgroundImageLoaded, getCurrentDetailLevel]);
 
   // Update canvas dimensions when window is resized
   useEffect(() => {
