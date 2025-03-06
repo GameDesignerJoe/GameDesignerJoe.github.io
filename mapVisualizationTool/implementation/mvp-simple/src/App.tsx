@@ -10,6 +10,7 @@ interface MapConfig {
   heightKm: number; // Height in kilometers
   showGrid: boolean;
   gridOpacity: number;
+  gridColor: string; // Color of the grid lines
   visualCellSize: number; // Visual size of each cell in pixels
 }
 
@@ -69,6 +70,7 @@ function App() {
     heightKm: 4, // 4km height (24 sq km total area)
     showGrid: true,
     gridOpacity: 0.7,
+    gridColor: '#666666', // Default grid color
     visualCellSize: 10, // Visual size of each cell in pixels
   });
 
@@ -251,7 +253,7 @@ function App() {
     contextRef.current.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
   }, [canvasDimensions]);
 
-    const drawBackground = useCallback(() => {
+  const drawBackground = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
     
     const ctx = contextRef.current;
@@ -331,7 +333,7 @@ function App() {
     const offsetY = Math.floor(baseOffsetY + panOffset.y);
     
     // Set grid style with thicker lines for better visibility
-    ctx.strokeStyle = '#666666';
+    ctx.strokeStyle = mapConfig.gridColor;
     ctx.lineWidth = 1.0;
     ctx.globalAlpha = mapConfig.gridOpacity;
     ctx.imageSmoothingEnabled = false;
@@ -361,7 +363,7 @@ function App() {
     
     // Reset context state
     ctx.globalAlpha = 1.0;
-  }, [mapConfig.showGrid, mapConfig.gridOpacity, transparencyMask, canvasDimensions, getCurrentDetailLevel, zoomLevel, panOffset]);
+  }, [mapConfig.showGrid, mapConfig.gridOpacity, mapConfig.gridColor, transparencyMask, canvasDimensions, getCurrentDetailLevel, zoomLevel, panOffset]);
 
   const render = useCallback(() => {
     clearCanvas();
@@ -564,6 +566,15 @@ function App() {
               Show Grid
             </label>
             <input
+              type="color"
+              value={mapConfig.gridColor}
+              onChange={e => setMapConfig(prev => ({
+                ...prev,
+                gridColor: e.target.value
+              }))}
+              title="Grid Color"
+            />
+            <input
               type="range"
               min="0.1"
               max="1.0"
@@ -573,6 +584,7 @@ function App() {
                 ...prev,
                 gridOpacity: parseFloat(e.target.value)
               }))}
+              title="Grid Opacity"
             />
           </div>
           <div className="detail-info">
