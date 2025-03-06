@@ -432,49 +432,39 @@ function App() {
     // Create a new mask array
     const newMask: boolean[][] = [];
     
-    // Add 2-pixel overlap to avoid missing pixels at edges
-    const overlap = 2;
-    
     // For each cell, check if the corresponding area in the image has non-transparent pixels
     for (let row = 0; row < adjustedHeightInCells; row++) {
       const maskRow: boolean[] = [];
       for (let col = 0; col < adjustedWidthInCells; col++) {
-        // Get the pixel region for this cell with overlap
-        const startX = Math.max(0, Math.floor(col * cellWidth) - overlap);
-        const startY = Math.max(0, Math.floor(row * cellHeight) - overlap);
-        const endX = Math.min(tempCanvas.width, Math.floor((col + 1) * cellWidth) + overlap);
-        const endY = Math.min(tempCanvas.height, Math.floor((row + 1) * cellHeight) + overlap);
+        // Get the pixel region for this cell (no overlap)
+        const startX = Math.floor(col * cellWidth);
+        const startY = Math.floor(row * cellHeight);
+        const endX = Math.min(tempCanvas.width, Math.floor((col + 1) * cellWidth));
+        const endY = Math.min(tempCanvas.height, Math.floor((row + 1) * cellHeight));
         
-        let hasContent = false;
+        // Count non-transparent pixels
+        let nonTransparentCount = 0;
+        const totalPixels = (endX - startX) * (endY - startY);
+        const threshold = Math.floor(totalPixels * 0.15); // 15% threshold
         
-        // First try dense grid sampling
-        const sampleStepX = Math.max(1, Math.floor((endX - startX) / 20));
-        const sampleStepY = Math.max(1, Math.floor((endY - startY) / 20));
-        
-        // Sample in a dense grid pattern
-        for (let y = startY; y < endY; y += sampleStepY) {
-          for (let x = startX; x < endX; x += sampleStepX) {
+        // Sample every other pixel for better performance while maintaining accuracy
+        for (let y = startY; y < endY; y += 2) {
+          for (let x = startX; x < endX; x += 2) {
             const index = (y * tempCanvas.width + x) * 4;
-            if (data[index + 3] > 0) {
-              hasContent = true;
-              break;
-            }
-          }
-          if (hasContent) break;
-        }
-        
-        // If no content found in grid sampling, check every pixel in the cell
-        if (!hasContent) {
-          for (let y = startY; y < endY && !hasContent; y++) {
-            for (let x = startX; x < endX; x++) {
-              const index = (y * tempCanvas.width + x) * 4;
-              if (data[index + 3] > 0) {
-                hasContent = true;
+            // Only count pixels with alpha > 128 (half opacity) to ignore anti-aliasing
+            if (data[index + 3] > 128) {
+              nonTransparentCount += 4; // Account for skipped pixels
+              if (nonTransparentCount >= threshold) {
                 break;
               }
             }
           }
+          if (nonTransparentCount >= threshold) {
+            break;
+          }
         }
+        
+        const hasContent = nonTransparentCount >= threshold;
         
         maskRow.push(hasContent);
       }
