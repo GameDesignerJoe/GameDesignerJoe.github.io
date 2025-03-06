@@ -195,15 +195,55 @@ function App() {
 
   // Handle mousewheel zoom
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (!backgroundImageRef.current) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
+
+    // Get current zoom parameters
     const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
     const delta = Math.sign(-event.deltaY); // -1 for zoom out, 1 for zoom in
     const nextIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentIndex + delta));
     const newZoom = ZOOM_LEVELS[nextIndex];
     
     if (newZoom !== zoomLevel) {
+      // Calculate the point on the image that's under the cursor
+      const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
+      const oldScale = baseScale * zoomLevel;
+      const newScale = baseScale * newZoom;
+      
+      // Calculate current scaled dimensions
+      const oldScaledWidth = Math.floor(backgroundImageRef.current.width * oldScale);
+      const oldScaledHeight = Math.floor(backgroundImageRef.current.height * oldScale);
+      
+      // Calculate new scaled dimensions
+      const newScaledWidth = Math.floor(backgroundImageRef.current.width * newScale);
+      const newScaledHeight = Math.floor(backgroundImageRef.current.height * newScale);
+      
+      // Calculate the center offset of the image
+      const oldCenterOffsetX = Math.floor((canvasDimensions.width - oldScaledWidth) / 2);
+      const oldCenterOffsetY = Math.floor((canvasDimensions.height - oldScaledHeight) / 2);
+      
+      // Calculate cursor position relative to the image
+      const imageX = Math.floor((cursorX - (oldCenterOffsetX + panOffset.x)) / oldScale);
+      const imageY = Math.floor((cursorY - (oldCenterOffsetY + panOffset.y)) / oldScale);
+      
+      // Calculate where this point would be in the new zoom level
+      const newCenterOffsetX = Math.floor((canvasDimensions.width - newScaledWidth) / 2);
+      const newCenterOffsetY = Math.floor((canvasDimensions.height - newScaledHeight) / 2);
+      const newPointX = Math.floor(imageX * newScale + newCenterOffsetX);
+      const newPointY = Math.floor(imageY * newScale + newCenterOffsetY);
+      
+      // Calculate the required pan offset to keep the point under the cursor
+      const newPanX = Math.floor(cursorX - newPointX);
+      const newPanY = Math.floor(cursorY - newPointY);
+      
+      // Apply the new zoom and pan
       setZoomLevel(newZoom);
+      setPanOffset({ x: newPanX, y: newPanY });
     }
-  }, [zoomLevel]);
+  }, [zoomLevel, panOffset, canvasDimensions]);
 
   // Drawing functions
   const clearCanvas = useCallback(() => {
