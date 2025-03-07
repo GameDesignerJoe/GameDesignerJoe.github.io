@@ -122,23 +122,14 @@ function App() {
 
   // Helper to check if panning is possible
   const canPan = useCallback(() => {
-    if (!backgroundImageRef.current) {
-      return false;
-    }
-
-    const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
-    const scale = baseScale * zoomLevel;
-    const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
-    const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
-
-    return scaledWidth > canvasDimensions.width || scaledHeight > canvasDimensions.height;
-  }, [canvasDimensions, zoomLevel]);
+    return backgroundImageRef.current !== null;
+  }, []);
 
   // Mouse event handlers
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     
-    if (!canPan()) {
+    if (!backgroundImageRef.current) {
       return;
     }
 
@@ -147,7 +138,7 @@ function App() {
     const y = Math.floor(event.clientY - rect.top);
     setLastMousePos({ x, y });
     setIsPanning(true);
-  }, [canPan]);
+  }, []);
 
   const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (!isPanning || !backgroundImageRef.current) {
@@ -167,14 +158,11 @@ function App() {
     const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
     const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
     
-    const maxPanX = Math.floor(Math.max(0, (scaledWidth - canvasDimensions.width) / 2));
-    const maxPanY = Math.floor(Math.max(0, (scaledHeight - canvasDimensions.height) / 2));
-    
-    setPanOffset(prev => {
-      const newX = Math.floor(Math.max(-maxPanX, Math.min(maxPanX, prev.x + deltaX)));
-      const newY = Math.floor(Math.max(-maxPanY, Math.min(maxPanY, prev.y + deltaY)));
-      return { x: newX, y: newY };
-    });
+    // Allow unlimited panning
+    setPanOffset(prev => ({
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
+    }));
     
     setLastMousePos({ x, y });
   }, [isPanning, lastMousePos, canvasDimensions, zoomLevel]);
@@ -668,7 +656,7 @@ function App() {
           style={{ 
             WebkitUserSelect: 'none', 
             userSelect: 'none',
-            cursor: canPan() ? (isPanning ? 'grabbing' : 'grab') : 'default',
+            cursor: isPanning ? 'grabbing' : 'grab',
             touchAction: 'none' // Prevent browser handling of all panning and zooming gestures
           }}
           onMouseDown={handleMouseDown}
