@@ -1,8 +1,51 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import mapImage from './assets/map.png';
+import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
+import { ContentTypeBase } from './types/ContentTypes';
 
 const backgroundImageSrc = mapImage;
+
+// Helper function to draw content type shapes
+const drawContentShape = (
+  ctx: CanvasRenderingContext2D,
+  shape: string,
+  x: number,
+  y: number,
+  size: number,
+  color: string
+) => {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+
+  switch (shape) {
+    case 'circle':
+      ctx.beginPath();
+      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case 'square':
+      const halfSize = size / 2;
+      ctx.fillRect(x - halfSize, y - halfSize, size, size);
+      ctx.strokeRect(x - halfSize, y - halfSize, size, size);
+      break;
+    case 'hexagon':
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI) / 3;
+        const pointX = x + (size / 2) * Math.cos(angle);
+        const pointY = y + (size / 2) * Math.sin(angle);
+        if (i === 0) ctx.moveTo(pointX, pointY);
+        else ctx.lineTo(pointX, pointY);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+  }
+};
 
 // Define types for map configuration
 interface MapConfig {
@@ -109,8 +152,16 @@ function App() {
   // State for background image loaded status
   const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
 
+  // State for content types
+  const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
+
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
+
+  // Handle content type changes
+  const handleContentTypeChange = useCallback((newContentTypes: ContentTypeBase[]) => {
+    setContentTypes(newContentTypes);
+  }, []);
 
   // Get current detail level based on zoom
   const getCurrentDetailLevel = useCallback((): DetailLevel => {
@@ -373,16 +424,75 @@ function App() {
     ctx.globalAlpha = 1.0;
   }, [mapConfig.showGrid, mapConfig.gridOpacity, mapConfig.gridColor, transparencyMask, canvasDimensions, getCurrentDetailLevel, zoomLevel, panOffset]);
 
+  // Draw content types
+  const drawContentTypes = useCallback(() => {
+    if (!contextRef.current || !backgroundImageRef.current || !transparencyMask.length) return;
+    
+    const ctx = contextRef.current;
+    const img = backgroundImageRef.current;
+    
+    // Get current detail level
+    const detailLevel = getCurrentDetailLevel();
+    
+    // Calculate base scaling to fit height
+    const baseScale = canvasDimensions.height / img.height;
+    const scale = baseScale * zoomLevel;
+    
+    // Calculate final dimensions
+    const scaledWidth = Math.floor(img.width * scale);
+    const scaledHeight = Math.floor(img.height * scale);
+    
+    // Calculate offset to center the image and apply pan offset
+    const baseOffsetX = Math.floor((canvasDimensions.width - scaledWidth) / 2);
+    const baseOffsetY = Math.floor((canvasDimensions.height - scaledHeight) / 2);
+    const offsetX = Math.floor(baseOffsetX + panOffset.x);
+    const offsetY = Math.floor(baseOffsetY + panOffset.y);
+
+    // For each content type, draw instances based on quantity
+    contentTypes.forEach(contentType => {
+      // Generate pseudo-random positions based on content type properties
+      for (let i = 0; i < contentType.quantity; i++) {
+        // Use content type id and index to generate consistent positions
+        const seed = `${contentType.id}-${i}`;
+        const hash = seed.split('').reduce((a, b) => {
+          a = ((a << 5) - a) + b.charCodeAt(0);
+          return a & a;
+        }, 0);
+        
+        // Generate position within the map bounds
+        const x = Math.abs(hash % img.width);
+        const y = Math.abs((hash >> 8) % img.height);
+        
+        // Only draw if position is on a non-transparent cell
+        const cellX = Math.floor(x / (detailLevel.metersPerCell / (mapConfig.widthKm * METERS_PER_KM / img.width)));
+        const cellY = Math.floor(y / (detailLevel.metersPerCell / (mapConfig.heightKm * METERS_PER_KM / img.height)));
+        
+        if (transparencyMask[cellY]?.[cellX]) {
+          // Scale position to current zoom level
+          const scaledX = Math.floor(offsetX + (x * scale));
+          const scaledY = Math.floor(offsetY + (y * scale));
+          
+          // Scale size based on zoom level
+          const scaledSize = Math.floor(contentType.size * scale);
+          
+          // Draw the content shape
+          drawContentShape(ctx, contentType.shape, scaledX, scaledY, scaledSize, contentType.color);
+        }
+      }
+    });
+  }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, getCurrentDetailLevel, mapConfig]);
+
   const render = useCallback(() => {
     clearCanvas();
     drawBackground();
     if (mapConfig.showGrid) {
       drawGrid();
     }
+    drawContentTypes();
     
     // Request next frame
     animationFrameRef.current = requestAnimationFrame(render);
-  }, [clearCanvas, drawBackground, drawGrid, mapConfig.showGrid]);
+  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, mapConfig.showGrid]);
 
   // Set up canvas context and start render loop when ready
   useEffect(() => {
@@ -647,6 +757,10 @@ function App() {
           </div>
           <div className="detail-info">
             Detail Level {getCurrentDetailLevel().displayName} | Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²
+          </div>
+
+          <div className="content-panel">
+            <ContentTypePanel onContentTypeChange={handleContentTypeChange} />
           </div>
         </div>
         

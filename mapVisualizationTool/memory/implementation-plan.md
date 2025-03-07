@@ -146,10 +146,12 @@ Focus on delivering core functionality with simple implementations.
 - Set up project structure and development environment
 - Implement three-panel UI layout
 - Create basic form inputs for map configuration:
-  - Map dimensions
+  - Reset Map button
+  - Map Area input (in km²)
   - Grid visibility toggle
   - Grid color picker
   - Grid opacity slider
+  - Detail Level display
 - Implement canvas initialization with transparency mask support
 
 #### 5.1.2 Week 3: Core Algorithms & Basic Rendering

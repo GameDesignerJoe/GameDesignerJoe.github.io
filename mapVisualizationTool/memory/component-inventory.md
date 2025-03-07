@@ -2,11 +2,12 @@
 
 | Component ID | Component Name | Panel | Purpose | Properties | Interactions | Implementation Notes |
 |--------------|----------------|-------|---------|------------|--------------|---------------------|
-| **MAP-CONFIG-01** | Map Width Input | Input | Set map horizontal size | - Value (number)<br>- Range (1-20km)<br>- Default: 6km | - Updates map configuration<br>- Triggers canvas resize | - Affects generation time<br>- Influences content density |
-| **MAP-CONFIG-02** | Map Height Input | Input | Set map vertical size | - Value (number)<br>- Range (1-20km)<br>- Default: 4km | - Updates map configuration<br>- Triggers canvas resize | - Affects generation time<br>- Influences content density |
-| **MAP-CONFIG-03** | Visual Cell Size Input | Input | Set visual size of grid cells | - Value (number)<br>- Range (1-50px)<br>- Default: 10px | - Updates grid visualization<br>- Controls visual representation only | - Each cell always represents 1 meter in-game<br>- Visual aid only, doesn't affect content placement |
-| **MAP-CONFIG-04** | Show Grid Toggle | Input | Show/hide square grid | - State (boolean)<br>- Default: true | - Toggles grid visibility | - Visual aid only<br>- Grid only shows on non-transparent portions of the map |
-| **MAP-CONFIG-05** | Grid Color Picker | Input | Set grid line color | - Color value (hex)<br>- Default: #666666 | - Updates grid color | - Color picker with hex input<br>- Matches theme styling |
+| **MAP-CONFIG-01** | Reset Map Button | Input | Reset map to initial state | - State (enabled/disabled) | - Resets map configuration to defaults | - Primary reset action<br>- Returns all settings to default values |
+| **MAP-CONFIG-02** | Map Area Input | Input | Set map area in km² | - Value (number)<br>- Range (1-50km²)<br>- Step: 0.1<br>- Default: 1km² | - Updates map configuration<br>- Recalculates grid | - Affects generation time<br>- Influences content density |
+| **MAP-CONFIG-03** | Show Grid Toggle | Input | Show/hide square grid | - State (boolean)<br>- Default: true | - Toggles grid visibility | - Visual aid only<br>- Grid only shows on non-transparent portions of the map |
+| **MAP-CONFIG-04** | Grid Color Picker | Input | Set grid line color | - Color value (hex)<br>- Default: #666666 | - Updates grid color | - Color picker with hex input<br>- Matches theme styling |
+| **MAP-CONFIG-05** | Grid Opacity Slider | Input | Control grid transparency | - Value (0-100%)<br>- Default: 50% | - Updates grid opacity | - Real-time visual feedback<br>- Affects grid visibility |
+| **MAP-CONFIG-06** | Detail Level Display | Input | Show current detail level | - Current level<br>- Scale info<br>- Area info | - Updates with zoom changes | - Shows cell size in meters<br>- Displays current/target area |
 | **CT-LIST-01** | Content Type List | Input | Display defined content types | - Content types array<br>- Selection state | - Scrollable list<br>- Click to select | - Shows content type summary<br>- Visual indicators for color/shape |
 | **CT-FORM-01** | New Content Button | Input | Create new content type | - State (active/inactive) | - Opens empty content form<br>- Clears selection | - Prominent position for discoverability |
 | **CT-FORM-02** | Content Type Form | Input | Edit content properties | - Content type data<br>- Edit/create mode | - Input validation<br>- Save changes<br>- Cancel editing | - Provides fields for all content properties<br>- Adapts based on category |

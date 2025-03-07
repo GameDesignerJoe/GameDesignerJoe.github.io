@@ -18,36 +18,44 @@ interface MapConfig {
   targetAreaKm2: number;  // Target area in square kilometers
   actualAreaKm2: number;  // Actual achieved area after grid calculation
   showGrid: boolean;
-  gridOpacity: number;
-  gridColor: string;
-  visualCellSize: number;
+  gridOpacity: number;  // Range: 0-1
+  gridColor: string;    // Hex color value
+  detailLevel: number;  // Current detail level
 }
 ```
 
 ## UI Implementation
 
+### Reset Map Component
+```typescript
+<button
+  className="reset-map-btn"
+  onClick={() => {
+    setMapConfig(defaultMapConfig);
+  }}
+  title="Reset map to default configuration"
+>
+  Reset Map
+</button>
+```
+
 ### Map Area Input Control
 ```typescript
 <div className="map-controls">
   <label>
-    <span>Map Area (km²)</span>
+    Map Area (km²):
     <input
       type="number"
       min={MIN_AREA_KM2}
       max={MAX_AREA_KM2}
       step="0.1"
-      value={areaInputValue}
+      value={mapConfig.targetAreaKm2}
       onChange={e => {
-        const newValue = e.target.value;
-        setAreaInputValue(newValue);
-        const parsedValue = parseFloat(newValue);
-        if (!isNaN(parsedValue)) {
-          const value = Math.min(MAX_AREA_KM2, Math.max(MIN_AREA_KM2, parsedValue));
-          setMapConfig(prev => ({
-            ...prev,
-            targetAreaKm2: value
-          }));
-        }
+        const value = Math.min(MAX_AREA_KM2, Math.max(MIN_AREA_KM2, parseFloat(e.target.value) || MIN_AREA_KM2));
+        setMapConfig(prev => ({
+          ...prev,
+          targetAreaKm2: value
+        }));
       }}
       title="Target map area in square kilometers"
     />
@@ -55,56 +63,69 @@ interface MapConfig {
 </div>
 ```
 
-### Area Display Component
+### Grid Controls
 ```typescript
-<div className="detail-info">
-  Detail Level {getCurrentDetailLevel().displayName} | 
-  Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²
+<div className="grid-controls">
+  {/* Show Grid Toggle */}
+  <label>
+    <input
+      type="checkbox"
+      checked={mapConfig.showGrid}
+      onChange={e => {
+        setMapConfig(prev => ({
+          ...prev,
+          showGrid: e.target.checked
+        }));
+      }}
+    />
+    Show Grid
+  </label>
+
+  {/* Grid Color Picker */}
+  <div className="grid-color-control">
+    <label>
+      Grid Color:
+      <input
+        type="color"
+        value={mapConfig.gridColor}
+        onChange={e => {
+          setMapConfig(prev => ({
+            ...prev,
+            gridColor: e.target.value
+          }));
+        }}
+      />
+    </label>
+  </div>
+
+  {/* Grid Opacity Slider */}
+  <div className="grid-opacity-control">
+    <label>
+      Grid Opacity:
+      <input
+        type="range"
+        min="0"
+        max="100"
+        value={mapConfig.gridOpacity * 100}
+        onChange={e => {
+          setMapConfig(prev => ({
+            ...prev,
+            gridOpacity: parseInt(e.target.value) / 100
+          }));
+        }}
+      />
+    </label>
+  </div>
 </div>
 ```
 
-### Control Panel Styling
-```css
-.map-controls {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  background-color: #3a3a3a;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-  height: 34px;  // Consistent height with other controls
-}
-
-.map-controls label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  white-space: nowrap;
-}
-
-.map-controls label span {
-  min-width: 85px;
-  font-size: 0.9rem;
-}
-
-.map-controls input[type="number"] {
-  width: 60px;
-  height: 24px;
-  padding: 0 0.25rem;
-  background-color: #4a4a4a;
-  border: none;
-  border-radius: 0.25rem;
-  color: #ffffff;
-  font-size: 0.9rem;
-  text-align: right;
-}
-
-.map-controls input[type="number"]::-webkit-inner-spin-button,
-.map-controls input[type="number"]::-webkit-outer-spin-button {
-  opacity: 1;
-  background-color: #4a4a4a;
-  height: 24px;
-}
+### Detail Level Display
+```typescript
+<div className="detail-info">
+  Detail Level {getCurrentDetailLevel().displayName} |
+  Scale: {getCurrentDetailLevel().metersPerCell}m per cell |
+  Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²
+</div>
 ```
 
 ## Area Calculation Logic
@@ -149,18 +170,14 @@ setMapConfig(prev => ({
    - Grid updates immediately when area changes
    - Actual area recalculates based on visible cells
    - Display updates to show both target and actual area
+   - Grid color and opacity update in real-time
+   - Detail level updates with zoom changes
 
-3. **Visual Feedback**
-   - Consistent 34px control panel height
-   - Right-aligned numeric input
-   - Standardized input styling matching other controls
-   - Clear label with fixed width for alignment
-
-## Integration Points
-
-- Affects grid cell size calculations
-- Influences transparency mask generation
-- Updates detail level display
+3. **Integration Points**
+   - Affects grid cell size calculations
+   - Influences transparency mask generation
+   - Updates detail level display
+   - Controls grid visibility and appearance
 
 ## Usage Notes
 
@@ -169,6 +186,8 @@ setMapConfig(prev => ({
    - Grid cell quantization
    - Transparent regions in the map
    - Detail level constraints
+3. Grid appearance can be fully customized with color and opacity controls
+4. Reset functionality returns all settings to default values
 
 ## Dependencies
 
