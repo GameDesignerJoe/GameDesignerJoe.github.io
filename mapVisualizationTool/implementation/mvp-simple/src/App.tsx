@@ -204,7 +204,11 @@ function App() {
     const deltaX = Math.floor((x - lastMousePos.x) * 1.5);
     const deltaY = Math.floor((y - lastMousePos.y) * 1.5);
     
-    const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
+    // Calculate uniform scale that preserves aspect ratio
+    const baseScale = Math.min(
+      canvasDimensions.width / backgroundImageRef.current.width,
+      canvasDimensions.height / backgroundImageRef.current.height
+    );
     const scale = baseScale * zoomLevel;
     const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
     const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
@@ -270,7 +274,10 @@ function App() {
     
     if (newZoom !== zoomLevel) {
       // Calculate the point on the image that's under the cursor
-      const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
+      const baseScale = Math.min(
+        canvasDimensions.width / backgroundImageRef.current.width,
+        canvasDimensions.height / backgroundImageRef.current.height
+      );
       const oldScale = baseScale * zoomLevel;
       const newScale = baseScale * newZoom;
       
@@ -333,8 +340,11 @@ function App() {
     const cellWidth = Math.floor(pixelsPerCell);
     const cellHeight = Math.floor(pixelsPerCell);
     
-    // Calculate base scaling to fit height
-    const baseScale = canvasDimensions.height / img.height;
+    // Calculate uniform scale that preserves aspect ratio
+    const baseScale = Math.min(
+      canvasDimensions.width / img.width,
+      canvasDimensions.height / img.height
+    );
     const scale = baseScale * zoomLevel;
     
     // Scale the cell dimensions and ensure they're whole numbers
@@ -373,8 +383,11 @@ function App() {
     const cellWidth = Math.floor(pixelsPerCell);
     const cellHeight = Math.floor(pixelsPerCell);
     
-    // Calculate base scaling to fit height
-    const baseScale = canvasDimensions.height / img.height;
+    // Calculate uniform scale that preserves aspect ratio
+    const baseScale = Math.min(
+      canvasDimensions.width / img.width,
+      canvasDimensions.height / img.height
+    );
     const scale = baseScale * zoomLevel;
     
     // Scale the cell dimensions and ensure they're whole numbers
@@ -434,8 +447,11 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate base scaling to fit height
-    const baseScale = canvasDimensions.height / img.height;
+    // Calculate uniform scale that preserves aspect ratio
+    const baseScale = Math.min(
+      canvasDimensions.width / img.width,
+      canvasDimensions.height / img.height
+    );
     const scale = baseScale * zoomLevel;
     
     // Calculate final dimensions
@@ -448,12 +464,33 @@ function App() {
     const offsetX = Math.floor(baseOffsetX + panOffset.x);
     const offsetY = Math.floor(baseOffsetY + panOffset.y);
 
+    // Calculate meters per pixel
+    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
+    const pixelsPerMeter = 1 / metersPerPixel;
+
     // For each content type, draw instances based on quantity
     contentTypes.forEach(contentType => {
-      // Generate pseudo-random positions based on content type properties
-      for (let i = 0; i < contentType.quantity; i++) {
-        // Use content type id and index to generate consistent positions
-        const seed = `${contentType.id}-${i}`;
+      const positions: { x: number, y: number }[] = [];
+      const maxAttempts = contentType.quantity * 10; // Allow multiple attempts per position
+      let attempts = 0;
+
+      // Helper function to check if a position respects minimum spacing
+      const isValidPosition = (x: number, y: number) => {
+        const minSpacingPixels = contentType.minSpacing * pixelsPerMeter;
+        return positions.every(pos => {
+          const dx = x - pos.x;
+          const dy = y - pos.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          return distance >= minSpacingPixels;
+        });
+      };
+
+      // Generate positions respecting minimum spacing
+      while (positions.length < contentType.quantity && attempts < maxAttempts) {
+        attempts++;
+        
+        // Generate a pseudo-random position
+        const seed = `${contentType.id}-${attempts}`;
         const hash = seed.split('').reduce((a, b) => {
           a = ((a << 5) - a) + b.charCodeAt(0);
           return a & a;
@@ -463,22 +500,28 @@ function App() {
         const x = Math.abs(hash % img.width);
         const y = Math.abs((hash >> 8) % img.height);
         
-        // Only draw if position is on a non-transparent cell
+        // Only consider positions on non-transparent cells
         const cellX = Math.floor(x / (detailLevel.metersPerCell / (mapConfig.widthKm * METERS_PER_KM / img.width)));
         const cellY = Math.floor(y / (detailLevel.metersPerCell / (mapConfig.heightKm * METERS_PER_KM / img.height)));
         
-        if (transparencyMask[cellY]?.[cellX]) {
-          // Scale position to current zoom level
-          const scaledX = Math.floor(offsetX + (x * scale));
-          const scaledY = Math.floor(offsetY + (y * scale));
-          
-          // Scale size based on zoom level
-          const scaledSize = Math.floor(contentType.size * scale);
-          
-          // Draw the content shape
-          drawContentShape(ctx, contentType.shape, scaledX, scaledY, scaledSize, contentType.color);
+        if (transparencyMask[cellY]?.[cellX] && isValidPosition(x, y)) {
+          positions.push({ x, y });
         }
       }
+
+      // Draw all valid positions
+      positions.forEach(pos => {
+        // Scale position to current zoom level
+        const scaledX = Math.floor(offsetX + (pos.x * scale));
+        const scaledY = Math.floor(offsetY + (pos.y * scale));
+        
+        // Scale size based on meters and zoom level
+        const sizeInPixels = contentType.size * pixelsPerMeter;
+        const scaledSize = Math.floor(sizeInPixels * scale);
+        
+        // Draw the content shape
+        drawContentShape(ctx, contentType.shape, scaledX, scaledY, scaledSize, contentType.color);
+      });
     });
   }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, getCurrentDetailLevel, mapConfig]);
 
