@@ -597,7 +597,7 @@ function App() {
           </div>
           <div className="map-controls">
             <label>
-              Map Area (km²):
+              <span>Map Area (km²)</span>
               <input
                 type="number"
                 min={MIN_AREA_KM2}

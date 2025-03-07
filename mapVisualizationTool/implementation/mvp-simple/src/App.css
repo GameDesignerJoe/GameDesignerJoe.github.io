@@ -32,6 +32,7 @@
   padding: 0.5rem;
   background-color: #2a2a2a;
   border-radius: 0.25rem;
+  align-items: center;
 }
 
 .zoom-controls {
@@ -47,6 +48,7 @@
   border-radius: 0.25rem;
   color: #ffffff;
   cursor: pointer;
+  height: 34px;
 }
 
 .zoom-controls button:hover {
@@ -59,6 +61,47 @@
   border-radius: 0.25rem;
 }
 
+.map-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background-color: #3a3a3a;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  height: 34px;
+}
+
+.map-controls label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.map-controls label span {
+  min-width: 85px;
+  font-size: 0.9rem;
+}
+
+.map-controls input[type="number"] {
+  width: 60px;
+  height: 24px;
+  padding: 0 0.25rem;
+  background-color: #4a4a4a;
+  border: none;
+  border-radius: 0.25rem;
+  color: #ffffff;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.map-controls input[type="number"]::-webkit-inner-spin-button,
+.map-controls input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+  background-color: #4a4a4a;
+  height: 24px;
+}
+
 .grid-controls {
   display: flex;
   gap: 0.75rem;
@@ -66,6 +109,7 @@
   background-color: #3a3a3a;
   padding: 0.5rem;
   border-radius: 0.25rem;
+  height: 34px;
 }
 
 .grid-controls label {
@@ -73,7 +117,7 @@
   gap: 0.5rem;
   align-items: center;
   white-space: nowrap;
-  min-width: 85px; /* Ensure consistent width for the label */
+  font-size: 0.9rem;
 }
 
 .grid-controls input[type="checkbox"] {
@@ -131,6 +175,10 @@
   padding: 0.5rem;
   background-color: #3a3a3a;
   border-radius: 0.25rem;
+  font-size: 0.9rem;
+  height: 34px;
+  display: flex;
+  align-items: center;
 }
 
 .map-container {
@@ -151,9 +199,5 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #000000;
-}
-
-#map-canvas {
   background-color: #000000;
 }
