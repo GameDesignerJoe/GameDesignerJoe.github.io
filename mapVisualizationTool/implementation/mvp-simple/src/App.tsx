@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
+import mapImage from './assets/map.png';
 
-// Import image from public directory
-const backgroundImageSrc = './CruxMap_BW_trans.png';
+const backgroundImageSrc = mapImage;
 
 // Define types for map configuration
 interface MapConfig {
   widthKm: number;  // Width in kilometers
   heightKm: number; // Height in kilometers
+  targetAreaKm2: number;  // Target area in square kilometers
+  actualAreaKm2: number;  // Actual achieved area after grid calculation
   showGrid: boolean;
   gridOpacity: number;
   gridColor: string; // Color of the grid lines
@@ -17,6 +19,8 @@ interface MapConfig {
 // Constants for real-world units
 const METERS_PER_KM = 1000;
 const BASE_CELL_SIZE_METERS = 1; // Base cell size is 1m x 1m
+const MIN_AREA_KM2 = 1;
+const MAX_AREA_KM2 = 50;
 
 // Detail level definitions
 interface DetailLevel {
@@ -44,15 +48,6 @@ const DETAIL_LEVELS: DetailLevel[] = [
   { id: 'L4', category: 'High', minZoom: 6.0, maxZoom: Infinity, metersPerCell: 10, displayName: '4 (10m)' },
 ];
 
-// Define types for content types
-interface ContentType {
-  id: string;
-  name: string;
-  color: string;
-  borderColor: string;
-  percentage: number;
-}
-
 function App() {
   // Canvas dimensions state
   const [canvasDimensions, setCanvasDimensions] = useState({ width: Math.floor(1800), height: Math.floor(1350) });
@@ -64,15 +59,40 @@ function App() {
   const animationFrameRef = useRef<number | null>(null);
   const backgroundImageRef = useRef<HTMLImageElement | null>(null);
 
-  // State for map configuration
+  // State for map configuration and input
   const [mapConfig, setMapConfig] = useState<MapConfig>({
     widthKm: 6,  // 6km width to match image aspect ratio
     heightKm: 4, // 4km height (24 sq km total area)
+    targetAreaKm2: 24, // Default 24 sq km (same as original 6x4)
+    actualAreaKm2: 24,
     showGrid: true,
     gridOpacity: 0.7,
     gridColor: '#666666', // Default grid color
     visualCellSize: 10, // Visual size of each cell in pixels
   });
+  
+  // State for input value
+  const [areaInputValue, setAreaInputValue] = useState(mapConfig.targetAreaKm2.toString());
+
+  // Update input value and dimensions when target area changes
+  useEffect(() => {
+    setAreaInputValue(mapConfig.targetAreaKm2.toString());
+
+    if (!backgroundImageRef.current) return;
+    
+    const imageAspectRatio = backgroundImageRef.current.width / backgroundImageRef.current.height;
+    const targetHeightKm = Math.sqrt(mapConfig.targetAreaKm2 / imageAspectRatio);
+    const targetWidthKm = targetHeightKm * imageAspectRatio;
+    
+    setMapConfig(prev => ({
+      ...prev,
+      widthKm: targetWidthKm,
+      heightKm: targetHeightKm
+    }));
+    
+    // Clear mask cache to force recalculation
+    maskCache.clear();
+  }, [mapConfig.targetAreaKm2]);
 
   // State for zoom level
   const [zoomLevel, setZoomLevel] = useState<number>(0.5);
@@ -507,16 +527,35 @@ function App() {
         }
         
         const hasContent = nonTransparentCount >= threshold;
-        
         maskRow.push(hasContent);
       }
       newMask.push(maskRow);
     }
     
+    // Count cells with content and calculate actual area
+    let cellsWithContent = 0;
+    for (let row = 0; row < newMask.length; row++) {
+      for (let col = 0; col < newMask[row].length; col++) {
+        if (newMask[row][col]) {
+          cellsWithContent++;
+        }
+      }
+    }
+
+    // Calculate actual area based on cells with content
+    const cellAreaKm2 = (detailLevel.metersPerCell * detailLevel.metersPerCell) / (METERS_PER_KM * METERS_PER_KM);
+    const actualAreaKm2 = cellsWithContent * cellAreaKm2;
+
     // Cache the mask for this detail level
     maskCache.set(cacheKey, newMask);
     setTransparencyMask(newMask);
-  }, [mapConfig, backgroundImageLoaded, getCurrentDetailLevel]);
+
+    // Update actual area in map config
+    setMapConfig(prev => ({
+      ...prev,
+      actualAreaKm2: actualAreaKm2
+    }));
+  }, [mapConfig.widthKm, mapConfig.heightKm, backgroundImageLoaded, getCurrentDetailLevel]);
 
   // Update canvas dimensions when window is resized
   useEffect(() => {
@@ -556,6 +595,37 @@ function App() {
           <div className="zoom-controls">
             <button onClick={handleResetZoom}>Reset Map</button>
           </div>
+          <div className="map-controls">
+            <label>
+              Map Area (km²):
+              <input
+                type="number"
+                min={MIN_AREA_KM2}
+                max={MAX_AREA_KM2}
+                step="0.1"
+                value={areaInputValue}
+                onChange={e => {
+                  const newValue = e.target.value;
+                  setAreaInputValue(newValue);
+                  const parsedValue = parseFloat(newValue);
+                  if (!isNaN(parsedValue) && backgroundImageRef.current) {
+                    const value = Math.min(MAX_AREA_KM2, Math.max(MIN_AREA_KM2, parsedValue));
+                    const imageAspectRatio = backgroundImageRef.current.width / backgroundImageRef.current.height;
+                    const targetHeightKm = Math.sqrt(value / imageAspectRatio);
+                    const targetWidthKm = targetHeightKm * imageAspectRatio;
+                    
+                    setMapConfig(prev => ({
+                      ...prev,
+                      targetAreaKm2: value,
+                      widthKm: targetWidthKm,
+                      heightKm: targetHeightKm
+                    }));
+                  }
+                }}
+                title="Target map area in square kilometers"
+              />
+            </label>
+          </div>
           <div className="grid-controls">
             <label>
               <input
@@ -588,7 +658,7 @@ function App() {
             />
           </div>
           <div className="detail-info">
-            Detail Level {getCurrentDetailLevel().displayName}
+            Detail Level {getCurrentDetailLevel().displayName} | Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²
           </div>
         </div>
         

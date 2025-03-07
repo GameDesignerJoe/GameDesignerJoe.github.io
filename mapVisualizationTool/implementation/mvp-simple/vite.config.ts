@@ -1,15 +1,15 @@
-const { defineConfig } = require('vite');
-const react = require('@vitejs/plugin-react');
-const path = require('path');
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 // https://vitejs.dev/config/
-module.exports = defineConfig({
+export default defineConfig({
   plugins: [react()],
+  assetsInclude: ['**/*.png'],
   server: {
-    hmr: {
-      overlay: false
-    },
-    port: 5173
+    port: 3007,
+    strictPort: true,
+    host: true
   },
   resolve: {
     alias: {
@@ -17,7 +17,11 @@ module.exports = defineConfig({
     }
   },
   build: {
-    outDir: 'dist',
-    sourcemap: true
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name][extname]'
+      }
+    }
   }
 });
