@@ -68,26 +68,39 @@ The tool will calculate and display:
 - Balance metrics for different content categories
 - Warnings for potential issues (overcrowding, empty zones)
 
-### 3.6 Visualization
-The map visualization will include:
+### 3.6 Coordinate System and Visualization
+
+#### 3.6.1 Normalized Coordinate System
+The tool uses a normalized coordinate system (0-1) for storing content positions, providing several key advantages:
+
+- **Resolution Independence**: Positions are stored as proportional values rather than absolute pixels
+- **Persistence**: Coordinates remain valid even if the map or canvas dimensions change
+- **Simplicity**: Easier to reason about positions as percentages of the map's dimensions
+
+#### 3.6.2 Content Placement and Scaling
+The system maintains accurate content placement through:
+
+1. **Storage in Normalized Coordinates**: Content positions are stored as normalized (0-1) coordinates
+2. **Dynamic Transformation**: A coordinate transformation system handles all scaling and offset calculations
+3. **Consistent Scaling Logic**: The same scaling is applied to all content elements
+4. **Final Rounding**: Pixel coordinates are only rounded at the final step
+
+#### 3.6.3 Real-World Measurements
+The system uses real-world measurements (meters) for content sizes:
+
+1. **Real-World Measurement**: Sizes are specified in meters
+2. **Pixels-Per-Meter Calculation**: System calculates pixels per meter at current scale
+3. **Zoom Adjustment**: Base size is multiplied by current zoom level
+4. **Consistent Scaling**: Same scaling factors applied to all elements
+
+#### 3.6.4 Map Visualization
+The map visualization includes:
 - Color-coded biomes
 - Icons/shapes for different content types
 - Legend for map elements
 - Optional square grid overlay (only visible on non-transparent portions of the map)
-- Comprehensive level of detail system that adapts grid visualization based on zoom level
-
-#### 3.6.1 Level of Detail System
-The visualization implements a sophisticated level of detail system that enables efficient rendering and appropriate representation at different zoom levels:
-
-- **Multiple Detail Categories**: High, Medium, and Low detail levels
-- **Granular Detail Levels**: 10 distinct detail levels across the categories
-- **Adaptive Cell Representation**: Each cell represents between 1m and 1km based on zoom level
-- **Smooth Transitions**: Seamless transitions between detail levels while zooming
-- **Content Aggregation**: Intelligent aggregation of content at lower detail levels
-- **Performance Optimization**: Efficient rendering for very large maps (up to 50 square km)
-- **Visual Feedback**: Clear indication of current scale and detail level
-
-This system ensures that designers can work with maps of any size while maintaining both performance and visual clarity. At high zoom levels, fine details are visible for precise work, while at low zoom levels, the system provides an appropriate overview without overwhelming visual information.
+- Zoom and pan controls with pixel-perfect rendering
+- Debug visualization options for content placement validation
 
 ### 3.7 Export/Sharing
 Designers can export:

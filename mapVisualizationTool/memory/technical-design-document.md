@@ -366,246 +366,97 @@ function renderContentItem(ctx, item, scale) {
 }
 ```
 
-### 4.4 Square Grid and Level of Detail System
+### 4.4 Coordinate System and Content Placement
 
-The square grid is rendered as an overlay, synchronized with the map zoom level and only visible on non-transparent portions of the map. The system uses a sophisticated level of detail approach that adapts both the grid and image representation based on zoom level.
+The system uses a normalized coordinate system (0-1) for storing content positions, which provides several key advantages:
 
-#### 4.4.1 Grid Rendering
-```javascript
-function renderSquareGrid(ctx, mapConfig, scale, transparencyMask) {
-  const {width, height, visualCellSize} = mapConfig;
-  
-  // Set grid style with configurable color and opacity
-  ctx.strokeStyle = mapConfig.gridColor;
-  ctx.globalAlpha = mapConfig.gridOpacity;
-  
-  // Calculate grid dimensions based on current detail level
-  const detailLevel = getCurrentDetailLevel();
-  const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-  const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
-  
-  // Calculate scaled dimensions
-  const scaledCellWidth = Math.floor(pixelsPerCell * scale);
-  const scaledCellHeight = Math.floor(pixelsPerCell * scale);
-  
-  // Draw grid cells with integer-aligned coordinates
-  for (let row = 0; row < transparencyMask.length; row++) {
-    for (let col = 0; col < transparencyMask[row].length; col++) {
-      if (transparencyMask[row][col]) {
-        const x = Math.floor(offsetX + (col * scaledCellWidth));
-        const y = Math.floor(offsetY + (row * scaledCellHeight));
-        const right = Math.floor(x + scaledCellWidth);
-        const bottom = Math.floor(y + scaledCellHeight);
-        
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(right, y);
-        ctx.lineTo(right, bottom);
-        ctx.lineTo(x, bottom);
-        ctx.lineTo(x, y);
-        ctx.closePath();
-        ctx.stroke();
-      }
-    }
-  }
-  
-  // Reset context state
-  ctx.globalAlpha = 1.0;
-}
-```
+- **Resolution Independence**: Positions are stored as proportional values rather than absolute pixels
+- **Persistence**: Coordinates remain valid even if the map or canvas dimensions change
+- **Simplicity**: Easier to reason about positions as percentages of the map's dimensions
 
-#### 4.4.2 Detail Level System
-
-The detail level system manages the relationship between zoom levels and grid cell sizes:
+The coordinate transformation process is handled by the `mapToScreenCoordinates` function:
 
 ```typescript
-// Define zoom stages that match grid size changes proportionally
-const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0];
+export function mapToScreenCoordinates(
+  mapCoord: MapCoordinate,
+  mapWidthKm: number,
+  mapHeightKm: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  zoomLevel: number,
+  panOffset: { x: number; y: number }
+): { x: number; y: number } {
+  // Convert dimensions to meters
+  const mapWidthMeters = mapWidthKm * 1000;
+  const mapHeightMeters = mapHeightKm * 1000;
 
-const DETAIL_LEVELS = [
-  // Level 0 (Most zoomed out): 400m cells at 0.5x zoom
-  { id: 'L0', minZoom: 0.0, maxZoom: 1.0, metersPerCell: 400, displayName: '0 (400m)' },
-  // Level 1: 200m cells at 1x zoom
-  { id: 'L1', minZoom: 1.0, maxZoom: 2.0, metersPerCell: 200, displayName: '1 (200m)' },
-  // Level 2: 100m cells at 2x zoom
-  { id: 'L2', minZoom: 2.0, maxZoom: 4.0, metersPerCell: 100, displayName: '2 (100m)' },
-  // Level 3: 50m cells at 4x zoom
-  { id: 'L3', minZoom: 4.0, maxZoom: 6.0, metersPerCell: 50, displayName: '3 (50m)' },
-  // Level 4: 10m cells at 8x zoom
-  { id: 'L4', minZoom: 6.0, maxZoom: Infinity, metersPerCell: 10, displayName: '4 (10m)' }
-];
-```
-
-Key implementation details:
-
-1. Detail Level Selection:
-```typescript
-const getCurrentDetailLevel = useCallback((): DetailLevel => {
-  const matchingLevel = DETAIL_LEVELS.find(
-    level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
+  // Calculate the base scale that preserves aspect ratio
+  const baseScale = Math.min(
+    canvasWidth / mapWidthMeters,
+    canvasHeight / mapHeightMeters
   );
-  return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
-}, [zoomLevel]);
-```
 
-2. Cell Size Calculations:
-```typescript
-// Calculate cell dimensions based on detail level
-const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-const cellsPerMeter = 1 / detailLevel.metersPerCell;
-const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
+  // Calculate base dimensions at zoom level 1
+  const baseWidth = mapWidthMeters * baseScale;
+  const baseHeight = mapHeightMeters * baseScale;
 
-// Scale for current zoom level
-const baseScale = canvasDimensions.height / img.height;
-const scale = baseScale * zoomLevel;
-const scaledCellWidth = Math.floor(cellWidth * scale);
-const scaledCellHeight = Math.floor(cellHeight * scale);
-```
+  // Apply zoom to get final dimensions
+  const scaledWidth = baseWidth * zoomLevel;
+  const scaledHeight = baseHeight * zoomLevel;
 
-3. Performance Optimizations:
-```typescript
-// Cache transparency masks per detail level
-const [maskCache] = useState<Map<string, boolean[][]>>(new Map());
+  // Calculate center offset
+  const centerOffsetX = (canvasWidth - scaledWidth) / 2;
+  const centerOffsetY = (canvasHeight - scaledHeight) / 2;
 
-// Efficient pixel sampling
-for (let y = startY; y < endY; y += 2) {
-  for (let x = startX; x < endX; x += 2) {
-    const index = (y * tempCanvas.width + x) * 4;
-    if (data[index + 3] > 128) {
-      nonTransparentCount += 4; // Account for skipped pixels
-      if (nonTransparentCount >= threshold) break;
-    }
-  }
+  // Convert normalized coordinates to screen coordinates
+  const screenX = normalizedX * scaledWidth + centerOffsetX + panOffset.x;
+  const screenY = normalizedY * scaledHeight + centerOffsetY + panOffset.y;
+
+  return {
+    x: Math.round(screenX),
+    y: Math.round(screenY)
+  };
 }
-
-// Integer-aligned drawing operations
-const x = Math.floor(offsetX + (col * scaledCellWidth));
-const y = Math.floor(offsetY + (row * scaledCellHeight));
-```
-
-4. Mouse Wheel Zoom Implementation:
-```typescript
-const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-  if (!backgroundImageRef.current) return;
-
-  const rect = event.currentTarget.getBoundingClientRect();
-  const cursorX = event.clientX - rect.left;
-  const cursorY = event.clientY - rect.top;
-
-  // Calculate zoom parameters
-  const currentIndex = ZOOM_LEVELS.indexOf(Math.min(...ZOOM_LEVELS.filter(z => z >= zoomLevel)));
-  const delta = Math.sign(-event.deltaY);
-  const nextIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, currentIndex + delta));
-  const newZoom = ZOOM_LEVELS[nextIndex];
-  
-  if (newZoom !== zoomLevel) {
-    // Calculate point under cursor for consistent zoom
-    const baseScale = canvasDimensions.height / backgroundImageRef.current.height;
-    const oldScale = baseScale * zoomLevel;
-    const newScale = baseScale * newZoom;
-    
-    // Update zoom while maintaining cursor position
-    const imageX = Math.floor((cursorX - (oldCenterOffsetX + panOffset.x)) / oldScale);
-    const imageY = Math.floor((cursorY - (oldCenterOffsetY + panOffset.y)) / oldScale);
-    
-    setZoomLevel(newZoom);
-    setPanOffset(calculateNewPanOffset(imageX, imageY, newScale));
-  }
-}, [zoomLevel, panOffset, canvasDimensions]);
 ```
 
 This implementation ensures:
-- Smooth transitions between detail levels
-- Consistent visual representation at all zoom levels
-- Efficient memory usage through caching
-- Optimal rendering performance
-- Accurate grid measurements (1 cell = 10m at maximum zoom)
-- Responsive user interaction with pan and zoom
+- Correct positioning across all zoom levels
+- Proper scaling with map dimensions
+- Accurate coordinate transformation
+- Pixel-perfect rendering through final rounding
 
-The grid visualization adapts based on zoom level to maintain usability, especially for large maps (up to 50 square km). The system uses multiple detail levels within each category:
+The system maintains correct positioning through:
 
-```typescript
-// Detail level definitions
-interface DetailLevel {
-  id: string;
-  category: 'High' | 'Medium' | 'Low';
-  minZoom: number;
-  maxZoom: number;
-  metersPerCell: number;
-  displayName: string;
-}
+1. **Storage in Normalized Coordinates**: Content positions are stored as normalized (0-1) coordinates
+2. **Dynamic Transformation**: The `mapToScreenCoordinates` function handles all scaling and offset calculations
+3. **Consistent Scaling Logic**: The same scaling is applied to all content elements
+4. **Final Rounding**: Pixel coordinates are only rounded at the final step
 
-const DETAIL_LEVELS: DetailLevel[] = [
-  // High Detail Levels
-  { id: 'H1', category: 'High', minZoom: 2.5, maxZoom: Infinity, metersPerCell: 1, displayName: 'Ultra Detail (1m)' },
-  { id: 'H2', category: 'High', minZoom: 2.0, maxZoom: 2.5, metersPerCell: 2, displayName: 'Very High Detail (2m)' },
-  { id: 'H3', category: 'High', minZoom: 1.5, maxZoom: 2.0, metersPerCell: 5, displayName: 'High Detail (5m)' },
-  
-  // Medium Detail Levels
-  { id: 'M1', category: 'Medium', minZoom: 1.2, maxZoom: 1.5, metersPerCell: 10, displayName: 'Medium Detail (10m)' },
-  { id: 'M2', category: 'Medium', minZoom: 1.0, maxZoom: 1.2, metersPerCell: 25, displayName: 'Medium Detail (25m)' },
-  { id: 'M3', category: 'Medium', minZoom: 0.8, maxZoom: 1.0, metersPerCell: 50, displayName: 'Medium Detail (50m)' },
-  
-  // Low Detail Levels
-  { id: 'L1', category: 'Low', minZoom: 0.6, maxZoom: 0.8, metersPerCell: 100, displayName: 'Low Detail (100m)' },
-  { id: 'L2', category: 'Low', minZoom: 0.4, maxZoom: 0.6, metersPerCell: 250, displayName: 'Low Detail (250m)' },
-  { id: 'L3', category: 'Low', minZoom: 0.2, maxZoom: 0.4, metersPerCell: 500, displayName: 'Very Low Detail (500m)' },
-  { id: 'L4', category: 'Low', minZoom: 0, maxZoom: 0.2, metersPerCell: 1000, displayName: 'Minimal Detail (1km)' },
-];
+### 4.5 Content Size Calculation
 
-function getCurrentDetailLevel(zoomLevel) {
-  const matchingLevel = DETAIL_LEVELS.find(
-    level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
-  );
-  return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
-}
-```
-
-This approach allows for:
-
-1. **Smooth transitions** between detail levels as the user zooms
-2. **Appropriate representation** at each zoom level
-3. **Efficient rendering** for very large maps
-4. **Clear visual feedback** to the user about the current scale
-
-When the detail level changes, the map data is reaggregated to show the appropriate level of detail:
+The system uses real-world measurements (meters) for content sizes:
 
 ```typescript
-function aggregateMapData(baseMapData, detailLevel) {
-  // If we're at the highest detail level (1m per cell), just return the base map data
-  if (detailLevel.metersPerCell === 1) {
-    return baseMapData;
-  }
-  
-  // Calculate the dimensions of the aggregated map
-  const widthInCells = Math.ceil(baseMapData[0].length / detailLevel.metersPerCell);
-  const heightInCells = Math.ceil(baseMapData.length / detailLevel.metersPerCell);
-  
-  // Initialize the aggregated map
-  const aggregatedMapData = Array(heightInCells)
-    .fill('')
-    .map(() => Array(widthInCells).fill(''));
-  
-  // For each cell in the aggregated map, determine the dominant content type
-  for (let y = 0; y < heightInCells; y++) {
-    for (let x = 0; x < widthInCells; x++) {
-      // Calculate the corresponding region in the base map
-      const startX = x * detailLevel.metersPerCell;
-      const startY = y * detailLevel.metersPerCell;
-      const endX = Math.min(startX + detailLevel.metersPerCell, baseMapData[0].length);
-      const endY = Math.min(startY + detailLevel.metersPerCell, baseMapData.length);
-      
-      // Find the dominant content type in this region
-      const dominantContentType = findDominantContentType(baseMapData, startX, startY, endX, endY);
-      
-      // Set the dominant content type for this cell
-      aggregatedMapData[y][x] = dominantContentType;
-    }
-  }
-  
-  return aggregatedMapData;
-}
+// Convert size from meters to pixels and scale with zoom
+const contentSizeM = parseFloat(sizeMeters);
+
+// Calculate base scale that preserves aspect ratio
+const baseScale = Math.min(
+  canvasDimensions.width / mapWidthMeters,
+  canvasDimensions.height / mapHeightMeters
+);
+
+// Calculate size using same scaling as grid cells
+const baseSize = contentSizeM * baseScale;
+const scaledSize = baseSize * zoomLevel;
 ```
+
+The size calculation process:
+1. **Real-World Measurement**: Sizes are specified in meters
+2. **Pixels-Per-Meter Calculation**: System calculates pixels per meter at current scale
+3. **Zoom Adjustment**: Base size is multiplied by current zoom level
+4. **Consistent Scaling**: Same scaling factors applied to all elements
+
 
 ### 4.5 Legend Generation
 The legend will be dynamically generated based on active content types:
