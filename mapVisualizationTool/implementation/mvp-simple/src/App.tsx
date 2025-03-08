@@ -139,6 +139,7 @@ function App() {
   // State for random dots
   const [randomDotPositions, setRandomDotPositions] = useState<Array<MapCoordinate>>([]);
   const [numDotsInput, setNumDotsInput] = useState("100");
+  const [dotSizeMeters, setDotSizeMeters] = useState("10"); // Default 10 meters
   const [showDotDebug, setShowDotDebug] = useState(false);
 
   // Track current detail level for grid updates
@@ -768,6 +769,22 @@ function App() {
     const ctx = contextRef.current;
     const img = backgroundImageRef.current;
 
+    // Calculate meters per pixel
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+    const metersPerPixel = mapWidthMeters / img.width;
+    const pixelsPerMeter = 1 / metersPerPixel;
+
+    // Convert dot size from meters to pixels and scale with zoom
+    const dotSizeM = parseFloat(dotSizeMeters);
+    const baseRadiusPixels = (dotSizeM * pixelsPerMeter) / 2;
+    
+    // Calculate base scale that preserves aspect ratio
+    const baseScale = Math.min(
+      canvasDimensions.width / mapWidthMeters,
+      canvasDimensions.height / mapHeightMeters
+    );
+
     ctx.save();
     randomDotPositions.forEach(pos => {
       // Convert map coordinates to screen coordinates
@@ -781,12 +798,15 @@ function App() {
         panOffset
       );
 
-      // Draw dot (matching test dot style exactly)
+      // Scale the radius with zoom level
+      const finalRadius = baseRadiusPixels * baseScale * zoomLevel;
+
+      // Draw dot
       ctx.fillStyle = '#0000FF'; // Blue instead of green
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(screenCoord.x, screenCoord.y, 5, 0, Math.PI * 2);
+      ctx.arc(screenCoord.x, screenCoord.y, finalRadius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
@@ -799,8 +819,8 @@ function App() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         
-        const text = `(${pos.x.toFixed(3)}, ${pos.y.toFixed(3)})`;
-        const textY = screenCoord.y - 10;
+        const text = `(${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}) ${dotSizeM}m`;
+        const textY = screenCoord.y - (finalRadius + 5);
         
         // Draw text background with tighter padding
         const metrics = ctx.measureText(text);
@@ -820,7 +840,7 @@ function App() {
       }
     });
     ctx.restore();
-  }, [canvasDimensions, zoomLevel, panOffset, randomDotPositions, showDotDebug]);
+  }, [canvasDimensions, zoomLevel, panOffset, randomDotPositions, showDotDebug, dotSizeMeters, mapConfig.widthKm, mapConfig.heightKm]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -986,15 +1006,29 @@ function App() {
             />
           </div>
           <div className="dot-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-            <input
-              type="number"
-              min="1"
-              max="1000"
-              value={numDotsInput}
-              onChange={e => setNumDotsInput(e.target.value)}
-              onKeyPress={handleInputKeyPress}
-              style={{ width: '60px' }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>Count:</span>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                value={numDotsInput}
+                onChange={e => setNumDotsInput(e.target.value)}
+                onKeyPress={handleInputKeyPress}
+                style={{ width: '60px' }}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>Size (m):</span>
+              <input
+                type="number"
+                min="1"
+                max="1000"
+                value={dotSizeMeters}
+                onChange={e => setDotSizeMeters(e.target.value)}
+                style={{ width: '60px' }}
+              />
+            </div>
             <button onClick={handleAddDots}>Add Dots</button>
             <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <input

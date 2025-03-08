@@ -1,0 +1,118 @@
+// Add this state variable after the other dot-related states:
+const [dotSizeMeters, setDotSizeMeters] = useState("10"); // Default 10 meters
+
+// Replace the dot controls div with:
+<div className="dot-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+    <span>Count:</span>
+    <input
+      type="number"
+      min="1"
+      max="1000"
+      value={numDotsInput}
+      onChange={e => setNumDotsInput(e.target.value)}
+      onKeyPress={handleInputKeyPress}
+      style={{ width: '60px' }}
+    />
+  </div>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+    <span>Size (m):</span>
+    <input
+      type="number"
+      min="1"
+      max="1000"
+      value={dotSizeMeters}
+      onChange={e => setDotSizeMeters(e.target.value)}
+      style={{ width: '60px' }}
+    />
+  </div>
+  <button onClick={handleAddDots}>Add Dots</button>
+  <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+    <input
+      type="checkbox"
+      checked={showDotDebug}
+      onChange={e => setShowDotDebug(e.target.checked)}
+    />
+    Show Debug Text
+  </label>
+</div>
+
+// Replace the drawRandomDots function with:
+const drawRandomDots = useCallback(() => {
+  if (!contextRef.current || !backgroundImageRef.current || !randomDotPositions.length) return;
+
+  const ctx = contextRef.current;
+  const img = backgroundImageRef.current;
+
+  // Calculate meters per pixel
+  const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+  const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+  const metersPerPixel = mapWidthMeters / img.width;
+  const pixelsPerMeter = 1 / metersPerPixel;
+
+  // Convert dot size from meters to pixels and scale with zoom
+  const dotSizeM = parseFloat(dotSizeMeters);
+  const baseRadiusPixels = (dotSizeM * pixelsPerMeter) / 2;
+  
+  // Calculate base scale that preserves aspect ratio
+  const baseScale = Math.min(
+    canvasDimensions.width / mapWidthMeters,
+    canvasDimensions.height / mapHeightMeters
+  );
+
+  ctx.save();
+  randomDotPositions.forEach(pos => {
+    // Convert map coordinates to screen coordinates
+    const screenCoord = mapToScreenCoordinates(
+      pos,
+      mapConfig.widthKm,
+      mapConfig.heightKm,
+      canvasDimensions.width,
+      canvasDimensions.height,
+      zoomLevel,
+      panOffset
+    );
+
+    // Scale the radius with zoom level
+    const finalRadius = baseRadiusPixels * baseScale * zoomLevel;
+
+    // Draw dot
+    ctx.fillStyle = '#0000FF';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(screenCoord.x, screenCoord.y, finalRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw debug text if enabled
+    if (showDotDebug) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      
+      const text = `(${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}) ${dotSizeM}m`;
+      const textY = screenCoord.y - (finalRadius + 5);
+      
+      // Draw text background with tighter padding
+      const metrics = ctx.measureText(text);
+      const padding = 4;
+      const lineHeight = 14;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(
+        screenCoord.x - (metrics.width / 2) - padding,
+        textY - lineHeight - padding,
+        metrics.width + (padding * 2),
+        lineHeight + (padding * 2)
+      );
+      
+      // Draw text
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(text, screenCoord.x, textY);
+    }
+  });
+  ctx.restore();
+}, [canvasDimensions, zoomLevel, panOffset, randomDotPositions, showDotDebug, dotSizeMeters, mapConfig.widthKm, mapConfig.heightKm]);
