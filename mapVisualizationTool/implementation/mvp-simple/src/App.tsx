@@ -1051,10 +1051,6 @@ function App() {
               </button>
             </div>
           </details>
-          <div className="detail-info">
-            Detail Level {getCurrentDetailLevel().displayName} | Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²
-          </div>
-
           <div className="content-panel">
             <ContentTypePanel onContentTypeChange={handleContentTypeChange} />
           </div>
@@ -1081,6 +1077,18 @@ function App() {
             width={canvasDimensions.width}
             height={canvasDimensions.height}
           />
+          <div style={{ 
+            position: 'absolute', 
+            bottom: '10px', 
+            left: '10px', 
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            fontSize: '14px'
+          }}>
+            {getCurrentDetailLevel().metersPerCell}m {mapConfig.actualAreaKm2.toFixed(1)}km²
+          </div>
         </div>
       </main>
     </div>
