@@ -1123,6 +1123,7 @@ function App() {
             width={canvasDimensions.width}
             height={canvasDimensions.height}
           />
+          {/* Bottom left detail level indicator */}
           <div style={{ 
             position: 'absolute', 
             bottom: '10px', 
@@ -1134,6 +1135,25 @@ function App() {
             fontSize: '14px'
           }}>
             {getCurrentDetailLevel().metersPerCell}m {mapConfig.actualAreaKm2.toFixed(1)}km²
+          </div>
+          {/* Right side details panel */}
+          <div style={{ 
+            position: 'absolute', 
+            top: '10px', 
+            right: '10px', 
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '4px',
+            fontSize: '14px',
+            minWidth: '150px'
+          }}>
+            <div style={{ marginBottom: '5px' }}>
+              Debug Dots: {randomDotPositions.length}
+            </div>
+            <div>
+              Dot Size: {dotSizeMeters}m
+            </div>
           </div>
         </div>
       </main>
