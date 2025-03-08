@@ -140,45 +140,7 @@ export function drawTestDot(
     ctx.stroke();
   }
 
-  // Draw coordinate text
-  ctx.fillStyle = '#FFFFFF';
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 1;
-  ctx.font = '12px monospace'; // Use monospace for better alignment
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  
-  // Create text with coordinates
-  const coordText = `Real: (${realCoord.x.toFixed(0)}m, ${realCoord.y.toFixed(0)}m)`;
-  const screenText = `Screen: (${screenCoord.x.toFixed(0)}, ${screenCoord.y.toFixed(0)})`;
-  const zoomText = `Zoom: ${zoomLevel.toFixed(2)}x`;
-  
-  // Draw text with background for readability
-  const textY = screenCoord.y - 30;
-  const padding = 5;
-  const lineHeight = 14;
-  
-  // Measure text width for background
-  const maxWidth = Math.max(
-    ctx.measureText(coordText).width,
-    ctx.measureText(screenText).width,
-    ctx.measureText(zoomText).width
-  );
-  
-  // Draw background
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-  ctx.fillRect(
-    screenCoord.x - (maxWidth / 2) - padding,
-    textY - (3 * lineHeight) - padding,
-    maxWidth + (padding * 2),
-    (3 * lineHeight) + (padding * 2)
-  );
-  
-  // Draw text
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(coordText, screenCoord.x, textY - 2 * lineHeight);
-  ctx.fillText(screenText, screenCoord.x, textY - lineHeight);
-  ctx.fillText(zoomText, screenCoord.x, textY);
+  // No debug text for test dot
 
   // Restore context state
   ctx.restore();

@@ -206,8 +206,16 @@ function App() {
       }
     }
 
-    setRandomDotPositions(prev => [...prev, ...positions]);
+    // Replace existing dots with new ones
+    setRandomDotPositions(positions);
   }, [numDotsInput, mapConfig.widthKm, mapConfig.heightKm]);
+
+  // Handle enter key in input field
+  const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      handleAddDots();
+    }
+  }, [handleAddDots]);
 
   // Update input value and dimensions when target area changes
   useEffect(() => {
@@ -781,15 +789,16 @@ function App() {
         const text = `(${pos.x.toFixed(0)}m, ${pos.y.toFixed(0)}m)`;
         const textY = screenCoord.y - 10;
         
-        // Draw text background
+        // Draw text background with tighter padding
         const metrics = ctx.measureText(text);
         const padding = 4;
+        const lineHeight = 14;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(
           screenCoord.x - (metrics.width / 2) - padding,
-          textY - 12 - padding,
+          textY - lineHeight - padding,
           metrics.width + (padding * 2),
-          16 + (padding * 2)
+          lineHeight + (padding * 2)
         );
         
         // Draw text
@@ -971,9 +980,10 @@ function App() {
               max="1000"
               value={numDotsInput}
               onChange={e => setNumDotsInput(e.target.value)}
+              onKeyPress={handleInputKeyPress}
               style={{ width: '60px' }}
             />
-            <button onClick={handleAddDots}>Debug Dot</button>
+            <button onClick={handleAddDots}>Add Dots</button>
             <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <input
                 type="checkbox"
