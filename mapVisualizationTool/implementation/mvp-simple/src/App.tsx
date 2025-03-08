@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import mapImage from './assets/map.png';
+import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { ContentTypeBase } from './types/ContentTypes';
 import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
@@ -152,6 +153,11 @@ function App() {
     );
     return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
   }, [zoomLevel]);
+
+  // Handle deleting dots
+  const handleDeleteDots = useCallback(() => {
+    setRandomDotPositions([]);
+  }, []);
 
   // Handle adding dots
   const handleAddDots = useCallback(() => {
@@ -1043,12 +1049,52 @@ function App() {
                 />
                 Show Debug Text
               </label>
-              <button 
-                onClick={handleAddDots}
-                style={{ marginTop: '5px' }}
-              >
-                Add Dots
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
+                <button 
+                  onClick={handleAddDots}
+                  style={{ flex: 1 }}
+                >
+                  Add Dots
+                </button>
+                <button
+                  onClick={handleDeleteDots}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '4px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseDown={e => {
+                    const btn = e.currentTarget;
+                    btn.style.transform = 'scale(0.95)';
+                    btn.style.filter = 'brightness(0.8)';
+                  }}
+                  onMouseUp={e => {
+                    const btn = e.currentTarget;
+                    btn.style.transform = 'scale(1)';
+                    btn.style.filter = 'brightness(1)';
+                  }}
+                  onMouseLeave={e => {
+                    const btn = e.currentTarget;
+                    btn.style.transform = 'scale(1)';
+                    btn.style.filter = 'brightness(1)';
+                  }}
+                >
+                  <img 
+                    src={deleteIcon} 
+                    alt="Delete dots"
+                    style={{ 
+                      width: '20px',
+                      height: '20px'
+                    }}
+                  />
+                </button>
+              </div>
             </div>
           </details>
           <div className="content-panel">
