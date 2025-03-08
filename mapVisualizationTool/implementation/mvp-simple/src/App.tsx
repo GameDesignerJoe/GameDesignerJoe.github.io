@@ -777,7 +777,7 @@ function App() {
 
     // Convert dot size from meters to pixels and scale with zoom
     const dotSizeM = parseFloat(dotSizeMeters);
-    const baseRadiusPixels = (dotSizeM * pixelsPerMeter) / 2;
+    const baseDiameterPixels = dotSizeM * pixelsPerMeter;
     
     // Calculate base scale that preserves aspect ratio
     const baseScale = Math.min(
@@ -798,8 +798,9 @@ function App() {
         panOffset
       );
 
-      // Scale the radius with zoom level
-      const finalRadius = baseRadiusPixels * baseScale * zoomLevel;
+      // Scale the diameter with zoom level and convert to radius for drawing
+      const finalDiameter = baseDiameterPixels * baseScale * zoomLevel;
+      const finalRadius = finalDiameter / 2;
 
       // Draw dot
       ctx.fillStyle = '#0000FF'; // Blue instead of green
