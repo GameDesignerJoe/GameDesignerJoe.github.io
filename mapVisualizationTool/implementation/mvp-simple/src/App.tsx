@@ -775,34 +775,33 @@ function App() {
     const metersPerPixel = mapWidthMeters / img.width;
     const pixelsPerMeter = 1 / metersPerPixel;
 
-    // Convert dot size from meters to pixels and scale with zoom
-    const dotSizeM = parseFloat(dotSizeMeters);
-    const baseDiameterPixels = dotSizeM * pixelsPerMeter;
-    
-    // Calculate base scale that preserves aspect ratio
-    const baseScale = Math.min(
-      canvasDimensions.width / mapWidthMeters,
-      canvasDimensions.height / mapHeightMeters
+  // Convert dot size from meters to pixels and scale with zoom
+  const dotSizeM = parseFloat(dotSizeMeters);
+  const baseDiameterPixels = dotSizeM * pixelsPerMeter;
+  
+  // Calculate base scale that preserves aspect ratio
+  const baseScale = Math.min(
+    canvasDimensions.width / mapWidthMeters,
+    canvasDimensions.height / mapHeightMeters
+  );
+
+  ctx.save();
+  randomDotPositions.forEach(pos => {
+    // Convert map coordinates to screen coordinates
+    const screenCoord = mapToScreenCoordinates(
+      pos,
+      mapConfig.widthKm,
+      mapConfig.heightKm,
+      canvasDimensions.width,
+      canvasDimensions.height,
+      zoomLevel,
+      panOffset
     );
 
-    ctx.save();
-    randomDotPositions.forEach(pos => {
-      // Convert map coordinates to screen coordinates
-      const screenCoord = mapToScreenCoordinates(
-        pos,
-        mapConfig.widthKm,
-        mapConfig.heightKm,
-        canvasDimensions.width,
-        canvasDimensions.height,
-        zoomLevel,
-        panOffset
-      );
+    // Scale with zoom level and use full size as radius to match grid cell size
+    const finalRadius = baseDiameterPixels * baseScale * zoomLevel;
 
-      // Scale the diameter with zoom level and convert to radius for drawing
-      const finalDiameter = baseDiameterPixels * baseScale * zoomLevel;
-      const finalRadius = finalDiameter / 2;
-
-      // Draw dot
+    // Draw dot
       ctx.fillStyle = '#0000FF'; // Blue instead of green
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 2;
