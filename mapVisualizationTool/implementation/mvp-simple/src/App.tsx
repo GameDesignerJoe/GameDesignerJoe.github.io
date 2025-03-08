@@ -3,7 +3,7 @@ import './App.css';
 import mapImage from './assets/map.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { ContentTypeBase } from './types/ContentTypes';
-import { TEST_DOT, mapToScreenCoordinates, drawTestDot, MapCoordinate } from './utils/MapCoordinates';
+import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
 
 const backgroundImageSrc = mapImage;
 
@@ -188,13 +188,13 @@ function App() {
     while (positions.length < numDots && attempts < maxAttempts) {
       attempts++;
       
-      // Generate random position in meters
-      const x = Math.floor(Math.random() * mapWidthMeters);
-      const y = Math.floor(Math.random() * mapHeightMeters);
+      // Generate random normalized coordinates (0-1)
+      const normalizedX = Math.random();
+      const normalizedY = Math.random();
 
-      // Convert meters to image coordinates
-      const imgX = Math.floor((x / mapWidthMeters) * img.width);
-      const imgY = Math.floor((y / mapHeightMeters) * img.height);
+      // Convert to image coordinates
+      const imgX = Math.floor(normalizedX * img.width);
+      const imgY = Math.floor(normalizedY * img.height);
 
       // Get pixel alpha value (every 4th value in the array is alpha)
       const pixelIndex = (imgY * img.width + imgX) * 4;
@@ -202,7 +202,7 @@ function App() {
 
       // Only add position if alpha is above threshold
       if (alpha > alphaThreshold) {
-        positions.push({ x, y });
+        positions.push({ x: normalizedX, y: normalizedY });
       }
     }
 
@@ -370,19 +370,29 @@ function App() {
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
     const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
+    // Calculate base scale that preserves aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / mapWidthMeters,
       canvasDimensions.height / mapHeightMeters
     );
-    const scale = baseScale * zoomLevel;
+
+    // Calculate base dimensions at zoom level 1
+    const baseWidth = mapWidthMeters * baseScale;
+    const baseHeight = mapHeightMeters * baseScale;
+
+    // Apply zoom to get final dimensions
+    const scaledWidth = baseWidth * zoomLevel;
+    const scaledHeight = baseHeight * zoomLevel;
+
+    // Calculate center offset
+    const centerOffsetX = (canvasDimensions.width - scaledWidth) / 2;
+    const centerOffsetY = (canvasDimensions.height - scaledHeight) / 2;
 
     // Calculate the delta in screen coordinates
     const deltaX = x - lastMousePos.x;
     const deltaY = y - lastMousePos.y;
-    
-    // Update pan offset in screen space
-    // Scale the movement to match the coordinate system
+
+    // Update pan offset directly - the coordinate system already accounts for zoom
     setPanOffset(prev => ({
       x: prev.x + deltaX,
       y: prev.y + deltaY
@@ -452,31 +462,37 @@ function App() {
         canvasDimensions.height / mapHeightMeters
       );
 
-      // Calculate scaled dimensions
-      const oldScaledWidth = mapWidthMeters * baseScale;
-      const oldScaledHeight = mapHeightMeters * baseScale;
-      
-      // Calculate the center offset of the image without rounding
-      const centerOffsetX = (canvasDimensions.width - oldScaledWidth) / 2;
-      const centerOffsetY = (canvasDimensions.height - oldScaledHeight) / 2;
-      
-      // Calculate cursor position relative to the image in screen coordinates (same as mapToScreenCoordinates)
-      const screenX = cursorX - centerOffsetX;
-      const screenY = cursorY - centerOffsetY;
-      
-      // Convert to normalized coordinates (0-1) by removing pan and scale
-      const normalizedX = (screenX - panOffset.x) / (baseScale * zoomLevel * mapWidthMeters);
-      const normalizedY = (screenY - panOffset.y) / (baseScale * zoomLevel * mapHeightMeters);
-      
-      // Calculate new screen position with new zoom (same as mapToScreenCoordinates)
-      const newScreenX = (normalizedX * mapWidthMeters * baseScale * newZoom) + centerOffsetX;
-      const newScreenY = (normalizedY * mapHeightMeters * baseScale * newZoom) + centerOffsetY;
-      
-      // Calculate new pan offset to keep the cursor point fixed
-      const newPanX = screenX - newScreenX;
-      const newPanY = screenY - newScreenY;
-      
-      // Apply the new zoom and pan
+      // Calculate base dimensions at zoom level 1
+      const baseWidth = mapWidthMeters * baseScale;
+      const baseHeight = mapHeightMeters * baseScale;
+
+      // Get current dimensions and position
+      const currentWidth = baseWidth * zoomLevel;
+      const currentHeight = baseHeight * zoomLevel;
+      const currentCenterX = (canvasDimensions.width - currentWidth) / 2;
+      const currentCenterY = (canvasDimensions.height - currentHeight) / 2;
+      const currentLeft = currentCenterX + panOffset.x;
+      const currentTop = currentCenterY + panOffset.y;
+
+      // Convert cursor position to normalized coordinates (0-1)
+      const normalizedX = (cursorX - currentLeft) / currentWidth;
+      const normalizedY = (cursorY - currentTop) / currentHeight;
+
+      // Calculate new dimensions
+      const newWidth = baseWidth * newZoom;
+      const newHeight = baseHeight * newZoom;
+      const newCenterX = (canvasDimensions.width - newWidth) / 2;
+      const newCenterY = (canvasDimensions.height - newHeight) / 2;
+
+      // Calculate where cursor should be in new dimensions
+      const newScreenX = normalizedX * newWidth + newCenterX;
+      const newScreenY = normalizedY * newHeight + newCenterY;
+
+      // Calculate pan offset to keep cursor point fixed
+      const newPanX = cursorX - newScreenX;
+      const newPanY = cursorY - newScreenY;
+
+      // Apply new zoom and pan
       setZoomLevel(newZoom);
       setPanOffset({ x: newPanX, y: newPanY });
     }
@@ -504,23 +520,27 @@ function App() {
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
     const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
+    // Calculate base scale that preserves aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / mapWidthMeters,
       canvasDimensions.height / mapHeightMeters
     );
-    const scale = baseScale * zoomLevel;
 
-    // Calculate final dimensions
-    const scaledWidth = mapWidthMeters * scale;
-    const scaledHeight = mapHeightMeters * scale;
-    
-    // Center the image and apply pan offset with zoom scaling
-    // Only round at the final step when actually drawing
-    const x = (canvasDimensions.width - scaledWidth) / 2;
-    const y = (canvasDimensions.height - scaledHeight) / 2;
-    const finalX = Math.round(x + panOffset.x);
-    const finalY = Math.round(y + panOffset.y);
+    // Calculate base dimensions at zoom level 1
+    const baseWidth = mapWidthMeters * baseScale;
+    const baseHeight = mapHeightMeters * baseScale;
+
+    // Apply zoom to get final dimensions
+    const scaledWidth = baseWidth * zoomLevel;
+    const scaledHeight = baseHeight * zoomLevel;
+
+    // Calculate center offset
+    const centerOffsetX = (canvasDimensions.width - scaledWidth) / 2;
+    const centerOffsetY = (canvasDimensions.height - scaledHeight) / 2;
+
+    // Calculate final position with pan offset
+    const finalX = Math.round(centerOffsetX + panOffset.x);
+    const finalY = Math.round(centerOffsetY + panOffset.y);
     
     ctx.imageSmoothingEnabled = false;
     // Draw image scaled to match map dimensions
@@ -546,29 +566,38 @@ function App() {
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
     const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
+    // Calculate base scale that preserves aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / mapWidthMeters,
       canvasDimensions.height / mapHeightMeters
     );
-    const scale = baseScale * zoomLevel;
 
-    // Calculate cell dimensions in meters
+    // Calculate base dimensions at zoom level 1
+    const baseWidth = mapWidthMeters * baseScale;
+    const baseHeight = mapHeightMeters * baseScale;
+
+    // Apply zoom to get final dimensions
+    const scaledWidth = baseWidth * zoomLevel;
+    const scaledHeight = baseHeight * zoomLevel;
+
+    // Calculate center offset
+    const centerOffsetX = (canvasDimensions.width - scaledWidth) / 2;
+    const centerOffsetY = (canvasDimensions.height - scaledHeight) / 2;
+
+    // Calculate cell dimensions
     const metersPerCell = detailLevel.metersPerCell;
     const cellsPerRow = Math.ceil(mapWidthMeters / metersPerCell);
     const cellsPerCol = Math.ceil(mapHeightMeters / metersPerCell);
 
-    // Calculate scaled dimensions
-    const scaledCellWidth = metersPerCell * scale;
-    const scaledCellHeight = metersPerCell * scale;
+    // Calculate scaled cell dimensions
+    const baseCellWidth = metersPerCell * baseScale;
+    const baseCellHeight = metersPerCell * baseScale;
+    const scaledCellWidth = baseCellWidth * zoomLevel;
+    const scaledCellHeight = baseCellHeight * zoomLevel;
 
-    // Calculate offset to center the grid
-    const scaledWidth = mapWidthMeters * scale;
-    const scaledHeight = mapHeightMeters * scale;
-    const baseOffsetX = (canvasDimensions.width - scaledWidth) / 2;
-    const baseOffsetY = (canvasDimensions.height - scaledHeight) / 2;
-    const offsetX = baseOffsetX + panOffset.x;
-    const offsetY = baseOffsetY + panOffset.y;
+    // Calculate final grid position
+    const offsetX = centerOffsetX + panOffset.x;
+    const offsetY = centerOffsetY + panOffset.y;
     
     // Set grid style with thicker lines for better visibility
     ctx.strokeStyle = mapConfig.gridColor;
@@ -617,22 +646,27 @@ function App() {
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
     const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
+    // Calculate base scale that preserves aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / mapWidthMeters,
       canvasDimensions.height / mapHeightMeters
     );
-    const scale = baseScale * zoomLevel;
 
-    // Calculate scaled dimensions
-    const scaledWidth = mapWidthMeters * scale;
-    const scaledHeight = mapHeightMeters * scale;
-    
-    // Calculate offset to center the image and apply pan offset with zoom scaling
-    const baseOffsetX = (canvasDimensions.width - scaledWidth) / 2;
-    const baseOffsetY = (canvasDimensions.height - scaledHeight) / 2;
-    const offsetX = baseOffsetX + panOffset.x;
-    const offsetY = baseOffsetY + panOffset.y;
+    // Calculate base dimensions at zoom level 1
+    const baseWidth = mapWidthMeters * baseScale;
+    const baseHeight = mapHeightMeters * baseScale;
+
+    // Apply zoom to get final dimensions
+    const scaledWidth = baseWidth * zoomLevel;
+    const scaledHeight = baseHeight * zoomLevel;
+
+    // Calculate center offset
+    const centerOffsetX = (canvasDimensions.width - scaledWidth) / 2;
+    const centerOffsetY = (canvasDimensions.height - scaledHeight) / 2;
+
+    // Calculate final position with pan offset
+    const offsetX = centerOffsetX + panOffset.x;
+    const offsetY = centerOffsetY + panOffset.y;
 
     // Calculate meters per pixel without rounding
     const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
@@ -704,13 +738,17 @@ function App() {
         const metersX = (pos.x / img.width) * (mapConfig.widthKm * METERS_PER_KM);
         const metersY = (pos.y / img.height) * (mapConfig.heightKm * METERS_PER_KM);
 
-        // Convert meters to screen coordinates
-        const scaledX = offsetX + (metersX * scale);
-        const scaledY = offsetY + (metersY * scale);
+        // Convert meters to normalized coordinates (0-1)
+        const normalizedX = metersX / mapWidthMeters;
+        const normalizedY = metersY / mapHeightMeters;
+
+        // Convert to screen coordinates
+        const scaledX = normalizedX * scaledWidth + offsetX;
+        const scaledY = normalizedY * scaledHeight + offsetY;
         
         // Scale size based on meters and zoom level
         const sizeInPixels = contentType.size * pixelsPerMeter;
-        const scaledSize = sizeInPixels * scale;
+        const scaledSize = sizeInPixels * baseScale * zoomLevel;
         
         // Only round at the final step when drawing
         const finalX = Math.round(scaledX);
@@ -722,31 +760,6 @@ function App() {
       });
     });
   }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, getCurrentDetailLevel, mapConfig]);
-
-  // Draw test dot
-  const drawTestDotOnMap = useCallback(() => {
-    if (!contextRef.current || !backgroundImageRef.current) return;
-
-    // Convert test dot coordinates to screen coordinates
-    const screenCoord = mapToScreenCoordinates(
-      TEST_DOT,
-      mapConfig.widthKm,
-      mapConfig.heightKm,
-      canvasDimensions.width,
-      canvasDimensions.height,
-      zoomLevel,
-      panOffset
-    );
-
-    // Draw the dot with debug info
-    drawTestDot(
-      contextRef.current,
-      screenCoord,
-      TEST_DOT,
-      zoomLevel,
-      backgroundImageRef.current
-    );
-  }, [mapConfig.widthKm, mapConfig.heightKm, canvasDimensions, zoomLevel, panOffset]);
 
   // Draw random dots using stored positions
   const drawRandomDots = useCallback(() => {
@@ -786,7 +799,7 @@ function App() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         
-        const text = `(${pos.x.toFixed(0)}m, ${pos.y.toFixed(0)}m)`;
+        const text = `(${pos.x.toFixed(3)}, ${pos.y.toFixed(3)})`;
         const textY = screenCoord.y - 10;
         
         // Draw text background with tighter padding
@@ -818,12 +831,11 @@ function App() {
       drawGrid();
     }
     drawContentTypes();
-    drawTestDotOnMap(); // Add test dot
     drawRandomDots(); // Add random dots
     
     // Request next frame
     animationFrameRef.current = requestAnimationFrame(render);
-  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawTestDotOnMap, drawRandomDots, mapConfig.showGrid]);
+  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawRandomDots, mapConfig.showGrid]);
 
   // Set up canvas context and start render loop when ready
   useEffect(() => {

@@ -1,7 +1,7 @@
 // Types for map coordinates
 export interface MapCoordinate {
-  x: number; // meters from left edge
-  y: number; // meters from top edge
+  x: number; // normalized coordinate (0-1) from left edge
+  y: number; // normalized coordinate (0-1) from top edge
 }
 
 // Transform map coordinates to screen coordinates based on zoom level and pan
@@ -28,29 +28,33 @@ export function mapToScreenCoordinates(
     canvasHeight / mapHeightMeters
   );
 
-  // Calculate the normalized position (0-1) within the map
-  // Adjust for aspect ratio to ensure consistent scaling
-  const normalizedX = mapCoord.x / mapWidthMeters;
-  const normalizedY = mapCoord.y / mapHeightMeters;
+  // Calculate base dimensions at zoom level 1
+  const baseWidth = mapWidthMeters * baseScale;
+  const baseHeight = mapHeightMeters * baseScale;
 
-  // Apply zoom level
-  const scale = baseScale * zoomLevel;
+  // Calculate center offset for base dimensions
+  const baseCenterX = (canvasWidth - baseWidth) / 2;
+  const baseCenterY = (canvasHeight - baseHeight) / 2;
 
-  // Calculate scaled dimensions in pixels
-  const scaledWidth = mapWidthMeters * scale;
-  const scaledHeight = mapHeightMeters * scale;
+  // Input coordinates are already normalized (0-1)
+  const normalizedX = mapCoord.x;
+  const normalizedY = mapCoord.y;
 
-  // Calculate center offset
-  const offsetX = (canvasWidth - scaledWidth) / 2;
-  const offsetY = (canvasHeight - scaledHeight) / 2;
+  // Apply zoom to get final dimensions
+  const scaledWidth = baseWidth * zoomLevel;
+  const scaledHeight = baseHeight * zoomLevel;
 
-  // Calculate base screen coordinates without rounding
-  const screenX = (normalizedX * scaledWidth) + offsetX;
-  const screenY = (normalizedY * scaledHeight) + offsetY;
+  // Calculate final center offset
+  const centerOffsetX = (canvasWidth - scaledWidth) / 2;
+  const centerOffsetY = (canvasHeight - scaledHeight) / 2;
 
-  // Apply pan offset
-  const finalX = Math.round(screenX + panOffset.x);
-  const finalY = Math.round(screenY + panOffset.y);
+  // Convert normalized coordinates to screen coordinates
+  const screenX = normalizedX * scaledWidth + centerOffsetX + panOffset.x;
+  const screenY = normalizedY * scaledHeight + centerOffsetY + panOffset.y;
+
+  // Round only at the final step
+  const finalX = Math.round(screenX);
+  const finalY = Math.round(screenY);
 
   // Log coordinate transformation details with both raw and final values
   console.log('Coordinate transformation:', JSON.stringify({
@@ -68,14 +72,17 @@ export function mapToScreenCoordinates(
       mapHeightMeters,
       mapAspectRatio,
       canvasAspectRatio,
+      baseScale,
+      baseWidth,
+      baseHeight,
+      baseCenterX,
+      baseCenterY,
       normalizedX,
       normalizedY,
-      baseScale,
-      scale,
       scaledWidth,
       scaledHeight,
-      offsetX,
-      offsetY,
+      centerOffsetX,
+      centerOffsetY,
       screenX,
       screenY
     },
@@ -89,59 +96,4 @@ export function mapToScreenCoordinates(
     x: finalX,
     y: finalY
   };
-}
-
-// Test dot position (in meters from top-left)
-export const TEST_DOT: MapCoordinate = {
-  x: 1500, // 1.5km from left edge
-  y: 1000  // 1km from top edge - adjusted to be on visible part of map
-};
-
-// Function to draw the test dot with debug information
-export function drawTestDot(
-  ctx: CanvasRenderingContext2D,
-  screenCoord: { x: number; y: number },
-  realCoord: MapCoordinate,
-  zoomLevel: number,
-  backgroundImage: HTMLImageElement | null = null
-): void {
-  // Save current context state
-  ctx.save();
-
-  // Check if the dot should be drawn
-  let shouldDraw = true;
-  if (backgroundImage) {
-    // Create a temporary canvas to check pixel alpha
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if (tempCtx) {
-      tempCanvas.width = backgroundImage.width;
-      tempCanvas.height = backgroundImage.height;
-      tempCtx.drawImage(backgroundImage, 0, 0);
-
-      // Convert real coordinates to image coordinates
-      const imgX = Math.floor((realCoord.x / (6 * 1000)) * backgroundImage.width);
-      const imgY = Math.floor((realCoord.y / (4 * 1000)) * backgroundImage.height);
-
-      // Get pixel alpha value
-      const imageData = tempCtx.getImageData(imgX, imgY, 1, 1);
-      shouldDraw = imageData.data[3] > 200; // Only draw if alpha > 200
-    }
-  }
-
-  if (shouldDraw) {
-    // Draw dot
-    ctx.fillStyle = '#00FF00'; // Bright green
-    ctx.strokeStyle = '#000000'; // Black border
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(screenCoord.x, screenCoord.y, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  // No debug text for test dot
-
-  // Restore context state
-  ctx.restore();
 }
