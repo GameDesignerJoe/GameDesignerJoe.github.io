@@ -3,6 +3,7 @@ import './App.css';
 import mapImage from './assets/map.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { ContentTypeBase } from './types/ContentTypes';
+import { TEST_DOT, mapToScreenCoordinates, drawTestDot } from './utils/MapCoordinates';
 
 const backgroundImageSrc = mapImage;
 
@@ -93,7 +94,7 @@ const DETAIL_LEVELS: DetailLevel[] = [
 
 function App() {
   // Canvas dimensions state
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: Math.floor(1800), height: Math.floor(1350) });
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 1800, height: 1350 });
   
   // References
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -185,8 +186,8 @@ function App() {
     }
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.floor(event.clientX - rect.left);
-    const y = Math.floor(event.clientY - rect.top);
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     setLastMousePos({ x, y });
     setIsPanning(true);
   }, []);
@@ -198,25 +199,32 @@ function App() {
     event.preventDefault();
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.floor(event.clientX - rect.left);
-    const y = Math.floor(event.clientY - rect.top);
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     
-    const deltaX = Math.floor((x - lastMousePos.x) * 1.5);
-    const deltaY = Math.floor((y - lastMousePos.y) * 1.5);
+    // Calculate the delta in screen coordinates
+    const deltaX = x - lastMousePos.x;
+    const deltaY = y - lastMousePos.y;
     
-    // Calculate uniform scale that preserves aspect ratio
+    // Calculate aspect ratios
+    const mapAspectRatio = backgroundImageRef.current.width / backgroundImageRef.current.height;
+    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
+    
+    // Calculate base scale
     const baseScale = Math.min(
       canvasDimensions.width / backgroundImageRef.current.width,
       canvasDimensions.height / backgroundImageRef.current.height
     );
-    const scale = baseScale * zoomLevel;
-    const scaledWidth = Math.floor(backgroundImageRef.current.width * scale);
-    const scaledHeight = Math.floor(backgroundImageRef.current.height * scale);
     
-    // Allow unlimited panning
+    // Scale the pan deltas inversely with zoom level and aspect ratio
+    const scale = baseScale * zoomLevel;
+    const scaledDeltaX = deltaX / scale;
+    const scaledDeltaY = deltaY / scale;
+    
+    // Update pan offset with scaled deltas
     setPanOffset(prev => ({
-      x: prev.x + deltaX,
-      y: prev.y + deltaY
+      x: prev.x + scaledDeltaX,
+      y: prev.y + scaledDeltaY
     }));
     
     setLastMousePos({ x, y });
@@ -273,7 +281,7 @@ function App() {
     const newZoom = ZOOM_LEVELS[nextIndex];
     
     if (newZoom !== zoomLevel) {
-      // Calculate the point on the image that's under the cursor
+      // Calculate pixels per meter to maintain aspect ratio
       const baseScale = Math.min(
         canvasDimensions.width / backgroundImageRef.current.width,
         canvasDimensions.height / backgroundImageRef.current.height
@@ -281,31 +289,32 @@ function App() {
       const oldScale = baseScale * zoomLevel;
       const newScale = baseScale * newZoom;
       
-      // Calculate current scaled dimensions
-      const oldScaledWidth = Math.floor(backgroundImageRef.current.width * oldScale);
-      const oldScaledHeight = Math.floor(backgroundImageRef.current.height * oldScale);
+      // Calculate scaled dimensions without rounding
+      const oldScaledWidth = backgroundImageRef.current.width * oldScale;
+      const oldScaledHeight = backgroundImageRef.current.height * oldScale;
       
-      // Calculate new scaled dimensions
-      const newScaledWidth = Math.floor(backgroundImageRef.current.width * newScale);
-      const newScaledHeight = Math.floor(backgroundImageRef.current.height * newScale);
+      // Calculate new scaled dimensions without rounding
+      const newScaledWidth = backgroundImageRef.current.width * newScale;
+      const newScaledHeight = backgroundImageRef.current.height * newScale;
       
-      // Calculate the center offset of the image
-      const oldCenterOffsetX = Math.floor((canvasDimensions.width - oldScaledWidth) / 2);
-      const oldCenterOffsetY = Math.floor((canvasDimensions.height - oldScaledHeight) / 2);
+      // Calculate the center offset of the image without rounding
+      const oldCenterOffsetX = (canvasDimensions.width - oldScaledWidth) / 2;
+      const oldCenterOffsetY = (canvasDimensions.height - oldScaledHeight) / 2;
       
-      // Calculate cursor position relative to the image
-      const imageX = Math.floor((cursorX - (oldCenterOffsetX + panOffset.x)) / oldScale);
-      const imageY = Math.floor((cursorY - (oldCenterOffsetY + panOffset.y)) / oldScale);
+      // Calculate cursor position relative to the image without rounding
+      const imageX = (cursorX - (oldCenterOffsetX + panOffset.x)) / oldScale;
+      const imageY = (cursorY - (oldCenterOffsetY + panOffset.y)) / oldScale;
       
-      // Calculate where this point would be in the new zoom level
-      const newCenterOffsetX = Math.floor((canvasDimensions.width - newScaledWidth) / 2);
-      const newCenterOffsetY = Math.floor((canvasDimensions.height - newScaledHeight) / 2);
-      const newPointX = Math.floor(imageX * newScale + newCenterOffsetX);
-      const newPointY = Math.floor(imageY * newScale + newCenterOffsetY);
+      // Calculate where this point would be in the new zoom level without rounding
+      const newCenterOffsetX = (canvasDimensions.width - newScaledWidth) / 2;
+      const newCenterOffsetY = (canvasDimensions.height - newScaledHeight) / 2;
+      const newPointX = imageX * newScale + newCenterOffsetX;
+      const newPointY = imageY * newScale + newCenterOffsetY;
       
       // Calculate the required pan offset to keep the point under the cursor
-      const newPanX = Math.floor(cursorX - newPointX);
-      const newPanY = Math.floor(cursorY - newPointY);
+      // Only round at the final step
+      const newPanX = Math.round(cursorX - newPointX);
+      const newPanY = Math.round(cursorY - newPointY);
       
       // Apply the new zoom and pan
       setZoomLevel(newZoom);
@@ -331,35 +340,31 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate cell dimensions based on detail level
+    // Calculate dimensions without intermediate rounding
     const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-    const cellsPerMeter = 1 / detailLevel.metersPerCell;
-    const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
+    const pixelsPerCell = detailLevel.metersPerCell / metersPerPixel;
     
-    // Calculate grid dimensions
-    const cellWidth = Math.floor(pixelsPerCell);
-    const cellHeight = Math.floor(pixelsPerCell);
+    // Calculate the base scale that preserves aspect ratio
+    const mapAspectRatio = img.width / img.height;
+    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
     
-    // Calculate uniform scale that preserves aspect ratio
+    // Calculate pixels per meter to maintain aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / img.width,
       canvasDimensions.height / img.height
     );
     const scale = baseScale * zoomLevel;
     
-    // Scale the cell dimensions and ensure they're whole numbers
-    const scaledCellWidth = Math.floor(cellWidth * scale);
-    const scaledCellHeight = Math.floor(cellHeight * scale);
-    
-    // Calculate final dimensions based on cell count
-    const scaledWidth = Math.floor(scaledCellWidth * transparencyMask[0].length);
-    const scaledHeight = Math.floor(scaledCellHeight * transparencyMask.length);
+    // Calculate final dimensions with minimal rounding
+    const scaledWidth = img.width * scale;
+    const scaledHeight = img.height * scale;
     
     // Center the image and apply pan offset
-    const x = Math.floor((canvasDimensions.width - scaledWidth) / 2);
-    const y = Math.floor((canvasDimensions.height - scaledHeight) / 2);
-    const finalX = Math.floor(x + panOffset.x);
-    const finalY = Math.floor(y + panOffset.y);
+    // Only round at the final step when actually drawing
+    const x = (canvasDimensions.width - scaledWidth) / 2;
+    const y = (canvasDimensions.height - scaledHeight) / 2;
+    const finalX = Math.round(x + panOffset.x);
+    const finalY = Math.round(y + panOffset.y);
     
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, finalX, finalY, scaledWidth, scaledHeight);
@@ -374,35 +379,34 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate cell dimensions based on detail level
+    // Calculate dimensions without intermediate rounding
     const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-    const cellsPerMeter = 1 / detailLevel.metersPerCell;
-    const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
+    const pixelsPerCell = detailLevel.metersPerCell / metersPerPixel;
     
-    // Calculate grid dimensions
-    const cellWidth = Math.floor(pixelsPerCell);
-    const cellHeight = Math.floor(pixelsPerCell);
+    // Calculate the base scale that preserves aspect ratio
+    const mapAspectRatio = img.width / img.height;
+    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
     
-    // Calculate uniform scale that preserves aspect ratio
+    // Calculate pixels per meter to maintain aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / img.width,
       canvasDimensions.height / img.height
     );
     const scale = baseScale * zoomLevel;
     
-    // Scale the cell dimensions and ensure they're whole numbers
-    const scaledCellWidth = Math.floor(cellWidth * scale);
-    const scaledCellHeight = Math.floor(cellHeight * scale);
+    // Calculate cell dimensions without rounding
+    const scaledCellWidth = pixelsPerCell * scale;
+    const scaledCellHeight = pixelsPerCell * scale;
     
-    // Calculate final dimensions based on cell count
+    // Calculate final dimensions without intermediate rounding
     const adjustedScaledImgWidth = scaledCellWidth * transparencyMask[0].length;
     const adjustedScaledImgHeight = scaledCellHeight * transparencyMask.length;
     
     // Calculate offset to center the grid with the image and apply pan offset
-    const baseOffsetX = Math.floor((canvasDimensions.width - adjustedScaledImgWidth) / 2);
-    const baseOffsetY = Math.floor((canvasDimensions.height - adjustedScaledImgHeight) / 2);
-    const offsetX = Math.floor(baseOffsetX + panOffset.x);
-    const offsetY = Math.floor(baseOffsetY + panOffset.y);
+    const baseOffsetX = (canvasDimensions.width - adjustedScaledImgWidth) / 2;
+    const baseOffsetY = (canvasDimensions.height - adjustedScaledImgHeight) / 2;
+    const offsetX = baseOffsetX + panOffset.x;
+    const offsetY = baseOffsetY + panOffset.y;
     
     // Set grid style with thicker lines for better visibility
     ctx.strokeStyle = mapConfig.gridColor;
@@ -414,11 +418,11 @@ function App() {
     for (let row = 0; row < transparencyMask.length; row++) {
       for (let col = 0; col < transparencyMask[row].length; col++) {
         if (transparencyMask[row][col]) {
-          // Calculate cell coordinates using consistent Math.floor
-          const x = Math.floor(offsetX + (col * scaledCellWidth));
-          const y = Math.floor(offsetY + (row * scaledCellHeight));
-          const right = Math.floor(x + scaledCellWidth);
-          const bottom = Math.floor(y + scaledCellHeight);
+          // Calculate cell coordinates and only round at the final drawing step
+          const x = Math.round(offsetX + (col * scaledCellWidth));
+          const y = Math.round(offsetY + (row * scaledCellHeight));
+          const right = Math.round(offsetX + ((col + 1) * scaledCellWidth));
+          const bottom = Math.round(offsetY + ((row + 1) * scaledCellHeight));
           
           // Draw cell borders without sub-pixel offsets
           ctx.beginPath();
@@ -447,31 +451,35 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate uniform scale that preserves aspect ratio
+    // Calculate the base scale that preserves aspect ratio
+    const mapAspectRatio = img.width / img.height;
+    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
+    
+    // Calculate pixels per meter to maintain aspect ratio
     const baseScale = Math.min(
       canvasDimensions.width / img.width,
       canvasDimensions.height / img.height
     );
     const scale = baseScale * zoomLevel;
     
-    // Calculate final dimensions
-    const scaledWidth = Math.floor(img.width * scale);
-    const scaledHeight = Math.floor(img.height * scale);
+    // Calculate dimensions without intermediate rounding
+    const scaledWidth = img.width * scale;
+    const scaledHeight = img.height * scale;
     
     // Calculate offset to center the image and apply pan offset
-    const baseOffsetX = Math.floor((canvasDimensions.width - scaledWidth) / 2);
-    const baseOffsetY = Math.floor((canvasDimensions.height - scaledHeight) / 2);
-    const offsetX = Math.floor(baseOffsetX + panOffset.x);
-    const offsetY = Math.floor(baseOffsetY + panOffset.y);
+    const baseOffsetX = (canvasDimensions.width - scaledWidth) / 2;
+    const baseOffsetY = (canvasDimensions.height - scaledHeight) / 2;
+    const offsetX = baseOffsetX + panOffset.x;
+    const offsetY = baseOffsetY + panOffset.y;
 
-    // Calculate meters per pixel
+    // Calculate meters per pixel without rounding
     const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
     const pixelsPerMeter = 1 / metersPerPixel;
 
     // For each content type, draw instances based on quantity
     contentTypes.forEach(contentType => {
       const positions: { x: number, y: number }[] = [];
-      const maxAttempts = contentType.quantity * 10; // Allow multiple attempts per position
+      const maxAttempts = contentType.quantity * 10;
       let attempts = 0;
 
       // Helper function to check if a position respects minimum spacing
@@ -485,22 +493,19 @@ function App() {
         });
       };
 
-      // Generate positions respecting minimum spacing
       while (positions.length < contentType.quantity && attempts < maxAttempts) {
         attempts++;
         
-        // Generate a pseudo-random position
         const seed = `${contentType.id}-${attempts}`;
         const hash = seed.split('').reduce((a, b) => {
           a = ((a << 5) - a) + b.charCodeAt(0);
           return a & a;
         }, 0);
         
-        // Generate position within the map bounds
         const x = Math.abs(hash % img.width);
         const y = Math.abs((hash >> 8) % img.height);
         
-        // Only consider positions on non-transparent cells
+        // Calculate cell position without intermediate rounding
         const cellX = Math.floor(x / (detailLevel.metersPerCell / (mapConfig.widthKm * METERS_PER_KM / img.width)));
         const cellY = Math.floor(y / (detailLevel.metersPerCell / (mapConfig.heightKm * METERS_PER_KM / img.height)));
         
@@ -509,21 +514,49 @@ function App() {
         }
       }
 
-      // Draw all valid positions
       positions.forEach(pos => {
-        // Scale position to current zoom level
-        const scaledX = Math.floor(offsetX + (pos.x * scale));
-        const scaledY = Math.floor(offsetY + (pos.y * scale));
+        // Scale position to current zoom level without intermediate rounding
+        const scaledX = offsetX + (pos.x * scale);
+        const scaledY = offsetY + (pos.y * scale);
         
         // Scale size based on meters and zoom level
         const sizeInPixels = contentType.size * pixelsPerMeter;
-        const scaledSize = Math.floor(sizeInPixels * scale);
+        const scaledSize = sizeInPixels * scale;
         
-        // Draw the content shape
-        drawContentShape(ctx, contentType.shape, scaledX, scaledY, scaledSize, contentType.color);
+        // Only round at the final step when drawing
+        const finalX = Math.round(scaledX);
+        const finalY = Math.round(scaledY);
+        const finalSize = Math.round(scaledSize);
+        
+        // Draw the content shape with final rounded values
+        drawContentShape(ctx, contentType.shape, finalX, finalY, finalSize, contentType.color);
       });
     });
   }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, getCurrentDetailLevel, mapConfig]);
+
+  // Draw test dot
+  const drawTestDotOnMap = useCallback(() => {
+    if (!contextRef.current || !backgroundImageRef.current) return;
+
+    // Convert test dot coordinates to screen coordinates
+    const screenCoord = mapToScreenCoordinates(
+      TEST_DOT,
+      mapConfig.widthKm,
+      mapConfig.heightKm,
+      canvasDimensions.width,
+      canvasDimensions.height,
+      zoomLevel,
+      panOffset
+    );
+
+    // Draw the dot with debug info
+    drawTestDot(
+      contextRef.current,
+      screenCoord,
+      TEST_DOT,
+      zoomLevel
+    );
+  }, [mapConfig.widthKm, mapConfig.heightKm, canvasDimensions, zoomLevel, panOffset]);
 
   const render = useCallback(() => {
     clearCanvas();
@@ -532,10 +565,11 @@ function App() {
       drawGrid();
     }
     drawContentTypes();
+    drawTestDotOnMap(); // Add test dot
     
     // Request next frame
     animationFrameRef.current = requestAnimationFrame(render);
-  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, mapConfig.showGrid]);
+  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawTestDotOnMap, mapConfig.showGrid]);
 
   // Set up canvas context and start render loop when ready
   useEffect(() => {
@@ -705,10 +739,10 @@ function App() {
         const containerWidth = mapContainerRef.current.clientWidth;
         const containerHeight = mapContainerRef.current.clientHeight;
         
-        // Use the full container size
+        // Use the full container size without rounding
         setCanvasDimensions({
-          width: Math.floor(containerWidth),
-          height: Math.floor(containerHeight),
+          width: containerWidth,
+          height: containerHeight,
         });
       }
     };
