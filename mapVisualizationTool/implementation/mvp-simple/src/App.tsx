@@ -777,13 +777,19 @@ function App() {
 
   // Convert dot size from meters to pixels and scale with zoom
   const dotSizeM = parseFloat(dotSizeMeters);
-  const baseDiameterPixels = dotSizeM * pixelsPerMeter;
   
-  // Calculate base scale that preserves aspect ratio
+  // Calculate base scale that preserves aspect ratio (same as grid calculation)
   const baseScale = Math.min(
     canvasDimensions.width / mapWidthMeters,
     canvasDimensions.height / mapHeightMeters
   );
+
+  // Calculate dot size using same scaling as grid cells
+  const baseDotSize = dotSizeM * baseScale;
+  const scaledDotSize = baseDotSize * zoomLevel;
+  
+  // Use half the size for radius since arc() takes radius not diameter
+  const finalRadius = scaledDotSize / 2;
 
   ctx.save();
   randomDotPositions.forEach(pos => {
@@ -797,9 +803,6 @@ function App() {
       zoomLevel,
       panOffset
     );
-
-    // Scale with zoom level and use full size as radius to match grid cell size
-    const finalRadius = baseDiameterPixels * baseScale * zoomLevel;
 
     // Draw dot
       ctx.fillStyle = '#0000FF'; // Blue instead of green
