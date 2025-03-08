@@ -3,7 +3,7 @@ import './App.css';
 import mapImage from './assets/map.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { ContentTypeBase } from './types/ContentTypes';
-import { TEST_DOT, mapToScreenCoordinates, drawTestDot } from './utils/MapCoordinates';
+import { TEST_DOT, mapToScreenCoordinates, drawTestDot, MapCoordinate } from './utils/MapCoordinates';
 
 const backgroundImageSrc = mapImage;
 
@@ -118,6 +118,97 @@ function App() {
   // State for input value
   const [areaInputValue, setAreaInputValue] = useState(mapConfig.targetAreaKm2.toString());
 
+  // State for zoom level
+  const [zoomLevel, setZoomLevel] = useState<number>(0.5);
+
+  // State for panning
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+
+  // State for transparency mask and cache
+  const [transparencyMask, setTransparencyMask] = useState<boolean[][]>([]);
+  const [maskCache] = useState<Map<string, boolean[][]>>(new Map());
+  
+  // State for background image loaded status
+  const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
+
+  // State for content types
+  const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
+
+  // State for random dots
+  const [randomDotPositions, setRandomDotPositions] = useState<Array<MapCoordinate>>([]);
+  const [numDotsInput, setNumDotsInput] = useState("100");
+  const [showDotDebug, setShowDotDebug] = useState(false);
+
+  // Track current detail level for grid updates
+  const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
+
+  // Get current detail level based on zoom
+  const getCurrentDetailLevel = useCallback((): DetailLevel => {
+    const matchingLevel = DETAIL_LEVELS.find(
+      level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
+    );
+    return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
+  }, [zoomLevel]);
+
+  // Handle adding dots
+  const handleAddDots = useCallback(() => {
+    if (!backgroundImageRef.current) return;
+
+    const img = backgroundImageRef.current;
+    const numDots = parseInt(numDotsInput);
+    if (isNaN(numDots) || numDots <= 0) return;
+
+    // Create a temporary canvas to analyze the image
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Set canvas size to match the background image
+    tempCanvas.width = img.width;
+    tempCanvas.height = img.height;
+
+    // Draw the background image
+    tempCtx.drawImage(img, 0, 0);
+
+    // Get image data to analyze transparency
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+    const positions: Array<MapCoordinate> = [];
+    let attempts = 0;
+    const maxAttempts = numDots * 10;
+    const alphaThreshold = 200; // Only place dots where alpha > 200 (out of 255)
+
+    while (positions.length < numDots && attempts < maxAttempts) {
+      attempts++;
+      
+      // Generate random position in meters
+      const x = Math.floor(Math.random() * mapWidthMeters);
+      const y = Math.floor(Math.random() * mapHeightMeters);
+
+      // Convert meters to image coordinates
+      const imgX = Math.floor((x / mapWidthMeters) * img.width);
+      const imgY = Math.floor((y / mapHeightMeters) * img.height);
+
+      // Get pixel alpha value (every 4th value in the array is alpha)
+      const pixelIndex = (imgY * img.width + imgX) * 4;
+      const alpha = data[pixelIndex + 3];
+
+      // Only add position if alpha is above threshold
+      if (alpha > alphaThreshold) {
+        positions.push({ x, y });
+      }
+    }
+
+    setRandomDotPositions(prev => [...prev, ...positions]);
+  }, [numDotsInput, mapConfig.widthKm, mapConfig.heightKm]);
+
   // Update input value and dimensions when target area changes
   useEffect(() => {
     setAreaInputValue(mapConfig.targetAreaKm2.toString());
@@ -138,39 +229,104 @@ function App() {
     maskCache.clear();
   }, [mapConfig.targetAreaKm2]);
 
-  // State for zoom level
-  const [zoomLevel, setZoomLevel] = useState<number>(0.5);
+  // Create transparency mask when detail level changes
+  useEffect(() => {
+    if (!backgroundImageRef.current || !backgroundImageLoaded) return;
+    
+    const detailLevel = getCurrentDetailLevel();
+    const cacheKey = detailLevel.id;
+    
+    // Check if we have a cached mask for this detail level
+    const cachedMask = maskCache.get(cacheKey);
+    if (cachedMask) {
+      setTransparencyMask(cachedMask);
+      return;
+    }
+    
+    // Create a temporary canvas to analyze the background image
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    
+    // Set canvas size to match the background image
+    tempCanvas.width = backgroundImageRef.current.width;
+    tempCanvas.height = backgroundImageRef.current.height;
+    
+    // Draw the background image
+    tempCtx.drawImage(backgroundImageRef.current, 0, 0);
+    
+    // Get image data to analyze transparency
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+    
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-  // State for panning
-  const [isPanning, setIsPanning] = useState(false);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+    // Calculate number of cells based on real-world dimensions
+    const widthInCells = Math.ceil(mapWidthMeters / detailLevel.metersPerCell);
+    const heightInCells = Math.ceil(mapHeightMeters / detailLevel.metersPerCell);
 
-  // State for transparency mask and cache
-  const [transparencyMask, setTransparencyMask] = useState<boolean[][]>([]);
-  const [maskCache] = useState<Map<string, boolean[][]>>(new Map());
-  
-  // State for background image loaded status
-  const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
+    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
+    const baseScale = Math.min(
+      tempCanvas.width / mapWidthMeters,
+      tempCanvas.height / mapHeightMeters
+    );
 
-  // State for content types
-  const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
-
-  // Track current detail level for grid updates
-  const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
+    // Create a new mask array
+    const newMask: boolean[][] = [];
+    
+    // For each cell, check if the corresponding area in the image has non-transparent pixels
+    for (let row = 0; row < heightInCells; row++) {
+      const maskRow: boolean[] = [];
+      for (let col = 0; col < widthInCells; col++) {
+        // Convert cell coordinates to meters
+        const metersX = col * detailLevel.metersPerCell;
+        const metersY = row * detailLevel.metersPerCell;
+        
+        // Convert meters to image coordinates
+        const startX = Math.floor((metersX / mapWidthMeters) * tempCanvas.width);
+        const startY = Math.floor((metersY / mapHeightMeters) * tempCanvas.height);
+        const endX = Math.min(tempCanvas.width, Math.floor(((metersX + detailLevel.metersPerCell) / mapWidthMeters) * tempCanvas.width));
+        const endY = Math.min(tempCanvas.height, Math.floor(((metersY + detailLevel.metersPerCell) / mapHeightMeters) * tempCanvas.height));
+        
+        // Count non-transparent pixels
+        let nonTransparentCount = 0;
+        const totalPixels = (endX - startX) * (endY - startY);
+        const threshold = Math.floor(totalPixels * 0.15); // 15% threshold
+        
+        // Sample every other pixel for better performance
+        for (let y = startY; y < endY; y += 2) {
+          for (let x = startX; x < endX; x += 2) {
+            const index = (y * tempCanvas.width + x) * 4;
+            // Only count pixels with alpha > 128 (half opacity)
+            if (data[index + 3] > 128) {
+              nonTransparentCount += 4; // Account for skipped pixels
+              if (nonTransparentCount >= threshold) {
+                break;
+              }
+            }
+          }
+          if (nonTransparentCount >= threshold) {
+            break;
+          }
+        }
+        
+        const hasContent = nonTransparentCount >= threshold;
+        maskRow.push(hasContent);
+      }
+      newMask.push(maskRow);
+    }
+    
+    // Cache the mask for this detail level
+    maskCache.set(cacheKey, newMask);
+    setTransparencyMask(newMask);
+  }, [backgroundImageLoaded, getCurrentDetailLevel, mapConfig.widthKm]);
 
   // Handle content type changes
   const handleContentTypeChange = useCallback((newContentTypes: ContentTypeBase[]) => {
     setContentTypes(newContentTypes);
   }, []);
-
-  // Get current detail level based on zoom
-  const getCurrentDetailLevel = useCallback((): DetailLevel => {
-    const matchingLevel = DETAIL_LEVELS.find(
-      level => zoomLevel >= level.minZoom && zoomLevel < level.maxZoom
-    );
-    return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
-  }, [zoomLevel]);
 
   // Helper to check if panning is possible
   const canPan = useCallback(() => {
@@ -202,29 +358,26 @@ function App() {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
+    const baseScale = Math.min(
+      canvasDimensions.width / mapWidthMeters,
+      canvasDimensions.height / mapHeightMeters
+    );
+    const scale = baseScale * zoomLevel;
+
     // Calculate the delta in screen coordinates
     const deltaX = x - lastMousePos.x;
     const deltaY = y - lastMousePos.y;
     
-    // Calculate aspect ratios
-    const mapAspectRatio = backgroundImageRef.current.width / backgroundImageRef.current.height;
-    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
-    
-    // Calculate base scale
-    const baseScale = Math.min(
-      canvasDimensions.width / backgroundImageRef.current.width,
-      canvasDimensions.height / backgroundImageRef.current.height
-    );
-    
-    // Scale the pan deltas inversely with zoom level and aspect ratio
-    const scale = baseScale * zoomLevel;
-    const scaledDeltaX = deltaX / scale;
-    const scaledDeltaY = deltaY / scale;
-    
-    // Update pan offset with scaled deltas
+    // Update pan offset in screen space
+    // Scale the movement to match the coordinate system
     setPanOffset(prev => ({
-      x: prev.x + scaledDeltaX,
-      y: prev.y + scaledDeltaY
+      x: prev.x + deltaX,
+      y: prev.y + deltaY
     }));
     
     setLastMousePos({ x, y });
@@ -281,40 +434,39 @@ function App() {
     const newZoom = ZOOM_LEVELS[nextIndex];
     
     if (newZoom !== zoomLevel) {
-      // Calculate pixels per meter to maintain aspect ratio
+      // Calculate map dimensions in meters
+      const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+      const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+      // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
       const baseScale = Math.min(
-        canvasDimensions.width / backgroundImageRef.current.width,
-        canvasDimensions.height / backgroundImageRef.current.height
+        canvasDimensions.width / mapWidthMeters,
+        canvasDimensions.height / mapHeightMeters
       );
-      const oldScale = baseScale * zoomLevel;
-      const newScale = baseScale * newZoom;
-      
-      // Calculate scaled dimensions without rounding
-      const oldScaledWidth = backgroundImageRef.current.width * oldScale;
-      const oldScaledHeight = backgroundImageRef.current.height * oldScale;
-      
-      // Calculate new scaled dimensions without rounding
-      const newScaledWidth = backgroundImageRef.current.width * newScale;
-      const newScaledHeight = backgroundImageRef.current.height * newScale;
+
+      // Calculate scaled dimensions
+      const oldScaledWidth = mapWidthMeters * baseScale;
+      const oldScaledHeight = mapHeightMeters * baseScale;
       
       // Calculate the center offset of the image without rounding
-      const oldCenterOffsetX = (canvasDimensions.width - oldScaledWidth) / 2;
-      const oldCenterOffsetY = (canvasDimensions.height - oldScaledHeight) / 2;
+      const centerOffsetX = (canvasDimensions.width - oldScaledWidth) / 2;
+      const centerOffsetY = (canvasDimensions.height - oldScaledHeight) / 2;
       
-      // Calculate cursor position relative to the image without rounding
-      const imageX = (cursorX - (oldCenterOffsetX + panOffset.x)) / oldScale;
-      const imageY = (cursorY - (oldCenterOffsetY + panOffset.y)) / oldScale;
+      // Calculate cursor position relative to the image in screen coordinates (same as mapToScreenCoordinates)
+      const screenX = cursorX - centerOffsetX;
+      const screenY = cursorY - centerOffsetY;
       
-      // Calculate where this point would be in the new zoom level without rounding
-      const newCenterOffsetX = (canvasDimensions.width - newScaledWidth) / 2;
-      const newCenterOffsetY = (canvasDimensions.height - newScaledHeight) / 2;
-      const newPointX = imageX * newScale + newCenterOffsetX;
-      const newPointY = imageY * newScale + newCenterOffsetY;
+      // Convert to normalized coordinates (0-1) by removing pan and scale
+      const normalizedX = (screenX - panOffset.x) / (baseScale * zoomLevel * mapWidthMeters);
+      const normalizedY = (screenY - panOffset.y) / (baseScale * zoomLevel * mapHeightMeters);
       
-      // Calculate the required pan offset to keep the point under the cursor
-      // Only round at the final step
-      const newPanX = Math.round(cursorX - newPointX);
-      const newPanY = Math.round(cursorY - newPointY);
+      // Calculate new screen position with new zoom (same as mapToScreenCoordinates)
+      const newScreenX = (normalizedX * mapWidthMeters * baseScale * newZoom) + centerOffsetX;
+      const newScreenY = (normalizedY * mapHeightMeters * baseScale * newZoom) + centerOffsetY;
+      
+      // Calculate new pan offset to keep the cursor point fixed
+      const newPanX = screenX - newScreenX;
+      const newPanY = screenY - newScreenY;
       
       // Apply the new zoom and pan
       setZoomLevel(newZoom);
@@ -340,26 +492,22 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate dimensions without intermediate rounding
-    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-    const pixelsPerCell = detailLevel.metersPerCell / metersPerPixel;
-    
-    // Calculate the base scale that preserves aspect ratio
-    const mapAspectRatio = img.width / img.height;
-    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
-    
-    // Calculate pixels per meter to maintain aspect ratio
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
     const baseScale = Math.min(
-      canvasDimensions.width / img.width,
-      canvasDimensions.height / img.height
+      canvasDimensions.width / mapWidthMeters,
+      canvasDimensions.height / mapHeightMeters
     );
     const scale = baseScale * zoomLevel;
+
+    // Calculate final dimensions
+    const scaledWidth = mapWidthMeters * scale;
+    const scaledHeight = mapHeightMeters * scale;
     
-    // Calculate final dimensions with minimal rounding
-    const scaledWidth = img.width * scale;
-    const scaledHeight = img.height * scale;
-    
-    // Center the image and apply pan offset
+    // Center the image and apply pan offset with zoom scaling
     // Only round at the final step when actually drawing
     const x = (canvasDimensions.width - scaledWidth) / 2;
     const y = (canvasDimensions.height - scaledHeight) / 2;
@@ -367,7 +515,14 @@ function App() {
     const finalY = Math.round(y + panOffset.y);
     
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, finalX, finalY, scaledWidth, scaledHeight);
+    // Draw image scaled to match map dimensions
+    ctx.drawImage(
+      img,
+      finalX,
+      finalY,
+      scaledWidth,
+      scaledHeight
+    );
   }, [canvasDimensions, zoomLevel, panOffset, transparencyMask]);
 
   const drawGrid = useCallback(() => {
@@ -379,32 +534,31 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate dimensions without intermediate rounding
-    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-    const pixelsPerCell = detailLevel.metersPerCell / metersPerPixel;
-    
-    // Calculate the base scale that preserves aspect ratio
-    const mapAspectRatio = img.width / img.height;
-    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
-    
-    // Calculate pixels per meter to maintain aspect ratio
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
     const baseScale = Math.min(
-      canvasDimensions.width / img.width,
-      canvasDimensions.height / img.height
+      canvasDimensions.width / mapWidthMeters,
+      canvasDimensions.height / mapHeightMeters
     );
     const scale = baseScale * zoomLevel;
-    
-    // Calculate cell dimensions without rounding
-    const scaledCellWidth = pixelsPerCell * scale;
-    const scaledCellHeight = pixelsPerCell * scale;
-    
-    // Calculate final dimensions without intermediate rounding
-    const adjustedScaledImgWidth = scaledCellWidth * transparencyMask[0].length;
-    const adjustedScaledImgHeight = scaledCellHeight * transparencyMask.length;
-    
-    // Calculate offset to center the grid with the image and apply pan offset
-    const baseOffsetX = (canvasDimensions.width - adjustedScaledImgWidth) / 2;
-    const baseOffsetY = (canvasDimensions.height - adjustedScaledImgHeight) / 2;
+
+    // Calculate cell dimensions in meters
+    const metersPerCell = detailLevel.metersPerCell;
+    const cellsPerRow = Math.ceil(mapWidthMeters / metersPerCell);
+    const cellsPerCol = Math.ceil(mapHeightMeters / metersPerCell);
+
+    // Calculate scaled dimensions
+    const scaledCellWidth = metersPerCell * scale;
+    const scaledCellHeight = metersPerCell * scale;
+
+    // Calculate offset to center the grid
+    const scaledWidth = mapWidthMeters * scale;
+    const scaledHeight = mapHeightMeters * scale;
+    const baseOffsetX = (canvasDimensions.width - scaledWidth) / 2;
+    const baseOffsetY = (canvasDimensions.height - scaledHeight) / 2;
     const offsetX = baseOffsetX + panOffset.x;
     const offsetY = baseOffsetY + panOffset.y;
     
@@ -451,22 +605,22 @@ function App() {
     // Get current detail level
     const detailLevel = getCurrentDetailLevel();
     
-    // Calculate the base scale that preserves aspect ratio
-    const mapAspectRatio = img.width / img.height;
-    const canvasAspectRatio = canvasDimensions.width / canvasDimensions.height;
-    
-    // Calculate pixels per meter to maintain aspect ratio
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+    // Calculate base scale that preserves aspect ratio (same as mapToScreenCoordinates)
     const baseScale = Math.min(
-      canvasDimensions.width / img.width,
-      canvasDimensions.height / img.height
+      canvasDimensions.width / mapWidthMeters,
+      canvasDimensions.height / mapHeightMeters
     );
     const scale = baseScale * zoomLevel;
+
+    // Calculate scaled dimensions
+    const scaledWidth = mapWidthMeters * scale;
+    const scaledHeight = mapHeightMeters * scale;
     
-    // Calculate dimensions without intermediate rounding
-    const scaledWidth = img.width * scale;
-    const scaledHeight = img.height * scale;
-    
-    // Calculate offset to center the image and apply pan offset
+    // Calculate offset to center the image and apply pan offset with zoom scaling
     const baseOffsetX = (canvasDimensions.width - scaledWidth) / 2;
     const baseOffsetY = (canvasDimensions.height - scaledHeight) / 2;
     const offsetX = baseOffsetX + panOffset.x;
@@ -493,6 +647,23 @@ function App() {
         });
       };
 
+      // Create a temporary canvas to analyze the image
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
+
+      // Set canvas size to match the background image
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+
+      // Draw the background image
+      tempCtx.drawImage(img, 0, 0);
+
+      // Get image data to analyze transparency
+      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      const data = imageData.data;
+      const alphaThreshold = 200; // Only place content where alpha > 200 (out of 255)
+
       while (positions.length < contentType.quantity && attempts < maxAttempts) {
         attempts++;
         
@@ -502,22 +673,32 @@ function App() {
           return a & a;
         }, 0);
         
-        const x = Math.abs(hash % img.width);
-        const y = Math.abs((hash >> 8) % img.height);
-        
-        // Calculate cell position without intermediate rounding
-        const cellX = Math.floor(x / (detailLevel.metersPerCell / (mapConfig.widthKm * METERS_PER_KM / img.width)));
-        const cellY = Math.floor(y / (detailLevel.metersPerCell / (mapConfig.heightKm * METERS_PER_KM / img.height)));
-        
-        if (transparencyMask[cellY]?.[cellX] && isValidPosition(x, y)) {
+        // Generate position in image coordinates
+        const imgX = Math.abs(hash % img.width);
+        const imgY = Math.abs((hash >> 8) % img.height);
+
+        // Get pixel alpha value
+        const pixelIndex = (imgY * img.width + imgX) * 4;
+        const alpha = data[pixelIndex + 3];
+
+        // Convert to meters for position tracking
+        const x = (imgX / img.width) * (mapConfig.widthKm * METERS_PER_KM);
+        const y = (imgY / img.height) * (mapConfig.heightKm * METERS_PER_KM);
+
+        // Only add position if alpha is above threshold and respects minimum spacing
+        if (alpha > alphaThreshold && isValidPosition(x, y)) {
           positions.push({ x, y });
         }
       }
 
       positions.forEach(pos => {
-        // Scale position to current zoom level without intermediate rounding
-        const scaledX = offsetX + (pos.x * scale);
-        const scaledY = offsetY + (pos.y * scale);
+        // Convert image coordinates to meters (same as mapToScreenCoordinates)
+        const metersX = (pos.x / img.width) * (mapConfig.widthKm * METERS_PER_KM);
+        const metersY = (pos.y / img.height) * (mapConfig.heightKm * METERS_PER_KM);
+
+        // Convert meters to screen coordinates
+        const scaledX = offsetX + (metersX * scale);
+        const scaledY = offsetY + (metersY * scale);
         
         // Scale size based on meters and zoom level
         const sizeInPixels = contentType.size * pixelsPerMeter;
@@ -554,11 +735,74 @@ function App() {
       contextRef.current,
       screenCoord,
       TEST_DOT,
-      zoomLevel
+      zoomLevel,
+      backgroundImageRef.current
     );
   }, [mapConfig.widthKm, mapConfig.heightKm, canvasDimensions, zoomLevel, panOffset]);
 
+  // Draw random dots using stored positions
+  const drawRandomDots = useCallback(() => {
+    if (!contextRef.current || !backgroundImageRef.current || !randomDotPositions.length) return;
+
+    const ctx = contextRef.current;
+    const img = backgroundImageRef.current;
+
+    ctx.save();
+    randomDotPositions.forEach(pos => {
+      // Convert map coordinates to screen coordinates
+      const screenCoord = mapToScreenCoordinates(
+        pos,
+        mapConfig.widthKm,
+        mapConfig.heightKm,
+        canvasDimensions.width,
+        canvasDimensions.height,
+        zoomLevel,
+        panOffset
+      );
+
+      // Draw dot (matching test dot style exactly)
+      ctx.fillStyle = '#0000FF'; // Blue instead of green
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(screenCoord.x, screenCoord.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw debug text if enabled
+      if (showDotDebug) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        
+        const text = `(${pos.x.toFixed(0)}m, ${pos.y.toFixed(0)}m)`;
+        const textY = screenCoord.y - 10;
+        
+        // Draw text background
+        const metrics = ctx.measureText(text);
+        const padding = 4;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+          screenCoord.x - (metrics.width / 2) - padding,
+          textY - 12 - padding,
+          metrics.width + (padding * 2),
+          16 + (padding * 2)
+        );
+        
+        // Draw text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(text, screenCoord.x, textY);
+      }
+    });
+    ctx.restore();
+  }, [canvasDimensions, zoomLevel, panOffset, randomDotPositions, showDotDebug]);
+
   const render = useCallback(() => {
+    if (!contextRef.current || !backgroundImageRef.current) return;
+    
     clearCanvas();
     drawBackground();
     if (mapConfig.showGrid) {
@@ -566,10 +810,11 @@ function App() {
     }
     drawContentTypes();
     drawTestDotOnMap(); // Add test dot
+    drawRandomDots(); // Add random dots
     
     // Request next frame
     animationFrameRef.current = requestAnimationFrame(render);
-  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawTestDotOnMap, mapConfig.showGrid]);
+  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawTestDotOnMap, drawRandomDots, mapConfig.showGrid]);
 
   // Set up canvas context and start render loop when ready
   useEffect(() => {
@@ -599,7 +844,7 @@ function App() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [render, backgroundImageLoaded, transparencyMask]);
+  }, [render, backgroundImageLoaded, transparencyMask, canvasRef]);
 
   // Preload the background image once
   useEffect(() => {
@@ -618,119 +863,6 @@ function App() {
       };
     }
   }, []);
-
-  // Create or retrieve transparency mask when detail level changes
-  useEffect(() => {
-    if (!backgroundImageLoaded || !backgroundImageRef.current) return;
-    
-    const detailLevel = getCurrentDetailLevel();
-    const cacheKey = detailLevel.id;
-    
-    // Check if we have a cached mask for this detail level
-    const cachedMask = maskCache.get(cacheKey);
-    if (cachedMask) {
-      setTransparencyMask(cachedMask);
-      return;
-    }
-    
-    // Calculate cell dimensions based on detail level
-    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / backgroundImageRef.current.width;
-    const cellsPerMeter = 1 / detailLevel.metersPerCell;
-    const pixelsPerCell = Math.floor(detailLevel.metersPerCell / metersPerPixel);
-    
-    // Calculate grid dimensions
-    const cellWidth = Math.floor(pixelsPerCell);
-    const cellHeight = Math.floor(pixelsPerCell);
-    
-    // Calculate number of cells
-    const widthInCells = Math.ceil(backgroundImageRef.current.width / cellWidth);
-    const heightInCells = Math.ceil(backgroundImageRef.current.height / cellHeight);
-    
-    // Adjust cell counts to ensure we cover the entire image
-    const adjustedWidthInCells = Math.ceil(backgroundImageRef.current.width / cellWidth);
-    const adjustedHeightInCells = Math.ceil(backgroundImageRef.current.height / cellHeight);
-    
-    // Create a temporary canvas to analyze the background image
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return;
-    
-    // Set canvas size to match the background image
-    tempCanvas.width = backgroundImageRef.current.width;
-    tempCanvas.height = backgroundImageRef.current.height;
-    
-    // Draw the background image
-    tempCtx.drawImage(backgroundImageRef.current, 0, 0);
-    
-    // Get image data to analyze transparency
-    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-    const data = imageData.data;
-    
-    // Create a new mask array
-    const newMask: boolean[][] = [];
-    
-    // For each cell, check if the corresponding area in the image has non-transparent pixels
-    for (let row = 0; row < adjustedHeightInCells; row++) {
-      const maskRow: boolean[] = [];
-      for (let col = 0; col < adjustedWidthInCells; col++) {
-        // Get the pixel region for this cell (no overlap)
-        const startX = Math.floor(col * cellWidth);
-        const startY = Math.floor(row * cellHeight);
-        const endX = Math.min(tempCanvas.width, Math.floor((col + 1) * cellWidth));
-        const endY = Math.min(tempCanvas.height, Math.floor((row + 1) * cellHeight));
-        
-        // Count non-transparent pixels
-        let nonTransparentCount = 0;
-        const totalPixels = (endX - startX) * (endY - startY);
-        const threshold = Math.floor(totalPixels * 0.15); // 15% threshold
-        
-        // Sample every other pixel for better performance while maintaining accuracy
-        for (let y = startY; y < endY; y += 2) {
-          for (let x = startX; x < endX; x += 2) {
-            const index = (y * tempCanvas.width + x) * 4;
-            // Only count pixels with alpha > 128 (half opacity) to ignore anti-aliasing
-            if (data[index + 3] > 128) {
-              nonTransparentCount += 4; // Account for skipped pixels
-              if (nonTransparentCount >= threshold) {
-                break;
-              }
-            }
-          }
-          if (nonTransparentCount >= threshold) {
-            break;
-          }
-        }
-        
-        const hasContent = nonTransparentCount >= threshold;
-        maskRow.push(hasContent);
-      }
-      newMask.push(maskRow);
-    }
-    
-    // Count cells with content and calculate actual area
-    let cellsWithContent = 0;
-    for (let row = 0; row < newMask.length; row++) {
-      for (let col = 0; col < newMask[row].length; col++) {
-        if (newMask[row][col]) {
-          cellsWithContent++;
-        }
-      }
-    }
-
-    // Calculate actual area based on cells with content
-    const cellAreaKm2 = (detailLevel.metersPerCell * detailLevel.metersPerCell) / (METERS_PER_KM * METERS_PER_KM);
-    const actualAreaKm2 = cellsWithContent * cellAreaKm2;
-
-    // Cache the mask for this detail level
-    maskCache.set(cacheKey, newMask);
-    setTransparencyMask(newMask);
-
-    // Update actual area in map config
-    setMapConfig(prev => ({
-      ...prev,
-      actualAreaKm2: actualAreaKm2
-    }));
-  }, [mapConfig.widthKm, mapConfig.heightKm, backgroundImageLoaded, getCurrentDetailLevel]);
 
   // Update canvas dimensions when window is resized
   useEffect(() => {
@@ -831,6 +963,25 @@ function App() {
               }))}
               title="Grid Opacity"
             />
+          </div>
+          <div className="dot-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value={numDotsInput}
+              onChange={e => setNumDotsInput(e.target.value)}
+              style={{ width: '60px' }}
+            />
+            <button onClick={handleAddDots}>Debug Dot</button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <input
+                type="checkbox"
+                checked={showDotDebug}
+                onChange={e => setShowDotDebug(e.target.checked)}
+              />
+              Show Debug Text
+            </label>
           </div>
           <div className="detail-info">
             Detail Level {getCurrentDetailLevel().displayName} | Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²

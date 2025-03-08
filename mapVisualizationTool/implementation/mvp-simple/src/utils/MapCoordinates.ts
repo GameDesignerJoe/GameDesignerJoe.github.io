@@ -44,13 +44,13 @@ export function mapToScreenCoordinates(
   const offsetX = (canvasWidth - scaledWidth) / 2;
   const offsetY = (canvasHeight - scaledHeight) / 2;
 
-  // Calculate screen coordinates without rounding
-  const screenX = (normalizedX * scaledWidth) + offsetX + panOffset.x;
-  const screenY = (normalizedY * scaledHeight) + offsetY + panOffset.y;
+  // Calculate base screen coordinates without rounding
+  const screenX = (normalizedX * scaledWidth) + offsetX;
+  const screenY = (normalizedY * scaledHeight) + offsetY;
 
-  // Only round at the final step
-  const finalX = Math.round(screenX);
-  const finalY = Math.round(screenY);
+  // Apply pan offset
+  const finalX = Math.round(screenX + panOffset.x);
+  const finalY = Math.round(screenY + panOffset.y);
 
   // Log coordinate transformation details with both raw and final values
   console.log('Coordinate transformation:', JSON.stringify({
@@ -93,8 +93,8 @@ export function mapToScreenCoordinates(
 
 // Test dot position (in meters from top-left)
 export const TEST_DOT: MapCoordinate = {
-  x: 2000, // 2km from left edge
-  y: 1500  // 1.5km from top edge
+  x: 1500, // 1.5km from left edge
+  y: 1000  // 1km from top edge - adjusted to be on visible part of map
 };
 
 // Function to draw the test dot with debug information
@@ -102,19 +102,43 @@ export function drawTestDot(
   ctx: CanvasRenderingContext2D,
   screenCoord: { x: number; y: number },
   realCoord: MapCoordinate,
-  zoomLevel: number
+  zoomLevel: number,
+  backgroundImage: HTMLImageElement | null = null
 ): void {
   // Save current context state
   ctx.save();
 
-  // Draw dot
-  ctx.fillStyle = '#00FF00'; // Bright green
-  ctx.strokeStyle = '#000000'; // Black border
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(screenCoord.x, screenCoord.y, 5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  // Check if the dot should be drawn
+  let shouldDraw = true;
+  if (backgroundImage) {
+    // Create a temporary canvas to check pixel alpha
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (tempCtx) {
+      tempCanvas.width = backgroundImage.width;
+      tempCanvas.height = backgroundImage.height;
+      tempCtx.drawImage(backgroundImage, 0, 0);
+
+      // Convert real coordinates to image coordinates
+      const imgX = Math.floor((realCoord.x / (6 * 1000)) * backgroundImage.width);
+      const imgY = Math.floor((realCoord.y / (4 * 1000)) * backgroundImage.height);
+
+      // Get pixel alpha value
+      const imageData = tempCtx.getImageData(imgX, imgY, 1, 1);
+      shouldDraw = imageData.data[3] > 200; // Only draw if alpha > 200
+    }
+  }
+
+  if (shouldDraw) {
+    // Draw dot
+    ctx.fillStyle = '#00FF00'; // Bright green
+    ctx.strokeStyle = '#000000'; // Black border
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(screenCoord.x, screenCoord.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
 
   // Draw coordinate text
   ctx.fillStyle = '#FFFFFF';
