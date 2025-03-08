@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   assetsInclude: ['**/*.png'],
   server: {
-    port: 3007,
+    port: 3000,
     strictPort: true,
     host: true
   },

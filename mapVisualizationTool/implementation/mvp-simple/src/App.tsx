@@ -1008,40 +1008,49 @@ function App() {
               title="Grid Opacity"
             />
           </div>
-          <div className="dot-controls" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span>Count:</span>
-              <input
-                type="number"
-                min="1"
-                max="1000"
-                value={numDotsInput}
-                onChange={e => setNumDotsInput(e.target.value)}
-                onKeyPress={handleInputKeyPress}
-                style={{ width: '60px' }}
-              />
+          <details className="dot-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Dots</summary>
+            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Count:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={numDotsInput}
+                  onChange={e => setNumDotsInput(e.target.value)}
+                  onKeyPress={handleInputKeyPress}
+                  style={{ width: '60px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Size (m):</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={dotSizeMeters}
+                  onChange={e => setDotSizeMeters(e.target.value)}
+                  onKeyPress={handleInputKeyPress}
+                  style={{ width: '60px' }}
+                />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <input
+                  type="checkbox"
+                  checked={showDotDebug}
+                  onChange={e => setShowDotDebug(e.target.checked)}
+                />
+                Show Debug Text
+              </label>
+              <button 
+                onClick={handleAddDots}
+                style={{ marginTop: '5px' }}
+              >
+                Add Dots
+              </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span>Size (m):</span>
-              <input
-                type="number"
-                min="1"
-                max="1000"
-                value={dotSizeMeters}
-                onChange={e => setDotSizeMeters(e.target.value)}
-                style={{ width: '60px' }}
-              />
-            </div>
-            <button onClick={handleAddDots}>Add Dots</button>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <input
-                type="checkbox"
-                checked={showDotDebug}
-                onChange={e => setShowDotDebug(e.target.checked)}
-              />
-              Show Debug Text
-            </label>
-          </div>
+          </details>
           <div className="detail-info">
             Detail Level {getCurrentDetailLevel().displayName} | Map Area: {mapConfig.actualAreaKm2.toFixed(1)}km² of {mapConfig.targetAreaKm2}km²
           </div>
