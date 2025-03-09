@@ -21,7 +21,8 @@ const DEBUG_SHAPE_TYPE: ContentTypeBase = {
   size: 10,
   quantity: 100,
   minSpacing: 0,
-  canOverlap: true
+  canOverlap: true,
+  opacity: 1.0
 };
 
 // Available shape options
@@ -126,6 +127,7 @@ function App() {
   // State for debug shapes
   const [numShapesInput, setNumShapesInput] = useState("100");
   const [shapeSizeMeters, setShapeSizeMeters] = useState("10"); // Default 10 meters
+  const [shapeOpacity, setShapeOpacity] = useState(1.0);
   const [showShapeDebug, setShowShapeDebug] = useState(false);
   const [shapeType, setShapeType] = useState<ContentShape>('circle');
 
@@ -207,7 +209,8 @@ function App() {
           properties: {
             showDebug: showShapeDebug,
             sizeMeters: parseFloat(shapeSizeMeters),
-            shape: shapeType
+            shape: shapeType,
+            opacity: shapeOpacity
           }
         };
 
@@ -706,11 +709,12 @@ function App() {
       const shapeType: ContentTypeBase = {
         ...DEBUG_SHAPE_TYPE,
         size: shape.properties?.sizeMeters ?? parseFloat(shapeSizeMeters),
-        shape: shape.properties?.shape ?? 'circle'
+        shape: shape.properties?.shape ?? 'circle',
+        opacity: shape.properties?.opacity ?? shapeOpacity
       };
       contentRendererRef.current?.renderInstance(shape, shapeType);
     });
-  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, mapConfig]);
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, shapeOpacity, mapConfig]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -952,6 +956,34 @@ function App() {
                   }}
                   style={{ width: '60px' }}
                 />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Opacity:</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={shapeOpacity}
+                  onChange={e => {
+                    const newOpacity = parseFloat(e.target.value);
+                    setShapeOpacity(newOpacity);
+                    // Update existing shapes' opacity property without regenerating them
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                      const updatedInstance = {
+                        ...shape,
+                        properties: {
+                          ...shape.properties,
+                          opacity: newOpacity
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                    });
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ minWidth: '30px', textAlign: 'right' }}>{(shapeOpacity * 100).toFixed(0)}%</span>
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <input

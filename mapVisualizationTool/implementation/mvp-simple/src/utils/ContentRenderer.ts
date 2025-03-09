@@ -87,7 +87,7 @@ export class ContentRenderer {
       fillColor: contentType.color,
       strokeColor: contentType.color,
       lineWidth: 2,
-      opacity: 0.8
+      opacity: instance.properties?.opacity ?? contentType.opacity ?? 0.8
     });
 
     // Apply instance-specific properties

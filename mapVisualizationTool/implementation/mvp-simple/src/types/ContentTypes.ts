@@ -10,6 +10,7 @@ export interface ContentTypeBase {
   quantity: number;
   minSpacing: number; // minimum distance between same type in meters
   canOverlap: boolean;
+  opacity?: number; // opacity value between 0 and 1
 }
 
 // Enemy-specific interface
