@@ -180,14 +180,19 @@ function App() {
       maxAttempts: numDots * 10
     };
 
+    // Parse size and min distance values
+    const size = parseFloat(shapeSizeMeters);
+    const spacing = parseFloat(minDistance);
+
     // Create content type configuration
     const debugShapeType: ContentTypeBase = {
       ...DEBUG_SHAPE_TYPE,
       mapWidthKm: mapConfig.widthKm,
       mapHeightKm: mapConfig.heightKm,
+      size: size, // Set the size on the content type itself
       defaultProperties: {
         showDebug: showShapeDebug,
-        sizeMeters: parseFloat(shapeSizeMeters),
+        sizeMeters: size,
         shape: shapeType,
         opacity: shapeOpacity,
         color: shapeColor,
@@ -904,7 +909,11 @@ function App() {
                     setNumShapesInput(newValue);
                     const numDots = parseInt(newValue);
                     if (!isNaN(numDots) && numDots > 0) {
-                      handleAddShapes(numDots);
+                      // Parse size value before adding shapes
+                      const size = parseFloat(shapeSizeMeters);
+                      if (!isNaN(size)) {
+                        handleAddShapes(numDots);
+                      }
                     }
                   }}
                   style={{ width: '60px' }}
@@ -1136,7 +1145,11 @@ function App() {
                   onChange={e => {
                     const newValue = e.target.value;
                     setMinDistance(newValue);
-                    handleAddShapes(); // Regenerate shapes with new min distance
+                    // Only regenerate shapes if there are already shapes on the map
+                    const existingShapes = contentInstanceManager.getInstances('debug-shape');
+                    if (existingShapes.length > 0) {
+                      handleAddShapes(); // Regenerate shapes with new min distance
+                    }
                   }}
                   style={{ width: '60px' }}
                 />
@@ -1232,7 +1245,12 @@ function App() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
                 <button 
-                  onClick={() => handleAddShapes()}
+                  onClick={() => {
+                    const size = parseFloat(shapeSizeMeters);
+                    if (!isNaN(size)) {
+                      handleAddShapes();
+                    }
+                  }}
                   style={{ flex: 1 }}
                 >
                   Add Shapes
