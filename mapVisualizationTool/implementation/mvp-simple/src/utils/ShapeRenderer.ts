@@ -20,6 +20,14 @@ export interface ShapeRenderer {
     style: RenderStyle,
     debugText?: string
   ): void;
+
+  renderLabel?(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void;
 }
 
 /**
@@ -70,6 +78,56 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
     ctx.restore();
   }
 
+  protected renderText(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    text: string,
+    position: 'above' | 'below',
+    style: {
+      fontSize: number;
+      textColor: string;
+    }
+  ): void {
+    ctx.save();
+    
+    ctx.font = `${style.fontSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = position === 'above' ? 'bottom' : 'top';
+    
+    // Measure text for background
+    const metrics = ctx.measureText(text);
+    const padding = 4;
+    const textWidth = metrics.width;
+    const textHeight = style.fontSize;
+    const bgX = x - (textWidth / 2) - padding;
+      const bgY = position === 'above' 
+        ? y - size/2 - textHeight - padding * 2 - 10 // Move up by 10px
+        : y + size/2 + padding * 2 + 5; // Add more padding below
+    
+    // Draw background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(
+      bgX,
+      bgY,
+      textWidth + padding * 2,
+      textHeight + padding * 2
+    );
+    
+    // Draw text
+    ctx.fillStyle = style.textColor;
+    ctx.fillText(
+      text, 
+      x, 
+      position === 'above' 
+        ? y - size/2 - padding - 10 // Move up by 10px
+        : y + size/2 + textHeight + padding + 5 // Add more padding below
+    );
+
+    ctx.restore();
+  }
+
   renderDebug(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -80,38 +138,27 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
   ): void {
     if (!style.showDebug) return;
 
-    ctx.save();
-    
-    // Draw debug text with background
     if (debugText) {
-      const fontSize = style.debugFontSize || 12;
-      ctx.font = `${fontSize}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      
-      // Measure text for background
-      const metrics = ctx.measureText(debugText);
-      const padding = 4;
-      const textWidth = metrics.width;
-      const textHeight = fontSize;
-      const bgX = x - (textWidth / 2) - padding;
-      const bgY = y - size/2 - textHeight - padding * 2;
-      
-      // Draw background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(
-        bgX,
-        bgY,
-        textWidth + padding * 2,
-        textHeight + padding * 2
-      );
-      
-      // Draw text
-      ctx.fillStyle = style.debugTextColor || '#ffffff';
-      ctx.fillText(debugText, x, y - size/2 - padding);
+      this.renderText(ctx, x, y, size, debugText, 'below', {
+        fontSize: style.debugFontSize || 12,
+        textColor: style.debugTextColor || '#ffffff'
+      });
     }
+  }
 
-    ctx.restore();
+  renderLabel(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    if (!style.showLabel || !style.label) return;
+
+    this.renderText(ctx, x, y, size, style.label, 'above', {
+      fontSize: style.labelFontSize || 12,
+      textColor: style.labelColor || '#ffffff'
+    });
   }
 }
 

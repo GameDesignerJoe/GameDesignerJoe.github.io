@@ -133,6 +133,8 @@ function App() {
   const [shapeBorderSize, setShapeBorderSize] = useState(0);
   const [shapeBorderColor, setShapeBorderColor] = useState('#000000');
   const [shapeType, setShapeType] = useState<ContentShape>('circle');
+  const [shapeLabel, setShapeLabel] = useState('');
+  const [showShapeLabel, setShowShapeLabel] = useState(false);
 
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
@@ -216,7 +218,9 @@ function App() {
             opacity: shapeOpacity,
             color: shapeColor,
             borderSize: shapeBorderSize,
-            borderColor: shapeBorderColor
+            borderColor: shapeBorderColor,
+            label: shapeLabel,
+            showLabel: showShapeLabel
           }
         };
 
@@ -225,7 +229,7 @@ function App() {
         }
       }
     }
-  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, shapeColor, shapeOpacity, contentInstanceManager, handleDeleteShapes]);
+  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, shapeColor, shapeOpacity, shapeLabel, showShapeLabel, shapeBorderSize, shapeBorderColor, contentInstanceManager, handleDeleteShapes]);
 
   // Handle enter key in input field
   const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -719,11 +723,13 @@ function App() {
         opacity: shape.properties?.opacity ?? shapeOpacity,
         color: shape.properties?.color ?? shapeColor,
         borderSize: shape.properties?.borderSize ?? shapeBorderSize,
-        borderColor: shape.properties?.borderColor ?? shapeBorderColor
+        borderColor: shape.properties?.borderColor ?? shapeBorderColor,
+        label: shape.properties?.label ?? shapeLabel,
+        showLabel: shape.properties?.showLabel ?? showShapeLabel
       };
       contentRendererRef.current?.renderInstance(shape, shapeType);
     });
-  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, shapeOpacity, shapeColor, mapConfig]);
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, shapeOpacity, shapeColor, shapeLabel, showShapeLabel, shapeBorderSize, shapeBorderColor, mapConfig]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -1075,29 +1081,84 @@ function App() {
                   }}
                 />
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Label:</span>
                 <input
-                  type="checkbox"
-                  checked={showShapeDebug}
+                  type="text"
+                  value={shapeLabel}
                   onChange={e => {
-                    const newShowDebug = e.target.checked;
-                    setShowShapeDebug(newShowDebug);
-                    // Update existing dots' debug property without regenerating them
+                    const newLabel = e.target.value;
+                    setShapeLabel(newLabel);
+                    // Update existing shapes' label without regenerating them
                     contentInstanceManager.getInstances('debug-shape').forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
                           ...shape.properties,
-                          showDebug: newShowDebug
+                          label: newLabel
                         }
                       };
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
                   }}
+                  style={{ 
+                    flex: 1,
+                    backgroundColor: 'rgb(59, 59, 59)',
+                    border: '1px solid rgb(118, 118, 118)',
+                    color: '#ffffff',
+                    padding: '1px 4px'
+                  }}
                 />
-                Show Debug Text
-              </label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <input
+                    type="checkbox"
+                    checked={showShapeLabel}
+                    onChange={e => {
+                      const newShowLabel = e.target.checked;
+                      setShowShapeLabel(newShowLabel);
+                      // Update existing shapes' showLabel property without regenerating them
+                      contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                        const updatedInstance = {
+                          ...shape,
+                          properties: {
+                            ...shape.properties,
+                            showLabel: newShowLabel
+                          }
+                        };
+                        contentInstanceManager.removeInstance('debug-shape', shape.id);
+                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                      });
+                    }}
+                  />
+                  Show Label
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <input
+                    type="checkbox"
+                    checked={showShapeDebug}
+                    onChange={e => {
+                      const newShowDebug = e.target.checked;
+                      setShowShapeDebug(newShowDebug);
+                      // Update existing dots' debug property without regenerating them
+                      contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                        const updatedInstance = {
+                          ...shape,
+                          properties: {
+                            ...shape.properties,
+                            showDebug: newShowDebug
+                          }
+                        };
+                        contentInstanceManager.removeInstance('debug-shape', shape.id);
+                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                      });
+                    }}
+                  />
+                  Show Debug Text
+                </label>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
                 <button 
                   onClick={handleAddShapes}

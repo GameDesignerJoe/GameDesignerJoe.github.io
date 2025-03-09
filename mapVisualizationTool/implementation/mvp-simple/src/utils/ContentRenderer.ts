@@ -106,6 +106,13 @@ export class ContentRenderer {
           debugTextColor: '#ffffff'
         };
       }
+      if (instance.properties.showLabel) {
+        style = {
+          ...style,
+          showLabel: true,
+          label: instance.properties.label
+        };
+      }
     }
 
     return style;
@@ -133,6 +140,15 @@ export class ContentRenderer {
 
     // Render the shape
     renderer.render(
+      this.ctx,
+      screenPos.x,
+      screenPos.y,
+      screenSize,
+      style
+    );
+
+    // Render label if enabled
+    renderer.renderLabel?.(
       this.ctx,
       screenPos.x,
       screenPos.y,

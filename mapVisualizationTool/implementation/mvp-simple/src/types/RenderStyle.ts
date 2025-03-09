@@ -18,6 +18,12 @@ export interface RenderStyle {
   debugTextColor?: string;
   debugFontSize?: number;
   
+  // Label options
+  showLabel?: boolean;
+  label?: string;
+  labelColor?: string;
+  labelFontSize?: number;
+  
   // Optional shadow effects
   shadow?: {
     color: string;
@@ -47,7 +53,9 @@ export const DEFAULT_RENDER_STYLE: RenderStyle = {
   showDebug: false,
   debugColor: '#ffffff',
   debugTextColor: '#ffffff',
-  debugFontSize: 12
+  debugFontSize: 12,
+  labelColor: '#ffffff',
+  labelFontSize: 12
 };
 
 /**

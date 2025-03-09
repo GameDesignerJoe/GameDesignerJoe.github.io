@@ -13,6 +13,8 @@ export interface ContentTypeBase {
   opacity?: number; // opacity value between 0 and 1
   borderSize?: number; // border width in pixels
   borderColor?: string; // border color
+  label?: string; // text label for the shape
+  showLabel?: boolean; // whether to display the label
 }
 
 // Enemy-specific interface
