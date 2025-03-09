@@ -138,6 +138,9 @@ function App() {
   const [shapeType, setShapeType] = useState<ContentShape>('circle');
   const [shapeLabel, setShapeLabel] = useState('');
   const [showShapeLabel, setShowShapeLabel] = useState(false);
+  const [minDistance, setMinDistance] = useState("0");
+  const [showMinDistanceRing, setShowMinDistanceRing] = useState(false);
+  const [distributionMessage, setDistributionMessage] = useState<string | null>(null);
 
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
@@ -173,7 +176,7 @@ function App() {
     const constraints: DistributionConstraints = {
       mapImage: backgroundImageRef.current,
       alphaThreshold: 200,
-      minSpacing: 0, // No minimum spacing for debug shapes
+      minSpacing: parseFloat(minDistance), // Use minimum distance value
       maxAttempts: numDots * 10
     };
 
@@ -191,16 +194,27 @@ function App() {
         borderSize: shapeBorderSize,
         borderColor: shapeBorderColor,
         label: shapeLabel,
-        showLabel: showShapeLabel
+        showLabel: showShapeLabel,
+        showMinDistanceRing: showMinDistanceRing,
+        minDistanceMeters: parseFloat(minDistance),
+        minDistanceRingColor: '#ffffff',
+        minDistanceRingStyle: 'dashed'
       }
     };
 
     // Get distributor and generate instances
     const distributor = DistributorFactory.getDefaultDistributor();
-    const instances = distributor.distribute(debugShapeType, numDots, constraints);
+    const result = distributor.distribute(debugShapeType, numDots, constraints);
+
+    // Update distribution message
+    if (result.message) {
+      setDistributionMessage(`${result.actualCount} of ${result.requestedCount} shapes placed. ${result.message}`);
+    } else {
+      setDistributionMessage(null);
+    }
 
     // Add instances to manager
-    instances.forEach(instance => {
+    result.instances.forEach((instance: ContentInstance) => {
       if (contentInstanceManager.validateInstance(instance)) {
         contentInstanceManager.addInstance('debug-shape', instance);
         setInstanceCount(prev => prev + 1);
@@ -702,7 +716,11 @@ function App() {
         borderSize: shape.properties?.borderSize ?? shapeBorderSize,
         borderColor: shape.properties?.borderColor ?? shapeBorderColor,
         label: shape.properties?.label ?? shapeLabel,
-        showLabel: shape.properties?.showLabel ?? showShapeLabel
+        showLabel: shape.properties?.showLabel ?? showShapeLabel,
+        showMinDistanceRing: shape.properties?.showMinDistanceRing ?? showMinDistanceRing,
+        minDistanceMeters: shape.properties?.minDistanceMeters ?? parseFloat(minDistance),
+        minDistanceRingColor: shape.properties?.minDistanceRingColor ?? '#ffffff',
+        minDistanceRingStyle: shape.properties?.minDistanceRingStyle ?? 'dashed'
       };
       contentRendererRef.current?.renderInstance(shape, shapeType);
     });
@@ -993,7 +1011,8 @@ function App() {
                   type="color"
                   value={shapeColor}
                   onChange={e => {
-                    const newColor = e.target.value;
+                    const input = e.target as HTMLInputElement;
+                    const newColor = input.value;
                     setShapeColor(newColor);
                     // Update existing shapes' color property without regenerating them
                     const shapes = contentInstanceManager.getInstances('debug-shape');
@@ -1049,7 +1068,8 @@ function App() {
                   type="color"
                   value={shapeBorderColor}
                   onChange={e => {
-                    const newColor = e.target.value;
+                    const input = e.target as HTMLInputElement;
+                    const newColor = input.value;
                     setShapeBorderColor(newColor);
                     // Update existing shapes' border color without regenerating them
                     const shapes = contentInstanceManager.getInstances('debug-shape');
@@ -1106,7 +1126,59 @@ function App() {
                   }}
                 />
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Min Distance (m):</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  value={minDistance}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    setMinDistance(newValue);
+                    handleAddShapes(); // Regenerate shapes with new min distance
+                  }}
+                  style={{ width: '60px' }}
+                />
+                {distributionMessage && (
+                  <span style={{ 
+                    marginLeft: '10px',
+                    fontSize: '12px',
+                    color: '#ff9999'
+                  }}>
+                    {distributionMessage}
+                  </span>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: '10px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <input
+                    type="checkbox"
+                    checked={showMinDistanceRing}
+                    onChange={e => {
+                      const newShowRing = e.target.checked;
+                      setShowMinDistanceRing(newShowRing);
+                      // Update existing shapes' min distance ring property
+                      const shapes = contentInstanceManager.getInstances('debug-shape');
+                      shapes.forEach(shape => {
+                        const updatedInstance = {
+                          ...shape,
+                          properties: {
+                            ...shape.properties,
+                            showMinDistanceRing: newShowRing,
+                            minDistanceMeters: parseFloat(minDistance),
+                            minDistanceRingColor: '#ffffff',
+                            minDistanceRingStyle: 'dashed'
+                          }
+                        };
+                        contentInstanceManager.removeInstance('debug-shape', shape.id);
+                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                      });
+                      setInstanceCount(shapes.length);
+                    }}
+                  />
+                  Show Min Distance Ring
+                </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <input
                     type="checkbox"

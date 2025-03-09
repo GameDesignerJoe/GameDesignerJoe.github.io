@@ -1,12 +1,14 @@
 import { ContentDistributor } from '../types/Distribution';
 import { RandomDistributor } from './RandomDistributor';
+import { ClusteredDistributor } from './ClusteredDistributor';
 
 /**
  * Factory class for managing content distribution strategies
  */
 export class DistributorFactory {
   private static distributors = new Map<string, ContentDistributor>([
-    ['random', new RandomDistributor()]
+    ['random', new RandomDistributor()],
+    ['clustered', new ClusteredDistributor()]
   ]);
 
   /**

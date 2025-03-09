@@ -9,7 +9,7 @@ export interface ContentDistributor {
     contentType: ContentTypeBase,
     count: number,
     constraints: DistributionConstraints
-  ): ContentInstance[];
+  ): DistributionResult;
 }
 
 /**
@@ -38,6 +38,60 @@ export interface DistributionResult {
   success: boolean;
   message?: string;
   attempts: number;
+  requestedCount: number;
+  actualCount: number;
+  estimatedCapacity?: number;
+  placementEfficiency?: number; // Percentage of successful placements
+  clusterCenters?: { x: number; y: number }[]; // Centers used in clustered distribution
+}
+
+/**
+ * Helper function to estimate maximum capacity based on map constraints
+ */
+export function estimateMaxCapacity(
+  mapImage: HTMLImageElement,
+  minSpacingMeters: number,
+  shapeSizeMeters: number,
+  mapWidthKm: number,
+  mapHeightKm: number
+): number {
+  // Calculate total map area in square meters
+  const totalMapAreaM2 = mapWidthKm * mapHeightKm * 1000000;
+  
+  // Calculate valid area ratio using a temporary canvas
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return 0;
+  
+  canvas.width = mapImage.width;
+  canvas.height = mapImage.height;
+  ctx.drawImage(mapImage, 0, 0);
+  
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  let validPixels = 0;
+  let totalPixels = 0;
+  
+  // Sample every 4th pixel for performance
+  for (let i = 3; i < data.length; i += 16) {
+    totalPixels++;
+    if (data[i] > 128) validPixels++;
+  }
+  
+  const validAreaRatio = validPixels / totalPixels;
+  const validAreaM2 = totalMapAreaM2 * validAreaRatio;
+  
+  // Calculate area needed per shape (including spacing)
+  const shapeRadius = shapeSizeMeters / 2;
+  const totalRadius = shapeRadius + minSpacingMeters;
+  const areaPerShape = Math.PI * totalRadius * totalRadius;
+  
+  // Apply packing efficiency factor (hexagonal packing is ~90% efficient)
+  // We use a lower efficiency for squares to account for their corners
+  const packingEfficiency = 0.75; // Reduced from 0.85 to account for square packing
+  
+  return Math.floor(validAreaM2 * packingEfficiency / areaPerShape);
 }
 
 /**

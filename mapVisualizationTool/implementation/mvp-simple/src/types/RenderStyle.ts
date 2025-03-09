@@ -23,6 +23,12 @@ export interface RenderStyle {
   label?: string;
   labelColor?: string;
   labelFontSize?: number;
+
+  // Minimum distance visualization
+  showMinDistanceRing?: boolean;
+  minDistanceMeters?: number;
+  minDistanceRingColor?: string;
+  minDistanceRingStyle?: string; // For dashed lines
   
   // Optional shadow effects
   shadow?: {

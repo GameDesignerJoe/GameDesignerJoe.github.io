@@ -25,6 +25,12 @@ export interface ContentTypeBase {
 
   // Instance properties
   defaultProperties?: Record<string, any>; // default properties for new instances
+
+  // Minimum distance visualization
+  showMinDistanceRing?: boolean;
+  minDistanceMeters?: number;
+  minDistanceRingColor?: string;
+  minDistanceRingStyle?: string;
 }
 
 // Enemy-specific interface

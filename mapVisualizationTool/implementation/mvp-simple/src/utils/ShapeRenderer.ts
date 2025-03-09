@@ -78,6 +78,37 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
     ctx.restore();
   }
 
+  protected renderMinDistanceRing(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    if (!style.showMinDistanceRing || !style.minDistanceMeters) return;
+
+    ctx.save();
+    
+    // Set up the style for the minimum distance ring
+    ctx.strokeStyle = style.minDistanceRingColor || '#ffffff';
+    ctx.lineWidth = 1;
+    if (style.minDistanceRingStyle) {
+      ctx.setLineDash([5, 5]); // Create dashed line
+    }
+    ctx.globalAlpha = 0.5;
+
+    // Calculate the total radius (shape size + min distance)
+    const shapeRadius = size / 2;
+    const totalRadius = shapeRadius + style.minDistanceMeters;
+
+    // Draw the ring
+    ctx.beginPath();
+    ctx.arc(x, y, totalRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   protected renderText(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -183,6 +214,9 @@ export class CircleRenderer extends BaseShapeRenderer {
     }
 
     this.restoreContext(ctx);
+    
+    // Render minimum distance ring if enabled
+    this.renderMinDistanceRing(ctx, x, y, size, style);
   }
 }
 
@@ -206,6 +240,38 @@ export class SquareRenderer extends BaseShapeRenderer {
     }
 
     this.restoreContext(ctx);
+    
+    // Render minimum distance ring if enabled
+    this.renderMinDistanceRing(ctx, x, y, size, style);
+  }
+
+  protected renderMinDistanceRing(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    if (!style.showMinDistanceRing || !style.minDistanceMeters) return;
+
+    ctx.save();
+    
+    // Set up the style for the minimum distance ring
+    ctx.strokeStyle = style.minDistanceRingColor || '#ffffff';
+    ctx.lineWidth = 1;
+    if (style.minDistanceRingStyle) {
+      ctx.setLineDash([5, 5]); // Create dashed line
+    }
+    ctx.globalAlpha = 0.5;
+
+    // Calculate the total size (shape size + min distance * 2)
+    const totalSize = size + (style.minDistanceMeters * 2);
+    const halfTotalSize = totalSize / 2;
+
+    // Draw the square ring
+    ctx.strokeRect(x - halfTotalSize, y - halfTotalSize, totalSize, totalSize);
+
+    ctx.restore();
   }
 }
 
@@ -241,6 +307,50 @@ export class HexagonRenderer extends BaseShapeRenderer {
     }
 
     this.restoreContext(ctx);
+    
+    // Render minimum distance ring if enabled
+    this.renderMinDistanceRing(ctx, x, y, size, style);
+  }
+
+  protected renderMinDistanceRing(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    if (!style.showMinDistanceRing || !style.minDistanceMeters) return;
+
+    ctx.save();
+    
+    // Set up the style for the minimum distance ring
+    ctx.strokeStyle = style.minDistanceRingColor || '#ffffff';
+    ctx.lineWidth = 1;
+    if (style.minDistanceRingStyle) {
+      ctx.setLineDash([5, 5]); // Create dashed line
+    }
+    ctx.globalAlpha = 0.5;
+
+    // Calculate the total radius (shape size + min distance)
+    const radius = size / 2;
+    const totalRadius = radius + style.minDistanceMeters;
+
+    // Draw the hexagonal ring
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const pointX = x + totalRadius * Math.cos(angle);
+      const pointY = y + totalRadius * Math.sin(angle);
+      if (i === 0) {
+        ctx.moveTo(pointX, pointY);
+      } else {
+        ctx.lineTo(pointX, pointY);
+      }
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
   }
 }
 
