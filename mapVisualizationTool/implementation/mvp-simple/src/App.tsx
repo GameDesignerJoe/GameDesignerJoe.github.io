@@ -189,6 +189,10 @@ function App() {
       // Update quantity
       setNumShapesInput(defaults.defaultQuantity?.toString() ?? "100");
 
+      // Update label
+      setShapeLabel(defaults.label ?? '');
+      setShowShapeLabel(defaults.showLabel ?? false);
+
       // Handle min distance
       const savedMinDistance = contentTypeMinDistances.get(selectedContentType);
       if (savedMinDistance !== undefined) {
@@ -273,8 +277,8 @@ function App() {
         color: shapeColor,
         borderSize: shapeBorderSize,
         borderColor: shapeBorderColor,
-        label: shapeLabel,
-        showLabel: showShapeLabel,
+        label: typeDefaults.label ?? '',
+        showLabel: typeDefaults.showLabel ?? false,
         showMinDistanceRing: showMinDistanceRing, // Use the checkbox state
         minDistanceMeters: parseFloat(minDistance),
         minDistanceRingColor: '#00ff00', // Bright green for better visibility
@@ -1284,7 +1288,7 @@ function App() {
                       setInstanceCount(shapes.length);
                     }}
                   />
-                  Show Min Distance Ring
+                  Show Min Distance
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <input

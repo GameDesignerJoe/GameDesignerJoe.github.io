@@ -54,6 +54,7 @@ export type ContentCategory =
 export type ContentTypeId = 
   | 'Debug'
   | 'Enemies'
+  | 'Bosses'
   | 'PointOfInterest'
   | 'MissionLocation'
   | 'Start'
@@ -77,8 +78,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 100,
-    label: 'Debug',
-    showLabel: true
+    label: 'Debug Point',
+    showLabel: false
   },
   Enemies: {
     color: '#FF0000',
@@ -88,9 +89,21 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     category: 'Combat',
     borderSize: 1,
     borderColor: '#000000',
-    defaultQuantity: 100,
-    label: 'Enemies',
-    showLabel: true
+    defaultQuantity: 500,
+    label: 'Enemy',
+    showLabel: false
+  },
+  Bosses: {
+    color: '#FF0000',
+    shape: 'diamond',
+    size: 30,
+    opacity: 0.8,
+    category: 'Combat',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 12,
+    label: 'Boss',
+    showLabel: false
   },
   PointOfInterest: {
     color: '#00BFFF',
@@ -101,9 +114,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 100,
-    defaultMinDistance: 200,
-    label: 'Point of Interest',
-    showLabel: true
+    label: 'PoI',
+    showLabel: false
   },
   MissionLocation: {
     color: '#FFD700',
@@ -114,9 +126,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 20,
-    defaultMinDistance: 400,
     label: 'Mission Location',
-    showLabel: true
+    showLabel: false
   },
   Start: {
     color: '#32CD32',
@@ -127,8 +138,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 1,
-    label: 'Start',
-    showLabel: true
+    label: 'Starting Location',
+    showLabel: false
   },
   FastTravel: {
     color: '#9370DB',
@@ -139,9 +150,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 25,
-    defaultMinDistance: 400,
-    label: 'Fast Travel',
-    showLabel: true
+    label: 'Fast Travel Location',
+    showLabel: false
   },
   Restoration: {
     color: '#00FFFF',
@@ -152,9 +162,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 50,
-    defaultMinDistance: 20,
-    label: 'Restoration',
-    showLabel: true
+    label: 'Restoration Location',
+    showLabel: false
   }
 };
 
