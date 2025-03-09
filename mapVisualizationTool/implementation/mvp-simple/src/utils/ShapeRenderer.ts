@@ -387,13 +387,82 @@ export class HexagonRenderer extends BaseShapeRenderer {
 }
 
 /**
+ * Diamond shape renderer implementation
+ */
+export class DiamondRenderer extends BaseShapeRenderer {
+  render(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    this.applyStyle(ctx, style, size);
+
+    const radius = size/2;
+    ctx.beginPath();
+    // Draw diamond points (top, right, bottom, left)
+    ctx.moveTo(x, y - radius);  // Top point
+    ctx.lineTo(x + radius, y);  // Right point
+    ctx.lineTo(x, y + radius);  // Bottom point
+    ctx.lineTo(x - radius, y);  // Left point
+    ctx.closePath();
+    ctx.fill();
+    if (style.lineWidth > 0) {
+      ctx.stroke();
+    }
+
+    this.restoreContext(ctx);
+    
+    // Render minimum distance ring if enabled
+    this.renderMinDistanceRing(ctx, x, y, size, style);
+  }
+
+  protected renderMinDistanceRing(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    if (!style.showMinDistanceRing || !style.screenMinDistance) return;
+
+    ctx.save();
+    
+    // Set up the style for the minimum distance ring
+    ctx.strokeStyle = style.minDistanceRingColor || '#00ff00';
+    ctx.lineWidth = 2;
+    if (style.minDistanceRingStyle) {
+      ctx.setLineDash([10, 10]);
+    }
+    ctx.globalAlpha = 0.8;
+
+    const shapeRadius = size / 2;
+    const ringRadius = style.screenMinDistance ?? 0;
+    const totalRadius = shapeRadius + ringRadius;
+
+    // Draw the diamond ring at the minimum distance from edge
+    ctx.beginPath();
+    ctx.moveTo(x, y - totalRadius);  // Top point
+    ctx.lineTo(x + totalRadius, y);  // Right point
+    ctx.lineTo(x, y + totalRadius);  // Bottom point
+    ctx.lineTo(x - totalRadius, y);  // Left point
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+/**
  * Factory for creating shape renderers
  */
 export class ShapeRendererFactory {
   private static renderers: Map<string, ShapeRenderer> = new Map([
     ['circle', new CircleRenderer()],
     ['square', new SquareRenderer()],
-    ['hexagon', new HexagonRenderer()]
+    ['hexagon', new HexagonRenderer()],
+    ['diamond', new DiamondRenderer()]
   ]);
 
   static getRenderer(shape: string): ShapeRenderer {

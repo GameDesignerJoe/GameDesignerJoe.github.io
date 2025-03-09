@@ -36,7 +36,8 @@ const DEBUG_SHAPE_TYPE: ContentTypeBase = {
 const SHAPE_OPTIONS = [
   { value: 'circle', label: 'Circle' },
   { value: 'square', label: 'Square' },
-  { value: 'hexagon', label: 'Hexagon' }
+  { value: 'hexagon', label: 'Hexagon' },
+  { value: 'diamond', label: 'Diamond' }
 ] as const;
 
 // Define types for map configuration
@@ -168,16 +169,48 @@ function App() {
     setInstanceCount(0); // Update instance count
   }, [contentInstanceManager]);
 
+  // Store min distances for each content type
+  const [contentTypeMinDistances] = useState<Map<ContentTypeId, string>>(new Map());
+
   // Effect to update properties when content type changes
   useEffect(() => {
     const defaults = contentTypeDefaults[selectedContentType];
     if (defaults) {
+      // Update visual properties
       setShapeColor(defaults.color ?? '#0000FF');
       setShapeType(defaults.shape ?? 'circle');
       setShapeSizeMeters(defaults.size?.toString() ?? "10");
       setShapeOpacity(defaults.opacity ?? 1.0);
+      
+      // Update border properties
+      setShapeBorderSize(defaults.borderSize ?? 0);
+      setShapeBorderColor(defaults.borderColor ?? '#000000');
+      
+      // Update quantity
+      setNumShapesInput(defaults.defaultQuantity?.toString() ?? "100");
+
+      // Handle min distance
+      const savedMinDistance = contentTypeMinDistances.get(selectedContentType);
+      if (savedMinDistance !== undefined) {
+        // Restore saved min distance for this content type
+        setMinDistance(savedMinDistance);
+        setShowMinDistanceRing(parseFloat(savedMinDistance) > 0);
+      } else if (defaults.defaultMinDistance !== undefined) {
+        // Apply default min distance if specified
+        setMinDistance(defaults.defaultMinDistance.toString());
+        setShowMinDistanceRing(defaults.defaultMinDistance > 0);
+      } else {
+        // Reset to 0 if no default or saved value
+        setMinDistance("0");
+        setShowMinDistanceRing(false);
+      }
     }
-  }, [selectedContentType]);
+  }, [selectedContentType, contentTypeMinDistances]);
+
+  // Effect to save min distance when it changes
+  useEffect(() => {
+    contentTypeMinDistances.set(selectedContentType, minDistance);
+  }, [minDistance, selectedContentType, contentTypeMinDistances]);
 
   // Handle adding shapes
   const handleAddShapes = useCallback((targetCount?: number) => {
@@ -212,10 +245,6 @@ function App() {
       respectTypeSpacing: false // We'll handle spacing directly
     };
 
-    // Update showMinDistanceRing state if spacing is set
-    if (spacing > 0) {
-      setShowMinDistanceRing(true);
-    }
 
     console.log('Distribution setup:', {
       size,
@@ -246,7 +275,7 @@ function App() {
         borderColor: shapeBorderColor,
         label: shapeLabel,
         showLabel: showShapeLabel,
-        showMinDistanceRing: spacing > 0, // Show ring if min distance is set
+        showMinDistanceRing: showMinDistanceRing, // Use the checkbox state
         minDistanceMeters: parseFloat(minDistance),
         minDistanceRingColor: '#00ff00', // Bright green for better visibility
         minDistanceRingStyle: 'dashed',

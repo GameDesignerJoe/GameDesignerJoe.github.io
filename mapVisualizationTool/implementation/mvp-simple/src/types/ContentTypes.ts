@@ -60,61 +60,106 @@ export type ContentTypeId =
   | 'FastTravel'
   | 'Restoration';
 
+// Interface for content type defaults including quantity and spacing
+interface ContentTypeDefaults extends Partial<ContentTypeBase> {
+  defaultQuantity?: number;
+  defaultMinDistance?: number;
+}
+
 // Default properties for each content type
-export const contentTypeDefaults: Record<ContentTypeId, Partial<ContentTypeBase>> = {
+export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
   Debug: {
     color: '#0000FF',
     shape: 'circle',
     size: 10,
     opacity: 1.0,
-    category: 'Debug'
+    category: 'Debug',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 100,
+    label: 'Debug',
+    showLabel: true
   },
   Enemies: {
     color: '#FF0000',
     shape: 'circle',
     size: 15,
     opacity: 0.8,
-    category: 'Combat'
+    category: 'Combat',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 100,
+    label: 'Enemies',
+    showLabel: true
   },
   PointOfInterest: {
     color: '#00BFFF',
-    shape: 'square',
-    size: 12,
+    shape: 'hexagon',
+    size: 50,
     opacity: 0.9,
-    category: 'Exploration'
+    category: 'Exploration',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 100,
+    defaultMinDistance: 200,
+    label: 'Point of Interest',
+    showLabel: true
   },
   MissionLocation: {
     color: '#FFD700',
     shape: 'hexagon',
-    size: 20,
+    size: 40,
     opacity: 0.9,
-    category: 'Mission'
+    category: 'Mission',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 20,
+    defaultMinDistance: 400,
+    label: 'Mission Location',
+    showLabel: true
   },
   Start: {
     color: '#32CD32',
-    shape: 'circle',
-    size: 25,
+    shape: 'diamond',
+    size: 100,
     opacity: 1.0,
-    category: 'Travel'
+    category: 'Travel',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 1,
+    label: 'Start',
+    showLabel: true
   },
   FastTravel: {
     color: '#9370DB',
     shape: 'hexagon',
-    size: 15,
+    size: 25,
     opacity: 0.9,
-    category: 'Travel'
+    category: 'Travel',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 25,
+    defaultMinDistance: 400,
+    label: 'Fast Travel',
+    showLabel: true
   },
   Restoration: {
     color: '#00FFFF',
     shape: 'square',
-    size: 15,
+    size: 50,
     opacity: 0.8,
-    category: 'Restoration'
+    category: 'Restoration',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 50,
+    defaultMinDistance: 20,
+    label: 'Restoration',
+    showLabel: true
   }
 };
 
 // Available shapes
-export type ContentShape = 'circle' | 'square' | 'hexagon';
+export type ContentShape = 'circle' | 'square' | 'hexagon' | 'diamond';
 
 // Default values for new enemy content
 export const defaultEnemyContent: EnemyContentType = {
