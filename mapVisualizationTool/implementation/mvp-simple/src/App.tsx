@@ -130,6 +130,8 @@ function App() {
   const [shapeOpacity, setShapeOpacity] = useState(1.0);
   const [showShapeDebug, setShowShapeDebug] = useState(false);
   const [shapeColor, setShapeColor] = useState('#0000FF');
+  const [shapeBorderSize, setShapeBorderSize] = useState(0);
+  const [shapeBorderColor, setShapeBorderColor] = useState('#000000');
   const [shapeType, setShapeType] = useState<ContentShape>('circle');
 
   // Track current detail level for grid updates
@@ -212,7 +214,9 @@ function App() {
             sizeMeters: parseFloat(shapeSizeMeters),
             shape: shapeType,
             opacity: shapeOpacity,
-            color: shapeColor
+            color: shapeColor,
+            borderSize: shapeBorderSize,
+            borderColor: shapeBorderColor
           }
         };
 
@@ -713,7 +717,9 @@ function App() {
         size: shape.properties?.sizeMeters ?? parseFloat(shapeSizeMeters),
         shape: shape.properties?.shape ?? 'circle',
         opacity: shape.properties?.opacity ?? shapeOpacity,
-        color: shape.properties?.color ?? shapeColor
+        color: shape.properties?.color ?? shapeColor,
+        borderSize: shape.properties?.borderSize ?? shapeBorderSize,
+        borderColor: shape.properties?.borderColor ?? shapeBorderColor
       };
       contentRendererRef.current?.renderInstance(shape, shapeType);
     });
@@ -1003,6 +1009,58 @@ function App() {
                         properties: {
                           ...shape.properties,
                           color: newColor
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                    });
+                  }}
+                  style={{ 
+                    width: '60px',
+                    height: '20px',
+                    padding: '1px',
+                    backgroundColor: 'rgb(59, 59, 59)'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Border:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={shapeBorderSize}
+                  onChange={e => {
+                    const newSize = parseInt(e.target.value);
+                    setShapeBorderSize(newSize);
+                    // Update existing shapes' border size without regenerating them
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                      const updatedInstance = {
+                        ...shape,
+                        properties: {
+                          ...shape.properties,
+                          borderSize: newSize
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                    });
+                  }}
+                  style={{ width: '60px' }}
+                />
+                <input
+                  type="color"
+                  value={shapeBorderColor}
+                  onChange={e => {
+                    const newColor = e.target.value;
+                    setShapeBorderColor(newColor);
+                    // Update existing shapes' border color without regenerating them
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                      const updatedInstance = {
+                        ...shape,
+                        properties: {
+                          ...shape.properties,
+                          borderColor: newColor
                         }
                       };
                       contentInstanceManager.removeInstance('debug-shape', shape.id);

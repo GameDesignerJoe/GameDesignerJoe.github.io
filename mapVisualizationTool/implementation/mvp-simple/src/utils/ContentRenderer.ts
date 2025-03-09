@@ -85,8 +85,8 @@ export class ContentRenderer {
   ): RenderStyle {
     let style = createRenderStyle({
       fillColor: instance.properties?.color ?? contentType.color,
-      strokeColor: instance.properties?.color ?? contentType.color,
-      lineWidth: 2,
+      strokeColor: instance.properties?.borderColor ?? instance.properties?.color ?? contentType.color,
+      lineWidth: instance.properties?.borderSize ?? 0,
       opacity: instance.properties?.opacity ?? contentType.opacity ?? 0.8
     });
 

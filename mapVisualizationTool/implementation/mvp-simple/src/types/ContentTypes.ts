@@ -11,6 +11,8 @@ export interface ContentTypeBase {
   minSpacing: number; // minimum distance between same type in meters
   canOverlap: boolean;
   opacity?: number; // opacity value between 0 and 1
+  borderSize?: number; // border width in pixels
+  borderColor?: string; // border color
 }
 
 // Enemy-specific interface
