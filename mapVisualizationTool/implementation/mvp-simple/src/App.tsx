@@ -216,7 +216,7 @@ function App() {
         }
       }
     }
-  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, contentInstanceManager, handleDeleteShapes]);
+  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, contentInstanceManager, handleDeleteShapes]);
 
   // Handle enter key in input field
   const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
