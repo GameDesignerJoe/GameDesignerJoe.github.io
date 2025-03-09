@@ -7,6 +7,8 @@ import { ContentTypeBase, ContentShape } from './types/ContentTypes';
 import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
 import { ContentInstanceManager, ContentInstance } from './utils/ContentInstanceManager';
 import { ContentRenderer } from './utils/ContentRenderer';
+import { DistributorFactory } from './utils/DistributorFactory';
+import { DistributionConstraints } from './types/Distribution';
 
 const backgroundImageSrc = mapImage;
 
@@ -161,77 +163,49 @@ function App() {
   const handleAddShapes = useCallback((targetCount?: number) => {
     if (!backgroundImageRef.current) return;
 
-    const img = backgroundImageRef.current;
     const numDots = targetCount ?? parseInt(numShapesInput);
     if (isNaN(numDots) || numDots <= 0) return;
-
-    // Create a temporary canvas to analyze the image
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return;
-
-    // Set canvas size to match the background image
-    tempCanvas.width = img.width;
-    tempCanvas.height = img.height;
-
-    // Draw the background image
-    tempCtx.drawImage(img, 0, 0);
-
-    // Get image data to analyze transparency
-    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-    const data = imageData.data;
-
-    // Calculate map dimensions in meters
-    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
-    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
     // Remove existing debug shapes
     handleDeleteShapes();
 
-    let attempts = 0;
-    const maxAttempts = numDots * 10;
-    const alphaThreshold = 200; // Only place shapes where alpha > 200 (out of 255)
+    // Create distribution constraints
+    const constraints: DistributionConstraints = {
+      mapImage: backgroundImageRef.current,
+      alphaThreshold: 200,
+      minSpacing: 0, // No minimum spacing for debug shapes
+      maxAttempts: numDots * 10
+    };
 
-    while (contentInstanceManager.getInstances('debug-shape').length < numDots && attempts < maxAttempts) {
-      attempts++;
-      
-      // Generate random normalized coordinates (0-1)
-      const normalizedX = Math.random();
-      const normalizedY = Math.random();
-
-      // Convert to image coordinates
-      const imgX = Math.floor(normalizedX * img.width);
-      const imgY = Math.floor(normalizedY * img.height);
-
-      // Get pixel alpha value (every 4th value in the array is alpha)
-      const pixelIndex = (imgY * img.width + imgX) * 4;
-      const alpha = data[pixelIndex + 3];
-
-      // Only add position if alpha is above threshold
-      if (alpha > alphaThreshold) {
-        const instance: ContentInstance = {
-          id: `debug-shape-${attempts}`,
-          typeId: 'debug-shape',
-          position: { x: normalizedX, y: normalizedY },
-          properties: {
-            showDebug: showShapeDebug,
-            sizeMeters: parseFloat(shapeSizeMeters),
-            shape: shapeType,
-            opacity: shapeOpacity,
-            color: shapeColor,
-            borderSize: shapeBorderSize,
-            borderColor: shapeBorderColor,
-            label: shapeLabel,
-            showLabel: showShapeLabel
-          }
-        };
-
-        if (contentInstanceManager.validateInstance(instance)) {
-          contentInstanceManager.addInstance('debug-shape', instance);
-          setInstanceCount(prev => prev + 1); // Update instance count
-        }
+    // Create content type configuration
+    const debugShapeType: ContentTypeBase = {
+      ...DEBUG_SHAPE_TYPE,
+      mapWidthKm: mapConfig.widthKm,
+      mapHeightKm: mapConfig.heightKm,
+      defaultProperties: {
+        showDebug: showShapeDebug,
+        sizeMeters: parseFloat(shapeSizeMeters),
+        shape: shapeType,
+        opacity: shapeOpacity,
+        color: shapeColor,
+        borderSize: shapeBorderSize,
+        borderColor: shapeBorderColor,
+        label: shapeLabel,
+        showLabel: showShapeLabel
       }
-    }
+    };
+
+    // Get distributor and generate instances
+    const distributor = DistributorFactory.getDefaultDistributor();
+    const instances = distributor.distribute(debugShapeType, numDots, constraints);
+
+    // Add instances to manager
+    instances.forEach(instance => {
+      if (contentInstanceManager.validateInstance(instance)) {
+        contentInstanceManager.addInstance('debug-shape', instance);
+        setInstanceCount(prev => prev + 1);
+      }
+    });
   }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, shapeColor, shapeOpacity, shapeLabel, showShapeLabel, shapeBorderSize, shapeBorderColor, contentInstanceManager, handleDeleteShapes]);
 
   // Handle enter key in input field

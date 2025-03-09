@@ -1,45 +1,36 @@
-import { ContentDistributor, DistributionStrategy } from '../types/Distribution';
+import { ContentDistributor } from '../types/Distribution';
 import { RandomDistributor } from './RandomDistributor';
 
 /**
- * Factory class for creating and managing content distributors
+ * Factory class for managing content distribution strategies
  */
 export class DistributorFactory {
-  private static distributors = new Map<DistributionStrategy, ContentDistributor>([
+  private static distributors = new Map<string, ContentDistributor>([
     ['random', new RandomDistributor()]
-    // Additional distributors will be added here as they are implemented
-    // ['clustered', new ClusteredDistributor()]
   ]);
 
   /**
-   * Get a distributor instance for the specified strategy
+   * Get a distributor instance by type
    */
-  static getDistributor(strategy: DistributionStrategy): ContentDistributor {
-    const distributor = this.distributors.get(strategy);
+  static getDistributor(type: string): ContentDistributor {
+    const distributor = this.distributors.get(type);
     if (!distributor) {
-      throw new Error(`No distributor found for strategy: ${strategy}`);
+      throw new Error(`No distributor found for type: ${type}`);
     }
     return distributor;
   }
 
   /**
-   * Register a new distributor implementation
+   * Register a new distributor type
    */
-  static registerDistributor(strategy: DistributionStrategy, distributor: ContentDistributor): void {
-    this.distributors.set(strategy, distributor);
+  static registerDistributor(type: string, distributor: ContentDistributor): void {
+    this.distributors.set(type, distributor);
   }
 
   /**
-   * Get a list of available distribution strategies
+   * Get default distributor (random)
    */
-  static getAvailableStrategies(): DistributionStrategy[] {
-    return Array.from(this.distributors.keys());
-  }
-
-  /**
-   * Check if a strategy is available
-   */
-  static hasStrategy(strategy: DistributionStrategy): boolean {
-    return this.distributors.has(strategy);
+  static getDefaultDistributor(): ContentDistributor {
+    return this.getDistributor('random');
   }
 }
