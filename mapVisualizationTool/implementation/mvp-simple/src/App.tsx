@@ -909,71 +909,93 @@ function App() {
       
       <main className="app-content">
         <div className="controls-panel">
-          <div className="zoom-controls">
-            <button onClick={handleResetZoom}>Reset Map</button>
-          </div>
-          <div className="map-controls">
-            <label>
-              <span>Map Area (km²)</span>
-              <input
-                type="number"
-                min={MIN_AREA_KM2}
-                max={MAX_AREA_KM2}
-                step="0.1"
-                value={areaInputValue}
-                onChange={e => {
-                  const newValue = e.target.value;
-                  setAreaInputValue(newValue);
-                  const parsedValue = parseFloat(newValue);
-                  if (!isNaN(parsedValue) && backgroundImageRef.current) {
-                    const value = Math.min(MAX_AREA_KM2, Math.max(MIN_AREA_KM2, parsedValue));
-                    const imageAspectRatio = backgroundImageRef.current.width / backgroundImageRef.current.height;
-                    const targetHeightKm = Math.sqrt(value / imageAspectRatio);
-                    const targetWidthKm = targetHeightKm * imageAspectRatio;
-                    
-                    setMapConfig(prev => ({
-                      ...prev,
-                      targetAreaKm2: value,
-                      widthKm: targetWidthKm,
-                      heightKm: targetHeightKm
-                    }));
-                  }
-                }}
-                title="Target map area in square kilometers"
-              />
-            </label>
-          </div>
-          <div className="grid-controls">
-            <label>
-              <input
-                type="checkbox"
-                checked={mapConfig.showGrid}
-                onChange={handleToggleGrid}
-              />
-              Show Grid
-            </label>
-            <input
-              type="color"
-              value={mapConfig.gridColor}
-              onChange={e => setMapConfig(prev => ({
-                ...prev,
-                gridColor: e.target.value
-              }))}
-              title="Grid Color"
-            />
-            <input
-              type="range"
-              min="0.1"
-              max="1.0"
-              step="0.1"
-              value={mapConfig.gridOpacity}
-              onChange={e => setMapConfig(prev => ({
-                ...prev,
-                gridOpacity: parseFloat(e.target.value)
-              }))}
-              title="Grid Opacity"
-            />
-          </div>
+          <details className="map-controls" style={{ backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Map Info</summary>
+            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <button 
+                  onClick={handleResetZoom}
+                  style={{ flex: 1 }}
+                >
+                  Center Map
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Map Area (km²):</span>
+                <input
+                  type="number"
+                  min={MIN_AREA_KM2}
+                  max={MAX_AREA_KM2}
+                  step="0.1"
+                  value={areaInputValue}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    setAreaInputValue(newValue);
+                    const parsedValue = parseFloat(newValue);
+                    if (!isNaN(parsedValue) && backgroundImageRef.current) {
+                      const value = Math.min(MAX_AREA_KM2, Math.max(MIN_AREA_KM2, parsedValue));
+                      const imageAspectRatio = backgroundImageRef.current.width / backgroundImageRef.current.height;
+                      const targetHeightKm = Math.sqrt(value / imageAspectRatio);
+                      const targetWidthKm = targetHeightKm * imageAspectRatio;
+                      
+                      setMapConfig(prev => ({
+                        ...prev,
+                        targetAreaKm2: value,
+                        widthKm: targetWidthKm,
+                        heightKm: targetHeightKm
+                      }));
+                    }
+                  }}
+                  style={{ width: '60px' }}
+                  title="Target map area in square kilometers"
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <input
+                  type="checkbox"
+                  checked={mapConfig.showGrid}
+                  onChange={handleToggleGrid}
+                  style={{ margin: 0 }}
+                />
+                <span>Show Grid</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Grid Color:</span>
+                <input
+                  type="color"
+                  value={mapConfig.gridColor}
+                  onChange={e => setMapConfig(prev => ({
+                    ...prev,
+                    gridColor: e.target.value
+                  }))}
+                  style={{ 
+                    width: '60px',
+                    height: '20px',
+                    padding: '1px',
+                    backgroundColor: 'rgb(59, 59, 59)'
+                  }}
+                  title="Grid Color"
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Grid Opacity:</span>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.1"
+                  value={mapConfig.gridOpacity}
+                  onChange={e => setMapConfig(prev => ({
+                    ...prev,
+                    gridOpacity: parseFloat(e.target.value)
+                  }))}
+                  style={{ flex: 1 }}
+                  title="Grid Opacity"
+                />
+                <span style={{ minWidth: '30px', textAlign: 'right' }}>{(mapConfig.gridOpacity * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+          </details>
           <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
             <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Shapes</summary>
             <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
