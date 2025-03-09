@@ -82,13 +82,6 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
 
     ctx.save();
     
-    // Draw debug outline
-    ctx.strokeStyle = style.debugColor || '#ff0000';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(x - size/2, y - size/2, size, size);
-    ctx.setLineDash([]);
-
     // Draw debug text with background
     if (debugText) {
       const fontSize = style.debugFontSize || 12;
