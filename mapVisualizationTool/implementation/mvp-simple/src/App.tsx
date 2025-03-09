@@ -172,24 +172,36 @@ function App() {
     // Remove existing debug shapes
     handleDeleteShapes();
 
+    // Parse size and min distance values
+    const size = parseFloat(shapeSizeMeters);
+    const spacing = parseFloat(minDistance);
+
+    if (isNaN(size) || size <= 0) {
+      setDistributionMessage("Invalid shape size");
+      return;
+    }
+
+    if (isNaN(spacing)) {
+      setDistributionMessage("Invalid minimum distance");
+      return;
+    }
+
     // Create distribution constraints
     const constraints: DistributionConstraints = {
       mapImage: backgroundImageRef.current,
       alphaThreshold: 200,
-      minSpacing: parseFloat(minDistance), // Use minimum distance value
-      maxAttempts: numDots * 10
+      minSpacing: spacing,
+      maxAttempts: numDots * 10,
+      respectTypeSpacing: true // Ensure we respect the content type's spacing
     };
-
-    // Parse size and min distance values
-    const size = parseFloat(shapeSizeMeters);
-    const spacing = parseFloat(minDistance);
 
     // Create content type configuration
     const debugShapeType: ContentTypeBase = {
       ...DEBUG_SHAPE_TYPE,
       mapWidthKm: mapConfig.widthKm,
       mapHeightKm: mapConfig.heightKm,
-      size: size, // Set the size on the content type itself
+      size: size,
+      minSpacing: spacing, // Set minimum spacing on content type
       defaultProperties: {
         showDebug: showShapeDebug,
         sizeMeters: size,
@@ -907,14 +919,6 @@ function App() {
                   onChange={e => {
                     const newValue = e.target.value;
                     setNumShapesInput(newValue);
-                    const numDots = parseInt(newValue);
-                    if (!isNaN(numDots) && numDots > 0) {
-                      // Parse size value before adding shapes
-                      const size = parseFloat(shapeSizeMeters);
-                      if (!isNaN(size)) {
-                        handleAddShapes(numDots);
-                      }
-                    }
                   }}
                   style={{ width: '60px' }}
                 />
@@ -1247,8 +1251,12 @@ function App() {
                 <button 
                   onClick={() => {
                     const size = parseFloat(shapeSizeMeters);
-                    if (!isNaN(size)) {
+                    const spacing = parseFloat(minDistance);
+                    if (!isNaN(size) && !isNaN(spacing)) {
+                      // Ensure both size and spacing are valid before adding shapes
                       handleAddShapes();
+                    } else {
+                      setDistributionMessage("Invalid size or minimum distance");
                     }
                   }}
                   style={{ flex: 1 }}

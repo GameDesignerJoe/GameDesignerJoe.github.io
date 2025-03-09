@@ -84,12 +84,13 @@ export function estimateMaxCapacity(
   
   // Calculate area needed per shape (including spacing)
   const shapeRadius = shapeSizeMeters / 2;
-  const totalRadius = shapeRadius + minSpacingMeters;
+  // Total radius needs to account for both the shape size and minimum spacing
+  const totalRadius = shapeRadius + minSpacingMeters + shapeRadius;
   const areaPerShape = Math.PI * totalRadius * totalRadius;
   
   // Apply packing efficiency factor (hexagonal packing is ~90% efficient)
   // We use a lower efficiency for squares to account for their corners
-  const packingEfficiency = 0.75; // Reduced from 0.85 to account for square packing
+  const packingEfficiency = 0.7; // Further reduced to account for minimum distance requirements
   
   return Math.floor(validAreaM2 * packingEfficiency / areaPerShape);
 }

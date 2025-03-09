@@ -40,15 +40,22 @@ export class RandomDistributor implements ContentDistributor {
       
       // For squares, we need to consider the diagonal
       // The diagonal of a square is sqrt(2) * side length
-      const diagonalFactor = Math.SQRT2;
+      const diagonalFactor = instance.properties?.shape === 'square' ? Math.SQRT2 : 1;
       const radius1 = (size1 * diagonalFactor) / 2;
       const radius2 = (size2 * diagonalFactor) / 2;
       
       // Calculate edge-to-edge distance by subtracting both radii
       const edgeDistance = centerDistance - radius1 - radius2;
       
-      // Compare edge distance with minimum spacing
-      return edgeDistance >= minSpacing;
+      // Calculate minimum required center-to-center distance
+      // For proper edge-to-edge spacing:
+      // 1. Each shape contributes its radius to the total distance
+      // 2. The minimum spacing is added between the edges
+      const requiredDistance = radius1 + minSpacing + radius2;
+      
+      // Compare actual center distance with required distance
+      // This ensures shapes are properly spaced from edge to edge
+      return centerDistance >= requiredDistance;
     });
   }
 
@@ -74,10 +81,16 @@ export class RandomDistributor implements ContentDistributor {
     const mapWidthKm = contentType.mapWidthKm ?? 10; // Default 10km if not specified
     const mapHeightKm = contentType.mapHeightKm ?? 10;
 
-    // Get minimum spacing requirement
+    // Get minimum spacing requirement and shape size
     const minSpacing = constraints.respectTypeSpacing
       ? contentType.minSpacing
       : constraints.minSpacing ?? 0;
+    
+    // Ensure shape size is valid
+    const shapeSize = contentType.size > 0 ? contentType.size : 10; // Default to 10m if invalid
+
+    // Calculate effective spacing based on shape size
+    const effectiveSpacing = minSpacing + shapeSize;
 
     // Estimate capacity
     const estimatedCapacity = estimateMaxCapacity(
