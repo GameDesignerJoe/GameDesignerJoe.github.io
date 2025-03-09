@@ -195,6 +195,11 @@ function App() {
       respectTypeSpacing: false // We'll handle spacing directly
     };
 
+    // Update showMinDistanceRing state if spacing is set
+    if (spacing > 0) {
+      setShowMinDistanceRing(true);
+    }
+
     console.log('Distribution setup:', {
       size,
       spacing,
@@ -220,9 +225,9 @@ function App() {
         borderColor: shapeBorderColor,
         label: shapeLabel,
         showLabel: showShapeLabel,
-        showMinDistanceRing: showMinDistanceRing,
+        showMinDistanceRing: spacing > 0, // Show ring if min distance is set
         minDistanceMeters: parseFloat(minDistance),
-            minDistanceRingColor: '#00ff00', // Bright green for better visibility
+        minDistanceRingColor: '#00ff00', // Bright green for better visibility
         minDistanceRingStyle: 'dashed'
       }
     };
