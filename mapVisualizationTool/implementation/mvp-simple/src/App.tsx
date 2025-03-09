@@ -5,8 +5,23 @@ import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { ContentTypeBase } from './types/ContentTypes';
 import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
+import { ContentInstanceManager, ContentInstance } from './utils/ContentInstanceManager';
 
 const backgroundImageSrc = mapImage;
+
+// Debug Dots content type definition
+const DEBUG_DOT_TYPE: ContentTypeBase = {
+  id: 'debug-dot',
+  name: 'Debug Dot',
+  category: 'Exploration',
+  description: 'Debug visualization marker',
+  color: '#0000FF',
+  shape: 'circle',
+  size: 10,
+  quantity: 100,
+  minSpacing: 0,
+  canOverlap: true
+};
 
 // Helper function to draw content type shapes
 const drawContentShape = (
@@ -134,11 +149,13 @@ function App() {
   // State for background image loaded status
   const [backgroundImageLoaded, setBackgroundImageLoaded] = useState<boolean>(false);
 
+  // State for content instance management
+  const [contentInstanceManager] = useState(() => new ContentInstanceManager());
+  
   // State for content types
   const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
 
-  // State for random dots
-  const [randomDotPositions, setRandomDotPositions] = useState<Array<MapCoordinate>>([]);
+  // State for debug dots
   const [numDotsInput, setNumDotsInput] = useState("100");
   const [dotSizeMeters, setDotSizeMeters] = useState("10"); // Default 10 meters
   const [showDotDebug, setShowDotDebug] = useState(false);
@@ -156,8 +173,11 @@ function App() {
 
   // Handle deleting dots
   const handleDeleteDots = useCallback(() => {
-    setRandomDotPositions([]);
-  }, []);
+    // Remove all debug dot instances
+    contentInstanceManager.getInstances('debug-dot').forEach(instance => {
+      contentInstanceManager.removeInstance('debug-dot', instance.id);
+    });
+  }, [contentInstanceManager]);
 
   // Handle adding dots
   const handleAddDots = useCallback(() => {
@@ -187,12 +207,14 @@ function App() {
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
     const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    const positions: Array<MapCoordinate> = [];
+    // Remove existing debug dots
+    handleDeleteDots();
+
     let attempts = 0;
     const maxAttempts = numDots * 10;
     const alphaThreshold = 200; // Only place dots where alpha > 200 (out of 255)
 
-    while (positions.length < numDots && attempts < maxAttempts) {
+    while (contentInstanceManager.getInstances('debug-dot').length < numDots && attempts < maxAttempts) {
       attempts++;
       
       // Generate random normalized coordinates (0-1)
@@ -209,13 +231,22 @@ function App() {
 
       // Only add position if alpha is above threshold
       if (alpha > alphaThreshold) {
-        positions.push({ x: normalizedX, y: normalizedY });
+        const instance: ContentInstance = {
+          id: `debug-dot-${attempts}`,
+          typeId: 'debug-dot',
+          position: { x: normalizedX, y: normalizedY },
+          properties: {
+            showDebug: showDotDebug,
+            sizeMeters: parseFloat(dotSizeMeters)
+          }
+        };
+
+        if (contentInstanceManager.validateInstance(instance)) {
+          contentInstanceManager.addInstance('debug-dot', instance);
+        }
       }
     }
-
-    // Replace existing dots with new ones
-    setRandomDotPositions(positions);
-  }, [numDotsInput, mapConfig.widthKm, mapConfig.heightKm]);
+  }, [numDotsInput, mapConfig.widthKm, mapConfig.heightKm, dotSizeMeters, showDotDebug, contentInstanceManager, handleDeleteDots]);
 
   // Handle enter key in input field
   const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -768,12 +799,15 @@ function App() {
     });
   }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, getCurrentDetailLevel, mapConfig]);
 
-  // Draw random dots using stored positions
+  // Draw debug dots using stored instances
   const drawRandomDots = useCallback(() => {
-    if (!contextRef.current || !backgroundImageRef.current || !randomDotPositions.length) return;
+    if (!contextRef.current || !backgroundImageRef.current) return;
 
     const ctx = contextRef.current;
     const img = backgroundImageRef.current;
+    const debugDots = contentInstanceManager.getInstances('debug-dot');
+
+    if (debugDots.length === 0) return;
 
     // Calculate meters per pixel
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
@@ -781,37 +815,38 @@ function App() {
     const metersPerPixel = mapWidthMeters / img.width;
     const pixelsPerMeter = 1 / metersPerPixel;
 
-  // Convert dot size from meters to pixels and scale with zoom
-  const dotSizeM = parseFloat(dotSizeMeters);
-  
-  // Calculate base scale that preserves aspect ratio (same as grid calculation)
-  const baseScale = Math.min(
-    canvasDimensions.width / mapWidthMeters,
-    canvasDimensions.height / mapHeightMeters
-  );
+    ctx.save();
+    debugDots.forEach(dot => {
+      // Get dot size from properties or use default
+      const dotSizeM = dot.properties?.sizeMeters ?? parseFloat(dotSizeMeters);
+      const showDebug = dot.properties?.showDebug ?? showDotDebug;
+      
+      // Calculate base scale that preserves aspect ratio
+      const baseScale = Math.min(
+        canvasDimensions.width / mapWidthMeters,
+        canvasDimensions.height / mapHeightMeters
+      );
 
-  // Calculate dot size using same scaling as grid cells
-  const baseDotSize = dotSizeM * baseScale;
-  const scaledDotSize = baseDotSize * zoomLevel;
-  
-  // Use half the size for radius since arc() takes radius not diameter
-  const finalRadius = scaledDotSize / 2;
+      // Calculate dot size using same scaling as grid cells
+      const baseDotSize = dotSizeM * baseScale;
+      const scaledDotSize = baseDotSize * zoomLevel;
+      
+      // Use half the size for radius since arc() takes radius not diameter
+      const finalRadius = scaledDotSize / 2;
 
-  ctx.save();
-  randomDotPositions.forEach(pos => {
-    // Convert map coordinates to screen coordinates
-    const screenCoord = mapToScreenCoordinates(
-      pos,
-      mapConfig.widthKm,
-      mapConfig.heightKm,
-      canvasDimensions.width,
-      canvasDimensions.height,
-      zoomLevel,
-      panOffset
-    );
+      // Convert map coordinates to screen coordinates
+      const screenCoord = mapToScreenCoordinates(
+        dot.position,
+        mapConfig.widthKm,
+        mapConfig.heightKm,
+        canvasDimensions.width,
+        canvasDimensions.height,
+        zoomLevel,
+        panOffset
+      );
 
-    // Draw dot
-      ctx.fillStyle = '#0000FF'; // Blue instead of green
+      // Draw dot
+      ctx.fillStyle = DEBUG_DOT_TYPE.color;
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -820,7 +855,7 @@ function App() {
       ctx.stroke();
 
       // Draw debug text if enabled
-      if (showDotDebug) {
+      if (showDebug) {
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
@@ -828,7 +863,7 @@ function App() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         
-        const text = `(${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}) ${dotSizeM}m`;
+        const text = `(${dot.position.x.toFixed(3)}, ${dot.position.y.toFixed(3)}) ${dotSizeM}m`;
         const textY = screenCoord.y - (finalRadius + 5);
         
         // Draw text background with tighter padding
@@ -849,7 +884,7 @@ function App() {
       }
     });
     ctx.restore();
-  }, [canvasDimensions, zoomLevel, panOffset, randomDotPositions, showDotDebug, dotSizeMeters, mapConfig.widthKm, mapConfig.heightKm]);
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showDotDebug, dotSizeMeters, mapConfig]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -1024,8 +1059,10 @@ function App() {
                   min="1"
                   max="1000"
                   value={numDotsInput}
-                  onChange={e => setNumDotsInput(e.target.value)}
-                  onKeyPress={handleInputKeyPress}
+                  onChange={e => {
+                    setNumDotsInput(e.target.value);
+                    handleAddDots();
+                  }}
                   style={{ width: '60px' }}
                 />
               </div>
@@ -1036,8 +1073,22 @@ function App() {
                   min="1"
                   max="1000"
                   value={dotSizeMeters}
-                  onChange={e => setDotSizeMeters(e.target.value)}
-                  onKeyPress={handleInputKeyPress}
+                  onChange={e => {
+                    const newSize = e.target.value;
+                    setDotSizeMeters(newSize);
+                    // Update existing dots' size property without regenerating them
+                    contentInstanceManager.getInstances('debug-dot').forEach(dot => {
+                      const updatedInstance = {
+                        ...dot,
+                        properties: {
+                          ...dot.properties,
+                          sizeMeters: parseFloat(newSize)
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-dot', dot.id);
+                      contentInstanceManager.addInstance('debug-dot', updatedInstance);
+                    });
+                  }}
                   style={{ width: '60px' }}
                 />
               </div>
@@ -1045,7 +1096,22 @@ function App() {
                 <input
                   type="checkbox"
                   checked={showDotDebug}
-                  onChange={e => setShowDotDebug(e.target.checked)}
+                  onChange={e => {
+                    const newShowDebug = e.target.checked;
+                    setShowDotDebug(newShowDebug);
+                    // Update existing dots' debug property without regenerating them
+                    contentInstanceManager.getInstances('debug-dot').forEach(dot => {
+                      const updatedInstance = {
+                        ...dot,
+                        properties: {
+                          ...dot.properties,
+                          showDebug: newShowDebug
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-dot', dot.id);
+                      contentInstanceManager.addInstance('debug-dot', updatedInstance);
+                    });
+                  }}
                 />
                 Show Debug Text
               </label>
@@ -1149,7 +1215,7 @@ function App() {
             minWidth: '150px'
           }}>
             <div style={{ marginBottom: '5px' }}>
-              Debug Dots: {randomDotPositions.length}
+              Debug Dots: {contentInstanceManager.getInstances('debug-dot').length}
             </div>
             <div>
               Dot Size: {dotSizeMeters}m

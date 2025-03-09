@@ -1,0 +1,234 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import './App.css';
+import mapImage from './assets/map.png';
+import deleteIcon from './assets/delete.png';
+import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
+import { ContentTypeBase } from './types/ContentTypes';
+import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
+import { ContentInstanceManager, ContentInstance } from './utils/ContentInstanceManager';
+
+const backgroundImageSrc = mapImage;
+
+// Debug Dots content type definition
+const DEBUG_DOT_TYPE: ContentTypeBase = {
+  id: 'debug-dot',
+  name: 'Debug Dot',
+  category: 'Exploration',
+  description: 'Debug visualization marker',
+  color: '#0000FF',
+  shape: 'circle',
+  size: 10,
+  quantity: 100,
+  minSpacing: 0,
+  canOverlap: true
+};
+
+[Previous content remains the same until the state declarations...]
+
+  // State for content instance management
+  const [contentInstanceManager] = useState(() => new ContentInstanceManager());
+  
+  // State for content types
+  const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
+
+  // State for debug dots
+  const [numDotsInput, setNumDotsInput] = useState("100");
+  const [dotSizeMeters, setDotSizeMeters] = useState("10"); // Default 10 meters
+  const [showDotDebug, setShowDotDebug] = useState(false);
+
+[Previous content remains the same until handleDeleteDots...]
+
+  // Handle deleting dots
+  const handleDeleteDots = useCallback(() => {
+    // Remove all debug dot instances
+    contentInstanceManager.getInstances('debug-dot').forEach(instance => {
+      contentInstanceManager.removeInstance('debug-dot', instance.id);
+    });
+  }, [contentInstanceManager]);
+
+  // Handle adding dots
+  const handleAddDots = useCallback(() => {
+    if (!backgroundImageRef.current) return;
+
+    const img = backgroundImageRef.current;
+    const numDots = parseInt(numDotsInput);
+    if (isNaN(numDots) || numDots <= 0) return;
+
+    // Create a temporary canvas to analyze the image
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Set canvas size to match the background image
+    tempCanvas.width = img.width;
+    tempCanvas.height = img.height;
+
+    // Draw the background image
+    tempCtx.drawImage(img, 0, 0);
+
+    // Get image data to analyze transparency
+    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+    const data = imageData.data;
+
+    // Calculate map dimensions in meters
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+
+    let attempts = 0;
+    const maxAttempts = numDots * 10;
+    const alphaThreshold = 200; // Only place dots where alpha > 200 (out of 255)
+
+    // Remove existing debug dots
+    handleDeleteDots();
+
+    while (contentInstanceManager.getInstances('debug-dot').length < numDots && attempts < maxAttempts) {
+      attempts++;
+      
+      // Generate random normalized coordinates (0-1)
+      const normalizedX = Math.random();
+      const normalizedY = Math.random();
+
+      // Convert to image coordinates
+      const imgX = Math.floor(normalizedX * img.width);
+      const imgY = Math.floor(normalizedY * img.height);
+
+      // Get pixel alpha value (every 4th value in the array is alpha)
+      const pixelIndex = (imgY * img.width + imgX) * 4;
+      const alpha = data[pixelIndex + 3];
+
+      // Only add position if alpha is above threshold
+      if (alpha > alphaThreshold) {
+        const instance: ContentInstance = {
+          id: `debug-dot-${attempts}`,
+          typeId: 'debug-dot',
+          position: { x: normalizedX, y: normalizedY },
+          properties: {
+            showDebug: showDotDebug,
+            sizeMeters: parseFloat(dotSizeMeters)
+          }
+        };
+
+        if (contentInstanceManager.validateInstance(instance)) {
+          contentInstanceManager.addInstance('debug-dot', instance);
+        }
+      }
+    }
+  }, [numDotsInput, mapConfig.widthKm, mapConfig.heightKm, dotSizeMeters, showDotDebug, contentInstanceManager, handleDeleteDots]);
+
+[Previous content remains the same until drawRandomDots...]
+
+  // Draw debug dots using stored instances
+  const drawRandomDots = useCallback(() => {
+    if (!contextRef.current || !backgroundImageRef.current) return;
+
+    const ctx = contextRef.current;
+    const img = backgroundImageRef.current;
+    const debugDots = contentInstanceManager.getInstances('debug-dot');
+
+    if (debugDots.length === 0) return;
+
+    // Calculate meters per pixel
+    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
+    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
+    const metersPerPixel = mapWidthMeters / img.width;
+    const pixelsPerMeter = 1 / metersPerPixel;
+
+    ctx.save();
+    debugDots.forEach(dot => {
+      // Get dot size from properties or use default
+      const dotSizeM = dot.properties?.sizeMeters ?? parseFloat(dotSizeMeters);
+      const showDebug = dot.properties?.showDebug ?? showDotDebug;
+      
+      // Calculate base scale that preserves aspect ratio
+      const baseScale = Math.min(
+        canvasDimensions.width / mapWidthMeters,
+        canvasDimensions.height / mapHeightMeters
+      );
+
+      // Calculate dot size using same scaling as grid cells
+      const baseDotSize = dotSizeM * baseScale;
+      const scaledDotSize = baseDotSize * zoomLevel;
+      
+      // Use half the size for radius since arc() takes radius not diameter
+      const finalRadius = scaledDotSize / 2;
+
+      // Convert map coordinates to screen coordinates
+      const screenCoord = mapToScreenCoordinates(
+        dot.position,
+        mapConfig.widthKm,
+        mapConfig.heightKm,
+        canvasDimensions.width,
+        canvasDimensions.height,
+        zoomLevel,
+        panOffset
+      );
+
+      // Draw dot
+      ctx.fillStyle = DEBUG_DOT_TYPE.color;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(screenCoord.x, screenCoord.y, finalRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw debug text if enabled
+      if (showDebug) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        
+        const text = `(${dot.position.x.toFixed(3)}, ${dot.position.y.toFixed(3)}) ${dotSizeM}m`;
+        const textY = screenCoord.y - (finalRadius + 5);
+        
+        // Draw text background with tighter padding
+        const metrics = ctx.measureText(text);
+        const padding = 4;
+        const lineHeight = 14;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+          screenCoord.x - (metrics.width / 2) - padding,
+          textY - lineHeight - padding,
+          metrics.width + (padding * 2),
+          lineHeight + (padding * 2)
+        );
+        
+        // Draw text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(text, screenCoord.x, textY);
+      }
+    });
+    ctx.restore();
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showDotDebug, dotSizeMeters, mapConfig]);
+
+[Previous content remains the same until the details panel...]
+
+          {/* Right side details panel */}
+          <div style={{ 
+            position: 'absolute', 
+            top: '10px', 
+            right: '10px', 
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '4px',
+            fontSize: '14px',
+            minWidth: '150px'
+          }}>
+            <div style={{ marginBottom: '5px' }}>
+              Debug Dots: {contentInstanceManager.getInstances('debug-dot').length}
+            </div>
+            <div>
+              Dot Size: {dotSizeMeters}m
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default App;
