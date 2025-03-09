@@ -71,8 +71,17 @@ export class ContentRenderer {
    * Calculate the screen size for a given size in meters
    */
   private metersToScreenSize(meters: number): number {
+    // Calculate map dimensions in meters
     const mapWidthMeters = this.config.mapWidthKm * 1000;
-    const baseScale = this.config.canvasWidth / mapWidthMeters;
+    const mapHeightMeters = this.config.mapHeightKm * 1000;
+
+    // Calculate base scale that preserves aspect ratio
+    const baseScale = Math.min(
+      this.config.canvasWidth / mapWidthMeters,
+      this.config.canvasHeight / mapHeightMeters
+    );
+
+    // Convert meters to screen pixels with zoom
     return meters * baseScale * this.config.zoomLevel;
   }
 
@@ -113,6 +122,15 @@ export class ContentRenderer {
           label: instance.properties.label
         };
       }
+      if (instance.properties.showMinDistanceRing) {
+        style = {
+          ...style,
+          showMinDistanceRing: true,
+          minDistanceMeters: instance.properties.minDistanceMeters,
+          minDistanceRingColor: instance.properties.minDistanceRingColor,
+          minDistanceRingStyle: instance.properties.minDistanceRingStyle
+        };
+      }
     }
 
     return style;
@@ -135,8 +153,14 @@ export class ContentRenderer {
     const sizeMeters = instance.properties?.sizeMeters || contentType.size;
     const screenSize = this.metersToScreenSize(sizeMeters);
 
-    // Create render style
+    // Create render style with scaled minimum distance
     const style = this.createInstanceStyle(contentType, instance);
+    if (style.minDistanceMeters) {
+      // Convert minimum distance to screen pixels, subtracting shape radius since we measure from edge
+      const sizeMeters = instance.properties?.sizeMeters || contentType.size;
+      const shapeRadius = sizeMeters / 2;
+      style.screenMinDistance = this.metersToScreenSize(style.minDistanceMeters - shapeRadius);
+    }
 
     // Render the shape
     renderer.render(

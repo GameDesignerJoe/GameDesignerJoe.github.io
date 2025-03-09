@@ -44,18 +44,27 @@ export class RandomDistributor implements ContentDistributor {
       const radius1 = (size1 * diagonalFactor) / 2;
       const radius2 = (size2 * diagonalFactor) / 2;
       
-      // Calculate edge-to-edge distance by subtracting both radii
-      const edgeDistance = centerDistance - radius1 - radius2;
+      // Calculate the total required distance between centers:
+      // 1. Each shape contributes its radius
+      // 2. Add the minimum spacing between edges
+      const totalRequiredDistance = radius1 + radius2 + minSpacing;
       
-      // Calculate minimum required center-to-center distance
-      // For proper edge-to-edge spacing:
-      // 1. Each shape contributes its radius to the total distance
-      // 2. The minimum spacing is added between the edges
-      const requiredDistance = radius1 + minSpacing + radius2;
+      // Debug logging
+      console.log('Distance check:', {
+        centerDistance,
+        radius1,
+        radius2,
+        minSpacing,
+        totalRequiredDistance,
+        shape1Size: size1,
+        shape2Size: size2,
+        position,
+        existingPosition: instance.position
+      });
       
-      // Compare actual center distance with required distance
-      // This ensures shapes are properly spaced from edge to edge
-      return centerDistance >= requiredDistance;
+      // The shapes are properly spaced if the center distance is at least
+      // the sum of their radii plus the minimum spacing
+      return centerDistance >= totalRequiredDistance;
     });
   }
 
@@ -82,15 +91,16 @@ export class RandomDistributor implements ContentDistributor {
     const mapHeightKm = contentType.mapHeightKm ?? 10;
 
     // Get minimum spacing requirement and shape size
-    const minSpacing = constraints.respectTypeSpacing
-      ? contentType.minSpacing
-      : constraints.minSpacing ?? 0;
+    const minSpacing = constraints.minSpacing ?? 0;
+    console.log('Initial minSpacing:', minSpacing);
     
     // Ensure shape size is valid
     const shapeSize = contentType.size > 0 ? contentType.size : 10; // Default to 10m if invalid
+    console.log('Shape size:', shapeSize);
 
-    // Calculate effective spacing based on shape size
-    const effectiveSpacing = minSpacing + shapeSize;
+    // Calculate effective spacing based on shape size and minimum distance
+    const effectiveSpacing = minSpacing;
+    console.log('Effective spacing:', effectiveSpacing);
 
     // Estimate capacity
     const estimatedCapacity = estimateMaxCapacity(
@@ -117,13 +127,13 @@ export class RandomDistributor implements ContentDistributor {
       }
       
       // Check spacing if required
-      if (minSpacing > 0 && !this.validateSpacing(
+      if (!this.validateSpacing(
         position,
         instances,
-        minSpacing,
+        effectiveSpacing,
         mapWidthKm,
         mapHeightKm,
-        contentType.size
+        shapeSize
       )) {
         continue;
       }

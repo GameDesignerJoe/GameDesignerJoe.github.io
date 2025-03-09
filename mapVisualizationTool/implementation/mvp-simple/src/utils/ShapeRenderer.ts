@@ -85,25 +85,35 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
     size: number,
     style: RenderStyle
   ): void {
-    if (!style.showMinDistanceRing || !style.minDistanceMeters) return;
+    if (!style.showMinDistanceRing || !style.screenMinDistance) return;
 
     ctx.save();
     
     // Set up the style for the minimum distance ring
-    ctx.strokeStyle = style.minDistanceRingColor || '#ffffff';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = style.minDistanceRingColor || '#00ff00'; // Bright green for better visibility
+    ctx.lineWidth = 2; // Thicker line
     if (style.minDistanceRingStyle) {
-      ctx.setLineDash([5, 5]); // Create dashed line
+      ctx.setLineDash([10, 10]); // Larger dash pattern
     }
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.8; // Higher opacity
 
-    // Calculate the total radius (shape size + min distance)
+    // Use the screen-scaled minimum distance directly (measured from shape edge)
     const shapeRadius = size / 2;
-    const totalRadius = shapeRadius + style.minDistanceMeters;
+    const totalRadius = shapeRadius + (style.screenMinDistance ?? 0);
+    const ringRadius = style.screenMinDistance ?? 0;
 
-    // Draw the ring
+    // Debug logging
+    console.log('Drawing min distance ring:', {
+      shapeRadius,
+      screenMinDistance: style.screenMinDistance,
+      totalRadius,
+      size,
+      style
+    });
+
+    // Draw the ring at the minimum distance from edge
     ctx.beginPath();
-    ctx.arc(x, y, totalRadius, 0, Math.PI * 2);
+    ctx.arc(x, y, shapeRadius + ringRadius, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.restore();
@@ -252,24 +262,35 @@ export class SquareRenderer extends BaseShapeRenderer {
     size: number,
     style: RenderStyle
   ): void {
-    if (!style.showMinDistanceRing || !style.minDistanceMeters) return;
+    if (!style.showMinDistanceRing || !style.screenMinDistance) return;
 
     ctx.save();
     
     // Set up the style for the minimum distance ring
-    ctx.strokeStyle = style.minDistanceRingColor || '#ffffff';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = style.minDistanceRingColor || '#00ff00'; // Bright green for better visibility
+    ctx.lineWidth = 2; // Thicker line
     if (style.minDistanceRingStyle) {
-      ctx.setLineDash([5, 5]); // Create dashed line
+      ctx.setLineDash([10, 10]); // Larger dash pattern
     }
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.8; // Higher opacity
 
-    // Calculate the total size (shape size + min distance * 2)
-    const totalSize = size + (style.minDistanceMeters * 2);
-    const halfTotalSize = totalSize / 2;
+    // Use the screen-scaled minimum distance directly (measured from shape edge)
+    const shapeRadius = size / 2;
+    const ringRadius = style.screenMinDistance ?? 0;
+    const totalSize = (shapeRadius + ringRadius) * 2;
 
-    // Draw the square ring
-    ctx.strokeRect(x - halfTotalSize, y - halfTotalSize, totalSize, totalSize);
+    // Debug logging
+    console.log('Drawing square min distance ring:', {
+      shapeRadius,
+      ringRadius,
+      totalSize,
+      size,
+      style
+    });
+
+    // Draw the square ring at the minimum distance from edge
+    const totalRadius = shapeRadius + ringRadius;
+    ctx.strokeRect(x - totalRadius, y - totalRadius, totalRadius * 2, totalRadius * 2);
 
     ctx.restore();
   }
@@ -319,26 +340,37 @@ export class HexagonRenderer extends BaseShapeRenderer {
     size: number,
     style: RenderStyle
   ): void {
-    if (!style.showMinDistanceRing || !style.minDistanceMeters) return;
+    if (!style.showMinDistanceRing || !style.screenMinDistance) return;
 
     ctx.save();
     
     // Set up the style for the minimum distance ring
-    ctx.strokeStyle = style.minDistanceRingColor || '#ffffff';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = style.minDistanceRingColor || '#00ff00'; // Bright green for better visibility
+    ctx.lineWidth = 2; // Thicker line
     if (style.minDistanceRingStyle) {
-      ctx.setLineDash([5, 5]); // Create dashed line
+      ctx.setLineDash([10, 10]); // Larger dash pattern
     }
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.8; // Higher opacity
 
-    // Calculate the total radius (shape size + min distance)
-    const radius = size / 2;
-    const totalRadius = radius + style.minDistanceMeters;
+    // Use the screen-scaled minimum distance directly (measured from shape edge)
+    const shapeRadius = size / 2;
+    const ringRadius = style.screenMinDistance ?? 0;
+    const totalRadius = shapeRadius + ringRadius;
 
-    // Draw the hexagonal ring
+    // Debug logging
+    console.log('Drawing hexagon min distance ring:', {
+      shapeRadius,
+      screenMinDistance: style.screenMinDistance,
+      totalRadius,
+      size,
+      style
+    });
+
+    // Draw the hexagonal ring at the minimum distance from edge
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
       const angle = (i * Math.PI) / 3;
+      const totalRadius = shapeRadius + ringRadius;
       const pointX = x + totalRadius * Math.cos(angle);
       const pointY = y + totalRadius * Math.sin(angle);
       if (i === 0) {

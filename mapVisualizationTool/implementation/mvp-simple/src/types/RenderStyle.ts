@@ -27,6 +27,7 @@ export interface RenderStyle {
   // Minimum distance visualization
   showMinDistanceRing?: boolean;
   minDistanceMeters?: number;
+  screenMinDistance?: number; // Scaled minimum distance for rendering
   minDistanceRingColor?: string;
   minDistanceRingStyle?: string; // For dashed lines
   

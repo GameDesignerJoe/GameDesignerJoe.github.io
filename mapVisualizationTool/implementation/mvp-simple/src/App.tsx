@@ -192,8 +192,15 @@ function App() {
       alphaThreshold: 200,
       minSpacing: spacing,
       maxAttempts: numDots * 10,
-      respectTypeSpacing: true // Ensure we respect the content type's spacing
+      respectTypeSpacing: false // We'll handle spacing directly
     };
+
+    console.log('Distribution setup:', {
+      size,
+      spacing,
+      numDots,
+      constraints
+    });
 
     // Create content type configuration
     const debugShapeType: ContentTypeBase = {
@@ -202,6 +209,7 @@ function App() {
       mapHeightKm: mapConfig.heightKm,
       size: size,
       minSpacing: spacing, // Set minimum spacing on content type
+      canOverlap: spacing <= 0, // Only allow overlap if no minimum distance is set
       defaultProperties: {
         showDebug: showShapeDebug,
         sizeMeters: size,
@@ -214,7 +222,7 @@ function App() {
         showLabel: showShapeLabel,
         showMinDistanceRing: showMinDistanceRing,
         minDistanceMeters: parseFloat(minDistance),
-        minDistanceRingColor: '#ffffff',
+            minDistanceRingColor: '#00ff00', // Bright green for better visibility
         minDistanceRingStyle: 'dashed'
       }
     };
