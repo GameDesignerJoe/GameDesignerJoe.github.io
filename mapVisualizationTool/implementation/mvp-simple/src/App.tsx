@@ -3,9 +3,10 @@ import './App.css';
 import mapImage from './assets/map.png';
 import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
-import { ContentTypeBase } from './types/ContentTypes';
+import { ContentTypeBase, ContentShape } from './types/ContentTypes';
 import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
 import { ContentInstanceManager, ContentInstance } from './utils/ContentInstanceManager';
+import { ContentRenderer } from './utils/ContentRenderer';
 
 const backgroundImageSrc = mapImage;
 
@@ -23,46 +24,12 @@ const DEBUG_DOT_TYPE: ContentTypeBase = {
   canOverlap: true
 };
 
-// Helper function to draw content type shapes
-const drawContentShape = (
-  ctx: CanvasRenderingContext2D,
-  shape: string,
-  x: number,
-  y: number,
-  size: number,
-  color: string
-) => {
-  ctx.fillStyle = color;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-
-  switch (shape) {
-    case 'circle':
-      ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      break;
-    case 'square':
-      const halfSize = size / 2;
-      ctx.fillRect(x - halfSize, y - halfSize, size, size);
-      ctx.strokeRect(x - halfSize, y - halfSize, size, size);
-      break;
-    case 'hexagon':
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3;
-        const pointX = x + (size / 2) * Math.cos(angle);
-        const pointY = y + (size / 2) * Math.sin(angle);
-        if (i === 0) ctx.moveTo(pointX, pointY);
-        else ctx.lineTo(pointX, pointY);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      break;
-  }
-};
+// Available shape options
+const SHAPE_OPTIONS = [
+  { value: 'circle', label: 'Circle' },
+  { value: 'square', label: 'Square' },
+  { value: 'hexagon', label: 'Hexagon' }
+] as const;
 
 // Define types for map configuration
 interface MapConfig {
@@ -118,6 +85,7 @@ function App() {
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+  const contentRendererRef = useRef<ContentRenderer | null>(null);
 
   // State for map configuration and input
   const [mapConfig, setMapConfig] = useState<MapConfig>({
@@ -159,6 +127,7 @@ function App() {
   const [numDotsInput, setNumDotsInput] = useState("100");
   const [dotSizeMeters, setDotSizeMeters] = useState("10"); // Default 10 meters
   const [showDotDebug, setShowDotDebug] = useState(false);
+  const [dotShape, setDotShape] = useState<ContentShape>('circle');
 
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
@@ -237,7 +206,8 @@ function App() {
           position: { x: normalizedX, y: normalizedY },
           properties: {
             showDebug: showDotDebug,
-            sizeMeters: parseFloat(dotSizeMeters)
+            sizeMeters: parseFloat(dotSizeMeters),
+            shape: dotShape
           }
         };
 
@@ -673,217 +643,73 @@ function App() {
   // Draw content types
   const drawContentTypes = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current || !transparencyMask.length) return;
-    
-    const ctx = contextRef.current;
-    const img = backgroundImageRef.current;
-    
-    // Get current detail level
-    const detailLevel = getCurrentDetailLevel();
-    
-    // Calculate map dimensions in meters
-    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
-    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    // Calculate base scale that preserves aspect ratio
-    const baseScale = Math.min(
-      canvasDimensions.width / mapWidthMeters,
-      canvasDimensions.height / mapHeightMeters
-    );
-
-    // Calculate base dimensions at zoom level 1
-    const baseWidth = mapWidthMeters * baseScale;
-    const baseHeight = mapHeightMeters * baseScale;
-
-    // Apply zoom to get final dimensions
-    const scaledWidth = baseWidth * zoomLevel;
-    const scaledHeight = baseHeight * zoomLevel;
-
-    // Calculate center offset
-    const centerOffsetX = (canvasDimensions.width - scaledWidth) / 2;
-    const centerOffsetY = (canvasDimensions.height - scaledHeight) / 2;
-
-    // Calculate final position with pan offset
-    const offsetX = centerOffsetX + panOffset.x;
-    const offsetY = centerOffsetY + panOffset.y;
-
-    // Calculate meters per pixel without rounding
-    const metersPerPixel = (mapConfig.widthKm * METERS_PER_KM) / img.width;
-    const pixelsPerMeter = 1 / metersPerPixel;
-
-    // For each content type, draw instances based on quantity
-    contentTypes.forEach(contentType => {
-      const positions: { x: number, y: number }[] = [];
-      const maxAttempts = contentType.quantity * 10;
-      let attempts = 0;
-
-      // Helper function to check if a position respects minimum spacing
-      const isValidPosition = (x: number, y: number) => {
-        const minSpacingPixels = contentType.minSpacing * pixelsPerMeter;
-        return positions.every(pos => {
-          const dx = x - pos.x;
-          const dy = y - pos.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          return distance >= minSpacingPixels;
-        });
-      };
-
-      // Create a temporary canvas to analyze the image
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      if (!tempCtx) return;
-
-      // Set canvas size to match the background image
-      tempCanvas.width = img.width;
-      tempCanvas.height = img.height;
-
-      // Draw the background image
-      tempCtx.drawImage(img, 0, 0);
-
-      // Get image data to analyze transparency
-      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-      const data = imageData.data;
-      const alphaThreshold = 200; // Only place content where alpha > 200 (out of 255)
-
-      while (positions.length < contentType.quantity && attempts < maxAttempts) {
-        attempts++;
-        
-        const seed = `${contentType.id}-${attempts}`;
-        const hash = seed.split('').reduce((a, b) => {
-          a = ((a << 5) - a) + b.charCodeAt(0);
-          return a & a;
-        }, 0);
-        
-        // Generate position in image coordinates
-        const imgX = Math.abs(hash % img.width);
-        const imgY = Math.abs((hash >> 8) % img.height);
-
-        // Get pixel alpha value
-        const pixelIndex = (imgY * img.width + imgX) * 4;
-        const alpha = data[pixelIndex + 3];
-
-        // Convert to meters for position tracking
-        const x = (imgX / img.width) * (mapConfig.widthKm * METERS_PER_KM);
-        const y = (imgY / img.height) * (mapConfig.heightKm * METERS_PER_KM);
-
-        // Only add position if alpha is above threshold and respects minimum spacing
-        if (alpha > alphaThreshold && isValidPosition(x, y)) {
-          positions.push({ x, y });
-        }
-      }
-
-      positions.forEach(pos => {
-        // Convert image coordinates to meters (same as mapToScreenCoordinates)
-        const metersX = (pos.x / img.width) * (mapConfig.widthKm * METERS_PER_KM);
-        const metersY = (pos.y / img.height) * (mapConfig.heightKm * METERS_PER_KM);
-
-        // Convert meters to normalized coordinates (0-1)
-        const normalizedX = metersX / mapWidthMeters;
-        const normalizedY = metersY / mapHeightMeters;
-
-        // Convert to screen coordinates
-        const scaledX = normalizedX * scaledWidth + offsetX;
-        const scaledY = normalizedY * scaledHeight + offsetY;
-        
-        // Scale size based on meters and zoom level
-        const sizeInPixels = contentType.size * pixelsPerMeter;
-        const scaledSize = sizeInPixels * baseScale * zoomLevel;
-        
-        // Only round at the final step when drawing
-        const finalX = Math.round(scaledX);
-        const finalY = Math.round(scaledY);
-        const finalSize = Math.round(scaledSize);
-        
-        // Draw the content shape with final rounded values
-        drawContentShape(ctx, contentType.shape, finalX, finalY, finalSize, contentType.color);
+    // Initialize or update content renderer
+    if (!contentRendererRef.current) {
+      contentRendererRef.current = new ContentRenderer(contextRef.current, {
+        canvasWidth: canvasDimensions.width,
+        canvasHeight: canvasDimensions.height,
+        mapWidthKm: mapConfig.widthKm,
+        mapHeightKm: mapConfig.heightKm,
+        zoomLevel,
+        panOffset
       });
+    } else {
+      contentRendererRef.current.updateConfig({
+        canvasWidth: canvasDimensions.width,
+        canvasHeight: canvasDimensions.height,
+        mapWidthKm: mapConfig.widthKm,
+        mapHeightKm: mapConfig.heightKm,
+        zoomLevel,
+        panOffset
+      });
+    }
+
+    // Render each content type's instances
+    contentTypes.forEach(contentType => {
+      const instances = contentInstanceManager.getInstances(contentType.id);
+      contentRendererRef.current?.renderInstances(instances, contentType);
     });
-  }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, getCurrentDetailLevel, mapConfig]);
+  }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, mapConfig]);
 
   // Draw debug dots using stored instances
   const drawRandomDots = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
 
-    const ctx = contextRef.current;
-    const img = backgroundImageRef.current;
-    const debugDots = contentInstanceManager.getInstances('debug-dot');
-
-    if (debugDots.length === 0) return;
-
-    // Calculate meters per pixel
-    const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
-    const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
-    const metersPerPixel = mapWidthMeters / img.width;
-    const pixelsPerMeter = 1 / metersPerPixel;
-
-    ctx.save();
-    debugDots.forEach(dot => {
-      // Get dot size from properties or use default
-      const dotSizeM = dot.properties?.sizeMeters ?? parseFloat(dotSizeMeters);
-      const showDebug = dot.properties?.showDebug ?? showDotDebug;
-      
-      // Calculate base scale that preserves aspect ratio
-      const baseScale = Math.min(
-        canvasDimensions.width / mapWidthMeters,
-        canvasDimensions.height / mapHeightMeters
-      );
-
-      // Calculate dot size using same scaling as grid cells
-      const baseDotSize = dotSizeM * baseScale;
-      const scaledDotSize = baseDotSize * zoomLevel;
-      
-      // Use half the size for radius since arc() takes radius not diameter
-      const finalRadius = scaledDotSize / 2;
-
-      // Convert map coordinates to screen coordinates
-      const screenCoord = mapToScreenCoordinates(
-        dot.position,
-        mapConfig.widthKm,
-        mapConfig.heightKm,
-        canvasDimensions.width,
-        canvasDimensions.height,
+    // Initialize or update content renderer
+    if (!contentRendererRef.current) {
+      contentRendererRef.current = new ContentRenderer(contextRef.current, {
+        canvasWidth: canvasDimensions.width,
+        canvasHeight: canvasDimensions.height,
+        mapWidthKm: mapConfig.widthKm,
+        mapHeightKm: mapConfig.heightKm,
         zoomLevel,
         panOffset
-      );
+      });
+    } else {
+      contentRendererRef.current.updateConfig({
+        canvasWidth: canvasDimensions.width,
+        canvasHeight: canvasDimensions.height,
+        mapWidthKm: mapConfig.widthKm,
+        mapHeightKm: mapConfig.heightKm,
+        zoomLevel,
+        panOffset
+      });
+    }
 
-      // Draw dot
-      ctx.fillStyle = DEBUG_DOT_TYPE.color;
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(screenCoord.x, screenCoord.y, finalRadius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+    // Get all debug dots
+    const debugDots = contentInstanceManager.getInstances('debug-dot');
+    if (debugDots.length === 0) return;
 
-      // Draw debug text if enabled
-      if (showDebug) {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
-        ctx.font = '12px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        
-        const text = `(${dot.position.x.toFixed(3)}, ${dot.position.y.toFixed(3)}) ${dotSizeM}m`;
-        const textY = screenCoord.y - (finalRadius + 5);
-        
-        // Draw text background with tighter padding
-        const metrics = ctx.measureText(text);
-        const padding = 4;
-        const lineHeight = 14;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(
-          screenCoord.x - (metrics.width / 2) - padding,
-          textY - lineHeight - padding,
-          metrics.width + (padding * 2),
-          lineHeight + (padding * 2)
-        );
-        
-        // Draw text
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(text, screenCoord.x, textY);
-      }
+    // Render each debug dot
+    debugDots.forEach(dot => {
+      const dotType: ContentTypeBase = {
+        ...DEBUG_DOT_TYPE,
+        size: dot.properties?.sizeMeters ?? parseFloat(dotSizeMeters),
+        shape: dot.properties?.shape ?? 'circle'
+      };
+      contentRendererRef.current?.renderInstance(dot, dotType);
     });
-    ctx.restore();
   }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showDotDebug, dotSizeMeters, mapConfig]);
 
   const render = useCallback(() => {
@@ -1065,6 +891,35 @@ function App() {
                   }}
                   style={{ width: '60px' }}
                 />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Shape:</span>
+                <select
+                  value={dotShape}
+                  onChange={e => {
+                    const newShape = e.target.value as ContentShape;
+                    setDotShape(newShape);
+                    // Update existing dots' shape property without regenerating them
+                    contentInstanceManager.getInstances('debug-dot').forEach(dot => {
+                      const updatedInstance = {
+                        ...dot,
+                        properties: {
+                          ...dot.properties,
+                          shape: newShape
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-dot', dot.id);
+                      contentInstanceManager.addInstance('debug-dot', updatedInstance);
+                    });
+                  }}
+                  style={{ width: '100px' }}
+                >
+                  {SHAPE_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Size (m):</span>
