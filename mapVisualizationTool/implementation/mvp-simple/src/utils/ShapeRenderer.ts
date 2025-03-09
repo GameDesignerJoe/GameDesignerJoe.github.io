@@ -89,13 +89,33 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
     ctx.strokeRect(x - size/2, y - size/2, size, size);
     ctx.setLineDash([]);
 
-    // Draw debug text
+    // Draw debug text with background
     if (debugText) {
-      ctx.font = `${style.debugFontSize || 12}px Arial`;
-      ctx.fillStyle = style.debugTextColor || '#ffffff';
+      const fontSize = style.debugFontSize || 12;
+      ctx.font = `${fontSize}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(debugText, x, y - size/2 - 5);
+      
+      // Measure text for background
+      const metrics = ctx.measureText(debugText);
+      const padding = 4;
+      const textWidth = metrics.width;
+      const textHeight = fontSize;
+      const bgX = x - (textWidth / 2) - padding;
+      const bgY = y - size/2 - textHeight - padding * 2;
+      
+      // Draw background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(
+        bgX,
+        bgY,
+        textWidth + padding * 2,
+        textHeight + padding * 2
+      );
+      
+      // Draw text
+      ctx.fillStyle = style.debugTextColor || '#ffffff';
+      ctx.fillText(debugText, x, y - size/2 - padding);
     }
 
     ctx.restore();

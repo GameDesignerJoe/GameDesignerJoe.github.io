@@ -10,10 +10,10 @@ import { ContentRenderer } from './utils/ContentRenderer';
 
 const backgroundImageSrc = mapImage;
 
-// Debug Dots content type definition
-const DEBUG_DOT_TYPE: ContentTypeBase = {
-  id: 'debug-dot',
-  name: 'Debug Dot',
+// Debug Shape content type definition
+const DEBUG_SHAPE_TYPE: ContentTypeBase = {
+  id: 'debug-shape',
+  name: 'Debug Shape',
   category: 'Exploration',
   description: 'Debug visualization marker',
   color: '#0000FF',
@@ -123,11 +123,11 @@ function App() {
   // State for content types
   const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
 
-  // State for debug dots
-  const [numDotsInput, setNumDotsInput] = useState("100");
-  const [dotSizeMeters, setDotSizeMeters] = useState("10"); // Default 10 meters
-  const [showDotDebug, setShowDotDebug] = useState(false);
-  const [dotShape, setDotShape] = useState<ContentShape>('circle');
+  // State for debug shapes
+  const [numShapesInput, setNumShapesInput] = useState("100");
+  const [shapeSizeMeters, setShapeSizeMeters] = useState("10"); // Default 10 meters
+  const [showShapeDebug, setShowShapeDebug] = useState(false);
+  const [shapeType, setShapeType] = useState<ContentShape>('circle');
 
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
@@ -140,20 +140,20 @@ function App() {
     return matchingLevel || DETAIL_LEVELS[0]; // Default to highest detail if no match
   }, [zoomLevel]);
 
-  // Handle deleting dots
-  const handleDeleteDots = useCallback(() => {
-    // Remove all debug dot instances
-    contentInstanceManager.getInstances('debug-dot').forEach(instance => {
-      contentInstanceManager.removeInstance('debug-dot', instance.id);
+  // Handle deleting shapes
+  const handleDeleteShapes = useCallback(() => {
+    // Remove all debug shape instances
+    contentInstanceManager.getInstances('debug-shape').forEach(instance => {
+      contentInstanceManager.removeInstance('debug-shape', instance.id);
     });
   }, [contentInstanceManager]);
 
-  // Handle adding dots
-  const handleAddDots = useCallback(() => {
+  // Handle adding shapes
+  const handleAddShapes = useCallback(() => {
     if (!backgroundImageRef.current) return;
 
     const img = backgroundImageRef.current;
-    const numDots = parseInt(numDotsInput);
+    const numDots = parseInt(numShapesInput);
     if (isNaN(numDots) || numDots <= 0) return;
 
     // Create a temporary canvas to analyze the image
@@ -176,14 +176,14 @@ function App() {
     const mapWidthMeters = mapConfig.widthKm * METERS_PER_KM;
     const mapHeightMeters = mapConfig.heightKm * METERS_PER_KM;
 
-    // Remove existing debug dots
-    handleDeleteDots();
+    // Remove existing debug shapes
+    handleDeleteShapes();
 
     let attempts = 0;
     const maxAttempts = numDots * 10;
-    const alphaThreshold = 200; // Only place dots where alpha > 200 (out of 255)
+    const alphaThreshold = 200; // Only place shapes where alpha > 200 (out of 255)
 
-    while (contentInstanceManager.getInstances('debug-dot').length < numDots && attempts < maxAttempts) {
+    while (contentInstanceManager.getInstances('debug-shape').length < numDots && attempts < maxAttempts) {
       attempts++;
       
       // Generate random normalized coordinates (0-1)
@@ -201,29 +201,29 @@ function App() {
       // Only add position if alpha is above threshold
       if (alpha > alphaThreshold) {
         const instance: ContentInstance = {
-          id: `debug-dot-${attempts}`,
-          typeId: 'debug-dot',
+          id: `debug-shape-${attempts}`,
+          typeId: 'debug-shape',
           position: { x: normalizedX, y: normalizedY },
           properties: {
-            showDebug: showDotDebug,
-            sizeMeters: parseFloat(dotSizeMeters),
-            shape: dotShape
+            showDebug: showShapeDebug,
+            sizeMeters: parseFloat(shapeSizeMeters),
+            shape: shapeType
           }
         };
 
         if (contentInstanceManager.validateInstance(instance)) {
-          contentInstanceManager.addInstance('debug-dot', instance);
+          contentInstanceManager.addInstance('debug-shape', instance);
         }
       }
     }
-  }, [numDotsInput, mapConfig.widthKm, mapConfig.heightKm, dotSizeMeters, showDotDebug, contentInstanceManager, handleDeleteDots]);
+  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, contentInstanceManager, handleDeleteShapes]);
 
   // Handle enter key in input field
   const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      handleAddDots();
+      handleAddShapes();
     }
-  }, [handleAddDots]);
+  }, [handleAddShapes]);
 
   // Update input value and dimensions when target area changes
   useEffect(() => {
@@ -672,8 +672,8 @@ function App() {
     });
   }, [canvasDimensions, zoomLevel, panOffset, contentTypes, transparencyMask, mapConfig]);
 
-  // Draw debug dots using stored instances
-  const drawRandomDots = useCallback(() => {
+  // Draw debug shapes using stored instances
+  const drawRandomShapes = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
 
     // Initialize or update content renderer
@@ -697,20 +697,20 @@ function App() {
       });
     }
 
-    // Get all debug dots
-    const debugDots = contentInstanceManager.getInstances('debug-dot');
-    if (debugDots.length === 0) return;
+    // Get all debug shapes
+    const debugShapes = contentInstanceManager.getInstances('debug-shape');
+    if (debugShapes.length === 0) return;
 
-    // Render each debug dot
-    debugDots.forEach(dot => {
-      const dotType: ContentTypeBase = {
-        ...DEBUG_DOT_TYPE,
-        size: dot.properties?.sizeMeters ?? parseFloat(dotSizeMeters),
-        shape: dot.properties?.shape ?? 'circle'
+    // Render each debug shape
+    debugShapes.forEach(shape => {
+      const shapeType: ContentTypeBase = {
+        ...DEBUG_SHAPE_TYPE,
+        size: shape.properties?.sizeMeters ?? parseFloat(shapeSizeMeters),
+        shape: shape.properties?.shape ?? 'circle'
       };
-      contentRendererRef.current?.renderInstance(dot, dotType);
+      contentRendererRef.current?.renderInstance(shape, shapeType);
     });
-  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showDotDebug, dotSizeMeters, mapConfig]);
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, mapConfig]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -721,11 +721,11 @@ function App() {
       drawGrid();
     }
     drawContentTypes();
-    drawRandomDots(); // Add random dots
+    drawRandomShapes(); // Add random shapes
     
     // Request next frame
     animationFrameRef.current = requestAnimationFrame(render);
-  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawRandomDots, mapConfig.showGrid]);
+  }, [clearCanvas, drawBackground, drawGrid, drawContentTypes, drawRandomShapes, mapConfig.showGrid]);
 
   // Set up canvas context and start render loop when ready
   useEffect(() => {
@@ -875,8 +875,8 @@ function App() {
               title="Grid Opacity"
             />
           </div>
-          <details className="dot-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
-            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Dots</summary>
+          <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Shapes</summary>
             <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Count:</span>
@@ -884,10 +884,10 @@ function App() {
                   type="number"
                   min="1"
                   max="1000"
-                  value={numDotsInput}
+                  value={numShapesInput}
                   onChange={e => {
-                    setNumDotsInput(e.target.value);
-                    handleAddDots();
+                    setNumShapesInput(e.target.value);
+                    handleAddShapes();
                   }}
                   style={{ width: '60px' }}
                 />
@@ -895,24 +895,30 @@ function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Shape:</span>
                 <select
-                  value={dotShape}
+                  value={shapeType}
                   onChange={e => {
                     const newShape = e.target.value as ContentShape;
-                    setDotShape(newShape);
+                    setShapeType(newShape);
                     // Update existing dots' shape property without regenerating them
-                    contentInstanceManager.getInstances('debug-dot').forEach(dot => {
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
                       const updatedInstance = {
-                        ...dot,
+                        ...shape,
                         properties: {
-                          ...dot.properties,
+                          ...shape.properties,
                           shape: newShape
                         }
                       };
-                      contentInstanceManager.removeInstance('debug-dot', dot.id);
-                      contentInstanceManager.addInstance('debug-dot', updatedInstance);
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
                   }}
-                  style={{ width: '100px' }}
+                  style={{ 
+                    width: '80px',
+                    border: '1px solid rgb(118, 118, 118)',
+                    backgroundColor: 'rgb(59, 59, 59)',
+                    color: '#ffffff',
+                    padding: '1px'
+                  }}
                 >
                   {SHAPE_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>
@@ -927,21 +933,21 @@ function App() {
                   type="number"
                   min="1"
                   max="1000"
-                  value={dotSizeMeters}
+                  value={shapeSizeMeters}
                   onChange={e => {
                     const newSize = e.target.value;
-                    setDotSizeMeters(newSize);
+                    setShapeSizeMeters(newSize);
                     // Update existing dots' size property without regenerating them
-                    contentInstanceManager.getInstances('debug-dot').forEach(dot => {
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
                       const updatedInstance = {
-                        ...dot,
+                        ...shape,
                         properties: {
-                          ...dot.properties,
+                          ...shape.properties,
                           sizeMeters: parseFloat(newSize)
                         }
                       };
-                      contentInstanceManager.removeInstance('debug-dot', dot.id);
-                      contentInstanceManager.addInstance('debug-dot', updatedInstance);
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
                   }}
                   style={{ width: '60px' }}
@@ -950,21 +956,21 @@ function App() {
               <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <input
                   type="checkbox"
-                  checked={showDotDebug}
+                  checked={showShapeDebug}
                   onChange={e => {
                     const newShowDebug = e.target.checked;
-                    setShowDotDebug(newShowDebug);
+                    setShowShapeDebug(newShowDebug);
                     // Update existing dots' debug property without regenerating them
-                    contentInstanceManager.getInstances('debug-dot').forEach(dot => {
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
                       const updatedInstance = {
-                        ...dot,
+                        ...shape,
                         properties: {
-                          ...dot.properties,
+                          ...shape.properties,
                           showDebug: newShowDebug
                         }
                       };
-                      contentInstanceManager.removeInstance('debug-dot', dot.id);
-                      contentInstanceManager.addInstance('debug-dot', updatedInstance);
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
                   }}
                 />
@@ -972,13 +978,13 @@ function App() {
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
                 <button 
-                  onClick={handleAddDots}
+                  onClick={handleAddShapes}
                   style={{ flex: 1 }}
                 >
-                  Add Dots
+                  Add Shapes
                 </button>
                 <button
-                  onClick={handleDeleteDots}
+                  onClick={handleDeleteShapes}
                   style={{
                     background: 'transparent',
                     border: 'none',
@@ -1008,7 +1014,7 @@ function App() {
                 >
                   <img 
                     src={deleteIcon} 
-                    alt="Delete dots"
+                    alt="Delete shapes"
                     style={{ 
                       width: '20px',
                       height: '20px'
@@ -1070,10 +1076,10 @@ function App() {
             minWidth: '150px'
           }}>
             <div style={{ marginBottom: '5px' }}>
-              Debug Dots: {contentInstanceManager.getInstances('debug-dot').length}
+              Debug Shapes: {contentInstanceManager.getInstances('debug-shape').length}
             </div>
             <div>
-              Dot Size: {dotSizeMeters}m
+              Shape Size: {shapeSizeMeters}m
             </div>
           </div>
         </div>
