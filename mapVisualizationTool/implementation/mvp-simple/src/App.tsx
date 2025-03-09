@@ -1108,6 +1108,9 @@ function App() {
             minWidth: '150px'
           }}>
             <div style={{ marginBottom: '5px' }}>
+              Map Size: {mapConfig.widthKm.toFixed(1)}km × {mapConfig.heightKm.toFixed(1)}km ({mapConfig.actualAreaKm2.toFixed(1)}km²)
+            </div>
+            <div style={{ marginBottom: '5px' }}>
               Debug Shapes: {contentInstanceManager.getInstances('debug-shape').length}
             </div>
             <div>
