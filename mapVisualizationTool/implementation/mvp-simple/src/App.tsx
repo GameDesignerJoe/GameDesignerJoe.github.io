@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 import mapImage from './assets/map.png';
 import deleteIcon from './assets/delete.png';
@@ -120,6 +120,7 @@ function App() {
 
   // State for content instance management
   const [contentInstanceManager] = useState(() => new ContentInstanceManager());
+  const [instanceCount, setInstanceCount] = useState(0); // Track instance count changes
   
   // State for content types
   const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
@@ -153,14 +154,15 @@ function App() {
     contentInstanceManager.getInstances('debug-shape').forEach(instance => {
       contentInstanceManager.removeInstance('debug-shape', instance.id);
     });
+    setInstanceCount(0); // Update instance count
   }, [contentInstanceManager]);
 
   // Handle adding shapes
-  const handleAddShapes = useCallback(() => {
+  const handleAddShapes = useCallback((targetCount?: number) => {
     if (!backgroundImageRef.current) return;
 
     const img = backgroundImageRef.current;
-    const numDots = parseInt(numShapesInput);
+    const numDots = targetCount ?? parseInt(numShapesInput);
     if (isNaN(numDots) || numDots <= 0) return;
 
     // Create a temporary canvas to analyze the image
@@ -226,6 +228,7 @@ function App() {
 
         if (contentInstanceManager.validateInstance(instance)) {
           contentInstanceManager.addInstance('debug-shape', instance);
+          setInstanceCount(prev => prev + 1); // Update instance count
         }
       }
     }
@@ -905,8 +908,12 @@ function App() {
                   max="1000"
                   value={numShapesInput}
                   onChange={e => {
-                    setNumShapesInput(e.target.value);
-                    handleAddShapes();
+                    const newValue = e.target.value;
+                    setNumShapesInput(newValue);
+                    const numDots = parseInt(newValue);
+                    if (!isNaN(numDots) && numDots > 0) {
+                      handleAddShapes(numDots);
+                    }
                   }}
                   style={{ width: '60px' }}
                 />
@@ -919,7 +926,8 @@ function App() {
                     const newShape = e.target.value as ContentShape;
                     setShapeType(newShape);
                     // Update existing dots' shape property without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -930,6 +938,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ 
                     width: '80px',
@@ -957,7 +966,8 @@ function App() {
                     const newSize = e.target.value;
                     setShapeSizeMeters(newSize);
                     // Update existing dots' size property without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -968,6 +978,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ width: '60px' }}
                 />
@@ -984,7 +995,8 @@ function App() {
                     const newOpacity = parseFloat(e.target.value);
                     setShapeOpacity(newOpacity);
                     // Update existing shapes' opacity property without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -995,6 +1007,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ flex: 1 }}
                 />
@@ -1009,7 +1022,8 @@ function App() {
                     const newColor = e.target.value;
                     setShapeColor(newColor);
                     // Update existing shapes' color property without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -1020,6 +1034,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ 
                     width: '60px',
@@ -1040,7 +1055,8 @@ function App() {
                     const newSize = parseInt(e.target.value);
                     setShapeBorderSize(newSize);
                     // Update existing shapes' border size without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -1051,6 +1067,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ width: '60px' }}
                 />
@@ -1061,7 +1078,8 @@ function App() {
                     const newColor = e.target.value;
                     setShapeBorderColor(newColor);
                     // Update existing shapes' border color without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -1072,6 +1090,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ 
                     width: '60px',
@@ -1090,7 +1109,8 @@ function App() {
                     const newLabel = e.target.value;
                     setShapeLabel(newLabel);
                     // Update existing shapes' label without regenerating them
-                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                    const shapes = contentInstanceManager.getInstances('debug-shape');
+                    shapes.forEach(shape => {
                       const updatedInstance = {
                         ...shape,
                         properties: {
@@ -1101,6 +1121,7 @@ function App() {
                       contentInstanceManager.removeInstance('debug-shape', shape.id);
                       contentInstanceManager.addInstance('debug-shape', updatedInstance);
                     });
+                    setInstanceCount(shapes.length); // Maintain count
                   }}
                   style={{ 
                     flex: 1,
@@ -1120,7 +1141,8 @@ function App() {
                       const newShowLabel = e.target.checked;
                       setShowShapeLabel(newShowLabel);
                       // Update existing shapes' showLabel property without regenerating them
-                      contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                      const shapes = contentInstanceManager.getInstances('debug-shape');
+                      shapes.forEach(shape => {
                         const updatedInstance = {
                           ...shape,
                           properties: {
@@ -1131,6 +1153,7 @@ function App() {
                         contentInstanceManager.removeInstance('debug-shape', shape.id);
                         contentInstanceManager.addInstance('debug-shape', updatedInstance);
                       });
+                      setInstanceCount(shapes.length); // Maintain count
                     }}
                   />
                   Show Label
@@ -1143,7 +1166,8 @@ function App() {
                       const newShowDebug = e.target.checked;
                       setShowShapeDebug(newShowDebug);
                       // Update existing dots' debug property without regenerating them
-                      contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                      const shapes = contentInstanceManager.getInstances('debug-shape');
+                      shapes.forEach(shape => {
                         const updatedInstance = {
                           ...shape,
                           properties: {
@@ -1154,6 +1178,7 @@ function App() {
                         contentInstanceManager.removeInstance('debug-shape', shape.id);
                         contentInstanceManager.addInstance('debug-shape', updatedInstance);
                       });
+                      setInstanceCount(shapes.length); // Maintain count
                     }}
                   />
                   Show Debug Text
@@ -1161,7 +1186,7 @@ function App() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
                 <button 
-                  onClick={handleAddShapes}
+                  onClick={() => handleAddShapes()}
                   style={{ flex: 1 }}
                 >
                   Add Shapes
@@ -1262,7 +1287,7 @@ function App() {
               Map Size: {mapConfig.widthKm.toFixed(1)}km × {mapConfig.heightKm.toFixed(1)}km ({mapConfig.actualAreaKm2.toFixed(1)}km²)
             </div>
             <div style={{ marginBottom: '5px' }}>
-              Debug Shapes: {contentInstanceManager.getInstances('debug-shape').length}
+              Debug Shapes: {instanceCount}
             </div>
             <div>
               Shape Size: {shapeSizeMeters}m
