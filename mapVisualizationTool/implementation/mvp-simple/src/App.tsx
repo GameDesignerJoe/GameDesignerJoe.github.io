@@ -129,6 +129,7 @@ function App() {
   const [shapeSizeMeters, setShapeSizeMeters] = useState("10"); // Default 10 meters
   const [shapeOpacity, setShapeOpacity] = useState(1.0);
   const [showShapeDebug, setShowShapeDebug] = useState(false);
+  const [shapeColor, setShapeColor] = useState('#0000FF');
   const [shapeType, setShapeType] = useState<ContentShape>('circle');
 
   // Track current detail level for grid updates
@@ -210,7 +211,8 @@ function App() {
             showDebug: showShapeDebug,
             sizeMeters: parseFloat(shapeSizeMeters),
             shape: shapeType,
-            opacity: shapeOpacity
+            opacity: shapeOpacity,
+            color: shapeColor
           }
         };
 
@@ -710,11 +712,12 @@ function App() {
         ...DEBUG_SHAPE_TYPE,
         size: shape.properties?.sizeMeters ?? parseFloat(shapeSizeMeters),
         shape: shape.properties?.shape ?? 'circle',
-        opacity: shape.properties?.opacity ?? shapeOpacity
+        opacity: shape.properties?.opacity ?? shapeOpacity,
+        color: shape.properties?.color ?? shapeColor
       };
       contentRendererRef.current?.renderInstance(shape, shapeType);
     });
-  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, shapeOpacity, mapConfig]);
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, shapeOpacity, shapeColor, mapConfig]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -984,6 +987,36 @@ function App() {
                   style={{ flex: 1 }}
                 />
                 <span style={{ minWidth: '30px', textAlign: 'right' }}>{(shapeOpacity * 100).toFixed(0)}%</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>Color:</span>
+                <input
+                  type="color"
+                  value={shapeColor}
+                  onChange={e => {
+                    const newColor = e.target.value;
+                    setShapeColor(newColor);
+                    // Update existing shapes' color property without regenerating them
+                    contentInstanceManager.getInstances('debug-shape').forEach(shape => {
+                      const updatedInstance = {
+                        ...shape,
+                        properties: {
+                          ...shape.properties,
+                          color: newColor
+                        }
+                      };
+                      contentInstanceManager.removeInstance('debug-shape', shape.id);
+                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                    });
+                  }}
+                  style={{ 
+                    width: '60px',
+                    height: '30px',
+                    padding: '0',
+                    border: '1px solid rgb(118, 118, 118)',
+                    borderRadius: '4px'
+                  }}
+                />
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <input
