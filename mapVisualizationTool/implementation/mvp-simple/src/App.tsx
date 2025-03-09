@@ -221,7 +221,7 @@ function App() {
         }
       }
     }
-  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, contentInstanceManager, handleDeleteShapes]);
+  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, shapeColor, shapeOpacity, contentInstanceManager, handleDeleteShapes]);
 
   // Handle enter key in input field
   const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1011,10 +1011,9 @@ function App() {
                   }}
                   style={{ 
                     width: '60px',
-                    height: '30px',
-                    padding: '0',
-                    border: '1px solid rgb(118, 118, 118)',
-                    borderRadius: '4px'
+                    height: '20px',
+                    padding: '1px',
+                    backgroundColor: 'rgb(59, 59, 59)'
                   }}
                 />
               </div>
