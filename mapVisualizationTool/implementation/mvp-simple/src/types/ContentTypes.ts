@@ -41,7 +41,77 @@ export interface EnemyContentType extends ContentTypeBase {
 }
 
 // Content categories
-export type ContentCategory = 'Combat' | 'Exploration' | 'Resource';
+export type ContentCategory = 
+  | 'Debug'
+  | 'Combat'
+  | 'Exploration'
+  | 'Resource'
+  | 'Mission'
+  | 'Travel'
+  | 'Restoration';
+
+// Content type identifiers
+export type ContentTypeId = 
+  | 'Debug'
+  | 'Enemies'
+  | 'PointOfInterest'
+  | 'MissionLocation'
+  | 'Start'
+  | 'FastTravel'
+  | 'Restoration';
+
+// Default properties for each content type
+export const contentTypeDefaults: Record<ContentTypeId, Partial<ContentTypeBase>> = {
+  Debug: {
+    color: '#0000FF',
+    shape: 'circle',
+    size: 10,
+    opacity: 1.0,
+    category: 'Debug'
+  },
+  Enemies: {
+    color: '#FF0000',
+    shape: 'circle',
+    size: 15,
+    opacity: 0.8,
+    category: 'Combat'
+  },
+  PointOfInterest: {
+    color: '#00BFFF',
+    shape: 'square',
+    size: 12,
+    opacity: 0.9,
+    category: 'Exploration'
+  },
+  MissionLocation: {
+    color: '#FFD700',
+    shape: 'hexagon',
+    size: 20,
+    opacity: 0.9,
+    category: 'Mission'
+  },
+  Start: {
+    color: '#32CD32',
+    shape: 'circle',
+    size: 25,
+    opacity: 1.0,
+    category: 'Travel'
+  },
+  FastTravel: {
+    color: '#9370DB',
+    shape: 'hexagon',
+    size: 15,
+    opacity: 0.9,
+    category: 'Travel'
+  },
+  Restoration: {
+    color: '#00FFFF',
+    shape: 'square',
+    size: 15,
+    opacity: 0.8,
+    category: 'Restoration'
+  }
+};
 
 // Available shapes
 export type ContentShape = 'circle' | 'square' | 'hexagon';

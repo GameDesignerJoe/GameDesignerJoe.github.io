@@ -3,7 +3,12 @@ import './App.css';
 import mapImage from './assets/map.png';
 import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
-import { ContentTypeBase, ContentShape } from './types/ContentTypes';
+import { 
+  ContentTypeBase, 
+  ContentShape,
+  ContentTypeId,
+  contentTypeDefaults
+} from './types/ContentTypes';
 import { mapToScreenCoordinates, MapCoordinate } from './utils/MapCoordinates';
 import { ContentInstanceManager, ContentInstance } from './utils/ContentInstanceManager';
 import { ContentRenderer } from './utils/ContentRenderer';
@@ -141,6 +146,7 @@ function App() {
   const [minDistance, setMinDistance] = useState("0");
   const [showMinDistanceRing, setShowMinDistanceRing] = useState(false);
   const [distributionMessage, setDistributionMessage] = useState<string | null>(null);
+  const [selectedContentType, setSelectedContentType] = useState<ContentTypeId>('Debug');
 
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
@@ -161,6 +167,17 @@ function App() {
     });
     setInstanceCount(0); // Update instance count
   }, [contentInstanceManager]);
+
+  // Effect to update properties when content type changes
+  useEffect(() => {
+    const defaults = contentTypeDefaults[selectedContentType];
+    if (defaults) {
+      setShapeColor(defaults.color ?? '#0000FF');
+      setShapeType(defaults.shape ?? 'circle');
+      setShapeSizeMeters(defaults.size?.toString() ?? "10");
+      setShapeOpacity(defaults.opacity ?? 1.0);
+    }
+  }, [selectedContentType]);
 
   // Handle adding shapes
   const handleAddShapes = useCallback((targetCount?: number) => {
@@ -207,6 +224,9 @@ function App() {
       constraints
     });
 
+    // Get default properties for selected content type
+    const typeDefaults = contentTypeDefaults[selectedContentType];
+
     // Create content type configuration
     const debugShapeType: ContentTypeBase = {
       ...DEBUG_SHAPE_TYPE,
@@ -215,6 +235,7 @@ function App() {
       size: size,
       minSpacing: spacing, // Set minimum spacing on content type
       canOverlap: spacing <= 0, // Only allow overlap if no minimum distance is set
+      category: typeDefaults.category ?? 'Debug',
       defaultProperties: {
         showDebug: showShapeDebug,
         sizeMeters: size,
@@ -228,7 +249,8 @@ function App() {
         showMinDistanceRing: spacing > 0, // Show ring if min distance is set
         minDistanceMeters: parseFloat(minDistance),
         minDistanceRingColor: '#00ff00', // Bright green for better visibility
-        minDistanceRingStyle: 'dashed'
+        minDistanceRingStyle: 'dashed',
+        contentType: selectedContentType // Store the content type with the instance
       }
     };
 
@@ -936,42 +958,68 @@ function App() {
                   style={{ width: '60px' }}
                 />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Shape:</span>
-                <select
-                  value={shapeType}
-                  onChange={e => {
-                    const newShape = e.target.value as ContentShape;
-                    setShapeType(newShape);
-                    // Update existing dots' shape property without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          shape: newShape
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ 
-                    width: '80px',
-                    border: '1px solid rgb(118, 118, 118)',
-                    backgroundColor: 'rgb(59, 59, 59)',
-                    color: '#ffffff',
-                    padding: '1px'
-                  }}
-                >
-                  {SHAPE_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>Content Type:</span>
+                  <select
+                    value={selectedContentType}
+                    onChange={e => {
+                      const newType = e.target.value as ContentTypeId;
+                      setSelectedContentType(newType);
+                    }}
+                    style={{ 
+                      width: '150px',
+                      border: '1px solid rgb(118, 118, 118)',
+                      backgroundColor: 'rgb(59, 59, 59)',
+                      color: '#ffffff',
+                      padding: '1px'
+                    }}
+                  >
+                    {Object.keys(contentTypeDefaults).map(type => (
+                      <option key={type} value={type}>
+                        {type.replace(/([A-Z])/g, ' $1').trim()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>Shape:</span>
+                  <select
+                    value={shapeType}
+                    onChange={e => {
+                      const newShape = e.target.value as ContentShape;
+                      setShapeType(newShape);
+                      // Update existing dots' shape property without regenerating them
+                      const shapes = contentInstanceManager.getInstances('debug-shape');
+                      shapes.forEach(shape => {
+                        const updatedInstance = {
+                          ...shape,
+                          properties: {
+                            ...shape.properties,
+                            shape: newShape
+                          }
+                        };
+                        contentInstanceManager.removeInstance('debug-shape', shape.id);
+                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
+                      });
+                      setInstanceCount(shapes.length); // Maintain count
+                    }}
+                    style={{ 
+                      width: '80px',
+                      border: '1px solid rgb(118, 118, 118)',
+                      backgroundColor: 'rgb(59, 59, 59)',
+                      color: '#ffffff',
+                      padding: '1px'
+                    }}
+                  >
+                    {SHAPE_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Size (m):</span>
