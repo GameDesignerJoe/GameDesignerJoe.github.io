@@ -55,9 +55,38 @@ interface ShapeRenderer {
   - labelColor: Label text color
   - labelFontSize: Label text size
 
+- Distance Visualization:
+  - showMinDistanceRing: Toggle minimum distance ring
+  - minDistanceMeters: Distance in real-world meters
+  - minDistanceRingColor: Ring color
+  - minDistanceRingStyle: Ring style (solid/dashed)
+  - screenMinDistance: Cached screen-space distance
+
 - Effects:
   - shadow: Shadow effects (color, blur, offset)
   - gradient: Linear or radial gradients
+
+### 2.1 Minimum Distance Visualization
+
+The system provides accurate visualization of minimum distances between shapes:
+
+#### Distance Calculation
+- Distances specified in real-world meters
+- Edge-to-edge measurement between shapes
+- Proper scaling across all zoom levels
+- Consistent behavior for all shape types
+
+#### Ring Rendering
+- Automatic display when minimum distance is set
+- Visual ring shows exact minimum distance
+- Proper scaling with shape size and zoom
+- Customizable appearance (color, style)
+
+#### Implementation Details
+- ContentRenderer converts real-world distance to screen pixels
+- ShapeRenderer draws rings at correct distance from edges
+- Handles all shape types (circle, square, hexagon)
+- Updates automatically with zoom and pan
 
 ### 3. Coordinate System
 

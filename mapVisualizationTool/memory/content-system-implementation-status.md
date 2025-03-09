@@ -48,6 +48,10 @@
   - Added minimum distance visualization
   - Added minimum distance ring UI controls
   - Added distribution result feedback
+  - Added automatic ring display when spacing set
+  - Fixed ring scaling across zoom levels
+  - Improved edge-to-edge distance accuracy
+  - Added consistent behavior across shape types
 - [x] Implement basic clustering ✅
   - Created ClusteredDistributor implementation
   - Added cluster center generation
