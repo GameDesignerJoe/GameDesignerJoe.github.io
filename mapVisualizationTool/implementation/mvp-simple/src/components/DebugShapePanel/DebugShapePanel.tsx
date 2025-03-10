@@ -9,6 +9,10 @@ interface DebugShapePanelProps {
   onToggleVisibility?: () => void;
   id: string; // Unique identifier for this panel
   title: string; // Panel title
+  name: string; // User-defined name for the panel
+  onNameChange: (name: string) => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
   numShapesInput: string;
   setNumShapesInput: (value: string) => void;
   shapeSizeMeters: string;
@@ -40,7 +44,9 @@ interface DebugShapePanelProps {
   setInstanceCount: (value: number) => void;
   handleAddShapes: () => void;
   handleDeleteShapes: () => void;
-  deleteIcon: string;
+  resetIcon: string;
+  duplicateIcon: string;
+  trashIcon: string;
 }
 
 const SHAPE_OPTIONS = [
@@ -88,7 +94,13 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
   setInstanceCount,
   handleAddShapes,
   handleDeleteShapes,
-  deleteIcon
+  resetIcon,
+  duplicateIcon,
+  trashIcon,
+  name,
+  onNameChange,
+  onDuplicate,
+  onDelete
 }) => {
   return (
     <div style={{ 
@@ -132,7 +144,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
             }}>
               ▼
             </span>
-            {title}
+          {name || title}
           </h3>
         </div>
         <div 
@@ -166,6 +178,21 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
           padding: '10px',
           backgroundColor: '#2a2a2a'
         }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Shape Name:</span>
+            <input
+              type="text"
+              value={name}
+              onChange={e => onNameChange(e.target.value)}
+              style={{ 
+                flex: 1,
+                backgroundColor: 'rgb(59, 59, 59)',
+                border: '1px solid rgb(118, 118, 118)',
+                color: '#ffffff',
+                padding: '1px 4px'
+              }}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span>Count:</span>
             <input
@@ -531,57 +558,110 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
             </label>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
-            <button 
-              onClick={() => {
-                const size = parseFloat(shapeSizeMeters);
-                const spacing = parseFloat(minDistance);
-                if (!isNaN(size) && !isNaN(spacing)) {
-                  // Ensure both size and spacing are valid before adding shapes
-                  handleAddShapes();
-                }
-              }}
-              style={{ flex: 1 }}
-            >
-              Add Shapes
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button 
+                onClick={() => {
+                  const size = parseFloat(shapeSizeMeters);
+                  const spacing = parseFloat(minDistance);
+                  if (!isNaN(size) && !isNaN(spacing)) {
+                    handleAddShapes();
+                  }
+                }}
+                style={{ flex: 1 }}
+              >
+                Draw Shapes
+              </button>
+              <button
+                onClick={handleDeleteShapes}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseDown={e => {
+                  const btn = e.currentTarget;
+                  btn.style.transform = 'scale(0.95)';
+                  btn.style.filter = 'brightness(0.8)';
+                }}
+                onMouseUp={e => {
+                  const btn = e.currentTarget;
+                  btn.style.transform = 'scale(1)';
+                  btn.style.filter = 'brightness(1)';
+                }}
+                onMouseLeave={e => {
+                  const btn = e.currentTarget;
+                  btn.style.transform = 'scale(1)';
+                  btn.style.filter = 'brightness(1)';
+                }}
+              >
+                <img 
+                  src={resetIcon} 
+                  alt="Reset shapes"
+                  style={{ 
+                    width: '20px',
+                    height: '20px'
+                  }}
+                />
+              </button>
+            </div>
+
             <button
-              onClick={handleDeleteShapes}
+              onClick={onDuplicate}
               style={{
-                background: 'transparent',
-                border: 'none',
-                padding: '4px',
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: '8px',
+                padding: '8px',
+                backgroundColor: '#2a2a2a',
+                border: '1px solid #3a3a3a',
                 borderRadius: '4px',
-                transition: 'all 0.2s'
-              }}
-              onMouseDown={e => {
-                const btn = e.currentTarget;
-                btn.style.transform = 'scale(0.95)';
-                btn.style.filter = 'brightness(0.8)';
-              }}
-              onMouseUp={e => {
-                const btn = e.currentTarget;
-                btn.style.transform = 'scale(1)';
-                btn.style.filter = 'brightness(1)';
-              }}
-              onMouseLeave={e => {
-                const btn = e.currentTarget;
-                btn.style.transform = 'scale(1)';
-                btn.style.filter = 'brightness(1)';
+                color: 'white',
+                cursor: 'pointer'
               }}
             >
               <img 
-                src={deleteIcon} 
-                alt="Delete shapes"
+                src={duplicateIcon} 
+                alt="Duplicate shape"
                 style={{ 
                   width: '20px',
                   height: '20px'
                 }}
               />
+              Duplicate Shape
+            </button>
+
+            <button
+              onClick={onDelete}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '8px',
+                backgroundColor: '#661a1a',
+                border: 'none',
+                borderRadius: '4px',
+                color: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              <img 
+                src={trashIcon} 
+                alt="Delete shape"
+                style={{ 
+                  width: '20px',
+                  height: '20px'
+                }}
+              />
+              Delete this Shape
             </button>
           </div>
         </div>
