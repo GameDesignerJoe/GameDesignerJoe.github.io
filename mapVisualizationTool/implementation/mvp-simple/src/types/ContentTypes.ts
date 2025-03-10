@@ -164,7 +164,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderColor: '#000000',
     defaultQuantity: 25,
     label: 'Fast Travel Location',
-    showLabel: false
+    showLabel: false,
+    minSpacing: 500 // Minimum distance of 500 meters between Fast Travel locations
   },
   Restoration: {
     color: '#00FFFF',

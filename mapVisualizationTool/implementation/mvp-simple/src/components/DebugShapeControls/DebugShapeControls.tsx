@@ -146,7 +146,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
     const constraints = {
       mapImage: backgroundImageRef.current!,
       alphaThreshold: 200,
-      minSpacing: spacing,
+      minSpacing: spacing + size, // Add shape size to account for edge-to-edge distance
       maxAttempts: numDots * 10,
       respectTypeSpacing: false
     };
@@ -157,7 +157,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
       mapWidthKm: mapConfig.widthKm,
       mapHeightKm: mapConfig.heightKm,
       size: size,
-      minSpacing: spacing,
+      minSpacing: spacing + size, // Add shape size to account for edge-to-edge distance
       canOverlap: spacing <= 0,
       category: contentTypeDefaults[selectedContentType1].category ?? 'Debug',
       defaultProperties: {
@@ -171,7 +171,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
         label: shapeLabel1,
         showLabel: showShapeLabel1,
         showMinDistanceRing: showMinDistanceRing1,
-        minDistanceMeters: parseFloat(minDistance1),
+        minDistanceMeters: parseFloat(minDistance1) + size, // Add shape size for edge-to-edge visualization
         minDistanceRingColor: '#ffffff',
         minDistanceRingStyle: 'dashed',
         contentType: selectedContentType1
@@ -242,7 +242,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
     const constraints = {
       mapImage: backgroundImageRef.current!,
       alphaThreshold: 200,
-      minSpacing: spacing,
+      minSpacing: spacing + size, // Add shape size to account for edge-to-edge distance
       maxAttempts: numDots * 10,
       respectTypeSpacing: false
     };
@@ -253,7 +253,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
       mapWidthKm: mapConfig.widthKm,
       mapHeightKm: mapConfig.heightKm,
       size: size,
-      minSpacing: spacing,
+      minSpacing: spacing + size, // Add shape size to account for edge-to-edge distance
       canOverlap: spacing <= 0,
       category: contentTypeDefaults[selectedContentType2].category ?? 'Debug',
       defaultProperties: {
@@ -267,7 +267,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
         label: shapeLabel2,
         showLabel: showShapeLabel2,
         showMinDistanceRing: showMinDistanceRing2,
-        minDistanceMeters: parseFloat(minDistance2),
+        minDistanceMeters: parseFloat(minDistance2) + size, // Add shape size for edge-to-edge visualization
         minDistanceRingColor: '#ffffff',
         minDistanceRingStyle: 'dashed',
         contentType: selectedContentType2

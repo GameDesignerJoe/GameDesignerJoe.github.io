@@ -98,7 +98,7 @@ abstract class BaseShapeRenderer implements ShapeRenderer {
     ctx.globalAlpha = 0.8;
 
     // Calculate total size including min distance from edge
-    const totalSize = size + (style.screenMinDistance * 2); // Double the min distance (for both sides)
+    const totalSize = size + style.screenMinDistance; // Add min distance once since it's from the edge
 
     // Draw the ring at the minimum distance from edge
     ctx.beginPath();
@@ -264,7 +264,7 @@ export class SquareRenderer extends BaseShapeRenderer {
     ctx.globalAlpha = 0.8;
 
     // Calculate total size including min distance from edge
-    const totalSize = size + (style.screenMinDistance * 2); // Double the min distance (for both sides)
+    const totalSize = size + style.screenMinDistance; // Add min distance once since it's from the edge
 
     // Draw the square ring at the minimum distance from edge
     const halfTotalSize = totalSize/2;
@@ -331,7 +331,7 @@ export class HexagonRenderer extends BaseShapeRenderer {
     ctx.globalAlpha = 0.8;
 
     // Calculate total size including min distance from edge
-    const totalSize = size + (style.screenMinDistance * 2); // Double the min distance (for both sides)
+    const totalSize = size + style.screenMinDistance; // Add min distance once since it's from the edge
     const totalRadius = totalSize/2;
 
     // Draw the hexagonal ring at the minimum distance from edge
@@ -405,7 +405,7 @@ export class DiamondRenderer extends BaseShapeRenderer {
     ctx.globalAlpha = 0.8;
 
     // Calculate total size including min distance from edge
-    const totalSize = size + (style.screenMinDistance * 2); // Double the min distance (for both sides)
+    const totalSize = size + style.screenMinDistance; // Add min distance once since it's from the edge
     const totalRadius = totalSize/2;
 
     // Draw the diamond ring at the minimum distance from edge
