@@ -422,6 +422,107 @@ export class DiamondRenderer extends BaseShapeRenderer {
 }
 
 /**
+ * Oval shape renderer implementation
+ */
+export class OvalRenderer extends BaseShapeRenderer {
+  render(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    this.applyStyle(ctx, style, size);
+
+    const radiusX = size/2;
+    const radiusY = size; // Make it twice as tall as it is wide
+
+    ctx.beginPath();
+    ctx.ellipse(x, y, radiusX/2, radiusY/2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (style.lineWidth > 0) {
+      ctx.stroke();
+    }
+
+    this.restoreContext(ctx);
+    
+    // Render minimum distance ring if enabled
+    this.renderMinDistanceRing(ctx, x, y, size, style);
+  }
+}
+
+/**
+ * Horizontal Diamond shape renderer implementation
+ */
+export class HorizontalDiamondRenderer extends BaseShapeRenderer {
+  render(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    this.applyStyle(ctx, style, size);
+
+    const radiusX = size;  // Make it twice as wide as it is tall
+    const radiusY = size/2;
+    
+    ctx.beginPath();
+    // Draw diamond points (left, top, right, bottom)
+    ctx.moveTo(x - radiusX, y);  // Left point
+    ctx.lineTo(x, y - radiusY);  // Top point
+    ctx.lineTo(x + radiusX, y);  // Right point
+    ctx.lineTo(x, y + radiusY);  // Bottom point
+    ctx.closePath();
+    ctx.fill();
+    if (style.lineWidth > 0) {
+      ctx.stroke();
+    }
+
+    this.restoreContext(ctx);
+    
+    // Render minimum distance ring if enabled
+    this.renderMinDistanceRing(ctx, x, y, size, style);
+  }
+
+  protected renderMinDistanceRing(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    size: number,
+    style: RenderStyle
+  ): void {
+    if (!style.showMinDistanceRing || !style.screenMinDistance) return;
+
+    ctx.save();
+    
+    // Set up the style for the minimum distance ring
+    ctx.strokeStyle = style.minDistanceRingColor || '#00ff00';
+    ctx.lineWidth = 2;
+    if (style.minDistanceRingStyle) {
+      ctx.setLineDash([10, 10]);
+    }
+    ctx.globalAlpha = 0.8;
+
+    // Calculate total size including min distance from edge
+    const totalSize = size + style.screenMinDistance;
+    const totalRadiusX = totalSize;
+    const totalRadiusY = totalSize/2;
+
+    // Draw the horizontal diamond ring at the minimum distance from edge
+    ctx.beginPath();
+    ctx.moveTo(x - totalRadiusX, y);  // Left point
+    ctx.lineTo(x, y - totalRadiusY);  // Top point
+    ctx.lineTo(x + totalRadiusX, y);  // Right point
+    ctx.lineTo(x, y + totalRadiusY);  // Bottom point
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+/**
  * Factory for creating shape renderers
  */
 export class ShapeRendererFactory {
@@ -429,7 +530,9 @@ export class ShapeRendererFactory {
     ['circle', new CircleRenderer()],
     ['square', new SquareRenderer()],
     ['hexagon', new HexagonRenderer()],
-    ['diamond', new DiamondRenderer()]
+    ['diamond', new DiamondRenderer()],
+    ['oval', new OvalRenderer()],
+    ['horizontalDiamond', new HorizontalDiamondRenderer()]
   ]);
 
   static getRenderer(shape: string): ShapeRenderer {

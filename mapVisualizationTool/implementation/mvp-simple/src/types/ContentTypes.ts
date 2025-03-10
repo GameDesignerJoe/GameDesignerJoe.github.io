@@ -61,7 +61,9 @@ export type ContentTypeId =
   | 'FastTravel'
   | 'Restoration'
   | 'Resources'
-  | 'Collectibles';
+  | 'Collectibles'
+  | 'NPCs'
+  | 'Towns';
 
 // Interface for content type defaults including quantity and spacing
 interface ContentTypeDefaults extends Partial<ContentTypeBase> {
@@ -182,9 +184,36 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderSize: 1,
     borderColor: '#000000',
     defaultQuantity: 200,
-    label: 'Collectibles',
+    label: 'Collectible',
     showLabel: false,
-    minSpacing: 100
+    minSpacing: 150
+  },
+  NPCs: {
+    color: '#E066FF', // Medium orchid color - distinct from others
+    shape: 'oval',
+    size: 5,
+    opacity: 1.0,
+    category: 'Exploration',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 25,
+    label: 'NPC',
+    description: 'Non-Player Character',
+    showLabel: false,
+    minSpacing: 5
+  },
+  Towns: {
+    color: '#8B4513', // Saddle brown
+    shape: 'horizontalDiamond',
+    size: 100,
+    opacity: 1.0,
+    category: 'Travel',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 2,
+    label: 'Town',
+    showLabel: false,
+    minSpacing: 1000
   },
   Debug: {
     color: '#0000FF',
@@ -201,7 +230,7 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
 };
 
 // Available shapes
-export type ContentShape = 'circle' | 'square' | 'hexagon' | 'diamond';
+export type ContentShape = 'circle' | 'square' | 'hexagon' | 'diamond' | 'oval' | 'horizontalDiamond';
 
 // Default values for new enemy content
 export const defaultEnemyContent: EnemyContentType = {

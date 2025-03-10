@@ -20,6 +20,8 @@ const pluralLabels: Record<ContentTypeId, string> = {
   Restoration: 'Restoration Locations',
   Resources: 'Resources',
   Collectibles: 'Collectibles',
+  NPCs: 'NPCs',
+  Towns: 'Towns',
   Debug: 'Debug Points'
 };
 
@@ -52,7 +54,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
     const totalEnemies = enemyCount + bossCount;
 
     // Calculate total locations
-    const locationTypes: ContentTypeId[] = ['Start', 'PointOfInterest', 'FastTravel', 'MissionLocation', 'Restoration', 'Resources', 'Collectibles'];
+const locationTypes: ContentTypeId[] = ['Start', 'PointOfInterest', 'FastTravel', 'MissionLocation', 'Restoration', 'Resources', 'Collectibles', 'NPCs', 'Towns'];
     const totalLocations = locationTypes.reduce((sum, type) => 
       sum + (instancesByType[type]?.length || 0), 0
     );
