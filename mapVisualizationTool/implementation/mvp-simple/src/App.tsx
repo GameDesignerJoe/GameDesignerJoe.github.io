@@ -4,6 +4,7 @@ import mapImage from './assets/map.png';
 import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { DebugShapeControls } from './components/DebugShapeControls/DebugShapeControls';
+import { MapLegend } from './components/MapLegend/MapLegend';
 import { 
   ContentTypeBase, 
   ContentShape,
@@ -905,6 +906,7 @@ function App() {
             width={canvasDimensions.width}
             height={canvasDimensions.height}
           />
+          <MapLegend contentInstanceManager={contentInstanceManager} key={instanceCount} />
           {/* Bottom left detail level indicator */}
           <div style={{ 
             position: 'absolute', 
