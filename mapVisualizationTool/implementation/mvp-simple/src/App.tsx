@@ -5,6 +5,7 @@ import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { DebugShapeControls } from './components/DebugShapeControls/DebugShapeControls';
 import { MapLegend } from './components/MapLegend/MapLegend';
+import { DetailsPanel } from './components/DetailsPanel/DetailsPanel';
 import { 
   ContentTypeBase, 
   ContentShape,
@@ -920,25 +921,12 @@ function App() {
           }}>
             {getCurrentDetailLevel().metersPerCell}m {mapConfig.actualAreaKm2.toFixed(1)}km²
           </div>
-          {/* Right side details panel */}
-          <div style={{ 
-            position: 'absolute', 
-            top: '10px', 
-            right: '10px', 
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            padding: '10px',
-            borderRadius: '4px',
-            fontSize: '14px',
-            minWidth: '150px'
-          }}>
-            <div style={{ marginBottom: '5px' }}>
-              Map Size: {mapConfig.widthKm.toFixed(1)}km × {mapConfig.heightKm.toFixed(1)}km ({mapConfig.actualAreaKm2.toFixed(1)}km²)
-            </div>
-            <div>
-              Debug Shapes: {instanceCount}
-            </div>
-          </div>
+          <DetailsPanel 
+            contentInstanceManager={contentInstanceManager}
+            mapWidthKm={mapConfig.widthKm}
+            mapHeightKm={mapConfig.heightKm}
+            instanceCount={instanceCount}
+          />
         </div>
       </main>
     </div>
