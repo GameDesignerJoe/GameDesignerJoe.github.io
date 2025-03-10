@@ -649,7 +649,6 @@ function App() {
 
     // Get all instances from the content instance manager
     const allInstances = contentInstanceManager.getAllInstances();
-    console.log('Drawing shapes, total instances:', allInstances.length);
     if (allInstances.length === 0) return;
 
     // Group instances by their type ID
@@ -662,7 +661,6 @@ function App() {
 
     // Render each group of instances
     instancesByType.forEach((instances, typeId) => {
-      console.log(`Rendering ${instances.length} shapes for type ${typeId}`);
       instances.forEach(shape => {
         const shapeType: ContentTypeBase = {
           ...DEBUG_SHAPE_TYPE_1, // Use type 1 as base

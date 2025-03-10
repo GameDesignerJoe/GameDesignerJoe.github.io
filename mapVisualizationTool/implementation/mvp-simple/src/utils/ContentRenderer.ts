@@ -140,15 +140,6 @@ export class ContentRenderer {
    * Render a single content instance
    */
   renderInstance(instance: ContentInstance, contentType: ContentTypeBase): void {
-    console.log('Rendering instance:', {
-      id: instance.id,
-      typeId: instance.typeId,
-      position: instance.position,
-      shape: contentType.shape,
-      size: contentType.size,
-      color: contentType.color
-    });
-    
     // Get the appropriate shape renderer
     const renderer = ShapeRendererFactory.getRenderer(contentType.shape);
 
