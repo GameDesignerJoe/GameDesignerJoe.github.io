@@ -52,8 +52,7 @@ export type ContentCategory =
 
 // Content type identifiers
 export type ContentTypeId = 
-  | 'Debug1'
-  | 'Debug2'
+  | 'Debug'
   | 'Enemies'
   | 'Bosses'
   | 'PointOfInterest'
@@ -70,28 +69,16 @@ interface ContentTypeDefaults extends Partial<ContentTypeBase> {
 
 // Default properties for each content type
 export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
-  Debug1: {
-    color: '#0000FF',
-    shape: 'circle',
-    size: 10,
+  Start: {
+    color: '#32CD32',
+    shape: 'diamond',
+    size: 100,
     opacity: 1.0,
-    category: 'Debug',
+    category: 'Travel',
     borderSize: 1,
     borderColor: '#000000',
-    defaultQuantity: 100,
-    label: 'Debug Point',
-    showLabel: false
-  },
-  Debug2: {
-    color: '#FF00FF', // Different default color (magenta)
-    shape: 'circle',
-    size: 10,
-    opacity: 1.0,
-    category: 'Debug',
-    borderSize: 1,
-    borderColor: '#000000',
-    defaultQuantity: 100,
-    label: 'Debug Point',
+    defaultQuantity: 1,
+    label: 'Starting Location',
     showLabel: false
   },
   Enemies: {
@@ -109,7 +96,7 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
   Bosses: {
     color: '#FF0000',
     shape: 'diamond',
-    size: 30,
+    size: 40,
     opacity: 0.8,
     category: 'Combat',
     borderSize: 1,
@@ -145,18 +132,6 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     showLabel: false,
     minSpacing: 100
   },
-  Start: {
-    color: '#32CD32',
-    shape: 'diamond',
-    size: 100,
-    opacity: 1.0,
-    category: 'Travel',
-    borderSize: 1,
-    borderColor: '#000000',
-    defaultQuantity: 1,
-    label: 'Starting Location',
-    showLabel: false
-  },
   FastTravel: {
     color: '#9370DB',
     shape: 'hexagon',
@@ -180,6 +155,19 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderColor: '#000000',
     defaultQuantity: 50,
     label: 'Restoration Location',
+    showLabel: false,
+    minSpacing: 200
+  },
+  Debug: {
+    color: '#0000FF',
+    shape: 'circle',
+    size: 10,
+    opacity: 1.0,
+    category: 'Debug',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 100,
+    label: 'Debug Point',
     showLabel: false
   }
 };

@@ -179,7 +179,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
           backgroundColor: '#2a2a2a'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span>Shape Name:</span>
+            <span>Content Name:</span>
             <input
               type="text"
               value={name}
@@ -570,7 +570,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
                 }}
                 style={{ flex: 1 }}
               >
-                Draw Shapes
+                Map Content
               </button>
               <button
                 onClick={handleDeleteShapes}
@@ -603,7 +603,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
               >
                 <img 
                   src={resetIcon} 
-                  alt="Reset shapes"
+                  alt="Reset content"
                   style={{ 
                     width: '20px',
                     height: '20px'
@@ -629,13 +629,13 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
             >
               <img 
                 src={duplicateIcon} 
-                alt="Duplicate shape"
+                alt="Duplicate content"
                 style={{ 
                   width: '20px',
                   height: '20px'
                 }}
               />
-              Duplicate Shape
+              Duplicate Content
             </button>
 
             <button
@@ -655,13 +655,13 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
             >
               <img 
                 src={trashIcon} 
-                alt="Delete shape"
+                alt="Delete content"
                 style={{ 
                   width: '20px',
                   height: '20px'
                 }}
               />
-              Delete this Shape
+              Delete Content
             </button>
           </div>
         </div>

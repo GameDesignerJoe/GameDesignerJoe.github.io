@@ -15,27 +15,13 @@ interface DebugShapeControlsProps {
   };
 }
 
-// Debug Shape content type definitions
-const DEBUG_SHAPE_TYPE_1: ContentTypeBase = {
+// Debug Shape content type definition
+const DEBUG_SHAPE_TYPE: ContentTypeBase = {
   id: 'debug-shape-1',
-  name: 'Debug Shape 1',
+  name: 'Debug Shape',
   category: 'Debug',
   description: 'Debug visualization marker',
   color: '#0000FF',
-  shape: 'circle',
-  size: 10,
-  quantity: 100,
-  minSpacing: 0,
-  canOverlap: true,
-  opacity: 1.0
-};
-
-const DEBUG_SHAPE_TYPE_2: ContentTypeBase = {
-  id: 'debug-shape-2',
-  name: 'Debug Shape 2',
-  category: 'Debug',
-  description: 'Debug visualization marker',
-  color: '#FF00FF',
   shape: 'circle',
   size: 10,
   quantity: 100,
@@ -73,49 +59,28 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
     selectedContentType: ContentTypeId;
   }
 
-  // Initialize panels state with two default panels
+  // Initialize panels state with one default panel
   const [panels, setPanels] = useState<PanelState[]>(() => [
     {
       id: 'debug-shape-1',
-      name: 'Debug Shapes 1',
+      name: 'Map Content 1',
       isCollapsed: false,
       isVisible: true,
       opacityMap: new Map(),
-      numShapesInput: contentTypeDefaults.Debug1.defaultQuantity?.toString() ?? "100",
-      shapeSizeMeters: contentTypeDefaults.Debug1.size?.toString() ?? "10",
-      shapeOpacity: contentTypeDefaults.Debug1.opacity ?? 1.0,
+      numShapesInput: contentTypeDefaults.Start.defaultQuantity?.toString() ?? "1",
+      shapeSizeMeters: contentTypeDefaults.Start.size?.toString() ?? "100",
+      shapeOpacity: contentTypeDefaults.Start.opacity ?? 1.0,
       showShapeDebug: false,
-      shapeColor: contentTypeDefaults.Debug1.color ?? '#0000FF',
-      shapeBorderSize: contentTypeDefaults.Debug1.borderSize ?? 0,
-      shapeBorderColor: contentTypeDefaults.Debug1.borderColor ?? '#000000',
-      shapeType: contentTypeDefaults.Debug1.shape ?? 'circle',
-      shapeLabel: contentTypeDefaults.Debug1.label ?? '',
-      showShapeLabel: contentTypeDefaults.Debug1.showLabel ?? false,
-      minDistance: contentTypeDefaults.Debug1.minSpacing?.toString() ?? "0",
+      shapeColor: contentTypeDefaults.Start.color ?? '#32CD32',
+      shapeBorderSize: contentTypeDefaults.Start.borderSize ?? 0,
+      shapeBorderColor: contentTypeDefaults.Start.borderColor ?? '#000000',
+      shapeType: contentTypeDefaults.Start.shape ?? 'diamond',
+      shapeLabel: contentTypeDefaults.Start.label ?? '',
+      showShapeLabel: contentTypeDefaults.Start.showLabel ?? false,
+      minDistance: contentTypeDefaults.Start.minSpacing?.toString() ?? "0",
       showMinDistanceRing: false,
       distributionMessage: null,
-      selectedContentType: 'Debug1'
-    },
-    {
-      id: 'debug-shape-2',
-      name: 'Debug Shapes 2',
-      isCollapsed: false,
-      isVisible: true,
-      opacityMap: new Map(),
-      numShapesInput: contentTypeDefaults.Debug2.defaultQuantity?.toString() ?? "100",
-      shapeSizeMeters: contentTypeDefaults.Debug2.size?.toString() ?? "10",
-      shapeOpacity: contentTypeDefaults.Debug2.opacity ?? 1.0,
-      showShapeDebug: false,
-      shapeColor: contentTypeDefaults.Debug2.color ?? '#FF00FF',
-      shapeBorderSize: contentTypeDefaults.Debug2.borderSize ?? 0,
-      shapeBorderColor: contentTypeDefaults.Debug2.borderColor ?? '#000000',
-      shapeType: contentTypeDefaults.Debug2.shape ?? 'circle',
-      shapeLabel: contentTypeDefaults.Debug2.label ?? '',
-      showShapeLabel: contentTypeDefaults.Debug2.showLabel ?? false,
-      minDistance: contentTypeDefaults.Debug2.minSpacing?.toString() ?? "0",
-      showMinDistanceRing: false,
-      distributionMessage: null,
-      selectedContentType: 'Debug2'
+      selectedContentType: 'Start'
     }
   ]);
 
@@ -131,26 +96,26 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
   // Helper function to create a new panel
   const createNewPanel = () => {
     const newPanelId = `debug-shape-${Date.now()}`;
-    const newPanel: PanelState = {
-      id: newPanelId,
-      name: `New Shape ${panels.length + 1}`,
+      const newPanel: PanelState = {
+        id: newPanelId,
+        name: `Map Content ${panels.length + 1}`,
       isCollapsed: false,
       isVisible: true,
       opacityMap: new Map(),
-      numShapesInput: contentTypeDefaults.Debug1.defaultQuantity?.toString() ?? "100",
-      shapeSizeMeters: contentTypeDefaults.Debug1.size?.toString() ?? "10",
-      shapeOpacity: contentTypeDefaults.Debug1.opacity ?? 1.0,
+      numShapesInput: contentTypeDefaults.Start.defaultQuantity?.toString() ?? "1",
+      shapeSizeMeters: contentTypeDefaults.Start.size?.toString() ?? "100",
+      shapeOpacity: contentTypeDefaults.Start.opacity ?? 1.0,
       showShapeDebug: false,
-      shapeColor: contentTypeDefaults.Debug1.color ?? '#0000FF',
-      shapeBorderSize: contentTypeDefaults.Debug1.borderSize ?? 0,
-      shapeBorderColor: contentTypeDefaults.Debug1.borderColor ?? '#000000',
-      shapeType: contentTypeDefaults.Debug1.shape ?? 'circle',
-      shapeLabel: contentTypeDefaults.Debug1.label ?? '',
-      showShapeLabel: contentTypeDefaults.Debug1.showLabel ?? false,
-      minDistance: contentTypeDefaults.Debug1.minSpacing?.toString() ?? "0",
+      shapeColor: contentTypeDefaults.Start.color ?? '#32CD32',
+      shapeBorderSize: contentTypeDefaults.Start.borderSize ?? 0,
+      shapeBorderColor: contentTypeDefaults.Start.borderColor ?? '#000000',
+      shapeType: contentTypeDefaults.Start.shape ?? 'diamond',
+      shapeLabel: contentTypeDefaults.Start.label ?? '',
+      showShapeLabel: contentTypeDefaults.Start.showLabel ?? false,
+      minDistance: contentTypeDefaults.Start.minSpacing?.toString() ?? "0",
       showMinDistanceRing: false,
       distributionMessage: null,
-      selectedContentType: 'Debug1'
+      selectedContentType: 'Start'
     };
     setPanels(currentPanels => [...currentPanels, newPanel]);
   };
@@ -284,7 +249,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
 
     // Create content type configuration
     const debugShapeType = {
-      ...DEBUG_SHAPE_TYPE_1, // Use type 1 as base for all panels
+      ...DEBUG_SHAPE_TYPE, // Use type 1 as base for all panels
       id: panel.id, // Override with panel's ID
       mapWidthKm: mapConfig.widthKm,
       mapHeightKm: mapConfig.heightKm,
@@ -435,7 +400,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
         }}
       >
         <span style={{ fontSize: '24px' }}>+</span>
-        Add Shape
+        Add Content
       </button>
     </div>
   );
