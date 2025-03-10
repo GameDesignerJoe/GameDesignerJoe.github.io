@@ -242,11 +242,15 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
 
   // Handler for adding shapes to a panel
   const handleAddShapes = (panel: PanelState) => {
+    console.log('Adding shapes for panel:', panel.id, panel.name);
     const numDots = parseInt(panel.numShapesInput) || contentTypeDefaults[panel.selectedContentType].defaultQuantity || 100;
+    console.log('Number of dots to add:', numDots);
     if (isNaN(numDots) || numDots <= 0) return;
 
     // Remove existing shapes
-    contentInstanceManager.getInstances(panel.id).forEach(instance => {
+    const existingShapes = contentInstanceManager.getInstances(panel.id);
+    console.log('Removing existing shapes:', existingShapes.length);
+    existingShapes.forEach(instance => {
       contentInstanceManager.removeInstance(panel.id, instance.id);
     });
 
@@ -280,7 +284,8 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
 
     // Create content type configuration
     const debugShapeType = {
-      ...(panel.id === 'debug-shape-1' ? DEBUG_SHAPE_TYPE_1 : DEBUG_SHAPE_TYPE_2),
+      ...DEBUG_SHAPE_TYPE_1, // Use type 1 as base for all panels
+      id: panel.id, // Override with panel's ID
       mapWidthKm: mapConfig.widthKm,
       mapHeightKm: mapConfig.heightKm,
       size: size,
@@ -319,16 +324,21 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
     }
 
     // Add instances to manager
+    console.log('Distribution result:', result);
+    let addedCount = 0;
     result.instances.forEach(instance => {
       if (contentInstanceManager.validateInstance(instance)) {
         contentInstanceManager.addInstance(panel.id, instance);
+        addedCount++;
       }
     });
+    console.log('Successfully added shapes:', addedCount);
 
     // Update total instance count
     const totalCount = panels.reduce((count, p) => 
       count + contentInstanceManager.getInstances(p.id).length, 0
     );
+    console.log('Total instance count across all panels:', totalCount);
     setInstanceCount(totalCount);
   };
 

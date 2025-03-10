@@ -645,49 +645,41 @@ function App() {
       });
     }
 
-    // Get all debug shapes
-    const debugShapes1 = contentInstanceManager.getInstances('debug-shape-1');
-    const debugShapes2 = contentInstanceManager.getInstances('debug-shape-2');
-    if (debugShapes1.length === 0 && debugShapes2.length === 0) return;
+    // Get all instances from the content instance manager
+    const allInstances = contentInstanceManager.getAllInstances();
+    console.log('Drawing shapes, total instances:', allInstances.length);
+    if (allInstances.length === 0) return;
 
-    // Render debug shape type 1
-    debugShapes1.forEach(shape => {
-      const shapeType: ContentTypeBase = {
-        ...DEBUG_SHAPE_TYPE_1,
-        size: shape.properties?.sizeMeters ?? 10,
-        shape: shape.properties?.shape ?? 'circle',
-        opacity: shape.properties?.opacity ?? 1.0,
-        color: shape.properties?.color ?? '#0000FF',
-        borderSize: shape.properties?.borderSize ?? 0,
-        borderColor: shape.properties?.borderColor ?? '#000000',
-        label: shape.properties?.label ?? '',
-        showLabel: shape.properties?.showLabel ?? false,
-        showMinDistanceRing: shape.properties?.showMinDistanceRing ?? false,
-        minDistanceMeters: shape.properties?.minDistanceMeters ?? 0,
-        minDistanceRingColor: shape.properties?.minDistanceRingColor ?? '#ffffff',
-        minDistanceRingStyle: shape.properties?.minDistanceRingStyle ?? 'dashed'
-      };
-      contentRendererRef.current?.renderInstance(shape, shapeType);
+    // Group instances by their type ID
+    const instancesByType = new Map<string, ContentInstance[]>();
+    allInstances.forEach(instance => {
+      const instances = instancesByType.get(instance.typeId) || [];
+      instances.push(instance);
+      instancesByType.set(instance.typeId, instances);
     });
 
-    // Render debug shape type 2
-    debugShapes2.forEach(shape => {
-      const shapeType: ContentTypeBase = {
-        ...DEBUG_SHAPE_TYPE_2,
-        size: shape.properties?.sizeMeters ?? 10,
-        shape: shape.properties?.shape ?? 'circle',
-        opacity: shape.properties?.opacity ?? 1.0,
-        color: shape.properties?.color ?? '#FF00FF',
-        borderSize: shape.properties?.borderSize ?? 0,
-        borderColor: shape.properties?.borderColor ?? '#000000',
-        label: shape.properties?.label ?? '',
-        showLabel: shape.properties?.showLabel ?? false,
-        showMinDistanceRing: shape.properties?.showMinDistanceRing ?? false,
-        minDistanceMeters: shape.properties?.minDistanceMeters ?? 0,
-        minDistanceRingColor: shape.properties?.minDistanceRingColor ?? '#ffffff',
-        minDistanceRingStyle: shape.properties?.minDistanceRingStyle ?? 'dashed'
-      };
-      contentRendererRef.current?.renderInstance(shape, shapeType);
+    // Render each group of instances
+    instancesByType.forEach((instances, typeId) => {
+      console.log(`Rendering ${instances.length} shapes for type ${typeId}`);
+      instances.forEach(shape => {
+        const shapeType: ContentTypeBase = {
+          ...DEBUG_SHAPE_TYPE_1, // Use type 1 as base
+          id: typeId,
+          size: shape.properties?.sizeMeters ?? 10,
+          shape: shape.properties?.shape ?? 'circle',
+          opacity: shape.properties?.opacity ?? 1.0,
+          color: shape.properties?.color ?? '#0000FF',
+          borderSize: shape.properties?.borderSize ?? 0,
+          borderColor: shape.properties?.borderColor ?? '#000000',
+          label: shape.properties?.label ?? '',
+          showLabel: shape.properties?.showLabel ?? false,
+          showMinDistanceRing: shape.properties?.showMinDistanceRing ?? false,
+          minDistanceMeters: shape.properties?.minDistanceMeters ?? 0,
+          minDistanceRingColor: shape.properties?.minDistanceRingColor ?? '#ffffff',
+          minDistanceRingStyle: shape.properties?.minDistanceRingStyle ?? 'dashed'
+        };
+        contentRendererRef.current?.renderInstance(shape, shapeType);
+      });
     });
   }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, mapConfig]);
 
