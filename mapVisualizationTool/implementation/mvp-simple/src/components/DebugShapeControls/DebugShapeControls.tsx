@@ -51,9 +51,13 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
   backgroundImageRef,
   mapConfig
 }) => {
-  // Add collapsed state for both panels
+  // Panel state
   const [isPanel1Collapsed, setIsPanel1Collapsed] = useState(false);
   const [isPanel2Collapsed, setIsPanel2Collapsed] = useState(false);
+  const [isPanel1Visible, setIsPanel1Visible] = useState(true);
+  const [isPanel2Visible, setIsPanel2Visible] = useState(true);
+  const [panel1OpacityMap] = useState(new Map<string, number>());
+  const [panel2OpacityMap] = useState(new Map<string, number>());
 
   // State for Debug Shape Panel 1
   const [numShapesInput1, setNumShapesInput1] = useState(() => contentTypeDefaults.Debug1.defaultQuantity?.toString() ?? "100");
@@ -86,6 +90,69 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
   const [showMinDistanceRing2, setShowMinDistanceRing2] = useState(false);
   const [distributionMessage2, setDistributionMessage2] = useState<string | null>(null);
   const [selectedContentType2, setSelectedContentType2] = useState<ContentTypeId>('Debug2');
+
+  // Update instance visibility when panel visibility changes
+  useEffect(() => {
+    const shapes = contentInstanceManager.getInstances('debug-shape-1');
+    shapes.forEach(shape => {
+      if (!isPanel1Visible) {
+        // Store current opacity before hiding
+        panel1OpacityMap.set(shape.id, shape.properties?.opacity ?? 1.0);
+        const updatedInstance = {
+          ...shape,
+          properties: {
+            ...shape.properties,
+            opacity: 0
+          }
+        };
+        contentInstanceManager.removeInstance('debug-shape-1', shape.id);
+        contentInstanceManager.addInstance('debug-shape-1', updatedInstance);
+      } else {
+        // Restore original opacity
+        const originalOpacity = panel1OpacityMap.get(shape.id) ?? shapeOpacity1;
+        const updatedInstance = {
+          ...shape,
+          properties: {
+            ...shape.properties,
+            opacity: originalOpacity
+          }
+        };
+        contentInstanceManager.removeInstance('debug-shape-1', shape.id);
+        contentInstanceManager.addInstance('debug-shape-1', updatedInstance);
+      }
+    });
+  }, [isPanel1Visible, contentInstanceManager, panel1OpacityMap, shapeOpacity1]);
+
+  useEffect(() => {
+    const shapes = contentInstanceManager.getInstances('debug-shape-2');
+    shapes.forEach(shape => {
+      if (!isPanel2Visible) {
+        // Store current opacity before hiding
+        panel2OpacityMap.set(shape.id, shape.properties?.opacity ?? 1.0);
+        const updatedInstance = {
+          ...shape,
+          properties: {
+            ...shape.properties,
+            opacity: 0
+          }
+        };
+        contentInstanceManager.removeInstance('debug-shape-2', shape.id);
+        contentInstanceManager.addInstance('debug-shape-2', updatedInstance);
+      } else {
+        // Restore original opacity
+        const originalOpacity = panel2OpacityMap.get(shape.id) ?? shapeOpacity2;
+        const updatedInstance = {
+          ...shape,
+          properties: {
+            ...shape.properties,
+            opacity: originalOpacity
+          }
+        };
+        contentInstanceManager.removeInstance('debug-shape-2', shape.id);
+        contentInstanceManager.addInstance('debug-shape-2', updatedInstance);
+      }
+    });
+  }, [isPanel2Visible, contentInstanceManager, panel2OpacityMap, shapeOpacity2]);
 
   // Effect to update panel 1 when content type changes
   useEffect(() => {
@@ -308,6 +375,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
     const totalCount = contentInstanceManager.getInstances('debug-shape-1').length + contentInstanceManager.getInstances('debug-shape-2').length;
     setInstanceCount(totalCount);
   };
+
   return (
     <div style={{ 
       padding: '10px', 
@@ -322,6 +390,8 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
         title="Debug Shapes 1"
         isCollapsed={isPanel1Collapsed}
         onToggleCollapse={() => setIsPanel1Collapsed(!isPanel1Collapsed)}
+        isVisible={isPanel1Visible}
+        onToggleVisibility={() => setIsPanel1Visible(!isPanel1Visible)}
         numShapesInput={numShapesInput1}
         setNumShapesInput={setNumShapesInput1}
         shapeSizeMeters={shapeSizeMeters1}
@@ -360,6 +430,8 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
         title="Debug Shapes 2"
         isCollapsed={isPanel2Collapsed}
         onToggleCollapse={() => setIsPanel2Collapsed(!isPanel2Collapsed)}
+        isVisible={isPanel2Visible}
+        onToggleVisibility={() => setIsPanel2Visible(!isPanel2Visible)}
         numShapesInput={numShapesInput2}
         setNumShapesInput={setNumShapesInput2}
         shapeSizeMeters={shapeSizeMeters2}

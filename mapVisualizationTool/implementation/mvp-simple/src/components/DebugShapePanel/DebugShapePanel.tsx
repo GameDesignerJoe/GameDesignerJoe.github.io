@@ -5,6 +5,8 @@ import { ContentInstanceManager } from '../../utils/ContentInstanceManager';
 interface DebugShapePanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isVisible?: boolean;
+  onToggleVisibility?: () => void;
   id: string; // Unique identifier for this panel
   title: string; // Panel title
   numShapesInput: string;
@@ -53,6 +55,8 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
   title,
   isCollapsed = false,
   onToggleCollapse,
+  isVisible = true,
+  onToggleVisibility,
   numShapesInput,
   setNumShapesInput,
   shapeSizeMeters,
@@ -100,14 +104,21 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
       <div 
         style={{ 
           display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px',
-          cursor: 'pointer',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           userSelect: 'none'
         }}
-        onClick={onToggleCollapse}
       >
-        <h3 style={{ 
+        <div 
+          style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            cursor: 'pointer'
+          }}
+          onClick={onToggleCollapse}
+        >
+          <h3 style={{ 
           margin: 0, 
           padding: '0 0 10px 0',
           display: 'flex',
@@ -122,7 +133,27 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
             ▼
           </span>
           {title}
-        </h3>
+          </h3>
+        </div>
+        <div 
+          style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            cursor: 'pointer'
+          }}
+          onClick={onToggleVisibility}
+        >
+          <img 
+            src={`/assets/icon_visibility_${isVisible ? 'on' : 'off'}.png`}
+            alt={isVisible ? 'Visible' : 'Hidden'}
+            style={{ 
+              width: '20px',
+              height: '20px',
+              opacity: isVisible ? 1 : 0.5
+            }}
+          />
+        </div>
       </div>
       {!isCollapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
