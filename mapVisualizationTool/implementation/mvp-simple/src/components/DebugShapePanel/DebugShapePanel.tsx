@@ -92,13 +92,9 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
 }) => {
   return (
     <div style={{ 
-      padding: '10px', 
       display: 'flex', 
-      flexDirection: 'column', 
-      gap: '10px', 
-      borderTop: '1px solid #3a3a3a',
-      height: 'auto',
-      minHeight: 'min-content',
+      flexDirection: 'column',
+      backgroundColor: '#2a2a2a',
       overflow: 'visible'
     }}>
       <div 
@@ -106,33 +102,37 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
           display: 'flex', 
           alignItems: 'center',
           justifyContent: 'space-between',
-          userSelect: 'none'
+          userSelect: 'none',
+          padding: '8px',
+          backgroundColor: '#1a1a1a',
+          borderBottom: '1px solid #3a3a3a',
+          cursor: 'pointer'
         }}
+        onClick={onToggleCollapse}
       >
         <div 
           style={{ 
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            cursor: 'pointer'
           }}
-          onClick={onToggleCollapse}
         >
           <h3 style={{ 
-          margin: 0, 
-          padding: '0 0 10px 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '5px'
-        }}>
-          <span style={{ 
-            display: 'inline-block',
-            transition: 'transform 0.2s ease',
-            transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
+            margin: 0,
+            fontSize: '14px',
+            fontWeight: 'normal',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
           }}>
-            ▼
-          </span>
-          {title}
+            <span style={{ 
+              display: 'inline-block',
+              transition: 'transform 0.2s ease',
+              transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
+            }}>
+              ▼
+            </span>
+            {title}
           </h3>
         </div>
         <div 
@@ -142,7 +142,10 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
             gap: '5px',
             cursor: 'pointer'
           }}
-          onClick={onToggleVisibility}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility?.();
+          }}
         >
           <img 
             src={`/assets/icon_visibility_${isVisible ? 'on' : 'off'}.png`}
@@ -156,7 +159,13 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
         </div>
       </div>
       {!isCollapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '10px',
+          padding: '10px',
+          backgroundColor: '#2a2a2a'
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span>Count:</span>
             <input

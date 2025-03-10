@@ -378,10 +378,12 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
 
   return (
     <div style={{ 
-      padding: '10px', 
       display: 'flex', 
       flexDirection: 'column', 
       gap: '10px',
+      padding: '10px',
+      paddingLeft: '20px', // Add indentation
+      backgroundColor: '#2a2a2a',
       height: 'auto',
       minHeight: 'min-content'
     }}>
