@@ -709,7 +709,6 @@ function App() {
     });
     
     if (!context) {
-      console.error('Could not get canvas context');
       return;
     }
     
@@ -740,7 +739,6 @@ function App() {
       };
       
       img.onerror = (e) => {
-        console.error("Error loading background image:", e);
         setBackgroundImageLoaded(true);
       };
     }
@@ -785,17 +783,15 @@ function App() {
           borderRadius: '4px',
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
         }}>
-          <details className="map-controls" style={{ backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1 }}>
-            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Map Info</summary>
-            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <button 
-                  onClick={handleResetZoom}
-                  style={{ flex: 1 }}
-                >
-                  Center Map
-                </button>
-              </div>
+          <details className="map-controls" style={{ borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1, marginBottom: '10px' }}>
+            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a' }}>Map Info</summary>
+            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#2a2a2a' }}>
+              <button 
+                onClick={handleResetZoom}
+                style={{ width: '100%' }}
+              >
+                Center Map
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <span>Map Area (km²):</span>
                 <input
@@ -872,8 +868,8 @@ function App() {
               </div>
             </div>
           </details>
-          <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1 }}>
-            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Map Content</summary>
+          <details className="shape-controls" style={{ borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1 }}>
+            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a' }}>Map Content</summary>
             <DebugShapeControls
               contentInstanceManager={contentInstanceManager}
               setInstanceCount={setInstanceCount}

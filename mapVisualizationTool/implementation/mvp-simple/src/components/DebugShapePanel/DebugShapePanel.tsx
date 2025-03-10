@@ -139,8 +139,8 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
           }}>
             <span style={{ 
               display: 'inline-block',
-              transition: 'transform 0.2s ease',
-              transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
+              transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease'
             }}>
               ▼
             </span>
@@ -600,7 +600,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: '4px',
-                  transition: 'all 0.2s'
+                  transition: 'transform 0.2s ease, filter 0.2s ease'
                 }}
                 onMouseDown={e => {
                   const btn = e.currentTarget;
