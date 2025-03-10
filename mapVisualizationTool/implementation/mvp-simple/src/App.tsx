@@ -789,12 +789,11 @@ function App() {
       
       <main className="app-content">
         <div className="controls-panel" style={{ 
-          maxHeight: 'calc(100vh - 60px)', 
           backgroundColor: '#1a1a1a',
           borderRadius: '4px',
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
         }}>
-          <details className="map-controls" style={{ backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+          <details className="map-controls" style={{ backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1 }}>
             <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Map Info</summary>
             <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -881,7 +880,7 @@ function App() {
               </div>
             </div>
           </details>
-          <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+          <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1 }}>
             <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Shapes</summary>
             <DebugShapeControls
               contentInstanceManager={contentInstanceManager}

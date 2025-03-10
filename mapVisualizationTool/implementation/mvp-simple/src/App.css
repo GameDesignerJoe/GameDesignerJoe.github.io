@@ -35,27 +35,24 @@
   flex-direction: column;
   gap: 1rem;
   overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #666 #2a2a2a;
+  height: calc(100vh - 60px); /* Fixed height based on viewport */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
-/* Webkit scrollbar styles */
+/* Hide scrollbar for Chrome/Safari/Opera */
 .controls-panel::-webkit-scrollbar {
-  width: 8px;
+  display: none;
 }
 
-.controls-panel::-webkit-scrollbar-track {
-  background: #2a2a2a;
-  border-radius: 4px;
+/* Ensure details elements can expand fully */
+.controls-panel details {
+  overflow: visible;
 }
 
-.controls-panel::-webkit-scrollbar-thumb {
-  background: #666;
-  border-radius: 4px;
-}
-
-.controls-panel::-webkit-scrollbar-thumb:hover {
-  background: #888;
+/* Allow content within details to expand */
+.controls-panel details > div {
+  overflow: visible;
 }
 
 .zoom-controls {

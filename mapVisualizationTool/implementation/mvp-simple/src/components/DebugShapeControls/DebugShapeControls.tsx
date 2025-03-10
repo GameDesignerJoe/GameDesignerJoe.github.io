@@ -305,7 +305,14 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
     setInstanceCount(totalCount);
   };
   return (
-    <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    <div style={{ 
+      padding: '10px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '10px',
+      height: 'auto',
+      minHeight: 'min-content'
+    }}>
       <DebugShapePanel
         id="debug-shape-1"
         title="Debug Shapes 1"

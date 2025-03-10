@@ -83,7 +83,16 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
   deleteIcon
 }) => {
   return (
-    <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #3a3a3a' }}>
+    <div style={{ 
+      padding: '10px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '10px', 
+      borderTop: '1px solid #3a3a3a',
+      height: 'auto',
+      minHeight: 'min-content',
+      overflow: 'visible'
+    }}>
       <h3 style={{ margin: 0, padding: '0 0 10px 0' }}>{title}</h3>
       <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
         <span>Count:</span>
