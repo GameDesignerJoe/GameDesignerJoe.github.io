@@ -51,6 +51,10 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
   backgroundImageRef,
   mapConfig
 }) => {
+  // Add collapsed state for both panels
+  const [isPanel1Collapsed, setIsPanel1Collapsed] = useState(false);
+  const [isPanel2Collapsed, setIsPanel2Collapsed] = useState(false);
+
   // State for Debug Shape Panel 1
   const [numShapesInput1, setNumShapesInput1] = useState(() => contentTypeDefaults.Debug1.defaultQuantity?.toString() ?? "100");
   const [shapeSizeMeters1, setShapeSizeMeters1] = useState(() => contentTypeDefaults.Debug1.size?.toString() ?? "10");
@@ -316,6 +320,8 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
       <DebugShapePanel
         id="debug-shape-1"
         title="Debug Shapes 1"
+        isCollapsed={isPanel1Collapsed}
+        onToggleCollapse={() => setIsPanel1Collapsed(!isPanel1Collapsed)}
         numShapesInput={numShapesInput1}
         setNumShapesInput={setNumShapesInput1}
         shapeSizeMeters={shapeSizeMeters1}
@@ -352,6 +358,8 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
       <DebugShapePanel
         id="debug-shape-2"
         title="Debug Shapes 2"
+        isCollapsed={isPanel2Collapsed}
+        onToggleCollapse={() => setIsPanel2Collapsed(!isPanel2Collapsed)}
         numShapesInput={numShapesInput2}
         setNumShapesInput={setNumShapesInput2}
         shapeSizeMeters={shapeSizeMeters2}

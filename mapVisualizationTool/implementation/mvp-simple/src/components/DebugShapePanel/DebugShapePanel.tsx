@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ContentShape, ContentTypeId, contentTypeDefaults } from '../../types/ContentTypes';
 import { ContentInstanceManager } from '../../utils/ContentInstanceManager';
 
 interface DebugShapePanelProps {
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
   id: string; // Unique identifier for this panel
   title: string; // Panel title
   numShapesInput: string;
@@ -49,6 +51,8 @@ const SHAPE_OPTIONS = [
 export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
   id,
   title,
+  isCollapsed = false,
+  onToggleCollapse,
   numShapesInput,
   setNumShapesInput,
   shapeSizeMeters,
@@ -93,418 +97,455 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
       minHeight: 'min-content',
       overflow: 'visible'
     }}>
-      <h3 style={{ margin: 0, padding: '0 0 10px 0' }}>{title}</h3>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Count:</span>
-        <input
-          type="number"
-          min="1"
-          max="1000"
-          value={numShapesInput}
-          onChange={e => setNumShapesInput(e.target.value)}
-          style={{ width: '60px' }}
-        />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span>Content Type:</span>
-          <select
-            value={selectedContentType}
-            onChange={e => setSelectedContentType(e.target.value as ContentTypeId)}
-            style={{ 
-              width: '150px',
-              border: '1px solid rgb(118, 118, 118)',
-              backgroundColor: 'rgb(59, 59, 59)',
-              color: '#ffffff',
-              padding: '1px'
-            }}
-          >
-            {Object.keys(contentTypeDefaults).map(type => (
-              <option key={type} value={type}>
-                {type.replace(/([A-Z])/g, ' $1').trim()}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span>Shape:</span>
-          <select
-            value={shapeType}
-            onChange={e => {
-              const newShape = e.target.value as ContentShape;
-              setShapeType(newShape);
-              // Update existing dots' shape property without regenerating them
-              const shapes = contentInstanceManager.getInstances(id);
-              shapes.forEach(shape => {
-                const updatedInstance = {
-                  ...shape,
-                  properties: {
-                    ...shape.properties,
-                    shape: newShape
-                  }
-                };
-                contentInstanceManager.removeInstance(id, shape.id);
-                contentInstanceManager.addInstance(id, updatedInstance);
-              });
-              setInstanceCount(shapes.length); // Maintain count
-            }}
-            style={{ 
-              width: '80px',
-              border: '1px solid rgb(118, 118, 118)',
-              backgroundColor: 'rgb(59, 59, 59)',
-              color: '#ffffff',
-              padding: '1px'
-            }}
-          >
-            {SHAPE_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Size (m):</span>
-        <input
-          type="number"
-          min="1"
-          max="1000"
-          value={shapeSizeMeters}
-          onChange={e => {
-            const newSize = e.target.value;
-            setShapeSizeMeters(newSize);
-            // Update existing dots' size property without regenerating them
-            const shapes = contentInstanceManager.getInstances(id);
-            shapes.forEach(shape => {
-              const updatedInstance = {
-                ...shape,
-                properties: {
-                  ...shape.properties,
-                  sizeMeters: parseFloat(newSize)
-                }
-              };
-              contentInstanceManager.removeInstance(id, shape.id);
-              contentInstanceManager.addInstance(id, updatedInstance);
-            });
-            setInstanceCount(shapes.length); // Maintain count
-          }}
-          style={{ width: '60px' }}
-        />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Opacity:</span>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.1"
-          value={shapeOpacity}
-          onChange={e => {
-            const newOpacity = parseFloat(e.target.value);
-            setShapeOpacity(newOpacity);
-            // Update existing shapes' opacity property without regenerating them
-            const shapes = contentInstanceManager.getInstances(id);
-            shapes.forEach(shape => {
-              const updatedInstance = {
-                ...shape,
-                properties: {
-                  ...shape.properties,
-                  opacity: newOpacity
-                }
-              };
-              contentInstanceManager.removeInstance(id, shape.id);
-              contentInstanceManager.addInstance(id, updatedInstance);
-            });
-            setInstanceCount(shapes.length); // Maintain count
-          }}
-          style={{ flex: 1 }}
-        />
-        <span style={{ minWidth: '30px', textAlign: 'right' }}>{(shapeOpacity * 100).toFixed(0)}%</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Color:</span>
-        <input
-          type="color"
-          value={shapeColor}
-          onChange={e => {
-            const input = e.target as HTMLInputElement;
-            const newColor = input.value;
-            setShapeColor(newColor);
-            // Update existing shapes' color property without regenerating them
-            const shapes = contentInstanceManager.getInstances(id);
-            shapes.forEach(shape => {
-              const updatedInstance = {
-                ...shape,
-                properties: {
-                  ...shape.properties,
-                  color: newColor
-                }
-              };
-              contentInstanceManager.removeInstance(id, shape.id);
-              contentInstanceManager.addInstance(id, updatedInstance);
-            });
-            setInstanceCount(shapes.length); // Maintain count
-          }}
-          style={{ 
-            width: '60px',
-            height: '20px',
-            padding: '1px',
-            backgroundColor: 'rgb(59, 59, 59)'
-          }}
-        />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Border:</span>
-        <input
-          type="number"
-          min="0"
-          max="10"
-          value={shapeBorderSize}
-          onChange={e => {
-            const newSize = parseInt(e.target.value);
-            setShapeBorderSize(newSize);
-            // Update existing shapes' border size without regenerating them
-            const shapes = contentInstanceManager.getInstances(id);
-            shapes.forEach(shape => {
-              const updatedInstance = {
-                ...shape,
-                properties: {
-                  ...shape.properties,
-                  borderSize: newSize
-                }
-              };
-              contentInstanceManager.removeInstance(id, shape.id);
-              contentInstanceManager.addInstance(id, updatedInstance);
-            });
-            setInstanceCount(shapes.length); // Maintain count
-          }}
-          style={{ width: '60px' }}
-        />
-        <input
-          type="color"
-          value={shapeBorderColor}
-          onChange={e => {
-            const input = e.target as HTMLInputElement;
-            const newColor = input.value;
-            setShapeBorderColor(newColor);
-            // Update existing shapes' border color without regenerating them
-            const shapes = contentInstanceManager.getInstances(id);
-            shapes.forEach(shape => {
-              const updatedInstance = {
-                ...shape,
-                properties: {
-                  ...shape.properties,
-                  borderColor: newColor
-                }
-              };
-              contentInstanceManager.removeInstance(id, shape.id);
-              contentInstanceManager.addInstance(id, updatedInstance);
-            });
-            setInstanceCount(shapes.length); // Maintain count
-          }}
-          style={{ 
-            width: '60px',
-            height: '20px',
-            padding: '1px',
-            backgroundColor: 'rgb(59, 59, 59)'
-          }}
-        />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Label:</span>
-        <input
-          type="text"
-          value={shapeLabel}
-          onChange={e => {
-            const newLabel = e.target.value;
-            setShapeLabel(newLabel);
-            // Update existing shapes' label without regenerating them
-            const shapes = contentInstanceManager.getInstances(id);
-            shapes.forEach(shape => {
-              const updatedInstance = {
-                ...shape,
-                properties: {
-                  ...shape.properties,
-                  label: newLabel
-                }
-              };
-              contentInstanceManager.removeInstance(id, shape.id);
-              contentInstanceManager.addInstance(id, updatedInstance);
-            });
-            setInstanceCount(shapes.length); // Maintain count
-          }}
-          style={{ 
-            flex: 1,
-            backgroundColor: 'rgb(59, 59, 59)',
-            border: '1px solid rgb(118, 118, 118)',
-            color: '#ffffff',
-            padding: '1px 4px'
-          }}
-        />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-        <span>Min Distance (m):</span>
-        <input
-          type="number"
-          min="0"
-          max="1000"
-          value={minDistance}
-          onChange={e => {
-            const newValue = e.target.value;
-            setMinDistance(newValue);
-            // Only regenerate shapes if there are already shapes on the map
-            const existingShapes = contentInstanceManager.getInstances(id);
-            if (existingShapes.length > 0) {
-              handleAddShapes(); // Regenerate shapes with new min distance
-            }
-          }}
-          style={{ width: '60px' }}
-        />
-        {distributionMessage && (
+      <div 
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }}
+        onClick={onToggleCollapse}
+      >
+        <h3 style={{ 
+          margin: 0, 
+          padding: '0 0 10px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px'
+        }}>
           <span style={{ 
-            marginLeft: '10px',
-            fontSize: '12px',
-            color: '#ff9999'
+            display: 'inline-block',
+            transition: 'transform 0.2s ease',
+            transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
           }}>
-            {distributionMessage}
+            ▼
           </span>
-        )}
+          {title}
+        </h3>
       </div>
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <input
-            type="checkbox"
-            checked={showMinDistanceRing}
-            onChange={e => {
-              const newShowRing = e.target.checked;
-              setShowMinDistanceRing(newShowRing);
-              // Update existing shapes' min distance ring property
-              const shapes = contentInstanceManager.getInstances(id);
-              shapes.forEach(shape => {
-                const updatedInstance = {
-                  ...shape,
-                  properties: {
-                    ...shape.properties,
-                    showMinDistanceRing: newShowRing,
-                    minDistanceMeters: parseFloat(minDistance),
-                    minDistanceRingColor: '#ffffff',
-                    minDistanceRingStyle: 'dashed'
-                  }
-                };
-                contentInstanceManager.removeInstance(id, shape.id);
-                contentInstanceManager.addInstance(id, updatedInstance);
-              });
-              setInstanceCount(shapes.length);
-            }}
-          />
-          Show Min Distance
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <input
-            type="checkbox"
-            checked={showShapeLabel}
-            onChange={e => {
-              const newShowLabel = e.target.checked;
-              setShowShapeLabel(newShowLabel);
-              // Update existing shapes' showLabel property without regenerating them
-              const shapes = contentInstanceManager.getInstances(id);
-              shapes.forEach(shape => {
-                const updatedInstance = {
-                  ...shape,
-                  properties: {
-                    ...shape.properties,
-                    showLabel: newShowLabel
-                  }
-                };
-                contentInstanceManager.removeInstance(id, shape.id);
-                contentInstanceManager.addInstance(id, updatedInstance);
-              });
-              setInstanceCount(shapes.length); // Maintain count
-            }}
-          />
-          Show Label
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <input
-            type="checkbox"
-            checked={showShapeDebug}
-            onChange={e => {
-              const newShowDebug = e.target.checked;
-              setShowShapeDebug(newShowDebug);
-              // Update existing dots' debug property without regenerating them
-              const shapes = contentInstanceManager.getInstances(id);
-              shapes.forEach(shape => {
-                const updatedInstance = {
-                  ...shape,
-                  properties: {
-                    ...shape.properties,
-                    showDebug: newShowDebug
-                  }
-                };
-                contentInstanceManager.removeInstance(id, shape.id);
-                contentInstanceManager.addInstance(id, updatedInstance);
-              });
-              setInstanceCount(shapes.length); // Maintain count
-            }}
-          />
-          Show Debug Text
-        </label>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
-        <button 
-          onClick={() => {
-            const size = parseFloat(shapeSizeMeters);
-            const spacing = parseFloat(minDistance);
-            if (!isNaN(size) && !isNaN(spacing)) {
-              // Ensure both size and spacing are valid before adding shapes
-              handleAddShapes();
-            }
-          }}
-          style={{ flex: 1 }}
-        >
-          Add Shapes
-        </button>
-        <button
-          onClick={handleDeleteShapes}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            padding: '4px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '4px',
-            transition: 'all 0.2s'
-          }}
-          onMouseDown={e => {
-            const btn = e.currentTarget;
-            btn.style.transform = 'scale(0.95)';
-            btn.style.filter = 'brightness(0.8)';
-          }}
-          onMouseUp={e => {
-            const btn = e.currentTarget;
-            btn.style.transform = 'scale(1)';
-            btn.style.filter = 'brightness(1)';
-          }}
-          onMouseLeave={e => {
-            const btn = e.currentTarget;
-            btn.style.transform = 'scale(1)';
-            btn.style.filter = 'brightness(1)';
-          }}
-        >
-          <img 
-            src={deleteIcon} 
-            alt="Delete shapes"
-            style={{ 
-              width: '20px',
-              height: '20px'
-            }}
-          />
-        </button>
-      </div>
+      {!isCollapsed && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Count:</span>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value={numShapesInput}
+              onChange={e => setNumShapesInput(e.target.value)}
+              style={{ width: '60px' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Content Type:</span>
+            <select
+              value={selectedContentType}
+              onChange={e => setSelectedContentType(e.target.value as ContentTypeId)}
+              style={{ 
+                width: '150px',
+                border: '1px solid rgb(118, 118, 118)',
+                backgroundColor: 'rgb(59, 59, 59)',
+                color: '#ffffff',
+                padding: '1px'
+              }}
+            >
+              {Object.keys(contentTypeDefaults).map(type => (
+                <option key={type} value={type}>
+                  {type.replace(/([A-Z])/g, ' $1').trim()}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Shape:</span>
+            <select
+              value={shapeType}
+              onChange={e => {
+                const newShape = e.target.value as ContentShape;
+                setShapeType(newShape);
+                // Update existing dots' shape property without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      shape: newShape
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ 
+                width: '80px',
+                border: '1px solid rgb(118, 118, 118)',
+                backgroundColor: 'rgb(59, 59, 59)',
+                color: '#ffffff',
+                padding: '1px'
+              }}
+            >
+              {SHAPE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Size (m):</span>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value={shapeSizeMeters}
+              onChange={e => {
+                const newSize = e.target.value;
+                setShapeSizeMeters(newSize);
+                // Update existing dots' size property without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      sizeMeters: parseFloat(newSize)
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ width: '60px' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Opacity:</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={shapeOpacity}
+              onChange={e => {
+                const newOpacity = parseFloat(e.target.value);
+                setShapeOpacity(newOpacity);
+                // Update existing shapes' opacity property without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      opacity: newOpacity
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ flex: 1 }}
+            />
+            <span style={{ minWidth: '30px', textAlign: 'right' }}>{(shapeOpacity * 100).toFixed(0)}%</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Color:</span>
+            <input
+              type="color"
+              value={shapeColor}
+              onChange={e => {
+                const input = e.target as HTMLInputElement;
+                const newColor = input.value;
+                setShapeColor(newColor);
+                // Update existing shapes' color property without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      color: newColor
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ 
+                width: '60px',
+                height: '20px',
+                padding: '1px',
+                backgroundColor: 'rgb(59, 59, 59)'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Border:</span>
+            <input
+              type="number"
+              min="0"
+              max="10"
+              value={shapeBorderSize}
+              onChange={e => {
+                const newSize = parseInt(e.target.value);
+                setShapeBorderSize(newSize);
+                // Update existing shapes' border size without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      borderSize: newSize
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ width: '60px' }}
+            />
+            <input
+              type="color"
+              value={shapeBorderColor}
+              onChange={e => {
+                const input = e.target as HTMLInputElement;
+                const newColor = input.value;
+                setShapeBorderColor(newColor);
+                // Update existing shapes' border color without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      borderColor: newColor
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ 
+                width: '60px',
+                height: '20px',
+                padding: '1px',
+                backgroundColor: 'rgb(59, 59, 59)'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Label:</span>
+            <input
+              type="text"
+              value={shapeLabel}
+              onChange={e => {
+                const newLabel = e.target.value;
+                setShapeLabel(newLabel);
+                // Update existing shapes' label without regenerating them
+                const shapes = contentInstanceManager.getInstances(id);
+                shapes.forEach(shape => {
+                  const updatedInstance = {
+                    ...shape,
+                    properties: {
+                      ...shape.properties,
+                      label: newLabel
+                    }
+                  };
+                  contentInstanceManager.removeInstance(id, shape.id);
+                  contentInstanceManager.addInstance(id, updatedInstance);
+                });
+                setInstanceCount(shapes.length); // Maintain count
+              }}
+              style={{ 
+                flex: 1,
+                backgroundColor: 'rgb(59, 59, 59)',
+                border: '1px solid rgb(118, 118, 118)',
+                color: '#ffffff',
+                padding: '1px 4px'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>Min Distance (m):</span>
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              value={minDistance}
+              onChange={e => {
+                const newValue = e.target.value;
+                setMinDistance(newValue);
+                // Only regenerate shapes if there are already shapes on the map
+                const existingShapes = contentInstanceManager.getInstances(id);
+                if (existingShapes.length > 0) {
+                  handleAddShapes(); // Regenerate shapes with new min distance
+                }
+              }}
+              style={{ width: '60px' }}
+            />
+            {distributionMessage && (
+              <span style={{ 
+                marginLeft: '10px',
+                fontSize: '12px',
+                color: '#ff9999'
+              }}>
+                {distributionMessage}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <input
+                type="checkbox"
+                checked={showMinDistanceRing}
+                onChange={e => {
+                  const newShowRing = e.target.checked;
+                  setShowMinDistanceRing(newShowRing);
+                  // Update existing shapes' min distance ring property
+                  const shapes = contentInstanceManager.getInstances(id);
+                  shapes.forEach(shape => {
+                    const updatedInstance = {
+                      ...shape,
+                      properties: {
+                        ...shape.properties,
+                        showMinDistanceRing: newShowRing,
+                        minDistanceMeters: parseFloat(minDistance),
+                        minDistanceRingColor: '#ffffff',
+                        minDistanceRingStyle: 'dashed'
+                      }
+                    };
+                    contentInstanceManager.removeInstance(id, shape.id);
+                    contentInstanceManager.addInstance(id, updatedInstance);
+                  });
+                  setInstanceCount(shapes.length);
+                }}
+              />
+              Show Min Distance
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <input
+                type="checkbox"
+                checked={showShapeLabel}
+                onChange={e => {
+                  const newShowLabel = e.target.checked;
+                  setShowShapeLabel(newShowLabel);
+                  // Update existing shapes' showLabel property without regenerating them
+                  const shapes = contentInstanceManager.getInstances(id);
+                  shapes.forEach(shape => {
+                    const updatedInstance = {
+                      ...shape,
+                      properties: {
+                        ...shape.properties,
+                        showLabel: newShowLabel
+                      }
+                    };
+                    contentInstanceManager.removeInstance(id, shape.id);
+                    contentInstanceManager.addInstance(id, updatedInstance);
+                  });
+                  setInstanceCount(shapes.length); // Maintain count
+                }}
+              />
+              Show Label
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <input
+                type="checkbox"
+                checked={showShapeDebug}
+                onChange={e => {
+                  const newShowDebug = e.target.checked;
+                  setShowShapeDebug(newShowDebug);
+                  // Update existing dots' debug property without regenerating them
+                  const shapes = contentInstanceManager.getInstances(id);
+                  shapes.forEach(shape => {
+                    const updatedInstance = {
+                      ...shape,
+                      properties: {
+                        ...shape.properties,
+                        showDebug: newShowDebug
+                      }
+                    };
+                    contentInstanceManager.removeInstance(id, shape.id);
+                    contentInstanceManager.addInstance(id, updatedInstance);
+                  });
+                  setInstanceCount(shapes.length); // Maintain count
+                }}
+              />
+              Show Debug Text
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
+            <button 
+              onClick={() => {
+                const size = parseFloat(shapeSizeMeters);
+                const spacing = parseFloat(minDistance);
+                if (!isNaN(size) && !isNaN(spacing)) {
+                  // Ensure both size and spacing are valid before adding shapes
+                  handleAddShapes();
+                }
+              }}
+              style={{ flex: 1 }}
+            >
+              Add Shapes
+            </button>
+            <button
+              onClick={handleDeleteShapes}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px',
+                transition: 'all 0.2s'
+              }}
+              onMouseDown={e => {
+                const btn = e.currentTarget;
+                btn.style.transform = 'scale(0.95)';
+                btn.style.filter = 'brightness(0.8)';
+              }}
+              onMouseUp={e => {
+                const btn = e.currentTarget;
+                btn.style.transform = 'scale(1)';
+                btn.style.filter = 'brightness(1)';
+              }}
+              onMouseLeave={e => {
+                const btn = e.currentTarget;
+                btn.style.transform = 'scale(1)';
+                btn.style.filter = 'brightness(1)';
+              }}
+            >
+              <img 
+                src={deleteIcon} 
+                alt="Delete shapes"
+                style={{ 
+                  width: '20px',
+                  height: '20px'
+                }}
+              />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
