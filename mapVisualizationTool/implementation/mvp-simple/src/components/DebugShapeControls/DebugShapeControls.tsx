@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ContentShape, ContentTypeId, contentTypeDefaults, ContentTypeBase } from '../../types/ContentTypes';
 import { ContentInstanceManager } from '../../utils/ContentInstanceManager';
 import { DebugShapePanel } from '../DebugShapePanel/DebugShapePanel';
@@ -52,40 +52,70 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
   mapConfig
 }) => {
   // State for Debug Shape Panel 1
-  const [numShapesInput1, setNumShapesInput1] = useState("100");
-  const [shapeSizeMeters1, setShapeSizeMeters1] = useState("10");
-  const [shapeOpacity1, setShapeOpacity1] = useState(1.0);
+  const [numShapesInput1, setNumShapesInput1] = useState(() => contentTypeDefaults.Debug1.defaultQuantity?.toString() ?? "100");
+  const [shapeSizeMeters1, setShapeSizeMeters1] = useState(() => contentTypeDefaults.Debug1.size?.toString() ?? "10");
+  const [shapeOpacity1, setShapeOpacity1] = useState(() => contentTypeDefaults.Debug1.opacity ?? 1.0);
   const [showShapeDebug1, setShowShapeDebug1] = useState(false);
-  const [shapeColor1, setShapeColor1] = useState('#0000FF');
-  const [shapeBorderSize1, setShapeBorderSize1] = useState(0);
-  const [shapeBorderColor1, setShapeBorderColor1] = useState('#000000');
-  const [shapeType1, setShapeType1] = useState<ContentShape>('circle');
-  const [shapeLabel1, setShapeLabel1] = useState('');
-  const [showShapeLabel1, setShowShapeLabel1] = useState(false);
-  const [minDistance1, setMinDistance1] = useState("0");
+  const [shapeColor1, setShapeColor1] = useState(() => contentTypeDefaults.Debug1.color ?? '#0000FF');
+  const [shapeBorderSize1, setShapeBorderSize1] = useState(() => contentTypeDefaults.Debug1.borderSize ?? 0);
+  const [shapeBorderColor1, setShapeBorderColor1] = useState(() => contentTypeDefaults.Debug1.borderColor ?? '#000000');
+  const [shapeType1, setShapeType1] = useState<ContentShape>(() => contentTypeDefaults.Debug1.shape ?? 'circle');
+  const [shapeLabel1, setShapeLabel1] = useState(() => contentTypeDefaults.Debug1.label ?? '');
+  const [showShapeLabel1, setShowShapeLabel1] = useState(() => contentTypeDefaults.Debug1.showLabel ?? false);
+  const [minDistance1, setMinDistance1] = useState(() => contentTypeDefaults.Debug1.minSpacing?.toString() ?? "0");
   const [showMinDistanceRing1, setShowMinDistanceRing1] = useState(false);
   const [distributionMessage1, setDistributionMessage1] = useState<string | null>(null);
   const [selectedContentType1, setSelectedContentType1] = useState<ContentTypeId>('Debug1');
 
   // State for Debug Shape Panel 2
-  const [numShapesInput2, setNumShapesInput2] = useState("100");
-  const [shapeSizeMeters2, setShapeSizeMeters2] = useState("10");
-  const [shapeOpacity2, setShapeOpacity2] = useState(1.0);
+  const [numShapesInput2, setNumShapesInput2] = useState(() => contentTypeDefaults.Debug2.defaultQuantity?.toString() ?? "100");
+  const [shapeSizeMeters2, setShapeSizeMeters2] = useState(() => contentTypeDefaults.Debug2.size?.toString() ?? "10");
+  const [shapeOpacity2, setShapeOpacity2] = useState(() => contentTypeDefaults.Debug2.opacity ?? 1.0);
   const [showShapeDebug2, setShowShapeDebug2] = useState(false);
-  const [shapeColor2, setShapeColor2] = useState('#FF00FF');
-  const [shapeBorderSize2, setShapeBorderSize2] = useState(0);
-  const [shapeBorderColor2, setShapeBorderColor2] = useState('#000000');
-  const [shapeType2, setShapeType2] = useState<ContentShape>('circle');
-  const [shapeLabel2, setShapeLabel2] = useState('');
-  const [showShapeLabel2, setShowShapeLabel2] = useState(false);
-  const [minDistance2, setMinDistance2] = useState("0");
+  const [shapeColor2, setShapeColor2] = useState(() => contentTypeDefaults.Debug2.color ?? '#FF00FF');
+  const [shapeBorderSize2, setShapeBorderSize2] = useState(() => contentTypeDefaults.Debug2.borderSize ?? 0);
+  const [shapeBorderColor2, setShapeBorderColor2] = useState(() => contentTypeDefaults.Debug2.borderColor ?? '#000000');
+  const [shapeType2, setShapeType2] = useState<ContentShape>(() => contentTypeDefaults.Debug2.shape ?? 'circle');
+  const [shapeLabel2, setShapeLabel2] = useState(() => contentTypeDefaults.Debug2.label ?? '');
+  const [showShapeLabel2, setShowShapeLabel2] = useState(() => contentTypeDefaults.Debug2.showLabel ?? false);
+  const [minDistance2, setMinDistance2] = useState(() => contentTypeDefaults.Debug2.minSpacing?.toString() ?? "0");
   const [showMinDistanceRing2, setShowMinDistanceRing2] = useState(false);
   const [distributionMessage2, setDistributionMessage2] = useState<string | null>(null);
   const [selectedContentType2, setSelectedContentType2] = useState<ContentTypeId>('Debug2');
 
+  // Effect to update panel 1 when content type changes
+  useEffect(() => {
+    const defaults = contentTypeDefaults[selectedContentType1];
+    setNumShapesInput1(defaults.defaultQuantity?.toString() ?? "100");
+    setShapeSizeMeters1(defaults.size?.toString() ?? "10");
+    setShapeOpacity1(defaults.opacity ?? 1.0);
+    setShapeColor1(defaults.color ?? '#0000FF');
+    setShapeBorderSize1(defaults.borderSize ?? 0);
+    setShapeBorderColor1(defaults.borderColor ?? '#000000');
+    setShapeType1(defaults.shape ?? 'circle');
+    setShapeLabel1(defaults.label ?? '');
+    setShowShapeLabel1(defaults.showLabel ?? false);
+    setMinDistance1(defaults.minSpacing?.toString() ?? "0");
+  }, [selectedContentType1]);
+
+  // Effect to update panel 2 when content type changes
+  useEffect(() => {
+    const defaults = contentTypeDefaults[selectedContentType2];
+    setNumShapesInput2(defaults.defaultQuantity?.toString() ?? "100");
+    setShapeSizeMeters2(defaults.size?.toString() ?? "10");
+    setShapeOpacity2(defaults.opacity ?? 1.0);
+    setShapeColor2(defaults.color ?? '#FF00FF');
+    setShapeBorderSize2(defaults.borderSize ?? 0);
+    setShapeBorderColor2(defaults.borderColor ?? '#000000');
+    setShapeType2(defaults.shape ?? 'circle');
+    setShapeLabel2(defaults.label ?? '');
+    setShowShapeLabel2(defaults.showLabel ?? false);
+    setMinDistance2(defaults.minSpacing?.toString() ?? "0");
+  }, [selectedContentType2]);
+
   // Handlers for Debug Shape Panel 1
   const handleAddShapes1 = () => {
-    const numDots = parseInt(numShapesInput1);
+    const numDots = parseInt(numShapesInput1) || contentTypeDefaults[selectedContentType1].defaultQuantity || 100;
     if (isNaN(numDots) || numDots <= 0) return;
 
     // Remove existing debug shapes
@@ -181,7 +211,7 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
 
   // Handlers for Debug Shape Panel 2
   const handleAddShapes2 = () => {
-    const numDots = parseInt(numShapesInput2);
+    const numDots = parseInt(numShapesInput2) || contentTypeDefaults[selectedContentType2].defaultQuantity || 100;
     if (isNaN(numDots) || numDots <= 0) return;
 
     // Remove existing debug shapes
