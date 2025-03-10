@@ -52,7 +52,8 @@ export type ContentCategory =
 
 // Content type identifiers
 export type ContentTypeId = 
-  | 'Debug'
+  | 'Debug1'
+  | 'Debug2'
   | 'Enemies'
   | 'Bosses'
   | 'PointOfInterest'
@@ -69,8 +70,20 @@ interface ContentTypeDefaults extends Partial<ContentTypeBase> {
 
 // Default properties for each content type
 export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
-  Debug: {
+  Debug1: {
     color: '#0000FF',
+    shape: 'circle',
+    size: 10,
+    opacity: 1.0,
+    category: 'Debug',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 100,
+    label: 'Debug Point',
+    showLabel: false
+  },
+  Debug2: {
+    color: '#FF00FF', // Different default color (magenta)
     shape: 'circle',
     size: 10,
     opacity: 1.0,

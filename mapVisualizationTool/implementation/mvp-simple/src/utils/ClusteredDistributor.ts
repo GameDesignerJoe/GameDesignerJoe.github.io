@@ -5,50 +5,24 @@ import {
   DistributionConstraints,
   DistributionResult,
   calculateDistanceInMeters,
-  validateTransparency,
   generateInstanceId,
   estimateMaxCapacity
 } from '../types/Distribution';
+import { ValidationSystem, ValidationConfig } from './ValidationSystem';
 
 /**
  * Implements clustered distribution of content instances across the map
  */
 export class ClusteredDistributor implements ContentDistributor {
-  /**
-   * Validates spacing between a potential new position and existing instances
-   */
-  private validateSpacing(
-    position: { x: number; y: number },
-    existingInstances: ContentInstance[],
-    minSpacing: number,
-    mapWidthKm: number,
-    mapHeightKm: number,
-    shapeSize: number
-  ): boolean {
-    return existingInstances.every(instance => {
-      // Calculate center-to-center distance
-      const centerDistance = calculateDistanceInMeters(
-        position,
-        instance.position,
-        mapWidthKm,
-        mapHeightKm
-      );
-      
-      // Get the size of both shapes
-      const size1 = shapeSize;
-      const size2 = instance.properties?.sizeMeters ?? shapeSize;
-      
-      // For squares, we need to consider the diagonal
-      // The diagonal of a square is sqrt(2) * side length
-      const diagonalFactor = Math.SQRT2;
-      const radius1 = (size1 * diagonalFactor) / 2;
-      const radius2 = (size2 * diagonalFactor) / 2;
-      
-      // Calculate edge-to-edge distance by subtracting both radii
-      const edgeDistance = centerDistance - radius1 - radius2;
-      
-      // Compare edge distance with minimum spacing
-      return edgeDistance >= minSpacing;
+  private validationSystem: ValidationSystem;
+
+  constructor() {
+    // Initialize validation system with default config
+    // Actual config will be set during distribution
+    this.validationSystem = new ValidationSystem({
+      mapImage: new Image(), // Placeholder, will be updated
+      mapWidthKm: 10,
+      mapHeightKm: 10
     });
   }
 
@@ -57,6 +31,7 @@ export class ClusteredDistributor implements ContentDistributor {
    */
   private generateClusterCenters(
     count: number,
+    contentType: ContentTypeBase,
     constraints: DistributionConstraints,
     mapWidthKm: number,
     mapHeightKm: number
@@ -79,8 +54,23 @@ export class ClusteredDistributor implements ContentDistributor {
         y: Math.random()
       };
 
-      // Validate position is on valid map area
-      if (!validateTransparency(position, constraints.mapImage, constraints.alphaThreshold)) {
+      // Update validation system config
+      this.validationSystem.updateConfig({
+        mapImage: constraints.mapImage,
+        mapWidthKm: mapWidthKm,
+        mapHeightKm: mapHeightKm,
+        alphaThreshold: constraints.alphaThreshold
+      });
+
+      // Validate position using validation system
+      const validationResults = this.validationSystem.validatePosition(
+        position,
+        contentType,
+        centers.map(c => ({ id: 'center', typeId: 'cluster', position: c, properties: {} }))
+      );
+
+      // Check if position is valid
+      if (!validationResults.every(result => result.valid)) {
         continue;
       }
 
@@ -154,7 +144,7 @@ export class ClusteredDistributor implements ContentDistributor {
     const clusterRadius = constraints.clusterRadius ?? mapWidthKm * 50; // 5% of width in meters
 
     // Generate cluster centers
-    const centers = this.generateClusterCenters(count, constraints, mapWidthKm, mapHeightKm);
+    const centers = this.generateClusterCenters(count, contentType, constraints, mapWidthKm, mapHeightKm);
 
     // Estimate capacity
     const estimatedCapacity = estimateMaxCapacity(
@@ -191,20 +181,25 @@ export class ClusteredDistributor implements ContentDistributor {
           mapHeightKm
         );
 
-        // Validate position
-        if (!validateTransparency(position, constraints.mapImage, constraints.alphaThreshold)) {
-          continue;
-        }
+        // Update validation system config with current constraints
+        this.validationSystem.updateConfig({
+          mapImage: constraints.mapImage,
+          mapWidthKm: mapWidthKm,
+          mapHeightKm: mapHeightKm,
+          alphaThreshold: constraints.alphaThreshold,
+          minSpacing: minSpacing,
+          respectTypeSpacing: constraints.respectTypeSpacing
+        });
 
-        // Check spacing if required
-        if (minSpacing > 0 && !this.validateSpacing(
+        // Validate position using validation system
+        const validationResults = this.validationSystem.validatePosition(
           position,
-          instances,
-          minSpacing,
-          mapWidthKm,
-          mapHeightKm,
-          contentType.size
-        )) {
+          contentType,
+          instances
+        );
+
+        // Check if position is valid
+        if (!validationResults.every(result => result.valid)) {
           continue;
         }
 

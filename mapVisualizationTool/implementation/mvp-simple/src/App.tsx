@@ -3,6 +3,7 @@ import './App.css';
 import mapImage from './assets/map.png';
 import deleteIcon from './assets/delete.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
+import { DebugShapeControls } from './components/DebugShapeControls/DebugShapeControls';
 import { 
   ContentTypeBase, 
   ContentShape,
@@ -18,12 +19,26 @@ import { DistributionConstraints } from './types/Distribution';
 const backgroundImageSrc = mapImage;
 
 // Debug Shape content type definition
-const DEBUG_SHAPE_TYPE: ContentTypeBase = {
-  id: 'debug-shape',
-  name: 'Debug Shape',
+const DEBUG_SHAPE_TYPE_1: ContentTypeBase = {
+  id: 'debug-shape-1',
+  name: 'Debug Shape 1',
   category: 'Exploration',
   description: 'Debug visualization marker',
   color: '#0000FF',
+  shape: 'circle',
+  size: 10,
+  quantity: 100,
+  minSpacing: 0,
+  canOverlap: true,
+  opacity: 1.0
+};
+
+const DEBUG_SHAPE_TYPE_2: ContentTypeBase = {
+  id: 'debug-shape-2',
+  name: 'Debug Shape 2',
+  category: 'Exploration',
+  description: 'Debug visualization marker',
+  color: '#FF00FF',
   shape: 'circle',
   size: 10,
   quantity: 100,
@@ -133,21 +148,6 @@ function App() {
   // State for content types
   const [contentTypes, setContentTypes] = useState<ContentTypeBase[]>([]);
 
-  // State for debug shapes
-  const [numShapesInput, setNumShapesInput] = useState("100");
-  const [shapeSizeMeters, setShapeSizeMeters] = useState("10"); // Default 10 meters
-  const [shapeOpacity, setShapeOpacity] = useState(1.0);
-  const [showShapeDebug, setShowShapeDebug] = useState(false);
-  const [shapeColor, setShapeColor] = useState('#0000FF');
-  const [shapeBorderSize, setShapeBorderSize] = useState(0);
-  const [shapeBorderColor, setShapeBorderColor] = useState('#000000');
-  const [shapeType, setShapeType] = useState<ContentShape>('circle');
-  const [shapeLabel, setShapeLabel] = useState('');
-  const [showShapeLabel, setShowShapeLabel] = useState(false);
-  const [minDistance, setMinDistance] = useState("0");
-  const [showMinDistanceRing, setShowMinDistanceRing] = useState(false);
-  const [distributionMessage, setDistributionMessage] = useState<string | null>(null);
-  const [selectedContentType, setSelectedContentType] = useState<ContentTypeId>('Debug');
 
   // Track current detail level for grid updates
   const [currentDetailLevel, setCurrentDetailLevel] = useState<DetailLevel>(DETAIL_LEVELS[0]);
@@ -163,156 +163,15 @@ function App() {
   // Handle deleting shapes
   const handleDeleteShapes = useCallback(() => {
     // Remove all debug shape instances
-    contentInstanceManager.getInstances('debug-shape').forEach(instance => {
-      contentInstanceManager.removeInstance('debug-shape', instance.id);
+    contentInstanceManager.getInstances('debug-shape-1').forEach(instance => {
+      contentInstanceManager.removeInstance('debug-shape-1', instance.id);
+    });
+    contentInstanceManager.getInstances('debug-shape-2').forEach(instance => {
+      contentInstanceManager.removeInstance('debug-shape-2', instance.id);
     });
     setInstanceCount(0); // Update instance count
   }, [contentInstanceManager]);
 
-  // Store min distances for each content type
-  const [contentTypeMinDistances] = useState<Map<ContentTypeId, string>>(new Map());
-
-  // Effect to update properties when content type changes
-  useEffect(() => {
-    const defaults = contentTypeDefaults[selectedContentType];
-    if (defaults) {
-      // Update visual properties
-      setShapeColor(defaults.color ?? '#0000FF');
-      setShapeType(defaults.shape ?? 'circle');
-      setShapeSizeMeters(defaults.size?.toString() ?? "10");
-      setShapeOpacity(defaults.opacity ?? 1.0);
-      
-      // Update border properties
-      setShapeBorderSize(defaults.borderSize ?? 0);
-      setShapeBorderColor(defaults.borderColor ?? '#000000');
-      
-      // Update quantity
-      setNumShapesInput(defaults.defaultQuantity?.toString() ?? "100");
-
-      // Update label
-      setShapeLabel(defaults.label ?? '');
-      setShowShapeLabel(defaults.showLabel ?? false);
-
-      // Handle min distance
-      const savedMinDistance = contentTypeMinDistances.get(selectedContentType);
-      if (savedMinDistance !== undefined) {
-        // Restore saved min distance for this content type
-        setMinDistance(savedMinDistance);
-        setShowMinDistanceRing(parseFloat(savedMinDistance) > 0);
-      } else if (defaults.defaultMinDistance !== undefined) {
-        // Apply default min distance if specified
-        setMinDistance(defaults.defaultMinDistance.toString());
-        setShowMinDistanceRing(defaults.defaultMinDistance > 0);
-      } else {
-        // Reset to 0 if no default or saved value
-        setMinDistance("0");
-        setShowMinDistanceRing(false);
-      }
-    }
-  }, [selectedContentType, contentTypeMinDistances]);
-
-  // Effect to save min distance when it changes
-  useEffect(() => {
-    contentTypeMinDistances.set(selectedContentType, minDistance);
-  }, [minDistance, selectedContentType, contentTypeMinDistances]);
-
-  // Handle adding shapes
-  const handleAddShapes = useCallback((targetCount?: number) => {
-    if (!backgroundImageRef.current) return;
-
-    const numDots = targetCount ?? parseInt(numShapesInput);
-    if (isNaN(numDots) || numDots <= 0) return;
-
-    // Remove existing debug shapes
-    handleDeleteShapes();
-
-    // Parse size and min distance values
-    const size = parseFloat(shapeSizeMeters);
-    const spacing = parseFloat(minDistance);
-
-    if (isNaN(size) || size <= 0) {
-      setDistributionMessage("Invalid shape size");
-      return;
-    }
-
-    if (isNaN(spacing)) {
-      setDistributionMessage("Invalid minimum distance");
-      return;
-    }
-
-    // Create distribution constraints
-    const constraints: DistributionConstraints = {
-      mapImage: backgroundImageRef.current,
-      alphaThreshold: 200,
-      minSpacing: spacing,
-      maxAttempts: numDots * 10,
-      respectTypeSpacing: false // We'll handle spacing directly
-    };
-
-
-    console.log('Distribution setup:', {
-      size,
-      spacing,
-      numDots,
-      constraints
-    });
-
-    // Get default properties for selected content type
-    const typeDefaults = contentTypeDefaults[selectedContentType];
-
-    // Create content type configuration
-    const debugShapeType: ContentTypeBase = {
-      ...DEBUG_SHAPE_TYPE,
-      mapWidthKm: mapConfig.widthKm,
-      mapHeightKm: mapConfig.heightKm,
-      size: size,
-      minSpacing: spacing, // Set minimum spacing on content type
-      canOverlap: spacing <= 0, // Only allow overlap if no minimum distance is set
-      category: typeDefaults.category ?? 'Debug',
-      defaultProperties: {
-        showDebug: showShapeDebug,
-        sizeMeters: size,
-        shape: shapeType,
-        opacity: shapeOpacity,
-        color: shapeColor,
-        borderSize: shapeBorderSize,
-        borderColor: shapeBorderColor,
-        label: typeDefaults.label ?? '',
-        showLabel: typeDefaults.showLabel ?? false,
-        showMinDistanceRing: showMinDistanceRing, // Use the checkbox state
-        minDistanceMeters: parseFloat(minDistance),
-        minDistanceRingColor: '#00ff00', // Bright green for better visibility
-        minDistanceRingStyle: 'dashed',
-        contentType: selectedContentType // Store the content type with the instance
-      }
-    };
-
-    // Get distributor and generate instances
-    const distributor = DistributorFactory.getDefaultDistributor();
-    const result = distributor.distribute(debugShapeType, numDots, constraints);
-
-    // Update distribution message
-    if (result.message) {
-      setDistributionMessage(`${result.actualCount} of ${result.requestedCount} shapes placed. ${result.message}`);
-    } else {
-      setDistributionMessage(null);
-    }
-
-    // Add instances to manager
-    result.instances.forEach((instance: ContentInstance) => {
-      if (contentInstanceManager.validateInstance(instance)) {
-        contentInstanceManager.addInstance('debug-shape', instance);
-        setInstanceCount(prev => prev + 1);
-      }
-    });
-  }, [numShapesInput, mapConfig.widthKm, mapConfig.heightKm, shapeSizeMeters, showShapeDebug, shapeType, shapeColor, shapeOpacity, shapeLabel, showShapeLabel, shapeBorderSize, shapeBorderColor, contentInstanceManager, handleDeleteShapes]);
-
-  // Handle enter key in input field
-  const handleInputKeyPress = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      handleAddShapes();
-    }
-  }, [handleAddShapes]);
 
   // Update input value and dimensions when target area changes
   useEffect(() => {
@@ -787,29 +646,50 @@ function App() {
     }
 
     // Get all debug shapes
-    const debugShapes = contentInstanceManager.getInstances('debug-shape');
-    if (debugShapes.length === 0) return;
+    const debugShapes1 = contentInstanceManager.getInstances('debug-shape-1');
+    const debugShapes2 = contentInstanceManager.getInstances('debug-shape-2');
+    if (debugShapes1.length === 0 && debugShapes2.length === 0) return;
 
-    // Render each debug shape
-    debugShapes.forEach(shape => {
+    // Render debug shape type 1
+    debugShapes1.forEach(shape => {
       const shapeType: ContentTypeBase = {
-        ...DEBUG_SHAPE_TYPE,
-        size: shape.properties?.sizeMeters ?? parseFloat(shapeSizeMeters),
+        ...DEBUG_SHAPE_TYPE_1,
+        size: shape.properties?.sizeMeters ?? 10,
         shape: shape.properties?.shape ?? 'circle',
-        opacity: shape.properties?.opacity ?? shapeOpacity,
-        color: shape.properties?.color ?? shapeColor,
-        borderSize: shape.properties?.borderSize ?? shapeBorderSize,
-        borderColor: shape.properties?.borderColor ?? shapeBorderColor,
-        label: shape.properties?.label ?? shapeLabel,
-        showLabel: shape.properties?.showLabel ?? showShapeLabel,
-        showMinDistanceRing: shape.properties?.showMinDistanceRing ?? showMinDistanceRing,
-        minDistanceMeters: shape.properties?.minDistanceMeters ?? parseFloat(minDistance),
+        opacity: shape.properties?.opacity ?? 1.0,
+        color: shape.properties?.color ?? '#0000FF',
+        borderSize: shape.properties?.borderSize ?? 0,
+        borderColor: shape.properties?.borderColor ?? '#000000',
+        label: shape.properties?.label ?? '',
+        showLabel: shape.properties?.showLabel ?? false,
+        showMinDistanceRing: shape.properties?.showMinDistanceRing ?? false,
+        minDistanceMeters: shape.properties?.minDistanceMeters ?? 0,
         minDistanceRingColor: shape.properties?.minDistanceRingColor ?? '#ffffff',
         minDistanceRingStyle: shape.properties?.minDistanceRingStyle ?? 'dashed'
       };
       contentRendererRef.current?.renderInstance(shape, shapeType);
     });
-  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, showShapeDebug, shapeSizeMeters, shapeOpacity, shapeColor, shapeLabel, showShapeLabel, shapeBorderSize, shapeBorderColor, mapConfig]);
+
+    // Render debug shape type 2
+    debugShapes2.forEach(shape => {
+      const shapeType: ContentTypeBase = {
+        ...DEBUG_SHAPE_TYPE_2,
+        size: shape.properties?.sizeMeters ?? 10,
+        shape: shape.properties?.shape ?? 'circle',
+        opacity: shape.properties?.opacity ?? 1.0,
+        color: shape.properties?.color ?? '#FF00FF',
+        borderSize: shape.properties?.borderSize ?? 0,
+        borderColor: shape.properties?.borderColor ?? '#000000',
+        label: shape.properties?.label ?? '',
+        showLabel: shape.properties?.showLabel ?? false,
+        showMinDistanceRing: shape.properties?.showMinDistanceRing ?? false,
+        minDistanceMeters: shape.properties?.minDistanceMeters ?? 0,
+        minDistanceRingColor: shape.properties?.minDistanceRingColor ?? '#ffffff',
+        minDistanceRingStyle: shape.properties?.minDistanceRingStyle ?? 'dashed'
+      };
+      contentRendererRef.current?.renderInstance(shape, shapeType);
+    });
+  }, [canvasDimensions, zoomLevel, panOffset, contentInstanceManager, mapConfig]);
 
   const render = useCallback(() => {
     if (!contextRef.current || !backgroundImageRef.current) return;
@@ -908,7 +788,12 @@ function App() {
       </header>
       
       <main className="app-content">
-        <div className="controls-panel">
+        <div className="controls-panel" style={{ 
+          maxHeight: 'calc(100vh - 60px)', 
+          backgroundColor: '#1a1a1a',
+          borderRadius: '4px',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+        }}>
           <details className="map-controls" style={{ backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
             <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Map Info</summary>
             <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -998,427 +883,13 @@ function App() {
           </details>
           <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
             <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Shapes</summary>
-            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Count:</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={numShapesInput}
-                  onChange={e => {
-                    const newValue = e.target.value;
-                    setNumShapesInput(newValue);
-                  }}
-                  style={{ width: '60px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span>Content Type:</span>
-                  <select
-                    value={selectedContentType}
-                    onChange={e => {
-                      const newType = e.target.value as ContentTypeId;
-                      setSelectedContentType(newType);
-                    }}
-                    style={{ 
-                      width: '150px',
-                      border: '1px solid rgb(118, 118, 118)',
-                      backgroundColor: 'rgb(59, 59, 59)',
-                      color: '#ffffff',
-                      padding: '1px'
-                    }}
-                  >
-                    {Object.keys(contentTypeDefaults).map(type => (
-                      <option key={type} value={type}>
-                        {type.replace(/([A-Z])/g, ' $1').trim()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span>Shape:</span>
-                  <select
-                    value={shapeType}
-                    onChange={e => {
-                      const newShape = e.target.value as ContentShape;
-                      setShapeType(newShape);
-                      // Update existing dots' shape property without regenerating them
-                      const shapes = contentInstanceManager.getInstances('debug-shape');
-                      shapes.forEach(shape => {
-                        const updatedInstance = {
-                          ...shape,
-                          properties: {
-                            ...shape.properties,
-                            shape: newShape
-                          }
-                        };
-                        contentInstanceManager.removeInstance('debug-shape', shape.id);
-                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                      });
-                      setInstanceCount(shapes.length); // Maintain count
-                    }}
-                    style={{ 
-                      width: '80px',
-                      border: '1px solid rgb(118, 118, 118)',
-                      backgroundColor: 'rgb(59, 59, 59)',
-                      color: '#ffffff',
-                      padding: '1px'
-                    }}
-                  >
-                    {SHAPE_OPTIONS.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Size (m):</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={shapeSizeMeters}
-                  onChange={e => {
-                    const newSize = e.target.value;
-                    setShapeSizeMeters(newSize);
-                    // Update existing dots' size property without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          sizeMeters: parseFloat(newSize)
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ width: '60px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Opacity:</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={shapeOpacity}
-                  onChange={e => {
-                    const newOpacity = parseFloat(e.target.value);
-                    setShapeOpacity(newOpacity);
-                    // Update existing shapes' opacity property without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          opacity: newOpacity
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ minWidth: '30px', textAlign: 'right' }}>{(shapeOpacity * 100).toFixed(0)}%</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Color:</span>
-                <input
-                  type="color"
-                  value={shapeColor}
-                  onChange={e => {
-                    const input = e.target as HTMLInputElement;
-                    const newColor = input.value;
-                    setShapeColor(newColor);
-                    // Update existing shapes' color property without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          color: newColor
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ 
-                    width: '60px',
-                    height: '20px',
-                    padding: '1px',
-                    backgroundColor: 'rgb(59, 59, 59)'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Border:</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="10"
-                  value={shapeBorderSize}
-                  onChange={e => {
-                    const newSize = parseInt(e.target.value);
-                    setShapeBorderSize(newSize);
-                    // Update existing shapes' border size without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          borderSize: newSize
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ width: '60px' }}
-                />
-                <input
-                  type="color"
-                  value={shapeBorderColor}
-                  onChange={e => {
-                    const input = e.target as HTMLInputElement;
-                    const newColor = input.value;
-                    setShapeBorderColor(newColor);
-                    // Update existing shapes' border color without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          borderColor: newColor
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ 
-                    width: '60px',
-                    height: '20px',
-                    padding: '1px',
-                    backgroundColor: 'rgb(59, 59, 59)'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Label:</span>
-                <input
-                  type="text"
-                  value={shapeLabel}
-                  onChange={e => {
-                    const newLabel = e.target.value;
-                    setShapeLabel(newLabel);
-                    // Update existing shapes' label without regenerating them
-                    const shapes = contentInstanceManager.getInstances('debug-shape');
-                    shapes.forEach(shape => {
-                      const updatedInstance = {
-                        ...shape,
-                        properties: {
-                          ...shape.properties,
-                          label: newLabel
-                        }
-                      };
-                      contentInstanceManager.removeInstance('debug-shape', shape.id);
-                      contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                    });
-                    setInstanceCount(shapes.length); // Maintain count
-                  }}
-                  style={{ 
-                    flex: 1,
-                    backgroundColor: 'rgb(59, 59, 59)',
-                    border: '1px solid rgb(118, 118, 118)',
-                    color: '#ffffff',
-                    padding: '1px 4px'
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <span>Min Distance (m):</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="1000"
-                  value={minDistance}
-                  onChange={e => {
-                    const newValue = e.target.value;
-                    setMinDistance(newValue);
-                    // Only regenerate shapes if there are already shapes on the map
-                    const existingShapes = contentInstanceManager.getInstances('debug-shape');
-                    if (existingShapes.length > 0) {
-                      handleAddShapes(); // Regenerate shapes with new min distance
-                    }
-                  }}
-                  style={{ width: '60px' }}
-                />
-                {distributionMessage && (
-                  <span style={{ 
-                    marginLeft: '10px',
-                    fontSize: '12px',
-                    color: '#ff9999'
-                  }}>
-                    {distributionMessage}
-                  </span>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <input
-                    type="checkbox"
-                    checked={showMinDistanceRing}
-                    onChange={e => {
-                      const newShowRing = e.target.checked;
-                      setShowMinDistanceRing(newShowRing);
-                      // Update existing shapes' min distance ring property
-                      const shapes = contentInstanceManager.getInstances('debug-shape');
-                      shapes.forEach(shape => {
-                        const updatedInstance = {
-                          ...shape,
-                          properties: {
-                            ...shape.properties,
-                            showMinDistanceRing: newShowRing,
-                            minDistanceMeters: parseFloat(minDistance),
-                            minDistanceRingColor: '#ffffff',
-                            minDistanceRingStyle: 'dashed'
-                          }
-                        };
-                        contentInstanceManager.removeInstance('debug-shape', shape.id);
-                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                      });
-                      setInstanceCount(shapes.length);
-                    }}
-                  />
-                  Show Min Distance
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <input
-                    type="checkbox"
-                    checked={showShapeLabel}
-                    onChange={e => {
-                      const newShowLabel = e.target.checked;
-                      setShowShapeLabel(newShowLabel);
-                      // Update existing shapes' showLabel property without regenerating them
-                      const shapes = contentInstanceManager.getInstances('debug-shape');
-                      shapes.forEach(shape => {
-                        const updatedInstance = {
-                          ...shape,
-                          properties: {
-                            ...shape.properties,
-                            showLabel: newShowLabel
-                          }
-                        };
-                        contentInstanceManager.removeInstance('debug-shape', shape.id);
-                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                      });
-                      setInstanceCount(shapes.length); // Maintain count
-                    }}
-                  />
-                  Show Label
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <input
-                    type="checkbox"
-                    checked={showShapeDebug}
-                    onChange={e => {
-                      const newShowDebug = e.target.checked;
-                      setShowShapeDebug(newShowDebug);
-                      // Update existing dots' debug property without regenerating them
-                      const shapes = contentInstanceManager.getInstances('debug-shape');
-                      shapes.forEach(shape => {
-                        const updatedInstance = {
-                          ...shape,
-                          properties: {
-                            ...shape.properties,
-                            showDebug: newShowDebug
-                          }
-                        };
-                        contentInstanceManager.removeInstance('debug-shape', shape.id);
-                        contentInstanceManager.addInstance('debug-shape', updatedInstance);
-                      });
-                      setInstanceCount(shapes.length); // Maintain count
-                    }}
-                  />
-                  Show Debug Text
-                </label>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
-                <button 
-                  onClick={() => {
-                    const size = parseFloat(shapeSizeMeters);
-                    const spacing = parseFloat(minDistance);
-                    if (!isNaN(size) && !isNaN(spacing)) {
-                      // Ensure both size and spacing are valid before adding shapes
-                      handleAddShapes();
-                    } else {
-                      setDistributionMessage("Invalid size or minimum distance");
-                    }
-                  }}
-                  style={{ flex: 1 }}
-                >
-                  Add Shapes
-                </button>
-                <button
-                  onClick={handleDeleteShapes}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    padding: '4px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '4px',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseDown={e => {
-                    const btn = e.currentTarget;
-                    btn.style.transform = 'scale(0.95)';
-                    btn.style.filter = 'brightness(0.8)';
-                  }}
-                  onMouseUp={e => {
-                    const btn = e.currentTarget;
-                    btn.style.transform = 'scale(1)';
-                    btn.style.filter = 'brightness(1)';
-                  }}
-                  onMouseLeave={e => {
-                    const btn = e.currentTarget;
-                    btn.style.transform = 'scale(1)';
-                    btn.style.filter = 'brightness(1)';
-                  }}
-                >
-                  <img 
-                    src={deleteIcon} 
-                    alt="Delete shapes"
-                    style={{ 
-                      width: '20px',
-                      height: '20px'
-                    }}
-                  />
-                </button>
-              </div>
-            </div>
+            <DebugShapeControls
+              contentInstanceManager={contentInstanceManager}
+              setInstanceCount={setInstanceCount}
+              deleteIcon={deleteIcon}
+              backgroundImageRef={backgroundImageRef}
+              mapConfig={mapConfig}
+            />
           </details>
           <div className="content-panel">
             <ContentTypePanel onContentTypeChange={handleContentTypeChange} />
@@ -1474,11 +945,8 @@ function App() {
             <div style={{ marginBottom: '5px' }}>
               Map Size: {mapConfig.widthKm.toFixed(1)}km × {mapConfig.heightKm.toFixed(1)}km ({mapConfig.actualAreaKm2.toFixed(1)}km²)
             </div>
-            <div style={{ marginBottom: '5px' }}>
-              Debug Shapes: {instanceCount}
-            </div>
             <div>
-              Shape Size: {shapeSizeMeters}m
+              Debug Shapes: {instanceCount}
             </div>
           </div>
         </div>

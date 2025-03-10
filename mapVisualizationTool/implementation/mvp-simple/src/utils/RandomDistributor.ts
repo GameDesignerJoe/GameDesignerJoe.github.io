@@ -4,67 +4,24 @@ import {
   ContentDistributor,
   DistributionConstraints,
   DistributionResult,
-  calculateDistanceInMeters,
-  validateTransparency,
   generateInstanceId,
   estimateMaxCapacity
 } from '../types/Distribution';
+import { ValidationSystem, ValidationConfig } from './ValidationSystem';
 
 /**
  * Implements random distribution of content instances across the map
  */
 export class RandomDistributor implements ContentDistributor {
-  /**
-   * Validates spacing between a potential new position and existing instances
-   */
-  private validateSpacing(
-    position: { x: number; y: number },
-    existingInstances: ContentInstance[],
-    minSpacing: number,
-    mapWidthKm: number,
-    mapHeightKm: number,
-    shapeSize: number
-  ): boolean {
-    return existingInstances.every(instance => {
-      // Calculate center-to-center distance
-      const centerDistance = calculateDistanceInMeters(
-        position,
-        instance.position,
-        mapWidthKm,
-        mapHeightKm
-      );
-      
-      // Get the size of both shapes
-      const size1 = shapeSize;
-      const size2 = instance.properties?.sizeMeters ?? shapeSize;
-      
-      // For squares, we need to consider the diagonal
-      // The diagonal of a square is sqrt(2) * side length
-      const diagonalFactor = instance.properties?.shape === 'square' ? Math.SQRT2 : 1;
-      const radius1 = (size1 * diagonalFactor) / 2;
-      const radius2 = (size2 * diagonalFactor) / 2;
-      
-      // Calculate the total required distance between centers:
-      // 1. Each shape contributes its radius
-      // 2. Add the minimum spacing between edges
-      const totalRequiredDistance = radius1 + radius2 + minSpacing;
-      
-      // Debug logging
-      console.log('Distance check:', {
-        centerDistance,
-        radius1,
-        radius2,
-        minSpacing,
-        totalRequiredDistance,
-        shape1Size: size1,
-        shape2Size: size2,
-        position,
-        existingPosition: instance.position
-      });
-      
-      // The shapes are properly spaced if the center distance is at least
-      // the sum of their radii plus the minimum spacing
-      return centerDistance >= totalRequiredDistance;
+  private validationSystem: ValidationSystem;
+
+  constructor() {
+    // Initialize validation system with default config
+    // Actual config will be set during distribution
+    this.validationSystem = new ValidationSystem({
+      mapImage: new Image(), // Placeholder, will be updated
+      mapWidthKm: 10,
+      mapHeightKm: 10
     });
   }
 
@@ -121,20 +78,25 @@ export class RandomDistributor implements ContentDistributor {
       // Generate random position
       const position = this.generateRandomPosition();
 
-      // Validate position
-      if (!validateTransparency(position, constraints.mapImage, constraints.alphaThreshold)) {
-        continue;
-      }
-      
-      // Check spacing if required
-      if (!this.validateSpacing(
+      // Update validation system config with current constraints
+      this.validationSystem.updateConfig({
+        mapImage: constraints.mapImage,
+        mapWidthKm: mapWidthKm,
+        mapHeightKm: mapHeightKm,
+        alphaThreshold: constraints.alphaThreshold,
+        minSpacing: effectiveSpacing,
+        respectTypeSpacing: constraints.respectTypeSpacing
+      });
+
+      // Validate position using validation system
+      const validationResults = this.validationSystem.validatePosition(
         position,
-        instances,
-        effectiveSpacing,
-        mapWidthKm,
-        mapHeightKm,
-        shapeSize
-      )) {
+        contentType,
+        instances
+      );
+
+      // Check if position is valid
+      if (!validationResults.every(result => result.valid)) {
         continue;
       }
 
