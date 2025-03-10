@@ -60,7 +60,8 @@ export type ContentTypeId =
   | 'Start'
   | 'FastTravel'
   | 'Restoration'
-  | 'Resources';
+  | 'Resources'
+  | 'Collectibles';
 
 // Interface for content type defaults including quantity and spacing
 interface ContentTypeDefaults extends Partial<ContentTypeBase> {
@@ -171,6 +172,19 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     label: 'Resources',
     showLabel: false,
     minSpacing: 5
+  },
+  Collectibles: {
+    color: '#FF8C00',
+    shape: 'diamond',
+    size: 5,
+    opacity: 1.0,
+    category: 'Exploration',
+    borderSize: 1,
+    borderColor: '#000000',
+    defaultQuantity: 200,
+    label: 'Collectibles',
+    showLabel: false,
+    minSpacing: 100
   },
   Debug: {
     color: '#0000FF',
