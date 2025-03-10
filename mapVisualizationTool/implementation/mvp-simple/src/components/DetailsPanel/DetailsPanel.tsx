@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { ContentInstanceManager } from '../../utils/ContentInstanceManager';
-import { ContentTypeId } from '../../types/ContentTypes';
+import { ContentTypeId, contentTypeDefaults } from '../../types/ContentTypes';
 
 interface DetailsPanelProps {
   contentInstanceManager: ContentInstanceManager;
@@ -19,13 +19,16 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
     const allInstances = contentInstanceManager.getAllInstances();
     const mapAreaKm2 = mapWidthKm * mapHeightKm;
 
-    // Group instances by type
+    // Group instances by their actual content type from properties
     const instancesByType = allInstances.reduce((acc, instance) => {
-      const typeId = instance.typeId;
-      if (!acc[typeId]) {
-        acc[typeId] = [];
+      // Get the actual type from instance properties
+      const actualType = instance.properties?.contentType;
+      if (actualType && actualType !== 'Debug') {
+        if (!acc[actualType]) {
+          acc[actualType] = [];
+        }
+        acc[actualType].push(instance);
       }
-      acc[typeId].push(instance);
       return acc;
     }, {} as Record<string, any[]>);
 
@@ -35,24 +38,22 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
     const totalEnemies = enemyCount + bossCount;
 
     // Calculate total locations
-    const locationTypes = ['Start', 'PointOfInterest', 'FastTravel', 'MissionLocation', 'Restoration'];
+    const locationTypes: ContentTypeId[] = ['Start', 'PointOfInterest', 'FastTravel', 'MissionLocation', 'Restoration'];
     const totalLocations = locationTypes.reduce((sum, type) => 
       sum + (instancesByType[type]?.length || 0), 0
     );
 
     // Calculate individual type counts
-    const typeCounts = {
-      PointOfInterest: instancesByType['PointOfInterest']?.length || 0,
-      Bosses: bossCount,
-      Enemies: enemyCount,
-      MissionLocation: instancesByType['MissionLocation']?.length || 0,
-      FastTravel: instancesByType['FastTravel']?.length || 0,
-      Restoration: instancesByType['Restoration']?.length || 0,
-      Start: instancesByType['Start']?.length || 0
-    };
+    const typeCounts = Object.entries(contentTypeDefaults)
+      .filter(([id]) => id !== 'Debug')
+      .reduce((acc, [id]) => {
+        acc[id] = instancesByType[id]?.length || 0;
+        return acc;
+      }, {} as Record<string, number>);
 
-    // Calculate content density
-    const contentDensity = allInstances.length / mapAreaKm2;
+    // Calculate content density (excluding debug shapes)
+    const contentCount = Object.values(instancesByType).reduce((sum, instances) => sum + instances.length, 0);
+    const contentDensity = contentCount / mapAreaKm2;
 
     // Calculate combat/exploration ratio
     const combatContent = totalEnemies;
@@ -64,12 +65,12 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
     const coverageRadius = 0.2; // 200m radius around each content piece
     const coveredArea = Math.min(
       mapAreaKm2,
-      allInstances.length * Math.PI * coverageRadius * coverageRadius
+      contentCount * Math.PI * coverageRadius * coverageRadius
     );
     const mapCoverage = (coveredArea / mapAreaKm2) * 100;
 
     return {
-      totalContent: allInstances.length,
+      totalContent: contentCount,
       totalEnemies,
       totalLocations,
       typeCounts,
@@ -78,6 +79,11 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
       mapCoverage
     };
   }, [contentInstanceManager, mapWidthKm, mapHeightKm, instanceCount]);
+
+  // Only show the panel if there's content
+  if (metrics.totalContent === 0) {
+    return null;
+  }
 
   return (
     <div style={{ 
@@ -103,20 +109,22 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
       <div style={{ marginBottom: '15px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '10px' }}>
         <div style={{ fontSize: '12px', color: '#999', marginBottom: '5px' }}>Content Summary</div>
         <div>Total Content: {metrics.totalContent}</div>
-        <div>Total Enemies: {metrics.totalEnemies}</div>
-        <div>Total Locations: {metrics.totalLocations}</div>
+        {metrics.totalEnemies > 0 && <div>Total Enemies: {metrics.totalEnemies}</div>}
+        {metrics.totalLocations > 0 && <div>Total Locations: {metrics.totalLocations}</div>}
       </div>
 
       {/* Content Types Section */}
       <div style={{ marginBottom: '15px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '10px' }}>
         <div style={{ fontSize: '12px', color: '#999', marginBottom: '5px' }}>Content Types</div>
-        {Object.entries(metrics.typeCounts).map(([type, count]) => (
-          count > 0 && (
+        {Object.entries(metrics.typeCounts).map(([type, count]) => {
+          if (count === 0) return null;
+          const label = contentTypeDefaults[type as ContentTypeId]?.label || type;
+          return (
             <div key={type}>
-              {type.replace(/([A-Z])/g, ' $1').trim()}: {count}
+              {label}: {count}
             </div>
-          )
-        ))}
+          );
+        })}
       </div>
 
       {/* Metrics Section */}
