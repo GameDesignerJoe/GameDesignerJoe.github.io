@@ -873,7 +873,7 @@ function App() {
             </div>
           </details>
           <details className="shape-controls" style={{ marginTop: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', overflow: 'visible', position: 'relative', zIndex: 1 }}>
-            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Debug Shapes</summary>
+            <summary style={{ padding: '8px', cursor: 'pointer', userSelect: 'none', backgroundColor: '#1a1a1a', borderBottom: '1px solid #3a3a3a', transition: 'background-color 0.2s' }}>Map Content</summary>
             <DebugShapeControls
               contentInstanceManager={contentInstanceManager}
               setInstanceCount={setInstanceCount}
@@ -882,9 +882,6 @@ function App() {
               mapConfig={mapConfig}
             />
           </details>
-          <div className="content-panel">
-            <ContentTypePanel onContentTypeChange={handleContentTypeChange} />
-          </div>
         </div>
         
         <div 

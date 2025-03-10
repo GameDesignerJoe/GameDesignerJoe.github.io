@@ -116,7 +116,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderColor: '#000000',
     defaultQuantity: 12,
     label: 'Boss',
-    showLabel: false
+    showLabel: false,
+    minSpacing: 200
   },
   PointOfInterest: {
     color: '#00BFFF',
@@ -128,7 +129,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderColor: '#000000',
     defaultQuantity: 100,
     label: 'PoI',
-    showLabel: false
+    showLabel: false,
+    minSpacing: 100
   },
   MissionLocation: {
     color: '#FFD700',
@@ -140,7 +142,8 @@ export const contentTypeDefaults: Record<ContentTypeId, ContentTypeDefaults> = {
     borderColor: '#000000',
     defaultQuantity: 20,
     label: 'Mission Location',
-    showLabel: false
+    showLabel: false,
+    minSpacing: 100
   },
   Start: {
     color: '#32CD32',
