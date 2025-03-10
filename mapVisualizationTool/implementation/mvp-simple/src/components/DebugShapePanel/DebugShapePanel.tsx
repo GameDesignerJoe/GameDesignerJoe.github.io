@@ -156,6 +156,23 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
           }}
           onClick={(e) => {
             e.stopPropagation();
+            // Update all shapes' visibility properties when toggling visibility
+            const shapes = contentInstanceManager.getInstances(id);
+            const newIsVisible = !isVisible;
+            shapes.forEach(shape => {
+              const updatedInstance = {
+                ...shape,
+                properties: {
+                  ...shape.properties,
+                  opacity: newIsVisible ? shapeOpacity : 0,
+                  showMinDistanceRing: newIsVisible ? showMinDistanceRing : false,
+                  showLabel: newIsVisible ? showShapeLabel : false,
+                  showDebug: newIsVisible ? showShapeDebug : false
+                }
+              };
+              contentInstanceManager.removeInstance(id, shape.id);
+              contentInstanceManager.addInstance(id, updatedInstance);
+            });
             onToggleVisibility?.();
           }}
         >
@@ -492,7 +509,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
                       ...shape,
                       properties: {
                         ...shape.properties,
-                        showMinDistanceRing: newShowRing,
+                        showMinDistanceRing: newShowRing && isVisible,
                         minDistanceMeters: parseFloat(minDistance),
                         minDistanceRingColor: '#ffffff',
                         minDistanceRingStyle: 'dashed'
@@ -520,7 +537,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
                       ...shape,
                       properties: {
                         ...shape.properties,
-                        showLabel: newShowLabel
+                        showLabel: newShowLabel && isVisible
                       }
                     };
                     contentInstanceManager.removeInstance(id, shape.id);
@@ -545,7 +562,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
                       ...shape,
                       properties: {
                         ...shape.properties,
-                        showDebug: newShowDebug
+                        showDebug: newShowDebug && isVisible
                       }
                     };
                     contentInstanceManager.removeInstance(id, shape.id);
