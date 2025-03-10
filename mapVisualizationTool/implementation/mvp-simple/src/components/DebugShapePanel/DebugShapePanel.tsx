@@ -53,7 +53,9 @@ const SHAPE_OPTIONS = [
   { value: 'circle', label: 'Circle' },
   { value: 'square', label: 'Square' },
   { value: 'hexagon', label: 'Hexagon' },
-  { value: 'diamond', label: 'Diamond' }
+  { value: 'diamond', label: 'Diamond' },
+  { value: 'oval', label: 'Oval' },
+  { value: 'horizontalDiamond', label: 'Horizontal Diamond' }
 ] as const;
 
 export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
