@@ -1,6 +1,45 @@
 # Fellowship Map Content Visualization Tool - UI Walkthrough
 
-[Previous content remains the same until the Map Navigation section...]
+# Fellowship Map Content Visualization Tool - UI Walkthrough
+
+## Controls Panel
+
+The controls panel provides a comprehensive interface for managing map content and settings:
+
+### Panel Layout
+- Fixed width of 400px
+- Full viewport height minus header (calc(100vh - 60px))
+- Organized into collapsible sections using details elements
+- Smooth scrolling with invisible scrollbar
+- Content expands naturally within the panel
+
+### Sections
+1. **Map Info**
+   - Map area controls
+   - Grid visibility toggle
+   - Grid color and opacity settings
+   - Center map button
+
+2. **Debug Shapes**
+   - Shape type selection
+   - Size and opacity controls
+   - Color and border settings
+   - Distribution controls
+   - Label management
+
+3. **Content Types**
+   - Content type management
+   - Type-specific settings
+   - Distribution configuration
+
+### Scrolling Behavior
+- Smooth scrolling with mouse wheel
+- Invisible scrollbar for clean aesthetics
+- Content expands to natural height
+- Maintains scroll position during updates
+- Properly handles nested content
+- Details elements expand without cutoff
+
 
 ### Map Navigation
 The map supports intuitive navigation controls with a sophisticated coordinate transformation system:

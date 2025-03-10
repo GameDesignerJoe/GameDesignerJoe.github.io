@@ -52,6 +52,8 @@
   - Fixed ring scaling across zoom levels
   - Improved edge-to-edge distance accuracy
   - Added consistent behavior across shape types
+  - Added content type-specific spacing (Fast Travel: 500m)
+  - Added respectTypeSpacing option in distribution
 - [x] Implement basic clustering ✅
   - Created ClusteredDistributor implementation
   - Added cluster center generation
@@ -70,7 +72,17 @@
 - Real-time instance count tracking
 - Synchronized property updates across instances
 
-### Phase 4: Validation System
+### Phase 4: UI Improvements
+- [x] Enhance controls panel usability ✅
+  - Added smooth scrolling behavior
+  - Implemented invisible scrollbar
+  - Fixed content expansion in details elements
+  - Improved nested content handling
+  - Added proper scroll position maintenance
+  - Fixed panel height calculation
+  - Added responsive content sizing
+
+### Phase 5: Validation System
 - [x] Port transparency validation from Debug Dots ✅
   - Extracted transparency validation to helper function
   - Added configurable alpha threshold

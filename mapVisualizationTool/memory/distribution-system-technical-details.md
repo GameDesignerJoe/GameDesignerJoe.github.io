@@ -28,7 +28,7 @@ interface DistributionConstraints {
   
   // Spacing constraints
   minSpacing?: number; // In meters
-  respectTypeSpacing?: boolean; // Use contentType.minSpacing
+  respectTypeSpacing?: boolean; // Use contentType.minSpacing (e.g., Fast Travel's 500m)
   
   // Distribution parameters
   maxAttempts?: number; // Default count * 10
@@ -207,11 +207,19 @@ class DistributorFactory {
 
 ### 1. Basic Random Distribution
 ```typescript
+// Example 1: Basic distribution with custom spacing
 const distributor = DistributorFactory.getDistributor('random');
 const instances = distributor.distribute(contentType, 100, {
   mapImage: mapImage,
   alphaThreshold: 200,
   minSpacing: 50 // meters
+});
+
+// Example 2: Using content type's default spacing (e.g., Fast Travel)
+const fastTravelInstances = distributor.distribute(fastTravelType, 25, {
+  mapImage: mapImage,
+  alphaThreshold: 200,
+  respectTypeSpacing: true // Will use Fast Travel's 500m spacing
 });
 ```
 
@@ -232,7 +240,10 @@ const instances = distributor.distribute(contentType, 100, {
    - Always validate positions against map boundaries
    - Respect minimum spacing requirements
    - Consider content type-specific constraints
+     - Some types have fixed spacing (e.g., Fast Travel: 500m)
+     - Others may have variable spacing based on size
    - Implement reasonable attempt limits
+   - Use respectTypeSpacing for content-aware distribution
 
 2. **Performance**
    - Use efficient distance calculations
