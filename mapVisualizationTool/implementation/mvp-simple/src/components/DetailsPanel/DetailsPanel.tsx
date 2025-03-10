@@ -9,6 +9,19 @@ interface DetailsPanelProps {
   instanceCount: number;
 }
 
+// Mapping for plural labels
+const pluralLabels: Record<ContentTypeId, string> = {
+  Start: 'Starting Locations',
+  Enemies: 'Enemies',
+  Bosses: 'Bosses',
+  PointOfInterest: 'Points of Interest',
+  MissionLocation: 'Mission Locations',
+  FastTravel: 'Fast Travel Locations',
+  Restoration: 'Restoration Locations',
+  Resources: 'Resources',
+  Debug: 'Debug Points'
+};
+
 export const DetailsPanel: React.FC<DetailsPanelProps> = ({
   contentInstanceManager,
   mapWidthKm,
@@ -38,7 +51,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
     const totalEnemies = enemyCount + bossCount;
 
     // Calculate total locations
-    const locationTypes: ContentTypeId[] = ['Start', 'PointOfInterest', 'FastTravel', 'MissionLocation', 'Restoration'];
+    const locationTypes: ContentTypeId[] = ['Start', 'PointOfInterest', 'FastTravel', 'MissionLocation', 'Restoration', 'Resources'];
     const totalLocations = locationTypes.reduce((sum, type) => 
       sum + (instancesByType[type]?.length || 0), 0
     );
@@ -118,7 +131,7 @@ export const DetailsPanel: React.FC<DetailsPanelProps> = ({
         <div style={{ fontSize: '12px', color: '#999', marginBottom: '5px' }}>Content Types</div>
         {Object.entries(metrics.typeCounts).map(([type, count]) => {
           if (count === 0) return null;
-          const label = contentTypeDefaults[type as ContentTypeId]?.label || type;
+          const label = pluralLabels[type as ContentTypeId] || type;
           return (
             <div key={type}>
               {label}: {count}
