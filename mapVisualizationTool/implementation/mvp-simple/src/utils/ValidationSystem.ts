@@ -113,12 +113,12 @@ export class ValidationSystem {
     position: { x: number; y: number },
     contentType: ContentTypeBase,
     existingInstances: ContentInstance[],
-    searchRadius: number = 0.1 // 10% of map dimension
-  ): { x: number; y: number } | null {
-    // Implementation will use a spiral search pattern to find valid position
-    // This is a placeholder for future implementation
-    return null;
-  }
+  _searchRadius: number = 0.1 // 10% of map dimension
+): { x: number; y: number } | null {
+  // Implementation will use a spiral search pattern to find valid position
+  // This is a placeholder for future implementation
+  return null;
+}
 
   private validateTransparency(instance: ContentInstance): ValidationResult {
     const valid = validateTransparency(
