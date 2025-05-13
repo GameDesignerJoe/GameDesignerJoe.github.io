@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 const mapImage = '/mapVisualizationTool/CruxMap_BW_trans.png';
-import deleteIcon from './assets/delete.png';
+const deleteIcon = '/mapVisualizationTool/assets/icon_trash.png';
 import { ContentTypePanel } from './components/ContentTypePanel/ContentTypePanel';
 import { DebugShapeControls } from './components/DebugShapeControls/DebugShapeControls';
 import { MapLegend } from './components/MapLegend/MapLegend';
