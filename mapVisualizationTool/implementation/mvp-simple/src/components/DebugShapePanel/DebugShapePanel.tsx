@@ -179,7 +179,7 @@ export const DebugShapePanel: React.FC<DebugShapePanelProps> = ({
           }}
         >
           <img 
-            src={`/assets/icon_visibility_${isVisible ? 'on' : 'off'}.png`}
+            src={`/mapVisualizationTool/assets/icon_visibility_${isVisible ? 'on' : 'off'}.png`}
             alt={isVisible ? 'Visible' : 'Hidden'}
             style={{ 
               width: '20px',

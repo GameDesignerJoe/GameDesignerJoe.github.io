@@ -365,9 +365,9 @@ export const DebugShapeControls: React.FC<DebugShapeControlsProps> = ({
           setInstanceCount={setInstanceCount}
           handleAddShapes={() => handleAddShapes(panel)}
           handleDeleteShapes={() => handleDeleteShapes(panel.id)}
-          resetIcon="/assets/icon_reset_settings.png"
-          duplicateIcon="/assets/icon_content_copy.png"
-          trashIcon="/assets/icon_trash.png"
+          resetIcon="/mapVisualizationTool/assets/icon_reset_settings.png"
+          duplicateIcon="/mapVisualizationTool/assets/icon_content_copy.png"
+          trashIcon="/mapVisualizationTool/assets/icon_trash.png"
           name={panel.name}
           onNameChange={(value) => updatePanel(panel.id, { name: value })}
           onDuplicate={() => duplicatePanel(panel.id)}
