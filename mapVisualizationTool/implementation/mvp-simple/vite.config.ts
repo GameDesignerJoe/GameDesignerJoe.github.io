@@ -1,10 +1,10 @@
-import { defineConfig } from 'vite';
+import { defineConfig, ConfigEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  base: '/mapVisualizationTool/',
+export default defineConfig((env: ConfigEnv) => ({
+  base: env.command === 'serve' ? '/' : '/mapVisualizationTool/',
   plugins: [react()],
   assetsInclude: ['**/*.png'],
   server: {
