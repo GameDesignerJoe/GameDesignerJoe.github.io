@@ -1,0 +1,29 @@
+{
+  "name": "game-doc-system",
+  "version": "0.1.0",
+  "description": "Chrome extension for creating game development documents with Claude AI",
+  "scripts": {
+    "build": "webpack",
+    "watch": "webpack --watch",
+    "dev": "webpack --mode development --watch"
+  },
+  "keywords": [
+    "game-development",
+    "documentation",
+    "chrome-extension",
+    "claude-ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.0.246",
+    "copy-webpack-plugin": "^11.0.0",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "canvas": "^3.1.0"
+  }
+}
