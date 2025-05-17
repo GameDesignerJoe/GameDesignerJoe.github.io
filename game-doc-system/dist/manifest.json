@@ -35,7 +35,11 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["css/sidebar.css", "css/claude-messages.css"],
+      "resources": [
+        "css/sidebar.css", 
+        "css/claude-messages.css",
+        "assets/icon_trash.png"
+      ],
       "matches": ["https://*.claude.ai/*"]
     }
   ]

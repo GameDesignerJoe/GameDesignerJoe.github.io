@@ -148,6 +148,29 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+.gdds-button.danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.gdds-button.danger:hover {
+  background-color: #c82333;
+}
+
+.gdds-project-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.project-delete img {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.project-delete:hover img {
+  opacity: 1;
+}
+
 .gdds-button.small {
   padding: 4px 8px;
   font-size: 12px;

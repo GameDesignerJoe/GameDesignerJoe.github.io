@@ -230,6 +230,9 @@ function renderProjects(projects: Record<string, GameProject>) {
       <div class="gdds-project-header">
         <h4>${project.name}</h4>
         <div class="gdds-project-actions">
+          <button class="gdds-button icon-only project-delete" title="Delete Project">
+            <img src="${chrome.runtime.getURL('assets/icon_trash.png')}" alt="Delete" width="16" height="16">
+          </button>
           <button class="gdds-button icon-only project-expand">
             <span class="gdds-icon">▼</span>
           </button>
@@ -240,11 +243,18 @@ function renderProjects(projects: Record<string, GameProject>) {
     
     projectsList.appendChild(projectElement);
     
-    // Add event listener for expand/collapse
+    // Add event listeners for project actions
     const expandButton = projectElement.querySelector('.project-expand');
     if (expandButton) {
       expandButton.addEventListener('click', () => {
         toggleProjectDocuments(project.id);
+      });
+    }
+
+    const deleteButton = projectElement.querySelector('.project-delete');
+    if (deleteButton) {
+      deleteButton.addEventListener('click', () => {
+        showDeleteConfirmation(project);
       });
     }
   });
@@ -445,6 +455,62 @@ function exportDocument(projectId: string, documentId: string) {
   
   // Will be implemented in next phase - for now just show notification
   showNotification('Document export will be implemented in the next phase', 'info');
+}
+
+// Show delete confirmation dialog
+function showDeleteConfirmation(project: GameProject) {
+  const dialog = document.createElement('div');
+  dialog.className = 'gdds-dialog';
+  dialog.innerHTML = `
+    <div class="gdds-dialog-content">
+      <h3>Delete Project</h3>
+      <p>Are you sure you want to delete "${project.name}"? This action cannot be undone.</p>
+      <div class="gdds-form-actions">
+        <button type="button" class="gdds-button secondary" id="gdds-cancel-delete">Cancel</button>
+        <button type="button" class="gdds-button danger" id="gdds-confirm-delete">Delete</button>
+      </div>
+    </div>
+  `;
+
+  // Add to DOM
+  document.body.appendChild(dialog);
+
+  // Setup cancel button
+  const cancelButton = document.getElementById('gdds-cancel-delete');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', closeDialog);
+  }
+
+  // Setup confirm button
+  const confirmButton = document.getElementById('gdds-confirm-delete');
+  if (confirmButton) {
+    confirmButton.addEventListener('click', () => {
+      deleteProject(project.id);
+      closeDialog();
+    });
+  }
+
+  // Close dialog function
+  function closeDialog() {
+    document.body.removeChild(dialog);
+  }
+}
+
+// Delete project
+function deleteProject(projectId: string) {
+  chrome.runtime.sendMessage(
+    { type: MessageType.DeleteProject, payload: { projectId } },
+    (response) => {
+      if (response.success) {
+        console.log('Project deleted:', projectId);
+        loadProjects();
+        showNotification('Project deleted successfully', 'success');
+      } else {
+        console.error('Failed to delete project:', response.error);
+        showNotification('Error deleting project', 'error');
+      }
+    }
+  );
 }
 
 // Show notification
