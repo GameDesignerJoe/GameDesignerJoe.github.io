@@ -30,8 +30,13 @@
   "content_scripts": [
     {
       "matches": ["https://claude.ai/*"],
-      "js": ["content.js"],
-      "css": ["css/sidebar.css"]
+      "js": ["content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["css/sidebar.css", "css/claude-messages.css"],
+      "matches": ["https://*.claude.ai/*"]
     }
   ]
 }

@@ -1,10 +1,29 @@
 import { MessageType, GameProject, DocumentType, DocumentStatus } from '../shared/types';
 
 // Wait until page fully loaded
+// Inject CSS into the page
+function injectStyles() {
+  const styleLinks = [
+    chrome.runtime.getURL('css/sidebar.css'),
+    chrome.runtime.getURL('css/claude-messages.css')
+  ];
+
+  styleLinks.forEach(href => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = href;
+    document.head.appendChild(link);
+  });
+}
+
 window.addEventListener('load', () => {
   // Check if we're on Claude.ai
   if (window.location.href.includes('claude.ai')) {
     console.log('Game Development Document System loaded on Claude.ai');
+    
+    // Inject styles
+    injectStyles();
     
     // Give the UI time to render completely
     setTimeout(injectSidebar, 2000);
@@ -364,12 +383,52 @@ function renderProjectDocuments(project: GameProject) {
   });
 }
 
+import { PromptManager } from '../prompts/promptManager';
+
 // Start document creation process
-function startDocumentCreation(projectId: string, documentId: string) {
+async function startDocumentCreation(projectId: string, documentId: string) {
   console.log(`Starting document creation: Project ${projectId}, Document ${documentId}`);
   
-  // Will be implemented in next phase - for now just show notification
-  showNotification('Document creation will be implemented in the next phase', 'info');
+  // Get the project and document
+  chrome.runtime.sendMessage(
+    { type: MessageType.GetProject, payload: { projectId } },
+    async (response) => {
+      if (response.success && response.data) {
+        const project = response.data;
+        const document = project.documents[documentId];
+        
+        if (document) {
+          try {
+            // Start the document creation process
+            await PromptManager.startDocumentCreation(document.type);
+            
+                    // Get the prompt template again since we need it for monitoring
+                    const promptTemplate = PromptManager.getPromptForDocument(document.type);
+                    if (promptTemplate) {
+                      // Start monitoring for responses
+                      PromptManager.monitorResponse(promptTemplate);
+                    }
+            
+            // Update document status
+            document.status = DocumentStatus.InProgress;
+            chrome.runtime.sendMessage(
+              { 
+                type: MessageType.UpdateDocument, 
+                payload: { document }
+              }
+            );
+          } catch (error) {
+            console.error('Error during document creation:', error);
+            showNotification('Error creating document', 'error');
+          }
+        } else {
+          showNotification('Error: Document not found', 'error');
+        }
+      } else {
+        showNotification('Error: Could not load project', 'error');
+      }
+    }
+  );
 }
 
 // View document
