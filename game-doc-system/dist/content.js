@@ -134,10 +134,10 @@ window.addEventListener('load', () => {
 // Inject the sidebar into Claude's UI
 function injectSidebar() {
     console.log('Attempting to inject sidebar');
-    // Find container to inject into
-    const claudeContainer = document.querySelector('.claude-container');
-    if (!claudeContainer) {
-        console.log('Claude container not found, retrying in 2 seconds');
+    // Find main chat container to position relative to
+    const mainContent = document.querySelector('main');
+    if (!mainContent) {
+        console.log('Claude main content not found, retrying in 2 seconds');
         setTimeout(injectSidebar, 2000);
         return;
     }
@@ -145,6 +145,8 @@ function injectSidebar() {
     const sidebar = document.createElement('div');
     sidebar.id = 'gdds-sidebar';
     sidebar.className = 'gdds-sidebar';
+    // Position sidebar after the main content
+    mainContent.parentElement?.insertBefore(sidebar, mainContent.nextSibling);
     // Initial HTML for sidebar
     sidebar.innerHTML = `
     <div class="gdds-sidebar-header">
@@ -158,8 +160,6 @@ function injectSidebar() {
       <div class="gdds-loading">Loading projects...</div>
     </div>
   `;
-    // Add to DOM
-    claudeContainer.appendChild(sidebar);
     // Setup event listeners
     setupEventListeners();
     // Load projects
