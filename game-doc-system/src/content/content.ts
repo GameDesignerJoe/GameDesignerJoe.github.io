@@ -42,22 +42,37 @@ function injectSidebar() {
     return;
   }
   
-  // Create sidebar element
+  // Create sidebar wrapper and elements
+  const sidebarWrapper = document.createElement('div');
+  sidebarWrapper.id = 'gdds-sidebar-wrapper';
+  sidebarWrapper.className = 'collapsed';
+  
   const sidebar = document.createElement('div');
   sidebar.id = 'gdds-sidebar';
   sidebar.className = 'gdds-sidebar';
   
-  // Position sidebar after the main content
-  mainContent.parentElement?.insertBefore(sidebar, mainContent.nextSibling);
+  const sidebarTab = document.createElement('div');
+  sidebarTab.id = 'gdds-sidebar-tab';
+  sidebarTab.className = 'gdds-sidebar-tab';
+  sidebarTab.innerHTML = `
+    <button class="gdds-button icon-only" id="gdds-toggle-sidebar">
+      <span class="gdds-icon">→</span>
+    </button>
+  `;
+  
+  // Add elements to wrapper
+  sidebarWrapper.appendChild(sidebar);
+  sidebarWrapper.appendChild(sidebarTab);
+  
+  // Position wrapper after the main content
+  mainContent.parentElement?.insertBefore(sidebarWrapper, mainContent.nextSibling);
   
   // Initial HTML for sidebar
   sidebar.innerHTML = `
+    <div class="gdds-gd-text">GD</div>
     <div class="gdds-sidebar-header">
       <h3>Game Documents</h3>
       <button id="gdds-new-project" class="gdds-button primary">New Project</button>
-      <button id="gdds-toggle-sidebar" class="gdds-button icon-only">
-        <span class="gdds-icon">◀</span>
-      </button>
     </div>
     <div class="gdds-projects-container">
       <div class="gdds-loading">Loading projects...</div>
@@ -93,15 +108,6 @@ function toggleSidebar() {
   const sidebar = document.getElementById('gdds-sidebar');
   if (sidebar) {
     sidebar.classList.toggle('collapsed');
-    
-    // Update toggle button icon
-    const toggleButton = document.getElementById('gdds-toggle-sidebar');
-    if (toggleButton) {
-      const icon = toggleButton.querySelector('.gdds-icon');
-      if (icon) {
-        icon.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
-      }
-    }
   }
 }
 

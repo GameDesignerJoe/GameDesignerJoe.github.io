@@ -1,74 +1,147 @@
-.gdds-sidebar {
+#gdds-sidebar-wrapper {
   position: fixed;
   top: 0;
   right: 0;
+  height: 100vh;
+  z-index: 1000;
+  display: flex;
+}
+
+.gdds-sidebar {
+  position: relative;
   width: 300px;
   height: 100vh;
-  background-color: #2a2a2a;
-  color: #f0f0f0;
-  z-index: 10;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: rgb(31, 30, 30);
+  color: rgb(197, 197, 210);
+  box-shadow: -1px 0 2px rgba(0, 0, 0, 0.05);
+  font-family: Söhne, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif, "Helvetica Neue", Arial;
   transition: transform 0.3s ease;
   display: flex;
   flex-direction: column;
-  margin-top: 48px; /* Account for Claude's header */
+  padding-top: 48px; /* Account for Claude's header */
+  transform: translateX(0);
 }
 
 .gdds-sidebar.collapsed {
-  transform: translateX(290px);
+  transform: translateX(300px);
+}
+
+.gdds-gd-text {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgb(194, 192, 183);
+  letter-spacing: 0;
 }
 
 .gdds-sidebar-header {
-  padding: 15px;
+  padding: 16px;
+  margin-top: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #3e3e3e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .gdds-sidebar-header h3 {
   margin: 0;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 400;
+  color: rgb(197, 197, 210);
+  letter-spacing: 0;
 }
 
-.gdds-projects-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 0;
-}
-
-.gdds-projects-list {
+.gdds-sidebar-tab {
+  position: absolute;
+  left: -32px;
+  top: 48px;
+  height: 32px;
+  width: 32px;
+  background: none;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.gdds-sidebar.collapsed ~ .gdds-sidebar-tab {
+  transform: translateX(300px);
+}
+
+.gdds-sidebar-tab .gdds-button {
+  background: none;
+  border: none;
+  padding: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gdds-sidebar-tab .gdds-icon {
+  color: rgb(187, 105, 71);
+  font-size: 16px;
+  transition: all 0.2s;
+  opacity: 0.9;
+}
+
+.gdds-sidebar.collapsed ~ .gdds-sidebar-tab .gdds-icon {
+  transform: rotate(180deg);
+}
+
+.gdds-sidebar-tab:hover .gdds-icon {
+  color: rgb(207, 115, 77);
+  opacity: 1;
 }
 
 .gdds-project-item {
-  background-color: #363636;
   border-radius: 6px;
   margin: 0 10px;
   overflow: hidden;
+  border: none;
+  position: relative;
 }
 
 .gdds-project-header {
   padding: 12px 15px;
+  padding-right: 80px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   cursor: pointer;
+  position: relative;
 }
 
 .gdds-project-header h4 {
   margin: 0;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
+  color: rgb(197, 197, 210);
+  letter-spacing: 0;
+  flex: 1;
+}
+
+.gdds-project-actions {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 10;
+}
+
+.gdds-document-actions {
+  position: relative;
+  z-index: 1;
 }
 
 .gdds-project-documents {
   padding: 10px;
-  background-color: #2f2f2f;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -78,22 +151,27 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  background-color: #404040;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  border: none;
+  transition: all 0.2s;
+}
+
+.gdds-document-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .gdds-document-item.status-not_started {
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .gdds-document-item.status-in_progress {
-  border-left: 3px solid #ffc107;
+  border-left: 3px solid rgb(217, 119, 6);
 }
 
 .gdds-document-item.status-completed {
-  border-left: 3px solid #4caf50;
+  border-left: 3px solid rgb(22, 163, 74);
 }
 
 .gdds-document-info {
@@ -103,12 +181,14 @@
 }
 
 .gdds-document-title {
-  font-weight: 500;
+  font-weight: 400;
+  color: rgb(197, 197, 210);
+  letter-spacing: 0;
 }
 
 .gdds-document-status {
-  font-size: 11px;
-  opacity: 0.7;
+  font-size: 12px;
+  color: rgb(142, 142, 160);
 }
 
 .gdds-document-actions {
@@ -117,44 +197,52 @@
 }
 
 .gdds-button {
-  background-color: #525252;
-  color: #ffffff;
-  border: none;
-  border-radius: 4px;
+  background-color: rgb(52, 53, 65);
+  color: rgb(197, 197, 210);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  font-family: inherit;
+  letter-spacing: 0;
 }
 
 .gdds-button:hover {
-  background-color: #676767;
+  background-color: rgb(64, 65, 79);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .gdds-button.primary {
-  background-color: #8c52ff;
+  background-color: rgb(187, 105, 71);
+  border: none;
+  color: rgb(255, 255, 255);
 }
 
 .gdds-button.primary:hover {
-  background-color: #9d6aff;
+  background-color: rgb(207, 115, 77);
 }
 
 .gdds-button.secondary {
-  background-color: transparent;
-  border: 1px solid #525252;
+  background-color: rgb(39, 41, 46);
+  border: none;
+  color: rgb(197, 197, 210);
 }
 
 .gdds-button.secondary:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgb(52, 53, 65);
 }
 
 .gdds-button.danger {
-  background-color: #dc3545;
-  color: white;
+  background-color: rgb(185, 28, 28);
+  color: rgb(255, 255, 255);
+  border: none;
 }
 
 .gdds-button.danger:hover {
-  background-color: #c82333;
+  background-color: rgb(153, 27, 27);
 }
 
 .gdds-project-actions {
@@ -222,11 +310,12 @@
 }
 
 .gdds-dialog-content {
-  background-color: #2a2a2a;
+  background-color: rgb(26, 27, 30);
   border-radius: 8px;
   padding: 20px;
   width: 400px;
   max-width: 90%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .gdds-dialog-content h3 {
@@ -248,10 +337,16 @@
   width: 100%;
   padding: 8px 10px;
   border-radius: 4px;
-  border: 1px solid #4a4a4a;
-  background-color: #333333;
-  color: #f0f0f0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgb(52, 53, 65);
+  color: rgb(236, 236, 241);
   font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.gdds-form-group input:focus {
+  outline: none;
+  border-color: rgb(236, 129, 89);
 }
 
 .gdds-form-actions {
@@ -265,26 +360,27 @@
   position: fixed;
   bottom: 20px;
   right: 320px;
-  background-color: #333333;
+  background-color: rgb(26, 27, 30);
   border-radius: 6px;
   padding: 12px 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 1500;
   transition: transform 0.3s, opacity 0.3s;
   animation: gdds-slide-in 0.3s;
   max-width: 300px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .gdds-notification.success {
-  border-left: 4px solid #4caf50;
+  border-left: 4px solid rgb(22, 163, 74);
 }
 
 .gdds-notification.error {
-  border-left: 4px solid #ff5252;
+  border-left: 4px solid rgb(185, 28, 28);
 }
 
 .gdds-notification.info {
-  border-left: 4px solid #2196f3;
+  border-left: 4px solid rgb(236, 129, 89);
 }
 
 .gdds-notification-content {
@@ -296,15 +392,22 @@
 .gdds-notification-message {
   flex: 1;
   font-size: 14px;
+  color: rgb(236, 236, 241);
+  letter-spacing: -0.01em;
 }
 
 .gdds-notification-close {
   background: none;
   border: none;
-  color: #999;
+  color: rgb(172, 172, 190);
   cursor: pointer;
   font-size: 16px;
   padding: 0;
+  transition: color 0.2s;
+}
+
+.gdds-notification-close:hover {
+  color: rgb(236, 236, 241);
 }
 
 @keyframes gdds-slide-in {
