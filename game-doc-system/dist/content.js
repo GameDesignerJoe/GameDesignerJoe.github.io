@@ -14,122 +14,95 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _shared_types__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../shared/types */ "./src/shared/types.ts");
 
-const GAME_VISION_PROMPT = {
-    systemPrompt: `You are a game design document assistant specializing in creating clear, compelling Game Vision documents. Your role is to help developers articulate their game's core concept through natural conversation, asking follow-up questions based on their responses and guiding them to explore all important aspects of their vision.`,
-    initialPrompt: `Hi, I'm here to help you define your game. Why don't you tell me what you envision when you think about it? Share whatever comes to mind about the experience you want to create.`,
-    followUpPrompts: {
-        groupDynamics: `That's an interesting concept! Let's explore the group dynamics you mentioned. What kind of shared experiences do you want players to have together? How will they work as a team?`,
-        worldAndChallenges: `I see how that would create engaging player interactions. Now tell me about the world they'll be exploring. What makes it compelling and what kinds of challenges will they face?`,
-        progressionAndGrowth: `The world sounds fascinating! How will players grow and develop as they explore it? What systems or mechanics will drive their progression?`,
-        storyAndNarrative: `That's a great progression system. How will the story unfold as players advance? What narrative elements will make their journey meaningful?`,
-        uniqueFeatures: `The narrative elements sound compelling. What unique features or innovations will make your game stand out? What will players remember most about their experience?`
+const DOCUMENT_PROMPTS = {
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.GameVision]: {
+        welcomeMessage: "Let's define your game vision. Why don't you tell me about your game?",
+        placeholderText: "Write whatever feels natural - paragraphs, bullets, catch phrases, etc."
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.CoreGameConcept]: {
+        welcomeMessage: "Let's outline your core game concept. What's the fundamental gameplay experience?",
+        placeholderText: "Describe the core gameplay loop, key mechanics, or main activities"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.TargetAudience]: {
+        welcomeMessage: "Let's identify your target audience. Who are you making this game for?",
+        placeholderText: "Consider age groups, interests, gaming experience, platforms they use"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.CorePillarsValues]: {
+        welcomeMessage: "Let's establish your core pillars and values. What principles guide your game design?",
+        placeholderText: "List key values, design pillars, or guiding principles"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.WhyPlayIt]: {
+        welcomeMessage: "Let's explore why players will love your game. What makes it compelling?",
+        placeholderText: "Think about player motivations, rewards, and satisfaction"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.WhatShouldTheyFeel]: {
+        welcomeMessage: "Let's define the emotional journey. How should players feel while playing?",
+        placeholderText: "Describe emotions, moods, or feelings you want to evoke"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.UniqueSellingPoints]: {
+        welcomeMessage: "Let's identify what makes your game unique. What sets it apart?",
+        placeholderText: "List unique features, innovations, or special qualities"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.GameLoop]: {
+        welcomeMessage: "Let's detail your game loop. What keeps players engaged moment to moment?",
+        placeholderText: "Describe core activities, feedback loops, and progression"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.PlayerJourney]: {
+        welcomeMessage: "Let's map the player's journey. How do they progress through your game?",
+        placeholderText: "Outline key stages, milestones, or story beats"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.StoryOverview]: {
+        welcomeMessage: "Let's craft your story overview. What tale does your game tell?",
+        placeholderText: "Share plot points, character arcs, or narrative themes"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.Presentation]: {
+        welcomeMessage: "Let's plan your game's presentation. How will it look and feel?",
+        placeholderText: "Describe art style, audio direction, or visual themes"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.KeyQuestions]: {
+        welcomeMessage: "Let's address key questions about your game. What needs to be resolved?",
+        placeholderText: "List critical questions, concerns, or decisions to make"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.CoreDesignDetails]: {
+        welcomeMessage: "Let's detail your core design. What are the essential mechanics?",
+        placeholderText: "Describe key systems, rules, or gameplay elements"
+    },
+    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.StrategicDirection]: {
+        welcomeMessage: "Let's plan your strategic direction. Where is this game headed?",
+        placeholderText: "Outline goals, milestones, or development priorities"
     }
 };
 class PromptManager {
     static getPromptForDocument(type) {
-        return this.prompts[type] || null;
-    }
-    static async injectClaudeMessage(text) {
-        // Find the chat container
-        const chatContainer = document.querySelector('.chat-container, .claude-container');
-        if (!chatContainer) {
-            console.error('Could not find chat container');
-            return;
-        }
-        // Create a new message element
-        const messageElement = document.createElement('div');
-        messageElement.className = 'claude-message assistant-message';
-        messageElement.innerHTML = `
-      <div class="claude-response bg-claude-light dark:bg-claude-dark rounded-xl px-4 py-3 my-4">
-        <div class="claude-message-content text-gray-900 dark:text-gray-100">${text}</div>
-      </div>
-    `;
-        // Add the message to the chat
-        chatContainer.appendChild(messageElement);
-        // Scroll to the new message
-        messageElement.scrollIntoView({ behavior: 'smooth' });
-        // Wait a moment for the UI to update
-        await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    static async injectPrompt(prompt) {
-        // Send the initial prompt as a Claude message
-        await this.injectClaudeMessage(prompt.initialPrompt);
-        this.currentPromptStage = 'initial';
+        return DOCUMENT_PROMPTS[type] || null;
     }
     static async startDocumentCreation(type) {
         const prompt = this.getPromptForDocument(type);
         if (!prompt) {
-            console.error(`No prompt template found for document type: ${type}`);
+            console.error(`No prompt found for document type: ${type}`);
             return;
         }
-        try {
-            await this.injectPrompt(prompt);
-            this.monitorResponse(prompt);
-        }
-        catch (error) {
-            console.error('Error starting document creation:', error);
-        }
-    }
-    static monitorResponse(prompt) {
-        // Create a mutation observer to watch for Claude's responses
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList') {
-                    // Look for new response elements
-                    const responses = Array.from(document.querySelectorAll('.claude-response'));
-                    for (const response of responses) {
-                        // Process the response and send next prompt
-                        this.processResponse(response.textContent || '', prompt);
-                    }
-                }
-            }
+        // Wait a moment for the UI to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        // Try to find the welcome message by its unique characteristics
+        const welcomeElement = Array.from(document.querySelectorAll('*')).find(element => {
+            const text = element.textContent || '';
+            return text.includes('Happy') && text.includes('Joe') && text.length < 50;
         });
-        // Start observing the chat container
-        const chatContainer = document.querySelector('.chat-container');
-        if (chatContainer) {
-            observer.observe(chatContainer, {
-                childList: true,
-                subtree: true
-            });
+        if (welcomeElement) {
+            // Store the original styles
+            const styles = window.getComputedStyle(welcomeElement);
+            const originalColor = styles.color;
+            const originalFont = styles.font;
+            const originalSize = styles.fontSize;
+            // Update text while preserving styling
+            welcomeElement.innerHTML = `<span style="color: ${originalColor}; font: ${originalFont}; font-size: ${originalSize};">${prompt.welcomeMessage}</span>`;
         }
-    }
-    static async processResponse(content, prompt) {
-        console.log('Captured response:', content);
-        // Determine next prompt based on current stage
-        let nextPrompt;
-        switch (this.currentPromptStage) {
-            case 'initial':
-                nextPrompt = prompt.followUpPrompts.groupDynamics;
-                this.currentPromptStage = 'groupDynamics';
-                break;
-            case 'groupDynamics':
-                nextPrompt = prompt.followUpPrompts.worldAndChallenges;
-                this.currentPromptStage = 'worldAndChallenges';
-                break;
-            case 'worldAndChallenges':
-                nextPrompt = prompt.followUpPrompts.progressionAndGrowth;
-                this.currentPromptStage = 'progressionAndGrowth';
-                break;
-            case 'progressionAndGrowth':
-                nextPrompt = prompt.followUpPrompts.storyAndNarrative;
-                this.currentPromptStage = 'storyAndNarrative';
-                break;
-            case 'storyAndNarrative':
-                nextPrompt = prompt.followUpPrompts.uniqueFeatures;
-                this.currentPromptStage = 'uniqueFeatures';
-                break;
-            // No more prompts after uniqueFeatures
-        }
-        if (nextPrompt) {
-            await this.injectClaudeMessage(nextPrompt);
+        else {
+            console.error('Could not find welcome message element');
         }
     }
 }
-PromptManager.prompts = {
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.GameVision]: GAME_VISION_PROMPT,
-    // Other document types will be added here
-};
-PromptManager.currentPromptStage = 'initial';
 
 
 /***/ }),
@@ -605,24 +578,19 @@ async function startDocumentCreation(projectId, documentId) {
             const document = project.documents[documentId];
             if (document) {
                 try {
-                    // Start the document creation process
+                    // Update welcome message for this document type
                     await _prompts_promptManager__WEBPACK_IMPORTED_MODULE_1__.PromptManager.startDocumentCreation(document.type);
-                    // Get the prompt template again since we need it for monitoring
-                    const promptTemplate = _prompts_promptManager__WEBPACK_IMPORTED_MODULE_1__.PromptManager.getPromptForDocument(document.type);
-                    if (promptTemplate) {
-                        // Start monitoring for responses
-                        _prompts_promptManager__WEBPACK_IMPORTED_MODULE_1__.PromptManager.monitorResponse(promptTemplate);
-                    }
                     // Update document status
                     document.status = _shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentStatus.InProgress;
                     chrome.runtime.sendMessage({
                         type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.UpdateDocument,
                         payload: { document }
                     });
+                    showNotification('Document creation started', 'success');
                 }
                 catch (error) {
                     console.error('Error during document creation:', error);
-                    showNotification('Error creating document', 'error');
+                    showNotification('Error updating welcome message', 'error');
                 }
             }
             else {

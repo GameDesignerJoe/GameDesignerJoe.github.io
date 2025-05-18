@@ -415,15 +415,8 @@ async function startDocumentCreation(projectId: string, documentId: string) {
         
         if (document) {
           try {
-            // Start the document creation process
+            // Update welcome message for this document type
             await PromptManager.startDocumentCreation(document.type);
-            
-                    // Get the prompt template again since we need it for monitoring
-                    const promptTemplate = PromptManager.getPromptForDocument(document.type);
-                    if (promptTemplate) {
-                      // Start monitoring for responses
-                      PromptManager.monitorResponse(promptTemplate);
-                    }
             
             // Update document status
             document.status = DocumentStatus.InProgress;
@@ -433,9 +426,11 @@ async function startDocumentCreation(projectId: string, documentId: string) {
                 payload: { document }
               }
             );
+
+            showNotification('Document creation started', 'success');
           } catch (error) {
             console.error('Error during document creation:', error);
-            showNotification('Error creating document', 'error');
+            showNotification('Error updating welcome message', 'error');
           }
         } else {
           showNotification('Error: Document not found', 'error');
