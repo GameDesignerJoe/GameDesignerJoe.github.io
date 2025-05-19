@@ -2,111 +2,6 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ "./src/prompts/promptManager.ts":
-/*!**************************************!*\
-  !*** ./src/prompts/promptManager.ts ***!
-  \**************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   PromptManager: () => (/* binding */ PromptManager)
-/* harmony export */ });
-/* harmony import */ var _shared_types__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../shared/types */ "./src/shared/types.ts");
-
-const DOCUMENT_PROMPTS = {
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.GameVision]: {
-        welcomeMessage: "Let's define your game vision. Why don't you tell me about your game?",
-        placeholderText: "Write whatever feels natural - paragraphs, bullets, catch phrases, etc."
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.CoreGameConcept]: {
-        welcomeMessage: "Let's outline your core game concept. What's the fundamental gameplay experience?",
-        placeholderText: "Describe the core gameplay loop, key mechanics, or main activities"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.TargetAudience]: {
-        welcomeMessage: "Let's identify your target audience. Who are you making this game for?",
-        placeholderText: "Consider age groups, interests, gaming experience, platforms they use"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.CorePillarsValues]: {
-        welcomeMessage: "Let's establish your core pillars and values. What principles guide your game design?",
-        placeholderText: "List key values, design pillars, or guiding principles"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.WhyPlayIt]: {
-        welcomeMessage: "Let's explore why players will love your game. What makes it compelling?",
-        placeholderText: "Think about player motivations, rewards, and satisfaction"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.WhatShouldTheyFeel]: {
-        welcomeMessage: "Let's define the emotional journey. How should players feel while playing?",
-        placeholderText: "Describe emotions, moods, or feelings you want to evoke"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.UniqueSellingPoints]: {
-        welcomeMessage: "Let's identify what makes your game unique. What sets it apart?",
-        placeholderText: "List unique features, innovations, or special qualities"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.GameLoop]: {
-        welcomeMessage: "Let's detail your game loop. What keeps players engaged moment to moment?",
-        placeholderText: "Describe core activities, feedback loops, and progression"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.PlayerJourney]: {
-        welcomeMessage: "Let's map the player's journey. How do they progress through your game?",
-        placeholderText: "Outline key stages, milestones, or story beats"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.StoryOverview]: {
-        welcomeMessage: "Let's craft your story overview. What tale does your game tell?",
-        placeholderText: "Share plot points, character arcs, or narrative themes"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.Presentation]: {
-        welcomeMessage: "Let's plan your game's presentation. How will it look and feel?",
-        placeholderText: "Describe art style, audio direction, or visual themes"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.KeyQuestions]: {
-        welcomeMessage: "Let's address key questions about your game. What needs to be resolved?",
-        placeholderText: "List critical questions, concerns, or decisions to make"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.CoreDesignDetails]: {
-        welcomeMessage: "Let's detail your core design. What are the essential mechanics?",
-        placeholderText: "Describe key systems, rules, or gameplay elements"
-    },
-    [_shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentType.StrategicDirection]: {
-        welcomeMessage: "Let's plan your strategic direction. Where is this game headed?",
-        placeholderText: "Outline goals, milestones, or development priorities"
-    }
-};
-class PromptManager {
-    static getPromptForDocument(type) {
-        return DOCUMENT_PROMPTS[type] || null;
-    }
-    static async startDocumentCreation(type) {
-        const prompt = this.getPromptForDocument(type);
-        if (!prompt) {
-            console.error(`No prompt found for document type: ${type}`);
-            return;
-        }
-        // Wait a moment for the UI to be ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // Try to find the welcome message by its unique characteristics
-        const welcomeElement = Array.from(document.querySelectorAll('*')).find(element => {
-            const text = element.textContent || '';
-            return text.includes('Happy') && text.includes('Joe') && text.length < 50;
-        });
-        if (welcomeElement) {
-            // Store the original styles
-            const styles = window.getComputedStyle(welcomeElement);
-            const originalColor = styles.color;
-            const originalFont = styles.font;
-            const originalSize = styles.fontSize;
-            // Update text while preserving styling
-            welcomeElement.innerHTML = `<span style="color: ${originalColor}; font: ${originalFont}; font-size: ${originalSize};">${prompt.welcomeMessage}</span>`;
-        }
-        else {
-            console.error('Could not find welcome message element');
-        }
-    }
-}
-
-
-/***/ }),
-
 /***/ "./src/shared/types.ts":
 /*!*****************************!*\
   !*** ./src/shared/types.ts ***!
@@ -226,7 +121,6 @@ var __webpack_exports__ = {};
   \********************************/
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _shared_types__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../shared/types */ "./src/shared/types.ts");
-/* harmony import */ var _prompts_promptManager__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../prompts/promptManager */ "./src/prompts/promptManager.ts");
 
 // Wait until page fully loaded
 // Inject CSS into the page
@@ -253,6 +147,28 @@ window.addEventListener('load', () => {
         setTimeout(injectSidebar, 2000);
     }
 });
+// Add a message to Claude's interface
+function addClaudeMessage(message) {
+    // Create a new message that looks like it came from Claude
+    const messageContainer = document.createElement('div');
+    messageContainer.className = 'prose dark:prose-invert';
+    messageContainer.style.cssText = 'max-width: none; width: 100%;';
+    messageContainer.innerHTML = `
+    <div class="markdown prose w-full break-words dark:prose-invert light">
+      <p>${message}</p>
+    </div>
+  `;
+    // Find Claude's message container and add our message
+    const messagesContainer = document.querySelector('main .flex.flex-col.items-center');
+    if (messagesContainer) {
+        messagesContainer.appendChild(messageContainer);
+        // Find and scroll to the input
+        const input = document.querySelector('textarea.ProseMirror, [contenteditable="true"]');
+        if (input) {
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
 // Inject the sidebar into Claude's UI
 function injectSidebar() {
     console.log('Attempting to inject sidebar');
@@ -305,7 +221,12 @@ function setupEventListeners() {
     // New project button
     const newProjectButton = document.getElementById('gdds-new-project');
     if (newProjectButton) {
-        newProjectButton.addEventListener('click', showNewProjectDialog);
+        newProjectButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('New Project button clicked');
+            showNewProjectDialog();
+        });
     }
     // Toggle sidebar button
     const toggleButton = document.getElementById('gdds-toggle-sidebar');
@@ -322,6 +243,7 @@ function toggleSidebar() {
 }
 // Show dialog to create new project
 function showNewProjectDialog() {
+    console.log('Showing new project dialog');
     // Create dialog element
     const dialog = document.createElement('div');
     dialog.className = 'gdds-dialog';
@@ -549,7 +471,9 @@ function renderProjectDocuments(project) {
         // Add event listeners for document actions
         const createButton = documentElement.querySelector('.create-doc');
         if (createButton) {
-            createButton.addEventListener('click', () => {
+            createButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 startDocumentCreation(project.id, doc.id);
             });
         }
@@ -567,7 +491,6 @@ function renderProjectDocuments(project) {
         }
     });
 }
-
 // Start document creation process
 async function startDocumentCreation(projectId, documentId) {
     console.log(`Starting document creation: Project ${projectId}, Document ${documentId}`);
@@ -575,22 +498,22 @@ async function startDocumentCreation(projectId, documentId) {
     chrome.runtime.sendMessage({ type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.GetProject, payload: { projectId } }, async (response) => {
         if (response.success && response.data) {
             const project = response.data;
-            const document = project.documents[documentId];
-            if (document) {
+            const gameDoc = project.documents[documentId];
+            if (gameDoc) {
                 try {
-                    // Update welcome message for this document type
-                    await _prompts_promptManager__WEBPACK_IMPORTED_MODULE_1__.PromptManager.startDocumentCreation(document.type);
+                    // Add our welcome message
+                    addClaudeMessage("Hello! I'm here to help you define the vision of your game. Tell me about your game idea - what excites you most about it?");
                     // Update document status
-                    document.status = _shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentStatus.InProgress;
+                    gameDoc.status = _shared_types__WEBPACK_IMPORTED_MODULE_0__.DocumentStatus.InProgress;
                     chrome.runtime.sendMessage({
                         type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.UpdateDocument,
-                        payload: { document }
+                        payload: { document: gameDoc }
                     });
                     showNotification('Document creation started', 'success');
                 }
                 catch (error) {
                     console.error('Error during document creation:', error);
-                    showNotification('Error updating welcome message', 'error');
+                    showNotification('Error starting document creation', 'error');
                 }
             }
             else {

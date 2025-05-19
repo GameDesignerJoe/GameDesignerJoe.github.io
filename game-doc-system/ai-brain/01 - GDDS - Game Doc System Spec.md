@@ -380,11 +380,22 @@ For each document type, Claude should follow these specific approaches:
 - Understand creative direction and aesthetic goals
 
 **Document Structure Guidance:**
-- High concept statement (1-2 sentences)
-- Creative vision and inspiration
-- Core experience and emotions
-- Unique selling points
-- Target feelings and player takeaways
+- Output of this doc should be the following:
+   - Title of the game
+   - Single inspirational line description
+   - A single paragraph that captures the high level overview of the game.
+- This one paragraph should:
+   - In the first sentence state directly the type of game it is. You don't have to use this format, but breaking it down like this is common: [GAME NAME] is a [GAME GENRE] [# OF PLAYERS], [KEY GAME FEATURE], [KEY GAME FEATURE] for [GAME PLATFORM]. 
+      - Example: [GAME NAME] is a survival single player, open world action rpg for mobile.
+   - In the second sentence (or if you can combine this with the first), describe what the gameplay is like in a single sentence. This is capturing the player fantasy of the game. Who does the player or the players get to embody? What is the main thing the player will get to do? What emotion will they feel? Etc.
+      - Example: In [GAME NAME] the player / or players will [MAIN GAME ACTION/VERB] to [DO SOME CORE EXPERIENCE] where they will [REASON FOR DOING ACTION]. 
+      - Spice it up and feel free to play around with it so it best represents the overall vision from the author.
+   - In the third sentence you can better expound on either the main player fantasy. You can get into a bit more detail here about what the game will play and feel like. Remember to target emotion as well as gameplay.
+   - In the fourth sentence, you hit the 'why' are the players doing this. What is the higher calling? What are the rewards? Etc.
+   - In the final sentence you bring it all home. You rephrase the overall game vision in a single sentence. Below is an example, but again feel free to write what works best for the pitch. What does the player take away from this game?
+      - Example: By doing [FIRST UNIQUE ELEMENT], [SECOND UNIQUE ELEMENT], AND [THIRD UNIQUE ELEMENT], we can [SOMETHING AWESOME] that will resonate with the players long after they've stop playing the game. 
+   - If you don't get these enough information from the author to write this paragraph, ask them questions about it.
+
 
 ### 10.2 Core Game Concept
 

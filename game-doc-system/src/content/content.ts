@@ -30,6 +30,31 @@ window.addEventListener('load', () => {
   }
 });
 
+// Add a message to Claude's interface
+function addClaudeMessage(message: string) {
+  // Create a new message that looks like it came from Claude
+  const messageContainer = document.createElement('div');
+  messageContainer.className = 'prose dark:prose-invert';
+  messageContainer.style.cssText = 'max-width: none; width: 100%;';
+  messageContainer.innerHTML = `
+    <div class="markdown prose w-full break-words dark:prose-invert light">
+      <p>${message}</p>
+    </div>
+  `;
+
+  // Find Claude's message container and add our message
+  const messagesContainer = document.querySelector('main .flex.flex-col.items-center');
+  if (messagesContainer) {
+    messagesContainer.appendChild(messageContainer);
+    
+    // Find and scroll to the input
+    const input = document.querySelector('textarea.ProseMirror, [contenteditable="true"]') as HTMLElement;
+    if (input) {
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}
+
 // Inject the sidebar into Claude's UI
 function injectSidebar() {
   console.log('Attempting to inject sidebar');
@@ -93,7 +118,12 @@ function setupEventListeners() {
   // New project button
   const newProjectButton = document.getElementById('gdds-new-project');
   if (newProjectButton) {
-    newProjectButton.addEventListener('click', showNewProjectDialog);
+    newProjectButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('New Project button clicked');
+      showNewProjectDialog();
+    });
   }
   
   // Toggle sidebar button
@@ -112,7 +142,8 @@ function toggleSidebar() {
 }
 
 // Show dialog to create new project
-function showNewProjectDialog() {
+function showNewProjectDialog(): void {
+  console.log('Showing new project dialog');
   // Create dialog element
   const dialog = document.createElement('div');
   dialog.className = 'gdds-dialog';
@@ -378,7 +409,9 @@ function renderProjectDocuments(project: GameProject) {
     // Add event listeners for document actions
     const createButton = documentElement.querySelector('.create-doc');
     if (createButton) {
-      createButton.addEventListener('click', () => {
+      createButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         startDocumentCreation(project.id, doc.id);
       });
     }
@@ -399,8 +432,6 @@ function renderProjectDocuments(project: GameProject) {
   });
 }
 
-import { PromptManager } from '../prompts/promptManager';
-
 // Start document creation process
 async function startDocumentCreation(projectId: string, documentId: string) {
   console.log(`Starting document creation: Project ${projectId}, Document ${documentId}`);
@@ -411,26 +442,26 @@ async function startDocumentCreation(projectId: string, documentId: string) {
     async (response) => {
       if (response.success && response.data) {
         const project = response.data;
-        const document = project.documents[documentId];
+        const gameDoc = project.documents[documentId];
         
-        if (document) {
+        if (gameDoc) {
           try {
-            // Update welcome message for this document type
-            await PromptManager.startDocumentCreation(document.type);
+            // Add our welcome message
+            addClaudeMessage("Hello! I'm here to help you define the vision of your game. Tell me about your game idea - what excites you most about it?");
             
             // Update document status
-            document.status = DocumentStatus.InProgress;
+            gameDoc.status = DocumentStatus.InProgress;
             chrome.runtime.sendMessage(
               { 
                 type: MessageType.UpdateDocument, 
-                payload: { document }
+                payload: { document: gameDoc }
               }
             );
 
             showNotification('Document creation started', 'success');
           } catch (error) {
             console.error('Error during document creation:', error);
-            showNotification('Error updating welcome message', 'error');
+            showNotification('Error starting document creation', 'error');
           }
         } else {
           showNotification('Error: Document not found', 'error');

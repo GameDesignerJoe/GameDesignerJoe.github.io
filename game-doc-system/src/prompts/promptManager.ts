@@ -1,4 +1,5 @@
 import { DocumentType } from '../shared/types';
+import { ClaudeInterface } from './claudeInterface';
 
 interface DocumentPrompt {
   welcomeMessage: string;
@@ -7,8 +8,8 @@ interface DocumentPrompt {
 
 const DOCUMENT_PROMPTS: Record<DocumentType, DocumentPrompt> = {
   [DocumentType.GameVision]: {
-    welcomeMessage: "Let's define your game vision. Why don't you tell me about your game?",
-    placeholderText: "Write whatever feels natural - paragraphs, bullets, catch phrases, etc."
+    welcomeMessage: "Let's explore your game vision. Tell me about your game - what excites you most about it?",
+    placeholderText: "Share your thoughts freely - I'll ask questions to help develop the vision"
   },
   [DocumentType.CoreGameConcept]: {
     welcomeMessage: "Let's outline your core game concept. What's the fundamental gameplay experience?",
@@ -69,6 +70,25 @@ export class PromptManager {
     return DOCUMENT_PROMPTS[type] || null;
   }
 
+  private static getSystemPrompt(type: DocumentType): string {
+    switch (type) {
+      case DocumentType.GameVision:
+        return `You are helping create a Game Vision document. Let the user express their ideas freely, but ensure you gather enough information to create a vision that includes:
+- Game title
+- Single inspirational line description
+- A focused paragraph that covers:
+  - Game type, player count, and platform
+  - Core gameplay and player fantasy
+  - Emotional experience
+  - Player motivation and rewards
+  - Unique elements and vision summary
+
+Start with an open-ended question about their vision. Based on their response, generate contextual follow-up questions to fill in any missing elements. Use their own language and ideas while guiding the conversation toward a complete vision.`;
+      default:
+        return '';
+    }
+  }
+
   static async startDocumentCreation(type: DocumentType): Promise<void> {
     const prompt = this.getPromptForDocument(type);
     if (!prompt) {
@@ -76,26 +96,19 @@ export class PromptManager {
       return;
     }
 
-    // Wait a moment for the UI to be ready
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Get the system prompt for this document type
+    const systemPrompt = this.getSystemPrompt(type);
+    if (!systemPrompt) {
+      console.error(`No system prompt found for document type: ${type}`);
+      return;
+    }
 
-    // Try to find the welcome message by its unique characteristics
-    const welcomeElement = Array.from(document.querySelectorAll('*')).find(element => {
-      const text = element.textContent || '';
-      return text.includes('Happy') && text.includes('Joe') && text.length < 50;
-    }) as HTMLElement;
-
-    if (welcomeElement) {
-      // Store the original styles
-      const styles = window.getComputedStyle(welcomeElement);
-      const originalColor = styles.color;
-      const originalFont = styles.font;
-      const originalSize = styles.fontSize;
-
-      // Update text while preserving styling
-      welcomeElement.innerHTML = `<span style="color: ${originalColor}; font: ${originalFont}; font-size: ${originalSize};">${prompt.welcomeMessage}</span>`;
-    } else {
-      console.error('Could not find welcome message element');
+    try {
+      // Start the document creation process using Claude interface
+      await ClaudeInterface.startDocumentCreation(systemPrompt);
+    } catch (error) {
+      console.error('Error during document creation:', error);
+      throw error;
     }
   }
 }
