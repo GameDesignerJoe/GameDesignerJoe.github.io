@@ -11,23 +11,65 @@
         <!-- Theme Section -->
         <header class="theme-header">
             <h1 id="current-theme">Chinese Food</h1>
-            <div id="swaps-counter">38 Swaps Left</div>
+            <div class="author">By: Unknown</div>
         </header>
 
-        <!-- Game Grid -->
+        <!-- Game Area -->
         <main class="game-area">
-            <div class="instruction">DRAG LETTERS TO SWAP</div>
-            
-            <!-- Puzzle Grid -->
-            <div id="puzzle-grid">
-                <!-- Letter tiles will be dynamically inserted here -->
+            <!-- Puzzle Area -->
+            <div class="puzzle-area">
+                <!-- Puzzle Grid -->
+                <div id="puzzle-grid">
+                    <!-- Each letter pair will be structured as:
+                    <div class="letter-pair">
+                        <div class="decoded">_</div>
+                        <div class="connection-line">⋮</div>
+                        <div class="encoded">A</div>
+                    </div>
+                    -->
+                </div>
             </div>
 
-            <!-- Clue Section -->
-            <div class="clue-section">
-                <button class="nav-button prev">&lt;</button>
-                <div id="current-clue">CLUE - 1 Across</div>
-                <button class="nav-button next">&gt;</button>
+            <!-- Controls Area -->
+            <div class="controls-area">
+
+                <!-- Virtual Keyboard -->
+                <div class="keyboard-container">
+                    <div class="keyboard">
+                        <div class="keyboard-row">
+                            <button class="key">Q</button>
+                            <button class="key">W</button>
+                            <button class="key">E</button>
+                            <button class="key">R</button>
+                            <button class="key">T</button>
+                            <button class="key">Y</button>
+                            <button class="key">U</button>
+                            <button class="key">I</button>
+                            <button class="key">O</button>
+                            <button class="key">P</button>
+                        </div>
+                        <div class="keyboard-row">
+                            <button class="key">A</button>
+                            <button class="key">S</button>
+                            <button class="key">D</button>
+                            <button class="key">F</button>
+                            <button class="key">G</button>
+                            <button class="key">H</button>
+                            <button class="key">J</button>
+                            <button class="key">K</button>
+                            <button class="key">L</button>
+                        </div>
+                        <div class="keyboard-row">
+                            <button class="key">Z</button>
+                            <button class="key">X</button>
+                            <button class="key">C</button>
+                            <button class="key">V</button>
+                            <button class="key">B</button>
+                            <button class="key">N</button>
+                            <button class="key">M</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -42,7 +84,6 @@
     <script src="js/QuoteService.js"></script>
     <script src="js/CryptogramGenerator.js"></script>
     <script src="js/GameUI.js"></script>
-    <script src="js/LetterSwapHandler.js"></script>
     <script src="js/game.js"></script>
 </body>
 </html>

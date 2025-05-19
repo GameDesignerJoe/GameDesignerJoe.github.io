@@ -20,12 +20,46 @@ class QuoteService {
                 }
             }
 
-            // For testing, return a default quote
+            // For testing, return themed quotes
             // Remove this block once API is properly set up
-            console.log('Using default quote for testing');
+            console.log('Using themed test quote');
+            const testQuotes = {
+                'chinese food': [
+                    { text: "The best Chinese food is made with love and tradition", author: "Ancient Proverb" },
+                    { text: "A good wok is a chef's best friend", author: "Chinese Saying" },
+                    { text: "Dim sum is a journey of small delights", author: "Food Proverb" }
+                ],
+                'space': [
+                    { text: "Look up at the stars and not down at your feet", author: "Stephen Hawking" },
+                    { text: "The universe is under no obligation to make sense to you", author: "Neil deGrasse Tyson" },
+                    { text: "Space is for everybody", author: "Christa McAuliffe" }
+                ],
+                'music': [
+                    { text: "Music is the universal language of mankind", author: "Henry Wadsworth Longfellow" },
+                    { text: "Where words fail music speaks", author: "Hans Christian Andersen" },
+                    { text: "Life is one grand sweet song so start the music", author: "Ronald Reagan" }
+                ],
+                'nature': [
+                    { text: "In every walk with nature one receives far more than he seeks", author: "John Muir" },
+                    { text: "Look deep into nature and you will understand everything better", author: "Albert Einstein" },
+                    { text: "The earth has music for those who listen", author: "William Shakespeare" }
+                ]
+            };
+
+            // Convert theme to lowercase for matching
+            const lowerTheme = theme.toLowerCase();
+            
+            // Find quotes for the theme, or use general quotes if theme not found
+            const themeQuotes = testQuotes[lowerTheme] || [
+                { text: "Life is what happens while you're busy making other plans", author: "John Lennon" },
+                { text: "The only way to do great work is to love what you do", author: "Steve Jobs" },
+                { text: "Be the change you wish to see in the world", author: "Mahatma Gandhi" }
+            ];
+
+            // Pick a random quote from the theme
+            const randomQuote = themeQuotes[Math.floor(Math.random() * themeQuotes.length)];
             return {
-                text: "The best Chinese food is made with love and tradition",
-                author: "Ancient Proverb",
+                ...randomQuote,
                 success: true
             };
 

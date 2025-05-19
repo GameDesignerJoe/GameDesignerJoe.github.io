@@ -21,7 +21,21 @@ class LetterSwapHandler {
     }
 
     handleTileClick(tile) {
-        if (!tile.isLetter) return null;
+        // First, check if the tile is a letter
+        if (!tile.isLetter) {
+            return {
+                type: 'error',
+                message: 'Cannot swap non-letter tiles'
+            };
+        }
+
+        // Check if the tile is revealed (green)
+        if (tile.isRevealed) {
+            return {
+                type: 'error',
+                message: 'Cannot swap revealed letters'
+            };
+        }
 
         if (this.selectedTile === null) {
             // First tile selection
@@ -41,10 +55,31 @@ class LetterSwapHandler {
                 };
             }
 
+            // Check if either tile is revealed
+            if (this.selectedTile.isRevealed || tile.isRevealed) {
+                const prevTile = this.selectedTile;
+                this.selectedTile = null;
+                return {
+                    type: 'error',
+                    message: 'Cannot swap revealed letters',
+                    tile: prevTile
+                };
+            }
+
             if (this.remainingSwaps > 0) {
                 const swapResult = this.performSwap(this.selectedTile, tile);
                 this.selectedTile = null;
-                return swapResult;
+
+                // Check if either letter is now in its correct position
+                const correctPositions = this.checkCorrectPositions([
+                    swapResult.tile1.char,
+                    swapResult.tile2.char
+                ]);
+
+                return {
+                    ...swapResult,
+                    correctPositions
+                };
             } else {
                 this.selectedTile = null;
                 return {
@@ -73,6 +108,21 @@ class LetterSwapHandler {
             tile2: tile2,
             remainingSwaps: this.remainingSwaps
         };
+    }
+
+    checkCorrectPositions(chars) {
+        const correctPositions = new Set();
+        
+        chars.forEach(char => {
+            const currentGuess = this.currentGuesses.get(char);
+            if (currentGuess === this.puzzleStructure.flat().find(tile => 
+                tile.char === char
+            )?.solution) {
+                correctPositions.add(char);
+            }
+        });
+
+        return correctPositions;
     }
 
     getCurrentGuess(encodedChar) {

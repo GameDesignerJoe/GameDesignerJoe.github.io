@@ -5,16 +5,18 @@
     --text-light: #ffffff;
     --tile-border: #3498db;
     --background: #f5f6fa;
-    --tile-size: 45px;
-    --grid-gap: 4px;
-    --word-gap: 20px;
+    --tile-size: 40px;
+    --grid-gap: 8px;
+    --word-gap: 24px;
+    --keyboard-key-size: 45px;
+    --connection-color: #94a3b8;
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', sans-serif;
 }
 
 body {
@@ -26,17 +28,22 @@ body {
 }
 
 #game-container {
-    max-width: 900px;
+    max-width: 1000px;
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Theme Header Styles */
 .theme-header {
     text-align: center;
     padding: 20px;
+    border-bottom: 2px solid var(--background);
 }
 
 #current-theme {
@@ -45,10 +52,10 @@ body {
     margin-bottom: 10px;
 }
 
-#swaps-counter {
-    font-size: 2rem;
+.author {
+    font-size: 1.2rem;
     color: var(--text-dark);
-    font-weight: 500;
+    opacity: 0.8;
 }
 
 /* Game Area Styles */
@@ -56,157 +63,203 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-height: calc(100vh - 300px);
+    position: relative;
 }
 
-.instruction {
-    text-align: center;
-    color: var(--text-dark);
-    font-size: 1.2rem;
-    font-weight: 500;
-    background-color: rgba(52, 152, 219, 0.1);
-    padding: 10px;
-    border-radius: 8px;
+/* Puzzle Area Styles */
+.puzzle-area {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+/* Controls Area Styles */
+.controls-area {
+    position: sticky;
+    bottom: 0;
+    background: var(--background);
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+
+/* Game Container Styles */
+#game-container {
+    max-width: 1000px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
 }
 
 /* Puzzle Grid Styles */
 #puzzle-grid {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: calc(var(--grid-gap) * 2);
-    padding: 20px;
-    min-height: 300px;
-    max-width: 800px;
+    gap: 50px;
+    padding: 50px;
+    background: #f1f5f9;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    max-width: 900px;
     margin: 0 auto;
+    min-height: 300px;
 }
 
 .puzzle-row {
     display: flex;
-    gap: var(--grid-gap);
-    justify-content: center;
-    margin: 0;
-    padding: 0;
+    gap: calc(var(--grid-gap) * 4);
     flex-wrap: wrap;
+    justify-content: center;
+    padding: 15px;
+    min-height: 100px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.puzzle-row:not(:last-child) {
-    margin-bottom: var(--grid-gap);
-}
-
-.letter-tile {
+.letter-pair {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     width: var(--tile-size);
+    padding: 4px;
+    position: relative;
+}
+
+.letter-pair::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -4px;
+    right: -4px;
+    height: 2px;
+    background-color: var(--connection-color);
+    opacity: 0.3;
+}
+
+.letter-pair .decoded,
+.letter-pair .encoded {
+    width: 100%;
     height: var(--tile-size);
-    border: 2px solid var(--tile-border);
-    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    background: white;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    position: relative;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin: 0 1px;
-}
-
-.letter-tile:not(:last-child) {
-    margin-right: var(--grid-gap);
-}
-
-/* Add space between words */
-.letter-tile[data-char=" "] {
-    margin-right: var(--word-gap);
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    width: calc(var(--tile-size) * 0.3);
-}
-
-.letter-tile .letter {
+    font-size: 1.8rem;
+    font-weight: 600;
     font-family: 'Courier New', monospace;
-    font-size: 1.6rem;
-    color: var(--text-dark);
-    user-select: none;
-}
-
-.letter-tile.active {
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 12px rgba(52, 152, 219, 0.4);
-    transform: scale(1.1);
+    background: white;
+    border-radius: 6px;
+    position: relative;
     z-index: 1;
 }
 
-.letter-tile:hover:not(.empty) {
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 8px rgba(52, 152, 219, 0.2);
-    transform: translateY(-1px);
-}
-
-.letter-tile.empty {
-    background-color: transparent;
-    border: none;
-    box-shadow: none;
-    cursor: default;
-    width: calc(var(--tile-size) * 0.3);
-}
-
-.letter-tile .number {
-    position: absolute;
-    top: 1px;
-    left: 3px;
-    font-size: 0.65rem;
-    color: var(--primary-blue);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-weight: 500;
-}
-
-/* Additional Styles */
-.instruction {
-    background-color: rgba(52, 152, 219, 0.1);
+.letter-pair .decoded {
     color: var(--text-dark);
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    margin: 0 auto;
-    max-width: 300px;
-    text-align: center;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Clue Section Styles */
-.clue-section {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    background-color: var(--dark-navy);
-    padding: 15px;
-    border-radius: 8px;
-    margin: 20px 0;
-}
-
-#current-clue {
-    color: var(--text-light);
-    font-size: 1.2rem;
-    flex-grow: 1;
-    text-align: center;
-}
-
-.nav-button {
-    background: none;
-    border: none;
-    color: var(--text-light);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0 10px;
-}
-
-.nav-button:hover {
+.letter-pair .encoded {
     color: var(--primary-blue);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.letter-pair .encoded:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.letter-pair .encoded.selected {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+
+/* Space between words */
+.word-space {
+    width: var(--word-gap);
+}
+
+/* Keyboard Container Styles */
+.keyboard-container {
+    padding: 20px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Keyboard Styles */
+.keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: fit-content;
+    margin: 0 auto;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+}
+
+.keyboard-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.key {
+    width: var(--keyboard-key-size);
+    height: var(--keyboard-key-size);
+    border: none;
+    border-radius: 8px;
+    background-color: white;
+    color: var(--text-dark);
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--connection-color);
+}
+
+.key:hover:not(:disabled) {
+    background-color: var(--primary-blue);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.key:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.key.selected {
+    background-color: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+.key:disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+    border-color: #e2e8f0;
 }
 
 /* Theme Input Styles */
@@ -215,6 +268,12 @@ body {
     gap: 10px;
     padding: 20px;
     justify-content: center;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
 #theme-input {
@@ -223,6 +282,13 @@ body {
     border: 2px solid var(--tile-border);
     border-radius: 8px;
     width: 200px;
+    background-color: white;
+}
+
+#theme-input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 8px rgba(52, 152, 219, 0.2);
 }
 
 #new-theme-btn {
@@ -233,45 +299,75 @@ body {
     border-radius: 8px;
     cursor: pointer;
     font-size: 1rem;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
 }
 
 #new-theme-btn:hover {
     background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+#new-theme-btn:active {
+    transform: translateY(1px);
+}
+
+/* Success Message */
+.success-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--dark-navy);
+    color: var(--text-light);
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.success-message button {
+    margin-top: 20px;
+    padding: 12px 24px;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.success-message button:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
     :root {
-        --tile-size: 40px;
-        --grid-gap: 6px;
+        --tile-size: 35px;
+        --keyboard-key-size: 40px;
     }
 
-    #current-theme {
-        font-size: 2rem;
+    #game-container {
+        padding: 10px;
     }
 
-    #swaps-counter {
-        font-size: 1.5rem;
+    .keyboard {
+        padding: 10px;
     }
 
-    .letter-tile {
-        font-size: 1.2rem;
+    .key {
+        font-size: 1rem;
     }
 }
 
 @media (max-width: 480px) {
     :root {
-        --tile-size: 35px;
-        --grid-gap: 4px;
-    }
-
-    body {
-        padding: 10px;
-    }
-
-    #current-theme {
-        font-size: 1.5rem;
+        --tile-size: 30px;
+        --keyboard-key-size: 35px;
+        --grid-gap: 6px;
     }
 
     .theme-input-container {
@@ -280,5 +376,9 @@ body {
 
     #theme-input {
         width: 100%;
+    }
+
+    .keyboard-row {
+        gap: 4px;
     }
 }

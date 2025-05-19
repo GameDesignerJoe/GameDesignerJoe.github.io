@@ -3,55 +3,93 @@ class GameUI {
         this.container = container;
         this.quoteService = new QuoteService();
         this.cryptogramGenerator = new CryptogramGenerator();
-        this.letterSwapHandler = new LetterSwapHandler(40); // 40 swaps allowed
+        this.currentDifficulty = 'easy'; // Default to easy
 
         this.elements = {
             themeInput: document.getElementById('theme-input'),
             newThemeBtn: document.getElementById('new-theme-btn'),
             currentTheme: document.getElementById('current-theme'),
-            swapsCounter: document.getElementById('swaps-counter'),
+            author: document.querySelector('.author'),
             puzzleGrid: document.getElementById('puzzle-grid'),
-            currentClue: document.getElementById('current-clue')
+            keyboard: document.querySelector('.keyboard')
         };
 
         this.currentPuzzle = null;
+        this.selectedEncodedLetter = null;
+        this.currentGuesses = new Map(); // Maps encoded letters to decoded guesses
+        this.usedLetters = new Set(); // Tracks which keyboard letters have been used
+        
         this.bindEvents();
     }
 
     bindEvents() {
         // Theme input handling
-        this.elements.newThemeBtn.addEventListener('click', () => this.handleNewTheme());
+        this.elements.newThemeBtn.addEventListener('click', () => {
+            console.log('New Theme button clicked');
+            this.handleNewTheme();
+        });
+
         this.elements.themeInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.handleNewTheme();
+            if (e.key === 'Enter') {
+                console.log('Enter pressed in theme input');
+                this.handleNewTheme();
+            }
+        });
+
+        // Add focus event to theme input
+        this.elements.themeInput.addEventListener('focus', () => {
+            console.log('Theme input focused');
+        });
+
+        // Add input event to theme input
+        this.elements.themeInput.addEventListener('input', (e) => {
+            console.log('Theme input value:', e.target.value);
         });
 
         // Puzzle grid click handling
         this.elements.puzzleGrid.addEventListener('click', (e) => {
-            const tile = e.target.closest('.letter-tile');
-            if (tile) this.handleTileClick(tile);
+            const encodedLetter = e.target.closest('.encoded');
+            if (encodedLetter) this.handleEncodedLetterClick(encodedLetter);
+        });
+
+        // Keyboard click handling
+        this.elements.keyboard.addEventListener('click', (e) => {
+            const key = e.target.closest('.key');
+            if (key && !key.disabled) this.handleKeyboardClick(key);
         });
     }
 
     async handleNewTheme() {
         const theme = this.elements.themeInput.value.trim();
-        if (!theme) return;
+        console.log('Attempting to handle new theme:', theme);
+        if (!theme) {
+            console.log('No theme provided');
+            return;
+        }
 
         try {
             console.log('Handling new theme:', theme);
             this.elements.newThemeBtn.disabled = true;
             this.elements.currentTheme.textContent = theme;
             
+            console.log('Fetching quote for theme:', theme);
             const quote = await this.quoteService.getQuoteByTheme(theme);
             console.log('Received quote:', quote);
             
+            // Update author
+            this.elements.author.textContent = `By: ${quote.author}`;
+            
+            // Generate puzzle
             this.currentPuzzle = this.cryptogramGenerator.generatePuzzle(quote);
             console.log('Generated puzzle:', this.currentPuzzle);
             
-            this.letterSwapHandler.initialize(this.currentPuzzle.structure);
-            console.log('Initialized letter swap handler');
+            // Reset game state
+            this.selectedEncodedLetter = null;
+            this.currentGuesses.clear();
+            this.usedLetters.clear();
             
             this.renderPuzzle();
-            this.updateSwapsCounter();
+            this.resetKeyboard();
             
             // Clear input after successful theme change
             this.elements.themeInput.value = '';
@@ -70,123 +108,192 @@ class GameUI {
 
         console.log('Rendering puzzle structure:', this.currentPuzzle.structure);
         this.elements.puzzleGrid.innerHTML = '';
-        
-        this.currentPuzzle.structure.forEach((row, rowIndex) => {
-            console.log(`Creating row ${rowIndex}:`, row);
+
+        // Split text into words
+        const encodedWords = this.currentPuzzle.encoded.split(' ');
+        const originalWords = this.currentPuzzle.original.split(' ');
+        const maxCharsPerRow = 12;
+        let currentRow = [];
+        let currentRowLength = 0;
+        let rows = [];
+
+        // Group words into rows
+        encodedWords.forEach((word, index) => {
+            if (currentRowLength + word.length + 1 > maxCharsPerRow && currentRow.length > 0) {
+                rows.push(currentRow);
+                currentRow = [];
+                currentRowLength = 0;
+            }
+            currentRow.push({ encoded: word, original: originalWords[index] });
+            currentRowLength += word.length + 1;
+        });
+        if (currentRow.length > 0) {
+            rows.push(currentRow);
+        }
+
+        // Create rows
+        rows.forEach(rowWords => {
             const rowElement = document.createElement('div');
             rowElement.className = 'puzzle-row';
             
-            row.forEach((tile, tileIndex) => {
-                console.log(`Creating tile ${rowIndex}-${tileIndex}:`, tile);
-                const tileElement = this.createTileElement(tile);
-                rowElement.appendChild(tileElement);
+            rowWords.forEach((wordPair, wordIndex) => {
+                const { encoded, original } = wordPair;
+                encoded.split('').forEach((char, charIndex) => {
+                    if (char.match(/[A-Z]/)) {
+                        // Create letter pair
+                        const letterPair = document.createElement('div');
+                        letterPair.className = 'letter-pair';
+                        
+                        // Decoded (solution) letter - starts empty
+                        const decodedElement = document.createElement('div');
+                        decodedElement.className = 'decoded';
+                        decodedElement.textContent = this.currentGuesses.has(char) ? 
+                            this.currentGuesses.get(char) : '_';
+                        
+                        // Encoded letter
+                        const encodedElement = document.createElement('div');
+                        encodedElement.className = 'encoded';
+                        encodedElement.textContent = char;
+                        encodedElement.dataset.char = char;
+                        encodedElement.dataset.solution = original[charIndex];
+                        
+                        letterPair.appendChild(decodedElement);
+                        letterPair.appendChild(encodedElement);
+                        
+                        rowElement.appendChild(letterPair);
+                    }
+                });
+
+                // Add space between words
+                if (wordIndex < rowWords.length - 1) {
+                    const spaceElement = document.createElement('div');
+                    spaceElement.className = 'word-space';
+                    rowElement.appendChild(spaceElement);
+                }
             });
             
             this.elements.puzzleGrid.appendChild(rowElement);
         });
 
-        // Update clue with author
-        this.elements.currentClue.textContent = `Quote by: ${this.currentPuzzle.author}`;
         console.log('Puzzle rendering complete');
     }
 
-    createTileElement(tile) {
-        const tileElement = document.createElement('div');
-        tileElement.className = 'letter-tile';
-        
-        if (!tile.isLetter) {
-            tileElement.classList.add('empty');
-            tileElement.textContent = tile.char;
-            return tileElement;
+    handleEncodedLetterClick(encodedElement) {
+        // Remove previous selection
+        const previousSelection = this.elements.puzzleGrid.querySelector('.encoded.selected');
+        if (previousSelection) {
+            previousSelection.classList.remove('selected');
         }
 
-        // Add position number if it exists
-        if (tile.position !== null) {
-            const numberElement = document.createElement('span');
-            numberElement.className = 'number';
-            numberElement.textContent = tile.position;
-            tileElement.appendChild(numberElement);
+        // If clicking the same letter, deselect it
+        if (this.selectedEncodedLetter === encodedElement.dataset.char) {
+            this.selectedEncodedLetter = null;
+            return;
         }
 
-        // Add the letter
-        const letterElement = document.createElement('span');
-        letterElement.className = 'letter';
-        letterElement.textContent = tile.char;
-        tileElement.appendChild(letterElement);
+        // Select new letter
+        encodedElement.classList.add('selected');
+        this.selectedEncodedLetter = encodedElement.dataset.char;
 
-        // Store tile data
-        tileElement.dataset.char = tile.char;
-        tileElement.dataset.position = tile.position;
-
-        return tileElement;
+        // Highlight the current guess in the keyboard if it exists
+        this.updateKeyboardSelection();
     }
 
-    handleTileClick(tileElement) {
-        const tile = this.getTileData(tileElement);
-        const result = this.letterSwapHandler.handleTileClick(tile);
+    handleKeyboardClick(keyElement) {
+        if (!this.selectedEncodedLetter) return;
 
-        if (!result) return;
+        const decodedLetter = keyElement.textContent;
 
-        switch (result.type) {
-            case 'select':
-                tileElement.classList.add('active');
-                break;
-            
-            case 'deselect':
-                tileElement.classList.remove('active');
-                break;
-            
-            case 'swap':
-                this.performSwapUI(result);
-                this.updateSwapsCounter();
-                this.checkSolution();
-                break;
-            
-            case 'error':
-                // Could add visual feedback for errors
-                break;
+        // If this decoded letter is already used for another encoded letter, remove that mapping
+        for (const [encoded, decoded] of this.currentGuesses.entries()) {
+            if (decoded === decodedLetter) {
+                this.currentGuesses.delete(encoded);
+                this.usedLetters.delete(decodedLetter);
+                this.updateDecodedLetters(encoded, '_');
+            }
         }
+
+        // Update the current guess
+        this.currentGuesses.set(this.selectedEncodedLetter, decodedLetter);
+        this.usedLetters.add(decodedLetter);
+
+        // Update all instances of this encoded letter
+        this.updateDecodedLetters(this.selectedEncodedLetter, decodedLetter);
+
+        // Reset selection
+        const selectedElement = this.elements.puzzleGrid.querySelector('.encoded.selected');
+        if (selectedElement) {
+            selectedElement.classList.remove('selected');
+        }
+        this.selectedEncodedLetter = null;
+
+        // Update keyboard
+        this.updateKeyboardState();
+
+        // Check if puzzle is solved
+        this.checkSolution();
     }
 
-    getTileData(tileElement) {
-        return {
-            char: tileElement.dataset.char,
-            position: parseInt(tileElement.dataset.position),
-            isLetter: true
-        };
-    }
-
-    performSwapUI(swapResult) {
-        const { tile1, tile2 } = swapResult;
-        
-        // Find and update the tile elements
-        const elements = this.elements.puzzleGrid.querySelectorAll('.letter-tile');
-        elements.forEach(element => {
-            if (element.dataset.char === tile1.char || element.dataset.char === tile2.char) {
-                element.classList.remove('active');
-                const letterElement = element.querySelector('.letter');
-                const currentChar = element.dataset.char;
-                
-                // Update the displayed letter based on the swap
-                if (currentChar === tile1.char) {
-                    letterElement.textContent = this.letterSwapHandler.getCurrentGuess(tile1.char);
-                } else {
-                    letterElement.textContent = this.letterSwapHandler.getCurrentGuess(tile2.char);
-                }
+    updateDecodedLetters(encodedLetter, decodedLetter) {
+        const letterPairs = this.elements.puzzleGrid.querySelectorAll('.letter-pair');
+        letterPairs.forEach(pair => {
+            const encodedElement = pair.querySelector('.encoded');
+            if (encodedElement.dataset.char === encodedLetter) {
+                pair.querySelector('.decoded').textContent = decodedLetter;
             }
         });
     }
 
-    updateSwapsCounter() {
-        this.elements.swapsCounter.textContent = 
-            `${this.letterSwapHandler.remainingSwaps} Swaps Left`;
+    updateKeyboardState() {
+        const keys = this.elements.keyboard.querySelectorAll('.key');
+        keys.forEach(key => {
+            const letter = key.textContent;
+            if (this.usedLetters.has(letter)) {
+                key.disabled = true;
+            } else {
+                key.disabled = false;
+            }
+        });
+    }
+
+    updateKeyboardSelection() {
+        // Reset all keys' selected state
+        const keys = this.elements.keyboard.querySelectorAll('.key');
+        keys.forEach(key => key.classList.remove('selected'));
+
+        // If there's a current guess for the selected letter, highlight it
+        if (this.selectedEncodedLetter && this.currentGuesses.has(this.selectedEncodedLetter)) {
+            const currentGuess = this.currentGuesses.get(this.selectedEncodedLetter);
+            const keyElement = Array.from(keys).find(key => key.textContent === currentGuess);
+            if (keyElement) {
+                keyElement.classList.add('selected');
+            }
+        }
+    }
+
+    resetKeyboard() {
+        const keys = this.elements.keyboard.querySelectorAll('.key');
+        keys.forEach(key => {
+            key.disabled = false;
+            key.classList.remove('selected');
+        });
     }
 
     checkSolution() {
-        const currentGuesses = this.letterSwapHandler.getAllGuesses();
-        const isCorrect = this.cryptogramGenerator.checkSolution(currentGuesses);
+        if (!this.currentPuzzle) return;
 
-        if (isCorrect) {
+        let isCorrect = true;
+        for (const [encodedLetter, decodedLetter] of this.currentGuesses.entries()) {
+            if (this.currentPuzzle.solutionMap.get(encodedLetter) !== decodedLetter) {
+                isCorrect = false;
+                break;
+            }
+        }
+
+        // Make sure all letters have been guessed by comparing the number of guesses
+        // to the number of unique letters in the encoded text
+        const uniqueLettersCount = new Set(this.currentPuzzle.encoded.match(/[A-Z]/g)).size;
+        if (isCorrect && this.currentGuesses.size === uniqueLettersCount) {
             this.handlePuzzleComplete();
         }
     }
@@ -208,6 +315,7 @@ class GameUI {
             successMessage.remove();
             this.handleNewTheme();
         });
+        
         
         successMessage.appendChild(tryAnotherBtn);
         this.container.appendChild(successMessage);

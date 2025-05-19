@@ -3,11 +3,16 @@ class CryptogramGenerator {
         this.substitutionMap = new Map();
         this.solutionMap = new Map();
         this.alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        this.revealedLetters = new Set();
+        // Common letters in English, ordered by frequency
+        this.commonLetters = 'ETAOINSHRDLUCMFWYPVBGKJQXZ'.split('');
+        this.currentText = '';
     }
 
     generatePuzzle(quote) {
         // Convert quote to uppercase and store original for solution checking
         const originalText = quote.text.toUpperCase();
+        this.currentText = originalText;
         
         // Create random substitution cipher
         this.createSubstitutionCipher();
@@ -15,7 +20,7 @@ class CryptogramGenerator {
         // Encode the text
         const encodedText = this.encodeText(originalText);
         
-        // Create puzzle structure with numbered positions
+        // Create puzzle structure
         const puzzleStructure = this.createPuzzleStructure(encodedText, originalText);
 
         return {
@@ -29,29 +34,53 @@ class CryptogramGenerator {
     }
 
     createSubstitutionCipher() {
+        console.log('Creating substitution cipher for text:', this.currentText);
+        
         // Clear previous maps
         this.substitutionMap.clear();
         this.solutionMap.clear();
 
         // Create a shuffled version of the alphabet
-        const shuffledAlphabet = [...this.alphabet]
-            .sort(() => Math.random() - 0.5);
+        const shuffledAlphabet = [...this.alphabet];
+        for (let i = shuffledAlphabet.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledAlphabet[i], shuffledAlphabet[j]] = [shuffledAlphabet[j], shuffledAlphabet[i]];
+        }
 
-        // Create the substitution mapping
-        this.alphabet.forEach((letter, index) => {
-            let substituteLetter = shuffledAlphabet[index];
+        console.log('Shuffled alphabet:', shuffledAlphabet.join(''));
+
+        // Create the mapping, ensuring no letter maps to itself
+        this.alphabet.forEach((letter, i) => {
+            let substituteLetter = shuffledAlphabet[i];
             
-            // Ensure no letter maps to itself
+            // If a letter would map to itself, swap with the next letter
             if (substituteLetter === letter) {
-                const nextIndex = (index + 1) % this.alphabet.length;
-                [shuffledAlphabet[index], shuffledAlphabet[nextIndex]] = 
-                [shuffledAlphabet[nextIndex], shuffledAlphabet[index]];
-                substituteLetter = shuffledAlphabet[index];
+                const nextIndex = (i + 1) % this.alphabet.length;
+                [shuffledAlphabet[i], shuffledAlphabet[nextIndex]] = 
+                [shuffledAlphabet[nextIndex], shuffledAlphabet[i]];
+                substituteLetter = shuffledAlphabet[i];
             }
-            
+
             this.substitutionMap.set(letter, substituteLetter);
             this.solutionMap.set(substituteLetter, letter);
         });
+
+        // Log the mappings
+        console.log('Letter mappings:');
+        this.alphabet.forEach(letter => {
+            console.log(`${letter} -> ${this.substitutionMap.get(letter)} -> ${this.solutionMap.get(this.substitutionMap.get(letter))}`);
+        });
+
+        // Verify no letter maps to itself
+        const selfMapped = this.alphabet.filter(letter => 
+            this.substitutionMap.get(letter) === letter
+        );
+        
+        if (selfMapped.length > 0) {
+            console.error('Error: Some letters map to themselves:', selfMapped);
+        } else {
+            console.log('Verification: No letters map to themselves');
+        }
     }
 
     encodeText(text) {
@@ -64,10 +93,13 @@ class CryptogramGenerator {
     }
 
     createPuzzleStructure(encodedText, originalText) {
+        console.log('Creating puzzle structure');
+        console.log('Original text:', originalText);
+        console.log('Encoded text:', encodedText);
+
         const structure = [];
-        let position = 1;
         let row = [];
-        const maxRowLength = 12; // Increased for better word wrapping
+        const maxRowLength = 12; // For better word wrapping
 
         // Split text into words
         const words = encodedText.split(' ');
@@ -84,13 +116,17 @@ class CryptogramGenerator {
             // Add each letter of the word
             word.split('').forEach((char, charIndex) => {
                 const originalChar = originalWords[wordIndex][charIndex];
-                const tile = {
-                    char: char,
-                    solution: originalChar,
-                    position: this.alphabet.includes(char) ? position++ : null,
-                    isLetter: this.alphabet.includes(char)
-                };
-                row.push(tile);
+                
+                if (this.alphabet.includes(originalChar)) {
+                    const tile = {
+                        char: char,
+                        solution: originalChar,
+                        isLetter: true
+                    };
+
+                    console.log(`Creating tile: ${JSON.stringify(tile)}`);
+                    row.push(tile);
+                }
             });
 
             // Add space after word (except for last word)
@@ -98,7 +134,6 @@ class CryptogramGenerator {
                 row.push({
                     char: ' ',
                     solution: ' ',
-                    position: null,
                     isLetter: false
                 });
             }
