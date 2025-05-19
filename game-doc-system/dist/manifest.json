@@ -4,16 +4,16 @@
   "version": "0.1.0",
   "description": "Create game development documents with Claude AI",
   "icons": {
-    "16": "assets/icon16.png",
-    "48": "assets/icon48.png",
-    "128": "assets/icon128.png"
+    "16": "assets/gd_icon16.png",
+    "48": "assets/gd_icon48.png",
+    "128": "assets/gd_icon128.png"
   },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "assets/icon16.png",
-      "48": "assets/icon48.png",
-      "128": "assets/icon128.png"
+      "16": "assets/gd_icon16.png",
+      "48": "assets/gd_icon48.png",
+      "128": "assets/gd_icon128.png"
     }
   },
   "permissions": [
@@ -24,8 +24,7 @@
     "https://claude.ai/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {

@@ -1,4 +1,6 @@
 import { MessageType, GameProject, DocumentType, DocumentStatus } from '../shared/types';
+import { PromptManager } from '../prompts/promptManager';
+import { ClaudeInterface } from '../prompts/claudeInterface';
 
 // Wait until page fully loaded
 // Inject CSS into the page
@@ -15,20 +17,162 @@ function injectStyles() {
     link.href = href;
     document.head.appendChild(link);
   });
+
+  // Add custom styles for our interface
+  const customStyles = document.createElement('style');
+  customStyles.textContent = `
+    /* Hide Claude's default interface when in document mode */
+    body.gdds-document-mode main {
+      display: none !important;
+    }
+
+    /* Our custom interface */
+    .gdds-document-interface {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: rgb(17, 18, 19);
+      color: rgb(236, 236, 241);
+      max-width: 48rem;
+      margin: 0 auto;
+      padding: 0 2rem;
+      position: relative;
+    }
+
+    .gdds-header {
+      padding: 2rem 0;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .gdds-header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: rgb(236, 236, 241);
+    }
+
+    .gdds-chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .gdds-input-area {
+      padding: 2rem 0;
+      margin-top: 1rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .gdds-input-area {
+      position: relative;
+    }
+
+    .gdds-input-area textarea {
+      width: 100%;
+      min-height: 3rem;
+      padding: 0.75rem;
+      background: rgb(52, 53, 65);
+      color: rgb(236, 236, 241);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.75rem;
+      resize: none;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .gdds-input-area::after {
+      content: "⏎";
+      position: absolute;
+      right: 1rem;
+      bottom: 1.25rem;
+      color: rgb(172, 172, 190);
+      font-size: 1.5rem;
+      pointer-events: none;
+      opacity: 0.8;
+      font-family: system-ui;
+    }
+
+    .gdds-input-area textarea:focus {
+      outline: none;
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .gdds-message {
+      padding: 1.5rem 0;
+      line-height: 1.6;
+      width: 100%;
+    }
+
+    .gdds-user-message {
+      background: rgb(52, 53, 65);
+      padding: 1rem;
+      border-radius: 0.5rem;
+    }
+
+    .gdds-assistant-message {
+      background: transparent;
+      color: rgb(209, 213, 219);
+    }
+
+    .gdds-assistant-message .prose {
+      max-width: none;
+      width: 100%;
+    }
+
+    .gdds-assistant-message .prose p {
+      margin: 0;
+      padding: 0;
+    }
+  `;
+  document.head.appendChild(customStyles);
 }
 
+// Initialize when the page loads
 window.addEventListener('load', () => {
-  // Check if we're on Claude.ai
   if (window.location.href.includes('claude.ai')) {
     console.log('Game Development Document System loaded on Claude.ai');
-    
-    // Inject styles
     injectStyles();
     
-    // Give the UI time to render completely
-    setTimeout(injectSidebar, 2000);
+    // Wait for chat interface to be ready
+    const observer = new MutationObserver((mutations, obs) => {
+      const chatInterface = document.querySelector('main');
+      if (chatInterface) {
+        console.log('Chat interface found, injecting sidebar');
+        obs.disconnect();
+        
+        // Check if sidebar already exists
+        if (!document.getElementById('gdds-sidebar-wrapper')) {
+          injectSidebar();
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
   }
 });
+
+// Also check on URL changes (for SPA navigation)
+let lastUrl = location.href; 
+new MutationObserver(() => {
+  const url = location.href;
+  if (url !== lastUrl) {
+    lastUrl = url;
+    if (url.includes('claude.ai')) {
+      // Re-inject sidebar if needed
+      if (!document.getElementById('gdds-sidebar-wrapper')) {
+        injectStyles();
+        injectSidebar();
+      }
+    }
+  }
+}).observe(document, {subtree: true, childList: true});
 
 // Add a message to Claude's interface
 function addClaudeMessage(message: string) {
@@ -432,6 +576,95 @@ function renderProjectDocuments(project: GameProject) {
   });
 }
 
+// Inject our custom document interface
+function injectDocumentInterface(documentTitle: string) {
+  // Add document mode class to body
+  document.body.classList.add('gdds-document-mode');
+
+  // Create our interface
+  const interfaceElement = document.createElement('div');
+  interfaceElement.className = 'gdds-document-interface';
+  interfaceElement.innerHTML = `
+    <div class="gdds-header">
+      <h1>${documentTitle}</h1>
+    </div>
+    <div class="gdds-chat-area">
+      <div class="gdds-message gdds-assistant-message">
+        <div class="prose dark:prose-invert">
+          <p>Hi, I'm here to help you find the vision of your game. Feel free to explain it to me however works best for you. Afterwards, I'll ask you some questions and we'll figure it out together.</p>
+        </div>
+      </div>
+    </div>
+    <div class="gdds-input-area">
+      <textarea placeholder="Tell me about your game idea..." rows="3"></textarea>
+    </div>
+  `;
+
+  // Find Claude's main content area
+  const mainContent = document.querySelector('main');
+  if (mainContent) {
+    // Add class to hide Claude's interface
+    mainContent.classList.add('claude-default-interface');
+    // Insert our interface before Claude's
+    mainContent.parentElement?.insertBefore(interfaceElement, mainContent);
+  }
+
+  // Setup input handling
+  const textarea = interfaceElement.querySelector('textarea');
+  if (textarea) {
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const message = textarea.value.trim();
+        if (message) {
+          // Add user message to chat
+          addMessage(message, 'user');
+          textarea.value = '';
+          
+          // Clear the prompt text
+          const promptText = document.querySelector('.gdds-chat-area > .gdds-message:first-child');
+          if (promptText) {
+            promptText.remove();
+          }
+
+          // Send to Claude and handle response
+          ClaudeInterface.sendMessageToClaude(message)
+            .then(() => {
+              // Message sent and response received successfully
+              console.log('Message handled by Claude');
+            })
+            .catch((error: Error) => {
+              console.error('Error sending message to Claude:', error);
+              showNotification('Error communicating with Claude', 'error');
+            });
+        }
+      }
+    });
+  }
+}
+
+// Add a message to our chat
+function addMessage(text: string, type: 'user' | 'assistant') {
+  const chatArea = document.querySelector('.gdds-chat-area');
+  if (chatArea) {
+    const message = document.createElement('div');
+    message.className = `gdds-message gdds-${type}-message`;
+    
+    if (type === 'assistant') {
+      message.innerHTML = `
+        <div class="prose dark:prose-invert">
+          <p>${text}</p>
+        </div>
+      `;
+    } else {
+      message.textContent = text;
+    }
+    
+    chatArea.appendChild(message);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+}
+
 // Start document creation process
 async function startDocumentCreation(projectId: string, documentId: string) {
   console.log(`Starting document creation: Project ${projectId}, Document ${documentId}`);
@@ -446,8 +679,14 @@ async function startDocumentCreation(projectId: string, documentId: string) {
         
         if (gameDoc) {
           try {
-            // Add our welcome message
-            addClaudeMessage("Hello! I'm here to help you define the vision of your game. Tell me about your game idea - what excites you most about it?");
+            console.log('Starting document creation with type:', gameDoc.type);
+            
+            // Inject our custom interface
+            injectDocumentInterface(gameDoc.title);
+            
+            // Let the promptManager handle system prompt and welcome message
+            await PromptManager.startDocumentCreation(gameDoc.type as DocumentType);
+            console.log('Document creation started successfully');
             
             // Update document status
             gameDoc.status = DocumentStatus.InProgress;

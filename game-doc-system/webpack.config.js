@@ -19,7 +19,11 @@ module.exports = {
     ]
   },
   resolve: {
-    extensions: ['.tsx', '.ts', '.js']
+    extensions: ['.tsx', '.ts', '.js'],
+    extensionAlias: {
+      '.js': ['.js', '.ts'],
+      '.mjs': ['.mjs', '.mts']
+    }
   },
   output: {
     filename: '[name].js',
@@ -31,7 +35,13 @@ module.exports = {
         { from: 'src/manifest.json', to: '.' },
         { from: 'src/popup/popup.html', to: '.' },
         { from: 'src/css', to: 'css' },
-        { from: 'src/assets', to: 'assets' }
+        { 
+          from: 'src/assets',
+          to: 'assets',
+          globOptions: {
+            ignore: ['**/generate-icons.html']
+          }
+        }
       ]
     })
   ]

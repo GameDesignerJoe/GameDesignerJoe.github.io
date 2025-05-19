@@ -8,17 +8,14 @@ interface DocumentPrompt {
 
 const DOCUMENT_PROMPTS: Record<DocumentType, DocumentPrompt> = {
   [DocumentType.GameVision]: {
-    welcomeMessage: "Let's create your game vision",
-    placeholderText: "Share your thoughts about what makes your game special",
+    welcomeMessage: "Let's explore your game vision",
+    placeholderText: "Tell me about your game vision at a high level",
     questions: [
-      "What's the title of your game?",
-      "In a single inspirational line, how would you describe your game?",
-      "What type of game is it? (Include genre, player count, and platform)",
-      "What is the main action or experience players will have in your game?",
-      "How will it feel to play your game? What emotions will players experience?",
-      "What motivates players? What rewards or goals drive them forward?",
-      "What are three unique elements that make your game special?",
-      "How will your game resonate with players after they've finished playing?"
+      "What inspired this game? What influences shaped your vision?",
+      "What emotional journey do you want players to experience?",
+      "What makes your game unique and innovative?",
+      "What's your creative direction and aesthetic vision?",
+      "How do you see this vision informing the rest of the game's development?"
     ]
   },
   [DocumentType.CoreGameConcept]: {
@@ -181,10 +178,10 @@ export class DocumentCreator {
     // Get document type specific format instructions
     const formatInstructions = {
       [DocumentType.GameVision]: `
-1. A compelling title and tagline
-2. Game type, platform, and player count
-3. Core gameplay and emotional experience
-4. Player motivation and unique elements`,
+1. Creative vision and inspiration
+2. Emotional goals and player feelings
+3. Unique aspects and innovations
+4. Creative direction and aesthetic goals`,
       [DocumentType.CoreGameConcept]: `
 1. The core gameplay loop
 2. Key mechanics and systems
@@ -258,18 +255,17 @@ export class DocumentCreator {
 
 ${formattedAnswers}
 
-Please synthesize these answers into a clear, cohesive Game Vision document with exactly this structure:
+Please synthesize these answers into a clear, cohesive Game Vision document that captures the creative essence and high-level concept of the game. The document should include:
 
 1. Title of the game
 2. Single inspirational line description
-3. A focused paragraph that:
-   - First sentence: States the type of game, including genre, player count, key features, and platform
-   - Second sentence: Describes the core gameplay and player fantasy
-   - Third sentence: Expands on the main player fantasy and emotional experience
-   - Fourth sentence: Explains player motivation and rewards
-   - Final sentence: Brings it all together by highlighting the three unique elements and how they create a lasting impact
+3. A single paragraph that captures the high level overview of the game, naturally incorporating:
+   - The creative vision and inspiration
+   - The emotional goals and player feelings
+   - The unique aspects and innovations
+   - The creative direction and aesthetic goals
 
-Keep the paragraph concise but impactful. Each sentence should flow naturally while covering all required elements.`;
+The paragraph should flow naturally and authentically represent the creator's vision, while maintaining focus on what makes this game special and how it will resonate with players.`;
     }
 
     // For other document types, use the standard format

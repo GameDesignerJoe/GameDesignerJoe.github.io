@@ -1,64 +1,99 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Generate Icons</title>
+  <title>Generate Game Doc System Icons</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .icon {
+      background: rgb(26, 27, 30);
+      color: rgb(231, 143, 117);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      margin: 10px;
+    }
+    .size-16 {
+      width: 16px;
+      height: 16px;
+      font-size: 8px;
+    }
+    .size-48 {
+      width: 48px;
+      height: 48px;
+      font-size: 24px;
+    }
+    .size-128 {
+      width: 128px;
+      height: 128px;
+      font-size: 64px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .icons-container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+  </style>
 </head>
 <body>
-  <canvas id="icon16" width="16" height="16"></canvas>
-  <canvas id="icon48" width="48" height="48"></canvas>
-  <canvas id="icon128" width="128" height="128"></canvas>
+  <h1>Game Doc System Icons</h1>
+  
+  <div class="icons-container">
+    <div class="icon size-16">GD</div>
+    <div class="icon size-48">GD</div>
+    <div class="icon size-128">GD</div>
+  </div>
+
+  <button onclick="downloadIcons()">Download Icons</button>
 
   <script>
-    function drawIcon(canvas) {
-      const ctx = canvas.getContext('2d');
-      const size = canvas.width;
-      
-      // Background
-      ctx.fillStyle = '#2a2a2a';
-      ctx.fillRect(0, 0, size, size);
-      
-      // Game controller shape
-      ctx.fillStyle = '#8c52ff';
-      const padding = size * 0.2;
-      const width = size - (padding * 2);
-      const height = width * 0.6;
-      const x = padding;
-      const y = (size - height) / 2;
-      
-      // Draw rounded rectangle
-      const radius = size * 0.1;
-      ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + width - radius, y);
-      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-      ctx.lineTo(x + width, y + height - radius);
-      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-      ctx.lineTo(x + radius, y + height);
-      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
-      ctx.fill();
-      
-      // Text "GD"
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${size * 0.3}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('GD', size / 2, size / 2);
-      
-      // Save as PNG
-      const link = document.createElement('a');
-      link.download = `icon${size}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+    function downloadIcon(size) {
+        const icon = document.querySelector(`.size-${size}`);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        canvas.width = size;
+        canvas.height = size;
+        
+        // Draw background
+        ctx.fillStyle = 'rgb(26, 27, 30)';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, size * 0.125);
+        ctx.fill();
+        
+        // Draw text
+        ctx.fillStyle = 'rgb(231, 143, 117)';
+        ctx.font = `600 ${size/2}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('GD', size/2, size/2);
+        
+        // Download
+        const link = document.createElement('a');
+        link.download = `gd_icon${size}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
     }
 
-    // Generate all icons
-    ['icon16', 'icon48', 'icon128'].forEach(id => {
-      const canvas = document.getElementById(id);
-      drawIcon(canvas);
-    });
+    function downloadIcons() {
+      downloadIcon(16);
+      setTimeout(() => downloadIcon(48), 500);
+      setTimeout(() => downloadIcon(128), 1000);
+    }
   </script>
 </body>
 </html>

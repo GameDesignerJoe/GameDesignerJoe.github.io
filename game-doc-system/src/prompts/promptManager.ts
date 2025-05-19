@@ -6,60 +6,60 @@ interface DocumentPrompt {
   placeholderText: string;
 }
 
-const DOCUMENT_PROMPTS: Record<DocumentType, DocumentPrompt> = {
-  [DocumentType.GameVision]: {
-    welcomeMessage: "Let's explore your game vision. Tell me about your game - what excites you most about it?",
-    placeholderText: "Share your thoughts freely - I'll ask questions to help develop the vision"
+const DOCUMENT_PROMPTS: Record<string, DocumentPrompt> = {
+  'game_vision': {
+    welcomeMessage: "Hi, I'm here to help you find the vision of your game. Feel free to explain it to me however works best for you. Afterwards, I'll ask you some questions and we'll figure it out together.",
+    placeholderText: "Tell me about your game idea..."
   },
-  [DocumentType.CoreGameConcept]: {
+  'core_game_concept': {
     welcomeMessage: "Let's outline your core game concept. What's the fundamental gameplay experience?",
     placeholderText: "Describe the core gameplay loop, key mechanics, or main activities"
   },
-  [DocumentType.TargetAudience]: {
+  'target_audience': {
     welcomeMessage: "Let's identify your target audience. Who are you making this game for?",
     placeholderText: "Consider age groups, interests, gaming experience, platforms they use"
   },
-  [DocumentType.CorePillarsValues]: {
+  'core_pillars_values': {
     welcomeMessage: "Let's establish your core pillars and values. What principles guide your game design?",
     placeholderText: "List key values, design pillars, or guiding principles"
   },
-  [DocumentType.WhyPlayIt]: {
+  'why_play_it': {
     welcomeMessage: "Let's explore why players will love your game. What makes it compelling?",
     placeholderText: "Think about player motivations, rewards, and satisfaction"
   },
-  [DocumentType.WhatShouldTheyFeel]: {
+  'what_should_they_feel': {
     welcomeMessage: "Let's define the emotional journey. How should players feel while playing?",
     placeholderText: "Describe emotions, moods, or feelings you want to evoke"
   },
-  [DocumentType.UniqueSellingPoints]: {
+  'unique_selling_points': {
     welcomeMessage: "Let's identify what makes your game unique. What sets it apart?",
     placeholderText: "List unique features, innovations, or special qualities"
   },
-  [DocumentType.GameLoop]: {
+  'game_loop': {
     welcomeMessage: "Let's detail your game loop. What keeps players engaged moment to moment?",
     placeholderText: "Describe core activities, feedback loops, and progression"
   },
-  [DocumentType.PlayerJourney]: {
+  'player_journey': {
     welcomeMessage: "Let's map the player's journey. How do they progress through your game?",
     placeholderText: "Outline key stages, milestones, or story beats"
   },
-  [DocumentType.StoryOverview]: {
+  'story_overview': {
     welcomeMessage: "Let's craft your story overview. What tale does your game tell?",
     placeholderText: "Share plot points, character arcs, or narrative themes"
   },
-  [DocumentType.Presentation]: {
+  'presentation': {
     welcomeMessage: "Let's plan your game's presentation. How will it look and feel?",
     placeholderText: "Describe art style, audio direction, or visual themes"
   },
-  [DocumentType.KeyQuestions]: {
+  'key_questions': {
     welcomeMessage: "Let's address key questions about your game. What needs to be resolved?",
     placeholderText: "List critical questions, concerns, or decisions to make"
   },
-  [DocumentType.CoreDesignDetails]: {
+  'core_design_details': {
     welcomeMessage: "Let's detail your core design. What are the essential mechanics?",
     placeholderText: "Describe key systems, rules, or gameplay elements"
   },
-  [DocumentType.StrategicDirection]: {
+  'strategic_direction': {
     welcomeMessage: "Let's plan your strategic direction. Where is this game headed?",
     placeholderText: "Outline goals, milestones, or development priorities"
   }
@@ -72,42 +72,37 @@ export class PromptManager {
 
   private static getSystemPrompt(type: DocumentType): string {
     switch (type) {
-      case DocumentType.GameVision:
-        return `You are helping create a Game Vision document. Let the user express their ideas freely, but ensure you gather enough information to create a vision that includes:
-- Game title
-- Single inspirational line description
-- A focused paragraph that covers:
-  - Game type, player count, and platform
-  - Core gameplay and player fantasy
-  - Emotional experience
-  - Player motivation and rewards
-  - Unique elements and vision summary
+      case 'game_vision':
+        return `/task You are helping create a Game Vision document. After the user shares their initial idea, ask targeted follow-up questions to gather:
+- Game type, player count, and platform
+- Core gameplay and player fantasy
+- Emotional experience
+- Player motivation and rewards
+- Three unique elements that set the game apart
 
-Start with an open-ended question about their vision. Based on their response, generate contextual follow-up questions to fill in any missing elements. Use their own language and ideas while guiding the conversation toward a complete vision.`;
+Use their language and ideas while ensuring all elements are covered.`;
       default:
         return '';
     }
   }
 
   static async startDocumentCreation(type: DocumentType): Promise<void> {
+    console.log('PromptManager: Starting document creation for type:', type);
+    
     const prompt = this.getPromptForDocument(type);
     if (!prompt) {
-      console.error(`No prompt found for document type: ${type}`);
+      console.error(`PromptManager: No prompt found for document type: ${type}`);
       return;
     }
-
-    // Get the system prompt for this document type
-    const systemPrompt = this.getSystemPrompt(type);
-    if (!systemPrompt) {
-      console.error(`No system prompt found for document type: ${type}`);
-      return;
-    }
+    console.log('PromptManager: Found prompt:', prompt);
 
     try {
       // Start the document creation process using Claude interface
-      await ClaudeInterface.startDocumentCreation(systemPrompt);
+      console.log('PromptManager: Starting Claude interface');
+      await ClaudeInterface.startDocumentCreation();
+      console.log('PromptManager: Document creation started successfully');
     } catch (error) {
-      console.error('Error during document creation:', error);
+      console.error('PromptManager: Error during document creation:', error);
       throw error;
     }
   }

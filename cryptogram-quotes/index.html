@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Themed Cryptogram</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Theme Section -->
+        <header class="theme-header">
+            <h1 id="current-theme">Chinese Food</h1>
+            <div id="swaps-counter">38 Swaps Left</div>
+        </header>
+
+        <!-- Game Grid -->
+        <main class="game-area">
+            <div class="instruction">DRAG LETTERS TO SWAP</div>
+            
+            <!-- Puzzle Grid -->
+            <div id="puzzle-grid">
+                <!-- Letter tiles will be dynamically inserted here -->
+            </div>
+
+            <!-- Clue Section -->
+            <div class="clue-section">
+                <button class="nav-button prev">&lt;</button>
+                <div id="current-clue">CLUE - 1 Across</div>
+                <button class="nav-button next">&gt;</button>
+            </div>
+        </main>
+
+        <!-- Theme Input -->
+        <div class="theme-input-container">
+            <input type="text" id="theme-input" placeholder="Enter a theme...">
+            <button id="new-theme-btn">New Theme</button>
+        </div>
+    </div>
+
+    <!-- Core Game Scripts -->
+    <script src="js/QuoteService.js"></script>
+    <script src="js/CryptogramGenerator.js"></script>
+    <script src="js/GameUI.js"></script>
+    <script src="js/LetterSwapHandler.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
