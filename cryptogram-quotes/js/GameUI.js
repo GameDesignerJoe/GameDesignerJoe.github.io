@@ -24,15 +24,18 @@ class GameUI {
 
     bindEvents() {
         // Theme input handling
-        this.elements.newThemeBtn.addEventListener('click', () => {
-            console.log('New Theme button clicked');
+        const submitTheme = () => {
+            console.log('Submitting theme');
             this.handleNewTheme();
-        });
+        };
 
-        this.elements.themeInput.addEventListener('keypress', (e) => {
+        this.elements.newThemeBtn.addEventListener('click', submitTheme);
+
+        this.elements.themeInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 console.log('Enter pressed in theme input');
-                this.handleNewTheme();
+                e.preventDefault();
+                submitTheme();
             }
         });
 
@@ -70,10 +73,11 @@ class GameUI {
         try {
             console.log('Handling new theme:', theme);
             this.elements.newThemeBtn.disabled = true;
-            this.elements.currentTheme.textContent = theme;
+            const upperTheme = theme.toUpperCase();
+            this.elements.currentTheme.textContent = upperTheme;
             
-            console.log('Fetching quote for theme:', theme);
-            const quote = await this.quoteService.getQuoteByTheme(theme);
+            console.log('Fetching quote for theme:', upperTheme);
+            const quote = await this.quoteService.getQuoteByTheme(upperTheme);
             console.log('Received quote:', quote);
             
             // Update author
@@ -329,7 +333,22 @@ class GameUI {
         // Show success message
         const successMessage = document.createElement('div');
         successMessage.className = 'success-message';
-        successMessage.textContent = 'Congratulations! Puzzle solved!';
+
+        // Create heading
+        const heading = document.createElement('div');
+        heading.className = 'success-heading';
+        heading.textContent = 'CONGRATULATIONS!';
+        successMessage.appendChild(heading);
+
+        // Add puzzle solved text
+        const solvedText = document.createElement('div');
+        solvedText.className = 'success-text';
+        solvedText.textContent = 'Puzzle solved!';
+        successMessage.appendChild(solvedText);
+        
+        // Add line breaks
+        successMessage.appendChild(document.createElement('br'));
+        successMessage.appendChild(document.createElement('br'));
         
         // Add try another button
         const tryAnotherBtn = document.createElement('button');

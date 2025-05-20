@@ -33,6 +33,15 @@ class QuoteService {
         try {
             console.log('Fetching quote for theme:', theme);
             
+            // Check for Believer easter egg (case insensitive)
+            if (theme.toUpperCase() === 'BELIEVER') {
+                return {
+                    text: "Buy this for me Daddy",
+                    author: "Unknown",
+                    success: true
+                };
+            }
+            
             // Check cache first
             if (this.themeCache.has(theme)) {
                 const cachedQuotes = this.themeCache.get(theme);

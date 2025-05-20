@@ -342,6 +342,16 @@ body::before {
     z-index: 1000;
 }
 
+.success-heading {
+    font-weight: bold;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+}
+
+.success-text {
+    margin-bottom: 10px;
+}
+
 .success-message button {
     margin-top: 20px;
     padding: 12px 24px;
