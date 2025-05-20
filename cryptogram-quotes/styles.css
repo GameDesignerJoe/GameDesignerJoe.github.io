@@ -1,16 +1,16 @@
 :root {
-    --primary-red: #8B2635;
+    --primary-red: #6B3610;
     --primary-orange: #FF8C42;
-    --primary-brown: #8B4513;
+    --primary-brown: #6B3610;
     --text-dark: #333333;
     --text-light: #ffffff;
-    --tile-border: #8B2635;
+    --tile-border: #6B3610;
     --background: #FFF5E6;
     --tile-size: 30px;
     --grid-gap: 6px;
     --word-gap: 16px;
     --keyboard-key-size: 35px;
-    --connection-color: #8B4513;
+    --connection-color: #6B3610;
 }
 
 * {
