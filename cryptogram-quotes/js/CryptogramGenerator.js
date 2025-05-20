@@ -23,14 +23,55 @@ class CryptogramGenerator {
         // Create puzzle structure
         const puzzleStructure = this.createPuzzleStructure(encodedText, originalText);
 
+        // Pre-fill some consonants (about 30% of unique consonants)
+        const preFilledGuesses = this.generatePreFilledGuesses(encodedText, originalText);
+
         return {
             encoded: encodedText,
             original: originalText,
             author: quote.author,
             structure: puzzleStructure,
             substitutionMap: this.substitutionMap,
-            solutionMap: this.solutionMap
+            solutionMap: this.solutionMap,
+            preFilledGuesses: preFilledGuesses
         };
+    }
+
+    generatePreFilledGuesses(encodedText, originalText) {
+        // Get unique consonants from the original text
+        const vowels = new Set(['A', 'E', 'I', 'O', 'U']);
+        const consonants = new Set();
+        const consonantMapping = new Map();
+
+        // Map encoded consonants to their original letters
+        for (let i = 0; i < originalText.length; i++) {
+            const originalChar = originalText[i];
+            if (this.alphabet.includes(originalChar) && !vowels.has(originalChar)) {
+                const encodedChar = encodedText[i];
+                consonants.add(encodedChar);
+                consonantMapping.set(encodedChar, originalChar);
+            }
+        }
+
+        // Convert to array and shuffle
+        const consonantArray = Array.from(consonants);
+        for (let i = consonantArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [consonantArray[i], consonantArray[j]] = [consonantArray[j], consonantArray[i]];
+        }
+
+        // Select about 30% of consonants to pre-fill
+        const numToFill = Math.max(1, Math.floor(consonantArray.length * 0.30));
+        const preFilledGuesses = new Map();
+
+        // Add selected consonants to pre-filled guesses
+        for (let i = 0; i < numToFill; i++) {
+            const encodedChar = consonantArray[i];
+            const originalChar = consonantMapping.get(encodedChar);
+            preFilledGuesses.set(encodedChar, originalChar);
+        }
+
+        return preFilledGuesses;
     }
 
     createSubstitutionCipher() {

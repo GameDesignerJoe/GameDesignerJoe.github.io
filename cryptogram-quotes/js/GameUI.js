@@ -85,11 +85,21 @@ class GameUI {
             
             // Reset game state
             this.selectedEncodedLetter = null;
-            this.currentGuesses.clear();
-            this.usedLetters.clear();
+            this.currentGuesses = new Map(this.currentPuzzle.preFilledGuesses);
+            this.usedLetters = new Set(this.currentPuzzle.preFilledGuesses.values());
             
+            // Render puzzle and update keyboard
             this.renderPuzzle();
-            this.resetKeyboard();
+            this.updateKeyboardState();
+
+            // Disable pre-filled letters from being changed
+            const allEncodedLetters = this.elements.puzzleGrid.querySelectorAll('.encoded');
+            allEncodedLetters.forEach(el => {
+                if (this.currentPuzzle.preFilledGuesses.has(el.dataset.char)) {
+                    el.style.cursor = 'not-allowed';
+                    el.style.opacity = '0.7';
+                }
+            });
             
             // Clear input after successful theme change
             this.elements.themeInput.value = '';
@@ -179,11 +189,18 @@ class GameUI {
     }
 
     handleEncodedLetterClick(encodedElement) {
-        // Remove previous selection
+        // Don't allow clicking pre-filled letters
+        if (this.currentPuzzle.preFilledGuesses.has(encodedElement.dataset.char)) {
+            return;
+        }
+
+        // Remove previous selection and highlights
         const previousSelection = this.elements.puzzleGrid.querySelector('.encoded.selected');
+        const previousHighlights = this.elements.puzzleGrid.querySelectorAll('.encoded.highlight');
         if (previousSelection) {
             previousSelection.classList.remove('selected');
         }
+        previousHighlights.forEach(el => el.classList.remove('highlight'));
 
         // If clicking the same letter, deselect it
         if (this.selectedEncodedLetter === encodedElement.dataset.char) {
@@ -191,9 +208,19 @@ class GameUI {
             return;
         }
 
-        // Select new letter
-        encodedElement.classList.add('selected');
-        this.selectedEncodedLetter = encodedElement.dataset.char;
+        // Select new letter and highlight all matching letters
+        const selectedChar = encodedElement.dataset.char;
+        const allEncodedLetters = this.elements.puzzleGrid.querySelectorAll('.encoded');
+        allEncodedLetters.forEach(el => {
+            if (el.dataset.char === selectedChar) {
+                if (el === encodedElement) {
+                    el.classList.add('selected');
+                } else {
+                    el.classList.add('highlight');
+                }
+            }
+        });
+        this.selectedEncodedLetter = selectedChar;
 
         // Highlight the current guess in the keyboard if it exists
         this.updateKeyboardSelection();
@@ -205,17 +232,16 @@ class GameUI {
         const decodedLetter = keyElement.textContent;
 
         // If this decoded letter is already used for another encoded letter, remove that mapping
+        // but only if it's not a pre-filled letter
         for (const [encoded, decoded] of this.currentGuesses.entries()) {
-            if (decoded === decodedLetter) {
+            if (decoded === decodedLetter && !this.currentPuzzle.preFilledGuesses.has(encoded)) {
                 this.currentGuesses.delete(encoded);
-                this.usedLetters.delete(decodedLetter);
                 this.updateDecodedLetters(encoded, '_');
             }
         }
 
         // Update the current guess
         this.currentGuesses.set(this.selectedEncodedLetter, decodedLetter);
-        this.usedLetters.add(decodedLetter);
 
         // Update all instances of this encoded letter
         this.updateDecodedLetters(this.selectedEncodedLetter, decodedLetter);
@@ -248,11 +274,9 @@ class GameUI {
         const keys = this.elements.keyboard.querySelectorAll('.key');
         keys.forEach(key => {
             const letter = key.textContent;
-            if (this.usedLetters.has(letter)) {
-                key.disabled = true;
-            } else {
-                key.disabled = false;
-            }
+            // Only disable keys that are used in pre-filled letters
+            const isPreFilled = Array.from(this.currentPuzzle.preFilledGuesses.values()).includes(letter);
+            key.disabled = isPreFilled;
         });
     }
 

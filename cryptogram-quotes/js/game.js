@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Create game instance
     const game = new GameUI(gameContainer);
 
-    // Start with a default theme
-    game.elements.themeInput.value = 'Chinese Food';
+    // Start with a random theme
+    const quoteService = new QuoteService();
+    const randomTheme = quoteService.themes[Math.floor(Math.random() * quoteService.themes.length)];
+    game.elements.themeInput.value = randomTheme;
     game.handleNewTheme();
 });

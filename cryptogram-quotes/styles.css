@@ -1,15 +1,16 @@
 :root {
-    --primary-blue: #3498db;
-    --dark-navy: #2c3e50;
-    --text-dark: #2c3e50;
+    --primary-red: #8B2635;
+    --primary-orange: #FF8C42;
+    --primary-brown: #8B4513;
+    --text-dark: #333333;
     --text-light: #ffffff;
-    --tile-border: #3498db;
-    --background: #f5f6fa;
-    --tile-size: 40px;
-    --grid-gap: 8px;
-    --word-gap: 24px;
-    --keyboard-key-size: 45px;
-    --connection-color: #94a3b8;
+    --tile-border: #8B2635;
+    --background: #FFF5E6;
+    --tile-size: 30px;
+    --grid-gap: 6px;
+    --word-gap: 16px;
+    --keyboard-key-size: 35px;
+    --connection-color: #8B4513;
 }
 
 * {
@@ -24,37 +25,39 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    padding: 20px;
+    align-items: center;
+    padding: 0;
 }
 
 #game-container {
-    max-width: 1000px;
-    width: 100%;
+    width: fit-content;
+    min-width: 320px;
     display: flex;
     flex-direction: column;
-    gap: 30px;
-    padding: 20px;
-    background: white;
+    gap: 12px;
+    padding: 12px;
+    background: var(--primary-red);
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(139, 69, 19, 0.2);
+    color: var(--text-light);
 }
 
 /* Theme Header Styles */
 .theme-header {
     text-align: center;
-    padding: 20px;
-    border-bottom: 2px solid var(--background);
+    padding: 8px;
+    border-bottom: 1px solid var(--background);
 }
 
 #current-theme {
-    font-size: 2.5rem;
-    color: var(--text-dark);
-    margin-bottom: 10px;
+    font-size: 1.75rem;
+    color: var(--text-light);
+    margin-bottom: 4px;
 }
 
 .author {
-    font-size: 1.2rem;
-    color: var(--text-dark);
+    font-size: 1rem;
+    color: var(--text-light);
     opacity: 0.8;
 }
 
@@ -62,81 +65,59 @@ body {
 .game-area {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    min-height: calc(100vh - 300px);
+    gap: 8px;
     position: relative;
 }
 
 /* Puzzle Area Styles */
 .puzzle-area {
-    flex: 1;
-    padding: 20px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
 }
 
-/* Controls Area Styles */
-.controls-area {
-    position: sticky;
-    bottom: 0;
-    background: var(--background);
-    padding: 20px;
-    border-radius: 12px 12px 0 0;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 100;
-}
-
-/* Game Container Styles */
-#game-container {
-    max-width: 1000px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-    padding: 20px;
-    background: white;
+/* Keyboard Container Styles */
+.keyboard-container {
+    padding: 8px;
+    background-color: var(--primary-red);
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    min-height: 100vh;
-    position: relative;
-    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(139, 69, 19, 0.2);
+    width: fit-content;
+    margin: 0 auto;
 }
+
 
 /* Puzzle Grid Styles */
 #puzzle-grid {
     display: flex;
     flex-direction: column;
-    gap: 50px;
-    padding: 50px;
-    background: #f1f5f9;
-    border-radius: 16px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.05);
-    max-width: 900px;
+    gap: 8px;
+    padding: 10px;
+    background: var(--primary-red);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(139, 69, 19, 0.2), inset 0 2px 4px rgba(139, 69, 19, 0.1);
     margin: 0 auto;
-    min-height: 300px;
 }
 
 .puzzle-row {
     display: flex;
-    gap: calc(var(--grid-gap) * 4);
+    gap: calc(var(--grid-gap) * 1.5);
     flex-wrap: wrap;
     justify-content: center;
-    padding: 15px;
-    min-height: 100px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    padding: 6px;
+    min-height: 45px;
+    background: var(--primary-red);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(139, 69, 19, 0.2);
 }
 
 .letter-pair {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
     width: var(--tile-size);
-    padding: 4px;
+    padding: 2px;
     position: relative;
 }
 
@@ -158,34 +139,61 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 1.2rem;
     font-weight: 600;
     font-family: 'Courier New', monospace;
-    background: white;
-    border-radius: 6px;
+    background: var(--primary-red);
+    border-radius: 4px;
     position: relative;
     z-index: 1;
 }
 
 .letter-pair .decoded {
-    color: var(--text-dark);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    color: var(--text-light);
+    box-shadow: inset 0 1px 3px rgba(139, 69, 19, 0.2);
 }
 
 .letter-pair .encoded {
-    color: var(--primary-blue);
+    color: var(--primary-orange);
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
 }
 
 .letter-pair .encoded:hover {
-    background-color: rgba(52, 152, 219, 0.1);
+    background-color: var(--primary-orange);
+    color: var(--text-light);
 }
 
 .letter-pair .encoded.selected {
-    background-color: var(--primary-blue);
-    color: white;
+    background-color: var(--primary-orange);
+    color: var(--text-light);
+}
+
+.letter-pair .encoded.highlight {
+    background-color: var(--primary-orange);
+    border: none;
+    color: var(--text-light);
+    opacity: 0.8;
+}
+
+/* Pre-filled letter styles */
+.letter-pair .encoded[style*="cursor: not-allowed"] {
+    background-color: var(--background);
+    border: 2px solid var(--primary-brown);
+    color: var(--primary-brown);
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+.letter-pair .encoded[style*="cursor: not-allowed"] + .decoded {
+    color: var(--primary-brown);
+    font-weight: 700;
+    background-color: var(--background);
+}
+
+.letter-pair .encoded[style*="cursor: not-allowed"]:hover {
+    background-color: var(--background);
 }
 
 
@@ -194,16 +202,6 @@ body {
     width: var(--word-gap);
 }
 
-/* Keyboard Container Styles */
-.keyboard-container {
-    padding: 20px;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 800px;
-    margin: 0 auto;
-}
 
 /* Keyboard Styles */
 .keyboard {
@@ -213,7 +211,7 @@ body {
     width: fit-content;
     margin: 0 auto;
     padding: 10px;
-    background: white;
+    background: var(--primary-red);
     border-radius: 8px;
 }
 
@@ -228,18 +226,18 @@ body {
     height: var(--keyboard-key-size);
     border: none;
     border-radius: 8px;
-    background-color: white;
+    background-color: var(--background);
     color: var(--text-dark);
     font-size: 1.2rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--connection-color);
+    box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
+    border: 1px solid var(--primary-brown);
 }
 
 .key:hover:not(:disabled) {
-    background-color: var(--primary-blue);
+    background-color: var(--primary-orange);
     color: white;
     transform: translateY(-2px);
 }
@@ -249,9 +247,9 @@ body {
 }
 
 .key.selected {
-    background-color: var(--primary-blue);
+    background-color: var(--primary-orange);
     color: white;
-    border-color: var(--primary-blue);
+    border-color: var(--primary-orange);
 }
 
 .key:disabled {
@@ -265,21 +263,20 @@ body {
 /* Theme Input Styles */
 .theme-input-container {
     display: flex;
-    gap: 10px;
-    padding: 20px;
+    gap: 8px;
+    padding: 8px;
     justify-content: center;
-    background: white;
+    background: var(--primary-red);
     border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 800px;
+    box-shadow: 0 2px 10px rgba(139, 69, 19, 0.2);
+    width: fit-content;
     margin: 0 auto;
 }
 
 #theme-input {
     padding: 10px 15px;
     font-size: 1rem;
-    border: 2px solid var(--tile-border);
+    border: 2px solid var(--primary-brown);
     border-radius: 8px;
     width: 200px;
     background-color: white;
@@ -287,13 +284,13 @@ body {
 
 #theme-input:focus {
     outline: none;
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 8px rgba(52, 152, 219, 0.2);
+    border-color: var(--primary-orange);
+    box-shadow: 0 0 8px rgba(255, 140, 66, 0.2);
 }
 
 #new-theme-btn {
     padding: 10px 20px;
-    background-color: var(--primary-blue);
+    background-color: var(--primary-orange);
     color: white;
     border: none;
     border-radius: 8px;
@@ -303,7 +300,8 @@ body {
 }
 
 #new-theme-btn:hover {
-    background-color: #2980b9;
+    background-color: var(--background);
+    color: var(--primary-orange);
     transform: translateY(-1px);
 }
 
@@ -317,19 +315,19 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: var(--dark-navy);
+    background-color: var(--primary-brown);
     color: var(--text-light);
     padding: 30px;
     border-radius: 12px;
     text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(139, 69, 19, 0.3);
     z-index: 1000;
 }
 
 .success-message button {
     margin-top: 20px;
     padding: 12px 24px;
-    background-color: var(--primary-blue);
+    background-color: var(--primary-orange);
     color: white;
     border: none;
     border-radius: 8px;
@@ -339,7 +337,8 @@ body {
 }
 
 .success-message button:hover {
-    background-color: #2980b9;
+    background-color: var(--background);
+    color: var(--primary-orange);
     transform: translateY(-2px);
 }
 
