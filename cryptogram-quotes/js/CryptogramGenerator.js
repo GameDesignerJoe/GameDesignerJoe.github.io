@@ -38,37 +38,57 @@ class CryptogramGenerator {
     }
 
     generatePreFilledGuesses(encodedText, originalText) {
-        // Get unique consonants from the original text
+        // Get unique consonants and vowels from the original text
         const vowels = new Set(['A', 'E', 'I', 'O', 'U']);
         const consonants = new Set();
+        const vowelSet = new Set();
         const consonantMapping = new Map();
+        const vowelMapping = new Map();
 
-        // Map encoded consonants to their original letters
+        // Map encoded consonants and vowels to their original letters
         for (let i = 0; i < originalText.length; i++) {
             const originalChar = originalText[i];
-            if (this.alphabet.includes(originalChar) && !vowels.has(originalChar)) {
-                const encodedChar = encodedText[i];
-                consonants.add(encodedChar);
-                consonantMapping.set(encodedChar, originalChar);
+            const encodedChar = encodedText[i];
+            if (this.alphabet.includes(originalChar)) {
+                if (vowels.has(originalChar)) {
+                    vowelSet.add(encodedChar);
+                    vowelMapping.set(encodedChar, originalChar);
+                } else {
+                    consonants.add(encodedChar);
+                    consonantMapping.set(encodedChar, originalChar);
+                }
             }
         }
 
-        // Convert to array and shuffle
+        // Convert consonants to array and shuffle
         const consonantArray = Array.from(consonants);
         for (let i = consonantArray.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [consonantArray[i], consonantArray[j]] = [consonantArray[j], consonantArray[i]];
         }
 
-        // Select about 30% of consonants to pre-fill
-        const numToFill = Math.max(1, Math.floor(consonantArray.length * 0.30));
+        // Convert vowels to array and shuffle
+        const vowelArray = Array.from(vowelSet);
+        for (let i = vowelArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [vowelArray[i], vowelArray[j]] = [vowelArray[j], vowelArray[i]];
+        }
+
         const preFilledGuesses = new Map();
 
-        // Add selected consonants to pre-filled guesses
-        for (let i = 0; i < numToFill; i++) {
+        // Select about 30% of consonants to pre-fill
+        const numConsonantsToFill = Math.max(1, Math.floor(consonantArray.length * 0.30));
+        for (let i = 0; i < numConsonantsToFill; i++) {
             const encodedChar = consonantArray[i];
             const originalChar = consonantMapping.get(encodedChar);
             preFilledGuesses.set(encodedChar, originalChar);
+        }
+
+        // Add one random vowel
+        if (vowelArray.length > 0) {
+            const randomVowelEncoded = vowelArray[0];
+            const originalVowel = vowelMapping.get(randomVowelEncoded);
+            preFilledGuesses.set(randomVowelEncoded, originalVowel);
         }
 
         return preFilledGuesses;
