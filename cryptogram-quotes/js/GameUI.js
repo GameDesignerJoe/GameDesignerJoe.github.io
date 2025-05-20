@@ -63,16 +63,18 @@ class GameUI {
     }
 
     async handleNewTheme() {
-        const theme = this.elements.themeInput.value.trim();
+        let theme = this.elements.themeInput.value.trim();
         console.log('Attempting to handle new theme:', theme);
-        if (!theme) {
-            console.log('No theme provided');
-            return;
-        }
-
+        
         try {
-            console.log('Handling new theme:', theme);
             this.elements.newThemeBtn.disabled = true;
+            
+            // If no theme provided, pick a random one
+            if (!theme) {
+                theme = this.quoteService.themes[Math.floor(Math.random() * this.quoteService.themes.length)];
+            }
+            
+            console.log('Handling new theme:', theme);
             const upperTheme = theme.toUpperCase();
             this.elements.currentTheme.textContent = upperTheme;
             
