@@ -393,7 +393,6 @@ body::before {
         height: 100vh;
         border-radius: 0;
         padding: 0;
-        overflow: hidden;
         display: flex;
         flex-direction: column;
     }
