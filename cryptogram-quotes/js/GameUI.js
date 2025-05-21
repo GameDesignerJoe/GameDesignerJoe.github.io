@@ -107,8 +107,10 @@ class GameUI {
                 }
             });
             
-            // Clear input after successful theme change
-            this.elements.themeInput.value = '';
+            // Only clear input if it's not the BELIEVER easter egg
+            if (upperTheme !== 'BELIEVER') {
+                this.elements.themeInput.value = '';
+            }
         } catch (error) {
             console.error('Error creating new puzzle:', error);
         } finally {

@@ -35,9 +35,14 @@ class QuoteService {
             
             // Check for Believer easter egg (case insensitive)
             if (theme.toUpperCase() === 'BELIEVER') {
+                const believerQuotes = [
+                    { text: "Buy this for me Daddy", author: "Unknown" },
+                    { text: "Good Job, War", author: "Unknown" }
+                ];
+                // Use static property to track which quote to show next
+                QuoteService.believerIndex = (QuoteService.believerIndex || 0) ^ 1;
                 return {
-                    text: "Buy this for me Daddy",
-                    author: "Unknown",
+                    ...believerQuotes[QuoteService.believerIndex],
                     success: true
                 };
             }

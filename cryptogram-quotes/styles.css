@@ -93,7 +93,7 @@ body::before {
     display: flex;
     flex-direction: column;
     position: relative;
-    gap: 16px;
+    gap: 32px;
 }
 
 /* Puzzle Area Styles */
@@ -103,19 +103,37 @@ body::before {
     align-items: center;
     justify-content: center;
     gap: 16px;
+    margin-bottom: 16px;
 }
 
-/* Keyboard Container Styles */
-.keyboard-container {
-    padding: 16px;
+/* Controls Area Styles */
+.controls-area {
+    display: flex;
+    flex-direction: column;
     background-color: var(--primary-brown);
-    width: fit-content;
-    margin: 0 auto;
+    border-radius: 12px;
 }
 
+/* Theme Input Styles */
+.theme-input-container {
+    width: 100%;
+    max-width: 500px;
+    background-color: var(--primary-brown);
+    border-radius: 8px;
+    margin-top: -8px;
+}
+
+/* Keyboard Styles */
 .keyboard-wrapper {
     display: flex;
     flex-direction: column;
+}
+
+.keyboard-container {
+    background-color: var(--primary-brown);
+    width: fit-content;
+    margin: 0 auto;
+    padding-bottom: 8px;
 }
 
 
@@ -303,6 +321,8 @@ body::before {
     box-shadow: 0 2px 10px rgba(75, 37, 9, 0.2);
     width: fit-content;
     margin: 8px auto;
+    position: relative;
+    z-index: 2001;
 }
 
 #theme-input {
@@ -312,6 +332,9 @@ body::before {
     border-radius: 8px;
     width: 200px;
     background-color: white;
+    position: relative;
+    z-index: 2002;
+    pointer-events: auto;
 }
 
 #theme-input:focus {
@@ -401,14 +424,11 @@ body::before {
     }
 
     .keyboard-wrapper {
-        position: fixed;
-        bottom: 0;
-        left: 0;
+        position: relative;
         width: 100%;
         background-color: var(--primary-brown);
         border-radius: 0;
         box-shadow: 0 -2px 10px rgba(75, 37, 9, 0.2);
-        z-index: 2000;
         padding: 0;
         margin: 0;
     }
