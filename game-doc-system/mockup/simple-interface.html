@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS</title>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0d0e;
+            --sidebar-bg: #1a1b1e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border: #2a2b2e;
+            --pending: #fdcb6e;
+            --claude-msg: #1e2124;
+            --user-msg: #2f3640;
+            --icon-active: #ecf0f1;
+            --icon-inactive: #4a4a4a;
+            --accent: #ff6b6b;
+            --modal-bg: rgba(0, 0, 0, 0.8);
+            --header-height: 48px;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+        }
+
+        /* Main Layout */
+        .main-container {
+            flex: 1;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Split Pane Layout */
+        .chat-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            min-width: 400px;
+        }
+
+        .document-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 400px;
+        }
+
+        /* Document Header */
+        .document-header {
+            height: var(--header-height);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            background: var(--sidebar-bg);
+        }
+
+        .version-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .version-dropdown {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Document Content */
+        .document-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .document-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+
+        .document-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin: 0 0 32px 0;
+        }
+
+        /* Chat Interface */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            max-width: 85%;
+        }
+
+        .claude-message {
+            background: var(--claude-msg);
+            margin-right: auto;
+        }
+
+        .user-message {
+            background: var(--user-msg);
+            margin-left: auto;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border-radius: 8px;
+            background: var(--claude-msg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            resize: none;
+            height: 60px;
+            font-family: inherit;
+        }
+
+        /* Simple Sidebar */
+        .gdds-sidebar {
+            width: 250px;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px); /* Account for padding */
+        }
+
+        .documents-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .add-document-btn {
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        .add-document-btn:hover {
+            opacity: 0.9;
+        }
+
+        .document-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-radius: 4px;
+            justify-content: space-between;
+        }
+
+        .doc-title {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .doc-type-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 10px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .doc-icons {
+            position: relative;
+            display: flex;
+            gap: 12px;
+            margin-left: 10px;
+        }
+
+        .icon {
+            color: var(--icon-active);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .icon:hover {
+            opacity: 0.8;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--pending);
+            margin-right: 10px;
+        }
+
+        /* Template Selection Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--modal-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .template-modal {
+            background: var(--sidebar-bg);
+            width: 600px;
+            max-height: 80vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .modal-content {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 4px;
+        }
+
+        .template-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .template-card:hover {
+            border-color: var(--accent);
+        }
+
+        .template-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .template-title i {
+            color: var(--accent);
+        }
+
+        .template-description {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .template-actions {
+            margin-top: 12px;
+        }
+
+        .use-template-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        .use-template-btn:hover {
+            opacity: 0.9;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .create-template-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .create-template-btn:hover {
+            background: var(--border);
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+        }
+
+        .close-button:hover {
+            color: var(--text-primary);
+        }
+
+        /* Update download options styles */
+        .download-options {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 4px 0;
+            min-width: 140px;
+            z-index: 100;
+            margin-top: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .download-options.active {
+            display: block;
+        }
+
+        .download-option {
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 13px;
+        }
+
+        .download-option:hover {
+            background: var(--border);
+        }
+
+        .download-option i {
+            width: 16px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .download-option.google-docs {
+            border-top: 1px solid var(--border);
+            margin-top: 4px;
+            padding-top: 8px;
+        }
+
+        /* Add these new styles after the existing ones */
+        .vision-statement {
+            font-size: 18px;
+            font-style: italic;
+            color: var(--text-secondary);
+            margin: 24px 0;
+            padding: 16px;
+            border-left: 3px solid var(--accent);
+            background: var(--claude-msg);
+        }
+
+        .vision-section {
+            margin: 32px 0;
+        }
+
+        .vision-section h2 {
+            font-size: 20px;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .vision-section p {
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Chat Pane -->
+        <div class="chat-pane">
+            <div class="document-header" style="justify-content: center; text-align: center; height: auto; padding: 20px;">
+                <div>
+                    <h1 class="document-title" style="margin: 0;">Game Vision Document</h1>
+                    <p class="document-subtitle" style="margin: 8px 0 0 0;">Capturing the essence of your game's creative direction</p>
+                </div>
+            </div>
+            <div class="chat-container">
+                <div class="message claude-message">
+                    <p>Tell me about your game. What's your vision for it?</p>
+                </div>
+                <div class="message user-message">
+                    <p>I want to make a game about a hospice nurse who can enter the memories of dying patients to help them find peace.</p>
+                </div>
+                <div class="message claude-message">
+                    <p>That's a fascinating concept. I'll help you create a Game Vision document. Let's start with the core concept and emotional experience you want to deliver.</p>
+                </div>
+            </div>
+            <div class="input-area">
+                <textarea placeholder="Type your message here..."></textarea>
+            </div>
+        </div>
+
+        <!-- Document Pane -->
+        <div class="document-pane">
+            <div class="document-header">
+                <div class="version-selector">
+                    <span>Version</span>
+                    <select class="version-dropdown">
+                        <option>v2 - Latest</option>
+                        <option>v1</option>
+                    </select>
+                </div>
+                <div class="document-actions">
+                    <i class="icon fas fa-download" title="Download Document"></i>
+                    <i class="icon fas fa-cog" title="Settings"></i>
+                </div>
+            </div>
+            <div class="document-content">
+                <h1 class="document-title">"Echoes of Solace" - Game Vision</h1>
+                <div class="document-body">
+                    <p class="vision-statement">"A poignant journey through fading memories, where compassion becomes a bridge between life and legacy."</p>
+                    
+                    <div class="vision-section">
+                        <h2>Overview</h2>
+                        <p>Echoes of Solace is a single-player atmospheric adventure game where players step into the role of Maya, a hospice nurse with the extraordinary ability to enter her patients' fading memories. Through gentle exploration and environmental puzzle-solving, players navigate through beautifully crafted memory fragments, each representing a patient's unresolved emotions or unfinished business.</p>
+                    </div>
+
+                    <div class="vision-section">
+                        <h2>Core Experience</h2>
+                        <p>The game's core experience revolves around making meaningful choices about how to help patients find peace in their final days - whether through reconnecting them with estranged loved ones, helping them accept past regrets, or celebrating forgotten joys.</p>
+                    </div>
+
+                    <div class="vision-section">
+                        <h2>Unique Elements</h2>
+                        <p>By combining innovative memory exploration mechanics, emotionally resonant storytelling, and a unique watercolor-inspired art style with dynamic audio that responds to emotional tones, we create an experience that will leave players with a deeper appreciation for the power of human connection and the profound impact we can have on others' lives, even in their final moments.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="gdds-sidebar">
+        <div class="documents-list">
+            <div class="document-item">
+                <div class="doc-title">
+                    <i class="doc-type-icon fas fa-bullseye"></i>
+                    <span>Game Vision</span>
+                </div>
+                <div class="doc-icons">
+                    <i class="icon fas fa-download" title="Download Document"></i>
+                    <div class="download-options">
+                        <div class="download-option">
+                            <i class="fas fa-file-alt"></i>
+                            MD
+                        </div>
+                        <div class="download-option">
+                            <i class="fas fa-file-pdf"></i>
+                            PDF
+                        </div>
+                        <div class="download-option google-docs">
+                            <i class="fas fa-external-link-alt"></i>
+                            Google Docs
+                        </div>
+                    </div>
+                    <i class="icon fas fa-cog" title="Edit Template"></i>
+                </div>
+            </div>
+        </div>
+        <button class="add-document-btn">
+            <i class="fas fa-plus"></i>
+            Add Document
+        </button>
+    </div>
+
+    <!-- Template Selection Modal -->
+    <div class="modal-overlay" style="display: none;">
+        <div class="template-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Choose a Document Template</h2>
+                <button class="close-button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="template-grid">
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-bullseye"></i>
+                            Game Vision
+                        </h3>
+                        <p class="template-description">Capture the creative essence and high-level concept of your game.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-gamepad"></i>
+                            Core Game Concept
+                        </h3>
+                        <p class="template-description">Define the fundamental gameplay mechanics and player experience.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-users"></i>
+                            Target Audience
+                        </h3>
+                        <p class="template-description">Identify and analyze your game's intended players.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-compass"></i>
+                            Core Pillars & Values
+                        </h3>
+                        <p class="template-description">Establish the key principles that will guide your game's development.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-heart"></i>
+                            Why Would They Play It?
+                        </h3>
+                        <p class="template-description">Define player motivations and retention hooks.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-smile"></i>
+                            What Should They Feel?
+                        </h3>
+                        <p class="template-description">Design the emotional experience and player impact.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-star"></i>
+                            Unique Selling Points
+                        </h3>
+                        <p class="template-description">Identify distinctive features and market differentiation.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-sync"></i>
+                            Game Loop
+                        </h3>
+                        <p class="template-description">Define core gameplay cycle and mechanics.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-route"></i>
+                            Player Journey
+                        </h3>
+                        <p class="template-description">Map player progression and experience arc.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-book"></i>
+                            Story Overview
+                        </h3>
+                        <p class="template-description">Outline narrative foundation and thematic elements.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-tv"></i>
+                            Presentation
+                        </h3>
+                        <p class="template-description">Plan how the game will be shown and marketed.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-question-circle"></i>
+                            Key Questions
+                        </h3>
+                        <p class="template-description">Address critical design and development considerations.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-cogs"></i>
+                            Core Design Details
+                        </h3>
+                        <p class="template-description">Specify systems and design specifications.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                    <div class="template-card">
+                        <h3 class="template-title">
+                            <i class="fas fa-chart-line"></i>
+                            Strategic Direction
+                        </h3>
+                        <p class="template-description">Define business and development strategy.</p>
+                        <div class="template-actions">
+                            <button class="use-template-btn">Use This Template</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="create-template-btn">
+                    <i class="fas fa-plus"></i>
+                    Create New Template
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add JavaScript for dropdown functionality -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadIcon = document.querySelector('.fa-download');
+            const downloadOptions = document.querySelector('.download-options');
+
+            // Toggle dropdown on download icon click
+            downloadIcon.addEventListener('click', function(e) {
+                e.stopPropagation();
+                downloadOptions.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function() {
+                downloadOptions.classList.remove('active');
+            });
+
+            // Prevent closing when clicking inside dropdown
+            downloadOptions.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        });
+    </script>
+</body>
+</html> 

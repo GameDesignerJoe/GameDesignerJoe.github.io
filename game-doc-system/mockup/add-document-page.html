@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS - Add Document</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0d0e;
+            --bg-secondary: #1a1b1e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border: #2a2b2e;
+            --accent: #ff6b6b;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        .page-header {
+            max-width: 1200px;
+            margin: 0 auto 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 24px;
+            padding: 8px;
+            transition: color 0.2s;
+        }
+
+        .close-button:hover {
+            color: var(--text-primary);
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4px;
+        }
+
+        .template-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .template-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
+
+        .template-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 16px 0;
+            font-size: 18px;
+        }
+
+        .template-title i {
+            color: var(--accent);
+            font-size: 20px;
+        }
+
+        .template-description {
+            color: var(--text-secondary);
+            margin: 0 0 20px 0;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .use-template-btn {
+            flex: 1;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        .use-template-btn:hover {
+            opacity: 0.9;
+        }
+
+        .page-footer {
+            max-width: 1200px;
+            margin: 40px auto 0;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .create-template-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .create-template-btn:hover {
+            background: var(--border);
+        }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1 class="page-title">Choose a Document Template</h1>
+        <button class="close-button">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="template-grid">
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-bullseye"></i>
+                Game Vision
+            </h3>
+            <p class="template-description">Capture the creative essence and high-level concept of your game. This foundational document guides all subsequent design decisions.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-gamepad"></i>
+                Core Game Concept
+            </h3>
+            <p class="template-description">Define the fundamental gameplay mechanics and player experience that will bring your vision to life.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-users"></i>
+                Target Audience
+            </h3>
+            <p class="template-description">Identify and analyze your game's intended players, their preferences, and what attracts them to your game.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-compass"></i>
+                Core Pillars & Values
+            </h3>
+            <p class="template-description">Establish the key principles and design values that will guide your game's development journey.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-heart"></i>
+                Why Would They Play It?
+            </h3>
+            <p class="template-description">Define the core motivations and retention hooks that will keep players engaged with your game.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-smile"></i>
+                What Should They Feel?
+            </h3>
+            <p class="template-description">Design the emotional journey and impact you want your game to have on players.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-star"></i>
+                Unique Selling Points
+            </h3>
+            <p class="template-description">Identify the distinctive features and innovations that set your game apart in the market.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-sync"></i>
+                Game Loop
+            </h3>
+            <p class="template-description">Define the core gameplay cycle, mechanics, and systems that drive player engagement.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-route"></i>
+                Player Journey
+            </h3>
+            <p class="template-description">Map out the progression and experience arc that players will follow through your game.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-book"></i>
+                Story Overview
+            </h3>
+            <p class="template-description">Outline the narrative foundation, characters, and thematic elements of your game's story.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-tv"></i>
+                Presentation
+            </h3>
+            <p class="template-description">Plan how your game will be showcased, marketed, and presented to your audience.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-question-circle"></i>
+                Key Questions
+            </h3>
+            <p class="template-description">Address critical design and development considerations that need to be resolved.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-cogs"></i>
+                Core Design Details
+            </h3>
+            <p class="template-description">Specify the detailed systems and design specifications that make up your game.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+
+        <div class="template-card">
+            <h3 class="template-title">
+                <i class="fas fa-chart-line"></i>
+                Strategic Direction
+            </h3>
+            <p class="template-description">Define the business strategy and development approach for your game's success.</p>
+            <div class="template-actions">
+                <button class="use-template-btn">Use This Template</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-footer">
+        <button class="create-template-btn">
+            <i class="fas fa-plus"></i>
+            Create New Template
+        </button>
+    </div>
+</body>
+</html> 

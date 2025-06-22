@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #1a1b1e;
+            --bg-secondary: #2a2b2e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --accent: #ff6b6b;
+            --success: #00b894;
+            --error: #e74c3c;
+            --border: #2a2b2e;
+            --hover: #3a3b3e;
+        }
+
+        body {
+            width: 320px;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 16px;
+        }
+
+        .header {
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 4px 0;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .status-section {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .status-header {
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0 0 12px 0;
+            color: var(--text-secondary);
+        }
+
+        .llm-selector {
+            margin-bottom: 12px;
+        }
+
+        .llm-selector select {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .status-text {
+            color: var(--success);
+        }
+
+        .api-key-section {
+            margin-top: 12px;
+        }
+
+        .api-key-input {
+            width: calc(100% - 80px);
+            padding: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .save-key-button {
+            width: 70px;
+            padding: 8px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .save-key-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .api-key-status {
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .api-key-status.success {
+            color: var(--success);
+        }
+
+        .api-key-status.error {
+            color: var(--error);
+        }
+
+        .project-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .project-info {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .action-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+
+        .action-button:hover {
+            opacity: 0.9;
+        }
+
+        .web-interface {
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .web-interface a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .web-interface a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="title">Game Development Document System</h1>
+        <p class="subtitle">Create, manage, and export game design documents with AI</p>
+    </div>
+
+    <div class="status-section">
+        <h2 class="status-header">AI Configuration</h2>
+        <div class="llm-selector">
+            <select id="llm-select">
+                <option value="claude">Claude.ai (Web)</option>
+                <option value="claude-api">Claude API</option>
+                <option value="gpt4">GPT-4 API</option>
+                <option value="gemini">Google Gemini API</option>
+                <option value="local">Local LLM</option>
+            </select>
+        </div>
+
+        <div id="claude-web-config" class="connection-status">
+            <div class="status-indicator"></div>
+            <span class="status-text">Connected to Claude.ai</span>
+        </div>
+
+        <div id="api-config" class="api-key-section" style="display: none;">
+            <div style="display: flex; align-items: center;">
+                <input type="password" id="api-key-input" class="api-key-input" placeholder="Enter API Key">
+                <button id="save-key-button" class="save-key-button">Save</button>
+            </div>
+            <div id="api-key-status" class="api-key-status"></div>
+        </div>
+    </div>
+
+    <div class="project-section">
+        <div class="project-info">
+            <strong>Active Projects:</strong> 6
+        </div>
+    </div>
+
+    <a href="#" class="action-button">Open Document Interface</a>
+
+    <div class="web-interface">
+        Need an account? <a href="https://claude.ai" target="_blank">Sign up for Claude.ai</a>
+    </div>
+
+    <script type="module">
+        import { APIKeyManager } from '../src/utils/apiKeyManager.js';
+
+        const llmSelect = document.getElementById('llm-select');
+        const apiConfig = document.getElementById('api-config');
+        const claudeWebConfig = document.getElementById('claude-web-config');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const saveKeyButton = document.getElementById('save-key-button');
+        const apiKeyStatus = document.getElementById('api-key-status');
+
+        // Load saved configuration
+        async function loadSavedConfig() {
+            try {
+                const config = await APIKeyManager.getAPIConfig();
+                if (config) {
+                    llmSelect.value = config.provider;
+                    if (config.apiKey) {
+                        apiKeyInput.value = config.apiKey;
+                        updateUIForProvider(config.provider);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading saved configuration:', error);
+            }
+        }
+
+        // Update UI based on selected provider
+        function updateUIForProvider(provider) {
+            if (provider === 'claude') {
+                apiConfig.style.display = 'none';
+                claudeWebConfig.style.display = 'flex';
+            } else {
+                apiConfig.style.display = 'block';
+                claudeWebConfig.style.display = 'none';
+            }
+        }
+
+        // Handle provider selection change
+        llmSelect.addEventListener('change', function(e) {
+            const provider = e.target.value;
+            updateUIForProvider(provider);
+            
+            // Clear status message when switching providers
+            apiKeyStatus.textContent = '';
+            apiKeyStatus.className = 'api-key-status';
+        });
+
+        // Handle API key save
+        saveKeyButton.addEventListener('click', async function() {
+            const provider = llmSelect.value;
+            const apiKey = apiKeyInput.value.trim();
+
+            if (!apiKey) {
+                apiKeyStatus.textContent = 'Please enter an API key';
+                apiKeyStatus.className = 'api-key-status error';
+                return;
+            }
+
+            saveKeyButton.disabled = true;
+            apiKeyStatus.textContent = 'Validating...';
+            apiKeyStatus.className = 'api-key-status';
+
+            try {
+                let isValid = false;
+                
+                if (provider === 'gemini') {
+                    isValid = await APIKeyManager.validateGeminiAPIKey(apiKey);
+                }
+                // Add validation for other providers here
+
+                if (isValid) {
+                    await APIKeyManager.saveAPIConfig({ provider, apiKey });
+                    apiKeyStatus.textContent = 'API key saved successfully';
+                    apiKeyStatus.className = 'api-key-status success';
+                } else {
+                    apiKeyStatus.textContent = 'Invalid API key';
+                    apiKeyStatus.className = 'api-key-status error';
+                }
+            } catch (error) {
+                apiKeyStatus.textContent = 'Error saving API key';
+                apiKeyStatus.className = 'api-key-status error';
+            } finally {
+                saveKeyButton.disabled = false;
+            }
+        });
+
+        // Load saved configuration on startup
+        loadSavedConfig();
+    </script>
+</body>
+</html> 

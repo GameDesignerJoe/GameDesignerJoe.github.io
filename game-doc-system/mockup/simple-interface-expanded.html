@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS</title>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0d0e;
+            --sidebar-bg: #1a1b1e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border: #2a2b2e;
+            --pending: #fdcb6e;
+            --claude-msg: #1e2124;
+            --user-msg: #2f3640;
+            --icon-active: #ecf0f1;
+            --icon-inactive: #4a4a4a;
+            --accent: #ff6b6b;
+            --modal-bg: rgba(0, 0, 0, 0.8);
+            --header-height: 48px;
+            --doc-type-header: #888;
+            --doc-item-bg: #363636;
+            --doc-item-hover: #404040;
+            --doc-item-active: #8c52ff;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Chat Pane Styles */
+        .chat-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            min-width: 400px;
+            background: var(--bg-primary);
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--sidebar-bg);
+        }
+
+        .chat-header-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .chat-header-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            padding: 16px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .claude-message {
+            background: var(--claude-msg);
+            margin-right: 20%;
+        }
+
+        .user-message {
+            background: var(--user-msg);
+            margin-left: 20%;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-primary);
+        }
+
+        .input-area textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--claude-msg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            resize: none;
+            height: 40px;
+            font-family: inherit;
+        }
+
+        /* Document Pane Styles */
+        .document-pane {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            min-width: 600px;
+            background: var(--bg-primary);
+        }
+
+        .document-header {
+            height: var(--header-height);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            background: var(--sidebar-bg);
+        }
+
+        .header-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .version-selector {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .version-selector span {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .version-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .version-dropdown {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .download-button {
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .download-button:hover {
+            color: var(--text-primary);
+        }
+
+        .document-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .document-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+            color: var(--text-primary);
+        }
+
+        .document-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin: 0 0 40px 0;
+            font-style: italic;
+        }
+
+        .content-section {
+            margin-bottom: 32px;
+        }
+
+        .content-section h2 {
+            font-size: 18px;
+            margin: 0 0 16px 0;
+            color: var(--text-primary);
+        }
+
+        .content-section p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        /* Sidebar Styles */
+        .gdds-sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px);
+        }
+
+        .documents-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .doc-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .doc-item {
+            padding: 8px 12px;
+            background: var(--doc-item-bg);
+            border-radius: 4px;
+            margin-bottom: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .doc-item:hover {
+            background: var(--doc-item-hover);
+        }
+
+        .doc-item.active {
+            background: var(--doc-item-active);
+        }
+
+        .doc-item-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .doc-item i {
+            font-size: 14px;
+            width: 16px;
+        }
+
+        .doc-actions {
+            display: flex;
+            gap: 12px;
+            color: var(--text-secondary);
+        }
+
+        .doc-actions i {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .doc-actions i:hover {
+            color: var(--text-primary);
+        }
+
+        .doc-actions i.disabled {
+            color: var(--icon-inactive);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .doc-actions i.disabled:hover {
+            color: var(--icon-inactive);
+        }
+
+        .add-document-btn {
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: opacity 0.2s;
+            margin-top: 16px;
+        }
+
+        .add-document-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="chat-pane">
+            <div class="chat-header">
+                <div class="chat-header-title">Game Vision Document</div>
+                <div class="chat-header-subtitle">Capturing the essence of your game's creative direction</div>
+            </div>
+            <div class="chat-container">
+                <div class="message claude-message">
+                    Let's create a comprehensive game design document. What type of game are you envisioning?
+                </div>
+                <div class="message user-message">
+                    I want to make a game about a hospice nurse who can enter the memories of dying patients to help them find peace.
+                </div>
+                <div class="message claude-message">
+                    That's a fascinating concept. I'll help you create a Game Vision document. Let's start with the core concept and emotional experience you want to deliver.
+                </div>
+            </div>
+            <div class="input-area">
+                <textarea placeholder="Type your message..."></textarea>
+            </div>
+        </div>
+        
+        <div class="document-pane">
+            <div class="document-header">
+                <div class="header-title">Game Vision Document</div>
+                <div class="version-selector">
+                    <span>Version</span>
+                    <div class="version-controls">
+                        <select class="version-dropdown">
+                            <option>v2 - Latest</option>
+                            <option>v1</option>
+                        </select>
+                        <i class="fas fa-download download-button"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="document-content">
+                <h1 class="document-title">"Echoes of Solace" - Game Vision</h1>
+                <p class="document-subtitle">"A poignant journey through fading memories, where compassion becomes a bridge between life and legacy."</p>
+                
+                <div class="content-section">
+                    <h2>Overview</h2>
+                    <p>Echoes of Solace is a single-player atmospheric adventure game where players step into the role of Maya, a hospice nurse with the extraordinary ability to enter her patients' fading memories. Through gentle exploration and environmental puzzle-solving, players navigate through beautifully crafted memory fragments, each representing a patient's unresolved emotions or unfinished business.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Core Experience</h2>
+                    <p>The game's core experience revolves around making meaningful choices about how to help patients find peace in their final days - whether through reconnecting them with estranged loved ones, helping them accept past regrets, or celebrating forgotten joys.</p>
+                </div>
+
+                <div class="content-section">
+                    <h2>Unique Elements</h2>
+                    <p>By combining innovative memory exploration mechanics, emotionally resonant storytelling, and a unique watercolor-inspired art style with dynamic audio that responds to emotional tones, we create an experience that will leave players with a deeper appreciation for the power of human connection and the profound impact we can have on others' lives, even in their final moments.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="gdds-sidebar">
+            <div class="documents-list">
+                <ul class="doc-list">
+                    <li class="doc-item active">
+                        <div class="doc-item-title">
+                            <i class="fas fa-eye"></i>
+                            Game Vision
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-gamepad"></i>
+                            Core Game Concept
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-users"></i>
+                            Target Audience
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-columns"></i>
+                            Core Pillars and Values
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-play"></i>
+                            Why Would They Play It?
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-heart"></i>
+                            What Should They Feel?
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-star"></i>
+                            Unique Selling Points
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-sync"></i>
+                            Game Loop
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-route"></i>
+                            Player Journey
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-book"></i>
+                            Story Overview
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-tv"></i>
+                            Presentation
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-question-circle"></i>
+                            Key Questions
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-cogs"></i>
+                            Core Design Details
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                    <li class="doc-item">
+                        <div class="doc-item-title">
+                            <i class="fas fa-compass"></i>
+                            Strategic Direction
+                        </div>
+                        <div class="doc-actions">
+                            <i class="fas fa-download disabled"></i>
+                            <i class="fas fa-cog"></i>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <button class="add-document-btn">
+                <i class="fas fa-plus"></i>
+                New Document
+            </button>
+        </div>
+    </div>
+</body>
+</html> 

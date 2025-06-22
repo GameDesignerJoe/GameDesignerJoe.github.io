@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS - Game Development Document System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0d0e;
+            --sidebar-bg: #1a1b1e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border: #2a2b2e;
+            --accent: #8c52ff;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 40px auto;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .settings-section {
+            background: var(--sidebar-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .settings-title {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Game Development Document System</h1>
+        <p class="subtitle">Configure your document creation settings</p>
+
+        <div class="settings-section">
+            <div class="settings-title">Document Settings</div>
+            <div class="input-group">
+                <label class="input-label">AI Provider</label>
+                <select id="ai-provider">
+                    <option value="claude">Claude.ai (Web)</option>
+                    <option value="claude-api">Claude API</option>
+                    <option value="gpt4">GPT-4 API</option>
+                    <option value="gemini">Google Gemini API</option>
+                    <option value="local">Local LLM</option>
+                </select>
+            </div>
+            <div class="input-group" id="api-key-group" style="display: none;">
+                <label class="input-label">API Key</label>
+                <input type="password" id="api-key" placeholder="Enter your API key">
+            </div>
+        </div>
+
+        <button id="continue" class="button">Continue</button>
+    </div>
+
+    <script src="document-interface.js"></script>
+</body>
+</html>

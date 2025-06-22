@@ -5,8 +5,8 @@ module.exports = {
   mode: 'development',
   entry: {
     background: './src/background/background.ts',
-    content: './src/content/content.ts',
-    popup: './src/popup/popup.ts'
+    popup: './src/popup/popup.ts',
+    'game-vision': './src/game-vision/game-vision.ts'
   },
   devtool: 'source-map',
   module: {
@@ -32,16 +32,11 @@ module.exports = {
   plugins: [
     new CopyPlugin({
       patterns: [
-        { from: 'src/manifest.json', to: '.' },
-        { from: 'src/popup/popup.html', to: '.' },
-        { from: 'src/css', to: 'css' },
-        { 
-          from: 'src/assets',
-          to: 'assets',
-          globOptions: {
-            ignore: ['**/generate-icons.html']
-          }
-        }
+        { from: 'src/manifest.json', to: 'manifest.json' },
+        { from: 'src/popup/popup.html', to: 'popup.html' },
+        { from: 'src/game-vision/game-vision.html', to: 'game-vision.html' },
+        { from: 'src/assets', to: 'assets' },
+        { from: 'src/css', to: 'css' }
       ]
     })
   ]

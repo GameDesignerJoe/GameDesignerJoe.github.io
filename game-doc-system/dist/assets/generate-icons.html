@@ -60,10 +60,7 @@
   <button onclick="downloadIcons()">Download Icons</button>
 
   <script>
-    function downloadIcons() {
-      const sizes = [16, 48, 128];
-      
-      sizes.forEach(size => {
+    function downloadIcon(size) {
         const icon = document.querySelector(`.size-${size}`);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -87,10 +84,15 @@
         
         // Download
         const link = document.createElement('a');
-        link.download = `icon${size}.png`;
+        link.download = `gd_icon${size}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
-      });
+    }
+
+    function downloadIcons() {
+      downloadIcon(16);
+      setTimeout(() => downloadIcon(48), 500);
+      setTimeout(() => downloadIcon(128), 1000);
     }
   </script>
 </body>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS - Template Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0d0e;
+            --bg-secondary: #1a1b1e;
+            --modal-bg: #2a2b2e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border: #3a3b3e;
+            --accent: #ff6b6b;
+            --success: #00b894;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal {
+            background: var(--modal-bg);
+            width: 800px;
+            max-height: 90vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+
+        .close-button {
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        .modal-content {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .edit-button {
+            padding: 4px 8px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .edit-button:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .content-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 15px;
+        }
+
+        .editable {
+            min-height: 100px;
+            outline: none;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .list-item i {
+            margin-right: 8px;
+            font-size: 0.8em;
+            color: var(--text-secondary);
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            border: none;
+        }
+
+        .cancel-button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .save-button {
+            background: var(--success);
+            color: white;
+        }
+
+        .button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Game Vision Template Settings</div>
+                <i class="fas fa-times close-button"></i>
+            </div>
+            
+            <div class="modal-content">
+                <!-- Document Purpose Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-title">Document Purpose</div>
+                        <button class="edit-button">
+                            <i class="fas fa-pencil-alt"></i> Edit
+                        </button>
+                    </div>
+                    <div class="content-box editable" contenteditable="true">
+                        Capture the creative essence and high-level concept of your game in a clear, inspiring format.
+                    </div>
+                </div>
+
+                <!-- Key Information Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-title">Key Information to Gather</div>
+                        <button class="edit-button">
+                            <i class="fas fa-pencil-alt"></i> Edit
+                        </button>
+                    </div>
+                    <div class="content-box editable" contenteditable="true">
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>Game type and core gameplay
+                        </div>
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>Unique features and innovations
+                        </div>
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>Emotional impact on players
+                        </div>
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>Core promise to players
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Output Format Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-title">Required Output Format</div>
+                        <button class="edit-button">
+                            <i class="fas fa-pencil-alt"></i> Edit
+                        </button>
+                    </div>
+                    <div class="content-box editable" contenteditable="true">
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>Title of the game
+                        </div>
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>Single inspirational line description
+                        </div>
+                        <div class="list-item">
+                            <i class="fas fa-circle"></i>One comprehensive paragraph containing:
+                        </div>
+                        <div style="margin-left: 20px;">
+                            <div class="list-item">
+                                <i class="fas fa-minus"></i>Game type, player count, and platform
+                            </div>
+                            <div class="list-item">
+                                <i class="fas fa-minus"></i>Core gameplay and player fantasy
+                            </div>
+                            <div class="list-item">
+                                <i class="fas fa-minus"></i>Main gameplay experience
+                            </div>
+                            <div class="list-item">
+                                <i class="fas fa-minus"></i>Player motivation and rewards
+                            </div>
+                            <div class="list-item">
+                                <i class="fas fa-minus"></i>Unique elements and lasting impact
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="button cancel-button">Cancel</button>
+                <button class="button save-button">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

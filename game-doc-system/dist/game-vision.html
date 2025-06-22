@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Game Vision Document - GDDS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0d0e;
+            --bg-secondary: #1a1b1e;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --accent: #8c52ff;
+            --button-bg: #f87171;
+            --border: #2a2b2e;
+            --chat-bg: #141619;
+            --input-bg: #141619;
+            --sidebar-width: 250px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .document-list {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .document-item {
+            padding: 8px 12px;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .document-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .document-item.active {
+            background: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .document-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .document-controls {
+            display: flex;
+            gap: 4px;
+            opacity: 0.7;
+        }
+
+        .document-controls button {
+            background: none;
+            border: none;
+            color: inherit;
+            padding: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .document-controls button:hover {
+            opacity: 0.8;
+        }
+
+        .add-document-btn {
+            margin: 16px;
+            padding: 8px 12px;
+            background: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .add-document-btn:hover {
+            opacity: 0.9;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            background: var(--bg-primary);
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin: 2px 0 0 0;
+            font-style: italic;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .chat-message {
+            max-width: 800px;
+            margin: 10px auto;
+            padding: 12px 16px;
+            border-radius: 4px;
+            background: var(--chat-bg);
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .input-container {
+            padding: 16px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border);
+        }
+
+        .message-input {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            display: block;
+            padding: 12px;
+            border-radius: 4px;
+            border: none;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            font-size: 14px;
+            resize: none;
+            outline: none;
+        }
+
+        .message-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            color: var(--text-primary);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .template-section {
+            margin-bottom: 30px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .section-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        .edit-button {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .edit-button:hover {
+            background: rgba(140, 82, 255, 0.1);
+        }
+
+        .template-section-content {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .bullet-list {
+            list-style-type: disc;
+            padding-left: 20px;
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .sub-bullet-list {
+            list-style-type: circle;
+            padding-left: 20px;
+            margin: 5px 0;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .primary-button, .secondary-button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .primary-button {
+            background: var(--accent);
+            color: white;
+        }
+
+        .secondary-button {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        [contenteditable="true"] {
+            outline: 2px solid var(--accent);
+            padding: 10px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .typing-indicator span {
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="document-list">
+            <div class="document-item active">
+                <div class="document-info">
+                    <i class="fas fa-file-alt"></i>
+                    Game Vision
+                </div>
+                <div class="document-controls">
+                    <button title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <button class="add-document-btn">
+            <span>+</span>
+            Add Document
+        </button>
+    </div>
+
+    <div class="main-container">
+        <div class="header">
+            <h1 class="title">Game Vision Document</h1>
+            <p class="subtitle">Capturing the essence of your game's creative direction</p>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-message">
+                Tell me about your game. What's your vision for it?
+            </div>
+        </div>
+
+        <div class="input-container">
+            <textarea class="message-input" placeholder="Type your message here..." rows="1"></textarea>
+        </div>
+    </div>
+
+    <!-- Template Settings Modal -->
+    <div id="templateSettings" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Game Vision Template Settings</h2>
+                <button id="closeModal" class="close-button">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Document Purpose Section -->
+                <div class="template-section" data-section="purpose">
+                    <div class="section-header">
+                        <h3>Document Purpose</h3>
+                        <button class="edit-button">
+                            <i class="fas fa-pencil-alt"></i>
+                            Edit
+                        </button>
+                    </div>
+                    <div class="template-section-content">
+                        Capture the creative essence and high-level concept of your game in a clear, inspiring format.
+                    </div>
+                </div>
+
+                <!-- Key Information Section -->
+                <div class="template-section" data-section="keyInformation">
+                    <div class="section-header">
+                        <h3>Key Information to Gather</h3>
+                        <button class="edit-button">
+                            <i class="fas fa-pencil-alt"></i>
+                            Edit
+                        </button>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>Game type and core gameplay</li>
+                        <li>Unique features and innovations</li>
+                        <li>Emotional impact on players</li>
+                        <li>Core promise to players</li>
+                    </ul>
+                </div>
+
+                <!-- Output Format Section -->
+                <div class="template-section" data-section="outputFormat">
+                    <div class="section-header">
+                        <h3>Required Output Format</h3>
+                        <button class="edit-button">
+                            <i class="fas fa-pencil-alt"></i>
+                            Edit
+                        </button>
+                    </div>
+                    <ul class="bullet-list">
+                        <li>Title of the game</li>
+                        <li>Single inspirational line description</li>
+                        <li>One comprehensive paragraph containing:
+                            <ul class="sub-bullet-list">
+                                <li>Game type, player count, and platform</li>
+                                <li>Core gameplay and player fantasy</li>
+                                <li>Main gameplay experience</li>
+                                <li>Player motivation and rewards</li>
+                                <li>Unique elements and lasting impact</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="cancelChanges" class="secondary-button">Cancel</button>
+                <button id="saveChanges" class="primary-button">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game-vision.js"></script>
+</body>
+</html> 

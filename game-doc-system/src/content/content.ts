@@ -341,39 +341,106 @@ function showNewProjectDialog(): void {
   }
 }
 
+interface ExtensionResponse {
+  success: boolean;
+  data?: any;
+  error?: any;
+}
+
 // Create new project
-function createProject(name: string) {
+async function createProject(name: string) {
+  try {
+    // Check if extension context is valid
+    if (!chrome.runtime) {
+      console.log('Extension context invalid, reloading page');
+      window.location.reload();
+      return;
+    }
+
+    const response = await new Promise<ExtensionResponse>((resolve) => {
+      try {
   chrome.runtime.sendMessage(
     { type: MessageType.CreateProject, payload: { name } },
-    (response) => {
+          (response: ExtensionResponse) => {
+            if (chrome.runtime.lastError) {
+              resolve({ success: false, error: chrome.runtime.lastError });
+            } else {
+              resolve(response);
+            }
+          }
+        );
+      } catch (error) {
+        resolve({ success: false, error });
+      }
+    });
+
       if (response.success) {
         console.log('Project created:', response.data);
-        loadProjects();
+      await loadProjects();
       } else {
         console.error('Failed to create project:', response.error);
         showNotification('Error creating project', 'error');
       }
+  } catch (error) {
+    console.error('Error in createProject:', error);
+    showNotification('Error creating project. Please refresh the page and try again.', 'error');
     }
-  );
 }
 
 // Load projects from storage
-function loadProjects() {
+async function loadProjects() {
+  try {
+    // Check if extension context is valid
+    if (!chrome.runtime) {
+      console.log('Extension context invalid, reloading page');
+      window.location.reload();
+      return;
+    }
+
   const projectsContainer = document.querySelector('.gdds-projects-container');
-  if (projectsContainer) {
+    if (!projectsContainer) return;
+
     projectsContainer.innerHTML = '<div class="gdds-loading">Loading projects...</div>';
     
+    const response = await new Promise<ExtensionResponse>((resolve) => {
+      try {
     chrome.runtime.sendMessage(
       { type: MessageType.GetProjects, payload: {} },
-      (response) => {
+          (response: ExtensionResponse) => {
+            if (chrome.runtime.lastError) {
+              resolve({ success: false, error: chrome.runtime.lastError });
+            } else {
+              resolve(response);
+            }
+          }
+        );
+      } catch (error) {
+        resolve({ success: false, error });
+      }
+    });
+
         if (response.success) {
           renderProjects(response.data || {});
         } else {
           console.error('Failed to load projects:', response.error);
-          projectsContainer.innerHTML = '<div class="gdds-error">Error loading projects</div>';
+      projectsContainer.innerHTML = `
+        <div class="gdds-error">
+          Error loading projects
+          <button class="gdds-button secondary" onclick="window.location.reload()">Refresh Page</button>
+        </div>
+      `;
         }
-      }
-    );
+  } catch (error) {
+    console.error('Error in loadProjects:', error);
+    const projectsContainer = document.querySelector('.gdds-projects-container');
+    if (projectsContainer) {
+      projectsContainer.innerHTML = `
+        <div class="gdds-error">
+          Error loading projects
+          <button class="gdds-button secondary" onclick="window.location.reload()">Refresh Page</button>
+        </div>
+      `;
+    }
   }
 }
 

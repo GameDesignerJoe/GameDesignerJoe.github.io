@@ -1,0 +1,5 @@
+# Echoes of Solace
+
+"A poignant journey through fading memories, where compassion becomes a bridge between life and legacy."
+ 
+Echoes of Solace is a single-player atmospheric adventure game for PC and consoles where players step into the role of Maya, a hospice nurse with the extraordinary ability to enter her patients' fading memories. Through gentle exploration and environmental puzzle-solving, players navigate through beautifully crafted memory fragments, each representing a patient's unresolved emotions or unfinished business. The game's core experience revolves around making meaningful choices about how to help patients find peace in their final days - whether through reconnecting them with estranged loved ones, helping them accept past regrets, or celebrating forgotten joys. By combining innovative memory exploration mechanics, emotionally resonant storytelling, and a unique watercolor-inspired art style with dynamic audio that responds to emotional tones, we create an experience that will leave players with a deeper appreciation for the power of human connection and the profound impact we can have on others' lives, even in their final moments. 

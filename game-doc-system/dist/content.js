@@ -42,10 +42,11 @@ class ClaudeInterface {
                 console.log('ClaudeInterface.sendMessage: No button found, trying Enter key');
                 this.simulateEnterKey(input);
             }
-            // Wait for message to be sent
+            // Wait for message to be sent and get response
             console.log('ClaudeInterface.sendMessage: Waiting for message to appear');
-            await this.waitForResponse();
+            const response = await this.waitForResponse();
             console.log('ClaudeInterface.sendMessage: Message sent and appeared successfully');
+            return response;
         }
         catch (error) {
             console.error('ClaudeInterface.sendMessage: Error sending message:', error);
@@ -74,8 +75,16 @@ class ClaudeInterface {
                 throw new Error('Could not find input field');
             }
             console.log('ClaudeInterface: Found input field:', input.tagName);
-            // Wait for initial messages to load
+            // Clear any existing input
+            await this.clearInput();
+            // Wait for initial messages to load and UI to stabilize
             await new Promise(resolve => setTimeout(resolve, 2000));
+            // Ensure input is still available and focused
+            const finalInput = await this.findInput();
+            if (!finalInput) {
+                throw new Error('Input field not available after initialization');
+            }
+            finalInput.focus();
             console.log('ClaudeInterface: Document creation completed successfully');
         }
         catch (error) {
@@ -84,51 +93,41 @@ class ClaudeInterface {
         }
     }
     static async sendMessageToClaude(message) {
-        // Find Claude's input field
-        const input = await this.findInput();
-        if (!input) {
-            throw new Error('Could not find input field');
-        }
-        // Set the message
-        this.setInputValue(input, message);
-        // Send the message
-        const button = await this.findButton(input);
-        if (button) {
-            button.click();
-        }
-        else {
-            this.simulateEnterKey(input);
-        }
-        // Wait for response
-        await this.waitForResponse();
-        // Get Claude's response
-        const responseElements = document.querySelectorAll('div.prose, div.markdown');
-        const lastResponse = responseElements[responseElements.length - 1];
-        if (lastResponse) {
-            // Add response to our interface
-            const chatArea = document.querySelector('.gdds-chat-area');
-            if (chatArea) {
-                // Remove any existing messages with the same content
-                const existingMessages = chatArea.querySelectorAll('.gdds-message');
-                existingMessages.forEach(msg => {
-                    if (msg.textContent === lastResponse.textContent) {
-                        msg.remove();
-                    }
-                });
-                // Add the new response
-                const responseMessage = document.createElement('div');
-                responseMessage.className = 'gdds-message gdds-assistant-message';
-                responseMessage.innerHTML = `
-          <div class="prose dark:prose-invert">
-            <p>${lastResponse.textContent || ''}</p>
-          </div>
-        `;
-                chatArea.appendChild(responseMessage);
-                chatArea.scrollTop = chatArea.scrollHeight;
+        console.log('ClaudeInterface.sendMessageToClaude: Starting to send message:', message.substring(0, 50) + '...');
+        try {
+            // Find Claude's input field
+            const input = await this.findInput();
+            if (!input) {
+                throw new Error('Could not find input field');
             }
+            // Clear existing input
+            await this.clearInput();
+            await new Promise(resolve => setTimeout(resolve, 100));
+            // Set the message
+            this.setInputValue(input, message);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            // Find and click the send button
+            const button = await this.findButton(input);
+            if (button) {
+                console.log('ClaudeInterface.sendMessageToClaude: Clicking send button');
+                button.click();
+            }
+            else {
+                console.log('ClaudeInterface.sendMessageToClaude: Using Enter key fallback');
+                this.simulateEnterKey(input);
+            }
+            // Wait for and capture response
+            console.log('ClaudeInterface.sendMessageToClaude: Waiting for response');
+            const response = await this.waitForResponse();
+            if (!response) {
+                throw new Error('No response received from Claude');
+            }
+            console.log('ClaudeInterface.sendMessageToClaude: Received response:', response.substring(0, 100) + '...');
+            return response;
         }
-        else {
-            throw new Error('No response received from Claude');
+        catch (error) {
+            console.error('ClaudeInterface.sendMessageToClaude: Error:', error);
+            throw error;
         }
     }
     static async waitForResponse(timeout = 10000) {
@@ -141,56 +140,45 @@ class ClaudeInterface {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 continue;
             }
-            // Look for response elements
-            const responseIndicators = [
-                'div.prose',
-                'div.markdown',
-                'div[class*="message"]',
-                'div[class*="response"]',
-                'div[class*="assistant"]',
-                'div[class*="claude"]'
+            // Updated selectors for Claude's modern interface
+            const responseSelectors = [
+                '.prose.w-full',
+                '.markdown.prose',
+                '[data-message-author-role="assistant"]',
+                '.claude-message-content',
+                '.message-content',
+                '.prose'
             ];
-            // Get initial state
-            const initialMessages = responseIndicators.flatMap(selector => Array.from(document.querySelectorAll(selector)));
-            console.log('ClaudeInterface.waitForResponse: Initial message count:', initialMessages.length);
-            // Wait for new message to appear
-            let lastCheck = Date.now();
-            while (Date.now() - start < timeout) {
-                // Check for loading state
-                if (this.checkLoadingState()) {
-                    console.log('ClaudeInterface.waitForResponse: Still loading...');
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    lastCheck = Date.now();
-                    continue;
-                }
-                // Get current state
-                const currentMessages = responseIndicators.flatMap(selector => Array.from(document.querySelectorAll(selector)));
-                // Check for new messages
-                if (currentMessages.length > initialMessages.length) {
-                    console.log('ClaudeInterface.waitForResponse: Found new message');
-                    // Wait a bit more to ensure response is complete
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    return;
-                }
-                // Check if any existing messages changed
-                const hasChanges = currentMessages.some((msg, i) => {
-                    const initial = initialMessages[i];
-                    return !initial || msg.textContent !== initial.textContent;
-                });
-                if (hasChanges) {
-                    console.log('ClaudeInterface.waitForResponse: Message content changed');
-                    // Wait a bit more to ensure response is complete
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    return;
-                }
-                // Only sleep if we haven't just checked loading state
-                if (Date.now() - lastCheck > 100) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
+            // Get all potential response elements
+            const responseElements = responseSelectors.flatMap(selector => Array.from(document.querySelectorAll(selector)));
+            if (responseElements.length > 0) {
+                // Get the last response element
+                const lastResponse = responseElements[responseElements.length - 1];
+                if (lastResponse && lastResponse.textContent) {
+                    console.log('ClaudeInterface.waitForResponse: Found response:', lastResponse.textContent.substring(0, 100) + '...');
+                    return lastResponse.textContent;
                 }
             }
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait a bit before checking again
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
         console.log('ClaudeInterface.waitForResponse: Timed out waiting for response');
+        throw new Error('No response received from Claude within timeout period');
+    }
+    static checkLoadingState() {
+        const loadingIndicators = [
+            '[data-loading="true"]',
+            '.loading',
+            '.typing-indicator',
+            '[aria-label*="loading"]',
+            '[class*="loading"]',
+            '[class*="typing"]',
+            '.animate-pulse'
+        ];
+        return loadingIndicators.some(selector => {
+            const elements = document.querySelectorAll(selector);
+            return elements.length > 0;
+        });
     }
     static async waitForInterface(timeout = 30000) {
         console.log('ClaudeInterface.waitForInterface: Starting to wait for interface');
@@ -230,15 +218,6 @@ class ClaudeInterface {
         const error = 'Timeout waiting for Claude interface to be ready';
         console.error('ClaudeInterface.waitForInterface:', error);
         throw new Error(error);
-    }
-    static checkLoadingState() {
-        const loadingIndicators = [
-            'div[aria-label*="loading"]',
-            'div[class*="loading"]',
-            'div[class*="spinner"]',
-            'div[role="progressbar"]'
-        ];
-        return loadingIndicators.some(selector => document.querySelector(selector) !== null);
     }
     static async findButton(input) {
         let button = null;
@@ -331,45 +310,62 @@ class ClaudeInterface {
     }
     static async findInput() {
         console.log('ClaudeInterface.findInput: Starting to search for input element');
-        // Helper function to check if an element is truly editable
-        const isEditable = (element) => {
-            if (element instanceof HTMLTextAreaElement) {
-                return !element.disabled && !element.readOnly;
-            }
-            else if (element.hasAttribute('contenteditable')) {
-                return element.getAttribute('contenteditable') === 'true' &&
-                    window.getComputedStyle(element).display !== 'none';
-            }
-            return false;
-        };
+        // Updated selectors for Claude's modern interface
         const selectors = [
-            // Primary Claude selectors
             'div[contenteditable="true"].ProseMirror',
-            'div[contenteditable="true"].text-input',
-            'div[contenteditable="true"].chat-input',
-            'div.claude-input[contenteditable="true"]',
-            // Secondary Claude selectors
+            'textarea.claude-input',
             'div[contenteditable="true"]',
-            'div.ProseMirror[contenteditable="true"]',
-            // Fallback selectors
             'textarea[placeholder*="Send a message"]',
-            'textarea[placeholder*="message"]',
-            'textarea.chat-input',
-            'textarea[role="textbox"]'
+            'div[role="textbox"]',
+            '[data-message-author-role="user"] div[contenteditable="true"]'
         ];
         for (const selector of selectors) {
             console.log('ClaudeInterface.findInput: Trying selector:', selector);
             const input = document.querySelector(selector);
-            if (input && isEditable(input)) {
+            if (input && this.isEditable(input)) {
                 console.log('ClaudeInterface.findInput: Found editable input with selector:', selector);
                 return input;
             }
-            else if (input) {
-                console.log('ClaudeInterface.findInput: Found input but not editable with selector:', selector);
+        }
+        console.log('ClaudeInterface.findInput: No input element found');
+        return null;
+    }
+    static isEditable(element) {
+        if (element instanceof HTMLTextAreaElement) {
+            return !element.disabled && !element.readOnly;
+        }
+        else if (element.hasAttribute('contenteditable')) {
+            return element.getAttribute('contenteditable') === 'true' &&
+                window.getComputedStyle(element).display !== 'none';
+        }
+        return false;
+    }
+    static async handleUserInput(input) {
+        try {
+            // Send user's input and get response
+            const response = await this.sendMessage(input);
+            // Check if response contains questions
+            if (response.includes('?')) {
+                await this.handleFollowUpQuestions(response);
+            }
+            else {
+                await this.handleDocumentCreation(response);
             }
         }
-        console.log('ClaudeInterface.findInput: No input element found with any selector');
-        return null;
+        catch (error) {
+            console.error('Error handling user input:', error);
+            throw error;
+        }
+    }
+    static async handleFollowUpQuestions(response) {
+        // For now, just log that we received follow-up questions
+        console.log('Handling follow-up questions:', response);
+        // TODO: Implement follow-up question handling
+    }
+    static async handleDocumentCreation(response) {
+        // For now, just log that we're creating the document
+        console.log('Creating document with response:', response);
+        // TODO: Implement document creation
     }
 }
 
@@ -474,10 +470,36 @@ Use their language and ideas while ensuring all elements are covered.`;
         }
         console.log('PromptManager: Found prompt:', prompt);
         try {
-            // Start the document creation process using Claude interface
+            // Initialize Claude interface
             console.log('PromptManager: Starting Claude interface');
             await _claudeInterface__WEBPACK_IMPORTED_MODULE_0__.ClaudeInterface.startDocumentCreation();
-            console.log('PromptManager: Document creation started successfully');
+            // Wait for UI to be ready
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Send the system prompt first (silently)
+            console.log('PromptManager: Sending system prompt');
+            const systemPrompt = this.getSystemPrompt(type);
+            await _claudeInterface__WEBPACK_IMPORTED_MODULE_0__.ClaudeInterface.sendMessage(systemPrompt, true);
+            // Wait for system prompt to be processed
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Send the welcome message
+            console.log('PromptManager: Sending welcome message');
+            await _claudeInterface__WEBPACK_IMPORTED_MODULE_0__.ClaudeInterface.sendMessage(prompt.welcomeMessage);
+            // Set up event listener for user input
+            const input = document.querySelector('.claude-input, [contenteditable="true"]');
+            if (input) {
+                input.addEventListener('keydown', async (event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        const userInput = input instanceof HTMLTextAreaElement ?
+                            input.value :
+                            input.textContent || '';
+                        if (userInput.trim()) {
+                            await _claudeInterface__WEBPACK_IMPORTED_MODULE_0__.ClaudeInterface.handleUserInput(userInput);
+                        }
+                    }
+                });
+            }
+            console.log('PromptManager: Document creation setup completed');
         }
         catch (error) {
             console.error('PromptManager: Error during document creation:', error);
@@ -921,32 +943,95 @@ function showNewProjectDialog() {
     }
 }
 // Create new project
-function createProject(name) {
-    chrome.runtime.sendMessage({ type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.CreateProject, payload: { name } }, (response) => {
+async function createProject(name) {
+    try {
+        // Check if extension context is valid
+        if (!chrome.runtime) {
+            console.log('Extension context invalid, reloading page');
+            window.location.reload();
+            return;
+        }
+        const response = await new Promise((resolve) => {
+            try {
+                chrome.runtime.sendMessage({ type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.CreateProject, payload: { name } }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        resolve({ success: false, error: chrome.runtime.lastError });
+                    }
+                    else {
+                        resolve(response);
+                    }
+                });
+            }
+            catch (error) {
+                resolve({ success: false, error });
+            }
+        });
         if (response.success) {
             console.log('Project created:', response.data);
-            loadProjects();
+            await loadProjects();
         }
         else {
             console.error('Failed to create project:', response.error);
             showNotification('Error creating project', 'error');
         }
-    });
+    }
+    catch (error) {
+        console.error('Error in createProject:', error);
+        showNotification('Error creating project. Please refresh the page and try again.', 'error');
+    }
 }
 // Load projects from storage
-function loadProjects() {
-    const projectsContainer = document.querySelector('.gdds-projects-container');
-    if (projectsContainer) {
+async function loadProjects() {
+    try {
+        // Check if extension context is valid
+        if (!chrome.runtime) {
+            console.log('Extension context invalid, reloading page');
+            window.location.reload();
+            return;
+        }
+        const projectsContainer = document.querySelector('.gdds-projects-container');
+        if (!projectsContainer)
+            return;
         projectsContainer.innerHTML = '<div class="gdds-loading">Loading projects...</div>';
-        chrome.runtime.sendMessage({ type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.GetProjects, payload: {} }, (response) => {
-            if (response.success) {
-                renderProjects(response.data || {});
+        const response = await new Promise((resolve) => {
+            try {
+                chrome.runtime.sendMessage({ type: _shared_types__WEBPACK_IMPORTED_MODULE_0__.MessageType.GetProjects, payload: {} }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        resolve({ success: false, error: chrome.runtime.lastError });
+                    }
+                    else {
+                        resolve(response);
+                    }
+                });
             }
-            else {
-                console.error('Failed to load projects:', response.error);
-                projectsContainer.innerHTML = '<div class="gdds-error">Error loading projects</div>';
+            catch (error) {
+                resolve({ success: false, error });
             }
         });
+        if (response.success) {
+            renderProjects(response.data || {});
+        }
+        else {
+            console.error('Failed to load projects:', response.error);
+            projectsContainer.innerHTML = `
+        <div class="gdds-error">
+          Error loading projects
+          <button class="gdds-button secondary" onclick="window.location.reload()">Refresh Page</button>
+        </div>
+      `;
+        }
+    }
+    catch (error) {
+        console.error('Error in loadProjects:', error);
+        const projectsContainer = document.querySelector('.gdds-projects-container');
+        if (projectsContainer) {
+            projectsContainer.innerHTML = `
+        <div class="gdds-error">
+          Error loading projects
+          <button class="gdds-button secondary" onclick="window.location.reload()">Refresh Page</button>
+        </div>
+      `;
+        }
     }
 }
 // Render projects list

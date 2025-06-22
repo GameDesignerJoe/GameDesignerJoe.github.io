@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GDDS - Document Creation</title>
+    <style>
+        :root {
+            --bg-primary: #1a1b1e;
+            --bg-secondary: #2a2b2e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --accent: #ff6b6b;
+            --border: #3a3b3e;
+            --success: #00b894;
+            --pending: #fdcb6e;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .gdds-sidebar {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+        }
+
+        .document-list {
+            margin-top: 20px;
+        }
+
+        .document-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .document-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .status-not-started { background: var(--text-secondary); }
+        .status-in-progress { background: var(--pending); }
+        .status-completed { background: var(--success); }
+
+        .document-goals {
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            width: calc(100% - 340px);
+            z-index: 100;
+        }
+
+        .goals-content {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .output-format {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <!-- GDDS Sidebar -->
+    <div class="gdds-sidebar">
+        <h3>Game: Echoes of Solace</h3>
+        <div class="document-list">
+            <div class="document-item">
+                <div style="display: flex; align-items: center;">
+                    <div class="document-status status-in-progress"></div>
+                    Game Vision
+                </div>
+                <span>In Progress</span>
+            </div>
+            <div class="document-item">
+                <div style="display: flex; align-items: center;">
+                    <div class="document-status status-not-started"></div>
+                    Core Game Concept
+                </div>
+                <span>Not Started</span>
+            </div>
+            <!-- Additional documents would be listed here -->
+        </div>
+    </div>
+
+    <!-- Document Goals Panel -->
+    <div class="document-goals">
+        <h2>Creating: Game Vision Document</h2>
+        <div class="goals-content">
+            <h4>Document Purpose</h4>
+            <p>Capture the creative essence and high-level concept of your game in a clear, inspiring format.</p>
+
+            <h4>Key Information to Gather</h4>
+            <ul>
+                <li>Game type and core gameplay</li>
+                <li>Unique features and innovations</li>
+                <li>Emotional impact on players</li>
+                <li>Core promise to players</li>
+            </ul>
+
+            <div class="output-format">
+                <h4>Required Output Format</h4>
+                <ul>
+                    <li>Title of the game</li>
+                    <li>Single inspirational line description</li>
+                    <li>One comprehensive paragraph containing:
+                        <ul>
+                            <li>Game type, player count, and platform</li>
+                            <li>Core gameplay and player fantasy</li>
+                            <li>Main gameplay experience</li>
+                            <li>Player motivation and rewards</li>
+                            <li>Unique elements and lasting impact</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

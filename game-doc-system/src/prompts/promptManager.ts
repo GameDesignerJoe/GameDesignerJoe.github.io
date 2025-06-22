@@ -97,10 +97,43 @@ Use their language and ideas while ensuring all elements are covered.`;
     console.log('PromptManager: Found prompt:', prompt);
 
     try {
-      // Start the document creation process using Claude interface
+      // Initialize Claude interface
       console.log('PromptManager: Starting Claude interface');
       await ClaudeInterface.startDocumentCreation();
-      console.log('PromptManager: Document creation started successfully');
+      
+      // Wait for UI to be ready
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Send the system prompt first (silently)
+      console.log('PromptManager: Sending system prompt');
+      const systemPrompt = this.getSystemPrompt(type);
+      await ClaudeInterface.sendMessage(systemPrompt, true);
+      
+      // Wait for system prompt to be processed
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Send the welcome message
+      console.log('PromptManager: Sending welcome message');
+      await ClaudeInterface.sendMessage(prompt.welcomeMessage);
+      
+      // Set up event listener for user input
+      const input = document.querySelector('.claude-input, [contenteditable="true"]') as HTMLElement;
+      if (input) {
+        input.addEventListener('keydown', async (event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            const userInput = input instanceof HTMLTextAreaElement ? 
+              input.value : 
+              input.textContent || '';
+            
+            if (userInput.trim()) {
+              await ClaudeInterface.handleUserInput(userInput);
+            }
+          }
+        });
+      }
+
+      console.log('PromptManager: Document creation setup completed');
     } catch (error) {
       console.error('PromptManager: Error during document creation:', error);
       throw error;

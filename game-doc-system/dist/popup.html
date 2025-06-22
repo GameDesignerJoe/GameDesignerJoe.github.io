@@ -35,6 +35,9 @@
       cursor: pointer;
       text-decoration: none;
       margin-top: 10px;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
     }
     
     .button:hover {
@@ -56,17 +59,94 @@
     .project-count {
       margin-top: 5px;
     }
+
+    .llm-selector {
+      margin: 15px 0;
+    }
+
+    .llm-selector select {
+      width: 100%;
+      padding: 8px;
+      background-color: #363636;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      color: #f0f0f0;
+      font-size: 14px;
+    }
+
+    .api-key-section {
+      margin-top: 15px;
+      display: none;
+    }
+
+    .api-key-input {
+      width: calc(100% - 80px);
+      padding: 8px;
+      background-color: #363636;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      color: #f0f0f0;
+      font-size: 14px;
+    }
+
+    .save-key-button {
+      width: 70px;
+      padding: 8px;
+      background-color: #8c52ff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+
+    .save-key-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .api-key-status {
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .api-key-status.success {
+      color: #4caf50;
+    }
+
+    .api-key-status.error {
+      color: #f44336;
+    }
   </style>
 </head>
 <body>
   <h1>Game Development Document System</h1>
   
-  <p>Create, manage, and export game design documents with Claude AI.</p>
+  <p>Create, manage, and export game design documents with AI.</p>
   
   <div class="status">
     <div class="status-label">Status:</div>
     <div id="connection-status">Checking connection...</div>
     <div class="project-count" id="project-count"></div>
+  </div>
+
+  <div class="llm-selector">
+    <select id="llm-select">
+      <option value="claude">Claude.ai (Web)</option>
+      <option value="claude-api">Claude API</option>
+      <option value="gpt4">GPT-4 API</option>
+      <option value="gemini">Google Gemini API</option>
+      <option value="local">Local LLM</option>
+    </select>
+  </div>
+
+  <div id="api-config" class="api-key-section">
+    <div style="display: flex; align-items: center;">
+      <input type="password" id="api-key-input" class="api-key-input" placeholder="Enter API Key">
+      <button id="save-key-button" class="save-key-button">Save</button>
+    </div>
+    <div id="api-key-status" class="api-key-status"></div>
   </div>
   
   <button id="open-claude" class="button">Open Claude.ai</button>

@@ -79,3 +79,6 @@ export interface Response {
   data?: any;
   error?: string;
 }
+
+// LLM Provider Types
+export type LLMProvider = 'claude' | 'claude-api' | 'gpt4' | 'gemini' | 'local';
