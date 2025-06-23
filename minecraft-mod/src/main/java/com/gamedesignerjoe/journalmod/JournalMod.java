@@ -13,6 +13,8 @@ import net.minecraft.util.Identifier;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.item.ItemGroups;
 
+import com.gamedesignerjoe.journalmod.block.TestBlockInteract;
+
 import java.util.function.Function;
 
 public class JournalMod implements ModInitializer {
@@ -21,6 +23,13 @@ public class JournalMod implements ModInitializer {
     public static final Block TEST_BLOCK = register(
         "test_block",
         Block::new,
+        AbstractBlock.Settings.create().strength(2.0f),
+        true
+    );
+
+    public static final Block TEST_BLOCK_INTERACT = register(
+        "test_block_interact",
+        TestBlockInteract::new, // Use our new custom block class
         AbstractBlock.Settings.create().strength(2.0f),
         true
     );
@@ -44,6 +53,7 @@ public class JournalMod implements ModInitializer {
 
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.BUILDING_BLOCKS).register(content -> {
             content.add(TEST_BLOCK);
+            content.add(TEST_BLOCK_INTERACT);
         });
     }
 }
