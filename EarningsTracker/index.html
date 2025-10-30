@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earnings Tracker</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #111827;
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+        
+        .title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4ade80;
+            margin-bottom: 2rem;
+        }
+        
+        .earnings-display {
+            text-align: center;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .total-earnings {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #4ade80;
+            margin-bottom: 0.5rem;
+        }
+        
+        .hourly-rate {
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+        
+        .trivia {
+            font-size: 0.875rem;
+            font-style: italic;
+            color: #93c5fd;
+            margin-bottom: 0.5rem;
+            max-width: 28rem;
+            margin-left: auto;
+            margin-right: auto;
+            min-height: 1.5rem;
+        }
+        
+        .time-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        
+        .time-unit {
+            text-align: center;
+        }
+        
+        .time-value {
+            font-size: 3rem;
+        }
+        
+        .time-label {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+        
+        .time-separator {
+            color: #4b5563;
+            font-size: 2rem;
+        }
+        
+        .controls {
+            background-color: #1f2937;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            max-width: 28rem;
+            margin: 2rem auto;
+        }
+        
+        .control-group {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .control-group:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .button {
+            background-color: #2563eb;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .button:hover {
+            background-color: #1d4ed8;
+        }
+        
+        .input {
+            background-color: #374151;
+            color: white;
+            padding: 0.5rem;
+            border: 1px solid #4b5563;
+            border-radius: 0.25rem;
+            width: 100%;
+        }
+        
+        .input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        
+        .label {
+            display: block;
+            color: #9ca3af;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            color: white;
+            font-size: 0.875rem;
+        }
+        
+        .checkbox {
+            width: 1rem;
+            height: 1rem;
+            accent-color: #2563eb;
+        }
+        
+        .tax-input-group {
+            margin-top: 0.75rem;
+            margin-left: 1.75rem;
+        }
+        
+        .tax-input {
+            width: 5rem;
+            background-color: #374151;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #4b5563;
+            border-radius: 0.25rem;
+        }
+        
+        .help-text {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        
+        .breakdown {
+            margin-top: 3rem;
+        }
+        
+        .breakdown-toggle {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0 auto;
+            font-size: 0.875rem;
+            transition: color 0.2s;
+        }
+        
+        .breakdown-toggle:hover {
+            color: #d1d5db;
+        }
+        
+        .breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .breakdown-item {
+            background-color: #1f2937;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            text-align: center;
+        }
+        
+        .breakdown-label {
+            color: #9ca3af;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .breakdown-value {
+            color: #4ade80;
+            font-weight: bold;
+            font-size: 0.875rem;
+        }
+        
+        .breakdown-value.tax {
+            color: #f87171;
+        }
+        
+        .floating-earnings {
+            position: absolute;
+            color: #4ade80;
+            font-size: 0.875rem;
+            font-weight: bold;
+            pointer-events: none;
+            white-space: nowrap;
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+            animation: earningsFloat 3.5s ease-out forwards;
+        }
+        
+        .tax-drip {
+            position: absolute;
+            color: #ef4444;
+            font-size: 0.875rem;
+            font-weight: bold;
+            pointer-events: none;
+            white-space: nowrap;
+            text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+            animation: taxDrip 2.5s ease-in forwards;
+        }
+        
+        @keyframes earningsFloat {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+                transform: translateY(-10px) scale(1.1);
+            }
+            50% {
+                transform: translateY(-100px) scale(1);
+                opacity: 1;
+            }
+            90% {
+                opacity: 0.8;
+                transform: translateY(-150px) scale(0.95);
+            }
+            100% {
+                transform: translateY(-200px) scale(0.9);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes taxDrip {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+                transform: translateY(5px) scale(1.1);
+            }
+            50% {
+                transform: translateY(40px) scale(1);
+            }
+            90% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(80px) scale(0.9);
+                opacity: 0;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .title {
+                font-size: 1.5rem;
+            }
+            
+            .total-earnings {
+                font-size: 2rem;
+            }
+            
+            .time-value {
+                font-size: 2rem;
+            }
+            
+            .time-display {
+                gap: 0.5rem;
+            }
+            
+            .time-separator {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, Fragment } = React;
+        
+        const EarningsTracker = () => {
+            const [startTime] = useState(Date.now());
+            const [currentTime, setCurrentTime] = useState(Date.now());
+            const [totalEarnings, setTotalEarnings] = useState(0);
+            const [totalTaxesPaid, setTotalTaxesPaid] = useState(0);
+            const [taxDrips, setTaxDrips] = useState([]);
+            const [earningsFloats, setEarningsFloats] = useState([]);
+            const [inputMode, setInputMode] = useState('hourly');
+            const [hourlyWage, setHourlyWage] = useState(100);
+            const [yearlySalary, setYearlySalary] = useState(208000);
+            const [includeTaxes, setIncludeTaxes] = useState(false);
+            const [taxRate, setTaxRate] = useState(28);
+            const [currentTrivia, setCurrentTrivia] = useState(null);
+            const [dayStartTime, setDayStartTime] = useState(Date.now());
+            const [showRateBreakdown, setShowRateBreakdown] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
+            
+            const WORK_HOURS_PER_YEAR = 2080;
+            
+            const grossHourlyWage = inputMode === 'hourly' ? hourlyWage : yearlySalary / WORK_HOURS_PER_YEAR;
+            const currentHourlyWage = includeTaxes ? grossHourlyWage * (1 - taxRate / 100) : grossHourlyWage;
+            const PER_SECOND_RATE = currentHourlyWage / 3600;
+            const TAX_PER_SECOND = includeTaxes ? (grossHourlyWage * taxRate / 100) / 3600 : 0;
+            const DRIP_INTERVAL = 10;
+            const TAX_PER_DRIP = TAX_PER_SECOND * DRIP_INTERVAL;
+            const FLOAT_INTERVAL = 30;
+            const EARNINGS_PER_FLOAT = PER_SECOND_RATE * FLOAT_INTERVAL;
+            
+            const formatDuration = (seconds) => {
+                if (seconds < 60) return `${seconds} seconds`;
+                if (seconds < 3600) {
+                    const minutes = Math.floor(seconds / 60);
+                    return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+                }
+                const hours = Math.floor(seconds / 3600);
+                const remainingMinutes = Math.floor((seconds % 3600) / 60);
+                if (remainingMinutes === 0) {
+                    return hours === 1 ? '1 hour' : `${hours} hours`;
+                }
+                return `${hours} hour${hours === 1 ? '' : 's'} ${remainingMinutes} min`;
+            };
+            
+            const timeTrivia = [
+                { seconds: 10, activity: "realize you're on mute and fumble for the unmute button for" },
+                { seconds: 30, activity: "open a spam email that took" },
+                { seconds: 60, activity: "check your phone for" },
+                { seconds: 120, activity: "take a bio break that lasted" },
+                { seconds: 180, activity: "make coffee and chat for" },
+                { seconds: 300, activity: "eat a snack at your desk for" },
+                { seconds: 600, activity: "send a Slack message that took" },
+                { seconds: 900, activity: "attend a meeting that could've been an email for" },
+                { seconds: 1800, activity: "take a nap at work for" },
+                { seconds: 3600, activity: "sit through mandatory training for" }
+            ];
+            
+            const billionaires = [
+                { name: "Elon Musk", perSecond: 6420 },
+                { name: "Jeff Bezos", perSecond: 2200 },
+                { name: "Mark Zuckerberg", perSecond: 1600 },
+                { name: "Warren Buffett", perSecond: 900 },
+                { name: "Bill Gates", perSecond: 800 }
+            ];
+            
+            const lowWageJobs = [
+                { name: "a McDonald's crew member", perSecond: 0.0042 },
+                { name: "a public school teacher", perSecond: 0.0072 },
+                { name: "a minimum wage worker", perSecond: 0.0020 },
+                { name: "a retail worker", perSecond: 0.0036 }
+            ];
+            
+            const getRetirementTrivia = (currentWage) => {
+                const annualIncome = currentWage * 2080;
+                const retirementNeeded = annualIncome * 25;
+                const avgRetirementSavings = 185000;
+                const shortfall = retirementNeeded - avgRetirementSavings;
+                const yearsToSave = shortfall / (annualIncome * 0.15);
+                
+                return [
+                    `You'll need $${formatMoney(retirementNeeded)} saved to maintain this lifestyle in retirement`,
+                    `Average Americans are $${formatMoney(shortfall)} short of retirement goals`,
+                    `At this rate, you'd need to work ${Math.floor(yearsToSave)} more years to retire comfortably`
+                ];
+            };
+            
+            const getLifestyleTrivia = (currentWage) => {
+                const minuteWage = currentWage / 60;
+                
+                const timeWorked = (cost) => {
+                    const minutes = Math.round(cost / minuteWage);
+                    if (minutes < 60) return `${minutes} minutes`;
+                    const hours = Math.floor(minutes / 60);
+                    const mins = minutes % 60;
+                    if (mins === 0) return `${hours} hour${hours === 1 ? '' : 's'}`;
+                    return `${hours} hour${hours === 1 ? '' : 's'} ${mins} min`;
+                };
+                
+                return [
+                    { text: `Your avocado toast habit`, cost: 22 },
+                    { text: `That Starbucks drink`, cost: 6.50 },
+                    { text: `Netflix subscription (monthly)`, cost: 17.99 },
+                    { text: `Your DoorDash order`, cost: 45 },
+                    { text: `Your rent (monthly)`, cost: 2500 }
+                ].map(item => ({
+                    ...item,
+                    timeToEarn: timeWorked(item.cost)
+                }));
+            };
+            
+            const formatMoney = (amount) => {
+                return Math.abs(amount).toLocaleString('en-US', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                });
+            };
+            
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    const now = Date.now();
+                    setCurrentTime(now);
+                    
+                    const elapsed = (now - startTime) / 1000;
+                    const newEarnings = elapsed * PER_SECOND_RATE;
+                    setTotalEarnings(newEarnings);
+                    
+                    if (includeTaxes) {
+                        setTotalTaxesPaid(elapsed * TAX_PER_SECOND);
+                    }
+                    
+                    const dayElapsed = (now - dayStartTime) / 1000;
+                    const applicableTrivia = timeTrivia.filter(t => dayElapsed >= t.seconds);
+                    if (applicableTrivia.length > 0) {
+                        const triviaType = Math.floor(dayElapsed / 12) % 5;
+                        
+                        if (triviaType === 0) {
+                            const triviaIndex = Math.floor(dayElapsed / 60) % applicableTrivia.length;
+                            const selectedTrivia = applicableTrivia[triviaIndex];
+                            const activityEarnings = selectedTrivia.seconds * PER_SECOND_RATE;
+                            const duration = formatDuration(selectedTrivia.seconds);
+                            
+                            setCurrentTrivia(
+                                React.createElement('span', null,
+                                    React.createElement('span', { style: { color: '#4ade80' } }, 
+                                        `+$${formatMoney(activityEarnings)}`),
+                                    ` to ${selectedTrivia.activity} ${duration}`
+                                )
+                            );
+                        } else if (triviaType === 1) {
+                            const billionaireIndex = Math.floor(dayElapsed / 60) % billionaires.length;
+                            const selectedBillionaire = billionaires[billionaireIndex];
+                            const billionaireEarnings = dayElapsed * selectedBillionaire.perSecond;
+                            
+                            setCurrentTrivia(
+                                `${selectedBillionaire.name} earned $${formatMoney(billionaireEarnings)} in this time`
+                            );
+                        } else if (triviaType === 2) {
+                            const jobIndex = Math.floor(dayElapsed / 60) % lowWageJobs.length;
+                            const selectedJob = lowWageJobs[jobIndex];
+                            const jobEarnings = dayElapsed * selectedJob.perSecond;
+                            
+                            setCurrentTrivia(
+                                `${selectedJob.name} earned $${formatMoney(jobEarnings)} in this time`
+                            );
+                        } else if (triviaType === 3) {
+                            const retirementTrivia = getRetirementTrivia(currentHourlyWage);
+                            const retirementIndex = Math.floor(dayElapsed / 120) % retirementTrivia.length;
+                            
+                            setCurrentTrivia(retirementTrivia[retirementIndex]);
+                        } else {
+                            const lifestyleTrivia = getLifestyleTrivia(currentHourlyWage);
+                            const lifestyleIndex = Math.floor(dayElapsed / 120) % lifestyleTrivia.length;
+                            const item = lifestyleTrivia[lifestyleIndex];
+                            
+                            setCurrentTrivia(
+                                React.createElement('span', null,
+                                    `${item.text}: `,
+                                    React.createElement('span', { style: { color: '#f87171' } }, 
+                                        `-$${formatMoney(item.cost)}`),
+                                    ` = ${item.timeToEarn} of work`
+                                )
+                            );
+                        }
+                    }
+                }, 100);
+                
+                return () => clearInterval(interval);
+            }, [startTime, PER_SECOND_RATE, dayStartTime, includeTaxes, TAX_PER_SECOND, currentHourlyWage]);
+            
+            useEffect(() => {
+                const floatTimer = setInterval(() => {
+                    const newFloat = {
+                        id: Date.now(),
+                        value: EARNINGS_PER_FLOAT.toFixed(2),
+                        position: 50 + (Math.random() - 0.5) * 30,
+                        animation: Math.random() * 1.5 + 3
+                    };
+                    
+                    setEarningsFloats(current => [...current, newFloat]);
+                    
+                    setTimeout(() => {
+                        setEarningsFloats(current => current.filter(f => f.id !== newFloat.id));
+                    }, 5000);
+                }, FLOAT_INTERVAL * 1000);
+                
+                return () => clearInterval(floatTimer);
+            }, [EARNINGS_PER_FLOAT]);
+            
+            useEffect(() => {
+                if (!includeTaxes) {
+                    setTaxDrips([]);
+                    return;
+                }
+                
+                const dripTimer = setInterval(() => {
+                    const newDrip = {
+                        id: Date.now(),
+                        value: TAX_PER_DRIP.toFixed(2),
+                        position: 50 + (Math.random() - 0.5) * 30,
+                        animation: Math.random() * 1.5 + 2
+                    };
+                    
+                    setTaxDrips(current => [...current, newDrip]);
+                    
+                    setTimeout(() => {
+                        setTaxDrips(current => current.filter(d => d.id !== newDrip.id));
+                    }, 4000);
+                }, DRIP_INTERVAL * 1000);
+                
+                return () => clearInterval(dripTimer);
+            }, [includeTaxes, TAX_PER_DRIP]);
+            
+            const elapsed = (currentTime - startTime) / 1000;
+            const weeks = Math.floor(elapsed / (7 * 24 * 3600));
+            const days = Math.floor((elapsed % (7 * 24 * 3600)) / (24 * 3600));
+            const hours = Math.floor((elapsed % (24 * 3600)) / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = Math.floor(elapsed % 60);
+            
+            return React.createElement('div', { className: 'container' },
+                React.createElement('h1', { className: 'title' }, '💰 Earnings Tracker'),
+                
+                React.createElement('div', { className: 'earnings-display' },
+                    currentTrivia && React.createElement('div', { className: 'trivia' }, currentTrivia),
+                    React.createElement('div', { style: { position: 'relative', display: 'inline-block' } },
+                        React.createElement('div', { className: 'total-earnings' }, 
+                            `$${formatMoney(totalEarnings)}`
+                        ),
+                        taxDrips.map(drip =>
+                            React.createElement('div', {
+                                key: drip.id,
+                                className: 'tax-drip',
+                                style: {
+                                    left: `${drip.position}%`,
+                                    top: '100%',
+                                    animationDuration: `${drip.animation}s`
+                                }
+                            }, `-$${drip.value} tax`)
+                        )
+                    ),
+                    React.createElement('div', { className: 'hourly-rate' },
+                        `@ $${currentHourlyWage.toFixed(2)}/hour ${includeTaxes ? `(net after ${taxRate}% tax)` : '(gross)'}`
+                    )
+                ),
+                
+                React.createElement('div', { className: 'time-display' },
+                    [
+                        { label: 'weeks', value: weeks },
+                        { label: 'days', value: days },
+                        { label: 'hours', value: hours },
+                        { label: 'minutes', value: minutes },
+                        { label: 'seconds', value: seconds }
+                    ].map((timeUnit, index) =>
+                        React.createElement(Fragment, { key: timeUnit.label },
+                            React.createElement('div', { className: 'time-unit' },
+                                React.createElement('div', { className: 'time-value' },
+                                    timeUnit.value.toString().padStart(2, '0')
+                                ),
+                                React.createElement('div', { className: 'time-label' }, timeUnit.label)
+                            ),
+                            index < 4 && React.createElement('div', { className: 'time-separator' }, ':')
+                        )
+                    ),
+                    earningsFloats.map(float =>
+                        React.createElement('div', {
+                            key: float.id,
+                            className: 'floating-earnings',
+                            style: {
+                                left: `${float.position}%`,
+                                bottom: '0%',
+                                animationDuration: `${float.animation}s`
+                            }
+                        }, `+$${float.value}`)
+                    )
+                ),
+                
+                React.createElement('div', { className: 'breakdown' },
+                    React.createElement('button', {
+                        className: 'breakdown-toggle',
+                        onClick: () => setShowRateBreakdown(!showRateBreakdown)
+                    },
+                        React.createElement('span', null, showRateBreakdown ? '▼' : '▶'),
+                        React.createElement('span', null, 'Rate Breakdown')
+                    ),
+                    
+                    showRateBreakdown && React.createElement('div', { className: 'breakdown-grid' },
+                        [
+                            { label: 'Per Week', value: currentHourlyWage * 40 },
+                            { label: 'Per Day', value: currentHourlyWage * 8 },
+                            { label: 'Per Hour', value: currentHourlyWage },
+                            { label: 'Per Minute', value: currentHourlyWage / 60 },
+                            { label: 'Per Second', value: PER_SECOND_RATE }
+                        ].map(item =>
+                            React.createElement('div', { key: item.label, className: 'breakdown-item' },
+                                React.createElement('div', { className: 'breakdown-label' }, item.label),
+                                React.createElement('div', { className: 'breakdown-value' }, 
+                                    `$${formatMoney(item.value)}`
+                                )
+                            )
+                        ),
+                        includeTaxes && React.createElement('div', { className: 'breakdown-item' },
+                            React.createElement('div', { className: 'breakdown-label' }, 'Taxes Paid'),
+                            React.createElement('div', { className: 'breakdown-value tax' }, 
+                                `$${formatMoney(totalTaxesPaid)}`
+                            )
+                        )
+                    )
+                ),
+                
+                React.createElement('div', { style: { marginTop: '3rem' } },
+                    React.createElement('button', {
+                        className: 'breakdown-toggle',
+                        onClick: () => setShowSettings(!showSettings),
+                        style: { marginBottom: '1rem' }
+                    },
+                        React.createElement('span', null, showSettings ? '▼' : '▶'),
+                        React.createElement('span', null, 'Settings & Controls')
+                    ),
+                    
+                    showSettings && React.createElement('div', { className: 'controls' },
+                        React.createElement('div', { className: 'control-group', style: { textAlign: 'center' } },
+                            React.createElement('button', {
+                                className: 'button',
+                                onClick: () => setDayStartTime(Date.now())
+                            }, 'Start New Day'),
+                            React.createElement('p', { className: 'help-text' }, 'Timer started when page loaded')
+                        ),
+                        
+                        React.createElement('div', { className: 'control-group' },
+                            React.createElement('label', { className: 'checkbox-label' },
+                                React.createElement('input', {
+                                    type: 'checkbox',
+                                    className: 'checkbox',
+                                    checked: includeTaxes,
+                                    onChange: (e) => setIncludeTaxes(e.target.checked)
+                                }),
+                                `Take out ${taxRate}% taxes (net income)`
+                            ),
+                            
+                            includeTaxes && React.createElement('div', { className: 'tax-input-group' },
+                                React.createElement('label', { className: 'label' }, 'Tax Rate %'),
+                                React.createElement('span', null,
+                                    React.createElement('input', {
+                                        type: 'number',
+                                        className: 'tax-input',
+                                        value: taxRate,
+                                        onChange: (e) => setTaxRate(Number(e.target.value) || 0),
+                                        min: 0,
+                                        max: 100,
+                                        step: 1
+                                    }),
+                                    React.createElement('span', { style: { color: '#9ca3af', marginLeft: '0.25rem' } }, '%')
+                                )
+                            )
+                        ),
+                        
+                        React.createElement('div', { style: { textAlign: 'center', marginBottom: '1rem' } },
+                            React.createElement('button', {
+                                className: 'button',
+                                onClick: () => {
+                                    const newMode = inputMode === 'hourly' ? 'yearly' : 'hourly';
+                                    setInputMode(newMode);
+                                    if (newMode === 'yearly') {
+                                        setYearlySalary(hourlyWage * WORK_HOURS_PER_YEAR);
+                                    } else {
+                                        setHourlyWage(yearlySalary / WORK_HOURS_PER_YEAR);
+                                    }
+                                }
+                            }, inputMode === 'hourly' ? 'Switch to Yearly Salary' : 'Switch to Hourly Rate')
+                        ),
+                        
+                        inputMode === 'hourly' ? 
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'label' }, 'Hourly Rate'),
+                                React.createElement('div', { style: { position: 'relative' } },
+                                    React.createElement('span', { 
+                                        style: { 
+                                            position: 'absolute', 
+                                            left: '0.75rem', 
+                                            top: '50%', 
+                                            transform: 'translateY(-50%)', 
+                                            color: '#9ca3af' 
+                                        } 
+                                    }, '$'),
+                                    React.createElement('input', {
+                                        type: 'number',
+                                        className: 'input',
+                                        style: { paddingLeft: '2rem' },
+                                        value: hourlyWage || '',
+                                        onChange: (e) => setHourlyWage(Number(e.target.value) || 0),
+                                        placeholder: '0.00',
+                                        step: 0.01,
+                                        min: 0
+                                    })
+                                )
+                            ) :
+                            React.createElement('div', null,
+                                React.createElement('label', { className: 'label' }, 'Yearly Salary'),
+                                React.createElement('div', { style: { position: 'relative' } },
+                                    React.createElement('span', { 
+                                        style: { 
+                                            position: 'absolute', 
+                                            left: '0.75rem', 
+                                            top: '50%', 
+                                            transform: 'translateY(-50%)', 
+                                            color: '#9ca3af' 
+                                        } 
+                                    }, '$'),
+                                    React.createElement('input', {
+                                        type: 'number',
+                                        className: 'input',
+                                        style: { paddingLeft: '2rem' },
+                                        value: yearlySalary || '',
+                                        onChange: (e) => setYearlySalary(Number(e.target.value) || 0),
+                                        placeholder: '0',
+                                        step: 1000,
+                                        min: 0
+                                    })
+                                ),
+                                React.createElement('div', { className: 'help-text' }, 
+                                    `Based on ${WORK_HOURS_PER_YEAR} work hours/year`
+                                )
+                            )
+                    )
+                )
+            );
+        };
+        
+        ReactDOM.render(React.createElement(EarningsTracker), document.getElementById('root'));
+    </script>
+</body>
+</html>
