@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guardian Translation System Prototype</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4fc3f7;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .control-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .box-title {
+            color: #4fc3f7;
+            font-size: 18px;
+            margin: 0 0 20px 0;
+            text-align: center;
+            border-bottom: 2px solid rgba(79, 195, 247, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .control-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-weight: bold;
+            color: #4fc3f7;
+            font-size: 14px;
+        }
+        
+        input, select, button, textarea {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 2px solid rgba(79, 195, 247, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        select option {
+            background: #2a2a3e;
+            color: #e0e0e0;
+            padding: 8px;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4fc3f7;
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4fc3f7, #29b6f6);
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 12px 24px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 195, 247, 0.4);
+        }
+        
+        .examples {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .example {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid #4fc3f7;
+        }
+        
+        .example-header {
+            font-weight: bold;
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .translation-stage {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .stage-label {
+            font-size: 12px;
+            color: #81c784;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .alien-text {
+            font-family: 'Courier New', monospace;
+            color: #e1bee7;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        
+        .partial-text {
+            color: #ffb74d;
+        }
+        
+        .partial-text .revealed {
+            color: #4fc3f7;
+            background: rgba(79, 195, 247, 0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .partial-text .established {
+            color: #81c784;
+            font-weight: 500;
+        }
+        
+        .full-text {
+            color: #81c784;
+            font-weight: 500;
+        }
+        
+        .word-count {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-item {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌌 Guardian Translation System Prototype</h1>
+        <p>Simulate how alien text gradually becomes readable as Guardian bonds deepen</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-box">
+            <h3 class="box-title">📋 Generate Random Quote Examples</h3>
+            <div class="control-group">
+                <div class="control-item">
+                    <label for="lengthCategory">Quote Length:</label>
+                    <select id="lengthCategory">
+                        <option value="short">Short (3-5 words)</option>
+                        <option value="medium" selected>Medium (6-10 words)</option>
+                        <option value="long">Long (11-15 words)</option>
+                        <option value="verbose">Verbose (16+ words)</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label for="exampleCount">Number of Examples:</label>
+                    <input type="number" id="exampleCount" value="3" min="1" max="10">
+                </div>
+                <div class="control-item">
+                    <label for="guardianRandom">Guardian Type:</label>
+                    <select id="guardianRandom">
+                        <option value="dogbird">Dog Bird (Resurrection)</option>
+                        <option value="feyn">Feyn (Combat)</option>
+                        <option value="zephyrian">Zephyrian (Traversal)</option>
+                        <option value="thrum">Thrum (Protection)</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="generateExamples()">Generate Quote Examples</button>
+        </div>
+        
+        <div class="control-box">
+            <h3 class="box-title">✏️ Test Your Own Dialogue</h3>
+            <div class="control-group" style="flex-direction: column; align-items: stretch;">
+                <div class="control-item">
+                    <label for="customText">Enter Your Dialogue:</label>
+                    <textarea id="customText" placeholder="Enter dialogue to see translation progression..." 
+                        style="width: calc(100% - 20px); min-height: 80px; resize: vertical; font-family: inherit; box-sizing: border-box;"></textarea>
+                </div>
+                <div class="control-item">
+                    <label for="guardianCustom">Guardian Type:</label>
+                    <select id="guardianCustom">
+                        <option value="dogbird">Dog Bird (Resurrection)</option>
+                        <option value="feyn">Feyn (Combat)</option>
+                        <option value="zephyrian">Zephyrian (Traversal)</option>
+                        <option value="thrum">Thrum (Protection)</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="generateCustomExample()">Test Custom Dialogue</button>
+        </div>
+    </div>
+
+    <div id="examples" class="examples"></div>
+
+    <div class="controls" style="margin-top: 30px;">
+        <div style="grid-column: 1 / -1;">
+            <h3 style="color: #4fc3f7; margin-bottom: 15px;">🧠 How the Algorithm Works</h3>
+            <p style="line-height: 1.6; color: #c0c0c0;">
+                The translation system assigns each word an <strong>importance score</strong> and reveals the highest-scoring words first. 
+                <strong>High priority words</strong> (score 5) include key concepts like "power," "truth," and "victory." 
+                <strong>Medium priority words</strong> (score 4) include action words like "fight," "make," "handle" and proper nouns like names. 
+                <strong>Lower priority words</strong> (score 2-3) are longer descriptive words. 
+                <strong>Filler words</strong> (score 1) like "the," "and," "of" are revealed last.
+            </p>
+            <p style="line-height: 1.6; color: #c0c0c0;">
+                At each stage, the algorithm reveals a percentage of total words (25%, 50%, 75%, 100%) by selecting the highest-scoring words that haven't been revealed yet. 
+                <span style="color: #4fc3f7; font-weight: bold;">Newly revealed words get blue brackets</span>, while 
+                <span style="color: #81c784; font-weight: bold;">previously revealed words stay plain green</span>. 
+                This creates a natural progression where the most meaningful words emerge first, followed by context and detail.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Famous movie quotes organized by length
+        const MOVIE_QUOTES = {
+            short: [
+                "May the Force be with you",
+                "I'll be back",
+                "Here's looking at you kid",
+                "Phone home",
+                "Show me the money",
+                "I am your father",
+                "Houston we have a problem",
+                "To infinity and beyond",
+                "Nobody puts Baby in corner",
+                "You can't handle the truth",
+                "Say hello to my friend",
+                "Go ahead make my day",
+                "I see dead people",
+                "Keep your friends close",
+                "Life finds a way"
+            ],
+            medium: [
+                "Life is like a box of chocolates",
+                "Nobody puts Baby in a corner",
+                "I see dead people everywhere around us",
+                "You can't handle the truth about this",
+                "Houston we have a major problem here",
+                "Keep your friends close but enemies closer",
+                "With great power comes great responsibility",
+                "I'm gonna make him an offer",
+                "Roads where we're going we don't need",
+                "You're gonna need a bigger boat here",
+                "The first rule of Fight Club is",
+                "I love the smell of napalm morning",
+                "After all tomorrow is another day completely",
+                "Frankly my dear I don't give damn",
+                "I have a very bad feeling about",
+                "May the odds be ever in favor"
+            ],
+            long: [
+                "With great power there must also come great responsibility",
+                "The first rule of Fight Club is you don't talk about Fight Club",
+                "I'm gonna make him an offer he simply cannot possibly refuse",
+                "Roads where we're going we don't need any stinking roads",
+                "You're gonna need a bigger boat to catch that shark",
+                "I love the smell of napalm in the morning it smells like victory",
+                "Frankly my dear I don't give a damn about what you think",
+                "After all tomorrow is another day and we'll figure it out",
+                "I have a very bad feeling about this whole situation here",
+                "May the odds be ever in your favor during the games",
+                "Nobody expects the Spanish Inquisition our chief weapon is surprise",
+                "I find your lack of faith in the Force disturbing",
+                "These aren't the droids you're looking for move along now",
+                "Do or do not there is no try in this situation",
+                "The needs of the many outweigh the needs of the few"
+            ],
+            verbose: [
+                "Frankly my dear I don't give a damn about what you think or what anyone else thinks anymore", // 18 words
+                "After all tomorrow is another day and we'll figure out our problems then somehow I'm sure of it", // 18 words  
+                "You talkin to me because I don't see anybody else standing here right now in this room with us", // 19 words
+                "I'm gonna make him an offer he can't refuse and he'll understand the consequences if he says no", // 18 words
+                "The first rule of Fight Club is you do not talk about Fight Club ever to anyone anywhere period", // 18 words
+                "With great power there must also come great responsibility and the wisdom to use it properly and justly", // 17 words
+                "Roads where we're going we don't need roads because we'll be flying through time in this amazing machine", // 17 words
+                "I find your lack of faith in the Force disturbing and disappointing young Skywalker you must learn to believe", // 17 words
+                "These aren't the droids you're looking for you can go about your business now move along there's nothing here", // 18 words
+                "The needs of the many outweigh the needs of the few or the one person in this difficult situation", // 18 words
+                "I have a very bad feeling about this whole situation and what might happen to us next my friend", // 18 words
+                "May the odds be ever in your favor during the Hunger Games and may you survive to see another day", // 19 words
+                "Nobody expects the Spanish Inquisition our chief weapon is surprise and fear and ruthless efficiency among our weaponry", // 17 words
+                "You can't handle the truth because the truth requires a strength of character that you simply do not possess", // 17 words
+                "Life is like a box of chocolates you never know what you're gonna get until you bite into one", // 18 words
+            ]
+        };
+
+        // Alien script generators for different Guardians
+        const ALIEN_SCRIPTS = {
+            dogbird: ['◦', '◉', '○', '●', '◈', '◇', '♦', '⬡', '⬢', '⬣'],
+            feyn: ['▲', '▼', '◆', '◈', '⬢', '⬡', '⟐', '⧫', '∆', '≋'],
+            zephyrian: ['◊', '◇', '⟡', '⟢', '⟣', '⟤', '◉', '○', '◦', '●'],
+            thrum: ['▣', '▢', '▤', '▥', '▦', '▧', '▨', '▩', '■', '□']
+        };
+
+        function generateRandomSentence(lengthCategory) {
+            const quotes = MOVIE_QUOTES[lengthCategory];
+            return quotes[Math.floor(Math.random() * quotes.length)];
+        }
+
+        function generateAlienText(englishText, guardian) {
+            const scripts = ALIEN_SCRIPTS[guardian];
+            return englishText.split(' ').map(word => {
+                const alienLength = Math.max(2, Math.floor(word.length * 0.8));
+                return Array.from({length: alienLength}, () => 
+                    scripts[Math.floor(Math.random() * scripts.length)]
+                ).join('');
+            }).join(' ');
+        }
+
+        function getWordImportance(word, guardian) {
+            // Handle empty or invalid words
+            if (!word || typeof word !== 'string') return 1;
+            
+            const lowerWord = word.toLowerCase().replace(/[.,!?]/g, '');
+            
+            // Skip empty words after cleaning
+            if (!lowerWord) return 1;
+            
+            // High importance words (story terms and key concepts)
+            const highImportanceWords = ['force', 'power', 'responsibility', 'truth', 'victory', 'problem', 'money', 'friends', 'enemies'];
+            if (highImportanceWords.includes(lowerWord)) return 5;
+            
+            // Medium importance words (action words, descriptive terms)
+            const mediumWords = ['back', 'handle', 'close', 'need', 'make', 'going', 'dead', 'fight', 'catch', 'talk'];
+            if (mediumWords.includes(lowerWord)) return 4;
+            
+            // Names and proper nouns (capitalized words that aren't sentence starters)
+            if (word.length > 0 && word[0] === word[0].toUpperCase() && !['The', 'A', 'An', 'I'].includes(word)) return 4;
+            
+            // Common filler words (articles, prepositions, etc.)
+            const fillerWords = ['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 
+                               'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'from', 'up', 'about', 'into', 'through', 'during',
+                               'and', 'but', 'or', 'so', 'if', 'when', 'where', 'why', 'how', 'that', 'this', 'these', 'those'];
+            if (fillerWords.includes(lowerWord)) return 1;
+            
+            // Word length heuristic (longer words often more important)
+            if (word.length >= 7) return 3;
+            if (word.length >= 5) return 2;
+            
+            return 2; // Default importance
+        }
+
+        function getPartialTranslation(englishText, alienText, level, guardian) {
+            const englishWords = englishText.split(' ');
+            const alienWords = alienText.split(' ');
+            
+            // Calculate how many words to reveal based on level
+            const revealPercentages = [0, 0.25, 0.5, 0.75, 1.0];
+            const revealPercent = revealPercentages[level];
+            
+            // Score and sort words by importance
+            const wordScores = englishWords.map((word, index) => ({
+                word,
+                alienWord: alienWords[index],
+                index,
+                importance: getWordImportance(word, guardian)
+            }));
+            
+            wordScores.sort((a, b) => b.importance - a.importance);
+            
+            // Select top words to reveal at this level
+            const wordsToReveal = Math.ceil(englishWords.length * revealPercent);
+            const revealedIndices = new Set(
+                wordScores.slice(0, wordsToReveal).map(item => item.index)
+            );
+            
+            // Get previously revealed words (from previous level)
+            const prevRevealPercent = level > 0 ? revealPercentages[level - 1] : 0;
+            const prevWordsToReveal = Math.ceil(englishWords.length * prevRevealPercent);
+            const prevRevealedIndices = new Set(
+                wordScores.slice(0, prevWordsToReveal).map(item => item.index)
+            );
+            
+            // Build partial translation
+            return englishWords.map((word, index) => {
+                if (revealedIndices.has(index)) {
+                    // Check if this word was newly revealed in this stage
+                    const isNewInThisStage = !prevRevealedIndices.has(index);
+                    
+                    if (isNewInThisStage) {
+                        // Newly revealed words get brackets and highlight
+                        return `<span class="revealed">[${word}]</span>`;
+                    } else {
+                        // Previously revealed words are just plain green
+                        return `<span class="established">${word}</span>`;
+                    }
+                } else {
+                    return alienWords[index];
+                }
+            }).join(' ');
+        }
+
+        function generateCustomExample() {
+            const customText = document.getElementById('customText').value.trim();
+            const guardian = document.getElementById('guardianCustom').value;
+            
+            if (!customText) {
+                alert('Please enter some dialogue to test!');
+                return;
+            }
+            
+            const examplesDiv = document.getElementById('examples');
+            
+            // Clear previous examples and add custom result
+            examplesDiv.innerHTML = '';
+            
+            const alienText = generateAlienText(customText, guardian);
+            const wordCount = customText.split(' ').length;
+            
+            const exampleDiv = document.createElement('div');
+            exampleDiv.className = 'example';
+            
+            let stagesHTML = `<div class="example-header">Custom Dialogue Translation</div>`;
+            
+            // Generate all 5 stages (0-4)
+            for (let stage = 0; stage <= 4; stage++) {
+                if (stage === 0) {
+                    stagesHTML += `
+                        <div class="translation-stage">
+                            <div class="stage-label">Stage 0: No Bond - Pure Alien Script</div>
+                            <div class="alien-text">${alienText}</div>
+                            <div class="word-count">0% comprehension</div>
+                        </div>
+                    `;
+                } else if (stage === 4) {
+                    stagesHTML += `
+                        <div class="translation-stage">
+                            <div class="stage-label">Stage 4: Maximum Bond - Full Translation</div>
+                            <div class="full-text">${customText}</div>
+                            <div class="word-count">100% comprehension</div>
+                        </div>
+                    `;
+                } else {
+                    const percentage = stage * 25;
+                    stagesHTML += `
+                        <div class="translation-stage">
+                            <div class="stage-label">Stage ${stage}: ${percentage}% Translation</div>
+                            <div class="partial-text">${getPartialTranslation(customText, alienText, stage, guardian)}</div>
+                            <div class="word-count">${Math.ceil(wordCount * (stage * 0.25))} words revealed</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            exampleDiv.innerHTML = stagesHTML;
+            examplesDiv.appendChild(exampleDiv);
+        }
+
+        function generateExamples() {
+            const lengthCategory = document.getElementById('lengthCategory').value;
+            const exampleCount = parseInt(document.getElementById('exampleCount').value);
+            const guardian = document.getElementById('guardianRandom').value;
+            
+            const availableQuotes = [...MOVIE_QUOTES[lengthCategory]]; // Create a copy
+            const actualExampleCount = Math.min(exampleCount, availableQuotes.length);
+            
+            const examplesDiv = document.getElementById('examples');
+            examplesDiv.innerHTML = '';
+            
+            // Show message if requesting more examples than available
+            if (exampleCount > availableQuotes.length) {
+                const warningDiv = document.createElement('div');
+                warningDiv.style.cssText = 'background: rgba(255, 193, 7, 0.1); color: #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;';
+                warningDiv.innerHTML = `<strong>Note:</strong> Only ${availableQuotes.length} quotes available for "${lengthCategory}" category. Showing all ${actualExampleCount} examples.`;
+                examplesDiv.appendChild(warningDiv);
+            }
+            
+            for (let i = 0; i < actualExampleCount; i++) {
+                // Pick a random quote and remove it from the pool to prevent duplicates
+                const randomIndex = Math.floor(Math.random() * availableQuotes.length);
+                const englishText = availableQuotes.splice(randomIndex, 1)[0];
+                const alienText = generateAlienText(englishText, guardian);
+                
+                const exampleDiv = document.createElement('div');
+                exampleDiv.className = 'example';
+                
+                let stagesHTML = `<div class="example-header">Quote Example ${i + 1} (${lengthCategory})</div>`;
+                
+                // Generate all 5 stages (0-4)
+                for (let stage = 0; stage <= 4; stage++) {
+                    if (stage === 0) {
+                        stagesHTML += `
+                            <div class="translation-stage">
+                                <div class="stage-label">Stage 0: No Bond - Pure Alien Script</div>
+                                <div class="alien-text">${alienText}</div>
+                                <div class="word-count">0% comprehension</div>
+                            </div>
+                        `;
+                    } else if (stage === 4) {
+                        stagesHTML += `
+                            <div class="translation-stage">
+                                <div class="stage-label">Stage 4: Maximum Bond - Full Translation</div>
+                                <div class="full-text">${englishText}</div>
+                                <div class="word-count">100% comprehension</div>
+                            </div>
+                        `;
+                    } else {
+                        const percentage = stage * 25;
+                        stagesHTML += `
+                            <div class="translation-stage">
+                                <div class="stage-label">Stage ${stage}: ${percentage}% Translation</div>
+                                <div class="partial-text">${getPartialTranslation(englishText, alienText, stage, guardian)}</div>
+                                <div class="word-count">${Math.ceil(englishText.split(' ').length * (stage * 0.25))} words revealed</div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                exampleDiv.innerHTML = stagesHTML;
+                examplesDiv.appendChild(exampleDiv);
+            }
+        }
+
+        // Generate initial examples
+        generateExamples();
+    </script>
+</body>
+</html>
