@@ -1,0 +1,204 @@
+# Never Played - TODO List
+
+## High Priority (Core Functionality)
+
+### 1. Learn Vercel auto-deploy workflow
+- Push to GitHub main branch → auto-deploys to Vercel
+- No manual action needed after initial setup
+- Test: Make small change, push to GitHub, verify deploy
+
+### 2. Add Steam store page links to games
+- Click game card → opens `https://store.steampowered.com/app/{appId}`
+- Target: `_blank` to open in new tab
+- Add "View in Steam Store" button or make entire card clickable
+
+### 3. Implement "Played Elsewhere" feature
+- Separate from blacklist (different localStorage key: `playedElsewhere`)
+- Button on game cards: "🎮 Played Elsewhere"
+- Affects stats: counts toward "Tried" percentage
+- Show "✅ Played Elsewhere" badge instead of "❌ Never Played"
+- Exclude from "Never Played" count
+- Add reset option for played elsewhere list
+
+---
+
+## Bug Fixes
+
+### 4. Debug tag filtering issue
+- **Issue:** "The Wolf Among Us" (98% rating) disappears when "Singleplayer" selected
+- Check if SteamSpy returns correct tags for this game
+- Verify filtering logic isn't excluding it incorrectly
+- Log tags to console for debugging
+- Test with multiple games that should have "Singleplayer" tag
+
+### 5. Review tag accuracy
+- Display tags on game cards in library view
+- Verify SteamSpy tags match Steam's actual tags
+- Consider showing top 3-5 tags per game
+- Add visual tag chips/badges to game cards
+- Make tags clickable to filter by that tag
+
+### 6. Verify "Oldest App ID" sorting
+- **Issue:** App ID 115100 appears but unclear if truly "old"
+- Test case: Compare against known old games (Counter-Strike = App ID 10)
+- Research what App ID 115100 actually is
+- May need better sorting logic or actual release dates
+- Consider if App ID is reliable proxy for age
+
+---
+
+## Feature Improvements
+
+### 7. Remove/disable "Sort by Release Date" temporarily
+- Currently broken or using placeholder data
+- Gray out option or remove from dropdown
+- Re-enable after implementing proper release date fetching from SteamSpy
+- Add tooltip: "Coming soon"
+
+### 8. UI/UX polish
+**Collapsible sections:**
+- Collapsible Steam ID input section (after first use)
+- Collapsible Library Stats section
+- Remember collapse state in localStorage
+
+**Responsive design:**
+- Better mobile responsiveness
+- Touch-friendly buttons
+- Readable text sizes on small screens
+
+**User feedback:**
+- Loading states for all async operations
+- Error messages with helpful context
+- Success confirmations for actions
+- Progress indicators for long operations
+
+### 9. Additional feature brainstorming
+- **Random game picker button:** "Feeling lucky?" - picks truly random game
+- **Play streak tracking:** Track consecutive days playing new games
+- **Game length estimates:** Integrate HLTB data more prominently
+- **Genre mood selector:** "I feel like playing..." → filter by mood/genre
+- **Share library stats:** Generate shareable image/link of stats
+
+---
+
+## Long-term / Research
+
+### 10. Steam Store API integration
+**Benefits:**
+- Game descriptions/synopsis
+- Screenshots and media
+- Detailed review breakdowns
+- Price information
+- More accurate metadata
+
+**Trade-offs:**
+- Slower load times (additional API calls)
+- More complex caching logic
+- Rate limiting concerns
+- May need separate endpoint per game
+
+**Implementation approach:**
+- Start with on-demand fetching (only when user clicks game)
+- Cache aggressively to avoid repeated calls
+- Show loading state while fetching
+- Graceful degradation if API fails
+
+### 11. Mobile Support
+- Get Steam app to open when selecting a link on mobile.
+
+### 12. Badges
+- Do another pass on badges you can earn just by the make up of your Steam game account:
+    - Old Gamer
+    - Well Played
+    - Hoarder
+    - Solo
+    - Half Way There
+    - etc.
+
+
+
+---
+
+## To Consider (Future Ideas)
+
+### Quality of Life Improvements
+- **Remember last Steam ID:** Save in localStorage, pre-populate input field
+- **Show game thumbnails:** Display game icons in suggestion card and library
+- **"Currently Playing" status:** Mark games you're actively playing
+- **Export stats as image:** Generate shareable screenshot of library stats for social media
+- **Better game card design:** More visual polish, hover effects, card animations
+
+### Discovery Features
+- **Similar games suggestions:** Based on shared tags with games you've played
+- **Hidden gems filter:** High rating (90%+) + low ownership (<100k players)
+- **Quick wins filter:** Show only games with HLTB < 5 hours
+- **Daily/weekly challenges:** Gamification - "Try 3 horror games this week"
+- **Genre deep dive:** "Explore your RPG backlog" feature
+- **Decade challenges:** "Play a game from each decade you own"
+
+### Data Improvements
+- **Longer cache duration:** Store SteamSpy data for 14 days instead of 7
+- **Show last updated timestamp:** Display when cached data was fetched
+- **Manual refresh button:** Force re-fetch stale data for specific games
+- **Bulk re-cache:** Update all cached data older than X days
+- **Cache size management:** Clear old cache entries automatically
+
+### Social Features (Optional)
+- **Compare libraries with friend:** Paste their Steam ID, see overlap
+- **Games in common:** Which games do you both own but haven't played?
+- **Friendly competition:** Compare "tried" percentages
+- **Shared suggestions:** "Games your friend played that you haven't"
+- **Library exchange:** See what they recommend from their library
+
+### Advanced Analytics
+- **Play pattern insights:** When do you try new games? Weekends? Evenings?
+- **Genre preference drift:** How have your tastes changed over time?
+- **Backlog growth rate:** Are you buying faster than playing?
+- **Value analysis:** Total spent vs hours played
+- **Completion forecast:** "At this rate, you'll finish your backlog in X years"
+
+### Gamification Enhancements
+- **Achievement system:** Beyond current badges - "Decade Master", "Genre Tourist"
+- **Leaderboards (optional):** Compare with friends or global
+- **Milestone celebrations:** Animated celebration when hitting 25% tried
+- **Streak bonuses:** Extra XP for maintaining daily play streaks
+- **Level system rewards:** Unlock new features at certain levels
+
+---
+
+## Notes
+
+**Priority Order:**
+1. Fix bugs (#4, #6) - broken functionality hurts user experience
+2. Add core features (#2 links, #3 played elsewhere) - high value, moderate effort
+3. Polish UI (#7, #8) - improves usability
+4. Research long-term (#10) - only if other features prove insufficient
+
+**Development Philosophy:**
+- Keep it simple - avoid feature bloat
+- User value first - does this help people play games?
+- Performance matters - fast is better than pretty
+- Mobile-friendly - many users browse on phones
+
+**Technical Debt to Watch:**
+- SteamSpy rate limiting (currently 10 parallel requests)
+- localStorage size limits (5-10MB)
+- Cache invalidation strategy
+- Error handling consistency
+
+---
+
+## Success Metrics to Track
+
+After features are implemented, measure:
+- **Engagement:** Do users return after first visit?
+- **Discovery:** How many "never played" games get tried after using the app?
+- **Suggestion quality:** Do users click suggested games?
+- **Feature usage:** Which features get used most?
+- **Load times:** Is the app fast enough?
+
+---
+
+**Last Updated:** December 2024  
+**Project:** Never Played - Steam Library Gamification  
+**Live URL:** https://never-played.vercel.app
