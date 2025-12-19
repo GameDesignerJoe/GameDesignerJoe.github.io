@@ -35,16 +35,11 @@
 
 ## Bug Fixes
 
-### 4. Fix Steam ID finder link (steamidfinder.com is blocked)
+### 4. ✅ Fix Steam ID finder link (steamidfinder.com is blocked) (DONE)
 - **Issue:** Current link to steamidfinder.com is blocked/unavailable
-- **Alternatives to research:**
-  - https://www.steamidfinder.com/ (different URL)
-  - https://steamid.io/
-  - https://steamid.xyz/
-  - https://steamdb.info/calculator/
-- Test alternatives and pick working one
-- Update link in page.tsx input section
-- Consider adding multiple options or a dropdown
+- **Solution:** Replaced with expandable visual guide using screenshot
+- Shows steam-id-finder.png image with instructions
+- No external link needed - all self-contained
 
 ### 5. ✅ Add better error handling for private Steam profiles (DONE)
 - **Issue:** When Steam profile is private, API returns error but user doesn't know why
@@ -92,7 +87,7 @@
 
 ## Feature Improvements
 
-### 7. Remove/disable "Sort by Release Date" temporarily
+### 7. ✅ Remove/disable "Sort by Release Date" temporarily (DONE)
 - Currently broken or using placeholder data
 - Gray out option or remove from dropdown
 - Re-enable after implementing proper release date fetching from SteamSpy

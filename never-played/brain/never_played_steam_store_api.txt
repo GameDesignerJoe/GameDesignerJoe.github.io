@@ -1,0 +1,105 @@
+Cline Instructions: Steam Store API Integration for Suggestion Card
+Goal: Enrich the suggestion card with official Steam Store data (description, release date, header image) fetched on-demand for just the suggested game.
+
+Part 1: Create Steam Store API Route
+Create new API route: src/app/api/steam-store/route.ts
+
+Endpoint accepts appid query parameter
+Calls: https://store.steampowered.com/api/appdetails?appids=${appid}
+Extract and return:
+
+short_description (string)
+release_date.date (string, e.g., "May 1, 2012")
+release_date.coming_soon (boolean)
+header_image (URL string)
+genres (array of genre names)
+metacritic.score (number, may be null)
+recommendations.total (number, may be null)
+
+
+Handle cases where game data is null (region-locked, removed, etc.)
+Return clean JSON object or error
+
+
+Part 2: Client-Side Fetch with Caching
+In the main page component:
+
+When suggestion changes, check localStorage for steam_store_${appid}
+If cached and less than 30 days old, use cached data
+Otherwise, fetch from /api/steam-store?appid=${appid}
+Show loading state on suggestion card while fetching
+Cache result in localStorage: { data: {...}, timestamp: Date.now() }
+Store state: storeData (the fetched data) and storeLoading (boolean)
+
+
+Part 3: Update Suggestion Card UI
+Enhance SuggestionCard component:
+Add header image:
+
+Display header_image as banner at top of card (if available)
+Fallback to current icon if no header image
+
+Add description:
+
+Show short_description as italicized text below game title
+Truncate if longer than 150 characters with "..."
+
+Add release date with age calculation:
+
+Parse release_date.date string
+Calculate years ago: new Date().getFullYear() - releaseYear
+Display: "📅 Released: May 2012 (13 years ago!)"
+If coming_soon is true, show "Coming Soon" instead
+
+Add social proof:
+
+If recommendations.total exists: "👥 12,845 players recommend this"
+If metacritic.score exists: "🎯 Metacritic: 82"
+
+Show genres:
+
+Display first 2-3 genres as pills/chips below description
+Example: Adventure • Point & Click • Indie
+
+Loading state:
+
+While fetching, show skeleton/placeholder for new fields
+Keep existing game name and rating visible during load
+
+
+Part 4: Error Handling
+
+If Steam Store API fails or returns null for a game:
+
+Don't crash the card
+Just hide the enriched fields (description, header, etc.)
+Keep showing existing data (name, rating, tags from SteamSpy)
+Log error to console for debugging
+
+
+
+
+Technical Notes
+
+Steam Store API has no key required
+Rate limit: ~200 requests per 5 minutes (plenty for single-game fetches)
+Some games return success: false - handle gracefully
+Release date string format varies ("May 1, 2012" vs "2012" vs "Q3 2024")
+Parse defensively, extract year at minimum
+
+
+Expected Result
+Suggestion card transforms from data-focused to story-focused:
+[========== Header Image Banner ==========]
+
+The Silent Age
+"A point-and-click adventure about a janitor who must 
+travel through time to prevent the extinction of mankind"
+
+Adventure • Point & Click
+
+📅 Released: May 2012 (13 years ago!)
+⭐ 93% positive (SteamSpy)
+👥 12,845 recommend this
+
+[🎲 Suggest Another] [🚫 Never Suggest] [▶ Play Now]

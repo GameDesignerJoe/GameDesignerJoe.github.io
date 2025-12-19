@@ -1,9 +1,11 @@
+===== PHASE 2 COMPLETED ======
+
 # Never Played - Phase 2 Design Document
 
 ## Overview
 
 Phase 1 ✅ Complete: Display Steam library
-Phase 2: Add smart features to help users find what to play next
+Phase 2:✅ Add smart features to help users find what to play next
 
 ---
 

@@ -483,6 +483,18 @@ export default function Home() {
   const [ratingsLoaded, setRatingsLoaded] = useState(0);
   const [ratingsTotal, setRatingsTotal] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [rememberSteamId, setRememberSteamId] = useState(false);
+  
+  // Load saved Steam ID and remember preference on mount
+  useEffect(() => {
+    const savedSteamId = localStorage.getItem('savedSteamId');
+    const rememberPref = localStorage.getItem('rememberSteamId') === 'true';
+    
+    if (savedSteamId && rememberPref) {
+      setSteamId(savedSteamId);
+      setRememberSteamId(true);
+    }
+  }, []);
   
   // Load never suggest list from localStorage on mount
   useEffect(() => {
@@ -526,6 +538,12 @@ export default function Home() {
       return;
     }
     
+    // Save Steam ID if remember is checked
+    if (rememberSteamId) {
+      localStorage.setItem('savedSteamId', steamId);
+      localStorage.setItem('rememberSteamId', 'true');
+    }
+    
     setLoading(true);
     setError('');
     setGames([]);
@@ -553,6 +571,22 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Handle remember checkbox toggle
+  const handleRememberToggle = (checked: boolean) => {
+    setRememberSteamId(checked);
+    if (checked) {
+      // Save current Steam ID if exists
+      if (steamId.trim()) {
+        localStorage.setItem('savedSteamId', steamId);
+      }
+      localStorage.setItem('rememberSteamId', 'true');
+    } else {
+      // Clear saved Steam ID
+      localStorage.removeItem('savedSteamId');
+      localStorage.removeItem('rememberSteamId');
     }
   };
   
@@ -721,13 +755,13 @@ export default function Home() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2">Play Today</h1>
-          <p className="text-gray-400">Display Your Steam Library (76561197970579347)</p>
+          <p className="text-gray-400">Find what to play today from your Steam library.</p>
         </div>
         
         {/* Input Section */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
           <label className="block mb-2 text-sm font-medium">
-            Enter your Steam ID:
+            Enter your Steam ID (Example: 76561197970579347):
           </label>
           <div className="flex gap-2">
             <input
@@ -747,18 +781,42 @@ export default function Home() {
             </button>
           </div>
           
+          <label className="flex items-center gap-2 mt-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={rememberSteamId}
+              onChange={(e) => handleRememberToggle(e.target.checked)}
+              className="w-4 h-4 rounded"
+            />
+            <span className="text-sm text-gray-400">
+              Remember my Steam ID for next time
+            </span>
+          </label>
+          
           <div className="flex items-center justify-between mt-2">
-            <p className="text-sm text-gray-400">
-              Don't know your Steam ID? Find it at{' '}
-              <a 
-                href="https://steamidfinder.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
-              >
-                steamidfinder.com
-              </a>
-            </p>
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
+                Don't know your Steam ID? 📖 Click here to see how to find it
+              </summary>
+              <p className="text-xs text-gray-300 mt-2 mb-1">
+                Go to <span className="font-semibold">View Account Details</span>. It will be right below your account name.
+              </p>
+              <img 
+                src="/help/steam-id-finder.png" 
+                alt="How to Find Your Steam ID"
+                className="rounded border border-gray-600"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    const msg = document.createElement('p');
+                    msg.className = 'text-xs text-gray-400 mt-2';
+                    msg.textContent = '(Screenshot will be available after you add it to the /public/help folder)';
+                    parent.appendChild(msg);
+                  }
+                }}
+              />
+            </details>
             
             <button
               onClick={() => {
@@ -876,8 +934,6 @@ export default function Home() {
                   <option value="playtime-desc">Playtime (High to Low)</option>
                   <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                   <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
-                  <option value="release-desc">Release Date (Newest First)</option>
-                  <option value="release-asc">Release Date (Oldest First)</option>
                   <option value="appid-asc">App ID (Oldest First)</option>
                   <option value="appid-desc">App ID (Newest First)</option>
                 </select>
