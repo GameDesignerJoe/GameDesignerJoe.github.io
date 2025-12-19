@@ -7,12 +7,12 @@
 - No manual action needed after initial setup
 - Test: Make small change, push to GitHub, verify deploy
 
-### 2. Add Steam store page links to games
-- Click game card → opens `https://store.steampowered.com/app/{appId}`
+### 2. ✅ Add Steam store page links to games (DONE)
+- Click game card → opens `steam://store/{appId}` (launches Steam app)
 - Target: `_blank` to open in new tab
 - Add "View in Steam Store" button or make entire card clickable
 
-### 3. Implement "Played Elsewhere" feature
+### 3. ✅ Implement "Played Elsewhere" feature (DONE)
 - Separate from blacklist (different localStorage key: `playedElsewhere`)
 - Button on game cards: "🎮 Played Elsewhere"
 - Affects stats: counts toward "Tried" percentage

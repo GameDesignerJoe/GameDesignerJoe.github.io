@@ -76,11 +76,18 @@ function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
   }
 }
 
-function calculateStats(games: SteamGame[]): LibraryStats {
+function calculateStats(games: SteamGame[], playedElsewhereList: number[] = []): LibraryStats {
   const totalGames = games.length;
-  const neverPlayed = games.filter(g => g.playtime_forever === 0).length;
+  // Exclude playedElsewhere games from never played count
+  const neverPlayed = games.filter(g => 
+    g.playtime_forever === 0 && !playedElsewhereList.includes(g.appid)
+  ).length;
   const totalMinutes = games.reduce((sum, g) => sum + g.playtime_forever, 0);
-  const completionRate = totalGames > 0 ? Math.round(((totalGames - neverPlayed) / totalGames) * 100) : 0;
+  // Count playedElsewhere as "tried" for completion rate
+  const playedElsewhereCount = games.filter(g => playedElsewhereList.includes(g.appid)).length;
+  const actuallyPlayed = games.filter(g => g.playtime_forever > 0).length;
+  const tried = actuallyPlayed + playedElsewhereCount;
+  const completionRate = totalGames > 0 ? Math.round((tried / totalGames) * 100) : 0;
   
   return {
     totalGames,
@@ -252,8 +259,8 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
   return gameDataMap;
 }
 
-function LibraryStats({ games }: { games: SteamGame[] }) {
-  const stats = calculateStats(games);
+function LibraryStats({ games, playedElsewhereList }: { games: SteamGame[], playedElsewhereList: number[] }) {
+  const stats = calculateStats(games, playedElsewhereList);
   const lastNewGame = getLastNewGame(games);
   
   return (
@@ -341,12 +348,16 @@ function SuggestionCard({
   game, 
   onNewSuggestion,
   onNeverSuggest,
+  onTogglePlayedElsewhere,
+  playedElsewhereList,
   hiddenCount,
   onResetHidden
 }: { 
   game: SteamGame | null;
   onNewSuggestion: () => void;
   onNeverSuggest: (appId: number) => void;
+  onTogglePlayedElsewhere: (appId: number) => void;
+  playedElsewhereList: number[];
   hiddenCount: number;
   onResetHidden: () => void;
 }) {
@@ -425,6 +436,16 @@ function SuggestionCard({
         >
           🚫 Never Suggest
         </button>
+        <button
+          onClick={() => onTogglePlayedElsewhere(game.appid)}
+          className={`px-4 py-2 rounded font-medium transition ${
+            playedElsewhereList.includes(game.appid)
+              ? 'bg-blue-700 hover:bg-blue-600'
+              : 'bg-blue-900/70 hover:bg-blue-900'
+          }`}
+        >
+          {playedElsewhereList.includes(game.appid) ? '✅ Played Elsewhere' : '🎮 Played Elsewhere'}
+        </button>
         <a
           href={`steam://store/${game.appid}`}
           className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition"
@@ -457,6 +478,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortOption>('name-asc');
   const [suggestion, setSuggestion] = useState<SteamGame | null>(null);
   const [neverSuggestList, setNeverSuggestList] = useState<number[]>([]);
+  const [playedElsewhereList, setPlayedElsewhereList] = useState<number[]>([]);
   const [ratingsLoading, setRatingsLoading] = useState(false);
   const [ratingsLoaded, setRatingsLoaded] = useState(0);
   const [ratingsTotal, setRatingsTotal] = useState(0);
@@ -471,6 +493,19 @@ export default function Home() {
         setNeverSuggestList(Array.isArray(parsed) ? parsed : []);
       } catch (e) {
         console.error('Failed to parse neverSuggest from localStorage');
+      }
+    }
+  }, []);
+  
+  // Load played elsewhere list from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('playedElsewhere');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setPlayedElsewhereList(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        console.error('Failed to parse playedElsewhere from localStorage');
       }
     }
   }, []);
@@ -600,6 +635,29 @@ export default function Home() {
     }
   };
   
+  // Handle toggling "played elsewhere" status
+  const handleTogglePlayedElsewhere = (appId: number) => {
+    const isCurrentlyMarked = playedElsewhereList.includes(appId);
+    
+    let updatedList: number[];
+    if (isCurrentlyMarked) {
+      // Remove from list
+      updatedList = playedElsewhereList.filter(id => id !== appId);
+    } else {
+      // Add to list
+      updatedList = [...playedElsewhereList, appId];
+    }
+    
+    setPlayedElsewhereList(updatedList);
+    localStorage.setItem('playedElsewhere', JSON.stringify(updatedList));
+  };
+  
+  // Handle resetting played elsewhere list
+  const handleResetPlayedElsewhere = () => {
+    setPlayedElsewhereList([]);
+    localStorage.removeItem('playedElsewhere');
+  };
+  
   // Fetch enhanced data (ratings, tags, etc.) in background (non-blocking)
   const fetchRatingsInBackground = async (gamesToRate: SteamGame[]) => {
     if (gamesToRate.length === 0) return;
@@ -705,13 +763,15 @@ export default function Home() {
         </div>
         
         {/* Library Stats */}
-        {games.length > 0 && <LibraryStats games={games} />}
+        {games.length > 0 && <LibraryStats games={games} playedElsewhereList={playedElsewhereList} />}
         
         {/* Game Suggestion */}
         <SuggestionCard 
           game={suggestion} 
           onNewSuggestion={handleNewSuggestion}
           onNeverSuggest={handleNeverSuggest}
+          onTogglePlayedElsewhere={handleTogglePlayedElsewhere}
+          playedElsewhereList={playedElsewhereList}
           hiddenCount={neverSuggestList.length}
           onResetHidden={handleResetBlacklist}
         />
@@ -850,11 +910,12 @@ export default function Home() {
                 const hours = Math.floor(game.playtime_forever / 60);
                 const minutes = game.playtime_forever % 60;
                 const neverPlayed = game.playtime_forever === 0;
+                const isPlayedElsewhere = playedElsewhereList.includes(game.appid);
                 
                 return (
                   <div 
                     key={game.appid}
-                    className="bg-gray-700 rounded p-4 flex items-center justify-between"
+                    className="bg-gray-700 rounded p-4 flex items-center justify-between gap-3"
                   >
                     <a 
                       href={`steam://store/${game.appid}`}
@@ -879,13 +940,31 @@ export default function Home() {
                       </div>
                     </a>
                     
-                    <span className={`text-sm px-3 py-1 rounded ${
-                      neverPlayed 
-                        ? 'bg-red-900 text-red-200' 
-                        : 'bg-green-900 text-green-200'
-                    }`}>
-                      {neverPlayed ? '❌ Never Played' : '✅ Played'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {neverPlayed && (
+                        <button
+                          onClick={() => handleTogglePlayedElsewhere(game.appid)}
+                          className={`text-xs px-2 py-1 rounded transition ${
+                            isPlayedElsewhere
+                              ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
+                              : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                          }`}
+                          title={isPlayedElsewhere ? "Mark as not played elsewhere" : "Mark as played elsewhere"}
+                        >
+                          🎮
+                        </button>
+                      )}
+                      
+                      <span className={`text-sm px-3 py-1 rounded whitespace-nowrap ${
+                        isPlayedElsewhere
+                          ? 'bg-blue-900 text-blue-200'
+                          : neverPlayed 
+                            ? 'bg-red-900 text-red-200' 
+                            : 'bg-green-900 text-green-200'
+                      }`}>
+                        {isPlayedElsewhere ? '✅ Played Elsewhere' : neverPlayed ? '❌ Never Played' : '✅ Played'}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
