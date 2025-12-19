@@ -20,11 +20,29 @@
 - Exclude from "Never Played" count
 - Add reset option for played elsewhere list
 
+### 4. Add Cost Per Hour / Cost Per Minute analytics
+- **New stat card:** Show library value efficiency
+- Calculate total money spent (from SteamSpy price data)
+- Calculate cost per hour played: `Total $ / Total Hours`
+- Calculate cost per minute: `Total $ / Total Minutes`
+- Display in Library Stats section as 6th stat
+- Format: "$X.XX per hour" or "$X.XX per minute"
+- Show "Calculating..." while price data loads
+- Handle games with no price data (free games, removed from store)
+- Consider: Only count played games vs all owned games?
+
 ---
 
 ## Bug Fixes
 
-### 4. Debug tag filtering issue
+### 4. Verify "Last New Game" stat calculation
+- **Issue:** Need to verify how often the "Last New Game" stat updates
+- Check if it only calculates on initial load or updates dynamically
+- Ensure rtime_last_played is properly read from Steam API
+- Test with different game scenarios (1-120 minute playtime range)
+- Verify day calculation is accurate
+
+### 5. Debug tag filtering issue
 - **Issue:** "The Wolf Among Us" (98% rating) disappears when "Singleplayer" selected
 - Check if SteamSpy returns correct tags for this game
 - Verify filtering logic isn't excluding it incorrectly
@@ -55,7 +73,18 @@
 - Re-enable after implementing proper release date fetching from SteamSpy
 - Add tooltip: "Coming soon"
 
-### 8. UI/UX polish
+### 8. Add exclusion filters for VR and Multiplayer games
+- **New filter options:** Checkboxes to exclude certain game types
+- "🚫 Exclude VR Games" checkbox
+- "🚫 Exclude Multiplayer Games" checkbox
+- Uses SteamSpy tag data to identify games
+- VR tags: "VR", "VR Only", "VR Supported"
+- Multiplayer tags: "Multiplayer", "Online Co-Op", "Co-op", "MMO", "Massively Multiplayer"
+- Combine with existing tag filters (AND logic)
+- Save exclusion preferences in localStorage
+- Show count: "(X VR games excluded)" when active
+
+### 9. UI/UX polish
 **Collapsible sections:**
 - Collapsible Steam ID input section (after first use)
 - Collapsible Library Stats section

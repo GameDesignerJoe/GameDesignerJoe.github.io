@@ -421,7 +421,7 @@ function SuggestionCard({
         </button>
         <button
           onClick={() => onNeverSuggest(game.appid)}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded font-medium transition"
+          className="px-4 py-2 bg-red-900/70 hover:bg-red-900 rounded font-medium transition"
         >
           🚫 Never Suggest
         </button>
@@ -856,7 +856,10 @@ export default function Home() {
                     key={game.appid}
                     className="bg-gray-700 rounded p-4 flex items-center justify-between"
                   >
-                    <div className="flex items-center gap-3">
+                    <a 
+                      href={`steam://store/${game.appid}`}
+                      className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1"
+                    >
                       {game.img_icon_url && (
                         <img
                           src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
@@ -865,7 +868,7 @@ export default function Home() {
                         />
                       )}
                       <div>
-                        <h3 className="font-medium">{game.name}</h3>
+                        <h3 className="font-medium hover:underline">{game.name}</h3>
                         <p className="text-sm text-gray-400">
                           {hours > 0 && `${hours}h `}
                           {minutes > 0 && `${minutes}m`}
@@ -874,7 +877,7 @@ export default function Home() {
                           {game.releaseDate && ` • Released: ${game.releaseDate}`}
                         </p>
                       </div>
-                    </div>
+                    </a>
                     
                     <span className={`text-sm px-3 py-1 rounded ${
                       neverPlayed 
