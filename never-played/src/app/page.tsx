@@ -7,6 +7,7 @@ interface SteamGame {
   name: string;
   playtime_forever: number;
   img_icon_url: string;
+  rtime_last_played?: number; // Unix timestamp of when last played
   rating?: number | null; // Steam review score (0-100), null if no data available
   tags?: string[]; // Top 5 tags from SteamSpy
   releaseDate?: string; // Formatted release date
@@ -133,6 +134,26 @@ function getGameAge(releaseDate?: string): string | null {
   }
 }
 
+// Find the last "new" game (tried but didn't commit: 1-120 minutes playtime)
+function getLastNewGame(games: SteamGame[]): { game: SteamGame, daysAgo: number } | null {
+  // Filter: Games with 1-120 minutes playtime (1-2 hours = "tried but didn't commit")
+  const triedGames = games.filter(g => 
+    g.playtime_forever >= 1 && 
+    g.playtime_forever <= 120 &&
+    g.rtime_last_played !== undefined
+  );
+  
+  if (triedGames.length === 0) return null;
+  
+  // Sort by rtime_last_played descending (most recent first)
+  triedGames.sort((a, b) => (b.rtime_last_played || 0) - (a.rtime_last_played || 0));
+  
+  const mostRecent = triedGames[0];
+  const daysAgo = Math.floor((Date.now() - (mostRecent.rtime_last_played! * 1000)) / (1000 * 60 * 60 * 24));
+  
+  return { game: mostRecent, daysAgo };
+}
+
 // Enhanced data cache interface
 interface GameData {
   score: number | null;
@@ -233,12 +254,13 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
 
 function LibraryStats({ games }: { games: SteamGame[] }) {
   const stats = calculateStats(games);
+  const lastNewGame = getLastNewGame(games);
   
   return (
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
       <h2 className="text-2xl font-bold mb-4">📊 Your Library Stats</h2>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <div className="bg-gray-700 rounded p-4">
           <div className="text-gray-400 text-sm mb-1">Total Games</div>
           <div className="text-2xl font-bold">{stats.totalGames}</div>
@@ -257,6 +279,18 @@ function LibraryStats({ games }: { games: SteamGame[] }) {
         <div className="bg-gray-700 rounded p-4">
           <div className="text-gray-400 text-sm mb-1">Tried</div>
           <div className="text-2xl font-bold text-green-400">{stats.completionRate}%</div>
+        </div>
+        
+        <div className="bg-gray-700 rounded p-4">
+          <div className="text-gray-400 text-sm mb-1">Last New Game</div>
+          {lastNewGame ? (
+            <>
+              <div className="text-2xl font-bold text-blue-400">{lastNewGame.daysAgo}d ago</div>
+              <div className="text-xs text-gray-400 mt-1 truncate">{lastNewGame.game.name}</div>
+            </>
+          ) : (
+            <div className="text-sm text-gray-400">No recent tries</div>
+          )}
         </div>
       </div>
     </div>
