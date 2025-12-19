@@ -535,7 +535,9 @@ export default function Home() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch games');
+        // Use detailed error message from API if available
+        const errorMessage = data.message || data.error || 'Failed to fetch games';
+        throw new Error(errorMessage);
       }
       
       const loadedGames = data.games || [];
@@ -745,20 +747,80 @@ export default function Home() {
             </button>
           </div>
           
-          <p className="mt-2 text-sm text-gray-400">
-            Don't know your Steam ID? Find it at{' '}
-            <a 
-              href="https://steamidfinder.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:underline"
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-sm text-gray-400">
+              Don't know your Steam ID? Find it at{' '}
+              <a 
+                href="https://steamidfinder.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline"
+              >
+                steamidfinder.com
+              </a>
+            </p>
+            
+            <button
+              onClick={() => {
+                if (confirm('Clear all cached data? This will reset your library, ratings, blacklist, and "Played Elsewhere" list.')) {
+                  localStorage.clear();
+                  window.location.reload();
+                }
+              }}
+              className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition text-gray-300"
+              title="Clear all cached data and reset the app"
             >
-              steamidfinder.com
-            </a>
-          </p>
+              🗑️ Clear Cache
+            </button>
+          </div>
           
           {error && (
-            <p className="mt-2 text-red-400 text-sm">{error}</p>
+            <div className="mt-4">
+              <p className="text-red-400 text-sm">{error}</p>
+              
+              {/* Show help section for privacy-related errors */}
+              {(error.toLowerCase().includes('private') || error.toLowerCase().includes('privacy')) && (
+                <div className="mt-4 bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+                  <h3 className="text-blue-300 font-semibold mb-2">📖 How to Fix This</h3>
+                  <p className="text-sm text-gray-300 mb-3">
+                    To use this app, your Steam profile needs to be set to public. Here's how to change it:
+                  </p>
+                  <ol className="text-sm text-gray-300 space-y-2 mb-3">
+                    <li>1. Log into Steam and go to your Profile</li>
+                    <li>2. Click "Edit Profile"</li>
+                    <li>3. Go to "Privacy Settings"</li>
+                    <li>4. Set "Game details" to "Public"</li>
+                    <li>5. Click "Save" and try again!</li>
+                  </ol>
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-blue-400 hover:text-blue-300 mb-2">
+                      📸 Show me a visual guide
+                    </summary>
+                    <img 
+                      src="/help/steam-privacy-settings.png" 
+                      alt="Steam Privacy Settings Guide"
+                      className="rounded border border-gray-600 mt-2"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) {
+                          const msg = document.createElement('p');
+                          msg.className = 'text-xs text-gray-400 mt-2';
+                          msg.textContent = '(Screenshot will be available after you add it to the /public/help folder)';
+                          parent.appendChild(msg);
+                        }
+                      }}
+                    />
+                  </details>
+                  <button
+                    onClick={fetchGames}
+                    className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition"
+                  >
+                    🔄 Try Again
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
         

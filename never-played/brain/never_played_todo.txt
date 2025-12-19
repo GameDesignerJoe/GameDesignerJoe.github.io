@@ -35,14 +35,39 @@
 
 ## Bug Fixes
 
-### 4. Verify "Last New Game" stat calculation
+### 4. Fix Steam ID finder link (steamidfinder.com is blocked)
+- **Issue:** Current link to steamidfinder.com is blocked/unavailable
+- **Alternatives to research:**
+  - https://www.steamidfinder.com/ (different URL)
+  - https://steamid.io/
+  - https://steamid.xyz/
+  - https://steamdb.info/calculator/
+- Test alternatives and pick working one
+- Update link in page.tsx input section
+- Consider adding multiple options or a dropdown
+
+### 5. ✅ Add better error handling for private Steam profiles (DONE)
+- **Issue:** When Steam profile is private, API returns error but user doesn't know why
+- **Detect profile privacy errors:**
+  - Check API response for specific error codes/messages
+  - Distinguish between: invalid Steam ID, private profile, API down
+- **Show helpful error message:**
+  - "Unable to load library. Your Steam profile may be private."
+  - Explain that profile needs to be public for app to work
+- **Add privacy walkthrough/instructions:**
+  - Link to Steam privacy settings page
+  - Step-by-step guide: Profile → Edit Profile → Privacy Settings → Game Details → Public
+  - Consider adding screenshots or video tutorial link
+- **Optional: Add "Test Again" button** after user changes settings
+
+### 6. Verify "Last New Game" stat calculation
 - **Issue:** Need to verify how often the "Last New Game" stat updates
 - Check if it only calculates on initial load or updates dynamically
 - Ensure rtime_last_played is properly read from Steam API
 - Test with different game scenarios (1-120 minute playtime range)
 - Verify day calculation is accurate
 
-### 5. Debug tag filtering issue
+### 6. Debug tag filtering issue
 - **Issue:** "The Wolf Among Us" (98% rating) disappears when "Singleplayer" selected
 - Check if SteamSpy returns correct tags for this game
 - Verify filtering logic isn't excluding it incorrectly
