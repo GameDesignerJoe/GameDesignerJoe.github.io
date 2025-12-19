@@ -14,6 +14,25 @@ interface SteamGame {
   price?: number; // Price in dollars
 }
 
+interface SteamStoreData {
+  name: string | null;
+  short_description: string | null;
+  header_image: string | null;
+  release_date: {
+    date: string | null;
+    coming_soon: boolean;
+  };
+  genres: string[];
+  metacritic: number | null;
+  recommendations: number | null;
+  developers: string[];
+  publishers: string[];
+  positive_reviews: number | null;
+  negative_reviews: number | null;
+  review_score: number | null;
+  review_score_desc: string | null;
+}
+
 interface LibraryStats {
   totalGames: number;
   neverPlayed: number;
@@ -351,7 +370,9 @@ function SuggestionCard({
   onTogglePlayedElsewhere,
   playedElsewhereList,
   hiddenCount,
-  onResetHidden
+  onResetHidden,
+  storeData,
+  storeLoading
 }: { 
   game: SteamGame | null;
   onNewSuggestion: () => void;
@@ -360,7 +381,32 @@ function SuggestionCard({
   playedElsewhereList: number[];
   hiddenCount: number;
   onResetHidden: () => void;
+  storeData: SteamStoreData | null;
+  storeLoading: boolean;
 }) {
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  
+  // Helper function to calculate years ago from release date string
+  const calculateYearsAgo = (dateString: string | null): { years: number; text: string } | null => {
+    if (!dateString) return null;
+    
+    try {
+      // Try to extract year from various formats
+      const yearMatch = dateString.match(/\d{4}/);
+      if (!yearMatch) return null;
+      
+      const releaseYear = parseInt(yearMatch[0]);
+      const currentYear = new Date().getFullYear();
+      const years = currentYear - releaseYear;
+      
+      if (years === 0) return { years: 0, text: 'Released this year!' };
+      if (years === 1) return { years: 1, text: 'Released 1 year ago' };
+      return { years, text: `Released ${years} years ago` };
+    } catch (e) {
+      return null;
+    }
+  };
+  
   if (!game) {
     if (hiddenCount > 0) {
       return (
@@ -380,91 +426,171 @@ function SuggestionCard({
     return null;
   }
   
+  // Truncate description if needed (roughly 2 rows of text)
+  const description = storeData?.short_description || '';
+  const shouldTruncate = description.length > 300;
+  const displayDescription = shouldTruncate && !showFullDescription 
+    ? description.slice(0, 300) + '...' 
+    : description;
+  
+  const releaseInfo = storeData?.release_date.coming_soon 
+    ? null 
+    : calculateYearsAgo(storeData?.release_date.date || null);
+  
+  // Calculate Steam user review percentage
+  const steamRating = storeData && storeData.positive_reviews && storeData.negative_reviews
+    ? Math.round((storeData.positive_reviews / (storeData.positive_reviews + storeData.negative_reviews)) * 100)
+    : null;
+  
   return (
-    <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-lg p-6 mb-6 border-2 border-blue-500">
-      <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        🎯 TRY THIS NEXT
-      </h2>
-      
-      <div className="flex items-center gap-4 mb-4">
-        {game.img_icon_url && (
+    <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-700 shadow-xl">
+      {/* Header Image Banner */}
+      {storeData?.header_image && (
+        <div className="w-full aspect-video md:aspect-auto md:h-64 bg-black flex items-center justify-center">
           <img
-            src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
+            src={storeData.header_image}
             alt={game.name}
-            className="w-16 h-16 rounded"
+            className="w-full h-full object-contain opacity-0 transition-opacity duration-500"
+            onLoad={(e) => {
+              e.currentTarget.style.opacity = '1';
+            }}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
           />
-        )}
-        <div>
-          <h3 className="text-xl font-bold">{game.name}</h3>
-          <p className="text-gray-300 text-sm">App ID: {game.appid}</p>
-        </div>
-      </div>
-      
-      <div className="bg-gray-900/50 rounded p-3 mb-4">
-        <p className="text-sm font-semibold mb-2">Why this game?</p>
-        <ul className="text-sm space-y-1">
-          <li>• One of your oldest games (Low App ID)</li>
-          <li>
-            • Rating: {
-              game.rating === undefined 
-                ? 'Loading...' 
-                : game.rating === null 
-                  ? 'No data available' 
-                  : `${game.rating}% 👍`
-            }
-          </li>
-          {(() => {
-            const ageText = getGameAge(game.releaseDate);
-            if (ageText) {
-              return <li>• {ageText} and you still haven't played it!</li>;
-            }
-            return null;
-          })()}
-        </ul>
-      </div>
-      
-      <div className="flex flex-wrap gap-2 mb-3">
-        <button
-          onClick={onNewSuggestion}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium transition"
-        >
-          🎲 Suggest Another
-        </button>
-        <button
-          onClick={() => onNeverSuggest(game.appid)}
-          className="px-4 py-2 bg-red-900/70 hover:bg-red-900 rounded font-medium transition"
-        >
-          🚫 Never Suggest
-        </button>
-        <button
-          onClick={() => onTogglePlayedElsewhere(game.appid)}
-          className={`px-4 py-2 rounded font-medium transition ${
-            playedElsewhereList.includes(game.appid)
-              ? 'bg-blue-700 hover:bg-blue-600'
-              : 'bg-blue-900/70 hover:bg-blue-900'
-          }`}
-        >
-          {playedElsewhereList.includes(game.appid) ? '✅ Played Elsewhere' : '🎮 Played Elsewhere'}
-        </button>
-        <a
-          href={`steam://store/${game.appid}`}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition"
-        >
-          🎮 View in Steam
-        </a>
-      </div>
-      
-      {hiddenCount > 0 && (
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <span>{hiddenCount} game{hiddenCount !== 1 ? 's' : ''} hidden from suggestions</span>
-          <button
-            onClick={onResetHidden}
-            className="hover:text-white transition"
-          >
-            Reset
-          </button>
         </div>
       )}
+      
+      <div className="p-6">
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-300">
+          🎯 TRY THIS NEXT
+        </h2>
+        
+        {/* Game Title */}
+        <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
+        
+        {/* Description */}
+        {storeLoading && !storeData && (
+          <div className="mb-4">
+            <div className="h-4 bg-gray-700 rounded animate-pulse mb-2"></div>
+            <div className="h-4 bg-gray-700 rounded animate-pulse w-3/4"></div>
+          </div>
+        )}
+        
+        {description && (
+          <div className="mb-4">
+            <p className="text-gray-300 text-base italic leading-relaxed">
+              "{displayDescription}"
+            </p>
+            {shouldTruncate && (
+              <button
+                onClick={() => setShowFullDescription(!showFullDescription)}
+                className="text-xs text-blue-400 hover:text-blue-300 mt-1"
+              >
+                {showFullDescription ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
+        )}
+        
+        {/* Genres */}
+        {storeData?.genres && storeData.genres.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {storeData.genres.slice(0, 3).map((genre) => (
+              <span
+                key={genre}
+                className="px-3 py-1 bg-gray-600 text-gray-200 rounded-full text-xs font-medium"
+              >
+                {genre}
+              </span>
+            ))}
+          </div>
+        )}
+        
+        {/* Release Date & Social Proof */}
+        <div className="bg-black/30 backdrop-blur-sm rounded p-4 mb-4 space-y-2 border border-gray-800">
+          {/* 1. Release Date */}
+          {storeData?.release_date.coming_soon ? (
+            <div className="text-sm">
+              📅 <span className="text-yellow-400 font-semibold">Coming Soon</span>
+            </div>
+          ) : releaseInfo ? (
+            <div className="text-sm">
+              📅 <span className="font-semibold">{storeData?.release_date.date}</span>
+              <span className="text-gray-400 ml-2">({releaseInfo.text}!)</span>
+            </div>
+          ) : storeLoading ? (
+            <div className="h-4 bg-gray-700 rounded animate-pulse w-1/2"></div>
+          ) : null}
+          
+          {/* 2. Recommendations (Steam "thumbs up" count) */}
+          {storeData?.recommendations && (
+            <div className="text-sm">
+              👥 <span className="font-semibold">{storeData.recommendations.toLocaleString()} players</span>
+              <span className="text-gray-400 ml-1">recommend this</span>
+            </div>
+          )}
+          
+          {/* 3. Metacritic */}
+          {storeData?.metacritic && (
+            <div className="text-sm">
+              🎯 <span className="font-semibold">Metacritic: {storeData.metacritic}</span>
+            </div>
+          )}
+          
+          {/* 4. SteamSpy Rating (fallback if available) */}
+          {game.rating !== undefined && game.rating !== null && (
+            <div className="text-sm">
+              ⭐ <span className="font-semibold">{game.rating}% positive</span>
+              <span className="text-gray-400 ml-1">(SteamSpy)</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button
+            onClick={onNewSuggestion}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium transition"
+          >
+            🎲 Suggest Another
+          </button>
+          <button
+            onClick={() => onNeverSuggest(game.appid)}
+            className="px-4 py-2 bg-red-900/70 hover:bg-red-900 rounded font-medium transition"
+          >
+            🚫 Never Suggest
+          </button>
+          <button
+            onClick={() => onTogglePlayedElsewhere(game.appid)}
+            className={`px-4 py-2 rounded font-medium transition ${
+              playedElsewhereList.includes(game.appid)
+                ? 'bg-blue-700 hover:bg-blue-600'
+                : 'bg-blue-900/70 hover:bg-blue-900'
+            }`}
+          >
+            {playedElsewhereList.includes(game.appid) ? '✅ Played Elsewhere' : '🎮 Played Elsewhere'}
+          </button>
+          <a
+            href={`steam://store/${game.appid}`}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition"
+          >
+            ▶ Play Now
+          </a>
+        </div>
+        
+        {hiddenCount > 0 && (
+          <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-700 pt-3">
+            <span>{hiddenCount} game{hiddenCount !== 1 ? 's' : ''} hidden from suggestions</span>
+            <button
+              onClick={onResetHidden}
+              className="hover:text-white transition"
+            >
+              Reset
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -484,6 +610,64 @@ export default function Home() {
   const [ratingsTotal, setRatingsTotal] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [rememberSteamId, setRememberSteamId] = useState(false);
+  const [storeData, setStoreData] = useState<SteamStoreData | null>(null);
+  const [storeLoading, setStoreLoading] = useState(false);
+  
+  // Fetch Steam Store data with caching
+  const fetchStoreData = async (appId: number) => {
+    // Check cache first (30-day TTL)
+    const cacheKey = `steam_store_${appId}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const parsedCache = JSON.parse(cached);
+        const age = Date.now() - parsedCache.timestamp;
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        
+        if (age < thirtyDays) {
+          setStoreData(parsedCache.data);
+          return;
+        }
+      } catch (e) {
+        // Invalid cache, fetch fresh
+      }
+    }
+    
+    // Fetch from API
+    setStoreLoading(true);
+    try {
+      const response = await fetch(`/api/steam-store?appid=${appId}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setStoreData(data);
+        // Cache the result
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+      } else {
+        // Handle error gracefully - just don't show store data
+        console.warn('Steam Store API error for', appId, data.message);
+        setStoreData(null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Steam Store data:', error);
+      setStoreData(null);
+    } finally {
+      setStoreLoading(false);
+    }
+  };
+  
+  // Fetch store data when suggestion changes (pre-fetch for immediate display)
+  useEffect(() => {
+    if (suggestion) {
+      fetchStoreData(suggestion.appid);
+    } else {
+      setStoreData(null);
+    }
+  }, [suggestion]);
   
   // Load saved Steam ID and remember preference on mount
   useEffect(() => {
@@ -894,6 +1078,8 @@ export default function Home() {
           playedElsewhereList={playedElsewhereList}
           hiddenCount={neverSuggestList.length}
           onResetHidden={handleResetBlacklist}
+          storeData={storeData}
+          storeLoading={storeLoading}
         />
         
         {/* Filter and Sort Controls */}

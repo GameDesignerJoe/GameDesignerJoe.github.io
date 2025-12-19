@@ -1,3 +1,5 @@
+=== COMPLETED ===
+
 # Never Played - Minimal MVP Design Document
 
 ## Project Overview
