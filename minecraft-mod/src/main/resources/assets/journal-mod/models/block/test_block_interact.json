@@ -1,6 +1,0 @@
-{
-    "parent": "minecraft:block/cube_all",
-    "textures": {
-      "all": "journal-mod:block/test_block_interact"
-    }
-  }

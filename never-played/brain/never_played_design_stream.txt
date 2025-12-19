@@ -1,0 +1,617 @@
+# Never Played - Minimal MVP Design Document
+
+## Project Overview
+
+**Never Played** is a simple web application that displays your Steam game library. This is Step 1 - just display the games.
+
+---
+
+## MVP Scope (Step 1)
+
+### What We're Building:
+A single-page application where you can:
+1. Enter a Steam ID
+2. Click "Get Games"
+3. See a list of all your Steam games with playtime
+
+**That's it.** No authentication, no database, no badges (for now).
+
+---
+
+## Technical Stack (Simplified)
+
+### Frontend
+- **Framework**: Next.js 14 (React, TypeScript)
+- **Styling**: TailwindCSS
+- **Deployment**: Vercel (optional for now)
+
+### Backend
+- **Framework**: Next.js API Routes
+- **No Database**: Everything is fetched fresh from Steam API
+- **No State Management**: Just React useState
+
+### External APIs
+- **Steam Web API**: Game library and playtime data only
+
+---
+
+## User Interface (Step 1)
+
+### Single Page Layout
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│              NEVER PLAYED                           │
+│         Display Your Steam Library                  │
+│                                                     │
+│  ┌─────────────────────────────────────────┐       │
+│  │  Enter your Steam ID:                   │       │
+│  │  ┌──────────────────────┐ ┌──────────┐ │       │
+│  │  │ 76561198XXXXXXXX     │ │  Get     │ │       │
+│  │  └──────────────────────┘ └──────────┘ │       │
+│  │                                         │       │
+│  │  Don't know your Steam ID?              │       │
+│  │  Find it at: steamidfinder.com          │       │
+│  └─────────────────────────────────────────┘       │
+│                                                     │
+│  ┌─────────────────────────────────────────┐       │
+│  │  YOUR LIBRARY (243 games)               │       │
+│  │                                         │       │
+│  │  🎮 Half-Life 2                         │       │
+│  │     Playtime: 0 hours                   │       │
+│  │     ❌ Never Played                      │       │
+│  │                                         │       │
+│  │  🎮 Portal 2                            │       │
+│  │     Playtime: 45 hours                  │       │
+│  │     ✅ Played                            │       │
+│  │                                         │       │
+│  │  🎮 Dota 2                              │       │
+│  │     Playtime: 1,203 hours               │       │
+│  │     ✅ Played                            │       │
+│  │                                         │       │
+│  │  ... [more games] ...                   │       │
+│  │                                         │       │
+│  └─────────────────────────────────────────┘       │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+### Component Structure
+
+```
+src/
+  app/
+    page.tsx              # Main page - everything in one file
+    api/
+      steam-library/
+        route.ts          # API route to fetch from Steam
+  components/            # Optional - can build in page.tsx first
+    GameList.tsx         # List of games (optional extraction later)
+    GameCard.tsx         # Individual game display (optional)
+```
+
+---
+
+## Steam API Integration
+
+### Getting a Steam API Key
+
+1. Go to https://steamcommunity.com/dev/apikey
+2. Sign in with your Steam account
+3. Enter domain name: `localhost` (for development)
+4. Copy the API key
+
+### Finding Your Steam ID
+
+Users can find their Steam ID at: https://steamidfinder.com
+- It looks like: `76561198XXXXXXXX` (17 digits)
+- Or their custom URL: `customusername`
+
+### API Call Structure
+
+**Endpoint:**
+```
+GET https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/
+```
+
+**Parameters:**
+- `key`: Your Steam API key
+- `steamid`: User's Steam ID (17-digit number)
+- `include_appinfo`: 1 (includes game names and icons)
+- `include_played_free_games`: 1 (includes F2P games)
+- `format`: json
+
+**Example Request:**
+```
+https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=YOUR_KEY&steamid=76561198XXXXXXXX&include_appinfo=1&format=json
+```
+
+**Response Structure:**
+```json
+{
+  "response": {
+    "game_count": 243,
+    "games": [
+      {
+        "appid": 220,
+        "name": "Half-Life 2",
+        "playtime_forever": 0,
+        "img_icon_url": "...",
+        "img_logo_url": "...",
+        "playtime_windows_forever": 0,
+        "playtime_mac_forever": 0,
+        "playtime_linux_forever": 0
+      },
+      ...
+    ]
+  }
+}
+```
+
+**Key Fields:**
+- `appid`: Game's unique ID
+- `name`: Game title
+- `playtime_forever`: Total minutes played
+- `img_icon_url`: Small icon (use with Steam CDN)
+
+---
+
+## Implementation Guide
+
+### Step 1: Environment Setup
+
+Create `.env.local` in your project root:
+
+```env
+STEAM_API_KEY=your_steam_api_key_here
+```
+
+**Security Note:** API key stays on server side only (Next.js API routes)
+
+### Step 2: Create API Route
+
+**File:** `src/app/api/steam-library/route.ts`
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const steamId = searchParams.get('steamid');
+  
+  if (!steamId) {
+    return NextResponse.json(
+      { error: 'Steam ID is required' },
+      { status: 400 }
+    );
+  }
+  
+  const apiKey = process.env.STEAM_API_KEY;
+  
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'Steam API key not configured' },
+      { status: 500 }
+    );
+  }
+  
+  try {
+    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${steamId}&include_appinfo=1&include_played_free_games=1&format=json`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.response) {
+      return NextResponse.json(
+        { error: 'Invalid Steam ID or profile is private' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json(data.response);
+    
+  } catch (error) {
+    console.error('Steam API error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch games from Steam' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### Step 3: Create Main Page
+
+**File:** `src/app/page.tsx`
+
+```typescript
+'use client';
+
+import { useState } from 'react';
+
+interface SteamGame {
+  appid: number;
+  name: string;
+  playtime_forever: number;
+  img_icon_url: string;
+}
+
+export default function Home() {
+  const [steamId, setSteamId] = useState('');
+  const [games, setGames] = useState<SteamGame[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const fetchGames = async () => {
+    if (!steamId.trim()) {
+      setError('Please enter a Steam ID');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    setGames([]);
+    
+    try {
+      const response = await fetch(`/api/steam-library?steamid=${steamId}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch games');
+      }
+      
+      setGames(data.games || []);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      fetchGames();
+    }
+  };
+  
+  return (
+    <main className="min-h-screen bg-gray-900 text-white p-8">
+      <div className="max-w-4xl mx-auto">
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2">Never Played</h1>
+          <p className="text-gray-400">Display Your Steam Library</p>
+        </div>
+        
+        {/* Input Section */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <label className="block mb-2 text-sm font-medium">
+            Enter your Steam ID:
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={steamId}
+              onChange={(e) => setSteamId(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="76561198XXXXXXXX"
+              className="flex-1 px-4 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+            />
+            <button
+              onClick={fetchGames}
+              disabled={loading}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded font-medium transition"
+            >
+              {loading ? 'Loading...' : 'Get Games'}
+            </button>
+          </div>
+          
+          <p className="mt-2 text-sm text-gray-400">
+            Don't know your Steam ID? Find it at{' '}
+            <a 
+              href="https://steamidfinder.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              steamidfinder.com
+            </a>
+          </p>
+          
+          {error && (
+            <p className="mt-2 text-red-400 text-sm">{error}</p>
+          )}
+        </div>
+        
+        {/* Games List */}
+        {games.length > 0 && (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">
+              Your Library ({games.length} games)
+            </h2>
+            
+            <div className="space-y-3">
+              {games.map((game) => {
+                const hours = Math.floor(game.playtime_forever / 60);
+                const minutes = game.playtime_forever % 60;
+                const neverPlayed = game.playtime_forever === 0;
+                
+                return (
+                  <div 
+                    key={game.appid}
+                    className="bg-gray-700 rounded p-4 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      {game.img_icon_url && (
+                        <img
+                          src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
+                          alt={game.name}
+                          className="w-8 h-8 rounded"
+                        />
+                      )}
+                      <div>
+                        <h3 className="font-medium">{game.name}</h3>
+                        <p className="text-sm text-gray-400">
+                          {hours > 0 && `${hours}h `}
+                          {minutes > 0 && `${minutes}m`}
+                          {neverPlayed && '0 hours'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <span className={`text-sm px-3 py-1 rounded ${
+                      neverPlayed 
+                        ? 'bg-red-900 text-red-200' 
+                        : 'bg-green-900 text-green-200'
+                    }`}>
+                      {neverPlayed ? '❌ Never Played' : '✅ Played'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* Empty State */}
+        {!loading && games.length === 0 && !error && (
+          <div className="text-center text-gray-400 py-12">
+            <p>Enter a Steam ID above to view a game library</p>
+          </div>
+        )}
+        
+      </div>
+    </main>
+  );
+}
+```
+
+### Step 4: TypeScript Types (Optional but Recommended)
+
+**File:** `src/types/steam.ts`
+
+```typescript
+export interface SteamGame {
+  appid: number;
+  name: string;
+  playtime_forever: number; // in minutes
+  playtime_windows_forever: number;
+  playtime_mac_forever: number;
+  playtime_linux_forever: number;
+  img_icon_url: string;
+  img_logo_url: string;
+}
+
+export interface SteamLibraryResponse {
+  game_count: number;
+  games: SteamGame[];
+}
+```
+
+---
+
+## Development Workflow
+
+### Initial Setup
+
+```bash
+# Navigate to your project
+cd never-played
+
+# Install dependencies (if not already done)
+npm install
+
+# Create environment file
+# Create .env.local and add:
+# STEAM_API_KEY=your_key_here
+
+# Run development server
+npm run dev
+```
+
+### Testing
+
+1. Open browser to `http://localhost:3000`
+2. Enter your Steam ID (or use test ID: `76561197960434622` - Gabe Newell)
+3. Click "Get Games"
+4. Should see list of games
+
+### Common Issues
+
+**Issue: "Invalid Steam ID or profile is private"**
+- Make sure the Steam profile is set to Public
+- Go to Steam → Profile → Edit Profile → Privacy Settings
+- Set "Game details" to Public
+
+**Issue: "Steam API key not configured"**
+- Make sure `.env.local` exists in project root
+- Make sure it has `STEAM_API_KEY=your_key`
+- Restart the dev server after adding the key
+
+**Issue: CORS errors**
+- This is why we use Next.js API routes (server-side)
+- Never call Steam API directly from the browser
+
+---
+
+## Project File Structure
+
+```
+never-played/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx              # Main page (everything here)
+│   │   ├── layout.tsx            # Root layout (Next.js default)
+│   │   ├── globals.css           # Global styles
+│   │   └── api/
+│   │       └── steam-library/
+│   │           └── route.ts      # Steam API endpoint
+│   └── types/
+│       └── steam.ts              # TypeScript types (optional)
+├── public/                       # Static assets (if needed)
+├── .env.local                    # Environment variables (CREATE THIS)
+├── .gitignore                    # Already includes .env.local
+├── next.config.js
+├── package.json
+├── tsconfig.json
+└── tailwind.config.ts
+```
+
+---
+
+## Next Steps (Future Features)
+
+Once Step 1 is working, we can add:
+
+### Step 2: Better UI
+- Sort games (by name, playtime, never played)
+- Filter games (only never played)
+- Search games by name
+- Show summary stats (total games, never played count)
+
+### Step 3: Suggestions
+- Highlight oldest never-played game
+- Show 3 suggested games to try
+
+### Step 4: Persistence (Optional)
+- Save favorite games to localStorage
+- Remember last searched Steam ID
+
+### Step 5: Authentication (Much Later)
+- Steam OAuth login
+- Save your library
+- Track progress over time
+
+### Step 6: Badges (Way Later)
+- Award badges for trying games
+- XP system
+- Streaks
+
+**But for now: Just get the game list displaying!**
+
+---
+
+## Success Criteria for Step 1
+
+✅ User can enter Steam ID  
+✅ Clicking "Get Games" fetches from Steam API  
+✅ Games display in a list  
+✅ Shows game name and playtime  
+✅ Shows "Never Played" vs "Played" status  
+✅ Handles errors gracefully  
+✅ Works on localhost  
+
+That's it! Once this works, we celebrate and plan Step 2.
+
+---
+
+## Instructions for Cline
+
+**Build this minimal version:**
+
+1. Create API route at `src/app/api/steam-library/route.ts`
+   - Takes `steamid` query parameter
+   - Calls Steam API with server-side key
+   - Returns game list JSON
+
+2. Update `src/app/page.tsx`
+   - Input field for Steam ID
+   - "Get Games" button
+   - Display games in a list
+   - Show playtime and never-played status
+   - Basic Tailwind styling
+
+3. Remind user to:
+   - Get Steam API key from https://steamcommunity.com/dev/apikey
+   - Create `.env.local` with `STEAM_API_KEY=...`
+   - Restart dev server after adding key
+
+**Keep it simple. No database, no auth, no extra features yet.**
+
+---
+
+## Resources
+
+### Documentation Links
+- **Steam Web API**: https://steamcommunity.com/dev
+- **Steam API Key**: https://steamcommunity.com/dev/apikey
+- **Steam ID Finder**: https://steamidfinder.com
+- **Next.js**: https://nextjs.org/docs
+- **TailwindCSS**: https://tailwindcss.com/docs
+
+### Steam Profile Privacy
+For the API to work, Steam profiles must have their game details set to Public:
+1. Go to Steam → Profile → Edit Profile
+2. Click "Privacy Settings"
+3. Set "Game details" to Public
+
+---
+
+## Quick Reference
+
+### Steam API Call
+```
+GET https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/
+?key=YOUR_KEY
+&steamid=STEAM_ID
+&include_appinfo=1
+&format=json
+```
+
+### Example Steam IDs for Testing
+- Gabe Newell (Valve): `76561197960434622`
+- Your own: Find at steamidfinder.com
+
+### Playtime Conversion
+- Steam returns playtime in **minutes**
+- Convert to hours: `Math.floor(minutes / 60)`
+- Show minutes remainder: `minutes % 60`
+
+---
+
+## Final Notes
+
+**This is intentionally minimal.** We're building:
+- One page
+- One API route
+- One API call
+- Display games
+
+No database, no authentication, no badges, no complexity.
+
+Once this works, we can add features incrementally.
+
+**Get it working first, make it better later.**
+
+---
+
+**Project Name**: Never Played  
+**Current Goal**: Display Steam library (Step 1 only)  
+**Tech Stack**: Next.js 14, TypeScript, TailwindCSS  
+**External API**: Steam Web API  
+**Timeline**: Should work in 1-2 hours  
+
+Good luck! 🎮

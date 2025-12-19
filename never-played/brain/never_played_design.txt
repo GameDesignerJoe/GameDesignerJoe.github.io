@@ -1,0 +1,1188 @@
+# Never Played - Design & Implementation Document
+
+## Project Overview
+
+**Never Played** is a web application that gamifies Steam library exploration. It rewards users for trying games they own but haven't played, focusing on discovery rather than completion.
+
+---
+
+## Core Features
+
+### User Experience Flow
+1. User signs in with Steam (OAuth)
+2. System imports their Steam library automatically
+3. Dashboard shows stats, suggestions, and badge progress
+4. System tracks when users try new games (0 hours → 1+ hours)
+5. Users earn XP and badges automatically based on play behavior
+
+### Key Metrics Tracked
+- Days since playing something new
+- Games tried vs. never played
+- Current play streak
+- Genre diversity
+- Backlog age
+
+---
+
+## Technical Stack
+
+### Frontend
+- **Framework**: Next.js 14 (React, TypeScript)
+- **Styling**: TailwindCSS
+- **Charts**: Chart.js or Recharts
+- **State Management**: React Context or Zustand
+- **Deployment**: Vercel
+
+### Backend
+- **Runtime**: Node.js 20+
+- **Framework**: Next.js API Routes
+- **Database**: PostgreSQL (Supabase or Railway)
+- **Caching**: Redis (Upstash)
+- **ORM**: Prisma
+
+### External APIs
+- **Steam Web API**: Game library, playtime, achievements
+- **IGDB API**: Game metadata, genres, ratings
+- **HowLongToBeat**: Completion time estimates (scraping or unofficial API)
+
+---
+
+## Database Schema
+
+```prisma
+// schema.prisma
+
+model User {
+  id            String   @id @default(cuid())
+  steamId       String   @unique
+  username      String
+  avatarUrl     String?
+  profileUrl    String
+  xp            Int      @default(0)
+  level         Int      @default(1)
+  lastSync      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  games         Game[]
+  badges        UserBadge[]
+  activities    Activity[]
+}
+
+model Game {
+  id              String   @id @default(cuid())
+  userId          String
+  appId           Int
+  name            String
+  playtimeMinutes Int      @default(0)
+  purchaseDate    DateTime?
+  lastPlayed      DateTime?
+  firstPlayed     DateTime? // When they first hit 1+ hour
+  
+  // Enriched metadata
+  genres          String[] // Array of genre tags
+  metacriticScore Int?
+  steamScore      Int?     // Positive review percentage
+  hltbHours       Int?     // Hours to beat
+  releaseDate     DateTime?
+  developer       String?
+  isInstalled     Boolean  @default(false)
+  
+  user            User     @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, appId])
+  @@index([userId, playtimeMinutes])
+  @@index([userId, purchaseDate])
+}
+
+model Badge {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String
+  category    String   // explorer, streak, discovery, depth, genre, etc.
+  tier        String   // bronze, silver, gold, platinum
+  xpReward    Int
+  iconUrl     String?
+  
+  requirement Json     // Flexible requirement definition
+  
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id         String   @id @default(cuid())
+  userId     String
+  badgeId    String
+  earnedAt   DateTime @default(now())
+  progress   Json?    // Current progress toward badge
+  
+  user       User     @relation(fields: [userId], references: [id])
+  badge      Badge    @relation(fields: [badgeId], references: [id])
+  
+  @@unique([userId, badgeId])
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // tried_game, earned_badge, level_up, streak_milestone
+  description String
+  xpGained    Int      @default(0)
+  metadata    Json?    // Game info, badge info, etc.
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId, createdAt])
+}
+
+model SyncLog {
+  id        String   @id @default(cuid())
+  userId    String
+  success   Boolean
+  gamesUpdated Int   @default(0)
+  error     String?
+  syncedAt  DateTime @default(now())
+  
+  @@index([userId, syncedAt])
+}
+```
+
+---
+
+## Steam API Integration
+
+### Authentication Flow
+
+```typescript
+// pages/api/auth/steam.ts
+// Uses Passport.js Steam strategy or manual OpenID implementation
+
+import passport from 'passport';
+import { Strategy as SteamStrategy } from 'passport-steam';
+
+passport.use(new SteamStrategy({
+    returnURL: 'http://localhost:3000/api/auth/steam/return',
+    realm: 'http://localhost:3000/',
+    apiKey: process.env.STEAM_API_KEY
+  },
+  function(identifier, profile, done) {
+    // identifier is the SteamID64
+    // Save user to database
+    return done(null, profile);
+  }
+));
+```
+
+### Key Steam API Endpoints
+
+```typescript
+// lib/steam/api.ts
+
+const STEAM_API_KEY = process.env.STEAM_API_KEY;
+const BASE_URL = 'https://api.steampowered.com';
+
+// Get user's game library
+async function getOwnedGames(steamId: string) {
+  const url = `${BASE_URL}/IPlayerService/GetOwnedGames/v1/`;
+  const params = {
+    key: STEAM_API_KEY,
+    steamid: steamId,
+    include_appinfo: 1,
+    include_played_free_games: 1,
+    format: 'json'
+  };
+  
+  const response = await fetch(`${url}?${new URLSearchParams(params)}`);
+  const data = await response.json();
+  return data.response.games; // Array of games with playtime
+}
+
+// Get recently played games
+async function getRecentlyPlayedGames(steamId: string) {
+  const url = `${BASE_URL}/IPlayerService/GetRecentlyPlayedGames/v1/`;
+  const params = {
+    key: STEAM_API_KEY,
+    steamid: steamId,
+    count: 50,
+    format: 'json'
+  };
+  
+  const response = await fetch(`${url}?${new URLSearchParams(params)}`);
+  const data = await response.json();
+  return data.response.games;
+}
+
+// Get player summary (username, avatar)
+async function getPlayerSummaries(steamId: string) {
+  const url = `${BASE_URL}/ISteamUser/GetPlayerSummaries/v2/`;
+  const params = {
+    key: STEAM_API_KEY,
+    steamids: steamId,
+    format: 'json'
+  };
+  
+  const response = await fetch(`${url}?${new URLSearchParams(params)}`);
+  const data = await response.json();
+  return data.response.players[0];
+}
+```
+
+### Game Data Structure from Steam
+
+```typescript
+interface SteamGame {
+  appid: number;
+  name: string;
+  playtime_forever: number; // Total minutes played
+  playtime_2weeks?: number; // Minutes played in last 2 weeks
+  img_icon_url: string;
+  img_logo_url: string;
+  rtime_last_played?: number; // Unix timestamp
+}
+```
+
+---
+
+## Game Metadata Enrichment
+
+### IGDB Integration
+
+```typescript
+// lib/igdb/api.ts
+
+// IGDB uses Twitch OAuth for authentication
+// https://api-docs.igdb.com/
+
+async function getIGDBToken() {
+  const response = await fetch(`https://id.twitch.tv/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: process.env.IGDB_CLIENT_ID,
+      client_secret: process.env.IGDB_CLIENT_SECRET,
+      grant_type: 'client_credentials'
+    })
+  });
+  return response.json();
+}
+
+async function searchGameByName(gameName: string, steamAppId: number) {
+  const token = await getIGDBToken();
+  
+  const response = await fetch('https://api.igdb.com/v4/games', {
+    method: 'POST',
+    headers: {
+      'Client-ID': process.env.IGDB_CLIENT_ID,
+      'Authorization': `Bearer ${token.access_token}`,
+      'Content-Type': 'text/plain'
+    },
+    body: `
+      search "${gameName}";
+      fields name, genres.name, aggregated_rating, 
+             first_release_date, involved_companies.company.name;
+      where category = 0;
+      limit 5;
+    `
+  });
+  
+  return response.json();
+}
+```
+
+### HowLongToBeat Integration
+
+```typescript
+// lib/hltb/scraper.ts
+// Use unofficial package: howlongtobeat
+
+import { HowLongToBeatService } from 'howlongtobeat';
+
+const hltbService = new HowLongToBeatService();
+
+async function getHLTBTime(gameName: string) {
+  const results = await hltbService.search(gameName);
+  if (results && results.length > 0) {
+    const game = results[0];
+    return {
+      mainStory: game.gameplayMain,
+      mainExtra: game.gameplayMainExtra,
+      completionist: game.gameplayCompletionist
+    };
+  }
+  return null;
+}
+```
+
+---
+
+## Badge System Logic
+
+### Badge Definitions
+
+```typescript
+// lib/badges/definitions.ts
+
+export const BADGES = [
+  {
+    slug: 'curious',
+    name: 'Curious',
+    description: 'Try 5 never-played games',
+    category: 'explorer',
+    tier: 'bronze',
+    xpReward: 50,
+    requirement: {
+      type: 'games_tried',
+      count: 5
+    }
+  },
+  {
+    slug: 'adventurer',
+    name: 'Adventurer',
+    description: 'Try 20 never-played games',
+    category: 'explorer',
+    tier: 'silver',
+    xpReward: 200,
+    requirement: {
+      type: 'games_tried',
+      count: 20
+    }
+  },
+  {
+    slug: 'daily_dabbler',
+    name: 'Daily Dabbler',
+    description: 'Play something 3 days in a row',
+    category: 'streak',
+    tier: 'bronze',
+    xpReward: 30,
+    requirement: {
+      type: 'consecutive_days',
+      count: 3
+    }
+  },
+  {
+    slug: 'ancient_explorer',
+    name: 'Ancient Explorer',
+    description: 'Try a game purchased 5+ years ago',
+    category: 'discovery',
+    tier: 'gold',
+    xpReward: 100,
+    requirement: {
+      type: 'old_game_tried',
+      years: 5
+    }
+  },
+  // ... more badge definitions
+];
+```
+
+### Badge Checking Logic
+
+```typescript
+// lib/badges/checker.ts
+
+async function checkBadges(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { 
+      games: true,
+      badges: { include: { badge: true } }
+    }
+  });
+  
+  const earnedBadgeSlugs = user.badges.map(ub => ub.badge.slug);
+  const newBadges = [];
+  
+  for (const badgeDef of BADGES) {
+    if (earnedBadgeSlugs.includes(badgeDef.slug)) continue;
+    
+    const earned = await checkBadgeRequirement(user, badgeDef);
+    if (earned) {
+      newBadges.push(badgeDef);
+    }
+  }
+  
+  return newBadges;
+}
+
+async function checkBadgeRequirement(user: any, badgeDef: any) {
+  const { requirement } = badgeDef;
+  
+  switch (requirement.type) {
+    case 'games_tried':
+      const triedCount = user.games.filter(g => g.firstPlayed !== null).length;
+      return triedCount >= requirement.count;
+      
+    case 'consecutive_days':
+      return await checkConsecutiveDays(user.id, requirement.count);
+      
+    case 'old_game_tried':
+      const cutoffDate = new Date();
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - requirement.years);
+      const oldGameTried = user.games.some(g => 
+        g.purchaseDate && 
+        g.purchaseDate < cutoffDate && 
+        g.firstPlayed !== null
+      );
+      return oldGameTried;
+      
+    // ... more requirement checks
+  }
+  
+  return false;
+}
+```
+
+---
+
+## Suggestion Algorithm
+
+### Core Logic
+
+```typescript
+// lib/suggestions/algorithm.ts
+
+interface SuggestionScore {
+  game: Game;
+  score: number;
+  reasons: string[];
+}
+
+function calculateSuggestions(games: Game[], recentGames: Game[]) {
+  const now = new Date();
+  const scores: SuggestionScore[] = [];
+  
+  for (const game of games) {
+    if (game.playtimeMinutes > 60) continue; // Already tried
+    
+    let score = 0;
+    const reasons = [];
+    
+    // Age weight (30%)
+    if (game.purchaseDate) {
+      const yearsOld = (now.getTime() - game.purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365);
+      score += Math.min(yearsOld * 10, 30);
+      if (yearsOld > 3) reasons.push(`Purchased ${Math.floor(yearsOld)} years ago`);
+    }
+    
+    // Playtime gap (25%)
+    if (game.playtimeMinutes === 0) {
+      score += 25;
+      reasons.push('Never played');
+    } else if (game.playtimeMinutes < 60) {
+      score += 15;
+      reasons.push('You started this!');
+    }
+    
+    // Effort estimate (20%)
+    if (game.hltbHours && game.hltbHours < 10) {
+      score += 20;
+      reasons.push(`Quick win: ~${game.hltbHours} hours`);
+    } else if (game.hltbHours && game.hltbHours < 20) {
+      score += 10;
+    }
+    
+    // Quality signal (15%)
+    if (game.steamScore && game.steamScore > 90) {
+      score += 15;
+      reasons.push(`${game.steamScore}% positive reviews`);
+    } else if (game.steamScore && game.steamScore > 80) {
+      score += 10;
+    }
+    
+    // Variety bonus (10%)
+    const recentGenres = recentGames.flatMap(g => g.genres);
+    const isDifferentGenre = game.genres.some(g => !recentGenres.includes(g));
+    if (isDifferentGenre) {
+      score += 10;
+      reasons.push('Different from recent games');
+    }
+    
+    scores.push({ game, score, reasons });
+  }
+  
+  // Sort by score and return top 3
+  scores.sort((a, b) => b.score - a.score);
+  
+  return {
+    quickWin: scores.find(s => s.game.hltbHours && s.game.hltbHours < 5),
+    forgotten: scores.find(s => s.game.playtimeMinutes > 0 && s.game.playtimeMinutes < 60),
+    wildCard: scores[Math.floor(Math.random() * Math.min(10, scores.length))]
+  };
+}
+```
+
+---
+
+## Sync Process
+
+### Library Sync Flow
+
+```typescript
+// lib/sync/library.ts
+
+async function syncUserLibrary(userId: string, steamId: string) {
+  const syncStart = new Date();
+  let gamesUpdated = 0;
+  
+  try {
+    // 1. Fetch games from Steam
+    const steamGames = await getOwnedGames(steamId);
+    
+    // 2. For each game, update or create in database
+    for (const steamGame of steamGames) {
+      const existingGame = await prisma.game.findUnique({
+        where: { 
+          userId_appId: { 
+            userId, 
+            appId: steamGame.appid 
+          }
+        }
+      });
+      
+      const playtimeMinutes = steamGame.playtime_forever;
+      const lastPlayed = steamGame.rtime_last_played 
+        ? new Date(steamGame.rtime_last_played * 1000)
+        : null;
+      
+      // Detect "first tried" event
+      let firstPlayed = existingGame?.firstPlayed;
+      if (!firstPlayed && playtimeMinutes >= 60) {
+        firstPlayed = new Date();
+        
+        // Award XP for trying a new game
+        await awardXP(userId, 10, 'tried_game', { 
+          gameName: steamGame.name,
+          appId: steamGame.appid 
+        });
+      }
+      
+      await prisma.game.upsert({
+        where: {
+          userId_appId: { userId, appId: steamGame.appid }
+        },
+        update: {
+          playtimeMinutes,
+          lastPlayed,
+          firstPlayed
+        },
+        create: {
+          userId,
+          appId: steamGame.appid,
+          name: steamGame.name,
+          playtimeMinutes,
+          lastPlayed,
+          firstPlayed
+        }
+      });
+      
+      gamesUpdated++;
+    }
+    
+    // 3. Enrich metadata for new games (async job)
+    await enrichGameMetadata(userId);
+    
+    // 4. Check for new badges
+    const newBadges = await checkBadges(userId);
+    for (const badge of newBadges) {
+      await awardBadge(userId, badge);
+    }
+    
+    // 5. Update last sync time
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lastSync: new Date() }
+    });
+    
+    // 6. Log sync
+    await prisma.syncLog.create({
+      data: {
+        userId,
+        success: true,
+        gamesUpdated,
+        syncedAt: syncStart
+      }
+    });
+    
+    return { success: true, gamesUpdated };
+    
+  } catch (error) {
+    await prisma.syncLog.create({
+      data: {
+        userId,
+        success: false,
+        error: error.message,
+        syncedAt: syncStart
+      }
+    });
+    
+    throw error;
+  }
+}
+```
+
+---
+
+## API Routes
+
+### Key Endpoints
+
+```typescript
+// pages/api/auth/steam.ts
+// POST - Initiate Steam OAuth
+
+// pages/api/auth/steam/callback.ts
+// GET - Handle Steam OAuth callback
+
+// pages/api/user/profile.ts
+// GET - Get current user profile and stats
+
+// pages/api/user/sync.ts
+// POST - Trigger library sync
+
+// pages/api/games/library.ts
+// GET - Get user's game library with filters/sorting
+
+// pages/api/games/suggestions.ts
+// GET - Get daily suggestions
+
+// pages/api/badges/list.ts
+// GET - Get all badges with user progress
+
+// pages/api/badges/earned.ts
+// GET - Get user's earned badges
+
+// pages/api/activity/feed.ts
+// GET - Get user's recent activity
+```
+
+---
+
+## Frontend Components
+
+### Page Structure
+
+```
+pages/
+  index.tsx              # Landing page
+  dashboard.tsx          # Main dashboard (logged in)
+  library.tsx            # Full library view
+  badges.tsx             # Badge collection view
+  
+components/
+  auth/
+    SteamLoginButton.tsx
+  dashboard/
+    StatsCard.tsx
+    SuggestionCard.tsx
+    BadgeProgress.tsx
+    ActivityFeed.tsx
+  library/
+    GameCard.tsx
+    GameTable.tsx
+    FilterBar.tsx
+  badges/
+    BadgeCard.tsx
+    BadgeGrid.tsx
+  layout/
+    Header.tsx
+    Sidebar.tsx
+```
+
+### Example Component
+
+```typescript
+// components/dashboard/SuggestionCard.tsx
+
+interface SuggestionCardProps {
+  game: Game;
+  type: 'quick' | 'forgotten' | 'wild';
+  reasons: string[];
+}
+
+export function SuggestionCard({ game, type, reasons }: SuggestionCardProps) {
+  const typeConfig = {
+    quick: { emoji: '⚡', label: 'Quick Win', color: 'yellow' },
+    forgotten: { emoji: '🕰️', label: 'Forgotten Gem', color: 'blue' },
+    wild: { emoji: '🎲', label: 'Wild Card', color: 'purple' }
+  };
+  
+  const config = typeConfig[type];
+  
+  return (
+    <div className={`border-2 border-${config.color}-500 rounded-lg p-4`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-2xl">{config.emoji}</span>
+        <h3 className="font-bold">{config.label}</h3>
+      </div>
+      
+      <h2 className="text-xl font-bold mb-2">{game.name}</h2>
+      
+      <div className="space-y-1 text-sm">
+        {game.purchaseDate && (
+          <p>Purchased: {formatDate(game.purchaseDate)}</p>
+        )}
+        <p>Playtime: {game.playtimeMinutes} minutes</p>
+        {game.steamScore && (
+          <p>Rating: {game.steamScore}% positive</p>
+        )}
+        {game.hltbHours && (
+          <p>Time to beat: ~{game.hltbHours} hours</p>
+        )}
+      </div>
+      
+      <div className="mt-3 text-sm text-gray-600">
+        <p className="font-semibold">Why this game:</p>
+        <ul className="list-disc list-inside">
+          {reasons.map((reason, i) => (
+            <li key={i}>{reason}</li>
+          ))}
+        </ul>
+      </div>
+      
+      <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+        Open in Steam
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## Environment Variables
+
+```env
+# .env.local
+
+# Steam API
+STEAM_API_KEY=your_steam_api_key_here
+STEAM_REALM=http://localhost:3000/
+STEAM_RETURN_URL=http://localhost:3000/api/auth/steam/callback
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/neverplayed
+
+# Redis Cache
+REDIS_URL=redis://localhost:6379
+
+# IGDB (via Twitch)
+IGDB_CLIENT_ID=your_twitch_client_id
+IGDB_CLIENT_SECRET=your_twitch_client_secret
+
+# Session
+SESSION_SECRET=your_random_secret_key_here
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+---
+
+## Getting Steam API Key
+
+1. Go to https://steamcommunity.com/dev/apikey
+2. Sign in with your Steam account
+3. Fill in domain name (for local: localhost)
+4. Copy the API key to `.env.local`
+
+---
+
+## Getting IGDB Credentials
+
+1. Go to https://dev.twitch.tv/console/apps
+2. Register new application
+3. Set OAuth Redirect URL to `http://localhost:3000`
+4. Copy Client ID and generate Client Secret
+5. Add to `.env.local`
+
+---
+
+## Development Workflow
+
+### Initial Setup
+
+```bash
+# 1. Create Next.js project
+npx create-next-app@latest never-played --typescript --tailwind --app
+
+# 2. Install dependencies
+cd never-played
+npm install prisma @prisma/client
+npm install passport passport-steam
+npm install redis
+npm install howlongtobeat
+npm install chart.js react-chartjs-2
+npm install zustand  # or use React Context
+
+# 3. Initialize Prisma
+npx prisma init
+
+# 4. Create schema.prisma (see above)
+
+# 5. Run migrations
+npx prisma migrate dev --name init
+
+# 6. Generate Prisma Client
+npx prisma generate
+
+# 7. Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys
+
+# 8. Run development server
+npm run dev
+```
+
+### Development Commands
+
+```bash
+# Run dev server
+npm run dev
+
+# Database migrations
+npx prisma migrate dev
+
+# View database in browser
+npx prisma studio
+
+# Run type checking
+npm run type-check
+
+# Build for production
+npm run build
+```
+
+---
+
+## Implementation Phases
+
+### Phase 1: Core MVP (Week 1-2)
+
+**Day 1-2: Project Setup**
+- Initialize Next.js project
+- Set up Prisma with PostgreSQL
+- Create database schema
+- Set up Steam OAuth
+
+**Day 3-4: Steam Integration**
+- Implement Steam API calls
+- Build library sync functionality
+- Create initial data models
+
+**Day 5-7: Basic UI**
+- Create dashboard layout
+- Build stats display
+- Implement library view with sorting
+
+**Day 8-10: Badge System**
+- Define initial badge set (10-15 badges)
+- Implement badge checking logic
+- Create badge display UI
+
+**Day 11-12: Suggestion Engine**
+- Build scoring algorithm
+- Create suggestion cards
+- Add refresh functionality
+
+**Day 13-14: Polish & Testing**
+- Bug fixes
+- Performance optimization
+- Deploy to Vercel
+
+### Phase 2: Enhanced Features (Week 3-4)
+
+- Game metadata enrichment (IGDB, HLTB)
+- Advanced filtering/sorting
+- Activity feed
+- Historical graphs
+- Email notifications
+
+### Phase 3: Premium Features (Week 5-6)
+
+- User preferences
+- Custom goals
+- Export functionality
+- Mobile responsive improvements
+- API endpoints for third-party access
+
+---
+
+## Deployment
+
+### Vercel Deployment
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+
+# Set environment variables in Vercel dashboard
+# vercel.com > Project > Settings > Environment Variables
+```
+
+### Database Hosting
+
+**Options:**
+- **Supabase** (Free tier: Good for MVP)
+- **Railway** (Free tier available)
+- **Neon** (Serverless Postgres, free tier)
+
+### Redis Hosting
+
+**Options:**
+- **Upstash** (Serverless Redis, generous free tier)
+- **Redis Cloud** (Free 30MB)
+
+---
+
+## Testing Strategy
+
+### Manual Testing Checklist
+
+- [ ] Steam OAuth login works
+- [ ] Library sync imports all games correctly
+- [ ] Playtime updates reflect in database
+- [ ] Badge checking awards correct badges
+- [ ] XP calculation is accurate
+- [ ] Suggestions algorithm returns 3 games
+- [ ] Dashboard displays current stats
+- [ ] Library filtering/sorting works
+- [ ] Badge progress displays correctly
+
+### Automated Testing (Future)
+
+```typescript
+// __tests__/badges/checker.test.ts
+import { checkBadgeRequirement } from '@/lib/badges/checker';
+
+describe('Badge Checker', () => {
+  it('awards Curious badge after trying 5 games', async () => {
+    const user = createMockUser({ gamesTriedCount: 5 });
+    const badge = BADGES.find(b => b.slug === 'curious');
+    
+    const earned = await checkBadgeRequirement(user, badge);
+    expect(earned).toBe(true);
+  });
+});
+```
+
+---
+
+## Security Considerations
+
+1. **API Keys**: Never commit to Git, use environment variables
+2. **Rate Limiting**: Implement on all API routes (use `next-rate-limit`)
+3. **Input Validation**: Validate all user inputs (use `zod`)
+4. **CSRF Protection**: Next.js handles this by default
+5. **XSS Prevention**: React escapes by default, but sanitize user content
+6. **SQL Injection**: Prisma uses parameterized queries (safe)
+
+---
+
+## Performance Optimization
+
+1. **Caching Strategy**:
+   - Cache Steam API responses for 6 hours
+   - Cache game metadata for 24 hours
+   - Invalidate cache on manual sync
+
+2. **Database Indexing**:
+   - Index on `userId + playtimeMinutes`
+   - Index on `userId + purchaseDate`
+   - Index on activity feed queries
+
+3. **Lazy Loading**:
+   - Load library in pages (50 games at a time)
+   - Infinite scroll for large libraries
+
+4. **Background Jobs**:
+   - Enrich game metadata asynchronously
+   - Run badge checks after sync, not during
+
+---
+
+## Future Enhancements
+
+1. **Machine Learning Suggestions**
+   - Train model on user play patterns
+   - Predict which games they'll enjoy
+
+2. **Social Features** (if desired later)
+   - Compare stats with friends
+   - Shared challenges
+
+3. **Integrations**
+   - GOG Galaxy support
+   - Epic Games Store
+   - Xbox Game Pass tracking
+
+4. **Advanced Analytics**
+   - Play pattern heatmaps
+   - Genre preference evolution
+   - Backlog projection models
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Steam API returns 403**
+- Check API key is valid
+- Ensure user's Steam profile is public
+
+**Library sync is slow**
+- Implement pagination for large libraries
+- Use Redis caching aggressively
+
+**Badge not awarded**
+- Check requirement logic in checker
+- Verify database queries return correct data
+
+**Metadata missing for games**
+- IGDB search may fail for exact matches
+- Implement fuzzy matching or manual override
+
+---
+
+## Resources
+
+### Documentation Links
+
+- **Steam Web API**: https://steamcommunity.com/dev
+- **Steamworks API Docs**: https://partner.steamcommunity.com/doc/webapi
+- **IGDB API**: https://api-docs.igdb.com/
+- **Next.js**: https://nextjs.org/docs
+- **Prisma**: https://www.prisma.io/docs
+- **TailwindCSS**: https://tailwindcss.com/docs
+
+### Community Resources
+
+- **Steam API Examples**: https://github.com/topics/steam-api
+- **r/webdev**: Reddit community for help
+- **Stack Overflow**: Tag questions with `steam-web-api`, `nextjs`, `prisma`
+
+---
+
+## Project File Structure
+
+```
+never-played/
+├── prisma/
+│   ├── schema.prisma
+│   └── migrations/
+├── public/
+│   └── badges/          # Badge icons
+├── src/
+│   ├── app/             # Next.js 14 app directory
+│   │   ├── page.tsx     # Landing page
+│   │   ├── dashboard/
+│   │   ├── library/
+│   │   ├── badges/
+│   │   └── api/
+│   │       ├── auth/
+│   │       ├── games/
+│   │       └── badges/
+│   ├── components/
+│   │   ├── auth/
+│   │   ├── dashboard/
+│   │   ├── library/
+│   │   └── badges/
+│   ├── lib/
+│   │   ├── steam/       # Steam API client
+│   │   ├── igdb/        # IGDB client
+│   │   ├── badges/      # Badge system
+│   │   ├── suggestions/ # Suggestion algorithm
+│   │   └── sync/        # Sync logic
+│   └── types/
+├── .env.local
+├── .gitignore
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+---
+
+## Success Metrics (Post-Launch)
+
+Track these to measure product-market fit:
+
+- **Weekly Active Users**: Goal 100+ by month 2
+- **Average games tried per user per week**: Goal 1-2
+- **Sync frequency**: Users returning to sync (engagement proxy)
+- **Badge unlock rate**: Are badges too easy/hard?
+- **Suggestion click-through**: Do users try suggested games?
+
+---
+
+## MVP Launch Checklist
+
+- [ ] Steam OAuth working
+- [ ] Library sync functional
+- [ ] Dashboard displays stats
+- [ ] At least 15 badges implemented
+- [ ] Suggestion engine returns 3 games
+- [ ] XP and leveling works
+- [ ] Badge progress tracking accurate
+- [ ] Responsive design (mobile-friendly)
+- [ ] Error handling and loading states
+- [ ] Privacy policy page
+- [ ] Terms of service page
+- [ ] About/FAQ page
+- [ ] Deployed to production
+- [ ] Domain configured (optional)
+- [ ] Analytics set up (Google Analytics or Plausible)
+
+---
+
+## License & Attribution
+
+This is your project. You own all code and IP.
+
+**Open Source Considerations:**
+- If open sourcing, use MIT or Apache 2.0 license
+- Credit Steam, IGDB, HLTB in footer
+- Do not redistribute API keys
+
+---
+
+## Final Notes for Claude API / VS Code Integration
+
+This document contains everything needed to implement **Never Played** from scratch:
+
+1. **Database schema** (Prisma)
+2. **API integration patterns** (Steam, IGDB, HLTB)
+3. **Core algorithms** (badges, suggestions, XP)
+4. **Frontend component structure**
+5. **Deployment instructions**
+
+A Claude API instance in VS Code (via Cursor, Continue, or similar) can use this document to:
+- Generate Prisma models
+- Implement API route handlers
+- Create React components
+- Write badge checking logic
+- Build the suggestion algorithm
+- Set up authentication flows
+
+**Recommended approach for AI-assisted development:**
+1. Start with Prisma schema → generate migrations
+2. Build Steam API integration → test with your account
+3. Create basic dashboard UI → verify data flow
+4. Implement badge system → test with sample data
+5. Add suggestion engine → refine scoring weights
+6. Polish UI → deploy MVP
+
+---
+
+**Project Name**: Never Played  
+**Tagline**: Discover what you already own  
+**Tech Stack**: Next.js 14, TypeScript, Prisma, PostgreSQL, Redis, TailwindCSS  
+**Target MVP Timeline**: 2 weeks  
+**Deployment**: Vercel + Supabase  
+
+Good luck building this! 🎮
