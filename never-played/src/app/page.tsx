@@ -7,6 +7,7 @@ interface SteamGame {
   name: string;
   playtime_forever: number;
   img_icon_url: string;
+  rating?: number | null; // Steam review score (0-100), null if no data available
 }
 
 interface LibraryStats {
@@ -16,7 +17,7 @@ interface LibraryStats {
   completionRate: number;
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc';
+type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc';
 
 function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
   const sorted = [...games];
@@ -34,6 +35,22 @@ function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
       return sorted.sort((a, b) => a.appid - b.appid);
     case 'appid-desc':
       return sorted.sort((a, b) => b.appid - a.appid);
+    case 'rating-desc':
+      // Sort by rating (high to low), unrated games at bottom
+      return sorted.sort((a, b) => {
+        if ((a.rating === undefined || a.rating === null) && (b.rating === undefined || b.rating === null)) return 0;
+        if (a.rating === undefined || a.rating === null) return 1;
+        if (b.rating === undefined || b.rating === null) return -1;
+        return b.rating - a.rating;
+      });
+    case 'rating-asc':
+      // Sort by rating (low to high), unrated games at bottom
+      return sorted.sort((a, b) => {
+        if ((a.rating === undefined || a.rating === null) && (b.rating === undefined || b.rating === null)) return 0;
+        if (a.rating === undefined || a.rating === null) return 1;
+        if (b.rating === undefined || b.rating === null) return -1;
+        return a.rating - b.rating;
+      });
     default:
       return sorted;
   }
@@ -66,17 +83,86 @@ function formatPlaytime(minutes: number): string {
   }
 }
 
-function getSuggestion(games: SteamGame[]): SteamGame | null {
-  const neverPlayed = games.filter(g => g.playtime_forever === 0);
+function getSuggestion(games: SteamGame[], blacklist: number[] = []): SteamGame | null {
+  const neverPlayed = games
+    .filter(g => g.playtime_forever === 0)
+    .filter(g => !blacklist.includes(g.appid));
   
   if (neverPlayed.length === 0) {
     return null;
   }
   
-  // Find oldest never-played game (lowest App ID)
-  const oldestNeverPlayed = neverPlayed.sort((a, b) => a.appid - b.appid)[0];
+  // Pick a random never-played game (excluding blacklist)
+  const randomIndex = Math.floor(Math.random() * neverPlayed.length);
+  return neverPlayed[randomIndex];
+}
+
+// Rating cache helpers
+function getCachedRating(appId: number): number | null {
+  const cached = localStorage.getItem(`rating_${appId}`);
+  if (!cached) return null;
   
-  return oldestNeverPlayed;
+  try {
+    const { score, timestamp } = JSON.parse(cached);
+    const age = Date.now() - timestamp;
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    
+    if (age < sevenDays) {
+      return score;
+    }
+  } catch (e) {
+    // Invalid cache entry
+  }
+  
+  return null;
+}
+
+function setCachedRating(appId: number, score: number) {
+  localStorage.setItem(`rating_${appId}`, JSON.stringify({
+    score,
+    timestamp: Date.now()
+  }));
+}
+
+// Fetch rating from SteamSpy (via our API to avoid CORS)
+async function fetchSteamSpyRating(appId: number): Promise<number | null> {
+  try {
+    const response = await fetch(`/api/steamspy-rating?appid=${appId}`);
+    const data = await response.json();
+    
+    if (!response.ok || data.error) {
+      return null;
+    }
+    
+    return data.rating;
+  } catch (e) {
+    // Fetch failed, skip this game
+    return null;
+  }
+}
+
+// Fetch ratings for a batch of games (10 parallel)
+async function fetchRatingBatch(games: SteamGame[]): Promise<Map<number, number>> {
+  const ratings = new Map<number, number>();
+  
+  const fetchPromises = games.map(async (game) => {
+    // Check cache first
+    const cached = getCachedRating(game.appid);
+    if (cached !== null) {
+      ratings.set(game.appid, cached);
+      return;
+    }
+    
+    // Fetch from SteamSpy
+    const rating = await fetchSteamSpyRating(game.appid);
+    if (rating !== null) {
+      ratings.set(game.appid, rating);
+      setCachedRating(game.appid, rating);
+    }
+  });
+  
+  await Promise.all(fetchPromises);
+  return ratings;
 }
 
 function LibraryStats({ games }: { games: SteamGame[] }) {
@@ -111,7 +197,47 @@ function LibraryStats({ games }: { games: SteamGame[] }) {
   );
 }
 
-function SuggestionCard({ 
+function RatingProgressBanner({ 
+  loading, 
+  loaded, 
+  total 
+}: { 
+  loading: boolean;
+  loaded: number;
+  total: number;
+}) {
+  if (total === 0) return null;
+  
+  const percentage = total > 0 ? (loaded / total) * 100 : 0;
+  const isComplete = !loading && loaded === total;
+  
+  return (
+    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4">
+      <div className={`rounded-lg p-4 shadow-lg border-2 ${
+        isComplete 
+          ? 'bg-green-900 border-green-500' 
+          : 'bg-gray-800 border-blue-500'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">
+            {isComplete ? '✅ Ratings loaded!' : '⏳ Loading ratings from SteamSpy...'}
+          </span>
+          <span className="text-xs text-gray-400">{loaded}/{total}</span>
+        </div>
+        <div className="w-full bg-gray-700 rounded-full h-2">
+          <div 
+            className={`h-2 rounded-full transition-all duration-300 ${
+              isComplete ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SuggestionCard({
   game, 
   onNewSuggestion,
   onNeverSuggest,
@@ -166,8 +292,16 @@ function SuggestionCard({
       <div className="bg-gray-900/50 rounded p-3 mb-4">
         <p className="text-sm font-semibold mb-2">Why this game?</p>
         <ul className="text-sm space-y-1">
-          <li>• Never played (0 hours)</li>
           <li>• One of your oldest games (Low App ID)</li>
+          <li>
+            • Rating: {
+              game.rating === undefined 
+                ? 'Loading...' 
+                : game.rating === null 
+                  ? 'No data available' 
+                  : `${game.rating}% 👍`
+            }
+          </li>
         </ul>
       </div>
       
@@ -216,6 +350,9 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<SortOption>('name-asc');
   const [suggestion, setSuggestion] = useState<SteamGame | null>(null);
   const [neverSuggestList, setNeverSuggestList] = useState<number[]>([]);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [ratingsLoaded, setRatingsLoaded] = useState(0);
+  const [ratingsTotal, setRatingsTotal] = useState(0);
   
   // Load never suggest list from localStorage on mount
   useEffect(() => {
@@ -229,6 +366,16 @@ export default function Home() {
       }
     }
   }, []);
+  
+  // Update suggestion when games state changes (e.g., when ratings load)
+  useEffect(() => {
+    if (suggestion && games.length > 0) {
+      const updatedGame = games.find(g => g.appid === suggestion.appid);
+      if (updatedGame && updatedGame.rating !== suggestion.rating) {
+        setSuggestion(updatedGame);
+      }
+    }
+  }, [games, suggestion]);
   
   const fetchGames = async () => {
     if (!steamId.trim()) {
@@ -251,8 +398,11 @@ export default function Home() {
       const loadedGames = data.games || [];
       setGames(loadedGames);
       
-      // Set initial suggestion
-      setSuggestion(getSuggestion(loadedGames));
+      // Set initial suggestion (with blacklist)
+      setSuggestion(getSuggestion(loadedGames, neverSuggestList));
+      
+      // Start fetching ratings in background (non-blocking)
+      fetchRatingsInBackground(loadedGames);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -315,6 +465,60 @@ export default function Home() {
         setSuggestion(neverPlayed[randomIndex]);
       }
     }
+  };
+  
+  // Fetch ratings in background (non-blocking)
+  const fetchRatingsInBackground = async (gamesToRate: SteamGame[]) => {
+    if (gamesToRate.length === 0) return;
+    
+    // Prioritize never-played games
+    const neverPlayed = gamesToRate.filter(g => g.playtime_forever === 0);
+    const played = gamesToRate.filter(g => g.playtime_forever > 0);
+    const prioritized = [...neverPlayed, ...played];
+    
+    setRatingsLoading(true);
+    setRatingsLoaded(0);
+    setRatingsTotal(prioritized.length);
+    
+    const BATCH_SIZE = 10;
+    let loadedCount = 0;
+    
+    // Process in batches of 10
+    for (let i = 0; i < prioritized.length; i += BATCH_SIZE) {
+      const batch = prioritized.slice(i, i + BATCH_SIZE);
+      const batchRatings = await fetchRatingBatch(batch);
+      
+      // Update games with new ratings
+      setGames(prevGames => {
+        return prevGames.map(game => {
+          const rating = batchRatings.get(game.appid);
+          if (rating !== undefined) {
+            return { ...game, rating };
+          }
+          return game;
+        });
+      });
+      
+      loadedCount += batch.length;
+      setRatingsLoaded(loadedCount);
+    }
+    
+    // Mark as complete and set null for any games that still have undefined rating
+    setRatingsLoading(false);
+    setGames(prevGames => {
+      return prevGames.map(game => {
+        if (game.rating === undefined) {
+          return { ...game, rating: null };
+        }
+        return game;
+      });
+    });
+    
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => {
+      setRatingsTotal(0);
+      setRatingsLoaded(0);
+    }, 3000);
   };
   
   return (
@@ -414,6 +618,8 @@ export default function Home() {
                   <option value="name-desc">Name (Z-A)</option>
                   <option value="playtime-asc">Playtime (Low to High)</option>
                   <option value="playtime-desc">Playtime (High to Low)</option>
+                  <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                  <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                   <option value="appid-asc">App ID (Oldest First)</option>
                   <option value="appid-desc">App ID (Newest First)</option>
                 </select>
@@ -461,6 +667,7 @@ export default function Home() {
                           {hours > 0 && `${hours}h `}
                           {minutes > 0 && `${minutes}m`}
                           {neverPlayed && '0 hours'}
+                          {game.rating !== undefined && ` • ${game.rating}% 👍`}
                         </p>
                       </div>
                     </div>
@@ -487,6 +694,13 @@ export default function Home() {
         )}
         
       </div>
+      
+      {/* Rating Progress Banner */}
+      <RatingProgressBanner 
+        loading={ratingsLoading}
+        loaded={ratingsLoaded}
+        total={ratingsTotal}
+      />
     </main>
   );
 }
