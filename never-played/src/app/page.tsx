@@ -8,6 +8,9 @@ interface SteamGame {
   playtime_forever: number;
   img_icon_url: string;
   rating?: number | null; // Steam review score (0-100), null if no data available
+  tags?: string[]; // Top 5 tags from SteamSpy
+  releaseDate?: string; // Formatted release date
+  price?: number; // Price in dollars
 }
 
 interface LibraryStats {
@@ -17,7 +20,7 @@ interface LibraryStats {
   completionRate: number;
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc';
+type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc';
 
 function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
   const sorted = [...games];
@@ -50,6 +53,22 @@ function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
         if (a.rating === undefined || a.rating === null) return 1;
         if (b.rating === undefined || b.rating === null) return -1;
         return a.rating - b.rating;
+      });
+    case 'release-desc':
+      // Sort by release date (newest first), games without dates at bottom
+      return sorted.sort((a, b) => {
+        if (!a.releaseDate && !b.releaseDate) return 0;
+        if (!a.releaseDate) return 1;
+        if (!b.releaseDate) return -1;
+        return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
+      });
+    case 'release-asc':
+      // Sort by release date (oldest first), games without dates at bottom
+      return sorted.sort((a, b) => {
+        if (!a.releaseDate && !b.releaseDate) return 0;
+        if (!a.releaseDate) return 1;
+        if (!b.releaseDate) return -1;
+        return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
       });
     default:
       return sorted;
@@ -97,18 +116,44 @@ function getSuggestion(games: SteamGame[], blacklist: number[] = []): SteamGame 
   return neverPlayed[randomIndex];
 }
 
-// Rating cache helpers
-function getCachedRating(appId: number): number | null {
+// Calculate how many years ago a game was released
+function getGameAge(releaseDate?: string): string | null {
+  if (!releaseDate) return null;
+  
+  try {
+    const releaseYear = new Date(releaseDate).getFullYear();
+    const currentYear = new Date().getFullYear();
+    const yearsAgo = currentYear - releaseYear;
+    
+    if (yearsAgo === 0) return 'Released this year';
+    if (yearsAgo === 1) return 'Released 1 year ago';
+    return `Released ${yearsAgo} years ago`;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Enhanced data cache interface
+interface GameData {
+  score: number | null;
+  tags?: string[];
+  releaseDate?: string;
+  price?: number;
+  timestamp: number;
+}
+
+// Cache helpers for enhanced game data
+function getCachedData(appId: number): GameData | null {
   const cached = localStorage.getItem(`rating_${appId}`);
   if (!cached) return null;
   
   try {
-    const { score, timestamp } = JSON.parse(cached);
-    const age = Date.now() - timestamp;
+    const data = JSON.parse(cached);
+    const age = Date.now() - data.timestamp;
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
     
     if (age < sevenDays) {
-      return score;
+      return data;
     }
   } catch (e) {
     // Invalid cache entry
@@ -117,15 +162,15 @@ function getCachedRating(appId: number): number | null {
   return null;
 }
 
-function setCachedRating(appId: number, score: number) {
+function setCachedData(appId: number, data: Omit<GameData, 'timestamp'>) {
   localStorage.setItem(`rating_${appId}`, JSON.stringify({
-    score,
+    ...data,
     timestamp: Date.now()
   }));
 }
 
-// Fetch rating from SteamSpy (via our API to avoid CORS)
-async function fetchSteamSpyRating(appId: number): Promise<number | null> {
+// Fetch all game data from SteamSpy (via our API to avoid CORS)
+async function fetchSteamSpyData(appId: number): Promise<GameData | null> {
   try {
     const response = await fetch(`/api/steamspy-rating?appid=${appId}`);
     const data = await response.json();
@@ -134,35 +179,56 @@ async function fetchSteamSpyRating(appId: number): Promise<number | null> {
       return null;
     }
     
-    return data.rating;
+    return {
+      score: data.rating,
+      tags: data.tags || [],
+      releaseDate: data.releaseDate,
+      price: data.price,
+      timestamp: Date.now()
+    };
   } catch (e) {
     // Fetch failed, skip this game
     return null;
   }
 }
 
-// Fetch ratings for a batch of games (10 parallel)
-async function fetchRatingBatch(games: SteamGame[]): Promise<Map<number, number>> {
-  const ratings = new Map<number, number>();
+// Fetch data for a batch of games (10 parallel)
+async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<SteamGame>>> {
+  const gameDataMap = new Map<number, Partial<SteamGame>>();
   
   const fetchPromises = games.map(async (game) => {
     // Check cache first
-    const cached = getCachedRating(game.appid);
-    if (cached !== null) {
-      ratings.set(game.appid, cached);
+    const cached = getCachedData(game.appid);
+    if (cached) {
+      gameDataMap.set(game.appid, {
+        rating: cached.score,
+        tags: cached.tags,
+        releaseDate: cached.releaseDate,
+        price: cached.price
+      });
       return;
     }
     
     // Fetch from SteamSpy
-    const rating = await fetchSteamSpyRating(game.appid);
-    if (rating !== null) {
-      ratings.set(game.appid, rating);
-      setCachedRating(game.appid, rating);
+    const data = await fetchSteamSpyData(game.appid);
+    if (data) {
+      gameDataMap.set(game.appid, {
+        rating: data.score,
+        tags: data.tags,
+        releaseDate: data.releaseDate,
+        price: data.price
+      });
+      setCachedData(game.appid, {
+        score: data.score,
+        tags: data.tags,
+        releaseDate: data.releaseDate,
+        price: data.price
+      });
     }
   });
   
   await Promise.all(fetchPromises);
-  return ratings;
+  return gameDataMap;
 }
 
 function LibraryStats({ games }: { games: SteamGame[] }) {
@@ -302,6 +368,13 @@ function SuggestionCard({
                   : `${game.rating}% 👍`
             }
           </li>
+          {(() => {
+            const ageText = getGameAge(game.releaseDate);
+            if (ageText) {
+              return <li>• {ageText} and you still haven't played it!</li>;
+            }
+            return null;
+          })()}
         </ul>
       </div>
       
@@ -353,6 +426,7 @@ export default function Home() {
   const [ratingsLoading, setRatingsLoading] = useState(false);
   const [ratingsLoaded, setRatingsLoaded] = useState(0);
   const [ratingsTotal, setRatingsTotal] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   
   // Load never suggest list from localStorage on mount
   useEffect(() => {
@@ -417,13 +491,38 @@ export default function Home() {
     }
   };
   
+  // Get top tags across all games
+  const getTopTags = (games: SteamGame[], limit: number = 10): Array<{tag: string, count: number}> => {
+    const tagCounts = new Map<string, number>();
+    
+    games.forEach(game => {
+      if (game.tags && game.tags.length > 0) {
+        game.tags.forEach(tag => {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        });
+      }
+    });
+    
+    return Array.from(tagCounts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  };
+  
   // Filter and sort games
-  const filteredAndSortedGames = sortGames(
-    showOnlyNeverPlayed
-      ? games.filter(g => g.playtime_forever === 0)
-      : games,
-    sortBy
-  );
+  let filtered = showOnlyNeverPlayed
+    ? games.filter(g => g.playtime_forever === 0)
+    : games;
+  
+  // Apply tag filters (AND logic - game must have all selected tags)
+  if (selectedTags.length > 0) {
+    filtered = filtered.filter(game => {
+      if (!game.tags || game.tags.length === 0) return false;
+      return selectedTags.every(selectedTag => game.tags!.includes(selectedTag));
+    });
+  }
+  
+  const filteredAndSortedGames = sortGames(filtered, sortBy);
   
   const neverPlayedCount = games.filter(g => g.playtime_forever === 0).length;
   
@@ -467,7 +566,7 @@ export default function Home() {
     }
   };
   
-  // Fetch ratings in background (non-blocking)
+  // Fetch enhanced data (ratings, tags, etc.) in background (non-blocking)
   const fetchRatingsInBackground = async (gamesToRate: SteamGame[]) => {
     if (gamesToRate.length === 0) return;
     
@@ -486,14 +585,14 @@ export default function Home() {
     // Process in batches of 10
     for (let i = 0; i < prioritized.length; i += BATCH_SIZE) {
       const batch = prioritized.slice(i, i + BATCH_SIZE);
-      const batchRatings = await fetchRatingBatch(batch);
+      const batchData = await fetchDataBatch(batch);
       
-      // Update games with new ratings
+      // Update games with new data (ratings, tags, release dates, prices)
       setGames(prevGames => {
         return prevGames.map(game => {
-          const rating = batchRatings.get(game.appid);
-          if (rating !== undefined) {
-            return { ...game, rating };
+          const data = batchData.get(game.appid);
+          if (data) {
+            return { ...game, ...data };
           }
           return game;
         });
@@ -586,7 +685,8 @@ export default function Home() {
         {/* Filter and Sort Controls */}
         {games.length > 0 && (
           <div className="bg-gray-800 rounded-lg p-4 mb-4">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            {/* Top Row: Filter Checkbox and Sort */}
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
               
               {/* Filter Checkbox */}
               <label className="flex items-center gap-2 cursor-pointer">
@@ -620,18 +720,87 @@ export default function Home() {
                   <option value="playtime-desc">Playtime (High to Low)</option>
                   <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                   <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                  <option value="release-desc">Release Date (Newest First)</option>
+                  <option value="release-asc">Release Date (Oldest First)</option>
                   <option value="appid-asc">App ID (Oldest First)</option>
                   <option value="appid-desc">App ID (Newest First)</option>
                 </select>
               </div>
-              
             </div>
             
             {sortBy.includes('appid') && (
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-gray-400 mb-4">
                 * App ID sorting is approximate - lower IDs are generally older games
               </p>
             )}
+            
+            {/* Tag Filters Section */}
+            <div className="border-t border-gray-700 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">🏷️ Filter by Tags</h3>
+                {selectedTags.length > 0 && (
+                  <button
+                    onClick={() => setSelectedTags([])}
+                    className="text-xs text-blue-400 hover:text-blue-300 transition"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+              
+              {(() => {
+                const topTags = getTopTags(games, 10);
+                
+                // Debug: Log tag data
+                console.log('Top tags:', topTags);
+                console.log('Sample game with tags:', games.find(g => g.tags && g.tags.length > 0));
+                
+                if (ratingsLoading || topTags.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-400">
+                      {ratingsLoading 
+                        ? `⏳ Loading tags... (${ratingsLoaded}/${ratingsTotal} games processed)` 
+                        : `No tags available yet (Loaded: ${games.filter(g => g.tags && g.tags.length > 0).length}/${games.length} games have tags)`}
+                    </p>
+                  );
+                }
+                
+                return (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {topTags.map(({ tag, count }) => {
+                        const isSelected = selectedTags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedTags(selectedTags.filter(t => t !== tag));
+                              } else {
+                                setSelectedTags([...selectedTags, tag]);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+                              isSelected
+                                ? 'bg-blue-600 text-white border-2 border-blue-400'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-2 border-transparent'
+                            }`}
+                          >
+                            {tag} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    {selectedTags.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-3">
+                        Showing games with {selectedTags.length === 1 ? 'tag' : 'all tags'}: {selectedTags.join(', ')}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
         )}
         
@@ -668,6 +837,7 @@ export default function Home() {
                           {minutes > 0 && `${minutes}m`}
                           {neverPlayed && '0 hours'}
                           {game.rating !== undefined && ` • ${game.rating}% 👍`}
+                          {game.releaseDate && ` • Released: ${game.releaseDate}`}
                         </p>
                       </div>
                     </div>
