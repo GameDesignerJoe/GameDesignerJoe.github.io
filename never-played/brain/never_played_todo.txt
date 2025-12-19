@@ -2,7 +2,7 @@
 
 ## High Priority (Core Functionality)
 
-### 1. Learn Vercel auto-deploy workflow
+### 1. ✅ Learn Vercel auto-deploy workflow (DONE)
 - Push to GitHub main branch → auto-deploys to Vercel
 - No manual action needed after initial setup
 - Test: Make small change, push to GitHub, verify deploy
