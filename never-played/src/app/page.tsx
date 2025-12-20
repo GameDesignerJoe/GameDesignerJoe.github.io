@@ -143,12 +143,38 @@ function formatPlaytime(minutes: number): string {
   const mins = minutes % 60;
   
   if (hours > 0 && mins > 0) {
-    return `${hours}h ${mins}m`;
+    return `${hours.toLocaleString()}h ${mins}m`;
   } else if (hours > 0) {
-    return `${hours}h`;
+    return `${hours.toLocaleString()}h`;
   } else {
     return `${mins}m`;
   }
+}
+
+// Format playtime in human-readable units (years, weeks, days, hours, minutes)
+function formatPlaytimeDetailed(minutes: number): string {
+  const totalMinutes = minutes;
+  const totalHours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  
+  const years = Math.floor(totalHours / (365 * 24));
+  const remainingAfterYears = totalHours % (365 * 24);
+  
+  const weeks = Math.floor(remainingAfterYears / (7 * 24));
+  const remainingAfterWeeks = remainingAfterYears % (7 * 24);
+  
+  const days = Math.floor(remainingAfterWeeks / 24);
+  const hours = remainingAfterWeeks % 24;
+  
+  const parts: string[] = [];
+  
+  if (years > 0) parts.push(`${years}y`);
+  if (weeks > 0) parts.push(`${weeks}w`);
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (mins > 0) parts.push(`${mins}m`);
+  
+  return parts.length > 0 ? parts.join(' ') : '0m';
 }
 
 function getSuggestion(games: SteamGame[], blacklist: number[] = []): SteamGame | null {
@@ -300,54 +326,171 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
   return gameDataMap;
 }
 
-function LibraryStats({ games, playedElsewhereList }: { games: SteamGame[], playedElsewhereList: number[] }) {
+// Get most played game
+function getMostPlayedGame(games: SteamGame[]): SteamGame | null {
+  const playedGames = games.filter(g => g.playtime_forever > 0);
+  if (playedGames.length === 0) return null;
+  
+  return playedGames.reduce((max, game) => 
+    game.playtime_forever > max.playtime_forever ? game : max
+  );
+}
+
+// Get top 5 most played games
+function getTop5MostPlayed(games: SteamGame[]): SteamGame[] {
+  return games
+    .filter(g => g.playtime_forever > 0)
+    .sort((a, b) => b.playtime_forever - a.playtime_forever)
+    .slice(0, 5);
+}
+
+// Get top 3 genres by playtime
+function getTop3Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>): Array<{genre: string, hours: number}> {
+  const genrePlaytime = new Map<string, number>();
+  
+  games.forEach(game => {
+    if (game.playtime_forever === 0) return;
+    
+    // Try to get genres from Steam Store cache
+    const storeKey = `steam_store_${game.appid}`;
+    const cached = localStorage.getItem(storeKey);
+    
+    if (cached) {
+      try {
+        const parsedCache = JSON.parse(cached);
+        const genres = parsedCache.data?.genres || [];
+        
+        // Add full playtime to each genre
+        genres.forEach((genre: string) => {
+          const currentHours = genrePlaytime.get(genre) || 0;
+          genrePlaytime.set(genre, currentHours + (game.playtime_forever / 60));
+        });
+      } catch (e) {
+        // Skip if cache is invalid
+      }
+    }
+  });
+  
+  return Array.from(genrePlaytime.entries())
+    .map(([genre, hours]) => ({ genre, hours }))
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 3);
+}
+
+function LibraryStats({ games, playedElsewhereList, steamCategoriesCache }: { games: SteamGame[], playedElsewhereList: number[], steamCategoriesCache: Map<number, string[]> }) {
   const stats = calculateStats(games, playedElsewhereList);
   const lastNewGame = getLastNewGame(games);
+  const mostPlayed = getMostPlayedGame(games);
+  const top5Games = getTop5MostPlayed(games);
+  const top3Genres = getTop3Genres(games, steamCategoriesCache);
+  
+  // Calculate percentage of total time for most played game
+  const mostPlayedPercentage = mostPlayed && stats.totalMinutes > 0
+    ? ((mostPlayed.playtime_forever / stats.totalMinutes) * 100).toFixed(1)
+    : null;
   
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-gray-700 rounded p-4">
-          <div className="text-gray-400 text-sm mb-1">Total Games</div>
-          <div className="text-2xl font-bold">{stats.totalGames}</div>
-        </div>
-        
-        <div className="bg-gray-700 rounded p-4">
-          <div className="text-gray-400 text-sm mb-1">Never Played</div>
-          <div className="text-2xl font-bold text-red-400">{stats.neverPlayed}</div>
-        </div>
-        
-        <div className="bg-gray-700 rounded p-4">
-          <div className="text-gray-400 text-sm mb-1">Total Playtime</div>
-          <div className="text-2xl font-bold">{formatPlaytime(stats.totalMinutes)}</div>
-        </div>
-        
-        <div className="bg-gray-700 rounded p-4">
-          <div className="text-gray-400 text-sm mb-1">Tried</div>
-          <div className="text-2xl font-bold text-green-400">{stats.completionRate}%</div>
-        </div>
-        
-        <div className="bg-gray-700 rounded p-4">
-          <div className="text-gray-400 text-sm mb-1">Cost Per Hour</div>
-          {stats.costPerHour !== null ? (
-            <>
-              <div className="text-2xl font-bold text-yellow-400">${stats.costPerHour.toFixed(2)}</div>
-              <div className="text-xs text-gray-400 mt-1">{stats.gamesWithPrice} games</div>
-            </>
-          ) : (
-            <div className="text-sm text-gray-400">No data</div>
-          )}
-        </div>
-        
-        <div className="bg-gray-700 rounded p-4">
-          <div className="text-gray-400 text-sm mb-1">Last New Game</div>
-          {lastNewGame ? (
-            <>
-              <div className="text-2xl font-bold text-blue-400">{lastNewGame.daysAgo}d ago</div>
-              <div className="text-xs text-gray-400 mt-1 truncate">{lastNewGame.game.name}</div>
-            </>
-          ) : (
-            <div className="text-sm text-gray-400">No recent tries</div>
-          )}
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Row 1 */}
+      <div className="bg-gray-700 rounded p-4 text-center">
+        <div className="text-gray-400 text-sm mb-1">Total Games</div>
+        <div className="text-2xl font-bold">{stats.totalGames}</div>
+      </div>
+      
+      <div className="bg-gray-700 rounded p-4 text-center">
+        <div className="text-gray-400 text-sm mb-1">Never Played</div>
+        <div className="text-2xl font-bold text-red-400">{stats.neverPlayed}</div>
+      </div>
+      
+      <div className="bg-gray-700 rounded p-4 text-center">
+        <div className="text-gray-400 text-sm mb-1">Total Playtime</div>
+        <div className="text-2xl font-bold">{formatPlaytimeDetailed(stats.totalMinutes)}</div>
+      </div>
+      
+      {/* Row 2 */}
+      <div className="bg-gray-700 rounded p-4 text-center">
+        <div className="text-gray-400 text-sm mb-1">Tried</div>
+        <div className="text-2xl font-bold text-green-400">{stats.completionRate}%</div>
+      </div>
+      
+      <div className="bg-gray-700 rounded p-4 text-center">
+        <div className="text-gray-400 text-sm mb-1">Cost Per Hour</div>
+        {stats.costPerHour !== null ? (
+          <>
+            <div className="text-2xl font-bold text-yellow-400">${stats.costPerHour.toFixed(2)}</div>
+            <div className="text-xs text-gray-400 mt-1">{stats.gamesWithPrice} games</div>
+          </>
+        ) : (
+          <div className="text-sm text-gray-400">No data</div>
+        )}
+      </div>
+      
+      <div className="bg-gray-700 rounded p-4 text-center">
+        <div className="text-gray-400 text-sm mb-1">Last New Game</div>
+        {lastNewGame ? (
+          <>
+            <div className="text-lg font-bold text-blue-400 truncate px-2">{lastNewGame.game.name}</div>
+            <div className="text-xs text-gray-400 mt-1">{lastNewGame.daysAgo}d ago</div>
+          </>
+        ) : (
+          <div className="text-sm text-gray-400">No recent tries</div>
+        )}
+      </div>
+      
+      {/* Row 3 - New Analytics */}
+      <div className="bg-gray-700 rounded p-4">
+        <div className="text-gray-400 text-sm mb-1 text-center">Most Played</div>
+        {mostPlayed ? (
+          <div className="flex flex-col items-center gap-2">
+            {mostPlayed.img_icon_url && (
+              <img
+                src={`https://media.steampowered.com/steamcommunity/public/images/apps/${mostPlayed.appid}/${mostPlayed.img_icon_url}.jpg`}
+                alt={mostPlayed.name}
+                className="w-12 h-12 rounded"
+              />
+            )}
+            <div className="text-center min-w-0 w-full">
+              <div className="text-base font-bold text-purple-400 truncate px-2">{mostPlayed.name}</div>
+              <div className="text-xs text-gray-400">{Math.floor(mostPlayed.playtime_forever / 60).toLocaleString()}h</div>
+              {mostPlayedPercentage && (
+                <div className="text-xs text-gray-500">{mostPlayedPercentage}% of total</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 text-center">No data</div>
+        )}
+      </div>
+      
+      <div className="bg-gray-700 rounded p-4">
+        <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Games</div>
+        {top5Games.length > 0 ? (
+          <div className="space-y-1 text-center">
+            {top5Games.map((game, i) => (
+              <div key={game.appid} className="text-xs text-gray-300 truncate px-2">
+                {i + 1}. {game.name} <span className="text-purple-400">({Math.floor(game.playtime_forever / 60).toLocaleString()}h)</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 text-center">No data</div>
+        )}
+      </div>
+      
+      <div className="bg-gray-700 rounded p-4">
+        <div className="text-gray-400 text-sm mb-1 text-center">Top 3 Genres</div>
+        {top3Genres.length > 0 ? (
+          <div className="space-y-1 text-center">
+            {top3Genres.map((item, i) => (
+              <div key={item.genre} className="text-sm">
+                <span className="font-bold text-purple-400">{item.genre}</span>
+                <span className="text-xs text-gray-400 ml-1">({Math.floor(item.hours).toLocaleString()}h)</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-400 text-center">Loading...</div>
+        )}
       </div>
     </div>
   );
@@ -1379,7 +1522,7 @@ export default function Home() {
             {/* Collapsible Content */}
             {!statsCollapsed && (
               <div className="p-6 border-t border-gray-700">
-                <LibraryStats games={games} playedElsewhereList={playedElsewhereList} />
+                <LibraryStats games={games} playedElsewhereList={playedElsewhereList} steamCategoriesCache={steamCategoriesCache} />
               </div>
             )}
           </div>
