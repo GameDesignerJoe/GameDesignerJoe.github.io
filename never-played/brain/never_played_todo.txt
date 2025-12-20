@@ -55,27 +55,31 @@
 
 ---
 
-## 🔥 High Priority (Core Functionality)
-
-### 9. Add Cost Per Hour / Cost Per Minute analytics
+### 9. ✅ Add Cost Per Hour / Cost Per Minute analytics
 - **New stat card:** Show library value efficiency
 - Calculate total money spent (from SteamSpy price data)
 - Calculate cost per hour: `Total $ / Total Hours`
-- Calculate cost per minute: `Total $ / Total Minutes`
 - Display in Library Stats as 6th stat
-- Format: "$X.XX per hour" or "$X.XX per minute"
+- Format: "$X.XX per hour"
 - Handle games with no price data (free games, removed from store)
-- Consider: Only count played games vs all owned games?
+- **COMPLETED:** Only counts played games, shows count of games with price data
 
----
-
-## 🐛 Bug Fixes
-
-### 10. Verify "Last New Game" stat calculation
+### 10. ✅ Verify "Last New Game" stat calculation
 - Check if updates dynamically or only on initial load
 - Ensure rtime_last_played properly read from Steam API
 - Test with different game scenarios (1-120 minute range)
 - Verify day calculation accuracy
+- **COMPLETED:** Uses Date.now() for dynamic calculation, updates in real-time
+
+---
+
+## 🔥 High Priority (Core Functionality)
+
+_No pending high priority items_
+
+---
+
+## 🐛 Bug Fixes
 
 ### 11. Debug tag filtering issue
 - "The Wolf Among Us" disappears when "Singleplayer" selected
@@ -109,11 +113,11 @@
 - Save preferences in localStorage
 - Show count: "(X games excluded)" when active
 
-### 15. Collapsible sections
-- [ ] Collapsible Steam ID input (after first use)
-- [ ] Collapsible "Try This Next" suggestion card
-- [ ] Collapsible Library Stats section
-- Remember collapse state in localStorage
+### 15. ✅ Collapsible sections
+- ✅ Collapsible Steam ID input (after first use)
+- Collapsible Library Stats section
+- ✅ Remember collapse state in localStorage
+- **COMPLETED:** Both Steam ID and Library Stats sections are collapsible with persistent state
 
 ### 16. Additional quick features
 - **Random game picker:** "Feeling lucky?" button

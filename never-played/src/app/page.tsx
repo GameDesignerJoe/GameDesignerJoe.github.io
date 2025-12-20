@@ -685,7 +685,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showOnlyNeverPlayed, setShowOnlyNeverPlayed] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('name-asc');
+  const [sortBy, setSortBy] = useState<SortOption>('rating-desc');
   const [suggestion, setSuggestion] = useState<SteamGame | null>(null);
   const [neverSuggestList, setNeverSuggestList] = useState<number[]>([]);
   const [playedElsewhereList, setPlayedElsewhereList] = useState<number[]>([]);
@@ -906,7 +906,7 @@ export default function Home() {
   
   // Filter and sort games
   let filtered = showOnlyNeverPlayed
-    ? games.filter(g => g.playtime_forever === 0)
+    ? games.filter(g => g.playtime_forever === 0 && !playedElsewhereList.includes(g.appid))
     : games;
   
   // Apply tag filters (AND logic - game must have all selected tags)
@@ -1276,17 +1276,9 @@ export default function Home() {
                   <option value="playtime-desc">Playtime (High to Low)</option>
                   <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                   <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
-                  <option value="appid-asc">App ID (Oldest First)</option>
-                  <option value="appid-desc">App ID (Newest First)</option>
                 </select>
               </div>
             </div>
-            
-            {sortBy.includes('appid') && (
-              <p className="text-xs text-gray-400 mb-4">
-                * App ID sorting is approximate - lower IDs are generally older games
-              </p>
-            )}
             
             {/* Tag Filters Section */}
             <div className="border-t border-gray-700 pt-4">
