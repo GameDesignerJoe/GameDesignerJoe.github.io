@@ -31,6 +31,14 @@ interface SteamStoreData {
   negative_reviews: number | null;
   review_score: number | null;
   review_score_desc: string | null;
+  movies: Array<{
+    id: number;
+    name: string;
+    thumbnail: string;
+    webm_480: string;
+    mp4_480: string;
+    mp4_max: string;
+  }>;
 }
 
 interface LibraryStats {
@@ -406,6 +414,30 @@ function SuggestionCard({
   storeLoading: boolean;
 }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  
+  // Reset videoFailed when game changes
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [game?.appid]);
+  
+  // Debug video data - MUST be at top before any conditional logic
+  useEffect(() => {
+    if (storeData && game) {
+      const hasMovies = storeData.movies && storeData.movies.length > 0;
+      console.log('📹 Video Debug for', game.name);
+      console.log('  - Has movies array:', !!storeData.movies);
+      console.log('  - Movies count:', storeData.movies?.length || 0);
+      if (hasMovies) {
+        const video = storeData.movies[0];
+        console.log('  - First video:', video.name);
+        console.log('  - MP4 URL:', video.mp4_480);
+        console.log('  - WebM URL:', video.webm_480);
+      } else {
+        console.log('  - No video available, showing image');
+      }
+    }
+  }, [storeData, game]);
   
   // Helper function to calculate years ago from release date string
   const calculateYearsAgo = (dateString: string | null): { years: number; text: string } | null => {
@@ -463,10 +495,41 @@ function SuggestionCard({
     ? Math.round((storeData.positive_reviews / (storeData.positive_reviews + storeData.negative_reviews)) * 100)
     : null;
   
+  // Check if video is available
+  const hasVideo = storeData?.movies && storeData.movies.length > 0;
+  const firstVideo = hasVideo ? storeData.movies[0] : null;
+  
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-700 shadow-xl">
-      {/* Header Image Banner */}
-      {storeData?.header_image && (
+      {/* Header Video/Image Banner */}
+      {firstVideo && !videoFailed ? (
+        <div className="w-full aspect-video md:aspect-auto md:h-64 bg-black flex items-center justify-center relative">
+          <video
+            key={firstVideo.id}
+            className="w-full h-full object-contain"
+            autoPlay
+            loop
+            muted
+            playsInline
+            poster={firstVideo.thumbnail}
+            onError={() => {
+              console.log('Video failed to load, falling back to image');
+              setVideoFailed(true);
+            }}
+          >
+            <source src={firstVideo.mp4_480} type="video/mp4" />
+            <source src={firstVideo.webm_480} type="video/webm" />
+            Your browser does not support the video tag.
+          </video>
+          
+          {/* Video name overlay */}
+          {firstVideo.name && (
+            <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-sm px-3 py-1 rounded text-xs text-gray-300">
+              🎬 {firstVideo.name}
+            </div>
+          )}
+        </div>
+      ) : storeData?.header_image && (
         <div className="w-full aspect-video md:aspect-auto md:h-64 bg-black flex items-center justify-center">
           <img
             src={storeData.header_image}
@@ -1241,10 +1304,6 @@ export default function Home() {
               
               {(() => {
                 const topTags = getTopTags(games, 10);
-                
-                // Debug: Log tag data
-                console.log('Top tags:', topTags);
-                console.log('Sample game with tags:', games.find(g => g.tags && g.tags.length > 0));
                 
                 if (ratingsLoading || topTags.length === 0) {
                   return (

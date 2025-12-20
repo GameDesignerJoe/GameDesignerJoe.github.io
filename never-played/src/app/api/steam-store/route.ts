@@ -50,7 +50,23 @@ export async function GET(request: NextRequest) {
       positive_reviews: game.positive || null,
       negative_reviews: game.negative || null,
       review_score: game.review_score || null,
-      review_score_desc: game.review_score_desc || null
+      review_score_desc: game.review_score_desc || null,
+      // Video/trailer data - handle different possible structures
+      movies: game.movies?.map((movie: any) => {
+        // Steam API can return videos in different formats
+        const webm_480 = movie.webm?.['480'] || movie.webm?.max || movie.webm;
+        const mp4_480 = movie.mp4?.['480'] || movie.mp4?.max || movie.mp4;
+        const mp4_max = movie.mp4?.max || movie.mp4;
+        
+        return {
+          id: movie.id,
+          name: movie.name,
+          thumbnail: movie.thumbnail,
+          webm_480,
+          mp4_480,
+          mp4_max
+        };
+      }) || []
     };
     
     return NextResponse.json(storeInfo);
