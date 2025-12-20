@@ -38,6 +38,9 @@ interface LibraryStats {
   neverPlayed: number;
   totalMinutes: number;
   completionRate: number;
+  costPerHour: number | null; // null if can't calculate
+  totalSpent: number; // total money spent on played games
+  gamesWithPrice: number; // number of played games with price data
 }
 
 type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc';
@@ -108,11 +111,21 @@ function calculateStats(games: SteamGame[], playedElsewhereList: number[] = []):
   const tried = actuallyPlayed + playedElsewhereCount;
   const completionRate = totalGames > 0 ? Math.round((tried / totalGames) * 100) : 0;
   
+  // Calculate cost per hour (only for played games)
+  const playedGames = games.filter(g => g.playtime_forever > 0);
+  const gamesWithPrice = playedGames.filter(g => g.price !== undefined && g.price !== null && g.price > 0);
+  const totalSpent = gamesWithPrice.reduce((sum, g) => sum + (g.price || 0), 0);
+  const totalHoursPlayed = playedGames.reduce((sum, g) => sum + g.playtime_forever, 0) / 60;
+  const costPerHour = totalHoursPlayed > 0 && totalSpent > 0 ? totalSpent / totalHoursPlayed : null;
+  
   return {
     totalGames,
     neverPlayed,
     totalMinutes,
-    completionRate
+    completionRate,
+    costPerHour,
+    totalSpent,
+    gamesWithPrice: gamesWithPrice.length
   };
 }
 
@@ -283,10 +296,7 @@ function LibraryStats({ games, playedElsewhereList }: { games: SteamGame[], play
   const lastNewGame = getLastNewGame(games);
   
   return (
-    <div className="bg-gray-800 rounded-lg p-6 mb-6">
-      <h2 className="text-2xl font-bold mb-4">📊 Your Library Stats</h2>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-gray-700 rounded p-4">
           <div className="text-gray-400 text-sm mb-1">Total Games</div>
           <div className="text-2xl font-bold">{stats.totalGames}</div>
@@ -308,6 +318,18 @@ function LibraryStats({ games, playedElsewhereList }: { games: SteamGame[], play
         </div>
         
         <div className="bg-gray-700 rounded p-4">
+          <div className="text-gray-400 text-sm mb-1">Cost Per Hour</div>
+          {stats.costPerHour !== null ? (
+            <>
+              <div className="text-2xl font-bold text-yellow-400">${stats.costPerHour.toFixed(2)}</div>
+              <div className="text-xs text-gray-400 mt-1">{stats.gamesWithPrice} games</div>
+            </>
+          ) : (
+            <div className="text-sm text-gray-400">No data</div>
+          )}
+        </div>
+        
+        <div className="bg-gray-700 rounded p-4">
           <div className="text-gray-400 text-sm mb-1">Last New Game</div>
           {lastNewGame ? (
             <>
@@ -317,7 +339,6 @@ function LibraryStats({ games, playedElsewhereList }: { games: SteamGame[], play
           ) : (
             <div className="text-sm text-gray-400">No recent tries</div>
           )}
-        </div>
       </div>
     </div>
   );
@@ -612,6 +633,8 @@ export default function Home() {
   const [rememberSteamId, setRememberSteamId] = useState(false);
   const [storeData, setStoreData] = useState<SteamStoreData | null>(null);
   const [storeLoading, setStoreLoading] = useState(false);
+  const [steamIdCollapsed, setSteamIdCollapsed] = useState(false);
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -678,6 +701,12 @@ export default function Home() {
       setSteamId(savedSteamId);
       setRememberSteamId(true);
     }
+    
+    // Load collapsed states
+    const savedSteamIdCollapsed = localStorage.getItem('collapsed_steamId') === 'true';
+    const savedStatsCollapsed = localStorage.getItem('collapsed_stats') === 'true';
+    setSteamIdCollapsed(savedSteamIdCollapsed);
+    setStatsCollapsed(savedStatsCollapsed);
   }, []);
   
   // Load never suggest list from localStorage on mount
@@ -772,6 +801,20 @@ export default function Home() {
       localStorage.removeItem('savedSteamId');
       localStorage.removeItem('rememberSteamId');
     }
+  };
+  
+  // Handle Steam ID section collapse toggle
+  const toggleSteamIdCollapse = () => {
+    const newState = !steamIdCollapsed;
+    setSteamIdCollapsed(newState);
+    localStorage.setItem('collapsed_steamId', String(newState));
+  };
+  
+  // Handle Stats section collapse toggle
+  const toggleStatsCollapse = () => {
+    const newState = !statsCollapsed;
+    setStatsCollapsed(newState);
+    localStorage.setItem('collapsed_stats', String(newState));
   };
   
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -943,10 +986,29 @@ export default function Home() {
         </div>
         
         {/* Input Section */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <label className="block mb-2 text-sm font-medium">
-            Enter your Steam ID (Example: 76561197970579347):
-          </label>
+        <div className="bg-gray-800 rounded-lg overflow-hidden mb-6">
+          {/* Collapsible Header */}
+          <button
+            onClick={toggleSteamIdCollapse}
+            className="w-full px-6 py-3 flex items-center justify-between hover:bg-gray-750 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-semibold">🎮 Steam ID</span>
+              {steamId && steamIdCollapsed && (
+                <span className="text-sm text-gray-400">({steamId})</span>
+              )}
+            </div>
+            <span className="text-gray-400 text-xl">
+              {steamIdCollapsed ? '▶' : '▼'}
+            </span>
+          </button>
+          
+          {/* Collapsible Content */}
+          {!steamIdCollapsed && (
+            <div className="p-6 border-t border-gray-700">
+              <label className="block mb-2 text-sm font-medium">
+                Enter your Steam ID (Example: 76561197970579347):
+              </label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -977,15 +1039,24 @@ export default function Home() {
             </span>
           </label>
           
-          <div className="flex items-center justify-between mt-2">
-            <details className="text-sm">
+              <div className="flex items-center justify-between mt-2">
+                <details className="text-sm">
               <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
                 Don't know your Steam ID? 📖 Click here to see how to find it
               </summary>
-              <p className="text-xs text-gray-300 mt-2 mb-1">
-                Go to <span className="font-semibold">View Account Details</span>. It will be right below your account name.
+              <p className="text-xs text-gray-300 mt-2 mb-2">
+                <span className="font-semibold">In Steam:</span> Click your profile name → View Account Details<br/>
+                <span className="font-semibold">In Browser:</span> Visit store.steampowered.com → Login → Account Details
               </p>
-              <img 
+              <a
+                href="https://store.steampowered.com/account/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition mb-3"
+              >
+                🌐 Open Steam Account Page
+              </a>
+              <img
                 src="/help/steam-id-finder.png" 
                 alt="How to Find Your Steam ID"
                 className="rounded border border-gray-600"
@@ -1000,66 +1071,68 @@ export default function Home() {
                   }
                 }}
               />
-            </details>
-            
-            <button
-              onClick={() => {
-                if (confirm('Clear all cached data? This will reset your library, ratings, blacklist, and "Played Elsewhere" list.')) {
-                  localStorage.clear();
-                  window.location.reload();
-                }
-              }}
-              className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition text-gray-300"
-              title="Clear all cached data and reset the app"
-            >
-              🗑️ Clear Cache
-            </button>
-          </div>
-          
-          {error && (
-            <div className="mt-4">
-              <p className="text-red-400 text-sm">{error}</p>
+                </details>
+                
+                <button
+                  onClick={() => {
+                    if (confirm('Clear all cached data? This will reset your library, ratings, blacklist, and "Played Elsewhere" list.')) {
+                      localStorage.clear();
+                      window.location.reload();
+                    }
+                  }}
+                  className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition text-gray-300"
+                  title="Clear all cached data and reset the app"
+                >
+                  🗑️ Clear Cache
+                </button>
+              </div>
               
-              {/* Show help section for privacy-related errors */}
-              {(error.toLowerCase().includes('private') || error.toLowerCase().includes('privacy')) && (
-                <div className="mt-4 bg-blue-900/30 border border-blue-700 rounded-lg p-4">
-                  <h3 className="text-blue-300 font-semibold mb-2">📖 How to Fix This</h3>
-                  <p className="text-sm text-gray-300 mb-3">
-                    To use this app, your Steam profile needs to be set to public. Here's how to change it:
-                  </p>
-                  <ol className="text-sm text-gray-300 space-y-2 mb-3">
-                    <li>1. Log into Steam and go to your Profile</li>
-                    <li>2. Click "Edit Profile"</li>
-                    <li>3. Go to "Privacy Settings"</li>
-                    <li>4. Set "Game details" to "Public"</li>
-                    <li>5. Click "Save" and try again!</li>
-                  </ol>
-                  <details className="text-sm">
-                    <summary className="cursor-pointer text-blue-400 hover:text-blue-300 mb-2">
-                      📸 Show me a visual guide
-                    </summary>
-                    <img 
-                      src="/help/steam-privacy-settings.png" 
-                      alt="Steam Privacy Settings Guide"
-                      className="rounded border border-gray-600 mt-2"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const parent = e.currentTarget.parentElement;
-                        if (parent) {
-                          const msg = document.createElement('p');
-                          msg.className = 'text-xs text-gray-400 mt-2';
-                          msg.textContent = '(Screenshot will be available after you add it to the /public/help folder)';
-                          parent.appendChild(msg);
-                        }
-                      }}
-                    />
-                  </details>
-                  <button
-                    onClick={fetchGames}
-                    className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition"
-                  >
-                    🔄 Try Again
-                  </button>
+              {error && (
+                <div className="mt-4">
+                  <p className="text-red-400 text-sm">{error}</p>
+                  
+                  {/* Show help section for privacy-related errors */}
+                  {(error.toLowerCase().includes('private') || error.toLowerCase().includes('privacy')) && (
+                    <div className="mt-4 bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+                      <h3 className="text-blue-300 font-semibold mb-2">📖 How to Fix This</h3>
+                      <p className="text-sm text-gray-300 mb-3">
+                        To use this app, your Steam profile needs to be set to public. Here's how to change it:
+                      </p>
+                      <ol className="text-sm text-gray-300 space-y-2 mb-3">
+                        <li>1. Log into Steam and go to your Profile</li>
+                        <li>2. Click "Edit Profile"</li>
+                        <li>3. Go to "Privacy Settings"</li>
+                        <li>4. Set "Game details" to "Public"</li>
+                        <li>5. Click "Save" and try again!</li>
+                      </ol>
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-blue-400 hover:text-blue-300 mb-2">
+                          📸 Show me a visual guide
+                        </summary>
+                        <img 
+                          src="/help/steam-privacy-settings.png" 
+                          alt="Steam Privacy Settings Guide"
+                          className="rounded border border-gray-600 mt-2"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                              const msg = document.createElement('p');
+                              msg.className = 'text-xs text-gray-400 mt-2';
+                              msg.textContent = '(Screenshot will be available after you add it to the /public/help folder)';
+                              parent.appendChild(msg);
+                            }
+                          }}
+                        />
+                      </details>
+                      <button
+                        onClick={fetchGames}
+                        className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition"
+                      >
+                        🔄 Try Again
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1067,7 +1140,27 @@ export default function Home() {
         </div>
         
         {/* Library Stats */}
-        {games.length > 0 && <LibraryStats games={games} playedElsewhereList={playedElsewhereList} />}
+        {games.length > 0 && (
+          <div className="bg-gray-800 rounded-lg overflow-hidden mb-6">
+            {/* Collapsible Header */}
+            <button
+              onClick={toggleStatsCollapse}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
+            >
+              <h2 className="text-2xl font-bold">📊 Your Library Stats</h2>
+              <span className="text-gray-400 text-xl">
+                {statsCollapsed ? '▶' : '▼'}
+              </span>
+            </button>
+            
+            {/* Collapsible Content */}
+            {!statsCollapsed && (
+              <div className="p-6 border-t border-gray-700">
+                <LibraryStats games={games} playedElsewhereList={playedElsewhereList} />
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Game Suggestion */}
         <SuggestionCard 
