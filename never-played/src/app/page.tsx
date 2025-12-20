@@ -23,6 +23,7 @@ interface SteamStoreData {
     coming_soon: boolean;
   };
   genres: string[];
+  categories: string[]; // Steam categories: Single-player, Multi-player, Co-op, etc.
   metacritic: number | null;
   recommendations: number | null;
   developers: string[];
@@ -698,6 +699,9 @@ export default function Home() {
   const [storeLoading, setStoreLoading] = useState(false);
   const [steamIdCollapsed, setSteamIdCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
+  const [steamCategoriesCache, setSteamCategoriesCache] = useState<Map<number, string[]>>(new Map());
+  const [excludeVR, setExcludeVR] = useState(false);
+  const [excludeMultiplayer, setExcludeMultiplayer] = useState(false);
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -733,6 +737,14 @@ export default function Home() {
           data,
           timestamp: Date.now()
         }));
+        // Update categories cache
+        if (data.categories && data.categories.length > 0) {
+          setSteamCategoriesCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set(appId, data.categories);
+            return newCache;
+          });
+        }
       } else {
         // Handle error gracefully - just don't show store data
         console.warn('Steam Store API error for', appId, data.message);
@@ -886,16 +898,41 @@ export default function Home() {
     }
   };
   
-  // Get top tags across all games
-  const getTopTags = (games: SteamGame[], limit: number = 10): Array<{tag: string, count: number}> => {
+  // Merge Steam categories and SteamSpy tags with deduplication
+  // Steam categories take priority (e.g., "Single-player" beats "Singleplayer")
+  const mergeTags = (steamCategories: string[] = [], steamSpyTags: string[] = []): string[] => {
+    const normalizeTag = (tag: string) => tag.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    const merged = [...steamCategories];
+    const normalizedSteam = new Set(steamCategories.map(normalizeTag));
+    
+    // Add SteamSpy tags that don't duplicate Steam categories
+    steamSpyTags.forEach(tag => {
+      if (!normalizedSteam.has(normalizeTag(tag))) {
+        merged.push(tag);
+      }
+    });
+    
+    return merged;
+  };
+  
+  // Get top tags across all games (now includes both Steam categories and SteamSpy tags)
+  const getTopTags = (games: SteamGame[], storeDataCache: Map<number, string[]>, limit: number = 10): Array<{tag: string, count: number}> => {
     const tagCounts = new Map<string, number>();
     
     games.forEach(game => {
-      if (game.tags && game.tags.length > 0) {
-        game.tags.forEach(tag => {
-          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-        });
-      }
+      // Get Steam categories from cache
+      const steamCategories = storeDataCache.get(game.appid) || [];
+      
+      // Get SteamSpy tags from game data
+      const steamSpyTags = game.tags || [];
+      
+      // Merge and deduplicate
+      const allTags = mergeTags(steamCategories, steamSpyTags);
+      
+      allTags.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
     });
     
     return Array.from(tagCounts.entries())
@@ -909,11 +946,60 @@ export default function Home() {
     ? games.filter(g => g.playtime_forever === 0 && !playedElsewhereList.includes(g.appid))
     : games;
   
+  // Apply VR exclusion filter
+  if (excludeVR) {
+    filtered = filtered.filter(game => {
+      const steamCategories = steamCategoriesCache.get(game.appid) || [];
+      const steamSpyTags = game.tags || [];
+      const allTags = mergeTags(steamCategories, steamSpyTags);
+      
+      // Exclude if game has VR-related tags
+      const hasVR = allTags.some(tag => 
+        tag.toLowerCase().includes('vr') || 
+        tag.toLowerCase().includes('virtual reality')
+      );
+      
+      return !hasVR;
+    });
+  }
+  
+  // Apply Multiplayer exclusion filter
+  if (excludeMultiplayer) {
+    filtered = filtered.filter(game => {
+      const steamCategories = steamCategoriesCache.get(game.appid) || [];
+      const steamSpyTags = game.tags || [];
+      const allTags = mergeTags(steamCategories, steamSpyTags);
+      
+      // Exclude if game has multiplayer-related tags (excluding co-op)
+      const hasMultiplayer = allTags.some(tag => {
+        const lowerTag = tag.toLowerCase();
+        return (
+          lowerTag.includes('multiplayer') ||
+          lowerTag.includes('multi-player') ||
+          lowerTag.includes('pvp') ||
+          lowerTag.includes('mmo') ||
+          lowerTag.includes('online pvp')
+        ) && !lowerTag.includes('co-op'); // Don't exclude co-op games
+      });
+      
+      return !hasMultiplayer;
+    });
+  }
+  
   // Apply tag filters (AND logic - game must have all selected tags)
   if (selectedTags.length > 0) {
     filtered = filtered.filter(game => {
-      if (!game.tags || game.tags.length === 0) return false;
-      return selectedTags.every(selectedTag => game.tags!.includes(selectedTag));
+      // Get both Steam categories and SteamSpy tags
+      const steamCategories = steamCategoriesCache.get(game.appid) || [];
+      const steamSpyTags = game.tags || [];
+      
+      // Merge them (with deduplication)
+      const allTags = mergeTags(steamCategories, steamSpyTags);
+      
+      if (allTags.length === 0) return false;
+      
+      // Check if game has all selected tags
+      return selectedTags.every(selectedTag => allTags.includes(selectedTag));
     });
   }
   
@@ -976,12 +1062,72 @@ export default function Home() {
     
     setPlayedElsewhereList(updatedList);
     localStorage.setItem('playedElsewhere', JSON.stringify(updatedList));
+    
+    // If this is the current suggestion and we just marked it as played, show a new suggestion
+    if (suggestion && suggestion.appid === appId && !isCurrentlyMarked) {
+      handleNewSuggestion();
+    }
   };
   
   // Handle resetting played elsewhere list
   const handleResetPlayedElsewhere = () => {
     setPlayedElsewhereList([]);
     localStorage.removeItem('playedElsewhere');
+  };
+  
+  // Fetch Steam Store categories for a game
+  const fetchStoreCategories = async (appId: number): Promise<string[]> => {
+    // Check cache first
+    const cacheKey = `steam_store_${appId}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    if (cached) {
+      try {
+        const parsedCache = JSON.parse(cached);
+        const age = Date.now() - parsedCache.timestamp;
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+        
+        if (age < thirtyDays && parsedCache.data?.categories) {
+          return parsedCache.data.categories;
+        }
+      } catch (e) {
+        // Invalid cache
+      }
+    }
+    
+    // Fetch from API
+    try {
+      const response = await fetch(`/api/steam-store?appid=${appId}`);
+      const data = await response.json();
+      
+      if (response.ok && data.categories) {
+        // Cache the full result
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+        return data.categories || [];
+      }
+    } catch (error) {
+      console.warn('Failed to fetch categories for', appId);
+    }
+    
+    return [];
+  };
+  
+  // Fetch categories for a batch of games
+  const fetchCategoriesBatch = async (games: SteamGame[]): Promise<Map<number, string[]>> => {
+    const categoriesMap = new Map<number, string[]>();
+    
+    const fetchPromises = games.map(async (game) => {
+      const categories = await fetchStoreCategories(game.appid);
+      if (categories.length > 0) {
+        categoriesMap.set(game.appid, categories);
+      }
+    });
+    
+    await Promise.all(fetchPromises);
+    return categoriesMap;
   };
   
   // Fetch enhanced data (ratings, tags, etc.) in background (non-blocking)
@@ -1003,7 +1149,12 @@ export default function Home() {
     // Process in batches of 10
     for (let i = 0; i < prioritized.length; i += BATCH_SIZE) {
       const batch = prioritized.slice(i, i + BATCH_SIZE);
-      const batchData = await fetchDataBatch(batch);
+      
+      // Fetch both SteamSpy data AND Steam Store categories in parallel
+      const [batchData, batchCategories] = await Promise.all([
+        fetchDataBatch(batch),
+        fetchCategoriesBatch(batch)
+      ]);
       
       // Update games with new data (ratings, tags, release dates, prices)
       setGames(prevGames => {
@@ -1014,6 +1165,15 @@ export default function Home() {
           }
           return game;
         });
+      });
+      
+      // Update categories cache
+      setSteamCategoriesCache(prev => {
+        const newCache = new Map(prev);
+        batchCategories.forEach((categories, appId) => {
+          newCache.set(appId, categories);
+        });
+        return newCache;
       });
       
       loadedCount += batch.length;
@@ -1241,24 +1401,50 @@ export default function Home() {
         {/* Filter and Sort Controls */}
         {games.length > 0 && (
           <div className="bg-gray-800 rounded-lg p-4 mb-4">
-            {/* Top Row: Filter Checkbox and Sort */}
+            {/* Top Row: Filter Checkboxes and Sort */}
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
               
-              {/* Filter Checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showOnlyNeverPlayed}
-                  onChange={(e) => setShowOnlyNeverPlayed(e.target.checked)}
-                  className="w-4 h-4 rounded"
-                />
-                <span className="text-sm">
-                  Show only never played 
-                  <span className="text-gray-400 ml-1">
-                    ({neverPlayedCount} games)
+              {/* Filter Checkboxes */}
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showOnlyNeverPlayed}
+                    onChange={(e) => setShowOnlyNeverPlayed(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm">
+                    Show only never played 
+                    <span className="text-gray-400 ml-1">
+                      ({neverPlayedCount} games)
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+                
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={excludeVR}
+                    onChange={(e) => setExcludeVR(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm">
+                    Exclude VR games
+                  </span>
+                </label>
+                
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={excludeMultiplayer}
+                    onChange={(e) => setExcludeMultiplayer(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm">
+                    Exclude PvP Multiplayer games
+                  </span>
+                </label>
+              </div>
               
               {/* Sort Dropdown */}
               <div className="flex items-center gap-2">
@@ -1295,7 +1481,8 @@ export default function Home() {
               </div>
               
               {(() => {
-                const topTags = getTopTags(games, 10);
+                // Get top 20 tags only (simplified - no expand button)
+                const topTags = getTopTags(games, steamCategoriesCache, 20);
                 
                 if (ratingsLoading || topTags.length === 0) {
                   return (
@@ -1392,14 +1579,14 @@ export default function Home() {
                       {neverPlayed && (
                         <button
                           onClick={() => handleTogglePlayedElsewhere(game.appid)}
-                          className={`text-xs px-2 py-1 rounded transition ${
+                          className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap ${
                             isPlayedElsewhere
                               ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
                               : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
                           }`}
                           title={isPlayedElsewhere ? "Mark as not played elsewhere" : "Mark as played elsewhere"}
                         >
-                          🎮
+                          🎮 {isPlayedElsewhere ? 'Played Elsewhere' : 'Mark Played'}
                         </button>
                       )}
                       

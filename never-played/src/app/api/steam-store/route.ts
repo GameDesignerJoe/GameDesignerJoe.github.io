@@ -32,6 +32,21 @@ export async function GET(request: NextRequest) {
     
     const game = gameData.data;
     
+    // Filter categories to only include relevant ones
+    const INCLUDED_CATEGORIES = [
+      'Single-player',
+      'Multi-player',
+      'Co-op',
+      'Online Co-op',
+      'Steam Achievements',
+      'VR Supported',
+      'VR Only'
+    ];
+    
+    const categories = game.categories
+      ?.map((c: any) => c.description)
+      .filter((desc: string) => INCLUDED_CATEGORIES.includes(desc)) || [];
+    
     // Extract relevant fields
     const storeInfo = {
       name: game.name || null,
@@ -42,6 +57,7 @@ export async function GET(request: NextRequest) {
         coming_soon: game.release_date?.coming_soon || false
       },
       genres: game.genres?.map((g: any) => g.description) || [],
+      categories: categories,
       metacritic: game.metacritic?.score || null,
       recommendations: game.recommendations?.total || null,
       developers: game.developers || [],

@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
     const total = positive + negative;
     const rating = total === 0 ? null : Math.round((positive / total) * 100);
     
-    // Extract top 5 tags by vote count
+    // Extract top 15 tags by vote count (increased from 5)
     const tags: string[] = [];
     if (data.tags && typeof data.tags === 'object') {
       const tagEntries = Object.entries(data.tags)
         .sort(([, a], [, b]) => (b as number) - (a as number))
-        .slice(0, 5);
+        .slice(0, 15);
       tags.push(...tagEntries.map(([tag]) => tag));
     }
     
