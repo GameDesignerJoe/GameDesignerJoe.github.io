@@ -590,12 +590,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
       <div className="bg-gray-700 rounded p-4">
         <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Games</div>
         {top5Games.length > 0 ? (
-          <div className="space-y-1 text-center">
+          <div className="space-y-1">
             {top5Games.map((game, i) => (
               <a 
                 key={game.appid} 
                 href={`#game-${game.appid}`}
-                className="block text-xs text-gray-300 hover:text-blue-400 truncate px-2 transition-colors cursor-pointer"
+                className="block text-xs text-gray-300 hover:text-blue-400 truncate transition-colors cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
                   const element = document.getElementById(`game-${game.appid}`);
@@ -608,7 +608,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                   }
                 }}
               >
-                {i + 1}. {game.name} <span className="text-purple-400">({Math.floor(game.playtime_forever / 60).toLocaleString()}h)</span>
+                {i + 1}. {game.name} <span className="text-purple-400">({formatPlaytimeDetailed(game.playtime_forever)})</span>
               </a>
             ))}
           </div>
@@ -621,7 +621,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
         <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Genres</div>
         {top5Genres.length > 0 ? (
           <>
-            <div className="space-y-1 text-center">
+            <div className="space-y-1">
               {top5Genres.map((item, i) => (
                 <div key={item.genre} className="text-sm">
                   <span className="font-bold text-purple-400">{item.genre}</span>
@@ -629,7 +629,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                 </div>
               ))}
             </div>
-            <div className="text-xs text-gray-500 text-center mt-2">
+            <div className="text-xs text-gray-500 mt-2">
               Total: {formatPlaytimeDetailed(top5Genres.reduce((sum, item) => sum + (item.hours * 60), 0))}
             </div>
           </>
@@ -683,11 +683,11 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">Friends' Combined Top 5</div>
             {friendsTopGames.length > 0 ? (
-              <div className="space-y-1 text-center">
+              <div className="space-y-1">
                 {friendsTopGames.map((game: any, i: number) => (
                   <div key={game.appid} className="text-xs">
                     <span className="text-gray-300">{i + 1}. {game.name}</span>
-                    <span className="text-purple-400 ml-1">({Math.floor(game.totalPlaytime / 60).toLocaleString()}h)</span>
+                    <span className="text-purple-400 ml-1">({formatPlaytimeDetailed(game.totalPlaytime)})</span>
                   </div>
                 ))}
               </div>

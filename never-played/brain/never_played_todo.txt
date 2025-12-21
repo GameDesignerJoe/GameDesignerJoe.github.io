@@ -13,11 +13,8 @@ _No pending high priority items_
 
 ## ⭐ Feature Improvements
 
-- Percentage of played of your library versus your friends.
-- Where you stand in your game count versus your friends (same thing you did ofr hours of your favorite game).
 - Something about the amount of achievements you've earned versus your friends.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
-- Convert top 5 times to days
 - Library looks like crap on mobile. 
 - Clicking on a users name doesn't load their profile.
 - Can't get the videos to play of the games. 
