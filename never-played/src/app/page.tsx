@@ -8,7 +8,8 @@ import {
   getFriendsTopGames,
   getGenreBuddiesRanked,
   getFriendsWithSignificantPlaytime,
-  getTopGenres as getPlayerTopGenres
+  getTopGenres as getPlayerTopGenres,
+  getTotalPlaytimeLeaderboard
 } from '@/utils/genreAffinity';
 
 // Detect if user is on mobile device
@@ -504,7 +505,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
   const playerTopGenres = getPlayerTopGenres(games, steamCategoriesCache);
   const friendLeaderboard = mostPlayed && friendsData && friendsData.friends ? getFriendLeaderboard(mostPlayed, playerName, friendsData.friends) : [];
   const friendsTopGames = friendsData && friendsData.friends ? getFriendsTopGames(friendsData.friends) : [];
-  const genreBuddiesRanked = friendsData && friendsData.friends ? getGenreBuddiesRanked(playerTopGenres, friendsData.friends, steamCategoriesCache) : [];
+  // const genreBuddiesRanked = friendsData && friendsData.friends ? getGenreBuddiesRanked(playerTopGenres, friendsData.friends, steamCategoriesCache) : [];
+  const totalPlaytimeLeaderboard = friendsData && friendsData.friends ? getTotalPlaytimeLeaderboard(stats.totalMinutes, playerName, friendsData.friends) : [];
   const displayTimeAgo = friendsData?.timeAgo || 'not yet synced';
   
   return (
@@ -692,6 +694,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             )}
           </div>
           
+          {/* Genre Buddies - COMMENTED OUT FOR FUTURE USE
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
               Genre Buddies
@@ -720,6 +723,43 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             ) : (
               <div className="text-sm text-gray-400 text-center">
                 {friendsData.loading ? 'Loading...' : 'No genre buddies found'}
+              </div>
+            )}
+          </div>
+          */}
+          
+          {/* Total Playtime Position - NEW */}
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">
+              Total Playtime Position
+              <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
+            </div>
+            {totalPlaytimeLeaderboard.length > 0 ? (
+              <div className="space-y-1">
+                {totalPlaytimeLeaderboard.map((entry) => (
+                  <div key={entry.steamid} className="flex items-center justify-between text-xs">
+                    {entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400">→ YOU</span>
+                    ) : (
+                      <a
+                        href={entry.profileurl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-blue-400 truncate flex-1"
+                      >
+                        {entry.position}. {entry.name}
+                      </a>
+                    )}
+                    <span className="text-purple-400 ml-2">
+                      {formatPlaytimeDetailed(entry.playtime)}
+                      {entry.steamid === 'you' && ' 👤'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No friends data'}
               </div>
             )}
           </div>

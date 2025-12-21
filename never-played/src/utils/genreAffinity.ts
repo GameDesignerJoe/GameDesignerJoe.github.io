@@ -244,3 +244,65 @@ export function getFriendsWithSignificantPlaytime(
     })
     .filter((f): f is Friend => f !== null);
 }
+
+/**
+ * Get total playtime leaderboard - player + 4 nearest friends by total playtime
+ * Returns up to 5 entries, centered on player when possible
+ */
+export function getTotalPlaytimeLeaderboard(
+  playerTotalMinutes: number,
+  playerName: string,
+  friends: Friend[]
+): LeaderboardEntry[] {
+  const entries: LeaderboardEntry[] = [];
+  
+  // Add player entry
+  entries.push({
+    name: playerName,
+    steamid: 'you',
+    profileurl: '',
+    playtime: playerTotalMinutes,
+    position: 0,
+  });
+  
+  // Add all friends with their total playtime
+  friends.forEach(friend => {
+    if (!friend.games || friend.games.length === 0) return;
+    
+    // Calculate total playtime across all games
+    const totalPlaytime = friend.games.reduce((sum, game) => sum + game.playtime_forever, 0);
+    
+    if (totalPlaytime > 0) {
+      entries.push({
+        name: friend.personaname,
+        steamid: friend.steamid,
+        profileurl: friend.profileurl,
+        playtime: totalPlaytime,
+        position: 0,
+      });
+    }
+  });
+  
+  // Sort by playtime (descending)
+  entries.sort((a, b) => b.playtime - a.playtime);
+  
+  // Assign positions
+  entries.forEach((entry, index) => {
+    entry.position = index + 1;
+  });
+  
+  // Find player's position
+  const playerIndex = entries.findIndex(e => e.steamid === 'you');
+  if (playerIndex === -1) return [];
+  
+  // Return up to 5 entries centered on player (2 above, 2 below when possible)
+  let start = Math.max(0, playerIndex - 2);
+  let end = Math.min(entries.length, start + 5);
+  
+  // Adjust start if we don't have enough entries at the end
+  if (end - start < 5 && entries.length >= 5) {
+    start = Math.max(0, end - 5);
+  }
+  
+  return entries.slice(start, end);
+}
