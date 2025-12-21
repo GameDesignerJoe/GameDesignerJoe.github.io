@@ -78,9 +78,9 @@ interface LibraryStats {
   gamesWithPrice: number; // number of played games with price data
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc';
+type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match';
 
-function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
+function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[]): SteamGame[] {
   const sorted = [...games];
   
   switch (sortBy) {
@@ -128,29 +128,63 @@ function sortGames(games: SteamGame[], sortBy: SortOption): SteamGame[] {
         if (!b.releaseDate) return -1;
         return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
       });
+    case 'best-match':
+      // Best Match: Sort by genre affinity + rating quality
+      // Score = (Genre Matches × 10) + (Rating / 10)
+      if (!steamCategoriesCache || !playerTopGenres) {
+        return sorted; // Can't sort without genre data
+      }
+      
+      return sorted.sort((a, b) => {
+        // Calculate score for game A
+        const aGenres = steamCategoriesCache.get(a.appid) || [];
+        const aMatches = aGenres.filter(g => playerTopGenres.includes(g)).length;
+        const aRating = (a.rating !== undefined && a.rating !== null) ? a.rating : 0;
+        const aScore = (aMatches * 10) + (aRating / 10);
+        
+        // Calculate score for game B
+        const bGenres = steamCategoriesCache.get(b.appid) || [];
+        const bMatches = bGenres.filter(g => playerTopGenres.includes(g)).length;
+        const bRating = (b.rating !== undefined && b.rating !== null) ? b.rating : 0;
+        const bScore = (bMatches * 10) + (bRating / 10);
+        
+        // Games with no genres or rating go to bottom
+        if (aScore === 0 && bScore === 0) return 0;
+        if (aScore === 0) return 1;
+        if (bScore === 0) return -1;
+        
+        // Sort by score descending (highest first)
+        return bScore - aScore;
+      });
     default:
       return sorted;
   }
 }
 
-function calculateStats(games: SteamGame[], playedElsewhereList: number[] = []): LibraryStats {
+// Helper: Get effective playtime (0 if ignored, otherwise actual)
+function getEffectivePlaytime(game: SteamGame, ignoredList: number[]): number {
+  return ignoredList.includes(game.appid) ? 0 : game.playtime_forever;
+}
+
+function calculateStats(games: SteamGame[], playedElsewhereList: number[] = [], ignoredPlaytimeList: number[] = []): LibraryStats {
   const totalGames = games.length;
   // Exclude playedElsewhere games from never played count
   const neverPlayed = games.filter(g => 
     g.playtime_forever === 0 && !playedElsewhereList.includes(g.appid)
   ).length;
-  const totalMinutes = games.reduce((sum, g) => sum + g.playtime_forever, 0);
-  // Count playedElsewhere as "tried" for completion rate
+  // Use effective playtime (ignoring games in ignoredPlaytimeList)
+  const totalMinutes = games.reduce((sum, g) => sum + getEffectivePlaytime(g, ignoredPlaytimeList), 0);
+  // Count playedElsewhere as "tried" for completion rate (still counts ignored games as tried)
   const playedElsewhereCount = games.filter(g => playedElsewhereList.includes(g.appid)).length;
   const actuallyPlayed = games.filter(g => g.playtime_forever > 0).length;
   const tried = actuallyPlayed + playedElsewhereCount;
   const completionRate = totalGames > 0 ? Math.round((tried / totalGames) * 100) : 0;
   
-  // Calculate cost per hour (only for played games)
-  const playedGames = games.filter(g => g.playtime_forever > 0);
+  // Calculate cost per hour (only for played games, using effective playtime)
+  const playedGames = games.filter(g => getEffectivePlaytime(g, ignoredPlaytimeList) > 0);
   const gamesWithPrice = playedGames.filter(g => g.price !== undefined && g.price !== null && g.price > 0);
   const totalSpent = gamesWithPrice.reduce((sum, g) => sum + (g.price || 0), 0);
-  const totalHoursPlayed = playedGames.reduce((sum, g) => sum + g.playtime_forever, 0) / 60;
+  const totalHoursPlayed = games.reduce((sum, g) => sum + getEffectivePlaytime(g, ignoredPlaytimeList), 0) / 60;
   const costPerHour = totalHoursPlayed > 0 && totalSpent > 0 ? totalSpent / totalHoursPlayed : null;
   
   return {
@@ -352,30 +386,31 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
   return gameDataMap;
 }
 
-// Get most played game
-function getMostPlayedGame(games: SteamGame[]): SteamGame | null {
-  const playedGames = games.filter(g => g.playtime_forever > 0);
+// Get most played game (using effective playtime)
+function getMostPlayedGame(games: SteamGame[], ignoredList: number[] = []): SteamGame | null {
+  const playedGames = games.filter(g => getEffectivePlaytime(g, ignoredList) > 0);
   if (playedGames.length === 0) return null;
   
   return playedGames.reduce((max, game) => 
-    game.playtime_forever > max.playtime_forever ? game : max
+    getEffectivePlaytime(game, ignoredList) > getEffectivePlaytime(max, ignoredList) ? game : max
   );
 }
 
-// Get top 5 most played games
-function getTop5MostPlayed(games: SteamGame[]): SteamGame[] {
+// Get top 5 most played games (using effective playtime)
+function getTop5MostPlayed(games: SteamGame[], ignoredList: number[] = []): SteamGame[] {
   return games
-    .filter(g => g.playtime_forever > 0)
-    .sort((a, b) => b.playtime_forever - a.playtime_forever)
+    .filter(g => getEffectivePlaytime(g, ignoredList) > 0)
+    .sort((a, b) => getEffectivePlaytime(b, ignoredList) - getEffectivePlaytime(a, ignoredList))
     .slice(0, 5);
 }
 
-// Get top 5 genres by playtime
-function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>): Array<{genre: string, hours: number}> {
+// Get top 5 genres by playtime (using effective playtime)
+function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>, ignoredList: number[] = []): Array<{genre: string, hours: number}> {
   const genrePlaytime = new Map<string, number>();
   
   games.forEach(game => {
-    if (game.playtime_forever === 0) return;
+    const effectiveTime = getEffectivePlaytime(game, ignoredList);
+    if (effectiveTime === 0) return;
     
     // Try to get genres from Steam Store cache
     const storeKey = `steam_store_${game.appid}`;
@@ -386,10 +421,10 @@ function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, str
         const parsedCache = JSON.parse(cached);
         const genres = parsedCache.data?.genres || [];
         
-        // Add full playtime to each genre
+        // Add effective playtime to each genre
         genres.forEach((genre: string) => {
           const currentHours = genrePlaytime.get(genre) || 0;
-          genrePlaytime.set(genre, currentHours + (game.playtime_forever / 60));
+          genrePlaytime.set(genre, currentHours + (effectiveTime / 60));
         });
       } catch (e) {
         // Skip if cache is invalid
@@ -403,12 +438,12 @@ function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, str
     .slice(0, 5);
 }
 
-function LibraryStats({ games, playedElsewhereList, steamCategoriesCache }: { games: SteamGame[], playedElsewhereList: number[], steamCategoriesCache: Map<number, string[]> }) {
-  const stats = calculateStats(games, playedElsewhereList);
+function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCategoriesCache }: { games: SteamGame[], playedElsewhereList: number[], ignoredPlaytimeList: number[], steamCategoriesCache: Map<number, string[]> }) {
+  const stats = calculateStats(games, playedElsewhereList, ignoredPlaytimeList);
   const lastNewGame = getLastNewGame(games);
-  const mostPlayed = getMostPlayedGame(games);
-  const top5Games = getTop5MostPlayed(games);
-  const top5Genres = getTop5Genres(games, steamCategoriesCache);
+  const mostPlayed = getMostPlayedGame(games, ignoredPlaytimeList);
+  const top5Games = getTop5MostPlayed(games, ignoredPlaytimeList);
+  const top5Genres = getTop5Genres(games, steamCategoriesCache, ignoredPlaytimeList);
   
   // Calculate percentage of total time for most played game
   const mostPlayedPercentage = mostPlayed && stats.totalMinutes > 0
@@ -493,9 +528,24 @@ function LibraryStats({ games, playedElsewhereList, steamCategoriesCache }: { ga
         {top5Games.length > 0 ? (
           <div className="space-y-1 text-center">
             {top5Games.map((game, i) => (
-              <div key={game.appid} className="text-xs text-gray-300 truncate px-2">
+              <a 
+                key={game.appid} 
+                href={`#game-${game.appid}`}
+                className="block text-xs text-gray-300 hover:text-blue-400 truncate px-2 transition-colors cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const element = document.getElementById(`game-${game.appid}`);
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('ring-2', 'ring-blue-500');
+                    setTimeout(() => {
+                      element.classList.remove('ring-2', 'ring-blue-500');
+                    }, 2000);
+                  }
+                }}
+              >
                 {i + 1}. {game.name} <span className="text-purple-400">({Math.floor(game.playtime_forever / 60).toLocaleString()}h)</span>
-              </div>
+              </a>
             ))}
           </div>
         ) : (
@@ -926,7 +976,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showOnlyNeverPlayed, setShowOnlyNeverPlayed] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('rating-desc');
+  const [sortBy, setSortBy] = useState<SortOption>('best-match');
   const [suggestion, setSuggestion] = useState<SteamGame | null>(null);
   const [neverSuggestList, setNeverSuggestList] = useState<number[]>([]);
   const [playedElsewhereList, setPlayedElsewhereList] = useState<number[]>([]);
@@ -944,6 +994,9 @@ export default function Home() {
   const [steamCategoriesCache, setSteamCategoriesCache] = useState<Map<number, string[]>>(new Map());
   const [excludeVR, setExcludeVR] = useState(false);
   const [excludeMultiplayer, setExcludeMultiplayer] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [ignoredPlaytimeList, setIgnoredPlaytimeList] = useState<number[]>([]);
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -1054,7 +1107,45 @@ export default function Home() {
         console.error('Failed to parse playedElsewhere from localStorage');
       }
     }
+    
+    // Load ignored playtime list
+    const ignoredStored = localStorage.getItem('ignoredPlaytime');
+    if (ignoredStored) {
+      try {
+        const parsed = JSON.parse(ignoredStored);
+        setIgnoredPlaytimeList(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        console.error('Failed to parse ignoredPlaytime from localStorage');
+      }
+    }
+    
+    // Auto-refresh is always enabled
+    setAutoRefreshEnabled(true);
   }, []);
+  
+  // Set up auto-refresh polling interval (10-15 minutes) - always enabled
+  useEffect(() => {
+    if (!steamId || games.length === 0) return;
+    
+    // Random interval between 10-15 minutes (in milliseconds)
+    const minInterval = 10 * 60 * 1000; // 10 minutes
+    const maxInterval = 15 * 60 * 1000; // 15 minutes
+    const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
+    
+    const intervalId = setInterval(() => {
+      silentLibraryCheck();
+    }, interval);
+    
+    // Also run an initial check after 30 seconds
+    const initialTimeout = setTimeout(() => {
+      silentLibraryCheck();
+    }, 30000);
+    
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(initialTimeout);
+    };
+  }, [autoRefreshEnabled, steamId, games.length]);
   
   // Update suggestion when games state changes (e.g., when ratings load)
   useEffect(() => {
@@ -1249,7 +1340,11 @@ export default function Home() {
     });
   }
   
-  const filteredAndSortedGames = sortGames(filtered, sortBy);
+  // Get player's top 5 genres for best-match sorting
+  const playerTop5Genres = getTop5Genres(games, steamCategoriesCache);
+  const playerGenreNames = playerTop5Genres.map(g => g.genre);
+  
+  const filteredAndSortedGames = sortGames(filtered, sortBy, steamCategoriesCache, playerGenreNames);
   
   const neverPlayedCount = games.filter(g => g.playtime_forever === 0).length;
   
@@ -1321,6 +1416,23 @@ export default function Home() {
     localStorage.removeItem('playedElsewhere');
   };
   
+  // Handle toggling "ignore playtime" status
+  const handleToggleIgnorePlaytime = (appId: number) => {
+    const isCurrentlyIgnored = ignoredPlaytimeList.includes(appId);
+    
+    let updatedList: number[];
+    if (isCurrentlyIgnored) {
+      // Remove from list (un-ignore)
+      updatedList = ignoredPlaytimeList.filter(id => id !== appId);
+    } else {
+      // Add to list (ignore)
+      updatedList = [...ignoredPlaytimeList, appId];
+    }
+    
+    setIgnoredPlaytimeList(updatedList);
+    localStorage.setItem('ignoredPlaytime', JSON.stringify(updatedList));
+  };
+  
   // Fetch Steam Store categories for a game
   const fetchStoreCategories = async (appId: number): Promise<string[]> => {
     // Check cache first
@@ -1374,6 +1486,71 @@ export default function Home() {
     
     await Promise.all(fetchPromises);
     return categoriesMap;
+  };
+  
+  // Silent background check for library updates (playtime changes)
+  const silentLibraryCheck = async () => {
+    if (!steamId.trim() || games.length === 0) return;
+    
+    try {
+      const response = await fetch(`/api/steam-library?steamid=${steamId}`);
+      const data = await response.json();
+      
+      if (!response.ok) return; // Fail silently
+      
+      const freshGames = data.games || [];
+      
+      // Check if anything changed (compare playtimes)
+      let hasChanges = false;
+      if (freshGames.length !== games.length) {
+        hasChanges = true;
+      } else {
+        for (const freshGame of freshGames) {
+          const existingGame = games.find(g => g.appid === freshGame.appid);
+          if (!existingGame || existingGame.playtime_forever !== freshGame.playtime_forever) {
+            hasChanges = true;
+            break;
+          }
+        }
+      }
+      
+      // Only update if there are changes
+      if (hasChanges) {
+        // Merge fresh library data with existing enhanced data (ratings, tags, etc.)
+        const updatedGames = freshGames.map((freshGame: SteamGame) => {
+          const existingGame = games.find((g: SteamGame) => g.appid === freshGame.appid);
+          if (existingGame) {
+            // Keep enhanced data from existing game
+            return {
+              ...freshGame,
+              rating: existingGame.rating,
+              tags: existingGame.tags,
+              releaseDate: existingGame.releaseDate,
+              price: existingGame.price
+            };
+          }
+          return freshGame;
+        });
+        
+        setGames(updatedGames);
+        setLastChecked(new Date());
+        
+        // Update suggestion if current one was just played
+        if (suggestion && suggestion.playtime_forever === 0) {
+          const updatedSuggestion = updatedGames.find((g: SteamGame) => g.appid === suggestion.appid);
+          if (updatedSuggestion && updatedSuggestion.playtime_forever > 0) {
+            // Current suggestion was just played! Get a new one
+            handleNewSuggestion();
+          }
+        }
+      } else {
+        // No changes, just update last checked time
+        setLastChecked(new Date());
+      }
+    } catch (error) {
+      // Fail silently - don't disrupt user experience
+      console.log('Background check failed (silent):', error);
+    }
   };
   
   // Fetch enhanced data (ratings, tags, etc.) in background (non-blocking)
@@ -1625,7 +1802,7 @@ export default function Home() {
             {/* Collapsible Content */}
             {!statsCollapsed && (
               <div className="p-6 border-t border-gray-700">
-                <LibraryStats games={games} playedElsewhereList={playedElsewhereList} steamCategoriesCache={steamCategoriesCache} />
+                <LibraryStats games={games} playedElsewhereList={playedElsewhereList} ignoredPlaytimeList={ignoredPlaytimeList} steamCategoriesCache={steamCategoriesCache} />
               </div>
             )}
           </div>
@@ -1755,12 +1932,13 @@ export default function Home() {
                         onChange={(e) => setSortBy(e.target.value as SortOption)}
                         className="px-3 py-1.5 bg-gray-700 rounded border border-gray-600 text-sm focus:border-blue-500 focus:outline-none"
                       >
+                        <option value="best-match">⭐ Best Match (Genre + Rating)</option>
+                        <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                         <option value="name-asc">Name (A-Z)</option>
                         <option value="name-desc">Name (Z-A)</option>
                         <option value="playtime-asc">Playtime (Low to High)</option>
                         <option value="playtime-desc">Playtime (High to Low)</option>
-                        <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
-                        <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                       </select>
                     </div>
                   </div>
@@ -1839,11 +2017,13 @@ export default function Home() {
                       const minutes = game.playtime_forever % 60;
                       const neverPlayed = game.playtime_forever === 0;
                       const isPlayedElsewhere = playedElsewhereList.includes(game.appid);
+                      const isIgnored = ignoredPlaytimeList.includes(game.appid);
                       
                       return (
                         <div 
                           key={game.appid}
-                          className="bg-gray-700 rounded p-4 flex items-center justify-between gap-3"
+                          id={`game-${game.appid}`}
+                          className="bg-gray-700 rounded p-4 flex items-center justify-between gap-3 transition-all"
                         >
                           <button 
                             onClick={(e) => handleSteamLink(game.appid, e)}
@@ -1862,6 +2042,7 @@ export default function Home() {
                                 {hours > 0 && `${hours}h `}
                                 {minutes > 0 && `${minutes}m`}
                                 {neverPlayed && '0 hours'}
+                                {isIgnored && !neverPlayed && ' 🚫'}
                                 {game.rating !== undefined && ` • ${game.rating}% 👍`}
                                 {game.releaseDate && ` • Released: ${game.releaseDate}`}
                               </p>
@@ -1869,6 +2050,14 @@ export default function Home() {
                           </button>
                           
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                              className="text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap"
+                              title="Scroll to top"
+                            >
+                              ↑ Top
+                            </button>
+                            
                             {neverPlayed && (
                               <button
                                 onClick={() => handleTogglePlayedElsewhere(game.appid)}
@@ -1883,15 +2072,19 @@ export default function Home() {
                               </button>
                             )}
                             
-                            <span className={`text-sm px-3 py-1 rounded whitespace-nowrap ${
-                              isPlayedElsewhere
-                                ? 'bg-blue-900 text-blue-200'
-                                : neverPlayed 
-                                  ? 'bg-red-900 text-red-200' 
-                                  : 'bg-green-900 text-green-200'
-                            }`}>
-                              {isPlayedElsewhere ? '✅ Played Elsewhere' : neverPlayed ? '❌ Never Played' : '✅ Played'}
-                            </span>
+                            {!neverPlayed && (
+                              <button
+                                onClick={() => handleToggleIgnorePlaytime(game.appid)}
+                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap ${
+                                  isIgnored
+                                    ? 'bg-orange-700 hover:bg-orange-600 text-orange-100'
+                                    : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                                }`}
+                                title={isIgnored ? "Include playtime in stats" : "Ignore playtime in stats"}
+                              >
+                                🚫 {isIgnored ? 'Playtime Ignored' : 'Ignore Playtime'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       );

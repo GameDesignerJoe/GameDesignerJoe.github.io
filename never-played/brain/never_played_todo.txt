@@ -13,6 +13,9 @@ _No pending high priority items_
 
 ## ⭐ Feature Improvements
 
+### 1. Get more of a Gallery view of the games you need to play.
+- Need to figure out where to get good images.
+
 ### 1. Add a "Favorites or Poisslble Play" list
 - This is a list of games, similar to blacklist, etc. that lets you pull specific games forward that you can play later.
  
