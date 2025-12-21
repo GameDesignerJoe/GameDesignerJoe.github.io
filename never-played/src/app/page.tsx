@@ -370,8 +370,8 @@ function getTop5MostPlayed(games: SteamGame[]): SteamGame[] {
     .slice(0, 5);
 }
 
-// Get top 3 genres by playtime
-function getTop3Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>): Array<{genre: string, hours: number}> {
+// Get top 5 genres by playtime
+function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>): Array<{genre: string, hours: number}> {
   const genrePlaytime = new Map<string, number>();
   
   games.forEach(game => {
@@ -400,7 +400,7 @@ function getTop3Genres(games: SteamGame[], steamCategoriesCache: Map<number, str
   return Array.from(genrePlaytime.entries())
     .map(([genre, hours]) => ({ genre, hours }))
     .sort((a, b) => b.hours - a.hours)
-    .slice(0, 3);
+    .slice(0, 5);
 }
 
 function LibraryStats({ games, playedElsewhereList, steamCategoriesCache }: { games: SteamGame[], playedElsewhereList: number[], steamCategoriesCache: Map<number, string[]> }) {
@@ -408,7 +408,7 @@ function LibraryStats({ games, playedElsewhereList, steamCategoriesCache }: { ga
   const lastNewGame = getLastNewGame(games);
   const mostPlayed = getMostPlayedGame(games);
   const top5Games = getTop5MostPlayed(games);
-  const top3Genres = getTop3Genres(games, steamCategoriesCache);
+  const top5Genres = getTop5Genres(games, steamCategoriesCache);
   
   // Calculate percentage of total time for most played game
   const mostPlayedPercentage = mostPlayed && stats.totalMinutes > 0
@@ -504,10 +504,10 @@ function LibraryStats({ games, playedElsewhereList, steamCategoriesCache }: { ga
       </div>
       
       <div className="bg-gray-700 rounded p-4">
-        <div className="text-gray-400 text-sm mb-1 text-center">Top 3 Genres</div>
-        {top3Genres.length > 0 ? (
+        <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Genres</div>
+        {top5Genres.length > 0 ? (
           <div className="space-y-1 text-center">
-            {top3Genres.map((item, i) => (
+            {top5Genres.map((item, i) => (
               <div key={item.genre} className="text-sm">
                 <span className="font-bold text-purple-400">{item.genre}</span>
                 <span className="text-xs text-gray-400 ml-1">({Math.floor(item.hours).toLocaleString()}h)</span>
@@ -545,7 +545,7 @@ function RatingProgressBanner({
       }`}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">
-            {isComplete ? '✅ Ratings loaded!' : '⏳ Loading ratings from SteamSpy...'}
+            {isComplete ? '✅ Game information loaded!' : '⏳ Loading game information...'}
           </span>
           <span className="text-xs text-gray-400">{loaded}/{total}</span>
         </div>
@@ -571,7 +571,9 @@ function SuggestionCard({
   hiddenCount,
   onResetHidden,
   storeData,
-  storeLoading
+  storeLoading,
+  games,
+  steamCategoriesCache
 }: { 
   game: SteamGame | null;
   onNewSuggestion: () => void;
@@ -582,6 +584,8 @@ function SuggestionCard({
   onResetHidden: () => void;
   storeData: SteamStoreData | null;
   storeLoading: boolean;
+  games: SteamGame[];
+  steamCategoriesCache: Map<number, string[]>;
 }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -668,6 +672,66 @@ function SuggestionCard({
   // Check if video is available
   const hasVideo = storeData?.movies && storeData.movies.length > 0;
   const firstVideo = hasVideo ? storeData.movies[0] : null;
+  
+  // Genre matching logic
+  const playerTop5Genres = getTop5Genres(games, steamCategoriesCache);
+  const playerGenreNames = playerTop5Genres.map(g => g.genre);
+  const gameGenres = storeData?.genres || [];
+  
+  // Find matching genres
+  const matchedGenres = gameGenres.filter(genre => playerGenreNames.includes(genre));
+  const matchCount = matchedGenres.length;
+  
+  // Determine badge tier
+  let badge: { emoji: string; text: string; color: string; detail: string } | null = null;
+  
+  if (matchCount >= 3) {
+    // Perfect Match: 3+ genres match
+    badge = {
+      emoji: '🎯',
+      text: 'Perfect Match',
+      color: 'bg-purple-600 border-purple-400',
+      detail: `Matches ${matchedGenres.join(', ')}`
+    };
+  } else if (matchCount === 2) {
+    // Your Style: Exactly 2 genres match
+    badge = {
+      emoji: '⭐',
+      text: 'Your Style',
+      color: 'bg-blue-600 border-blue-400',
+      detail: `Matches ${matchedGenres.join(', ')}`
+    };
+  } else if (matchCount === 1) {
+    // Possible Hit: Exactly 1 genre match
+    badge = {
+      emoji: '⚡',
+      text: 'Possible Hit',
+      color: 'bg-teal-600 border-teal-400',
+      detail: `Matches ${matchedGenres.join(', ')}`
+    };
+  } else {
+    // Outside player's genres - check for Hidden Gem or Taste Changer
+    const hasHighRating = game.rating && game.rating >= 80;
+    const hasHighRecommendations = storeData?.recommendations && storeData.recommendations >= 10000;
+    
+    if (hasHighRating && hasHighRecommendations) {
+      // Hidden Gem: BOTH high rating AND high recommendations
+      badge = {
+        emoji: '💎',
+        text: 'Hidden Gem',
+        color: 'bg-cyan-600 border-cyan-400',
+        detail: 'Highly rated and popular outside your usual genres'
+      };
+    } else if (hasHighRating || hasHighRecommendations) {
+      // Taste Changer: EITHER high rating OR high recommendations
+      badge = {
+        emoji: '🌟',
+        text: 'Taste Changer',
+        color: 'bg-yellow-600 border-yellow-400',
+        detail: 'Worth exploring outside your usual genres'
+      };
+    }
+  }
   
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-700 shadow-xl">
@@ -757,6 +821,17 @@ function SuggestionCard({
           </div>
         )}
         
+        {/* Genre Match Badge */}
+        {badge && (
+          <div className={`${badge.color} border-2 rounded-lg p-3 mb-4`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl">{badge.emoji}</span>
+              <span className="font-bold text-lg">{badge.text}</span>
+            </div>
+            <p className="text-sm text-gray-100">{badge.detail}</p>
+          </div>
+        )}
+        
         {/* Release Date & Social Proof */}
         <div className="bg-black/30 backdrop-blur-sm rounded p-4 mb-4 space-y-2 border border-gray-800">
           {/* 1. Release Date */}
@@ -784,7 +859,7 @@ function SuggestionCard({
           {/* 3. Metacritic */}
           {storeData?.metacritic && (
             <div className="text-sm">
-              🎯 <span className="font-semibold">Metacritic: {storeData.metacritic}</span>
+              📈 <span className="font-semibold">Metacritic: {storeData.metacritic}</span>
             </div>
           )}
           
@@ -1376,7 +1451,7 @@ export default function Home() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2">Next Play</h1>
-          <p className="text-gray-400">Find what to play today from your Steam library.</p>
+          <p className="text-gray-400">Find your next play from your Steam library.</p>
         </div>
         
         {/* Input Section */}
@@ -1592,6 +1667,8 @@ export default function Home() {
                   onResetHidden={handleResetBlacklist}
                   storeData={storeData}
                   storeLoading={storeLoading}
+                  games={games}
+                  steamCategoriesCache={steamCategoriesCache}
                 />
               </div>
             )}
