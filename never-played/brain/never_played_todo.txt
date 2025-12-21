@@ -13,6 +13,15 @@ _No pending high priority items_
 
 ## ⭐ Feature Improvements
 
+### 1. Add a "Favorites or Poisslble Play" list
+- This is a list of games, similar to blacklist, etc. that lets you pull specific games forward that you can play later.
+ 
+### 1. Add a "This game is right up your alley" when it's within one of your top three genres.
+
+### 1. View Blacklist & Played Elsewhere games
+- We should come up with a way for users to view these two.
+- Also reset the Played Elsewhere.
+
 ### 2. Apply filters to "Try This Next" showcase
 - Use current filter settings to narrow suggestion pool
 - Respect "Show only never played" checkbox

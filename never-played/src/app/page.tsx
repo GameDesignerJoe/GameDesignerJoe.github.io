@@ -2,6 +2,32 @@
 
 import { useState, useEffect } from 'react';
 
+// Detect if user is on mobile device
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// Smart link handler: Try steam:// protocol, fallback to web if fails
+function handleSteamLink(appId: number, e?: React.MouseEvent) {
+  if (e) e.preventDefault();
+  
+  const steamProtocol = `steam://store/${appId}`;
+  const webFallback = `https://store.steampowered.com/app/${appId}`;
+  
+  if (isMobileDevice()) {
+    // On mobile: Try protocol, fallback to web after 1.5 seconds
+    window.location.href = steamProtocol;
+    
+    setTimeout(() => {
+      window.location.href = webFallback;
+    }, 1500);
+  } else {
+    // On desktop: Just use protocol (Steam client should be installed)
+    window.location.href = steamProtocol;
+  }
+}
+
 interface SteamGame {
   appid: number;
   name: string;
@@ -645,7 +671,7 @@ function SuggestionCard({
   
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-700 shadow-xl">
-      {/* Header Video/Image Banner */}
+      {/* Video/Image Banner */}
       {firstVideo && !videoFailed ? (
         <div className="w-full aspect-video md:aspect-auto md:h-64 bg-black flex items-center justify-center relative">
           <video
@@ -690,10 +716,6 @@ function SuggestionCard({
       )}
       
       <div className="p-6">
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-300">
-          🎯 TRY THIS NEXT
-        </h2>
-        
         {/* Game Title */}
         <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
         
@@ -799,12 +821,12 @@ function SuggestionCard({
           >
             {playedElsewhereList.includes(game.appid) ? '✅ Played Elsewhere' : '🎮 Played Elsewhere'}
           </button>
-          <a
-            href={`steam://store/${game.appid}`}
+          <button
+            onClick={(e) => handleSteamLink(game.appid, e)}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition"
           >
             ▶ Play Now
-          </a>
+          </button>
         </div>
         
         {hiddenCount > 0 && (
@@ -842,6 +864,8 @@ export default function Home() {
   const [storeLoading, setStoreLoading] = useState(false);
   const [steamIdCollapsed, setSteamIdCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
+  const [showcaseCollapsed, setShowcaseCollapsed] = useState(false);
+  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [steamCategoriesCache, setSteamCategoriesCache] = useState<Map<number, string[]>>(new Map());
   const [excludeVR, setExcludeVR] = useState(false);
   const [excludeMultiplayer, setExcludeMultiplayer] = useState(false);
@@ -923,8 +947,12 @@ export default function Home() {
     // Load collapsed states
     const savedSteamIdCollapsed = localStorage.getItem('collapsed_steamId') === 'true';
     const savedStatsCollapsed = localStorage.getItem('collapsed_stats') === 'true';
+    const savedShowcaseCollapsed = localStorage.getItem('collapsed_showcase') === 'true';
+    const savedLibraryCollapsed = localStorage.getItem('collapsed_library') === 'true';
     setSteamIdCollapsed(savedSteamIdCollapsed);
     setStatsCollapsed(savedStatsCollapsed);
+    setShowcaseCollapsed(savedShowcaseCollapsed);
+    setLibraryCollapsed(savedLibraryCollapsed);
   }, []);
   
   // Load never suggest list from localStorage on mount
@@ -1347,7 +1375,7 @@ export default function Home() {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Play Today</h1>
+          <h1 className="text-4xl font-bold mb-2">Next Play</h1>
           <p className="text-gray-400">Find what to play today from your Steam library.</p>
         </div>
         
@@ -1359,7 +1387,7 @@ export default function Home() {
             className="w-full px-6 py-3 flex items-center justify-between hover:bg-gray-750 transition-colors"
           >
             <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold">🎮 Steam ID</span>
+              <span className="text-2xl font-bold">💨 Steam ID</span>
               {steamId && steamIdCollapsed && (
                 <span className="text-sm text-gray-400">({steamId})</span>
               )}
@@ -1529,224 +1557,272 @@ export default function Home() {
         )}
         
         {/* Game Suggestion */}
-        <SuggestionCard 
-          game={suggestion} 
-          onNewSuggestion={handleNewSuggestion}
-          onNeverSuggest={handleNeverSuggest}
-          onTogglePlayedElsewhere={handleTogglePlayedElsewhere}
-          playedElsewhereList={playedElsewhereList}
-          hiddenCount={neverSuggestList.length}
-          onResetHidden={handleResetBlacklist}
-          storeData={storeData}
-          storeLoading={storeLoading}
-        />
-        
-        {/* Filter and Sort Controls */}
-        {games.length > 0 && (
-          <div className="bg-gray-800 rounded-lg p-4 mb-4">
-            {/* Top Row: Filter Checkboxes and Sort */}
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
-              
-              {/* Filter Checkboxes */}
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showOnlyNeverPlayed}
-                    onChange={(e) => setShowOnlyNeverPlayed(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className="text-sm">
-                    Show only never played 
-                    <span className="text-gray-400 ml-1">
-                      ({neverPlayedCount} games)
-                    </span>
-                  </span>
-                </label>
-                
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={excludeVR}
-                    onChange={(e) => setExcludeVR(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className="text-sm">
-                    Exclude VR games
-                  </span>
-                </label>
-                
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={excludeMultiplayer}
-                    onChange={(e) => setExcludeMultiplayer(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className="text-sm">
-                    Exclude PvP Multiplayer games
-                  </span>
-                </label>
-              </div>
-              
-              {/* Sort Dropdown */}
+        {suggestion && (
+          <div className="bg-gray-800 rounded-lg overflow-hidden mb-6">
+            {/* Collapsible Header */}
+            <button
+              onClick={() => {
+                const newState = !showcaseCollapsed;
+                setShowcaseCollapsed(newState);
+                localStorage.setItem('collapsed_showcase', String(newState));
+              }}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
+            >
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium whitespace-nowrap">
-                  Sort by:
-                </label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="px-3 py-1.5 bg-gray-700 rounded border border-gray-600 text-sm focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="name-desc">Name (Z-A)</option>
-                  <option value="playtime-asc">Playtime (Low to High)</option>
-                  <option value="playtime-desc">Playtime (High to Low)</option>
-                  <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
-                  <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
-                </select>
-              </div>
-            </div>
-            
-            {/* Tag Filters Section */}
-            <div className="border-t border-gray-700 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">🏷️ Filter by Tags</h3>
-                {selectedTags.length > 0 && (
-                  <button
-                    onClick={() => setSelectedTags([])}
-                    className="text-xs text-blue-400 hover:text-blue-300 transition"
-                  >
-                    Clear filters
-                  </button>
+                <span className="text-2xl font-bold">🎯 Next Play Showcase</span>
+                {showcaseCollapsed && (
+                  <span className="text-sm text-gray-400">({suggestion.name})</span>
                 )}
               </div>
-              
-              {(() => {
-                // Get top 20 tags only (simplified - no expand button)
-                const topTags = getTopTags(games, steamCategoriesCache, 20);
-                
-                if (ratingsLoading || topTags.length === 0) {
-                  return (
-                    <p className="text-sm text-gray-400">
-                      {ratingsLoading 
-                        ? `⏳ Loading tags... (${ratingsLoaded}/${ratingsTotal} games processed)` 
-                        : `No tags available yet (Loaded: ${games.filter(g => g.tags && g.tags.length > 0).length}/${games.length} games have tags)`}
-                    </p>
-                  );
-                }
-                
-                return (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      {topTags.map(({ tag, count }) => {
-                        const isSelected = selectedTags.includes(tag);
-                        return (
-                          <button
-                            key={tag}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedTags(selectedTags.filter(t => t !== tag));
-                              } else {
-                                setSelectedTags([...selectedTags, tag]);
-                              }
-                            }}
-                            className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
-                              isSelected
-                                ? 'bg-blue-600 text-white border-2 border-blue-400'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-2 border-transparent'
-                            }`}
-                          >
-                            {tag} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    {selectedTags.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-3">
-                        Showing games with {selectedTags.length === 1 ? 'tag' : 'all tags'}: {selectedTags.join(', ')}
-                      </p>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
+              <span className="text-gray-400 text-xl">
+                {showcaseCollapsed ? '▶' : '▼'}
+              </span>
+            </button>
+            
+            {/* Collapsible Content */}
+            {!showcaseCollapsed && (
+              <div className="border-t border-gray-700">
+                <SuggestionCard 
+                  game={suggestion} 
+                  onNewSuggestion={handleNewSuggestion}
+                  onNeverSuggest={handleNeverSuggest}
+                  onTogglePlayedElsewhere={handleTogglePlayedElsewhere}
+                  playedElsewhereList={playedElsewhereList}
+                  hiddenCount={neverSuggestList.length}
+                  onResetHidden={handleResetBlacklist}
+                  storeData={storeData}
+                  storeLoading={storeLoading}
+                />
+              </div>
+            )}
           </div>
         )}
         
-        {/* Games List */}
+        {/* Your Library - Collapsible */}
         {games.length > 0 && (
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-2xl font-bold mb-4">
-              Your Library ({filteredAndSortedGames.length} games)
-            </h2>
+          <div className="bg-gray-800 rounded-lg overflow-hidden">
+            {/* Collapsible Header */}
+            <button
+              onClick={() => {
+                const newState = !libraryCollapsed;
+                setLibraryCollapsed(newState);
+                localStorage.setItem('collapsed_library', String(newState));
+              }}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
+            >
+              <h2 className="text-2xl font-bold">
+                🎮 Your Library ({filteredAndSortedGames.length} games)
+              </h2>
+              <span className="text-gray-400 text-xl">
+                {libraryCollapsed ? '▶' : '▼'}
+              </span>
+            </button>
             
-            <div className="space-y-3">
-              {filteredAndSortedGames.map((game) => {
-                const hours = Math.floor(game.playtime_forever / 60);
-                const minutes = game.playtime_forever % 60;
-                const neverPlayed = game.playtime_forever === 0;
-                const isPlayedElsewhere = playedElsewhereList.includes(game.appid);
-                
-                return (
-                  <div 
-                    key={game.appid}
-                    className="bg-gray-700 rounded p-4 flex items-center justify-between gap-3"
-                  >
-                    <a 
-                      href={`steam://store/${game.appid}`}
-                      className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1"
-                    >
-                      {game.img_icon_url && (
-                        <img
-                          src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
-                          alt={game.name}
-                          className="w-8 h-8 rounded"
-                        />
-                      )}
-                      <div>
-                        <h3 className="font-medium hover:underline">{game.name}</h3>
-                        <p className="text-sm text-gray-400">
-                          {hours > 0 && `${hours}h `}
-                          {minutes > 0 && `${minutes}m`}
-                          {neverPlayed && '0 hours'}
-                          {game.rating !== undefined && ` • ${game.rating}% 👍`}
-                          {game.releaseDate && ` • Released: ${game.releaseDate}`}
-                        </p>
-                      </div>
-                    </a>
+            {/* Collapsible Content */}
+            {!libraryCollapsed && (
+              <div className="border-t border-gray-700">
+                {/* Filter and Sort Controls */}
+                <div className="p-4 bg-gray-750">
+                  {/* Top Row: Filter Checkboxes and Sort */}
+                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
                     
-                    <div className="flex items-center gap-2">
-                      {neverPlayed && (
-                        <button
-                          onClick={() => handleTogglePlayedElsewhere(game.appid)}
-                          className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap ${
-                            isPlayedElsewhere
-                              ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
-                              : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
-                          }`}
-                          title={isPlayedElsewhere ? "Mark as not played elsewhere" : "Mark as played elsewhere"}
-                        >
-                          🎮 {isPlayedElsewhere ? 'Played Elsewhere' : 'Mark Played'}
-                        </button>
-                      )}
+                    {/* Filter Checkboxes */}
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showOnlyNeverPlayed}
+                          onChange={(e) => setShowOnlyNeverPlayed(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm">
+                          Show only never played 
+                          <span className="text-gray-400 ml-1">
+                            ({neverPlayedCount} games)
+                          </span>
+                        </span>
+                      </label>
                       
-                      <span className={`text-sm px-3 py-1 rounded whitespace-nowrap ${
-                        isPlayedElsewhere
-                          ? 'bg-blue-900 text-blue-200'
-                          : neverPlayed 
-                            ? 'bg-red-900 text-red-200' 
-                            : 'bg-green-900 text-green-200'
-                      }`}>
-                        {isPlayedElsewhere ? '✅ Played Elsewhere' : neverPlayed ? '❌ Never Played' : '✅ Played'}
-                      </span>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={excludeVR}
+                          onChange={(e) => setExcludeVR(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm">
+                          Exclude VR games
+                        </span>
+                      </label>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={excludeMultiplayer}
+                          onChange={(e) => setExcludeMultiplayer(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm">
+                          Exclude PvP Multiplayer games
+                        </span>
+                      </label>
+                    </div>
+                    
+                    {/* Sort Dropdown */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium whitespace-nowrap">
+                        Sort by:
+                      </label>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as SortOption)}
+                        className="px-3 py-1.5 bg-gray-700 rounded border border-gray-600 text-sm focus:border-blue-500 focus:outline-none"
+                      >
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="playtime-asc">Playtime (Low to High)</option>
+                        <option value="playtime-desc">Playtime (High to Low)</option>
+                        <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                      </select>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  
+                  {/* Tag Filters Section */}
+                  <div className="border-t border-gray-700 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold">🏷️ Filter by Tags</h3>
+                      {selectedTags.length > 0 && (
+                        <button
+                          onClick={() => setSelectedTags([])}
+                          className="text-xs text-blue-400 hover:text-blue-300 transition"
+                        >
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+                    
+                    {(() => {
+                      // Get top 20 tags only (simplified - no expand button)
+                      const topTags = getTopTags(games, steamCategoriesCache, 20);
+                      
+                      if (ratingsLoading || topTags.length === 0) {
+                        return (
+                          <p className="text-sm text-gray-400">
+                            {ratingsLoading 
+                              ? `⏳ Loading tags... (${ratingsLoaded}/${ratingsTotal} games processed)` 
+                              : `No tags available yet (Loaded: ${games.filter(g => g.tags && g.tags.length > 0).length}/${games.length} games have tags)`}
+                          </p>
+                        );
+                      }
+                      
+                      return (
+                        <>
+                          <div className="flex flex-wrap gap-2">
+                            {topTags.map(({ tag, count }) => {
+                              const isSelected = selectedTags.includes(tag);
+                              return (
+                                <button
+                                  key={tag}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedTags(selectedTags.filter(t => t !== tag));
+                                    } else {
+                                      setSelectedTags([...selectedTags, tag]);
+                                    }
+                                  }}
+                                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white border-2 border-blue-400'
+                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-2 border-transparent'
+                                  }`}
+                                >
+                                  {tag} ({count})
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          {selectedTags.length > 0 && (
+                            <p className="text-xs text-gray-400 mt-3">
+                              Showing games with {selectedTags.length === 1 ? 'tag' : 'all tags'}: {selectedTags.join(', ')}
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+                
+                {/* Games List */}
+                <div className="p-6">
+                  <div className="space-y-3">
+                    {filteredAndSortedGames.map((game) => {
+                      const hours = Math.floor(game.playtime_forever / 60);
+                      const minutes = game.playtime_forever % 60;
+                      const neverPlayed = game.playtime_forever === 0;
+                      const isPlayedElsewhere = playedElsewhereList.includes(game.appid);
+                      
+                      return (
+                        <div 
+                          key={game.appid}
+                          className="bg-gray-700 rounded p-4 flex items-center justify-between gap-3"
+                        >
+                          <button 
+                            onClick={(e) => handleSteamLink(game.appid, e)}
+                            className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 text-left"
+                          >
+                            {game.img_icon_url && (
+                              <img
+                                src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
+                                alt={game.name}
+                                className="w-8 h-8 rounded"
+                              />
+                            )}
+                            <div>
+                              <h3 className="font-medium hover:underline">{game.name}</h3>
+                              <p className="text-sm text-gray-400">
+                                {hours > 0 && `${hours}h `}
+                                {minutes > 0 && `${minutes}m`}
+                                {neverPlayed && '0 hours'}
+                                {game.rating !== undefined && ` • ${game.rating}% 👍`}
+                                {game.releaseDate && ` • Released: ${game.releaseDate}`}
+                              </p>
+                            </div>
+                          </button>
+                          
+                          <div className="flex items-center gap-2">
+                            {neverPlayed && (
+                              <button
+                                onClick={() => handleTogglePlayedElsewhere(game.appid)}
+                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap ${
+                                  isPlayedElsewhere
+                                    ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
+                                    : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                                }`}
+                                title={isPlayedElsewhere ? "Mark as not played elsewhere" : "Mark as played elsewhere"}
+                              >
+                                🎮 {isPlayedElsewhere ? 'Played Elsewhere' : 'Mark Played'}
+                              </button>
+                            )}
+                            
+                            <span className={`text-sm px-3 py-1 rounded whitespace-nowrap ${
+                              isPlayedElsewhere
+                                ? 'bg-blue-900 text-blue-200'
+                                : neverPlayed 
+                                  ? 'bg-red-900 text-red-200' 
+                                  : 'bg-green-900 text-green-200'
+                            }`}>
+                              {isPlayedElsewhere ? '✅ Played Elsewhere' : neverPlayed ? '❌ Never Played' : '✅ Played'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
