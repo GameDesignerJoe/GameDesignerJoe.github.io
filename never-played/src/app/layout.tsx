@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next Play - Find Your Next Steam Game",
-  description: "Discover and track your unplayed Steam games. Get personalized suggestions and gamify your backlog.",
+  title: "Next Steam Play - Find Your Next Steam Play",
+  description: "Discover and track your Steam games. Get personalized suggestions and manage your Steam backlog with ease.",
 };
 
 export default function RootLayout({

@@ -997,6 +997,8 @@ export default function Home() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [ignoredPlaytimeList, setIgnoredPlaytimeList] = useState<number[]>([]);
+  const [wannaPlayList, setWannaPlayList] = useState<number[]>([]);
+  const [showOnlyWannaPlay, setShowOnlyWannaPlay] = useState(false);
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -1116,6 +1118,17 @@ export default function Home() {
         setIgnoredPlaytimeList(Array.isArray(parsed) ? parsed : []);
       } catch (e) {
         console.error('Failed to parse ignoredPlaytime from localStorage');
+      }
+    }
+    
+    // Load wanna play list
+    const wannaPlayStored = localStorage.getItem('wannaPlay');
+    if (wannaPlayStored) {
+      try {
+        const parsed = JSON.parse(wannaPlayStored);
+        setWannaPlayList(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        console.error('Failed to parse wannaPlay from localStorage');
       }
     }
     
@@ -1283,6 +1296,11 @@ export default function Home() {
     ? games.filter(g => g.playtime_forever === 0 && !playedElsewhereList.includes(g.appid))
     : games;
   
+  // Apply "Want To Play" filter
+  if (showOnlyWannaPlay) {
+    filtered = filtered.filter(g => wannaPlayList.includes(g.appid));
+  }
+  
   // Apply VR exclusion filter
   if (excludeVR) {
     filtered = filtered.filter(game => {
@@ -1431,6 +1449,23 @@ export default function Home() {
     
     setIgnoredPlaytimeList(updatedList);
     localStorage.setItem('ignoredPlaytime', JSON.stringify(updatedList));
+  };
+  
+  // Handle toggling "wanna play" status
+  const handleToggleWannaPlay = (appId: number) => {
+    const isCurrentlyWanted = wannaPlayList.includes(appId);
+    
+    let updatedList: number[];
+    if (isCurrentlyWanted) {
+      // Remove from list
+      updatedList = wannaPlayList.filter(id => id !== appId);
+    } else {
+      // Add to list
+      updatedList = [...wannaPlayList, appId];
+    }
+    
+    setWannaPlayList(updatedList);
+    localStorage.setItem('wannaPlay', JSON.stringify(updatedList));
   };
   
   // Fetch Steam Store categories for a game
@@ -1627,7 +1662,7 @@ export default function Home() {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Next Play</h1>
+          <h1 className="text-4xl font-bold mb-2">Next Steam Play</h1>
           <p className="text-gray-400">Find your next play from your Steam library.</p>
         </div>
         
@@ -1890,9 +1925,24 @@ export default function Home() {
                           className="w-4 h-4 rounded"
                         />
                         <span className="text-sm">
-                          Show only never played 
+                          🚫 Show only Never Played games
                           <span className="text-gray-400 ml-1">
-                            ({neverPlayedCount} games)
+                            ({neverPlayedCount})
+                          </span>
+                        </span>
+                      </label>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showOnlyWannaPlay}
+                          onChange={(e) => setShowOnlyWannaPlay(e.target.checked)}
+                          className="w-4 h-4 rounded"
+                        />
+                        <span className="text-sm">
+                          ❤️ Show only Want To Play games
+                          <span className="text-gray-400 ml-1">
+                            ({wannaPlayList.length})
                           </span>
                         </span>
                       </label>
@@ -1905,7 +1955,7 @@ export default function Home() {
                           className="w-4 h-4 rounded"
                         />
                         <span className="text-sm">
-                          Exclude VR games
+                          🥽 Exclude VR games
                         </span>
                       </label>
                       
@@ -1917,7 +1967,7 @@ export default function Home() {
                           className="w-4 h-4 rounded"
                         />
                         <span className="text-sm">
-                          Exclude PvP Multiplayer games
+                          ⚔️ Exclude PvP Multiplayer games
                         </span>
                       </label>
                     </div>
@@ -2018,6 +2068,7 @@ export default function Home() {
                       const neverPlayed = game.playtime_forever === 0;
                       const isPlayedElsewhere = playedElsewhereList.includes(game.appid);
                       const isIgnored = ignoredPlaytimeList.includes(game.appid);
+                      const isWanted = wannaPlayList.includes(game.appid);
                       
                       return (
                         <div 
@@ -2050,6 +2101,14 @@ export default function Home() {
                           </button>
                           
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleToggleWannaPlay(game.appid)}
+                              className="text-xl hover:scale-110 transition-transform"
+                              title={isWanted ? "Remove from Want To Play" : "Add to Want To Play"}
+                            >
+                              {isWanted ? '♥' : '♡'}
+                            </button>
+                            
                             <button
                               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                               className="text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap"
