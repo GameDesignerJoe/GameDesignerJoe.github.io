@@ -1,6 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useFriendsData } from '@/hooks/useFriendsData';
+import {
+  findGenreBuddies,
+  getFriendLeaderboard,
+  getFriendsTopGames,
+  getGenreBuddiesRanked,
+  getFriendsWithSignificantPlaytime,
+  getTopGenres as getPlayerTopGenres
+} from '@/utils/genreAffinity';
 
 // Detect if user is on mobile device
 function isMobileDevice(): boolean {
@@ -12,7 +21,7 @@ function isMobileDevice(): boolean {
 function handleSteamLink(appId: number, e?: React.MouseEvent) {
   if (e) e.preventDefault();
   
-  const steamProtocol = `steam://store/${appId}`;
+  const steamProtocol = `steam://nav/games/details/${appId}`;
   const webFallback = `https://store.steampowered.com/app/${appId}`;
   
   if (isMobileDevice()) {
@@ -78,9 +87,9 @@ interface LibraryStats {
   gamesWithPrice: number; // number of played games with price data
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match';
+type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match' | 'friends-playtime-desc';
 
-function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[]): SteamGame[] {
+function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[], friendsData?: any): SteamGame[] {
   const sorted = [...games];
   
   switch (sortBy) {
@@ -155,6 +164,39 @@ function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?
         
         // Sort by score descending (highest first)
         return bScore - aScore;
+      });
+    case 'friends-playtime-desc':
+      // Sort by total friend playtime (high to low)
+      if (!friendsData || !friendsData.friends) {
+        return sorted; // Can't sort without friends data
+      }
+      
+      return sorted.sort((a, b) => {
+        // Calculate total friend playtime for game A
+        let aFriendPlaytime = 0;
+        friendsData.friends.forEach((friend: any) => {
+          const game = friend.games?.find((g: any) => g.appid === a.appid);
+          if (game) {
+            aFriendPlaytime += game.playtime_forever;
+          }
+        });
+        
+        // Calculate total friend playtime for game B
+        let bFriendPlaytime = 0;
+        friendsData.friends.forEach((friend: any) => {
+          const game = friend.games?.find((g: any) => g.appid === b.appid);
+          if (game) {
+            bFriendPlaytime += game.playtime_forever;
+          }
+        });
+        
+        // Games with no friend playtime go to bottom
+        if (aFriendPlaytime === 0 && bFriendPlaytime === 0) return 0;
+        if (aFriendPlaytime === 0) return 1;
+        if (bFriendPlaytime === 0) return -1;
+        
+        // Sort by friend playtime descending (highest first)
+        return bFriendPlaytime - aFriendPlaytime;
       });
     default:
       return sorted;
@@ -406,39 +448,46 @@ function getTop5MostPlayed(games: SteamGame[], ignoredList: number[] = []): Stea
 
 // Get top 5 genres by playtime (using effective playtime)
 function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>, ignoredList: number[] = []): Array<{genre: string, hours: number}> {
+  console.log(`[Top 5 Genres] Starting calculation with ${games.length} games, cache size: ${steamCategoriesCache.size}`);
+  
   const genrePlaytime = new Map<string, number>();
+  let gamesWithGenres = 0;
+  let gamesWithPlaytime = 0;
   
   games.forEach(game => {
     const effectiveTime = getEffectivePlaytime(game, ignoredList);
     if (effectiveTime === 0) return;
     
-    // Try to get genres from Steam Store cache
-    const storeKey = `steam_store_${game.appid}`;
-    const cached = localStorage.getItem(storeKey);
+    gamesWithPlaytime++;
     
-    if (cached) {
-      try {
-        const parsedCache = JSON.parse(cached);
-        const genres = parsedCache.data?.genres || [];
-        
-        // Add effective playtime to each genre
-        genres.forEach((genre: string) => {
-          const currentHours = genrePlaytime.get(genre) || 0;
-          genrePlaytime.set(genre, currentHours + (effectiveTime / 60));
-        });
-      } catch (e) {
-        // Skip if cache is invalid
-      }
+    // Get genres from the passed-in cache Map (NOT from localStorage)
+    const genres = steamCategoriesCache.get(game.appid) || [];
+    
+    if (genres.length > 0) {
+      gamesWithGenres++;
+      console.log(`[Top 5 Genres] Game ${game.appid} (${game.name}) has genres:`, genres, `Playtime: ${Math.floor(effectiveTime/60)}h`);
     }
+    
+    // Add effective playtime to each genre
+    genres.forEach((genre: string) => {
+      const currentHours = genrePlaytime.get(genre) || 0;
+      genrePlaytime.set(genre, currentHours + (effectiveTime / 60));
+    });
   });
   
-  return Array.from(genrePlaytime.entries())
+  console.log(`[Top 5 Genres] Processed ${gamesWithPlaytime} games with playtime, ${gamesWithGenres} have genre data`);
+  console.log(`[Top 5 Genres] Genre totals:`, Array.from(genrePlaytime.entries()).map(([g, h]) => `${g}: ${Math.floor(h)}h`));
+  
+  const result = Array.from(genrePlaytime.entries())
     .map(([genre, hours]) => ({ genre, hours }))
     .sort((a, b) => b.hours - a.hours)
     .slice(0, 5);
+  
+  console.log(`[Top 5 Genres] Final result:`, result);
+  return result;
 }
 
-function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCategoriesCache }: { games: SteamGame[], playedElsewhereList: number[], ignoredPlaytimeList: number[], steamCategoriesCache: Map<number, string[]> }) {
+function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCategoriesCache, friendsData, ratingsLoading, ratingsLoaded, ratingsTotal }: { games: SteamGame[], playedElsewhereList: number[], ignoredPlaytimeList: number[], steamCategoriesCache: Map<number, string[]>, friendsData: { friends: any[], timeAgo: string, loading?: boolean } | null, ratingsLoading: boolean, ratingsLoaded: number, ratingsTotal: number }) {
   const stats = calculateStats(games, playedElsewhereList, ignoredPlaytimeList);
   const lastNewGame = getLastNewGame(games);
   const mostPlayed = getMostPlayedGame(games, ignoredPlaytimeList);
@@ -449,6 +498,14 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
   const mostPlayedPercentage = mostPlayed && stats.totalMinutes > 0
     ? ((mostPlayed.playtime_forever / stats.totalMinutes) * 100).toFixed(1)
     : null;
+  
+  // Social features data
+  const playerName = 'You';
+  const playerTopGenres = getPlayerTopGenres(games, steamCategoriesCache);
+  const friendLeaderboard = mostPlayed && friendsData && friendsData.friends ? getFriendLeaderboard(mostPlayed, playerName, friendsData.friends) : [];
+  const friendsTopGames = friendsData && friendsData.friends ? getFriendsTopGames(friendsData.friends) : [];
+  const genreBuddiesRanked = friendsData && friendsData.friends ? getGenreBuddiesRanked(playerTopGenres, friendsData.friends, steamCategoriesCache) : [];
+  const displayTimeAgo = friendsData?.timeAgo || 'not yet synced';
   
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -498,7 +555,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
         )}
       </div>
       
-      {/* Row 3 - New Analytics */}
+      {/* Row 3 */}
       <div className="bg-gray-700 rounded p-4">
         <div className="text-gray-400 text-sm mb-1 text-center">Most Played</div>
         {mostPlayed ? (
@@ -556,18 +613,118 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
       <div className="bg-gray-700 rounded p-4">
         <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Genres</div>
         {top5Genres.length > 0 ? (
-          <div className="space-y-1 text-center">
-            {top5Genres.map((item, i) => (
-              <div key={item.genre} className="text-sm">
-                <span className="font-bold text-purple-400">{item.genre}</span>
-                <span className="text-xs text-gray-400 ml-1">({Math.floor(item.hours).toLocaleString()}h)</span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="space-y-1 text-center">
+              {top5Genres.map((item, i) => (
+                <div key={item.genre} className="text-sm">
+                  <span className="font-bold text-purple-400">{item.genre}</span>
+                  <span className="text-xs text-gray-400 ml-1">({Math.floor(item.hours).toLocaleString()}h)</span>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-gray-500 text-center mt-2">
+              Total: {formatPlaytimeDetailed(top5Genres.reduce((sum, item) => sum + (item.hours * 60), 0))}
+            </div>
+          </>
         ) : (
-          <div className="text-sm text-gray-400 text-center">Loading...</div>
+          <div className="text-sm text-gray-400 text-center">
+            {ratingsLoading ? `Loading... ${Math.round((ratingsLoaded/ratingsTotal)*100)}%` : 'No genre data yet'}
+          </div>
         )}
       </div>
+      
+      {/* Row 4 - Social Features */}
+      {friendsData && (
+        <>
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">
+              Top Game Position
+              <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
+            </div>
+            {friendLeaderboard.length > 0 && mostPlayed ? (
+              <div className="space-y-1">
+                <div className="text-xs font-semibold text-purple-400 text-center truncate px-2 mb-2">
+                  {mostPlayed.name}
+                </div>
+                {friendLeaderboard.map((entry) => (
+                  <div key={entry.steamid} className="flex items-center justify-between text-xs">
+                    {entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400">→ YOU</span>
+                    ) : (
+                      <a
+                        href={entry.profileurl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-blue-400 truncate flex-1"
+                      >
+                        {entry.position}. {entry.name}
+                      </a>
+                    )}
+                    <span className="text-purple-400 ml-2">
+                      {Math.floor(entry.playtime / 60)}h
+                      {entry.steamid === 'you' ? ' 👤' : entry.position < friendLeaderboard.find(e => e.steamid === 'you')!.position ? ' ⬆️' : ' ⬇️'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No friends own this game'}
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">Friends' Combined Top 5</div>
+            {friendsTopGames.length > 0 ? (
+              <div className="space-y-1 text-center">
+                {friendsTopGames.map((game: any, i: number) => (
+                  <div key={game.appid} className="text-xs">
+                    <span className="text-gray-300">{i + 1}. {game.name}</span>
+                    <span className="text-purple-400 ml-1">({Math.floor(game.totalPlaytime / 60).toLocaleString()}h)</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No data'}
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">
+              Genre Buddies
+            </div>
+            <div className="text-xs text-gray-500 text-center mb-2">
+              Friends with your top genres
+            </div>
+            {genreBuddiesRanked.length > 0 ? (
+              <div className="space-y-1">
+                {genreBuddiesRanked.map((buddy, i) => (
+                  <div key={buddy.friend.steamid} className="flex items-center justify-between text-xs">
+                    <a
+                      href={buddy.friend.profileurl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-300 hover:text-blue-400 truncate flex-1"
+                    >
+                      {i + 1}. {buddy.friend.personaname}
+                    </a>
+                    <span className="text-purple-400 ml-2">
+                      ({buddy.matchCount} matches)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No genre buddies found'}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -623,7 +780,10 @@ function SuggestionCard({
   storeData,
   storeLoading,
   games,
-  steamCategoriesCache
+  steamCategoriesCache,
+  friendsData,
+  onToggleWannaPlay,
+  wannaPlayList
 }: { 
   game: SteamGame | null;
   onNewSuggestion: () => void;
@@ -636,6 +796,9 @@ function SuggestionCard({
   storeLoading: boolean;
   games: SteamGame[];
   steamCategoriesCache: Map<number, string[]>;
+  friendsData: any;
+  onToggleWannaPlay: (appId: number) => void;
+  wannaPlayList: number[];
 }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -722,6 +885,11 @@ function SuggestionCard({
   // Check if video is available
   const hasVideo = storeData?.movies && storeData.movies.length > 0;
   const firstVideo = hasVideo ? storeData.movies[0] : null;
+  
+  // Get friends with significant playtime (50+ hours)
+  const friendsWhoLoveIt = game && friendsData 
+    ? getFriendsWithSignificantPlaytime(game.appid, friendsData.friends, 50)
+    : [];
   
   // Genre matching logic
   const playerTop5Genres = getTop5Genres(games, steamCategoriesCache);
@@ -898,7 +1066,30 @@ function SuggestionCard({
             <div className="h-4 bg-gray-700 rounded animate-pulse w-1/2"></div>
           ) : null}
           
-          {/* 2. Recommendations (Steam "thumbs up" count) */}
+          {/* 2. Friends Love This */}
+          {friendsWhoLoveIt.length > 0 && (
+            <div className="text-sm">
+              🤝 {friendsWhoLoveIt.slice(0, 3).map((f, i) => (
+                <span key={f.steamid}>
+                  <a
+                    href={f.profileurl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-blue-400 hover:text-blue-300"
+                  >
+                    {f.personaname}
+                  </a>
+                  {i < Math.min(2, friendsWhoLoveIt.length - 1) ? ', ' : ''}
+                  {i === 2 && friendsWhoLoveIt.length > 3 && (
+                    <span className="text-gray-400"> and {friendsWhoLoveIt.length - 3} more</span>
+                  )}
+                </span>
+              ))}
+              <span className="text-gray-400"> spent 50+ hours playing this</span>
+            </div>
+          )}
+          
+          {/* 3. Recommendations (Steam "thumbs up" count) */}
           {storeData?.recommendations && (
             <div className="text-sm">
               👥 <span className="font-semibold">{storeData.recommendations.toLocaleString()} players</span>
@@ -906,14 +1097,14 @@ function SuggestionCard({
             </div>
           )}
           
-          {/* 3. Metacritic */}
+          {/* 4. Metacritic */}
           {storeData?.metacritic && (
             <div className="text-sm">
               📈 <span className="font-semibold">Metacritic: {storeData.metacritic}</span>
             </div>
           )}
           
-          {/* 4. SteamSpy Rating (fallback if available) */}
+          {/* 5. SteamSpy Rating (fallback if available) */}
           {game.rating !== undefined && game.rating !== null && (
             <div className="text-sm">
               ⭐ <span className="font-semibold">{game.rating}% positive</span>
@@ -929,6 +1120,16 @@ function SuggestionCard({
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium transition"
           >
             🎲 Suggest Another
+          </button>
+          <button
+            onClick={() => onToggleWannaPlay(game.appid)}
+            className={`px-4 py-2 rounded font-medium transition ${
+              wannaPlayList.includes(game.appid)
+                ? 'bg-red-700 hover:bg-red-600'
+                : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+          >
+            ❤️ Want To Play
           </button>
           <button
             onClick={() => onNeverSuggest(game.appid)}
@@ -973,6 +1174,9 @@ function SuggestionCard({
 export default function Home() {
   const [steamId, setSteamId] = useState('');
   const [games, setGames] = useState<SteamGame[]>([]);
+  
+  // Social features integration
+  const { friendsData, loading: friendsLoading, error: friendsError, timeAgo } = useFriendsData(steamId || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showOnlyNeverPlayed, setShowOnlyNeverPlayed] = useState(false);
@@ -1034,13 +1238,16 @@ export default function Home() {
           data,
           timestamp: Date.now()
         }));
-        // Update categories cache
-        if (data.categories && data.categories.length > 0) {
+        // Update GENRES cache (NOT categories!)
+        if (data.genres && data.genres.length > 0) {
+          console.log(`[Genre Cache] Storing genres for ${appId}:`, data.genres);
           setSteamCategoriesCache(prev => {
             const newCache = new Map(prev);
-            newCache.set(appId, data.categories);
+            newCache.set(appId, data.genres);
             return newCache;
           });
+        } else {
+          console.warn(`[Genre Cache] No genres found for ${appId}`);
         }
       } else {
         // Handle error gracefully - just don't show store data
@@ -1362,7 +1569,7 @@ export default function Home() {
   const playerTop5Genres = getTop5Genres(games, steamCategoriesCache);
   const playerGenreNames = playerTop5Genres.map(g => g.genre);
   
-  const filteredAndSortedGames = sortGames(filtered, sortBy, steamCategoriesCache, playerGenreNames);
+  const filteredAndSortedGames = sortGames(filtered, sortBy, steamCategoriesCache, playerGenreNames, friendsData);
   
   const neverPlayedCount = games.filter(g => g.playtime_forever === 0).length;
   
@@ -1468,7 +1675,7 @@ export default function Home() {
     localStorage.setItem('wannaPlay', JSON.stringify(updatedList));
   };
   
-  // Fetch Steam Store categories for a game
+  // Fetch Steam Store genres for a game (NOT categories - genres are "Action", "RPG", etc.)
   const fetchStoreCategories = async (appId: number): Promise<string[]> => {
     // Check cache first
     const cacheKey = `steam_store_${appId}`;
@@ -1480,8 +1687,9 @@ export default function Home() {
         const age = Date.now() - parsedCache.timestamp;
         const thirtyDays = 30 * 24 * 60 * 60 * 1000;
         
-        if (age < thirtyDays && parsedCache.data?.categories) {
-          return parsedCache.data.categories;
+        // Return cached GENRES (not categories!)
+        if (age < thirtyDays) {
+          return parsedCache.data?.genres || [];
         }
       } catch (e) {
         // Invalid cache
@@ -1493,33 +1701,82 @@ export default function Home() {
       const response = await fetch(`/api/steam-store?appid=${appId}`);
       const data = await response.json();
       
-      if (response.ok && data.categories) {
+      if (response.ok && data.genres) {
         // Cache the full result
         localStorage.setItem(cacheKey, JSON.stringify({
           data,
           timestamp: Date.now()
         }));
-        return data.categories || [];
+        return data.genres || [];
+      } else {
+        // Cache the failure for only 1 hour so we can retry sooner
+        const oneHour = 60 * 60 * 1000;
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: null,
+          timestamp: Date.now() - (30 * 24 * 60 * 60 * 1000) + oneHour // Will expire in 1 hour
+        }));
       }
     } catch (error) {
-      console.warn('Failed to fetch categories for', appId);
+      // Cache the failure for only 1 hour so we can retry sooner
+      const oneHour = 60 * 60 * 1000;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: null,
+        timestamp: Date.now() - (30 * 24 * 60 * 60 * 1000) + oneHour // Will expire in 1 hour
+      }));
+      console.warn('Failed to fetch genres for', appId);
     }
     
     return [];
   };
   
-  // Fetch categories for a batch of games
+  // Fetch genres for a batch of games
   const fetchCategoriesBatch = async (games: SteamGame[]): Promise<Map<number, string[]>> => {
     const categoriesMap = new Map<number, string[]>();
     
-    const fetchPromises = games.map(async (game) => {
-      const categories = await fetchStoreCategories(game.appid);
-      if (categories.length > 0) {
-        categoriesMap.set(game.appid, categories);
+    // Filter out games that have cached data (success OR failure)
+    const gamesToFetch = games.filter(game => {
+      const cacheKey = `steam_store_${game.appid}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+        try {
+          const parsedCache = JSON.parse(cached);
+          const age = Date.now() - parsedCache.timestamp;
+          const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+          
+          if (age < thirtyDays) {
+            // Add to map if it has GENRES (not categories!)
+            if (parsedCache.data?.genres && parsedCache.data.genres.length > 0) {
+              console.log(`[Batch Cache] Using cached genres for ${game.appid}:`, parsedCache.data.genres);
+              categoriesMap.set(game.appid, parsedCache.data.genres);
+            } else {
+              console.log(`[Batch Cache] Cached data for ${game.appid} has no genres`);
+            }
+            return false; // Skip fetching
+          }
+        } catch (e) {
+          // Invalid cache, fetch it
+          console.warn(`[Batch Cache] Invalid cache for ${game.appid}`, e);
+        }
+      }
+      return true; // Needs fetching
+    });
+    
+    console.log(`[Genre Batch] Fetching genres for ${gamesToFetch.length} games, ${categoriesMap.size} already cached`);
+    
+    // Only fetch for games that need it
+    const fetchPromises = gamesToFetch.map(async (game) => {
+      const genres = await fetchStoreCategories(game.appid);
+      if (genres.length > 0) {
+        console.log(`[Batch Fetch] Fetched genres for ${game.appid}:`, genres);
+        categoriesMap.set(game.appid, genres);
+      } else {
+        console.warn(`[Batch Fetch] No genres returned for ${game.appid}`);
       }
     });
     
     await Promise.all(fetchPromises);
+    console.log(`[Genre Batch] Complete! Total genres loaded: ${categoriesMap.size}`);
     return categoriesMap;
   };
   
@@ -1828,7 +2085,14 @@ export default function Home() {
               onClick={toggleStatsCollapse}
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
             >
-              <h2 className="text-2xl font-bold">📊 Your Library Stats</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold">📊 Your Library Stats</h2>
+                {friendsData && (
+                  <span className="text-xs text-gray-400">
+                    (Friends data: {timeAgo})
+                  </span>
+                )}
+              </div>
               <span className="text-gray-400 text-xl">
                 {statsCollapsed ? '▶' : '▼'}
               </span>
@@ -1837,7 +2101,16 @@ export default function Home() {
             {/* Collapsible Content */}
             {!statsCollapsed && (
               <div className="p-6 border-t border-gray-700">
-                <LibraryStats games={games} playedElsewhereList={playedElsewhereList} ignoredPlaytimeList={ignoredPlaytimeList} steamCategoriesCache={steamCategoriesCache} />
+                <LibraryStats 
+                  games={games} 
+                  playedElsewhereList={playedElsewhereList} 
+                  ignoredPlaytimeList={ignoredPlaytimeList} 
+                  steamCategoriesCache={steamCategoriesCache}
+                  friendsData={friendsData ? { ...friendsData, timeAgo, loading: friendsLoading } : null}
+                  ratingsLoading={ratingsLoading}
+                  ratingsLoaded={ratingsLoaded}
+                  ratingsTotal={ratingsTotal}
+                />
               </div>
             )}
           </div>
@@ -1869,7 +2142,7 @@ export default function Home() {
             {/* Collapsible Content */}
             {!showcaseCollapsed && (
               <div className="border-t border-gray-700">
-                <SuggestionCard 
+                  <SuggestionCard 
                   game={suggestion} 
                   onNewSuggestion={handleNewSuggestion}
                   onNeverSuggest={handleNeverSuggest}
@@ -1881,6 +2154,9 @@ export default function Home() {
                   storeLoading={storeLoading}
                   games={games}
                   steamCategoriesCache={steamCategoriesCache}
+                  friendsData={friendsData}
+                  onToggleWannaPlay={handleToggleWannaPlay}
+                  wannaPlayList={wannaPlayList}
                 />
               </div>
             )}
@@ -1985,6 +2261,7 @@ export default function Home() {
                         <option value="best-match">⭐ Best Match (Genre + Rating)</option>
                         <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                         <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="friends-playtime-desc">🤝 Friends' Total Playtime (High to Low){!friendsData ? ' (loading...)' : ''}</option>
                         <option value="name-asc">Name (A-Z)</option>
                         <option value="name-desc">Name (Z-A)</option>
                         <option value="playtime-asc">Playtime (Low to High)</option>
@@ -2070,71 +2347,123 @@ export default function Home() {
                       const isIgnored = ignoredPlaytimeList.includes(game.appid);
                       const isWanted = wannaPlayList.includes(game.appid);
                       
+                      // Calculate total friend playtime for this game
+                      let totalFriendPlaytime = 0;
+                      if (friendsData && friendsData.friends) {
+                        friendsData.friends.forEach((friend: any) => {
+                          const friendGame = friend.games?.find((g: any) => g.appid === game.appid);
+                          if (friendGame) {
+                            totalFriendPlaytime += friendGame.playtime_forever;
+                          }
+                        });
+                      }
+                      const friendHours = Math.floor(totalFriendPlaytime / 60);
+                      
                       return (
                         <div 
                           key={game.appid}
                           id={`game-${game.appid}`}
-                          className="bg-gray-700 rounded p-4 flex items-center justify-between gap-3 transition-all"
+                          className="bg-gray-700 rounded p-4 transition-all relative"
                         >
-                          <button 
-                            onClick={(e) => handleSteamLink(game.appid, e)}
-                            className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 text-left"
+                          {/* Top link - absolute positioned in top right */}
+                          <button
+                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                            className="absolute top-2 right-2 text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap z-10"
+                            title="Scroll to top"
                           >
-                            {game.img_icon_url && (
-                              <img
-                                src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
-                                alt={game.name}
-                                className="w-8 h-8 rounded"
-                              />
-                            )}
-                            <div>
-                              <h3 className="font-medium hover:underline">{game.name}</h3>
-                              <p className="text-sm text-gray-400">
-                                {hours > 0 && `${hours}h `}
-                                {minutes > 0 && `${minutes}m`}
-                                {neverPlayed && '0 hours'}
-                                {isIgnored && !neverPlayed && ' 🚫'}
-                                {game.rating !== undefined && ` • ${game.rating}% 👍`}
-                                {game.releaseDate && ` • Released: ${game.releaseDate}`}
-                              </p>
-                            </div>
+                            ↑ Top
                           </button>
                           
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-start gap-3">
+                            {/* Thumbnail */}
                             <button
-                              onClick={() => handleToggleWannaPlay(game.appid)}
-                              className="text-xl hover:scale-110 transition-transform"
-                              title={isWanted ? "Remove from Want To Play" : "Add to Want To Play"}
+                              onClick={(e) => handleSteamLink(game.appid, e)}
+                              className="hover:opacity-80 transition-opacity flex-shrink-0"
                             >
-                              {isWanted ? '♥' : '♡'}
+                              {game.img_icon_url && (
+                                <img
+                                  src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
+                                  alt={game.name}
+                                  className="w-12 h-12 rounded"
+                                />
+                              )}
                             </button>
                             
+                            {/* Title and Info */}
+                            <div className="flex-1 min-w-0 pr-32">
+                              <button
+                                onClick={(e) => handleSteamLink(game.appid, e)}
+                                className="hover:opacity-80 transition-opacity mb-2 block"
+                              >
+                                <h3 className="font-medium hover:underline text-left">{game.name}</h3>
+                              </button>
+                              <ul className="text-sm text-gray-400 space-y-0.5">
+                                <li>
+                                  • <span className="text-white">Playtime: {hours > 0 && `${hours}h `}{minutes > 0 && `${minutes}m`}{neverPlayed && '0 hours'}</span>
+                                  {isIgnored && !neverPlayed && ' 🚫'}
+                                  {isPlayedElsewhere && ' (Played Elsewhere)'}
+                                </li>
+                                {friendsData && totalFriendPlaytime > 0 && (
+                                  <li>• Total Friends' Playtime: {friendHours.toLocaleString()}h</li>
+                                )}
+                                {(() => {
+                                  // Check for Metacritic score first (from Steam Store cache)
+                                  const storeKey = `steam_store_${game.appid}`;
+                                  const cached = localStorage.getItem(storeKey);
+                                  let metacriticScore = null;
+                                  
+                                  if (cached) {
+                                    try {
+                                      const parsedCache = JSON.parse(cached);
+                                      metacriticScore = parsedCache.data?.metacritic;
+                                    } catch (e) {
+                                      // Invalid cache
+                                    }
+                                  }
+                                  
+                                  if (metacriticScore) {
+                                    return <li>• Metacritic: {metacriticScore}</li>;
+                                  } else if (game.rating !== undefined && game.rating !== null) {
+                                    return <li>• SteamSpy Score: {game.rating}% 👍</li>;
+                                  }
+                                  return null;
+                                })()}
+                              </ul>
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons - absolute positioned */}
+                          <div className="absolute top-10 right-4 flex flex-col items-end gap-2">
                             <button
-                              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                              className="text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap"
-                              title="Scroll to top"
+                              onClick={() => handleToggleWannaPlay(game.appid)}
+                              className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap w-44 ${
+                                isWanted
+                                  ? 'bg-red-700 hover:bg-red-600 text-red-100'
+                                  : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
+                              }`}
+                              title={isWanted ? "Remove from Want To Play" : "Add to Want To Play"}
                             >
-                              ↑ Top
+                              ❤️ {isWanted ? 'Want To Play' : 'Want To Play'}
                             </button>
                             
                             {neverPlayed && (
                               <button
                                 onClick={() => handleTogglePlayedElsewhere(game.appid)}
-                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap ${
+                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap w-44 ${
                                   isPlayedElsewhere
                                     ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
                                     : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
                                 }`}
                                 title={isPlayedElsewhere ? "Mark as not played elsewhere" : "Mark as played elsewhere"}
                               >
-                                🎮 {isPlayedElsewhere ? 'Played Elsewhere' : 'Mark Played'}
+                                🎮 Played Elsewhere
                               </button>
                             )}
                             
                             {!neverPlayed && (
                               <button
                                 onClick={() => handleToggleIgnorePlaytime(game.appid)}
-                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap ${
+                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap w-44 ${
                                   isIgnored
                                     ? 'bg-orange-700 hover:bg-orange-600 text-orange-100'
                                     : 'bg-gray-600 hover:bg-gray-500 text-gray-300'

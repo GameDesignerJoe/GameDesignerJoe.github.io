@@ -13,42 +13,26 @@ _No pending high priority items_
 
 ## ⭐ Feature Improvements
 
+- Get genre working again!
+- Percentage of played of your library versus your friends.
+- Where you stand in your game count versus your friends (same thing you did ofr hours of your favorite game).
+- Something about the amount of achievements you've earned versus your friends.
+- A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
+- Convert top 5 times to days
+- Library looks like crap on mobile. 
+- Clicking on a users name doesn't load their profile.
+- Can't get the videos to play of the games. 
+- There's 'dead games' that need a better page image to load.
+- Add top 3 friends who have played the game the most.
+
 ### 1. A way to save/export/sync your information
 - text filter
 - JSON
 - Link to Dropbox or something.
 
-
-### 1. Add a Want To Play Button on the Showcase.
-
-### 1. Social Features
-- Games that your friends have spent a lot of time on and you might like too because of matching tasts. 
-- New part in the Library Stats for Social elements
-  - Your top game shows a you and four other names for hours played of the game. You name is either in the middle of two friends who have more time and two friends who have less, or shifted up or down if there aren't any above or below you.
-  - Top 5 games by your friends list. 
-  - Top 5 games by your friends list who best match your genre taste. 
-- In Showcase if a game comes up that a friends has spent a significant amount of time in +50 hours maybe, then it adds a bullet point below the date and above the other recommends that says, "Bob, Sally, and Mark spent more than 50 hours playing this game.
-- In the Library, you can sort by time spent by your friends playing that game?
-
 ### 1. Get more of a Gallery view of the games you need to play.
 - Need to figure out where to get good images.
 
-### 1. Add a "Favorites or Poisslble Play" list
-- This is a list of games, similar to blacklist, etc. that lets you pull specific games forward that you can play later.
- 
-### 1. View Blacklist & Played Elsewhere games
-- We should come up with a way for users to view these two.
-- Also reset the Played Elsewhere.
-
-### 1. Loading API data from both SteamSpy and Steam check
-
-### 2. Apply filters to "Try This Next" showcase
-- Use current filter settings to narrow suggestion pool
-- Respect "Show only never played" checkbox
-- Honor tag filters (e.g., if "Single-player" selected, only suggest those)
-- Apply VR exclusion to suggestions
-- Still exclude blacklisted games
-- Show filter count: "(Suggesting from X games)"
 
 ### 3. "Get Back In" view for low-playtime games
 - New filter/view for games with 1-10 hours played
@@ -58,11 +42,17 @@ _No pending high priority items_
 - Separate from "Never Played" view
 - Possible stat: "X games to revisit"
 
-### 5. Additional quick features
-- **Random game picker:** "Feeling lucky?" button
-- **Play streak tracking:** Consecutive days playing new games
-- **Genre mood selector:** "I feel like playing..." filter
-- **Share library stats:** Generate shareable image
+### 1. View Blacklist & Played Elsewhere games
+- We should come up with a way for users to view these two.
+- Also reset the Played Elsewhere.
+
+### 2. Apply filters to "Try This Next" showcase
+- Use current filter settings to narrow suggestion pool
+- Respect "Show only never played" checkbox
+- Honor tag filters (e.g., if "Single-player" selected, only suggest those)
+- Apply VR exclusion to suggestions
+- Still exclude blacklisted games
+- Show filter count: "(Suggesting from X games)"
 
 ---
 
@@ -90,38 +80,11 @@ _No pending high priority items_
 - Provide option to disable auto-play
 - Cache video URLs with store data
 
-### 7. Enhanced Tagging & Steam Store Deep Integration
-**Improved Tagging System:**
-- [ ] Pull comprehensive tag data from Steam Store API
-- Show more than 5 tags per game (currently SteamSpy limit)
-- Display tag relevance/weight (Steam provides vote counts)
-- Add tag categories: Genre, Theme, Features
-- Tag-based filtering improvements in library
-
-**Additional Steam Store Data:**
-- Detailed game features (Single-player, Multi-player, Co-op)
-- Supported languages
-- System requirements
-- DLC information
-- Developer/publisher details
-- Community hub link
-- Workshop support indicator
-- Trading cards availability
-- Achievement count
-
-**Implementation:**
-- Fetch on-demand when viewing game details
-- Cache per game for 30 days
-- Progressive enhancement (basic data first, detailed later)
 
 ### 8. Enhanced Library Analytics
 **Top Games Statistics:**
-- [ ] Most played game (name + hours)
-- [ ] Top 5 most played games with playtime breakdown
-- [ ] Favorite genre analysis (based on playtime distribution)
 - [ ] Average playtime per game
 - [ ] Total value of library (if price data available)
-- [ ] Playtime heatmap (which years/decades most played)
 
 **Genre Analytics:**
 - Breakdown by genre (percentage of library)
@@ -134,22 +97,6 @@ _No pending high priority items_
 - Display in expandable analytics section
 - Visual charts/graphs for top games
 - Sortable top games list
-
-### 9. Multiple Suggestion System
-**Two or Three "Try This" Options:**
-- [ ] Show 2-3 game suggestions side-by-side
-- Each card: header image, title, quick stats
-- "Not Interested" button on each
-- Highlight best match (based on ratings/tags)
-- Swipe/carousel on mobile
-- Generate diverse suggestions (different genres/years)
-
-**Suggestion Algorithm Improvements:**
-- Weight by rating (prefer 80%+ games)
-- Consider release date (mix old classics with newer)
-- Tag matching with previously played games
-- Avoid suggesting similar games back-to-back
-- "Mood-based" suggestions (action, chill, story-rich)
 
 ### 10. Idle Clicker Game Integration 🎮
 **Concept: "Backlog Battle" - Idle Progress Game**
@@ -327,6 +274,14 @@ _No pending high priority items_
 - Error handling consistency
 - Video bandwidth usage (if implemented)
 
+### Cost Per Hour / Cost Per Minute analytics
+- New stat card showing library value efficiency
+- Calculate total money spent (from SteamSpy price data)
+- Calculate cost per hour: `Total $ / Total Hours`
+- Display in Library Stats as 6th stat
+- Format: "$X.XX per hour"
+- Only counts played games, shows count of games with price data
+
 ---
 
 ## 📊 Success Metrics to Track
@@ -338,95 +293,6 @@ After features are implemented, measure:
 - **Feature usage:** Which features get used most?
 - **Load times:** Is the app fast enough?
 - **Conversion:** Do suggestions lead to actual play sessions?
-
----
-
-## ✅ Completed Features Archive
-
-### Vercel auto-deploy workflow
-- Push to GitHub main branch → auto-deploys to Vercel
-- No manual action needed after initial setup
-
-### Steam store page links
-- Click game card → opens `steam://store/{appId}`
-- "Play Now" button added to suggestion card
-
-### "Played Elsewhere" feature
-- Separate from blacklist (localStorage: `playedElsewhere`)
-- Button on game cards: "🎮 Played Elsewhere"
-- Affects stats: counts toward "Tried" percentage
-- Shows "✅ Played Elsewhere" badge
-- Excludes from "Never Played" count
-
-### Steam ID finder visual guide
-- Replaced broken steamidfinder.com link
-- Expandable visual guide with screenshot
-- Self-contained instructions
-
-### Better error handling for private profiles
-- Detects profile privacy errors
-- Shows helpful error message with walkthrough
-- Step-by-step privacy settings guide
-- "Try Again" button after fixing settings
-
-### Remember Steam ID preference
-- Checkbox to save Steam ID in localStorage
-- Auto-populates on return visits
-- Can be cleared via "Clear Cache" button
-
-### Steam Store API integration (Basic)
-- Game descriptions/synopsis
-- Header images (full artwork display)
-- Genre tags
-- Release dates
-- Recommendations count
-- Metacritic scores
-- 30-day caching strategy
-- Graceful error handling
-
-### UI/UX Visual Polish
-- Neutral gray background (lets artwork shine)
-- Image display: object-contain (no cropping)
-- Black letterbox for proper aspect ratio
-- Smooth fade-in animations
-- Better contrast for genre pills
-- Larger description text (text-base)
-- 300-char preview before "Read more"
-- Responsive design improvements
-
-### Cost Per Hour / Cost Per Minute analytics
-- New stat card showing library value efficiency
-- Calculate total money spent (from SteamSpy price data)
-- Calculate cost per hour: `Total $ / Total Hours`
-- Display in Library Stats as 6th stat
-- Format: "$X.XX per hour"
-- Only counts played games, shows count of games with price data
-
-### "Last New Game" stat calculation
-- Uses Date.now() for dynamic calculation
-- Updates in real-time
-- Tracks games with 1-120 minute playtime range
-- Accurate day calculation
-
-### Hybrid Tagging System (Steam Categories + SteamSpy Tags)
-- Combined tagging system
-- Steam Store API categories: Single-player, Multi-player, Co-op, Steam Achievements, VR
-- SteamSpy community tags: Increased from 5 to 15 tags
-- Deduplication logic: Steam categories take priority
-- Combined display in UI with unified filtering
-- Solves "Wolf Among Us" Single-player issue
-
-### Collapsible sections
-- Collapsible Steam ID input (after first use)
-- Collapsible Library Stats section
-- Remember collapse state in localStorage
-- Clean, minimal UI when collapsed
-
-### VR Exclusion Filter
-- "Exclude VR games" checkbox
-- Detects VR Supported, VR Only categories
-- Searches for "vr" and "virtual reality" in tags
-- Works with other filters seamlessly
 
 ---
 
