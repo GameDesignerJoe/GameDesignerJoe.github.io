@@ -685,9 +685,9 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             {friendsTopGames.length > 0 ? (
               <div className="space-y-1">
                 {friendsTopGames.map((game: any, i: number) => (
-                  <div key={game.appid} className="text-xs">
-                    <span className="text-gray-300">{i + 1}. {game.name}</span>
-                    <span className="text-purple-400 ml-1">({formatPlaytimeDetailed(game.totalPlaytime)})</span>
+                  <div key={game.appid} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-300 truncate flex-1">{i + 1}. {game.name}</span>
+                    <span className="text-purple-400 ml-2">{formatPlaytimeDetailed(game.totalPlaytime)}</span>
                   </div>
                 ))}
               </div>
@@ -802,10 +802,10 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             )}
           </div>
           
-          {/* Completion Rate Position */}
+          {/* Played Rate Position */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Completion Rate Position
+              Played Rate Position
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {completionRateLeaderboard.length > 0 ? (
@@ -2517,7 +2517,42 @@ export default function Home() {
                                   {isPlayedElsewhere && ' (Played Elsewhere)'}
                                 </li>
                                 {friendsData && totalFriendPlaytime > 0 && (
-                                  <li>• Total Friends' Playtime: {friendHours.toLocaleString()}h</li>
+                                  <>
+                                    <li>• Total Friends' Playtime: {friendHours.toLocaleString()}h</li>
+                                    {(() => {
+                                      // Get top 3 friends who played this game
+                                      const friendsWhoPlayed = friendsData.friends
+                                        .map((friend: any) => {
+                                          const friendGame = friend.games?.find((g: any) => g.appid === game.appid);
+                                          if (friendGame && friendGame.playtime_forever > 0) {
+                                            return {
+                                              name: friend.personaname,
+                                              playtime: friendGame.playtime_forever,
+                                              profileurl: friend.profileurl
+                                            };
+                                          }
+                                          return null;
+                                        })
+                                        .filter((f: any) => f !== null)
+                                        .sort((a: any, b: any) => b.playtime - a.playtime)
+                                        .slice(0, 3);
+                                      
+                                      return friendsWhoPlayed.map((friend: any, idx: number) => (
+                                        <li key={idx} className="ml-4 text-xs">
+                                          →{' '}
+                                          <a
+                                            href={friend.profileurl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-400 hover:text-blue-300"
+                                          >
+                                            {friend.name}
+                                          </a>
+                                          : {Math.floor(friend.playtime / 60).toLocaleString()}h
+                                        </li>
+                                      ));
+                                    })()}
+                                  </>
                                 )}
                                 {(() => {
                                   // Check for Metacritic score first (from Steam Store cache)
