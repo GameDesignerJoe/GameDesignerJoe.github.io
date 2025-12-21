@@ -13,6 +13,23 @@ _No pending high priority items_
 
 ## ⭐ Feature Improvements
 
+### 1. A way to save/export/sync your information
+- text filter
+- JSON
+- Link to Dropbox or something.
+
+
+### 1. Add a Want To Play Button on the Showcase.
+
+### 1. Social Features
+- Games that your friends have spent a lot of time on and you might like too because of matching tasts. 
+- New part in the Library Stats for Social elements
+  - Your top game shows a you and four other names for hours played of the game. You name is either in the middle of two friends who have more time and two friends who have less, or shifted up or down if there aren't any above or below you.
+  - Top 5 games by your friends list. 
+  - Top 5 games by your friends list who best match your genre taste. 
+- In Showcase if a game comes up that a friends has spent a significant amount of time in +50 hours maybe, then it adds a bullet point below the date and above the other recommends that says, "Bob, Sally, and Mark spent more than 50 hours playing this game.
+- In the Library, you can sort by time spent by your friends playing that game?
+
 ### 1. Get more of a Gallery view of the games you need to play.
 - Need to figure out where to get good images.
 
