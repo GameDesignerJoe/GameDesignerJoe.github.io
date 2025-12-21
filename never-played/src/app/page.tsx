@@ -9,7 +9,9 @@ import {
   getGenreBuddiesRanked,
   getFriendsWithSignificantPlaytime,
   getTopGenres as getPlayerTopGenres,
-  getTotalPlaytimeLeaderboard
+  getTotalPlaytimeLeaderboard,
+  getLibrarySizeLeaderboard,
+  getCompletionRateLeaderboard
 } from '@/utils/genreAffinity';
 
 // Detect if user is on mobile device
@@ -507,6 +509,9 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
   const friendsTopGames = friendsData && friendsData.friends ? getFriendsTopGames(friendsData.friends) : [];
   // const genreBuddiesRanked = friendsData && friendsData.friends ? getGenreBuddiesRanked(playerTopGenres, friendsData.friends, steamCategoriesCache) : [];
   const totalPlaytimeLeaderboard = friendsData && friendsData.friends ? getTotalPlaytimeLeaderboard(stats.totalMinutes, playerName, friendsData.friends) : [];
+  const librarySizeLeaderboard = friendsData && friendsData.friends ? getLibrarySizeLeaderboard(stats.totalGames, playerName, friendsData.friends) : [];
+  const playerPlayedGames = games.filter(g => g.playtime_forever > 0).length;
+  const completionRateLeaderboard = friendsData && friendsData.friends ? getCompletionRateLeaderboard(stats.totalGames, playerPlayedGames, playerName, friendsData.friends) : [];
   const displayTimeAgo = friendsData?.timeAgo || 'not yet synced';
   
   return (
@@ -664,7 +669,6 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                     )}
                     <span className="text-purple-400 ml-2">
                       {Math.floor(entry.playtime / 60)}h
-                      {entry.steamid === 'you' ? ' 👤' : entry.position < friendLeaderboard.find(e => e.steamid === 'you')!.position ? ' ⬆️' : ' ⬇️'}
                     </span>
                   </div>
                 ))}
@@ -728,7 +732,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           </div>
           */}
           
-          {/* Total Playtime Position - NEW */}
+          {/* Total Playtime Position */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
               Total Playtime Position
@@ -752,7 +756,76 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                     )}
                     <span className="text-purple-400 ml-2">
                       {formatPlaytimeDetailed(entry.playtime)}
-                      {entry.steamid === 'you' && ' 👤'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No friends data'}
+              </div>
+            )}
+          </div>
+          
+          {/* Library Size Position */}
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">
+              Library Size Position
+              <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
+            </div>
+            {librarySizeLeaderboard.length > 0 ? (
+              <div className="space-y-1">
+                {librarySizeLeaderboard.map((entry) => (
+                  <div key={entry.steamid} className="flex items-center justify-between text-xs">
+                    {entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400">→ YOU</span>
+                    ) : (
+                      <a
+                        href={entry.profileurl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-blue-400 truncate flex-1"
+                      >
+                        {entry.position}. {entry.name}
+                      </a>
+                    )}
+                    <span className="text-purple-400 ml-2">
+                      {entry.playtime} games
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No friends data'}
+              </div>
+            )}
+          </div>
+          
+          {/* Completion Rate Position */}
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">
+              Completion Rate Position
+              <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
+            </div>
+            {completionRateLeaderboard.length > 0 ? (
+              <div className="space-y-1">
+                {completionRateLeaderboard.map((entry) => (
+                  <div key={entry.steamid} className="flex items-center justify-between text-xs">
+                    {entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400">→ YOU</span>
+                    ) : (
+                      <a
+                        href={entry.profileurl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-blue-400 truncate flex-1"
+                      >
+                        {entry.position}. {entry.name}
+                      </a>
+                    )}
+                    <span className="text-purple-400 ml-2">
+                      ({entry.totalGames} games) {Math.round(entry.completionRate)}%
                     </span>
                   </div>
                 ))}

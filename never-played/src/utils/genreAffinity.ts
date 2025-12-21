@@ -306,3 +306,139 @@ export function getTotalPlaytimeLeaderboard(
   
   return entries.slice(start, end);
 }
+
+/**
+ * Get library size leaderboard - player + 4 nearest friends by total games owned
+ * Returns up to 5 entries, centered on player when possible
+ */
+export function getLibrarySizeLeaderboard(
+  playerTotalGames: number,
+  playerName: string,
+  friends: Friend[]
+): LeaderboardEntry[] {
+  const entries: LeaderboardEntry[] = [];
+  
+  // Add player entry (using playtime field to store game count)
+  entries.push({
+    name: playerName,
+    steamid: 'you',
+    profileurl: '',
+    playtime: playerTotalGames,
+    position: 0,
+  });
+  
+  // Add all friends with their total game count
+  friends.forEach(friend => {
+    if (!friend.games || friend.games.length === 0) return;
+    
+    const totalGames = friend.games.length;
+    
+    entries.push({
+      name: friend.personaname,
+      steamid: friend.steamid,
+      profileurl: friend.profileurl,
+      playtime: totalGames, // Using playtime field to store game count
+      position: 0,
+    });
+  });
+  
+  // Sort by game count (descending)
+  entries.sort((a, b) => b.playtime - a.playtime);
+  
+  // Assign positions
+  entries.forEach((entry, index) => {
+    entry.position = index + 1;
+  });
+  
+  // Find player's position
+  const playerIndex = entries.findIndex(e => e.steamid === 'you');
+  if (playerIndex === -1) return [];
+  
+  // Return up to 5 entries centered on player (2 above, 2 below when possible)
+  let start = Math.max(0, playerIndex - 2);
+  let end = Math.min(entries.length, start + 5);
+  
+  // Adjust start if we don't have enough entries at the end
+  if (end - start < 5 && entries.length >= 5) {
+    start = Math.max(0, end - 5);
+  }
+  
+  return entries.slice(start, end);
+}
+
+interface CompletionEntry {
+  name: string;
+  steamid: string;
+  profileurl: string;
+  totalGames: number;
+  playedGames: number;
+  completionRate: number;
+  position: number;
+}
+
+/**
+ * Get completion rate leaderboard - player + 4 nearest friends by % of library played
+ * Returns up to 5 entries, centered on player when possible
+ */
+export function getCompletionRateLeaderboard(
+  playerTotalGames: number,
+  playerPlayedGames: number,
+  playerName: string,
+  friends: Friend[]
+): CompletionEntry[] {
+  const entries: CompletionEntry[] = [];
+  
+  // Add player entry
+  const playerRate = playerTotalGames > 0 ? (playerPlayedGames / playerTotalGames) * 100 : 0;
+  entries.push({
+    name: playerName,
+    steamid: 'you',
+    profileurl: '',
+    totalGames: playerTotalGames,
+    playedGames: playerPlayedGames,
+    completionRate: playerRate,
+    position: 0,
+  });
+  
+  // Add all friends with their completion rates
+  friends.forEach(friend => {
+    if (!friend.games || friend.games.length === 0) return;
+    
+    const totalGames = friend.games.length;
+    const playedGames = friend.games.filter(g => g.playtime_forever > 0).length;
+    const completionRate = totalGames > 0 ? (playedGames / totalGames) * 100 : 0;
+    
+    entries.push({
+      name: friend.personaname,
+      steamid: friend.steamid,
+      profileurl: friend.profileurl,
+      totalGames,
+      playedGames,
+      completionRate,
+      position: 0,
+    });
+  });
+  
+  // Sort by completion rate (descending)
+  entries.sort((a, b) => b.completionRate - a.completionRate);
+  
+  // Assign positions
+  entries.forEach((entry, index) => {
+    entry.position = index + 1;
+  });
+  
+  // Find player's position
+  const playerIndex = entries.findIndex(e => e.steamid === 'you');
+  if (playerIndex === -1) return [];
+  
+  // Return up to 5 entries centered on player (2 above, 2 below when possible)
+  let start = Math.max(0, playerIndex - 2);
+  let end = Math.min(entries.length, start + 5);
+  
+  // Adjust start if we don't have enough entries at the end
+  if (end - start < 5 && entries.length >= 5) {
+    start = Math.max(0, end - 5);
+  }
+  
+  return entries.slice(start, end);
+}

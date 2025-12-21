@@ -13,7 +13,6 @@ _No pending high priority items_
 
 ## ⭐ Feature Improvements
 
-- Get genre working again!
 - Percentage of played of your library versus your friends.
 - Where you stand in your game count versus your friends (same thing you did ofr hours of your favorite game).
 - Something about the amount of achievements you've earned versus your friends.
