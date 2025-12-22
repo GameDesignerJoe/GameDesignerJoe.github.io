@@ -523,35 +523,35 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
   const displayTimeAgo = friendsData?.timeAgo || 'not yet synced';
   
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* Row 1 */}
-      <div className="bg-gray-700 rounded p-4 text-center">
-        <div className="text-gray-400 text-sm mb-1">Total Games</div>
-        <div className="text-2xl font-bold">{stats.totalGames}</div>
+      <div className="bg-gray-700 rounded p-5 text-center">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Total Games</div>
+        <div className="text-3xl sm:text-2xl font-bold">{stats.totalGames}</div>
       </div>
       
-      <div className="bg-gray-700 rounded p-4 text-center">
-        <div className="text-gray-400 text-sm mb-1">Never Played</div>
-        <div className="text-2xl font-bold text-red-400">{stats.neverPlayed}</div>
+      <div className="bg-gray-700 rounded p-5 text-center">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Never Played</div>
+        <div className="text-3xl sm:text-2xl font-bold text-red-400">{stats.neverPlayed}</div>
       </div>
       
-      <div className="bg-gray-700 rounded p-4 text-center">
-        <div className="text-gray-400 text-sm mb-1">Total Playtime</div>
-        <div className="text-2xl font-bold">{formatPlaytimeDetailed(stats.totalMinutes)}</div>
+      <div className="bg-gray-700 rounded p-5 text-center">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Total Playtime</div>
+        <div className="text-3xl sm:text-2xl font-bold">{formatPlaytimeDetailed(stats.totalMinutes)}</div>
       </div>
       
       {/* Row 2 */}
-      <div className="bg-gray-700 rounded p-4 text-center">
-        <div className="text-gray-400 text-sm mb-1">Tried</div>
-        <div className="text-2xl font-bold text-green-400">{stats.completionRate}%</div>
+      <div className="bg-gray-700 rounded p-5 text-center">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Tried</div>
+        <div className="text-3xl sm:text-2xl font-bold text-green-400">{stats.completionRate}%</div>
       </div>
       
-      <div className="bg-gray-700 rounded p-4 text-center">
-        <div className="text-gray-400 text-sm mb-1">Cost Per Hour</div>
+      <div className="bg-gray-700 rounded p-5 text-center">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Cost Per Hour</div>
         {stats.costPerHour !== null ? (
           <>
-            <div className="text-2xl font-bold text-yellow-400">${stats.costPerHour.toFixed(2)}</div>
-            <div className="text-xs text-gray-400 mt-1">{stats.gamesWithPrice} games</div>
+            <div className="text-3xl sm:text-2xl font-bold text-yellow-400">${stats.costPerHour.toFixed(2)}</div>
+            <div className="text-xs text-gray-400 mt-1 sm:mt-0.5">{stats.gamesWithPrice} games</div>
           </>
         ) : (
           <>
@@ -561,12 +561,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
         )}
       </div>
       
-      <div className="bg-gray-700 rounded p-4 text-center">
-        <div className="text-gray-400 text-sm mb-1">Last New Game</div>
+      <div className="bg-gray-700 rounded p-5 text-center">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Last New Game</div>
         {lastNewGame ? (
           <>
-            <div className="text-lg font-bold text-blue-400 truncate px-2">{lastNewGame.game.name}</div>
-            <div className="text-xs text-gray-400 mt-1">{lastNewGame.daysAgo}d ago</div>
+            <div className="text-lg sm:text-base font-bold text-blue-400 truncate px-2">{lastNewGame.game.name}</div>
+            <div className="text-xs text-gray-400 mt-1 sm:mt-0.5">{lastNewGame.daysAgo}d ago</div>
           </>
         ) : (
           <>
@@ -577,8 +577,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
       </div>
       
       {/* Row 3 */}
-      <div className="bg-gray-700 rounded p-4">
-        <div className="text-gray-400 text-sm mb-1 text-center">Most Played</div>
+      <div className="bg-gray-700 rounded p-5">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1 text-center">Most Played</div>
         {mostPlayed ? (
           <div className="flex flex-col items-center gap-2">
             {mostPlayed.img_icon_url && (
@@ -589,8 +589,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
               />
             )}
             <div className="text-center min-w-0 w-full">
-              <div className="text-base font-bold text-purple-400 truncate px-2">{mostPlayed.name}</div>
-              <div className="text-xs text-gray-400">{Math.floor(mostPlayed.playtime_forever / 60).toLocaleString()}h</div>
+              <div className="text-lg sm:text-base font-bold text-purple-400 truncate px-2">{mostPlayed.name}</div>
+              <div className="text-sm sm:text-xs text-gray-400">{Math.floor(mostPlayed.playtime_forever / 60).toLocaleString()}h</div>
               {mostPlayedPercentage && (
                 <div className="text-xs text-gray-500">{mostPlayedPercentage}% of total</div>
               )}
@@ -604,8 +604,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
         )}
       </div>
       
-      <div className="bg-gray-700 rounded p-4">
-        <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Games</div>
+      <div className="bg-gray-700 rounded p-5">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1 text-center">Top 5 Games</div>
         {top5Games.length > 0 ? (
           <div className="space-y-1">
             {top5Games.map((game, i) => (
@@ -625,8 +625,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                   }
                 }}
               >
-                <span className="truncate flex-1">{i + 1}. {truncateText(game.name, 20)}</span>
-                <span className="text-purple-400 ml-2">{formatPlaytimeDetailed(game.playtime_forever)}</span>
+                <span className="truncate flex-1 text-sm sm:text-xs">{i + 1}. {truncateText(game.name, 20)}</span>
+                <span className="text-purple-400 ml-2 text-sm sm:text-xs whitespace-nowrap">{formatPlaytimeDetailed(game.playtime_forever)}</span>
               </a>
             ))}
           </div>
@@ -638,12 +638,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
         )}
       </div>
       
-      <div className="bg-gray-700 rounded p-4">
-        <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Genres</div>
+      <div className="bg-gray-700 rounded p-5">
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1 text-center">Top 5 Genres</div>
         {top5Genres.length > 0 ? (
           <div className="space-y-1">
             {top5Genres.map((item, i) => (
-              <div key={item.genre} className="text-sm">
+              <div key={item.genre} className="text-base sm:text-sm">
                 <span className="font-bold text-purple-400">{item.genre}</span>
               </div>
             ))}
@@ -658,8 +658,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
       {/* Row 4 - Social Features */}
       {friendsData && (
         <>
-          <div className="bg-gray-700 rounded p-4">
-            <div className="text-gray-400 text-sm mb-1 text-center">
+          <div className="bg-gray-700 rounded p-5">
+            <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1 text-center">
               Top Game Position
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
@@ -2203,7 +2203,7 @@ export default function Home() {
           {/* Collapsible Header */}
           <button
             onClick={toggleSteamIdCollapse}
-            className="w-full px-6 py-3 flex items-center justify-between hover:bg-gray-750 transition-colors"
+            className="w-full px-6 py-4 sm:py-3 flex items-center justify-between hover:bg-gray-750 transition-colors active:bg-gray-700"
           >
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold">💨 Steam ID</span>
@@ -2392,10 +2392,10 @@ export default function Home() {
         {games.length > 0 && (
           <div className="bg-gray-800 rounded-lg overflow-hidden mb-6">
             {/* Collapsible Header */}
-            <button
-              onClick={toggleStatsCollapse}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
-            >
+          <button
+            onClick={toggleStatsCollapse}
+            className="w-full px-6 py-5 sm:py-4 flex items-center justify-between hover:bg-gray-750 transition-colors active:bg-gray-700"
+          >
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold">📊 {playerName}'s Library Stats</h2>
                 {friendsData && (
@@ -2476,10 +2476,10 @@ export default function Home() {
                 setShowcaseCollapsed(newState);
                 localStorage.setItem('collapsed_showcase', String(newState));
               }}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
+              className="w-full px-6 py-5 sm:py-4 flex items-center justify-between hover:bg-gray-750 transition-colors active:bg-gray-700"
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold">🎯 Next Play Showcase</span>
+                <span className="text-2xl sm:text-xl font-bold">🎯 Next Play Showcase</span>
                 {showcaseCollapsed && (
                   <span className="text-sm text-gray-400">({suggestion.name})</span>
                 )}
@@ -2523,9 +2523,9 @@ export default function Home() {
                 setLibraryCollapsed(newState);
                 localStorage.setItem('collapsed_library', String(newState));
               }}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
+              className="w-full px-6 py-5 sm:py-4 flex items-center justify-between hover:bg-gray-750 transition-colors active:bg-gray-700"
             >
-              <h2 className="text-2xl font-bold">
+              <h2 className="text-2xl sm:text-xl font-bold">
                 🎮 Your Library ({filteredAndSortedGames.length} games)
               </h2>
               <span className="text-gray-400 text-xl">
@@ -2713,12 +2713,12 @@ export default function Home() {
                         <div 
                           key={game.appid}
                           id={`game-${game.appid}`}
-                          className="bg-gray-700 rounded p-4 transition-all relative"
+                          className="bg-gray-700 rounded p-4 sm:p-5 transition-all sm:relative"
                         >
-                          {/* Top link - absolute positioned in top right */}
+                          {/* Top link - hidden on mobile, absolute on desktop */}
                           <button
                             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                            className="absolute top-2 right-2 text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap z-10"
+                            className="hidden sm:block sm:absolute top-2 right-2 text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap z-10"
                             title="Scroll to top"
                           >
                             ↑ Top
@@ -2740,12 +2740,12 @@ export default function Home() {
                             </button>
                             
                             {/* Title and Info */}
-                            <div className="flex-1 min-w-0 pr-32">
+                            <div className="flex-1 min-w-0 sm:pr-32">
                               <button
                                 onClick={(e) => handleSteamLink(game.appid, e)}
-                                className="hover:opacity-80 transition-opacity mb-2 block"
+                                className="hover:opacity-80 transition-opacity mb-2 block w-full"
                               >
-                                <h3 className="font-medium hover:underline text-left">{game.name}</h3>
+                                <h3 className="font-medium hover:underline text-left text-base sm:text-sm">{game.name}</h3>
                               </button>
                               <ul className="text-sm text-gray-400 space-y-0.5">
                                 <li>
@@ -2817,11 +2817,11 @@ export default function Home() {
                             </div>
                           </div>
                           
-                          {/* Action Buttons - absolute positioned */}
-                          <div className="absolute top-10 right-4 flex flex-col items-end gap-2">
+                          {/* Action Buttons - stacked below on mobile, absolute on desktop */}
+                          <div className="mt-4 flex flex-col gap-2 sm:absolute sm:top-10 sm:right-4 sm:flex-col sm:items-end sm:mt-0">
                             <button
                               onClick={() => handleToggleWannaPlay(game.appid)}
-                              className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap w-44 ${
+                              className={`text-sm sm:text-xs px-4 py-3 sm:py-1.5 rounded transition whitespace-nowrap sm:w-44 min-h-[48px] sm:min-h-0 ${
                                 isWanted
                                   ? 'bg-red-700 hover:bg-red-600 text-red-100'
                                   : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
@@ -2834,7 +2834,7 @@ export default function Home() {
                             {neverPlayed && (
                               <button
                                 onClick={() => handleTogglePlayedElsewhere(game.appid)}
-                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap w-44 ${
+                                className={`text-sm sm:text-xs px-4 py-3 sm:py-1.5 rounded transition whitespace-nowrap sm:w-44 min-h-[48px] sm:min-h-0 ${
                                   isPlayedElsewhere
                                     ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
                                     : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
@@ -2848,7 +2848,7 @@ export default function Home() {
                             {!neverPlayed && (
                               <button
                                 onClick={() => handleToggleIgnorePlaytime(game.appid)}
-                                className={`text-xs px-3 py-1.5 rounded transition whitespace-nowrap w-44 ${
+                                className={`text-sm sm:text-xs px-4 py-3 sm:py-1.5 rounded transition whitespace-nowrap sm:w-44 min-h-[48px] sm:min-h-0 ${
                                   isIgnored
                                     ? 'bg-orange-700 hover:bg-orange-600 text-orange-100'
                                     : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
