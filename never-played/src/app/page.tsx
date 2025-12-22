@@ -497,7 +497,7 @@ function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, str
   return result;
 }
 
-function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCategoriesCache, friendsData, ratingsLoading, ratingsLoaded, ratingsTotal }: { games: SteamGame[], playedElsewhereList: number[], ignoredPlaytimeList: number[], steamCategoriesCache: Map<number, string[]>, friendsData: { friends: any[], timeAgo: string, loading?: boolean } | null, ratingsLoading: boolean, ratingsLoaded: number, ratingsTotal: number }) {
+function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCategoriesCache, friendsData, ratingsLoading, ratingsLoaded, ratingsTotal, playerName }: { games: SteamGame[], playedElsewhereList: number[], ignoredPlaytimeList: number[], steamCategoriesCache: Map<number, string[]>, friendsData: { friends: any[], timeAgo: string, loading?: boolean } | null, ratingsLoading: boolean, ratingsLoaded: number, ratingsTotal: number, playerName: string }) {
   const stats = calculateStats(games, playedElsewhereList, ignoredPlaytimeList);
   const lastNewGame = getLastNewGame(games);
   const mostPlayed = getMostPlayedGame(games, ignoredPlaytimeList);
@@ -510,7 +510,6 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
     : null;
   
   // Social features data
-  const playerName = 'You';
   const playerTopGenres = getPlayerTopGenres(games, steamCategoriesCache);
   const friendLeaderboard = mostPlayed && friendsData && friendsData.friends ? getFriendLeaderboard(mostPlayed, playerName, friendsData.friends) : [];
   const friendsTopGames = friendsData && friendsData.friends ? getFriendsTopGames(friendsData.friends) : [];
@@ -531,7 +530,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
       </div>
       
       <div className="bg-gray-700 rounded p-5 text-center">
-        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Never Played</div>
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1">Never Played Games</div>
         <div className="text-3xl sm:text-2xl font-bold text-red-400">{stats.neverPlayed}</div>
       </div>
       
@@ -590,7 +589,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             )}
             <div className="text-center min-w-0 w-full">
               <div className="text-lg sm:text-base font-bold text-purple-400 truncate px-2">{mostPlayed.name}</div>
-              <div className="text-sm sm:text-xs text-gray-400">{Math.floor(mostPlayed.playtime_forever / 60).toLocaleString()}h</div>
+              <div className="text-sm sm:text-xs text-gray-400">{formatPlaytimeDetailed(mostPlayed.playtime_forever)}</div>
               {mostPlayedPercentage && (
                 <div className="text-xs text-gray-500">{mostPlayedPercentage}% of total</div>
               )}
@@ -643,8 +642,8 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
         {top5Genres.length > 0 ? (
           <div className="space-y-1">
             {top5Genres.map((item, i) => (
-              <div key={item.genre} className="text-base sm:text-sm">
-                <span className="font-bold text-purple-400">{item.genre}</span>
+              <div key={item.genre} className="flex items-center justify-between text-xs text-gray-300">
+                <span className="truncate flex-1 text-sm sm:text-xs">{i + 1}. {item.genre}</span>
               </div>
             ))}
           </div>
@@ -670,8 +669,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                 </div>
                 {friendLeaderboard.map((entry) => (
                   <div key={entry.steamid} className="flex items-center justify-between text-xs">
-                    {entry.steamid === 'you' ? (
-                      <span className="font-bold text-blue-400">→ YOU</span>
+                    {entry.steamid === 'separator' ? (
+                      <span className="text-gray-500 text-center w-full">...</span>
+                    ) : entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400 truncate flex-1">
+                        {entry.position}. {entry.name}
+                      </span>
                     ) : (
                       <a
                         href={entry.profileurl}
@@ -682,9 +685,11 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                         {entry.position}. {entry.name}
                       </a>
                     )}
-                    <span className="text-purple-400 ml-2">
-                      {Math.floor(entry.playtime / 60)}h
-                    </span>
+                    {entry.steamid !== 'separator' && (
+                      <span className="text-purple-400 ml-2">
+                        {entry.playtime === 0 && entry.steamid !== 'you' ? 'Private Profile' : formatPlaytimeDetailed(entry.playtime)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -758,8 +763,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
               <div className="space-y-1">
                 {totalPlaytimeLeaderboard.map((entry) => (
                   <div key={entry.steamid} className="flex items-center justify-between text-xs">
-                    {entry.steamid === 'you' ? (
-                      <span className="font-bold text-blue-400">→ YOU</span>
+                    {entry.steamid === 'separator' ? (
+                      <span className="text-gray-500 text-center w-full">...</span>
+                    ) : entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400 truncate flex-1">
+                        {entry.position}. {entry.name}
+                      </span>
                     ) : (
                       <a
                         href={entry.profileurl}
@@ -767,12 +776,14 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
                       >
-                        {entry.position}. {entry.name}
+                        {entry.position}. {entry.name && entry.name.trim() ? entry.name : <span className="italic">Private Profile</span>}
                       </a>
                     )}
-                    <span className="text-purple-400 ml-2">
-                      {formatPlaytimeDetailed(entry.playtime)}
-                    </span>
+                    {entry.steamid !== 'separator' && (
+                      <span className="text-purple-400 ml-2">
+                        {formatPlaytimeDetailed(entry.playtime)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -793,8 +804,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
               <div className="space-y-1">
                 {librarySizeLeaderboard.map((entry) => (
                   <div key={entry.steamid} className="flex items-center justify-between text-xs">
-                    {entry.steamid === 'you' ? (
-                      <span className="font-bold text-blue-400">→ YOU</span>
+                    {entry.steamid === 'separator' ? (
+                      <span className="text-gray-500 text-center w-full">...</span>
+                    ) : entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400 truncate flex-1">
+                        {entry.position}. {entry.name}
+                      </span>
                     ) : (
                       <a
                         href={entry.profileurl}
@@ -802,12 +817,14 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
                       >
-                        {entry.position}. {entry.name}
+                        {entry.position}. {entry.name && entry.name.trim() ? entry.name : <span className="italic">Private Profile</span>}
                       </a>
                     )}
-                    <span className="text-purple-400 ml-2">
-                      {entry.playtime} games
-                    </span>
+                    {entry.steamid !== 'separator' && (
+                      <span className="text-purple-400 ml-2">
+                        {entry.playtime === 0 && entry.steamid !== 'you' ? <span className="italic">Private Profile</span> : `${entry.playtime} games`}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -828,8 +845,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
               <div className="space-y-1">
                 {mostPlayedGamesLeaderboard.map((entry) => (
                   <div key={entry.steamid} className="flex items-center justify-between text-xs">
-                    {entry.steamid === 'you' ? (
-                      <span className="font-bold text-blue-400">→ YOU</span>
+                    {entry.steamid === 'separator' ? (
+                      <span className="text-gray-500 text-center w-full">...</span>
+                    ) : entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400 truncate flex-1">
+                        {entry.position}. {entry.name}
+                      </span>
                     ) : (
                       <a
                         href={entry.profileurl}
@@ -837,12 +858,14 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
                       >
-                        {entry.position}. {entry.name}
+                        {entry.position}. {entry.name && entry.name.trim() ? entry.name : <span className="italic">Private Profile</span>}
                       </a>
                     )}
-                    <span className="text-purple-400 ml-2">
-                      {entry.playtime} games
-                    </span>
+                    {entry.steamid !== 'separator' && (
+                      <span className="text-purple-400 ml-2">
+                        {entry.playtime === 0 && entry.steamid !== 'you' ? <span className="italic">Private Profile</span> : `${entry.playtime} games`}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -863,8 +886,12 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
               <div className="space-y-1">
                 {completionRateLeaderboard.map((entry) => (
                   <div key={entry.steamid} className="flex items-center justify-between text-xs">
-                    {entry.steamid === 'you' ? (
-                      <span className="font-bold text-blue-400">→ YOU</span>
+                    {entry.steamid === 'separator' ? (
+                      <span className="text-gray-500 text-center w-full">...</span>
+                    ) : entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400 truncate flex-1">
+                        {entry.position}. {entry.name}
+                      </span>
                     ) : (
                       <a
                         href={entry.profileurl}
@@ -872,12 +899,14 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
                       >
-                        {entry.position}. {entry.name}
+                        {entry.position}. {entry.name && entry.name.trim() ? entry.name : <span className="italic">Private Profile</span>}
                       </a>
                     )}
-                    <span className="text-purple-400 ml-2">
-                      ({entry.totalGames} games) {Math.round(entry.completionRate)}%
-                    </span>
+                    {entry.steamid !== 'separator' && (
+                      <span className="text-purple-400 ml-2">
+                        ({entry.totalGames} games) {Math.round(entry.completionRate)}%
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1457,6 +1486,80 @@ export default function Home() {
     setShowcaseCollapsed(savedShowcaseCollapsed);
     setLibraryCollapsed(savedLibraryCollapsed);
   }, []);
+  
+  // ⚠️ CRITICAL: Load genres from localStorage into cache on mount
+  // This is ESSENTIAL for Top 5 Genres to display! DO NOT REMOVE!
+  // Without this, genres stored in localStorage won't load into React state on page refresh
+  // and users will see "No genre data yet" even though the data exists.
+  useEffect(() => {
+    console.log('[Genre Loader] useEffect triggered, games.length:', games.length);
+    
+    if (games.length === 0) {
+      console.log('[Genre Loader] Skipping - no games loaded yet');
+      return;
+    }
+    
+    console.log('[Genre Loader] Checking localStorage for cached genres...');
+    console.log('[Genre Loader] First 3 game appids:', games.slice(0, 3).map(g => g.appid));
+    
+    const genreMap = new Map<number, string[]>();
+    let loadedCount = 0;
+    let totalCacheEntries = 0;
+    let sampleCache: any = null;
+    
+    // Check each game's Steam Store cache for genres
+    games.forEach((game, index) => {
+      const cacheKey = `steam_store_${game.appid}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+        totalCacheEntries++;
+        try {
+          const parsedCache = JSON.parse(cached);
+          
+          // DEBUG: Show first cache entry structure
+          if (index === 0 && !sampleCache) {
+            sampleCache = parsedCache;
+            console.log(`[Genre Loader] SAMPLE CACHE STRUCTURE for ${game.appid}:`, {
+              hasData: !!parsedCache.data,
+              hasGenres: !!parsedCache.data?.genres,
+              genresType: typeof parsedCache.data?.genres,
+              genresLength: parsedCache.data?.genres?.length,
+              genresValue: parsedCache.data?.genres,
+              fullStructure: parsedCache
+            });
+          }
+          
+          if (parsedCache.data?.genres && parsedCache.data.genres.length > 0) {
+            genreMap.set(game.appid, parsedCache.data.genres);
+            loadedCount++;
+            if (loadedCount <= 3) { // Only log first 3
+              console.log(`[Genre Loader] ✅ Found genres for game ${game.appid} (${game.name}): ${parsedCache.data.genres.join(', ')}`);
+            }
+          } else {
+            if (index < 3) { // Only log first 3 failures
+              console.warn(`[Genre Loader] ❌ Game ${game.appid} (${game.name}) has cache but NO GENRES`);
+            }
+          }
+        } catch (e) {
+          console.error(`[Genre Loader] Failed to parse cache for game ${game.appid}:`, e);
+        }
+      } else {
+        if (index < 3) { // Only log first 3 missing
+          console.warn(`[Genre Loader] ⚠️ No cache found for game ${game.appid} (${game.name})`);
+        }
+      }
+    });
+    
+    console.log(`[Genre Loader] Summary: Found ${totalCacheEntries} cache entries out of ${games.length} games, ${loadedCount} have genres`);
+    
+    if (loadedCount > 0) {
+      console.log(`[Genre Loader] ✅ SUCCESS! Loaded ${loadedCount} games with genres from localStorage`);
+      setSteamCategoriesCache(genreMap);
+    } else {
+      console.error('[Genre Loader] ❌ FAILURE! No cached genres found in localStorage for loaded games');
+    }
+  }, [games]);
   
   // Load never suggest list from localStorage on mount
   useEffect(() => {
@@ -2124,10 +2227,10 @@ export default function Home() {
   const fetchRatingsInBackground = async (gamesToRate: SteamGame[]) => {
     if (gamesToRate.length === 0) return;
     
-    // Prioritize never-played games
-    const neverPlayed = gamesToRate.filter(g => g.playtime_forever === 0);
+    // Prioritize PLAYED games first (for Top 5 Genres), then never-played
     const played = gamesToRate.filter(g => g.playtime_forever > 0);
-    const prioritized = [...neverPlayed, ...played];
+    const neverPlayed = gamesToRate.filter(g => g.playtime_forever === 0);
+    const prioritized = [...played, ...neverPlayed];
     
     setRatingsLoading(true);
     setRatingsLoaded(0);
@@ -2421,6 +2524,7 @@ export default function Home() {
                   ratingsLoading={ratingsLoading}
                   ratingsLoaded={ratingsLoaded}
                   ratingsTotal={ratingsTotal}
+                  playerName={playerName}
                 />
                 
                 {/* Privacy Settings Helper */}
@@ -2749,13 +2853,13 @@ export default function Home() {
                               </button>
                               <ul className="text-sm text-gray-400 space-y-0.5">
                                 <li>
-                                  • <span className="text-white">Playtime: {hours > 0 && `${hours}h `}{minutes > 0 && `${minutes}m`}{neverPlayed && '0 hours'}</span>
+                                  • <span className="text-white">Playtime: {neverPlayed ? '0 hours' : formatPlaytimeDetailed(game.playtime_forever)}</span>
                                   {isIgnored && !neverPlayed && ' 🚫'}
                                   {isPlayedElsewhere && ' (Played Elsewhere)'}
                                 </li>
                                 {friendsData && totalFriendPlaytime > 0 && (
                                   <>
-                                    <li>• Total Friends' Playtime: {friendHours.toLocaleString()}h</li>
+                                    <li>• Total Friends' Playtime: {formatPlaytimeDetailed(totalFriendPlaytime)}</li>
                                     {(() => {
                                       // Get top 3 friends who played this game
                                       const friendsWhoPlayed = friendsData.friends
@@ -2785,7 +2889,7 @@ export default function Home() {
                                           >
                                             {friend.name}
                                           </a>
-                                          : {Math.floor(friend.playtime / 60).toLocaleString()}h
+                                          : {formatPlaytimeDetailed(friend.playtime)}
                                         </li>
                                       ));
                                     })()}

@@ -84,7 +84,7 @@ export function findGenreBuddies(
 
 /**
  * Get your position in the leaderboard for your most played game
- * Always returns 5 entries when possible, centering player with 2 above/2 below
+ * Shows #1 player, then "..." separator, then player ±2 when player is 6th or lower
  */
 export function getFriendLeaderboard(
   playerMostPlayedGame: SteamGame,
@@ -128,17 +128,35 @@ export function getFriendLeaderboard(
   const playerIndex = entries.findIndex(e => e.steamid === 'you');
   if (playerIndex === -1) return [];
   
-  // Always return 5 entries when possible
-  // Try to center player (2 above, 2 below)
-  let start = Math.max(0, playerIndex - 2);
-  let end = Math.min(entries.length, start + 5);
+  const playerPosition = playerIndex + 1;
   
-  // Adjust start if we don't have enough entries at the end
-  if (end - start < 5 && entries.length >= 5) {
-    start = Math.max(0, end - 5);
+  // If player is in top 5, show top 5
+  if (playerPosition <= 5) {
+    return entries.slice(0, Math.min(5, entries.length));
   }
   
-  return entries.slice(start, end);
+  // Player is 6th or lower: show #1, separator, then player ±2
+  const result: LeaderboardEntry[] = [];
+  
+  // Add #1
+  result.push(entries[0]);
+  
+  // Add separator
+  result.push({
+    name: '...',
+    steamid: 'separator',
+    profileurl: '',
+    playtime: 0,
+    position: 0,
+  });
+  
+  // Add player ±2 (2 above, player, 2 below)
+  const start = Math.max(1, playerIndex - 2); // Don't include #1 again
+  const end = Math.min(entries.length, playerIndex + 3); // Player + 2 below
+  
+  result.push(...entries.slice(start, end));
+  
+  return result;
 }
 
 /**
@@ -247,7 +265,7 @@ export function getFriendsWithSignificantPlaytime(
 
 /**
  * Get total playtime leaderboard - player + 4 nearest friends by total playtime
- * Returns up to 5 entries, centered on player when possible
+ * Shows #1 player, then "..." separator, then player ±2 when player is 6th or lower
  */
 export function getTotalPlaytimeLeaderboard(
   playerTotalMinutes: number,
@@ -267,20 +285,28 @@ export function getTotalPlaytimeLeaderboard(
   
   // Add all friends with their total playtime
   friends.forEach(friend => {
-    if (!friend.games || friend.games.length === 0) return;
+    if (!friend.games || friend.games.length === 0) {
+      // Private profile - add with 0 playtime and special marker
+      entries.push({
+        name: friend.personaname || 'Private Profile',
+        steamid: friend.steamid,
+        profileurl: friend.profileurl,
+        playtime: 0,
+        position: 0,
+      });
+      return;
+    }
     
     // Calculate total playtime across all games
     const totalPlaytime = friend.games.reduce((sum, game) => sum + game.playtime_forever, 0);
     
-    if (totalPlaytime > 0) {
-      entries.push({
-        name: friend.personaname,
-        steamid: friend.steamid,
-        profileurl: friend.profileurl,
-        playtime: totalPlaytime,
-        position: 0,
-      });
-    }
+    entries.push({
+      name: friend.personaname,
+      steamid: friend.steamid,
+      profileurl: friend.profileurl,
+      playtime: totalPlaytime,
+      position: 0,
+    });
   });
   
   // Sort by playtime (descending)
@@ -295,21 +321,40 @@ export function getTotalPlaytimeLeaderboard(
   const playerIndex = entries.findIndex(e => e.steamid === 'you');
   if (playerIndex === -1) return [];
   
-  // Return up to 5 entries centered on player (2 above, 2 below when possible)
-  let start = Math.max(0, playerIndex - 2);
-  let end = Math.min(entries.length, start + 5);
+  const playerPosition = playerIndex + 1;
   
-  // Adjust start if we don't have enough entries at the end
-  if (end - start < 5 && entries.length >= 5) {
-    start = Math.max(0, end - 5);
+  // If player is in top 5, show top 5
+  if (playerPosition <= 5) {
+    return entries.slice(0, Math.min(5, entries.length));
   }
   
-  return entries.slice(start, end);
+  // Player is 6th or lower: show #1, separator, then player ±2
+  const result: LeaderboardEntry[] = [];
+  
+  // Add #1
+  result.push(entries[0]);
+  
+  // Add separator
+  result.push({
+    name: '...',
+    steamid: 'separator',
+    profileurl: '',
+    playtime: 0,
+    position: 0,
+  });
+  
+  // Add player ±2 (2 above, player, 2 below)
+  const start = Math.max(1, playerIndex - 2); // Don't include #1 again
+  const end = Math.min(entries.length, playerIndex + 3); // Player + 2 below
+  
+  result.push(...entries.slice(start, end));
+  
+  return result;
 }
 
 /**
  * Get library size leaderboard - player + 4 nearest friends by total games owned
- * Returns up to 5 entries, centered on player when possible
+ * Shows #1 player, then "..." separator, then player ±2 when player is 6th or lower
  */
 export function getLibrarySizeLeaderboard(
   playerTotalGames: number,
@@ -329,7 +374,17 @@ export function getLibrarySizeLeaderboard(
   
   // Add all friends with their total game count
   friends.forEach(friend => {
-    if (!friend.games || friend.games.length === 0) return;
+    if (!friend.games || friend.games.length === 0) {
+      // Private profile - add with 0 games
+      entries.push({
+        name: friend.personaname || 'Private Profile',
+        steamid: friend.steamid,
+        profileurl: friend.profileurl,
+        playtime: 0, // Using playtime field to store game count
+        position: 0,
+      });
+      return;
+    }
     
     const totalGames = friend.games.length;
     
@@ -354,16 +409,35 @@ export function getLibrarySizeLeaderboard(
   const playerIndex = entries.findIndex(e => e.steamid === 'you');
   if (playerIndex === -1) return [];
   
-  // Return up to 5 entries centered on player (2 above, 2 below when possible)
-  let start = Math.max(0, playerIndex - 2);
-  let end = Math.min(entries.length, start + 5);
+  const playerPosition = playerIndex + 1;
   
-  // Adjust start if we don't have enough entries at the end
-  if (end - start < 5 && entries.length >= 5) {
-    start = Math.max(0, end - 5);
+  // If player is in top 5, show top 5
+  if (playerPosition <= 5) {
+    return entries.slice(0, Math.min(5, entries.length));
   }
   
-  return entries.slice(start, end);
+  // Player is 6th or lower: show #1, separator, then player ±2
+  const result: LeaderboardEntry[] = [];
+  
+  // Add #1
+  result.push(entries[0]);
+  
+  // Add separator
+  result.push({
+    name: '...',
+    steamid: 'separator',
+    profileurl: '',
+    playtime: 0,
+    position: 0,
+  });
+  
+  // Add player ±2 (2 above, player, 2 below)
+  const start = Math.max(1, playerIndex - 2); // Don't include #1 again
+  const end = Math.min(entries.length, playerIndex + 3); // Player + 2 below
+  
+  result.push(...entries.slice(start, end));
+  
+  return result;
 }
 
 interface CompletionEntry {
@@ -378,7 +452,7 @@ interface CompletionEntry {
 
 /**
  * Get completion rate leaderboard - player + 4 nearest friends by % of library played
- * Returns up to 5 entries, centered on player when possible
+ * Shows #1 player, then "..." separator, then player ±2 when player is 6th or lower
  */
 export function getCompletionRateLeaderboard(
   playerTotalGames: number,
@@ -431,21 +505,42 @@ export function getCompletionRateLeaderboard(
   const playerIndex = entries.findIndex(e => e.steamid === 'you');
   if (playerIndex === -1) return [];
   
-  // Return up to 5 entries centered on player (2 above, 2 below when possible)
-  let start = Math.max(0, playerIndex - 2);
-  let end = Math.min(entries.length, start + 5);
+  const playerPosition = playerIndex + 1;
   
-  // Adjust start if we don't have enough entries at the end
-  if (end - start < 5 && entries.length >= 5) {
-    start = Math.max(0, end - 5);
+  // If player is in top 5, show top 5
+  if (playerPosition <= 5) {
+    return entries.slice(0, Math.min(5, entries.length));
   }
   
-  return entries.slice(start, end);
+  // Player is 6th or lower: show #1, separator, then player ±2
+  const result: CompletionEntry[] = [];
+  
+  // Add #1
+  result.push(entries[0]);
+  
+  // Add separator
+  result.push({
+    name: '...',
+    steamid: 'separator',
+    profileurl: '',
+    totalGames: 0,
+    playedGames: 0,
+    completionRate: 0,
+    position: 0,
+  });
+  
+  // Add player ±2 (2 above, player, 2 below)
+  const start = Math.max(1, playerIndex - 2); // Don't include #1 again
+  const end = Math.min(entries.length, playerIndex + 3); // Player + 2 below
+  
+  result.push(...entries.slice(start, end));
+  
+  return result;
 }
 
 /**
  * Get most played games leaderboard - player + 4 nearest friends by count of games played
- * Returns up to 5 entries, centered on player when possible
+ * Shows #1 player, then "..." separator, then player ±2 when player is 6th or lower
  */
 export function getMostPlayedGamesLeaderboard(
   playerPlayedGames: number,
@@ -465,19 +560,27 @@ export function getMostPlayedGamesLeaderboard(
   
   // Add all friends with their played game count
   friends.forEach(friend => {
-    if (!friend.games || friend.games.length === 0) return;
+    if (!friend.games || friend.games.length === 0) {
+      // Private profile - add with 0 games
+      entries.push({
+        name: friend.personaname || 'Private Profile',
+        steamid: friend.steamid,
+        profileurl: friend.profileurl,
+        playtime: 0, // Using playtime field to store game count
+        position: 0,
+      });
+      return;
+    }
     
     const playedGames = friend.games.filter(g => g.playtime_forever > 0).length;
     
-    if (playedGames > 0) {
-      entries.push({
-        name: friend.personaname,
-        steamid: friend.steamid,
-        profileurl: friend.profileurl,
-        playtime: playedGames, // Using playtime field to store game count
-        position: 0,
-      });
-    }
+    entries.push({
+      name: friend.personaname,
+      steamid: friend.steamid,
+      profileurl: friend.profileurl,
+      playtime: playedGames, // Using playtime field to store game count
+      position: 0,
+    });
   });
   
   // Sort by game count (descending)
@@ -492,14 +595,33 @@ export function getMostPlayedGamesLeaderboard(
   const playerIndex = entries.findIndex(e => e.steamid === 'you');
   if (playerIndex === -1) return [];
   
-  // Return up to 5 entries centered on player (2 above, 2 below when possible)
-  let start = Math.max(0, playerIndex - 2);
-  let end = Math.min(entries.length, start + 5);
+  const playerPosition = playerIndex + 1;
   
-  // Adjust start if we don't have enough entries at the end
-  if (end - start < 5 && entries.length >= 5) {
-    start = Math.max(0, end - 5);
+  // If player is in top 5, show top 5
+  if (playerPosition <= 5) {
+    return entries.slice(0, Math.min(5, entries.length));
   }
   
-  return entries.slice(start, end);
+  // Player is 6th or lower: show #1, separator, then player ±2
+  const result: LeaderboardEntry[] = [];
+  
+  // Add #1
+  result.push(entries[0]);
+  
+  // Add separator
+  result.push({
+    name: '...',
+    steamid: 'separator',
+    profileurl: '',
+    playtime: 0,
+    position: 0,
+  });
+  
+  // Add player ±2 (2 above, player, 2 below)
+  const start = Math.max(1, playerIndex - 2); // Don't include #1 again
+  const end = Math.min(entries.length, playerIndex + 3); // Player + 2 below
+  
+  result.push(...entries.slice(start, end));
+  
+  return result;
 }
