@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Image Test</title>
+    <style>
+        body {
+            background: #1a1a2e;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .image-box {
+            background: #16213e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #2d5016; }
+        .error { background: #501616; }
+        .info { background: #163050; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🖼️ Steam Header Image Test</h1>
+        
+        <div class="info status">
+            <strong>Test 1:</strong> Direct Steam CDN header image for Portal 2 (AppID: 620)
+        </div>
+        
+        <div class="image-box">
+            <img 
+                id="test1"
+                src="https://cdn.cloudflare.steamstatic.com/steam/apps/620/header.jpg"
+                alt="Portal 2"
+                onload="console.log('✅ Image 1 loaded'); document.getElementById('status1').className='status success'; document.getElementById('status1').innerHTML='✅ Image loaded successfully!'"
+                onerror="console.error('❌ Image 1 failed'); document.getElementById('status1').className='status error'; document.getElementById('status1').innerHTML='❌ Image failed to load'"
+            />
+            <div id="status1" class="status info">⏳ Loading...</div>
+        </div>
+
+        <div class="info status">
+            <strong>Test 2:</strong> Alternative URL format - Elden Ring (AppID: 1245620)
+        </div>
+        
+        <div class="image-box">
+            <img 
+                id="test2"
+                src="https://cdn.akamai.steamstatic.com/steam/apps/1245620/header.jpg"
+                alt="Elden Ring"
+                onload="console.log('✅ Image 2 loaded'); document.getElementById('status2').className='status success'; document.getElementById('status2').innerHTML='✅ Image loaded successfully!'"
+                onerror="console.error('❌ Image 2 failed'); document.getElementById('status2').className='status error'; document.getElementById('status2').innerHTML='❌ Image failed to load'"
+            />
+            <div id="status2" class="status info">⏳ Loading...</div>
+        </div>
+
+        <div class="info status">
+            <strong>Test 3:</strong> Fetching from API endpoint
+        </div>
+        
+        <div class="image-box">
+            <div id="api-result" class="status info">⏳ Fetching...</div>
+            <img id="test3" style="display:none;" />
+            <div id="status3" class="status info"></div>
+        </div>
+
+        <div class="info status">
+            <strong>Console Logs:</strong> Open browser DevTools (F12) to see detailed logs
+        </div>
+    </div>
+
+    <script>
+        // Test 3: Fetch from API
+        async function testAPI() {
+            try {
+                console.log('Fetching from API for AppID 620...');
+                const response = await fetch('/api/steam-store?appid=620');
+                const data = await response.json();
+                
+                console.log('API Response:', data);
+                
+                if (data.header_image) {
+                    console.log('Header image URL:', data.header_image);
+                    document.getElementById('api-result').className = 'status success';
+                    document.getElementById('api-result').innerHTML = '✅ API returned image URL: ' + data.header_image;
+                    
+                    const img = document.getElementById('test3');
+                    img.src = data.header_image;
+                    img.style.display = 'block';
+                    
+                    img.onload = () => {
+                        console.log('✅ API image loaded');
+                        document.getElementById('status3').className = 'status success';
+                        document.getElementById('status3').innerHTML = '✅ API image loaded successfully!';
+                    };
+                    
+                    img.onerror = () => {
+                        console.error('❌ API image failed to load');
+                        document.getElementById('status3').className = 'status error';
+                        document.getElementById('status3').innerHTML = '❌ API image failed to load';
+                    };
+                } else {
+                    document.getElementById('api-result').className = 'status error';
+                    document.getElementById('api-result').innerHTML = '❌ No header_image in API response';
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                document.getElementById('api-result').className = 'status error';
+                document.getElementById('api-result').innerHTML = '❌ API Error: ' + error.message;
+            }
+        }
+
+        // Run API test
+        testAPI();
+    </script>
+</body>
+</html>

@@ -458,25 +458,14 @@ function getTop5MostPlayed(games: SteamGame[], ignoredList: number[] = []): Stea
 
 // Get top 5 genres by playtime (using effective playtime)
 function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, string[]>, ignoredList: number[] = []): Array<{genre: string, hours: number}> {
-  console.log(`[Top 5 Genres] Starting calculation with ${games.length} games, cache size: ${steamCategoriesCache.size}`);
-  
   const genrePlaytime = new Map<string, number>();
-  let gamesWithGenres = 0;
-  let gamesWithPlaytime = 0;
   
   games.forEach(game => {
     const effectiveTime = getEffectivePlaytime(game, ignoredList);
     if (effectiveTime === 0) return;
     
-    gamesWithPlaytime++;
-    
     // Get genres from the passed-in cache Map (NOT from localStorage)
     const genres = steamCategoriesCache.get(game.appid) || [];
-    
-    if (genres.length > 0) {
-      gamesWithGenres++;
-      console.log(`[Top 5 Genres] Game ${game.appid} (${game.name}) has genres:`, genres, `Playtime: ${Math.floor(effectiveTime/60)}h`);
-    }
     
     // Add effective playtime to each genre
     genres.forEach((genre: string) => {
@@ -485,15 +474,11 @@ function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, str
     });
   });
   
-  console.log(`[Top 5 Genres] Processed ${gamesWithPlaytime} games with playtime, ${gamesWithGenres} have genre data`);
-  console.log(`[Top 5 Genres] Genre totals:`, Array.from(genrePlaytime.entries()).map(([g, h]) => `${g}: ${Math.floor(h)}h`));
-  
   const result = Array.from(genrePlaytime.entries())
     .map(([genre, hours]) => ({ genre, hours }))
     .sort((a, b) => b.hours - a.hours)
     .slice(0, 5);
   
-  console.log(`[Top 5 Genres] Final result:`, result);
   return result;
 }
 
@@ -994,30 +979,6 @@ function SuggestionCard({
   wannaPlayList: number[];
 }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
-  const [videoFailed, setVideoFailed] = useState(false);
-  
-  // Reset videoFailed when game changes
-  useEffect(() => {
-    setVideoFailed(false);
-  }, [game?.appid]);
-  
-  // Debug video data - MUST be at top before any conditional logic
-  useEffect(() => {
-    if (storeData && game) {
-      const hasMovies = storeData.movies && storeData.movies.length > 0;
-      console.log('📹 Video Debug for', game.name);
-      console.log('  - Has movies array:', !!storeData.movies);
-      console.log('  - Movies count:', storeData.movies?.length || 0);
-      if (hasMovies) {
-        const video = storeData.movies[0];
-        console.log('  - First video:', video.name);
-        console.log('  - MP4 URL:', video.mp4_480);
-        console.log('  - WebM URL:', video.webm_480);
-      } else {
-        console.log('  - No video available, showing image');
-      }
-    }
-  }, [storeData, game]);
   
   // Helper function to calculate years ago from release date string
   const calculateYearsAgo = (dateString: string | null): { years: number; text: string } | null => {
@@ -1144,49 +1105,40 @@ function SuggestionCard({
     }
   }
   
+  // Debug logging
+  console.log('🎮 SuggestionCard Render:', {
+    gameName: game.name,
+    gameAppId: game.appid,
+    storeLoading,
+    hasStoreData: !!storeData,
+    headerImageUrl: storeData?.header_image,
+    storeDataKeys: storeData ? Object.keys(storeData) : null
+  });
+  
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-700 shadow-xl">
-      {/* Video/Image Banner */}
-      {firstVideo && !videoFailed ? (
-        <div className="w-full aspect-video md:aspect-auto md:h-64 bg-black flex items-center justify-center relative">
-          <video
-            key={firstVideo.id}
-            className="w-full h-full object-contain"
-            autoPlay
-            loop
-            muted
-            playsInline
-            poster={firstVideo.thumbnail}
-            onError={() => {
-              console.log('Video failed to load, falling back to image');
-              setVideoFailed(true);
-            }}
-          >
-            <source src={firstVideo.mp4_480} type="video/mp4" />
-            <source src={firstVideo.webm_480} type="video/webm" />
-            Your browser does not support the video tag.
-          </video>
-          
-          {/* Video name overlay */}
-          {firstVideo.name && (
-            <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-sm px-3 py-1 rounded text-xs text-gray-300">
-              🎬 {firstVideo.name}
-            </div>
-          )}
+      {/* Image Banner */}
+      {storeLoading ? (
+        <div className="w-full aspect-video md:aspect-auto md:h-64 bg-gray-800 flex items-center justify-center">
+          <div className="text-gray-400">Loading...</div>
         </div>
-      ) : storeData?.header_image && (
+      ) : storeData?.header_image ? (
         <div className="w-full aspect-video md:aspect-auto md:h-64 bg-black flex items-center justify-center">
           <img
             src={storeData.header_image}
             alt={game.name}
-            className="w-full h-full object-contain opacity-0 transition-opacity duration-500"
-            onLoad={(e) => {
-              e.currentTarget.style.opacity = '1';
-            }}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
+            className="w-full h-full object-contain"
+            onLoad={() => console.log('✅ Showcase image loaded:', storeData.header_image)}
+            onError={() => console.error('❌ Showcase image failed:', storeData.header_image)}
           />
+        </div>
+      ) : (
+        <div className="w-full aspect-video md:aspect-auto md:h-64 bg-gray-800 flex items-center justify-center">
+          <div className="text-gray-400">
+            No image available
+            {storeData && <div className="text-xs mt-2">(storeData exists but no header_image)</div>}
+            {!storeData && <div className="text-xs mt-2">(no storeData)</div>}
+          </div>
         </div>
       )}
       
@@ -1401,6 +1353,8 @@ export default function Home() {
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
+    console.log('🔍 fetchStoreData called for appId:', appId);
+    
     // Check cache first (30-day TTL)
     const cacheKey = `steam_store_${appId}`;
     const cached = localStorage.getItem(cacheKey);
@@ -1412,19 +1366,27 @@ export default function Home() {
         const thirtyDays = 30 * 24 * 60 * 60 * 1000;
         
         if (age < thirtyDays) {
+          console.log('✅ Using cached store data for', appId, '- has header_image:', !!parsedCache.data?.header_image);
           setStoreData(parsedCache.data);
           return;
+        } else {
+          console.log('⏰ Cache expired for', appId);
         }
       } catch (e) {
-        // Invalid cache, fetch fresh
+        console.error('❌ Invalid cache for', appId, e);
       }
+    } else {
+      console.log('📭 No cache found for', appId);
     }
     
     // Fetch from API
+    console.log('🌐 Fetching from API for', appId);
     setStoreLoading(true);
     try {
       const response = await fetch(`/api/steam-store?appid=${appId}`);
       const data = await response.json();
+      
+      console.log('📦 API Response:', { appId, ok: response.ok, status: response.status, hasData: !!data, hasHeaderImage: !!data?.header_image });
       
       if (response.ok) {
         setStoreData(data);
@@ -1435,22 +1397,19 @@ export default function Home() {
         }));
         // Update GENRES cache (NOT categories!)
         if (data.genres && data.genres.length > 0) {
-          console.log(`[Genre Cache] Storing genres for ${appId}:`, data.genres);
           setSteamCategoriesCache(prev => {
             const newCache = new Map(prev);
             newCache.set(appId, data.genres);
             return newCache;
           });
-        } else {
-          console.warn(`[Genre Cache] No genres found for ${appId}`);
         }
       } else {
         // Handle error gracefully - just don't show store data
-        console.warn('Steam Store API error for', appId, data.message);
+        console.error('❌ Steam Store API error for', appId, '- Status:', response.status, '- Message:', data.message);
         setStoreData(null);
       }
     } catch (error) {
-      console.error('Failed to fetch Steam Store data:', error);
+      console.error('❌ Failed to fetch Steam Store data for', appId, error);
       setStoreData(null);
     } finally {
       setStoreLoading(false);
