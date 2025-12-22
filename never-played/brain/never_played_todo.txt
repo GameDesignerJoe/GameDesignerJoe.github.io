@@ -1,16 +1,5 @@
 # Never Played - TODO List
 
-## 🔥 High Priority (Core Functionality)
-
-_No pending high priority items_
-
----
-
-## 🐛 Bug Fixes
-
-
-## ⭐ Feature Improvements
-
 - Something about the amount of achievements you've earned versus your friends.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
 - Library looks like crap on mobile. 
@@ -19,7 +8,7 @@ _No pending high priority items_
 - There's 'dead games' that need a better page image to load.
 - Add top 3 friends who have played the game the most.
 
-### 1. A way to save/export/sync your information
+1. A way to save/export/sync your information
 - text filter
 - JSON
 - Link to Dropbox or something.

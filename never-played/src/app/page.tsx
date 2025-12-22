@@ -2096,7 +2096,7 @@ export default function Home() {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Next Steam Play</h1>
+          <h1 className="text-4xl font-bold mb-2">Your Next Steam Play</h1>
           <p className="text-gray-400">Find your next play from your Steam library.</p>
         </div>
         
