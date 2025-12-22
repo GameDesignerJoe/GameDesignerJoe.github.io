@@ -340,6 +340,9 @@ function getLastNewGame(games: SteamGame[]): { game: SteamGame, daysAgo: number 
   return { game: mostRecent, daysAgo };
 }
 
+// Cache version - increment when API structure changes
+const STEAM_STORE_CACHE_VERSION = 2;
+
 // Enhanced data cache interface
 interface GameData {
   score: number | null;
@@ -1362,15 +1365,23 @@ export default function Home() {
     if (cached) {
       try {
         const parsedCache = JSON.parse(cached);
-        const age = Date.now() - parsedCache.timestamp;
-        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
         
-        if (age < thirtyDays) {
-          console.log('✅ Using cached store data for', appId, '- has header_image:', !!parsedCache.data?.header_image);
-          setStoreData(parsedCache.data);
-          return;
+        // Check cache version - invalidate if outdated
+        if (parsedCache.version !== STEAM_STORE_CACHE_VERSION) {
+          console.log('🔄 Cache version mismatch for', appId, '- Expected:', STEAM_STORE_CACHE_VERSION, 'Got:', parsedCache.version);
+          localStorage.removeItem(cacheKey);
+          // Fall through to fetch fresh data
         } else {
-          console.log('⏰ Cache expired for', appId);
+          const age = Date.now() - parsedCache.timestamp;
+          const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+          
+          if (age < thirtyDays) {
+            console.log('✅ Using cached store data for', appId, '- has header_image:', !!parsedCache.data?.header_image);
+            setStoreData(parsedCache.data);
+            return;
+          } else {
+            console.log('⏰ Cache expired for', appId);
+          }
         }
       } catch (e) {
         console.error('❌ Invalid cache for', appId, e);
@@ -1390,8 +1401,9 @@ export default function Home() {
       
       if (response.ok) {
         setStoreData(data);
-        // Cache the result
+        // Cache the result with version
         localStorage.setItem(cacheKey, JSON.stringify({
+          version: STEAM_STORE_CACHE_VERSION,
           data,
           timestamp: Date.now()
         }));
@@ -1464,7 +1476,7 @@ export default function Home() {
     const genreMap = new Map<number, string[]>();
     let loadedCount = 0;
     let totalCacheEntries = 0;
-    let sampleCache: any = null;
+    let sampleCache: any | null = null;
     
     // Check each game's Steam Store cache for genres
     games.forEach((game, index) => {

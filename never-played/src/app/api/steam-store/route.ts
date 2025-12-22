@@ -88,11 +88,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(storeInfo);
     
   } catch (error) {
-    console.error('Steam Store API error:', error);
+    console.error(`[Steam Store API] Error fetching appid ${appid}:`, error);
+    console.error(`[Steam Store API] Error details:`, {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { 
         error: 'Failed to fetch game details from Steam Store',
-        message: 'An error occurred while connecting to Steam.'
+        message: 'An error occurred while connecting to Steam.',
+        appid: appid
       },
       { status: 500 }
     );
