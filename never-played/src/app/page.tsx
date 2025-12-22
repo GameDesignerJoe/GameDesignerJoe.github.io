@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFriendsData } from '@/hooks/useFriendsData';
+import { requestQueue } from '@/utils/requestQueue';
 import {
   findGenreBuddies,
   getFriendLeaderboard,
@@ -1415,8 +1416,12 @@ export default function Home() {
             return newCache;
           });
         }
+      } else if (response.status === 404) {
+        // Game not found on Steam (region-locked, removed, or unreleased) - this is normal
+        console.warn(`⚠️ Game ${appId} not available on Steam Store (404):`, data.message);
+        setStoreData(null);
       } else {
-        // Handle error gracefully - just don't show store data
+        // Other errors (rate limiting, server errors, etc.)
         console.error('❌ Steam Store API error for', appId, '- Status:', response.status, '- Message:', data.message);
         setStoreData(null);
       }

@@ -1,23 +1,20 @@
 # Never Played - TODO List
 
+- Closing and opening the panels is taking too long. 
 - Getting "Unable to connect to Steam. Please try again later." a lot, but it works the second time. 
   http://localhost:3000/api/steam-library?steamid=76561197970579347
 - Add a support discord message right below the subtitle.
 - You can import/export before you give your steam id. 
-- My user name is listed in the list but it also says "You" as well. 
   - Should just remove the YOU and color the user a different color like purple. 
 - Not seeing the new cells on mobile. 
 - Something about the amount of achievements you've earned versus your friends.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
-- Library looks like crap on mobile. 
 - Clicking on a users name doesn't load their profile.
 - Can't get the videos to play of the games. 
-- There's 'dead games' that need a better page image to load.
 - Get the export to be readable by displaying the name of the game.
 - Get more of a Gallery view of the games you need to play.
   - Need to figure out where to get good images.
 -Steam links don't work on mobile. 
-- Favorite genre
 
 
 ### 3. "Get Back In" view for low-playtime games

@@ -15,6 +15,20 @@ export async function GET(request: NextRequest) {
     const url = `https://store.steampowered.com/api/appdetails?appids=${appid}`;
     
     const response = await fetch(url);
+    
+    // Check if we got an HTML error page (rate limiting)
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      console.warn(`[Steam Store API] Rate limited for appid ${appid} - got HTML response`);
+      return NextResponse.json(
+        { 
+          error: 'Rate limited',
+          message: 'Steam API temporarily unavailable. Please try again in a moment.'
+        },
+        { status: 503 }
+      );
+    }
+    
     const data = await response.json();
     
     // Steam Store API returns: { "appid": { success: true/false, data: {...} } }
