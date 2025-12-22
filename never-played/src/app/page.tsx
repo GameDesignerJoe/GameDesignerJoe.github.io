@@ -1368,6 +1368,7 @@ export default function Home() {
   const [ignoredPlaytimeList, setIgnoredPlaytimeList] = useState<number[]>([]);
   const [wannaPlayList, setWannaPlayList] = useState<number[]>([]);
   const [showOnlyWannaPlay, setShowOnlyWannaPlay] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -1852,6 +1853,103 @@ export default function Home() {
     localStorage.setItem('wannaPlay', JSON.stringify(updatedList));
   };
   
+  // Export preferences to JSON file
+  const handleExportPreferences = () => {
+    const preferences = {
+      version: "1.0",
+      exportDate: new Date().toISOString(),
+      steamId: steamId || null,
+      preferences: {
+        wannaPlay: wannaPlayList,
+        neverSuggest: neverSuggestList,
+        playedElsewhere: playedElsewhereList,
+        ignoredPlaytime: ignoredPlaytimeList
+      }
+    };
+    
+    const dataStr = JSON.stringify(preferences, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `steam-preferences-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    setShowSettingsMenu(false);
+  };
+  
+  // Import preferences from JSON file
+  const handleImportPreferences = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        // Validate structure
+        if (!data.preferences || !data.version) {
+          alert('Invalid preferences file format.');
+          return;
+        }
+        
+        // Show confirmation with what will be imported
+        const counts = {
+          wannaPlay: data.preferences.wannaPlay?.length || 0,
+          neverSuggest: data.preferences.neverSuggest?.length || 0,
+          playedElsewhere: data.preferences.playedElsewhere?.length || 0,
+          ignoredPlaytime: data.preferences.ignoredPlaytime?.length || 0
+        };
+        
+        const confirmMsg = `Import preferences from ${data.exportDate ? new Date(data.exportDate).toLocaleDateString() : 'unknown date'}?\n\n` +
+          `• Want To Play: ${counts.wannaPlay} games\n` +
+          `• Never Suggest: ${counts.neverSuggest} games\n` +
+          `• Played Elsewhere: ${counts.playedElsewhere} games\n` +
+          `• Ignored Playtime: ${counts.ignoredPlaytime} games\n\n` +
+          `This will replace your current preferences.`;
+        
+        if (!confirm(confirmMsg)) {
+          return;
+        }
+        
+        // Import the data
+        if (Array.isArray(data.preferences.wannaPlay)) {
+          setWannaPlayList(data.preferences.wannaPlay);
+          localStorage.setItem('wannaPlay', JSON.stringify(data.preferences.wannaPlay));
+        }
+        
+        if (Array.isArray(data.preferences.neverSuggest)) {
+          setNeverSuggestList(data.preferences.neverSuggest);
+          localStorage.setItem('neverSuggest', JSON.stringify(data.preferences.neverSuggest));
+        }
+        
+        if (Array.isArray(data.preferences.playedElsewhere)) {
+          setPlayedElsewhereList(data.preferences.playedElsewhere);
+          localStorage.setItem('playedElsewhere', JSON.stringify(data.preferences.playedElsewhere));
+        }
+        
+        if (Array.isArray(data.preferences.ignoredPlaytime)) {
+          setIgnoredPlaytimeList(data.preferences.ignoredPlaytime);
+          localStorage.setItem('ignoredPlaytime', JSON.stringify(data.preferences.ignoredPlaytime));
+        }
+        
+        alert('Preferences imported successfully!');
+        setShowSettingsMenu(false);
+      } catch (error) {
+        alert('Failed to import preferences. Invalid file format.');
+        console.error('Import error:', error);
+      }
+    };
+    
+    reader.readAsText(file);
+    event.target.value = ''; // Reset file input
+  };
+  
   // Fetch Steam Store genres for a game (NOT categories - genres are "Action", "RPG", etc.)
   const fetchStoreCategories = async (appId: number): Promise<string[]> => {
     // Check cache first
@@ -2188,18 +2286,54 @@ export default function Home() {
               />
                 </details>
                 
-                <button
-                  onClick={() => {
-                    if (confirm('Clear all cached data? This will reset your library, ratings, blacklist, and "Played Elsewhere" list.')) {
-                      localStorage.clear();
-                      window.location.reload();
-                    }
-                  }}
-                  className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition text-gray-300"
-                  title="Clear all cached data and reset the app"
-                >
-                  🗑️ Clear Cache
-                </button>
+                {/* Settings Menu with Gear Icon */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                    className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition text-gray-300 flex items-center gap-1"
+                    title="Settings"
+                  >
+                    ⚙️ Settings
+                  </button>
+                  
+                  {/* Dropdown Menu - Opens upward */}
+                  {showSettingsMenu && (
+                    <div className="absolute right-0 bottom-full mb-1 w-48 bg-gray-800 border border-gray-600 rounded shadow-lg z-50">
+                      <input
+                        type="file"
+                        id="import-preferences-input"
+                        accept=".json"
+                        onChange={handleImportPreferences}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => {
+                          document.getElementById('import-preferences-input')?.click();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
+                      >
+                        📥 Import Preferences
+                      </button>
+                      <button
+                        onClick={handleExportPreferences}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
+                      >
+                        📤 Export Preferences
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('Clear all cached data? This will reset your library, ratings, blacklist, and "Played Elsewhere" list.')) {
+                            localStorage.clear();
+                            window.location.reload();
+                          }
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-red-400 border-t border-gray-700"
+                      >
+                        🗑️ Clear Cache
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {error && (
