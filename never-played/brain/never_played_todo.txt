@@ -9,8 +9,6 @@ _No pending high priority items_
 ## 🐛 Bug Fixes
 
 
----
-
 ## ⭐ Feature Improvements
 
 - Something about the amount of achievements you've earned versus your friends.

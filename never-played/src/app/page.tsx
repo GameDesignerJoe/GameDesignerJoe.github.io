@@ -11,7 +11,8 @@ import {
   getTopGenres as getPlayerTopGenres,
   getTotalPlaytimeLeaderboard,
   getLibrarySizeLeaderboard,
-  getCompletionRateLeaderboard
+  getCompletionRateLeaderboard,
+  getMostPlayedGamesLeaderboard
 } from '@/utils/genreAffinity';
 
 // Detect if user is on mobile device
@@ -282,6 +283,12 @@ function formatPlaytimeDetailed(minutes: number): string {
   return parts.length > 0 ? parts.join(' ') : '0m';
 }
 
+// Truncate text with ellipsis if it exceeds maxLength
+function truncateText(text: string, maxLength: number = 20): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 3) + '...';
+}
+
 function getSuggestion(games: SteamGame[], blacklist: number[] = []): SteamGame | null {
   const neverPlayed = games
     .filter(g => g.playtime_forever === 0)
@@ -512,6 +519,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
   const librarySizeLeaderboard = friendsData && friendsData.friends ? getLibrarySizeLeaderboard(stats.totalGames, playerName, friendsData.friends) : [];
   const playerPlayedGames = games.filter(g => g.playtime_forever > 0).length;
   const completionRateLeaderboard = friendsData && friendsData.friends ? getCompletionRateLeaderboard(stats.totalGames, playerPlayedGames, playerName, friendsData.friends) : [];
+  const mostPlayedGamesLeaderboard = friendsData && friendsData.friends ? getMostPlayedGamesLeaderboard(playerPlayedGames, playerName, friendsData.friends) : [];
   const displayTimeAgo = friendsData?.timeAgo || 'not yet synced';
   
   return (
@@ -546,7 +554,10 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             <div className="text-xs text-gray-400 mt-1">{stats.gamesWithPrice} games</div>
           </>
         ) : (
-          <div className="text-sm text-gray-400">No data</div>
+          <>
+            <div className="text-sm text-gray-400">No data</div>
+            <div className="text-xs text-gray-500">Check Steam privacy</div>
+          </>
         )}
       </div>
       
@@ -558,7 +569,10 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             <div className="text-xs text-gray-400 mt-1">{lastNewGame.daysAgo}d ago</div>
           </>
         ) : (
-          <div className="text-sm text-gray-400">No recent tries</div>
+          <>
+            <div className="text-sm text-gray-400">No data</div>
+            <div className="text-xs text-gray-500">Check Steam privacy</div>
+          </>
         )}
       </div>
       
@@ -583,7 +597,10 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             </div>
           </div>
         ) : (
-          <div className="text-sm text-gray-400 text-center">No data</div>
+          <>
+            <div className="text-sm text-gray-400 text-center">No data</div>
+            <div className="text-xs text-gray-500 text-center">Check Steam privacy</div>
+          </>
         )}
       </div>
       
@@ -595,7 +612,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
               <a 
                 key={game.appid} 
                 href={`#game-${game.appid}`}
-                className="block text-xs text-gray-300 hover:text-blue-400 truncate transition-colors cursor-pointer"
+                className="flex items-center justify-between text-xs text-gray-300 hover:text-blue-400 transition-colors cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
                   const element = document.getElementById(`game-${game.appid}`);
@@ -608,31 +625,29 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                   }
                 }}
               >
-                {i + 1}. {game.name} <span className="text-purple-400">({formatPlaytimeDetailed(game.playtime_forever)})</span>
+                <span className="truncate flex-1">{i + 1}. {truncateText(game.name, 20)}</span>
+                <span className="text-purple-400 ml-2">{formatPlaytimeDetailed(game.playtime_forever)}</span>
               </a>
             ))}
           </div>
         ) : (
-          <div className="text-sm text-gray-400 text-center">No data</div>
+          <>
+            <div className="text-sm text-gray-400 text-center">No data</div>
+            <div className="text-xs text-gray-500 text-center">Check Steam privacy</div>
+          </>
         )}
       </div>
       
       <div className="bg-gray-700 rounded p-4">
         <div className="text-gray-400 text-sm mb-1 text-center">Top 5 Genres</div>
         {top5Genres.length > 0 ? (
-          <>
-            <div className="space-y-1">
-              {top5Genres.map((item, i) => (
-                <div key={item.genre} className="text-sm">
-                  <span className="font-bold text-purple-400">{item.genre}</span>
-                  <span className="text-xs text-gray-400 ml-1">({Math.floor(item.hours).toLocaleString()}h)</span>
-                </div>
-              ))}
-            </div>
-            <div className="text-xs text-gray-500 mt-2">
-              Total: {formatPlaytimeDetailed(top5Genres.reduce((sum, item) => sum + (item.hours * 60), 0))}
-            </div>
-          </>
+          <div className="space-y-1">
+            {top5Genres.map((item, i) => (
+              <div key={item.genre} className="text-sm">
+                <span className="font-bold text-purple-400">{item.genre}</span>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="text-sm text-gray-400 text-center">
             {ratingsLoading ? `Loading... ${Math.round((ratingsLoaded/ratingsTotal)*100)}%` : 'No genre data yet'}
@@ -674,9 +689,10 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-gray-400 text-center">
-                {friendsData.loading ? 'Loading...' : 'No friends own this game'}
-              </div>
+              <>
+                <div className="text-sm text-gray-400 text-center">No data</div>
+                <div className="text-xs text-gray-500 text-center">Check Steam privacy</div>
+              </>
             )}
           </div>
           
@@ -767,10 +783,10 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             )}
           </div>
           
-          {/* Library Size Position */}
+          {/* Largest Game Collection */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Library Size Position
+              Largest Game Collection
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {librarySizeLeaderboard.length > 0 ? (
@@ -802,10 +818,45 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
             )}
           </div>
           
-          {/* Played Rate Position */}
+          {/* Played the Most Games */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Played Rate Position
+              Played the Most Games
+              <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
+            </div>
+            {mostPlayedGamesLeaderboard.length > 0 ? (
+              <div className="space-y-1">
+                {mostPlayedGamesLeaderboard.map((entry) => (
+                  <div key={entry.steamid} className="flex items-center justify-between text-xs">
+                    {entry.steamid === 'you' ? (
+                      <span className="font-bold text-blue-400">→ YOU</span>
+                    ) : (
+                      <a
+                        href={entry.profileurl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-300 hover:text-blue-400 truncate flex-1"
+                      >
+                        {entry.position}. {entry.name}
+                      </a>
+                    )}
+                    <span className="text-purple-400 ml-2">
+                      {entry.playtime} games
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                {friendsData.loading ? 'Loading...' : 'No friends data'}
+              </div>
+            )}
+          </div>
+          
+          {/* Most Played Library */}
+          <div className="bg-gray-700 rounded p-4">
+            <div className="text-gray-400 text-sm mb-1 text-center">
+              Most Played Library
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {completionRateLeaderboard.length > 0 ? (
@@ -1287,6 +1338,7 @@ function SuggestionCard({
 export default function Home() {
   const [steamId, setSteamId] = useState('');
   const [games, setGames] = useState<SteamGame[]>([]);
+  const [playerName, setPlayerName] = useState<string>('Your');
   
   // Social features integration
   const { friendsData, loading: friendsLoading, error: friendsError, timeAgo } = useFriendsData(steamId || null);
@@ -1507,10 +1559,22 @@ export default function Home() {
     setGames([]);
     
     try {
-      const response = await fetch(`/api/steam-library?steamid=${steamId}`);
-      const data = await response.json();
+      // Fetch player info and games in parallel
+      const [playerResponse, gamesResponse] = await Promise.all([
+        fetch(`/api/steam-player?steamid=${steamId}`),
+        fetch(`/api/steam-library?steamid=${steamId}`)
+      ]);
       
-      if (!response.ok) {
+      // Handle player info
+      if (playerResponse.ok) {
+        const playerData = await playerResponse.json();
+        setPlayerName(playerData.personaname || 'Your');
+      }
+      
+      // Handle games
+      const data = await gamesResponse.json();
+      
+      if (!gamesResponse.ok) {
         // Use detailed error message from API if available
         const errorMessage = data.message || data.error || 'Failed to fetch games';
         throw new Error(errorMessage);
@@ -2199,7 +2263,7 @@ export default function Home() {
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-750 transition-colors"
             >
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold">📊 Your Library Stats</h2>
+                <h2 className="text-2xl font-bold">📊 {playerName}'s Library Stats</h2>
                 {friendsData && (
                   <span className="text-xs text-gray-400">
                     (Friends data: {timeAgo})
@@ -2224,6 +2288,45 @@ export default function Home() {
                   ratingsLoaded={ratingsLoaded}
                   ratingsTotal={ratingsTotal}
                 />
+                
+                {/* Privacy Settings Helper */}
+                <div className="mt-6">
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
+                      📖 Not seeing playtime or friends? Might be a privacy setting
+                    </summary>
+                    <div className="mt-3 text-gray-300 space-y-3">
+                      <p className="text-sm">
+                        To use this app, these Steam privacy settings must be public:
+                      </p>
+                      <p className="text-sm font-semibold">
+                        My Profile → Edit Profile → Privacy Settings
+                      </p>
+                      <ul className="text-sm space-y-1 ml-4">
+                        <li>• Set "My profile" to PUBLIC</li>
+                        <li>• Set "Game details" to PUBLIC</li>
+                        <li>• Set "Friends list" to PUBLIC (for social features)</li>
+                        <li>• UNCHECK "Always keep my total playtime private"</li>
+                      </ul>
+                      <a
+                        href="https://steamcommunity.com/my/edit/settings"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium transition"
+                      >
+                        🌐 Open Steam Privacy Settings
+                      </a>
+                      <img
+                        src="/help/steam-privacy-settings.png" 
+                        alt="Steam Privacy Settings Guide"
+                        className="rounded border border-gray-600 mt-3"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  </details>
+                </div>
               </div>
             )}
           </div>
