@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
   }
   
   try {
+    console.log('🔍 [API] Fetching friends list for Steam ID:', steamId);
+    
     // Step 1: Get friends list
     const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v1/?key=${apiKey}&steamid=${steamId}&relationship=friend&format=json`;
     
@@ -72,13 +74,21 @@ export async function GET(request: NextRequest) {
     }
     
     const friends: Friend[] = friendsData.friendslist.friends;
+    console.log('✅ [API] Found', friends.length, 'friends');
     
     // Step 2: Fetch game libraries for each friend (in parallel, but with batching)
     const BATCH_SIZE = 10; // Process 10 friends at a time to avoid overwhelming the API
     const friendsWithGames: FriendWithGames[] = [];
     
+    console.log('🔄 [API] Starting to fetch friend libraries in batches of', BATCH_SIZE);
+    
     for (let i = 0; i < friends.length; i += BATCH_SIZE) {
       const batch = friends.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(friends.length / BATCH_SIZE);
+      
+      console.log(`📦 [API] Processing batch ${batchNum}/${totalBatches} (friends ${i + 1}-${Math.min(i + BATCH_SIZE, friends.length)})`);
+      const batchStart = Date.now();
       
       const batchPromises = batch.map(async (friend) => {
         const friendWithGames: FriendWithGames = { ...friend };
@@ -118,15 +128,29 @@ export async function GET(request: NextRequest) {
       
       const batchResults = await Promise.all(batchPromises);
       friendsWithGames.push(...batchResults);
+      
+      const batchDuration = Date.now() - batchStart;
+      const gamesCount = batchResults.filter(f => f.games && f.games.length > 0).length;
+      console.log(`✅ [API] Batch ${batchNum} complete in ${batchDuration}ms (${gamesCount} friends with games)`);
     }
     
+    console.log('🏁 [API] All batches complete. Total friends with games:', friendsWithGames.filter(f => f.games && f.games.length > 0).length);
+    
     // Return summary data
-    return NextResponse.json({
+    const result = {
       totalFriends: friends.length,
       friendsWithGames: friendsWithGames.filter(f => f.games && f.games.length > 0).length,
       friendsWithPrivateLibraries: friendsWithGames.filter(f => f.error === 'Private library').length,
       friends: friendsWithGames
+    };
+    
+    console.log('📤 [API] Sending response:', {
+      totalFriends: result.totalFriends,
+      friendsWithGames: result.friendsWithGames,
+      friendsWithPrivateLibraries: result.friendsWithPrivateLibraries
     });
+    
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Steam Friends API error:', error);

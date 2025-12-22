@@ -60,6 +60,8 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
   const fetchFriendsData = async (forceRefresh = false) => {
     if (!steamId) return;
 
+    console.log('🔍 [Friends] Starting friends data fetch for Steam ID:', steamId);
+
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
       try {
@@ -68,27 +70,51 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
           const parsedCache: FriendsData = JSON.parse(cached);
           const age = Date.now() - parsedCache.lastUpdated;
           
+          console.log('💾 [Friends] Found cached data, age:', Math.floor(age / 1000 / 60), 'minutes');
+          
           if (age < CACHE_DURATION) {
+            console.log('✅ [Friends] Using cached data:', parsedCache.totalFriends, 'friends');
             setFriendsData(parsedCache);
             setTimeAgo(getTimeAgo(parsedCache.lastUpdated));
             return;
+          } else {
+            console.log('⏰ [Friends] Cache expired, fetching fresh data');
           }
+        } else {
+          console.log('📭 [Friends] No cached data found');
         }
       } catch (e) {
-        console.warn('Failed to parse cached friends data');
+        console.warn('⚠️ [Friends] Failed to parse cached friends data:', e);
       }
+    } else {
+      console.log('🔄 [Friends] Force refresh requested, skipping cache');
     }
 
     // Fetch fresh data
+    console.log('🌐 [Friends] Starting API fetch...');
     setLoading(true);
     setError(null);
     setLoadingProgress({ loaded: 0, total: 1 });
 
+    const startTime = Date.now();
+
     try {
+      console.log('📡 [Friends] Calling /api/steam-friends endpoint...');
       const response = await fetch(`/api/steam-friends?steamid=${steamId}`);
+      const fetchDuration = Date.now() - startTime;
+      console.log('⏱️ [Friends] API response received in', fetchDuration, 'ms');
+      
       const data = await response.json();
+      console.log('📦 [Friends] Response data:', {
+        ok: response.ok,
+        status: response.status,
+        totalFriends: data.totalFriends,
+        friendsWithGames: data.friendsWithGames,
+        friendsCount: data.friends?.length
+      });
 
       if (!response.ok) {
+        console.error('❌ [Friends] API error:', data.message);
         throw new Error(data.message || 'Failed to fetch friends data');
       }
 
@@ -99,15 +125,21 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
       };
 
       // Cache the result
+      console.log('💾 [Friends] Caching friends data...');
       localStorage.setItem(CACHE_KEY, JSON.stringify(dataWithTimestamp));
 
+      console.log('✅ [Friends] Successfully loaded friends data:', dataWithTimestamp.totalFriends, 'friends');
       setFriendsData(dataWithTimestamp);
       setTimeAgo('just now');
       setLoadingProgress(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      console.error('❌ [Friends] Error fetching friends data:', errorMsg);
+      setError(errorMsg);
       setLoadingProgress(null);
     } finally {
+      const totalDuration = Date.now() - startTime;
+      console.log('🏁 [Friends] Fetch complete, total time:', totalDuration, 'ms');
       setLoading(false);
     }
   };
