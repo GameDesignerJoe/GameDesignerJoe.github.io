@@ -291,7 +291,13 @@ function truncateText(text: string, maxLength: number = 20): string {
   return text.slice(0, maxLength - 3) + '...';
 }
 
-function getSuggestion(games: SteamGame[], blacklist: number[] = [], playedElsewhereList: number[] = []): SteamGame | null {
+function getSuggestion(
+  games: SteamGame[], 
+  blacklist: number[] = [], 
+  playedElsewhereList: number[] = [],
+  steamCategoriesCache?: Map<number, string[]>,
+  friendsData?: any
+): SteamGame | null {
   const neverPlayed = games
     .filter(g => g.playtime_forever === 0)
     .filter(g => !blacklist.includes(g.appid))
@@ -301,9 +307,83 @@ function getSuggestion(games: SteamGame[], blacklist: number[] = [], playedElsew
     return null;
   }
   
-  // Pick a random never-played game (excluding blacklist and played elsewhere)
-  const randomIndex = Math.floor(Math.random() * neverPlayed.length);
-  return neverPlayed[randomIndex];
+  // If no genre/friend data, fall back to random selection
+  if (!steamCategoriesCache || steamCategoriesCache.size === 0) {
+    const randomIndex = Math.floor(Math.random() * neverPlayed.length);
+    return neverPlayed[randomIndex];
+  }
+  
+  // Calculate player's top 5 genres
+  const playerTopGenres = getTop5Genres(games, steamCategoriesCache);
+  const playerGenreNames = playerTopGenres.map(g => g.genre);
+  
+  // 10% chance to suggest a "Taste Changer" (outside top genres but highly rated)
+  const shouldSuggestTasteChanger = Math.random() < 0.1;
+  
+  // Score each game
+  const scoredGames = neverPlayed.map(game => {
+    const gameGenres = steamCategoriesCache.get(game.appid) || [];
+    const genreMatches = gameGenres.filter(g => playerGenreNames.includes(g)).length;
+    
+    // Calculate friend playtime for this game
+    let friendPlaytime = 0;
+    if (friendsData && friendsData.friends) {
+      friendsData.friends.forEach((friend: any) => {
+        const friendGame = friend.games?.find((g: any) => g.appid === game.appid);
+        if (friendGame) {
+          friendPlaytime += friendGame.playtime_forever;
+        }
+      });
+    }
+    
+    // Rating score (0-100 normalized to 0-10)
+    const ratingScore = (game.rating !== undefined && game.rating !== null) ? game.rating / 10 : 0;
+    
+    // Friend playtime score (hours, capped at 100 for balance)
+    const friendScore = Math.min(friendPlaytime / 60, 100) / 10;
+    
+    let totalScore = 0;
+    
+    if (shouldSuggestTasteChanger) {
+      // Taste Changer mode: Prioritize games OUTSIDE top genres but highly rated
+      const isOutsideGenres = genreMatches === 0;
+      const isHighlyRated = ratingScore >= 7; // 70%+ rating
+      
+      if (isOutsideGenres && isHighlyRated) {
+        // Boost score for taste changers
+        totalScore = ratingScore * 2 + friendScore;
+      } else {
+        // Lower score for genre matches in taste changer mode
+        totalScore = ratingScore + friendScore - (genreMatches * 2);
+      }
+    } else {
+      // Normal mode: Prioritize genre matches
+      // Formula: (Genre Matches × 20) + (Rating × 1) + (Friend Score × 1.5)
+      totalScore = (genreMatches * 20) + ratingScore + (friendScore * 1.5);
+    }
+    
+    return {
+      game,
+      score: totalScore,
+      genreMatches
+    };
+  }).filter(item => item.score > 0); // Filter out games with no score
+  
+  if (scoredGames.length === 0) {
+    // No scored games, fall back to random
+    const randomIndex = Math.floor(Math.random() * neverPlayed.length);
+    return neverPlayed[randomIndex];
+  }
+  
+  // Sort by score (highest first)
+  scoredGames.sort((a, b) => b.score - a.score);
+  
+  // Pick randomly from top 20% of scored games (adds variety while staying smart)
+  const topCount = Math.max(1, Math.ceil(scoredGames.length * 0.2));
+  const topGames = scoredGames.slice(0, topCount);
+  const randomIndex = Math.floor(Math.random() * topGames.length);
+  
+  return topGames[randomIndex].game;
 }
 
 // Calculate how many years ago a game was released
@@ -1306,8 +1386,46 @@ function SuggestionCard({
           </button>
         </div>
         
+        {/* How we pick explanation */}
+        <div className="border-t border-gray-700 pt-3">
+          <details className="text-sm">
+            <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
+              🤔 How we pick a Scouted game
+            </summary>
+            <div className="mt-3 text-gray-300 space-y-3">
+              <div>
+                <p className="text-sm font-semibold mb-2">📊 Smart Selection (90% of the time):</p>
+                <ul className="text-sm space-y-1 ml-4">
+                  <li>• 🎯 Prioritizes games matching your top 5 genres</li>
+                  <li>• ⭐ Weights by SteamSpy ratings (0-100)</li>
+                  <li>• 🤝 Boosts games your friends have played</li>
+                  <li>• 🎲 Picks randomly from top 20% for variety</li>
+                </ul>
+              </div>
+              
+              <div>
+                <p className="text-sm font-semibold mb-2">🌟 Taste Changer Mode (10% of the time):</p>
+                <ul className="text-sm space-y-1 ml-4">
+                  <li>• Suggests highly-rated games OUTSIDE your usual genres</li>
+                  <li>• Helps you discover new types of games</li>
+                  <li>• Only picks games with 70%+ ratings</li>
+                </ul>
+              </div>
+              
+              <div>
+                <p className="text-sm font-semibold mb-2">🚫 We exclude:</p>
+                <ul className="text-sm space-y-1 ml-4">
+                  <li>• Games you've marked "Never Suggest"</li>
+                  <li>• Games you've "Played Elsewhere"</li>
+                  <li>• (We keep "Want to Play" games to remind you!)</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+        </div>
+        
         {hiddenCount > 0 && (
-          <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-700 pt-3">
+          <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-700 pt-3 mt-3">
             <span>{hiddenCount} game{hiddenCount !== 1 ? 's' : ''} hidden from suggestions</span>
             <button
               onClick={onResetHidden}
@@ -1666,7 +1784,7 @@ export default function Home() {
       setGames(loadedGames);
       
       // Set initial suggestion (with blacklist and played elsewhere list)
-      setSuggestion(getSuggestion(loadedGames, neverSuggestList, playedElsewhereList));
+      setSuggestion(getSuggestion(loadedGames, neverSuggestList, playedElsewhereList, steamCategoriesCache, friendsData));
       
       // Start fetching ratings in background (non-blocking)
       fetchRatingsInBackground(loadedGames);
@@ -1832,21 +1950,9 @@ export default function Home() {
   
   const neverPlayedCount = games.filter(g => g.playtime_forever === 0).length;
   
-  // Handle suggesting another game (random, filtered by blacklist and played elsewhere)
+  // Handle suggesting another game (smart selection with genre matching, ratings, and friend data)
   const handleNewSuggestion = () => {
-    const neverPlayed = games
-      .filter(g => g.playtime_forever === 0)
-      .filter(g => !neverSuggestList.includes(g.appid))
-      .filter(g => !playedElsewhereList.includes(g.appid));
-    
-    if (neverPlayed.length === 0) {
-      setSuggestion(null);
-      return;
-    }
-    
-    // Pick a random never-played game
-    const randomIndex = Math.floor(Math.random() * neverPlayed.length);
-    setSuggestion(neverPlayed[randomIndex]);
+    setSuggestion(getSuggestion(games, neverSuggestList, playedElsewhereList, steamCategoriesCache, friendsData));
   };
   
   // Handle never suggesting a game
@@ -1863,15 +1969,9 @@ export default function Home() {
   const handleResetBlacklist = () => {
     setNeverSuggestList([]);
     localStorage.removeItem('neverSuggest');
-    // Get a fresh suggestion
+    // Get a fresh suggestion using smart selection
     if (games.length > 0) {
-      const neverPlayed = games
-        .filter(g => g.playtime_forever === 0)
-        .filter(g => !playedElsewhereList.includes(g.appid));
-      if (neverPlayed.length > 0) {
-        const randomIndex = Math.floor(Math.random() * neverPlayed.length);
-        setSuggestion(neverPlayed[randomIndex]);
-      }
+      setSuggestion(getSuggestion(games, [], playedElsewhereList, steamCategoriesCache, friendsData));
     }
   };
   
@@ -2427,18 +2527,31 @@ export default function Home() {
                       </button>
                       <button
                         onClick={handleExportPreferences}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
+                        disabled={games.length === 0}
+                        className={`w-full text-left px-4 py-2 text-sm transition ${
+                          games.length === 0
+                            ? 'text-gray-500 cursor-not-allowed'
+                            : 'text-gray-300 hover:bg-gray-700'
+                        }`}
+                        title={games.length === 0 ? 'Load your library first' : ''}
                       >
                         📤 Export Preferences
                       </button>
                       <button
                         onClick={() => {
+                          if (games.length === 0) return;
                           if (confirm('Clear all cached data? This will reset your library, ratings, blacklist, and "Played Elsewhere" list.')) {
                             localStorage.clear();
                             window.location.reload();
                           }
                         }}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-red-400 border-t border-gray-700"
+                        disabled={games.length === 0}
+                        className={`w-full text-left px-4 py-2 text-sm transition border-t border-gray-700 ${
+                          games.length === 0
+                            ? 'text-gray-500 cursor-not-allowed'
+                            : 'text-red-400 hover:bg-gray-700'
+                        }`}
+                        title={games.length === 0 ? 'Load your library first' : ''}
                       >
                         🗑️ Clear Cache
                       </button>
