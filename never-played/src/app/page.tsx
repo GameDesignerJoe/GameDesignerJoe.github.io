@@ -291,16 +291,17 @@ function truncateText(text: string, maxLength: number = 20): string {
   return text.slice(0, maxLength - 3) + '...';
 }
 
-function getSuggestion(games: SteamGame[], blacklist: number[] = []): SteamGame | null {
+function getSuggestion(games: SteamGame[], blacklist: number[] = [], playedElsewhereList: number[] = []): SteamGame | null {
   const neverPlayed = games
     .filter(g => g.playtime_forever === 0)
-    .filter(g => !blacklist.includes(g.appid));
+    .filter(g => !blacklist.includes(g.appid))
+    .filter(g => !playedElsewhereList.includes(g.appid));
   
   if (neverPlayed.length === 0) {
     return null;
   }
   
-  // Pick a random never-played game (excluding blacklist)
+  // Pick a random never-played game (excluding blacklist and played elsewhere)
   const randomIndex = Math.floor(Math.random() * neverPlayed.length);
   return neverPlayed[randomIndex];
 }
@@ -1664,8 +1665,8 @@ export default function Home() {
       const loadedGames = data.games || [];
       setGames(loadedGames);
       
-      // Set initial suggestion (with blacklist)
-      setSuggestion(getSuggestion(loadedGames, neverSuggestList));
+      // Set initial suggestion (with blacklist and played elsewhere list)
+      setSuggestion(getSuggestion(loadedGames, neverSuggestList, playedElsewhereList));
       
       // Start fetching ratings in background (non-blocking)
       fetchRatingsInBackground(loadedGames);
@@ -1831,11 +1832,12 @@ export default function Home() {
   
   const neverPlayedCount = games.filter(g => g.playtime_forever === 0).length;
   
-  // Handle suggesting another game (random, filtered by blacklist)
+  // Handle suggesting another game (random, filtered by blacklist and played elsewhere)
   const handleNewSuggestion = () => {
     const neverPlayed = games
       .filter(g => g.playtime_forever === 0)
-      .filter(g => !neverSuggestList.includes(g.appid));
+      .filter(g => !neverSuggestList.includes(g.appid))
+      .filter(g => !playedElsewhereList.includes(g.appid));
     
     if (neverPlayed.length === 0) {
       setSuggestion(null);
@@ -1863,7 +1865,9 @@ export default function Home() {
     localStorage.removeItem('neverSuggest');
     // Get a fresh suggestion
     if (games.length > 0) {
-      const neverPlayed = games.filter(g => g.playtime_forever === 0);
+      const neverPlayed = games
+        .filter(g => g.playtime_forever === 0)
+        .filter(g => !playedElsewhereList.includes(g.appid));
       if (neverPlayed.length > 0) {
         const randomIndex = Math.floor(Math.random() * neverPlayed.length);
         setSuggestion(neverPlayed[randomIndex]);

@@ -1,8 +1,6 @@
 # Never Played - TODO List
 
 - Closing and opening the panels is taking too long. 
-- Getting "Unable to connect to Steam. Please try again later." a lot, but it works the second time. 
-  http://localhost:3000/api/steam-library?steamid=76561197970579347
 - You can import/export before you give your steam id. 
   - Should just remove the YOU and color the user a different color like purple. 
 - Clicking on a users name doesn't load their profile.
