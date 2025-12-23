@@ -720,7 +720,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           </div>
         ) : (
           <div className="text-sm text-gray-400 text-center">
-            {ratingsLoading ? `Loading... ${Math.round((ratingsLoaded/ratingsTotal)*100)}%` : 'No genre data yet'}
+            No genre data yet
           </div>
         )}
       </div>
@@ -996,16 +996,40 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
 function RatingProgressBanner({ 
   loading, 
   loaded, 
-  total 
+  total,
+  stage 
 }: { 
   loading: boolean;
   loaded: number;
   total: number;
+  stage: LoadingStage;
 }) {
-  if (total === 0) return null;
+  // Don't show banner if idle
+  if (stage === 'idle') return null;
   
   const percentage = total > 0 ? (loaded / total) * 100 : 0;
-  const isComplete = !loading && loaded === total;
+  
+  // Determine message based on stage
+  let message = '';
+  let showProgress = false;
+  let isComplete = false;
+  
+  switch (stage) {
+    case 'profile':
+      message = '⏳ Loading Your Steam Profile...';
+      break;
+    case 'friends':
+      message = '⏳ Loading Friends Data (this may take a few)...';
+      break;
+    case 'gameinfo':
+      message = '⏳ Loading Game Information...';
+      showProgress = true;
+      break;
+    case 'complete':
+      message = '✅ Ready! Genres loading in background...';
+      isComplete = true;
+      break;
+  }
   
   return (
     <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4">
@@ -1016,18 +1040,25 @@ function RatingProgressBanner({
       }`}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">
-            {isComplete ? '✅ Game information loaded!' : '⏳ Loading game information...'}
+            {message}
           </span>
-          <span className="text-xs text-gray-400">{loaded}/{total}</span>
+          {showProgress && (
+            <span className="text-xs text-gray-400">{loaded}/{total}</span>
+          )}
         </div>
-        <div className="w-full bg-gray-700 rounded-full h-2">
-          <div 
-            className={`h-2 rounded-full transition-all duration-300 ${
-              isComplete ? 'bg-green-500' : 'bg-blue-500'
-            }`}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
+        {showProgress && (
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div 
+              className="h-2 rounded-full transition-all duration-300 bg-blue-500"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        )}
+        {(stage === 'profile' || stage === 'friends') && (
+          <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div className="h-2 bg-blue-500 animate-pulse w-full" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1423,22 +1454,12 @@ function SuggestionCard({
             </div>
           </details>
         </div>
-        
-        {hiddenCount > 0 && (
-          <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-700 pt-3 mt-3">
-            <span>{hiddenCount} game{hiddenCount !== 1 ? 's' : ''} hidden from suggestions</span>
-            <button
-              onClick={onResetHidden}
-              className="hover:text-white transition"
-            >
-              Reset
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
 }
+
+type LoadingStage = 'idle' | 'profile' | 'friends' | 'gameinfo' | 'complete';
 
 export default function Home() {
   const [steamId, setSteamId] = useState('');
@@ -1448,6 +1469,7 @@ export default function Home() {
   // Social features integration
   const { friendsData, loading: friendsLoading, error: friendsError, timeAgo } = useFriendsData(steamId || null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>('idle');
   const [error, setError] = useState('');
   const [showOnlyNeverPlayed, setShowOnlyNeverPlayed] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('best-match');
@@ -1541,8 +1563,8 @@ export default function Home() {
         console.warn(`⚠️ Game ${appId} not available on Steam Store (404):`, data.message);
         setStoreData(null);
       } else {
-        // Other errors (rate limiting, server errors, etc.)
-        console.error('❌ Steam Store API error for', appId, '- Status:', response.status, '- Message:', data.message);
+        // Other errors (rate limiting, server errors, etc.) - handled gracefully, app continues working
+        console.warn('⚠️ Steam Store API error for', appId, '- Status:', response.status, '- Message:', data.message, '(app continues normally)');
         setStoreData(null);
       }
     } catch (error) {
@@ -1555,10 +1577,11 @@ export default function Home() {
   
   // Fetch store data when suggestion changes (pre-fetch for immediate display)
   useEffect(() => {
+    // Clear old data immediately when suggestion changes
+    setStoreData(null);
+    
     if (suggestion) {
       fetchStoreData(suggestion.appid);
-    } else {
-      setStoreData(null);
     }
   }, [suggestion]);
   
@@ -1653,7 +1676,7 @@ export default function Home() {
       console.log(`[Genre Loader] ✅ SUCCESS! Loaded ${loadedCount} games with genres from localStorage`);
       setSteamCategoriesCache(genreMap);
     } else {
-      console.error('[Genre Loader] ❌ FAILURE! No cached genres found in localStorage for loaded games');
+      console.log('[Genre Loader] ℹ️ No cached genres found - will fetch in background');
     }
   }, [games]);
   
@@ -1755,11 +1778,12 @@ export default function Home() {
     }
     
     setLoading(true);
+    setLoadingStage('profile');
     setError('');
     setGames([]);
     
     try {
-      // Fetch player info and games in parallel
+      // Stage 1: Fetch player info and games
       const [playerResponse, gamesResponse] = await Promise.all([
         fetch(`/api/steam-player?steamid=${steamId}`),
         fetch(`/api/steam-library?steamid=${steamId}`)
@@ -1783,14 +1807,30 @@ export default function Home() {
       const loadedGames = data.games || [];
       setGames(loadedGames);
       
+      // Stage 2: Friends data (happens automatically via useFriendsData hook)
+      setLoadingStage('friends');
+      
+      // Wait a bit for friends data to start loading (optional - shows the stage briefly)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Stage 3: Complete! (App is ready to use)
+      setLoadingStage('complete');
+      
       // Set initial suggestion (with blacklist and played elsewhere list)
+      // Works immediately with random selection, gets smarter as genres load
       setSuggestion(getSuggestion(loadedGames, neverSuggestList, playedElsewhereList, steamCategoriesCache, friendsData));
       
-      // Start fetching ratings in background (non-blocking)
+      // Start fetching ratings/genres in background (NON-BLOCKING - happens silently)
       fetchRatingsInBackground(loadedGames);
+      
+      // Hide completion message after 3 seconds
+      setTimeout(() => {
+        setLoadingStage('idle');
+      }, 3000);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      setLoadingStage('idle');
     } finally {
       setLoading(false);
     }
@@ -2094,8 +2134,9 @@ export default function Home() {
           `• Want To Play: ${counts.wannaPlay} games\n` +
           `• Never Suggest: ${counts.neverSuggest} games\n` +
           `• Played Elsewhere: ${counts.playedElsewhere} games\n` +
-          `• Ignored Playtime: ${counts.ignoredPlaytime} games\n\n` +
-          `This will replace your current preferences.`;
+          `• Ignored Playtime: ${counts.ignoredPlaytime} games\n` +
+          (data.steamId ? `• Steam ID: ${data.steamId}\n` : '') +
+          `\nThis will replace your current preferences.`;
         
         if (!confirm(confirmMsg)) {
           return;
@@ -2120,6 +2161,14 @@ export default function Home() {
         if (Array.isArray(data.preferences.ignoredPlaytime)) {
           setIgnoredPlaytimeList(data.preferences.ignoredPlaytime);
           localStorage.setItem('ignoredPlaytime', JSON.stringify(data.preferences.ignoredPlaytime));
+        }
+        
+        // Import Steam ID if it exists in the file
+        if (data.steamId) {
+          setSteamId(data.steamId);
+          setRememberSteamId(true);
+          localStorage.setItem('savedSteamId', data.steamId);
+          localStorage.setItem('rememberSteamId', 'true');
         }
         
         alert('Preferences imported successfully!');
@@ -2466,7 +2515,7 @@ export default function Home() {
               <div className="flex items-center justify-between mt-2">
                 <details className="text-sm">
               <summary className="cursor-pointer text-gray-400 hover:text-gray-300">
-                Don't know your Steam ID? 📖 Click here to see how to find it
+                Find your Steam ID
               </summary>
               <p className="text-xs text-gray-300 mt-2 mb-2">
                 <span className="font-semibold">In Steam:</span> Click your profile name → View Account Details<br/>
@@ -2763,6 +2812,30 @@ export default function Home() {
               <div className="border-t border-gray-700">
                 {/* Filter and Sort Controls */}
                 <div className="p-4 bg-gray-750">
+                  
+                  {/* Genre Loading Progress Bar (above checkboxes) */}
+                  {ratingsLoading && (
+                    <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-600">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-300">
+                          ⏳ Loading genre data in background...
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {ratingsLoaded}/{ratingsTotal} ({Math.round((ratingsLoaded/ratingsTotal)*100)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-300 bg-blue-500"
+                          style={{ width: `${(ratingsLoaded/ratingsTotal)*100}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">
+                        This improves recommendations and Top 5 Genres. You can browse while this loads!
+                      </p>
+                    </div>
+                  )}
+                  
                   {/* Top Row: Filter Checkboxes and Sort */}
                   <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-4">
                     
@@ -3116,6 +3189,7 @@ export default function Home() {
         loading={ratingsLoading}
         loaded={ratingsLoaded}
         total={ratingsTotal}
+        stage={loadingStage}
       />
     </main>
   );
