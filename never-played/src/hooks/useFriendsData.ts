@@ -4,7 +4,7 @@ interface SteamGame {
   appid: number;
   name: string;
   playtime_forever: number;
-  img_icon_url: string;
+  img_icon_url?: string; // Optional - stripped from cache to reduce size
 }
 
 interface Friend {
@@ -118,18 +118,61 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
         throw new Error(data.message || 'Failed to fetch friends data');
       }
 
-      // Add timestamp
+      // Add timestamp and strip unnecessary data for mobile storage limits
       const dataWithTimestamp: FriendsData = {
         ...data,
         lastUpdated: Date.now(),
       };
 
-      // Cache the result
-      console.log('💾 [Friends] Caching friends data...');
-      localStorage.setItem(CACHE_KEY, JSON.stringify(dataWithTimestamp));
+      // Strip img_icon_url from games to reduce cache size (not needed for friend cells)
+      const compactData: FriendsData = {
+        ...dataWithTimestamp,
+        friends: dataWithTimestamp.friends.map(friend => ({
+          ...friend,
+          games: friend.games?.map(game => ({
+            appid: game.appid,
+            name: game.name,
+            playtime_forever: game.playtime_forever
+            // img_icon_url removed to reduce localStorage size by ~40%
+          }))
+        }))
+      };
 
-      console.log('✅ [Friends] Successfully loaded friends data:', dataWithTimestamp.totalFriends, 'friends');
-      setFriendsData(dataWithTimestamp);
+      // Cache the compact result
+      const cacheString = JSON.stringify(compactData);
+      const cacheSizeBytes = new Blob([cacheString]).size;
+      const cacheSizeKB = (cacheSizeBytes / 1024).toFixed(2);
+      const cacheSizeMB = (cacheSizeBytes / 1024 / 1024).toFixed(2);
+      
+      console.log('💾 [Friends] Caching friends data (compact mode)...');
+      console.log(`📊 [Friends] Cache size: ${cacheSizeBytes} bytes (${cacheSizeKB} KB / ${cacheSizeMB} MB)`);
+      
+      try {
+        localStorage.setItem(CACHE_KEY, cacheString);
+        console.log('✅ [Friends] Cache saved successfully');
+        
+        // Calculate total localStorage usage
+        let totalSize = 0;
+        for (let key in localStorage) {
+          if (localStorage.hasOwnProperty(key)) {
+            totalSize += localStorage[key].length + key.length;
+          }
+        }
+        const totalKB = (totalSize / 1024).toFixed(2);
+        const totalMB = (totalSize / 1024 / 1024).toFixed(2);
+        console.log(`📦 [Friends] Total localStorage usage: ${totalSize} bytes (${totalKB} KB / ${totalMB} MB)`);
+        
+        if (totalSize / 1024 / 1024 > 4) {
+          console.warn('⚠️ [Friends] localStorage usage is high (>4MB), may cause issues on some mobile devices');
+        }
+      } catch (cacheError) {
+        console.error('❌ [Friends] Failed to cache (quota exceeded?), continuing without cache:', cacheError);
+        console.log(`💡 [Friends] Attempted to store ${cacheSizeKB} KB - try clearing old cache data`);
+        // Continue even if caching fails - we still have the data in memory
+      }
+
+      console.log('✅ [Friends] Successfully loaded friends data:', compactData.totalFriends, 'friends');
+      setFriendsData(compactData);
       setTimeAgo('just now');
       setLoadingProgress(null);
     } catch (err) {
