@@ -1468,15 +1468,15 @@ export default function Home() {
   // Without this, genres stored in localStorage won't load into React state on page refresh
   // and users will see "No genre data yet" even though the data exists.
   useEffect(() => {
-    console.log('[Genre Loader] useEffect triggered, games.length:', games.length);
-    
+    // console.log('[Genre Loader] useEffect triggered, games.length:', games.length);
+
     if (games.length === 0) {
-      console.log('[Genre Loader] Skipping - no games loaded yet');
+      // console.log('[Genre Loader] Skipping - no games loaded yet');
       return;
     }
-    
-    console.log('[Genre Loader] Checking localStorage for cached genres...');
-    console.log('[Genre Loader] First 3 game appids:', games.slice(0, 3).map(g => g.appid));
+
+    // console.log('[Genre Loader] Checking localStorage for cached genres...');
+    // console.log('[Genre Loader] First 3 game appids:', games.slice(0, 3).map(g => g.appid));
     
     const genreMap = new Map<number, string[]>();
     let loadedCount = 0;
