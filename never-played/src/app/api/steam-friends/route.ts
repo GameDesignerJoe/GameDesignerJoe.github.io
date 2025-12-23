@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchWithRetry } from '@/utils/fetchWithRetry';
 
 interface Friend {
   steamid: string;
@@ -42,7 +43,12 @@ export async function GET(request: NextRequest) {
     // Step 1: Get friends list
     const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v1/?key=${apiKey}&steamid=${steamId}&relationship=friend&format=json`;
     
-    const friendsResponse = await fetch(friendsUrl);
+    // Use fetchWithRetry to handle intermittent connection issues with Steam API
+    const friendsResponse = await fetchWithRetry(friendsUrl, undefined, {
+      maxRetries: 2,
+      initialDelayMs: 1000,
+      backoffMultiplier: 2
+    });
     
     if (!friendsResponse.ok) {
       console.error('Steam Friends API error:', {
@@ -96,7 +102,11 @@ export async function GET(request: NextRequest) {
         try {
           // Get friend's persona name
           const personaUrl = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${apiKey}&steamids=${friend.steamid}&format=json`;
-          const personaResponse = await fetch(personaUrl);
+          const personaResponse = await fetchWithRetry(personaUrl, undefined, {
+            maxRetries: 2,
+            initialDelayMs: 1000,
+            backoffMultiplier: 2
+          });
           
           if (personaResponse.ok) {
             const personaData = await personaResponse.json();
@@ -107,7 +117,11 @@ export async function GET(request: NextRequest) {
           
           // Get friend's game library
           const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${friend.steamid}&include_appinfo=1&format=json`;
-          const gamesResponse = await fetch(gamesUrl);
+          const gamesResponse = await fetchWithRetry(gamesUrl, undefined, {
+            maxRetries: 2,
+            initialDelayMs: 1000,
+            backoffMultiplier: 2
+          });
           
           if (gamesResponse.ok) {
             const gamesData = await gamesResponse.json();

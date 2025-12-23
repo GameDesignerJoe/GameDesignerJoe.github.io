@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchWithRetry } from '@/utils/fetchWithRetry';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -14,7 +15,12 @@ export async function GET(request: NextRequest) {
   try {
     const url = `https://store.steampowered.com/api/appdetails?appids=${appid}`;
     
-    const response = await fetch(url);
+    // Use fetchWithRetry to handle intermittent connection issues with Steam API
+    const response = await fetchWithRetry(url, undefined, {
+      maxRetries: 2,
+      initialDelayMs: 1000,
+      backoffMultiplier: 2
+    });
     
     // Check if we got an HTML error page (rate limiting)
     const contentType = response.headers.get('content-type');

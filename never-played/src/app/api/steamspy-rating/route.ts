@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchWithRetry } from '@/utils/fetchWithRetry';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -13,7 +14,16 @@ export async function GET(request: NextRequest) {
   
   try {
     // Fetch from SteamSpy (server-side, no CORS issues)
-    const response = await fetch(`https://steamspy.com/api.php?request=appdetails&appid=${appId}`);
+    // Use fetchWithRetry to handle intermittent connection issues
+    const response = await fetchWithRetry(
+      `https://steamspy.com/api.php?request=appdetails&appid=${appId}`,
+      undefined,
+      {
+        maxRetries: 2,
+        initialDelayMs: 1000,
+        backoffMultiplier: 2
+      }
+    );
     const data = await response.json();
     
     // Debug: Log the raw response to see what fields are available

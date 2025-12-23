@@ -3,17 +3,17 @@
 - Closing and opening the panels is taking too long. 
 - Getting "Unable to connect to Steam. Please try again later." a lot, but it works the second time. 
   http://localhost:3000/api/steam-library?steamid=76561197970579347
-- Add a support discord message right below the subtitle.
 - You can import/export before you give your steam id. 
   - Should just remove the YOU and color the user a different color like purple. 
-- More stat info: Steam achievements 
-- A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
 - Clicking on a users name doesn't load their profile.
 - Can't get the videos to play of the games. 
 - Get the export to be readable by displaying the name of the game.
-- Get more of a Gallery view of the games you need to play.
-  - Need to figure out where to get good images.
 -Steam links don't work on mobile. 
+- Get more of a Gallery view of the games you need to play.
+- Need to figure out where to get good images.
+- A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
+
+- More stat info: Steam achievements 
 
 
 ### 3. "Get Back In" view for low-playtime games
