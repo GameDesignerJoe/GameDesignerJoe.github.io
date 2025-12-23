@@ -6,8 +6,7 @@
 - Add a support discord message right below the subtitle.
 - You can import/export before you give your steam id. 
   - Should just remove the YOU and color the user a different color like purple. 
-- Not seeing the new cells on mobile. 
-- Something about the amount of achievements you've earned versus your friends.
+- More stat info: Steam achievements 
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
 - Clicking on a users name doesn't load their profile.
 - Can't get the videos to play of the games. 

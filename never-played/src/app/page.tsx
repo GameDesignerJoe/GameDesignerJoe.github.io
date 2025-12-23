@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useFriendsData } from '@/hooks/useFriendsData';
 import { requestQueue } from '@/utils/requestQueue';
+import CompassIcon from '@/components/CompassIcon';
 import {
   findGenreBuddies,
   getFriendLeaderboard,
@@ -2268,13 +2269,40 @@ export default function Home() {
   };
   
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-8">
+    <main 
+      className="min-h-screen bg-gray-900 text-white p-8"
+      style={{
+        backgroundImage: `
+          radial-gradient(circle at 20% 30%, rgba(66, 153, 225, 0.03) 0%, transparent 50%),
+          radial-gradient(circle at 80% 70%, rgba(66, 153, 225, 0.03) 0%, transparent 50%),
+          repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 35px,
+            rgba(66, 153, 225, 0.02) 35px,
+            rgba(66, 153, 225, 0.02) 36px
+          ),
+          repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 35px,
+            rgba(66, 153, 225, 0.02) 35px,
+            rgba(66, 153, 225, 0.02) 36px
+          )
+        `,
+        backgroundSize: '100% 100%, 100% 100%, 100% 100%, 100% 100%',
+      }}
+    >
       <div className="max-w-4xl mx-auto">
         
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Your Next Steam Play</h1>
-          <p className="text-gray-400">Find your next play from your Steam library.</p>
+          <div className="flex items-center justify-center gap-4 mb-2">
+            <CompassIcon className="w-10 h-10 text-blue-400" />
+            <h1 className="text-4xl font-bold">Steam Scout</h1>
+            <CompassIcon className="w-10 h-10 text-blue-400" />
+          </div>
+          <p className="text-gray-400">Discover the best games hiding in your library</p>
         </div>
         
         {/* Input Section */}
@@ -2559,7 +2587,7 @@ export default function Home() {
               className="w-full px-6 py-5 sm:py-4 flex items-center justify-between hover:bg-gray-750 transition-colors active:bg-gray-700"
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl sm:text-xl font-bold">🎯 Next Play Showcase</span>
+                <span className="text-2xl sm:text-xl font-bold">🎯 Scouted For You</span>
                 {showcaseCollapsed && (
                   <span className="text-sm text-gray-400">({suggestion.name})</span>
                 )}
@@ -2955,6 +2983,14 @@ export default function Home() {
             <p>Enter a Steam ID above to view a game library</p>
           </div>
         )}
+        
+        {/* Footer */}
+        <footer className="mt-12 pt-6 border-t border-gray-700 text-center text-sm text-gray-500">
+          <p>Steam Scout is not affiliated with Valve Corporation</p>
+          <p className="mt-2">
+            Support: <span className="text-gray-400">gamedesignerjoe</span> on Discord
+          </p>
+        </footer>
         
       </div>
       
