@@ -474,7 +474,12 @@ function setCachedData(appId: number, data: Omit<GameData, 'timestamp'>) {
 // Fetch all game data from SteamSpy (via our API to avoid CORS)
 async function fetchSteamSpyData(appId: number): Promise<GameData | null> {
   try {
-    const response = await fetch(`/api/steamspy-rating?appid=${appId}`);
+    // Use RequestQueue with 2 retries to handle rate limiting
+    const response = await steamRequestQueue.enqueueWithRetry(
+      () => fetch(`/api/steamspy-rating?appid=${appId}`),
+      'low',
+      2  // 2 retry attempts
+    );
     const data = await response.json();
     
     if (!response.ok || data.error) {
@@ -489,7 +494,8 @@ async function fetchSteamSpyData(appId: number): Promise<GameData | null> {
       timestamp: Date.now()
     };
   } catch (e) {
-    // Fetch failed, skip this game
+    // Fetch failed after retries
+    console.warn(`⚠️ SteamSpy data failed for ${appId} after retries`);
     return null;
   }
 }
@@ -2233,11 +2239,12 @@ export default function Home() {
       }
     }
     
-    // Fetch from API with LOW PRIORITY (background genre loading)
+    // Fetch from API with LOW PRIORITY (background genre loading) + RETRY
     try {
-      const response = await steamRequestQueue.enqueue(
+      const response = await steamRequestQueue.enqueueWithRetry(
         () => fetch(`/api/steam-store?appid=${appId}`),
-        'low'
+        'low',
+        2  // 2 retry attempts for genres too
       );
       const data = await response.json();
       
