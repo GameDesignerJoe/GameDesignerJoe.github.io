@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFriendsData } from '@/hooks/useFriendsData';
-import { requestQueue } from '@/utils/requestQueue';
+import { steamRequestQueue } from '@/utils/requestQueue';
 import CompassIcon from '@/components/CompassIcon';
 import {
   findGenreBuddies,
@@ -53,6 +53,15 @@ interface SteamGame {
   tags?: string[]; // Top 5 tags from SteamSpy
   releaseDate?: string; // Formatted release date
   price?: number; // Price in dollars
+}
+
+interface FailedGameRequest {
+  appId: number;
+  gameName: string;
+  reason: 'rate_limit' | 'timeout' | 'not_found' | 'server_error' | 'unknown';
+  attempts: number;
+  lastAttempt: Date;
+  httpStatus?: number;
 }
 
 interface SteamStoreData {
@@ -1251,10 +1260,13 @@ function SuggestionCard({
         </div>
       ) : (
         <div className="w-full aspect-video md:aspect-auto md:h-64 bg-gray-800 flex items-center justify-center">
-          <div className="text-gray-400">
-            No image available
-            {storeData && <div className="text-xs mt-2">(storeData exists but no header_image)</div>}
-            {!storeData && <div className="text-xs mt-2">(no storeData)</div>}
+          <div className="text-gray-400 text-center px-4">
+            <div className="text-lg mb-2">No image available</div>
+            <div className="text-xs text-gray-500">
+              Genre loading in background may affect image display.
+              <br />
+              Try clicking "Suggest Another" to retry.
+            </div>
           </div>
         </div>
       )}
@@ -1459,7 +1471,7 @@ function SuggestionCard({
   );
 }
 
-type LoadingStage = 'idle' | 'profile' | 'friends' | 'gameinfo' | 'complete';
+type LoadingStage = 'idle' | 'profile' | 'friends' | 'gameinfo' | 'cleanup' | 'complete';
 
 export default function Home() {
   const [steamId, setSteamId] = useState('');
@@ -1496,6 +1508,8 @@ export default function Home() {
   const [wannaPlayList, setWannaPlayList] = useState<number[]>([]);
   const [showOnlyWannaPlay, setShowOnlyWannaPlay] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [failedRequests, setFailedRequests] = useState<FailedGameRequest[]>([]);
+  const [loadStats, setLoadStats] = useState({ total: 0, successful: 0, failed: 0 });
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -1533,11 +1547,24 @@ export default function Home() {
       console.log('📭 No cache found for', appId);
     }
     
-    // Fetch from API
-    console.log('🌐 Fetching from API for', appId);
+    // Pause low priority queue for showcase image loading
+    steamRequestQueue.pauseLowPriority();
+    
+    // Fetch from API with HIGH PRIORITY and RETRY (user-triggered action)
+    console.log('🌐 Fetching from API for', appId, '(HIGH PRIORITY with retry)');
     setStoreLoading(true);
+    
+    // Set up timeout to resume low priority queue
+    const resumeTimeout = setTimeout(() => {
+      steamRequestQueue.resumeLowPriority();
+    }, 3000);
+    
     try {
-      const response = await fetch(`/api/steam-store?appid=${appId}`);
+      const response = await steamRequestQueue.enqueueWithRetry(
+        () => fetch(`/api/steam-store?appid=${appId}`),
+        'high',
+        2 // Max 2 retry attempts
+      );
       const data = await response.json();
       
       console.log('📦 API Response:', { appId, ok: response.ok, status: response.status, hasData: !!data, hasHeaderImage: !!data?.header_image });
@@ -1571,6 +1598,8 @@ export default function Home() {
       console.error('❌ Failed to fetch Steam Store data for', appId, error);
       setStoreData(null);
     } finally {
+      clearTimeout(resumeTimeout);
+      steamRequestQueue.resumeLowPriority();
       setStoreLoading(false);
     }
   };
@@ -2204,9 +2233,12 @@ export default function Home() {
       }
     }
     
-    // Fetch from API
+    // Fetch from API with LOW PRIORITY (background genre loading)
     try {
-      const response = await fetch(`/api/steam-store?appid=${appId}`);
+      const response = await steamRequestQueue.enqueue(
+        () => fetch(`/api/steam-store?appid=${appId}`),
+        'low'
+      );
       const data = await response.json();
       
       if (response.ok && data.genres) {
@@ -2240,6 +2272,7 @@ export default function Home() {
   // Fetch genres for a batch of games
   const fetchCategoriesBatch = async (games: SteamGame[]): Promise<Map<number, string[]>> => {
     const categoriesMap = new Map<number, string[]>();
+    const batchFailures: FailedGameRequest[] = [];
     
     // Filter out games that have cached data (success OR failure)
     const gamesToFetch = games.filter(game => {
@@ -2274,17 +2307,41 @@ export default function Home() {
     
     // Only fetch for games that need it
     const fetchPromises = gamesToFetch.map(async (game) => {
-      const genres = await fetchStoreCategories(game.appid);
-      if (genres.length > 0) {
-        console.log(`[Batch Fetch] Fetched genres for ${game.appid}:`, genres);
-        categoriesMap.set(game.appid, genres);
-      } else {
-        console.warn(`[Batch Fetch] No genres returned for ${game.appid}`);
+      try {
+        const genres = await fetchStoreCategories(game.appid);
+        if (genres.length > 0) {
+          console.log(`[Batch Fetch] Fetched genres for ${game.appid}:`, genres);
+          categoriesMap.set(game.appid, genres);
+        } else {
+          console.warn(`[Batch Fetch] No genres returned for ${game.appid}`);
+          batchFailures.push({
+            appId: game.appid,
+            gameName: game.name,
+            reason: 'not_found',
+            attempts: 1,
+            lastAttempt: new Date()
+          });
+        }
+      } catch (error) {
+        console.error(`[Batch Fetch] Error fetching ${game.appid}:`, error);
+        batchFailures.push({
+          appId: game.appid,
+          gameName: game.name,
+          reason: 'unknown',
+          attempts: 1,
+          lastAttempt: new Date()
+        });
       }
     });
     
     await Promise.all(fetchPromises);
-    console.log(`[Genre Batch] Complete! Total genres loaded: ${categoriesMap.size}`);
+    
+    // Update failed requests state
+    if (batchFailures.length > 0) {
+      setFailedRequests(prev => [...prev, ...batchFailures]);
+    }
+    
+    console.log(`[Genre Batch] Complete! Total genres loaded: ${categoriesMap.size}, Failed: ${batchFailures.length}`);
     return categoriesMap;
   };
   
@@ -2402,6 +2459,13 @@ export default function Home() {
       loadedCount += batch.length;
       setRatingsLoaded(loadedCount);
     }
+    
+    // Update load stats
+    setLoadStats({
+      total: prioritized.length,
+      successful: prioritized.length - failedRequests.length,
+      failed: failedRequests.length
+    });
     
     // Mark as complete and set null for any games that still have undefined rating
     setRatingsLoading(false);
@@ -2566,11 +2630,19 @@ export default function Home() {
                         onChange={handleImportPreferences}
                         className="hidden"
                       />
+                      <a
+                        href="/debug/friends"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
+                      >
+                        🐛 Friends Debug
+                      </a>
                       <button
                         onClick={() => {
                           document.getElementById('import-preferences-input')?.click();
                         }}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300 border-t border-gray-700"
                       >
                         📥 Import Preferences
                       </button>
@@ -2833,6 +2905,70 @@ export default function Home() {
                       <p className="text-xs text-gray-400 mt-2">
                         This improves recommendations and Top 5 Genres. You can browse while this loads!
                       </p>
+                    </div>
+                  )}
+                  
+                  {/* Success Banner - Shows after loading completes with no failures */}
+                  {!ratingsLoading && loadStats.total > 0 && failedRequests.length === 0 && (
+                    <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-green-300 font-medium">
+                          ✅ Library fully loaded! {loadStats.successful} out of {loadStats.total} games
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Load Stats Bar - Shows after loading completes if there are failures */}
+                  {!ratingsLoading && failedRequests.length > 0 && (
+                    <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <button 
+                          onClick={() => {
+                            const elem = document.getElementById('failed-games-list');
+                            if (elem) elem.style.display = elem.style.display === 'none' ? 'block' : 'none';
+                          }}
+                          className="text-sm text-yellow-300 hover:text-yellow-200 transition flex items-center gap-2"
+                        >
+                          ⚠️ Successfully loaded {loadStats.successful} out of {loadStats.total} games
+                          <span className="text-xs">▼</span>
+                        </button>
+                        
+                        <button
+                          onClick={async () => {
+                            console.log('🔄 Manual retry requested for', failedRequests.length, 'games');
+                            const toRetry = [...failedRequests];
+                            setFailedRequests([]);
+                            setRatingsLoading(true);
+                            
+                            // Retry each failed game
+                            for (const failed of toRetry) {
+                              const game = games.find(g => g.appid === failed.appId);
+                              if (game) {
+                                await fetchCategoriesBatch([game]);
+                              }
+                            }
+                            
+                            setRatingsLoading(false);
+                          }}
+                          className="text-xs px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 rounded transition"
+                        >
+                          🔄 Attempt Reload
+                        </button>
+                      </div>
+                      
+                      <div id="failed-games-list" style={{ display: 'none' }} className="mt-2 pt-2 border-t border-yellow-800/50">
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {failedRequests.map(failed => (
+                            <div key={failed.appId} className="text-xs flex justify-between items-center">
+                              <span className="text-gray-200">{failed.gameName}</span>
+                              <span className="text-gray-400 text-xs">
+                                {failed.reason === 'not_found' ? 'No data available' : 'Failed to load'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                   

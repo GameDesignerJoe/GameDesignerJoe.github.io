@@ -13,6 +13,7 @@ interface Friend {
   profileurl: string;
   games?: SteamGame[];
   totalPlaytime?: number;
+  verificationAttempts?: number; // Track how many times we've tried to fetch games
 }
 
 interface FriendsData {
@@ -30,6 +31,7 @@ interface UseFriendsDataResult {
   loadingProgress: { loaded: number; total: number } | null;
   timeAgo: string;
   refetch: () => void;
+  reloadFromCache: () => void;
 }
 
 const CACHE_KEY = 'steam_friends_data';
@@ -118,9 +120,46 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
         throw new Error(data.message || 'Failed to fetch friends data');
       }
 
+      // INTELLIGENT MERGING: If we have cached data, merge it with fresh data
+      // This prevents friends from "disappearing" due to API rate limiting
+      let mergedFriends = data.friends;
+      
+      if (!forceRefresh) {
+        try {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (cached) {
+            const cachedData: FriendsData = JSON.parse(cached);
+            const cachedFriendMap = new Map(cachedData.friends.map((f: Friend) => [f.steamid, f]));
+            
+            // Merge: Keep cached friends that aren't in fresh data, update ones that are
+            const freshSteamIds = new Set(data.friends.map((f: Friend) => f.steamid));
+            
+            mergedFriends = [
+              ...data.friends, // All fresh data first
+              ...cachedData.friends.filter((cachedFriend: Friend) => 
+                !freshSteamIds.has(cachedFriend.steamid) // Not in fresh data - preserve everyone!
+                // Removed game data check - we keep ALL friends, even without games
+              )
+            ];
+            
+            console.log('🔄 [Friends] Merged data:', {
+              freshCount: data.friends.length,
+              cachedCount: cachedData.friends.length,
+              mergedCount: mergedFriends.length,
+              preserved: mergedFriends.length - data.friends.length
+            });
+          }
+        } catch (e) {
+          console.warn('⚠️ [Friends] Failed to merge with cached data:', e);
+        }
+      }
+      
       // Add timestamp and strip unnecessary data for mobile storage limits
       const dataWithTimestamp: FriendsData = {
-        ...data,
+        totalFriends: mergedFriends.length,
+        friendsWithGames: mergedFriends.filter((f: Friend) => f.games && f.games.length > 0).length,
+        friendsWithPrivateLibraries: mergedFriends.filter((f: Friend) => !f.games || f.games.length === 0).length,
+        friends: mergedFriends,
         lastUpdated: Date.now(),
       };
 
@@ -208,6 +247,21 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
   const refetch = () => {
     fetchFriendsData(true);
   };
+  
+  const reloadFromCache = () => {
+    // Force reload from cache without API call
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsedCache: FriendsData = JSON.parse(cached);
+        console.log('📥 [Friends] Reloading from cache:', parsedCache.totalFriends, 'friends');
+        setFriendsData(parsedCache);
+        setTimeAgo(getTimeAgo(parsedCache.lastUpdated));
+      }
+    } catch (e) {
+      console.error('❌ [Friends] Failed to reload from cache:', e);
+    }
+  };
 
   return {
     friendsData,
@@ -216,5 +270,6 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
     loadingProgress,
     timeAgo,
     refetch,
+    reloadFromCache,
   };
 }

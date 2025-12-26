@@ -1,120 +1,209 @@
 /**
- * Request Queue Manager
- * 
- * Manages concurrent API requests to prevent rate limiting.
- * Limits concurrent requests and queues additional ones.
+ * Priority-based request queue to prevent overwhelming Steam's API
+ * Limits concurrent requests and prioritizes user-triggered actions
  */
 
-interface QueuedRequest {
-  url: string;
-  priority: 'high' | 'low';
-  resolve: (value: Response) => void;
-  reject: (error: Error) => void;
-  retries: number;
+type Priority = 'high' | 'low';
+
+interface QueuedRequest<T> {
+  id: string;
+  priority: Priority;
+  fn: () => Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: any) => void;
+  retryCount: number;
+  maxRetries: number;
+  lastError?: string;
+}
+
+export interface FailureInfo {
+  requestId: string;
+  error: any;
+  attempts: number;
+  timestamp: number;
 }
 
 class RequestQueue {
-  private queue: QueuedRequest[] = [];
-  private activeRequests = 0;
-  private readonly maxConcurrent = 3; // Max 3 concurrent requests to Steam API
-  private readonly maxRetries = 3;
+  private queue: QueuedRequest<any>[] = [];
+  private activeCount = 0;
+  private readonly maxConcurrent: number;
+  private readonly delayMs: number;
+  private requestCounter = 0;
+  private lowPriorityPaused = false;
+  private failures: FailureInfo[] = [];
+
+  constructor(maxConcurrent: number = 3, delayMs: number = 600) {
+    this.maxConcurrent = maxConcurrent;
+    this.delayMs = delayMs; // Delay between low-priority requests to prevent rate limiting (increased from 400ms to 600ms)
+  }
 
   /**
-   * Queue a fetch request with priority
+   * Add a request to the queue with specified priority
+   * High priority requests (showcase images) jump to front of queue
    */
-  async queueFetch(url: string, priority: 'high' | 'low' = 'low'): Promise<Response> {
+  async enqueue<T>(fn: () => Promise<T>, priority: Priority = 'low'): Promise<T> {
+    return this.enqueueWithRetry(fn, priority, 0);
+  }
+
+  /**
+   * Add a request to the queue with retry logic
+   * Retries failed requests with exponential backoff
+   */
+  async enqueueWithRetry<T>(
+    fn: () => Promise<T>, 
+    priority: Priority = 'low',
+    maxRetries: number = 2
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
-      const request: QueuedRequest = {
-        url,
+      const request: QueuedRequest<T> = {
+        id: `req_${this.requestCounter++}`,
         priority,
+        fn,
         resolve,
         reject,
-        retries: 0
+        retryCount: 0,
+        maxRetries
       };
 
-      // Add to queue based on priority
+      // High priority goes to front, low priority to back
       if (priority === 'high') {
-        // High priority requests go to the front
-        this.queue.unshift(request);
+        // Insert at the front of the queue (but after other high priority items)
+        const firstLowPriorityIndex = this.queue.findIndex(r => r.priority === 'low');
+        if (firstLowPriorityIndex === -1) {
+          this.queue.push(request);
+        } else {
+          this.queue.splice(firstLowPriorityIndex, 0, request);
+        }
       } else {
-        // Low priority requests go to the back
         this.queue.push(request);
       }
 
-      // Try to process immediately
       this.processQueue();
     });
   }
 
-  /**
-   * Process queued requests
-   */
   private async processQueue() {
-    // If we're at max capacity or queue is empty, don't start new requests
-    if (this.activeRequests >= this.maxConcurrent || this.queue.length === 0) {
+    // If we're at max concurrent requests, wait
+    if (this.activeCount >= this.maxConcurrent) {
+      return;
+    }
+
+    // If queue is empty, nothing to do
+    if (this.queue.length === 0) {
+      return;
+    }
+
+    // Skip low priority requests if paused
+    if (this.lowPriorityPaused && this.queue[0].priority === 'low') {
       return;
     }
 
     // Get next request from queue
-    const request = this.queue.shift();
-    if (!request) return;
-
-    this.activeRequests++;
+    const request = this.queue.shift()!;
+    this.activeCount++;
 
     try {
-      const response = await this.fetchWithRetry(request);
-      request.resolve(response);
+      const result = await request.fn();
+      request.resolve(result);
     } catch (error) {
-      request.reject(error as Error);
+      request.lastError = error instanceof Error ? error.message : String(error);
+      
+      // Retry logic with exponential backoff
+      if (request.retryCount < request.maxRetries) {
+        request.retryCount++;
+        const backoffDelay = Math.pow(2, request.retryCount) * 1000; // 2s, 4s, 8s...
+        
+        console.log(`⚠️ Retry ${request.retryCount}/${request.maxRetries} for ${request.id} after ${backoffDelay}ms`);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        
+        // Re-add to queue at appropriate position
+        if (request.priority === 'high') {
+          const firstLowPriorityIndex = this.queue.findIndex(r => r.priority === 'low');
+          if (firstLowPriorityIndex === -1) {
+            this.queue.push(request);
+          } else {
+            this.queue.splice(firstLowPriorityIndex, 0, request);
+          }
+        } else {
+          this.queue.push(request);
+        }
+        
+        this.activeCount--;
+        this.processQueue();
+        return;
+      }
+      
+      // Max retries reached - log failure and reject
+      this.failures.push({
+        requestId: request.id,
+        error,
+        attempts: request.retryCount + 1,
+        timestamp: Date.now()
+      });
+      
+      console.error(`❌ Request ${request.id} failed after ${request.retryCount + 1} attempts:`, request.lastError);
+      request.reject(error);
     } finally {
-      this.activeRequests--;
+      this.activeCount--;
+      
+      // Add delay before processing next request (only for low-priority)
+      // This prevents overwhelming Steam's rate limit
+      if (request.priority === 'low' && this.delayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, this.delayMs));
+      }
+      
       // Process next item in queue
       this.processQueue();
     }
   }
 
   /**
-   * Fetch with exponential backoff retry logic
+   * Pause low priority queue (for showcase image loading)
    */
-  private async fetchWithRetry(request: QueuedRequest): Promise<Response> {
-    try {
-      const response = await fetch(request.url);
-
-      // Check if we got an HTML error page (rate limiting)
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('text/html')) {
-        throw new Error('Rate limited - HTML response');
-      }
-
-      return response;
-    } catch (error) {
-      // If we haven't exceeded max retries, try again with exponential backoff
-      if (request.retries < this.maxRetries) {
-        request.retries++;
-        const delay = Math.pow(2, request.retries) * 1000; // 2s, 4s, 8s
-        
-        console.log(`[RequestQueue] Retry ${request.retries}/${this.maxRetries} for ${request.url} after ${delay}ms`);
-        
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return this.fetchWithRetry(request);
-      }
-
-      // Max retries exceeded, throw error
-      throw error;
-    }
+  pauseLowPriority() {
+    this.lowPriorityPaused = true;
+    console.log('⏸️ Low priority queue paused');
   }
 
   /**
-   * Get queue statistics
+   * Resume low priority queue
    */
-  getStats() {
+  resumeLowPriority() {
+    this.lowPriorityPaused = false;
+    console.log('▶️ Low priority queue resumed');
+    this.processQueue();
+  }
+
+  /**
+   * Get current queue status for debugging
+   */
+  getStatus() {
     return {
-      queueLength: this.queue.length,
-      activeRequests: this.activeRequests,
-      maxConcurrent: this.maxConcurrent
+      active: this.activeCount,
+      queued: this.queue.length,
+      highPriority: this.queue.filter(r => r.priority === 'high').length,
+      lowPriority: this.queue.filter(r => r.priority === 'low').length,
+      paused: this.lowPriorityPaused,
+      failures: this.failures.length
     };
+  }
+
+  /**
+   * Get failure history
+   */
+  getFailures(): FailureInfo[] {
+    return [...this.failures];
+  }
+
+  /**
+   * Clear failure history
+   */
+  clearFailures() {
+    this.failures = [];
   }
 }
 
-// Export singleton instance
-export const requestQueue = new RequestQueue();
+// Export singleton instance - limit to 3 concurrent Steam API requests
+export const steamRequestQueue = new RequestQueue(3, 600);

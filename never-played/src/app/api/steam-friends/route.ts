@@ -112,7 +112,15 @@ export async function GET(request: NextRequest) {
             const personaData = await personaResponse.json();
             if (personaData.response?.players?.[0]?.personaname) {
               friendWithGames.personaname = personaData.response.players[0].personaname;
+            } else {
+              // Use last 4 digits of Steam ID for unique identification
+              const last4 = friend.steamid.slice(-4);
+              friendWithGames.personaname = `Private Profile ${last4}`;
             }
+          } else {
+            // API failed - use last 4 digits of Steam ID as fallback
+            const last4 = friend.steamid.slice(-4);
+            friendWithGames.personaname = `Private Profile ${last4}`;
           }
           
           // Get friend's game library
