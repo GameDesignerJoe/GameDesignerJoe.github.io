@@ -28,18 +28,49 @@ function isMobileDevice(): boolean {
 function handleSteamLink(appId: number, e?: React.MouseEvent) {
   if (e) e.preventDefault();
   
-  const steamProtocol = `steam://nav/games/details/${appId}`;
   const webFallback = `https://store.steampowered.com/app/${appId}`;
   
   if (isMobileDevice()) {
-    // On mobile: Try protocol, fallback to web after 1.5 seconds
-    window.location.href = steamProtocol;
+    // Mobile: Use steam://store/{appId} for Steam mobile app
+    const steamMobileProtocol = `steam://store/${appId}`;
     
+    // Try to open Steam app using a hidden iframe (prevents Safari error)
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = steamMobileProtocol;
+    document.body.appendChild(iframe);
+    
+    // Set up fallback to web store
+    let hasFocusChanged = false;
+    
+    const onBlur = () => {
+      hasFocusChanged = true;
+    };
+    
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        hasFocusChanged = true;
+      }
+    };
+    
+    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    
+    // If app doesn't open within 1.5 seconds, go to web store
     setTimeout(() => {
-      window.location.href = webFallback;
+      // Clean up iframe
+      document.body.removeChild(iframe);
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      
+      // If focus didn't change (app didn't open), go to web store
+      if (!hasFocusChanged) {
+        window.location.href = webFallback;
+      }
     }, 1500);
   } else {
-    // On desktop: Just use protocol (Steam client should be installed)
+    // Desktop: Use steam://nav/games/details/{appId} for Steam client
+    const steamProtocol = `steam://nav/games/details/${appId}`;
     window.location.href = steamProtocol;
   }
 }
