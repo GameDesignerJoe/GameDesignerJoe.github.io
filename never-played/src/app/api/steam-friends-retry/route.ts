@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
           const gamesData = await gamesResponse.json();
           if (gamesData.response?.games) {
             friendData.games = gamesData.response.games;
-            console.log(`✅ [API Retry] Success for ${steamId} (${friendData.personaname}): ${friendData.games.length} games`);
+            console.log(`✅ [API Retry] Success for ${steamId} (${friendData.personaname}): ${friendData.games?.length || 0} games`);
           } else {
             friendData.error = 'Private library';
             console.log(`⚠️ [API Retry] Private library for ${steamId} (${friendData.personaname})`);
