@@ -54,6 +54,7 @@ interface SteamGame {
   tags?: string[]; // Top 5 tags from SteamSpy
   releaseDate?: string; // Formatted release date
   price?: number; // Price in dollars
+  medianMinutes?: number | null; // Median playtime from SteamSpy (in minutes)
 }
 
 interface FailedGameRequest {
@@ -309,6 +310,14 @@ function truncateText(text: string, maxLength: number = 20): string {
   return text.slice(0, maxLength - 3) + '...';
 }
 
+// Get playtime label based on hours
+function getPlaytimeLabel(hours: number): string {
+  if (hours < 3) return 'Quick Session';
+  if (hours <= 10) return 'Weekend Game';
+  if (hours <= 30) return 'Medium Length';
+  return 'Long Haul';
+}
+
 function getSuggestion(
   games: SteamGame[], 
   blacklist: number[] = [], 
@@ -450,6 +459,7 @@ interface GameData {
   tags?: string[];
   releaseDate?: string;
   price?: number;
+  medianMinutes?: number | null;
   timestamp: number;
 }
 
@@ -500,6 +510,7 @@ async function fetchSteamSpyData(appId: number): Promise<GameData | null> {
       tags: data.tags || [],
       releaseDate: data.releaseDate,
       price: data.price,
+      medianMinutes: data.medianMinutes || null,
       timestamp: Date.now()
     };
   } catch (e) {
@@ -521,7 +532,8 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
         rating: cached.score,
         tags: cached.tags,
         releaseDate: cached.releaseDate,
-        price: cached.price
+        price: cached.price,
+        medianMinutes: cached.medianMinutes
       });
       return;
     }
@@ -533,13 +545,15 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
         rating: data.score,
         tags: data.tags,
         releaseDate: data.releaseDate,
-        price: data.price
+        price: data.price,
+        medianMinutes: data.medianMinutes
       });
       setCachedData(game.appid, {
         score: data.score,
         tags: data.tags,
         releaseDate: data.releaseDate,
-        price: data.price
+        price: data.price,
+        medianMinutes: data.medianMinutes
       });
     }
   });
@@ -1406,6 +1420,14 @@ function SuggestionCard({
             <div className="text-sm">
               ⭐ <span className="font-semibold">{game.rating}% positive</span>
               <span className="text-gray-400 ml-1">(SteamSpy)</span>
+            </div>
+          )}
+          
+          {/* 6. Median Playtime (from SteamSpy) */}
+          {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
+            <div className="text-sm">
+              ⏱️ <span className="font-semibold">Median playtime: {Math.round(game.medianMinutes / 60)} hours</span>
+              <span className="text-gray-400 ml-1">({getPlaytimeLabel(game.medianMinutes / 60)})</span>
             </div>
           )}
         </div>
@@ -3292,6 +3314,9 @@ export default function Home() {
                                   }
                                   return null;
                                 })()}
+                                {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
+                                  <li>• Median: {Math.round(game.medianMinutes / 60)}h ({getPlaytimeLabel(game.medianMinutes / 60)})</li>
+                                )}
                               </ul>
                             </div>
                           </div>

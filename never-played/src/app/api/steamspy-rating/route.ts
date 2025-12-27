@@ -64,11 +64,15 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Extract median playtime (in minutes)
+    const medianMinutes = data.median_forever || null;
+    
     return NextResponse.json({ 
       rating,
       tags,
       price,
-      releaseDate
+      releaseDate,
+      medianMinutes
     });
     
   } catch (error) {
