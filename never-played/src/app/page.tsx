@@ -1541,6 +1541,7 @@ export default function Home() {
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [showcaseCollapsed, setShowcaseCollapsed] = useState(false);
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
+  const [tagsCollapsed, setTagsCollapsed] = useState(true); // Collapsed by default
   const [steamCategoriesCache, setSteamCategoriesCache] = useState<Map<number, string[]>>(new Map());
   const [excludeVR, setExcludeVR] = useState(false);
   const [excludeMultiplayer, setExcludeMultiplayer] = useState(false);
@@ -1672,10 +1673,13 @@ export default function Home() {
     const savedStatsCollapsed = localStorage.getItem('collapsed_stats') === 'true';
     const savedShowcaseCollapsed = localStorage.getItem('collapsed_showcase') === 'true';
     const savedLibraryCollapsed = localStorage.getItem('collapsed_library') === 'true';
+    const savedTagsCollapsed = localStorage.getItem('collapsed_tags');
     setSteamIdCollapsed(savedSteamIdCollapsed);
     setStatsCollapsed(savedStatsCollapsed);
     setShowcaseCollapsed(savedShowcaseCollapsed);
     setLibraryCollapsed(savedLibraryCollapsed);
+    // Tags collapsed by default (true) unless explicitly set to false
+    setTagsCollapsed(savedTagsCollapsed === null ? true : savedTagsCollapsed === 'true');
   }, []);
   
   // Click outside handler for settings menu
@@ -3118,69 +3122,89 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  {/* Tag Filters Section */}
+                  {/* Tag Filters Section - Collapsible */}
                   <div className="border-t border-gray-700 pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold">🏷️ Filter by Tags</h3>
-                      {selectedTags.length > 0 && (
-                        <button
-                          onClick={() => setSelectedTags([])}
-                          className="text-xs text-blue-400 hover:text-blue-300 transition"
-                        >
-                          Clear filters
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => {
+                        const newState = !tagsCollapsed;
+                        setTagsCollapsed(newState);
+                        localStorage.setItem('collapsed_tags', String(newState));
+                      }}
+                      className="w-full flex items-center justify-between mb-3 hover:bg-gray-700/30 p-2 rounded transition"
+                    >
+                      <h3 className="text-sm font-semibold">
+                        🏷️ Filter by Tags
+                        {selectedTags.length > 0 && (
+                          <span className="text-xs text-blue-400 ml-2">({selectedTags.length} active)</span>
+                        )}
+                      </h3>
+                      <span className="text-gray-400">
+                        {tagsCollapsed ? '▶' : '▼'}
+                      </span>
+                    </button>
                     
-                    {(() => {
-                      // Get top 20 tags only (simplified - no expand button)
-                      const topTags = getTopTags(games, steamCategoriesCache, 20);
-                      
-                      if (ratingsLoading || topTags.length === 0) {
-                        return (
-                          <p className="text-sm text-gray-400">
-                            {ratingsLoading 
-                              ? `⏳ Loading tags... (${ratingsLoaded}/${ratingsTotal} games processed)` 
-                              : `No tags available yet (Loaded: ${games.filter(g => g.tags && g.tags.length > 0).length}/${games.length} games have tags)`}
-                          </p>
-                        );
-                      }
-                      
-                      return (
-                        <>
-                          <div className="flex flex-wrap gap-2">
-                            {topTags.map(({ tag, count }) => {
-                              const isSelected = selectedTags.includes(tag);
-                              return (
-                                <button
-                                  key={tag}
-                                  onClick={() => {
-                                    if (isSelected) {
-                                      setSelectedTags(selectedTags.filter(t => t !== tag));
-                                    } else {
-                                      setSelectedTags([...selectedTags, tag]);
-                                    }
-                                  }}
-                                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
-                                    isSelected
-                                      ? 'bg-blue-600 text-white border-2 border-blue-400'
-                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-2 border-transparent'
-                                  }`}
-                                >
-                                  {tag} ({count})
-                                </button>
-                              );
-                            })}
-                          </div>
+                    {!tagsCollapsed && (
+                      <>
+                        {selectedTags.length > 0 && (
+                          <button
+                            onClick={() => setSelectedTags([])}
+                            className="text-xs text-blue-400 hover:text-blue-300 transition mb-3"
+                          >
+                            Clear filters
+                          </button>
+                        )}
+                        
+                        {(() => {
+                          // Get top 20 tags only (simplified - no expand button)
+                          const topTags = getTopTags(games, steamCategoriesCache, 20);
                           
-                          {selectedTags.length > 0 && (
-                            <p className="text-xs text-gray-400 mt-3">
-                              Showing games with {selectedTags.length === 1 ? 'tag' : 'all tags'}: {selectedTags.join(', ')}
-                            </p>
-                          )}
-                        </>
-                      );
-                    })()}
+                          if (ratingsLoading || topTags.length === 0) {
+                            return (
+                              <p className="text-sm text-gray-400">
+                                {ratingsLoading 
+                                  ? `⏳ Loading tags... (${ratingsLoaded}/${ratingsTotal} games processed)` 
+                                  : `No tags available yet (Loaded: ${games.filter(g => g.tags && g.tags.length > 0).length}/${games.length} games have tags)`}
+                              </p>
+                            );
+                          }
+                          
+                          return (
+                            <>
+                              <div className="flex flex-wrap gap-2">
+                                {topTags.map(({ tag, count }) => {
+                                  const isSelected = selectedTags.includes(tag);
+                                  return (
+                                    <button
+                                      key={tag}
+                                      onClick={() => {
+                                        if (isSelected) {
+                                          setSelectedTags(selectedTags.filter(t => t !== tag));
+                                        } else {
+                                          setSelectedTags([...selectedTags, tag]);
+                                        }
+                                      }}
+                                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+                                        isSelected
+                                          ? 'bg-blue-600 text-white border-2 border-blue-400'
+                                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-2 border-transparent'
+                                      }`}
+                                    >
+                                      {tag} ({count})
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              
+                              {selectedTags.length > 0 && (
+                                <p className="text-xs text-gray-400 mt-3">
+                                  Showing games with {selectedTags.length === 1 ? 'tag' : 'all tags'}: {selectedTags.join(', ')}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
                   </div>
                 </div>
                 

@@ -1,6 +1,5 @@
 # Never Played - TODO List
 
-- Steam links don't work on mobile. 
 - Make sure the Time Played is working on mobile.
 - Look into getting ride of all the progress bars you have extra.
 - The friends check only seems to run when you're in that side page.
