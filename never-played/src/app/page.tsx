@@ -31,43 +31,9 @@ function handleSteamLink(appId: number, e?: React.MouseEvent) {
   const webFallback = `https://store.steampowered.com/app/${appId}`;
   
   if (isMobileDevice()) {
-    // Mobile: Use steam://store/{appId} for Steam mobile app
-    const steamMobileProtocol = `steam://store/${appId}`;
-    
-    // Try to open Steam app using a hidden iframe (prevents Safari error)
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = steamMobileProtocol;
-    document.body.appendChild(iframe);
-    
-    // Set up fallback to web store
-    let hasFocusChanged = false;
-    
-    const onBlur = () => {
-      hasFocusChanged = true;
-    };
-    
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        hasFocusChanged = true;
-      }
-    };
-    
-    window.addEventListener('blur', onBlur);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    
-    // If app doesn't open within 1.5 seconds, go to web store
-    setTimeout(() => {
-      // Clean up iframe
-      document.body.removeChild(iframe);
-      window.removeEventListener('blur', onBlur);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      
-      // If focus didn't change (app didn't open), go to web store
-      if (!hasFocusChanged) {
-        window.location.href = webFallback;
-      }
-    }, 1500);
+    // Mobile: Go directly to Steam website (it has "Open in App" button if Steam app is installed)
+    // This is more reliable than trying to deep link, which often shows error dialogs
+    window.location.href = webFallback;
   } else {
     // Desktop: Use steam://nav/games/details/{appId} for Steam client
     const steamProtocol = `steam://nav/games/details/${appId}`;
