@@ -13,6 +13,14 @@ interface Friend {
   verificationAttempts?: number;
 }
 
+interface CachedFriendsData {
+  friends: Friend[];
+  totalFriends: number;
+  friendsWithGames: number;
+  friendsWithPrivateLibraries: number;
+  lastUpdated: number;
+}
+
 interface FriendsSnapshot {
   timestamp: number;
   totalFriends: number;
@@ -196,8 +204,8 @@ export default function FriendsDebugPage() {
         
         if (cached) {
           try {
-            const cachedData = JSON.parse(cached);
-            const retryMap = new Map(result.friends.map((f: Friend) => [f.steamid, f]));
+            const cachedData: CachedFriendsData = JSON.parse(cached);
+            const retryMap = new Map<string, Friend>(result.friends.map((f: Friend) => [f.steamid, f]));
             
             // Update friends: merge retry results with existing data
             const updatedFriends = cachedData.friends.map((friend: Friend) => {
@@ -385,8 +393,8 @@ export default function FriendsDebugPage() {
           <Link href="/" className="text-blue-400 hover:text-blue-300 mb-4 inline-block">
             ← Back to Main Page
           </Link>
-          <h1 className="text-3xl font-bold mb-2">🐛 Friends Data Debug</h1>
-          <p className="text-gray-400">Analyze friends data consistency and track changes between refreshes</p>
+          <h1 className="text-3xl font-bold mb-2">👥 Friends Leaderboards</h1>
+          <p className="text-gray-400">See how you rank against your Steam friends across different stats</p>
         </div>
         
         {/* Controls */}
@@ -410,14 +418,6 @@ export default function FriendsDebugPage() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded font-medium"
               >
                 {loading ? 'Loading...' : '🔄 Refresh Data'}
-              </button>
-              
-              <button
-                onClick={takeSnapshot}
-                disabled={!friendsData}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded font-medium"
-              >
-                📸 Take Snapshot
               </button>
             </div>
           </div>
@@ -506,61 +506,6 @@ export default function FriendsDebugPage() {
             
             <div className="text-xs text-gray-400 mt-1">
               {Math.round((verificationProgress.current / verificationProgress.total) * 100)}% complete
-            </div>
-          </div>
-        )}
-        
-        {/* Snapshots Comparison */}
-        {snapshots.length > 1 && (
-          <div className="bg-gray-800 rounded-lg p-4 mb-6">
-            <h2 className="text-xl font-bold mb-3">📊 Snapshot Comparison</h2>
-            <div className="space-y-4">
-              {snapshots.slice(0, 2).map((snap, i) => {
-                if (i === 0) return null; // Skip first one, we'll compare it to second
-                
-                const comparison = compareSnapshots(snap, snapshots[0]);
-                const olderTime = new Date(snap.timestamp).toLocaleTimeString();
-                const newerTime = new Date(snapshots[0].timestamp).toLocaleTimeString();
-                
-                return (
-                  <div key={snap.timestamp} className="border border-gray-700 rounded p-3">
-                    <div className="font-semibold mb-2">
-                      Comparing: {olderTime} → {newerTime}
-                    </div>
-                    
-                    {comparison.missing.length > 0 && (
-                      <div className="mb-2">
-                        <span className="text-red-400">❌ Missing ({comparison.missing.length}):</span>
-                        <div className="text-sm text-gray-300 ml-4">
-                          {comparison.missing.map(f => f.name).join(', ')}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {comparison.added.length > 0 && (
-                      <div className="mb-2">
-                        <span className="text-green-400">✅ Added ({comparison.added.length}):</span>
-                        <div className="text-sm text-gray-300 ml-4">
-                          {comparison.added.map(f => f.name).join(', ')}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {comparison.changed.length > 0 && (
-                      <div className="mb-2">
-                        <span className="text-yellow-400">⚠️ Changed ({comparison.changed.length}):</span>
-                        <div className="text-sm text-gray-300 ml-4">
-                          {comparison.changed.map(f => f.name).join(', ')}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {comparison.missing.length === 0 && comparison.added.length === 0 && comparison.changed.length === 0 && (
-                      <div className="text-green-400">✅ No changes detected - data is stable!</div>
-                    )}
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}

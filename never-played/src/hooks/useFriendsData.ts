@@ -226,11 +226,12 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
     }
   };
 
-  // Initial fetch
+  // Initial fetch - only when steamId is valid (17 characters)
   useEffect(() => {
-    if (steamId) {
+    if (steamId && steamId.length === 17) {
       fetchFriendsData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [steamId]);
 
   // Update "time ago" every minute

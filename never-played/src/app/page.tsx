@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useFriendsData } from '@/hooks/useFriendsData';
 import { steamRequestQueue } from '@/utils/requestQueue';
 import CompassIcon from '@/components/CompassIcon';
@@ -102,9 +103,17 @@ interface LibraryStats {
   gamesWithPrice: number; // number of played games with price data
 }
 
+interface FriendsDataForSort {
+  friends: Array<{
+    steamid: string;
+    personaname: string;
+    games?: Array<{ appid: number; playtime_forever: number }>;
+  }>;
+}
+
 type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match' | 'friends-playtime-desc';
 
-function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[], friendsData?: any): SteamGame[] {
+function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[], friendsData?: FriendsDataForSort | null): SteamGame[] {
   const sorted = [...games];
   
   switch (sortBy) {
@@ -842,7 +851,9 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           {/* Total Playtime Position */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Total Playtime Position
+              <Link href="/debug/friends" className="hover:text-blue-400 transition-colors">
+                Total Playtime Position
+              </Link>
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {totalPlaytimeLeaderboard.length > 0 ? (
@@ -883,7 +894,9 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           {/* Largest Game Collection */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Largest Game Collection
+              <Link href="/debug/friends" className="hover:text-blue-400 transition-colors">
+                Largest Game Collection
+              </Link>
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {librarySizeLeaderboard.length > 0 ? (
@@ -924,7 +937,9 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           {/* Played the Most Games */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Played the Most Games
+              <Link href="/debug/friends" className="hover:text-blue-400 transition-colors">
+                Played the Most Games
+              </Link>
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {mostPlayedGamesLeaderboard.length > 0 ? (
@@ -965,7 +980,9 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
           {/* Most Played Library */}
           <div className="bg-gray-700 rounded p-4">
             <div className="text-gray-400 text-sm mb-1 text-center">
-              Most Played Library
+              <Link href="/debug/friends" className="hover:text-blue-400 transition-colors">
+                Most Played Library
+              </Link>
               <span className="text-xs text-gray-500 ml-1">({displayTimeAgo})</span>
             </div>
             {completionRateLeaderboard.length > 0 ? (
@@ -1516,6 +1533,7 @@ export default function Home() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [failedRequests, setFailedRequests] = useState<FailedGameRequest[]>([]);
   const [loadStats, setLoadStats] = useState({ total: 0, successful: 0, failed: 0 });
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
   
   // Fetch Steam Store data with caching
   const fetchStoreData = async (appId: number) => {
@@ -1640,6 +1658,26 @@ export default function Home() {
     setShowcaseCollapsed(savedShowcaseCollapsed);
     setLibraryCollapsed(savedLibraryCollapsed);
   }, []);
+  
+  // Click outside handler for settings menu
+  useEffect(() => {
+    if (!showSettingsMenu) return;
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    
+    // Add delay to prevent immediate close from the button click that opened it
+    setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 0);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSettingsMenu]);
   
   // ⚠️ CRITICAL: Load genres from localStorage into cache on mount
   // This is ESSENTIAL for Top 5 Genres to display! DO NOT REMOVE!
@@ -2618,7 +2656,7 @@ export default function Home() {
                 </details>
                 
                 {/* Settings Menu with Gear Icon */}
-                <div className="relative">
+                <div className="relative" ref={settingsMenuRef}>
                   <button
                     onClick={() => setShowSettingsMenu(!showSettingsMenu)}
                     className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition text-gray-300 flex items-center gap-1"
