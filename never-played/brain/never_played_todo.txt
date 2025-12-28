@@ -8,7 +8,6 @@
 - Need to change the button messaging in friends list once it's all done. 
 - The library saying it's confirmed all the games seems sus and not something that's useful. 
 - The showcase buttons on mobile don't look good. 
-- Collapsable option for filter tags start closed.
 - Can't get the videos to play of the games. 
 - Get the export to be readable by displaying the name of the game.
 - Get more of a Gallery view of the games you need to play.

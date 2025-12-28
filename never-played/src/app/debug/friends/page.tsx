@@ -122,11 +122,21 @@ export default function FriendsDebugPage() {
       case 'completion':
         const aTotalGames = a.games?.length || 0;
         const aPlayedGames = a.games?.filter(g => g.playtime_forever > 0).length || 0;
-        aVal = aTotalGames > 0 ? (aPlayedGames / aTotalGames) * 100 : 0;
+        const aCompletionRate = aTotalGames > 0 ? (aPlayedGames / aTotalGames) * 100 : 0;
         
         const bTotalGames = b.games?.length || 0;
         const bPlayedGames = b.games?.filter(g => g.playtime_forever > 0).length || 0;
-        bVal = bTotalGames > 0 ? (bPlayedGames / bTotalGames) * 100 : 0;
+        const bCompletionRate = bTotalGames > 0 ? (bPlayedGames / bTotalGames) * 100 : 0;
+        
+        // Primary sort by completion rate
+        if (aCompletionRate !== bCompletionRate) {
+          aVal = aCompletionRate;
+          bVal = bCompletionRate;
+        } else {
+          // Tie-breaker: sort by played games count (higher is better)
+          aVal = aPlayedGames;
+          bVal = bPlayedGames;
+        }
         break;
       case 'games':
         aVal = a.games?.length || 0;
@@ -397,7 +407,7 @@ export default function FriendsDebugPage() {
         
         {/* Controls */}
         <div className="bg-gray-800 rounded-lg p-4 mb-6">
-          <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm mb-1">Steam ID</label>
               <input
@@ -409,15 +419,48 @@ export default function FriendsDebugPage() {
               />
             </div>
             
-            <div className="flex gap-2 items-end">
+            <button
+              onClick={() => refetch()}
+              disabled={loading || !steamId}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded font-medium whitespace-nowrap"
+            >
+              {loading ? 'Loading...' : '🔄 Refresh Data'}
+            </button>
+            
+            {friendsData && (
               <button
-                onClick={() => refetch()}
-                disabled={loading || !steamId}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded font-medium"
+                onClick={() => {
+                  // Reset all verification attempts to 0 to trigger recheck
+                  const CACHE_KEY = 'steam_friends_data';
+                  const cached = localStorage.getItem(CACHE_KEY);
+                  if (cached) {
+                    const cachedData = JSON.parse(cached);
+                    const resetFriends = cachedData.friends.map((f: Friend) => ({
+                      ...f,
+                      verificationAttempts: 0
+                    }));
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                      ...cachedData,
+                      friends: resetFriends
+                    }));
+                    reloadFromCache();
+                    
+                    // Start verification immediately
+                    setTimeout(() => {
+                      const unverified = getUnverifiedFriends(resetFriends);
+                      if (unverified.length > 0) {
+                        startBackgroundVerification(unverified);
+                      }
+                    }, 100);
+                  }
+                }}
+                disabled={backgroundVerifying}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 rounded font-medium whitespace-nowrap text-sm"
+                title="Reset and recheck all friends"
               >
-                {loading ? 'Loading...' : '🔄 Refresh Data'}
+                🔄 Recheck All
               </button>
-            </div>
+            )}
           </div>
           
           {friendsData && (
@@ -439,7 +482,8 @@ export default function FriendsDebugPage() {
           const unverifiedCount = missingFriends.filter(f => (f.verificationAttempts || 0) < 2).length;
           const confirmedPrivateCount = missingFriends.filter(f => (f.verificationAttempts || 0) >= 2).length;
           
-          if (missingFriends.length === 0) return null;
+          // Only show banner if there are unverified friends
+          if (unverifiedCount === 0) return null;
           
           return (
             <div className="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">

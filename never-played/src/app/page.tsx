@@ -1431,16 +1431,16 @@ function SuggestionCard({
         </div>
         
         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <button
             onClick={onNewSuggestion}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium transition"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium transition text-sm sm:text-base"
           >
             🎲 Suggest Another
           </button>
           <button
             onClick={() => onToggleWannaPlay(game.appid)}
-            className={`px-4 py-2 rounded font-medium transition ${
+            className={`px-4 py-2 rounded font-medium transition text-sm sm:text-base ${
               wannaPlayList.includes(game.appid)
                 ? 'bg-red-700 hover:bg-red-600'
                 : 'bg-gray-700 hover:bg-gray-600'
@@ -1450,13 +1450,13 @@ function SuggestionCard({
           </button>
           <button
             onClick={() => onNeverSuggest(game.appid)}
-            className="px-4 py-2 bg-red-900/70 hover:bg-red-900 rounded font-medium transition"
+            className="px-4 py-2 bg-red-900/70 hover:bg-red-900 rounded font-medium transition text-sm sm:text-base"
           >
             🚫 Never Suggest
           </button>
           <button
             onClick={() => onTogglePlayedElsewhere(game.appid)}
-            className={`px-4 py-2 rounded font-medium transition ${
+            className={`px-4 py-2 rounded font-medium transition text-sm sm:text-base ${
               playedElsewhereList.includes(game.appid)
                 ? 'bg-blue-700 hover:bg-blue-600'
                 : 'bg-blue-900/70 hover:bg-blue-900'
@@ -1466,7 +1466,7 @@ function SuggestionCard({
           </button>
           <button
             onClick={(e) => handleSteamLink(game.appid, e)}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition"
+            className="col-span-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded font-medium transition text-sm sm:text-base"
           >
             ▶ Play Now
           </button>
