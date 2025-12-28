@@ -53,15 +53,26 @@ export async function POST(request: NextRequest) {
     
     if (personaResponse.ok) {
       const personaData = await personaResponse.json();
+      console.log(`📋 [API Single] Steam response for ${steamId}:`, {
+        hasResponse: !!personaData.response,
+        hasPlayers: !!personaData.response?.players,
+        playersLength: personaData.response?.players?.length,
+        hasPersonaName: !!personaData.response?.players?.[0]?.personaname,
+        personaName: personaData.response?.players?.[0]?.personaname
+      });
+      
       if (personaData.response?.players?.[0]?.personaname) {
+        // SUCCESS: Got real name from Steam
         friendData.personaname = personaData.response.players[0].personaname;
+        console.log(`✅ [API Single] Got real name: ${friendData.personaname}`);
       } else {
-        const last4 = steamId.slice(-4);
-        friendData.personaname = `Private Profile ${last4}`;
+        // Steam returned empty - DON'T set a fallback name
+        // Leave personaname undefined so the cache merge keeps the existing name
+        console.log(`⚠️ [API Single] Steam returned empty for ${steamId} - keeping existing name`);
       }
     } else {
-      const last4 = steamId.slice(-4);
-      friendData.personaname = `Private Profile ${last4}`;
+      // API failed - DON'T set a fallback name
+      console.log(`❌ [API Single] Steam API failed (${personaResponse.status}) for ${steamId} - keeping existing name`);
     }
     
     // Get friend's game library

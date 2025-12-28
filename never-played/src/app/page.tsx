@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useFriendsData } from '@/hooks/useFriendsData';
 import { steamRequestQueue } from '@/utils/requestQueue';
+import { verifyFriendsBackground, getUnverifiedFriends, hasAutoStarted, markAutoStarted } from '@/utils/friendsVerification';
 import CompassIcon from '@/components/CompassIcon';
 import {
   findGenreBuddies,
@@ -783,7 +784,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                       </span>
                     ) : (
                       <a
-                        href={entry.profileurl}
+                        href={entry.profileurl || `https://steamcommunity.com/profiles/${entry.steamid}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
@@ -879,7 +880,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                       </span>
                     ) : (
                       <a
-                        href={entry.profileurl}
+                        href={entry.profileurl || `https://steamcommunity.com/profiles/${entry.steamid}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
@@ -922,7 +923,7 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
                       </span>
                     ) : (
                       <a
-                        href={entry.profileurl}
+                        href={entry.profileurl || `https://steamcommunity.com/profiles/${entry.steamid}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-gray-300 hover:text-blue-400 truncate flex-1"
@@ -1521,7 +1522,7 @@ export default function Home() {
   const [playerName, setPlayerName] = useState<string>('Your');
   
   // Social features integration
-  const { friendsData, loading: friendsLoading, error: friendsError, timeAgo } = useFriendsData(steamId || null);
+  const { friendsData, loading: friendsLoading, error: friendsError, timeAgo, reloadFromCache } = useFriendsData(steamId || null);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<LoadingStage>('idle');
   const [error, setError] = useState('');
@@ -1850,6 +1851,30 @@ export default function Home() {
       clearTimeout(initialTimeout);
     };
   }, [autoRefreshEnabled, steamId, games.length]);
+  
+  // Auto-start friends verification (silent background process)
+  useEffect(() => {
+    if (!friendsData || friendsLoading) return;
+    
+    // Check if we've already auto-started this session
+    if (hasAutoStarted()) return;
+    
+    // Find unverified friends (less than 2 attempts)
+    const unverifiedFriends = getUnverifiedFriends(friendsData.friends);
+    
+    if (unverifiedFriends.length > 0) {
+      console.log('🚀 [Main Page] Auto-starting silent verification for', unverifiedFriends.length, 'friends');
+      markAutoStarted();
+      
+      // Start verification with callback to reload cache after each friend
+      verifyFriendsBackground(unverifiedFriends, {
+        onFriendVerified: () => {
+          // Silently reload friends data from cache to update UI
+          reloadFromCache();
+        }
+      });
+    }
+  }, [friendsData, friendsLoading, reloadFromCache]);
   
   // Update suggestion when games state changes (e.g., when ratings load)
   useEffect(() => {

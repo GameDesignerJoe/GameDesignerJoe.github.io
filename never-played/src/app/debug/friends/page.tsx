@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useFriendsData } from '@/hooks/useFriendsData';
+import { verifyFriendsBackground, getUnverifiedFriends, hasAutoStarted, markAutoStarted } from '@/utils/friendsVerification';
 import Link from 'next/link';
 
 interface Friend {
@@ -67,17 +68,14 @@ export default function FriendsDebugPage() {
     if (!friendsData || loading || backgroundVerifying) return;
     
     // Check if we've already auto-started this session
-    const hasAutoStarted = sessionStorage.getItem('verification_auto_started');
-    if (hasAutoStarted) return;
+    if (hasAutoStarted()) return;
     
     // Find unverified friends (not enough attempts yet)
-    const unverifiedFriends = friendsData.friends.filter(
-      f => !f.games && (f.verificationAttempts || 0) < 2
-    );
+    const unverifiedFriends = getUnverifiedFriends(friendsData.friends);
     
     if (unverifiedFriends.length > 0) {
       console.log('🚀 [Auto-Start] Beginning verification of', unverifiedFriends.length, 'unverified friends');
-      sessionStorage.setItem('verification_auto_started', 'true');
+      markAutoStarted();
       startBackgroundVerification(unverifiedFriends);
     }
   }, [friendsData, loading, backgroundVerifying]);

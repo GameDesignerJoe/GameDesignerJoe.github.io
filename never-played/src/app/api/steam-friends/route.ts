@@ -9,12 +9,14 @@ interface Friend {
 
 interface FriendWithGames extends Friend {
   personaname?: string;
+  profileurl: string;
   games?: Array<{
     appid: number;
     name: string;
     playtime_forever: number;
   }>;
   error?: string;
+  verificationAttempts?: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -97,7 +99,10 @@ export async function GET(request: NextRequest) {
       const batchStart = Date.now();
       
       const batchPromises = batch.map(async (friend) => {
-        const friendWithGames: FriendWithGames = { ...friend };
+        const friendWithGames: FriendWithGames = { 
+          ...friend,
+          profileurl: `https://steamcommunity.com/profiles/${friend.steamid}`
+        };
         
         try {
           // Get friend's persona name
@@ -116,11 +121,15 @@ export async function GET(request: NextRequest) {
               // Use last 4 digits of Steam ID for unique identification
               const last4 = friend.steamid.slice(-4);
               friendWithGames.personaname = `Private Profile ${last4}`;
+              // Mark for verification - this might not actually be a private profile
+              friendWithGames.verificationAttempts = 0;
             }
           } else {
             // API failed - use last 4 digits of Steam ID as fallback
             const last4 = friend.steamid.slice(-4);
             friendWithGames.personaname = `Private Profile ${last4}`;
+            // Mark for verification - API failed, need to retry
+            friendWithGames.verificationAttempts = 0;
           }
           
           // Get friend's game library

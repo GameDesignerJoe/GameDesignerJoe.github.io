@@ -1,6 +1,6 @@
 # Never Played - TODO List
 
-- Make sure the Time Played is working on mobile.
+
 - Look into getting ride of all the progress bars you have extra.
 - The friends check only seems to run when you're in that side page.
 - You had a faulty check on mobile for friends lists. 
@@ -17,6 +17,7 @@
 - An actual Perfect Match that hits all 5 "Must Play!" 
 - More stat info: Steam achievements 
 - Check if you really need genres and if it'll speed up your get.
+- You don't need three names for the games I think.
 
 
 ### 3. "Get Back In" view for low-playtime games
