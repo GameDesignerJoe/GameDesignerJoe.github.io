@@ -2254,17 +2254,47 @@ export default function Home() {
     const file = event.target.files?.[0];
     if (!file) return;
     
+    // Validate file type
+    if (!file.name.endsWith('.json')) {
+      alert('Please select a valid JSON file.');
+      console.error('Invalid file type:', file.name);
+      event.target.value = '';
+      return;
+    }
+    
+    console.log('📥 Starting import:', file.name, 'Size:', file.size, 'bytes');
+    
     const reader = new FileReader();
+    
+    // Add error handler for FileReader failures (critical for mobile)
+    reader.onerror = () => {
+      alert('Failed to read file. Please try again.');
+      console.error('❌ FileReader error:', reader.error);
+      event.target.value = '';
+    };
+    
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
+        
+        // Log for debugging
+        console.log('✅ File read successfully. Content length:', content?.length);
+        
+        if (!content) {
+          throw new Error('File content is empty');
+        }
+        
+        console.log('🔍 Parsing JSON...');
         const data = JSON.parse(content);
         
         // Validate structure
         if (!data.preferences || !data.version) {
           alert('Invalid preferences file format.');
+          console.error('❌ Missing preferences or version in data:', data);
           return;
         }
+        
+        console.log('✅ JSON parsed successfully:', data);
         
         // Show confirmation with what will be imported
         const counts = {
@@ -2316,14 +2346,22 @@ export default function Home() {
         }
         
         alert('Preferences imported successfully!');
+        console.log('🎉 Import complete!');
         setShowSettingsMenu(false);
       } catch (error) {
         alert('Failed to import preferences. Invalid file format.');
-        console.error('Import error:', error);
+        console.error('❌ Import error:', error);
+        if (error instanceof Error) {
+          console.error('❌ Error message:', error.message);
+          console.error('❌ Error stack:', error.stack);
+        }
+        console.error('❌ Raw content:', e.target?.result);
       }
     };
     
-    reader.readAsText(file);
+    // Explicitly specify UTF-8 encoding for mobile compatibility
+    console.log('📖 Reading file as UTF-8...');
+    reader.readAsText(file, 'UTF-8');
     event.target.value = ''; // Reset file input
   };
   

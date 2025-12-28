@@ -1,6 +1,8 @@
 # Never Played - TODO List
 
 
+- Still don't see it auto update the friends list.
+- Be able to simply hide games from your library. 
 - Get the playtime to be the second thing in the list below releast date. Actually make it the top and move release date to the very bottom. 
 - The friends check only seems to run when you're in that side page.
 - You had a faulty check on mobile for friends lists. 
