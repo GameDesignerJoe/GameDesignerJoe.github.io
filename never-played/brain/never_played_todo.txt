@@ -17,6 +17,9 @@
 - More stat info: Steam achievements 
 - Check if you really need genres and if it'll speed up your get.
 - You don't need three names for the games I think.
+- It takes forever to load the content? Is there a way to see what's taking so long and see if we can speed any of that up?
+- Remove the (Weekend Game) tags from the Median play time.
+- Get the playtime to be the second thing in the list below releast date. Actually make it the top and move release date to the very bottom. 
 
 
 ### 3. "Get Back In" view for low-playtime games

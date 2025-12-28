@@ -3235,10 +3235,8 @@ export default function Home() {
                 
                 {/* Games List */}
                 <div className="p-6">
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {filteredAndSortedGames.map((game) => {
-                      const hours = Math.floor(game.playtime_forever / 60);
-                      const minutes = game.playtime_forever % 60;
                       const neverPlayed = game.playtime_forever === 0;
                       const isPlayedElsewhere = playedElsewhereList.includes(game.appid);
                       const isIgnored = ignoredPlaytimeList.includes(game.appid);
@@ -3246,168 +3244,230 @@ export default function Home() {
                       
                       // Calculate total friend playtime for this game
                       let totalFriendPlaytime = 0;
+                      const friendsWhoPlayed: Array<{name: string, playtime: number, profileurl: string}> = [];
+                      
                       if (friendsData && friendsData.friends) {
                         friendsData.friends.forEach((friend: any) => {
                           const friendGame = friend.games?.find((g: any) => g.appid === game.appid);
-                          if (friendGame) {
+                          if (friendGame && friendGame.playtime_forever > 0) {
                             totalFriendPlaytime += friendGame.playtime_forever;
+                            friendsWhoPlayed.push({
+                              name: friend.personaname,
+                              playtime: friendGame.playtime_forever,
+                              profileurl: friend.profileurl
+                            });
                           }
                         });
                       }
-                      const friendHours = Math.floor(totalFriendPlaytime / 60);
+                      
+                      // Sort friends by playtime and take top 3
+                      const topFriends = friendsWhoPlayed
+                        .sort((a, b) => b.playtime - a.playtime)
+                        .slice(0, 3);
+                      const remainingFriends = friendsWhoPlayed.length - 3;
+                      
+                      // Get game genres for tag chips
+                      const gameGenres = steamCategoriesCache.get(game.appid) || [];
+                      
+                      // Get rating (Metacritic or SteamSpy)
+                      let rating: number | null = null;
+                      const storeKey = `steam_store_${game.appid}`;
+                      const cached = localStorage.getItem(storeKey);
+                      if (cached) {
+                        try {
+                          const parsedCache = JSON.parse(cached);
+                          rating = parsedCache.data?.metacritic || game.rating || null;
+                        } catch (e) {
+                          rating = game.rating || null;
+                        }
+                      } else {
+                        rating = game.rating || null;
+                      }
                       
                       return (
                         <div 
                           key={game.appid}
                           id={`game-${game.appid}`}
-                          className="bg-gray-700 rounded p-4 sm:p-5 transition-all sm:relative"
+                          className="bg-gray-700 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all"
                         >
-                          {/* Top link - hidden on mobile, absolute on desktop */}
-                          <button
-                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                            className="hidden sm:block sm:absolute top-2 right-2 text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap z-10"
-                            title="Scroll to top"
-                          >
-                            ↑ Top
-                          </button>
-                          
-                          <div className="flex items-start gap-3">
-                            {/* Thumbnail */}
-                            <button
-                              onClick={(e) => handleSteamLink(game.appid, e)}
-                              className="hover:opacity-80 transition-opacity flex-shrink-0"
-                            >
-                              {game.img_icon_url && (
-                                <img
-                                  src={`https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`}
-                                  alt={game.name}
-                                  className="w-12 h-12 rounded"
-                                />
-                              )}
-                            </button>
-                            
-                            {/* Title and Info */}
-                            <div className="flex-1 min-w-0 sm:pr-32">
+                          {/* Mobile: Stack Vertically, Desktop: Side by Side */}
+                          <div className="flex flex-col md:flex-row">
+                            {/* Box Art with Badges */}
+                            <div className="relative md:flex-shrink-0 md:w-56 md:h-80 bg-gray-800 overflow-hidden">
                               <button
                                 onClick={(e) => handleSteamLink(game.appid, e)}
-                                className="hover:opacity-80 transition-opacity mb-2 block w-full"
+                                className="w-full h-full hover:opacity-90 transition-opacity block"
                               >
-                                <h3 className="font-medium hover:underline text-left text-base sm:text-sm">{game.name}</h3>
-                              </button>
-                              <ul className="text-sm text-gray-400 space-y-0.5">
-                                <li>
-                                  • <span className="text-white">Playtime: {neverPlayed ? '0 hours' : formatPlaytimeDetailed(game.playtime_forever)}</span>
-                                  {isIgnored && !neverPlayed && ' 🚫'}
-                                  {isPlayedElsewhere && ' (Played Elsewhere)'}
-                                </li>
-                                {friendsData && totalFriendPlaytime > 0 && (
-                                  <>
-                                    <li>• Total Friends' Playtime: {formatPlaytimeDetailed(totalFriendPlaytime)}</li>
-                                    {(() => {
-                                      // Get top 3 friends who played this game
-                                      const friendsWhoPlayed = friendsData.friends
-                                        .map((friend: any) => {
-                                          const friendGame = friend.games?.find((g: any) => g.appid === game.appid);
-                                          if (friendGame && friendGame.playtime_forever > 0) {
-                                            return {
-                                              name: friend.personaname,
-                                              playtime: friendGame.playtime_forever,
-                                              profileurl: friend.profileurl
-                                            };
-                                          }
-                                          return null;
-                                        })
-                                        .filter((f: any) => f !== null)
-                                        .sort((a: any, b: any) => b.playtime - a.playtime)
-                                        .slice(0, 3);
-                                      
-                                      return friendsWhoPlayed.map((friend: any, idx: number) => (
-                                        <li key={idx} className="ml-4 text-xs">
-                                          →{' '}
-                                          <a
-                                            href={friend.profileurl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-400 hover:text-blue-300"
-                                          >
-                                            {friend.name}
-                                          </a>
-                                          : {formatPlaytimeDetailed(friend.playtime)}
-                                        </li>
-                                      ));
-                                    })()}
-                                  </>
-                                )}
-                                {(() => {
-                                  // Check for Metacritic score first (from Steam Store cache)
-                                  const storeKey = `steam_store_${game.appid}`;
-                                  const cached = localStorage.getItem(storeKey);
-                                  let metacriticScore = null;
-                                  
-                                  if (cached) {
-                                    try {
-                                      const parsedCache = JSON.parse(cached);
-                                      metacriticScore = parsedCache.data?.metacritic;
-                                    } catch (e) {
-                                      // Invalid cache
+                                <img
+                                  src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`}
+                                  alt={game.name}
+                                  className="w-full h-full object-cover object-center"
+                                  onError={(e) => {
+                                    const img = e.currentTarget;
+                                    if (img.src.includes('library_600x900')) {
+                                      img.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`;
+                                    } else if (img.src.includes('header.jpg')) {
+                                      img.src = `https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`;
                                     }
-                                  }
-                                  
-                                  if (metacriticScore) {
-                                    return <li>• Metacritic: {metacriticScore}</li>;
-                                  } else if (game.rating !== undefined && game.rating !== null) {
-                                    return <li>• SteamSpy Score: {game.rating}% 👍</li>;
-                                  }
-                                  return null;
-                                })()}
+                                  }}
+                                />
+                              </button>
+                              
+                              {/* Never Played Badge - Top Left */}
+                              {neverPlayed && !isPlayedElsewhere && (
+                                <div className="absolute top-2 left-2 bg-red-600/90 text-white text-xs px-2 py-1 rounded shadow-lg">
+                                  ❌ Never Played
+                                </div>
+                              )}
+                              
+                              {/* Played Elsewhere Badge - Top Left */}
+                              {isPlayedElsewhere && (
+                                <div className="absolute top-2 left-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded shadow-lg">
+                                  ✅ Played Elsewhere
+                                </div>
+                              )}
+                              
+                              {/* Rating Badge - Top Right */}
+                              {rating !== null && (
+                                <div className="absolute top-2 right-2 bg-green-600/90 text-white text-xs px-2 py-1 rounded shadow-lg">
+                                  ⭐ {rating}%
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Game Info - Right Side on Desktop */}
+                            <div className="p-4 flex-1 flex flex-col">
+                              {/* Top: Title and Scroll Button */}
+                              <div className="flex items-start justify-between mb-2">
+                                <button
+                                  onClick={(e) => handleSteamLink(game.appid, e)}
+                                  className="flex-1"
+                                >
+                                  <h3 className="font-bold text-lg hover:text-blue-400 transition text-left">
+                                    {game.name}
+                                  </h3>
+                                </button>
+                                <button
+                                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                                  className="ml-2 text-xs text-gray-400 hover:text-blue-400 transition whitespace-nowrap"
+                                  title="Scroll to top"
+                                >
+                                  ↑ Top
+                                </button>
+                              </div>
+                              
+                              {/* Info List */}
+                              <ul className="text-sm text-gray-300 space-y-1 mb-3 flex-1">
+                                <li>
+                                  • <span className="text-white font-medium">Playtime:</span> {neverPlayed ? '0 hours' : formatPlaytimeDetailed(game.playtime_forever)}
+                                  {isIgnored && !neverPlayed && ' 🚫'}
+                                </li>
+                                
                                 {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
-                                  <li>• Median: {Math.round(game.medianMinutes / 60)}h ({getPlaytimeLabel(game.medianMinutes / 60)})</li>
+                                  <li>
+                                    • <span className="text-white font-medium">Median:</span> {Math.round(game.medianMinutes / 60)}h ({getPlaytimeLabel(game.medianMinutes / 60)})
+                                  </li>
+                                )}
+                                
+                                {/* Tag Chips */}
+                                {gameGenres.length > 0 && (
+                                  <li className="flex flex-wrap gap-1 items-center">
+                                    • <span className="text-white font-medium">Tags:</span>
+                                    {gameGenres.slice(0, 3).map((genre) => (
+                                      <span
+                                        key={genre}
+                                        className="px-2 py-0.5 bg-gray-600 text-gray-200 rounded text-xs"
+                                      >
+                                        {genre}
+                                      </span>
+                                    ))}
+                                  </li>
+                                )}
+                                
+                                {/* Friends - Condensed */}
+                                {topFriends.length > 0 && (
+                                  <li>
+                                    • <span className="text-white font-medium">Friends:</span>{' '}
+                                    {topFriends.map((friend, idx) => (
+                                      <span key={idx}>
+                                        <a
+                                          href={friend.profileurl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-400 hover:text-blue-300"
+                                        >
+                                          {friend.name}
+                                        </a>
+                                        {idx < topFriends.length - 1 && ', '}
+                                      </span>
+                                    ))}
+                                    {remainingFriends > 0 && `, and ${remainingFriends} ${remainingFriends === 1 ? 'other' : 'others'}`}
+                                  </li>
                                 )}
                               </ul>
+                              
+                              {/* Action Buttons - Bottom */}
+                              <div className="flex flex-col gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                  <button
+                                    onClick={() => handleToggleWannaPlay(game.appid)}
+                                    className={`text-xs px-3 py-2 rounded transition ${
+                                      isWanted
+                                        ? 'bg-red-700 hover:bg-red-600 text-white'
+                                        : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                                    }`}
+                                    title={isWanted ? "Remove from Want To Play" : "Add to Want To Play"}
+                                  >
+                                    ❤️ Want To Play
+                                  </button>
+                                  
+                                  {neverPlayed && (
+                                    <>
+                                      <button
+                                        onClick={() => handleTogglePlayedElsewhere(game.appid)}
+                                        className={`text-xs px-3 py-2 rounded transition ${
+                                          isPlayedElsewhere
+                                            ? 'bg-blue-700 hover:bg-blue-600 text-white'
+                                            : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                                        }`}
+                                        title={isPlayedElsewhere ? "Unmark as played elsewhere" : "Mark as played elsewhere"}
+                                      >
+                                        🎮 Played Elsewhere
+                                      </button>
+                                      <button
+                                        onClick={() => handleNeverSuggest(game.appid)}
+                                        className="text-xs px-3 py-2 bg-red-900/70 hover:bg-red-900 text-gray-200 rounded transition"
+                                        title="Never suggest this game"
+                                      >
+                                        🚫 Never Suggest
+                                      </button>
+                                    </>
+                                  )}
+                                  
+                                  {!neverPlayed && (
+                                    <button
+                                      onClick={() => handleToggleIgnorePlaytime(game.appid)}
+                                      className={`text-xs px-3 py-2 rounded transition ${
+                                        isIgnored
+                                          ? 'bg-orange-700 hover:bg-orange-600 text-white'
+                                          : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                                      }`}
+                                      title={isIgnored ? "Include playtime in stats" : "Ignore playtime in stats"}
+                                    >
+                                      ⛔ Ignore Playtime
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                {/* Play Now Button - Full Width */}
+                                <button
+                                  onClick={(e) => handleSteamLink(game.appid, e)}
+                                  className="text-xs px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition font-medium"
+                                >
+                                  ▶ Play Now
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          
-                          {/* Action Buttons - stacked below on mobile, absolute on desktop */}
-                          <div className="mt-4 flex flex-col gap-2 sm:absolute sm:top-10 sm:right-4 sm:flex-col sm:items-end sm:mt-0">
-                            <button
-                              onClick={() => handleToggleWannaPlay(game.appid)}
-                              className={`text-sm sm:text-xs px-4 py-3 sm:py-1.5 rounded transition whitespace-nowrap sm:w-44 min-h-[48px] sm:min-h-0 ${
-                                isWanted
-                                  ? 'bg-red-700 hover:bg-red-600 text-red-100'
-                                  : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
-                              }`}
-                              title={isWanted ? "Remove from Want To Play" : "Add to Want To Play"}
-                            >
-                              ❤️ {isWanted ? 'Want To Play' : 'Want To Play'}
-                            </button>
-                            
-                            {neverPlayed && (
-                              <button
-                                onClick={() => handleTogglePlayedElsewhere(game.appid)}
-                                className={`text-sm sm:text-xs px-4 py-3 sm:py-1.5 rounded transition whitespace-nowrap sm:w-44 min-h-[48px] sm:min-h-0 ${
-                                  isPlayedElsewhere
-                                    ? 'bg-blue-700 hover:bg-blue-600 text-blue-100'
-                                    : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
-                                }`}
-                                title={isPlayedElsewhere ? "Mark as not played elsewhere" : "Mark as played elsewhere"}
-                              >
-                                🎮 Played Elsewhere
-                              </button>
-                            )}
-                            
-                            {!neverPlayed && (
-                              <button
-                                onClick={() => handleToggleIgnorePlaytime(game.appid)}
-                                className={`text-sm sm:text-xs px-4 py-3 sm:py-1.5 rounded transition whitespace-nowrap sm:w-44 min-h-[48px] sm:min-h-0 ${
-                                  isIgnored
-                                    ? 'bg-orange-700 hover:bg-orange-600 text-orange-100'
-                                    : 'bg-gray-600 hover:bg-gray-500 text-gray-300'
-                                }`}
-                                title={isIgnored ? "Include playtime in stats" : "Ignore playtime in stats"}
-                              >
-                                🚫 {isIgnored ? 'Playtime Ignored' : 'Ignore Playtime'}
-                              </button>
-                            )}
                           </div>
                         </div>
                       );
