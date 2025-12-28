@@ -2738,14 +2738,6 @@ export default function Home() {
                       >
                         🐛 Friends Debug
                       </a>
-                      <a
-                        href="/debug/recent-games"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
-                      >
-                        🕐 Recent Games Debug
-                      </a>
                       <button
                         onClick={() => {
                           document.getElementById('import-preferences-input')?.click();

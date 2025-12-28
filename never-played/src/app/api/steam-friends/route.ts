@@ -84,11 +84,12 @@ export async function GET(request: NextRequest) {
     const friends: Friend[] = friendsData.friendslist.friends;
     console.log('✅ [API] Found', friends.length, 'friends');
     
-    // Step 2: Fetch game libraries for each friend (in parallel, but with batching)
-    const BATCH_SIZE = 10; // Process 10 friends at a time to avoid overwhelming the API
+    // Step 2: Fetch game libraries for each friend (with rate limiting to avoid HTTP 420)
+    const BATCH_SIZE = 5; // Reduced from 10 to 5 to avoid rate limiting
+    const DELAY_BETWEEN_FRIENDS = 200; // 200ms delay between each friend to avoid rate limiting
     const friendsWithGames: FriendWithGames[] = [];
     
-    console.log('🔄 [API] Starting to fetch friend libraries in batches of', BATCH_SIZE);
+    console.log('🔄 [API] Starting to fetch friend libraries in batches of', BATCH_SIZE, 'with', DELAY_BETWEEN_FRIENDS, 'ms delay between friends');
     
     for (let i = 0; i < friends.length; i += BATCH_SIZE) {
       const batch = friends.slice(i, i + BATCH_SIZE);
@@ -98,7 +99,12 @@ export async function GET(request: NextRequest) {
       console.log(`📦 [API] Processing batch ${batchNum}/${totalBatches} (friends ${i + 1}-${Math.min(i + BATCH_SIZE, friends.length)})`);
       const batchStart = Date.now();
       
-      const batchPromises = batch.map(async (friend) => {
+      const batchPromises = batch.map(async (friend, index) => {
+        // Add delay between friends to avoid rate limiting (except for first friend in batch)
+        if (index > 0) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_FRIENDS));
+        }
+        
         const friendWithGames: FriendWithGames = { 
           ...friend,
           profileurl: `https://steamcommunity.com/profiles/${friend.steamid}`
@@ -132,8 +138,8 @@ export async function GET(request: NextRequest) {
             friendWithGames.verificationAttempts = 0;
           }
           
-          // Get friend's game library (include_played_free_games=1 is required to get rtime_last_played!)
-          const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${friend.steamid}&include_appinfo=1&include_played_free_games=1&format=json`;
+          // Get friend's game library
+          const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${friend.steamid}&include_appinfo=1&format=json`;
           const gamesResponse = await fetchWithRetry(gamesUrl, undefined, {
             maxRetries: 2,
             initialDelayMs: 1000,
