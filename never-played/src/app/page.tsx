@@ -2284,6 +2284,13 @@ export default function Home() {
           throw new Error('File content is empty');
         }
         
+        // Check if content is HTML instead of JSON (common when downloading from Slack/cloud storage)
+        if (content.trim().toLowerCase().startsWith('<!doctype') || content.trim().toLowerCase().startsWith('<html')) {
+          alert('This appears to be a web page, not a JSON file. Please make sure you downloaded the actual file, not a download/login page from Slack or other cloud storage.');
+          console.error('❌ File content is HTML, not JSON. First 500 chars:', content.substring(0, 500));
+          return;
+        }
+        
         console.log('🔍 Parsing JSON...');
         const data = JSON.parse(content);
         
