@@ -1871,33 +1871,9 @@ export default function Home() {
   //   };
   // }, [autoRefreshEnabled, steamId, games.length]);
   
-  // Auto-start friends multi-pass verification (silent background process)
-  // Runs up to 3 passes with delays to eliminate "Private Profile" false positives
-  useEffect(() => {
-    if (!friendsData || friendsLoading) return;
-    
-    // Check if we've already auto-started this session
-    if (hasAutoStarted()) return;
-    
-    // Find unverified friends (less than 2 attempts)
-    const unverifiedFriends = getUnverifiedFriends(friendsData.friends);
-    
-    if (unverifiedFriends.length > 0) {
-      console.log('🚀 [Main Page] Auto-starting MULTI-PASS verification for', unverifiedFriends.length, 'friends');
-      markAutoStarted();
-      
-      // Start multi-pass verification (3 passes: immediate, +30s, +60s)
-      verifyFriendsMultiPass(friendsData.friends, {
-        onFriendVerified: () => {
-          // Silently reload friends data from cache to update UI after each verification
-          reloadFromCache();
-        },
-        onComplete: (passNumber, hasMorePasses) => {
-          console.log(`✅ [Main Page] Pass ${passNumber} complete. More passes? ${hasMorePasses}`);
-        }
-      }, 3); // Max 3 passes
-    }
-  }, [friendsData, friendsLoading, reloadFromCache]);
+  // NOTE: Auto-verification now happens in useFriendsData hook!
+  // The hook automatically verifies "Private Profile" entries whenever friends data loads.
+  // This useEffect is kept only for the manual "Re-verify Friends" button in settings.
   
   // Update suggestion when games state changes (e.g., when ratings load)
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { verifyFriendsBackground } from '@/utils/friendsVerification';
 
 interface SteamGame {
   appid: number;
@@ -263,6 +264,10 @@ export function useFriendsData(steamId: string | null): UseFriendsDataResult {
       console.error('❌ [Friends] Failed to reload from cache:', e);
     }
   };
+  
+  // NOTE: Auto-verification disabled by user request
+  // Verification now only runs manually via "Re-verify Friends" button in settings
+  // This prevents Steam API rate limiting (420 errors) on page load
 
   return {
     friendsData,
