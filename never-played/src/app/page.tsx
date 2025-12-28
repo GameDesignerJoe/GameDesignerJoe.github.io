@@ -3359,13 +3359,13 @@ export default function Home() {
                               {/* Info List */}
                               <ul className="text-sm text-gray-300 space-y-1 mb-3 flex-1">
                                 <li>
-                                  • <span className="text-white font-medium">Playtime:</span> {neverPlayed ? '0 hours' : formatPlaytimeDetailed(game.playtime_forever)}
+                                  • <span className="text-white font-medium">Your Playtime:</span> {neverPlayed ? '0 hours' : formatPlaytimeDetailed(game.playtime_forever)}
                                   {isIgnored && !neverPlayed && ' 🚫'}
                                 </li>
                                 
                                 {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
                                   <li>
-                                    • <span className="text-white font-medium">Median:</span> {Math.round(game.medianMinutes / 60)}h ({getPlaytimeLabel(game.medianMinutes / 60)})
+                                    • <span className="text-white font-medium">Median Playtime:</span> {Math.round(game.medianMinutes / 60)} {Math.round(game.medianMinutes / 60) === 1 ? 'hour' : 'hours'}
                                   </li>
                                 )}
                                 
