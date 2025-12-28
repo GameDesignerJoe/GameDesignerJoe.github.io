@@ -54,6 +54,7 @@ interface SteamGame {
   releaseDate?: string; // Formatted release date
   price?: number; // Price in dollars
   medianMinutes?: number | null; // Median playtime from SteamSpy (in minutes)
+  averageMinutes?: number | null; // Average playtime from SteamSpy (in minutes)
 }
 
 interface FailedGameRequest {
@@ -111,7 +112,7 @@ interface FriendsDataForSort {
   }>;
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match' | 'friends-playtime-desc';
+type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match' | 'friends-playtime-desc' | 'median-playtime-desc' | 'median-playtime-asc';
 
 function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[], friendsData?: FriendsDataForSort | null): SteamGame[] {
   const sorted = [...games];
@@ -221,6 +222,32 @@ function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?
         
         // Sort by friend playtime descending (highest first)
         return bFriendPlaytime - aFriendPlaytime;
+      });
+    case 'median-playtime-desc':
+      // Sort by median playtime (high to low), games without data at bottom
+      return sorted.sort((a, b) => {
+        const aMedian = (a.medianMinutes !== undefined && a.medianMinutes !== null) ? a.medianMinutes : 0;
+        const bMedian = (b.medianMinutes !== undefined && b.medianMinutes !== null) ? b.medianMinutes : 0;
+        
+        // Games with no median playtime go to bottom
+        if (aMedian === 0 && bMedian === 0) return 0;
+        if (aMedian === 0) return 1;
+        if (bMedian === 0) return -1;
+        
+        return bMedian - aMedian;
+      });
+    case 'median-playtime-asc':
+      // Sort by median playtime (low to high), games without data at bottom
+      return sorted.sort((a, b) => {
+        const aMedian = (a.medianMinutes !== undefined && a.medianMinutes !== null) ? a.medianMinutes : 0;
+        const bMedian = (b.medianMinutes !== undefined && b.medianMinutes !== null) ? b.medianMinutes : 0;
+        
+        // Games with no median playtime go to bottom
+        if (aMedian === 0 && bMedian === 0) return 0;
+        if (aMedian === 0) return 1;
+        if (bMedian === 0) return -1;
+        
+        return aMedian - bMedian;
       });
     default:
       return sorted;
@@ -459,6 +486,7 @@ interface GameData {
   releaseDate?: string;
   price?: number;
   medianMinutes?: number | null;
+  averageMinutes?: number | null;
   timestamp: number;
 }
 
@@ -510,6 +538,7 @@ async function fetchSteamSpyData(appId: number): Promise<GameData | null> {
       releaseDate: data.releaseDate,
       price: data.price,
       medianMinutes: data.medianMinutes || null,
+      averageMinutes: data.averageMinutes || null,
       timestamp: Date.now()
     };
   } catch (e) {
@@ -532,7 +561,8 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
         tags: cached.tags,
         releaseDate: cached.releaseDate,
         price: cached.price,
-        medianMinutes: cached.medianMinutes
+        medianMinutes: cached.medianMinutes,
+        averageMinutes: cached.averageMinutes
       });
       return;
     }
@@ -545,14 +575,16 @@ async function fetchDataBatch(games: SteamGame[]): Promise<Map<number, Partial<S
         tags: data.tags,
         releaseDate: data.releaseDate,
         price: data.price,
-        medianMinutes: data.medianMinutes
+        medianMinutes: data.medianMinutes,
+        averageMinutes: data.averageMinutes
       });
       setCachedData(game.appid, {
         score: data.score,
         tags: data.tags,
         releaseDate: data.releaseDate,
         price: data.price,
-        medianMinutes: data.medianMinutes
+        medianMinutes: data.medianMinutes,
+        averageMinutes: data.averageMinutes
       });
     }
   });
@@ -626,14 +658,20 @@ function getTop5Tags(games: SteamGame[], limit: number = 5): Array<{tag: string,
 function getTop5TagsByPlaytime(games: SteamGame[], ignoredList: number[] = []): Array<{tag: string, hours: number}> {
   const tagPlaytime = new Map<string, number>();
   
+  // Tags to exclude (too generic)
+  const excludedTags = ['multiplayer', 'singleplayer', 'single-player', 'multi-player'];
+  
   games.forEach(game => {
     const effectiveTime = getEffectivePlaytime(game, ignoredList);
     if (effectiveTime === 0) return;
     
     const tags = game.tags || [];
     
-    // Add effective playtime to each tag
+    // Add effective playtime to each tag (excluding generic tags)
     tags.forEach((tag: string) => {
+      // Skip generic tags
+      if (excludedTags.includes(tag.toLowerCase())) return;
+      
       const currentHours = tagPlaytime.get(tag) || 0;
       tagPlaytime.set(tag, currentHours + (effectiveTime / 60));
     });
@@ -1165,7 +1203,8 @@ function SuggestionCard({
   steamCategoriesCache,
   friendsData,
   onToggleWannaPlay,
-  wannaPlayList
+  wannaPlayList,
+  ignoredPlaytimeList
 }: { 
   game: SteamGame | null;
   onNewSuggestion: () => void;
@@ -1181,6 +1220,7 @@ function SuggestionCard({
   friendsData: any;
   onToggleWannaPlay: (appId: number) => void;
   wannaPlayList: number[];
+  ignoredPlaytimeList: number[];
 }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
   
@@ -1249,14 +1289,14 @@ function SuggestionCard({
     ? getFriendsWithSignificantPlaytime(game.appid, friendsData.friends, 50)
     : [];
   
-  // Tag matching logic (using SteamSpy tags instead of Steam genres)
-  const playerTop5Tags = getTop5Tags(games, 5); // Get top 5 tags from all games
-  const playerTagNames = playerTop5Tags.map(t => t.tag);
-  const gameTags = game.tags || []; // SteamSpy tags from the game
-  
-  // Find matching tags
-  const matchedTags = gameTags.filter(tag => playerTagNames.includes(tag));
-  const matchCount = matchedTags.length;
+      // Tag matching logic (using SteamSpy tags based on YOUR PLAYTIME)
+      const playerTop5Tags = getTop5TagsByPlaytime(games, ignoredPlaytimeList); // Get top 5 tags by playtime
+      const playerTagNames = playerTop5Tags.map(t => t.tag);
+      const gameTags = game.tags || []; // SteamSpy tags from the game
+      
+      // Find matching tags
+      const matchedTags = gameTags.filter(tag => playerTagNames.includes(tag));
+      const matchCount = matchedTags.length;
   
   // Determine badge tier
   let badge: { emoji: string; text: string; color: string; detail: string } | null = null;
@@ -1267,7 +1307,7 @@ function SuggestionCard({
       emoji: '🎯',
       text: 'Perfect Match',
       color: 'bg-purple-600 border-purple-400',
-      detail: `Matches ${matchedTags.slice(0, 3).join(', ')}${matchedTags.length > 3 ? '...' : ''}`
+      detail: `Matches your top tags: ${matchedTags.slice(0, 3).join(', ')}${matchedTags.length > 3 ? '...' : ''}`
     };
   } else if (matchCount === 2) {
     // Your Style: Exactly 2 tags match
@@ -1275,7 +1315,7 @@ function SuggestionCard({
       emoji: '⭐',
       text: 'Your Style',
       color: 'bg-blue-600 border-blue-400',
-      detail: `Matches ${matchedTags.join(', ')}`
+      detail: `Matches your tags: ${matchedTags.join(', ')}`
     };
   } else if (matchCount === 1) {
     // Possible Hit: Exactly 1 tag match
@@ -1283,7 +1323,7 @@ function SuggestionCard({
       emoji: '⚡',
       text: 'Possible Hit',
       color: 'bg-teal-600 border-teal-400',
-      detail: `Matches ${matchedTags.join(', ')}`
+      detail: `Matches your tag: ${matchedTags.join(', ')}`
     };
   } else {
     // Outside player's tags - check for Hidden Gem or Taste Changer
@@ -1308,16 +1348,6 @@ function SuggestionCard({
       };
     }
   }
-  
-  // Debug logging
-  console.log('🎮 SuggestionCard Render:', {
-    gameName: game.name,
-    gameAppId: game.appid,
-    storeLoading,
-    hasStoreData: !!storeData,
-    headerImageUrl: storeData?.header_image,
-    storeDataKeys: storeData ? Object.keys(storeData) : null
-  });
   
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-700 shadow-xl">
@@ -1404,21 +1434,26 @@ function SuggestionCard({
         
         {/* Release Date & Social Proof */}
         <div className="bg-black/30 backdrop-blur-sm rounded p-4 mb-4 space-y-2 border border-gray-800">
-          {/* 1. Release Date */}
-          {storeData?.release_date.coming_soon ? (
+          {/* 1. Median Playtime (from SteamSpy) */}
+          {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
             <div className="text-sm">
-              📅 <span className="text-yellow-400 font-semibold">Coming Soon</span>
+              ⏱️ <span className="font-semibold">Median playtime: {Math.round(game.medianMinutes / 60)} hours</span>
             </div>
-          ) : releaseInfo ? (
+          )}
+          
+          {/* 2. Metacritic OR SteamSpy Rating (prefer Metacritic, fallback to SteamSpy) */}
+          {storeData?.metacritic ? (
             <div className="text-sm">
-              📅 <span className="font-semibold">{storeData?.release_date.date}</span>
-              <span className="text-gray-400 ml-2">({releaseInfo.text}!)</span>
+              📈 <span className="font-semibold">Metacritic: {storeData.metacritic}</span>
             </div>
-          ) : storeLoading ? (
-            <div className="h-4 bg-gray-700 rounded animate-pulse w-1/2"></div>
+          ) : game.rating !== undefined && game.rating !== null ? (
+            <div className="text-sm">
+              ⭐ <span className="font-semibold">{game.rating}% positive</span>
+              <span className="text-gray-400 ml-1">(SteamSpy)</span>
+            </div>
           ) : null}
           
-          {/* 2. Friends Love This */}
+          {/* 3. Friends Love This */}
           {friendsWhoLoveIt.length > 0 && (
             <div className="text-sm">
               🤝 {friendsWhoLoveIt.slice(0, 3).map((f, i) => (
@@ -1441,7 +1476,7 @@ function SuggestionCard({
             </div>
           )}
           
-          {/* 3. Recommendations (Steam "thumbs up" count) */}
+          {/* 4. Recommendations (Steam "thumbs up" count) */}
           {storeData?.recommendations && (
             <div className="text-sm">
               👥 <span className="font-semibold">{storeData.recommendations.toLocaleString()} players</span>
@@ -1449,28 +1484,18 @@ function SuggestionCard({
             </div>
           )}
           
-          {/* 4. Metacritic */}
-          {storeData?.metacritic && (
+          {/* 5. Release Date */}
+          {storeData?.release_date.coming_soon ? (
             <div className="text-sm">
-              📈 <span className="font-semibold">Metacritic: {storeData.metacritic}</span>
+              📅 <span className="text-yellow-400 font-semibold">Coming Soon</span>
             </div>
-          )}
-          
-          {/* 5. SteamSpy Rating (fallback if available) */}
-          {game.rating !== undefined && game.rating !== null && (
+          ) : storeData?.release_date.date ? (
             <div className="text-sm">
-              ⭐ <span className="font-semibold">{game.rating}% positive</span>
-              <span className="text-gray-400 ml-1">(SteamSpy)</span>
+              📅 <span className="font-semibold">{storeData.release_date.date}</span>
             </div>
-          )}
-          
-          {/* 6. Median Playtime (from SteamSpy) */}
-          {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
-            <div className="text-sm">
-              ⏱️ <span className="font-semibold">Median playtime: {Math.round(game.medianMinutes / 60)} hours</span>
-              <span className="text-gray-400 ml-1">({getPlaytimeLabel(game.medianMinutes / 60)})</span>
-            </div>
-          )}
+          ) : storeLoading ? (
+            <div className="h-4 bg-gray-700 rounded animate-pulse w-1/2"></div>
+          ) : null}
         </div>
         
         {/* Action Buttons */}
@@ -1522,6 +1547,23 @@ function SuggestionCard({
               🤔 How we pick a Scouted game
             </summary>
             <div className="mt-3 text-gray-300 space-y-3">
+              {/* Show player's top 5 tags for reference */}
+              {playerTop5Tags.length > 0 && (
+                <div className="bg-blue-900/20 border border-blue-800 rounded p-3">
+                  <p className="text-sm font-semibold mb-2">🏷️ Your Top 5 Tags (by playtime):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {playerTop5Tags.map((tagInfo) => (
+                      <span key={tagInfo.tag} className="px-2 py-1 bg-blue-700 text-white rounded text-xs">
+                        {tagInfo.tag}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Badges match games that have these tags
+                  </p>
+                </div>
+              )}
+              
               <div>
                 <p className="text-sm font-semibold mb-2">📊 Smart Selection (90% of the time):</p>
                 <ul className="text-sm space-y-1 ml-4">
@@ -3035,6 +3077,7 @@ export default function Home() {
                   friendsData={friendsData}
                   onToggleWannaPlay={handleToggleWannaPlay}
                   wannaPlayList={wannaPlayList}
+                  ignoredPlaytimeList={ignoredPlaytimeList}
                 />
               </div>
             )}
@@ -3224,14 +3267,16 @@ export default function Home() {
                         onChange={(e) => setSortBy(e.target.value as SortOption)}
                         className="px-3 py-1.5 bg-gray-700 rounded border border-gray-600 text-sm focus:border-blue-500 focus:outline-none"
                       >
-                        <option value="best-match">⭐ Best Match (Genre + Rating)</option>
-                        <option value="rating-desc">Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
-                        <option value="rating-asc">Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="best-match">⭐ Best Match (Tags + Rating)</option>
+                        <option value="rating-desc">📈 Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="rating-asc">📉 Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="median-playtime-desc">⏱️ Median Playtime (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
+                        <option value="median-playtime-asc">⏱️ Median Playtime (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                         <option value="friends-playtime-desc">🤝 Friends' Total Playtime (High to Low){!friendsData ? ' (loading...)' : ''}</option>
-                        <option value="name-asc">Name (A-Z)</option>
-                        <option value="name-desc">Name (Z-A)</option>
-                        <option value="playtime-asc">Playtime (Low to High)</option>
-                        <option value="playtime-desc">Playtime (High to Low)</option>
+                        <option value="name-asc">🔤 Name (A-Z)</option>
+                        <option value="name-desc">🔤 Name (Z-A)</option>
+                        <option value="playtime-asc">🎮 Your Playtime (Low to High)</option>
+                        <option value="playtime-desc">🎮 Your Playtime (High to Low)</option>
                       </select>
                     </div>
                   </div>
@@ -3452,9 +3497,9 @@ export default function Home() {
                                   {isIgnored && !neverPlayed && ' 🚫'}
                                 </li>
                                 
-                                {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && (
+                                {game.medianMinutes !== undefined && game.medianMinutes !== null && game.medianMinutes > 0 && game.averageMinutes !== undefined && game.averageMinutes !== null && game.averageMinutes > 0 && (
                                   <li>
-                                    • <span className="text-white font-medium">Median Playtime:</span> {Math.round(game.medianMinutes / 60)} {Math.round(game.medianMinutes / 60) === 1 ? 'hour' : 'hours'}
+                                    • <span className="text-white font-medium">Estimated Playtime:</span> {Math.round(game.medianMinutes / 60)}h - {Math.round(game.averageMinutes / 60)}h
                                   </li>
                                 )}
                                 

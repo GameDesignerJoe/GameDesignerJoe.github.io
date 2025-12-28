@@ -67,12 +67,16 @@ export async function GET(request: NextRequest) {
     // Extract median playtime (in minutes)
     const medianMinutes = data.median_forever || null;
     
+    // Extract average playtime (in minutes)
+    const averageMinutes = data.average_forever || null;
+    
     return NextResponse.json({ 
       rating,
       tags,
       price,
       releaseDate,
-      medianMinutes
+      medianMinutes,
+      averageMinutes
     });
     
   } catch (error) {
