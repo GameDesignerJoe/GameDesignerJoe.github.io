@@ -19,8 +19,8 @@ interface CachedFriendsData {
 }
 
 interface VerificationCallbacks {
-  onProgress?: (current: number, total: number, friendName: string) => void;
-  onComplete?: () => void;
+  onProgress?: (current: number, total: number, friendName: string, currentPass?: number, totalPasses?: number) => void;
+  onComplete?: (passNumber: number, hasMorePasses: boolean) => void;
   onFriendVerified?: (friend: Friend) => void;
 }
 
@@ -133,7 +133,90 @@ export async function verifyFriendsBackground(
   console.log('🏁 [Verification] Complete!');
   
   if (onComplete) {
-    onComplete();
+    onComplete(1, false); // passNumber: 1, hasMorePasses: false (single pass mode)
+  }
+}
+
+/**
+ * Multi-pass verification system to resolve false "Private Profile" positives
+ * Runs up to 3 passes with increasing delays between passes
+ * @param friends - All friends to check
+ * @param callbacks - Optional callbacks for progress updates
+ * @param maxPasses - Maximum number of verification passes (default: 3)
+ * @returns Promise that resolves when all passes are complete
+ */
+export async function verifyFriendsMultiPass(
+  friends: Friend[],
+  callbacks: VerificationCallbacks = {},
+  maxPasses: number = 3
+): Promise<void> {
+  const { onProgress, onComplete, onFriendVerified } = callbacks;
+  
+  console.log('🎯 [Multi-Pass] Starting multi-pass verification (max', maxPasses, 'passes)');
+  
+  for (let pass = 1; pass <= maxPasses; pass++) {
+    // Get unverified friends for this pass
+    const unverifiedFriends = getUnverifiedFriends(friends);
+    
+    if (unverifiedFriends.length === 0) {
+      console.log('✅ [Multi-Pass] No more friends to verify, stopping at pass', pass - 1);
+      if (onComplete) {
+        onComplete(pass - 1, false);
+      }
+      return;
+    }
+    
+    console.log(`🔄 [Multi-Pass] Pass ${pass}/${maxPasses}: Verifying ${unverifiedFriends.length} friends`);
+    
+    // Verify friends in this pass
+    await verifyFriendsBackground(unverifiedFriends, {
+      onProgress: (current, total, friendName) => {
+        if (onProgress) {
+          onProgress(current, total, friendName, pass, maxPasses);
+        }
+      },
+      onFriendVerified: (friend) => {
+        if (onFriendVerified) {
+          onFriendVerified(friend);
+        }
+      },
+      onComplete: (passNumber, hasMorePasses) => {
+        // Don't call onComplete here, wait until all passes are done
+      }
+    });
+    
+    // After each pass, reload friends from cache for next pass
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const cachedData: CachedFriendsData = JSON.parse(cached);
+      friends = cachedData.friends;
+    }
+    
+    // Check if we should continue
+    const stillUnverified = getUnverifiedFriends(friends);
+    const hasMorePasses = pass < maxPasses && stillUnverified.length > 0;
+    
+    if (hasMorePasses) {
+      // Calculate delay: 30s for pass 2, 60s for pass 3
+      const delayMs = pass === 1 ? 30000 : 60000;
+      const delaySec = delayMs / 1000;
+      
+      console.log(`⏰ [Multi-Pass] Pass ${pass} complete. Waiting ${delaySec}s before pass ${pass + 1}...`);
+      
+      // Call onComplete with info about next pass
+      if (onComplete) {
+        onComplete(pass, true);
+      }
+      
+      // Wait before next pass
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    } else {
+      console.log('🏁 [Multi-Pass] All passes complete!');
+      if (onComplete) {
+        onComplete(pass, false);
+      }
+      return;
+    }
   }
 }
 
@@ -174,4 +257,33 @@ export function hasAutoStarted(): boolean {
  */
 export function markAutoStarted(): void {
   sessionStorage.setItem('verification_auto_started', 'true');
+}
+
+/**
+ * Reset all friends' verification attempts to 0 (forces re-verification)
+ */
+export function resetAllVerificationAttempts(): void {
+  const cached = localStorage.getItem(CACHE_KEY);
+  if (!cached) return;
+  
+  try {
+    const cachedData: CachedFriendsData = JSON.parse(cached);
+    
+    // Reset all verification attempts to 0
+    const resetFriends = cachedData.friends.map(f => ({
+      ...f,
+      verificationAttempts: 0
+    }));
+    
+    const updatedData: CachedFriendsData = {
+      ...cachedData,
+      friends: resetFriends,
+      lastUpdated: Date.now()
+    };
+    
+    localStorage.setItem(CACHE_KEY, JSON.stringify(updatedData));
+    console.log('✅ [Verification] Reset all verification attempts to 0');
+  } catch (e) {
+    console.error('❌ [Verification] Failed to reset verification attempts:', e);
+  }
 }

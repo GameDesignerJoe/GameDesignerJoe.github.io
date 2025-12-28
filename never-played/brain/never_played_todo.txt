@@ -1,24 +1,18 @@
 # Never Played - TODO List
 
 
-- Import doesn't seem to work on mobile. 
-- Look into getting ride of all the progress bars you have extra.
+- Get the playtime to be the second thing in the list below releast date. Actually make it the top and move release date to the very bottom. 
 - The friends check only seems to run when you're in that side page.
 - You had a faulty check on mobile for friends lists. 
-- Fix the alignment on the friends page button.
-- Need to change the button messaging in friends list once it's all done. 
+- Import doesn't seem to work on mobile. 
+- Look into getting ride of all the progress bars you have extra.
 - The library saying it's confirmed all the games seems sus and not something that's useful. 
 - The showcase buttons on mobile don't look good. 
-- Can't get the videos to play of the games. 
 - Get the export to be readable by displaying the name of the game.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
+- Can't get the videos to play of the games. 
 - An actual Perfect Match that hits all 5 "Must Play!" 
-- More stat info: Steam achievements 
-- Check if you really need genres and if it'll speed up your get.
-- You don't need three names for the games I think.
-- It takes forever to load the content? Is there a way to see what's taking so long and see if we can speed any of that up?
-- Remove the (Weekend Game) tags from the Median play time.
-- Get the playtime to be the second thing in the list below releast date. Actually make it the top and move release date to the very bottom. 
+- More stat info: Steam achievements (Only if it helps you get people to play more games)
 
 
 ### 3. "Get Back In" view for low-playtime games
@@ -211,56 +205,6 @@
 - **Milestone celebrations:** Animated celebration at 25% tried
 - **Streak bonuses:** Extra XP for maintaining daily streaks
 - **Level system rewards:** Unlock new features at certain levels
-
-### Quality of Life
-- **"Currently Playing" status:** Mark games actively playing
-- **Export stats as image:** Shareable screenshot for social media
-- **Better game card design:** More polish, hover effects, animations
-- **Show game thumbnails:** Display icons in all game cards
-
----
-
-## 📝 Notes
-
-**Priority Order:**
-1. Fix bugs (#1) - ensure data accuracy
-2. Add high-value features (#2-5) - moderate effort, high impact
-3. Long-term research (#6-12) - bigger features, more planning needed
-4. Future ideas - nice-to-have, evaluate based on user feedback
-
-**Development Philosophy:**
-- Keep it simple - avoid feature bloat
-- User value first - does this help people play games?
-- Performance matters - fast is better than pretty
-- Mobile-friendly - many users browse on phones
-- Progressive enhancement - basic works, enhanced is better
-
-**Technical Debt to Watch:**
-- SteamSpy rate limiting (currently 10 parallel requests)
-- localStorage size limits (5-10MB)
-- Cache invalidation strategy
-- Error handling consistency
-- Video bandwidth usage (if implemented)
-
-### Cost Per Hour / Cost Per Minute analytics
-- New stat card showing library value efficiency
-- Calculate total money spent (from SteamSpy price data)
-- Calculate cost per hour: `Total $ / Total Hours`
-- Display in Library Stats as 6th stat
-- Format: "$X.XX per hour"
-- Only counts played games, shows count of games with price data
-
----
-
-## 📊 Success Metrics to Track
-
-After features are implemented, measure:
-- **Engagement:** Do users return after first visit?
-- **Discovery:** How many "never played" games get tried?
-- **Suggestion quality:** Do users click suggested games?
-- **Feature usage:** Which features get used most?
-- **Load times:** Is the app fast enough?
-- **Conversion:** Do suggestions lead to actual play sessions?
 
 ---
 

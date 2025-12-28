@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useFriendsData } from '@/hooks/useFriendsData';
 import { steamRequestQueue } from '@/utils/requestQueue';
-import { verifyFriendsBackground, getUnverifiedFriends, hasAutoStarted, markAutoStarted } from '@/utils/friendsVerification';
+import { verifyFriendsMultiPass, verifyFriendsBackground, getUnverifiedFriends, hasAutoStarted, markAutoStarted, resetAllVerificationAttempts } from '@/utils/friendsVerification';
 import CompassIcon from '@/components/CompassIcon';
 import {
   findGenreBuddies,
@@ -1829,7 +1829,8 @@ export default function Home() {
   //   };
   // }, [autoRefreshEnabled, steamId, games.length]);
   
-  // Auto-start friends verification (silent background process)
+  // Auto-start friends multi-pass verification (silent background process)
+  // Runs up to 3 passes with delays to eliminate "Private Profile" false positives
   useEffect(() => {
     if (!friendsData || friendsLoading) return;
     
@@ -1840,16 +1841,19 @@ export default function Home() {
     const unverifiedFriends = getUnverifiedFriends(friendsData.friends);
     
     if (unverifiedFriends.length > 0) {
-      console.log('🚀 [Main Page] Auto-starting silent verification for', unverifiedFriends.length, 'friends');
+      console.log('🚀 [Main Page] Auto-starting MULTI-PASS verification for', unverifiedFriends.length, 'friends');
       markAutoStarted();
       
-      // Start verification with callback to reload cache after each friend
-      verifyFriendsBackground(unverifiedFriends, {
+      // Start multi-pass verification (3 passes: immediate, +30s, +60s)
+      verifyFriendsMultiPass(friendsData.friends, {
         onFriendVerified: () => {
-          // Silently reload friends data from cache to update UI
+          // Silently reload friends data from cache to update UI after each verification
           reloadFromCache();
+        },
+        onComplete: (passNumber, hasMorePasses) => {
+          console.log(`✅ [Main Page] Pass ${passNumber} complete. More passes? ${hasMorePasses}`);
         }
-      });
+      }, 3); // Max 3 passes
     }
   }, [friendsData, friendsLoading, reloadFromCache]);
   
@@ -2682,7 +2686,7 @@ export default function Home() {
                   
                   {/* Dropdown Menu - Opens upward */}
                   {showSettingsMenu && (
-                    <div className="absolute right-0 bottom-full mb-1 w-48 bg-gray-800 border border-gray-600 rounded shadow-lg z-50">
+                    <div className="absolute right-0 bottom-full mb-1 w-56 bg-gray-800 border border-gray-600 rounded shadow-lg z-50">
                       <input
                         type="file"
                         id="import-preferences-input"
@@ -2698,6 +2702,44 @@ export default function Home() {
                       >
                         🐛 Friends Debug
                       </a>
+                      <button
+                        onClick={() => {
+                          if (!friendsData || !friendsData.friends) return;
+                          
+                          if (confirm('Re-verify all friends? This will check for false "Private Profile" positives in the background (takes 1-2 minutes).')) {
+                            // Reset all verification attempts to 0
+                            resetAllVerificationAttempts();
+                            
+                            // Clear session storage so verification can run again
+                            sessionStorage.removeItem('verification_auto_started');
+                            
+                            // Reload from cache
+                            reloadFromCache();
+                            
+                            // Trigger multi-pass verification
+                            console.log('🔄 [Manual] Starting manual re-verification');
+                            verifyFriendsMultiPass(friendsData.friends, {
+                              onFriendVerified: () => {
+                                reloadFromCache();
+                              },
+                              onComplete: (passNumber, hasMorePasses) => {
+                                console.log(`✅ [Manual] Pass ${passNumber} complete. More passes? ${hasMorePasses}`);
+                              }
+                            }, 3);
+                            
+                            setShowSettingsMenu(false);
+                          }
+                        }}
+                        disabled={!friendsData || !friendsData.friends}
+                        className={`w-full text-left px-4 py-2 text-sm transition border-t border-gray-700 ${
+                          !friendsData || !friendsData.friends
+                            ? 'text-gray-500 cursor-not-allowed'
+                            : 'text-blue-400 hover:bg-gray-700'
+                        }`}
+                        title={!friendsData || !friendsData.friends ? 'Load friends first' : 'Force re-check all friends'}
+                      >
+                        🔄 Re-verify Friends
+                      </button>
                       <button
                         onClick={() => {
                           document.getElementById('import-preferences-input')?.click();
