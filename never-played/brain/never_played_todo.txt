@@ -3,7 +3,6 @@
 
 - Still don't see it auto update the friends list.
 - Be able to simply hide games from your library. 
-- The friends check only seems to run when you're in that side page.
 - You had a faulty check on mobile for friends lists. 
 - Import doesn't seem to work on mobile. 
 - Look into getting ride of all the progress bars you have extra.
