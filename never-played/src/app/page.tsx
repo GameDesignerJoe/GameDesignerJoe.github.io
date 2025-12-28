@@ -605,12 +605,54 @@ function getTop5Genres(games: SteamGame[], steamCategoriesCache: Map<number, str
   return result;
 }
 
+// Get top tags from SteamSpy data (for badge matching)
+function getTop5Tags(games: SteamGame[], limit: number = 5): Array<{tag: string, count: number}> {
+  const tagCounts = new Map<string, number>();
+  
+  games.forEach(game => {
+    const tags = game.tags || [];
+    tags.forEach(tag => {
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    });
+  });
+  
+  return Array.from(tagCounts.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit);
+}
+
+// Get top tags weighted by playtime (for stats display)
+function getTop5TagsByPlaytime(games: SteamGame[], ignoredList: number[] = []): Array<{tag: string, hours: number}> {
+  const tagPlaytime = new Map<string, number>();
+  
+  games.forEach(game => {
+    const effectiveTime = getEffectivePlaytime(game, ignoredList);
+    if (effectiveTime === 0) return;
+    
+    const tags = game.tags || [];
+    
+    // Add effective playtime to each tag
+    tags.forEach((tag: string) => {
+      const currentHours = tagPlaytime.get(tag) || 0;
+      tagPlaytime.set(tag, currentHours + (effectiveTime / 60));
+    });
+  });
+  
+  const result = Array.from(tagPlaytime.entries())
+    .map(([tag, hours]) => ({ tag, hours }))
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 5);
+  
+  return result;
+}
+
 function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCategoriesCache, friendsData, ratingsLoading, ratingsLoaded, ratingsTotal, playerName }: { games: SteamGame[], playedElsewhereList: number[], ignoredPlaytimeList: number[], steamCategoriesCache: Map<number, string[]>, friendsData: { friends: any[], timeAgo: string, loading?: boolean } | null, ratingsLoading: boolean, ratingsLoaded: number, ratingsTotal: number, playerName: string }) {
   const stats = calculateStats(games, playedElsewhereList, ignoredPlaytimeList);
   const lastNewGame = getLastNewGame(games);
   const mostPlayed = getMostPlayedGame(games, ignoredPlaytimeList);
   const top5Games = getTop5MostPlayed(games, ignoredPlaytimeList);
-  const top5Genres = getTop5Genres(games, steamCategoriesCache, ignoredPlaytimeList);
+  const top5Tags = getTop5TagsByPlaytime(games, ignoredPlaytimeList);
   
   // Calculate percentage of total time for most played game
   const mostPlayedPercentage = mostPlayed && stats.totalMinutes > 0
@@ -746,18 +788,18 @@ function LibraryStats({ games, playedElsewhereList, ignoredPlaytimeList, steamCa
       </div>
       
       <div className="bg-gray-700 rounded p-5">
-        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1 text-center">Top 5 Genres</div>
-        {top5Genres.length > 0 ? (
+        <div className="text-gray-400 text-sm sm:text-xs mb-2 sm:mb-1 text-center">Top 5 Tags</div>
+        {top5Tags.length > 0 ? (
           <div className="space-y-1">
-            {top5Genres.map((item, i) => (
-              <div key={item.genre} className="flex items-center justify-between text-xs text-gray-300">
-                <span className="truncate flex-1 text-sm sm:text-xs">{i + 1}. {item.genre}</span>
+            {top5Tags.map((item, i) => (
+              <div key={item.tag} className="flex items-center justify-between text-xs text-gray-300">
+                <span className="truncate flex-1 text-sm sm:text-xs">{i + 1}. {item.tag}</span>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-sm text-gray-400 text-center">
-            No genre data yet
+            No tag data yet
           </div>
         )}
       </div>
@@ -1207,44 +1249,44 @@ function SuggestionCard({
     ? getFriendsWithSignificantPlaytime(game.appid, friendsData.friends, 50)
     : [];
   
-  // Genre matching logic
-  const playerTop5Genres = getTop5Genres(games, steamCategoriesCache);
-  const playerGenreNames = playerTop5Genres.map(g => g.genre);
-  const gameGenres = storeData?.genres || [];
+  // Tag matching logic (using SteamSpy tags instead of Steam genres)
+  const playerTop5Tags = getTop5Tags(games, 5); // Get top 5 tags from all games
+  const playerTagNames = playerTop5Tags.map(t => t.tag);
+  const gameTags = game.tags || []; // SteamSpy tags from the game
   
-  // Find matching genres
-  const matchedGenres = gameGenres.filter(genre => playerGenreNames.includes(genre));
-  const matchCount = matchedGenres.length;
+  // Find matching tags
+  const matchedTags = gameTags.filter(tag => playerTagNames.includes(tag));
+  const matchCount = matchedTags.length;
   
   // Determine badge tier
   let badge: { emoji: string; text: string; color: string; detail: string } | null = null;
   
   if (matchCount >= 3) {
-    // Perfect Match: 3+ genres match
+    // Perfect Match: 3+ tags match
     badge = {
       emoji: '🎯',
       text: 'Perfect Match',
       color: 'bg-purple-600 border-purple-400',
-      detail: `Matches ${matchedGenres.join(', ')}`
+      detail: `Matches ${matchedTags.slice(0, 3).join(', ')}${matchedTags.length > 3 ? '...' : ''}`
     };
   } else if (matchCount === 2) {
-    // Your Style: Exactly 2 genres match
+    // Your Style: Exactly 2 tags match
     badge = {
       emoji: '⭐',
       text: 'Your Style',
       color: 'bg-blue-600 border-blue-400',
-      detail: `Matches ${matchedGenres.join(', ')}`
+      detail: `Matches ${matchedTags.join(', ')}`
     };
   } else if (matchCount === 1) {
-    // Possible Hit: Exactly 1 genre match
+    // Possible Hit: Exactly 1 tag match
     badge = {
       emoji: '⚡',
       text: 'Possible Hit',
       color: 'bg-teal-600 border-teal-400',
-      detail: `Matches ${matchedGenres.join(', ')}`
+      detail: `Matches ${matchedTags.join(', ')}`
     };
   } else {
-    // Outside player's genres - check for Hidden Gem or Taste Changer
+    // Outside player's tags - check for Hidden Gem or Taste Changer
     const hasHighRating = game.rating && game.rating >= 80;
     const hasHighRecommendations = storeData?.recommendations && storeData.recommendations >= 10000;
     
@@ -1254,7 +1296,7 @@ function SuggestionCard({
         emoji: '💎',
         text: 'Hidden Gem',
         color: 'bg-cyan-600 border-cyan-400',
-        detail: 'Highly rated and popular outside your usual genres'
+        detail: 'Highly rated and popular outside your usual tags'
       };
     } else if (hasHighRating || hasHighRecommendations) {
       // Taste Changer: EITHER high rating OR high recommendations
@@ -1262,7 +1304,7 @@ function SuggestionCard({
         emoji: '🌟',
         text: 'Taste Changer',
         color: 'bg-yellow-600 border-yellow-400',
-        detail: 'Worth exploring outside your usual genres'
+        detail: 'Worth exploring outside your usual tags'
       };
     }
   }
@@ -1707,79 +1749,8 @@ export default function Home() {
     };
   }, [showSettingsMenu]);
   
-  // ⚠️ CRITICAL: Load genres from localStorage into cache on mount
-  // This is ESSENTIAL for Top 5 Genres to display! DO NOT REMOVE!
-  // Without this, genres stored in localStorage won't load into React state on page refresh
-  // and users will see "No genre data yet" even though the data exists.
-  useEffect(() => {
-    // console.log('[Genre Loader] useEffect triggered, games.length:', games.length);
-
-    if (games.length === 0) {
-      // console.log('[Genre Loader] Skipping - no games loaded yet');
-      return;
-    }
-
-    // console.log('[Genre Loader] Checking localStorage for cached genres...');
-    // console.log('[Genre Loader] First 3 game appids:', games.slice(0, 3).map(g => g.appid));
-    
-    const genreMap = new Map<number, string[]>();
-    let loadedCount = 0;
-    let totalCacheEntries = 0;
-    let sampleCache: any | null = null;
-    
-    // Check each game's Steam Store cache for genres
-    games.forEach((game, index) => {
-      const cacheKey = `steam_store_${game.appid}`;
-      const cached = localStorage.getItem(cacheKey);
-      
-      if (cached) {
-        totalCacheEntries++;
-        try {
-          const parsedCache = JSON.parse(cached);
-          
-          // DEBUG: Show first cache entry structure
-          if (index === 0 && !sampleCache) {
-            sampleCache = parsedCache;
-            console.log(`[Genre Loader] SAMPLE CACHE STRUCTURE for ${game.appid}:`, {
-              hasData: !!parsedCache.data,
-              hasGenres: !!parsedCache.data?.genres,
-              genresType: typeof parsedCache.data?.genres,
-              genresLength: parsedCache.data?.genres?.length,
-              genresValue: parsedCache.data?.genres,
-              fullStructure: parsedCache
-            });
-          }
-          
-          if (parsedCache.data?.genres && parsedCache.data.genres.length > 0) {
-            genreMap.set(game.appid, parsedCache.data.genres);
-            loadedCount++;
-            if (loadedCount <= 3) { // Only log first 3
-              console.log(`[Genre Loader] ✅ Found genres for game ${game.appid} (${game.name}): ${parsedCache.data.genres.join(', ')}`);
-            }
-          } else {
-            if (index < 3) { // Only log first 3 failures
-              console.warn(`[Genre Loader] ❌ Game ${game.appid} (${game.name}) has cache but NO GENRES`);
-            }
-          }
-        } catch (e) {
-          console.error(`[Genre Loader] Failed to parse cache for game ${game.appid}:`, e);
-        }
-      } else {
-        if (index < 3) { // Only log first 3 missing
-          console.warn(`[Genre Loader] ⚠️ No cache found for game ${game.appid} (${game.name})`);
-        }
-      }
-    });
-    
-    console.log(`[Genre Loader] Summary: Found ${totalCacheEntries} cache entries out of ${games.length} games, ${loadedCount} have genres`);
-    
-    if (loadedCount > 0) {
-      console.log(`[Genre Loader] ✅ SUCCESS! Loaded ${loadedCount} games with genres from localStorage`);
-      setSteamCategoriesCache(genreMap);
-    } else {
-      console.log('[Genre Loader] ℹ️ No cached genres found - will fetch in background');
-    }
-  }, [games]);
+  // REMOVED: Genre loading from localStorage - no longer fetching Steam Store genres
+  // Using SteamSpy tags instead for matching and filtering
   
   // Load never suggest list from localStorage on mount
   useEffect(() => {
@@ -2530,11 +2501,9 @@ export default function Home() {
     for (let i = 0; i < prioritized.length; i += BATCH_SIZE) {
       const batch = prioritized.slice(i, i + BATCH_SIZE);
       
-      // Fetch both SteamSpy data AND Steam Store categories in parallel
-      const [batchData, batchCategories] = await Promise.all([
-        fetchDataBatch(batch),
-        fetchCategoriesBatch(batch)
-      ]);
+      // Fetch only SteamSpy data (ratings, tags, prices, median playtime)
+      // NO LONGER fetching Steam Store genres - using SteamSpy tags instead
+      const batchData = await fetchDataBatch(batch);
       
       // Update games with new data (ratings, tags, release dates, prices)
       setGames(prevGames => {
@@ -2545,15 +2514,6 @@ export default function Home() {
           }
           return game;
         });
-      });
-      
-      // Update categories cache
-      setSteamCategoriesCache(prev => {
-        const newCache = new Map(prev);
-        batchCategories.forEach((categories, appId) => {
-          newCache.set(appId, categories);
-        });
-        return newCache;
       });
       
       loadedCount += batch.length;
