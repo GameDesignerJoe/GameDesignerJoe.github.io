@@ -4,6 +4,7 @@ import { fetchWithRetry } from '@/utils/fetchWithRetry';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const appid = searchParams.get('appid');
+  const mode = searchParams.get('mode') || 'full'; // 'minimal' or 'full'
   
   if (!appid) {
     return NextResponse.json(
@@ -67,29 +68,32 @@ export async function GET(request: NextRequest) {
       ?.map((c: any) => c.description)
       .filter((desc: string) => INCLUDED_CATEGORIES.includes(desc)) || [];
     
-    // Extract relevant fields
-    const storeInfo = {
-      name: game.name || null,
-      short_description: game.short_description || null,
+    // Build response based on mode
+    // MINIMAL mode: Only essential fields for filtering/sorting (70-80% smaller cache)
+    // FULL mode: All fields including description for showcase display
+    const storeInfo: any = {
+      genres: game.genres?.map((g: any) => g.description) || [],
       header_image: game.header_image || null,
       release_date: {
         date: game.release_date?.date || null,
         coming_soon: game.release_date?.coming_soon || false
       },
-      genres: game.genres?.map((g: any) => g.description) || [],
-      categories: categories,
-      metacritic: game.metacritic?.score || null,
       recommendations: game.recommendations?.total || null,
-      developers: game.developers || [],
-      publishers: game.publishers || [],
-      // Steam user review data
-      positive_reviews: game.positive || null,
-      negative_reviews: game.negative || null,
-      review_score: game.review_score || null,
-      review_score_desc: game.review_score_desc || null,
-      // Video/trailer data - handle different possible structures
-      movies: game.movies?.map((movie: any) => {
-        // Steam API can return videos in different formats
+    };
+    
+    // Add full details only in 'full' mode (for showcase display)
+    if (mode === 'full') {
+      storeInfo.name = game.name || null;
+      storeInfo.short_description = game.short_description || null;
+      storeInfo.categories = categories;
+      storeInfo.metacritic = game.metacritic?.score || null;
+      storeInfo.developers = game.developers || [];
+      storeInfo.publishers = game.publishers || [];
+      storeInfo.positive_reviews = game.positive || null;
+      storeInfo.negative_reviews = game.negative || null;
+      storeInfo.review_score = game.review_score || null;
+      storeInfo.review_score_desc = game.review_score_desc || null;
+      storeInfo.movies = game.movies?.map((movie: any) => {
         const webm_480 = movie.webm?.['480'] || movie.webm?.max || movie.webm;
         const mp4_480 = movie.mp4?.['480'] || movie.mp4?.max || movie.mp4;
         const mp4_max = movie.mp4?.max || movie.mp4;
@@ -102,8 +106,8 @@ export async function GET(request: NextRequest) {
           mp4_480,
           mp4_max
         };
-      }) || []
-    };
+      }) || [];
+    }
     
     return NextResponse.json(storeInfo);
     

@@ -1,6 +1,7 @@
 # Never Played - TODO List
 
 
+- Import doesn't seem to work on mobile. 
 - Look into getting ride of all the progress bars you have extra.
 - The friends check only seems to run when you're in that side page.
 - You had a faulty check on mobile for friends lists. 
@@ -10,8 +11,6 @@
 - The showcase buttons on mobile don't look good. 
 - Can't get the videos to play of the games. 
 - Get the export to be readable by displaying the name of the game.
-- Get more of a Gallery view of the games you need to play.
-- Need to figure out where to get good images.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
 - An actual Perfect Match that hits all 5 "Must Play!" 
 - More stat info: Steam achievements 

@@ -3,6 +3,7 @@ interface SteamGame {
   name: string;
   playtime_forever: number;
   img_icon_url?: string;
+  rtime_last_played?: number; // Unix timestamp of when last played
 }
 
 interface Friend {
@@ -536,6 +537,142 @@ export function getCompletionRateLeaderboard(
   result.push(...entries.slice(start, end));
   
   return result;
+}
+
+interface TrendingGame {
+  appid: number;
+  name: string;
+  friendCount: number;
+  friends: Array<{
+    name: string;
+    steamid: string;
+    profileurl: string;
+    playtime: number;
+  }>;
+}
+
+/**
+ * Get trending games (played in last 30 days) sorted by friend count
+ * Returns top 10 games with friend details sorted by playtime
+ */
+export function getTrendingWithFriends(
+  friends: Friend[],
+  daysRecent: number = 30
+): TrendingGame[] {
+  const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
+  const cutoff = now - (daysRecent * 24 * 60 * 60); // X days ago
+  
+  console.log('🔥 [Trending] Starting analysis:', {
+    friendCount: friends.length,
+    cutoffDate: new Date(cutoff * 1000).toISOString(),
+    nowDate: new Date(now * 1000).toISOString()
+  });
+  
+  // Map of appid -> game data
+  const trendingMap = new Map<number, {
+    name: string;
+    friends: Array<{
+      name: string;
+      steamid: string;
+      profileurl: string;
+      playtime: number;
+      lastPlayed: number;
+    }>;
+  }>();
+  
+  // Process each friend's games
+  let totalGamesChecked = 0;
+  let gamesWithTimestamp = 0;
+  let recentGames = 0;
+  
+  friends.forEach(friend => {
+    if (!friend.games || friend.games.length === 0) {
+      console.log(`🔥 [Trending] Friend ${friend.personaname} has no games`);
+      return;
+    }
+    
+    let friendRecentGames = 0;
+    
+    friend.games.forEach(game => {
+      totalGamesChecked++;
+      
+      if (game.rtime_last_played) {
+        gamesWithTimestamp++;
+      }
+      
+      // Check if game was played recently
+      if (game.rtime_last_played && game.rtime_last_played > cutoff) {
+        recentGames++;
+        friendRecentGames++;
+        const existing = trendingMap.get(game.appid);
+        
+        if (existing) {
+          // Add this friend to the existing game
+          existing.friends.push({
+            name: friend.personaname,
+            steamid: friend.steamid,
+            profileurl: friend.profileurl,
+            playtime: game.playtime_forever,
+            lastPlayed: game.rtime_last_played
+          });
+        } else {
+          // Create new entry for this game
+          trendingMap.set(game.appid, {
+            name: game.name,
+            friends: [{
+              name: friend.personaname,
+              steamid: friend.steamid,
+              profileurl: friend.profileurl,
+              playtime: game.playtime_forever,
+              lastPlayed: game.rtime_last_played
+            }]
+          });
+        }
+      }
+    });
+    
+    if (friendRecentGames > 0) {
+      console.log(`🔥 [Trending] Friend ${friend.personaname} has ${friendRecentGames} recent games`);
+    }
+  });
+  
+  console.log('🔥 [Trending] Summary:', {
+    totalGamesChecked,
+    gamesWithTimestamp,
+    recentGames,
+    trendingGamesFound: trendingMap.size
+  });
+  
+  // Convert to array and sort
+  const trendingGames: TrendingGame[] = Array.from(trendingMap.entries())
+    .map(([appid, data]) => {
+      // Sort friends by playtime (highest first)
+      const sortedFriends = data.friends
+        .sort((a, b) => b.playtime - a.playtime)
+        .map(({ name, steamid, profileurl, playtime }) => ({
+          name,
+          steamid,
+          profileurl,
+          playtime
+        }));
+      
+      return {
+        appid,
+        name: data.name,
+        friendCount: data.friends.length,
+        friends: sortedFriends
+      };
+    })
+    // Sort by friend count (descending), then by name for stability
+    .sort((a, b) => {
+      if (b.friendCount !== a.friendCount) {
+        return b.friendCount - a.friendCount;
+      }
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, 10); // Take top 10
+  
+  return trendingGames;
 }
 
 /**

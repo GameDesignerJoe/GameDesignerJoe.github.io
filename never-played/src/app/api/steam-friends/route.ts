@@ -132,8 +132,8 @@ export async function GET(request: NextRequest) {
             friendWithGames.verificationAttempts = 0;
           }
           
-          // Get friend's game library
-          const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${friend.steamid}&include_appinfo=1&format=json`;
+          // Get friend's game library (include_played_free_games=1 is required to get rtime_last_played!)
+          const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${friend.steamid}&include_appinfo=1&include_played_free_games=1&format=json`;
           const gamesResponse = await fetchWithRetry(gamesUrl, undefined, {
             maxRetries: 2,
             initialDelayMs: 1000,

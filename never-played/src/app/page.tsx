@@ -16,7 +16,8 @@ import {
   getTotalPlaytimeLeaderboard,
   getLibrarySizeLeaderboard,
   getCompletionRateLeaderboard,
-  getMostPlayedGamesLeaderboard
+  getMostPlayedGamesLeaderboard,
+  getTrendingWithFriends
 } from '@/utils/genreAffinity';
 
 // Detect if user is on mobile device
@@ -449,7 +450,7 @@ function getLastNewGame(games: SteamGame[]): { game: SteamGame, daysAgo: number 
 }
 
 // Cache version - increment when API structure changes
-const STEAM_STORE_CACHE_VERSION = 2;
+const STEAM_STORE_CACHE_VERSION = 3;
 
 // Enhanced data cache interface
 interface GameData {
@@ -1541,6 +1542,7 @@ export default function Home() {
   const [steamIdCollapsed, setSteamIdCollapsed] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(false);
   const [showcaseCollapsed, setShowcaseCollapsed] = useState(false);
+  const [trendingCollapsed, setTrendingCollapsed] = useState(false);
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [tagsCollapsed, setTagsCollapsed] = useState(true); // Collapsed by default
   const [steamCategoriesCache, setSteamCategoriesCache] = useState<Map<number, string[]>>(new Map());
@@ -1673,11 +1675,13 @@ export default function Home() {
     const savedSteamIdCollapsed = localStorage.getItem('collapsed_steamId') === 'true';
     const savedStatsCollapsed = localStorage.getItem('collapsed_stats') === 'true';
     const savedShowcaseCollapsed = localStorage.getItem('collapsed_showcase') === 'true';
+    const savedTrendingCollapsed = localStorage.getItem('collapsed_trending') === 'true';
     const savedLibraryCollapsed = localStorage.getItem('collapsed_library') === 'true';
     const savedTagsCollapsed = localStorage.getItem('collapsed_tags');
     setSteamIdCollapsed(savedSteamIdCollapsed);
     setStatsCollapsed(savedStatsCollapsed);
     setShowcaseCollapsed(savedShowcaseCollapsed);
+    setTrendingCollapsed(savedTrendingCollapsed);
     setLibraryCollapsed(savedLibraryCollapsed);
     // Tags collapsed by default (true) unless explicitly set to false
     setTagsCollapsed(savedTagsCollapsed === null ? true : savedTagsCollapsed === 'true');
@@ -1828,29 +1832,31 @@ export default function Home() {
     setAutoRefreshEnabled(true);
   }, []);
   
-  // Set up auto-refresh polling interval (10-15 minutes) - always enabled
-  useEffect(() => {
-    if (!steamId || games.length === 0) return;
-    
-    // Random interval between 10-15 minutes (in milliseconds)
-    const minInterval = 10 * 60 * 1000; // 10 minutes
-    const maxInterval = 15 * 60 * 1000; // 15 minutes
-    const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
-    
-    const intervalId = setInterval(() => {
-      silentLibraryCheck();
-    }, interval);
-    
-    // Also run an initial check after 30 seconds
-    const initialTimeout = setTimeout(() => {
-      silentLibraryCheck();
-    }, 30000);
-    
-    return () => {
-      clearInterval(intervalId);
-      clearTimeout(initialTimeout);
-    };
-  }, [autoRefreshEnabled, steamId, games.length]);
+  // DISABLED: Auto-refresh polling interval
+  // User requested to disable automatic checking to prevent unnecessary API calls
+  // Manual refresh is still available on the debug/recent-games page
+  // useEffect(() => {
+  //   if (!steamId || games.length === 0) return;
+  //   
+  //   // Random interval between 10-15 minutes (in milliseconds)
+  //   const minInterval = 10 * 60 * 1000; // 10 minutes
+  //   const maxInterval = 15 * 60 * 1000; // 15 minutes
+  //   const interval = Math.floor(Math.random() * (maxInterval - minInterval + 1)) + minInterval;
+  //   
+  //   const intervalId = setInterval(() => {
+  //     silentLibraryCheck();
+  //   }, interval);
+  //   
+  //   // Also run an initial check after 30 seconds
+  //   const initialTimeout = setTimeout(() => {
+  //     silentLibraryCheck();
+  //   }, 30000);
+  //   
+  //   return () => {
+  //     clearInterval(intervalId);
+  //     clearTimeout(initialTimeout);
+  //   };
+  // }, [autoRefreshEnabled, steamId, games.length]);
   
   // Auto-start friends verification (silent background process)
   useEffect(() => {
@@ -2326,9 +2332,10 @@ export default function Home() {
     }
     
     // Fetch from API with LOW PRIORITY (background genre loading) + RETRY
+    // Use minimal mode to reduce cache size (70-80% smaller)
     try {
       const response = await steamRequestQueue.enqueueWithRetry(
-        () => fetch(`/api/steam-store?appid=${appId}`),
+        () => fetch(`/api/steam-store?appid=${appId}&mode=minimal`),
         'low',
         2  // 2 retry attempts for genres too
       );
@@ -2731,6 +2738,14 @@ export default function Home() {
                       >
                         🐛 Friends Debug
                       </a>
+                      <a
+                        href="/debug/recent-games"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition text-gray-300"
+                      >
+                        🕐 Recent Games Debug
+                      </a>
                       <button
                         onClick={() => {
                           document.getElementById('import-preferences-input')?.click();
@@ -2904,6 +2919,86 @@ export default function Home() {
             )}
           </div>
         )}
+        
+        {/* Trending With Friends - DISABLED temporarily until recent play data is verified */}
+        {/* {games.length > 0 && friendsData && friendsData.friends && friendsData.friends.length > 0 && (
+          <div className="bg-gray-800 rounded-lg overflow-hidden mb-6">
+            <button
+              onClick={() => {
+                const newState = !trendingCollapsed;
+                setTrendingCollapsed(newState);
+                localStorage.setItem('collapsed_trending', String(newState));
+              }}
+              className="w-full px-6 py-5 sm:py-4 flex items-center justify-between hover:bg-gray-750 transition-colors active:bg-gray-700"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-2xl sm:text-xl font-bold">🔥 Trending With Friends</span>
+                <span className="text-xs text-gray-400">({timeAgo})</span>
+              </div>
+              <span className="text-gray-400 text-xl">
+                {trendingCollapsed ? '▶' : '▼'}
+              </span>
+            </button>
+            
+            {!trendingCollapsed && (() => {
+              const trendingGames = getTrendingWithFriends(friendsData.friends);
+              
+              if (trendingGames.length === 0) {
+                return (
+                  <div className="p-6 border-t border-gray-700 text-center text-gray-400">
+                    No games played in the last 30 days
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="p-6 border-t border-gray-700">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {trendingGames.map((game) => {
+                      const friendNames = game.friends.slice(0, 5).map(f => f.name).join(', ');
+                      const hasMore = game.friends.length > 5;
+                      const moreCount = game.friends.length - 5;
+                      
+                      return (
+                        <div key={game.appid} className="flex flex-col">
+                          <button
+                            onClick={(e) => handleSteamLink(game.appid, e)}
+                            className="relative w-full aspect-[2/3] bg-gray-900 rounded overflow-hidden hover:scale-105 transition-transform shadow-lg hover:shadow-xl"
+                          >
+                            <img
+                              src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/library_600x900.jpg`}
+                              alt={game.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const img = e.currentTarget;
+                                if (img.src.includes('library_600x900')) {
+                                  img.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appid}/header.jpg`;
+                                } else if (img.src.includes('header.jpg')) {
+                                  const iconUrl = games.find(g => g.appid === game.appid)?.img_icon_url;
+                                  if (iconUrl) {
+                                    img.src = `https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${iconUrl}.jpg`;
+                                  }
+                                }
+                              }}
+                            />
+                            <div className="absolute top-2 right-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded shadow-lg">
+                              👥 {game.friendCount}
+                            </div>
+                          </button>
+                          
+                          <div className="mt-2 text-xs text-gray-400 line-clamp-2" title={game.friends.map(f => f.name).join(', ')}>
+                            {friendNames}
+                            {hasMore && ` +${moreCount} more`}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )} */}
         
         {/* Game Suggestion */}
         {suggestion && (
