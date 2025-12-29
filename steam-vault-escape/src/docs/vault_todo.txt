@@ -1,15 +1,11 @@
 To Do:
 - The cost is way off. I can unlock all of my locked games in a matter of minutes. 
 - I don't feel like I need to go play my unplayed games. 
-
-
 - Might just be able to call it "Steam Vault" and not do the whole escape thing. 
 - Lots of images aren't being displayed correctly, likey because Steam is bouncing you. 
 - 10 points is way to cheap. Should be at least 100. 
 - Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
-- Clicking "play" doesn't load the steam store. 
 - Need to see 'number go up' as well as 'bar go up' for passives. 
-- Lose the hours played. We just need the per click and passive numbers. 7.2/3.6
 - Need to test at some point that you have actually unlocked a game by playing it. 
 
 

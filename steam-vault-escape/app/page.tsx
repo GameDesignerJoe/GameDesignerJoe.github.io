@@ -244,21 +244,12 @@ export default function Home() {
     console.log(`Unlocked ${game.name}!`);
   }
 
-  // Handle "playing" a Liberation Key (simulated)
+  // Handle "playing" a Liberation Key - opens Steam app
   function handlePlayLiberationKey(game: VaultGameState) {
     if (game.state !== 'liberationKey') return;
     
-    // Simulate playing for 30 minutes
-    const bonusPoints = 50 + (30 * 0.5); // Base 50 + 15 = 65 points
-    
-    // Award bonus points
-    setPoints(prev => prev + bonusPoints);
-    
-    // Unlock the game (it's now playable!)
-    setUnlockedGames(prev => [...prev, game.appid]);
-    
-    // Show success message
-    console.log(`🎉 Liberation Key activated! ${game.name} unlocked with +${bonusPoints} bonus points!`);
+    // Open Steam app directly to the game's store page
+    window.location.href = `steam://store/${game.appid}`;
   }
 
   async function fetchLibrary() {
@@ -732,6 +723,7 @@ function GameGrid({
             height: `${rowVirtualizer.getTotalSize()}px`,
             width: '100%',
             position: 'relative',
+            paddingTop: '8px',
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -749,7 +741,7 @@ function GameGrid({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-1">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-2 py-1">
                   {rowGames.map((game) => (
                     <GameCard
                       key={game.appid}
