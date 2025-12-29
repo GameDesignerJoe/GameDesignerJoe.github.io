@@ -1,10 +1,8 @@
 To Do:
-- Get rid of the frame around the card section. 
-
 - The cost is way off. I can unlock all of my locked games in a matter of minutes. 
 - I don't feel like I need to go play my unplayed games. 
-- I think I need to 'slot' five games that earn passives and one that I can click on... or maybe all I can click on. 
-- Create different 'click' behaviors based off of the type of game it is. 
+
+
 - Might just be able to call it "Steam Vault" and not do the whole escape thing. 
 - Lots of images aren't being displayed correctly, likey because Steam is bouncing you. 
 - 10 points is way to cheap. Should be at least 100. 
@@ -19,6 +17,8 @@ To Do:
 
 
 Big Designs
+- Create different 'click' behaviors based off of the type of game it is. 
+- I think I need to 'slot' five games that earn passives and one that I can click on... or maybe all I can click on. 
 - Have different games have different strengths and they are picked for the slots that you put them in. 
     - DPS
     - Armor

@@ -422,11 +422,7 @@ export default function Home() {
 
         {/* Featured Game Section */}
         {featuredGame && (
-          <div className="bg-gradient-to-r from-vault-blue to-vault-gray rounded-lg p-6 mb-8 border-2 border-vault-accent shadow-xl relative overflow-hidden">
-            <div className="absolute top-2 left-2 text-xs font-bold text-vault-accent uppercase tracking-wider">
-              ⭐ Featured Game
-            </div>
-            <div className="flex flex-col items-center mt-4">
+          <div className="flex flex-col items-center mb-8">
               {/* Clickable Game Image */}
               <div className="relative mb-6">
                 <button
@@ -488,7 +484,6 @@ export default function Home() {
                   👆 +{featuredGame.clickValue} / ⏳ +{featuredGame.passiveRate}
                 </div>
               </div>
-            </div>
           </div>
         )}
 
