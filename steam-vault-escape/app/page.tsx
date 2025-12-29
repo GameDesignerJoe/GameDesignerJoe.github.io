@@ -405,9 +405,6 @@ export default function Home() {
               ⭐ Featured Game
             </div>
             <div className="flex flex-col items-center mt-4">
-              {/* Game Title */}
-              <h2 className="text-3xl font-bold mb-6 text-center">{featuredGame.name}</h2>
-              
               {/* Clickable Game Image */}
               <div className="relative mb-6">
                 <button
@@ -445,15 +442,9 @@ export default function Home() {
               </div>
               
               {/* Game Details */}
-              <div className="text-center space-y-2">
-                <div className="text-gray-300">
-                  {featuredGame.hoursPlayed.toFixed(1)} hours played
-                </div>
+              <div className="text-center">
                 <div className="text-2xl font-bold text-vault-gold">
-                  👆 +{featuredGame.clickValue} per click
-                </div>
-                <div className="text-sm text-gray-400">
-                  Passive: +{featuredGame.passiveRate}/sec
+                  👆 +{featuredGame.clickValue} / ⏳ +{featuredGame.passiveRate}
                 </div>
               </div>
             </div>

@@ -1,5 +1,4 @@
 To Do:
-- The click number needs to flyout in a randomdirection from the edge of the game, starting small then growing and fading out. 
 - Get rid of the frame around the card section. 
 
 - The cost is way off. I can unlock all of my locked games in a matter of minutes. 
