@@ -1,0 +1,641 @@
+# Steam Vault Escape - Game Design Document
+
+**Version:** 1.0  
+**Date:** December 28, 2024  
+**Status:** Pre-Production
+
+---
+
+## Executive Summary
+
+**Steam Vault Escape** is an idle clicker game that gamifies playing unplayed Steam games by trapping the player's already-played games in "The Vault." The only way to free these games is by playing the games they've been avoiding - turning backlog anxiety into a playful progression system.
+
+**Core Loop:**
+- Player's played games are locked and cost points to unlock
+- Unplayed games (Liberation Keys) can be played on Steam for 30 minutes to unlock them
+- Unlocked games generate passive points and can be actively clicked
+- Points are spent to unlock more played games
+- Goal: Unlock entire library by playing neglected games
+
+**Target Audience:** Steam users with large backlogs (100-300+ games) who want motivation to try unplayed titles.
+
+**Platform:** Web application (integrates with Steam API)
+
+---
+
+## Game Vision & Goals
+
+### **Primary Goal:**
+Drive players to actually play their unplayed Steam games by making it the fastest path to progression.
+
+### **Player Experience Goals:**
+- **Immediate engagement:** Satisfying click feedback, numbers go up
+- **Clear purpose:** "Free my trapped games"
+- **Meaningful choices:** Which games to unlock? Which keys to play?
+- **Sense of accomplishment:** Watching library unlock over time
+- **Discovery:** Rediscovering forgotten games in collection
+
+### **Design Pillars:**
+1. **Personal:** Uses player's actual Steam library (not generic content)
+2. **Respectful:** No shaming for backlog, playful framing
+3. **Rewarding:** Both passive progress and active clicking matter
+4. **Transparent:** Clear math, visible progression, predictable outcomes
+5. **Flexible:** Can engage deeply or casually
+
+---
+
+## Core Mechanics
+
+### **1. The Three Game States**
+
+#### **🔒 LOCKED (Played Games)**
+- **Definition:** Any game with playtime > 0 hours
+- **Visual:** Darkened, bars/shutters overlay, grayed out
+- **Cost to unlock:** `hours² × 0.5` points (exponential)
+- **Purpose:** Aspiration goals, rewards unlocking
+- **Interaction:** [UNLOCK] button (spends points)
+
+**Example costs:**
+```
+5 hours played = 12 points
+50 hours = 1,250 points
+100 hours = 5,000 points
+347 hours = 60,244 points
+1000 hours = 500,000 points
+```
+
+---
+
+#### **✅ PLAYABLE (Unlocked Games)**
+- **Definition:** Games that have been unlocked (or Vault Controller)
+- **Visual:** Full color, glowing border, animated
+- **Passive income:** `hours × 0.1` points per second
+- **Click value:** `hours × 0.2` points per click
+- **Purpose:** Core income source, active engagement target
+- **Interaction:** Click to set as Featured Game, or generates passively
+
+**Example earnings:**
+```
+5 hours → 0.5/sec passive, 1/click
+50 hours → 5/sec passive, 10/click
+100 hours → 10/sec passive, 20/click
+347 hours → 34.7/sec passive, 69.4/click
+```
+
+---
+
+#### **⭐ LIBERATION KEYS (Unplayed Games)**
+- **Definition:** Games with exactly 0 hours playtime
+- **Visual:** Gold shimmer, particle effects, special badge
+- **Unlock method:** Play on Steam for 30+ minutes (FREE unlock)
+- **Bonus on unlock:** `50 + (minutes × 0.5)` points
+- **Purpose:** Fastest progression path, core incentive
+- **Interaction:** [PLAY ON STEAM] button → launches game
+
+**Unlock rewards:**
+```
+30 min played = 65 points bonus + 0.05/sec passive
+60 min = 80 points + 0.1/sec passive
+120 min = 110 points + 0.2/sec passive
+```
+
+---
+
+### **2. The Vault Controller (Starter Game)**
+
+**Purpose:** Gives player something to click immediately
+
+**Properties:**
+- Fake game inserted at top of library
+- Always unlocked, cannot be locked
+- Stats equivalent to 5 hours played:
+  - 0.5 points/sec passive
+  - 1 point/click active
+- Visual: Custom vault/gear icon
+- Position: First game in grid (teaches mechanic)
+
+**Flavor text:** "Your only tool at the start. Click to earn points and begin freeing your collection."
+
+---
+
+### **3. Progression Systems**
+
+#### **Points (Primary Currency)**
+- **Earned by:**
+  - Clicking Featured Game (active engagement)
+  - Passive generation from unlocked games (idle progress)
+  - Bonus from Liberation Key unlocks (playing Steam games)
+- **Spent on:**
+  - Unlocking locked (played) games
+- **Display:** Large number with commas, prominently placed
+- **Accumulation:** Tab-active only (no offline earnings)
+
+#### **Featured Game System**
+- Player clicks any unlocked game → becomes Featured
+- Featured game appears enlarged above grid
+- Big [CLICK TO PLAY] button
+- Shows click value prominently
+- Can change featured game anytime (no cost)
+- Not auto-selected (player must learn to select)
+
+#### **Passive Income**
+- All unlocked games generate points per second
+- Calculated: Sum of all unlocked games' `hours × 0.1`
+- Only generates while tab is active and focused
+- Displayed as: "Your X games generate +Y/sec"
+- Updates in real-time every second
+
+---
+
+## Game Flow
+
+### **First Session (0-30 minutes):**
+
+```
+1. Player enters Steam ID
+   ↓
+2. Library loads with visual states:
+   - Vault Controller (unlocked, glowing)
+   - Liberation Keys (gold shimmer)
+   - Locked games (darkened, bars)
+   ↓
+3. Minimal tooltip: "Click Vault Controller to start"
+   ↓
+4. Player clicks Vault Controller
+   ↓
+5. It becomes Featured Game (enlarged)
+   ↓
+6. Player clicks [CLICK TO PLAY] button
+   ↓
+7. Points accumulate: +1 per click
+   ↓
+8. Player unlocks cheapest game (2-5 points)
+   ↓
+9. Game unlocks with animation:
+   - Bars shatter/lift
+   - Game lights up
+   - "+0.2/sec passive started!"
+   ↓
+10. Player clicks new game → Featured
+    ↓
+11. Earns more points (higher click value)
+    ↓
+12. Unlocks 2-3 more cheap games
+    ↓
+13. Passive income rising: 1-2/sec
+    ↓
+14. Notices Liberation Keys
+    ↓
+15. Clicks one → Modal explains:
+    "Play this game for 30 min on Steam to unlock FREE"
+    ↓
+16. [OPEN IN STEAM] → Launches game
+    ↓
+17. Player leaves to play...
+```
+
+---
+
+### **Returning After Playing (Session 2):**
+
+```
+18. Player returns to site
+    ↓
+19. [REFRESH LIBRARY] or auto-refresh (5 min)
+    ↓
+20. System detects: Hollow Knight 0h → 0.75h
+    ↓
+21. 🎉 CELEBRATION MODAL:
+    "LIBERATION KEY ACTIVATED!
+     You played Hollow Knight for 45 minutes!
+     
+     Rewards:
+     ✅ Hollow Knight UNLOCKED
+     💰 +72 bonus points
+     📈 Now generating +0.075/sec
+     
+     [PLAY IT NOW] [KEEP EXPLORING]"
+    ↓
+22. Hollow Knight now glowing in grid
+    ↓
+23. Passive income increased
+    ↓
+24. Player has points to unlock mid-tier games
+    ↓
+25. Cycle continues...
+```
+
+---
+
+### **Mid-Game Loop (10-50 hours total play):**
+
+```
+Player alternates between:
+- Clicking Featured Game (active)
+- Unlocking locked games (spending)
+- Playing Liberation Keys (real Steam play)
+- Watching passive income grow (idle satisfaction)
+
+Strategic decisions:
+- "Do I unlock this 50-hour game now (1,250 pts)?"
+- "Or save for 100-hour game (5,000 pts)?"
+- "Or just play more Liberation Keys for faster income?"
+
+Liberation Keys become routine:
+- Player knows they're the fastest progression
+- Trying 5-10 new games per session
+- Income compounding exponentially
+```
+
+---
+
+### **End-Game (100+ hours total play):**
+
+```
+- Most cheap/mid games unlocked
+- Passive income: 200-500/sec
+- Working on expensive games (500+ hours each)
+- Liberation Keys still valuable
+- Each new unlock feels earned
+- Library completion within sight
+
+Final push:
+- Unlock last few ultra-expensive games
+- Play remaining Liberation Keys
+- Reach 100% library unlock
+- Victory screen appears
+```
+
+---
+
+## Victory Condition
+
+### **Completion: 100% Library Unlocked**
+
+When all games are unlocked, show victory screen:
+
+```
+┌─────────────────────────────────────────┐
+│  🎉 VAULT FULLY LIBERATED! 🎉          │
+│                                         │
+│  You've unlocked your entire library!   │
+│                                         │
+│  📊 YOUR STATS:                         │
+│  Total Games: 342                       │
+│  Liberation Keys Played: 150            │
+│  Total Time Invested: 87 hours          │
+│  Points Earned: 1,245,890               │
+│  Most Expensive Unlock: Skyrim (60,244) │
+│                                         │
+│  Highest Passive Game: Skyrim (34.7/s)  │
+│  Total Passive Rate: 485/sec            │
+│                                         │
+│  🏆 Achievement: Vault Master           │
+│                                         │
+│  [CONTINUE PLAYING] [VIEW LIBRARY]      │
+└─────────────────────────────────────────┘
+```
+
+**Post-Victory:**
+- Game remains playable
+- All income continues
+- Stats screen accessible
+- No additional goals (for MVP)
+- Future: Prestige system, achievements, etc.
+
+---
+
+## Visual Design
+
+### **Overall Aesthetic: Industrial Steam-Punk**
+- **Color palette:** Dark blues, grays, bronze, rust
+- **Materials:** Metal, gears, pipes, steam effects
+- **Lighting:** Dramatic spotlights, glowing energy
+- **UI elements:** Rivets, bolts, industrial panels
+- **Inspiration:** Steam platform + vault/bank aesthetic
+
+### **Game States Visual Language**
+
+**🔒 Locked Games:**
+- 50% opacity/darkened
+- Metal bars or shutters overlay
+- Padlock icon in corner
+- Cost displayed in red text
+- Subtle "rattling chains" hover effect
+
+**✅ Playable Games:**
+- Full color, 100% opacity
+- Glowing border (blue/teal)
+- Pulsing animation (subtle)
+- Stats in green text
+- "Energy field" hover effect
+
+**⭐ Liberation Keys:**
+- Full color, 100% opacity
+- Gold shimmer border
+- Particle effects (floating sparkles)
+- "LIBERATION KEY" badge
+- Bright gold hover glow
+
+---
+
+### **Layout: Steam Grid Style**
+
+```
+┌────────────────────────────────────────────────┐
+│  🔐 STEAM VAULT ESCAPE                         │
+│  💰 Points: 12,847  (+156/sec from 47 games)  │
+│  🎮 Unlocked: 47/342  |  ⭐ Keys: 295/342     │
+├────────────────────────────────────────────────┤
+│  ★ FEATURED GAME                               │
+│  ┌─────────────────────────────┐              │
+│  │  [Skyrim Capsule Art]       │              │
+│  │  The Elder Scrolls V        │              │
+│  │  👆 +69.4 per click         │              │
+│  │  [CLICK TO PLAY]            │              │
+│  └─────────────────────────────┘              │
+├────────────────────────────────────────────────┤
+│  YOUR LIBRARY                                  │
+│  [Filter] [Sort] [🔄 Refresh]                │
+│                                                │
+│  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐  │
+│  │Vlt │ │Sky │ │P2  │ │Had │ │HK  │ │Cels│  │
+│  │✨  │ │🔒  │ │✅  │ │⭐  │ │⭐  │ │🔒  │  │
+│  │PLAY│ │60k │ │46/s│ │KEY │ │KEY │ │40  │  │
+│  └────┘ └────┘ └────┘ └────┘ └────┘ └────┘  │
+│                                                │
+│  [6 more rows of games...]                    │
+│  [Infinite scroll]                            │
+└────────────────────────────────────────────────┘
+```
+
+**Grid Specifications:**
+- 6 games per row (desktop)
+- 4 per row (tablet)
+- 2 per row (mobile)
+- Steam library capsule art (600x900)
+- Hover effects on each card
+- Virtual scrolling for performance
+
+---
+
+## User Interface Elements
+
+### **Top Bar:**
+- Game title: "🔐 STEAM VAULT ESCAPE"
+- Points display: Large, prominent, comma-separated
+- Passive rate: "+X/sec from Y games"
+- Progress: "Unlocked: X/Total | Keys: X/Total"
+
+### **Featured Game Section:**
+- Enlarged game capsule art (2x regular size)
+- Game name prominently displayed
+- Click value: "👆 +X per click"
+- Large tactile button: [CLICK TO PLAY]
+- Click feedback: "+X" floats up and fades
+
+### **Library Grid:**
+- Filter buttons: [All] [Locked] [Playable] [Keys]
+- Sort dropdown: [Cost] [Hours] [Name] [Status]
+- Refresh button: [🔄 Refresh Library]
+- Game cards with state-specific visuals
+- Hover tooltips with details
+
+### **Game Card Details:**
+
+**Locked Card:**
+```
+[Game Art - Darkened]
+🔒 Game Name
+XXX hours played
+💰 X,XXX points
+[UNLOCK]
+```
+
+**Playable Card:**
+```
+[Game Art - Full Color]
+✅ Game Name
+XXX hours played
+💰 +X/sec
+👆 +X/click
+[PLAY]
+```
+
+**Liberation Key Card:**
+```
+[Game Art - Gold Glow]
+⭐ Game Name
+0 hours
+LIBERATION KEY
+[PLAY ON STEAM]
+```
+
+---
+
+## Progression Balance
+
+### **Economy Design Philosophy:**
+
+**Early Game: Fast Momentum**
+- Unlock 5-10 games in first 15 minutes
+- Passive income grows quickly (0.5 → 2/sec)
+- Liberation Keys obviously valuable
+- Player feels progress immediately
+
+**Mid Game: Strategic Choices**
+- Unlock costs rising exponentially
+- Income from Liberation Keys becomes critical
+- Trade-offs: unlock now vs save for later
+- Playing unplayed games feels rewarding
+
+**Late Game: Satisfying Completion**
+- High passive income (200-500/sec)
+- Expensive games affordable (5-10 min each)
+- Liberation Keys still provide boosts
+- Final unlocks feel earned, not grindy
+
+**Exponential Unlock Cost Curve:**
+```
+0-20 hours: Cheap (1-200 pts)
+21-50 hours: Mid (200-1,250 pts)
+51-100 hours: Expensive (1,250-5,000 pts)
+101-500 hours: Very Expensive (5,000-125,000 pts)
+500+ hours: Ultra Rare (125,000-500,000+ pts)
+```
+
+**Linear Income Growth:**
+```
+Every unlocked game adds predictable income
+Every Liberation Key adds ~0.1/sec
+Compound growth from many small sources
+No single game dominates (unless 1000+ hours)
+```
+
+---
+
+## Technical Requirements
+
+### **Steam API Integration:**
+- Fetch user's game library via Steam ID
+- Pull playtime data per game
+- Detect playtime changes (0→30+ min unlock trigger)
+- Get game metadata (name, App ID, images)
+
+### **Data Persistence:**
+- localStorage for all game state
+- Save: points, unlocked games, featured game
+- Auto-save every 5 seconds
+- Manual save on critical actions (unlock, feature change)
+
+### **Performance Targets:**
+- Load 300+ game library in <2 seconds
+- Smooth scrolling (60 FPS)
+- Responsive clicking (instant feedback)
+- No lag on passive income updates
+
+### **Browser Compatibility:**
+- Modern evergreen browsers (Chrome, Firefox, Safari, Edge)
+- No IE11 support needed
+- Responsive design (desktop primary, mobile secondary)
+
+---
+
+## Player Engagement Hooks
+
+### **Immediate Feedback:**
+- Click → number goes up instantly
+- Unlock → satisfying animation
+- Liberation Key → celebration modal
+
+### **Progress Visibility:**
+- Always see passive income accumulating
+- Clear path to next unlock
+- Liberation Keys show potential (sparkle effect)
+
+### **Meaningful Choices:**
+- Which game to feature? (highest click value vs favorites)
+- Which game to unlock? (cheap now vs expensive later)
+- Which Liberation Key to play? (high-rated vs quick games)
+
+### **Discovery:**
+- Rediscover forgotten games in library
+- See old games with new eyes (as income sources)
+- Liberation Keys = excuse to try new genres
+
+### **Completion Drive:**
+- Clear goal: 100% library unlocked
+- Visible progress bar
+- Stats tracking
+- Final victory screen payoff
+
+---
+
+## Scope & Constraints
+
+### **MVP Scope (In):**
+✅ Three game states (Locked, Playable, Keys)  
+✅ Vault Controller starter game  
+✅ Featured game clicking  
+✅ Passive income generation  
+✅ Unlock system with exponential costs  
+✅ Liberation Key detection (30 min threshold)  
+✅ Steam API integration  
+✅ localStorage persistence  
+✅ Basic grid layout with Steam art  
+✅ Victory screen on 100% completion  
+
+### **MVP Scope (Out):**
+❌ Sound effects / music  
+❌ Advanced animations / particles  
+❌ Achievements system  
+❌ Stats tracking over time  
+❌ Social features (compare with friends)  
+❌ Prestige / reset system  
+❌ Mobile app (web only)  
+❌ Offline earnings  
+❌ Tutorials / tooltips (minimal only)  
+
+### **Post-MVP Features (Future):**
+- Visual polish (animations, effects, transitions)
+- Achievement system (milestones, badges)
+- Stats dashboard (graphs, progress over time)
+- Export victory screen as image
+- Prestige system (reset for permanent bonuses)
+- Social features (compare libraries)
+- Sound effects and music
+- Advanced filtering / sorting
+- Game recommendations based on tags
+
+---
+
+## Success Metrics
+
+### **Player Engagement:**
+- % of users who unlock at least 1 game
+- % who play at least 1 Liberation Key
+- Average session duration
+- Return rate (come back after playing Steam game)
+
+### **Core Loop Validation:**
+- Time to first unlock (should be <5 min)
+- Time to first Liberation Key unlock (should be <30 min)
+- Number of Liberation Keys played per user
+- Average games unlocked per session
+
+### **Progression Health:**
+- Distribution of unlock costs vs income rates
+- Average time to unlock expensive games (should feel achievable)
+- % of users who reach 50% library unlocked
+- % who reach 100% completion
+
+### **Qualitative Goals:**
+- Does it feel fun to click?
+- Do Liberation Keys feel rewarding?
+- Is progression clear and understandable?
+- Do players feel motivated to try unplayed games?
+
+---
+
+## Risk Assessment
+
+### **Potential Issues:**
+
+**1. Math Imbalance**
+- Risk: Progression too fast or too slow
+- Mitigation: Playtesting with various library sizes, tunable formulas
+
+**2. Steam API Limits**
+- Risk: Rate limiting, downtime, privacy restrictions
+- Mitigation: Caching, graceful degradation, error handling
+
+**3. Player Motivation**
+- Risk: Liberation Keys not compelling enough
+- Mitigation: Clear rewards, celebration animations, immediate feedback
+
+**4. Technical Performance**
+- Risk: Large libraries (500+ games) cause lag
+- Mitigation: Virtual scrolling, lazy loading, optimization
+
+**5. Complexity Creep**
+- Risk: Adding too many features, losing focus
+- Mitigation: Strict MVP scope, post-launch roadmap
+
+---
+
+## Conclusion
+
+**Steam Vault Escape** transforms Steam backlog anxiety into a playful idle game. By locking played games and making unplayed games the key to progression, it creates a compelling incentive to actually try neglected titles.
+
+The core loop is simple: click, unlock, play Steam games, repeat. The math is transparent and tunable. The visual design leverages familiar Steam aesthetics. The progression is satisfying from first click to final unlock.
+
+**Next Steps:**
+1. Technical Design Document (implementation details)
+2. Milestone Plan (MVP → launch roadmap)
+3. Prototyping and playtesting
+4. Iterative balance tuning
+
+---
+
+**Document Version History:**
+- v1.0 (2024-12-28): Initial design document
