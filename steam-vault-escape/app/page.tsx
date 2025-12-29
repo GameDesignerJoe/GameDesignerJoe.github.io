@@ -6,6 +6,7 @@ import { SteamGame } from '@/types/steam';
 import { VaultGameState } from '@/types/vault';
 import { getVaultController, toVaultGameState } from '@/lib/vault-logic';
 import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
+import { loadFromStorage, saveToStorage } from '@/lib/storage';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -19,11 +20,76 @@ export default function Home() {
   const [featuredGame, setFeaturedGame] = useState<VaultGameState | null>(null);
   const [clickAnimation, setClickAnimation] = useState<{ value: number; id: number } | null>(null);
   const [passiveIncome, setPassiveIncome] = useState(0);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
+  // Load saved state on mount
   useEffect(() => {
-    fetchLibrary();
+    const saved = loadFromStorage();
+    if (saved) {
+      setPoints(saved.points);
+      setUnlockedGames(saved.unlockedGames);
+      setLastRefresh(saved.lastRefresh);
+      
+      // Load cached library if available
+      if (saved.cachedLibrary && saved.cachedLibrary.length > 0) {
+        const vaultController = getVaultController();
+        setGames([vaultController, ...saved.cachedLibrary]);
+        setIsLoading(false);
+        
+        // Set featured game if saved
+        if (saved.featuredGame) {
+          // Find the game in loaded library
+          const allGames = [vaultController, ...saved.cachedLibrary];
+          const savedFeatured = allGames.find(g => String(g.appid) === String(saved.featuredGame));
+          if (savedFeatured) {
+            const featuredState = toVaultGameState(savedFeatured, saved.unlockedGames);
+            setFeaturedGame(featuredState);
+          }
+        }
+      } else {
+        // No cached library, fetch fresh
+        fetchLibrary();
+      }
+    } else {
+      // No saved data, fetch library
+      fetchLibrary();
+    }
   }, []);
+
+  // Save state whenever it changes (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      saveToStorage({
+        points,
+        unlockedGames,
+        featuredGame: featuredGame?.appid || null,
+        cachedLibrary: games.filter(g => g.appid !== 'vault-controller'), // Don't cache fake game
+        lastRefresh,
+        version: '1.0'
+      });
+    }, 1000); // Save 1 second after last change
+
+    return () => clearTimeout(timeoutId);
+  }, [points, unlockedGames, featuredGame, games, lastRefresh]);
+
+  // Auto-save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveToStorage({
+        points,
+        unlockedGames,
+        featuredGame: featuredGame?.appid || null,
+        cachedLibrary: games.filter(g => g.appid !== 'vault-controller'),
+        lastRefresh,
+        version: '1.0'
+      });
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [points, unlockedGames, featuredGame, games, lastRefresh]);
 
   // Convert games to vault states whenever games or unlocked list changes
   useEffect(() => {
@@ -50,8 +116,11 @@ export default function Home() {
     if (passiveIncome <= 0) return;
     
     const interval = setInterval(() => {
-      // Add passive income (divided by 10 since we run 10 times per second)
-      setPoints(prev => prev + (passiveIncome / 10));
+      // Only add passive income if tab is focused
+      if (document.hasFocus()) {
+        // Add passive income (divided by 10 since we run 10 times per second)
+        setPoints(prev => prev + (passiveIncome / 10));
+      }
     }, 100);
     
     return () => clearInterval(interval);
@@ -132,10 +201,76 @@ export default function Home() {
       const allGames = [vaultController, ...(data.games || [])];
       
       setGames(allGames);
+      setLastRefresh(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleRefresh() {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    
+    try {
+      // Fetch fresh library
+      const response = await fetch(`/api/steam-library?steamid=${steamId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch library');
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      const freshGames = data.games || [];
+      
+      // Detect newly unlocked Liberation Keys
+      const oldGames = games.filter(g => g.appid !== 'vault-controller');
+      let bonusPoints = 0;
+      let newlyUnlocked: string[] = [];
+      
+      freshGames.forEach((freshGame: SteamGame) => {
+        const oldGame = oldGames.find(g => g.appid === freshGame.appid);
+        
+        if (oldGame) {
+          // Check if it crossed the 30-minute threshold
+          const oldMinutes = oldGame.playtime_forever;
+          const newMinutes = freshGame.playtime_forever;
+          
+          if (oldMinutes < 30 && newMinutes >= 30) {
+            // Liberation Key unlocked!
+            const bonus = 50 + (newMinutes * 0.5);
+            bonusPoints += bonus;
+            newlyUnlocked.push(freshGame.name);
+            
+            // Auto-unlock the game
+            setUnlockedGames(prev => [...prev, freshGame.appid]);
+          }
+        }
+      });
+      
+      // Update library
+      const vaultController = getVaultController();
+      const allGames = [vaultController, ...freshGames];
+      setGames(allGames);
+      setLastRefresh(Date.now());
+      
+      // Award bonus points
+      if (bonusPoints > 0) {
+        setPoints(prev => prev + bonusPoints);
+        alert(`🎉 Liberation Key${newlyUnlocked.length > 1 ? 's' : ''} Unlocked!\n\n${newlyUnlocked.join('\n')}\n\n+${Math.floor(bonusPoints)} bonus points!`);
+      }
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsRefreshing(false);
     }
   }
 
@@ -256,36 +391,44 @@ export default function Home() {
 
         {/* Stats Bar */}
         <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-vault-accent/20">
-          <div className="flex gap-8">
-            <div>
-              <div className="text-sm text-gray-400">Total Games</div>
-              <div className="text-2xl font-bold text-vault-accent">{vaultGames.length}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">🔒 Locked</div>
-              <div className="text-2xl font-bold text-red-400">
-                {vaultGames.filter(g => g.state === 'locked').length}
+          <div className="flex justify-between items-start">
+            <div className="flex gap-8">
+              <div>
+                <div className="text-sm text-gray-400">Total Games</div>
+                <div className="text-2xl font-bold text-vault-accent">{vaultGames.length}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">🔒 Locked</div>
+                <div className="text-2xl font-bold text-red-400">
+                  {vaultGames.filter(g => g.state === 'locked').length}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">✅ Playable</div>
+                <div className="text-2xl font-bold text-green-400">
+                  {vaultGames.filter(g => g.state === 'playable').length}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-400">⭐ Liberation Keys</div>
+                <div className="text-2xl font-bold text-vault-gold">
+                  {vaultGames.filter(g => g.state === 'liberationKey').length}
+                </div>
               </div>
             </div>
-            <div>
-              <div className="text-sm text-gray-400">✅ Playable</div>
-              <div className="text-2xl font-bold text-green-400">
-                {vaultGames.filter(g => g.state === 'playable').length}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">⭐ Liberation Keys</div>
-              <div className="text-2xl font-bold text-vault-gold">
-                {vaultGames.filter(g => g.state === 'liberationKey').length}
+            <div className="text-right">
+              <div className="text-xs text-gray-500">Last updated</div>
+              <div className="text-sm text-gray-400">
+                {new Date(lastRefresh).toLocaleTimeString()}
               </div>
             </div>
           </div>
         </div>
 
         {/* Filter and Sort Controls */}
-        <div className="flex gap-4 mb-4 items-center flex-wrap">
+        <div className="flex gap-4 mb-4 items-center flex-wrap justify-between">
           {/* Filter Buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded transition-colors ${
@@ -328,7 +471,7 @@ export default function Home() {
           </button>
           </div>
 
-          {/* Sort Dropdown */}
+          {/* Sort Dropdown & Refresh Button */}
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-400">Sort by:</label>
             <select
@@ -342,6 +485,21 @@ export default function Home() {
               <option value="name">Name (A-Z)</option>
               <option value="passive">Passive Income</option>
             </select>
+            
+            {/* Refresh Library Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`px-4 py-2 rounded font-semibold transition-all flex items-center gap-2 ${
+                isRefreshing
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-vault-accent text-vault-dark hover:bg-blue-400'
+              }`}
+              title="Check for Liberation Keys you've unlocked by playing"
+            >
+              <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
+              {isRefreshing ? 'Refreshing...' : 'Refresh Library'}
+            </button>
           </div>
         </div>
 

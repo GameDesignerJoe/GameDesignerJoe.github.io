@@ -29,14 +29,14 @@ This document outlines the step-by-step development roadmap for **Steam Vault Es
 **Goal:** Create new standalone project for Steam Vault Escape.
 
 ### **Tasks:**
-- ⬜ Create new Next.js project: `npx create-next-app@latest steam-vault-escape`
-- ⬜ Configure TypeScript and TailwindCSS
-- ⬜ Set up new Git repository
-- ⬜ Create new Vercel project (separate from Steam Stash)
-- ⬜ Create folder structure (components, lib, types, docs)
-- ⬜ Add Steam API key to environment variables
-- ⬜ Copy design documents to `src/docs/` folder
-- ⬜ Create initial commit
+- ✅ DONE: Create new Next.js project: `npx create-next-app@latest steam-vault-escape`
+- ✅ DONE: Configure TypeScript and TailwindCSS
+- ✅ DONE: Set up new Git repository
+- ✅ DONE: Create new Vercel project (separate from Steam Stash)
+- ✅ DONE: Create folder structure (components, lib, types, docs)
+- ✅ DONE: Add Steam API key to environment variables
+- ✅ DONE: Copy design documents to `src/docs/` folder
+- ✅ DONE: Create initial commit
 
 ### **Deliverables:**
 - Fresh Next.js project named `steam-vault-escape`
@@ -63,29 +63,29 @@ This is a **new project**, not an extension of Steam Stash (never-played). Start
 ### **Tasks:**
 
 **1.1: Steam API Route**
-- Create `/api/steam-library` endpoint
-- Implement server-side Steam API fetch
-- Add error handling (invalid ID, API failure)
-- Test with multiple Steam IDs
+- ✅ DONE: Create `/api/steam-library` endpoint
+- ✅ DONE: Implement server-side Steam API fetch
+- ✅ DONE: Add error handling (invalid ID, API failure)
+- ✅ DONE: Test with multiple Steam IDs
 
 **1.2: Client-Side Fetch**
-- Add Steam ID input field
-- Add "Get Games" button
-- Fetch library on button click
-- Display loading state
-- Handle errors gracefully
+- ⬜ TODO: Add Steam ID input field (currently hardcoded)
+- ⬜ TODO: Add "Get Games" button
+- ✅ DONE: Fetch library on button click (auto-fetches on mount)
+- ✅ DONE: Display loading state
+- ✅ DONE: Handle errors gracefully
 
 **1.3: Basic Game List**
-- Create `GameCard` component (simple version)
-- Display game name and hours played
-- Show game count
-- Sort alphabetically by default
+- ✅ DONE: Create `GameCard` component (simple version)
+- ✅ DONE: Display game name and hours played
+- ✅ DONE: Show game count
+- ✅ DONE: Sort alphabetically by default
 
 **1.4: localStorage Caching**
-- Save fetched library to localStorage
-- Cache Steam ID for convenience
-- Load cached data on mount
-- Show "last updated" timestamp
+- ✅ DONE: Save fetched library to localStorage
+- ⬜ SKIP: Cache Steam ID for convenience (hardcoded in .env for now)
+- ✅ DONE: Load cached data on mount
+- ✅ DONE: Show "last updated" timestamp
 
 ### **Deliverables:**
 - Working Steam library fetch
@@ -115,27 +115,27 @@ This is a **new project**, not an extension of Steam Stash (never-played). Start
 ### **Tasks:**
 
 **2.1: State Classification**
-- Implement `classifyGame()` function
-- Create `VaultGameState` interface
-- Calculate unlock costs, passive rates, click values
-- Add Vault Controller fake game
+- ✅ DONE: Implement `classifyGame()` function
+- ✅ DONE: Create `VaultGameState` interface
+- ✅ DONE: Calculate unlock costs, passive rates, click values
+- ✅ DONE: Add Vault Controller fake game
 
 **2.2: Visual States**
-- Design locked game appearance (darkened, bars overlay)
-- Design playable game appearance (full color, glow)
-- Design Liberation Key appearance (gold shimmer)
-- Add state indicators (🔒/✅/⭐)
+- ✅ DONE: Design locked game appearance (darkened, bars overlay)
+- ✅ DONE: Design playable game appearance (full color, glow)
+- ✅ DONE: Design Liberation Key appearance (gold shimmer)
+- ✅ DONE: Add state indicators (🔒/✅/⭐)
 
 **2.3: Game Card States**
-- Update `GameCard` component with state-specific rendering
-- Show unlock cost on locked games
-- Show passive/click rates on playable games
-- Show "LIBERATION KEY" badge on unplayed games
+- ✅ DONE: Update `GameCard` component with state-specific rendering
+- ✅ DONE: Show unlock cost on locked games
+- ✅ DONE: Show passive/click rates on playable games
+- ✅ DONE: Show "LIBERATION KEY" badge on unplayed games
 
 **2.4: State Filtering**
-- Add filter buttons: [All] [Locked] [Playable] [Keys]
-- Implement filter logic
-- Update game count per filter
+- ✅ DONE: Add filter buttons: [All] [Locked] [Playable] [Keys]
+- ✅ DONE: Implement filter logic
+- ✅ DONE: Update game count per filter
 
 ### **Deliverables:**
 - Three distinct visual states for games
@@ -164,28 +164,28 @@ This is a **new project**, not an extension of Steam Stash (never-played). Start
 ### **Tasks:**
 
 **3.1: Points System**
-- Add points state (`useState`)
-- Display points prominently at top
-- Format with commas (12,847)
-- Save points to localStorage
+- ✅ DONE: Add points state (`useState`)
+- ✅ DONE: Display points prominently at top
+- ✅ DONE: Format with commas (12,847)
+- ✅ DONE: Save points to localStorage
 
 **3.2: Featured Game System**
-- Add "Featured Game" section above grid
-- Click any playable game → sets as featured
-- Display featured game enlarged
-- Show click value prominently
+- ✅ DONE: Add "Featured Game" section above grid
+- ✅ DONE: Click any playable game → sets as featured
+- ✅ DONE: Display featured game enlarged
+- ✅ DONE: Show click value prominently
 
 **3.3: Click Handler**
-- Create big [CLICK TO PLAY] button
-- Increment points by click value on click
-- Add click feedback animation (+X floats up)
-- Throttle clicks (prevent spam)
+- ✅ DONE: Create big [CLICK TO PLAY] button (now game image)
+- ✅ DONE: Increment points by click value on click
+- ✅ DONE: Add click feedback animation (+X floats up)
+- ✅ DONE: Throttle clicks (prevent spam)
 
 **3.4: localStorage Persistence**
-- Save featured game selection
-- Save points every 5 seconds
-- Load state on mount
-- Auto-save on page unload
+- ✅ DONE: Save featured game selection
+- ✅ DONE: Save points every 5 seconds (debounced to 1 sec)
+- ✅ DONE: Load state on mount
+- ✅ DONE: Auto-save on page unload
 
 ### **Deliverables:**
 - Working points system
@@ -214,27 +214,27 @@ This is a **new project**, not an extension of Steam Stash (never-played). Start
 ### **Tasks:**
 
 **4.1: Unlock Logic**
-- Add `unlockedGames` state (array of App IDs)
-- Implement unlock handler (spend points, add to unlocked)
-- Update game state when unlocked (locked → playable)
-- Save unlocked games to localStorage
+- ✅ DONE: Add `unlockedGames` state (array of App IDs)
+- ✅ DONE: Implement unlock handler (spend points, add to unlocked)
+- ✅ DONE: Update game state when unlocked (locked → playable)
+- ✅ DONE: Save unlocked games to localStorage
 
 **4.2: Unlock UI**
-- Add [UNLOCK] button on locked games
-- Disable button if can't afford
-- Show cost in red if unaffordable, green if affordable
-- Add hover tooltip: "Need X more points"
+- ✅ DONE: Add [UNLOCK] button on locked games
+- ✅ DONE: Disable button if can't afford
+- ✅ DONE: Show cost in red if unaffordable, green if affordable
+- ⬜ SKIP: Add hover tooltip: "Need X more points" (shown in overlay)
 
 **4.3: Unlock Animation**
-- Bars shatter/lift when unlocked
-- Game transitions from dark to full color
-- Show "+X/sec passive started!" notification
-- Flash game card briefly
+- ⬜ FUTURE: Bars shatter/lift when unlocked (basic version done)
+- ✅ DONE: Game transitions from dark to full color
+- ⬜ FUTURE: Show "+X/sec passive started!" notification
+- ⬜ FUTURE: Flash game card briefly
 
 **4.4: Unlock Validation**
-- Prevent unlocking if insufficient points
-- Deduct correct cost
-- Update passive income total immediately
+- ✅ DONE: Prevent unlocking if insufficient points
+- ✅ DONE: Deduct correct cost
+- ✅ DONE: Update passive income total immediately
 
 ### **Deliverables:**
 - Working unlock system
@@ -269,10 +269,10 @@ This is a **new project**, not an extension of Steam Stash (never-played). Start
 - Update in real-time
 
 **5.2: Passive Income Loop**
-- Create 1-second interval (useEffect)
-- Check if tab is focused (`document.hasFocus()`)
-- Add passive income to points if focused
-- Stop generating if tab not focused
+- ✅ DONE: Create 1-second interval (useEffect) - runs every 100ms
+- ✅ DONE: Check if tab is focused (`document.hasFocus()`)
+- ✅ DONE: Add passive income to points if focused
+- ✅ DONE: Stop generating if tab not focused
 
 **5.3: Passive Display**
 - Show "+X/sec" next to points
