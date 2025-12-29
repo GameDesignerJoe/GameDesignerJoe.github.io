@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { SteamGame } from '@/types/steam';
 import { VaultGameState } from '@/types/vault';
 import { getVaultController, toVaultGameState } from '@/lib/vault-logic';
+import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -11,6 +13,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'locked' | 'playable' | 'liberationKey'>('all');
+  const [sortBy, setSortBy] = useState<'default' | 'cost' | 'hours' | 'name' | 'passive'>('default');
   const [unlockedGames, setUnlockedGames] = useState<Array<number | string>>(['vault-controller']);
   const [points, setPoints] = useState(0);
   const [featuredGame, setFeaturedGame] = useState<VaultGameState | null>(null);
@@ -206,31 +209,46 @@ export default function Home() {
             <div className="absolute top-2 left-2 text-xs font-bold text-vault-accent uppercase tracking-wider">
               ⭐ Featured Game
             </div>
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold mb-2">{featuredGame.name}</h2>
-                <div className="text-gray-300 mb-4">
-                  {featuredGame.hoursPlayed.toFixed(1)} hours played
-                </div>
-                <div className="text-2xl font-bold text-vault-gold mb-2">
-                  👆 +{featuredGame.clickValue} per click
-                </div>
-                <div className="text-sm text-gray-400">
-                  Passive: +{featuredGame.passiveRate}/sec
-                </div>
-              </div>
-              <div className="relative">
+            <div className="flex flex-col items-center mt-4">
+              {/* Game Title */}
+              <h2 className="text-3xl font-bold mb-6 text-center">{featuredGame.name}</h2>
+              
+              {/* Clickable Game Image */}
+              <div className="relative mb-6">
                 <button
                   onClick={handleClick}
-                  className="bg-vault-accent hover:bg-blue-400 text-vault-dark font-bold py-6 px-12 rounded-lg text-2xl transition-all hover:scale-105 active:scale-95 shadow-lg"
+                  className="relative block transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-vault-accent rounded-lg overflow-hidden shadow-lg"
+                  style={{ width: '300px', height: '450px' }}
                 >
-                  CLICK TO PLAY
+                  <img
+                    src={getLibraryCapsule(featuredGame.appid)}
+                    alt={featuredGame.name}
+                    onError={handleImageError}
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-vault-accent/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
+                  </div>
                 </button>
                 {clickAnimation && (
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-vault-gold font-bold text-3xl animate-bounce pointer-events-none">
                     +{clickAnimation.value.toFixed(1)}
                   </div>
                 )}
+              </div>
+              
+              {/* Game Details */}
+              <div className="text-center space-y-2">
+                <div className="text-gray-300">
+                  {featuredGame.hoursPlayed.toFixed(1)} hours played
+                </div>
+                <div className="text-2xl font-bold text-vault-gold">
+                  👆 +{featuredGame.clickValue} per click
+                </div>
+                <div className="text-sm text-gray-400">
+                  Passive: +{featuredGame.passiveRate}/sec
+                </div>
               </div>
             </div>
           </div>
@@ -264,8 +282,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex gap-2 mb-4">
+        {/* Filter and Sort Controls */}
+        <div className="flex gap-4 mb-4 items-center flex-wrap">
+          {/* Filter Buttons */}
+          <div className="flex gap-2">
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded transition-colors ${
@@ -306,122 +326,272 @@ export default function Home() {
           >
             ⭐ Keys ({vaultGames.filter(g => g.state === 'liberationKey').length})
           </button>
-        </div>
+          </div>
 
-        {/* Games List */}
-        <div className="bg-vault-gray rounded-lg p-6">
-          <h2 className="text-2xl font-bold mb-4">Your Library</h2>
-          <div className="space-y-2 max-h-[600px] overflow-y-auto">
-            {vaultGames
-              .filter(game => filter === 'all' || game.state === filter)
-              .sort((a, b) => {
-                // Sort playable games by passive rate (highest first)
-                if (a.state === 'playable' && b.state === 'playable') {
-                  return b.passiveRate - a.passiveRate;
-                }
-                // Keep other states in original order
-                return 0;
-              })
-              .map(game => {
-                const isLocked = game.state === 'locked';
-                const isPlayable = game.state === 'playable';
-                const isKey = game.state === 'liberationKey';
-                
-                const isFeatured = featuredGame?.appid === game.appid;
-                
-                const canAfford = points >= game.unlockCost;
-                
-                return (
-                  <div
-                    key={game.appid}
-                    onClick={() => !isLocked && handleSelectFeatured(game)}
-                    className={`p-4 rounded border transition-all ${
-                      isLocked
-                        ? 'bg-vault-dark/50 border-red-500/30 opacity-60'
-                        : isKey
-                        ? 'bg-vault-dark border-vault-gold shadow-lg shadow-vault-gold/20'
-                        : isFeatured
-                        ? 'bg-vault-dark border-vault-accent shadow-lg shadow-vault-accent/30 ring-2 ring-vault-accent'
-                        : 'bg-vault-dark border-green-500/30 cursor-pointer hover:border-green-400'
-                    } hover:scale-[1.02]`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {isLocked && <span className="text-red-400 text-xl">🔒</span>}
-                          {isPlayable && !isFeatured && <span className="text-green-400 text-xl">✅</span>}
-                          {isPlayable && isFeatured && <span className="text-vault-accent text-xl">⭐</span>}
-                          {isKey && <span className="text-vault-gold text-xl animate-pulse">⭐</span>}
-                          <div className="font-semibold">{game.name}</div>
-                          {isFeatured && (
-                            <span className="text-xs bg-vault-accent text-vault-dark px-2 py-1 rounded font-bold">
-                              FEATURED
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-400 ml-8">
-                          {isKey ? (
-                            <span className="text-vault-gold font-semibold">
-                              LIBERATION KEY - Play 30 min to unlock FREE!
-                            </span>
-                          ) : (
-                            <>
-                              {game.hoursPlayed.toFixed(1)} hours played
-                              {isLocked && (
-                                <span className="text-red-400 ml-2">
-                                  • Unlock cost: {game.unlockCost.toLocaleString()} points
-                                </span>
-                              )}
-                              {isPlayable && (
-                                <span className="text-green-400 ml-2">
-                                  • +{game.passiveRate}/sec • +{game.clickValue}/click
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {isLocked && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUnlock(game);
-                            }}
-                            disabled={!canAfford}
-                            className={`px-4 py-2 rounded font-bold transition-all ${
-                              canAfford
-                                ? 'bg-vault-accent text-vault-dark hover:bg-blue-400 hover:scale-105'
-                                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            }`}
-                          >
-                            {canAfford ? '🔓 UNLOCK' : '🔒 LOCKED'}
-                          </button>
-                        )}
-                        {isKey && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePlayLiberationKey(game);
-                            }}
-                            className="bg-vault-gold text-vault-dark hover:bg-yellow-400 font-bold px-4 py-2 rounded transition-all hover:scale-105 animate-pulse"
-                          >
-                            🎮 PLAY 30 MIN
-                          </button>
-                        )}
-                        <div className="text-3xl">
-                          {isLocked && '🔒'}
-                          {isPlayable && '✅'}
-                          {isKey && '⭐'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-400">Sort by:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-vault-gray text-white px-3 py-2 rounded border border-gray-600 hover:border-gray-500 focus:border-vault-accent focus:outline-none"
+            >
+              <option value="default">Default</option>
+              <option value="cost">Unlock Cost</option>
+              <option value="hours">Hours Played</option>
+              <option value="name">Name (A-Z)</option>
+              <option value="passive">Passive Income</option>
+            </select>
           </div>
         </div>
+
+        {/* Games Grid */}
+        <GameGrid
+          vaultGames={vaultGames}
+          filter={filter}
+          sortBy={sortBy}
+          featuredGame={featuredGame}
+          points={points}
+          handleSelectFeatured={handleSelectFeatured}
+          handleUnlock={handleUnlock}
+          handlePlayLiberationKey={handlePlayLiberationKey}
+        />
       </div>
     </main>
+  );
+}
+
+// Separate component for virtualized grid
+function GameGrid({
+  vaultGames,
+  filter,
+  sortBy,
+  featuredGame,
+  points,
+  handleSelectFeatured,
+  handleUnlock,
+  handlePlayLiberationKey,
+}: {
+  vaultGames: VaultGameState[];
+  filter: 'all' | 'locked' | 'playable' | 'liberationKey';
+  sortBy: 'default' | 'cost' | 'hours' | 'name' | 'passive';
+  featuredGame: VaultGameState | null;
+  points: number;
+  handleSelectFeatured: (game: VaultGameState) => void;
+  handleUnlock: (game: VaultGameState) => void;
+  handlePlayLiberationKey: (game: VaultGameState) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  const ITEMS_PER_ROW = 6;
+
+  // Filter and sort games
+  const filteredGames = vaultGames
+    .filter(game => filter === 'all' || game.state === filter)
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'cost':
+          return a.unlockCost - b.unlockCost;
+        case 'hours':
+          return b.hoursPlayed - a.hoursPlayed;
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'passive':
+          return b.passiveRate - a.passiveRate;
+        case 'default':
+        default:
+          if (a.state === 'playable' && b.state === 'playable') {
+            return b.passiveRate - a.passiveRate;
+          }
+          return 0;
+      }
+    });
+
+  // Calculate rows
+  const rowCount = Math.ceil(filteredGames.length / ITEMS_PER_ROW);
+
+  // Virtual scrolling
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 280, // Estimated row height (card height + gap)
+    overscan: 2, // Render 2 extra rows above/below viewport
+  });
+
+  return (
+    <div className="bg-vault-gray rounded-lg p-6">
+      <h2 className="text-2xl font-bold mb-4">Your Library ({filteredGames.length} games)</h2>
+      
+      <div
+        ref={parentRef}
+        className="h-[700px] overflow-y-auto scrollbar-hide"
+      >
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+            const startIndex = virtualRow.index * ITEMS_PER_ROW;
+            const rowGames = filteredGames.slice(startIndex, startIndex + ITEMS_PER_ROW);
+
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-1">
+                  {rowGames.map((game) => (
+                    <GameCard
+                      key={game.appid}
+                      game={game}
+                      isFeatured={featuredGame?.appid === game.appid}
+                      canAfford={points >= game.unlockCost}
+                      handleSelectFeatured={handleSelectFeatured}
+                      handleUnlock={handleUnlock}
+                      handlePlayLiberationKey={handlePlayLiberationKey}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Separate GameCard component
+function GameCard({
+  game,
+  isFeatured,
+  canAfford,
+  handleSelectFeatured,
+  handleUnlock,
+  handlePlayLiberationKey,
+}: {
+  game: VaultGameState;
+  isFeatured: boolean;
+  canAfford: boolean;
+  handleSelectFeatured: (game: VaultGameState) => void;
+  handleUnlock: (game: VaultGameState) => void;
+  handlePlayLiberationKey: (game: VaultGameState) => void;
+}) {
+  const isLocked = game.state === 'locked';
+  const isPlayable = game.state === 'playable';
+  const isKey = game.state === 'liberationKey';
+
+  return (
+    <div
+      onClick={() => !isLocked && handleSelectFeatured(game)}
+      className={`group relative rounded-lg overflow-hidden transition-all ${
+        isLocked
+          ? 'opacity-60 cursor-not-allowed'
+          : 'cursor-pointer hover:scale-105'
+      } ${
+        isFeatured
+          ? 'ring-4 ring-vault-accent shadow-lg shadow-vault-accent/50'
+          : isKey
+          ? 'ring-2 ring-vault-gold shadow-lg shadow-vault-gold/30'
+          : isPlayable
+          ? 'ring-2 ring-green-500/30'
+          : ''
+      }`}
+    >
+      {/* Game Box Art */}
+      <div className="relative aspect-[2/3] bg-gradient-to-br from-vault-dark to-vault-gray">
+        <img
+          src={getLibraryCapsule(game.appid)}
+          alt={game.name}
+          onError={handleImageError}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+        
+        {/* Overlay with state indicator */}
+        <div className="absolute top-2 left-2">
+          {isLocked && <span className="text-3xl drop-shadow-lg">🔒</span>}
+          {isPlayable && !isFeatured && <span className="text-3xl drop-shadow-lg">✅</span>}
+          {isPlayable && isFeatured && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
+          {isKey && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
+        </div>
+
+        {/* Locked overlay bars */}
+        {isLocked && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="w-full space-y-2 px-2">
+              <div className="h-2 bg-red-500/50 rounded"></div>
+              <div className="h-2 bg-red-500/50 rounded"></div>
+              <div className="h-2 bg-red-500/50 rounded"></div>
+            </div>
+          </div>
+        )}
+
+        {/* Hover overlay with info */}
+        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity p-3 flex flex-col justify-between">
+          <div>
+            <div className="font-bold text-sm mb-1 line-clamp-2">{game.name}</div>
+            <div className="text-xs text-gray-300">
+              {game.hoursPlayed.toFixed(1)} hrs
+            </div>
+          </div>
+          
+          <div className="text-xs space-y-1">
+            {isKey && (
+              <div className="text-vault-gold font-semibold">
+                Play 30 min to unlock FREE!
+              </div>
+            )}
+            {isLocked && (
+              <div className="text-red-400">
+                Unlock: {game.unlockCost.toLocaleString()}pts
+              </div>
+            )}
+            {isPlayable && (
+              <div className="text-green-400">
+                +{game.passiveRate}/sec
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          {isLocked && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUnlock(game);
+              }}
+              disabled={!canAfford}
+              className={`w-full py-1 px-2 rounded text-xs font-bold transition-all ${
+                canAfford
+                  ? 'bg-vault-accent text-vault-dark hover:bg-blue-400'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {canAfford ? '🔓 UNLOCK' : 'LOCKED'}
+            </button>
+          )}
+          {isKey && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePlayLiberationKey(game);
+              }}
+              className="w-full bg-vault-gold text-vault-dark hover:bg-yellow-400 font-bold py-1 px-2 rounded text-xs transition-all"
+            >
+              🎮 PLAY
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
