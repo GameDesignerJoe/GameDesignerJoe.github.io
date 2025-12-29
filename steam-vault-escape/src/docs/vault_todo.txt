@@ -7,12 +7,17 @@ To Do:
 - Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
 - Need to see 'number go up' as well as 'bar go up' for passives. 
 - Need to test at some point that you have actually unlocked a game by playing it. 
+- Completely hide the locked games so you don't know what they are until you unlock them. You just know how much they cost and their rate of return.
 
 
 
 
 
 Big Designs
+- Maybe don't show them all of their library at all. But they only have like 3-5 possible games they can look at unlocking based off of cost. 
+    2 cheap ones, 2 mid range ones, 1 expensive one. 
+    They can spend points to add a new one to the stack or maybe reroll the ones that are there. It might be like a loot drop kind of fill when they see what ones they can work on trying to unlock. 
+- Have games only be able to earn points up to a cap. Maybe their total play time. Then you have to play a new game to refresh them all. 
 - Create different 'click' behaviors based off of the type of game it is. 
 - I think I need to 'slot' five games that earn passives and one that I can click on... or maybe all I can click on. 
 - Have different games have different strengths and they are picked for the slots that you put them in. 
