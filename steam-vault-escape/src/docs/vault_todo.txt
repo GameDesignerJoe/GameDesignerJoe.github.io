@@ -1,0 +1,18 @@
+To Do:
+- Images for the games are stacked on top of each other. 
+- The click number needs to flyout in a randomdirection from the edge of the game, starting small then growing and fading out. 
+- Get rid of the frame around the card section. 
+- Get rid of the gray transparent part over the locked cards as well as the red bars. Instead just move the lock to the center of the card. 
+
+- The cost is way off. I can unlock all of my locked games in a matter of minutes. 
+- I don't feel like I need to go play my unplayed games. 
+- I think I need to 'slot' five games that earn passives and one that I can click on... or maybe all I can click on. 
+- Create different 'click' behaviors based off of the type of game it is. 
+- Might just be able to call it "Steam Vault" and not do the whole escape thing. 
+- Lots of images aren't being displayed correctly, likey because Steam is bouncing you. 
+- 10 points is way to cheap. Should be at least 100. 
+- Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
+- Clicking "play" doesn't load the steam store. 
+- Need to see 'number go up' as well as 'bar go up' for passives. 
+
+- Need to test at some point that you have actually unlocked a game by playing it. 

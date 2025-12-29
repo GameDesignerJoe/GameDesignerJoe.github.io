@@ -22,6 +22,10 @@ export default function Home() {
   const [passiveIncome, setPassiveIncome] = useState(0);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showVictory, setShowVictory] = useState(false);
+  const [hasWon, setHasWon] = useState(false);
+  const [totalPointsEarned, setTotalPointsEarned] = useState(0);
+  const [showDevPanel, setShowDevPanel] = useState(false);
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
   // Load saved state on mount
@@ -65,7 +69,7 @@ export default function Home() {
         points,
         unlockedGames,
         featuredGame: featuredGame?.appid || null,
-        cachedLibrary: games.filter(g => g.appid !== 'vault-controller'), // Don't cache fake game
+        cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'), // Don't cache fake game
         lastRefresh,
         version: '1.0'
       });
@@ -81,7 +85,7 @@ export default function Home() {
         points,
         unlockedGames,
         featuredGame: featuredGame?.appid || null,
-        cachedLibrary: games.filter(g => g.appid !== 'vault-controller'),
+        cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
         lastRefresh,
         version: '1.0'
       });
@@ -109,7 +113,16 @@ export default function Home() {
         setFeaturedGame(vaultController);
       }
     }
-  }, [games, unlockedGames]);
+    
+    // Victory detection - check if all non-Liberation-Key games are unlocked
+    if (vaultStates.length > 1 && !hasWon) {
+      const lockedCount = vaultStates.filter(g => g.state === 'locked').length;
+      if (lockedCount === 0) {
+        setHasWon(true);
+        setShowVictory(true);
+      }
+    }
+  }, [games, unlockedGames, hasWon]);
 
   // Passive income timer - runs every 100ms for smooth updates
   useEffect(() => {
@@ -231,12 +244,12 @@ export default function Home() {
       const freshGames = data.games || [];
       
       // Detect newly unlocked Liberation Keys
-      const oldGames = games.filter(g => g.appid !== 'vault-controller');
+      const oldGames = games.filter(g => String(g.appid) !== 'vault-controller');
       let bonusPoints = 0;
       let newlyUnlocked: string[] = [];
       
       freshGames.forEach((freshGame: SteamGame) => {
-        const oldGame = oldGames.find(g => g.appid === freshGame.appid);
+        const oldGame = oldGames.find(g => String(g.appid) === String(freshGame.appid));
         
         if (oldGame) {
           // Check if it crossed the 30-minute threshold
@@ -514,6 +527,52 @@ export default function Home() {
           handleUnlock={handleUnlock}
           handlePlayLiberationKey={handlePlayLiberationKey}
         />
+
+        {/* Victory Screen Modal */}
+        {showVictory && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-vault-blue to-vault-dark rounded-xl p-8 max-w-2xl w-full border-4 border-vault-gold shadow-2xl animate-scale-up">
+              <div className="text-center mb-6">
+                <div className="text-6xl mb-4">🎉</div>
+                <h2 className="text-5xl font-bold text-vault-gold mb-2">VICTORY!</h2>
+                <p className="text-2xl text-vault-accent">All Games Unlocked!</p>
+              </div>
+              <div className="bg-vault-dark/50 rounded-lg p-6 mb-6 space-y-3">
+                <div className="flex justify-between"><span className="text-gray-400">Total Games:</span><span className="font-bold text-vault-accent">{vaultGames.length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Total Points:</span><span className="font-bold text-vault-gold">{Math.floor(points).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Passive Rate:</span><span className="font-bold text-green-400">+{passiveIncome}/sec</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Liberation Keys:</span><span className="font-bold text-vault-gold">{vaultGames.filter(g => g.state === 'liberationKey').length}</span></div>
+              </div>
+              <button onClick={() => setShowVictory(false)} className="w-full bg-vault-gold text-vault-dark font-bold py-4 rounded-lg text-xl hover:bg-yellow-400 transition-colors">
+                CONTINUE PLAYING
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Dev Panel Button */}
+        <button
+          onClick={() => setShowDevPanel(!showDevPanel)}
+          className="fixed bottom-4 right-4 w-12 h-12 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-2xl shadow-lg transition-all z-40"
+          title="Developer Tools"
+        >
+          ⚙️
+        </button>
+
+        {/* Dev Panel */}
+        {showDevPanel && (
+          <div className="fixed bottom-20 right-4 bg-vault-dark border-2 border-vault-accent rounded-lg p-4 shadow-2xl z-40 w-80">
+            <h3 className="text-lg font-bold text-vault-accent mb-3">Dev Tools</h3>
+            <div className="space-y-2">
+              <button onClick={() => setPoints(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Points</button>
+              <button onClick={() => setPoints(p => p + 10000)} className="w-full bg-green-700 hover:bg-green-600 text-white py-2 rounded font-semibold">+10000 Points</button>
+              <button onClick={() => setUnlockedGames(vaultGames.filter(g => g.unlockCost < 100).map(g => g.appid))} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-semibold">Unlock Cheap Games</button>
+              <button onClick={() => setUnlockedGames(vaultGames.map(g => g.appid))} className="w-full bg-blue-700 hover:bg-blue-600 text-white py-2 rounded font-semibold">Unlock All Games</button>
+              <button onClick={() => setShowVictory(true)} className="w-full bg-vault-gold hover:bg-yellow-400 text-vault-dark py-2 rounded font-semibold">Show Victory</button>
+              <button onClick={() => {if(confirm('Reset all progress?')){setPoints(0);setUnlockedGames(['vault-controller']);setHasWon(false);localStorage.clear();}}} className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded font-semibold">Reset Progress</button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -571,7 +630,7 @@ function GameGrid({
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 280, // Estimated row height (card height + gap)
+    estimateSize: () => 310, // Estimated row height (card height + gap) - middle ground for 2:3 aspect ratio
     overscan: 2, // Render 2 extra rows above/below viewport
   });
 
@@ -581,7 +640,7 @@ function GameGrid({
       
       <div
         ref={parentRef}
-        className="h-[700px] overflow-y-auto scrollbar-hide"
+        className="h-[700px] overflow-y-auto scrollbar-hide relative"
       >
         <div
           style={{
@@ -674,22 +733,18 @@ function GameCard({
           loading="lazy"
         />
         
-        {/* Overlay with state indicator */}
-        <div className="absolute top-2 left-2">
-          {isLocked && <span className="text-3xl drop-shadow-lg">🔒</span>}
-          {isPlayable && !isFeatured && <span className="text-3xl drop-shadow-lg">✅</span>}
-          {isPlayable && isFeatured && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
-          {isKey && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
-        </div>
-
-        {/* Locked overlay bars */}
-        {isLocked && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <div className="w-full space-y-2 px-2">
-              <div className="h-2 bg-red-500/50 rounded"></div>
-              <div className="h-2 bg-red-500/50 rounded"></div>
-              <div className="h-2 bg-red-500/50 rounded"></div>
-            </div>
+        {/* State indicator overlay */}
+        {isLocked ? (
+          // Centered lock for locked games
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-6xl drop-shadow-2xl">🔒</span>
+          </div>
+        ) : (
+          // Top-left indicator for other states
+          <div className="absolute top-2 left-2">
+            {isPlayable && !isFeatured && <span className="text-3xl drop-shadow-lg">✅</span>}
+            {isPlayable && isFeatured && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
+            {isKey && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
           </div>
         )}
 

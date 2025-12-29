@@ -22,4 +22,10 @@ export interface VaultState {
   cachedLibrary: any[]; // Raw Steam games
   lastRefresh: number; // Unix timestamp
   version: string; // Save format version
+  // Victory stats
+  hasWon?: boolean;
+  totalPointsEarned?: number;
+  liberationKeysPlayed?: number;
+  mostExpensiveUnlock?: { name: string; cost: number };
+  highestPassiveGame?: { name: string; rate: number };
 }
