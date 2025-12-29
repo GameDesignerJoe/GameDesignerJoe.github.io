@@ -20,6 +20,8 @@ export default function Home() {
   const [featuredGame, setFeaturedGame] = useState<VaultGameState | null>(null);
   const [clickAnimations, setClickAnimations] = useState<Array<{ value: number; id: number; angle: number; distance: number; startX: number; startY: number }>>([]);
   const [passiveIncome, setPassiveIncome] = useState(0);
+  const [passiveProgress, setPassiveProgress] = useState(0);
+  const [showBurst, setShowBurst] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
@@ -126,18 +128,38 @@ export default function Home() {
 
   // Passive income timer - runs every 100ms for smooth updates
   useEffect(() => {
-    if (passiveIncome <= 0) return;
+    if (!featuredGame || featuredGame.passiveRate <= 0) return;
     
     const interval = setInterval(() => {
       // Only add passive income if tab is focused
       if (document.hasFocus()) {
         // Add passive income (divided by 10 since we run 10 times per second)
         setPoints(prev => prev + (passiveIncome / 10));
+        
+        // Update progress bar for featured game
+        setPassiveProgress(prev => {
+          const newProgress = prev + (featuredGame.passiveRate / 10);
+          
+          // Check if progress bar is full
+          if (newProgress >= 100) {
+            // Award bonus points
+            setPoints(p => p + 100);
+            
+            // Trigger burst animation
+            setShowBurst(true);
+            setTimeout(() => setShowBurst(false), 600);
+            
+            // Reset progress
+            return 0;
+          }
+          
+          return newProgress;
+        });
       }
     }, 100);
     
     return () => clearInterval(interval);
-  }, [passiveIncome]);
+  }, [passiveIncome, featuredGame]);
 
   // Handle clicking the featured game
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
@@ -409,7 +431,7 @@ export default function Home() {
               <div className="relative mb-6">
                 <button
                   onClick={handleClick}
-                  className="relative block transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-vault-accent rounded-lg overflow-hidden shadow-lg"
+                  className={`relative block transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-vault-accent rounded-lg overflow-hidden shadow-lg ${showBurst ? 'scale-110' : ''}`}
                   style={{ width: '300px', height: '450px' }}
                 >
                   <img
@@ -422,6 +444,25 @@ export default function Home() {
                   <div className="absolute inset-0 bg-vault-accent/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                     <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
                   </div>
+                  
+                  {/* Passive Progress Bar */}
+                  {featuredGame.passiveRate > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-3 bg-black/60">
+                      <div 
+                        className={`h-full bg-gradient-to-r from-vault-gold via-yellow-400 to-vault-gold transition-all duration-100 ${passiveProgress > 90 ? 'shadow-lg shadow-vault-gold/50 animate-pulse' : ''}`}
+                        style={{ width: `${passiveProgress}%` }}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Burst Effect */}
+                  {showBurst && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-6xl font-bold text-vault-gold animate-ping">
+                        +100
+                      </div>
+                    </div>
+                  )}
                 </button>
                 {/* Render all click animations */}
                 {clickAnimations.map(anim => (
