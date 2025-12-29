@@ -2,29 +2,18 @@
 
 
 - Still don't see it auto update the friends list.
-- Be able to simply hide games from your library. 
 - You had a faulty check on mobile for friends lists. 
-- Import doesn't seem to work on mobile. 
-- Look into getting ride of all the progress bars you have extra.
-- The library saying it's confirmed all the games seems sus and not something that's useful. 
-- The showcase buttons on mobile don't look good. 
 - Get the export to be readable by displaying the name of the game.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
 - Can't get the videos to play of the games. 
-- An actual Perfect Match that hits all 5 "Must Play!" 
 - More stat info: Steam achievements (Only if it helps you get people to play more games)
 
-
-### 3. "Get Back In" view for low-playtime games
-- New filter/view for games with 1-10 hours played
-- "Games you started but didn't finish"
-- Helps rediscover games you tried but abandoned
-- Show last played date
-- Separate from "Never Played" view
-- Possible stat: "X games to revisit"
-
-
 ## 🚀 Long-term / Research
+- Hidding Games:
+  - Not doing it because it fucks with everything in your library.
+  - Total games played, playtime, your rankings among your friends, etc. 
+  - You're just stuck with them. 
+  - At most you could do a hide in library, where you just don't see them, but they are still counted in every other way. 
 
 ### 6. Enhanced "Try This Next" Media Display
 **Image Carousel:**

@@ -112,7 +112,9 @@ interface FriendsDataForSort {
   }>;
 }
 
-type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match' | 'friends-playtime-desc' | 'median-playtime-desc' | 'median-playtime-asc';
+type SortOption = 'name-asc' | 'name-desc' | 'playtime-asc' | 'playtime-desc' | 'appid-asc' | 'appid-desc' | 'rating-desc' | 'rating-asc' | 'release-desc' | 'release-asc' | 'best-match' | 'friends-playtime-desc' | 'median-playtime-desc' | 'median-playtime-asc' | 'get-back-in';
+
+type SuggestionMode = 'scouted' | 'getBackIn';
 
 function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?: Map<number, string[]>, playerTopGenres?: string[], friendsData?: FriendsDataForSort | null): SteamGame[] {
   const sorted = [...games];
@@ -249,6 +251,24 @@ function sortGames(games: SteamGame[], sortBy: SortOption, steamCategoriesCache?
         
         return aMedian - bMedian;
       });
+    case 'get-back-in':
+      // Get Back In: Show games with 10-120 min playtime and 85%+ rating
+      // Filter first, then sort by playtime ascending
+      const getBackInGames = sorted.filter(g => 
+        g.playtime_forever >= 10 && 
+        g.playtime_forever <= 120 &&
+        g.rating !== null && 
+        g.rating !== undefined && 
+        g.rating >= 85
+      );
+      
+      // Sort by playtime ascending (least played first), then by rating descending
+      return getBackInGames.sort((a, b) => {
+        if (a.playtime_forever !== b.playtime_forever) {
+          return a.playtime_forever - b.playtime_forever;
+        }
+        return (b.rating || 0) - (a.rating || 0);
+      });
     default:
       return sorted;
   }
@@ -370,8 +390,24 @@ function getSuggestion(
   const playerTopGenres = getTop5Genres(games, steamCategoriesCache);
   const playerGenreNames = playerTopGenres.map(g => g.genre);
   
+  // Showcase selection percentages:
+  // 70% - Smart Selection (never-played, genre matches)
+  // 10% - Taste Changer (never-played, outside genres, highly rated)
+  // 20% - Get Back In (10-120 min playtime, 85%+ rating)
+  const rand = Math.random();
+  const shouldSuggestGetBackIn = rand < 0.2;
+  const shouldSuggestTasteChanger = !shouldSuggestGetBackIn && rand < 0.3; // 0.2-0.3 = 10%
+  
+  // 20% chance to suggest a "Get Back In" game
+  if (shouldSuggestGetBackIn) {
+    const getBackInGame = getBackInSuggestion(games, blacklist, playedElsewhereList);
+    if (getBackInGame) {
+      return getBackInGame;
+    }
+    // If no Get Back In games available, fall through to normal selection
+  }
+  
   // 10% chance to suggest a "Taste Changer" (outside top genres but highly rated)
-  const shouldSuggestTasteChanger = Math.random() < 0.1;
   
   // Score each game
   const scoredGames = neverPlayed.map(game => {
@@ -437,6 +473,42 @@ function getSuggestion(
   const randomIndex = Math.floor(Math.random() * topGames.length);
   
   return topGames[randomIndex].game;
+}
+
+// Get Back In suggestion: Games with 10-120 minutes playtime and 85%+ rating
+function getBackInSuggestion(
+  games: SteamGame[],
+  neverSuggestList: number[],
+  playedElsewhereList: number[]
+): SteamGame | null {
+  // Filter criteria:
+  // - Playtime: 10-120 minutes
+  // - Rating: 85%+
+  // - Exclude: Never Suggest & Played Elsewhere
+  const candidates = games
+    .filter(g => g.playtime_forever >= 10 && g.playtime_forever <= 120)
+    .filter(g => g.rating !== null && g.rating !== undefined && g.rating >= 85)
+    .filter(g => !neverSuggestList.includes(g.appid))
+    .filter(g => !playedElsewhereList.includes(g.appid));
+  
+  if (candidates.length === 0) return null;
+  
+  // Sort: Low playtime → High rating
+  // Primary: playtime ascending
+  // Secondary: rating descending
+  candidates.sort((a, b) => {
+    if (a.playtime_forever !== b.playtime_forever) {
+      return a.playtime_forever - b.playtime_forever;
+    }
+    return (b.rating || 0) - (a.rating || 0);
+  });
+  
+  // Pick randomly from top 20% for variety
+  const topCount = Math.max(1, Math.ceil(candidates.length * 0.2));
+  const topGames = candidates.slice(0, topCount);
+  const randomIndex = Math.floor(Math.random() * topGames.length);
+  
+  return topGames[randomIndex];
 }
 
 // Calculate how many years ago a game was released
@@ -1298,10 +1370,25 @@ function SuggestionCard({
       const matchedTags = gameTags.filter(tag => playerTagNames.includes(tag));
       const matchCount = matchedTags.length;
   
+  // Check if this is a "Get Back In" candidate (10-120 min playtime + 85%+ rating)
+  const isGetBackIn = game.playtime_forever >= 10 && 
+                      game.playtime_forever <= 120 && 
+                      game.rating !== null && 
+                      game.rating !== undefined && 
+                      game.rating >= 85;
+  
   // Determine badge tier
   let badge: { emoji: string; text: string; color: string; detail: string } | null = null;
   
-  if (matchCount >= 3) {
+  // Priority 1: Get Back In (if game qualifies)
+  if (isGetBackIn) {
+    badge = {
+      emoji: '🔄',
+      text: 'Get Back In',
+      color: 'bg-orange-600 border-orange-400',
+      detail: `You've only spent ${formatPlaytime(game.playtime_forever)} on this ${game.rating}% rated game!`
+    };
+  } else if (matchCount >= 3) {
     // Perfect Match: 3+ tags match
     badge = {
       emoji: '🎯',
@@ -1614,6 +1701,7 @@ export default function Home() {
   const [showOnlyNeverPlayed, setShowOnlyNeverPlayed] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('best-match');
   const [suggestion, setSuggestion] = useState<SteamGame | null>(null);
+  const [suggestionMode, setSuggestionMode] = useState<SuggestionMode>('scouted');
   const [neverSuggestList, setNeverSuggestList] = useState<number[]>([]);
   const [playedElsewhereList, setPlayedElsewhereList] = useState<number[]>([]);
   const [ratingsLoading, setRatingsLoading] = useState(false);
@@ -3289,6 +3377,7 @@ export default function Home() {
                         className="px-3 py-1.5 bg-gray-700 rounded border border-gray-600 text-sm focus:border-blue-500 focus:outline-none"
                       >
                         <option value="best-match">⭐ Best Match (Tags + Rating)</option>
+                        <option value="get-back-in">🔄 Get Back In (10-120 min + 85%+ rated)</option>
                         <option value="rating-desc">📈 Rating (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                         <option value="rating-asc">📉 Rating (Low to High){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
                         <option value="median-playtime-desc">⏱️ Median Playtime (High to Low){ratingsLoading ? ` (loading... ${ratingsLoaded}/${ratingsTotal})` : ''}</option>
