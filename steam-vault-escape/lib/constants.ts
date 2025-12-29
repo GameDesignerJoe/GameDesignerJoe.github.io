@@ -1,8 +1,8 @@
 // Game formulas and constants
 
 export const FORMULAS = {
-  // Unlock cost: hours² × 0.5
-  unlockCost: (hours: number): number => Math.floor(hours * hours * 0.5),
+  // Unlock cost: hours² × 0.5, minimum 10 points
+  unlockCost: (hours: number): number => Math.max(10, Math.floor(hours * hours * 0.5)),
   
   // Passive rate: hours × 0.1 (rounded to 1 decimal)
   passiveRate: (hours: number): number => Math.round(hours * 0.1 * 10) / 10,

@@ -12,6 +12,10 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'locked' | 'playable' | 'liberationKey'>('all');
   const [unlockedGames, setUnlockedGames] = useState<Array<number | string>>(['vault-controller']);
+  const [points, setPoints] = useState(0);
+  const [featuredGame, setFeaturedGame] = useState<VaultGameState | null>(null);
+  const [clickAnimation, setClickAnimation] = useState<{ value: number; id: number } | null>(null);
+  const [passiveIncome, setPassiveIncome] = useState(0);
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
   useEffect(() => {
@@ -22,7 +26,86 @@ export default function Home() {
   useEffect(() => {
     const vaultStates = games.map(game => toVaultGameState(game, unlockedGames));
     setVaultGames(vaultStates);
+    
+    // Calculate total passive income
+    const totalPassive = vaultStates
+      .filter(g => g.state === 'playable')
+      .reduce((sum, g) => sum + g.passiveRate, 0);
+    setPassiveIncome(Math.round(totalPassive * 10) / 10);
+    
+    // Auto-select Vault Controller as featured if nothing is featured
+    if (!featuredGame && vaultStates.length > 0) {
+      const vaultController = vaultStates.find(g => g.appid === 'vault-controller');
+      if (vaultController) {
+        setFeaturedGame(vaultController);
+      }
+    }
   }, [games, unlockedGames]);
+
+  // Passive income timer - runs every 100ms for smooth updates
+  useEffect(() => {
+    if (passiveIncome <= 0) return;
+    
+    const interval = setInterval(() => {
+      // Add passive income (divided by 10 since we run 10 times per second)
+      setPoints(prev => prev + (passiveIncome / 10));
+    }, 100);
+    
+    return () => clearInterval(interval);
+  }, [passiveIncome]);
+
+  // Handle clicking the featured game
+  function handleClick() {
+    if (!featuredGame) return;
+    
+    const earnedPoints = featuredGame.clickValue;
+    setPoints(prev => prev + earnedPoints);
+    
+    // Show floating animation
+    setClickAnimation({ value: earnedPoints, id: Date.now() });
+    setTimeout(() => setClickAnimation(null), 1000);
+  }
+
+  // Handle selecting a game as featured
+  function handleSelectFeatured(game: VaultGameState) {
+    if (game.state === 'playable') {
+      setFeaturedGame(game);
+    }
+  }
+
+  // Handle unlocking a game
+  function handleUnlock(game: VaultGameState) {
+    // Check if can afford
+    if (points < game.unlockCost) {
+      return; // Not enough points
+    }
+    
+    // Deduct points
+    setPoints(prev => prev - game.unlockCost);
+    
+    // Add to unlocked games
+    setUnlockedGames(prev => [...prev, game.appid]);
+    
+    // Show animation (could add toast notification here)
+    console.log(`Unlocked ${game.name}!`);
+  }
+
+  // Handle "playing" a Liberation Key (simulated)
+  function handlePlayLiberationKey(game: VaultGameState) {
+    if (game.state !== 'liberationKey') return;
+    
+    // Simulate playing for 30 minutes
+    const bonusPoints = 50 + (30 * 0.5); // Base 50 + 15 = 65 points
+    
+    // Award bonus points
+    setPoints(prev => prev + bonusPoints);
+    
+    // Unlock the game (it's now playable!)
+    setUnlockedGames(prev => [...prev, game.appid]);
+    
+    // Show success message
+    console.log(`🎉 Liberation Key activated! ${game.name} unlocked with +${bonusPoints} bonus points!`);
+  }
 
   async function fetchLibrary() {
     setIsLoading(true);
@@ -94,15 +177,64 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 text-vault-accent">
-            🔐 Steam Vault Escape
-          </h1>
-          <p className="text-gray-400">
-            Free your trapped games by playing your unplayed titles
-          </p>
+        {/* Header with Points */}
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-bold mb-2 text-vault-accent">
+              🔐 Steam Vault Escape
+            </h1>
+            <p className="text-gray-400">
+              Free your trapped games by playing your unplayed titles
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-gray-400">💰 Points</div>
+            <div className="text-5xl font-bold text-vault-accent">
+              {Math.floor(points).toLocaleString()}
+            </div>
+            {passiveIncome > 0 && (
+              <div className="text-sm text-green-400 animate-pulse">
+                +{passiveIncome.toFixed(1)}/sec
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Featured Game Section */}
+        {featuredGame && (
+          <div className="bg-gradient-to-r from-vault-blue to-vault-gray rounded-lg p-6 mb-8 border-2 border-vault-accent shadow-xl relative overflow-hidden">
+            <div className="absolute top-2 left-2 text-xs font-bold text-vault-accent uppercase tracking-wider">
+              ⭐ Featured Game
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold mb-2">{featuredGame.name}</h2>
+                <div className="text-gray-300 mb-4">
+                  {featuredGame.hoursPlayed.toFixed(1)} hours played
+                </div>
+                <div className="text-2xl font-bold text-vault-gold mb-2">
+                  👆 +{featuredGame.clickValue} per click
+                </div>
+                <div className="text-sm text-gray-400">
+                  Passive: +{featuredGame.passiveRate}/sec
+                </div>
+              </div>
+              <div className="relative">
+                <button
+                  onClick={handleClick}
+                  className="bg-vault-accent hover:bg-blue-400 text-vault-dark font-bold py-6 px-12 rounded-lg text-2xl transition-all hover:scale-105 active:scale-95 shadow-lg"
+                >
+                  CLICK TO PLAY
+                </button>
+                {clickAnimation && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-vault-gold font-bold text-3xl animate-bounce pointer-events-none">
+                    +{clickAnimation.value.toFixed(1)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Bar */}
         <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-vault-accent/20">
@@ -182,29 +314,50 @@ export default function Home() {
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
             {vaultGames
               .filter(game => filter === 'all' || game.state === filter)
+              .sort((a, b) => {
+                // Sort playable games by passive rate (highest first)
+                if (a.state === 'playable' && b.state === 'playable') {
+                  return b.passiveRate - a.passiveRate;
+                }
+                // Keep other states in original order
+                return 0;
+              })
               .map(game => {
                 const isLocked = game.state === 'locked';
                 const isPlayable = game.state === 'playable';
                 const isKey = game.state === 'liberationKey';
                 
+                const isFeatured = featuredGame?.appid === game.appid;
+                
+                const canAfford = points >= game.unlockCost;
+                
                 return (
                   <div
                     key={game.appid}
+                    onClick={() => !isLocked && handleSelectFeatured(game)}
                     className={`p-4 rounded border transition-all ${
                       isLocked
                         ? 'bg-vault-dark/50 border-red-500/30 opacity-60'
                         : isKey
                         ? 'bg-vault-dark border-vault-gold shadow-lg shadow-vault-gold/20'
-                        : 'bg-vault-dark border-green-500/30'
+                        : isFeatured
+                        ? 'bg-vault-dark border-vault-accent shadow-lg shadow-vault-accent/30 ring-2 ring-vault-accent'
+                        : 'bg-vault-dark border-green-500/30 cursor-pointer hover:border-green-400'
                     } hover:scale-[1.02]`}
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           {isLocked && <span className="text-red-400 text-xl">🔒</span>}
-                          {isPlayable && <span className="text-green-400 text-xl">✅</span>}
+                          {isPlayable && !isFeatured && <span className="text-green-400 text-xl">✅</span>}
+                          {isPlayable && isFeatured && <span className="text-vault-accent text-xl">⭐</span>}
                           {isKey && <span className="text-vault-gold text-xl animate-pulse">⭐</span>}
                           <div className="font-semibold">{game.name}</div>
+                          {isFeatured && (
+                            <span className="text-xs bg-vault-accent text-vault-dark px-2 py-1 rounded font-bold">
+                              FEATURED
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-400 ml-8">
                           {isKey ? (
@@ -228,10 +381,39 @@ export default function Home() {
                           )}
                         </div>
                       </div>
-                      <div className="text-3xl">
-                        {isLocked && '🔒'}
-                        {isPlayable && '✅'}
-                        {isKey && '⭐'}
+                      <div className="flex items-center gap-3">
+                        {isLocked && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnlock(game);
+                            }}
+                            disabled={!canAfford}
+                            className={`px-4 py-2 rounded font-bold transition-all ${
+                              canAfford
+                                ? 'bg-vault-accent text-vault-dark hover:bg-blue-400 hover:scale-105'
+                                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            }`}
+                          >
+                            {canAfford ? '🔓 UNLOCK' : '🔒 LOCKED'}
+                          </button>
+                        )}
+                        {isKey && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePlayLiberationKey(game);
+                            }}
+                            className="bg-vault-gold text-vault-dark hover:bg-yellow-400 font-bold px-4 py-2 rounded transition-all hover:scale-105 animate-pulse"
+                          >
+                            🎮 PLAY 30 MIN
+                          </button>
+                        )}
+                        <div className="text-3xl">
+                          {isLocked && '🔒'}
+                          {isPlayable && '✅'}
+                          {isKey && '⭐'}
+                        </div>
                       </div>
                     </div>
                   </div>
