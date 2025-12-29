@@ -5,7 +5,6 @@
 - You had a faulty check on mobile for friends lists. 
 - Get the export to be readable by displaying the name of the game.
 - A better way to tell if a friend has a good grasp or love of the game beyond 50+ hours.
-- Can't get the videos to play of the games. 
 - More stat info: Steam achievements (Only if it helps you get people to play more games)
 
 ## 🚀 Long-term / Research
@@ -14,40 +13,6 @@
   - Total games played, playtime, your rankings among your friends, etc. 
   - You're just stuck with them. 
   - At most you could do a hide in library, where you just don't see them, but they are still counted in every other way. 
-
-### 6. Enhanced "Try This Next" Media Display
-**Image Carousel:**
-- [ ] Implement carousel/slider for multiple screenshots
-- Use Steam Store API to fetch screenshot array
-- Show 3-5 screenshots with navigation dots/arrows
-- Auto-advance every 5 seconds with manual controls
-- Smooth transitions between images
-
-**Video Integration:**
-- [ ] Load game trailer/video from Steam Store
-- Steam Store API provides `movies` array with MP4/WebM URLs
-- Auto-play muted video on load (with play/pause controls)
-- Fallback to header image if no video available
-- Consider bandwidth - lazy load or preview image first
-- Mobile-friendly video player
-
-**Technical:**
-- Steam videos: `https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/movie{id}.mp4`
-- Handle video loading states
-- Provide option to disable auto-play
-- Cache video URLs with store data
-
-**Genre Analytics:**
-- Breakdown by genre (percentage of library)
-- Most played genre (by hours, not count)
-- Genre diversity score
-- Underexplored genres recommendations
-
-**Implementation:**
-- Calculate from existing game data
-- Display in expandable analytics section
-- Visual charts/graphs for top games
-- Sortable top games list
 
 ### 10. Idle Clicker Game Integration 🎮
 **Concept: "Backlog Battle" - Idle Progress Game**
