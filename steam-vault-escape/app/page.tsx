@@ -18,7 +18,7 @@ export default function Home() {
   const [unlockedGames, setUnlockedGames] = useState<Array<number | string>>(['vault-controller']);
   const [points, setPoints] = useState(0);
   const [featuredGame, setFeaturedGame] = useState<VaultGameState | null>(null);
-  const [clickAnimation, setClickAnimation] = useState<{ value: number; id: number } | null>(null);
+  const [clickAnimations, setClickAnimations] = useState<Array<{ value: number; id: number; angle: number; distance: number; startX: number; startY: number }>>([]);
   const [passiveIncome, setPassiveIncome] = useState(0);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -140,15 +140,62 @@ export default function Home() {
   }, [passiveIncome]);
 
   // Handle clicking the featured game
-  function handleClick() {
+  function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
     if (!featuredGame) return;
     
     const earnedPoints = featuredGame.clickValue;
     setPoints(prev => prev + earnedPoints);
     
-    // Show floating animation
-    setClickAnimation({ value: earnedPoints, id: Date.now() });
-    setTimeout(() => setClickAnimation(null), 1000);
+    // Get button dimensions
+    const button = event.currentTarget;
+    const rect = button.getBoundingClientRect();
+    
+    // Choose a random edge (0=top, 1=right, 2=bottom, 3=left)
+    const edge = Math.floor(Math.random() * 4);
+    let startX, startY;
+    
+    switch(edge) {
+      case 0: // top edge
+        startX = Math.random() * rect.width;
+        startY = 0;
+        break;
+      case 1: // right edge
+        startX = rect.width;
+        startY = Math.random() * rect.height;
+        break;
+      case 2: // bottom edge
+        startX = Math.random() * rect.width;
+        startY = rect.height;
+        break;
+      case 3: // left edge
+      default:
+        startX = 0;
+        startY = Math.random() * rect.height;
+        break;
+    }
+    
+    // Calculate outward angle from edge
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const angleFromCenter = Math.atan2(startY - centerY, startX - centerX) * (180 / Math.PI);
+    
+    const randomDistance = 80 + Math.random() * 40; // 80-120px
+    
+    const animationId = Date.now() + Math.random(); // Unique ID
+    
+    setClickAnimations(prev => [...prev, { 
+      value: earnedPoints, 
+      id: animationId,
+      angle: angleFromCenter,
+      distance: randomDistance,
+      startX,
+      startY
+    }]);
+    
+    // Remove this animation after it completes
+    setTimeout(() => {
+      setClickAnimations(prev => prev.filter(anim => anim.id !== animationId));
+    }, 1200);
   }
 
   // Handle selecting a game as featured
@@ -379,11 +426,22 @@ export default function Home() {
                     <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
                   </div>
                 </button>
-                {clickAnimation && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-vault-gold font-bold text-3xl animate-bounce pointer-events-none">
-                    +{clickAnimation.value.toFixed(1)}
+                {/* Render all click animations */}
+                {clickAnimations.map(anim => (
+                  <div 
+                    key={anim.id}
+                    className="absolute text-vault-gold font-bold pointer-events-none"
+                    style={{
+                      left: `${anim.startX}px`,
+                      top: `${anim.startY}px`,
+                      animation: 'floatOut 1.2s ease-out forwards',
+                      '--float-angle': `${anim.angle}deg`,
+                      '--float-distance': `${anim.distance}px`,
+                    } as React.CSSProperties}
+                  >
+                    +{anim.value.toFixed(1)}
                   </div>
-                )}
+                ))}
               </div>
               
               {/* Game Details */}

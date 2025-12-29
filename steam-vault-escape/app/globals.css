@@ -30,3 +30,22 @@
     text-wrap: balance;
   }
 }
+
+@keyframes floatOut {
+  0% {
+    opacity: 1;
+    font-size: 0.5rem;
+    transform: translate(-50%, -50%) translate(0, 0);
+  }
+  50% {
+    font-size: 2rem;
+  }
+  100% {
+    opacity: 0;
+    font-size: 2.5rem;
+    transform: translate(-50%, -50%) translate(
+      calc(cos(var(--float-angle)) * var(--float-distance)),
+      calc(sin(var(--float-angle)) * var(--float-distance))
+    );
+  }
+}

@@ -1,8 +1,6 @@
 To Do:
-- Images for the games are stacked on top of each other. 
 - The click number needs to flyout in a randomdirection from the edge of the game, starting small then growing and fading out. 
 - Get rid of the frame around the card section. 
-- Get rid of the gray transparent part over the locked cards as well as the red bars. Instead just move the lock to the center of the card. 
 
 - The cost is way off. I can unlock all of my locked games in a matter of minutes. 
 - I don't feel like I need to go play my unplayed games. 
@@ -14,5 +12,17 @@ To Do:
 - Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
 - Clicking "play" doesn't load the steam store. 
 - Need to see 'number go up' as well as 'bar go up' for passives. 
-
+- Lose the hours played. We just need the per click and passive numbers. 7.2/3.6
 - Need to test at some point that you have actually unlocked a game by playing it. 
+
+
+
+
+
+Big Designs
+- Have different games have different strengths and they are picked for the slots that you put them in. 
+    - DPS
+    - Armor
+    - Health
+    - Endurance
+    - Special
