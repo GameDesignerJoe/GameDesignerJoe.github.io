@@ -66,10 +66,11 @@ export function handleGameClick(
 
 /**
  * Calculate refresh cost for a drained game
+ * Cost = Click value (so refreshing a 10-hour game costs 10 keys)
  */
 export function calculateRefreshCost(game: SteamGame): number {
-  const metacritic = game.metacritic || 70;
-  return FORMULAS.refreshCost(metacritic);
+  const clickValue = FORMULAS.clickValue(game.playtime_forever);
+  return FORMULAS.refreshCost(clickValue);
 }
 
 /**

@@ -13,14 +13,17 @@ export interface DrawResult {
 /**
  * Draw a game from Pool 2 with tier targeting
  * Uses weighted randomization to target specific tiers
+ * @param excludeIds - Optional array of game IDs to exclude from drawing (e.g., currently drawn game)
  */
 export function drawGameFromPool2(
   pool2Ids: number[],
   allGames: SteamGame[],
-  targetTier?: GameTier
+  targetTier?: GameTier,
+  excludeIds: number[] = []
 ): DrawResult | null {
-  // Get all Pool 2 games with metadata
+  // Get all Pool 2 games with metadata, excluding specified IDs
   const pool2Games = pool2Ids
+    .filter(id => !excludeIds.includes(id)) // Exclude specified games
     .map(id => allGames.find(g => g.appid === id))
     .filter((g): g is SteamGame => g !== undefined)
     .filter(g => g.metacritic && g.hoursTobeat); // Must have metadata
@@ -52,12 +55,13 @@ export function drawGameFromPool2(
     epic: categorized.epic.length,
   });
   
-  // If target tier specified, try to draw from that tier with weighted fallback
+  // If target tier specified, try to draw from that tier with STRONG weighted fallback
   if (targetTier) {
+    // Much stronger weighting: 90% chance of target tier, 10% for fallback
     const weights = {
-      cheap: targetTier === 'cheap' ? 0.7 : 0.15,
-      moderate: targetTier === 'moderate' ? 0.7 : 0.15,
-      epic: targetTier === 'epic' ? 0.7 : 0.10,
+      cheap: targetTier === 'cheap' ? 0.9 : 0.05,
+      moderate: targetTier === 'moderate' ? 0.9 : 0.05,
+      epic: targetTier === 'epic' ? 0.9 : 0.05,
     };
     
     // Weighted random selection

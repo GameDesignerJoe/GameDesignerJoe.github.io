@@ -114,12 +114,32 @@ export function selectStartingGame(games: SteamGame[]): SteamGame | null {
 }
 
 /**
- * Calculate unlock cost for a game based on v1.5 formula
+ * Calculate unlock cost for a game based on playtime (RELIABLE, NO EXTERNAL API)
+ * Uses Steam playtime data to determine value
+ * 
+ * Tiers:
+ * - Under 2 hours (120 min) = Cheap: 500-800
+ * - 2-10 hours (120-600 min) = Moderate: 1,000-2,500
+ * - 10+ hours (600+ min) = Epic: 3,000-5,000
  */
 export function calculateUnlockCost(game: SteamGame): number {
-  const metacritic = game.metacritic || THRESHOLDS.DEFAULT_METACRITIC;
-  const hoursTobeat = game.hoursTobeat || THRESHOLDS.DEFAULT_HOURS_TO_BEAT;
-  return FORMULAS.unlockCost(metacritic, hoursTobeat);
+  const playtimeMinutes = game.playtime_forever || 0;
+  
+  if (playtimeMinutes < 120) {
+    // Cheap tier: 500-800
+    // Scale within tier based on playtime
+    const ratio = playtimeMinutes / 120;
+    return Math.floor(500 + (ratio * 300));
+  } else if (playtimeMinutes < 600) {
+    // Moderate tier: 1,000-2,500
+    const ratio = (playtimeMinutes - 120) / (600 - 120);
+    return Math.floor(1000 + (ratio * 1500));
+  } else {
+    // Epic tier: 3,000-5,000
+    // Cap at 5,000 to avoid extremely high costs
+    const ratio = Math.min((playtimeMinutes - 600) / 600, 1);
+    return Math.floor(3000 + (ratio * 2000));
+  }
 }
 
 /**

@@ -7,17 +7,17 @@ export const FORMULAS = {
   unlockCost: (metacritic: number, hoursTobeat: number): number => 
     Math.floor(metacritic * hoursTobeat),
   
-  // v1.5: Click value = Steam hours played
+  // v1.5: Click value = Steam hours played (minimum 1)
   clickValue: (steamMinutes: number): number => 
-    Math.floor(steamMinutes / 60),
+    Math.max(1, Math.floor(steamMinutes / 60)),
   
   // v1.5: Max power = Click value × 100
   maxPower: (clickValue: number): number => 
     clickValue * 100,
   
-  // v1.5: Refresh cost = Metacritic ÷ 10 (rounded up)
-  refreshCost: (metacritic: number): number => 
-    Math.ceil(metacritic / 10),
+  // v1.5: Refresh cost = Click value (playtime-based, minimum 1)
+  refreshCost: (clickValue: number): number => 
+    Math.max(1, clickValue),
   
   // v1.5: Key reward = Metacritic score (or fallback)
   keyReward: (metacritic: number): number => 

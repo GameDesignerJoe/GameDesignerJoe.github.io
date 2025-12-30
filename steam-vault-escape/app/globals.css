@@ -51,6 +51,13 @@
   transform-style: preserve-3d;
 }
 
+/* Pre-flip the card content so it appears correctly after animation */
+.flip-card > div {
+  transform: rotateY(180deg);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
 /* Pulse animation for empty slots and buttons - SHARP BORDER GLOW */
 @keyframes pulse-glow {
   0%, 100% {
@@ -148,9 +155,18 @@
   box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
 }
 
+/* Epic tier - subtle glow (not the same as empty slot pulse) */
+@keyframes epic-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(234, 179, 8, 0.8);
+  }
+}
+
 .tier-epic {
-  box-shadow: 0 0 20px rgba(234, 179, 8, 0.7);
-  animation: pulse-glow 3s ease-in-out infinite;
+  animation: epic-glow 3s ease-in-out infinite;
 }
 
 /* Drained game grayscale */

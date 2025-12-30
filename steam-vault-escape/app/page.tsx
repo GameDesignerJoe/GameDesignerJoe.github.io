@@ -10,6 +10,7 @@ import { loadFromStorage, saveToStorage } from '@/lib/storage';
 import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/pool-manager';
 import { initializeShop } from '@/lib/shop-manager';
 import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
+import { calculateUnlockCost } from '@/lib/game-utils';
 import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
 import { initialMetadataEnrichment, topUpMetadataBuffer } from '@/lib/metadata-enrichment';
 import { detectNewlyPlayedKeyGames, calculateTotalKeysAwarded, KeyGameDetectionResult } from '@/lib/key-game-detector';
@@ -48,6 +49,7 @@ export default function Home() {
   const [drawSlotIndex, setDrawSlotIndex] = useState<number | null>(null);
   const [drawnGame, setDrawnGame] = useState<SteamGame | null>(null);
   const [revealedCard, setRevealedCard] = useState(false);
+  const [drawnGamesThisSession, setDrawnGamesThisSession] = useState<number[]>([]); // Track all drawn games in this draw session
   
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
@@ -365,6 +367,7 @@ export default function Home() {
     setDrawnGame(result.game);
     setRevealedCard(false);
     setShowDrawModal(true);
+    setDrawnGamesThisSession([result.game.appid]); // Start tracking drawn games
     
     console.log('[Draw] Opening modal for slot', slotIndex, 'drew:', result.game.name);
   }
@@ -386,10 +389,12 @@ export default function Home() {
     
     // Fill the shop slot with the drawn game
     const updatedShopSlots = [...shopSlots];
-    const targetTier = getSlotTargetTier(drawSlotIndex);
+    // Calculate the ACTUAL tier based on the game's unlock cost
+    const unlockCost = calculateUnlockCost(drawnGame);
+    const actualTier = unlockCost < 1000 ? 'cheap' : unlockCost < 3000 ? 'moderate' : 'epic';
     updatedShopSlots[drawSlotIndex] = {
       appId: drawnGame.appid,
-      tier: targetTier,
+      tier: actualTier, // Use actual game tier, not slot pattern tier
     };
     
     setShopSlots(updatedShopSlots);
@@ -406,11 +411,12 @@ export default function Home() {
     };
     setVaultState(updatedState);
     
-    // Close modal
+    // Close modal and clear session
     setShowDrawModal(false);
     setDrawnGame(null);
     setDrawSlotIndex(null);
     setRevealedCard(false);
+    setDrawnGamesThisSession([]); // Clear session history
     
     console.log('[Draw] Accepted draw:', drawnGame.name);
   }
@@ -428,9 +434,18 @@ export default function Home() {
     // Deduct 5 keys
     setLiberationKeys(prev => prev - 5);
     
-    // Draw a new game
+    // Add current game to session exclusion list
+    const updatedExclusions = [...drawnGamesThisSession, drawnGame.appid];
+    setDrawnGamesThisSession(updatedExclusions);
+    
+    // Draw a new game, EXCLUDING ALL games drawn in this session
     const targetTier = drawSlotIndex !== null ? getSlotTargetTier(drawSlotIndex) : undefined;
-    const result = drawGameFromPool2(vaultState.pool2_hidden || [], games, targetTier);
+    const result = drawGameFromPool2(
+      vaultState.pool2_hidden || [], 
+      games, 
+      targetTier,
+      updatedExclusions // Exclude ALL previously drawn games in this session
+    );
     
     if (!result) {
       alert('No more games available to draw!');
@@ -441,16 +456,14 @@ export default function Home() {
     setDrawnGame(result.game);
     setRevealedCard(false);
     
-    console.log('[Draw] Redrew:', result.game.name);
+    console.log('[Draw] Redrew:', result.game.name, '(excluded:', updatedExclusions.length, 'games)');
   }
   
   // Handle unlocking a game from the shop
   async function handleShopUnlock(slot: ShopSlot, game: SteamGame) {
     if (!vaultState) return;
     
-    const unlockCost = game.metacritic && game.hoursTobeat 
-      ? Math.floor(game.metacritic * game.hoursTobeat)
-      : 2100;
+    const unlockCost = calculateUnlockCost(game);
     
     // Check if can afford
     if (collectionPower < unlockCost) {
@@ -899,10 +912,16 @@ export default function Home() {
                 ))}
               </div>
               
-              {/* Game Details */}
+              {/* Game Details - v1.5 values */}
               <div className="text-center">
                 <div className="text-2xl font-bold text-vault-gold">
-                  👆 +{featuredGame.clickValue} / ⏳ +{featuredGame.passiveRate}
+                  {(() => {
+                    const game = games.find(g => g.appid === featuredGame.appid);
+                    if (!game) return '👆 +0 / ⏳ +0';
+                    const clickVal = getClickValue(game);
+                    const passiveVal = (clickVal * 0.1).toFixed(1);
+                    return `👆 +${clickVal} / ⏳ +${passiveVal}`;
+                  })()}
                 </div>
               </div>
           </div>
@@ -937,9 +956,7 @@ export default function Home() {
                 const game = games.find(g => g.appid === slot.appId);
                 if (!game) return null;
                 
-                const unlockCost = game.metacritic && game.hoursTobeat 
-                  ? Math.floor(game.metacritic * game.hoursTobeat)
-                  : 2100; // Default fallback
+                const unlockCost = calculateUnlockCost(game);
                 const canAfford = collectionPower >= unlockCost;
                 
                 // Tier colors
@@ -971,8 +988,7 @@ export default function Home() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent flex flex-col justify-end p-3">
                       <div className="text-white font-bold text-sm mb-1 line-clamp-2">{game.name}</div>
                       <div className="text-xs text-gray-300 mb-2">
-                        {game.metacritic ? `⭐ ${game.metacritic}` : '⭐ ??'} • 
-                        {game.hoursTobeat ? ` ${game.hoursTobeat}h` : ' ??h'}
+                        👆 +{getClickValue(game)} / ⏳ +{(getClickValue(game) * 0.1).toFixed(1)}
                       </div>
                       <button
                         onClick={() => handleShopUnlock(slot, game)}
@@ -1128,7 +1144,29 @@ export default function Home() {
               </>
             )}
 
-            {/* Key Games Tab Content */}
+            {/* Key Games Tab Content - Empty State */}
+            {libraryTab === 'keyGames' && vaultState.pool3_keyGames && vaultState.pool3_keyGames.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="text-center max-w-2xl">
+                  <div className="text-8xl mb-6">🎉</div>
+                  <h2 className="text-5xl font-bold text-purple-500 mb-4">Congratulations!</h2>
+                  <p className="text-2xl text-white mb-6">
+                    You've played all your Steam games.
+                  </p>
+                  <p className="text-xl text-purple-400 mb-4">
+                    You are in the top <span className="font-bold text-vault-gold">0.00001%</span> of Steam players who have done that.
+                  </p>
+                  <p className="text-lg text-gray-400 italic">
+                    We did the math.*
+                  </p>
+                  <div className="mt-8 text-xs text-gray-500">
+                    *Actual percentage may vary based on library size and definition of "played"
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Key Games Tab Content - With Games */}
             {libraryTab === 'keyGames' && vaultState.pool3_keyGames && vaultState.pool3_keyGames.length > 0 && (
               <>
                 <div className="flex justify-between items-center mb-4">
@@ -1244,7 +1282,13 @@ export default function Home() {
               ) : (
                 <div className="mb-6">
                   <div className="max-w-md mx-auto flip-card">
-                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden border-4 border-vault-gold shadow-2xl">
+                    <div className={`relative aspect-[2/3] rounded-lg overflow-hidden border-4 ${
+                      (() => {
+                        const unlockCost = calculateUnlockCost(drawnGame);
+                        const tier = unlockCost < 1000 ? 'cheap' : unlockCost < 3000 ? 'moderate' : 'epic';
+                        return tier === 'cheap' ? 'border-gray-400' : tier === 'moderate' ? 'border-blue-500' : 'border-vault-gold';
+                      })()
+                    } shadow-2xl`}>
                       <img
                         src={getLibraryCapsule(drawnGame.appid)}
                         alt={drawnGame.name}
@@ -1292,7 +1336,13 @@ export default function Home() {
 
               {/* Close button */}
               <button
-                onClick={() => setShowDrawModal(false)}
+                onClick={() => {
+                  setShowDrawModal(false);
+                  setDrawnGame(null);
+                  setDrawSlotIndex(null);
+                  setRevealedCard(false);
+                  setDrawnGamesThisSession([]); // Clear session history on cancel
+                }}
                 className="mt-4 px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
               >
                 Cancel
@@ -1323,6 +1373,36 @@ export default function Home() {
               </button>
               <button 
                 onClick={() => {
+                  if (vaultState && vaultState.pool1_unlocked) {
+                    const newProgress = { ...vaultState.gameProgress };
+                    
+                    // Drain every game in Pool 1
+                    vaultState.pool1_unlocked.forEach(appId => {
+                      const game = games.find(g => g.appid === appId);
+                      if (game) {
+                        const maxPower = getMaxPower(game);
+                        newProgress[appId] = {
+                          currentPower: maxPower,
+                          maxPower: maxPower,
+                          isDrained: true,
+                          lastPlaytime: game.playtime_forever,
+                        };
+                      }
+                    });
+                    
+                    setVaultState({
+                      ...vaultState,
+                      gameProgress: newProgress
+                    });
+                    console.log('[Dev] Drained all games in Pool 1');
+                  }
+                }} 
+                className="w-full bg-orange-600 hover:bg-orange-500 text-white py-2 rounded font-semibold"
+              >
+                ⚠️ Drain Every Game
+              </button>
+              <button 
+                onClick={() => {
                   if (vaultState && vaultState.gameProgress) {
                     const refreshed = autoRefreshAllDrained(vaultState.gameProgress);
                     setVaultState({
@@ -1335,6 +1415,42 @@ export default function Home() {
                 className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded font-semibold"
               >
                 ♻️ Reset All Drained
+              </button>
+              <button 
+                onClick={() => {
+                  if (vaultState && vaultState.pool2_hidden) {
+                    // Move all Pool 2 games to Pool 1
+                    const newPool1 = [...(vaultState.pool1_unlocked || []), ...(vaultState.pool2_hidden || [])];
+                    setVaultState({
+                      ...vaultState,
+                      pool1_unlocked: newPool1,
+                      pool2_hidden: [],
+                    });
+                    setUnlockedGames(newPool1);
+                    console.log('[Dev] Emptied Pool 2 - moved all to Pool 1');
+                  }
+                }} 
+                className="w-full bg-yellow-600 hover:bg-yellow-500 text-white py-2 rounded font-semibold text-sm"
+              >
+                🗑️ Empty Pool 2
+              </button>
+              <button 
+                onClick={() => {
+                  if (vaultState && vaultState.pool3_keyGames) {
+                    // Move all Pool 3 games to Pool 1
+                    const newPool1 = [...(vaultState.pool1_unlocked || []), ...(vaultState.pool3_keyGames || [])];
+                    setVaultState({
+                      ...vaultState,
+                      pool1_unlocked: newPool1,
+                      pool3_keyGames: [],
+                    });
+                    setUnlockedGames(newPool1);
+                    console.log('[Dev] Emptied Pool 3 - moved all to Pool 1');
+                  }
+                }} 
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded font-semibold text-sm"
+              >
+                🗑️ Empty Pool 3
               </button>
               <button onClick={() => setCollectionPower(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Power</button>
               <button onClick={() => setLiberationKeys(k => k + 100)} className="w-full bg-vault-gold hover:bg-yellow-400 text-vault-dark py-2 rounded font-semibold">+100 Keys</button>
