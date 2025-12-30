@@ -1,0 +1,24 @@
+Development Notes for Cline
+
+Working Principles:
+Implement milestones sequentially - Don't skip ahead
+Test after each milestone - Verify functionality before moving on
+Save frequently - localStorage corruption can lose progress
+Log to console - Debug pool states, draws, calculations
+Ask for clarification - If requirements unclear, ask Joe
+Keep it simple - Don't over-engineer, iterate later
+
+Code Style:
+TypeScript strict mode
+Functional components (React hooks)
+TailwindCSS for styling
+Extract reusable logic to utility files
+Comment complex algorithms
+Use meaningful variable names
+
+Testing Strategy:
+Console.log pool states after operations
+Verify localStorage after each save
+Test with different library sizes
+Test edge cases (empty pools, no keys, etc.)
+Use Joe's Steam ID for real-world testing

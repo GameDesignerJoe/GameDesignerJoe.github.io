@@ -1,0 +1,629 @@
+Steam Vault Escape - Milestone Plan v1.5
+Implementation Phases
+This plan breaks down the v1.5 implementation into manageable milestones for Cline to execute sequentially.
+
+MILESTONE 1: Three-Pool Foundation
+Goal: Establish the core three-pool system and data structures.
+Tasks:
+
+Create Pool Manager
+
+File: src/lib/pool-manager.ts
+Implement PoolManager class with three Sets
+Methods: initializePools(), moveToPool2(), unlockGame()
+Logic for selecting starting game (70s Metacritic, 5-10 hours)
+
+
+Update Save Data Structure
+
+File: src/lib/storage.ts
+Add SaveData interface with three pool arrays
+Add shopSlots array
+Add gameProgress map
+Implement saveGame() and loadGame() functions
+
+
+Initialize Pools on Load
+
+File: src/app/page.tsx
+On Steam library fetch, call poolManager.initializePools()
+Store pools in React state
+Save to localStorage
+
+
+Test Pool Initialization
+
+Verify starting game selected correctly
+Verify Pool 1 has 1 game
+Verify Pool 2 has remaining played games
+Verify Pool 3 has all never-played games
+Log pools to console for debugging
+
+
+
+Success Criteria:
+
+✅ Three pools correctly populated
+✅ Starting game meets criteria
+✅ Pools saved to localStorage
+
+
+MILESTONE 2: Shop System with 5 Slots
+Goal: Replace single-click card with 5-slot shop displaying locked games.
+Tasks:
+
+Create Shop Manager
+
+File: src/lib/shop-manager.ts
+Implement ShopManager class
+Method: initializeShop() with curated tier distribution
+Method: categorizeByTier() based on unlock cost
+Method: drawNewGame() with weighted random
+
+
+Calculate Unlock Costs
+
+File: src/lib/game-utils.ts
+Function: calculateUnlockCost(metacritic, hoursTobeat)
+Returns: { power: number, tier: 'cheap' | 'moderate' | 'epic' }
+Tier thresholds: <1000, 1000-3000, 3000+
+
+
+Update UI Layout
+
+File: src/app/page.tsx
+Remove single click card
+Add "Unlock with Collection Power" section
+Display 5 shop slots horizontally
+Each slot shows: Game art, name, Metacritic, unlock cost
+Add "Unlock" button (disabled if not enough power)
+
+
+Implement Unlock Logic
+
+On "Unlock" click:
+
+Check if collectionPower >= unlockCost
+Deduct power
+Move game from Pool 2 → Pool 1
+Empty shop slot
+Initialize game progress
+Save to localStorage
+
+
+
+
+Display Empty Slots
+
+Empty slot shows: "🔒 Spend 10 Keys to Draw New Game"
+Disabled if liberationKeys < 10
+Click opens Draw UI (Milestone 4)
+
+
+
+Success Criteria:
+
+✅ 5 shop slots display locked games
+✅ Unlock costs calculated correctly
+✅ Unlock button works
+✅ Games move from shop to Game Library
+✅ Empty slots displayed correctly
+
+
+MILESTONE 3: Game Library with Click & Drain
+Goal: Display unlocked games, implement click mechanics, and drain system.
+Tasks:
+
+Create Game Library Section
+
+File: src/app/page.tsx
+Add "Game Library" section above shop
+Display all Pool 1 games as clickable cards
+Sort by click value (highest first)
+Each card shows: Game art, name, click value, progress bar
+
+
+Implement Click Handler
+
+File: src/lib/click-manager.ts
+Class: ClickManager
+Method: handleClick(appId, game, progress)
+Calculate power gained = Math.floor(playtime_forever / 60)
+Check if drained: currentPower >= maxPower
+Return: { powerGained, isDrained }
+
+
+Update Game Progress
+
+On click:
+
+Add powerGained to collectionPower
+Update gameProgress[appId].currentPower
+If drained, set gameProgress[appId].isDrained = true
+Save to localStorage
+Re-render card
+
+
+
+
+Display Progress Bars
+
+Each game card shows progress: currentPower / maxPower
+Visual progress bar: ████████░░░░░
+Text: "4,250 / 15,000" below progress bar
+
+
+Drained State
+
+When isDrained = true:
+
+Card shows dark overlay
+Display: "⚠️ DRAINED"
+Calculate refresh cost: Math.ceil(metacritic / 10) keys
+Show "Refresh for X 🔑" button
+Clicking is disabled
+
+
+
+
+Refresh Logic
+
+On "Refresh" click:
+
+Check if liberationKeys >= refreshCost
+Deduct keys
+Reset: currentPower = 0, isDrained = false
+Save to localStorage
+Re-render card
+
+
+
+
+
+Success Criteria:
+
+✅ Game Library displays Pool 1 games
+✅ Clicking generates power
+✅ Progress bars update correctly
+✅ Games drain at correct threshold
+✅ Drained state displays correctly
+✅ Refresh button works
+
+
+MILESTONE 4: Draw New Game UI
+Goal: Implement slot machine interface for drawing games from Pool 2.
+Tasks:
+
+Create Draw Modal Component
+
+File: src/components/DrawModal.tsx
+Modal overlay with 3 card backs
+Card backs are clickable
+User clicks one → reveal animation
+Shows drawn game details
+"Accept" or "Redraw for 5 🔑" buttons
+
+
+Implement Draw Logic
+
+File: src/lib/draw-ui-manager.ts
+Class: DrawUIManager
+Method: showDrawInterface(slotIndex, pool2, games)
+Pre-determine game using shopManager.drawNewGame()
+Return: { appId, game }
+
+
+Connect to Empty Slots
+
+On empty slot click:
+
+Check if liberationKeys >= 10
+Open DrawModal
+Pass slotIndex and targetTier
+On card back click:
+
+Play reveal animation
+Show drawn game
+Deduct 10 keys
+Fill shop slot with game
+
+
+
+
+
+
+Redraw Logic
+
+On "Redraw" click:
+
+Check if liberationKeys >= 5
+Deduct 5 keys
+Call drawUIManager.redraw()
+Show new game reveal
+Can redraw unlimited times (5 keys each)
+
+
+
+
+Weighted Draw Implementation
+
+Use shopManager.drawNewGame() with tier targeting
+Log draws to console for debugging
+Verify weights: 70%/20%/10% distribution
+
+
+
+Success Criteria:
+
+✅ Empty slot opens Draw Modal
+✅ 3 card backs display
+✅ Clicking card reveals game
+✅ Drawn game fills shop slot
+✅ Redraw works and costs 5 keys
+✅ Weighted targeting works correctly
+
+
+MILESTONE 5: Key Games Section
+Goal: Display all never-played games with key rewards, click to launch Steam.
+Tasks:
+
+Create Key Games Section
+
+File: src/app/page.tsx
+Add "Key Games" section at bottom
+Grid layout for all Pool 3 games
+Each card shows: Full game art, title, key value
+
+
+Calculate Key Values
+
+Key value = Metacritic score
+Display as: "🔑 87 Keys"
+If no Metacritic, default to 70
+
+
+Click to Launch Steam
+
+On card click: Open steam://store/{appId} in new window
+This launches Steam app to game's store page
+Hover text: "Click to launch Steam"
+
+
+Visual Design
+
+Full-color game art (not locked/darkened)
+Larger cards than shop slots
+Sort by key value (highest first) or alphabetically
+
+
+
+Success Criteria:
+
+✅ All Pool 3 games displayed
+✅ Key values shown correctly
+✅ Clicking opens Steam app
+✅ Grid layout responsive
+
+
+MILESTONE 6: Key Game Detection & Rewards
+Goal: Detect when player has played a Key Game, award keys, move to Pool 2.
+Tasks:
+
+Create Detection System
+
+File: src/lib/key-game-detector.ts
+Class: KeyGameDetector
+Method: detectNewlyPlayed(steamId, pool3, lastPlaytimes)
+Compare current Steam playtime vs cached playtime
+If delta >= 30 minutes, game was played
+
+
+Store Last Playtimes
+
+In gameProgress: Add lastPlaytime: number field
+Update on every Steam API fetch
+Use to calculate delta
+
+
+Award Keys on Return
+
+On Steam library re-fetch:
+
+Call keyGameDetector.detectNewlyPlayed()
+For each newly played game:
+
+Award keys = Metacritic score
+Move game Pool 3 → Pool 2
+Show celebration notification
+Auto-refresh all drained games (call clickManager.autoRefreshAll())
+
+
+
+
+
+
+Celebration Notification
+
+File: src/components/CelebrationToast.tsx
+Toast notification: "🎉 You played Hades! +93 🔑 Keys earned!"
+Auto-dismiss after 5 seconds
+Multiple toasts if multiple games played
+
+
+Auto-Refresh All Drained
+
+File: src/lib/click-manager.ts
+Method: autoRefreshAll(gameProgress)
+Loop through all game progress
+If isDrained = true, reset: currentPower = 0, isDrained = false
+Free refresh (no key cost)
+
+
+Periodic Sync
+
+On component mount, check if lastSync > 5 minutes ago
+If yes, re-fetch Steam library
+Run detection system
+Update UI
+
+
+
+Success Criteria:
+
+✅ Playing Key Game detected correctly
+✅ Keys awarded = Metacritic score
+✅ Game moves Pool 3 → Pool 2
+✅ Celebration notification shown
+✅ All drained games auto-refresh
+✅ Sync runs periodically
+
+
+MILESTONE 7: UI Polish & Animations
+Goal: Add visual polish, animations, and improved UX.
+Tasks:
+
+Card Reveal Animation
+
+DrawModal card flip: 3D flip animation (CSS transform: rotateY())
+Duration: 500ms
+Easing: ease-out
+
+
+Progress Bar Animation
+
+Smooth width transition when clicking
+Color shift when approaching drain (green → yellow → red)
+
+
+Tier Visual Differentiation
+
+Cheap games: Gray/silver border
+Moderate games: Blue/purple border with subtle glow
+Epic games: Gold/orange border with strong glow
+
+
+Hover States
+
+Game cards: Lift on hover (transform: translateY(-4px))
+Buttons: Brightness increase
+Smooth transitions (200ms)
+
+
+Empty Slot Visual
+
+Dashed border for empty slots
+Lock icon centered
+Subtle pulse animation on hover
+
+
+Drained Game Visual
+
+Dark overlay (50% opacity)
+Desaturate game art (grayscale filter)
+Red border to indicate attention needed
+
+
+Loading States
+
+Skeleton loading for game cards during fetch
+Spinner for Draw UI
+Disable buttons during operations
+
+
+Responsive Design
+
+Stack shop slots vertically on mobile
+Reduce card sizes on small screens
+Collapsible sections for mobile
+
+
+
+Success Criteria:
+
+✅ Animations smooth and performant
+✅ Tiers visually distinct
+✅ Hover states engaging
+✅ Loading states clear
+✅ Mobile-friendly layout
+
+
+MILESTONE 8: Testing & Bug Fixes
+Goal: Comprehensive testing and bug fixes before deployment.
+Test Cases:
+
+Pool Transitions
+
+ Starting game selected correctly
+ Unlocking moves game Pool 2 → Pool 1
+ Playing Key Game moves Pool 3 → Pool 2
+ No games appear in multiple pools
+
+
+Shop Mechanics
+
+ Initial shop has correct tier distribution
+ Unlock costs calculated correctly
+ Unlocking empties slot
+ Draw fills empty slot with correct tier
+ Redraw gives different game
+
+
+Click & Drain
+
+ Clicks generate correct power
+ Progress bars update correctly
+ Games drain at correct threshold
+ Refresh costs calculated correctly
+ Manual refresh works
+
+
+Key Game Detection
+
+ Playing game for 30+ min detected
+ Keys awarded = Metacritic score
+ Game moves to Pool 2
+ Auto-refresh triggers
+ Celebration notification shows
+
+
+Edge Cases
+
+ Pool 2 empty: Draw shows "No games available"
+ Pool 3 empty: Key Games shows "All games played!"
+ Not enough keys: Buttons disabled
+ Not enough power: Unlock disabled
+ Private Steam profile: Error message
+
+
+localStorage
+
+ Save/load works correctly
+ Pools persist across sessions
+ Progress persists correctly
+ Cache expiration works
+
+
+Performance
+
+ Large libraries (500+ games) load quickly
+ Clicking is responsive (no lag)
+ Draw UI smooth
+ No memory leaks
+
+
+
+Bug Fixes:
+
+Fix any issues discovered during testing
+Handle edge cases gracefully
+Improve error messages
+Optimize performance bottlenecks
+
+Success Criteria:
+
+✅ All test cases pass
+✅ No critical bugs
+✅ Performance acceptable
+✅ Error handling robust
+
+
+MILESTONE 9: Deployment & Documentation
+Goal: Deploy to Vercel and finalize documentation.
+Tasks:
+
+Environment Setup
+
+Verify STEAM_API_KEY in Vercel environment variables
+Test production build locally: npm run build
+Check for TypeScript errors
+
+
+Deploy to Vercel
+
+Push to GitHub main branch
+Verify auto-deploy triggers
+Test on live URL: steam-vault-escape.vercel.app
+
+
+User Documentation
+
+File: README.md
+How to use the app
+How to find Steam ID
+How the three pools work
+How to earn keys
+
+
+Developer Documentation
+
+Code comments for complex logic
+Architecture overview
+How to add new features
+Testing instructions
+
+
+Post-Launch Monitoring
+
+Check Vercel logs for errors
+Monitor user feedback
+Track usage metrics (if available)
+
+
+
+Success Criteria:
+
+✅ App deployed and accessible
+✅ No errors in production
+✅ Documentation complete
+✅ Ready for user testing
+
+
+MILESTONE 10: Future Enhancements (Post-v1.5)
+Goal: Plan and implement additional features based on user feedback.
+Potential Features:
+
+Passive Key Generation
+
+Earn 1 key per hour of total library playtime
+Incentivizes playing anything, not just Key Games
+
+
+Daily Challenges
+
+"Play a horror game today" → Bonus keys
+"Unlock 3 games" → Bonus power multiplier
+
+
+Collection Milestones
+
+Unlock all RPGs → Permanent +10% power bonus
+Play 50 Key Games → Unlock special tier
+
+
+Bulk Operations
+
+"Refresh All Drained" button (costs total refresh cost)
+"Draw 5 Games" button (costs 50 keys, fills all empty slots)
+
+
+Friend Leaderboards
+
+Compare unlock progress with Steam friends
+"Who played more Key Games this week?"
+
+
+Prestige System
+
+Reset all progress for permanent bonuses
+Prestige levels with cosmetic rewards
+
+
+Enhanced Analytics
+
+Graphs of progress over time
+Genre breakdown of library
+Cost-per-hour analysis
+
+
+
+Implementation: Based on user feedback and priorities after v1.5 launch.

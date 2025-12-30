@@ -1,0 +1,589 @@
+Steam Vault Escape - Technical Design Document v1.5
+Architecture Overview
+Technology Stack
+
+Frontend: Next.js 15, React 19, TypeScript
+Styling: TailwindCSS
+State Management: React hooks (useState, useEffect)
+Data Storage: localStorage (browser-based persistence)
+APIs: Steam Web API, SteamSpy API
+Deployment: Vercel
+
+
+Data Models
+Game Interface
+typescriptinterface SteamGame {
+  appid: number;
+  name: string;
+  playtime_forever: number; // Steam playtime in minutes
+  img_icon_url: string;
+  metacritic?: number;
+  hoursTobeat?: number; // From HLTB or SteamSpy
+  tags?: string[];
+  
+  // Calculated fields
+  unlockCost: number; // Metacritic × hoursTobeat
+  tier: 'cheap' | 'moderate' | 'epic';
+  clickValue: number; // playtime_forever / 60 (hours)
+  maxPower: number; // clickValue × 100
+}
+Save Data Structure
+typescriptinterface SaveData {
+  // Currencies
+  collectionPower: number;
+  liberationKeys: number;
+  
+  // Game Pools
+  pool1_unlocked: number[]; // App IDs in Game Library
+  pool2_hidden: number[]; // Played but locked (hidden pool)
+  pool3_keyGames: number[]; // Never played
+  
+  // Shop State
+  shopSlots: (number | null)[]; // 5 slots, null = empty
+  
+  // Game Progress
+  gameProgress: {
+    [appId: number]: {
+      currentPower: number;
+      maxPower: number;
+      isDrained: boolean;
+      lastPlaytime: number; // Track Steam playtime
+    }
+  };
+  
+  // Metadata
+  lastSync: number; // Timestamp of last Steam API check
+  steamId: string;
+}
+
+Core Systems
+1. Pool Management System
+Purpose: Manage the three game pools and transitions between them.
+typescriptclass PoolManager {
+  private pool1: Set<number>; // Unlocked
+  private pool2: Set<number>; // Hidden/locked
+  private pool3: Set<number>; // Never played
+  
+  // Initialize pools from Steam library
+  initializePools(steamLibrary: SteamGame[]): void {
+    // Separate games by playtime
+    const played = steamLibrary.filter(g => g.playtime_forever > 0);
+    const neverPlayed = steamLibrary.filter(g => g.playtime_forever === 0);
+    
+    // Select starting game (70s Metacritic, 5-10 hours)
+    const startingGame = this.selectStartingGame(played);
+    
+    // Pool 1: Just the starting game
+    this.pool1 = new Set([startingGame.appid]);
+    
+    // Pool 2: All other played games
+    this.pool2 = new Set(
+      played
+        .filter(g => g.appid !== startingGame.appid)
+        .map(g => g.appid)
+    );
+    
+    // Pool 3: All never played
+    this.pool3 = new Set(neverPlayed.map(g => g.appid));
+  }
+  
+  // Move game from Pool 3 → Pool 2 when played
+  moveToPool2(appId: number): void {
+    if (this.pool3.has(appId)) {
+      this.pool3.delete(appId);
+      this.pool2.add(appId);
+    }
+  }
+  
+  // Move game from Pool 2 → Pool 1 when unlocked
+  unlockGame(appId: number): void {
+    if (this.pool2.has(appId)) {
+      this.pool2.delete(appId);
+      this.pool1.add(appId);
+    }
+  }
+}
+
+2. Shop System
+Purpose: Manage the 5-slot shop, draws, and tier distribution.
+typescriptinterface ShopSlot {
+  appId: number | null;
+  tier: 'cheap' | 'moderate' | 'epic' | null;
+}
+
+class ShopManager {
+  private slots: ShopSlot[] = Array(5).fill({ appId: null, tier: null });
+  
+  // Initialize shop with curated distribution
+  initializeShop(pool2: Set<number>, games: Map<number, SteamGame>): void {
+    const pool2Array = Array.from(pool2);
+    
+    // Categorize by tier
+    const tiers = this.categorizeByTier(pool2Array, games);
+    
+    // Fill slots with curated distribution
+    this.slots[0] = { appId: this.randomFrom(tiers.cheap), tier: 'cheap' };
+    this.slots[1] = { appId: this.randomFrom(tiers.cheap), tier: 'cheap' };
+    this.slots[2] = { appId: this.randomFrom(tiers.moderate), tier: 'moderate' };
+    this.slots[3] = { appId: this.randomFrom(tiers.moderate), tier: 'moderate' };
+    this.slots[4] = { appId: this.randomFrom(tiers.epic), tier: 'epic' };
+  }
+  
+  // Draw new game with weighted targeting
+  drawNewGame(
+    slotIndex: number,
+    pool2: Set<number>,
+    games: Map<number, SteamGame>
+  ): number {
+    const targetTier = this.slots[slotIndex].tier;
+    const pool2Array = Array.from(pool2);
+    const tiers = this.categorizeByTier(pool2Array, games);
+    
+    // Weighted random based on previous tier
+    const roll = Math.random();
+    let selectedTier: 'cheap' | 'moderate' | 'epic';
+    
+    if (targetTier === 'cheap') {
+      if (roll < 0.7) selectedTier = 'cheap';
+      else if (roll < 0.9) selectedTier = 'moderate';
+      else selectedTier = 'epic';
+    } else if (targetTier === 'moderate') {
+      if (roll < 0.2) selectedTier = 'cheap';
+      else if (roll < 0.8) selectedTier = 'moderate';
+      else selectedTier = 'epic';
+    } else { // epic
+      if (roll < 0.1) selectedTier = 'cheap';
+      else if (roll < 0.3) selectedTier = 'moderate';
+      else selectedTier = 'epic';
+    }
+    
+    // Return random game from selected tier
+    return this.randomFrom(tiers[selectedTier]);
+  }
+  
+  // Categorize games by unlock cost
+  private categorizeByTier(
+    appIds: number[],
+    games: Map<number, SteamGame>
+  ): {
+    cheap: number[];
+    moderate: number[];
+    epic: number[];
+  } {
+    const tiers = { cheap: [], moderate: [], epic: [] };
+    
+    for (const appId of appIds) {
+      const game = games.get(appId);
+      if (!game) continue;
+      
+      const cost = game.unlockCost;
+      if (cost < 1000) tiers.cheap.push(appId);
+      else if (cost < 3000) tiers.moderate.push(appId);
+      else tiers.epic.push(appId);
+    }
+    
+    return tiers;
+  }
+}
+
+3. Click & Drain System
+Purpose: Handle game clicks, power generation, and drain mechanics.
+typescriptclass ClickManager {
+  // Handle game click
+  handleClick(
+    appId: number,
+    game: SteamGame,
+    progress: GameProgress
+  ): {
+    powerGained: number;
+    isDrained: boolean;
+  } {
+    // Check if already drained
+    if (progress.isDrained) {
+      return { powerGained: 0, isDrained: true };
+    }
+    
+    // Calculate power gain
+    const clickValue = Math.floor(game.playtime_forever / 60); // Convert minutes to hours
+    const newPower = progress.currentPower + clickValue;
+    
+    // Check if drained
+    const maxPower = clickValue * 100;
+    const isDrained = newPower >= maxPower;
+    
+    return {
+      powerGained: clickValue,
+      isDrained
+    };
+  }
+  
+  // Refresh drained game
+  refreshGame(
+    appId: number,
+    game: SteamGame,
+    currentKeys: number
+  ): {
+    success: boolean;
+    keysSpent: number;
+  } {
+    const refreshCost = Math.ceil(game.metacritic / 10);
+    
+    if (currentKeys < refreshCost) {
+      return { success: false, keysSpent: 0 };
+    }
+    
+    return {
+      success: true,
+      keysSpent: refreshCost
+    };
+  }
+  
+  // Auto-refresh all drained games (free, after playing Key Game)
+  autoRefreshAll(gameProgress: Map<number, GameProgress>): void {
+    for (const [appId, progress] of gameProgress) {
+      if (progress.isDrained) {
+        progress.currentPower = 0;
+        progress.isDrained = false;
+      }
+    }
+  }
+}
+
+4. Key Game Detection System
+Purpose: Detect when player has played a never-played game on Steam.
+typescriptclass KeyGameDetector {
+  // Check for newly played games
+  async detectNewlyPlayed(
+    steamId: string,
+    pool3: Set<number>,
+    lastPlaytimes: Map<number, number>
+  ): Promise<{
+    newlyPlayed: Array<{ appId: number; keysEarned: number }>;
+  }> {
+    // Fetch current Steam library
+    const currentLibrary = await fetchSteamLibrary(steamId);
+    
+    const newlyPlayed = [];
+    
+    for (const game of currentLibrary) {
+      // Check if this was a Key Game (Pool 3)
+      if (!pool3.has(game.appid)) continue;
+      
+      // Check if now has playtime
+      const lastPlaytime = lastPlaytimes.get(game.appid) || 0;
+      const currentPlaytime = game.playtime_forever;
+      
+      // Must have 30+ minutes played
+      if (currentPlaytime - lastPlaytime >= 30) {
+        newlyPlayed.push({
+          appId: game.appid,
+          keysEarned: game.metacritic || 70 // Default to 70 if no Metacritic
+        });
+      }
+    }
+    
+    return { newlyPlayed };
+  }
+}
+
+5. Draw UI System
+Purpose: Slot machine interface for drawing games.
+typescriptinterface DrawResult {
+  appId: number;
+  game: SteamGame;
+}
+
+class DrawUIManager {
+  // Show draw interface (3 card backs)
+  async showDrawInterface(
+    pool2: Set<number>,
+    games: Map<number, SteamGame>,
+    targetTier: 'cheap' | 'moderate' | 'epic'
+  ): Promise<DrawResult> {
+    // Pre-determine the result
+    const shopManager = new ShopManager();
+    const drawnAppId = shopManager.drawNewGame(0, pool2, games);
+    const drawnGame = games.get(drawnAppId);
+    
+    // Show 3 card backs (fake choice)
+    // User clicks one
+    // Reveal animation shows the predetermined game
+    
+    return {
+      appId: drawnAppId,
+      game: drawnGame
+    };
+  }
+  
+  // Redraw (costs 5 keys)
+  async redraw(
+    pool2: Set<number>,
+    games: Map<number, SteamGame>,
+    targetTier: 'cheap' | 'moderate' | 'epic'
+  ): Promise<DrawResult> {
+    // Same as showDrawInterface, but new random roll
+    return this.showDrawInterface(pool2, games, targetTier);
+  }
+}
+```
+
+---
+
+## Data Flow
+
+### **Initialization Flow**
+```
+1. User enters Steam ID
+2. Fetch Steam library from API
+3. Fetch metadata (Metacritic, tags, HLTB) from SteamSpy
+4. Calculate unlock costs and tiers
+5. Initialize pools:
+   - Select starting game
+   - Pool 1: Starting game
+   - Pool 2: Other played games
+   - Pool 3: Never played games
+6. Initialize shop (5 slots, curated tiers)
+7. Save to localStorage
+8. Render UI
+```
+
+### **Click Flow**
+```
+1. User clicks unlocked game
+2. Check if drained → if yes, show "Refresh" message
+3. Calculate power gained (game's hours played)
+4. Add to collectionPower
+5. Update game progress (currentPower)
+6. Check if drained → if yes, update state
+7. Save to localStorage
+8. Re-render game card
+```
+
+### **Unlock Flow**
+```
+1. User clicks "Unlock" on shop game
+2. Check if enough collectionPower
+3. Deduct collectionPower
+4. Move game from Pool 2 → Pool 1
+5. Empty shop slot
+6. Initialize game progress (currentPower: 0, isDrained: false)
+7. Save to localStorage
+8. Re-render shop and Game Library
+```
+
+### **Draw Flow**
+```
+1. User clicks empty shop slot
+2. Check if enough keys (10)
+3. Show Draw UI (3 card backs)
+4. User clicks card back
+5. Pre-determined game revealed (weighted random)
+6. Game fills shop slot
+7. Deduct 10 keys
+8. Option to redraw (5 keys)
+9. Save to localStorage
+10. Re-render shop
+```
+
+### **Key Game Play Detection Flow**
+```
+1. User returns to site after playing Steam
+2. Check timestamp since last sync
+3. If >5 minutes, fetch current Steam library
+4. Compare playtimes:
+   - For each Pool 3 game
+   - If playtime increased by 30+ min
+   - Award keys (Metacritic score)
+   - Move game Pool 3 → Pool 2
+   - Auto-refresh all drained games
+5. Show celebration: "+87 Keys earned!"
+6. Save to localStorage
+7. Re-render Key Games section and Game Library
+
+localStorage Schema
+Keys Used
+typescript// Main save data
+'steamVaultEscape_save': SaveData
+
+// Steam library cache
+'steamVaultEscape_library_{steamId}': SteamGame[]
+
+// Last sync timestamp
+'steamVaultEscape_lastSync': number
+
+// User preferences
+'steamVaultEscape_prefs': {
+  autoRefresh: boolean;
+  soundEnabled: boolean;
+}
+Save/Load Pattern
+typescriptfunction saveGame(data: SaveData): void {
+  localStorage.setItem('steamVaultEscape_save', JSON.stringify(data));
+}
+
+function loadGame(): SaveData | null {
+  const raw = localStorage.getItem('steamVaultEscape_save');
+  return raw ? JSON.parse(raw) : null;
+}
+
+// Auto-save on every state change
+useEffect(() => {
+  saveGame(gameState);
+}, [gameState]);
+
+API Integration
+Steam Web API
+Endpoint: GET https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/
+Parameters:
+
+key: Steam API key (from env)
+steamid: User's Steam ID
+include_appinfo: 1
+include_played_free_games: 1
+
+Response:
+json{
+  "response": {
+    "game_count": 314,
+    "games": [
+      {
+        "appid": 440,
+        "name": "Team Fortress 2",
+        "playtime_forever": 12045,
+        "img_icon_url": "...",
+        "playtime_windows_forever": 12045
+      }
+    ]
+  }
+}
+Usage: Initial library fetch + periodic sync for playtime detection
+
+SteamSpy API
+Endpoint: GET https://steamspy.com/api.php?request=appdetails&appid={appid}
+Response:
+json{
+  "appid": 440,
+  "name": "Team Fortress 2",
+  "positive": 487623,
+  "negative": 48762,
+  "score_rank": 95,
+  "tags": {
+    "FPS": 123,
+    "Multiplayer": 98,
+    "Action": 87
+  },
+  "average_forever": 1234,
+  "median_forever": 456
+}
+Usage:
+
+Calculate Metacritic score proxy: positive / (positive + negative) * 100
+Get tags for filtering
+Estimate hours to beat: median_forever / 60
+
+Rate Limiting: 10 parallel requests, 1 second delay between batches
+
+Performance Considerations
+Caching Strategy
+typescript// Cache Steam library for 1 hour
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms
+
+function shouldRefreshCache(lastSync: number): boolean {
+  return Date.now() - lastSync > CACHE_DURATION;
+}
+
+// Cache SteamSpy metadata for 7 days
+const METADATA_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
+Lazy Loading
+
+Game Library: Load only unlocked games initially
+Key Games: Virtualize list (render only visible cards)
+Shop: Always render (only 5 slots)
+
+Optimizations
+
+Debounce clicks (prevent spam)
+Batch localStorage writes (save every 5 seconds, not every click)
+Memoize tier calculations
+Use useMemo for sorted/filtered game lists
+
+
+Security Considerations
+Steam API Key Protection
+typescript// Next.js API route handles Steam API
+// pages/api/steam-library.ts
+export default async function handler(req, res) {
+  const { steamid } = req.query;
+  
+  // API key stays server-side
+  const apiKey = process.env.STEAM_API_KEY;
+  
+  const response = await fetch(
+    `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${apiKey}&steamid=${steamid}&include_appinfo=1`
+  );
+  
+  const data = await response.json();
+  res.json(data);
+}
+Client calls: /api/steam-library?steamid=76561198...
+Input Validation
+
+Validate Steam ID format (17-digit number)
+Sanitize user inputs
+Prevent localStorage quota exhaustion (5MB limit)
+
+
+Error Handling
+Common Errors
+typescriptenum ErrorType {
+  STEAM_API_ERROR = 'Steam API unavailable',
+  INVALID_STEAM_ID = 'Invalid Steam ID',
+  PRIVATE_PROFILE = 'Steam profile is private',
+  RATE_LIMITED = 'Too many requests',
+  STORAGE_FULL = 'Browser storage full'
+}
+
+function handleError(error: ErrorType): void {
+  // Show user-friendly message
+  // Log to console for debugging
+  // Attempt recovery (fallback to cache, retry, etc.)
+}
+Graceful Degradation
+
+If SteamSpy fails: Use Steam playtime hours as fallback for unlock costs
+If Metacritic missing: Default to 70 rating
+If cache corrupt: Re-fetch from Steam API
+
+
+Testing Strategy
+Unit Tests
+
+Pool transitions (3→2→1)
+Unlock cost calculations
+Drain threshold logic
+Weighted random draws
+
+Integration Tests
+
+Full click-to-drain-to-refresh flow
+Draw and unlock flow
+Key Game detection and rewards
+localStorage save/load
+
+Manual Testing Checklist
+
+ Starting game selection works correctly
+ All 5 shop slots fill with appropriate tiers
+ Clicks generate correct power
+ Games drain at correct threshold
+ Refresh costs calculated correctly
+ Draw UI shows and reveals correctly
+ Redraw works and costs keys
+ Key Games display and link to Steam
+ Playing Key Game awards keys
+ Auto-refresh triggers after playing
+ Empty slots cost 10 keys to fill
+ Tier targeting works (weighted random)
+
+
+End of TDD v1.5
