@@ -10,6 +10,7 @@ import { loadFromStorage, saveToStorage } from '@/lib/storage';
 import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/pool-manager';
 import { initializeShop } from '@/lib/shop-manager';
 import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
+import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -38,6 +39,12 @@ export default function Home() {
   const [shopSlots, setShopSlots] = useState<ShopSlot[]>([]);
   const [collectionPower, setCollectionPower] = useState(0);
   const [liberationKeys, setLiberationKeys] = useState(0);
+  
+  // Draw modal state
+  const [showDrawModal, setShowDrawModal] = useState(false);
+  const [drawSlotIndex, setDrawSlotIndex] = useState<number | null>(null);
+  const [drawnGame, setDrawnGame] = useState<SteamGame | null>(null);
+  const [revealedCard, setRevealedCard] = useState(false);
   
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
@@ -329,6 +336,107 @@ export default function Home() {
     window.location.href = `steam://store/${game.appid}`;
   }
 
+  // Handle drawing a new game for an empty slot
+  function handleDrawSlot(slotIndex: number) {
+    if (!vaultState) return;
+    
+    // Check if can afford
+    if (!canAffordDraw(liberationKeys)) {
+      console.log('[Draw] Cannot afford - need 10 keys, have:', liberationKeys);
+      return;
+    }
+    
+    // Get target tier for this slot
+    const targetTier = getSlotTargetTier(slotIndex);
+    
+    // Draw a game from Pool 2
+    const result = drawGameFromPool2(vaultState.pool2_hidden || [], games, targetTier);
+    
+    if (!result) {
+      alert('No games available to draw! Pool 2 is empty.');
+      return;
+    }
+    
+    // Open the draw modal
+    setDrawSlotIndex(slotIndex);
+    setDrawnGame(result.game);
+    setRevealedCard(false);
+    setShowDrawModal(true);
+    
+    console.log('[Draw] Opening modal for slot', slotIndex, 'drew:', result.game.name);
+  }
+  
+  // Handle revealing the card (animation trigger)
+  function handleCardReveal() {
+    if (revealedCard) return; // Already revealed
+    
+    // Deduct 10 keys for the draw
+    setLiberationKeys(prev => prev - 10);
+    
+    // Trigger reveal animation
+    setRevealedCard(true);
+  }
+  
+  // Handle accepting the drawn game
+  function handleAcceptDraw() {
+    if (!vaultState || !drawnGame || drawSlotIndex === null) return;
+    
+    // Fill the shop slot with the drawn game
+    const updatedShopSlots = [...shopSlots];
+    const targetTier = getSlotTargetTier(drawSlotIndex);
+    updatedShopSlots[drawSlotIndex] = {
+      appId: drawnGame.appid,
+      tier: targetTier,
+    };
+    
+    setShopSlots(updatedShopSlots);
+    
+    // Update vault state
+    const updatedState: VaultState = {
+      ...vaultState,
+      shopSlots: updatedShopSlots,
+      liberationKeys,
+    };
+    setVaultState(updatedState);
+    
+    // Close modal
+    setShowDrawModal(false);
+    setDrawnGame(null);
+    setDrawSlotIndex(null);
+    setRevealedCard(false);
+    
+    console.log('[Draw] Accepted draw:', drawnGame.name);
+  }
+  
+  // Handle redrawing (costs 5 keys)
+  function handleRedraw() {
+    if (!vaultState || !drawnGame) return;
+    
+    // Check if can afford redraw
+    if (liberationKeys < 5) {
+      console.log('[Draw] Cannot afford redraw - need 5 keys, have:', liberationKeys);
+      return;
+    }
+    
+    // Deduct 5 keys
+    setLiberationKeys(prev => prev - 5);
+    
+    // Draw a new game
+    const targetTier = drawSlotIndex !== null ? getSlotTargetTier(drawSlotIndex) : undefined;
+    const result = drawGameFromPool2(vaultState.pool2_hidden || [], games, targetTier);
+    
+    if (!result) {
+      alert('No more games available to draw!');
+      return;
+    }
+    
+    // Update drawn game and reset reveal
+    setDrawnGame(result.game);
+    setRevealedCard(false);
+    
+    console.log('[Draw] Redrew:', result.game.name);
+  }
+  
   // Handle unlocking a game from the shop
   function handleShopUnlock(slot: ShopSlot, game: SteamGame) {
     if (!vaultState) return;
@@ -685,14 +793,18 @@ export default function Home() {
               {shopSlots.map((slot, index) => {
                 if (slot.appId === null) {
                   // Empty slot
+                  const canDraw = canAffordDraw(liberationKeys);
                   return (
                     <div
                       key={index}
-                      className="relative aspect-[2/3] bg-vault-dark rounded-lg border-2 border-dashed border-vault-gold/30 flex flex-col items-center justify-center p-4 hover:border-vault-gold/60 transition-all cursor-pointer"
+                      onClick={() => canDraw && handleDrawSlot(index)}
+                      className={`relative aspect-[2/3] bg-vault-dark rounded-lg border-2 border-dashed border-vault-gold/30 flex flex-col items-center justify-center p-4 transition-all ${
+                        canDraw ? 'hover:border-vault-gold/60 cursor-pointer hover:scale-105' : 'cursor-not-allowed opacity-50'
+                      }`}
                     >
                       <div className="text-6xl mb-2">🔒</div>
                       <div className="text-center text-sm text-vault-gold font-semibold">
-                        Spend 10 🔑 Keys to Draw
+                        {canDraw ? 'Spend 10 🔑 Keys to Draw' : 'Need 10 🔑 Keys'}
                       </div>
                     </div>
                   );
@@ -1002,6 +1114,91 @@ export default function Home() {
           </div>
         )}
 
+        {/* Draw Modal */}
+        {showDrawModal && drawnGame && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-vault-blue to-vault-dark rounded-xl p-8 max-w-4xl w-full border-4 border-vault-gold shadow-2xl">
+              <div className="text-center mb-6">
+                <h2 className="text-4xl font-bold text-vault-gold mb-2">🎰 Draw a Game</h2>
+                <p className="text-gray-300">Click a card to reveal your game!</p>
+              </div>
+
+              {/* Card Backs or Revealed Game */}
+              {!revealedCard ? (
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  {[0, 1, 2].map((cardIndex) => (
+                    <div
+                      key={cardIndex}
+                      onClick={handleCardReveal}
+                      className="relative aspect-[2/3] bg-gradient-to-br from-vault-gold via-yellow-600 to-vault-gold rounded-lg border-4 border-yellow-400 cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl hover:shadow-vault-gold/50 flex items-center justify-center"
+                    >
+                      <div className="text-center">
+                        <div className="text-6xl mb-2">🃏</div>
+                        <div className="text-vault-dark font-bold text-lg">CLICK ME</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mb-6 animate-scale-up">
+                  <div className="max-w-md mx-auto">
+                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden border-4 border-vault-gold shadow-2xl">
+                      <img
+                        src={getLibraryCapsule(drawnGame.appid)}
+                        alt={drawnGame.name}
+                        onError={handleImageError}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Game info overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4">
+                        <div className="text-white font-bold text-xl mb-2">{drawnGame.name}</div>
+                        <div className="text-sm text-gray-300 mb-2">
+                          {drawnGame.metacritic ? `⭐ ${drawnGame.metacritic}` : '⭐ ??'} • 
+                          {drawnGame.hoursTobeat ? ` ${drawnGame.hoursTobeat}h` : ' ??h'}
+                        </div>
+                        <div className="text-vault-gold font-bold">
+                          Unlock Cost: {drawnGame.metacritic && drawnGame.hoursTobeat 
+                            ? Math.floor(drawnGame.metacritic * drawnGame.hoursTobeat).toLocaleString()
+                            : '???'} ⚡
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-4 mt-6 justify-center">
+                    <button
+                      onClick={handleAcceptDraw}
+                      className="px-8 py-4 bg-green-600 hover:bg-green-500 text-white font-bold text-lg rounded-lg transition-all transform hover:scale-105"
+                    >
+                      ✅ Accept
+                    </button>
+                    <button
+                      onClick={handleRedraw}
+                      disabled={liberationKeys < 5}
+                      className={`px-8 py-4 font-bold text-lg rounded-lg transition-all transform hover:scale-105 ${
+                        liberationKeys >= 5
+                          ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400'
+                          : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      🔄 Redraw (5 🔑)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Close button */}
+              <button
+                onClick={() => setShowDrawModal(false)}
+                className="mt-4 px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Dev Panel Button */}
         <button
           onClick={() => setShowDevPanel(!showDevPanel)}
@@ -1042,8 +1239,8 @@ export default function Home() {
               >
                 ♻️ Reset All Drained
               </button>
-              <button onClick={() => setPoints(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Points</button>
-              <button onClick={() => setPoints(p => p + 10000)} className="w-full bg-green-700 hover:bg-green-600 text-white py-2 rounded font-semibold">+10000 Points</button>
+              <button onClick={() => setCollectionPower(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Power</button>
+              <button onClick={() => setLiberationKeys(k => k + 100)} className="w-full bg-vault-gold hover:bg-yellow-400 text-vault-dark py-2 rounded font-semibold">+100 Keys</button>
               <button onClick={() => setUnlockedGames(vaultGames.filter(g => g.unlockCost < 100).map(g => g.appid))} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-semibold">Unlock Cheap Games</button>
               <button onClick={() => setUnlockedGames(vaultGames.map(g => g.appid))} className="w-full bg-blue-700 hover:bg-blue-600 text-white py-2 rounded font-semibold">Unlock All Games</button>
               <button onClick={() => setShowVictory(true)} className="w-full bg-vault-gold hover:bg-yellow-400 text-vault-dark py-2 rounded font-semibold">Show Victory</button>

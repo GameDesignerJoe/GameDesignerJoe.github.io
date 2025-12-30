@@ -364,71 +364,46 @@ Success Criteria:
 ✅ Refresh button works
 
 
-MILESTONE 4: Draw New Game UI
+MILESTONE 4: Draw New Game UI ✅ COMPLETE
 Goal: Implement slot machine interface for drawing games from Pool 2.
 Tasks:
 
-Create Draw Modal Component
+✅ Create Draw Modal Component
+   - File: app/page.tsx (integrated modal)
+   ✅ Modal overlay with 3 card backs
+   ✅ Card backs are clickable
+   ✅ User clicks one → reveal animation
+   ✅ Shows drawn game details
+   ✅ "Accept" or "Redraw for 5 🔑" buttons
 
-File: src/components/DrawModal.tsx
-Modal overlay with 3 card backs
-Card backs are clickable
-User clicks one → reveal animation
-Shows drawn game details
-"Accept" or "Redraw for 5 🔑" buttons
+✅ Implement Draw Logic
+   - File: lib/draw-manager.ts
+   ✅ drawGameFromPool2() with weighted tier targeting
+   ✅ getSlotTargetTier() for tier distribution
+   ✅ canAffordDraw() and canAffordRedraw() helpers
 
+✅ Connect to Empty Slots
+   ✅ Empty slot click triggers handleDrawSlot()
+   ✅ Checks if liberationKeys >= 10
+   ✅ Opens DrawModal with pre-drawn game
+   ✅ Card back click reveals game (handleCardReveal)
+   ✅ Deducts 10 keys on reveal
+   ✅ Fills shop slot with drawn game
 
-Implement Draw Logic
+✅ Redraw Logic
+   ✅ "Redraw" button checks liberationKeys >= 5
+   ✅ Deducts 5 keys per redraw
+   ✅ Calls drawGameFromPool2() again
+   ✅ Shows new game reveal
+   ✅ Can redraw unlimited times
 
-File: src/lib/draw-ui-manager.ts
-Class: DrawUIManager
-Method: showDrawInterface(slotIndex, pool2, games)
-Pre-determine game using shopManager.drawNewGame()
-Return: { appId, game }
-
-
-Connect to Empty Slots
-
-On empty slot click:
-
-Check if liberationKeys >= 10
-Open DrawModal
-Pass slotIndex and targetTier
-On card back click:
-
-Play reveal animation
-Show drawn game
-Deduct 10 keys
-Fill shop slot with game
-
-
-
-
-
-
-Redraw Logic
-
-On "Redraw" click:
-
-Check if liberationKeys >= 5
-Deduct 5 keys
-Call drawUIManager.redraw()
-Show new game reveal
-Can redraw unlimited times (5 keys each)
-
-
-
-
-Weighted Draw Implementation
-
-Use shopManager.drawNewGame() with tier targeting
-Log draws to console for debugging
-Verify weights: 70%/20%/10% distribution
-
-
+✅ Weighted Draw Implementation
+   ✅ 70% chance for target tier, fallback to others
+   ✅ Tier pattern: [cheap, moderate, cheap, epic, moderate]
+   ✅ Console logging for debugging
+   ✅ Weighted targeting verified
 
 Success Criteria:
-
 ✅ Empty slot opens Draw Modal
 ✅ 3 card backs display
 ✅ Clicking card reveals game
