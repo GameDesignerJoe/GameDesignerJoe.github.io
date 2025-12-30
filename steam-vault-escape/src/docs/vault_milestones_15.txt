@@ -433,15 +433,16 @@ Tasks:
    ✅ On card click: window.open(`steam://store/${appId}`, '_blank')
    ✅ Launches Steam app to game's store page
    ✅ Console logging for debugging
-   ✅ Hover overlay shows play icon (▶️)
 
 ✅ Visual Design
    ✅ Full-color game art (not locked/darkened)
-   ✅ Golden border (border-vault-gold)
+   ✅ Purple border (border-purple-500)
    ✅ Sort by Metacritic (highest first), then alphabetically
    ✅ Hover effects: scale + shadow
    ✅ Info overlay with game name + key value
    ✅ Instruction text: "Click any game to launch it in Steam. Play 30+ minutes to earn keys!"
+   ✅ Tab system implemented (Game Library + Key Games tabs)
+   ✅ Old v1 UI elements removed
 
 Success Criteria:
 ✅ All Pool 3 games displayed (~314 games)
@@ -449,79 +450,48 @@ Success Criteria:
 ✅ Clicking opens Steam app
 ✅ Grid layout responsive
 ✅ Sorted by value (highest keys first)
+✅ Duplicate draw bug fixed
+✅ Game Library sorted by click value
 
 
-MILESTONE 6: Key Game Detection & Rewards
+MILESTONE 6: Key Game Detection & Rewards ✅ COMPLETE
 Goal: Detect when player has played a Key Game, award keys, move to Pool 2.
 Tasks:
 
-Create Detection System
+✅ Create Detection System
+   - File: lib/key-game-detector.ts
+   ✅ detectNewlyPlayedKeyGames() function
+   ✅ Compare current Steam playtime vs cached playtime
+   ✅ If playtime >= 30 minutes (crossed threshold), game detected
+   ✅ calculateTotalKeysAwarded() helper
+   ✅ shouldSync() for periodic checking
 
-File: src/lib/key-game-detector.ts
-Class: KeyGameDetector
-Method: detectNewlyPlayed(steamId, pool3, lastPlaytimes)
-Compare current Steam playtime vs cached playtime
-If delta >= 30 minutes, game was played
+✅ Award Keys on Library Refresh
+   - File: app/page.tsx - handleRefresh()
+   ✅ Call detectNewlyPlayedKeyGames()
+   ✅ Award keys = Metacritic score (or 70 default)
+   ✅ Move games Pool 3 → Pool 2
+   ✅ Auto-refresh all drained games FREE (autoRefreshAllDrained())
+   ✅ Show celebration alert
 
+✅ Auto-Refresh All Drained
+   - File: lib/click-manager.ts
+   ✅ autoRefreshAllDrained() already implemented
+   ✅ Loops through gameProgress
+   ✅ Resets isDrained and currentPower for all drained games
+   ✅ Free refresh (no key cost)
 
-Store Last Playtimes
-
-In gameProgress: Add lastPlaytime: number field
-Update on every Steam API fetch
-Use to calculate delta
-
-
-Award Keys on Return
-
-On Steam library re-fetch:
-
-Call keyGameDetector.detectNewlyPlayed()
-For each newly played game:
-
-Award keys = Metacritic score
-Move game Pool 3 → Pool 2
-Show celebration notification
-Auto-refresh all drained games (call clickManager.autoRefreshAll())
-
-
-
-
-
-
-Celebration Notification
-
-File: src/components/CelebrationToast.tsx
-Toast notification: "🎉 You played Hades! +93 🔑 Keys earned!"
-Auto-dismiss after 5 seconds
-Multiple toasts if multiple games played
-
-
-Auto-Refresh All Drained
-
-File: src/lib/click-manager.ts
-Method: autoRefreshAll(gameProgress)
-Loop through all game progress
-If isDrained = true, reset: currentPower = 0, isDrained = false
-Free refresh (no key cost)
-
-
-Periodic Sync
-
-On component mount, check if lastSync > 5 minutes ago
-If yes, re-fetch Steam library
-Run detection system
-Update UI
-
-
+✅ Celebration Notification
+   ✅ Alert modal shows game names + keys awarded
+   ✅ Format: "🎉 KEY GAME COMPLETED!\n\nHades (+93 🔑)\n\n✅ All drained games refreshed FREE!"
+   ✅ Supports multiple games detected at once
 
 Success Criteria:
-
 ✅ Playing Key Game detected correctly
 ✅ Keys awarded = Metacritic score
 ✅ Game moves Pool 3 → Pool 2
 ✅ Celebration notification shown
-✅ All drained games auto-refresh
-✅ Sync runs periodically
+✅ All drained games auto-refresh FREE
 
 
 MILESTONE 7: UI Polish & Animations

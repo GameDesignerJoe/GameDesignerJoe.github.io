@@ -12,6 +12,7 @@ import { initializeShop } from '@/lib/shop-manager';
 import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
 import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
 import { initialMetadataEnrichment, topUpMetadataBuffer } from '@/lib/metadata-enrichment';
+import { detectNewlyPlayedKeyGames, calculateTotalKeysAwarded, KeyGameDetectionResult } from '@/lib/key-game-detector';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -586,7 +587,7 @@ export default function Home() {
   }
 
   async function handleRefresh() {
-    if (isRefreshing) return;
+    if (isRefreshing || !vaultState) return;
     
     setIsRefreshing(true);
     
@@ -606,40 +607,57 @@ export default function Home() {
       
       const freshGames = data.games || [];
       
-      // Detect newly unlocked Liberation Keys
-      const oldGames = games.filter(g => String(g.appid) !== 'vault-controller');
-      let bonusPoints = 0;
-      let newlyUnlocked: string[] = [];
+      // M6: DETECT NEWLY PLAYED KEY GAMES
+      const cachedGames = games;
+      const detectionResults = detectNewlyPlayedKeyGames(
+        freshGames,
+        cachedGames,
+        vaultState.pool3_keyGames || []
+      );
       
-      freshGames.forEach((freshGame: SteamGame) => {
-        const oldGame = oldGames.find(g => String(g.appid) === String(freshGame.appid));
+      if (detectionResults.length > 0) {
+        console.log(`[Key Detection] Found ${detectionResults.length} newly played Key Game(s)!`);
         
-        if (oldGame) {
-          // Check if it crossed the 30-minute threshold
-          const oldMinutes = oldGame.playtime_forever;
-          const newMinutes = freshGame.playtime_forever;
-          
-          if (oldMinutes < 30 && newMinutes >= 30) {
-            // Liberation Key unlocked!
-            const bonus = 50 + (newMinutes * 0.5);
-            bonusPoints += bonus;
-            newlyUnlocked.push(freshGame.name);
-            
-            // Auto-unlock the game
-            setUnlockedGames(prev => [...prev, freshGame.appid]);
-          }
-        }
-      });
+        // Calculate total keys awarded
+        const totalKeys = calculateTotalKeysAwarded(detectionResults);
+        
+        // Award keys
+        setLiberationKeys(prev => prev + totalKeys);
+        
+        // Move games from Pool 3 → Pool 2
+        let updatedPool3 = [...(vaultState.pool3_keyGames || [])];
+        let updatedPool2 = [...(vaultState.pool2_hidden || [])];
+        
+        detectionResults.forEach(result => {
+          // Remove from Pool 3
+          updatedPool3 = updatedPool3.filter(id => id !== result.game.appid);
+          // Add to Pool 2
+          updatedPool2.push(result.game.appid);
+        });
+        
+        // Auto-refresh all drained games (FREE!)
+        const refreshedProgress = autoRefreshAllDrained(vaultState.gameProgress || {});
+        
+        // Update vault state
+        const updatedState: VaultState = {
+          ...vaultState,
+          pool2_hidden: updatedPool2,
+          pool3_keyGames: updatedPool3,
+          gameProgress: refreshedProgress,
+          liberationKeys: liberationKeys + totalKeys,
+          lastSync: Date.now(),
+        };
+        
+        setVaultState(updatedState);
+        
+        // Show celebration message
+        const gameNames = detectionResults.map(r => `${r.game.name} (+${r.keysAwarded} 🔑)`).join('\n');
+        alert(`🎉 KEY GAME${detectionResults.length > 1 ? 'S' : ''} COMPLETED!\n\n${gameNames}\n\n✅ All drained games refreshed FREE!`);
+      }
       
       // Update library
       setGames(freshGames);
       setLastRefresh(Date.now());
-      
-      // Award bonus points
-      if (bonusPoints > 0) {
-        setPoints(prev => prev + bonusPoints);
-        alert(`🎉 Liberation Key${newlyUnlocked.length > 1 ? 's' : ''} Unlocked!\n\n${newlyUnlocked.join('\n')}\n\n+${Math.floor(bonusPoints)} bonus points!`);
-      }
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
