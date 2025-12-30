@@ -412,46 +412,43 @@ Success Criteria:
 ✅ Weighted targeting works correctly
 
 
-MILESTONE 5: Key Games Section
+MILESTONE 5: Key Games Section ✅ COMPLETE
 Goal: Display all never-played games with key rewards, click to launch Steam.
 Tasks:
 
-Create Key Games Section
+✅ Create Key Games Section
+   - File: app/page.tsx (integrated section)
+   ✅ "⭐ Key Games" section below Game Library
+   ✅ Grid layout (2-5 columns responsive)
+   ✅ All Pool 3 games displayed
+   ✅ Full game art with overlay
+   ✅ Key value shown (🔑 {metacritic} Keys)
 
-File: src/app/page.tsx
-Add "Key Games" section at bottom
-Grid layout for all Pool 3 games
-Each card shows: Full game art, title, key value
+✅ Calculate Key Values
+   ✅ Key value = Metacritic score
+   ✅ Display as: "🔑 87 Keys"
+   ✅ Default to 70 if no Metacritic
 
+✅ Click to Launch Steam
+   ✅ On card click: window.open(`steam://store/${appId}`, '_blank')
+   ✅ Launches Steam app to game's store page
+   ✅ Console logging for debugging
+   ✅ Hover overlay shows play icon (▶️)
 
-Calculate Key Values
-
-Key value = Metacritic score
-Display as: "🔑 87 Keys"
-If no Metacritic, default to 70
-
-
-Click to Launch Steam
-
-On card click: Open steam://store/{appId} in new window
-This launches Steam app to game's store page
-Hover text: "Click to launch Steam"
-
-
-Visual Design
-
-Full-color game art (not locked/darkened)
-Larger cards than shop slots
-Sort by key value (highest first) or alphabetically
-
-
+✅ Visual Design
+   ✅ Full-color game art (not locked/darkened)
+   ✅ Golden border (border-vault-gold)
+   ✅ Sort by Metacritic (highest first), then alphabetically
+   ✅ Hover effects: scale + shadow
+   ✅ Info overlay with game name + key value
+   ✅ Instruction text: "Click any game to launch it in Steam. Play 30+ minutes to earn keys!"
 
 Success Criteria:
-
-✅ All Pool 3 games displayed
+✅ All Pool 3 games displayed (~314 games)
 ✅ Key values shown correctly
 ✅ Clicking opens Steam app
 ✅ Grid layout responsive
+✅ Sorted by value (highest keys first)
 
 
 MILESTONE 6: Key Game Detection & Rewards

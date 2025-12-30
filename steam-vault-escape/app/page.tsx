@@ -33,6 +33,7 @@ export default function Home() {
   const [hasWon, setHasWon] = useState(false);
   const [totalPointsEarned, setTotalPointsEarned] = useState(0);
   const [showDevPanel, setShowDevPanel] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<'unlocked' | 'keyGames'>('unlocked'); // Tab state
   
   // v1.5 Pool state
   const [vaultState, setVaultState] = useState<VaultState | null>(null);
@@ -392,9 +393,13 @@ export default function Home() {
     
     setShopSlots(updatedShopSlots);
     
+    // IMPORTANT: Remove drawn game from Pool 2 so it can't be drawn again
+    const updatedPool2 = vaultState.pool2_hidden?.filter(id => id !== drawnGame.appid) || [];
+    
     // Update vault state
     const updatedState: VaultState = {
       ...vaultState,
+      pool2_hidden: updatedPool2,
       shopSlots: updatedShopSlots,
       liberationKeys,
     };
@@ -540,9 +545,10 @@ export default function Home() {
           
           // Initialize shop with games from Pool 2 (now with metadata)
           console.log('[Vault] Initializing shop...');
-          const initialShopSlots = await initializeShop(poolData.pool2_hidden, enrichedGames);
-          newState.shopSlots = initialShopSlots;
-          setShopSlots(initialShopSlots);
+          const shopResult = await initializeShop(poolData.pool2_hidden, enrichedGames);
+          newState.shopSlots = shopResult.shopSlots;
+          newState.pool2_hidden = shopResult.updatedPool2; // Remove shop games from Pool 2
+          setShopSlots(shopResult.shopSlots);
           
           setVaultState(newState);
           
@@ -879,21 +885,55 @@ export default function Home() {
           </div>
         )}
 
-        {/* Game Library Section - v1.5 */}
-        {vaultState && vaultState.pool1_unlocked && vaultState.pool1_unlocked.length > 0 && (
+        {/* Tabbed Library Section - Game Library + Key Games */}
+        {vaultState && (
           <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-green-500/30">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-3xl font-bold text-green-400">🎮 Game Library</h2>
-              <div className="text-right">
-                <div className="text-sm text-gray-400">⚡ Collection Power</div>
-                <div className="text-3xl font-bold text-green-400">{collectionPower.toLocaleString()}</div>
-              </div>
+            {/* Tab Buttons */}
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setLibraryTab('unlocked')}
+                className={`px-6 py-3 rounded-t-lg font-bold text-lg transition-all ${
+                  libraryTab === 'unlocked'
+                    ? 'bg-green-600 text-white border-b-4 border-green-400'
+                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                🎮 Game Library ({vaultState.pool1_unlocked?.length || 0})
+              </button>
+              <button
+                onClick={() => setLibraryTab('keyGames')}
+                className={`px-6 py-3 rounded-t-lg font-bold text-lg transition-all ${
+                  libraryTab === 'keyGames'
+                    ? 'bg-purple-600 text-white border-b-4 border-purple-400'
+                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700'
+                }`}
+              >
+                ⭐ Key Games ({vaultState.pool3_keyGames?.length || 0})
+              </button>
             </div>
+
+            {/* Game Library Tab Content */}
+            {libraryTab === 'unlocked' && vaultState.pool1_unlocked && vaultState.pool1_unlocked.length > 0 && (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-3xl font-bold text-green-400">🎮 Game Library</h2>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-400">⚡ Collection Power</div>
+                    <div className="text-3xl font-bold text-green-400">{collectionPower.toLocaleString()}</div>
+                  </div>
+                </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {vaultState.pool1_unlocked.map(appId => {
-                const game = games.find(g => g.appid === appId);
-                if (!game) return null;
-                
+              {vaultState.pool1_unlocked
+                .map(appId => games.find(g => g.appid === appId))
+                .filter((game): game is SteamGame => game !== undefined)
+                .sort((a, b) => {
+                  // Sort by click value (highest first)
+                  const aClickValue = getClickValue(a);
+                  const bClickValue = getClickValue(b);
+                  return bClickValue - aClickValue;
+                })
+                .map(game => {
+                const appId = game.appid; // Get appId from game
                 const progress = vaultState.gameProgress?.[appId];
                 const clickValue = getClickValue(game);
                 const maxPower = getMaxPower(game);
@@ -977,134 +1017,74 @@ export default function Home() {
                 );
               })}
             </div>
+              </>
+            )}
+
+            {/* Key Games Tab Content */}
+            {libraryTab === 'keyGames' && vaultState.pool3_keyGames && vaultState.pool3_keyGames.length > 0 && (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h2 className="text-3xl font-bold text-purple-500">⭐ Key Games - Play to Earn Keys</h2>
+                    <p className="text-gray-400 text-sm mt-1">Click any game to launch it in Steam. Play 30+ minutes to earn keys!</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-400">Never-Played Games</div>
+                    <div className="text-3xl font-bold text-purple-500">{vaultState.pool3_keyGames.length}</div>
+                  </div>
+                </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {vaultState.pool3_keyGames
+                .map(appId => games.find(g => g.appid === appId))
+                .filter((game): game is SteamGame => game !== undefined)
+                .sort((a, b) => {
+                  // Sort by Metacritic score (highest first), then alphabetically
+                  const aScore = a.metacritic || 0;
+                  const bScore = b.metacritic || 0;
+                  if (aScore !== bScore) return bScore - aScore;
+                  return a.name.localeCompare(b.name);
+                })
+                .map(game => {
+                  const keyValue = game.metacritic || 70; // Default to 70 if no Metacritic
+                  
+                  return (
+                    <div
+                      key={game.appid}
+                      onClick={() => {
+                        // Launch Steam to this game's store page
+                        window.open(`steam://store/${game.appid}`, '_blank');
+                        console.log(`[Key Game] Launching ${game.name} in Steam`);
+                      }}
+                      className="relative aspect-[2/3] rounded-lg overflow-hidden border-2 border-purple-500 shadow-lg transition-all hover:scale-105 hover:shadow-purple-500/50 cursor-pointer"
+                    >
+                      <img
+                        src={getLibraryCapsule(game.appid)}
+                        alt={game.name}
+                        onError={handleImageError}
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* Info overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent flex flex-col justify-end p-3">
+                        <div className="text-white font-bold text-sm mb-2 line-clamp-2">{game.name}</div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-purple-400 font-bold text-lg">
+                            🔑 {keyValue} Keys
+                          </div>
+                          <div className="text-xs text-gray-300">
+                            Play to Earn
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* Stats Bar */}
-        <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-vault-accent/20">
-          <div className="flex justify-between items-start">
-            <div className="flex gap-8">
-              <div>
-                <div className="text-sm text-gray-400">Total Games</div>
-                <div className="text-2xl font-bold text-vault-accent">{vaultGames.length}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400">🔒 Locked</div>
-                <div className="text-2xl font-bold text-red-400">
-                  {vaultGames.filter(g => g.state === 'locked').length}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400">✅ Playable</div>
-                <div className="text-2xl font-bold text-green-400">
-                  {vaultGames.filter(g => g.state === 'playable').length}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-400">⭐ Liberation Keys</div>
-                <div className="text-2xl font-bold text-vault-gold">
-                  {vaultGames.filter(g => g.state === 'liberationKey').length}
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-gray-500">Last updated</div>
-              <div className="text-sm text-gray-400">
-                {new Date(lastRefresh).toLocaleTimeString()}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter and Sort Controls */}
-        <div className="flex gap-4 mb-4 items-center flex-wrap justify-between">
-          {/* Filter Buttons */}
-          <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded transition-colors ${
-              filter === 'all'
-                ? 'bg-vault-accent text-vault-dark font-bold'
-                : 'bg-vault-gray text-gray-300 hover:bg-vault-gray/70'
-            }`}
-          >
-            All ({vaultGames.length})
-          </button>
-          <button
-            onClick={() => setFilter('locked')}
-            className={`px-4 py-2 rounded transition-colors ${
-              filter === 'locked'
-                ? 'bg-red-500 text-white font-bold'
-                : 'bg-vault-gray text-gray-300 hover:bg-vault-gray/70'
-            }`}
-          >
-            🔒 Locked ({vaultGames.filter(g => g.state === 'locked').length})
-          </button>
-          <button
-            onClick={() => setFilter('playable')}
-            className={`px-4 py-2 rounded transition-colors ${
-              filter === 'playable'
-                ? 'bg-green-500 text-white font-bold'
-                : 'bg-vault-gray text-gray-300 hover:bg-vault-gray/70'
-            }`}
-          >
-            ✅ Playable ({vaultGames.filter(g => g.state === 'playable').length})
-          </button>
-          <button
-            onClick={() => setFilter('liberationKey')}
-            className={`px-4 py-2 rounded transition-colors ${
-              filter === 'liberationKey'
-                ? 'bg-vault-gold text-vault-dark font-bold'
-                : 'bg-vault-gray text-gray-300 hover:bg-vault-gray/70'
-            }`}
-          >
-            ⭐ Keys ({vaultGames.filter(g => g.state === 'liberationKey').length})
-          </button>
-          </div>
-
-          {/* Sort Dropdown & Refresh Button */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-400">Sort by:</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-vault-gray text-white px-3 py-2 rounded border border-gray-600 hover:border-gray-500 focus:border-vault-accent focus:outline-none"
-            >
-              <option value="default">Default</option>
-              <option value="cost">Unlock Cost</option>
-              <option value="hours">Hours Played</option>
-              <option value="name">Name (A-Z)</option>
-              <option value="passive">Passive Income</option>
-            </select>
-            
-            {/* Refresh Library Button */}
-            <button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className={`px-4 py-2 rounded font-semibold transition-all flex items-center gap-2 ${
-                isRefreshing
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-vault-accent text-vault-dark hover:bg-blue-400'
-              }`}
-              title="Check for Liberation Keys you've unlocked by playing"
-            >
-              <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
-              {isRefreshing ? 'Refreshing...' : 'Refresh Library'}
-            </button>
-          </div>
-        </div>
-
-        {/* Games Grid */}
-        <GameGrid
-          vaultGames={vaultGames}
-          filter={filter}
-          sortBy={sortBy}
-          featuredGame={featuredGame}
-          points={points}
-          handleSelectFeatured={handleSelectFeatured}
-          handleUnlock={handleUnlock}
-          handlePlayLiberationKey={handlePlayLiberationKey}
-        />
 
         {/* Victory Screen Modal */}
         {showVictory && (

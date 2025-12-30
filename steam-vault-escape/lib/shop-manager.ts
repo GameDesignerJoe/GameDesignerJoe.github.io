@@ -8,14 +8,18 @@ import { enrichGameWithMetadata, calculateUnlockCost } from './game-utils';
 /**
  * Initialize the shop with 5 curated games from Pool 2
  * Aims for tier distribution: 3 cheap, 1 moderate, 1 epic
+ * Returns: { shopSlots, updatedPool2 } - updated pool2 has shop games removed
  */
 export async function initializeShop(
   pool2_ids: number[],
   allGames: SteamGame[]
-): Promise<ShopSlot[]> {
+): Promise<{ shopSlots: ShopSlot[]; updatedPool2: number[] }> {
   if (pool2_ids.length === 0) {
     console.warn('[Shop Manager] Pool 2 is empty, cannot initialize shop');
-    return Array(5).fill({ appId: null, tier: null });
+    return {
+      shopSlots: Array(5).fill({ appId: null, tier: null }),
+      updatedPool2: pool2_ids
+    };
   }
   
   // Get Pool 2 games
@@ -60,13 +64,23 @@ export async function initializeShop(
     tier: epicGame ? 'epic' : null,
   });
   
+  // Collect IDs of games placed in shop
+  const shopGameIds = shopSlots
+    .filter(slot => slot.appId !== null)
+    .map(slot => slot.appId as number);
+  
+  // Remove shop games from Pool 2
+  const updatedPool2 = pool2_ids.filter(id => !shopGameIds.includes(id));
+  
   console.log('[Shop Manager] Shop initialized:', {
     cheap: shopSlots.slice(0, 3).filter(s => s.appId).length,
     moderate: shopSlots[3].appId ? 1 : 0,
     epic: shopSlots[4].appId ? 1 : 0,
+    removedFromPool2: shopGameIds.length,
+    pool2Remaining: updatedPool2.length,
   });
   
-  return shopSlots;
+  return { shopSlots, updatedPool2 };
 }
 
 /**
