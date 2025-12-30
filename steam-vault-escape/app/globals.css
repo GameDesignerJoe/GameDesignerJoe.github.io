@@ -31,6 +31,176 @@
   }
 }
 
+/* M7: UI Polish & Animations */
+
+/* Card flip animation for draw modal */
+@keyframes flipCard {
+  0% {
+    transform: rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: rotateY(90deg) scale(1.05);
+  }
+  100% {
+    transform: rotateY(180deg) scale(1);
+  }
+}
+
+.flip-card {
+  animation: flipCard 0.6s ease-out forwards;
+  transform-style: preserve-3d;
+}
+
+/* Pulse animation for empty slots and buttons - SHARP BORDER GLOW */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 
+      0 0 0 1px rgba(234, 179, 8, 0.8),
+      0 0 8px rgba(234, 179, 8, 0.8),
+      0 0 12px rgba(234, 179, 8, 0.4);
+    border-color: rgba(234, 179, 8, 0.7);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 
+      0 0 0 2px rgba(234, 179, 8, 1),
+      0 0 12px rgba(234, 179, 8, 1),
+      0 0 16px rgba(234, 179, 8, 0.6);
+    border-color: rgba(234, 179, 8, 1);
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+/* Scale up animation for modals */
+@keyframes scaleUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s ease-out forwards;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1f2937 25%,
+    #374151 50%,
+    #1f2937 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Progress bar smooth transition */
+.progress-bar {
+  transition: width 0.3s ease-out, background-color 0.3s ease-out;
+}
+
+/* Tier glow effects */
+.tier-cheap {
+  box-shadow: 0 0 10px rgba(156, 163, 175, 0.3);
+}
+
+.tier-moderate {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+
+.tier-epic {
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.7);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Drained game grayscale */
+.drained {
+  filter: grayscale(100%) brightness(0.7);
+  transition: filter 0.3s ease-out;
+}
+
+.drained:hover {
+  filter: grayscale(80%) brightness(0.8);
+}
+
+/* Button press effect */
+.btn-press {
+  transition: transform 0.1s ease-out;
+}
+
+.btn-press:active {
+  transform: scale(0.95);
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Spin animation for loading */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin 2s linear infinite;
+}
+
+/* Float animation for numbers */
 @keyframes floatOut {
   0% {
     opacity: 1;
@@ -47,5 +217,20 @@
       calc(cos(var(--float-angle)) * var(--float-distance)),
       calc(sin(var(--float-angle)) * var(--float-distance))
     );
+  }
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .featured-game-mobile {
+    width: 250px;
+    height: 375px;
+  }
+}
+
+@media (max-width: 640px) {
+  .featured-game-mobile {
+    width: 200px;
+    height: 300px;
   }
 }

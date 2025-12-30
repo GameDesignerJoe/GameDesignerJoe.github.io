@@ -1,19 +1,28 @@
 To Do:
+
+BALANCE:
+- Need a balance pass milestone.
+- Passives should slowly regen your game.
 - Game costs are off by a factor of 10. 
+- Need to test at some point that you have actually unlocked a game by playing it. 
+
+BUGS:
+- Remove the 'cancel' option from the draw card. Once you draw, you draw, no going back. 
 - We need to shrink everything down a bit so it can more easily fit on the screen without having to scroll. 
-- I think we need a Games Played tab that shows the new games you've played since you started playing this game. It's like a trophy case that shows the games you started playing. You can't click on them or anything because it's just a display, but it shows what you've unlocked and maybe how many hours you've spent on it. 
-- Maybe only show like 20 unplayed games in the Key Games section. Maybe there's a way to unlock these games so that your pool of games you can play gets bigger. So it starts with like 3 and then as you play somehow, you can unlock other games that will grant you Keys. This way you're not overwhelmed with all of the options. 
-- Shouldn't be able to click on games that are drained and get them to move. In fact, clicking on a drained game in the Game Library should automatically take you to the Key Game Tab. 
+- I Shouldn't be able to click on games that are drained and get them to move. In fact, clicking on a drained game in the Game Library should automatically take you to the Key Game Tab. 
 - I don't like the count numbers for Game Library and Key Games. We should remove them. 
 - I wish it didn't look like tabs, but tha'ts a minor thing. 
-- We're not doing nay passives right now. 
+- We're not doing any passives right now. 
 - Where the Collection points is locatedis too far away. It needs to beright next to or above the game itself. 
 - The Liberation Key cound needs to be bigger. 
 - Need to rename this damn game 
-- Might want to consider Letting players purchase Keys for an extremely high price of points. 
 - Lots of images aren't being displayed correctly, likey because Steam is bouncing you. 
+
+FEATURES: 
+- I think we need a Games Played tab that shows the new games you've played since you started playing this game. It's like a trophy case that shows the games you started playing. You can't click on them or anything because it's just a display, but it shows what you've unlocked and maybe how many hours you've spent on it. 
+- Maybe only show like 20 unplayed games in the Key Games section. Maybe there's a way to unlock these games so that your pool of games you can play gets bigger. So it starts with like 3 and then as you play somehow, you can unlock other games that will grant you Keys. This way you're not overwhelmed with all of the options. 
+- Might want to consider letting players purchase Keys for an extremely high price of points. 
 - Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
-- Need to test at some point that you have actually unlocked a game by playing it. 
 - Create different 'click' behaviors based off of the type of game it is. 
 - Have different games have different strengths and they are picked for the slots that you put them in. 
     - DPS
@@ -21,3 +30,6 @@ To Do:
     - Health
     - Endurance
     - Special
+- Come up with a store with other things you can purchase.
+    - Keys at a high price. 
+- Consider adding a star system to the games that you can level them up or prestige them with the points that you earn. 

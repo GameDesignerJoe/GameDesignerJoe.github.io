@@ -922,10 +922,10 @@ export default function Home() {
                       key={index}
                       onClick={() => canDraw && handleDrawSlot(index)}
                       className={`relative aspect-[2/3] bg-vault-dark rounded-lg border-2 border-dashed border-vault-gold/30 flex flex-col items-center justify-center p-4 transition-all ${
-                        canDraw ? 'hover:border-vault-gold/60 cursor-pointer hover:scale-105' : 'cursor-not-allowed opacity-50'
+                        canDraw ? 'hover:border-vault-gold/60 cursor-pointer hover:scale-105 pulse-glow' : 'cursor-not-allowed opacity-50'
                       }`}
                     >
-                      <div className="text-6xl mb-2">🔒</div>
+                      <div className="text-6xl mb-2 animate-pulse">🔒</div>
                       <div className="text-center text-sm text-vault-gold font-semibold">
                         {canDraw ? 'Spend 10 🔑 Keys to Draw' : 'Need 10 🔑 Keys'}
                       </div>
@@ -950,10 +950,15 @@ export default function Home() {
                 };
                 const tierBorder = slot.tier ? tierColors[slot.tier] : 'border-gray-400';
                 
+                // Apply tier glow classes
+                const tierGlow = slot.tier === 'cheap' ? 'tier-cheap' : 
+                                 slot.tier === 'moderate' ? 'tier-moderate' : 
+                                 slot.tier === 'epic' ? 'tier-epic' : '';
+                
                 return (
                   <div
                     key={index}
-                    className={`relative aspect-[2/3] rounded-lg overflow-hidden border-2 ${tierBorder} shadow-lg transition-all hover:scale-105`}
+                    className={`relative aspect-[2/3] rounded-lg overflow-hidden border-2 ${tierBorder} ${tierGlow} shadow-lg hover-lift cursor-pointer`}
                   >
                     <img
                       src={getLibraryCapsule(game.appid)}
@@ -1237,8 +1242,8 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <div className="mb-6 animate-scale-up">
-                  <div className="max-w-md mx-auto">
+                <div className="mb-6">
+                  <div className="max-w-md mx-auto flip-card">
                     <div className="relative aspect-[2/3] rounded-lg overflow-hidden border-4 border-vault-gold shadow-2xl">
                       <img
                         src={getLibraryCapsule(drawnGame.appid)}
