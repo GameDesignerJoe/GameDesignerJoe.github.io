@@ -3,10 +3,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { SteamGame } from '@/types/steam';
-import { VaultGameState } from '@/types/vault';
+import { VaultGameState, VaultState } from '@/types/vault';
 import { toVaultGameState } from '@/lib/vault-logic';
 import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
 import { loadFromStorage, saveToStorage } from '@/lib/storage';
+import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/pool-manager';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -28,6 +29,11 @@ export default function Home() {
   const [hasWon, setHasWon] = useState(false);
   const [totalPointsEarned, setTotalPointsEarned] = useState(0);
   const [showDevPanel, setShowDevPanel] = useState(false);
+  
+  // v1.5 Pool state
+  const [vaultState, setVaultState] = useState<VaultState | null>(null);
+  const [isInitializingPools, setIsInitializingPools] = useState(false);
+  
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
   // Load saved state on mount
@@ -267,8 +273,62 @@ export default function Home() {
         throw new Error(data.error);
       }
       
-      setGames(data.games || []);
+      const fetchedGames = data.games || [];
+      setGames(fetchedGames);
       setLastRefresh(Date.now());
+      
+      // Check if we need to initialize pools (first time v1.5 setup)
+      const savedState = loadFromStorage();
+      if (needsPoolInitialization(savedState)) {
+        console.log('[Vault] Initializing v1.5 pool system...');
+        setIsInitializingPools(true);
+        
+        try {
+          const poolData = await initializePools(fetchedGames);
+          
+          // Create new v1.5 state
+          const newState: VaultState = {
+            version: '1.5',
+            collectionPower: 0,
+            liberationKeys: 0,
+            pool1_unlocked: poolData.pool1_unlocked,
+            pool2_hidden: poolData.pool2_hidden,
+            pool3_keyGames: poolData.pool3_keyGames,
+            shopSlots: [],
+            gameProgress: {},
+            lastSync: Date.now(),
+            steamId: steamId,
+            cachedLibrary: fetchedGames,
+          };
+          
+          setVaultState(newState);
+          
+          // Set starting game as featured
+          if (poolData.startingGame) {
+            const startingVaultState = toVaultGameState(
+              poolData.startingGame,
+              poolData.pool1_unlocked
+            );
+            setFeaturedGame(startingVaultState);
+            setUnlockedGames(poolData.pool1_unlocked);
+          }
+          
+          // Save the new state
+          saveToStorage(newState);
+          
+          console.log('[Vault] Pool initialization complete!', {
+            pool1: poolData.pool1_unlocked.length,
+            pool2: poolData.pool2_hidden.length,
+            pool3: poolData.pool3_keyGames.length,
+            startingGame: poolData.startingGame?.name,
+          });
+        } catch (initError) {
+          console.error('[Vault] Pool initialization failed:', initError);
+          // Continue with v1.0 mode if initialization fails
+        } finally {
+          setIsInitializingPools(false);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
