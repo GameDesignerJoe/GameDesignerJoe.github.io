@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { SteamGame } from '@/types/steam';
-import { VaultGameState, VaultState } from '@/types/vault';
+import { VaultGameState, VaultState, ShopSlot } from '@/types/vault';
 import { toVaultGameState } from '@/lib/vault-logic';
 import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
 import { loadFromStorage, saveToStorage } from '@/lib/storage';
 import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/pool-manager';
+import { initializeShop } from '@/lib/shop-manager';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -33,6 +34,9 @@ export default function Home() {
   // v1.5 Pool state
   const [vaultState, setVaultState] = useState<VaultState | null>(null);
   const [isInitializingPools, setIsInitializingPools] = useState(false);
+  const [shopSlots, setShopSlots] = useState<ShopSlot[]>([]);
+  const [collectionPower, setCollectionPower] = useState(0);
+  const [liberationKeys, setLiberationKeys] = useState(0);
   
   const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
 
@@ -43,6 +47,20 @@ export default function Home() {
       setPoints(saved.points || 0);
       setUnlockedGames(saved.unlockedGames || ['vault-controller']);
       setLastRefresh(saved.lastRefresh || Date.now());
+      
+      // Load v1.5 state if available
+      if (saved.version === '1.5' && saved.shopSlots) {
+        console.log('[Vault] Loading v1.5 state from localStorage');
+        setVaultState(saved as VaultState);
+        setShopSlots(saved.shopSlots || []);
+        setCollectionPower(saved.collectionPower || 0);
+        setLiberationKeys(saved.liberationKeys || 0);
+        
+        // Load unlocked games from pool1
+        if (saved.pool1_unlocked) {
+          setUnlockedGames(saved.pool1_unlocked);
+        }
+      }
       
       // Load cached library if available
       if (saved.cachedLibrary && saved.cachedLibrary.length > 0) {
@@ -58,6 +76,12 @@ export default function Home() {
             setFeaturedGame(featuredState);
           }
         }
+        
+        // Check if we need to initialize pools even with cached library
+        if (needsPoolInitialization(saved)) {
+          console.log('[Vault] Cached library exists but needs v1.5 initialization');
+          fetchLibrary();
+        }
       } else {
         // No cached library, fetch fresh
         fetchLibrary();
@@ -71,35 +95,59 @@ export default function Home() {
   // Save state whenever it changes (debounced)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      saveToStorage({
-        points,
-        unlockedGames,
-        featuredGame: featuredGame?.appid || null,
-        cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'), // Don't cache fake game
-        lastRefresh,
-        version: '1.0'
-      });
+      // If we have v1.5 state, save it properly
+      if (vaultState && vaultState.version === '1.5') {
+        saveToStorage({
+          ...vaultState,
+          points,
+          unlockedGames,
+          featuredGame: featuredGame?.appid || null,
+          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
+          lastRefresh,
+        });
+      } else {
+        // Fall back to v1.0 format
+        saveToStorage({
+          points,
+          unlockedGames,
+          featuredGame: featuredGame?.appid || null,
+          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
+          lastRefresh,
+          version: '1.0'
+        });
+      }
     }, 1000); // Save 1 second after last change
 
     return () => clearTimeout(timeoutId);
-  }, [points, unlockedGames, featuredGame, games, lastRefresh]);
+  }, [points, unlockedGames, featuredGame, games, lastRefresh, vaultState]);
 
   // Auto-save on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
-      saveToStorage({
-        points,
-        unlockedGames,
-        featuredGame: featuredGame?.appid || null,
-        cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
-        lastRefresh,
-        version: '1.0'
-      });
+      if (vaultState && vaultState.version === '1.5') {
+        saveToStorage({
+          ...vaultState,
+          points,
+          unlockedGames,
+          featuredGame: featuredGame?.appid || null,
+          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
+          lastRefresh,
+        });
+      } else {
+        saveToStorage({
+          points,
+          unlockedGames,
+          featuredGame: featuredGame?.appid || null,
+          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
+          lastRefresh,
+          version: '1.0'
+        });
+      }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [points, unlockedGames, featuredGame, games, lastRefresh]);
+  }, [points, unlockedGames, featuredGame, games, lastRefresh, vaultState]);
 
   // Convert games to vault states whenever games or unlocked list changes
   useEffect(() => {
@@ -256,6 +304,48 @@ export default function Home() {
     window.location.href = `steam://store/${game.appid}`;
   }
 
+  // Handle unlocking a game from the shop
+  function handleShopUnlock(slot: ShopSlot, game: SteamGame) {
+    if (!vaultState) return;
+    
+    const unlockCost = game.metacritic && game.hoursTobeat 
+      ? Math.floor(game.metacritic * game.hoursTobeat)
+      : 2100;
+    
+    // Check if can afford
+    if (collectionPower < unlockCost) {
+      console.log('[Shop] Cannot afford:', game.name, 'Need:', unlockCost, 'Have:', collectionPower);
+      return;
+    }
+    
+    // Deduct collection power
+    setCollectionPower(prev => prev - unlockCost);
+    
+    // Move game from Pool 2 to Pool 1
+    const newPool2 = vaultState.pool2_hidden?.filter(id => id !== game.appid) || [];
+    const newPool1 = [...(vaultState.pool1_unlocked || []), game.appid];
+    
+    // Update vault state
+    const updatedState: VaultState = {
+      ...vaultState,
+      pool1_unlocked: newPool1,
+      pool2_hidden: newPool2,
+      collectionPower: collectionPower - unlockCost,
+    };
+    
+    // Clear the shop slot (replace with empty slot)
+    const updatedShopSlots = shopSlots.map(s => 
+      s === slot ? { appId: null, tier: null } : s
+    );
+    updatedState.shopSlots = updatedShopSlots;
+    
+    setVaultState(updatedState);
+    setShopSlots(updatedShopSlots);
+    setUnlockedGames(newPool1);
+    
+    console.log(`[Shop] Unlocked ${game.name}! Spent ${unlockCost} Collection Power`);
+  }
+
   async function fetchLibrary() {
     setIsLoading(true);
     setError(null);
@@ -300,6 +390,12 @@ export default function Home() {
             steamId: steamId,
             cachedLibrary: fetchedGames,
           };
+          
+          // Initialize shop with games from Pool 2
+          console.log('[Vault] Initializing shop...');
+          const initialShopSlots = await initializeShop(poolData.pool2_hidden, fetchedGames);
+          newState.shopSlots = initialShopSlots;
+          setShopSlots(initialShopSlots);
           
           setVaultState(newState);
           
@@ -530,6 +626,82 @@ export default function Home() {
           </div>
         )}
 
+        {/* Shop Section - v1.5 */}
+        {shopSlots.length > 0 && (
+          <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-vault-gold/30">
+            <h2 className="text-3xl font-bold mb-4 text-vault-gold">🛒 Shop - Unlock with Collection Power</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {shopSlots.map((slot, index) => {
+                if (slot.appId === null) {
+                  // Empty slot
+                  return (
+                    <div
+                      key={index}
+                      className="relative aspect-[2/3] bg-vault-dark rounded-lg border-2 border-dashed border-vault-gold/30 flex flex-col items-center justify-center p-4 hover:border-vault-gold/60 transition-all cursor-pointer"
+                    >
+                      <div className="text-6xl mb-2">🔒</div>
+                      <div className="text-center text-sm text-vault-gold font-semibold">
+                        Spend 10 🔑 Keys to Draw
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Find the game
+                const game = games.find(g => g.appid === slot.appId);
+                if (!game) return null;
+                
+                const unlockCost = game.metacritic && game.hoursTobeat 
+                  ? Math.floor(game.metacritic * game.hoursTobeat)
+                  : 2100; // Default fallback
+                const canAfford = collectionPower >= unlockCost;
+                
+                // Tier colors
+                const tierColors = {
+                  cheap: 'border-gray-400',
+                  moderate: 'border-blue-500',
+                  epic: 'border-vault-gold',
+                };
+                const tierBorder = slot.tier ? tierColors[slot.tier] : 'border-gray-400';
+                
+                return (
+                  <div
+                    key={index}
+                    className={`relative aspect-[2/3] rounded-lg overflow-hidden border-2 ${tierBorder} shadow-lg transition-all hover:scale-105`}
+                  >
+                    <img
+                      src={getLibraryCapsule(game.appid)}
+                      alt={game.name}
+                      onError={handleImageError}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Overlay with info */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent flex flex-col justify-end p-3">
+                      <div className="text-white font-bold text-sm mb-1 line-clamp-2">{game.name}</div>
+                      <div className="text-xs text-gray-300 mb-2">
+                        {game.metacritic ? `⭐ ${game.metacritic}` : '⭐ ??'} • 
+                        {game.hoursTobeat ? ` ${game.hoursTobeat}h` : ' ??h'}
+                      </div>
+                      <button
+                        onClick={() => handleShopUnlock(slot, game)}
+                        disabled={!canAfford}
+                        className={`w-full py-2 px-3 rounded font-bold text-sm transition-all ${
+                          canAfford
+                            ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400'
+                            : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {canAfford ? `🔓 Unlock (${unlockCost.toLocaleString()})` : `🔒 Need ${unlockCost.toLocaleString()}`}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Stats Bar */}
         <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-vault-accent/20">
           <div className="flex justify-between items-start">
@@ -692,6 +864,17 @@ export default function Home() {
           <div className="fixed bottom-20 right-4 bg-vault-dark border-2 border-vault-accent rounded-lg p-4 shadow-2xl z-40 w-80">
             <h3 className="text-lg font-bold text-vault-accent mb-3">Dev Tools</h3>
             <div className="space-y-2">
+              <button 
+                onClick={() => {
+                  if(confirm('Force v1.5 reinitialization? This will clear all data and reload.')){
+                    localStorage.clear();
+                    window.location.reload();
+                  }
+                }} 
+                className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded font-semibold"
+              >
+                🔄 Force v1.5 Reset
+              </button>
               <button onClick={() => setPoints(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Points</button>
               <button onClick={() => setPoints(p => p + 10000)} className="w-full bg-green-700 hover:bg-green-600 text-white py-2 rounded font-semibold">+10000 Points</button>
               <button onClick={() => setUnlockedGames(vaultGames.filter(g => g.unlockCost < 100).map(g => g.appid))} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-semibold">Unlock Cheap Games</button>

@@ -240,61 +240,43 @@ Success Criteria:
 ✅ Pools saved to localStorage
 
 
-MILESTONE 2: Shop System with 5 Slots
+MILESTONE 2: Shop System with 5 Slots ✅ COMPLETE
 Goal: Replace single-click card with 5-slot shop displaying locked games.
 Tasks:
 
-Create Shop Manager
+✅ Create Shop Manager
+   - File: lib/shop-manager.ts
+   ✅ ShopManager with initializeShop(), categorizeByTier(), drawNewGame()
+   ✅ Weighted tier distribution implemented
 
-File: src/lib/shop-manager.ts
-Implement ShopManager class
-Method: initializeShop() with curated tier distribution
-Method: categorizeByTier() based on unlock cost
-Method: drawNewGame() with weighted random
+✅ Calculate Unlock Costs
+   - File: lib/constants.ts
+   ✅ FORMULAS.unlockCost(metacritic, hoursTobeat)
+   ✅ FORMULAS.getTier() for tier classification
 
+✅ Update UI Layout
+   - File: app/page.tsx
+   ✅ Removed single click card
+   ✅ Added "Unlock with Collection Power" section
+   ✅ 5 shop slots displayed horizontally
+   ✅ Each slot shows: Game art, name, Metacritic, unlock cost
+   ✅ "Unlock" button (disabled if not enough power)
 
-Calculate Unlock Costs
+✅ Implement Unlock Logic
+   - File: app/page.tsx
+   ✅ handleShopUnlock() function
+   ✅ Checks collectionPower >= unlockCost
+   ✅ Deducts power
+   ✅ Moves game Pool 2 → Pool 1
+   ✅ Empties shop slot
+   ✅ Saves to localStorage
 
-File: src/lib/game-utils.ts
-Function: calculateUnlockCost(metacritic, hoursTobeat)
-Returns: { power: number, tier: 'cheap' | 'moderate' | 'epic' }
-Tier thresholds: <1000, 1000-3000, 3000+
-
-
-Update UI Layout
-
-File: src/app/page.tsx
-Remove single click card
-Add "Unlock with Collection Power" section
-Display 5 shop slots horizontally
-Each slot shows: Game art, name, Metacritic, unlock cost
-Add "Unlock" button (disabled if not enough power)
-
-
-Implement Unlock Logic
-
-On "Unlock" click:
-
-Check if collectionPower >= unlockCost
-Deduct power
-Move game from Pool 2 → Pool 1
-Empty shop slot
-Initialize game progress
-Save to localStorage
-
-
-
-
-Display Empty Slots
-
-Empty slot shows: "🔒 Spend 10 Keys to Draw New Game"
-Disabled if liberationKeys < 10
-Click opens Draw UI (Milestone 4)
-
-
+✅ Display Empty Slots
+   ✅ Empty slot shows: "🔒 Spend 10 Keys to Draw"
+   ✅ Disabled if liberationKeys < 10
+   ✅ Click opens Draw UI (for Milestone 4)
 
 Success Criteria:
-
 ✅ 5 shop slots display locked games
 ✅ Unlock costs calculated correctly
 ✅ Unlock button works
