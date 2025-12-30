@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { SteamGame } from '@/types/steam';
 import { VaultGameState } from '@/types/vault';
-import { getVaultController, toVaultGameState } from '@/lib/vault-logic';
+import { toVaultGameState } from '@/lib/vault-logic';
 import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
 import { loadFromStorage, saveToStorage } from '@/lib/storage';
 
@@ -34,21 +34,19 @@ export default function Home() {
   useEffect(() => {
     const saved = loadFromStorage();
     if (saved) {
-      setPoints(saved.points);
-      setUnlockedGames(saved.unlockedGames);
-      setLastRefresh(saved.lastRefresh);
+      setPoints(saved.points || 0);
+      setUnlockedGames(saved.unlockedGames || ['vault-controller']);
+      setLastRefresh(saved.lastRefresh || Date.now());
       
       // Load cached library if available
       if (saved.cachedLibrary && saved.cachedLibrary.length > 0) {
-        const vaultController = getVaultController();
-        setGames([vaultController, ...saved.cachedLibrary]);
+        setGames(saved.cachedLibrary);
         setIsLoading(false);
         
         // Set featured game if saved
-        if (saved.featuredGame) {
+        if (saved.featuredGame && saved.unlockedGames) {
           // Find the game in loaded library
-          const allGames = [vaultController, ...saved.cachedLibrary];
-          const savedFeatured = allGames.find(g => String(g.appid) === String(saved.featuredGame));
+          const savedFeatured = saved.cachedLibrary.find(g => String(g.appid) === String(saved.featuredGame));
           if (savedFeatured) {
             const featuredState = toVaultGameState(savedFeatured, saved.unlockedGames);
             setFeaturedGame(featuredState);
@@ -269,11 +267,7 @@ export default function Home() {
         throw new Error(data.error);
       }
       
-      // Add Vault Controller at the beginning
-      const vaultController = getVaultController();
-      const allGames = [vaultController, ...(data.games || [])];
-      
-      setGames(allGames);
+      setGames(data.games || []);
       setLastRefresh(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -329,9 +323,7 @@ export default function Home() {
       });
       
       // Update library
-      const vaultController = getVaultController();
-      const allGames = [vaultController, ...freshGames];
-      setGames(allGames);
+      setGames(freshGames);
       setLastRefresh(Date.now());
       
       // Award bonus points

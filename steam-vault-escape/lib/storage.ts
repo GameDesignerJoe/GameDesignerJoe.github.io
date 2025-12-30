@@ -1,66 +1,77 @@
-// localStorage wrapper for save/load
+// localStorage wrapper for save/load - v1.5
 
 import { VaultState } from '@/types/vault';
 import { STORAGE_KEY, STORAGE_VERSION } from './constants';
 
-interface StoredState {
-  version: string;
-  points: number;
-  unlockedGames: Array<number | string>;
-  featuredGame: number | string | null;
-  cachedLibrary: any[];
-  lastRefresh: number;
-}
-
 /**
  * Save vault state to localStorage
+ * Supports both v1.0 and v1.5 formats during migration
  */
 export function saveToStorage(state: VaultState): void {
   try {
-    const serialized: StoredState = {
-      version: STORAGE_VERSION,
-      points: state.points,
-      unlockedGames: state.unlockedGames,
-      featuredGame: state.featuredGame,
-      cachedLibrary: state.cachedLibrary,
-      lastRefresh: state.lastRefresh,
+    const serialized = {
+      ...state,
+      version: STORAGE_VERSION, // Ensure version is always current
     };
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
   } catch (error) {
-    console.error('Failed to save state:', error);
+    console.error('[Storage] Failed to save state:', error);
   }
 }
 
 /**
  * Load vault state from localStorage
+ * Handles version migration from v1.0 to v1.5
  */
 export function loadFromStorage(): VaultState | null {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
     
-    const parsed: StoredState = JSON.parse(stored);
+    const parsed = JSON.parse(stored);
     
-    // Version check
-    if (parsed.version !== STORAGE_VERSION) {
-      console.warn('Save version mismatch, clearing data');
+    // Check version
+    if (parsed.version === '1.5') {
+      // v1.5 save - return as-is
+      return parsed as VaultState;
+    } else if (parsed.version === '1.0') {
+      // v1.0 save - return for backward compatibility
+      // The app will continue using v1.0 until we implement full v1.5 logic
+      console.log('[Storage] Loading v1.0 save format');
+      return parsed as VaultState;
+    } else {
+      // Unknown version - clear and start fresh
+      console.warn('[Storage] Unknown save version, clearing data');
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    
-    return {
-      points: parsed.points,
-      unlockedGames: parsed.unlockedGames,
-      featuredGame: parsed.featuredGame,
-      cachedLibrary: parsed.cachedLibrary,
-      lastRefresh: parsed.lastRefresh,
-      version: parsed.version,
-    };
   } catch (error) {
-    console.error('Failed to load state:', error);
+    console.error('[Storage] Failed to load state:', error);
     return null;
   }
+}
+
+/**
+ * Migrate v1.0 save to v1.5 format
+ * Call this when implementing full v1.5 logic
+ */
+export function migrateToV15(oldState: VaultState): VaultState {
+  // This will be implemented when we build the full v1.5 pool system
+  // For now, just clear old saves and start fresh
+  console.log('[Storage] Migration to v1.5 - starting fresh');
+  return {
+    version: '1.5',
+    collectionPower: 0,
+    liberationKeys: 0,
+    pool1_unlocked: [],
+    pool2_hidden: [],
+    pool3_keyGames: [],
+    shopSlots: [],
+    gameProgress: {},
+    lastSync: Date.now(),
+    steamId: '',
+  };
 }
 
 /**
@@ -69,7 +80,8 @@ export function loadFromStorage(): VaultState | null {
 export function clearStorage(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    console.log('[Storage] Cleared');
   } catch (error) {
-    console.error('Failed to clear storage:', error);
+    console.error('[Storage] Failed to clear:', error);
   }
 }

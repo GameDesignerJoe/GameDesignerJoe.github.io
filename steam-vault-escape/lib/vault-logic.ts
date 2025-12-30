@@ -2,7 +2,7 @@
 
 import { SteamGame } from '@/types/steam';
 import { GameState, VaultGameState } from '@/types/vault';
-import { FORMULAS, VAULT_CONTROLLER } from './constants';
+import { FORMULAS } from './constants';
 
 /**
  * Classify a game into one of three states
@@ -11,11 +11,6 @@ export function classifyGame(
   game: SteamGame | any,
   unlockedGames: Array<number | string>
 ): GameState {
-  // Vault Controller always playable
-  if (game.appid === 'vault-controller' || game.isFake) {
-    return 'playable';
-  }
-  
   // Never played = Liberation Key
   if (game.playtime_forever === 0) {
     return 'liberationKey';
@@ -43,9 +38,9 @@ export function calculateGameStats(game: SteamGame): {
   
   return {
     hoursPlayed: Math.round(hours * 10) / 10,
-    unlockCost: FORMULAS.unlockCost(hours),
+    unlockCost: FORMULAS.unlockCostLegacy(hours), // Using legacy v1.0 formula during transition
     passiveRate: FORMULAS.passiveRate(hours),
-    clickValue: FORMULAS.clickValue(hours),
+    clickValue: FORMULAS.clickValueLegacy(hours), // Using legacy v1.0 formula during transition
   };
 }
 
@@ -127,11 +122,4 @@ export function detectNewUnlocks(
   });
   
   return newUnlocks;
-}
-
-/**
- * Get the Vault Controller fake game
- */
-export function getVaultController(): SteamGame {
-  return VAULT_CONTROLLER as unknown as SteamGame;
 }

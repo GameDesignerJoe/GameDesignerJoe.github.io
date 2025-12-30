@@ -9,6 +9,12 @@ export interface SteamGame {
   img_logo_url: string;
   has_community_visible_stats?: boolean;
   rtime_last_played?: number; // Unix timestamp
+  
+  // v1.5 additions - enriched from external APIs
+  metacritic?: number; // From Steam Store API
+  hoursTobeat?: number; // From SteamSpy median_forever / 60
+  tags?: string[]; // From SteamSpy
+  recommendations?: number; // From Steam Store API (fallback rating)
 }
 
 export interface SteamLibraryResponse {

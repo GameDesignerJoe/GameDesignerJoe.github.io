@@ -2,6 +2,209 @@ Steam Vault Escape - Milestone Plan v1.5
 Implementation Phases
 This plan breaks down the v1.5 implementation into manageable milestones for Cline to execute sequentially.
 
+---
+
+MILESTONE 0: Foundation Refactor (v1.0 → v1.5 Bridge)
+Goal: Prepare the codebase for v1.5 by removing obsolete systems, adding new APIs, and updating core data structures.
+
+Tasks:
+
+1. Remove Vault Controller
+   - File: lib/constants.ts
+     * Delete VAULT_CONTROLLER constant
+   - File: lib/vault-logic.ts
+     * Remove getVaultController() function
+     * Remove references to 'vault-controller' in classifyGame()
+   - File: app/page.tsx
+     * Remove all Vault Controller initialization code
+     * Remove from featured game logic
+
+2. Add API Routes for Metadata
+   - File: app/api/steamspy/route.ts (NEW)
+     * Create SteamSpy API route
+     * Fetch rating (positive/negative ratio)
+     * Fetch median_forever for hours-to-beat estimate
+     * Fetch tags for categorization
+     * Reference: never-played/src/app/api/steamspy-rating/route.ts
+   
+   - File: app/api/steam-store/route.ts (NEW)
+     * Create Steam Store API route
+     * Fetch Metacritic score (game.metacritic?.score)
+     * Fetch recommendations count as fallback rating
+     * Reference: never-played/src/app/api/steam-store/route.ts
+
+3. Update Type Definitions
+   - File: types/steam.ts
+     * Add metacritic?: number
+     * Add hoursTobeat?: number (from SteamSpy median_forever)
+     * Add tags?: string[]
+     * Add recommendations?: number
+   
+   - File: types/vault.ts
+     * Remove GameState type (replaced by pool membership)
+     * Add new types:
+       ```typescript
+       export type GameTier = 'cheap' | 'moderate' | 'epic';
+       
+       export interface GameProgress {
+         currentPower: number;
+         maxPower: number;
+         isDrained: boolean;
+         lastPlaytime: number;
+       }
+       
+       export interface ShopSlot {
+         appId: number | null;
+         tier: GameTier | null;
+       }
+       ```
+     * Update VaultState interface:
+       ```typescript
+       export interface VaultState {
+         // Dual currency
+         collectionPower: number;
+         liberationKeys: number;
+         
+         // Three pools (arrays of app IDs)
+         pool1_unlocked: number[];
+         pool2_hidden: number[];
+         pool3_keyGames: number[];
+         
+         // Shop state
+         shopSlots: ShopSlot[];
+         
+         // Game progress tracking
+         gameProgress: { [appId: number]: GameProgress };
+         
+         // Metadata
+         lastSync: number;
+         steamId: string;
+         version: string;
+       }
+       ```
+
+4. Update Formulas & Constants
+   - File: lib/constants.ts
+     * Remove old formulas (unlockCost, passiveRate, clickValue, liberationBonus)
+     * Add new v1.5 formulas:
+       ```typescript
+       export const FORMULAS = {
+         // Unlock cost: Metacritic × Hours to Beat
+         unlockCost: (metacritic: number, hoursTobeat: number): number => 
+           Math.floor(metacritic * hoursTobeat),
+         
+         // Click value: Steam hours played
+         clickValue: (steamMinutes: number): number => 
+           Math.floor(steamMinutes / 60),
+         
+         // Max power: Click value × 100
+         maxPower: (clickValue: number): number => 
+           clickValue * 100,
+         
+         // Refresh cost: Metacritic ÷ 10 (rounded up)
+         refreshCost: (metacritic: number): number => 
+           Math.ceil(metacritic / 10),
+         
+         // Key reward: Metacritic score (or fallback)
+         keyReward: (metacritic: number): number => 
+           metacritic || 70,
+         
+         // Tier classification
+         getTier: (unlockCost: number): GameTier => {
+           if (unlockCost < 1000) return 'cheap';
+           if (unlockCost < 3000) return 'moderate';
+           return 'epic';
+         }
+       };
+       ```
+     * Add new thresholds:
+       ```typescript
+       export const THRESHOLDS = {
+         KEY_GAME_MIN_PLAYTIME: 30, // Minutes
+         DRAW_COST: 10, // Keys
+         REDRAW_COST: 5, // Keys
+         STARTING_GAME_METACRITIC_MIN: 70,
+         STARTING_GAME_METACRITIC_MAX: 79,
+         STARTING_GAME_HOURS_MIN: 5,
+         STARTING_GAME_HOURS_MAX: 10,
+         DEFAULT_METACRITIC: 70,
+         DEFAULT_HOURS_TO_BEAT: 30,
+       };
+       ```
+
+5. Update Storage Structure
+   - File: lib/storage.ts
+     * Update StoredState interface to match new VaultState
+     * Update saveToStorage() to handle dual currency
+     * Update loadFromStorage() to handle new structure
+     * Add version migration logic (v1.0 saves should be cleared)
+
+6. Create Utility Functions
+   - File: lib/game-utils.ts (NEW)
+     * Function: enrichGameWithMetadata(game: SteamGame): Promise<SteamGame>
+       - Fetch Metacritic from Steam Store API
+       - Fetch hours-to-beat from SteamSpy
+       - Calculate unlock cost
+       - Determine tier
+       - Return enriched game
+     
+     * Function: selectStartingGame(games: SteamGame[]): SteamGame | null
+       - Filter: Metacritic 70-79, 5-10 hours played
+       - Fallback: Any game with 5-10 hours played
+       - Fallback: Lowest playtime game
+       - Return selected game or null
+
+7. Audit Existing Code
+   - Keep (reusable):
+     ✅ Steam API integration (app/api/steam-library/route.ts)
+     ✅ Image handling (lib/steam-images.ts)
+     ✅ Virtual scrolling implementation
+     ✅ localStorage patterns
+     ✅ Loading/error states
+     ✅ Dev panel
+   
+   - Modify:
+     🔧 app/page.tsx (complete UI restructure for 3 sections)
+     🔧 lib/vault-logic.ts (new pool-based logic)
+     🔧 types/* (new interfaces)
+   
+   - Remove:
+     ❌ Featured game clicking system
+     ❌ Single click card
+     ❌ Vault Controller references
+     ❌ Victory detection (moves to Milestone 8)
+     ❌ Old passive income system
+
+8. Test Foundation
+   - Verify API routes work:
+     * Test SteamSpy route with a game
+     * Test Steam Store route with a game
+     * Verify Metacritic scores retrieved
+     * Verify hours-to-beat calculated
+   
+   - Verify formulas:
+     * Calculate unlock costs for sample games
+     * Verify tier classification
+     * Test refresh cost calculation
+   
+   - Verify storage:
+     * Save new structure to localStorage
+     * Load and verify data integrity
+     * Confirm version migration clears old saves
+
+Success Criteria:
+
+✅ Vault Controller removed from codebase
+✅ SteamSpy & Steam Store API routes functional
+✅ Type definitions updated for v1.5
+✅ New formulas implemented and tested
+✅ Storage structure updated
+✅ Starting game selection logic created
+✅ No TypeScript errors
+✅ Foundation ready for Milestone 1
+
+---
+
 MILESTONE 1: Three-Pool Foundation
 Goal: Establish the core three-pool system and data structures.
 Tasks:
