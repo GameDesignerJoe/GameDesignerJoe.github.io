@@ -586,6 +586,91 @@ export default function Home() {
     }
   }
 
+  // TEST FUNCTION: Simulate Key Game Detection
+  function testKeyGameDetection() {
+    if (!vaultState || !vaultState.pool3_keyGames?.length) {
+      alert('❌ No Key Games available to test!');
+      return;
+    }
+    
+    // Pick a random Key Game from Pool 3
+    const randomIndex = Math.floor(Math.random() * vaultState.pool3_keyGames.length);
+    const testGameId = vaultState.pool3_keyGames[randomIndex];
+    const testGame = games.find(g => g.appid === testGameId);
+    
+    if (!testGame) {
+      alert('❌ Test game not found in library!');
+      return;
+    }
+    
+    console.log(`[TEST] Simulating Key Game detection for: ${testGame.name}`);
+    
+    // Create simulated cached library (game had 25 minutes)
+    const cachedGames = games.map(g => 
+      g.appid === testGameId 
+        ? { ...g, playtime_forever: 25 }
+        : g
+    );
+    
+    // Create simulated current library (game now has 35 minutes)
+    const currentGames = games.map(g => 
+      g.appid === testGameId 
+        ? { ...g, playtime_forever: 35 }
+        : g
+    );
+    
+    // Run detection system
+    const detectionResults = detectNewlyPlayedKeyGames(
+      currentGames,
+      cachedGames,
+      vaultState.pool3_keyGames || []
+    );
+    
+    if (detectionResults.length === 0) {
+      alert('❌ Detection failed - no games detected. Check console for details.');
+      console.error('[TEST] Detection failed for:', testGame.name);
+      return;
+    }
+    
+    console.log(`[TEST] ✅ Detection successful!`, detectionResults);
+    
+    // Calculate total keys awarded
+    const totalKeys = calculateTotalKeysAwarded(detectionResults);
+    
+    // Award keys
+    setLiberationKeys(prev => prev + totalKeys);
+    
+    // Move games from Pool 3 → Pool 2
+    let updatedPool3 = [...(vaultState.pool3_keyGames || [])];
+    let updatedPool2 = [...(vaultState.pool2_hidden || [])];
+    
+    detectionResults.forEach(result => {
+      // Remove from Pool 3
+      updatedPool3 = updatedPool3.filter(id => id !== result.game.appid);
+      // Add to Pool 2
+      updatedPool2.push(result.game.appid);
+    });
+    
+    // Auto-refresh all drained games (FREE!)
+    const refreshedProgress = autoRefreshAllDrained(vaultState.gameProgress || {});
+    
+    // Update vault state
+    const updatedState: VaultState = {
+      ...vaultState,
+      pool2_hidden: updatedPool2,
+      pool3_keyGames: updatedPool3,
+      gameProgress: refreshedProgress,
+      liberationKeys: liberationKeys + totalKeys,
+      lastSync: Date.now(),
+    };
+    
+    setVaultState(updatedState);
+    
+    // Show celebration message
+    const gameNames = detectionResults.map(r => `${r.game.name} (+${r.keysAwarded} 🔑)`).join('\n');
+    alert(`🧪 TEST SUCCESSFUL!\n\n🎉 KEY GAME COMPLETED!\n\n${gameNames}\n\n✅ All drained games refreshed FREE!`);
+  }
+
   async function handleRefresh() {
     if (isRefreshing || !vaultState) return;
     
@@ -1225,6 +1310,12 @@ export default function Home() {
           <div className="fixed bottom-20 right-4 bg-vault-dark border-2 border-vault-accent rounded-lg p-4 shadow-2xl z-40 w-80">
             <h3 className="text-lg font-bold text-vault-accent mb-3">Dev Tools</h3>
             <div className="space-y-2">
+              <button 
+                onClick={testKeyGameDetection}
+                className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded font-semibold"
+              >
+                🧪 Test Key Detection
+              </button>
               <button 
                 onClick={() => {
                   if (vaultState && vaultState.gameProgress) {

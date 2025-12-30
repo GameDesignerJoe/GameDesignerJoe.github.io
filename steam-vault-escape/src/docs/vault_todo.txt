@@ -1,25 +1,20 @@
 To Do:
-- The cost is way off. I can unlock all of my locked games in a matter of minutes. 
-- I don't feel like I need to go play my unplayed games. 
-- Might just be able to call it "Steam Vault" and not do the whole escape thing. 
+- Game costs are off by a factor of 10. 
+- We need to shrink everything down a bit so it can more easily fit on the screen without having to scroll. 
+- I think we need a Games Played tab that shows the new games you've played since you started playing this game. It's like a trophy case that shows the games you started playing. You can't click on them or anything because it's just a display, but it shows what you've unlocked and maybe how many hours you've spent on it. 
+- Maybe only show like 20 unplayed games in the Key Games section. Maybe there's a way to unlock these games so that your pool of games you can play gets bigger. So it starts with like 3 and then as you play somehow, you can unlock other games that will grant you Keys. This way you're not overwhelmed with all of the options. 
+- Shouldn't be able to click on games that are drained and get them to move. In fact, clicking on a drained game in the Game Library should automatically take you to the Key Game Tab. 
+- I don't like the count numbers for Game Library and Key Games. We should remove them. 
+- I wish it didn't look like tabs, but tha'ts a minor thing. 
+- We're not doing nay passives right now. 
+- Where the Collection points is locatedis too far away. It needs to beright next to or above the game itself. 
+- The Liberation Key cound needs to be bigger. 
+- Need to rename this damn game 
+- Might want to consider Letting players purchase Keys for an extremely high price of points. 
 - Lots of images aren't being displayed correctly, likey because Steam is bouncing you. 
-- 10 points is way to cheap. Should be at least 100. 
 - Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
-- Need to see 'number go up' as well as 'bar go up' for passives. 
 - Need to test at some point that you have actually unlocked a game by playing it. 
-- Completely hide the locked games so you don't know what they are until you unlock them. You just know how much they cost and their rate of return.
-
-
-
-
-
-Big Designs
-- Maybe don't show them all of their library at all. But they only have like 3-5 possible games they can look at unlocking based off of cost. 
-    2 cheap ones, 2 mid range ones, 1 expensive one. 
-    They can spend points to add a new one to the stack or maybe reroll the ones that are there. It might be like a loot drop kind of fill when they see what ones they can work on trying to unlock. 
-- Have games only be able to earn points up to a cap. Maybe their total play time. Then you have to play a new game to refresh them all. 
 - Create different 'click' behaviors based off of the type of game it is. 
-- I think I need to 'slot' five games that earn passives and one that I can click on... or maybe all I can click on. 
 - Have different games have different strengths and they are picked for the slots that you put them in. 
     - DPS
     - Armor

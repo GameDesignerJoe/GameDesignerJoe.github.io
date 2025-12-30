@@ -6,8 +6,48 @@ Frontend: Next.js 15, React 19, TypeScript
 Styling: TailwindCSS
 State Management: React hooks (useState, useEffect)
 Data Storage: localStorage (browser-based persistence)
-APIs: Steam Web API, SteamSpy API
+APIs: Steam Web API, SteamSpy API, Steam Store API
 Deployment: Vercel
+
+File Structure
+typescript// Main application
+app/
+  page.tsx                    // Main game component
+  globals.css                 // Global styles & Tailwind
+  layout.tsx                  // Root layout
+  
+// API routes
+app/api/
+  steam-library/route.ts      // Fetch user's Steam library
+  steamspy/route.ts           // Fetch game metadata from SteamSpy
+  steam-store/route.ts        // Fetch Metacritic scores from Steam Store
+
+// Core game logic (functional, pure functions)
+lib/
+  pool-manager.ts             // Initialize and manage 3 pools
+  shop-manager.ts             // Shop initialization & draws
+  click-manager.ts            // Click handling, drain, refresh logic
+  draw-manager.ts             // Draw UI logic & weighted targeting
+  key-game-detector.ts        // Detect played Key Games (M6)
+  metadata-enrichment.ts      // Batch fetch game metadata
+  game-utils.ts               // Game selection & enrichment helpers
+  storage.ts                  // localStorage save/load
+  constants.ts                // Formulas, thresholds, configs
+  vault-logic.ts              // Legacy v1.0 compatibility
+  steam-images.ts             // Steam CDN image URLs
+
+// Type definitions
+types/
+  steam.ts                    // SteamGame interface
+  vault.ts                    // VaultState, GameProgress, ShopSlot
+
+// Documentation
+src/docs/
+  vault_gdd_15.txt            // Game Design Document v1.5
+  vault_tdd_15.txt            // Technical Design Document v1.5
+  vault_milestones_15.txt     // Implementation milestones (M0-M10)
+  vault_dev_principles.txt    // Development principles
+  vault_todo.txt              // Current tasks
 
 
 Data Models
@@ -57,51 +97,46 @@ typescriptinterface SaveData {
 }
 
 Core Systems
-1. Pool Management System
+1. Pool Management System (lib/pool-manager.ts)
 Purpose: Manage the three game pools and transitions between them.
-typescriptclass PoolManager {
-  private pool1: Set<number>; // Unlocked
-  private pool2: Set<number>; // Hidden/locked
-  private pool3: Set<number>; // Never played
+
+typescript// Functional implementation with pure functions
+export async function initializePools(
+  steamLibrary: SteamGame[]
+): Promise<{
+  pool1_unlocked: number[];
+  pool2_hidden: number[];
+  pool3_keyGames: number[];
+  startingGame: SteamGame | null;
+}> {
+  // Separate games by playtime
+  const played = steamLibrary.filter(g => g.playtime_forever > 0);
+  const neverPlayed = steamLibrary.filter(g => g.playtime_forever === 0);
   
-  // Initialize pools from Steam library
-  initializePools(steamLibrary: SteamGame[]): void {
-    // Separate games by playtime
-    const played = steamLibrary.filter(g => g.playtime_forever > 0);
-    const neverPlayed = steamLibrary.filter(g => g.playtime_forever === 0);
-    
-    // Select starting game (70s Metacritic, 5-10 hours)
-    const startingGame = this.selectStartingGame(played);
-    
-    // Pool 1: Just the starting game
-    this.pool1 = new Set([startingGame.appid]);
-    
-    // Pool 2: All other played games
-    this.pool2 = new Set(
-      played
-        .filter(g => g.appid !== startingGame.appid)
-        .map(g => g.appid)
-    );
-    
-    // Pool 3: All never played
-    this.pool3 = new Set(neverPlayed.map(g => g.appid));
-  }
+  // Select starting game (70s Metacritic, 5-10 hours)
+  const startingGame = selectStartingGame(played);
   
-  // Move game from Pool 3 → Pool 2 when played
-  moveToPool2(appId: number): void {
-    if (this.pool3.has(appId)) {
-      this.pool3.delete(appId);
-      this.pool2.add(appId);
-    }
-  }
+  // Pool 1: Just the starting game
+  const pool1 = startingGame ? [startingGame.appid] : [];
   
-  // Move game from Pool 2 → Pool 1 when unlocked
-  unlockGame(appId: number): void {
-    if (this.pool2.has(appId)) {
-      this.pool2.delete(appId);
-      this.pool1.add(appId);
-    }
-  }
+  // Pool 2: All other played games (minus starting game)
+  const pool2 = played
+    .filter(g => g.appid !== startingGame?.appid)
+    .map(g => g.appid);
+  
+  // Pool 3: All never played
+  const pool3 = neverPlayed.map(g => g.appid);
+  
+  return {
+    pool1_unlocked: pool1,
+    pool2_hidden: pool2,
+    pool3_keyGames: pool3,
+    startingGame
+  };
+}
+
+export function needsPoolInitialization(savedState: any): boolean {
+  return !savedState || savedState.version !== '1.5';
 }
 
 2. Shop System
