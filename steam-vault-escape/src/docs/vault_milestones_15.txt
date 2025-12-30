@@ -4,12 +4,12 @@ This plan breaks down the v1.5 implementation into manageable milestones for Cli
 
 ---
 
-MILESTONE 0: Foundation Refactor (v1.0 → v1.5 Bridge)
+MILESTONE 0: Foundation Refactor (v1.0 → v1.5 Bridge) ✅ COMPLETE
 Goal: Prepare the codebase for v1.5 by removing obsolete systems, adding new APIs, and updating core data structures.
 
 Tasks:
 
-1. Remove Vault Controller
+1. ✅ Remove Vault Controller
    - File: lib/constants.ts
      * Delete VAULT_CONTROLLER constant
    - File: lib/vault-logic.ts
@@ -19,21 +19,19 @@ Tasks:
      * Remove all Vault Controller initialization code
      * Remove from featured game logic
 
-2. Add API Routes for Metadata
+2. ✅ Add API Routes for Metadata
    - File: app/api/steamspy/route.ts (NEW)
-     * Create SteamSpy API route
-     * Fetch rating (positive/negative ratio)
-     * Fetch median_forever for hours-to-beat estimate
-     * Fetch tags for categorization
-     * Reference: never-played/src/app/api/steamspy-rating/route.ts
+     ✅ Create SteamSpy API route
+     ✅ Fetch rating (positive/negative ratio)
+     ✅ Fetch median_forever for hours-to-beat estimate
+     ✅ Fetch tags for categorization
    
    - File: app/api/steam-store/route.ts (NEW)
-     * Create Steam Store API route
-     * Fetch Metacritic score (game.metacritic?.score)
-     * Fetch recommendations count as fallback rating
-     * Reference: never-played/src/app/api/steam-store/route.ts
+     ✅ Create Steam Store API route
+     ✅ Fetch Metacritic score (game.metacritic?.score)
+     ✅ Fetch recommendations count as fallback rating
 
-3. Update Type Definitions
+3. ✅ Update Type Definitions
    - File: types/steam.ts
      * Add metacritic?: number
      * Add hoursTobeat?: number (from SteamSpy median_forever)
@@ -83,10 +81,10 @@ Tasks:
        }
        ```
 
-4. Update Formulas & Constants
+4. ✅ Update Formulas & Constants
    - File: lib/constants.ts
-     * Remove old formulas (unlockCost, passiveRate, clickValue, liberationBonus)
-     * Add new v1.5 formulas:
+     ✅ Remove old formulas (unlockCost, passiveRate, clickValue, liberationBonus)
+     ✅ Add new v1.5 formulas:
        ```typescript
        export const FORMULAS = {
          // Unlock cost: Metacritic × Hours to Beat
@@ -132,29 +130,29 @@ Tasks:
        };
        ```
 
-5. Update Storage Structure
+5. ✅ Update Storage Structure
    - File: lib/storage.ts
-     * Update StoredState interface to match new VaultState
-     * Update saveToStorage() to handle dual currency
-     * Update loadFromStorage() to handle new structure
-     * Add version migration logic (v1.0 saves should be cleared)
+     ✅ Update StoredState interface to match new VaultState
+     ✅ Update saveToStorage() to handle dual currency
+     ✅ Update loadFromStorage() to handle new structure
+     ✅ Add version migration logic (v1.0 saves should be cleared)
 
-6. Create Utility Functions
+6. ✅ Create Utility Functions
    - File: lib/game-utils.ts (NEW)
-     * Function: enrichGameWithMetadata(game: SteamGame): Promise<SteamGame>
+     ✅ Function: enrichGameWithMetadata(game: SteamGame): Promise<SteamGame>
        - Fetch Metacritic from Steam Store API
        - Fetch hours-to-beat from SteamSpy
        - Calculate unlock cost
        - Determine tier
        - Return enriched game
      
-     * Function: selectStartingGame(games: SteamGame[]): SteamGame | null
+     ✅ Function: selectStartingGame(games: SteamGame[]): SteamGame | null
        - Filter: Metacritic 70-79, 5-10 hours played
        - Fallback: Any game with 5-10 hours played
        - Fallback: Lowest playtime game
        - Return selected game or null
 
-7. Audit Existing Code
+7. ✅ Audit Existing Code
    - Keep (reusable):
      ✅ Steam API integration (app/api/steam-library/route.ts)
      ✅ Image handling (lib/steam-images.ts)
@@ -205,44 +203,35 @@ Success Criteria:
 
 ---
 
-MILESTONE 1: Three-Pool Foundation
+MILESTONE 1: Three-Pool Foundation ✅ COMPLETE
 Goal: Establish the core three-pool system and data structures.
 Tasks:
 
-Create Pool Manager
+✅ Create Pool Manager
+   - File: lib/pool-manager.ts
+   ✅ Implement initializePools(), promoteKeyGame(), unlockGame() functions
+   ✅ Logic for selecting starting game (70s Metacritic, 5-10 hours)
+   ✅ Helper functions: getGamesInPool(), needsPoolInitialization(), getPoolStats()
 
-File: src/lib/pool-manager.ts
-Implement PoolManager class with three Sets
-Methods: initializePools(), moveToPool2(), unlockGame()
-Logic for selecting starting game (70s Metacritic, 5-10 hours)
+✅ Update Save Data Structure
+   - File: lib/storage.ts
+   ✅ VaultState interface with three pool arrays
+   ✅ shopSlots array added
+   ✅ gameProgress map added
+   ✅ saveToStorage() and loadFromStorage() updated
 
+✅ Initialize Pools on Load
+   - File: app/page.tsx
+   ✅ On Steam library fetch, call initializePools()
+   ✅ Store pools in VaultState
+   ✅ Save to localStorage
 
-Update Save Data Structure
-
-File: src/lib/storage.ts
-Add SaveData interface with three pool arrays
-Add shopSlots array
-Add gameProgress map
-Implement saveGame() and loadGame() functions
-
-
-Initialize Pools on Load
-
-File: src/app/page.tsx
-On Steam library fetch, call poolManager.initializePools()
-Store pools in React state
-Save to localStorage
-
-
-Test Pool Initialization
-
-Verify starting game selected correctly
-Verify Pool 1 has 1 game
-Verify Pool 2 has remaining played games
-Verify Pool 3 has all never-played games
-Log pools to console for debugging
-
-
+✅ Test Pool Initialization
+   ✅ Verified starting game selected correctly (Sid Meier's Pirates!)
+   ✅ Verified Pool 1 has 1 game
+   ✅ Verified Pool 2 has 239 remaining played games  
+   ✅ Verified Pool 3 has 314 never-played games
+   ✅ Console logs confirm proper pool distribution
 
 Success Criteria:
 
