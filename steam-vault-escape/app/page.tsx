@@ -9,6 +9,7 @@ import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
 import { loadFromStorage, saveToStorage } from '@/lib/storage';
 import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/pool-manager';
 import { initializeShop } from '@/lib/shop-manager';
+import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -213,12 +214,36 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [passiveIncome, featuredGame]);
 
-  // Handle clicking the featured game
+  // Handle clicking the featured game (v1.5 - generates Collection Power)
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
-    if (!featuredGame) return;
+    if (!featuredGame || !vaultState) return;
     
-    const earnedPoints = featuredGame.clickValue;
-    setPoints(prev => prev + earnedPoints);
+    // Find the actual game data
+    const game = games.find(g => g.appid === featuredGame.appid);
+    if (!game) return;
+    
+    // Get current progress
+    const appId = Number(featuredGame.appid);
+    const currentProgress = vaultState.gameProgress?.[appId];
+    
+    // Handle the click using v1.5 click manager
+    const result = handleGameClick(game, currentProgress);
+    
+    // Check if drained - don't generate power if drained
+    if (result.isDrained && currentProgress?.isDrained) {
+      console.log(`[Click] ${game.name} is drained - no power generated`);
+      return;
+    }
+    
+    // Add Collection Power
+    setCollectionPower(prev => prev + result.powerGained);
+    
+    // Update game progress
+    if (!vaultState.gameProgress) vaultState.gameProgress = {};
+    vaultState.gameProgress[appId] = result.newProgress;
+    setVaultState({...vaultState});
+    
+    const earnedPoints = result.powerGained;
     
     // Get button dimensions
     const button = event.currentTarget;
@@ -547,20 +572,16 @@ export default function Home() {
             </p>
           </div>
           <div className="text-right">
-            <div className="text-sm text-gray-400">💰 Points</div>
-            <div className="text-5xl font-bold text-vault-accent">
-              {Math.floor(points).toLocaleString()}
+            <div className="text-sm text-gray-400">⚡ Collection Power</div>
+            <div className="text-5xl font-bold text-green-400">
+              {collectionPower.toLocaleString()}
             </div>
-            {passiveIncome > 0 && (
-              <div className="text-sm text-green-400 animate-pulse">
-                +{passiveIncome.toFixed(1)}/sec
-              </div>
-            )}
+            <div className="text-sm text-gray-400 mt-1">🔑 Liberation Keys: {liberationKeys}</div>
           </div>
         </div>
 
         {/* Featured Game Section */}
-        {featuredGame && (
+        {featuredGame && vaultState && (
           <div className="flex flex-col items-center mb-8">
               {/* Clickable Game Image */}
               <div className="relative mb-6">
@@ -580,15 +601,45 @@ export default function Home() {
                     <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
                   </div>
                   
-                  {/* Passive Progress Bar */}
-                  {featuredGame.passiveRate > 0 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-3 bg-black/60">
-                      <div 
-                        className={`h-full bg-gradient-to-r from-vault-gold via-yellow-400 to-vault-gold transition-all duration-100 ${passiveProgress > 90 ? 'shadow-lg shadow-vault-gold/50 animate-pulse' : ''}`}
-                        style={{ width: `${passiveProgress}%` }}
-                      />
-                    </div>
-                  )}
+                  {/* v1.5 Drain Progress Bar */}
+                  {(() => {
+                    const appId = Number(featuredGame.appid);
+                    const game = games.find(g => g.appid === featuredGame.appid);
+                    if (!game) return null;
+                    
+                    const progress = vaultState.gameProgress?.[appId];
+                    const clickValue = getClickValue(game);
+                    const maxPower = getMaxPower(game);
+                    const currentPower = progress?.currentPower || 0;
+                    const isDrained = progress?.isDrained || false;
+                    
+                    // Progress bar shows remaining power (inverted: 100% when fresh, 0% when drained)
+                    const progressPercent = maxPower > 0 ? ((maxPower - currentPower) / maxPower) * 100 : 100;
+                    
+                    if (isDrained) {
+                      return (
+                        <div className="absolute bottom-0 left-0 right-0 bg-red-900/80 px-4 py-2 text-center">
+                          <div className="text-white font-bold text-sm">⚠️ DRAINED</div>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/80 px-4 py-2">
+                        <div className="w-full bg-gray-700 rounded-full h-3 mb-1">
+                          <div 
+                            className={`h-full rounded-full transition-all ${
+                              progressPercent < 20 ? 'bg-red-500' : progressPercent < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-center text-gray-300">
+                          {currentPower.toLocaleString()} / {maxPower.toLocaleString()} power
+                        </div>
+                      </div>
+                    );
+                  })()}
                   
                   {/* Burst Effect */}
                   {showBurst && (
@@ -695,6 +746,107 @@ export default function Home() {
                         {canAfford ? `🔓 Unlock (${unlockCost.toLocaleString()})` : `🔒 Need ${unlockCost.toLocaleString()}`}
                       </button>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Game Library Section - v1.5 */}
+        {vaultState && vaultState.pool1_unlocked && vaultState.pool1_unlocked.length > 0 && (
+          <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-green-500/30">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-3xl font-bold text-green-400">🎮 Game Library</h2>
+              <div className="text-right">
+                <div className="text-sm text-gray-400">⚡ Collection Power</div>
+                <div className="text-3xl font-bold text-green-400">{collectionPower.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {vaultState.pool1_unlocked.map(appId => {
+                const game = games.find(g => g.appid === appId);
+                if (!game) return null;
+                
+                const progress = vaultState.gameProgress?.[appId];
+                const clickValue = getClickValue(game);
+                const maxPower = getMaxPower(game);
+                const currentPower = progress?.currentPower || 0;
+                const isDrained = progress?.isDrained || false;
+                const refreshCost = calculateRefreshCost(game);
+                // Progress bar shows remaining power (inverted: 100% when fresh, 0% when drained)
+                const progressPercent = maxPower > 0 ? ((maxPower - currentPower) / maxPower) * 100 : 100;
+                
+                return (
+                  <div
+                    key={appId}
+                    className={`relative aspect-[2/3] rounded-lg overflow-hidden border-2 ${
+                      featuredGame?.appid === appId ? 'border-vault-accent ring-4 ring-vault-accent' : 'border-green-500'
+                    } shadow-lg transition-all hover:scale-105 cursor-pointer`}
+                    onClick={() => {
+                      // Just select this game as featured - don't generate power here
+                      const vaultGameState = toVaultGameState(game, vaultState.pool1_unlocked || []);
+                      setFeaturedGame(vaultGameState);
+                      console.log(`[Game Library] Selected ${game.name} as featured game`);
+                    }}
+                  >
+                    <img
+                      src={getLibraryCapsule(game.appid)}
+                      alt={game.name}
+                      onError={handleImageError}
+                      className={`w-full h-full object-cover ${isDrained ? 'grayscale' : ''}`}
+                    />
+                    
+                    {/* Drained overlay */}
+                    {isDrained && (
+                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-3">
+                        <div className="text-4xl mb-2">⚠️</div>
+                        <div className="text-white font-bold text-sm mb-2">DRAINED</div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (liberationKeys < refreshCost) return;
+                            
+                            setLiberationKeys(prev => prev - refreshCost);
+                            const refreshed = refreshDrainedGame(game, progress!);
+                            if (!vaultState.gameProgress) vaultState.gameProgress = {};
+                            vaultState.gameProgress[appId] = refreshed;
+                            setVaultState({...vaultState});
+                            
+                            console.log(`[Refresh] Refreshed ${game.name} for ${refreshCost} keys`);
+                          }}
+                          disabled={liberationKeys < refreshCost}
+                          className={`px-3 py-1 rounded font-bold text-xs ${
+                            liberationKeys >= refreshCost
+                              ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400'
+                              : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          }`}
+                        >
+                          Refresh for {refreshCost} 🔑
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Info overlay */}
+                    {!isDrained && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent flex flex-col justify-end p-3">
+                        <div className="text-white font-bold text-xs mb-1 line-clamp-2">{game.name}</div>
+                        <div className="text-xs text-green-400 mb-2">+{clickValue} power per click</div>
+                        
+                        {/* Progress bar */}
+                        <div className="w-full bg-gray-700 rounded-full h-2 mb-1">
+                          <div 
+                            className={`h-full rounded-full transition-all ${
+                              progressPercent < 20 ? 'bg-red-500' : progressPercent < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-300">
+                          {currentPower.toLocaleString()} / {maxPower.toLocaleString()}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -874,6 +1026,21 @@ export default function Home() {
                 className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded font-semibold"
               >
                 🔄 Force v1.5 Reset
+              </button>
+              <button 
+                onClick={() => {
+                  if (vaultState && vaultState.gameProgress) {
+                    const refreshed = autoRefreshAllDrained(vaultState.gameProgress);
+                    setVaultState({
+                      ...vaultState,
+                      gameProgress: refreshed
+                    });
+                    console.log('[Dev] Reset all drained games');
+                  }
+                }} 
+                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded font-semibold"
+              >
+                ♻️ Reset All Drained
               </button>
               <button onClick={() => setPoints(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Points</button>
               <button onClick={() => setPoints(p => p + 10000)} className="w-full bg-green-700 hover:bg-green-600 text-white py-2 rounded font-semibold">+10000 Points</button>
