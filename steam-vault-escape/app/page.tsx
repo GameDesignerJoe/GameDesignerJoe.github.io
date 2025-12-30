@@ -11,6 +11,7 @@ import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/po
 import { initializeShop } from '@/lib/shop-manager';
 import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
 import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
+import { initialMetadataEnrichment, topUpMetadataBuffer } from '@/lib/metadata-enrichment';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -438,7 +439,7 @@ export default function Home() {
   }
   
   // Handle unlocking a game from the shop
-  function handleShopUnlock(slot: ShopSlot, game: SteamGame) {
+  async function handleShopUnlock(slot: ShopSlot, game: SteamGame) {
     if (!vaultState) return;
     
     const unlockCost = game.metacritic && game.hoursTobeat 
@@ -477,6 +478,13 @@ export default function Home() {
     setUnlockedGames(newPool1);
     
     console.log(`[Shop] Unlocked ${game.name}! Spent ${unlockCost} Collection Power`);
+    
+    // TOP UP METADATA BUFFER: Enrich more Pool 2 games if needed
+    console.log('[Metadata] Checking if buffer needs top-up after unlock...');
+    const enrichedGames = await topUpMetadataBuffer(newPool2, games);
+    setGames(enrichedGames);
+    updatedState.cachedLibrary = enrichedGames;
+    setVaultState(updatedState);
   }
 
   async function fetchLibrary() {
@@ -524,9 +532,15 @@ export default function Home() {
             cachedLibrary: fetchedGames,
           };
           
-          // Initialize shop with games from Pool 2
+          // METADATA ENRICHMENT: Ensure 10 Pool 2 games have metadata
+          console.log('[Vault] Enriching Pool 2 with metadata...');
+          const enrichedGames = await initialMetadataEnrichment(poolData.pool2_hidden, fetchedGames);
+          setGames(enrichedGames);
+          newState.cachedLibrary = enrichedGames;
+          
+          // Initialize shop with games from Pool 2 (now with metadata)
           console.log('[Vault] Initializing shop...');
-          const initialShopSlots = await initializeShop(poolData.pool2_hidden, fetchedGames);
+          const initialShopSlots = await initializeShop(poolData.pool2_hidden, enrichedGames);
           newState.shopSlots = initialShopSlots;
           setShopSlots(initialShopSlots);
           
@@ -1215,17 +1229,6 @@ export default function Home() {
             <div className="space-y-2">
               <button 
                 onClick={() => {
-                  if(confirm('Force v1.5 reinitialization? This will clear all data and reload.')){
-                    localStorage.clear();
-                    window.location.reload();
-                  }
-                }} 
-                className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded font-semibold"
-              >
-                🔄 Force v1.5 Reset
-              </button>
-              <button 
-                onClick={() => {
                   if (vaultState && vaultState.gameProgress) {
                     const refreshed = autoRefreshAllDrained(vaultState.gameProgress);
                     setVaultState({
@@ -1241,10 +1244,32 @@ export default function Home() {
               </button>
               <button onClick={() => setCollectionPower(p => p + 1000)} className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded font-semibold">+1000 Power</button>
               <button onClick={() => setLiberationKeys(k => k + 100)} className="w-full bg-vault-gold hover:bg-yellow-400 text-vault-dark py-2 rounded font-semibold">+100 Keys</button>
-              <button onClick={() => setUnlockedGames(vaultGames.filter(g => g.unlockCost < 100).map(g => g.appid))} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-semibold">Unlock Cheap Games</button>
-              <button onClick={() => setUnlockedGames(vaultGames.map(g => g.appid))} className="w-full bg-blue-700 hover:bg-blue-600 text-white py-2 rounded font-semibold">Unlock All Games</button>
-              <button onClick={() => setShowVictory(true)} className="w-full bg-vault-gold hover:bg-yellow-400 text-vault-dark py-2 rounded font-semibold">Show Victory</button>
-              <button onClick={() => {if(confirm('Reset all progress?')){setPoints(0);setUnlockedGames(['vault-controller']);setHasWon(false);localStorage.clear();}}} className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded font-semibold">Reset Progress</button>
+              <button 
+                onClick={() => {
+                  if(confirm('🚨 NUCLEAR RESET 🚨\n\nThis will:\n• Clear ALL save data\n• Reset your library\n• Reload the page\n• Reinitialize everything\n\nAre you sure?')){
+                    // Clear all storage
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    
+                    // Reset ALL state to initial values
+                    setGames([]);
+                    setVaultGames([]);
+                    setVaultState(null);
+                    setShopSlots([]);
+                    setCollectionPower(0);
+                    setLiberationKeys(0);
+                    setUnlockedGames(['vault-controller']);
+                    setFeaturedGame(null);
+                    setPoints(0);
+                    
+                    // Force reload
+                    setTimeout(() => window.location.reload(), 100);
+                  }
+                }} 
+                className="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded font-bold text-sm border-2 border-red-400"
+              >
+                🚨 NUCLEAR RESET 🚨
+              </button>
             </div>
           </div>
         )}
