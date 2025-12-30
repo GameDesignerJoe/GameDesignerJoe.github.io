@@ -28,12 +28,60 @@ export function getHeaderImage(appId: string | number): string {
 }
 
 /**
- * Handle image load errors by showing placeholder
+ * Handle image load errors by showing placeholder with game name
  */
 export function handleImageError(event: React.SyntheticEvent<HTMLImageElement, Event>) {
   const img = event.currentTarget;
-  // Show a fallback gradient or placeholder
-  img.style.background = 'linear-gradient(135deg, #1a1d29 0%, #2a2d3a 100%)';
+  const gameName = img.alt || 'Unknown Game';
+  
+  // Escape HTML characters
+  const escapedName = gameName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  // Split name into words for better wrapping
+  const words = escapedName.split(' ');
+  let lines: string[] = [];
+  let currentLine = '';
+  
+  // Simple word wrapping - max 20 chars per line
+  words.forEach(word => {
+    if ((currentLine + ' ' + word).length > 20 && currentLine.length > 0) {
+      lines.push(currentLine.trim());
+      currentLine = word;
+    } else {
+      currentLine += (currentLine ? ' ' : '') + word;
+    }
+  });
+  if (currentLine) lines.push(currentLine.trim());
+  
+  // Limit to 4 lines max
+  if (lines.length > 4) {
+    lines = lines.slice(0, 4);
+    lines[3] = lines[3].substring(0, 17) + '...';
+  }
+  
+  // Calculate vertical positioning (upper third of card)
+  const fontSize = 64;
+  const lineHeight = fontSize * 1.2;
+  const totalHeight = lines.length * lineHeight;
+  const startY = 200 + fontSize; // Start at 200px from top instead of centered
+  
+  // Generate text elements
+  const textElements = lines.map((line, index) => 
+    `<text x="300" y="${startY + (index * lineHeight)}" text-anchor="middle" fill="rgb(203,213,225)" font-size="${fontSize}" font-weight="900" font-family="Impact, 'Arial Black', sans-serif">${line}</text>`
+  ).join('\n    ');
+  
+  // Create an SVG with the game name in Impact font
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900">
+    <defs>
+      <linearGradient id="placeholderBg" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:rgb(30,41,59);stop-opacity:1" />
+        <stop offset="100%" style="stop-color:rgb(15,23,42);stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <rect width="600" height="900" fill="url(#placeholderBg)"/>
+    ${textElements}
+  </svg>`;
+  
+  img.src = `data:image/svg+xml,${encodeURIComponent(svg)}`;
   img.style.display = 'block';
-  img.alt = 'No image available';
 }

@@ -40,6 +40,7 @@ export default function Home() {
   // v1.5 Pool state
   const [vaultState, setVaultState] = useState<VaultState | null>(null);
   const [isInitializingPools, setIsInitializingPools] = useState(false);
+  const [hasInitializedOnce, setHasInitializedOnce] = useState(false);
   const [shopSlots, setShopSlots] = useState<ShopSlot[]>([]);
   const [collectionPower, setCollectionPower] = useState(0);
   const [liberationKeys, setLiberationKeys] = useState(0);
@@ -244,6 +245,14 @@ export default function Home() {
     // Check if drained - don't generate power if drained
     if (result.isDrained && currentProgress?.isDrained) {
       console.log(`[Click] ${game.name} is drained - no power generated`);
+      
+      // If player doesn't have enough keys to refresh, switch to Key Games tab
+      const refreshCost = calculateRefreshCost(game);
+      if (liberationKeys < refreshCost) {
+        setLibraryTab('keyGames');
+        console.log(`[Click] Not enough keys to refresh - switched to Key Games tab`);
+      }
+      
       return;
     }
     
@@ -529,9 +538,10 @@ export default function Home() {
       
       // Check if we need to initialize pools (first time v1.5 setup)
       const savedState = loadFromStorage();
-      if (needsPoolInitialization(savedState)) {
+      if (needsPoolInitialization(savedState) && !hasInitializedOnce) {
         console.log('[Vault] Initializing v1.5 pool system...');
         setIsInitializingPools(true);
+        setHasInitializedOnce(true); // Mark as initialized to prevent double init
         
         try {
           const poolData = await initializePools(fetchedGames);
@@ -551,22 +561,7 @@ export default function Home() {
             cachedLibrary: fetchedGames,
           };
           
-          // METADATA ENRICHMENT: Ensure 10 Pool 2 games have metadata
-          console.log('[Vault] Enriching Pool 2 with metadata...');
-          const enrichedGames = await initialMetadataEnrichment(poolData.pool2_hidden, fetchedGames);
-          setGames(enrichedGames);
-          newState.cachedLibrary = enrichedGames;
-          
-          // Initialize shop with games from Pool 2 (now with metadata)
-          console.log('[Vault] Initializing shop...');
-          const shopResult = await initializeShop(poolData.pool2_hidden, enrichedGames);
-          newState.shopSlots = shopResult.shopSlots;
-          newState.pool2_hidden = shopResult.updatedPool2; // Remove shop games from Pool 2
-          setShopSlots(shopResult.shopSlots);
-          
-          setVaultState(newState);
-          
-          // Set starting game as featured
+          // Set starting game as featured FIRST (before updating games array)
           if (poolData.startingGame) {
             const startingVaultState = toVaultGameState(
               poolData.startingGame,
@@ -575,6 +570,26 @@ export default function Home() {
             setFeaturedGame(startingVaultState);
             setUnlockedGames(poolData.pool1_unlocked);
           }
+          
+          // METADATA ENRICHMENT: Ensure 10 Pool 2 games have metadata BEFORE shop init
+          console.log('[Vault] Enriching Pool 2 with metadata...');
+          const enrichedGames = await initialMetadataEnrichment(poolData.pool2_hidden, fetchedGames);
+          
+          // Initialize shop with games from Pool 2 (now ALL enriched, no more async calls)
+          console.log('[Vault] Initializing shop with pre-enriched games...');
+          const shopResult = await initializeShop(poolData.pool2_hidden, enrichedGames);
+          
+          // Update state ONCE with everything ready
+          newState.cachedLibrary = enrichedGames;
+          newState.shopSlots = shopResult.shopSlots;
+          newState.pool2_hidden = shopResult.updatedPool2;
+          
+          // Single atomic update - prevents re-renders mid-initialization
+          setVaultState(newState);
+          setShopSlots(shopResult.shopSlots);
+          setGames(enrichedGames);
+          
+          console.log('[Vault] Initialization complete - no more updates should occur');
           
           // Save the new state
           saveToStorage(newState);
@@ -805,28 +820,27 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header with Points */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold mb-2 text-vault-accent">
-              🔐 Steam Vault Escape
-            </h1>
-            <p className="text-gray-400">
-              Free your trapped games by playing your unplayed titles
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-400">⚡ Collection Power</div>
-            <div className="text-5xl font-bold text-green-400">
-              {collectionPower.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-400 mt-1">🔑 Liberation Keys: {liberationKeys}</div>
-          </div>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2 text-vault-accent text-center">
+            🔐 Steam Vault Escape
+          </h1>
+          <p className="text-gray-400 text-center">
+            Free your trapped games by playing your unplayed titles
+          </p>
         </div>
 
         {/* Featured Game Section */}
         {featuredGame && vaultState && (
           <div className="flex flex-col items-center mb-8">
+              {/* Collection Power & Keys - Above Game */}
+              <div className="mb-4 text-center">
+                <div className="text-sm text-gray-400">⚡ Collection Power</div>
+                <div className="text-5xl font-bold text-green-400">
+                  {collectionPower.toLocaleString()}
+                </div>
+                <div className="text-xl font-bold text-vault-gold mt-2">🔑 {liberationKeys} Keys</div>
+              </div>
               {/* Clickable Game Image */}
               <div className="relative mb-6">
                 <button
@@ -840,10 +854,21 @@ export default function Home() {
                     onError={handleImageError}
                     className="w-full h-full object-cover"
                   />
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-vault-accent/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
-                  </div>
+                  {/* Hover overlay - only show for non-drained games */}
+                  {(() => {
+                    const appId = Number(featuredGame.appid);
+                    const progress = vaultState.gameProgress?.[appId];
+                    const isDrained = progress?.isDrained || false;
+                    
+                    // Don't show hover text if drained (button is visible instead)
+                    if (isDrained) return null;
+                    
+                    return (
+                      <div className="absolute inset-0 bg-vault-accent/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
+                      </div>
+                    );
+                  })()}
                   
                   {/* v1.5 Drain Progress Bar */}
                   {(() => {
@@ -856,14 +881,37 @@ export default function Home() {
                     const maxPower = getMaxPower(game);
                     const currentPower = progress?.currentPower || 0;
                     const isDrained = progress?.isDrained || false;
+                    const refreshCost = calculateRefreshCost(game);
                     
                     // Progress bar shows remaining power (inverted: 100% when fresh, 0% when drained)
                     const progressPercent = maxPower > 0 ? ((maxPower - currentPower) / maxPower) * 100 : 100;
                     
                     if (isDrained) {
                       return (
-                        <div className="absolute bottom-0 left-0 right-0 bg-red-900/80 px-4 py-2 text-center">
-                          <div className="text-white font-bold text-sm">⚠️ DRAINED</div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/90 px-4 py-3 text-center">
+                          <div className="text-white font-bold text-lg mb-2">⚠️ DRAINED</div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (liberationKeys < refreshCost) return;
+                              
+                              setLiberationKeys(prev => prev - refreshCost);
+                              const refreshed = refreshDrainedGame(game, progress!);
+                              if (!vaultState.gameProgress) vaultState.gameProgress = {};
+                              vaultState.gameProgress[appId] = refreshed;
+                              setVaultState({...vaultState});
+                              
+                              console.log(`[Refresh] Refreshed ${game.name} for ${refreshCost} keys`);
+                            }}
+                            disabled={liberationKeys < refreshCost}
+                            className={`w-full py-2 px-4 rounded font-bold text-sm transition-all ${
+                              liberationKeys >= refreshCost
+                                ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400'
+                                : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                            }`}
+                          >
+                            {liberationKeys >= refreshCost ? `🔄 Refresh for ${refreshCost} 🔑` : `Need ${refreshCost} 🔑 Keys`}
+                          </button>
                         </div>
                       );
                     }
@@ -939,9 +987,17 @@ export default function Home() {
                   return (
                     <div
                       key={index}
-                      onClick={() => canDraw && handleDrawSlot(index)}
+                      onClick={() => {
+                        if (canDraw) {
+                          handleDrawSlot(index);
+                        } else {
+                          // Switch to Key Games tab to guide player
+                          setLibraryTab('keyGames');
+                          console.log('[Shop] Not enough keys - switched to Key Games tab');
+                        }
+                      }}
                       className={`relative aspect-[2/3] bg-vault-dark rounded-lg border-2 border-dashed border-vault-gold/30 flex flex-col items-center justify-center p-4 transition-all ${
-                        canDraw ? 'hover:border-vault-gold/60 cursor-pointer hover:scale-105 pulse-glow' : 'cursor-not-allowed opacity-50'
+                        canDraw ? 'hover:border-vault-gold/60 cursor-pointer hover:scale-105 pulse-glow' : 'cursor-pointer hover:border-purple-500/60 opacity-50'
                       }`}
                     >
                       <div className="text-6xl mb-2 animate-pulse">🔒</div>
@@ -1012,27 +1068,27 @@ export default function Home() {
         {/* Tabbed Library Section - Game Library + Key Games */}
         {vaultState && (
           <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-green-500/30">
-            {/* Tab Buttons */}
-            <div className="flex gap-2 mb-6">
+            {/* Section Toggle Buttons */}
+            <div className="flex gap-3 mb-6">
               <button
                 onClick={() => setLibraryTab('unlocked')}
-                className={`px-6 py-3 rounded-t-lg font-bold text-lg transition-all ${
+                className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
                   libraryTab === 'unlocked'
-                    ? 'bg-green-600 text-white border-b-4 border-green-400'
-                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700'
+                    ? 'bg-green-600 text-white shadow-lg shadow-green-500/50 scale-105'
+                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700 hover:scale-102'
                 }`}
               >
-                🎮 Game Library ({vaultState.pool1_unlocked?.length || 0})
+                🎮 Game Library
               </button>
               <button
                 onClick={() => setLibraryTab('keyGames')}
-                className={`px-6 py-3 rounded-t-lg font-bold text-lg transition-all ${
+                className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
                   libraryTab === 'keyGames'
-                    ? 'bg-purple-600 text-white border-b-4 border-purple-400'
-                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50 scale-105'
+                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700 hover:scale-102'
                 }`}
               >
-                ⭐ Key Games ({vaultState.pool3_keyGames?.length || 0})
+                ⭐ Key Games
               </button>
             </div>
 
@@ -1074,7 +1130,14 @@ export default function Home() {
                       featuredGame?.appid === appId ? 'border-vault-accent ring-4 ring-vault-accent' : 'border-green-500'
                     } shadow-lg transition-all hover:scale-105 cursor-pointer`}
                     onClick={() => {
-                      // Just select this game as featured - don't generate power here
+                      // If drained, switch to Key Games tab instead of selecting
+                      if (isDrained) {
+                        setLibraryTab('keyGames');
+                        console.log(`[Game Library] ${game.name} is drained - switched to Key Games tab`);
+                        return;
+                      }
+                      
+                      // Otherwise, select this game as featured - don't generate power here
                       const vaultGameState = toVaultGameState(game, vaultState.pool1_unlocked || []);
                       setFeaturedGame(vaultGameState);
                       console.log(`[Game Library] Selected ${game.name} as featured game`);
@@ -1245,7 +1308,7 @@ export default function Home() {
                 <div className="flex justify-between"><span className="text-gray-400">Total Games:</span><span className="font-bold text-vault-accent">{vaultGames.length}</span></div>
                 <div className="flex justify-between"><span className="text-gray-400">Total Points:</span><span className="font-bold text-vault-gold">{Math.floor(points).toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-gray-400">Passive Rate:</span><span className="font-bold text-green-400">+{passiveIncome}/sec</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Liberation Keys:</span><span className="font-bold text-vault-gold">{vaultGames.filter(g => g.state === 'liberationKey').length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Keys Earned:</span><span className="font-bold text-vault-gold">{vaultGames.filter(g => g.state === 'liberationKey').length}</span></div>
               </div>
               <button onClick={() => setShowVictory(false)} className="w-full bg-vault-gold text-vault-dark font-bold py-4 rounded-lg text-xl hover:bg-yellow-400 transition-colors">
                 CONTINUE PLAYING
@@ -1334,19 +1397,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Close button */}
-              <button
-                onClick={() => {
-                  setShowDrawModal(false);
-                  setDrawnGame(null);
-                  setDrawSlotIndex(null);
-                  setRevealedCard(false);
-                  setDrawnGamesThisSession([]); // Clear session history on cancel
-                }}
-                className="mt-4 px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         )}
