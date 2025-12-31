@@ -1,5 +1,7 @@
 // Vault game state types - v1.5
 
+import { ProgressTrackState } from './progress';
+
 // v1.5: GameState removed - replaced by pool membership
 export type GameTier = 'cheap' | 'moderate' | 'epic';
 
@@ -31,6 +33,9 @@ export interface VaultState {
   
   // Game progress tracking (v1.5)
   gameProgress?: { [appId: number]: GameProgress };
+  
+  // Progress Track (v1.5)
+  progressTrack?: ProgressTrackState;
   
   // Metadata
   lastSync?: number;

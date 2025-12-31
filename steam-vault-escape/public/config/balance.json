@@ -83,6 +83,26 @@
     "_defaultHoursTobeat_description": "LEGACY/UNUSED: Hours to beat fallback (not currently used in cost calculations since we use YOUR playtime instead)."
   },
   
+  "progressTrack": {
+    "_comment": "Progress Track rewards - earned when unlocking games from shop",
+    
+    "powerRewards": [250, 750, 1250],
+    "_powerRewards_description": "Array of Collection Power reward amounts (randomly chosen). Default: [250, 750, 1250]",
+    
+    "keyRewards": [3, 6, 13],
+    "_keyRewards_description": "Array of Liberation Key reward amounts (randomly chosen). Default: [3, 6, 13]",
+    
+    "includeRefreshRewards": false,
+    "_includeRefreshRewards_description": "Whether to include refresh rewards in the pool. Set to true to enable (not yet implemented).",
+    
+    "refreshRewards": {
+      "_comment": "Refresh reward types (NOT YET IMPLEMENTED)",
+      "fullRefresh": "Refreshes all drained games in library to full power",
+      "partialRefresh": "Refreshes all games below 50% power back to 50%",
+      "cardRefresh": "Refreshes the currently featured game to full power"
+    }
+  },
+  
   "advanced": {
     "_comment": "Advanced tuning - only change if you know what you're doing",
     

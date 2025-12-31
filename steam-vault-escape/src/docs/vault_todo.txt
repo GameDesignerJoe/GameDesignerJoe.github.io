@@ -63,3 +63,5 @@ FEATURES:
     - Keys, Revivies, Free rerolls.
     - Where would this go? Maybe along side playable game. There's room on PC, but maybe not for mobile Maybe it's another tab down with Game Library and Key Games. 
     - Perhaps this could combine your eariler request to have a trophy page for the games you've unlocked. Instead it's this track that shows the image of every game you've played and unlocked along the way.
+- Instead of having a bar fill back up, I think we need to have a timer for when they need to come back and the bar will be reset. This stops people from clicking, waiting, then clicking again. It also lets things reset. 
+- There doesn't seem to be a lot of different between the Game Library and the Progress Tracker. Perhaps they should be combined into one thing. 

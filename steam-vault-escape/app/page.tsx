@@ -17,6 +17,8 @@ import { initialMetadataEnrichment, topUpMetadataBuffer } from '@/lib/metadata-e
 import { detectNewlyPlayedKeyGames, calculateTotalKeysAwarded, KeyGameDetectionResult } from '@/lib/key-game-detector';
 import { retryOnUnlock, retryOnDraw, retryOnFeatured, retryMultipleImages, getFailedImages, getImageStats } from '@/lib/image-retry-manager';
 import { loadBalanceConfig } from '@/lib/config-loader';
+import { pickRandomReward, REWARD_POOL } from '@/types/progress';
+import type { UnlockedGame } from '@/types/progress';
 
 // Import components
 import ToastNotification from './components/ToastNotification';
@@ -28,6 +30,7 @@ import DevPanel from './components/DevPanel';
 import FeaturedGameDisplay from './components/FeaturedGameDisplay';
 import ShopSection from './components/ShopSection';
 import GameLibrary from './components/GameLibrary';
+import ProgressTrack from './components/ProgressTrack';
 
 export default function Home() {
   const [games, setGames] = useState<SteamGame[]>([]);
@@ -46,7 +49,7 @@ export default function Home() {
   const [hasWon, setHasWon] = useState(false);
   const [totalPointsEarned, setTotalPointsEarned] = useState(0);
   const [showDevPanel, setShowDevPanel] = useState(false);
-  const [libraryTab, setLibraryTab] = useState<'unlocked' | 'keyGames'>('unlocked'); // Tab state
+  const [libraryTab, setLibraryTab] = useState<'unlocked' | 'keyGames' | 'progressTrack'>('unlocked'); // Tab state
   
   // v1.5 Pool state
   const [vaultState, setVaultState] = useState<VaultState | null>(null);
@@ -672,6 +675,35 @@ export default function Home() {
     
     console.log(`[Shop] Unlocked ${game.name}! Spent ${unlockCost} Collection Power`);
     
+    // PROGRESS TRACK: Award reward and add game
+    if (updatedState.progressTrack) {
+      const currentReward = updatedState.progressTrack.nextReward;
+      
+      // Award the reward
+      if (currentReward.type === 'power') {
+        setCollectionPower(prev => prev + currentReward.amount);
+        console.log(`[Progress Track] Awarded ${currentReward.amount} Collection Power!`);
+      } else if (currentReward.type === 'keys') {
+        setLiberationKeys(prev => prev + currentReward.amount);
+        console.log(`[Progress Track] Awarded ${currentReward.amount} Keys!`);
+      }
+      
+      // Add game to progress track (newest first)
+      const newUnlockedGame: UnlockedGame = {
+        appId: game.appid,
+        unlockTimestamp: Date.now(),
+        tier: unlockCost < 1000 ? 'cheap' : unlockCost < 3000 ? 'moderate' : 'epic',
+        name: game.name,
+      };
+      
+      updatedState.progressTrack = {
+        nextReward: pickRandomReward(),
+        unlockedGames: [newUnlockedGame, ...updatedState.progressTrack.unlockedGames],
+      };
+      
+      console.log(`[Progress Track] Added ${game.name} to progress track. Next reward: ${updatedState.progressTrack.nextReward.amount} ${updatedState.progressTrack.nextReward.label}`);
+    }
+    
     // KEY MOMENT: Retry image load for newly unlocked game
     retryOnUnlock(game);
     
@@ -714,6 +746,14 @@ export default function Home() {
         try {
           const poolData = await initializePools(fetchedGames);
           
+          // Add starting game to progress track
+          const startingGameForTrack: UnlockedGame | null = poolData.startingGame ? {
+            appId: poolData.startingGame.appid,
+            unlockTimestamp: Date.now(),
+            tier: 'cheap', // Starting games are always low playtime
+            name: poolData.startingGame.name,
+          } : null;
+          
           // Create new v1.5 state
           const newState: VaultState = {
             version: '1.5',
@@ -724,6 +764,10 @@ export default function Home() {
             pool3_keyGames: poolData.pool3_keyGames,
             shopSlots: [],
             gameProgress: {},
+            progressTrack: {
+              nextReward: pickRandomReward(),
+              unlockedGames: startingGameForTrack ? [startingGameForTrack] : [],
+            },
             lastSync: Date.now(),
             steamId: steamId,
             cachedLibrary: fetchedGames,
@@ -1138,6 +1182,16 @@ export default function Home() {
               >
                 ⭐ Key Games
               </button>
+              <button
+                onClick={() => setLibraryTab('progressTrack')}
+                className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
+                  libraryTab === 'progressTrack'
+                    ? 'bg-vault-gold text-vault-dark shadow-lg shadow-vault-gold/50 scale-105'
+                    : 'bg-vault-dark text-gray-400 hover:bg-gray-700 hover:scale-102'
+                }`}
+              >
+                🏆 Progress Track
+              </button>
             </div>
 
             {/* Game Library Tab Content */}
@@ -1279,6 +1333,16 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Progress Track Tab Content */}
+            {libraryTab === 'progressTrack' && vaultState.progressTrack && (
+              <ProgressTrack
+                nextReward={vaultState.progressTrack.nextReward}
+                unlockedGames={vaultState.progressTrack.unlockedGames}
+                games={games}
+                totalGamesInLibrary={games.length}
+              />
             )}
 
             {/* Key Games Tab Content - With Games */}
