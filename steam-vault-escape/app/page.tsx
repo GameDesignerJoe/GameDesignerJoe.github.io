@@ -875,9 +875,38 @@ export default function Home() {
           <h1 className="text-4xl font-bold mb-8 text-vault-accent">
             🔐 Steam Vault Escape
           </h1>
-          <div className="text-center py-20">
+          <div className="text-center py-8">
             <div className="text-2xl mb-4">Loading your Steam library...</div>
-            <div className="text-vault-accent animate-pulse">⚙️</div>
+            <div className="text-vault-accent animate-pulse text-4xl mb-8">⚙️</div>
+          </div>
+          
+          {/* Skeleton Loaders */}
+          <div className="space-y-8">
+            {/* Featured Game Skeleton */}
+            <div className="flex flex-col items-center">
+              <div className="w-24 h-8 bg-gray-700 rounded animate-pulse mb-4"></div>
+              <div className="w-[300px] h-[450px] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg animate-pulse"></div>
+            </div>
+            
+            {/* Shop Skeleton */}
+            <div className="bg-vault-gray rounded-lg p-6">
+              <div className="w-64 h-8 bg-gray-700 rounded animate-pulse mb-4"></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="aspect-[2/3] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Library Skeleton */}
+            <div className="bg-vault-gray rounded-lg p-6">
+              <div className="w-48 h-8 bg-gray-700 rounded animate-pulse mb-4"></div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="aspect-[2/3] bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </main>
