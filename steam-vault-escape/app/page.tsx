@@ -1182,11 +1182,11 @@ export default function Home() {
             {/* Game Library Tab Content */}
             {libraryTab === 'unlocked' && vaultState.pool1_unlocked && vaultState.pool1_unlocked.length > 0 && (
               <>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-3xl font-bold text-green-400">🎮 Game Library</h2>
+                <div className="flex justify-between items-center mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-2xl md:text-3xl font-bold text-green-400">🎮 Game Library</h2>
                   <div className="text-right">
-                    <div className="text-sm text-gray-400">⚡ Collection Power</div>
-                    <div className="text-3xl font-bold text-green-400">{collectionPower.toLocaleString()}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">⚡ Collection Power</div>
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-green-400">{collectionPower.toLocaleString()}</div>
                   </div>
                 </div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -1347,14 +1347,14 @@ export default function Home() {
             {/* Key Games Tab Content - With Games */}
             {libraryTab === 'keyGames' && vaultState.pool3_keyGames && vaultState.pool3_keyGames.length > 0 && (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-3 sm:mb-4">
                   <div>
-                    <h2 className="text-3xl font-bold text-purple-500">⭐ Key Games - Play to Earn Keys</h2>
-                    <p className="text-gray-400 text-sm mt-1">Click any game to launch it in Steam. Play 30+ minutes to earn keys!</p>
+                    <h2 className="text-lg sm:text-2xl md:text-3xl font-bold text-purple-500">⭐ Key Games - Play to Earn Keys</h2>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Click any game to launch it in Steam. Play 30+ minutes to earn keys!</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm text-gray-400">Never-Played Games</div>
-                    <div className="text-3xl font-bold text-purple-500">{vaultState.pool3_keyGames.length}</div>
+                    <div className="text-xs sm:text-sm text-gray-400">Never-Played Games</div>
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-500">{vaultState.pool3_keyGames.length}</div>
                   </div>
                 </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
