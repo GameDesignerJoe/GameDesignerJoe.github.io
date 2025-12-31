@@ -37,9 +37,6 @@ export default function Home() {
   const [points, setPoints] = useState(0);
   const [featuredGame, setFeaturedGame] = useState<VaultGameState | null>(null);
   const [clickAnimations, setClickAnimations] = useState<Array<{ value: number; id: number; angle: number; distance: number; startX: number; startY: number }>>([]);
-  const [passiveIncome, setPassiveIncome] = useState(0);
-  const [passiveProgress, setPassiveProgress] = useState(0);
-  const [showBurst, setShowBurst] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showVictory, setShowVictory] = useState(false);
@@ -218,12 +215,6 @@ export default function Home() {
     const vaultStates = games.map(game => toVaultGameState(game, unlockedGames));
     setVaultGames(vaultStates);
     
-    // Calculate total passive income
-    const totalPassive = vaultStates
-      .filter(g => g.state === 'playable')
-      .reduce((sum, g) => sum + g.passiveRate, 0);
-    setPassiveIncome(Math.round(totalPassive * 10) / 10);
-    
     // Auto-select Vault Controller as featured if nothing is featured
     if (!featuredGame && vaultStates.length > 0) {
       const vaultController = vaultStates.find(g => g.appid === 'vault-controller');
@@ -242,40 +233,7 @@ export default function Home() {
     }
   }, [games, unlockedGames, hasWon]);
 
-  // Passive income timer - runs every 100ms for smooth updates
-  useEffect(() => {
-    if (!featuredGame || featuredGame.passiveRate <= 0) return;
-    
-    const interval = setInterval(() => {
-      // Only add passive income if tab is focused
-      if (document.hasFocus()) {
-        // Add passive income (divided by 10 since we run 10 times per second)
-        setPoints(prev => prev + (passiveIncome / 10));
-        
-        // Update progress bar for featured game
-        setPassiveProgress(prev => {
-          const newProgress = prev + (featuredGame.passiveRate / 10);
-          
-          // Check if progress bar is full
-          if (newProgress >= 100) {
-            // Award bonus points
-            setPoints(p => p + 100);
-            
-            // Trigger burst animation
-            setShowBurst(true);
-            setTimeout(() => setShowBurst(false), 600);
-            
-            // Reset progress
-            return 0;
-          }
-          
-          return newProgress;
-        });
-      }
-    }, 100);
-    
-    return () => clearInterval(interval);
-  }, [passiveIncome, featuredGame]);
+  // v1.0 passive income system removed - v1.5 uses click-based Collection Power generation
   
   // PASSIVE REGENERATION: Slowly refill ALL games over time (1 second intervals)
   useEffect(() => {
@@ -1042,14 +1000,11 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 text-vault-accent text-center">
+        {/* Header - Minimized for space */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-vault-accent text-center">
             🔐 Steam Vault Escape
           </h1>
-          <p className="text-gray-400 text-center">
-            Free your trapped games by playing your unplayed titles
-          </p>
         </div>
 
         {/* Featured Game Section */}
@@ -1059,7 +1014,7 @@ export default function Home() {
           games={games}
           collectionPower={collectionPower}
           liberationKeys={liberationKeys}
-          showBurst={showBurst}
+          showBurst={false}
           clickAnimations={clickAnimations}
           onGameClick={handleClick}
           onRefresh={(gameId, cost) => {
@@ -1332,9 +1287,8 @@ export default function Home() {
               </div>
               <div className="bg-vault-dark/50 rounded-lg p-6 mb-6 space-y-3">
                 <div className="flex justify-between"><span className="text-gray-400">Total Games:</span><span className="font-bold text-vault-accent">{vaultGames.length}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Total Points:</span><span className="font-bold text-vault-gold">{Math.floor(points).toLocaleString()}</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Passive Rate:</span><span className="font-bold text-green-400">+{passiveIncome}/sec</span></div>
-                <div className="flex justify-between"><span className="text-gray-400">Keys Earned:</span><span className="font-bold text-vault-gold">{vaultGames.filter(g => g.state === 'liberationKey').length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Collection Power:</span><span className="font-bold text-green-400">{collectionPower.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">Keys Earned:</span><span className="font-bold text-vault-gold">{liberationKeys}</span></div>
               </div>
               <button onClick={() => setShowVictory(false)} className="w-full bg-vault-gold text-vault-dark font-bold py-4 rounded-lg text-xl hover:bg-yellow-400 transition-colors">
                 CONTINUE PLAYING

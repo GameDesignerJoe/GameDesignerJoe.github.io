@@ -27,7 +27,7 @@ export default function FeaturedGameDisplay({
   clickAnimations,
   onGameClick,
   onRefresh,
-  onSwitchToKeyGames
+  onSwitchToKeyGames,
 }: FeaturedGameDisplayProps) {
   if (!featuredGame || !vaultState) return null;
 
@@ -46,112 +46,130 @@ export default function FeaturedGameDisplay({
 
   return (
     <div className="flex flex-col items-center mb-8">
-      {/* Collection Power & Keys - Above Game */}
-      <div className="mb-4 text-center">
-        <div className="text-sm text-gray-400">⚡ Collection Power</div>
-        <div className="text-5xl font-bold text-green-400">
-          {collectionPower.toLocaleString()}
-        </div>
-        <div className="text-xl font-bold text-vault-gold mt-2">🔑 {liberationKeys} Keys</div>
-      </div>
-
-      {/* Clickable Game Image */}
-      <div className="relative mb-6" style={{ width: '300px', height: '450px' }}>
-        {/* Main Game Card - clickable */}
-        <div
-          onClick={(e) => {
-            if (isDrained) return;
-            onGameClick(e as any);
-          }}
-          className={`relative block transition-all hover:scale-105 active:scale-95 ${
-            isDrained ? 'cursor-default' : 'cursor-pointer'
-          } rounded-lg overflow-hidden shadow-lg ${showBurst ? 'scale-110' : ''}`}
-          style={{ width: '300px', height: '450px' }}
-        >
-          <img
-            src={getLibraryCapsule(featuredGame.appid)}
-            alt={featuredGame.name}
-            onError={handleImageError}
-            className="w-full h-full object-cover"
-          />
-
-          {/* Hover overlay - only show for non-drained games */}
-          {!isDrained && (
-            <div className="absolute inset-0 bg-vault-accent/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-              <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
-            </div>
-          )}
-          
-          {/* Power Bar - Always Visible */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/80 px-4 py-3 pointer-events-none">
-            <div className="relative w-full bg-gray-700 rounded-full h-4 mb-1">
-              <div 
-                className={`h-full rounded-full transition-all ${
-                  progressPercent < 20 ? 'bg-red-500' : progressPercent < 50 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-              {/* Countdown number centered in bar */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white font-bold text-sm drop-shadow-lg">
-                  {remainingPower.toLocaleString()}
-                </span>
-              </div>
-            </div>
+      {/* Clickable Game Image with Collection Power on sides */}
+      <div className="relative mb-6 flex items-center gap-6">
+        {/* Collection Power - Left Side */}
+        <div className="flex items-center gap-2">
+          <span className="text-4xl">⚡</span>
+          <div className="text-4xl font-bold text-green-400">
+            {collectionPower.toLocaleString()}
           </div>
-          
-          {/* Burst Effect */}
-          {showBurst && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-6xl font-bold text-vault-gold animate-ping">
-                +100
-              </div>
-            </div>
-          )}
         </div>
-        
-        {/* Shiny Gold Refresh Button - Only when drained */}
-        {isDrained && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                
-                // If not enough keys, switch to Key Games tab
-                if (liberationKeys < refreshCost) {
-                  onSwitchToKeyGames();
-                  return;
-                }
-                
-                onRefresh(appId, refreshCost);
-              }}
-              className={`px-6 py-3 rounded-lg font-bold text-lg transition-all transform hover:scale-110 cursor-pointer ${
-                liberationKeys >= refreshCost
-                  ? 'bg-gradient-to-br from-yellow-300 via-vault-gold to-yellow-600 text-vault-dark shadow-lg shadow-vault-gold/50 animate-pulse hover:shadow-vault-gold/80'
-                  : 'bg-gray-600 text-gray-400 hover:bg-gray-500'
-              }`}
-            >
-              {liberationKeys >= refreshCost ? `🔑 ${refreshCost} Keys` : `Need ${refreshCost} 🔑`}
-            </button>
-          </div>
-        )}
 
-        {/* Render all click animations */}
-        {clickAnimations.map(anim => (
-          <div 
-            key={anim.id}
-            className="absolute text-vault-gold font-bold pointer-events-none"
-            style={{
-              left: `${anim.startX}px`,
-              top: `${anim.startY}px`,
-              animation: 'floatOut 1.2s ease-out forwards',
-              '--float-angle': `${anim.angle}deg`,
-              '--float-distance': `${anim.distance}px`,
-            } as React.CSSProperties}
+        {/* Game Card Container */}
+        <div className="relative" style={{ width: '300px', height: '450px' }}>
+          {/* Main Game Card - clickable */}
+          <div
+            onClick={(e) => {
+              if (isDrained) return;
+              onGameClick(e as any);
+            }}
+            className={`relative block transition-all hover:scale-105 active:scale-95 ${
+              isDrained ? 'cursor-default' : 'cursor-pointer'
+            } rounded-lg overflow-hidden shadow-lg ${showBurst ? 'scale-110' : ''}`}
+            style={{ width: '300px', height: '450px' }}
           >
-            +{anim.value.toFixed(1)}
+            <img
+              src={getLibraryCapsule(featuredGame.appid)}
+              alt={featuredGame.name}
+              onError={handleImageError}
+              className={`w-full h-full object-cover ${isDrained ? 'grayscale' : ''}`}
+            />
+
+            {/* Drained overlay - show when game is drained */}
+            {isDrained && (
+              <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center pointer-events-none">
+                <div className="text-6xl mb-4">⚠️</div>
+                <div className="text-white text-4xl font-bold drop-shadow-lg mb-2">DRAINED</div>
+                <div className="text-gray-300 text-lg">Game needs to recharge</div>
+              </div>
+            )}
+            
+            {/* Hover overlay - only show for non-drained games */}
+            {!isDrained && (
+              <div className="absolute inset-0 bg-vault-accent/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                <span className="text-white text-2xl font-bold drop-shadow-lg">CLICK TO PLAY</span>
+              </div>
+            )}
+            
+            {/* Power Bar - Always Visible (with refresh button when drained) */}
+            <div className="absolute bottom-0 left-0 right-0 bg-black/80 px-4 py-3 pointer-events-none">
+              {/* Progress Bar */}
+              <div className="relative w-full bg-gray-700 rounded-full h-4 mb-1">
+                <div 
+                  className={`h-full rounded-full transition-all ${
+                    progressPercent < 20 ? 'bg-red-500' : progressPercent < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+                {/* Countdown number centered in bar */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-white font-bold text-sm drop-shadow-lg">
+                    {remainingPower.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Refresh Button - Positioned right below progress bar when drained */}
+              {isDrained && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    
+                    // If not enough keys, switch to Key Games tab
+                    if (liberationKeys < refreshCost) {
+                      onSwitchToKeyGames();
+                      return;
+                    }
+                    
+                    onRefresh(appId, refreshCost);
+                  }}
+                  className={`w-full mt-2 py-2 rounded-lg font-bold text-sm transition-all pointer-events-auto ${
+                    liberationKeys >= refreshCost
+                      ? 'bg-gradient-to-br from-yellow-300 via-vault-gold to-yellow-600 text-vault-dark shadow-lg shadow-vault-gold/50 animate-pulse hover:shadow-vault-gold/80 hover:scale-105'
+                      : 'bg-gray-600 text-gray-400 hover:bg-gray-500'
+                  }`}
+                >
+                  {liberationKeys >= refreshCost ? `🔑 Refresh (${refreshCost} Keys)` : `Need ${refreshCost} 🔑 Keys`}
+                </button>
+              )}
+            </div>
+            
+            {/* Burst Effect */}
+            {showBurst && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-6xl font-bold text-vault-gold animate-ping">
+                  +100
+                </div>
+              </div>
+            )}
           </div>
-        ))}
+          
+          {/* Render all click animations */}
+          {clickAnimations.map(anim => (
+            <div 
+              key={anim.id}
+              className="absolute text-vault-gold font-bold pointer-events-none"
+              style={{
+                left: `${anim.startX}px`,
+                top: `${anim.startY}px`,
+                animation: 'floatOut 1.2s ease-out forwards',
+                '--float-angle': `${anim.angle}deg`,
+                '--float-distance': `${anim.distance}px`,
+              } as React.CSSProperties}
+            >
+              +{anim.value.toFixed(1)}
+            </div>
+          ))}
+        </div>
+
+        {/* Liberation Keys - Right Side */}
+        <div className="flex items-center gap-2">
+          <div className="text-4xl font-bold text-vault-gold">
+            {liberationKeys}
+          </div>
+          <span className="text-4xl">🔑</span>
+        </div>
       </div>
       
       {/* Game Details */}
