@@ -8,6 +8,7 @@ export interface GameProgress {
   maxPower: number;
   isDrained: boolean;
   lastPlaytime: number; // For detecting Key Game plays
+  drainedAt?: number; // Timestamp when game became drained (for 10s cooldown)
 }
 
 export interface ShopSlot {
