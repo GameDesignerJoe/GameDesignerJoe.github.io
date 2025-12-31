@@ -27,9 +27,6 @@
     "passiveRegenRatePercent": 0.25,
     "_passiveRegenRatePercent_description": "Percentage of max power regenerated per second (0.5 = 0.5% per second = full regen in ~200 seconds). Higher = faster recovery.",
     
-    "regenCooldownSeconds": 20,
-    "_regenCooldownSeconds_description": "Seconds to wait after draining a game before passive regen kicks in. Lower = regen starts sooner.",
-    
     "refreshCostMultiplier": 1.5,
     "_refreshCostMultiplier_description": "Multiplier for key cost to manually refresh a drained game. Formula: clickValue × multiplier. Higher = more expensive to refresh."
   },

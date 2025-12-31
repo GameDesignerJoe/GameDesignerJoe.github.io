@@ -71,7 +71,6 @@ export const THRESHOLDS = {
   get DEFAULT_METACRITIC() { return getThreshold(c => c.defaults.defaultMetacritic); },
   get DEFAULT_HOURS_TO_BEAT() { return getThreshold(c => c.defaults.defaultHoursTobeat); },
   get PASSIVE_REGEN_RATE_PERCENT() { return getThreshold(c => c.progression.passiveRegenRatePercent); },
-  get REGEN_COOLDOWN_MS() { return getThreshold(c => c.progression.regenCooldownSeconds * 1000); },
   
   // Legacy v1.0 thresholds
   LIBERATION_KEY_MINUTES: 30,

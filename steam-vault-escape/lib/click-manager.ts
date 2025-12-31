@@ -55,6 +55,7 @@ export function handleGameClick(
     maxPower: maxPower,
     isDrained: isDrained,
     lastPlaytime: game.playtime_forever,
+    drainedAt: isDrained ? Date.now() : progress.drainedAt, // Set timestamp when drained, preserve if already set
   };
   
   return {
@@ -125,4 +126,18 @@ export function getClickValue(game: SteamGame): number {
 export function getMaxPower(game: SteamGame): number {
   const clickValue = FORMULAS.clickValue(game.playtime_forever);
   return FORMULAS.maxPower(clickValue);
+}
+
+/**
+ * Calculate full recharge duration in seconds
+ * Formula: 100% / (percent per second) = total seconds
+ */
+export function calculateRechargeDuration(game: SteamGame): number {
+  const maxPower = getMaxPower(game);
+  const regenRatePercent = 0.5; // 0.5% per second from config (THRESHOLDS.PASSIVE_REGEN_RATE_PERCENT)
+  
+  // Time to recharge = 100% / (percent per second)
+  const secondsToFullRecharge = 100 / regenRatePercent;
+  
+  return secondsToFullRecharge; // 200 seconds for 0.5%/sec
 }

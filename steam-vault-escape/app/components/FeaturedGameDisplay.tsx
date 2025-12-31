@@ -2,7 +2,7 @@ import React from 'react';
 import { SteamGame } from '@/types/steam';
 import { VaultGameState, VaultState } from '@/types/vault';
 import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
-import { getClickValue, getMaxPower, calculateRefreshCost } from '@/lib/click-manager';
+import { getClickValue, getMaxPower, calculateRefreshCost, calculateRechargeDuration } from '@/lib/click-manager';
 
 interface FeaturedGameDisplayProps {
   featuredGame: VaultGameState | null;
@@ -15,6 +15,7 @@ interface FeaturedGameDisplayProps {
   onGameClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onRefresh: (gameId: number, cost: number) => void;
   onSwitchToKeyGames: () => void;
+  currentTime: number;
 }
 
 export default function FeaturedGameDisplay({
@@ -28,6 +29,7 @@ export default function FeaturedGameDisplay({
   onGameClick,
   onRefresh,
   onSwitchToKeyGames,
+  currentTime,
 }: FeaturedGameDisplayProps) {
   if (!featuredGame || !vaultState) return null;
 
@@ -40,9 +42,17 @@ export default function FeaturedGameDisplay({
   const maxPower = getMaxPower(game);
   const currentPower = progress?.currentPower || 0;
   const remainingPower = maxPower - currentPower;
-  const isDrained = remainingPower < clickValue;
   const progressPercent = maxPower > 0 ? (remainingPower / maxPower) * 100 : 100;
   const refreshCost = calculateRefreshCost(game);
+  
+  // Calculate if the game is still in recharge mode (drained)
+  const rechargeDuration = calculateRechargeDuration(game);
+  const drainedAt = progress?.drainedAt || 0;
+  const elapsedSeconds = (currentTime - drainedAt) / 1000;
+  const isRecharging = drainedAt > 0 && elapsedSeconds < rechargeDuration;
+  
+  // A game is drained if it's recharging OR doesn't have enough power for a click
+  const isDrained = isRecharging || remainingPower < clickValue;
 
   return (
     <div className="flex flex-col items-center mb-8">
@@ -76,14 +86,50 @@ export default function FeaturedGameDisplay({
               className={`w-full h-full object-cover ${isDrained ? 'grayscale' : ''}`}
             />
 
-            {/* Drained overlay - show when game is drained */}
-            {isDrained && (
-              <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center pointer-events-none">
-                <div className="text-6xl mb-4">⚠️</div>
-                <div className="text-white text-4xl font-bold drop-shadow-lg mb-2">DRAINED</div>
-                <div className="text-gray-300 text-lg">Game needs to recharge</div>
-              </div>
-            )}
+            {/* Drained overlay with countdown timer */}
+            {isDrained && (() => {
+              // Calculate recharge time remaining - use same drainedAt as top-level calculation
+              const remainingSeconds = Math.max(0, rechargeDuration - elapsedSeconds);
+              
+              // Format as MM:SS
+              const minutes = Math.floor(remainingSeconds / 60);
+              const seconds = Math.floor(remainingSeconds % 60);
+              const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+              
+              return (
+                <>
+                  <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="text-8xl mb-4">⏱️</div>
+                    <div className="text-white font-bold text-2xl mb-2">RECHARGING</div>
+                    <div className="text-vault-gold font-bold text-5xl">{timeDisplay}</div>
+                  </div>
+                  
+                  {/* Refresh Button - Show when drained */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/90 px-4 py-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        
+                        // If not enough keys, switch to Key Games tab
+                        if (liberationKeys < refreshCost) {
+                          onSwitchToKeyGames();
+                          return;
+                        }
+                        
+                        onRefresh(appId, refreshCost);
+                      }}
+                      className={`w-full py-2 rounded-lg font-bold text-sm transition-all ${
+                        liberationKeys >= refreshCost
+                          ? 'bg-gradient-to-br from-yellow-300 via-vault-gold to-yellow-600 text-vault-dark shadow-lg shadow-vault-gold/50 animate-pulse hover:shadow-vault-gold/80 hover:scale-105'
+                          : 'bg-gray-600 text-gray-400 hover:bg-gray-500'
+                      }`}
+                    >
+                      {liberationKeys >= refreshCost ? `🔑 Refresh (${refreshCost} Keys)` : `Need ${refreshCost} 🔑 Keys`}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
             
             {/* Hover overlay - only show for non-drained games */}
             {!isDrained && (
@@ -92,48 +138,26 @@ export default function FeaturedGameDisplay({
               </div>
             )}
             
-            {/* Power Bar - Always Visible (with refresh button when drained) */}
-            <div className="absolute bottom-0 left-0 right-0 bg-black/80 px-4 py-3 pointer-events-none">
-              {/* Progress Bar */}
-              <div className="relative w-full bg-gray-700 rounded-full h-4 mb-1">
-                <div 
-                  className={`h-full rounded-full transition-all ${
-                    progressPercent < 20 ? 'bg-red-500' : progressPercent < 50 ? 'bg-yellow-500' : 'bg-green-500'
-                  }`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-                {/* Countdown number centered in bar */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm drop-shadow-lg">
-                    {remainingPower.toLocaleString()}
-                  </span>
+            {/* Power Bar - Only show when NOT drained */}
+            {!isDrained && (
+              <div className="absolute bottom-0 left-0 right-0 bg-black/80 px-4 py-3 pointer-events-none">
+                {/* Progress Bar */}
+                <div className="relative w-full bg-gray-700 rounded-full h-4 mb-1">
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      progressPercent < 20 ? 'bg-red-500' : progressPercent < 50 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                  {/* Countdown number centered in bar */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-white font-bold text-sm drop-shadow-lg">
+                      {remainingPower.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
-              
-              {/* Refresh Button - Positioned right below progress bar when drained */}
-              {isDrained && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    
-                    // If not enough keys, switch to Key Games tab
-                    if (liberationKeys < refreshCost) {
-                      onSwitchToKeyGames();
-                      return;
-                    }
-                    
-                    onRefresh(appId, refreshCost);
-                  }}
-                  className={`w-full mt-2 py-2 rounded-lg font-bold text-sm transition-all pointer-events-auto ${
-                    liberationKeys >= refreshCost
-                      ? 'bg-gradient-to-br from-yellow-300 via-vault-gold to-yellow-600 text-vault-dark shadow-lg shadow-vault-gold/50 animate-pulse hover:shadow-vault-gold/80 hover:scale-105'
-                      : 'bg-gray-600 text-gray-400 hover:bg-gray-500'
-                  }`}
-                >
-                  {liberationKeys >= refreshCost ? `🔑 Refresh (${refreshCost} Keys)` : `Need ${refreshCost} 🔑 Keys`}
-                </button>
-              )}
-            </div>
+            )}
             
             {/* Burst Effect */}
             {showBurst && (

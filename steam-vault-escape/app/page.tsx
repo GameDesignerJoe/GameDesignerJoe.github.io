@@ -9,7 +9,7 @@ import { getLibraryCapsule, handleImageError } from '@/lib/steam-images';
 import { loadFromStorage, saveToStorage } from '@/lib/storage';
 import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/pool-manager';
 import { initializeShop } from '@/lib/shop-manager';
-import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
+import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained, calculateRechargeDuration } from '@/lib/click-manager';
 import { calculateUnlockCost } from '@/lib/game-utils';
 import { THRESHOLDS } from '@/lib/constants';
 import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
@@ -78,6 +78,7 @@ export default function Home() {
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'error' | 'warning' | 'info'>('info');
+  const [currentTime, setCurrentTime] = useState(Date.now()); // For countdown timers
   
   // Toast helper function
   const showToast = (message: string, type: 'error' | 'warning' | 'info' = 'info') => {
@@ -85,6 +86,14 @@ export default function Home() {
     setToastType(type);
     setTimeout(() => setToastMessage(null), 4000); // Auto-dismiss after 4 seconds
   };
+  
+  // Update current time every second for countdown timers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load balance config on mount (FIRST THING)
   useEffect(() => {
@@ -296,7 +305,7 @@ export default function Home() {
 
   // v1.0 passive income system removed - v1.5 uses click-based Collection Power generation
   
-  // PASSIVE REGENERATION: Slowly refill ALL games over time (1 second intervals)
+  // PASSIVE REGENERATION: ONLY recharge drained games (not partial games)
   useEffect(() => {
     if (!vaultState || !vaultState.gameProgress) return;
     
@@ -312,25 +321,8 @@ export default function Home() {
         const progress = updatedProgress[appId];
         if (!progress) return;
         
-        // Skip if game is already at 0 power (fully rested)
-        if (progress.currentPower <= 0) return;
-        
-        // COOLDOWN: If game was just drained, wait before regen (from config)
-        if (progress.drainedAt) {
-          const timeSinceDrain = Date.now() - progress.drainedAt;
-          if (timeSinceDrain < THRESHOLDS.REGEN_COOLDOWN_MS) {
-            // Still in cooldown period - skip regen
-            return;
-          } else {
-            // Cooldown expired - clear the drainedAt timestamp
-            updatedProgress[appId] = {
-              ...progress,
-              drainedAt: undefined,
-            };
-            hasChanges = true;
-            console.log(`[Passive Regen] Cooldown expired for game ${appId} - regen will start`);
-          }
-        }
+        // NEW RULE: Only regen if game is DRAINED
+        if (!progress.isDrained) return;
         
         const game = games.find(g => g.appid === appId);
         if (!game) return;
@@ -344,22 +336,21 @@ export default function Home() {
         // Reduce currentPower (remember: higher = more drained, 0 = full health)
         const newCurrentPower = Math.max(0, progress.currentPower - regenRate);
         
-        // Check if game can be clicked (has enough power for at least one click)
-        const clickValue = getClickValue(game);
-        const wasUnclickable = progress.isDrained;
-        const nowClickable = (maxPower - newCurrentPower) >= clickValue;
+        // Check if FULLY recharged (must be 100% to unmark as drained)
+        const isFullyRecharged = newCurrentPower === 0;
         
         if (newCurrentPower !== progress.currentPower) {
           updatedProgress[appId] = {
             ...progress,
             currentPower: newCurrentPower,
-            isDrained: !nowClickable, // Unmark as drained if enough for 1 click
+            isDrained: !isFullyRecharged, // Only unmark when FULLY recharged
+            drainedAt: isFullyRecharged ? undefined : progress.drainedAt, // Clear timestamp when fully recharged
           };
           hasChanges = true;
           
-          // Log when drained game becomes clickable again
-          if (wasUnclickable && nowClickable) {
-            console.log(`[Passive Regen] ${game.name} regened enough for 1 click - now clickable!`);
+          // Log when game is fully recharged
+          if (isFullyRecharged) {
+            console.log(`[Passive Regen] ${game.name} is fully recharged and ready to play!`);
           }
         }
       });
@@ -413,13 +404,6 @@ export default function Home() {
     
     // Update game progress
     if (!vaultState.gameProgress) vaultState.gameProgress = {};
-    
-    // If game just became drained, record timestamp for 10s cooldown
-    if (result.isDrained && !currentProgress?.isDrained) {
-      result.newProgress.drainedAt = Date.now();
-      console.log('[Click] Game drained - starting 10s cooldown before regen');
-    }
-    
     vaultState.gameProgress[appId] = result.newProgress;
     setVaultState({...vaultState});
     
@@ -1131,6 +1115,7 @@ export default function Home() {
           liberationKeys={liberationKeys}
           showBurst={false}
           clickAnimations={clickAnimations}
+          currentTime={currentTime}
           onGameClick={handleClick}
           onRefresh={(gameId, cost) => {
             setLiberationKeys(prev => prev - cost);
@@ -1221,7 +1206,7 @@ export default function Home() {
                 const maxPower = getMaxPower(game);
                 const currentPower = progress?.currentPower || 0;
                 const remainingPower = maxPower - currentPower; // Countdown number
-                const isDrained = remainingPower < clickValue; // Can't click if remaining < click cost
+                const isDrained = progress?.isDrained || false; // Read from saved state, not calculated!
                 const refreshCost = calculateRefreshCost(game);
                 // Progress bar shows remaining power
                 const progressPercent = maxPower > 0 ? (remainingPower / maxPower) * 100 : 100;
@@ -1253,12 +1238,25 @@ export default function Home() {
                       className={`w-full h-full object-cover ${isDrained ? 'grayscale' : ''}`}
                     />
                     
-                    {/* Drained overlay */}
-                    {isDrained && (
-                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-3">
-                        <div className="text-4xl mb-2">⚠️</div>
-                        <div className="text-white font-bold text-sm mb-2">DRAINED</div>
-                        <button
+                    {/* Drained overlay with countdown */}
+                    {isDrained && (() => {
+                      // Calculate recharge time remaining
+                      const rechargeDuration = calculateRechargeDuration(game);
+                      const drainedAt = progress?.drainedAt || Date.now();
+                      const elapsedSeconds = (currentTime - drainedAt) / 1000;
+                      const remainingSeconds = Math.max(0, rechargeDuration - elapsedSeconds);
+                      
+                      // Format as MM:SS
+                      const minutes = Math.floor(remainingSeconds / 60);
+                      const seconds = Math.floor(remainingSeconds % 60);
+                      const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                      
+                      return (
+                        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-3">
+                          <div className="text-4xl mb-2">⏱️</div>
+                          <div className="text-white font-bold text-sm mb-1">RECHARGING</div>
+                          <div className="text-vault-gold font-bold text-lg mb-3">{timeDisplay}</div>
+                          <button
                           onClick={(e) => {
                             e.stopPropagation();
                             if (liberationKeys < refreshCost) return;
@@ -1280,8 +1278,9 @@ export default function Home() {
                         >
                           Refresh for {refreshCost} 🔑
                         </button>
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })()}
                     
                     {/* Info overlay */}
                     {!isDrained && (
@@ -1656,6 +1655,7 @@ export default function Home() {
                           maxPower: maxPower,
                           isDrained: true,
                           lastPlaytime: game.playtime_forever,
+                          drainedAt: Date.now(), // Set timestamp for proper recharge display
                         };
                       }
                     });
