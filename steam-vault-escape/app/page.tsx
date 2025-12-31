@@ -52,10 +52,34 @@ export default function Home() {
   const [revealedCard, setRevealedCard] = useState(false);
   const [drawnGamesThisSession, setDrawnGamesThisSession] = useState<number[]>([]); // Track all drawn games in this draw session
   
-  const steamId = process.env.NEXT_PUBLIC_STEAM_ID || '76561197970579347';
+  // Steam ID state
+  const [steamId, setSteamId] = useState<string>('');
+  const [showSteamIdInput, setShowSteamIdInput] = useState(false);
+  const [steamIdInputValue, setSteamIdInputValue] = useState('');
 
-  // Load saved state on mount
+  // Check for saved Steam ID on mount
   useEffect(() => {
+    const savedSteamId = localStorage.getItem('steamId');
+    if (savedSteamId) {
+      setSteamId(savedSteamId);
+      console.log('[Steam ID] Loaded from storage:', savedSteamId);
+    } else {
+      // No Steam ID - show input modal with default value
+      const defaultId = '76561197970579347';
+      setSteamIdInputValue(defaultId); // Pre-fill with default
+      setShowSteamIdInput(true);
+      console.log('[Steam ID] No saved ID - showing input modal with default:', defaultId);
+    }
+  }, []);
+
+  // Load saved state on mount (after Steam ID is set)
+  useEffect(() => {
+    if (!steamId) {
+      console.log('[Vault] Waiting for Steam ID...');
+      return; // Wait for Steam ID
+    }
+    
+    console.log('[Vault] Steam ID available, loading saved state...');
     const saved = loadFromStorage();
     if (saved) {
       setPoints(saved.points || 0);
@@ -104,7 +128,7 @@ export default function Home() {
       // No saved data, fetch library
       fetchLibrary();
     }
-  }, []);
+  }, [steamId]); // Run when steamId changes
 
   // Save state whenever it changes (debounced)
   useEffect(() => {
@@ -868,6 +892,54 @@ export default function Home() {
     }
   }
 
+  // Render Steam ID input modal FIRST if needed
+  if (showSteamIdInput) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-vault-blue to-vault-dark rounded-xl p-8 max-w-md w-full border-4 border-vault-gold shadow-2xl">
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-bold text-vault-gold mb-2">🎮 Welcome!</h2>
+              <p className="text-gray-300">Enter your Steam ID to get started</p>
+            </div>
+            
+            <input
+              type="text"
+              value={steamIdInputValue}
+              onChange={(e) => setSteamIdInputValue(e.target.value)}
+              placeholder="76561197970579347"
+              className="w-full px-4 py-3 bg-vault-dark border-2 border-vault-gold/50 rounded-lg text-white text-center text-lg mb-4 focus:outline-none focus:border-vault-gold"
+            />
+            
+            <button
+              onClick={() => {
+                if (steamIdInputValue.trim()) {
+                  const newSteamId = steamIdInputValue.trim();
+                  setSteamId(newSteamId);
+                  localStorage.setItem('steamId', newSteamId);
+                  setShowSteamIdInput(false);
+                  console.log('[Steam ID] Saved:', newSteamId);
+                }
+              }}
+              disabled={!steamIdInputValue.trim()}
+              className={`w-full py-3 rounded-lg font-bold text-lg transition-all ${
+                steamIdInputValue.trim()
+                  ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400 cursor-pointer'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Start Playing
+            </button>
+            
+            <p className="text-xs text-gray-400 text-center mt-4">
+              Don't know your Steam ID? Find it on your Steam profile URL
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (isLoading) {
     return (
       <main className="min-h-screen p-8">
@@ -1581,11 +1653,66 @@ export default function Home() {
           ⚙️
         </button>
 
+        {/* Steam ID Input Modal */}
+        {showSteamIdInput && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-vault-blue to-vault-dark rounded-xl p-8 max-w-md w-full border-4 border-vault-gold shadow-2xl">
+              <div className="text-center mb-6">
+                <h2 className="text-3xl font-bold text-vault-gold mb-2">🎮 Welcome!</h2>
+                <p className="text-gray-300">Enter your Steam ID to get started</p>
+              </div>
+              
+              <input
+                type="text"
+                value={steamIdInputValue}
+                onChange={(e) => setSteamIdInputValue(e.target.value)}
+                placeholder="76561197970579347"
+                className="w-full px-4 py-3 bg-vault-dark border-2 border-vault-gold/50 rounded-lg text-white text-center text-lg mb-4 focus:outline-none focus:border-vault-gold"
+              />
+              
+              <button
+                onClick={() => {
+                  if (steamIdInputValue.trim()) {
+                    const newSteamId = steamIdInputValue.trim();
+                    setSteamId(newSteamId);
+                    localStorage.setItem('steamId', newSteamId);
+                    setShowSteamIdInput(false);
+                    console.log('[Steam ID] Saved:', newSteamId);
+                  }
+                }}
+                disabled={!steamIdInputValue.trim()}
+                className={`w-full py-3 rounded-lg font-bold text-lg transition-all ${
+                  steamIdInputValue.trim()
+                    ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400 cursor-pointer'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Start Playing
+              </button>
+              
+              <p className="text-xs text-gray-400 text-center mt-4">
+                Don't know your Steam ID? Find it on your Steam profile URL
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Dev Panel */}
         {showDevPanel && (
           <div className="fixed bottom-20 right-4 bg-vault-dark border-2 border-vault-accent rounded-lg p-4 shadow-2xl z-40 w-80">
             <h3 className="text-lg font-bold text-vault-accent mb-3">Dev Tools</h3>
             <div className="space-y-2">
+              <button 
+                onClick={() => {
+                  const defaultId = '76561197970579347';
+                  setSteamIdInputValue(defaultId);
+                  setShowSteamIdInput(true);
+                  console.log('[Dev] Opening Steam ID input with default value');
+                }} 
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-semibold"
+              >
+                🆔 Change Steam ID
+              </button>
               <button 
                 onClick={testKeyGameDetection}
                 className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded font-semibold"

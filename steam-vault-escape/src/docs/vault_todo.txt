@@ -26,7 +26,7 @@ BUGS:
 FEATURES: 
 - ✅ DONE - Clicking on a locked slot in the shop when you don't have keys should make the Key Games tab active.
 - ✅ DONE - Everything is too big on mobile. Need to shrink the games. (Responsive grids now adapt: 2 cols mobile, 4 cols tablet, 6 cols desktop)
-- We need to add in a place where you can out in your SteamID to get this whole thing started. 
+- ✅ DONE - We need to add in a place where you can out in your SteamID to get this whole thing started. (Modal on first load + dev panel button)
 - We need to make our own celebration screens rather than doing the 'localhost' screens. 
 - I think we need a Games Played tab that shows the new games you've played since you started playing this game. It's like a trophy case that shows the games you started playing. You can't click on them or anything because it's just a display, but it shows what you've unlocked and maybe how many hours you've spent on it. 
 - Maybe only show like 20 unplayed games in the Key Games section. Maybe there's a way to unlock these games so that your pool of games you can play gets bigger. So it starts with like 3 and then as you play somehow, you can unlock other games that will grant you Keys. This way you're not overwhelmed with all of the options. 
