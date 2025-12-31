@@ -1,46 +1,15 @@
 To Do:
 
-BALANCE:
-- ✅ DONE - Balance pass completed! Full configuration system with JSON file for easy tweaking.
-- ✅ DONE - Passives slowly regen your games (configurable rate and cooldown).
-- ✅ DONE - Game costs are adjustable (edit unlockCostMultiplier in balance.json). 
-- Need to test at some point that you have actually unlocked a game by playing it.
-
-MOBILE:
-- Need a mobile milestone. 
-- Double check everything works on mobile.
-- Get the sizing right for things.
-
 BUGS:
-- ✅ DONE - On a new game, it selects a starting line up, then instantly changes it to something else for some reason. 
-- ✅ DONE - Remove the 'cancel' option from the draw card. Once you draw, you draw, no going back.
-- ✅ DONE - I Shouldn't be able to click on games that are drained and get them to move. In fact, clicking on a drained game in - - ✅ DONE - The Game Library should automatically take you to the Key Game Tab. 
-- ✅ DONE - I don't like the count numbers for Game Library and Key Games. We should remove them.
-- ✅ DONE - I wish it didn't look like tabs, but tha'ts a minor thing.
-- ✅ DONE - Passives slowly regenerate drained games. Once 20% refilled, games become clickable again.
-- ✅ DONE - Where the Collection points is locatedis too far away. It needs to beright next to or above the game itself.
-- ✅ DONE - The Liberation Key cound needs to be bigger. 
-- ✅ DONE - Need a way to put the name of the game as a placeholder for the image.
-- ✅ DONE - Click to Play text still appears on the game when it's drained. This is when the game is in the 'play' area.
-- ✅ DONE - Remove the "Liberation" text from anywhere in the game. I'm moving away from that concept.
-- ✅ DONE - Going to need a way to 'recheck' for images because I think we can get more, but steam is timing us out (smart retry system at key moments: unlock, draw, featured).
-- ✅ DONE - Need to get the "Drained" text back on the drained cards that are drained (both featured game and library cards).
-- ✅ DONE - We are still doing the 'when the bar fills to 100 we give a bonus points from 1.0' (removed v1.0 passive bar bonus system).
-- ✅ DONE - Need to see about clearing out as much space at the top of the screen to get as much of the 'action' on the main screen before a scroll (minimized header, moved Collection Power and Keys to sides of game card).
-- ✅ DONE - Move the 'spend keys to Recharge Game' button to the bottom of the card, right over the top of the progress bar, when the game is exhausted. Keep it there until the bar is full enough to let the user interact with it again. 
-- ✅ DONE - Font for games we don't have images for is hard to read and squished together (changed to Segoe UI with better spacing).
 
 
 FEATURES: 
-- ✅ DONE - Clicking on a locked slot in the shop when you don't have keys should make the Key Games tab active.
-- ✅ DONE - Everything is too big on mobile. Need to shrink the games. (Responsive grids now adapt: 2 cols mobile, 4 cols tablet, 6 cols desktop)
-- ✅ DONE - We need to add in a place where you can out in your SteamID to get this whole thing started. (Modal on first load + dev panel button)
-- ✅ DONE - We need to make our own celebration screens rather than doing the 'localhost' screens. (Beautiful animated modal for Key Game completion!)
-- I think we need a Games Played tab that shows the new games you've played since you started playing this game. It's like a trophy case that shows the games you started playing. You can't click on them or anything because it's just a display, but it shows what you've unlocked and maybe how many hours you've spent on it. 
+- We need to make the buying a game from the store much more exciting. Right now you just click on it and it goes away. 
+    - It should move to the center of the screen and have light shooting off of it. 
+    - That sort of thing.
+- Create different 'click' behaviors based off of the type of game it is. 
 - Maybe only show like 20 unplayed games in the Key Games section. Maybe there's a way to unlock these games so that your pool of games you can play gets bigger. So it starts with like 3 and then as you play somehow, you can unlock other games that will grant you Keys. This way you're not overwhelmed with all of the options. 
 - Might want to consider letting players purchase Keys for an extremely high price of points. 
-- Perhaps they can make a text file that you can go in and edit the numbers the way you want them to be. 
-- Create different 'click' behaviors based off of the type of game it is. 
 - Have different games have different strengths and they are picked for the slots that you put them in. 
     - DPS
     - Armor
@@ -50,19 +19,5 @@ FEATURES:
 - Come up with a store with other things you can purchase.
     - Keys at a high price. 
 - Consider adding a star system to the games that you can level them up or prestige them with the points that you earn.
-- We need to make the buying a game from the store much more exciting. Right now you just click on it and it goes away. 
-    - It should move to the center of the screen and have light shooting off of it. 
-    - That sort of thing.
-- I think I'm missing something here that will help push players to unlock more of their games. 
-    - We need some sort of 'number go up' as far as games you've unlocked. 
-    - Like a sexy thick segmented bar that climbs up with every game that's unlocked. 
-    - See this a lot in mobile games that have a 'Win this many coins and unlock this' sort of thing, but for us it would be games that unlock this track. 
-    - Would need to figure out what sort of rewards you would earn for unlocking games.
-    - This could be where you unlock new key games that can show up in your Key games. We pull 3 or 5 games in a window and you can pick 1 to get added, maybe 2 to get added. 
-    - Pick 2 games is another good feature of the track to unlock. 
-    - Keys, Revivies, Free rerolls.
-    - Where would this go? Maybe along side playable game. There's room on PC, but maybe not for mobile Maybe it's another tab down with Game Library and Key Games. 
-    - Perhaps this could combine your eariler request to have a trophy page for the games you've unlocked. Instead it's this track that shows the image of every game you've played and unlocked along the way.
-- Instead of having a bar fill back up, I think we need to have a timer for when they need to come back and the bar will be reset. This stops people from clicking, waiting, then clicking again. It also lets things reset. 
 - There doesn't seem to be a lot of different between the Game Library and the Progress Tracker. Perhaps they should be combined into one thing. 
 - A button at the bottom of each game in the Progress Track that says, "Go to Steam". Clicking anywhere else will put the game in the play area. 
