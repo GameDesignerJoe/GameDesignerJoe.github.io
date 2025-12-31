@@ -75,7 +75,7 @@ export function handleImageError(event: React.SyntheticEvent<HTMLImageElement, E
   
   // Generate text elements
   const textElements = lines.map((line, index) => 
-    `<text x="300" y="${startY + (index * lineHeight)}" text-anchor="middle" fill="rgb(203,213,225)" font-size="${fontSize}" font-weight="900" font-family="Impact, 'Arial Black', sans-serif">${line}</text>`
+    `<text x="300" y="${startY + (index * lineHeight)}" text-anchor="middle" fill="rgb(203,213,225)" font-size="${fontSize}" font-weight="bold" font-family="'Segoe UI', 'Arial Black', Arial, sans-serif" letter-spacing="1">${line}</text>`
   ).join('\n    ');
   
   // Create an SVG with the game name in Impact font

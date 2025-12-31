@@ -81,6 +81,7 @@ const DEFAULT_CONFIG: BalanceConfig = {
 };
 
 let cachedConfig: BalanceConfig | null = null;
+let hasWarnedAboutMissingConfig = false;
 
 /**
  * Load balance configuration from JSON file
@@ -154,7 +155,11 @@ export async function loadBalanceConfig(): Promise<BalanceConfig> {
  */
 export function getBalanceConfig(): BalanceConfig {
   if (!cachedConfig) {
-    console.warn('[Balance Config] Not loaded yet, returning defaults');
+    // Only warn once to avoid console spam
+    if (!hasWarnedAboutMissingConfig) {
+      console.warn('[Balance Config] Not loaded yet, returning defaults');
+      hasWarnedAboutMissingConfig = true;
+    }
     return DEFAULT_CONFIG;
   }
   return cachedConfig;

@@ -1,9 +1,9 @@
 To Do:
 
 BALANCE:
-- ✅ DONE - Balance configuration system implemented (config/balance.json with detailed comments for all values)
-- Passives should slowly regen your game.
-- Game costs are off by a factor of 10 (NOW ADJUSTABLE - edit unlockCostMultiplier in balance.json). 
+- ✅ DONE - Balance pass completed! Full configuration system with JSON file for easy tweaking.
+- ✅ DONE - Passives slowly regen your games (configurable rate and cooldown).
+- ✅ DONE - Game costs are adjustable (edit unlockCostMultiplier in balance.json). 
 - Need to test at some point that you have actually unlocked a game by playing it.
 
 MOBILE:
@@ -28,7 +28,7 @@ BUGS:
 - ✅ DONE - We are still doing the 'when the bar fills to 100 we give a bonus points from 1.0' (removed v1.0 passive bar bonus system).
 - ✅ DONE - Need to see about clearing out as much space at the top of the screen to get as much of the 'action' on the main screen before a scroll (minimized header, moved Collection Power and Keys to sides of game card).
 - ✅ DONE - Move the 'spend keys to Recharge Game' button to the bottom of the card, right over the top of the progress bar, when the game is exhausted. Keep it there until the bar is full enough to let the user interact with it again. 
-- Font for games we don't have images for is hard to read and squished together. We need to find a better font that still has style and worth of 'titles' to it, but can be more easily read.
+- ✅ DONE - Font for games we don't have images for is hard to read and squished together (changed to Segoe UI with better spacing).
 
 
 FEATURES: 
