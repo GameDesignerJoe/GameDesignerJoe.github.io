@@ -14,6 +14,7 @@ import { calculateUnlockCost } from '@/lib/game-utils';
 import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
 import { initialMetadataEnrichment, topUpMetadataBuffer } from '@/lib/metadata-enrichment';
 import { detectNewlyPlayedKeyGames, calculateTotalKeysAwarded, KeyGameDetectionResult } from '@/lib/key-game-detector';
+import { retryOnUnlock, retryOnDraw, retryOnFeatured, retryMultipleImages, getFailedImages, getImageStats } from '@/lib/image-retry-manager';
 
 // Import components
 import ToastNotification from './components/ToastNotification';
@@ -232,6 +233,52 @@ export default function Home() {
       }
     }
   }, [games, unlockedGames, hasWon]);
+  
+  // KEY MOMENT: Retry failed images on page load/session start
+  useEffect(() => {
+    if (!vaultState || games.length === 0) return;
+    
+    // Small delay to let images attempt initial load first
+    const retryTimer = setTimeout(async () => {
+      const failedCount = getImageStats().failed;
+      if (failedCount === 0) return; // No failures to retry
+      
+      console.log(`[Image Retry] Session start - found ${failedCount} failed images`);
+      
+      // Collect important game IDs to retry
+      const gamesToRetry: number[] = [];
+      
+      // 1. Featured game
+      if (featuredGame && typeof featuredGame.appid === 'number') {
+        gamesToRetry.push(featuredGame.appid);
+      }
+      
+      // 2. Shop slot games
+      shopSlots.forEach(slot => {
+        if (slot.appId && typeof slot.appId === 'number') {
+          gamesToRetry.push(slot.appId);
+        }
+      });
+      
+      // 3. Pool 1 unlocked games (limit to first 20 to avoid overwhelming)
+      const pool1Games = (vaultState.pool1_unlocked || [])
+        .filter((id): id is number => typeof id === 'number')
+        .slice(0, 20);
+      gamesToRetry.push(...pool1Games);
+      
+      // Retry all collected games
+      if (gamesToRetry.length > 0) {
+        const succeeded = await retryMultipleImages(gamesToRetry);
+        if (succeeded.length > 0) {
+          console.log(`[Image Retry] Session start recovered ${succeeded.length} images!`);
+          // Force a small re-render to update images
+          setLastRefresh(Date.now());
+        }
+      }
+    }, 2000); // Wait 2 seconds after page load
+    
+    return () => clearTimeout(retryTimer);
+  }, [vaultState, games.length]); // Only run once when vault state is ready
 
   // v1.0 passive income system removed - v1.5 uses click-based Collection Power generation
   
@@ -419,6 +466,12 @@ export default function Home() {
   function handleSelectFeatured(game: VaultGameState) {
     if (game.state === 'playable') {
       setFeaturedGame(game);
+      
+      // KEY MOMENT: Retry image load for featured game
+      const steamGame = games.find(g => g.appid === game.appid);
+      if (steamGame) {
+        retryOnFeatured(steamGame);
+      }
     }
   }
 
@@ -476,6 +529,9 @@ export default function Home() {
     setDrawnGamesThisSession([result.game.appid]); // Start tracking drawn games
     
     console.log('[Draw] Opening modal for slot', slotIndex, 'drew:', result.game.name);
+    
+    // KEY MOMENT: Retry image load for drawn game
+    retryOnDraw(result.game);
   }
   
   // Handle revealing the card (animation trigger)
@@ -603,6 +659,9 @@ export default function Home() {
     setUnlockedGames(newPool1);
     
     console.log(`[Shop] Unlocked ${game.name}! Spent ${unlockCost} Collection Power`);
+    
+    // KEY MOMENT: Retry image load for newly unlocked game
+    retryOnUnlock(game);
     
     // TOP UP METADATA BUFFER: Enrich more Pool 2 games if needed
     console.log('[Metadata] Checking if buffer needs top-up after unlock...');

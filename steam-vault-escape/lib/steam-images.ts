@@ -1,4 +1,5 @@
 // Steam CDN image URL helpers
+import { markImageAsFailed } from './image-retry-manager';
 
 /**
  * Get Steam library capsule image (600x900)
@@ -33,6 +34,13 @@ export function getHeaderImage(appId: string | number): string {
 export function handleImageError(event: React.SyntheticEvent<HTMLImageElement, Event>) {
   const img = event.currentTarget;
   const gameName = img.alt || 'Unknown Game';
+  
+  // Extract appId from the image src and track the failure
+  const srcMatch = img.src.match(/\/apps\/(\d+)\//);
+  if (srcMatch) {
+    const appId = parseInt(srcMatch[1]);
+    markImageAsFailed(appId);
+  }
   
   // Escape HTML characters
   const escapedName = gameName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

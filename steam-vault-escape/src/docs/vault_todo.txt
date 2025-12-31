@@ -23,10 +23,9 @@ BUGS:
 - ✅ DONE - Need a way to put the name of the game as a placeholder for the image.
 - ✅ DONE - Click to Play text still appears on the game when it's drained. This is when the game is in the 'play' area.
 - ✅ DONE - Remove the "Liberation" text from anywhere in the game. I'm moving away from that concept.
-- Going to need a way to 'recheck' for images because I think we can get more, but steam is timing us out.
+- ✅ DONE - Going to need a way to 'recheck' for images because I think we can get more, but steam is timing us out (smart retry system at key moments: unlock, draw, featured).
 - ✅ DONE - Need to get the "Drained" text back on the drained cards that are drained (both featured game and library cards).
 - ✅ DONE - We are still doing the 'when the bar fills to 100 we give a bonus points from 1.0' (removed v1.0 passive bar bonus system).
-- Lots of images aren't being displayed correctly, likey because Steam is bouncing you. 
 - ✅ DONE - Need to see about clearing out as much space at the top of the screen to get as much of the 'action' on the main screen before a scroll (minimized header, moved Collection Power and Keys to sides of game card).
 - ✅ DONE - Move the 'spend keys to Recharge Game' button to the bottom of the card, right over the top of the progress bar, when the game is exhausted. Keep it there until the bar is full enough to let the user interact with it again. 
 - Font for games we don't have images for is hard to read and squished together. We need to find a better font that still has style and worth of 'titles' to it, but can be more easily read.
