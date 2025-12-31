@@ -1,0 +1,72 @@
+We're looking at breaking up page.tsx so that it's not so massive and doesn't take up as much processing power for the AI to use. 
+
+Breaking up `page.tsx` would:
+
+- ✅ Reduce context usage per edit (smaller files = fewer tokens)
+- ✅ Improve code maintainability
+- ✅ Make it easier to find and edit specific features
+- ✅ Follow React best practices (separation of concerns)
+
+## Refactoring Plan: Component Extraction
+
+Here's how I'd break up the massive `page.tsx` file:
+
+### 🎯 New Component Files to Create:
+
+1. __`components/SteamIdInput.tsx`__
+
+   - Steam ID input modal
+   - \~50 lines
+
+2. __`components/CelebrationModal.tsx`__
+
+   - Key Game celebration screen (the one we just created!)
+   - \~60 lines
+
+3. __`components/VictoryModal.tsx`__
+
+   - Victory screen when all games unlocked
+   - \~40 lines
+
+4. __`components/DrawModal.tsx`__
+
+   - Card drawing system with flip animations
+   - \~80 lines
+
+5. __`components/DevPanel.tsx`__
+
+   - Developer tools panel
+   - \~100 lines
+
+6. __`components/FeaturedGameDisplay.tsx`__
+
+   - The large clickable featured game with power bar
+   - \~120 lines
+
+7. __`components/ShopSection.tsx`__
+
+   - Shop with 5 slots for drawing games
+   - \~80 lines
+
+8. __`components/GameLibrary.tsx`__
+
+   - Tabbed library (Game Library + Key Games tabs)
+   - \~150 lines
+
+9. __`components/ToastNotification.tsx`__ (optional - for future error alerts)
+
+   - Toast notification system
+   - \~30 lines
+
+### 📊 Result:
+
+- __Current:__ 1 file @ ~1,500 lines
+- __After:__ 10 files @ ~50-150 lines each
+- __Main page.tsx:__ Reduced to ~200-300 lines (just state management + layout)
+
+### 🎁 Benefits:
+
+- Each component is independently editable (no more huge file reads!)
+- Easier to test individual features
+- Better code organization
+- Future AI assistance will be much more efficient
