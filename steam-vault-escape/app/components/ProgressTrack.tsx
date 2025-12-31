@@ -20,18 +20,18 @@ export default function ProgressTrack({
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-3 sm:mb-4">
         <div>
-          <h2 className="text-3xl font-bold text-vault-gold flex items-center gap-2">
+          <h2 className="text-lg sm:text-2xl md:text-3xl font-bold text-vault-gold flex items-center gap-2">
             🏆 Progress Track - Unlock Games to Progress
           </h2>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">
             Goal: Unlock all of the games in your Steam Library.
           </p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-gray-400">Games Unlocked</div>
-          <div className="text-3xl font-bold text-vault-gold">
+          <div className="text-xs sm:text-sm text-gray-400">Games Unlocked</div>
+          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-vault-gold">
             {unlockedGames.length} of {totalGamesInLibrary}
           </div>
         </div>
