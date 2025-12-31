@@ -55,19 +55,19 @@ export default function FeaturedGameDisplay({
   const isDrained = isRecharging || remainingPower < clickValue;
 
   return (
-    <div className="flex flex-col items-center mb-8">
+    <div className="flex flex-col items-center mb-4 sm:mb-8">
       {/* Clickable Game Image with Collection Power on sides */}
-      <div className="relative mb-6 flex items-center gap-6">
+      <div className="relative mb-3 sm:mb-6 flex items-center gap-2 sm:gap-6">
         {/* Collection Power - Left Side */}
-        <div className="flex items-center gap-2">
-          <span className="text-4xl">⚡</span>
-          <div className="text-4xl font-bold text-green-400">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <span className="text-xl sm:text-4xl">⚡</span>
+          <div className="text-xl sm:text-4xl font-bold text-green-400">
             {collectionPower.toLocaleString()}
           </div>
         </div>
 
         {/* Game Card Container */}
-        <div className="relative" style={{ width: '300px', height: '450px' }}>
+        <div className="relative w-[200px] h-[300px] sm:w-[300px] sm:h-[450px]">
           {/* Main Game Card - clickable */}
           <div
             onClick={(e) => {
@@ -76,8 +76,7 @@ export default function FeaturedGameDisplay({
             }}
             className={`relative block transition-all hover:scale-105 active:scale-95 ${
               isDrained ? 'cursor-default' : 'cursor-pointer'
-            } rounded-lg overflow-hidden shadow-lg ${showBurst ? 'scale-110' : ''}`}
-            style={{ width: '300px', height: '450px' }}
+            } rounded-lg overflow-hidden shadow-lg ${showBurst ? 'scale-110' : ''} w-full h-full`}
           >
             <img
               src={getLibraryCapsule(featuredGame.appid)}
@@ -188,17 +187,17 @@ export default function FeaturedGameDisplay({
         </div>
 
         {/* Liberation Keys - Right Side */}
-        <div className="flex items-center gap-2">
-          <div className="text-4xl font-bold text-vault-gold">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <div className="text-xl sm:text-4xl font-bold text-vault-gold">
             {liberationKeys}
           </div>
-          <span className="text-4xl">🔑</span>
+          <span className="text-xl sm:text-4xl">🔑</span>
         </div>
       </div>
       
       {/* Game Details */}
       <div className="text-center">
-        <div className="text-2xl font-bold text-vault-gold">
+        <div className="text-base sm:text-2xl font-bold text-vault-gold">
           {(() => {
             const clickVal = getClickValue(game);
             const passiveVal = (clickVal * 0.1).toFixed(1);

@@ -1097,11 +1097,11 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen p-2 sm:p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header - Minimized for space */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-vault-accent text-center">
+        <div className="mb-2 sm:mb-4">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-vault-accent text-center">
             🔐 Steam Vault Escape
           </h1>
         </div>
@@ -1144,12 +1144,12 @@ export default function Home() {
 
         {/* Tabbed Library Section - Game Library + Key Games */}
         {vaultState && (
-          <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-green-500/30">
+          <div className="bg-vault-gray rounded-lg p-3 sm:p-6 mb-4 sm:mb-8 border border-green-500/30">
             {/* Section Toggle Buttons */}
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-2 sm:gap-3 mb-4 sm:mb-6">
               <button
                 onClick={() => setLibraryTab('unlocked')}
-                className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
+                className={`px-3 py-2 sm:px-8 sm:py-4 rounded-lg font-bold text-xs sm:text-lg transition-all ${
                   libraryTab === 'unlocked'
                     ? 'bg-green-600 text-white shadow-lg shadow-green-500/50 scale-105'
                     : 'bg-vault-dark text-gray-400 hover:bg-gray-700 hover:scale-102'
@@ -1159,7 +1159,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setLibraryTab('keyGames')}
-                className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
+                className={`px-3 py-2 sm:px-8 sm:py-4 rounded-lg font-bold text-xs sm:text-lg transition-all ${
                   libraryTab === 'keyGames'
                     ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50 scale-105'
                     : 'bg-vault-dark text-gray-400 hover:bg-gray-700 hover:scale-102'
@@ -1169,7 +1169,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setLibraryTab('progressTrack')}
-                className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
+                className={`px-3 py-2 sm:px-8 sm:py-4 rounded-lg font-bold text-xs sm:text-lg transition-all ${
                   libraryTab === 'progressTrack'
                     ? 'bg-vault-gold text-vault-dark shadow-lg shadow-vault-gold/50 scale-105'
                     : 'bg-vault-dark text-gray-400 hover:bg-gray-700 hover:scale-102'

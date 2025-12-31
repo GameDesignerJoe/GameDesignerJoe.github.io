@@ -28,9 +28,9 @@ export default function ShopSection({
   if (shopSlots.length === 0) return null;
 
   return (
-    <div className="bg-vault-gray rounded-lg p-6 mb-8 border border-vault-gold/30">
-      <h2 className="text-3xl font-bold mb-4 text-vault-gold">🛒 Shop - Unlock with Collection Power</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="bg-vault-gray rounded-lg p-3 sm:p-6 mb-4 sm:mb-8 border border-vault-gold/30">
+      <h2 className="text-lg sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4 text-vault-gold">🛒 Shop - Unlock with Collection Power</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
         {shopSlots.map((slot, index) => {
           if (slot.appId === null) {
             // Empty slot
