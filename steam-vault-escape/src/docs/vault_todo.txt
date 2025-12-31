@@ -1,10 +1,10 @@
 To Do:
 
 BALANCE:
-- Need a balance pass milestone.
+- ✅ DONE - Balance configuration system implemented (config/balance.json with detailed comments for all values)
 - Passives should slowly regen your game.
-- Game costs are off by a factor of 10. 
-- Need to test at some point that you have actually unlocked a game by playing it. 
+- Game costs are off by a factor of 10 (NOW ADJUSTABLE - edit unlockCostMultiplier in balance.json). 
+- Need to test at some point that you have actually unlocked a game by playing it.
 
 MOBILE:
 - Need a mobile milestone. 

@@ -1,0 +1,98 @@
+{
+  "_comment": "Steam Vault Escape - Balance Configuration v1.0",
+  "_description": "Edit these values to adjust game balance. Reload the page to see changes take effect.",
+  
+  "economy": {
+    "_comment": "Core economy values - costs and purchasing",
+    
+    "drawCost": 10,
+    "_drawCost_description": "Keys required to draw a new game for an empty shop slot",
+    
+    "redrawCost": 5,
+    "_redrawCost_description": "Keys required to redraw a different game during the draw process",
+    
+    "unlockCostMultiplier": 2.0,
+    "_unlockCostMultiplier_description": "Multiplier for shop unlock costs (higher = more expensive). Costs are based on YOUR PLAYTIME ONLY. Cheap: 500-800, Moderate: 1000-2500, Epic: 3000-5000. Try 0.1 to make everything 10x cheaper (fixes 'too expensive' issue)."
+  },
+  
+  "progression": {
+    "_comment": "Power generation and game drain mechanics",
+    
+    "clickValueMultiplier": 0.5,
+    "_clickValueMultiplier_description": "Multiplier for Collection Power per click (higher = faster progression). Base formula: floor(steam_hours_played) × multiplier. Try 2.0 for double power.",
+    
+    "maxPowerMultiplier": 100,
+    "_maxPowerMultiplier_description": "How many clicks a game can give before draining. Formula: clickValue × multiplier. Default 100 means a game gives 100 clicks worth of power. Lower = games drain faster.",
+    
+    "passiveRegenRatePercent": 0.25,
+    "_passiveRegenRatePercent_description": "Percentage of max power regenerated per second (0.5 = 0.5% per second = full regen in ~200 seconds). Higher = faster recovery.",
+    
+    "regenCooldownSeconds": 20,
+    "_regenCooldownSeconds_description": "Seconds to wait after draining a game before passive regen kicks in. Lower = regen starts sooner.",
+    
+    "refreshCostMultiplier": 1.5,
+    "_refreshCostMultiplier_description": "Multiplier for key cost to manually refresh a drained game. Formula: clickValue × multiplier. Higher = more expensive to refresh."
+  },
+  
+  "rewards": {
+    "_comment": "Key Game rewards and liberation system",
+    
+    "keyRewardMultiplier": 0.5,
+    "_keyRewardMultiplier_description": "Multiplier for keys earned from playing Key Games. Formula: metacritic × multiplier. Try 2.0 for double keys, 0.5 for half.",
+    
+    "keyGameMinMinutes": 30,
+    "_keyGameMinMinutes_description": "Minutes of playtime required to complete a Key Game and earn keys. Lower = easier to earn keys.",
+    
+    "autoRefreshOnKeyComplete": true,
+    "_autoRefreshOnKeyComplete_description": "Whether completing a Key Game automatically refreshes all drained games for free (true = yes, false = no)"
+  },
+  
+  "tiers": {
+    "_comment": "Shop tier thresholds - determines cheap/moderate/epic classification. NOTE: Base unlock costs (before multiplier) are Cheap: 500-800, Moderate: 1000-2500, Epic: 3000-5000 based on YOUR playtime.",
+    
+    "cheapMaxCost": 1000,
+    "_cheapMaxCost_description": "Maximum unlock cost for 'cheap' tier games (< 2 hours playtime). Games under this cost are considered cheap/common. Affects shop slot patterns.",
+    
+    "moderateMaxCost": 3000,
+    "_moderateMaxCost_description": "Maximum unlock cost for 'moderate' tier games (2-10 hours playtime). Games between cheapMax and moderateMax are moderate rarity. Games above this are epic/legendary (10+ hours playtime)."
+  },
+  
+  "startingGame": {
+    "_comment": "Criteria for selecting the first playable game (with fallbacks)",
+    
+    "metacriticMin": 70,
+    "_metacriticMin_description": "OPTIONAL filter: Minimum Metacritic score for ideal starting game. Falls back to any 5-10 hour game if no matches found.",
+    
+    "metacriticMax": 79,
+    "_metacriticMax_description": "OPTIONAL filter: Maximum Metacritic score for ideal starting game. Falls back to any 5-10 hour game if no matches found.",
+    
+    "hoursPlayedMin": 5,
+    "_hoursPlayedMin_description": "Preferred minimum hours played on Steam for starting game selection. Falls back to lowest playtime game if no matches.",
+    
+    "hoursPlayedMax": 10,
+    "_hoursPlayedMax_description": "Preferred maximum hours played on Steam for starting game selection. Falls back to lowest playtime game if no matches."
+  },
+  
+  "defaults": {
+    "_comment": "Fallback values when external API data is unavailable",
+    
+    "defaultMetacritic": 70,
+    "_defaultMetacritic_description": "Default Metacritic score used for KEY REWARDS when game has no rating data from Steam Store API. This determines how many keys you earn from unplayed games.",
+    
+    "defaultHoursTobeat": 30,
+    "_defaultHoursTobeat_description": "LEGACY/UNUSED: Hours to beat fallback (not currently used in cost calculations since we use YOUR playtime instead)."
+  },
+  
+  "advanced": {
+    "_comment": "Advanced tuning - only change if you know what you're doing",
+    
+    "minClickValue": 1,
+    "_minClickValue_description": "Minimum Collection Power per click (even if steam hours = 0)",
+    
+    "minRefreshCost": 5,
+    "_minRefreshCost_description": "Minimum key cost to refresh a game (even if clickValue is very low)",
+    
+    "playtimeBasedUnlockCosts": false,
+    "_playtimeBasedUnlockCosts_description": "Use playtime-only formula instead of metacritic×hours formula for unlock costs. Set to true if you want costs purely based on your playtime, ignoring game quality."
+  }
+}

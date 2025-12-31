@@ -11,10 +11,12 @@ import { initializePools, needsPoolInitialization, getPoolStats } from '@/lib/po
 import { initializeShop } from '@/lib/shop-manager';
 import { handleGameClick, calculateRefreshCost, refreshDrainedGame, getClickValue, getMaxPower, autoRefreshAllDrained } from '@/lib/click-manager';
 import { calculateUnlockCost } from '@/lib/game-utils';
+import { THRESHOLDS } from '@/lib/constants';
 import { drawGameFromPool2, getSlotTargetTier, canAffordDraw } from '@/lib/draw-manager';
 import { initialMetadataEnrichment, topUpMetadataBuffer } from '@/lib/metadata-enrichment';
 import { detectNewlyPlayedKeyGames, calculateTotalKeysAwarded, KeyGameDetectionResult } from '@/lib/key-game-detector';
 import { retryOnUnlock, retryOnDraw, retryOnFeatured, retryMultipleImages, getFailedImages, getImageStats } from '@/lib/image-retry-manager';
+import { loadBalanceConfig } from '@/lib/config-loader';
 
 // Import components
 import ToastNotification from './components/ToastNotification';
@@ -80,6 +82,15 @@ export default function Home() {
     setToastType(type);
     setTimeout(() => setToastMessage(null), 4000); // Auto-dismiss after 4 seconds
   };
+
+  // Load balance config on mount (FIRST THING)
+  useEffect(() => {
+    loadBalanceConfig().then(() => {
+      console.log('[Balance] Config loaded successfully');
+    }).catch(err => {
+      console.error('[Balance] Failed to load config:', err);
+    });
+  }, []);
 
   // Check for saved Steam ID on mount
   useEffect(() => {
@@ -301,10 +312,10 @@ export default function Home() {
         // Skip if game is already at 0 power (fully rested)
         if (progress.currentPower <= 0) return;
         
-        // 10-SECOND COOLDOWN: If game was just drained, wait 10 seconds before regen
+        // COOLDOWN: If game was just drained, wait before regen (from config)
         if (progress.drainedAt) {
           const timeSinceDrain = Date.now() - progress.drainedAt;
-          if (timeSinceDrain < 10000) { // 10 seconds = 10000ms
+          if (timeSinceDrain < THRESHOLDS.REGEN_COOLDOWN_MS) {
             // Still in cooldown period - skip regen
             return;
           } else {
@@ -323,8 +334,9 @@ export default function Home() {
         
         const maxPower = getMaxPower(game);
         
-        // Passive regen rate: 0.5% of max power per second (VERY SLOW)
-        const regenRate = maxPower * 0.005;
+        // Passive regen rate: % of max power per second (from config)
+        const regenRatePercent = THRESHOLDS.PASSIVE_REGEN_RATE_PERCENT / 100; // Convert % to decimal
+        const regenRate = maxPower * regenRatePercent;
         
         // Reduce currentPower (remember: higher = more drained, 0 = full health)
         const newCurrentPower = Math.max(0, progress.currentPower - regenRate);

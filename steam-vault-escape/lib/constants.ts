@@ -1,32 +1,49 @@
 // Game formulas and constants - v1.5
+// Now loads from balance.json config file
 
 import { GameTier } from '@/types/vault';
+import { getBalanceConfig } from './config-loader';
 
 export const FORMULAS = {
-  // v1.5: Unlock cost = Metacritic × Hours to Beat
-  unlockCost: (metacritic: number, hoursTobeat: number): number => 
-    Math.floor(metacritic * hoursTobeat),
+  // v1.5: Unlock cost = (Metacritic × Hours to Beat) × multiplier
+  unlockCost: (metacritic: number, hoursTobeat: number): number => {
+    const config = getBalanceConfig();
+    return Math.floor(metacritic * hoursTobeat * config.economy.unlockCostMultiplier);
+  },
   
-  // v1.5: Click value = Steam hours played (minimum 1)
-  clickValue: (steamMinutes: number): number => 
-    Math.max(1, Math.floor(steamMinutes / 60)),
+  // v1.5: Click value = (Steam hours played) × multiplier (minimum from config)
+  clickValue: (steamMinutes: number): number => {
+    const config = getBalanceConfig();
+    const baseValue = Math.floor(steamMinutes / 60);
+    const multiplied = baseValue * config.progression.clickValueMultiplier;
+    return Math.max(config.advanced.minClickValue, multiplied);
+  },
   
-  // v1.5: Max power = Click value × 100
-  maxPower: (clickValue: number): number => 
-    clickValue * 100,
+  // v1.5: Max power = Click value × multiplier (from config)
+  maxPower: (clickValue: number): number => {
+    const config = getBalanceConfig();
+    return clickValue * config.progression.maxPowerMultiplier;
+  },
   
-  // v1.5: Refresh cost = Click value (playtime-based, minimum 1)
-  refreshCost: (clickValue: number): number => 
-    Math.max(1, clickValue),
+  // v1.5: Refresh cost = Click value × multiplier (minimum from config)
+  refreshCost: (clickValue: number): number => {
+    const config = getBalanceConfig();
+    const cost = clickValue * config.progression.refreshCostMultiplier;
+    return Math.max(config.advanced.minRefreshCost, cost);
+  },
   
-  // v1.5: Key reward = Metacritic score (or fallback)
-  keyReward: (metacritic: number): number => 
-    metacritic || 70,
+  // v1.5: Key reward = Metacritic × multiplier (or fallback from config)
+  keyReward: (metacritic: number): number => {
+    const config = getBalanceConfig();
+    const score = metacritic || config.defaults.defaultMetacritic;
+    return Math.floor(score * config.rewards.keyRewardMultiplier);
+  },
   
-  // v1.5: Tier classification based on unlock cost
+  // v1.5: Tier classification based on unlock cost (thresholds from config)
   getTier: (unlockCost: number): GameTier => {
-    if (unlockCost < 1000) return 'cheap';
-    if (unlockCost < 3000) return 'moderate';
+    const config = getBalanceConfig();
+    if (unlockCost < config.tiers.cheapMaxCost) return 'cheap';
+    if (unlockCost < config.tiers.moderateMaxCost) return 'moderate';
     return 'epic';
   },
   
@@ -37,17 +54,24 @@ export const FORMULAS = {
   liberationBonus: (minutes: number): number => 50 + Math.floor(minutes * 0.5),
 };
 
+// Helper function to get thresholds from config
+function getThreshold<T>(getter: (config: ReturnType<typeof getBalanceConfig>) => T): T {
+  return getter(getBalanceConfig());
+}
+
 export const THRESHOLDS = {
-  // v1.5 thresholds
-  KEY_GAME_MIN_PLAYTIME: 30, // Minutes
-  DRAW_COST: 10, // Keys to draw new game
-  REDRAW_COST: 5, // Keys to redraw
-  STARTING_GAME_METACRITIC_MIN: 70,
-  STARTING_GAME_METACRITIC_MAX: 79,
-  STARTING_GAME_HOURS_MIN: 5,
-  STARTING_GAME_HOURS_MAX: 10,
-  DEFAULT_METACRITIC: 70,
-  DEFAULT_HOURS_TO_BEAT: 30,
+  // v1.5 thresholds (now loaded from config)
+  get KEY_GAME_MIN_PLAYTIME() { return getThreshold(c => c.rewards.keyGameMinMinutes); },
+  get DRAW_COST() { return getThreshold(c => c.economy.drawCost); },
+  get REDRAW_COST() { return getThreshold(c => c.economy.redrawCost); },
+  get STARTING_GAME_METACRITIC_MIN() { return getThreshold(c => c.startingGame.metacriticMin); },
+  get STARTING_GAME_METACRITIC_MAX() { return getThreshold(c => c.startingGame.metacriticMax); },
+  get STARTING_GAME_HOURS_MIN() { return getThreshold(c => c.startingGame.hoursPlayedMin); },
+  get STARTING_GAME_HOURS_MAX() { return getThreshold(c => c.startingGame.hoursPlayedMax); },
+  get DEFAULT_METACRITIC() { return getThreshold(c => c.defaults.defaultMetacritic); },
+  get DEFAULT_HOURS_TO_BEAT() { return getThreshold(c => c.defaults.defaultHoursTobeat); },
+  get PASSIVE_REGEN_RATE_PERCENT() { return getThreshold(c => c.progression.passiveRegenRatePercent); },
+  get REGEN_COOLDOWN_MS() { return getThreshold(c => c.progression.regenCooldownSeconds * 1000); },
   
   // Legacy v1.0 thresholds
   LIBERATION_KEY_MINUTES: 30,
