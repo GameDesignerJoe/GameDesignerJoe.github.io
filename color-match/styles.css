@@ -27,7 +27,7 @@ body {
 /* Game Board */
 .game-board {
     aspect-ratio: 1 / 1;
-    background: linear-gradient(to bottom right, #030712, #111827);
+    background: linear-gradient(to bottom right, #1f2937, #374151);
     border-radius: 0.5rem;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     position: relative;
@@ -37,7 +37,7 @@ body {
 }
 
 .game-board.order-level {
-    background: linear-gradient(to bottom right, #1e1b4b, #312e81, #1e1b4b);
+    background: linear-gradient(to bottom right, #4c1d95, #5b21b6, #4c1d95);
 }
 
 /* Header */
@@ -50,6 +50,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1rem;
     z-index: 10;
 }
 
@@ -57,6 +58,7 @@ body {
     color: white;
     font-size: 1.5rem;
     font-weight: bold;
+    flex-shrink: 0;
 }
 
 .new-game-btn {
@@ -68,6 +70,7 @@ body {
     cursor: pointer;
     font-size: 1rem;
     transition: background-color 0.2s;
+    flex-shrink: 0;
 }
 
 .new-game-btn:hover {
@@ -76,18 +79,16 @@ body {
 
 /* Instructions */
 .instructions {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 1rem;
+    flex: 1;
     text-align: center;
-    z-index: 10;
+    padding: 0;
 }
 
 .instructions p {
     color: white;
     font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
 }
 
 @media (min-width: 768px) {
@@ -100,7 +101,7 @@ body {
 .game-area {
     position: absolute;
     top: 4rem;
-    bottom: 3rem;
+    bottom: 0;
     left: 0;
     right: 0;
 }
