@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useEffect, useState } from 'react';
+import { useModalManager, useSteamLibrary, useAutoSave, usePassiveRegeneration, useImageRetry } from './hooks';
 import { SteamGame } from '@/types/steam';
 import { VaultGameState, VaultState, ShopSlot } from '@/types/vault';
 import { toVaultGameState } from '@/lib/vault-logic';
@@ -59,21 +59,11 @@ export default function Home() {
   const [collectionPower, setCollectionPower] = useState(0);
   const [liberationKeys, setLiberationKeys] = useState(0);
   
-  // Draw modal state
-  const [showDrawModal, setShowDrawModal] = useState(false);
-  const [drawSlotIndex, setDrawSlotIndex] = useState<number | null>(null);
-  const [drawnGame, setDrawnGame] = useState<SteamGame | null>(null);
-  const [revealedCard, setRevealedCard] = useState(false);
-  const [drawnGamesThisSession, setDrawnGamesThisSession] = useState<number[]>([]); // Track all drawn games in this draw session
+  // Modal management with custom hook
+  const [modalState, modalActions] = useModalManager();
   
-  // Steam ID state
+  // Steam ID state (managed separately since it's tied to localStorage)
   const [steamId, setSteamId] = useState<string>('');
-  const [showSteamIdInput, setShowSteamIdInput] = useState(false);
-  const [steamIdInputValue, setSteamIdInputValue] = useState('');
-  
-  // Celebration modal state
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationData, setCelebrationData] = useState<{games: Array<{name: string, keys: number}>, totalKeys: number} | null>(null);
   
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -86,6 +76,33 @@ export default function Home() {
     setToastType(type);
     setTimeout(() => setToastMessage(null), 4000); // Auto-dismiss after 4 seconds
   };
+  
+  // Custom hooks for cleaner code organization
+  useAutoSave(vaultState, points, unlockedGames, featuredGame, games, lastRefresh);
+  usePassiveRegeneration(vaultState, games, setVaultState);
+  useImageRetry(vaultState, games, featuredGame, shopSlots, setLastRefresh);
+  
+  // Steam library management hook
+  const { fetchLibrary, handleRefresh } = useSteamLibrary(
+    steamId,
+    games,
+    vaultState,
+    isRefreshing,
+    setGames,
+    setIsLoading,
+    setError,
+    setIsRefreshing,
+    setIsInitializingPools,
+    setVaultState,
+    setShopSlots,
+    setUnlockedGames,
+    setFeaturedGame,
+    setLiberationKeys,
+    modalActions.openCelebration,
+    setHasInitializedOnce,
+    hasInitializedOnce,
+    liberationKeys
+  );
   
   // Update current time every second for countdown timers
   useEffect(() => {
@@ -113,8 +130,7 @@ export default function Home() {
     } else {
       // No Steam ID - show input modal with default value
       const defaultId = '76561197970579347';
-      setSteamIdInputValue(defaultId); // Pre-fill with default
-      setShowSteamIdInput(true);
+      modalActions.openSteamIdInput(defaultId); // Pre-fill with default
       console.log('[Steam ID] No saved ID - showing input modal with default:', defaultId);
     }
   }, []);
@@ -177,63 +193,6 @@ export default function Home() {
     }
   }, [steamId]); // Run when steamId changes
 
-  // Save state whenever it changes (debounced)
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // If we have v1.5 state, save it properly
-      if (vaultState && vaultState.version === '1.5') {
-        saveToStorage({
-          ...vaultState,
-          points,
-          unlockedGames,
-          featuredGame: featuredGame?.appid || null,
-          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
-          lastRefresh,
-        });
-      } else {
-        // Fall back to v1.0 format
-        saveToStorage({
-          points,
-          unlockedGames,
-          featuredGame: featuredGame?.appid || null,
-          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
-          lastRefresh,
-          version: '1.0'
-        });
-      }
-    }, 1000); // Save 1 second after last change
-
-    return () => clearTimeout(timeoutId);
-  }, [points, unlockedGames, featuredGame, games, lastRefresh, vaultState]);
-
-  // Auto-save on page unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (vaultState && vaultState.version === '1.5') {
-        saveToStorage({
-          ...vaultState,
-          points,
-          unlockedGames,
-          featuredGame: featuredGame?.appid || null,
-          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
-          lastRefresh,
-        });
-      } else {
-        saveToStorage({
-          points,
-          unlockedGames,
-          featuredGame: featuredGame?.appid || null,
-          cachedLibrary: games.filter(g => String(g.appid) !== 'vault-controller'),
-          lastRefresh,
-          version: '1.0'
-        });
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [points, unlockedGames, featuredGame, games, lastRefresh, vaultState]);
-
   // Convert games to vault states whenever games or unlocked list changes
   useEffect(() => {
     const vaultStates = games.map(game => toVaultGameState(game, unlockedGames));
@@ -256,116 +215,6 @@ export default function Home() {
       }
     }
   }, [games, unlockedGames, hasWon]);
-  
-  // KEY MOMENT: Retry failed images on page load/session start
-  useEffect(() => {
-    if (!vaultState || games.length === 0) return;
-    
-    // Small delay to let images attempt initial load first
-    const retryTimer = setTimeout(async () => {
-      const failedCount = getImageStats().failed;
-      if (failedCount === 0) return; // No failures to retry
-      
-      console.log(`[Image Retry] Session start - found ${failedCount} failed images`);
-      
-      // Collect important game IDs to retry
-      const gamesToRetry: number[] = [];
-      
-      // 1. Featured game
-      if (featuredGame && typeof featuredGame.appid === 'number') {
-        gamesToRetry.push(featuredGame.appid);
-      }
-      
-      // 2. Shop slot games
-      shopSlots.forEach(slot => {
-        if (slot.appId && typeof slot.appId === 'number') {
-          gamesToRetry.push(slot.appId);
-        }
-      });
-      
-      // 3. Pool 1 unlocked games (limit to first 20 to avoid overwhelming)
-      const pool1Games = (vaultState.pool1_unlocked || [])
-        .filter((id): id is number => typeof id === 'number')
-        .slice(0, 20);
-      gamesToRetry.push(...pool1Games);
-      
-      // Retry all collected games
-      if (gamesToRetry.length > 0) {
-        const succeeded = await retryMultipleImages(gamesToRetry);
-        if (succeeded.length > 0) {
-          console.log(`[Image Retry] Session start recovered ${succeeded.length} images!`);
-          // Force a small re-render to update images
-          setLastRefresh(Date.now());
-        }
-      }
-    }, 2000); // Wait 2 seconds after page load
-    
-    return () => clearTimeout(retryTimer);
-  }, [vaultState, games.length]); // Only run once when vault state is ready
-
-  // v1.0 passive income system removed - v1.5 uses click-based Collection Power generation
-  
-  // PASSIVE REGENERATION: ONLY recharge drained games (not partial games)
-  useEffect(() => {
-    if (!vaultState || !vaultState.gameProgress) return;
-    
-    const interval = setInterval(() => {
-      // Only regenerate if tab is focused
-      if (!document.hasFocus()) return;
-      
-      let hasChanges = false;
-      const updatedProgress = { ...vaultState.gameProgress };
-      
-      // Check each game in Pool 1 for passive regeneration
-      vaultState.pool1_unlocked?.forEach(appId => {
-        const progress = updatedProgress[appId];
-        if (!progress) return;
-        
-        // NEW RULE: Only regen if game is DRAINED
-        if (!progress.isDrained) return;
-        
-        const game = games.find(g => g.appid === appId);
-        if (!game) return;
-        
-        const maxPower = getMaxPower(game);
-        
-        // Passive regen rate: % of max power per second (from config)
-        const regenRatePercent = THRESHOLDS.PASSIVE_REGEN_RATE_PERCENT / 100; // Convert % to decimal
-        const regenRate = maxPower * regenRatePercent;
-        
-        // Reduce currentPower (remember: higher = more drained, 0 = full health)
-        const newCurrentPower = Math.max(0, progress.currentPower - regenRate);
-        
-        // Check if FULLY recharged (must be 100% to unmark as drained)
-        const isFullyRecharged = newCurrentPower === 0;
-        
-        if (newCurrentPower !== progress.currentPower) {
-          updatedProgress[appId] = {
-            ...progress,
-            currentPower: newCurrentPower,
-            isDrained: !isFullyRecharged, // Only unmark when FULLY recharged
-            drainedAt: isFullyRecharged ? undefined : progress.drainedAt, // Clear timestamp when fully recharged
-          };
-          hasChanges = true;
-          
-          // Log when game is fully recharged
-          if (isFullyRecharged) {
-            console.log(`[Passive Regen] ${game.name} is fully recharged and ready to play!`);
-          }
-        }
-      });
-      
-      // Update state if any changes
-      if (hasChanges) {
-        setVaultState({
-          ...vaultState,
-          gameProgress: updatedProgress,
-        });
-      }
-    }, 1000); // Run every 1 second
-    
-    return () => clearInterval(interval);
-  }, [vaultState, games]);
 
   // Handle clicking the featured game (v1.5 - generates Collection Power)
   function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
@@ -520,12 +369,8 @@ export default function Home() {
       return;
     }
     
-    // Open the draw modal
-    setDrawSlotIndex(slotIndex);
-    setDrawnGame(result.game);
-    setRevealedCard(false);
-    setShowDrawModal(true);
-    setDrawnGamesThisSession([result.game.appid]); // Start tracking drawn games
+    // Open the draw modal using modalActions
+    modalActions.openDrawModal(slotIndex, result.game);
     
     console.log('[Draw] Opening modal for slot', slotIndex, 'drew:', result.game.name);
     
@@ -535,18 +380,21 @@ export default function Home() {
   
   // Handle revealing the card (animation trigger)
   function handleCardReveal() {
-    if (revealedCard) return; // Already revealed
+    if (modalState.revealedCard) return; // Already revealed
     
     // Deduct 10 keys for the draw
     setLiberationKeys(prev => prev - 10);
     
     // Trigger reveal animation
-    setRevealedCard(true);
+    modalActions.revealCard();
   }
   
   // Handle accepting the drawn game
   function handleAcceptDraw() {
-    if (!vaultState || !drawnGame || drawSlotIndex === null) return;
+    if (!vaultState || !modalState.drawnGame || modalState.drawSlotIndex === null) return;
+    
+    const drawnGame = modalState.drawnGame;
+    const drawSlotIndex = modalState.drawSlotIndex;
     
     // Fill the shop slot with the drawn game
     const updatedShopSlots = [...shopSlots];
@@ -573,18 +421,16 @@ export default function Home() {
     setVaultState(updatedState);
     
     // Close modal and clear session
-    setShowDrawModal(false);
-    setDrawnGame(null);
-    setDrawSlotIndex(null);
-    setRevealedCard(false);
-    setDrawnGamesThisSession([]); // Clear session history
+    modalActions.closeDrawModal();
     
     console.log('[Draw] Accepted draw:', drawnGame.name);
   }
   
   // Handle redrawing (costs 5 keys)
   function handleRedraw() {
-    if (!vaultState || !drawnGame) return;
+    if (!vaultState || !modalState.drawnGame) return;
+    
+    const drawnGame = modalState.drawnGame;
     
     // Check if can afford redraw
     if (liberationKeys < 5) {
@@ -596,11 +442,11 @@ export default function Home() {
     setLiberationKeys(prev => prev - 5);
     
     // Add current game to session exclusion list
-    const updatedExclusions = [...drawnGamesThisSession, drawnGame.appid];
-    setDrawnGamesThisSession(updatedExclusions);
+    const updatedExclusions = [...modalState.drawnGamesThisSession, drawnGame.appid];
+    modalActions.addDrawnGame(drawnGame.appid);
     
     // Draw a new game, EXCLUDING ALL games drawn in this session
-    const targetTier = drawSlotIndex !== null ? getSlotTargetTier(drawSlotIndex) : undefined;
+    const targetTier = modalState.drawSlotIndex !== null ? getSlotTargetTier(modalState.drawSlotIndex) : undefined;
     const result = drawGameFromPool2(
       vaultState.pool2_hidden || [], 
       games, 
@@ -614,8 +460,7 @@ export default function Home() {
     }
     
     // Update drawn game and reset reveal
-    setDrawnGame(result.game);
-    setRevealedCard(false);
+    modalActions.setDrawnGame(result.game);
     
     console.log('[Draw] Redrew:', result.game.name, '(excluded:', updatedExclusions.length, 'games)');
   }
@@ -699,117 +544,6 @@ export default function Home() {
     setVaultState(updatedState);
   }
 
-  async function fetchLibrary() {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`/api/steam-library?steamid=${steamId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch library');
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      const fetchedGames = data.games || [];
-      setGames(fetchedGames);
-      setLastRefresh(Date.now());
-      
-      // Check if we need to initialize pools (first time v1.5 setup)
-      const savedState = loadFromStorage();
-      if (needsPoolInitialization(savedState) && !hasInitializedOnce) {
-        console.log('[Vault] Initializing v1.5 pool system...');
-        setIsInitializingPools(true);
-        setHasInitializedOnce(true); // Mark as initialized to prevent double init
-        
-        try {
-          const poolData = await initializePools(fetchedGames);
-          
-          // Add starting game to progress track
-          const startingGameForTrack: UnlockedGame | null = poolData.startingGame ? {
-            appId: poolData.startingGame.appid,
-            unlockTimestamp: Date.now(),
-            tier: 'cheap', // Starting games are always low playtime
-            name: poolData.startingGame.name,
-          } : null;
-          
-          // Create new v1.5 state
-          const newState: VaultState = {
-            version: '1.5',
-            collectionPower: 0,
-            liberationKeys: 0,
-            pool1_unlocked: poolData.pool1_unlocked,
-            pool2_hidden: poolData.pool2_hidden,
-            pool3_keyGames: poolData.pool3_keyGames,
-            shopSlots: [],
-            gameProgress: {},
-            progressTrack: {
-              nextReward: pickRandomReward(),
-              unlockedGames: startingGameForTrack ? [startingGameForTrack] : [],
-            },
-            lastSync: Date.now(),
-            steamId: steamId,
-            cachedLibrary: fetchedGames,
-          };
-          
-          // Set starting game as featured FIRST (before updating games array)
-          if (poolData.startingGame) {
-            const startingVaultState = toVaultGameState(
-              poolData.startingGame,
-              poolData.pool1_unlocked
-            );
-            setFeaturedGame(startingVaultState);
-            setUnlockedGames(poolData.pool1_unlocked);
-          }
-          
-          // METADATA ENRICHMENT: Ensure 10 Pool 2 games have metadata BEFORE shop init
-          console.log('[Vault] Enriching Pool 2 with metadata...');
-          const enrichedGames = await initialMetadataEnrichment(poolData.pool2_hidden, fetchedGames);
-          
-          // Initialize shop with games from Pool 2 (now ALL enriched, no more async calls)
-          console.log('[Vault] Initializing shop with pre-enriched games...');
-          const shopResult = await initializeShop(poolData.pool2_hidden, enrichedGames);
-          
-          // Update state ONCE with everything ready
-          newState.cachedLibrary = enrichedGames;
-          newState.shopSlots = shopResult.shopSlots;
-          newState.pool2_hidden = shopResult.updatedPool2;
-          
-          // Single atomic update - prevents re-renders mid-initialization
-          setVaultState(newState);
-          setShopSlots(shopResult.shopSlots);
-          setGames(enrichedGames);
-          
-          console.log('[Vault] Initialization complete - no more updates should occur');
-          
-          // Save the new state
-          saveToStorage(newState);
-          
-          console.log('[Vault] Pool initialization complete!', {
-            pool1: poolData.pool1_unlocked.length,
-            pool2: poolData.pool2_hidden.length,
-            pool3: poolData.pool3_keyGames.length,
-            startingGame: poolData.startingGame?.name,
-          });
-        } catch (initError) {
-          console.error('[Vault] Pool initialization failed:', initError);
-          // Continue with v1.0 mode if initialization fails
-        } finally {
-          setIsInitializingPools(false);
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   // TEST FUNCTION: Simulate Key Game Detection
   function testKeyGameDetection() {
     if (!vaultState || !vaultState.pool3_keyGames?.length) {
@@ -891,98 +625,14 @@ export default function Home() {
     setVaultState(updatedState);
     
     // Show celebration modal
-    setCelebrationData({
+    modalActions.openCelebration({
       games: detectionResults.map(r => ({ name: r.game.name, keys: r.keysAwarded })),
       totalKeys,
     });
-    setShowCelebration(true);
-  }
-
-  async function handleRefresh() {
-    if (isRefreshing || !vaultState) return;
-    
-    setIsRefreshing(true);
-    
-    try {
-      // Fetch fresh library
-      const response = await fetch(`/api/steam-library?steamid=${steamId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch library');
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      const freshGames = data.games || [];
-      
-      // M6: DETECT NEWLY PLAYED KEY GAMES
-      const cachedGames = games;
-      const detectionResults = detectNewlyPlayedKeyGames(
-        freshGames,
-        cachedGames,
-        vaultState.pool3_keyGames || []
-      );
-      
-      if (detectionResults.length > 0) {
-        console.log(`[Key Detection] Found ${detectionResults.length} newly played Key Game(s)!`);
-        
-        // Calculate total keys awarded
-        const totalKeys = calculateTotalKeysAwarded(detectionResults);
-        
-        // Award keys
-        setLiberationKeys(prev => prev + totalKeys);
-        
-        // Move games from Pool 3 → Pool 2
-        let updatedPool3 = [...(vaultState.pool3_keyGames || [])];
-        let updatedPool2 = [...(vaultState.pool2_hidden || [])];
-        
-        detectionResults.forEach(result => {
-          // Remove from Pool 3
-          updatedPool3 = updatedPool3.filter(id => id !== result.game.appid);
-          // Add to Pool 2
-          updatedPool2.push(result.game.appid);
-        });
-        
-        // Auto-refresh all drained games (FREE!)
-        const refreshedProgress = autoRefreshAllDrained(vaultState.gameProgress || {});
-        
-        // Update vault state
-        const updatedState: VaultState = {
-          ...vaultState,
-          pool2_hidden: updatedPool2,
-          pool3_keyGames: updatedPool3,
-          gameProgress: refreshedProgress,
-          liberationKeys: liberationKeys + totalKeys,
-          lastSync: Date.now(),
-        };
-        
-        setVaultState(updatedState);
-        
-        // Show celebration modal
-        setCelebrationData({
-          games: detectionResults.map(r => ({ name: r.game.name, keys: r.keysAwarded })),
-          totalKeys,
-        });
-        setShowCelebration(true);
-      }
-      
-      // Update library
-      setGames(freshGames);
-      setLastRefresh(Date.now());
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setIsRefreshing(false);
-    }
   }
 
   // Render Steam ID input modal FIRST if needed
-  if (showSteamIdInput) {
+  if (modalState.showSteamIdInput) {
     return (
       <>
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
@@ -994,25 +644,25 @@ export default function Home() {
             
             <input
               type="text"
-              value={steamIdInputValue}
-              onChange={(e) => setSteamIdInputValue(e.target.value)}
+              value={modalState.steamIdInputValue}
+              onChange={(e) => modalActions.setSteamIdInputValue(e.target.value)}
               placeholder="76561197970579347"
               className="w-full px-4 py-3 bg-vault-dark border-2 border-vault-gold/50 rounded-lg text-white text-center text-lg mb-4 focus:outline-none focus:border-vault-gold"
             />
             
             <button
               onClick={() => {
-                if (steamIdInputValue.trim()) {
-                  const newSteamId = steamIdInputValue.trim();
+                if (modalState.steamIdInputValue.trim()) {
+                  const newSteamId = modalState.steamIdInputValue.trim();
                   setSteamId(newSteamId);
                   localStorage.setItem('steamId', newSteamId);
-                  setShowSteamIdInput(false);
+                  modalActions.closeSteamIdInput();
                   console.log('[Steam ID] Saved:', newSteamId);
                 }
               }}
-              disabled={!steamIdInputValue.trim()}
+              disabled={!modalState.steamIdInputValue.trim()}
               className={`w-full py-3 rounded-lg font-bold text-lg transition-all ${
-                steamIdInputValue.trim()
+                modalState.steamIdInputValue.trim()
                   ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400 cursor-pointer'
                   : 'bg-gray-600 text-gray-400 cursor-not-allowed'
               }`}
@@ -1432,7 +1082,7 @@ export default function Home() {
         )}
 
         {/* Draw Modal */}
-        {showDrawModal && drawnGame && (
+        {modalState.showDrawModal && modalState.drawnGame && (
           <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-vault-blue to-vault-dark rounded-xl p-8 max-w-4xl w-full border-4 border-vault-gold shadow-2xl">
               <div className="text-center mb-6">
@@ -1441,7 +1091,7 @@ export default function Home() {
               </div>
 
               {/* Card Backs or Revealed Game */}
-              {!revealedCard ? (
+              {!modalState.revealedCard ? (
                 <div className="grid grid-cols-3 gap-6 mb-6">
                   {[0, 1, 2].map((cardIndex) => (
                     <div
@@ -1461,27 +1111,27 @@ export default function Home() {
                   <div className="max-w-md mx-auto flip-card">
                     <div className={`relative aspect-[2/3] rounded-lg overflow-hidden border-4 ${
                       (() => {
-                        const unlockCost = calculateUnlockCost(drawnGame);
+                        const unlockCost = calculateUnlockCost(modalState.drawnGame!);
                         const tier = unlockCost < 1000 ? 'cheap' : unlockCost < 3000 ? 'moderate' : 'epic';
                         return tier === 'cheap' ? 'border-gray-400' : tier === 'moderate' ? 'border-blue-500' : 'border-vault-gold';
                       })()
                     } shadow-2xl`}>
                       <img
-                        src={getLibraryCapsule(drawnGame.appid)}
-                        alt={drawnGame.name}
+                        src={getLibraryCapsule(modalState.drawnGame!.appid)}
+                        alt={modalState.drawnGame!.name}
                         onError={handleImageError}
                         className="w-full h-full object-cover"
                       />
                       {/* Game info overlay */}
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4">
-                        <div className="text-white font-bold text-xl mb-2">{drawnGame.name}</div>
+                        <div className="text-white font-bold text-xl mb-2">{modalState.drawnGame!.name}</div>
                         <div className="text-sm text-gray-300 mb-2">
-                          {drawnGame.metacritic ? `⭐ ${drawnGame.metacritic}` : '⭐ ??'} • 
-                          {drawnGame.hoursTobeat ? ` ${drawnGame.hoursTobeat}h` : ' ??h'}
+                          {modalState.drawnGame!.metacritic ? `⭐ ${modalState.drawnGame!.metacritic}` : '⭐ ??'} • 
+                          {modalState.drawnGame!.hoursTobeat ? ` ${modalState.drawnGame!.hoursTobeat}h` : ' ??h'}
                         </div>
                         <div className="text-vault-gold font-bold">
-                          Unlock Cost: {drawnGame.metacritic && drawnGame.hoursTobeat 
-                            ? Math.floor(drawnGame.metacritic * drawnGame.hoursTobeat).toLocaleString()
+                          Unlock Cost: {modalState.drawnGame!.metacritic && modalState.drawnGame!.hoursTobeat 
+                            ? Math.floor(modalState.drawnGame!.metacritic * modalState.drawnGame!.hoursTobeat).toLocaleString()
                             : '???'} ⚡
                         </div>
                       </div>
@@ -1516,24 +1166,24 @@ export default function Home() {
         )}
 
         {/* Celebration Modal - Key Game Completed! */}
-        {showCelebration && celebrationData && (
+        {modalState.showCelebration && modalState.celebrationData && (
           <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-gradient-to-br from-purple-900 via-vault-blue to-purple-900 rounded-xl p-8 max-w-2xl w-full border-4 border-vault-gold shadow-2xl animate-scale-up">
               {/* Celebration Header */}
               <div className="text-center mb-6">
                 <div className="text-8xl mb-4 animate-bounce">🎉</div>
                 <h2 className="text-5xl font-bold text-vault-gold mb-2 animate-pulse">
-                  KEY GAME{celebrationData.games.length > 1 ? 'S' : ''} COMPLETED!
+                  KEY GAME{modalState.celebrationData!.games.length > 1 ? 'S' : ''} COMPLETED!
                 </h2>
                 <p className="text-2xl text-green-400 font-bold">
-                  +{celebrationData.totalKeys} 🔑 Keys Earned!
+                  +{modalState.celebrationData!.totalKeys} 🔑 Keys Earned!
                 </p>
               </div>
 
               {/* Games List */}
               <div className="bg-vault-dark/70 rounded-lg p-6 mb-6 max-h-60 overflow-y-auto">
                 <div className="space-y-3">
-                  {celebrationData.games.map((game, index) => (
+                  {modalState.celebrationData!.games.map((game: {name: string, keys: number}, index: number) => (
                     <div 
                       key={index}
                       className="flex items-center justify-between p-3 bg-vault-blue/30 rounded-lg border-2 border-purple-500/50 hover:border-purple-500 transition-all"
@@ -1553,10 +1203,7 @@ export default function Home() {
 
               {/* Continue Button */}
               <button 
-                onClick={() => {
-                  setShowCelebration(false);
-                  setCelebrationData(null);
-                }}
+                onClick={() => modalActions.closeCelebration()}
                 className="w-full bg-gradient-to-r from-vault-gold via-yellow-400 to-vault-gold text-vault-dark font-bold py-4 rounded-lg text-xl hover:scale-105 transition-transform shadow-lg shadow-vault-gold/50"
               >
                 🎮 CONTINUE PLAYING
@@ -1575,7 +1222,7 @@ export default function Home() {
         </button>
 
         {/* Steam ID Input Modal */}
-        {showSteamIdInput && (
+        {modalState.showSteamIdInput && (
           <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-vault-blue to-vault-dark rounded-xl p-8 max-w-md w-full border-4 border-vault-gold shadow-2xl">
               <div className="text-center mb-6">
@@ -1585,25 +1232,25 @@ export default function Home() {
               
               <input
                 type="text"
-                value={steamIdInputValue}
-                onChange={(e) => setSteamIdInputValue(e.target.value)}
+                value={modalState.steamIdInputValue}
+                onChange={(e) => modalActions.setSteamIdInputValue(e.target.value)}
                 placeholder="76561197970579347"
                 className="w-full px-4 py-3 bg-vault-dark border-2 border-vault-gold/50 rounded-lg text-white text-center text-lg mb-4 focus:outline-none focus:border-vault-gold"
               />
               
               <button
                 onClick={() => {
-                  if (steamIdInputValue.trim()) {
-                    const newSteamId = steamIdInputValue.trim();
+                  if (modalState.steamIdInputValue.trim()) {
+                    const newSteamId = modalState.steamIdInputValue.trim();
                     setSteamId(newSteamId);
                     localStorage.setItem('steamId', newSteamId);
-                    setShowSteamIdInput(false);
+                    modalActions.closeSteamIdInput();
                     console.log('[Steam ID] Saved:', newSteamId);
                   }
                 }}
-                disabled={!steamIdInputValue.trim()}
+                disabled={!modalState.steamIdInputValue.trim()}
                 className={`w-full py-3 rounded-lg font-bold text-lg transition-all ${
-                  steamIdInputValue.trim()
+                  modalState.steamIdInputValue.trim()
                     ? 'bg-vault-gold text-vault-dark hover:bg-yellow-400 cursor-pointer'
                     : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 }`}
@@ -1626,10 +1273,9 @@ export default function Home() {
               <button 
                 onClick={() => {
                   const defaultId = '76561197970579347';
-                  setSteamIdInputValue(defaultId);
-                  setShowSteamIdInput(true);
+                  modalActions.openSteamIdInput(defaultId);
                   console.log('[Dev] Opening Steam ID input with default value');
-                }} 
+                }}
                 className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded font-semibold"
               >
                 🆔 Change Steam ID
@@ -1755,237 +1401,5 @@ export default function Home() {
         )}
       </div>
     </main>
-  );
-}
-
-// Separate component for virtualized grid
-function GameGrid({
-  vaultGames,
-  filter,
-  sortBy,
-  featuredGame,
-  points,
-  handleSelectFeatured,
-  handleUnlock,
-  handlePlayLiberationKey,
-}: {
-  vaultGames: VaultGameState[];
-  filter: 'all' | 'locked' | 'playable' | 'liberationKey';
-  sortBy: 'default' | 'cost' | 'hours' | 'name' | 'passive';
-  featuredGame: VaultGameState | null;
-  points: number;
-  handleSelectFeatured: (game: VaultGameState) => void;
-  handleUnlock: (game: VaultGameState) => void;
-  handlePlayLiberationKey: (game: VaultGameState) => void;
-}) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const ITEMS_PER_ROW = 6;
-
-  // Filter and sort games
-  const filteredGames = vaultGames
-    .filter(game => filter === 'all' || game.state === filter)
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'cost':
-          return a.unlockCost - b.unlockCost;
-        case 'hours':
-          return b.hoursPlayed - a.hoursPlayed;
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'passive':
-          return b.passiveRate - a.passiveRate;
-        case 'default':
-        default:
-          if (a.state === 'playable' && b.state === 'playable') {
-            return b.passiveRate - a.passiveRate;
-          }
-          return 0;
-      }
-    });
-
-  // Calculate rows
-  const rowCount = Math.ceil(filteredGames.length / ITEMS_PER_ROW);
-
-  // Virtual scrolling
-  const rowVirtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 310, // Estimated row height (card height + gap) - middle ground for 2:3 aspect ratio
-    overscan: 2, // Render 2 extra rows above/below viewport
-  });
-
-  return (
-    <div className="bg-vault-gray rounded-lg p-6">
-      <h2 className="text-2xl font-bold mb-4">Your Library ({filteredGames.length} games)</h2>
-      
-      <div
-        ref={parentRef}
-        className="h-[700px] overflow-y-auto scrollbar-hide relative"
-      >
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-            paddingTop: '8px',
-          }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const startIndex = virtualRow.index * ITEMS_PER_ROW;
-            const rowGames = filteredGames.slice(startIndex, startIndex + ITEMS_PER_ROW);
-
-            return (
-              <div
-                key={virtualRow.key}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-2 py-1">
-                  {rowGames.map((game) => (
-                    <GameCard
-                      key={game.appid}
-                      game={game}
-                      isFeatured={featuredGame?.appid === game.appid}
-                      canAfford={points >= game.unlockCost}
-                      handleSelectFeatured={handleSelectFeatured}
-                      handleUnlock={handleUnlock}
-                      handlePlayLiberationKey={handlePlayLiberationKey}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Separate GameCard component
-function GameCard({
-  game,
-  isFeatured,
-  canAfford,
-  handleSelectFeatured,
-  handleUnlock,
-  handlePlayLiberationKey,
-}: {
-  game: VaultGameState;
-  isFeatured: boolean;
-  canAfford: boolean;
-  handleSelectFeatured: (game: VaultGameState) => void;
-  handleUnlock: (game: VaultGameState) => void;
-  handlePlayLiberationKey: (game: VaultGameState) => void;
-}) {
-  const isLocked = game.state === 'locked';
-  const isPlayable = game.state === 'playable';
-  const isKey = game.state === 'liberationKey';
-
-  return (
-    <div
-      onClick={() => !isLocked && handleSelectFeatured(game)}
-      className={`group relative rounded-lg overflow-hidden transition-all ${
-        isLocked
-          ? 'opacity-60 cursor-not-allowed'
-          : 'cursor-pointer hover:scale-105'
-      } ${
-        isFeatured
-          ? 'ring-4 ring-vault-accent shadow-lg shadow-vault-accent/50'
-          : isKey
-          ? 'ring-2 ring-vault-gold shadow-lg shadow-vault-gold/30'
-          : isPlayable
-          ? 'ring-2 ring-green-500/30'
-          : ''
-      }`}
-    >
-      {/* Game Box Art */}
-      <div className="relative aspect-[2/3] bg-gradient-to-br from-vault-dark to-vault-gray">
-        <img
-          src={getLibraryCapsule(game.appid)}
-          alt={game.name}
-          onError={handleImageError}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-        
-        {/* State indicator overlay */}
-        {isLocked ? (
-          // Centered lock for locked games
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-6xl drop-shadow-2xl">🔒</span>
-          </div>
-        ) : (
-          // Top-left indicator for other states
-          <div className="absolute top-2 left-2">
-            {isPlayable && !isFeatured && <span className="text-3xl drop-shadow-lg">✅</span>}
-            {isPlayable && isFeatured && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
-            {isKey && <span className="text-3xl drop-shadow-lg animate-pulse">⭐</span>}
-          </div>
-        )}
-
-        {/* Hover overlay with info */}
-        <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity p-3 flex flex-col justify-between">
-          <div>
-            <div className="font-bold text-sm mb-1 line-clamp-2">{game.name}</div>
-            <div className="text-xs text-gray-300">
-              {game.hoursPlayed.toFixed(1)} hrs
-            </div>
-          </div>
-          
-          <div className="text-xs space-y-1">
-            {isKey && (
-              <div className="text-vault-gold font-semibold">
-                Play 30 min to unlock FREE!
-              </div>
-            )}
-            {isLocked && (
-              <div className="text-red-400">
-                Unlock: {game.unlockCost.toLocaleString()}pts
-              </div>
-            )}
-            {isPlayable && (
-              <div className="text-green-400">
-                +{game.passiveRate}/sec
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          {isLocked && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleUnlock(game);
-              }}
-              disabled={!canAfford}
-              className={`w-full py-1 px-2 rounded text-xs font-bold transition-all ${
-                canAfford
-                  ? 'bg-vault-accent text-vault-dark hover:bg-blue-400'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {canAfford ? '🔓 UNLOCK' : 'LOCKED'}
-            </button>
-          )}
-          {isKey && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePlayLiberationKey(game);
-              }}
-              className="w-full bg-vault-gold text-vault-dark hover:bg-yellow-400 font-bold py-1 px-2 rounded text-xs transition-all"
-            >
-              🎮 PLAY
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
