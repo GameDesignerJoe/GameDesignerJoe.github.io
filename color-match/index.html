@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Color Match Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="game-container">
+            <!-- Game board -->
+            <div id="game-board" class="game-board">
+                <!-- Header -->
+                <div class="game-header">
+                    <div id="level-display" class="level-text">Level 1</div>
+                    <button id="new-game-btn" class="new-game-btn">New Game</button>
+                </div>
+
+                <!-- Instructions -->
+                <div id="instructions" class="instructions">
+                    <p id="instruction-text">Match colors to complete levels</p>
+                </div>
+
+                <!-- Game area -->
+                <div id="game-area" class="game-area">
+                    <!-- SVG for lines connecting pairs -->
+                    <svg id="connection-lines" class="connection-lines"></svg>
+                    
+                    <!-- Circles will be dynamically added here -->
+                </div>
+
+                <!-- Level Type Popup -->
+                <div id="level-popup" class="level-popup hidden">
+                    <div class="popup-content">
+                        <h2 id="popup-title" class="popup-title">Order Challenge!</h2>
+                        <p id="popup-message" class="popup-message">
+                            Match the color pairs from <span class="highlight">lightest to darkest</span> in the correct sequence.
+                        </p>
+                        <button id="popup-btn" class="popup-btn">Got it!</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Over section below the game -->
+            <div id="game-over" class="game-over-section hidden">
+                <h2 class="game-over-title">Game Over!</h2>
+                <p id="final-score" class="final-score">You reached level 1</p>
+                <p id="new-high-score" class="new-high-score hidden">🎉 New High Score! 🎉</p>
+                <p id="high-score-display" class="high-score-display hidden">High Score: 0.0</p>
+                <button id="try-again-btn" class="try-again-btn">Try Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
