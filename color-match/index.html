@@ -12,8 +12,29 @@
 <body>
     <div class="game-wrapper">
         <div class="game-container">
+            <!-- Start Menu -->
+            <div id="start-menu" class="start-menu">
+                <div class="menu-content">
+                    <h1 class="menu-title">Color Match</h1>
+                    <p class="menu-subtitle">Choose Your Mode</p>
+                    
+                    <div class="mode-buttons">
+                        <button id="random-mode-btn" class="mode-btn">
+                            <span class="mode-name">Random Mode</span>
+                            <span class="mode-description">Find matching pairs in any order</span>
+                        </button>
+                        
+                        <button id="sequential-mode-btn" class="mode-btn sequential">
+                            <span class="mode-name">Sequential Mode</span>
+                            <span class="mode-description">Find matching pairs from lightest to darkest (Hard)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Game board -->
-            <div id="game-board" class="game-board">
+            <div id="game-board" class="game-board hidden">
+
                 <!-- Header -->
                 <div class="game-header">
                     <div id="level-display" class="level-text">Level 1</div>
@@ -29,17 +50,6 @@
                     <svg id="connection-lines" class="connection-lines"></svg>
                     
                     <!-- Circles will be dynamically added here -->
-                </div>
-
-                <!-- Level Type Popup -->
-                <div id="level-popup" class="level-popup hidden">
-                    <div class="popup-content">
-                        <h2 id="popup-title" class="popup-title">Order Challenge!</h2>
-                        <p id="popup-message" class="popup-message">
-                            Match the color pairs from <span class="highlight">lightest to darkest</span> in the correct sequence.
-                        </p>
-                        <button id="popup-btn" class="popup-btn">Got it!</button>
-                    </div>
                 </div>
             </div>
 

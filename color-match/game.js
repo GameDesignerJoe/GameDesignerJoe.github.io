@@ -7,15 +7,17 @@ const gameState = {
     gameOver: false,
     baseColor: null,
     animating: false,
-    highScore: 0,
     isNewHighScore: false,
     nextExpectedShade: null,
     failedCircles: [],
-    showLevelTypePopup: false,
-    previousLevelWasOrder: false
+    gameMode: null, // 'random' or 'sequential'
+    highScores: {
+        random: 0,
+        sequential: 0
+    }
 };
 
-// Storage API wrapper (mimics the React component's window.storage)
+// Storage API wrapper
 const storage = {
     get: (key) => {
         return new Promise((resolve) => {
@@ -33,9 +35,9 @@ const storage = {
 
 // DOM Elements
 let gameBoard, gameArea, levelDisplay, instructionText, connectionLines;
-let levelPopup, popupTitle, popupMessage, popupBtn;
 let gameOverSection, finalScore, newHighScoreText, highScoreDisplay;
 let newGameBtn, tryAgainBtn;
+let startMenu, randomModeBtn, sequentialModeBtn;
 
 // Initialize DOM elements
 function initDOMElements() {
@@ -45,11 +47,6 @@ function initDOMElements() {
     instructionText = document.getElementById('instruction-text');
     connectionLines = document.getElementById('connection-lines');
     
-    levelPopup = document.getElementById('level-popup');
-    popupTitle = document.getElementById('popup-title');
-    popupMessage = document.getElementById('popup-message');
-    popupBtn = document.getElementById('popup-btn');
-    
     gameOverSection = document.getElementById('game-over');
     finalScore = document.getElementById('final-score');
     newHighScoreText = document.getElementById('new-high-score');
@@ -57,58 +54,62 @@ function initDOMElements() {
     
     newGameBtn = document.getElementById('new-game-btn');
     tryAgainBtn = document.getElementById('try-again-btn');
+    
+    startMenu = document.getElementById('start-menu');
+    randomModeBtn = document.getElementById('random-mode-btn');
+    sequentialModeBtn = document.getElementById('sequential-mode-btn');
 }
 
-// Load high score from localStorage
-async function loadHighScore() {
+// Load high scores from localStorage
+async function loadHighScores() {
     try {
-        const result = await storage.get('colorMatchHighScore');
-        if (result && result.value) {
-            gameState.highScore = parseFloat(result.value);
+        const randomResult = await storage.get('colorMatchHighScore_random');
+        if (randomResult && randomResult.value) {
+            gameState.highScores.random = parseFloat(randomResult.value);
+        }
+        
+        const sequentialResult = await storage.get('colorMatchHighScore_sequential');
+        if (sequentialResult && sequentialResult.value) {
+            gameState.highScores.sequential = parseFloat(sequentialResult.value);
         }
     } catch (error) {
-        console.log('No previous high score found');
+        console.log('No previous high scores found');
     }
 }
 
 // Save high score to localStorage
-async function saveHighScore(score) {
+async function saveHighScore(mode, score) {
     try {
-        await storage.set('colorMatchHighScore', score.toString());
+        await storage.set(`colorMatchHighScore_${mode}`, score.toString());
     } catch (error) {
         console.log('Error saving high score:', error);
     }
 }
 
-// Generate a random base color (avoiding purple range)
+// Generate a random base color (avoiding purple range for sequential mode)
 function generateBaseColor() {
-    const avoidStart = 270;
-    const avoidEnd = 310;
-    const availableRange = 360 - (avoidEnd - avoidStart);
-    
-    let hue = Math.floor(Math.random() * availableRange);
-    
-    if (hue >= avoidStart) {
-        hue += (avoidEnd - avoidStart);
+    if (gameState.gameMode === 'sequential') {
+        // For sequential mode, avoid purple range
+        const avoidStart = 270;
+        const avoidEnd = 310;
+        const availableRange = 360 - (avoidEnd - avoidStart);
+        
+        let hue = Math.floor(Math.random() * availableRange);
+        
+        if (hue >= avoidStart) {
+            hue += (avoidEnd - avoidStart);
+        }
+        
+        return { h: hue, s: 70, l: 50 };
+    } else {
+        // For random mode, any hue is fine
+        return { h: Math.floor(Math.random() * 360), s: 70, l: 50 };
     }
-    
-    return { h: hue, s: 70, l: 50 };
 }
 
-// Calculate number of shades for a level
+// Calculate number of shades for a level (consistent across both modes)
 function getShadesCount(lvl) {
-    if (lvl % 3 === 0) {
-        const orderLevelNum = Math.floor(lvl / 3);
-        return 2 + orderLevelNum;
-    }
-    
-    const regularLevelNum = lvl - Math.floor(lvl / 3);
-    return regularLevelNum;
-}
-
-// Check if this is an "order" level
-function isOrderLevel(lvl) {
-    return lvl % 3 === 0;
+    return lvl; // Level 1 = 1 pair, Level 2 = 2 pairs, etc.
 }
 
 // Generate shades for the current level (lightest to darkest)
@@ -203,21 +204,22 @@ function getBorderColor(hsl) {
 
 // Update UI
 function updateUI() {
-    // Update level display
-    const levelText = `Level ${gameState.level}${gameState.pairsMatched > 0 ? `.${gameState.pairsMatched}` : ''}`;
+    // Update level display with mode
+    const modeName = gameState.gameMode === 'random' ? 'Random' : 'Sequential';
+    const levelText = `Level ${gameState.level}${gameState.pairsMatched > 0 ? `.${gameState.pairsMatched}` : ''} - ${modeName}`;
     levelDisplay.textContent = levelText;
     
-    // Update background
-    if (isOrderLevel(gameState.level)) {
+    // Update background based on mode
+    if (gameState.gameMode === 'sequential') {
         gameBoard.classList.add('order-level');
-        instructionText.textContent = 'Match colors from lightest to darkest';
+        instructionText.textContent = 'Match pairs from lightest to darkest';
     } else {
         gameBoard.classList.remove('order-level');
-        instructionText.textContent = 'Match colors to complete levels';
+        instructionText.textContent = 'Match any pairs in any order';
     }
     
     // Show/hide instructions based on game over
-    document.getElementById('instructions').style.display = gameState.gameOver ? 'none' : 'block';
+    document.getElementById('instructions').style.display = gameState.gameOver ? 'none' : 'flex';
 }
 
 // Render circles
@@ -282,8 +284,8 @@ function renderCircles() {
             circleEl.style.border = `4px solid ${getBorderColor(circle.shade)}`;
         }
         
-        // Show numbers for order levels when game is over
-        if (gameState.gameOver && isOrderLevel(gameState.level)) {
+        // Show numbers for sequential mode when game is over
+        if (gameState.gameOver && gameState.gameMode === 'sequential') {
             const span = document.createElement('span');
             span.textContent = circle.pairId + 1;
             circleEl.appendChild(span);
@@ -307,8 +309,8 @@ function handleCircleClick(circle) {
         gameState.selected = null;
         renderCircles();
     } else if (gameState.selected.pairId === circle.pairId) {
-        // Check if this is an order level and if they're matching in the right order
-        if (isOrderLevel(gameState.level) && circle.pairId !== gameState.nextExpectedShade) {
+        // Check if this is sequential mode and if they're matching in the right order
+        if (gameState.gameMode === 'sequential' && circle.pairId !== gameState.nextExpectedShade) {
             // Wrong order - game over
             endGame(gameState.selected.id, circle.id);
             return;
@@ -343,8 +345,8 @@ function handleCircleClick(circle) {
                 gameState.selected = null;
                 gameState.pairsMatched++;
                 
-                // Update next expected shade for order levels
-                if (isOrderLevel(gameState.level)) {
+                // Update next expected shade for sequential mode
+                if (gameState.gameMode === 'sequential') {
                     gameState.nextExpectedShade++;
                 }
                 
@@ -362,12 +364,13 @@ function handleCircleClick(circle) {
 // End game
 function endGame(circleId1, circleId2) {
     const currentScore = gameState.level + (gameState.pairsMatched / 10);
-    const newHighScore = currentScore > gameState.highScore;
+    const currentHighScore = gameState.highScores[gameState.gameMode];
+    const newHighScore = currentScore > currentHighScore;
     
     if (newHighScore) {
-        gameState.highScore = currentScore;
+        gameState.highScores[gameState.gameMode] = currentScore;
         gameState.isNewHighScore = true;
-        saveHighScore(currentScore);
+        saveHighScore(gameState.gameMode, currentScore);
     } else {
         gameState.isNewHighScore = false;
     }
@@ -382,7 +385,8 @@ function endGame(circleId1, circleId2) {
 
 // Show game over section
 function showGameOver() {
-    const scoreText = `You reached level ${gameState.level}${gameState.pairsMatched > 0 ? `.${gameState.pairsMatched}` : ''}`;
+    const modeName = gameState.gameMode === 'random' ? 'Random Mode' : 'Sequential Mode';
+    const scoreText = `${modeName} - Level ${gameState.level}${gameState.pairsMatched > 0 ? `.${gameState.pairsMatched}` : ''}`;
     finalScore.textContent = scoreText;
     
     if (gameState.isNewHighScore) {
@@ -391,8 +395,9 @@ function showGameOver() {
         newHighScoreText.classList.add('hidden');
     }
     
-    if (gameState.highScore > 0) {
-        highScoreDisplay.textContent = `High Score: ${gameState.highScore.toFixed(1)}`;
+    const currentHighScore = gameState.highScores[gameState.gameMode];
+    if (currentHighScore > 0) {
+        highScoreDisplay.textContent = `${modeName} High Score: ${currentHighScore.toFixed(1)}`;
         highScoreDisplay.classList.remove('hidden');
     } else {
         highScoreDisplay.classList.add('hidden');
@@ -406,15 +411,8 @@ function initLevel(lvl, color) {
     const shadesCount = getShadesCount(lvl);
     const shades = generateShades(color, shadesCount);
     
-    // Check if we need to show the level type popup
-    const currentIsOrder = isOrderLevel(lvl);
-    if (lvl > 1 && currentIsOrder !== gameState.previousLevelWasOrder) {
-        showLevelTypePopup(currentIsOrder);
-    }
-    gameState.previousLevelWasOrder = currentIsOrder;
-    
-    // For order levels, set the first expected shade (lightest)
-    if (currentIsOrder) {
+    // For sequential mode, set the first expected shade (lightest)
+    if (gameState.gameMode === 'sequential') {
         gameState.nextExpectedShade = 0;
     } else {
         gameState.nextExpectedShade = null;
@@ -447,28 +445,42 @@ function initLevel(lvl, color) {
     renderCircles();
 }
 
-// Show level type popup
-function showLevelTypePopup(isOrder) {
-    if (isOrder) {
-        popupTitle.textContent = 'Order Challenge!';
-        popupTitle.className = 'popup-title purple';
-        popupMessage.innerHTML = 'Match the color pairs from <span class="highlight purple">lightest to darkest</span> in the correct sequence.';
-    } else {
-        popupTitle.textContent = 'Back to Normal!';
-        popupTitle.className = 'popup-title blue';
-        popupMessage.innerHTML = 'Match color pairs in <span class="highlight blue">any order</span> you like.';
-    }
-    
-    levelPopup.classList.remove('hidden');
-}
-
-// Start new game
-function startNewGame() {
+// Start game with selected mode
+function startGameWithMode(mode) {
+    gameState.gameMode = mode;
     const color = generateBaseColor();
     gameState.baseColor = color;
     gameState.level = 1;
     gameState.failedCircles = [];
-    gameState.previousLevelWasOrder = false;
+    gameState.isNewHighScore = false;
+    
+    // Hide menu and show game
+    startMenu.classList.add('hidden');
+    gameBoard.classList.remove('hidden');
+    gameOverSection.classList.add('hidden');
+    
+    initLevel(1, color);
+}
+
+// Return to menu
+function returnToMenu() {
+    startMenu.classList.remove('hidden');
+    gameBoard.classList.add('hidden');
+    gameOverSection.classList.add('hidden');
+    gameState.gameMode = null;
+}
+
+// Start new game (same mode)
+function startNewGame() {
+    if (!gameState.gameMode) {
+        returnToMenu();
+        return;
+    }
+    
+    const color = generateBaseColor();
+    gameState.baseColor = color;
+    gameState.level = 1;
+    gameState.failedCircles = [];
     gameState.isNewHighScore = false;
     
     gameOverSection.classList.add('hidden');
@@ -478,17 +490,18 @@ function startNewGame() {
 
 // Event Listeners
 function setupEventListeners() {
-    newGameBtn.addEventListener('click', startNewGame);
-    tryAgainBtn.addEventListener('click', startNewGame);
-    popupBtn.addEventListener('click', () => {
-        levelPopup.classList.add('hidden');
-    });
+    // Mode selection buttons
+    randomModeBtn.addEventListener('click', () => startGameWithMode('random'));
+    sequentialModeBtn.addEventListener('click', () => startGameWithMode('sequential'));
+    
+    // Game buttons
+    newGameBtn.addEventListener('click', returnToMenu);
+    tryAgainBtn.addEventListener('click', returnToMenu);
 }
 
 // Initialize game on page load
 window.addEventListener('DOMContentLoaded', async () => {
     initDOMElements();
-    await loadHighScore();
+    await loadHighScores();
     setupEventListeners();
-    startNewGame();
 });

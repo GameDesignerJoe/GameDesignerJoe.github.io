@@ -24,7 +24,85 @@ body {
     width: 100%;
 }
 
+/* Start Menu */
+.start-menu {
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(to bottom right, #1f2937, #374151);
+    border-radius: 0.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.start-menu.hidden {
+    display: none;
+}
+
+.menu-content {
+    text-align: center;
+    padding: 2rem;
+    max-width: 500px;
+}
+
+.menu-title {
+    font-size: 3rem;
+    font-weight: bold;
+    color: white;
+    margin-bottom: 0.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.menu-subtitle {
+    font-size: 1.5rem;
+    color: #d1d5db;
+    margin-bottom: 3rem;
+}
+
+.mode-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.mode-btn {
+    background: linear-gradient(to bottom right, #2563eb, #1d4ed8);
+    border: none;
+    border-radius: 1rem;
+    padding: 2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.mode-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+}
+
+.mode-btn.sequential {
+    background: linear-gradient(to bottom right, #7c3aed, #6d28d9);
+}
+
+.mode-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    display: block;
+}
+
+.mode-description {
+    font-size: 1rem;
+    color: #e0e7ff;
+    display: block;
+}
+
 /* Game Board */
+
 .game-board {
     aspect-ratio: 1 / 1;
     background: linear-gradient(to bottom right, #1f2937, #374151);
@@ -152,78 +230,6 @@ body {
     font-weight: bold;
     font-size: 1.125rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-/* Level Type Popup */
-.level-popup {
-    position: absolute;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 30;
-}
-
-.level-popup.hidden {
-    display: none;
-}
-
-.popup-content {
-    background-color: #1f2937;
-    padding: 2rem;
-    border-radius: 0.5rem;
-    text-align: center;
-    max-width: 28rem;
-    margin: 0 1rem;
-}
-
-.popup-title {
-    font-size: 1.875rem;
-    font-weight: bold;
-    margin-bottom: 1rem;
-}
-
-.popup-title.purple {
-    color: #c084fc;
-}
-
-.popup-title.blue {
-    color: #60a5fa;
-}
-
-.popup-message {
-    color: white;
-    font-size: 1.125rem;
-    margin-bottom: 1.5rem;
-}
-
-.popup-message .highlight {
-    font-weight: bold;
-}
-
-.popup-message .highlight.purple {
-    color: #d8b4fe;
-}
-
-.popup-message .highlight.blue {
-    color: #93c5fd;
-}
-
-.popup-btn {
-    background-color: #2563eb;
-    color: white;
-    padding: 0.75rem 2rem;
-    border-radius: 0.5rem;
-    border: none;
-    cursor: pointer;
-    font-size: 1.125rem;
-    font-weight: 600;
-    transition: background-color 0.2s;
-}
-
-.popup-btn:hover {
-    background-color: #1d4ed8;
 }
 
 /* Game Over Section */
