@@ -23,6 +23,11 @@ body {
     align-items: center;
 }
 
+/* Expand wrapper when playing */
+.game-wrapper.playing {
+    max-width: 95%;
+}
+
 .game-container {
     background: white;
     border-radius: 1rem;

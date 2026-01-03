@@ -2,7 +2,7 @@
 class PuzzleGame {
     constructor() {
         this.gridSize = 5; // Default: Medium difficulty
-        this.maxCanvasSize = 600;
+        this.maxCanvasSize = 900;
         this.image = null;
         this.grid = [];
         this.pieceWidth = 0;
@@ -36,6 +36,7 @@ class PuzzleGame {
      */
     initializeUI() {
         // Get DOM elements
+        this.gameWrapper = document.querySelector('.game-wrapper');
         this.menuScreen = document.getElementById('menu-screen');
         this.gameScreen = document.getElementById('game-screen');
         this.imageUpload = document.getElementById('image-upload');
@@ -245,6 +246,7 @@ class PuzzleGame {
      * Show menu screen
      */
     showMenuScreen() {
+        this.gameWrapper.classList.remove('playing'); // Shrink wrapper back
         this.menuScreen.classList.remove('hidden');
         this.gameScreen.classList.add('hidden');
         this.quitBtn.classList.add('hidden');
@@ -338,6 +340,20 @@ class PuzzleGame {
      * Initialize the puzzle with shuffled pieces
      */
     initializePuzzle() {
+        // Calculate available space dynamically
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Reserve space for padding, title, quit button, etc.
+        // Title + header: ~120px, padding: ~80px, margins: ~40px
+        const reservedHeight = 240;
+        const reservedWidth = 80; // Side padding
+        
+        const maxWidth = Math.min(viewportWidth - reservedWidth, 1200); // Cap at 1200px
+        const maxHeight = Math.min(viewportHeight - reservedHeight, 900); // Cap at 900px
+        
+        const dynamicMaxSize = Math.min(maxWidth, maxHeight);
+        
         // Calculate piece dimensions from the image
         const pieceWidth = this.image.width / this.gridSize;
         const pieceHeight = this.image.height / this.gridSize;
@@ -346,8 +362,8 @@ class PuzzleGame {
         const canvasWidth = this.gridSize * pieceWidth;
         const canvasHeight = this.gridSize * pieceHeight;
         const scale = Math.min(
-            this.maxCanvasSize / canvasWidth,
-            this.maxCanvasSize / canvasHeight,
+            dynamicMaxSize / canvasWidth,
+            dynamicMaxSize / canvasHeight,
             1
         );
 
@@ -637,6 +653,7 @@ class PuzzleGame {
      */
     showGameScreen() {
         this.puzzleComplete = false; // Reset completion flag
+        this.gameWrapper.classList.add('playing'); // Expand wrapper
         this.menuScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
         this.quitBtn.classList.remove('hidden');
