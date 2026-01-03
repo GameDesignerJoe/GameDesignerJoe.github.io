@@ -405,7 +405,7 @@ body.playing {
     position: absolute;
     top: 1rem;
     right: 1rem;
-    background: #ef4444;
+    background: rgba(128, 128, 128, 0.3);
     color: white;
     border: none;
     width: 3rem;
@@ -419,14 +419,14 @@ body.playing {
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     z-index: 10;
 }
 
 .quit-button:hover {
-    background: #dc2626;
+    background: rgba(128, 128, 128, 0.5);
     transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .canvas-container {

@@ -10,25 +10,11 @@ class PuzzleGame {
         this.renderer = null;
         this.dragHandler = null;
         
-        // Gallery images
-        this.galleryImages = [
-            'aurora_image.png',
-            'gamedesignerjoe_a_1920s_cartographer_in_khakis_field_vest_and_822c1924-60dd-4e50-befd-91f24c50e4c1_1.png',
-            'gamedesignerjoe_httpss.mj.runAx6hOrnbYoE_A_water_color_forest_b1212379-8d3a-4a49-b4cb-a57a8b30e3fa_0.png',
-            'gamedesignerjoe_httpss.mj.runfyRTDDpdNx8_a_small_space_ship_f_1aeb4289-9bf1-4dd0-8d98-1eef36d69058_2.png',
-            'gamedesignerjoe_httpss.mj.runXGnwus1etOw_An_anchor_in_the_sky_ff851a86-32cb-4378-9250-f045c532f32d_1.png',
-            'gamedesignerjoe_Two_fae_entities_in_heated_discussion_in_myst_68808a57-dae0-432b-9999-61a0614d02dd_1.png',
-            'image (3).png',
-            'Image from iOS (1).jpg',
-            'Image from iOS (5).jpg',
-            'Image from iOS (6).jpg',
-            'joe_512.png',
-            'manandmoon.png',
-            'nas_b_512.png',
-            'Slide12.JPG'
-        ];
+        // Gallery images - loaded from manifest
+        this.galleryImages = [];
         
         this.initializeUI();
+        this.loadGalleryManifest();
     }
 
     /**
@@ -116,6 +102,23 @@ class PuzzleGame {
         if (this.renderer) {
             this.renderer.gridSize = this.gridSize;
         }
+    }
+
+    /**
+     * Load gallery manifest from global variable
+     */
+    loadGalleryManifest() {
+        // Check if manifest was loaded from gallery-manifest.js
+        if (window.PUZZLE_GALLERY_IMAGES && Array.isArray(window.PUZZLE_GALLERY_IMAGES)) {
+            this.galleryImages = window.PUZZLE_GALLERY_IMAGES;
+            console.log(`✅ Loaded ${this.galleryImages.length} images from manifest`);
+        } else {
+            console.warn('⚠️ No gallery manifest found. Run: node generate-manifest.js');
+            this.galleryImages = [];
+        }
+        
+        // Reload gallery with images
+        this.loadGallery();
     }
 
     /**
@@ -345,19 +348,26 @@ class PuzzleGame {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Use ALL available space - truly fullscreen (no title, no padding in playing mode)
-        const dynamicMaxSize = Math.min(viewportWidth, viewportHeight);
+        // Reserve small space for quit button to prevent cutoff
+        const reservedTop = 80; // Space for quit button at top
+        const reservedBottom = 20; // Small buffer at bottom
+        const reservedSides = 20; // Small buffer on sides
+        
+        const availableWidth = viewportWidth - (reservedSides * 2);
+        const availableHeight = viewportHeight - reservedTop - reservedBottom;
         
         // Calculate piece dimensions from the image
         const pieceWidth = this.image.width / this.gridSize;
         const pieceHeight = this.image.height / this.gridSize;
 
-        // Calculate display scale (allow upscaling to fill screen)
-        const canvasWidth = this.gridSize * pieceWidth;
-        const canvasHeight = this.gridSize * pieceHeight;
+        // Calculate the full puzzle dimensions
+        const puzzleWidth = this.gridSize * pieceWidth;
+        const puzzleHeight = this.gridSize * pieceHeight;
+
+        // Scale to fit within available viewport while maintaining aspect ratio
         const scale = Math.min(
-            dynamicMaxSize / canvasWidth,
-            dynamicMaxSize / canvasHeight
+            availableWidth / puzzleWidth,
+            availableHeight / puzzleHeight
         );
 
         this.pieceWidth = pieceWidth * scale;

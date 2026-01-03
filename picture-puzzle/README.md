@@ -2,6 +2,23 @@
 
 A fully functional 7×7 grid-based photo puzzle game where players upload an image, solve the shuffled puzzle by dragging and swapping pieces, and watch as matching pieces automatically connect!
 
+## Adding New Gallery Images
+
+To add new images to the gallery:
+
+1. **Add Images**: Place your image files in the `sample-pics/` folder
+   - Supported formats: PNG, JPG, JPEG, GIF, WEBP, BMP, SVG
+
+2. **Update Manifest**: Run the manifest generator script:
+   ```bash
+   cd picture-puzzle
+   node generate-manifest.js
+   ```
+
+3. **Done!**: The game will automatically load all images from the manifest when it starts
+
+The manifest file (`sample-pics/manifest.json`) is automatically generated and lists all images in the folder. The game loads this manifest on startup, so any images you add will appear immediately after regenerating the manifest.
+
 ## Features
 
 ✨ **Image Upload** - Upload any photo from your device  
