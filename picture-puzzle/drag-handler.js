@@ -213,7 +213,7 @@ class DragHandler {
         }
 
         // Single touch: piece drag
-        if (!this.isDragging || !this.draggedGroup || !this.dragStart) return;
+        if (!this.isDragging || this.draggedGroup === null || this.draggedGroup === undefined || !this.dragStart) return;
         
         e.preventDefault();
         
@@ -240,7 +240,7 @@ class DragHandler {
         }
 
         // Single touch piece drag
-        if (!this.isDragging || !this.draggedGroup || !this.dragStart || !this.currentDragPos) {
+        if (!this.isDragging || this.draggedGroup === null || this.draggedGroup === undefined || !this.dragStart || !this.currentDragPos) {
             // Debug: Log why drag was cancelled
             if (this.isDragging && !this.currentDragPos) {
                 console.log('⚠️ Drag cancelled: currentDragPos is null');
