@@ -48,6 +48,8 @@ class PuzzleGame {
         this.previewImage = document.getElementById('preview-image');
         this.closePreview = document.getElementById('close-preview');
         this.winMessage = document.getElementById('win-message');
+        this.viewPictureBtn = document.getElementById('view-picture-btn');
+        this.winMainMenuBtn = document.getElementById('win-main-menu-btn');
         this.galleryGrid = document.getElementById('gallery-grid');
         this.galleryOptions = document.getElementById('gallery-options');
         this.startPuzzleBtn = document.getElementById('start-puzzle-btn');
@@ -58,6 +60,7 @@ class PuzzleGame {
         // State
         this.selectedGalleryImage = null;
         this.uploadedImage = null;
+        this.puzzleComplete = false;
 
         // Event listeners
         this.imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
@@ -68,7 +71,17 @@ class PuzzleGame {
         this.previewModal.addEventListener('click', (e) => {
             if (e.target === this.previewModal) this.hidePreview();
         });
-        this.winMessage.addEventListener('click', () => this.hideWinMessage());
+        
+        // Win message buttons
+        this.viewPictureBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.hideWinMessage();
+        });
+        this.winMainMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.hideWinMessage();
+            this.resetGame();
+        });
 
         // Difficulty selection (gallery)
         this.galleryDifficultyButtons.forEach(btn => {
@@ -623,6 +636,7 @@ class PuzzleGame {
      * Show the game screen
      */
     showGameScreen() {
+        this.puzzleComplete = false; // Reset completion flag
         this.menuScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
         this.quitBtn.classList.remove('hidden');
@@ -646,6 +660,7 @@ class PuzzleGame {
      * Show win message
      */
     showWinMessage() {
+        this.puzzleComplete = true;
         setTimeout(() => {
             this.winMessage.classList.remove('hidden');
         }, 300);
@@ -659,10 +674,16 @@ class PuzzleGame {
     }
 
     /**
-     * Show quit confirmation modal
+     * Show quit confirmation modal (or go straight to menu if puzzle complete)
      */
     showQuitConfirmation() {
-        this.quitModal.classList.remove('hidden');
+        if (this.puzzleComplete) {
+            // Puzzle is complete, go straight to main menu
+            this.resetGame();
+        } else {
+            // Puzzle in progress, show confirmation
+            this.quitModal.classList.remove('hidden');
+        }
     }
 
     /**

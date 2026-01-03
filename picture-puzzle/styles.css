@@ -486,6 +486,46 @@ body {
 .win-content p {
     font-size: 1.25rem;
     color: #6b7280;
+    margin-bottom: 2rem;
+}
+
+.win-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.win-btn {
+    font-size: 1.125rem;
+    font-weight: 600;
+    padding: 0.875rem 2rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 140px;
+}
+
+.win-btn-primary {
+    background: #14b8a6;
+    color: white;
+}
+
+.win-btn-primary:hover {
+    background: #0d9488;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.4);
+}
+
+.win-btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.win-btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
 }
 
 /* Preview Modal */
