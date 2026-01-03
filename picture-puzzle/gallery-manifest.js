@@ -1,6 +1,6 @@
 // Auto-generated gallery manifest
-// Generated: 2026-01-03T11:23:22.756Z
-// Count: 51 images
+// Generated: 2026-01-03T11:54:10.427Z
+// Count: 62 images
 
 window.PUZZLE_GALLERY_IMAGES = [
   "Image from iOS (1).jpg",
@@ -22,14 +22,22 @@ window.PUZZLE_GALLERY_IMAGES = [
   "gamedesignerjoe_Ethereal_forest_threshold_scene_ancient_stone_e128e592-0d95-4322-93be-165f14317428_3.png",
   "gamedesignerjoe_Intricate_Celtic_knot_pattern_with_threads_fl_0efa391f-87e3-4878-8c5e-3b3d0f4dd62b_3.png",
   "gamedesignerjoe_Isometric_polygon_height_map_--ar_169_--v_6.1_0e9b890e-18bf-4458-8bbb-4f2ff39af2fa_1.png",
+  "gamedesignerjoe_LUSH_STRANGE_alien_forest_world_vista_shot_mult_2f1f4511-09ac-4eec-a295-abd4b535eb2c.png",
   "gamedesignerjoe_Layered_reality_scene_showing_mundane_surface_b75916bf-d1a6-49ab-9192-9945486206bd_0.png",
   "gamedesignerjoe_Two_fae_entities_in_heated_discussion_in_myst_68808a57-dae0-432b-9999-61a0614d02dd_1.png",
   "gamedesignerjoe_a_1920s_cartographer_in_khakis_field_vest_and_822c1924-60dd-4e50-befd-91f24c50e4c1_1.png",
   "gamedesignerjoe_a_dozen_of_round_and_floating_cardboard_robot_a94684f2-7060-4247-8056-5ac09885b9ab_2.png",
+  "gamedesignerjoe_a_group_of_adventurous_kids_heading_off_on_a__d2f67d2e-278b-42e9-aa08-6c69b7609218_1.png",
+  "gamedesignerjoe_a_human_looking_female_robot_being_assembled_fl_8c4dd216-6ea8-4d25-9b05-9d2154e9a5f2.png",
+  "gamedesignerjoe_a_kid_with_a_giant_magnifying_glass_looking_a_c12e07c7-75c6-4d7e-9889-fd629dc69654_0.png",
   "gamedesignerjoe_a_roadshow_circus_on_the_side_of_the_road_col_80be16a6-0471-47dd-8527-31e3dc3c5019_3.png",
+  "gamedesignerjoe_alien_jelly_fish_floating_in_outer_space_a_ca_4c19e621-a5c5-4932-ae62-99f9b627ebe3_2.png",
+  "gamedesignerjoe_all_four_seasons_in_one_image_anime_comicbook_a_14f073c3-b55f-46f1-8527-c15262099317.png",
+  "gamedesignerjoe_an_outdoor_library_where_one_half_is_in_deep__761634a9-f585-4abc-9951-1bb00712138f_0.png",
   "gamedesignerjoe_anthropomorphic_dog_cat_otter_and_rabbit_fair_784c2242-03ec-4f4c-807a-87e20a9df332_0.png",
   "gamedesignerjoe_belle_--ar_34_--profile_vc2o5fe_--v_6.1_d6b95a71-a3af-4aa7-b3a4-8db0bd3af3db_3.png",
   "gamedesignerjoe_elderly_old_dinosaur_with_glasses_and_a_beard_a3fd5d18-96e4-4ce6-ad35-6f8ea98104f3_3.png",
+  "gamedesignerjoe_finding_a_piece_of_a_spaceship_a_forcefield_g_4c7f44b7-c606-4dfd-8897-6eb21d0d27c3_0.png",
   "gamedesignerjoe_httpss.mj.runAx6hOrnbYoE_A_water_color_forest_b1212379-8d3a-4a49-b4cb-a57a8b30e3fa_0.png",
   "gamedesignerjoe_httpss.mj.runLRQ9p6HpJOE_use_image_and_leave__cf80ae71-fe58-4413-9cda-4a54f683a19b_2.png",
   "gamedesignerjoe_httpss.mj.runMiXLmA6hZgw_alien_civilization_i_1c507cb4-f77d-45a2-95b7-b015f3da8784_0.png",
@@ -40,11 +48,14 @@ window.PUZZLE_GALLERY_IMAGES = [
   "gamedesignerjoe_lovely_heavy_set_dad_bod_dancing_dance_club_s_4db9bbe2-012f-47cc-b9dc-aa2e4965087a_2.png",
   "gamedesignerjoe_map_--v_6.1_c2187593-0077-435e-8c4d-aa7a28a0d2f1_0.png",
   "gamedesignerjoe_moving_out_--ar_34_--v_6.1_236cc7a1-21c0-43fb-9ad1-794b773e8829_3.png",
+  "gamedesignerjoe_nighttime_dark_colors_interior_of_an_old_book_069141a9-0fd1-41e6-b370-74829f0c68f9_0.png",
+  "gamedesignerjoe_pumkins_smashed_along_the_road_comic_book_art_s_00c9d801-bc68-4d2d-8da7-d477b6149a06.png",
   "gamedesignerjoe_solid_color_banner_--ar_34_--v_6.1_8d82c3eb-36d2-422b-a203-005263c41a0d_2.png",
   "gamedesignerjoe_something_clever_--ar_34_--v_6.1_fa0971d0-5a0a-495c-8d14-c40cea359ede_1.png",
   "gamedesignerjoe_something_clever_--ar_34_--v_6.1_fa0971d0-5a0a-495c-8d14-c40cea359ede_2.png",
   "gamedesignerjoe_space_fantasy_background_image_for_power_poin_c8528dff-9dc1-4ccf-b584-b18cb1159ce6_0.png",
   "gamedesignerjoe_tantamount_--v_7_28eba312-a57d-4a72-b9da-97c48e0d07a4_2.png",
+  "gamedesignerjoe_the_earth_being_split_in_half_inner_core_expose_cdd133c7-43f9-4166-929a-7814cbfed665.png",
   "gamedesignerjoe_top_down_birds_I_view_drawing_of_an_armored_h_f8ef625e-0590-4729-9af1-c0a5ea691f57_0.png",
   "gamedesignerjoe_use_image_and_leave_space_for_text_on_right_-_6dd3e50b-4f72-4ca0-a449-b21b03be6ef7_2.png",
   "gamedesignerjoe_variaton_from_band_posters_create_a_template__ec3f04aa-9c0b-4a5f-a1a4-3a5db6c6914f_0.png",

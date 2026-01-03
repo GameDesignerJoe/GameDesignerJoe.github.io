@@ -773,9 +773,36 @@ class PuzzleGame {
     /**
      * Draw the current puzzle state
      */
-    draw() {
+    draw(showGrid = true, flashGrid = false) {
         if (!this.image || this.grid.length === 0) return;
-        this.renderer.drawPuzzle(this.image, this.grid, this.pieceWidth, this.pieceHeight, this.highlightedGroup);
+        
+        // If puzzle is complete, never show grid
+        if (this.puzzleComplete) {
+            showGrid = false;
+        }
+        
+        // Clear canvas
+        this.renderer.clear();
+        
+        // Draw grid with optional flash effect
+        if (showGrid) {
+            this.renderer.drawGrid(this.pieceWidth, this.pieceHeight, flashGrid);
+        }
+        
+        // Draw all pieces
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = this.grid[row][col];
+                if (piece) {
+                    this.renderer.drawPiece(this.image, piece, col, row, this.pieceWidth, this.pieceHeight, !showGrid);
+                }
+            }
+        }
+        
+        // Draw highlight for selected group
+        if (this.highlightedGroup !== null) {
+            this.renderer.highlightGroupBoundingBox(this.grid, this.pieceWidth, this.pieceHeight, this.highlightedGroup);
+        }
     }
 
     /**
@@ -821,14 +848,25 @@ class PuzzleGame {
     }
 
     /**
-     * Show win message
+     * Show win message with celebration sequence
      */
     showWinMessage() {
         this.puzzleComplete = true;
+        
+        // Step 1: Flash the grid lines white
+        this.draw(true, true); // Show grid with flash
+        
+        // Step 2: Remove grid after flash (300ms)
+        setTimeout(() => {
+            this.draw(false); // Hide grid completely
+        }, 300);
+        
+        // Step 3: Wait 4 seconds before showing congratulations
         setTimeout(() => {
             this.winMessage.classList.remove('hidden');
-        }, 300);
+        }, 4000);
     }
+
 
     /**
      * Hide win message

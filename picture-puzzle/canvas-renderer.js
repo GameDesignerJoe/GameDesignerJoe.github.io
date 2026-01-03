@@ -24,31 +24,41 @@ class CanvasRenderer {
     /**
      * Draw the puzzle grid background
      */
-    drawGrid(pieceWidth, pieceHeight) {
+    drawGrid(pieceWidth, pieceHeight, isFlashing = false) {
         this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 4;
+        this.ctx.lineWidth = isFlashing ? 12 : 4;
+        this.ctx.shadowBlur = isFlashing ? 60 : 0;
+        this.ctx.shadowColor = isFlashing ? '#ffffff' : 'transparent';
 
-        // Vertical lines
-        for (let i = 0; i <= this.gridSize; i++) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(i * pieceWidth, 0);
-            this.ctx.lineTo(i * pieceWidth, this.gridSize * pieceHeight);
-            this.ctx.stroke();
-        }
+        // Draw multiple passes for extra glow effect when flashing
+        const passes = isFlashing ? 3 : 1;
+        
+        for (let pass = 0; pass < passes; pass++) {
+            // Vertical lines
+            for (let i = 0; i <= this.gridSize; i++) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(i * pieceWidth, 0);
+                this.ctx.lineTo(i * pieceWidth, this.gridSize * pieceHeight);
+                this.ctx.stroke();
+            }
 
-        // Horizontal lines
-        for (let i = 0; i <= this.gridSize; i++) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, i * pieceHeight);
-            this.ctx.lineTo(this.gridSize * pieceWidth, i * pieceHeight);
-            this.ctx.stroke();
+            // Horizontal lines
+            for (let i = 0; i <= this.gridSize; i++) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, i * pieceHeight);
+                this.ctx.lineTo(this.gridSize * pieceWidth, i * pieceHeight);
+                this.ctx.stroke();
+            }
         }
+        
+        // Reset shadow
+        this.ctx.shadowBlur = 0;
     }
 
     /**
      * Draw a single puzzle piece
      */
-    drawPiece(image, piece, col, row, pieceWidth, pieceHeight) {
+    drawPiece(image, piece, col, row, pieceWidth, pieceHeight, hideBorder = false) {
         // Draw the image portion
         this.ctx.drawImage(
             image,
@@ -56,33 +66,37 @@ class CanvasRenderer {
             col * pieceWidth, row * pieceHeight, pieceWidth, pieceHeight
         );
 
-        // Draw piece border
-        this.ctx.strokeStyle = '#374151';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(
-            col * pieceWidth, 
-            row * pieceHeight, 
-            pieceWidth, 
-            pieceHeight
-        );
+        // Draw piece border (unless hidden for completion)
+        if (!hideBorder) {
+            this.ctx.strokeStyle = '#374151';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(
+                col * pieceWidth, 
+                row * pieceHeight, 
+                pieceWidth, 
+                pieceHeight
+            );
+        }
     }
 
     /**
      * Draw the entire puzzle with optional highlighted group
      */
-    drawPuzzle(image, grid, pieceWidth, pieceHeight, highlightedGroup = null) {
+    drawPuzzle(image, grid, pieceWidth, pieceHeight, highlightedGroup = null, showGrid = true) {
         // Clear canvas
         this.clear();
 
-        // Draw grid lines
-        this.drawGrid(pieceWidth, pieceHeight);
+        // Draw grid lines (unless disabled for completion)
+        if (showGrid) {
+            this.drawGrid(pieceWidth, pieceHeight);
+        }
 
         // Draw all pieces
         for (let row = 0; row < this.gridSize; row++) {
             for (let col = 0; col < this.gridSize; col++) {
                 const piece = grid[row][col];
                 if (piece) {
-                    this.drawPiece(image, piece, col, row, pieceWidth, pieceHeight);
+                    this.drawPiece(image, piece, col, row, pieceWidth, pieceHeight, !showGrid);
                 }
             }
         }
