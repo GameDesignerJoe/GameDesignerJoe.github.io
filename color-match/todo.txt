@@ -1,0 +1,8 @@
+To Do:
+- Stat Tracking:
+    - Accounts
+    - Improvement over time.
+    - Best color / Worse color
+- Try and make the circle beatles 
+- Design a cute logo
+- Make a game mode where there's a static color and one shifting color and the player has to tap a button to get the shifting color to stop as near to the static color as possible. 
