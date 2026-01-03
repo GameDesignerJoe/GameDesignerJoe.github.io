@@ -34,9 +34,9 @@ const storage = {
 };
 
 // DOM Elements
-let gameBoard, gameArea, levelDisplay, instructionText, connectionLines;
+let gameBoard, gameArea, levelDisplay, connectionLines, highScoreCurrent;
 let gameOverSection, finalScore, newHighScoreText, highScoreDisplay;
-let newGameBtn, tryAgainBtn;
+let menuBtn, tryAgainBtn;
 let startMenu, randomModeBtn, sequentialModeBtn;
 
 // Initialize DOM elements
@@ -44,7 +44,7 @@ function initDOMElements() {
     gameBoard = document.getElementById('game-board');
     gameArea = document.getElementById('game-area');
     levelDisplay = document.getElementById('level-display');
-    instructionText = document.getElementById('instruction-text');
+    highScoreCurrent = document.getElementById('high-score-current');
     connectionLines = document.getElementById('connection-lines');
     
     gameOverSection = document.getElementById('game-over');
@@ -52,7 +52,7 @@ function initDOMElements() {
     newHighScoreText = document.getElementById('new-high-score');
     highScoreDisplay = document.getElementById('high-score-display');
     
-    newGameBtn = document.getElementById('new-game-btn');
+    menuBtn = document.getElementById('menu-btn');
     tryAgainBtn = document.getElementById('try-again-btn');
     
     startMenu = document.getElementById('start-menu');
@@ -204,22 +204,24 @@ function getBorderColor(hsl) {
 
 // Update UI
 function updateUI() {
-    // Update level display with mode
-    const modeName = gameState.gameMode === 'random' ? 'Random' : 'Sequential';
-    const levelText = `Level ${gameState.level}${gameState.pairsMatched > 0 ? `.${gameState.pairsMatched}` : ''} - ${modeName}`;
+    // Update level display
+    const levelText = `Level ${gameState.level}${gameState.pairsMatched > 0 ? `.${gameState.pairsMatched}` : ''}`;
     levelDisplay.textContent = levelText;
+    
+    // Update high score display in header
+    const currentHighScore = gameState.highScores[gameState.gameMode];
+    if (currentHighScore > 0) {
+        highScoreCurrent.textContent = `Best: ${currentHighScore.toFixed(1)}`;
+    } else {
+        highScoreCurrent.textContent = `Best: 0.0`;
+    }
     
     // Update background based on mode
     if (gameState.gameMode === 'sequential') {
         gameBoard.classList.add('order-level');
-        instructionText.textContent = 'Match pairs from lightest to darkest';
     } else {
         gameBoard.classList.remove('order-level');
-        instructionText.textContent = 'Match any pairs in any order';
     }
-    
-    // Show/hide instructions based on game over
-    document.getElementById('instructions').style.display = gameState.gameOver ? 'none' : 'flex';
 }
 
 // Render circles
@@ -495,7 +497,7 @@ function setupEventListeners() {
     sequentialModeBtn.addEventListener('click', () => startGameWithMode('sequential'));
     
     // Game buttons
-    newGameBtn.addEventListener('click', returnToMenu);
+    menuBtn.addEventListener('click', returnToMenu);
     tryAgainBtn.addEventListener('click', returnToMenu);
 }
 

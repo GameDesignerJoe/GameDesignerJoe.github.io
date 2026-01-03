@@ -8,32 +8,34 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: #111827;
     color: #f1f1f1;
-    min-height: 100vh;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 1rem;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
 }
 
 .game-wrapper {
     width: 100%;
-    max-width: 42rem;
+    height: 100%;
 }
 
 .game-container {
     width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Start Menu */
 .start-menu {
-    aspect-ratio: 1 / 1;
+    width: 100%;
+    height: 100%;
     background: linear-gradient(to bottom right, #1f2937, #374151);
-    border-radius: 0.5rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1rem;
 }
 
 .start-menu.hidden {
@@ -102,15 +104,12 @@ body {
 }
 
 /* Game Board */
-
 .game-board {
-    aspect-ratio: 1 / 1;
+    width: 100%;
+    height: 100%;
     background: linear-gradient(to bottom right, #1f2937, #374151);
-    border-radius: 0.5rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     position: relative;
     overflow: hidden;
-    margin-bottom: 1rem;
     transition: background 0.5s ease;
 }
 
@@ -124,61 +123,61 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
     z-index: 10;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(10px);
 }
 
 .level-text {
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     font-weight: bold;
     flex-shrink: 0;
 }
 
-.new-game-btn {
-    background-color: #374151;
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    border: none;
-    cursor: pointer;
+.high-score-current {
+    color: #fbbf24;
     font-size: 1rem;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
-}
-
-.new-game-btn:hover {
-    background-color: #4b5563;
-}
-
-/* Instructions */
-.instructions {
+    font-weight: 600;
     flex: 1;
     text-align: center;
-    padding: 0;
 }
 
-.instructions p {
+.menu-btn {
+    background-color: rgba(55, 65, 81, 0.8);
     color: white;
-    font-size: 0.875rem;
-    font-weight: 500;
-    margin: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
 }
 
-@media (min-width: 768px) {
-    .instructions p {
-        font-size: 1rem;
-    }
+.menu-btn:hover {
+    background-color: rgba(75, 85, 99, 0.9);
+    transform: scale(1.05);
+}
+
+.menu-btn svg {
+    width: 100%;
+    height: 100%;
 }
 
 /* Game Area */
 .game-area {
     position: absolute;
-    top: 4rem;
+    top: 3.5rem;
     bottom: 0;
     left: 0;
     right: 0;
