@@ -16,6 +16,13 @@ body {
     overflow-x: hidden;
 }
 
+/* Fullscreen mode - remove all padding and background */
+body.playing {
+    padding: 0;
+    background: #000000;
+    overflow: hidden;
+}
+
 .game-wrapper {
     width: 100%;
     max-width: 800px;
@@ -38,9 +45,15 @@ body {
     position: relative;
 }
 
-/* Reduce padding when playing to maximize puzzle space */
+/* Fullscreen mode when playing - remove all UI chrome */
 .game-wrapper.playing .game-container {
-    padding: 1rem;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.game-wrapper.playing .game-header {
+    display: none;
 }
 
 .game-header {

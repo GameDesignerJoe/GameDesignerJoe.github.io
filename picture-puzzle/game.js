@@ -246,6 +246,7 @@ class PuzzleGame {
      * Show menu screen
      */
     showMenuScreen() {
+        document.body.classList.remove('playing'); // Exit fullscreen
         this.gameWrapper.classList.remove('playing'); // Shrink wrapper back
         this.menuScreen.classList.remove('hidden');
         this.gameScreen.classList.add('hidden');
@@ -340,20 +341,12 @@ class PuzzleGame {
      * Initialize the puzzle with shuffled pieces
      */
     initializePuzzle() {
-        // Calculate available space dynamically
+        // Calculate available space dynamically - use FULL screen
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Reserve minimal space for title and quit button
-        // Title: ~80px, padding: ~40px top/bottom = 120px total
-        const reservedHeight = 120;
-        const reservedWidth = 40; // Minimal side padding
-        
-        // Use most of the available space
-        const maxWidth = viewportWidth - reservedWidth;
-        const maxHeight = viewportHeight - reservedHeight;
-        
-        const dynamicMaxSize = Math.min(maxWidth, maxHeight);
+        // Use ALL available space - truly fullscreen (no title, no padding in playing mode)
+        const dynamicMaxSize = Math.min(viewportWidth, viewportHeight);
         
         // Calculate piece dimensions from the image
         const pieceWidth = this.image.width / this.gridSize;
@@ -653,6 +646,7 @@ class PuzzleGame {
      */
     showGameScreen() {
         this.puzzleComplete = false; // Reset completion flag
+        document.body.classList.add('playing'); // Fullscreen mode
         this.gameWrapper.classList.add('playing'); // Expand wrapper
         this.menuScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
