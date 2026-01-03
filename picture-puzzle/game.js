@@ -868,6 +868,12 @@ class PuzzleGame {
             }
         });
 
+        // Track which piece IDs were in the dragged group (before reset)
+        const draggedPieceIds = new Set();
+        groupCells.forEach(cell => {
+            draggedPieceIds.add(cell.piece.id);
+        });
+
         // Update grid
         this.grid = newGrid;
 
@@ -884,8 +890,8 @@ class PuzzleGame {
         // Redraw
         this.draw();
 
-        // Check for connections after a short delay to rebuild groups
-        setTimeout(() => this.checkConnections(), 100);
+        // Check for connections after a short delay, passing the dragged piece IDs
+        setTimeout(() => this.checkConnections(draggedPieceIds), 100);
     }
 
     /**
@@ -899,8 +905,9 @@ class PuzzleGame {
 
     /**
      * Check and create connections between adjacent matching pieces
+     * @param {Set} draggedPieceIds - Optional set of piece IDs that were just moved
      */
-    checkConnections() {
+    checkConnections(draggedPieceIds = null) {
         let changed = false;
         const newGrid = this.grid.map(row => [...row]);
 
@@ -916,6 +923,7 @@ class PuzzleGame {
                         // Check if these pieces should be adjacent
                         if (piece.originalCol + 1 === rightPiece.originalCol &&
                             piece.originalRow === rightPiece.originalRow) {
+                            
                             // Merge groups
                             const oldGroup = rightPiece.group;
                             const newGroup = Math.min(piece.group, rightPiece.group);
@@ -941,6 +949,7 @@ class PuzzleGame {
                         // Check if these pieces should be adjacent
                         if (piece.originalRow + 1 === bottomPiece.originalRow &&
                             piece.originalCol === bottomPiece.originalCol) {
+                            
                             // Merge groups
                             const oldGroup = bottomPiece.group;
                             const newGroup = Math.min(piece.group, bottomPiece.group);
@@ -963,8 +972,204 @@ class PuzzleGame {
 
         if (changed) {
             this.grid = newGrid;
-            this.draw();
+            
+            // Check if any dragged pieces are now connected (in a group with other pieces)
+            if (draggedPieceIds && draggedPieceIds.size > 0) {
+                // Find the group that contains the dragged pieces
+                let draggedPieceGroup = null;
+                for (let row = 0; row < this.gridSize; row++) {
+                    for (let col = 0; col < this.gridSize; col++) {
+                        const piece = this.grid[row][col];
+                        if (piece && draggedPieceIds.has(piece.id)) {
+                            draggedPieceGroup = piece.group;
+                            break;
+                        }
+                    }
+                    if (draggedPieceGroup !== null) break;
+                }
+                
+                // Count how many pieces are in this group
+                let groupSize = 0;
+                if (draggedPieceGroup !== null) {
+                    for (let row = 0; row < this.gridSize; row++) {
+                        for (let col = 0; col < this.gridSize; col++) {
+                            const piece = this.grid[row][col];
+                            if (piece && piece.group === draggedPieceGroup) {
+                                groupSize++;
+                            }
+                        }
+                    }
+                }
+                
+                // Only animate if the group has more pieces than were dragged
+                // (meaning new connections were made)
+                if (groupSize > draggedPieceIds.size) {
+                    this.playConnectionAnimation(draggedPieceGroup);
+                } else {
+                    // No new connections - just redraw
+                    this.draw();
+                }
+            } else {
+                // No dragged pieces tracked - silent rebuild
+                this.draw();
+            }
+            
             this.checkWinCondition();
+        }
+    }
+    
+    /**
+     * Play visual feedback animation when pieces connect
+     */
+    playConnectionAnimation(groupId, connectionEdges) {
+        // Step 1: Pulse the border around merged group
+        this.drawWithFlash(groupId);
+        
+        // Step 2: Bump animation (scale up then down) - twice as slow
+        setTimeout(() => {
+            this.drawWithBump(groupId, 1.05);
+        }, 100);
+        
+        setTimeout(() => {
+            this.drawWithBump(groupId, 1.025);
+        }, 200);
+        
+        setTimeout(() => {
+            this.draw(); // Return to normal
+        }, 300);
+    }
+    
+    /**
+     * Draw puzzle with pulsing border around the merged group
+     */
+    drawWithFlash(groupId) {
+        if (!this.image || this.grid.length === 0) return;
+        
+        // Clear and redraw normally first
+        this.renderer.clear();
+        this.renderer.drawGrid(this.pieceWidth, this.pieceHeight, false);
+        
+        // Draw all pieces
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = this.grid[row][col];
+                if (piece) {
+                    this.renderer.drawPiece(this.image, piece, col, row, this.pieceWidth, this.pieceHeight, false);
+                }
+            }
+        }
+        
+        // Draw bright pulsing border around the merged group
+        const ctx = this.renderer.ctx;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+        ctx.lineWidth = 10;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = 'rgba(255, 255, 255, 1)';
+
+        // Draw borders for each piece in group, only on exterior edges
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = this.grid[row][col];
+                if (piece && piece.group === groupId) {
+                    const x = col * this.pieceWidth;
+                    const y = row * this.pieceHeight;
+
+                    // Check each edge and draw if it's an exterior edge
+                    
+                    // Top edge
+                    const hasTopNeighbor = row > 0 && this.grid[row - 1][col]?.group === groupId;
+                    if (!hasTopNeighbor) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + this.pieceWidth, y);
+                        ctx.stroke();
+                    }
+
+                    // Bottom edge
+                    const hasBottomNeighbor = row < this.gridSize - 1 && this.grid[row + 1][col]?.group === groupId;
+                    if (!hasBottomNeighbor) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y + this.pieceHeight);
+                        ctx.lineTo(x + this.pieceWidth, y + this.pieceHeight);
+                        ctx.stroke();
+                    }
+
+                    // Left edge
+                    const hasLeftNeighbor = col > 0 && this.grid[row][col - 1]?.group === groupId;
+                    if (!hasLeftNeighbor) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x, y + this.pieceHeight);
+                        ctx.stroke();
+                    }
+
+                    // Right edge
+                    const hasRightNeighbor = col < this.gridSize - 1 && this.grid[row][col + 1]?.group === groupId;
+                    if (!hasRightNeighbor) {
+                        ctx.beginPath();
+                        ctx.moveTo(x + this.pieceWidth, y);
+                        ctx.lineTo(x + this.pieceWidth, y + this.pieceHeight);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        ctx.shadowBlur = 0;
+    }
+    
+    /**
+     * Draw puzzle with bump (scale) effect on a specific group
+     */
+    drawWithBump(groupId, scale) {
+        if (!this.image || this.grid.length === 0) return;
+        
+        // Clear and redraw normally first
+        this.renderer.clear();
+        this.renderer.drawGrid(this.pieceWidth, this.pieceHeight, false);
+        
+        // Calculate group center for scaling origin
+        let minRow = this.gridSize, maxRow = 0, minCol = this.gridSize, maxCol = 0;
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = this.grid[row][col];
+                if (piece && piece.group === groupId) {
+                    minRow = Math.min(minRow, row);
+                    maxRow = Math.max(maxRow, row);
+                    minCol = Math.min(minCol, col);
+                    maxCol = Math.max(maxCol, col);
+                }
+            }
+        }
+        
+        const centerRow = (minRow + maxRow) / 2;
+        const centerCol = (minCol + maxCol) / 2;
+        const centerX = (centerCol + 0.5) * this.pieceWidth;
+        const centerY = (centerRow + 0.5) * this.pieceHeight;
+        
+        const ctx = this.renderer.ctx;
+        
+        // Draw all pieces
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = this.grid[row][col];
+                if (piece) {
+                    if (piece.group === groupId) {
+                        // Draw scaled version of connected pieces
+                        ctx.save();
+                        ctx.translate(centerX, centerY);
+                        ctx.scale(scale, scale);
+                        ctx.translate(-centerX, -centerY);
+                        
+                        this.renderer.drawPiece(this.image, piece, col, row, this.pieceWidth, this.pieceHeight, false);
+                        
+                        ctx.restore();
+                    } else {
+                        // Draw other pieces normally
+                        this.renderer.drawPiece(this.image, piece, col, row, this.pieceWidth, this.pieceHeight, false);
+                    }
+                }
+            }
         }
     }
 
