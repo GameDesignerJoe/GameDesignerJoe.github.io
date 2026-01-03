@@ -471,17 +471,12 @@ class PuzzleGame {
      * Initialize the puzzle with shuffled pieces
      */
     initializePuzzle() {
-        // Calculate available space dynamically - use FULL screen
+        // Use FULL screen - no reservations
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Reserve small space for quit button to prevent cutoff
-        const reservedTop = 80; // Space for quit button at top
-        const reservedBottom = 20; // Small buffer at bottom
-        const reservedSides = 20; // Small buffer on sides
-        
-        const availableWidth = viewportWidth - (reservedSides * 2);
-        const availableHeight = viewportHeight - reservedTop - reservedBottom;
+        const availableWidth = viewportWidth;
+        const availableHeight = viewportHeight;
         
         // Calculate piece dimensions from the image
         const pieceWidth = this.image.width / this.gridSize;
@@ -491,7 +486,7 @@ class PuzzleGame {
         const puzzleWidth = this.gridSize * pieceWidth;
         const puzzleHeight = this.gridSize * pieceHeight;
 
-        // Scale to fit within available viewport while maintaining aspect ratio
+        // Scale to fit within full viewport while maintaining aspect ratio
         const scale = Math.min(
             availableWidth / puzzleWidth,
             availableHeight / puzzleHeight
@@ -500,7 +495,7 @@ class PuzzleGame {
         this.pieceWidth = pieceWidth * scale;
         this.pieceHeight = pieceHeight * scale;
 
-        // Set canvas size
+        // Set canvas size to fill viewport
         this.renderer.setCanvasSize(
             this.pieceWidth * this.gridSize,
             this.pieceHeight * this.gridSize
