@@ -682,6 +682,12 @@ body {
         font-size: 2rem;
     }
 
+    /* Fit 3 gallery images across on mobile */
+    .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 0.5rem;
+    }
+
     .upload-content {
         padding: 2rem 1rem;
     }
