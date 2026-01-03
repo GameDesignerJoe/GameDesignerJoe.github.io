@@ -71,6 +71,33 @@ body.playing {
 /* Menu Screen */
 .menu-screen {
     padding: 2rem 1rem;
+    position: relative;
+}
+
+/* Settings Button */
+.settings-button {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(107, 114, 128, 0.1);
+    border: 2px solid rgba(107, 114, 128, 0.3);
+    color: #4b5563;
+    font-size: 1.5rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.settings-button:hover {
+    background: rgba(107, 114, 128, 0.2);
+    border-color: rgba(107, 114, 128, 0.5);
+    transform: rotate(90deg) scale(1.1);
 }
 
 .menu-content {
@@ -281,6 +308,48 @@ body.playing {
     border-color: #14b8a6;
     border-width: 4px;
     box-shadow: 0 0 0 2px #14b8a6;
+}
+
+/* Completion Stars on Gallery Thumbnails */
+.gallery-item {
+    position: relative;
+}
+
+.completion-stars {
+    position: absolute;
+    bottom: 6px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.completion-star {
+    font-size: 16px;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 6px rgba(0, 0, 0, 0.5);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    line-height: 1;
+}
+
+/* Medal colors in order: Bronze, Silver, Gold, Purple */
+.completion-star.star-easy {
+    color: #CD7F32; /* Bronze */
+}
+
+.completion-star.star-medium {
+    color: #C0C0C0; /* Silver */
+}
+
+.completion-star.star-hard {
+    color: #FFD700; /* Gold */
+}
+
+.completion-star.star-insane {
+    color: #8B5CF6; /* Purple */
 }
 
 /* Upload Tile */
@@ -687,6 +756,33 @@ body.playing {
     align-items: center;
     gap: 0.25rem;
     min-width: 100px;
+    position: relative;
+}
+
+/* Completion star on difficulty buttons */
+.difficulty-completion-star {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 16px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
+}
+
+.difficulty-completion-star.star-easy {
+    color: #CD7F32; /* Bronze */
+}
+
+.difficulty-completion-star.star-medium {
+    color: #C0C0C0; /* Silver */
+}
+
+.difficulty-completion-star.star-hard {
+    color: #FFD700; /* Gold */
+}
+
+.difficulty-completion-star.star-insane {
+    color: #8B5CF6; /* Purple */
 }
 
 .selection-difficulty-btn:hover {
@@ -800,6 +896,27 @@ body.playing {
     background: #0d9488;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(20, 184, 166, 0.4);
+}
+
+/* Debug Solve Button */
+.debug-solve-btn {
+    margin-top: 1.5rem;
+    background: #8b5cf6;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.debug-solve-btn:hover {
+    background: #7c3aed;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 /* Animations */

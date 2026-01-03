@@ -24,6 +24,10 @@
             <!-- Main Gallery Screen -->
             <div id="menu-screen" class="menu-screen">
                 <input type="file" id="image-upload" accept="image/*" class="hidden">
+                
+                <!-- Settings Button -->
+                <button id="settings-btn" class="settings-button" title="Settings">⚙️</button>
+                
                 <div id="gallery-grid" class="gallery-grid">
                     <!-- Upload tile and gallery images will be loaded here -->
                 </div>
@@ -69,14 +73,27 @@
                 </div>
             </div>
 
-            <!-- Quit Confirmation Modal -->
-            <div id="quit-modal" class="modal hidden">
+    <!-- Quit Confirmation Modal -->
+    <div id="quit-modal" class="modal hidden">
+        <div class="confirm-dialog">
+            <h3>Quit Puzzle?</h3>
+            <p>Are you sure you want to quit?</p>
+            <div class="confirm-buttons">
+                <button id="confirm-quit-btn" class="confirm-btn confirm-yes">Quit</button>
+                <button id="cancel-quit-btn" class="confirm-btn confirm-no">Cancel</button>
+            </div>
+            <button id="debug-solve-btn" class="debug-solve-btn">🔧 Debug: Solve Puzzle</button>
+        </div>
+    </div>
+
+            <!-- Settings Modal -->
+            <div id="settings-modal" class="modal hidden">
                 <div class="confirm-dialog">
-                    <h3>Are you sure you want to quit?</h3>
-                    <p>Your puzzle progress will be lost.</p>
+                    <h3>Settings</h3>
+                    <p>This will clear all completion progress.</p>
                     <div class="confirm-buttons">
-                        <button id="confirm-quit-btn" class="confirm-btn confirm-yes">Yes</button>
-                        <button id="cancel-quit-btn" class="confirm-btn confirm-no">No</button>
+                        <button id="clear-progress-btn" class="confirm-btn confirm-yes">Clear Progress</button>
+                        <button id="close-settings-btn" class="confirm-btn confirm-no">Close</button>
                     </div>
                 </div>
             </div>

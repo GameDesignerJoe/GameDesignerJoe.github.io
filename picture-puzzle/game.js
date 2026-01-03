@@ -16,6 +16,9 @@ class PuzzleGame {
         // Highlighted group for visual feedback
         this.highlightedGroup = null;
         
+        // Completion tracking
+        this.completions = this.loadCompletions();
+        
         this.initializeUI();
         this.loadGalleryManifest();
     }
@@ -51,6 +54,12 @@ class PuzzleGame {
         this.backToGalleryBtn = document.getElementById('back-to-gallery-btn');
         this.letsPuzzleBtn = document.getElementById('lets-puzzle-btn');
 
+        // Settings modal elements
+        this.settingsBtn = document.getElementById('settings-btn');
+        this.settingsModal = document.getElementById('settings-modal');
+        this.clearProgressBtn = document.getElementById('clear-progress-btn');
+        this.closeSettingsBtn = document.getElementById('close-settings-btn');
+
         // Difficulty buttons
         this.galleryDifficultyButtons = document.querySelectorAll('.gallery-difficulty-btn');
 
@@ -58,12 +67,17 @@ class PuzzleGame {
         this.selectedGalleryImage = null;
         this.uploadedImage = null;
         this.puzzleComplete = false;
+        this.currentPuzzleImage = null; // Track which image is being played
 
         // Event listeners
         this.imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
         this.quitBtn.addEventListener('click', () => this.showQuitConfirmation());
         this.confirmQuitBtn.addEventListener('click', () => this.confirmQuit());
         this.cancelQuitBtn.addEventListener('click', () => this.cancelQuit());
+        
+        // Debug solve button
+        this.debugSolveBtn = document.getElementById('debug-solve-btn');
+        this.debugSolveBtn.addEventListener('click', () => this.debugSolvePuzzle());
         this.closePreview.addEventListener('click', () => this.hidePreview());
         this.previewModal.addEventListener('click', (e) => {
             if (e.target === this.previewModal) this.hidePreview();
@@ -100,6 +114,14 @@ class PuzzleGame {
         // Close modal when clicking outside
         this.imageSelectionModal.addEventListener('click', (e) => {
             if (e.target === this.imageSelectionModal) this.hideImageSelectionModal();
+        });
+
+        // Settings menu buttons
+        this.settingsBtn.addEventListener('click', () => this.showSettingsModal());
+        this.clearProgressBtn.addEventListener('click', () => this.confirmClearProgress());
+        this.closeSettingsBtn.addEventListener('click', () => this.hideSettingsModal());
+        this.settingsModal.addEventListener('click', (e) => {
+            if (e.target === this.settingsModal) this.hideSettingsModal();
         });
 
         // Initialize renderer
@@ -178,6 +200,48 @@ class PuzzleGame {
             img.loading = 'lazy';
             
             item.appendChild(img);
+            
+            // Add completion stars overlay
+            const completions = this.getImageCompletions(imageName);
+            if (Object.keys(completions).length > 0) {
+                const starsOverlay = document.createElement('div');
+                starsOverlay.className = 'completion-stars';
+                
+                // Top-left: Easy (3x3) - Bronze
+                if (completions['3']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-easy';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                // Top-right: Medium (5x5) - Silver
+                if (completions['5']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-medium';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                // Bottom-left: Hard (7x7) - Gold
+                if (completions['7']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-hard';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                // Bottom-right: Insane (9x9) - Purple
+                if (completions['9']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-insane';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                item.appendChild(starsOverlay);
+            }
+            
             item.addEventListener('click', () => this.selectGalleryImage(imageName));
             
             this.galleryGrid.appendChild(item);
@@ -203,12 +267,37 @@ class PuzzleGame {
         // Set preview image
         this.selectionPreviewImage.src = `sample-pics/${imageName}`;
         
+        // Get completions for this image
+        const completions = this.getImageCompletions(imageName);
+        
         // Reset difficulty to medium (default)
         this.gridSize = 5;
         this.selectionDifficultyButtons.forEach(btn => {
             btn.classList.remove('active');
             if (btn.getAttribute('data-difficulty') === '5') {
                 btn.classList.add('active');
+            }
+            
+            // Remove any existing completion stars
+            const existingStar = btn.querySelector('.difficulty-completion-star');
+            if (existingStar) {
+                existingStar.remove();
+            }
+            
+            // Add completion star if completed
+            const difficulty = btn.getAttribute('data-difficulty');
+            if (completions[difficulty]) {
+                const star = document.createElement('div');
+                star.className = 'difficulty-completion-star';
+                star.innerHTML = '●';
+                
+                // Add color class based on difficulty
+                if (difficulty === '3') star.classList.add('star-easy');
+                else if (difficulty === '5') star.classList.add('star-medium');
+                else if (difficulty === '7') star.classList.add('star-hard');
+                else if (difficulty === '9') star.classList.add('star-insane');
+                
+                btn.appendChild(star);
             }
         });
         
@@ -275,6 +364,7 @@ class PuzzleGame {
 
         // Store the image name before hiding modal (which clears it)
         const imageName = this.selectedGalleryImage;
+        this.currentPuzzleImage = imageName; // Track current puzzle
 
         console.log('Starting puzzle from modal');
         console.log('Selected image:', imageName);
@@ -848,6 +938,13 @@ class PuzzleGame {
     showWinMessage() {
         this.puzzleComplete = true;
         
+        // Save completion for gallery images
+        if (this.currentPuzzleImage) {
+            this.saveCompletion(this.currentPuzzleImage, this.gridSize);
+            // Reload gallery to update stars
+            this.loadGallery();
+        }
+        
         // Step 1: Flash the grid lines white
         this.draw(true, true); // Show grid with flash
         
@@ -907,6 +1004,134 @@ class PuzzleGame {
         this.imageUpload.value = '';
         this.hideWinMessage();
         this.showMenuScreen();
+    }
+
+    /**
+     * Load completions from localStorage
+     */
+    loadCompletions() {
+        try {
+            const data = localStorage.getItem('puzzleCompletions');
+            return data ? JSON.parse(data) : {};
+        } catch (e) {
+            console.error('Failed to load completions:', e);
+            return {};
+        }
+    }
+
+    /**
+     * Save completion to localStorage
+     */
+    saveCompletion(imageName, difficulty) {
+        if (!imageName) return;
+        
+        // Initialize image entry if it doesn't exist
+        if (!this.completions[imageName]) {
+            this.completions[imageName] = {};
+        }
+        
+        // Mark difficulty as complete
+        this.completions[imageName][difficulty.toString()] = true;
+        
+        // Save to localStorage
+        try {
+            localStorage.setItem('puzzleCompletions', JSON.stringify(this.completions));
+            console.log(`✅ Saved completion: ${imageName} - ${difficulty}x${difficulty}`);
+        } catch (e) {
+            console.error('Failed to save completion:', e);
+        }
+    }
+
+    /**
+     * Get completions for a specific image
+     */
+    getImageCompletions(imageName) {
+        return this.completions[imageName] || {};
+    }
+
+    /**
+     * Clear all progress (debug function)
+     */
+    clearProgress() {
+        this.completions = {};
+        try {
+            localStorage.removeItem('puzzleCompletions');
+            console.log('🗑️ All progress cleared');
+            // Reload gallery to update stars
+            this.loadGallery();
+        } catch (e) {
+            console.error('Failed to clear progress:', e);
+        }
+    }
+
+    /**
+     * Show settings modal
+     */
+    showSettingsModal() {
+        this.settingsModal.classList.remove('hidden');
+    }
+
+    /**
+     * Hide settings modal
+     */
+    hideSettingsModal() {
+        this.settingsModal.classList.add('hidden');
+    }
+
+    /**
+     * Confirm and execute clear progress
+     */
+    confirmClearProgress() {
+        this.clearProgress();
+        this.hideSettingsModal();
+    }
+
+    /**
+     * Debug: Solve puzzle instantly
+     */
+    debugSolvePuzzle() {
+        console.log('🔧 Debug: Solving puzzle...');
+        
+        // Close the quit modal
+        this.quitModal.classList.add('hidden');
+        
+        // Arrange all pieces in their correct positions
+        const newGrid = [];
+        for (let row = 0; row < this.gridSize; row++) {
+            newGrid[row] = [];
+            for (let col = 0; col < this.gridSize; col++) {
+                // Find the piece that belongs here
+                let correctPiece = null;
+                for (let r = 0; r < this.gridSize; r++) {
+                    for (let c = 0; c < this.gridSize; c++) {
+                        const piece = this.grid[r][c];
+                        if (piece && piece.originalRow === row && piece.originalCol === col) {
+                            correctPiece = piece;
+                            break;
+                        }
+                    }
+                    if (correctPiece) break;
+                }
+                newGrid[row][col] = correctPiece;
+            }
+        }
+        
+        // Update grid
+        this.grid = newGrid;
+        
+        // Set all pieces to the same group (they're all connected now)
+        const firstGroup = this.grid[0][0].id;
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                this.grid[row][col] = { ...this.grid[row][col], group: firstGroup };
+            }
+        }
+        
+        // Redraw and trigger win
+        this.draw();
+        setTimeout(() => {
+            this.showWinMessage();
+        }, 100);
     }
 }
 
