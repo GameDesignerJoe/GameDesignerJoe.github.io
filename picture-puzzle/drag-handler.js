@@ -8,8 +8,22 @@ class DragHandler {
         this.dragStart = null;
         this.currentDragPos = null;
 
+        // Zoom and pan state
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.minZoom = 0.5;
+        this.maxZoom = 3.0;
+
+        // Multi-touch state
+        this.lastTouchDistance = null;
+        this.lastTouchCenter = null;
+        this.isPinching = false;
+        this.isPanning = false;
+
         this.setupEventListeners();
     }
+
 
     /**
      * Set up mouse and touch event listeners
@@ -48,6 +62,45 @@ class DragHandler {
     }
 
     /**
+     * Calculate distance between two touches
+     */
+    getTouchDistance(touch1, touch2) {
+        const dx = touch2.clientX - touch1.clientX;
+        const dy = touch2.clientY - touch1.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Get center point between two touches
+     */
+    getTouchCenter(touch1, touch2) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+            y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+        };
+    }
+
+    /**
+     * Transform screen coordinates to canvas coordinates (accounting for zoom/pan)
+     */
+    screenToCanvas(x, y) {
+        return {
+            x: (x - this.panX) / this.zoom,
+            y: (y - this.panY) / this.zoom
+        };
+    }
+
+    /**
+     * Apply zoom and pan transformation to canvas
+     */
+    applyTransform() {
+        const container = this.canvas.parentElement;
+        this.canvas.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+        this.canvas.style.transformOrigin = '0 0';
+    }
+
+    /**
      * Convert canvas coordinates to grid position
      */
     getGridPosition(x, y) {
@@ -78,13 +131,33 @@ class DragHandler {
     }
 
     /**
-     * Handle drag start
+     * Handle drag/touch start
      */
     handleStart(e) {
+        // Multi-touch: pinch or pan
+        if (e.touches && e.touches.length === 2) {
+            e.preventDefault();
+            this.isPinching = true;
+            this.isPanning = true;
+            
+            // Cancel any ongoing drag
+            if (this.isDragging) {
+                this.resetDrag();
+            }
+            
+            this.lastTouchDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+            this.lastTouchCenter = this.getTouchCenter(e.touches[0], e.touches[1]);
+            return;
+        }
+
+        // Single touch: piece drag
         e.preventDefault();
         
         const { x, y } = this.getEventPosition(e);
-        const pos = this.getGridPosition(x, y);
+        
+        // Transform screen coordinates to canvas coordinates
+        const canvasCoords = this.screenToCanvas(x, y);
+        const pos = this.getGridPosition(canvasCoords.x, canvasCoords.y);
         
         if (pos && this.game.grid[pos.row][pos.col]) {
             const piece = this.game.grid[pos.row][pos.col];
@@ -99,15 +172,52 @@ class DragHandler {
     }
 
     /**
-     * Handle drag move
+     * Handle drag/touch move
      */
     handleMove(e) {
+        // Multi-touch: handle pinch zoom and pan
+        if (e.touches && e.touches.length === 2) {
+            e.preventDefault();
+            
+            if (!this.isPinching) return;
+            
+            const currentDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
+            const currentCenter = this.getTouchCenter(e.touches[0], e.touches[1]);
+            
+            // Calculate zoom change
+            if (this.lastTouchDistance) {
+                const distanceChange = currentDistance / this.lastTouchDistance;
+                const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * distanceChange));
+                
+                // Zoom around the pinch center
+                const zoomChange = newZoom / this.zoom;
+                this.panX = currentCenter.x - (currentCenter.x - this.panX) * zoomChange;
+                this.panY = currentCenter.y - (currentCenter.y - this.panY) * zoomChange;
+                this.zoom = newZoom;
+            }
+            
+            // Calculate pan change
+            if (this.lastTouchCenter) {
+                this.panX += (currentCenter.x - this.lastTouchCenter.x);
+                this.panY += (currentCenter.y - this.lastTouchCenter.y);
+            }
+            
+            this.lastTouchDistance = currentDistance;
+            this.lastTouchCenter = currentCenter;
+            
+            // Apply the transformation
+            this.applyTransform();
+            return;
+        }
+
+        // Single touch: piece drag
         if (!this.isDragging || !this.draggedGroup || !this.dragStart) return;
         
         e.preventDefault();
         
         const { x, y } = this.getEventPosition(e);
-        const pos = this.getGridPosition(x, y);
+        const canvasCoords = this.screenToCanvas(x, y);
+        const pos = this.getGridPosition(canvasCoords.x, canvasCoords.y);
         
         if (pos) {
             this.currentDragPos = pos;
@@ -115,9 +225,19 @@ class DragHandler {
     }
 
     /**
-     * Handle drag end
+     * Handle drag/touch end
      */
     handleEnd(e) {
+        // Multi-touch ended
+        if (this.isPinching || this.isPanning) {
+            this.isPinching = false;
+            this.isPanning = false;
+            this.lastTouchDistance = null;
+            this.lastTouchCenter = null;
+            return;
+        }
+
+        // Single touch piece drag
         if (!this.isDragging || !this.draggedGroup || !this.dragStart || !this.currentDragPos) {
             // Debug: Log why drag was cancelled
             if (this.isDragging && !this.currentDragPos) {
