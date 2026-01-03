@@ -43,6 +43,105 @@ body {
     margin: 0;
 }
 
+/* Menu Screen */
+.menu-screen {
+    padding: 2rem 1rem;
+}
+
+.menu-content {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.menu-subtitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+/* Difficulty Buttons */
+.difficulty-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 3rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.difficulty-btn {
+    background: white;
+    border: 3px solid #d1d5db;
+    border-radius: 0.75rem;
+    padding: 1.5rem 2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 120px;
+}
+
+.difficulty-btn:hover {
+    border-color: #14b8a6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
+}
+
+.difficulty-btn.active {
+    border-color: #14b8a6;
+    background: #f0fdfa;
+}
+
+.difficulty-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.difficulty-grid {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #14b8a6;
+}
+
+/* Source Buttons */
+.source-buttons {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.source-btn {
+    background: #14b8a6;
+    border: none;
+    border-radius: 0.75rem;
+    padding: 2rem 2.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: white;
+    font-size: 1.125rem;
+    font-weight: 600;
+    min-width: 200px;
+}
+
+.source-btn:hover {
+    background: #0d9488;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(20, 184, 166, 0.3);
+}
+
+.source-btn svg {
+    color: white;
+}
+
 /* Upload Screen */
 .upload-screen {
     display: flex;
@@ -91,6 +190,147 @@ body {
     margin-top: 1rem;
     color: #6b7280;
     font-size: 0.875rem;
+}
+
+.back-button {
+    background: #6b7280;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 1.5rem;
+}
+
+.back-button:hover {
+    background: #4b5563;
+}
+
+/* Gallery Screen */
+.gallery-screen {
+    padding: 2rem 1rem;
+}
+
+.gallery-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.gallery-item {
+    aspect-ratio: 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 3px solid transparent;
+    background: #f3f4f6;
+}
+
+.gallery-item:hover {
+    transform: scale(1.05);
+    border-color: #14b8a6;
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.gallery-item.selected {
+    border-color: #14b8a6;
+    border-width: 4px;
+    box-shadow: 0 0 0 2px #14b8a6;
+}
+
+/* Gallery Options */
+.gallery-options {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: #f0fdfa;
+    border-radius: 0.75rem;
+    border: 2px solid #14b8a6;
+}
+
+.gallery-options-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.gallery-difficulty-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.gallery-difficulty-btn {
+    background: white;
+    border: 3px solid #d1d5db;
+    border-radius: 0.75rem;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 100px;
+}
+
+.gallery-difficulty-btn:hover {
+    border-color: #14b8a6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
+}
+
+.gallery-difficulty-btn.active {
+    border-color: #14b8a6;
+    background: white;
+    box-shadow: 0 0 0 2px #14b8a6;
+}
+
+.start-puzzle-btn {
+    background: #14b8a6;
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 700;
+    padding: 1rem 3rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 300px;
+}
+
+.start-puzzle-btn:hover {
+    background: #0d9488;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(20, 184, 166, 0.4);
 }
 
 .hidden {

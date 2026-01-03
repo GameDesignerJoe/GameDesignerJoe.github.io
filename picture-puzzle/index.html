@@ -17,8 +17,49 @@
                 <h1 class="game-title">Photo Puzzle</h1>
             </header>
 
+            <!-- Menu Screen -->
+            <div id="menu-screen" class="menu-screen">
+                <div class="menu-content">
+                    <h2 class="menu-subtitle">Select Difficulty</h2>
+                    <div class="difficulty-buttons">
+                        <button class="difficulty-btn" data-difficulty="3">
+                            <span class="difficulty-name">Easy</span>
+                            <span class="difficulty-grid">3×3</span>
+                        </button>
+                        <button class="difficulty-btn active" data-difficulty="5">
+                            <span class="difficulty-name">Medium</span>
+                            <span class="difficulty-grid">5×5</span>
+                        </button>
+                        <button class="difficulty-btn" data-difficulty="7">
+                            <span class="difficulty-name">Hard</span>
+                            <span class="difficulty-grid">7×7</span>
+                        </button>
+                    </div>
+
+                    <h2 class="menu-subtitle">Choose Image Source</h2>
+                    <div class="source-buttons">
+                        <button id="upload-option-btn" class="source-btn">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Upload Photo</span>
+                        </button>
+                        <button id="gallery-option-btn" class="source-btn">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <span>Choose from Gallery</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Upload Screen -->
-            <div id="upload-screen" class="upload-screen">
+            <div id="upload-screen" class="upload-screen hidden">
                 <div class="upload-content">
                     <div class="upload-icon">
                         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -31,8 +72,38 @@
                         Upload Photo
                         <input type="file" id="image-upload" accept="image/*" class="hidden">
                     </label>
-                    <p class="upload-description">7×7 Grid Challenge</p>
+                    <p class="upload-description">Select an image from your device</p>
+                    <button id="back-to-menu-upload" class="back-button">← Back to Menu</button>
                 </div>
+            </div>
+
+            <!-- Gallery Screen -->
+            <div id="gallery-screen" class="gallery-screen hidden">
+                <h2 class="gallery-title">Choose an Image</h2>
+                <div id="gallery-grid" class="gallery-grid">
+                    <!-- Gallery images will be loaded here -->
+                </div>
+                
+                <div id="gallery-options" class="gallery-options hidden">
+                    <h3 class="gallery-options-title">Select Difficulty</h3>
+                    <div class="gallery-difficulty-buttons">
+                        <button class="gallery-difficulty-btn" data-difficulty="3">
+                            <span class="difficulty-name">Easy</span>
+                            <span class="difficulty-grid">3×3</span>
+                        </button>
+                        <button class="gallery-difficulty-btn active" data-difficulty="5">
+                            <span class="difficulty-name">Medium</span>
+                            <span class="difficulty-grid">5×5</span>
+                        </button>
+                        <button class="gallery-difficulty-btn" data-difficulty="7">
+                            <span class="difficulty-name">Hard</span>
+                            <span class="difficulty-grid">7×7</span>
+                        </button>
+                    </div>
+                    <button id="start-puzzle-btn" class="start-puzzle-btn">Let's Puzzle!</button>
+                </div>
+                
+                <button id="back-to-menu-gallery" class="back-button">← Back to Menu</button>
             </div>
 
             <!-- Game Screen -->

@@ -1,7 +1,7 @@
 // Main Game Logic
 class PuzzleGame {
     constructor() {
-        this.gridSize = 7;
+        this.gridSize = 5; // Default: Medium difficulty
         this.maxCanvasSize = 600;
         this.image = null;
         this.grid = [];
@@ -9,6 +9,24 @@ class PuzzleGame {
         this.pieceHeight = 0;
         this.renderer = null;
         this.dragHandler = null;
+        
+        // Gallery images
+        this.galleryImages = [
+            'aurora_image.png',
+            'gamedesignerjoe_a_1920s_cartographer_in_khakis_field_vest_and_822c1924-60dd-4e50-befd-91f24c50e4c1_1.png',
+            'gamedesignerjoe_httpss.mj.runAx6hOrnbYoE_A_water_color_forest_b1212379-8d3a-4a49-b4cb-a57a8b30e3fa_0.png',
+            'gamedesignerjoe_httpss.mj.runfyRTDDpdNx8_a_small_space_ship_f_1aeb4289-9bf1-4dd0-8d98-1eef36d69058_2.png',
+            'gamedesignerjoe_httpss.mj.runXGnwus1etOw_An_anchor_in_the_sky_ff851a86-32cb-4378-9250-f045c532f32d_1.png',
+            'gamedesignerjoe_Two_fae_entities_in_heated_discussion_in_myst_68808a57-dae0-432b-9999-61a0614d02dd_1.png',
+            'image (3).png',
+            'Image from iOS (1).jpg',
+            'Image from iOS (5).jpg',
+            'Image from iOS (6).jpg',
+            'joe_512.png',
+            'manandmoon.png',
+            'nas_b_512.png',
+            'Slide12.JPG'
+        ];
         
         this.initializeUI();
     }
@@ -18,7 +36,9 @@ class PuzzleGame {
      */
     initializeUI() {
         // Get DOM elements
+        this.menuScreen = document.getElementById('menu-screen');
         this.uploadScreen = document.getElementById('upload-screen');
+        this.galleryScreen = document.getElementById('gallery-screen');
         this.gameScreen = document.getElementById('game-screen');
         this.imageUpload = document.getElementById('image-upload');
         this.canvas = document.getElementById('puzzle-canvas');
@@ -28,6 +48,22 @@ class PuzzleGame {
         this.previewImage = document.getElementById('preview-image');
         this.closePreview = document.getElementById('close-preview');
         this.winMessage = document.getElementById('win-message');
+        this.galleryGrid = document.getElementById('gallery-grid');
+        this.galleryOptions = document.getElementById('gallery-options');
+        this.startPuzzleBtn = document.getElementById('start-puzzle-btn');
+
+        // Menu buttons
+        this.uploadOptionBtn = document.getElementById('upload-option-btn');
+        this.galleryOptionBtn = document.getElementById('gallery-option-btn');
+        this.backToMenuUpload = document.getElementById('back-to-menu-upload');
+        this.backToMenuGallery = document.getElementById('back-to-menu-gallery');
+
+        // Difficulty buttons
+        this.difficultyButtons = document.querySelectorAll('.difficulty-btn');
+        this.galleryDifficultyButtons = document.querySelectorAll('.gallery-difficulty-btn');
+
+        // Gallery state
+        this.selectedGalleryImage = null;
 
         // Event listeners
         this.imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
@@ -39,8 +75,149 @@ class PuzzleGame {
         });
         this.winMessage.addEventListener('click', () => this.hideWinMessage());
 
+        // Menu navigation
+        this.uploadOptionBtn.addEventListener('click', () => this.showUploadScreen());
+        this.galleryOptionBtn.addEventListener('click', () => this.showGalleryScreen());
+        this.backToMenuUpload.addEventListener('click', () => this.showMenuScreen());
+        this.backToMenuGallery.addEventListener('click', () => {
+            this.selectedGalleryImage = null;
+            this.galleryOptions.classList.add('hidden');
+            this.showMenuScreen();
+        });
+
+        // Difficulty selection (menu)
+        this.difficultyButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.selectDifficulty(btn));
+        });
+
+        // Difficulty selection (gallery)
+        this.galleryDifficultyButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.selectGalleryDifficulty(btn));
+        });
+
+        // Start puzzle button
+        this.startPuzzleBtn.addEventListener('click', () => this.startPuzzleFromGallery());
+
         // Initialize renderer
         this.renderer = new CanvasRenderer(this.canvas);
+
+        // Load gallery images
+        this.loadGallery();
+    }
+
+    /**
+     * Select difficulty level
+     */
+    selectDifficulty(selectedBtn) {
+        // Remove active class from all buttons
+        this.difficultyButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to selected button
+        selectedBtn.classList.add('active');
+        
+        // Update grid size
+        this.gridSize = parseInt(selectedBtn.getAttribute('data-difficulty'));
+        
+        // Update renderer grid size
+        if (this.renderer) {
+            this.renderer.gridSize = this.gridSize;
+        }
+    }
+
+    /**
+     * Load gallery images
+     */
+    loadGallery() {
+        this.galleryGrid.innerHTML = '';
+        
+        this.galleryImages.forEach(imageName => {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            
+            const img = document.createElement('img');
+            img.src = `sample-pics/${imageName}`;
+            img.alt = imageName;
+            img.loading = 'lazy';
+            
+            item.appendChild(img);
+            item.addEventListener('click', () => this.selectGalleryImage(imageName));
+            
+            this.galleryGrid.appendChild(item);
+        });
+    }
+
+    /**
+     * Select an image from the gallery
+     */
+    selectGalleryImage(imageName) {
+        // Store selected image
+        this.selectedGalleryImage = imageName;
+
+        // Remove selected class from all items
+        const allItems = this.galleryGrid.querySelectorAll('.gallery-item');
+        allItems.forEach(item => item.classList.remove('selected'));
+
+        // Add selected class to clicked item
+        const clickedItem = event.target.closest('.gallery-item');
+        if (clickedItem) {
+            clickedItem.classList.add('selected');
+        }
+
+        // Show options section
+        this.galleryOptions.classList.remove('hidden');
+    }
+
+    /**
+     * Select difficulty in gallery
+     */
+    selectGalleryDifficulty(selectedBtn) {
+        // Remove active class from all gallery difficulty buttons
+        this.galleryDifficultyButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to selected button
+        selectedBtn.classList.add('active');
+        
+        // Update grid size
+        this.gridSize = parseInt(selectedBtn.getAttribute('data-difficulty'));
+        
+        // Update renderer grid size
+        if (this.renderer) {
+            this.renderer.gridSize = this.gridSize;
+        }
+    }
+
+    /**
+     * Start puzzle from gallery selection
+     */
+    startPuzzleFromGallery() {
+        if (!this.selectedGalleryImage) return;
+
+        const img = new Image();
+        img.onload = () => {
+            this.image = img;
+            this.previewImage.src = img.src;
+            this.initializePuzzle();
+            this.showGameScreen();
+        };
+        img.src = `sample-pics/${this.selectedGalleryImage}`;
+    }
+
+    /**
+     * Show menu screen
+     */
+    showMenuScreen() {
+        this.menuScreen.classList.remove('hidden');
+        this.uploadScreen.classList.add('hidden');
+        this.galleryScreen.classList.add('hidden');
+        this.gameScreen.classList.add('hidden');
+    }
+
+    /**
+     * Show gallery screen
+     */
+    showGalleryScreen() {
+        this.menuScreen.classList.add('hidden');
+        this.galleryScreen.classList.remove('hidden');
     }
 
     /**
@@ -366,7 +543,9 @@ class PuzzleGame {
      * Show the game screen
      */
     showGameScreen() {
+        this.menuScreen.classList.add('hidden');
         this.uploadScreen.classList.add('hidden');
+        this.galleryScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
     }
 
@@ -374,6 +553,8 @@ class PuzzleGame {
      * Show the upload screen
      */
     showUploadScreen() {
+        this.menuScreen.classList.add('hidden');
+        this.galleryScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
         this.uploadScreen.classList.remove('hidden');
     }
@@ -416,7 +597,7 @@ class PuzzleGame {
         this.grid = [];
         this.imageUpload.value = '';
         this.hideWinMessage();
-        this.showUploadScreen();
+        this.showMenuScreen();
     }
 }
 
