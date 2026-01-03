@@ -77,6 +77,36 @@
                 </div>
             </div>
 
+            <!-- Image Selection Preview Modal -->
+            <div id="image-selection-modal" class="modal hidden">
+                <div class="selection-dialog">
+                    <img id="selection-preview-image" src="" alt="Preview" class="selection-preview-image">
+                    
+                    <div class="selection-options">
+                        <h3 class="selection-title">Select Difficulty</h3>
+                        <div class="selection-difficulty-buttons">
+                            <button class="selection-difficulty-btn" data-difficulty="3">
+                                <span class="difficulty-name">Easy</span>
+                                <span class="difficulty-grid">3×3</span>
+                            </button>
+                            <button class="selection-difficulty-btn active" data-difficulty="5">
+                                <span class="difficulty-name">Medium</span>
+                                <span class="difficulty-grid">5×5</span>
+                            </button>
+                            <button class="selection-difficulty-btn" data-difficulty="7">
+                                <span class="difficulty-name">Hard</span>
+                                <span class="difficulty-grid">7×7</span>
+                            </button>
+                        </div>
+                        
+                        <div class="selection-actions">
+                            <button id="back-to-gallery-btn" class="selection-btn selection-btn-secondary">Back to Gallery</button>
+                            <button id="lets-puzzle-btn" class="selection-btn selection-btn-primary">Let's Puzzle!</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Preview Modal -->
             <div id="preview-modal" class="modal hidden">
                 <div class="modal-content">

@@ -43,6 +43,13 @@ class PuzzleGame {
         this.galleryGrid = document.getElementById('gallery-grid');
         this.galleryOptions = document.getElementById('gallery-options');
         this.startPuzzleBtn = document.getElementById('start-puzzle-btn');
+        
+        // Image selection modal elements
+        this.imageSelectionModal = document.getElementById('image-selection-modal');
+        this.selectionPreviewImage = document.getElementById('selection-preview-image');
+        this.selectionDifficultyButtons = document.querySelectorAll('.selection-difficulty-btn');
+        this.backToGalleryBtn = document.getElementById('back-to-gallery-btn');
+        this.letsPuzzleBtn = document.getElementById('lets-puzzle-btn');
 
         // Difficulty buttons
         this.galleryDifficultyButtons = document.querySelectorAll('.gallery-difficulty-btn');
@@ -80,6 +87,20 @@ class PuzzleGame {
 
         // Start puzzle button
         this.startPuzzleBtn.addEventListener('click', () => this.startPuzzleFromGallery());
+        
+        // Selection modal difficulty buttons
+        this.selectionDifficultyButtons.forEach(btn => {
+            btn.addEventListener('click', () => this.selectModalDifficulty(btn));
+        });
+        
+        // Selection modal action buttons
+        this.backToGalleryBtn.addEventListener('click', () => this.hideImageSelectionModal());
+        this.letsPuzzleBtn.addEventListener('click', () => this.startPuzzleFromModal());
+        
+        // Close modal when clicking outside
+        this.imageSelectionModal.addEventListener('click', (e) => {
+            if (e.target === this.imageSelectionModal) this.hideImageSelectionModal();
+        });
 
         // Initialize renderer
         this.renderer = new CanvasRenderer(this.canvas);
@@ -164,24 +185,117 @@ class PuzzleGame {
     }
 
     /**
-     * Select an image from the gallery
+     * Select an image from the gallery - Show modal with preview
      */
     selectGalleryImage(imageName) {
         // Store selected image
         this.selectedGalleryImage = imageName;
+        this.uploadedImage = null; // Clear uploaded image
+        
+        // Show the selection modal
+        this.showImageSelectionModal(imageName);
+    }
 
-        // Remove selected class from all items
-        const allItems = this.galleryGrid.querySelectorAll('.gallery-item');
-        allItems.forEach(item => item.classList.remove('selected'));
+    /**
+     * Show image selection modal
+     */
+    showImageSelectionModal(imageName) {
+        // Set preview image
+        this.selectionPreviewImage.src = `sample-pics/${imageName}`;
+        
+        // Reset difficulty to medium (default)
+        this.gridSize = 5;
+        this.selectionDifficultyButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-difficulty') === '5') {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Show modal
+        this.imageSelectionModal.classList.remove('hidden');
+    }
 
-        // Add selected class to clicked item
-        const clickedItem = event.target.closest('.gallery-item');
-        if (clickedItem) {
-            clickedItem.classList.add('selected');
+    /**
+     * Hide image selection modal
+     */
+    hideImageSelectionModal() {
+        this.imageSelectionModal.classList.add('hidden');
+        this.selectedGalleryImage = null;
+    }
+
+    /**
+     * Select difficulty in modal
+     */
+    selectModalDifficulty(selectedBtn) {
+        // Remove active class from all modal difficulty buttons
+        this.selectionDifficultyButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Add active class to selected button
+        selectedBtn.classList.add('active');
+        
+        // Update grid size
+        this.gridSize = parseInt(selectedBtn.getAttribute('data-difficulty'));
+        
+        // Update renderer grid size
+        if (this.renderer) {
+            this.renderer.gridSize = this.gridSize;
+        }
+    }
+
+    /**
+     * Start puzzle from modal (works for both gallery and uploaded images)
+     */
+    startPuzzleFromModal() {
+        // Make sure renderer gridSize is synced
+        if (this.renderer) {
+            this.renderer.gridSize = this.gridSize;
         }
 
-        // Show options section
-        this.galleryOptions.classList.remove('hidden');
+        // Check if using uploaded image
+        if (this.uploadedImage) {
+            console.log('Starting puzzle with uploaded image');
+            console.log('Grid size:', this.gridSize);
+            
+            this.image = this.uploadedImage;
+            
+            // Hide modal
+            this.hideImageSelectionModal();
+            
+            this.initializePuzzle();
+            this.showGameScreen();
+            return;
+        }
+
+        // Using gallery image
+        if (!this.selectedGalleryImage) {
+            console.error('No image selected!');
+            return;
+        }
+
+        // Store the image name before hiding modal (which clears it)
+        const imageName = this.selectedGalleryImage;
+
+        console.log('Starting puzzle from modal');
+        console.log('Selected image:', imageName);
+        console.log('Grid size:', this.gridSize);
+
+        const img = new Image();
+        img.onload = () => {
+            console.log('Gallery image loaded successfully');
+            this.image = img;
+            
+            // Hide modal after image loads
+            this.hideImageSelectionModal();
+            
+            this.initializePuzzle();
+            this.showGameScreen();
+        };
+        img.onerror = (e) => {
+            console.error('Failed to load gallery image:', e);
+            this.hideImageSelectionModal();
+        };
+        img.src = `sample-pics/${imageName}`;
     }
 
     /**
@@ -282,22 +396,32 @@ class PuzzleGame {
                 this.uploadedImage = img;
                 this.selectedGalleryImage = null; // Clear gallery selection
                 
-                // Remove selected class from all gallery items
-                const allItems = this.galleryGrid.querySelectorAll('.gallery-item');
-                allItems.forEach(item => item.classList.remove('selected'));
-                
-                // Highlight upload tile
-                const uploadTile = this.galleryGrid.querySelector('.upload-tile');
-                if (uploadTile) {
-                    uploadTile.classList.add('selected');
-                }
-                
-                // Show difficulty options
-                this.galleryOptions.classList.remove('hidden');
+                // Show the selection modal with uploaded image
+                this.showUploadedImageModal(event.target.result);
             };
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
+    }
+
+    /**
+     * Show image selection modal for uploaded image
+     */
+    showUploadedImageModal(imageSrc) {
+        // Set preview image
+        this.selectionPreviewImage.src = imageSrc;
+        
+        // Reset difficulty to medium (default)
+        this.gridSize = 5;
+        this.selectionDifficultyButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-difficulty') === '5') {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Show modal
+        this.imageSelectionModal.classList.remove('hidden');
     }
 
     /**

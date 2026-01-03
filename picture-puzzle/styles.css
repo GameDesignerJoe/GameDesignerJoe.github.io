@@ -604,6 +604,115 @@ body.playing {
     background: #f3f4f6;
 }
 
+/* Image Selection Dialog */
+.selection-dialog {
+    background: white;
+    padding: 2rem;
+    border-radius: 1rem;
+    animation: scaleIn 0.3s ease-out;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.selection-preview-image {
+    width: 100%;
+    max-height: 50vh;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.selection-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.selection-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+    text-align: center;
+}
+
+.selection-difficulty-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.selection-difficulty-btn {
+    background: white;
+    border: 3px solid #d1d5db;
+    border-radius: 0.75rem;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 100px;
+}
+
+.selection-difficulty-btn:hover {
+    border-color: #14b8a6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
+}
+
+.selection-difficulty-btn.active {
+    border-color: #14b8a6;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 2px #14b8a6;
+}
+
+.selection-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+}
+
+.selection-btn {
+    font-size: 1.125rem;
+    font-weight: 600;
+    padding: 0.875rem 2rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 140px;
+}
+
+.selection-btn-primary {
+    background: #14b8a6;
+    color: white;
+}
+
+.selection-btn-primary:hover {
+    background: #0d9488;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.4);
+}
+
+.selection-btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.selection-btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+}
+
 /* Confirmation Dialog */
 .confirm-dialog {
     background: white;
