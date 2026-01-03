@@ -68,9 +68,9 @@ class CanvasRenderer {
     }
 
     /**
-     * Draw the entire puzzle
+     * Draw the entire puzzle with optional highlighted group
      */
-    drawPuzzle(image, grid, pieceWidth, pieceHeight) {
+    drawPuzzle(image, grid, pieceWidth, pieceHeight, highlightedGroup = null) {
         // Clear canvas
         this.clear();
 
@@ -83,6 +83,68 @@ class CanvasRenderer {
                 const piece = grid[row][col];
                 if (piece) {
                     this.drawPiece(image, piece, col, row, pieceWidth, pieceHeight);
+                }
+            }
+        }
+
+        // Draw highlight for selected group (bounding box around entire group)
+        if (highlightedGroup !== null) {
+            this.highlightGroupBoundingBox(grid, pieceWidth, pieceHeight, highlightedGroup);
+        }
+    }
+
+    /**
+     * Highlight entire group by drawing outline around connected pieces
+     */
+    highlightGroupBoundingBox(grid, pieceWidth, pieceHeight, groupId) {
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 6;
+
+        // Draw borders for each piece, but only on sides that are NOT connected to another piece in the group
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = grid[row][col];
+                if (piece && piece.group === groupId) {
+                    const x = col * pieceWidth;
+                    const y = row * pieceHeight;
+
+                    // Check each edge and draw if it's an exterior edge
+                    
+                    // Top edge
+                    const hasTopNeighbor = row > 0 && grid[row - 1][col]?.group === groupId;
+                    if (!hasTopNeighbor) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x, y);
+                        this.ctx.lineTo(x + pieceWidth, y);
+                        this.ctx.stroke();
+                    }
+
+                    // Bottom edge
+                    const hasBottomNeighbor = row < this.gridSize - 1 && grid[row + 1][col]?.group === groupId;
+                    if (!hasBottomNeighbor) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x, y + pieceHeight);
+                        this.ctx.lineTo(x + pieceWidth, y + pieceHeight);
+                        this.ctx.stroke();
+                    }
+
+                    // Left edge
+                    const hasLeftNeighbor = col > 0 && grid[row][col - 1]?.group === groupId;
+                    if (!hasLeftNeighbor) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x, y);
+                        this.ctx.lineTo(x, y + pieceHeight);
+                        this.ctx.stroke();
+                    }
+
+                    // Right edge
+                    const hasRightNeighbor = col < this.gridSize - 1 && grid[row][col + 1]?.group === groupId;
+                    if (!hasRightNeighbor) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x + pieceWidth, y);
+                        this.ctx.lineTo(x + pieceWidth, y + pieceHeight);
+                        this.ctx.stroke();
+                    }
                 }
             }
         }

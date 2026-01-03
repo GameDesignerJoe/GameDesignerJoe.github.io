@@ -13,6 +13,9 @@ class PuzzleGame {
         // Gallery images - loaded from manifest
         this.galleryImages = [];
         
+        // Highlighted group for visual feedback
+        this.highlightedGroup = null;
+        
         this.initializeUI();
         this.loadGalleryManifest();
     }
@@ -648,7 +651,23 @@ class PuzzleGame {
      */
     draw() {
         if (!this.image || this.grid.length === 0) return;
-        this.renderer.drawPuzzle(this.image, this.grid, this.pieceWidth, this.pieceHeight);
+        this.renderer.drawPuzzle(this.image, this.grid, this.pieceWidth, this.pieceHeight, this.highlightedGroup);
+    }
+
+    /**
+     * Set highlighted group and redraw
+     */
+    setHighlightedGroup(groupId) {
+        this.highlightedGroup = groupId;
+        this.draw();
+    }
+
+    /**
+     * Clear highlighted group and redraw
+     */
+    clearHighlightedGroup() {
+        this.highlightedGroup = null;
+        this.draw();
     }
 
     /**

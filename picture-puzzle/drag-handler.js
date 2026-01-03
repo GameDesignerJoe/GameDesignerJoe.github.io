@@ -92,6 +92,9 @@ class DragHandler {
             this.draggedGroup = piece.group;
             this.dragStart = pos;
             this.currentDragPos = pos;
+            
+            // Highlight the selected group
+            this.game.setHighlightedGroup(piece.group);
         }
     }
 
@@ -152,5 +155,8 @@ class DragHandler {
         this.draggedGroup = null;
         this.dragStart = null;
         this.currentDragPos = null;
+        
+        // Clear highlight
+        this.game.clearHighlightedGroup();
     }
 }
