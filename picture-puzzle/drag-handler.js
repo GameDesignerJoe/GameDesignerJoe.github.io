@@ -83,11 +83,13 @@ class DragHandler {
 
     /**
      * Transform screen coordinates to canvas coordinates (accounting for zoom/pan)
+     * Note: x and y are already relative to the canvas's visual position (from getBoundingClientRect)
+     * which includes the pan offset, so we only need to reverse the zoom scale.
      */
     screenToCanvas(x, y) {
         return {
-            x: (x - this.panX) / this.zoom,
-            y: (y - this.panY) / this.zoom
+            x: x / this.zoom,
+            y: y / this.zoom
         };
     }
 
