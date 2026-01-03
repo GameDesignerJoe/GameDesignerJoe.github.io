@@ -51,13 +51,29 @@ class DragHandler {
      * Convert canvas coordinates to grid position
      */
     getGridPosition(x, y) {
-        const col = Math.floor(x / this.game.pieceWidth);
-        const row = Math.floor(y / this.game.pieceHeight);
+        // Add small tolerance for edge cases (1 pixel)
+        const tolerance = 1;
+        const adjustedX = Math.max(0, Math.min(x, this.game.canvas.width - tolerance));
+        const adjustedY = Math.max(0, Math.min(y, this.game.canvas.height - tolerance));
         
-        if (row >= 0 && row < this.game.gridSize && col >= 0 && col < this.game.gridSize) {
-            return { row, col };
+        const col = Math.floor(adjustedX / this.game.pieceWidth);
+        const row = Math.floor(adjustedY / this.game.pieceHeight);
+        
+        // Clamp to grid bounds to handle floating point edge cases
+        const clampedCol = Math.max(0, Math.min(col, this.game.gridSize - 1));
+        const clampedRow = Math.max(0, Math.min(row, this.game.gridSize - 1));
+        
+        // Debug: Log if clamping occurred (indicates boundary issue)
+        if (col !== clampedCol || row !== clampedRow) {
+            console.log(`⚠️ Coordinate clamping: (${row},${col}) → (${clampedRow},${clampedCol})`);
         }
         
+        if (clampedRow >= 0 && clampedRow < this.game.gridSize && 
+            clampedCol >= 0 && clampedCol < this.game.gridSize) {
+            return { row: clampedRow, col: clampedCol };
+        }
+        
+        console.log(`❌ Invalid grid position: x=${x}, y=${y}, row=${row}, col=${col}`);
         return null;
     }
 
@@ -100,6 +116,10 @@ class DragHandler {
      */
     handleEnd(e) {
         if (!this.isDragging || !this.draggedGroup || !this.dragStart || !this.currentDragPos) {
+            // Debug: Log why drag was cancelled
+            if (this.isDragging && !this.currentDragPos) {
+                console.log('⚠️ Drag cancelled: currentDragPos is null');
+            }
             this.resetDrag();
             return;
         }
@@ -108,8 +128,12 @@ class DragHandler {
 
         const endPos = this.currentDragPos;
         
+        // Debug: Log drop attempt
+        console.log(`🎯 Drop attempt: (${this.dragStart.row},${this.dragStart.col}) → (${endPos.row},${endPos.col})`);
+        
         // Only process if we've moved to a different cell
         if (endPos.row === this.dragStart.row && endPos.col === this.dragStart.col) {
+            console.log('↩️ Same cell, no swap needed');
             this.resetDrag();
             return;
         }
