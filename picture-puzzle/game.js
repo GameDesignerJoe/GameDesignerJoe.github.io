@@ -37,8 +37,6 @@ class PuzzleGame {
     initializeUI() {
         // Get DOM elements
         this.menuScreen = document.getElementById('menu-screen');
-        this.uploadScreen = document.getElementById('upload-screen');
-        this.galleryScreen = document.getElementById('gallery-screen');
         this.gameScreen = document.getElementById('game-screen');
         this.imageUpload = document.getElementById('image-upload');
         this.canvas = document.getElementById('puzzle-canvas');
@@ -54,21 +52,12 @@ class PuzzleGame {
         this.galleryOptions = document.getElementById('gallery-options');
         this.startPuzzleBtn = document.getElementById('start-puzzle-btn');
 
-        // Menu buttons
-        this.uploadOptionBtn = document.getElementById('upload-option-btn');
-        this.galleryOptionBtn = document.getElementById('gallery-option-btn');
-        this.backToMenuUpload = document.getElementById('back-to-menu-upload');
-        this.backToMenuGallery = document.getElementById('back-to-menu-gallery');
-
         // Difficulty buttons
         this.galleryDifficultyButtons = document.querySelectorAll('.gallery-difficulty-btn');
-        this.uploadDifficultyButtons = document.querySelectorAll('.upload-difficulty-btn');
 
         // State
         this.selectedGalleryImage = null;
         this.uploadedImage = null;
-        this.uploadOptions = document.getElementById('upload-options');
-        this.startUploadPuzzleBtn = document.getElementById('start-upload-puzzle-btn');
 
         // Event listeners
         this.imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
@@ -81,33 +70,13 @@ class PuzzleGame {
         });
         this.winMessage.addEventListener('click', () => this.hideWinMessage());
 
-        // Menu navigation
-        this.uploadOptionBtn.addEventListener('click', () => this.showUploadScreen());
-        this.galleryOptionBtn.addEventListener('click', () => this.showGalleryScreen());
-        this.backToMenuUpload.addEventListener('click', () => {
-            this.uploadedImage = null;
-            this.uploadOptions.classList.add('hidden');
-            this.showMenuScreen();
-        });
-        this.backToMenuGallery.addEventListener('click', () => {
-            this.selectedGalleryImage = null;
-            this.galleryOptions.classList.add('hidden');
-            this.showMenuScreen();
-        });
-
-        // Difficulty selection (upload)
-        this.uploadDifficultyButtons.forEach(btn => {
-            btn.addEventListener('click', () => this.selectUploadDifficulty(btn));
-        });
-
         // Difficulty selection (gallery)
         this.galleryDifficultyButtons.forEach(btn => {
             btn.addEventListener('click', () => this.selectGalleryDifficulty(btn));
         });
 
-        // Start puzzle buttons
+        // Start puzzle button
         this.startPuzzleBtn.addEventListener('click', () => this.startPuzzleFromGallery());
-        this.startUploadPuzzleBtn.addEventListener('click', () => this.startPuzzleFromUpload());
 
         // Initialize renderer
         this.renderer = new CanvasRenderer(this.canvas);
@@ -136,11 +105,28 @@ class PuzzleGame {
     }
 
     /**
-     * Load gallery images
+     * Load gallery images with upload tile first
      */
     loadGallery() {
         this.galleryGrid.innerHTML = '';
         
+        // Add upload tile as first item
+        const uploadTile = document.createElement('div');
+        uploadTile.className = 'gallery-item upload-tile';
+        uploadTile.innerHTML = `
+            <div class="upload-tile-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Upload Photo</span>
+            </div>
+        `;
+        uploadTile.addEventListener('click', () => this.imageUpload.click());
+        this.galleryGrid.appendChild(uploadTile);
+        
+        // Add gallery images
         this.galleryImages.forEach(imageName => {
             const item = document.createElement('div');
             item.className = 'gallery-item';
@@ -198,35 +184,48 @@ class PuzzleGame {
     }
 
     /**
-     * Start puzzle from gallery selection
+     * Start puzzle from either gallery or upload
      */
     startPuzzleFromGallery() {
         console.log('startPuzzleFromGallery called');
-        console.log('Selected gallery image:', this.selectedGalleryImage);
-        console.log('Grid size:', this.gridSize);
         
-        if (!this.selectedGalleryImage) {
-            console.error('No gallery image selected!');
-            return;
-        }
-
-        // Make sure renderer gridSize is synced
-        if (this.renderer) {
-            this.renderer.gridSize = this.gridSize;
-        }
-
-        const img = new Image();
-        img.onload = () => {
-            console.log('Gallery image loaded successfully');
-            this.image = img;
+        // Check if using uploaded image or gallery image
+        if (this.uploadedImage) {
+            console.log('Using uploaded image');
+            console.log('Grid size:', this.gridSize);
+            
+            // Make sure renderer gridSize is synced
+            if (this.renderer) {
+                this.renderer.gridSize = this.gridSize;
+            }
+            
+            this.image = this.uploadedImage;
             this.initializePuzzle();
             this.showGameScreen();
-        };
-        img.onerror = (e) => {
-            console.error('Failed to load gallery image:', e);
-        };
-        img.src = `sample-pics/${this.selectedGalleryImage}`;
-        console.log('Image source set to:', img.src);
+        } else if (this.selectedGalleryImage) {
+            console.log('Selected gallery image:', this.selectedGalleryImage);
+            console.log('Grid size:', this.gridSize);
+            
+            // Make sure renderer gridSize is synced
+            if (this.renderer) {
+                this.renderer.gridSize = this.gridSize;
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                console.log('Gallery image loaded successfully');
+                this.image = img;
+                this.initializePuzzle();
+                this.showGameScreen();
+            };
+            img.onerror = (e) => {
+                console.error('Failed to load gallery image:', e);
+            };
+            img.src = `sample-pics/${this.selectedGalleryImage}`;
+            console.log('Image source set to:', img.src);
+        } else {
+            console.error('No image selected!');
+        }
     }
 
     /**
@@ -234,18 +233,17 @@ class PuzzleGame {
      */
     showMenuScreen() {
         this.menuScreen.classList.remove('hidden');
-        this.uploadScreen.classList.add('hidden');
-        this.galleryScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
         this.quitBtn.classList.add('hidden');
-    }
-
-    /**
-     * Show gallery screen
-     */
-    showGalleryScreen() {
-        this.menuScreen.classList.add('hidden');
-        this.galleryScreen.classList.remove('hidden');
+        
+        // Clear selections
+        this.selectedGalleryImage = null;
+        this.uploadedImage = null;
+        this.galleryOptions.classList.add('hidden');
+        
+        // Remove selected class from all items
+        const allItems = this.galleryGrid.querySelectorAll('.gallery-item');
+        allItems.forEach(item => item.classList.remove('selected'));
     }
 
     /**
@@ -260,7 +258,20 @@ class PuzzleGame {
             const img = new Image();
             img.onload = () => {
                 this.uploadedImage = img;
-                this.uploadOptions.classList.remove('hidden');
+                this.selectedGalleryImage = null; // Clear gallery selection
+                
+                // Remove selected class from all gallery items
+                const allItems = this.galleryGrid.querySelectorAll('.gallery-item');
+                allItems.forEach(item => item.classList.remove('selected'));
+                
+                // Highlight upload tile
+                const uploadTile = this.galleryGrid.querySelector('.upload-tile');
+                if (uploadTile) {
+                    uploadTile.classList.add('selected');
+                }
+                
+                // Show difficulty options
+                this.galleryOptions.classList.remove('hidden');
             };
             img.src = event.target.result;
         };
@@ -613,20 +624,8 @@ class PuzzleGame {
      */
     showGameScreen() {
         this.menuScreen.classList.add('hidden');
-        this.uploadScreen.classList.add('hidden');
-        this.galleryScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
         this.quitBtn.classList.remove('hidden');
-    }
-
-    /**
-     * Show the upload screen
-     */
-    showUploadScreen() {
-        this.menuScreen.classList.add('hidden');
-        this.galleryScreen.classList.add('hidden');
-        this.gameScreen.classList.add('hidden');
-        this.uploadScreen.classList.remove('hidden');
     }
 
     /**
