@@ -29,6 +29,7 @@ body {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     padding: 2rem;
     width: 100%;
+    position: relative;
 }
 
 .game-header {
@@ -285,7 +286,8 @@ body {
     flex-wrap: wrap;
 }
 
-.gallery-difficulty-btn {
+.gallery-difficulty-btn,
+.upload-difficulty-btn {
     background: white;
     border: 3px solid #d1d5db;
     border-radius: 0.75rem;
@@ -299,13 +301,15 @@ body {
     min-width: 100px;
 }
 
-.gallery-difficulty-btn:hover {
+.gallery-difficulty-btn:hover,
+.upload-difficulty-btn:hover {
     border-color: #14b8a6;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(20, 184, 166, 0.2);
 }
 
-.gallery-difficulty-btn.active {
+.gallery-difficulty-btn.active,
+.upload-difficulty-btn.active {
     border-color: #14b8a6;
     background: white;
     box-shadow: 0 0 0 2px #14b8a6;
@@ -342,6 +346,36 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
+}
+
+/* Quit Button */
+.quit-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #ef4444;
+    color: white;
+    border: none;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    font-size: 2.5rem;
+    font-weight: 300;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    z-index: 10;
+}
+
+.quit-button:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.5);
 }
 
 .canvas-container {
@@ -476,6 +510,67 @@ body {
 
 .close-modal:hover {
     background: #f3f4f6;
+}
+
+/* Confirmation Dialog */
+.confirm-dialog {
+    background: white;
+    padding: 2rem 3rem;
+    border-radius: 1rem;
+    text-align: center;
+    animation: scaleIn 0.3s ease-out;
+    max-width: 400px;
+}
+
+.confirm-dialog h3 {
+    font-size: 1.5rem;
+    color: #1f2937;
+    margin-bottom: 0.75rem;
+}
+
+.confirm-dialog p {
+    font-size: 1rem;
+    color: #6b7280;
+    margin-bottom: 2rem;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.confirm-btn {
+    font-size: 1.125rem;
+    font-weight: 600;
+    padding: 0.875rem 2.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 100px;
+}
+
+.confirm-yes {
+    background: #ef4444;
+    color: white;
+}
+
+.confirm-yes:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.confirm-no {
+    background: #14b8a6;
+    color: white;
+}
+
+.confirm-no:hover {
+    background: #0d9488;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(20, 184, 166, 0.4);
 }
 
 /* Animations */

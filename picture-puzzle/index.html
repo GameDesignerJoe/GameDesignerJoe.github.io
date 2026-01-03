@@ -12,6 +12,9 @@
 <body>
     <div class="game-wrapper">
         <div class="game-container">
+            <!-- Quit Button (positioned absolutely in container) -->
+            <button id="quit-btn" class="quit-button hidden" title="Quit Puzzle">×</button>
+            
             <!-- Title -->
             <header class="game-header">
                 <h1 class="game-title">Photo Puzzle</h1>
@@ -20,22 +23,6 @@
             <!-- Menu Screen -->
             <div id="menu-screen" class="menu-screen">
                 <div class="menu-content">
-                    <h2 class="menu-subtitle">Select Difficulty</h2>
-                    <div class="difficulty-buttons">
-                        <button class="difficulty-btn" data-difficulty="3">
-                            <span class="difficulty-name">Easy</span>
-                            <span class="difficulty-grid">3×3</span>
-                        </button>
-                        <button class="difficulty-btn active" data-difficulty="5">
-                            <span class="difficulty-name">Medium</span>
-                            <span class="difficulty-grid">5×5</span>
-                        </button>
-                        <button class="difficulty-btn" data-difficulty="7">
-                            <span class="difficulty-name">Hard</span>
-                            <span class="difficulty-grid">7×7</span>
-                        </button>
-                    </div>
-
                     <h2 class="menu-subtitle">Choose Image Source</h2>
                     <div class="source-buttons">
                         <button id="upload-option-btn" class="source-btn">
@@ -73,8 +60,28 @@
                         <input type="file" id="image-upload" accept="image/*" class="hidden">
                     </label>
                     <p class="upload-description">Select an image from your device</p>
-                    <button id="back-to-menu-upload" class="back-button">← Back to Menu</button>
                 </div>
+                
+                <div id="upload-options" class="gallery-options hidden">
+                    <h3 class="gallery-options-title">Select Difficulty</h3>
+                    <div class="gallery-difficulty-buttons">
+                        <button class="upload-difficulty-btn" data-difficulty="3">
+                            <span class="difficulty-name">Easy</span>
+                            <span class="difficulty-grid">3×3</span>
+                        </button>
+                        <button class="upload-difficulty-btn active" data-difficulty="5">
+                            <span class="difficulty-name">Medium</span>
+                            <span class="difficulty-grid">5×5</span>
+                        </button>
+                        <button class="upload-difficulty-btn" data-difficulty="7">
+                            <span class="difficulty-name">Hard</span>
+                            <span class="difficulty-grid">7×7</span>
+                        </button>
+                    </div>
+                    <button id="start-upload-puzzle-btn" class="start-puzzle-btn">Let's Puzzle!</button>
+                </div>
+                
+                <button id="back-to-menu-upload" class="back-button">← Back to Menu</button>
             </div>
 
             <!-- Gallery Screen -->
@@ -111,14 +118,22 @@
                 <div class="canvas-container">
                     <canvas id="puzzle-canvas" class="puzzle-canvas"></canvas>
                 </div>
-                <div class="game-controls">
-                    <button id="new-puzzle-btn" class="control-button">New Puzzle</button>
-                    <button id="show-preview-btn" class="control-button secondary">Preview</button>
-                </div>
                 <div id="win-message" class="win-message hidden">
                     <div class="win-content">
                         <h2>🎉 Puzzle Complete! 🎉</h2>
                         <p>Congratulations!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quit Confirmation Modal -->
+            <div id="quit-modal" class="modal hidden">
+                <div class="confirm-dialog">
+                    <h3>Are you sure you want to quit?</h3>
+                    <p>Your puzzle progress will be lost.</p>
+                    <div class="confirm-buttons">
+                        <button id="confirm-quit-btn" class="confirm-btn confirm-yes">Yes</button>
+                        <button id="cancel-quit-btn" class="confirm-btn confirm-no">No</button>
                     </div>
                 </div>
             </div>
