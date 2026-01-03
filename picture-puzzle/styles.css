@@ -352,6 +352,35 @@ body.playing {
     color: #8B5CF6; /* Purple */
 }
 
+/* Delete Button for Uploaded Images */
+.delete-uploaded-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 1.25rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    z-index: 5;
+}
+
+.delete-uploaded-btn:hover {
+    background: rgba(220, 38, 38, 1);
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
 /* Upload Tile */
 .upload-tile {
     background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);

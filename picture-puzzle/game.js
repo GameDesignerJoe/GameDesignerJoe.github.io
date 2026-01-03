@@ -19,6 +19,9 @@ class PuzzleGame {
         // Completion tracking
         this.completions = this.loadCompletions();
         
+        // Uploaded images storage
+        this.uploadedImages = this.loadUploadedImages();
+        
         this.initializeUI();
         this.loadGalleryManifest();
     }
@@ -188,6 +191,75 @@ class PuzzleGame {
         `;
         uploadTile.addEventListener('click', () => this.imageUpload.click());
         this.galleryGrid.appendChild(uploadTile);
+        
+        // Add uploaded images (right after upload button)
+        this.uploadedImages.forEach(uploadedImg => {
+            const item = document.createElement('div');
+            item.className = 'gallery-item uploaded-item';
+            
+            const img = document.createElement('img');
+            img.src = uploadedImg.dataUrl;
+            img.alt = 'Uploaded image';
+            
+            item.appendChild(img);
+            
+            // Add delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-uploaded-btn';
+            deleteBtn.innerHTML = '×';
+            deleteBtn.title = 'Delete this image';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.deleteUploadedImage(uploadedImg.id);
+            });
+            item.appendChild(deleteBtn);
+            
+            // Add completion stars overlay
+            const imageKey = `upload_${uploadedImg.id}`;
+            const completions = this.getImageCompletions(imageKey);
+            if (Object.keys(completions).length > 0) {
+                const starsOverlay = document.createElement('div');
+                starsOverlay.className = 'completion-stars';
+                
+                // Easy (3x3) - Bronze
+                if (completions['3']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-easy';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                // Medium (5x5) - Silver
+                if (completions['5']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-medium';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                // Hard (7x7) - Gold
+                if (completions['7']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-hard';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                // Insane (9x9) - Purple
+                if (completions['9']) {
+                    const star = document.createElement('div');
+                    star.className = 'completion-star star-insane';
+                    star.innerHTML = '●';
+                    starsOverlay.appendChild(star);
+                }
+                
+                item.appendChild(starsOverlay);
+            }
+            
+            item.addEventListener('click', () => this.selectUploadedImage(uploadedImg));
+            
+            this.galleryGrid.appendChild(item);
+        });
         
         // Add gallery images
         this.galleryImages.forEach(imageName => {
@@ -473,6 +545,69 @@ class PuzzleGame {
     }
 
     /**
+     * Select an uploaded image from gallery
+     */
+    selectUploadedImage(uploadedImg) {
+        // Load the uploaded image
+        const img = new Image();
+        img.onload = () => {
+            this.uploadedImage = img;
+            this.selectedGalleryImage = null;
+            this.currentPuzzleImage = `upload_${uploadedImg.id}`; // Track for completions
+            
+            // Show selection modal
+            this.showUploadedImageSelectionModal(uploadedImg);
+        };
+        img.src = uploadedImg.dataUrl;
+    }
+
+    /**
+     * Show image selection modal for uploaded image from gallery
+     */
+    showUploadedImageSelectionModal(uploadedImg) {
+        // Set preview image
+        this.selectionPreviewImage.src = uploadedImg.dataUrl;
+        
+        // Get completions for this uploaded image
+        const imageKey = `upload_${uploadedImg.id}`;
+        const completions = this.getImageCompletions(imageKey);
+        
+        // Reset difficulty to medium (default)
+        this.gridSize = 5;
+        this.selectionDifficultyButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-difficulty') === '5') {
+                btn.classList.add('active');
+            }
+            
+            // Remove any existing completion stars
+            const existingStar = btn.querySelector('.difficulty-completion-star');
+            if (existingStar) {
+                existingStar.remove();
+            }
+            
+            // Add completion star if completed
+            const difficulty = btn.getAttribute('data-difficulty');
+            if (completions[difficulty]) {
+                const star = document.createElement('div');
+                star.className = 'difficulty-completion-star';
+                star.innerHTML = '●';
+                
+                // Add color class based on difficulty
+                if (difficulty === '3') star.classList.add('star-easy');
+                else if (difficulty === '5') star.classList.add('star-medium');
+                else if (difficulty === '7') star.classList.add('star-hard');
+                else if (difficulty === '9') star.classList.add('star-insane');
+                
+                btn.appendChild(star);
+            }
+        });
+        
+        // Show modal
+        this.imageSelectionModal.classList.remove('hidden');
+    }
+
+    /**
      * Handle image upload
      */
     handleImageUpload(e) {
@@ -481,17 +616,27 @@ class PuzzleGame {
 
         const reader = new FileReader();
         reader.onload = (event) => {
+            const dataUrl = event.target.result;
+            
+            // Add image to gallery storage
+            const imageId = this.addUploadedImage(dataUrl);
+            
+            // Load the newly uploaded image
             const img = new Image();
             img.onload = () => {
                 this.uploadedImage = img;
-                this.selectedGalleryImage = null; // Clear gallery selection
+                this.selectedGalleryImage = null;
+                this.currentPuzzleImage = `upload_${imageId}`; // Track for completions
                 
                 // Show the selection modal with uploaded image
-                this.showUploadedImageModal(event.target.result);
+                this.showUploadedImageModal(dataUrl);
             };
-            img.src = event.target.result;
+            img.src = dataUrl;
         };
         reader.readAsDataURL(file);
+        
+        // Clear the input so same file can be uploaded again
+        e.target.value = '';
     }
 
     /**
@@ -1004,6 +1149,79 @@ class PuzzleGame {
         this.imageUpload.value = '';
         this.hideWinMessage();
         this.showMenuScreen();
+    }
+
+    /**
+     * Load uploaded images from localStorage
+     */
+    loadUploadedImages() {
+        try {
+            const data = localStorage.getItem('puzzleUploadedImages');
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error('Failed to load uploaded images:', e);
+            return [];
+        }
+    }
+
+    /**
+     * Save uploaded images to localStorage
+     */
+    saveUploadedImages() {
+        try {
+            localStorage.setItem('puzzleUploadedImages', JSON.stringify(this.uploadedImages));
+            console.log(`💾 Saved ${this.uploadedImages.length} uploaded images`);
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                alert('Storage limit reached! Unable to save more uploaded images. Try deleting some old uploads.');
+                console.error('❌ Storage quota exceeded');
+            } else {
+                console.error('Failed to save uploaded images:', e);
+            }
+        }
+    }
+
+    /**
+     * Add uploaded image to gallery
+     */
+    addUploadedImage(imageDataUrl) {
+        const uploadedImage = {
+            id: Date.now(), // Unique ID based on timestamp
+            dataUrl: imageDataUrl,
+            timestamp: Date.now()
+        };
+        
+        // Add to beginning of array (most recent first)
+        this.uploadedImages.unshift(uploadedImage);
+        
+        // Save to localStorage
+        this.saveUploadedImages();
+        
+        // Reload gallery
+        this.loadGallery();
+        
+        return uploadedImage.id;
+    }
+
+    /**
+     * Delete uploaded image
+     */
+    deleteUploadedImage(imageId) {
+        this.uploadedImages = this.uploadedImages.filter(img => img.id !== imageId);
+        this.saveUploadedImages();
+        
+        // Also remove completions for this image
+        const imageKey = `upload_${imageId}`;
+        if (this.completions[imageKey]) {
+            delete this.completions[imageKey];
+            try {
+                localStorage.setItem('puzzleCompletions', JSON.stringify(this.completions));
+            } catch (e) {
+                console.error('Failed to update completions:', e);
+            }
+        }
+        
+        this.loadGallery();
     }
 
     /**
