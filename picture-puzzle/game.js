@@ -344,13 +344,14 @@ class PuzzleGame {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        // Reserve space for padding, title, quit button, etc.
-        // Title + header: ~120px, padding: ~80px, margins: ~40px
-        const reservedHeight = 240;
-        const reservedWidth = 80; // Side padding
+        // Reserve minimal space for title and quit button
+        // Title: ~80px, padding: ~40px top/bottom = 120px total
+        const reservedHeight = 120;
+        const reservedWidth = 40; // Minimal side padding
         
-        const maxWidth = Math.min(viewportWidth - reservedWidth, 1200); // Cap at 1200px
-        const maxHeight = Math.min(viewportHeight - reservedHeight, 900); // Cap at 900px
+        // Use most of the available space
+        const maxWidth = viewportWidth - reservedWidth;
+        const maxHeight = viewportHeight - reservedHeight;
         
         const dynamicMaxSize = Math.min(maxWidth, maxHeight);
         
@@ -358,13 +359,12 @@ class PuzzleGame {
         const pieceWidth = this.image.width / this.gridSize;
         const pieceHeight = this.image.height / this.gridSize;
 
-        // Calculate display scale
+        // Calculate display scale (allow upscaling to fill screen)
         const canvasWidth = this.gridSize * pieceWidth;
         const canvasHeight = this.gridSize * pieceHeight;
         const scale = Math.min(
             dynamicMaxSize / canvasWidth,
-            dynamicMaxSize / canvasHeight,
-            1
+            dynamicMaxSize / canvasHeight
         );
 
         this.pieceWidth = pieceWidth * scale;

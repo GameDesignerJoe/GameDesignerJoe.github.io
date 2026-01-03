@@ -12,7 +12,8 @@ body {
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .game-wrapper {
@@ -25,7 +26,7 @@ body {
 
 /* Expand wrapper when playing */
 .game-wrapper.playing {
-    max-width: 95%;
+    max-width: 98%;
 }
 
 .game-container {
@@ -35,6 +36,11 @@ body {
     padding: 2rem;
     width: 100%;
     position: relative;
+}
+
+/* Reduce padding when playing to maximize puzzle space */
+.game-wrapper.playing .game-container {
+    padding: 1rem;
 }
 
 .game-header {
