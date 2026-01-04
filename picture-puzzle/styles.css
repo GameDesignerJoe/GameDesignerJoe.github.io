@@ -498,39 +498,38 @@ body.playing {
     position: relative;
 }
 
-/* Quit Button - Auto-hide UI */
+/* Quit Button - Always visible, subtle */
 .quit-button {
     position: fixed;
-    top: 1rem;
-    right: 1rem;
-    background: rgba(128, 128, 128, 0.5);
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(0, 0, 0, 0.3);
     color: white;
-    border: none;
-    width: 3.5rem;
-    height: 3.5rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: 50%;
-    font-size: 2.5rem;
+    font-size: 1.5rem;
     font-weight: 300;
     line-height: 1;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: opacity 0.3s ease, transform 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     z-index: 1001;
     pointer-events: auto;
-    opacity: 0;
+    opacity: 0.4;
 }
 
-.quit-button.visible {
+.quit-button:hover,
+.quit-button:active {
     opacity: 1;
-}
-
-.quit-button:hover {
-    background: rgba(128, 128, 128, 0.7);
+    background: rgba(0, 0, 0, 0.6);
+    border-color: rgba(255, 255, 255, 0.6);
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 .canvas-container {
