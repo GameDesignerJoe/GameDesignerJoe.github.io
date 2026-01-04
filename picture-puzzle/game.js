@@ -25,6 +25,9 @@ class PuzzleGame {
         // Auto-hide quit button state
         this.quitButtonTimeout = null;
         
+        // Win message timeout
+        this.winMessageTimeout = null;
+        
         this.initializeUI();
         this.loadGalleryManifest();
     }
@@ -1358,10 +1361,11 @@ class PuzzleGame {
             this.draw(false); // Hide grid completely
         }, 300);
         
-        // Step 3: Wait 4 seconds before showing congratulations
-        setTimeout(() => {
+        // Step 3: Wait 2 seconds before showing congratulations
+        // Store the timeout so we can clear it if user quits
+        this.winMessageTimeout = setTimeout(() => {
             this.winMessage.classList.remove('hidden');
-        }, 4000);
+        }, 2000);
     }
 
 
@@ -1404,6 +1408,12 @@ class PuzzleGame {
      * Reset the game
      */
     resetGame() {
+        // Clear any pending win message timeout
+        if (this.winMessageTimeout) {
+            clearTimeout(this.winMessageTimeout);
+            this.winMessageTimeout = null;
+        }
+        
         this.image = null;
         this.grid = [];
         this.imageUpload.value = '';
