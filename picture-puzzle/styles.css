@@ -4,8 +4,12 @@
     box-sizing: border-box;
 }
 
+button {
+    font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: linear-gradient(135deg, #14b8a6 0%, #10b981 100%);
     min-height: 100vh;
     display: flex;
@@ -58,7 +62,7 @@ body.playing {
 
 .game-header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 0.5rem;
 }
 
 .game-title {
@@ -70,7 +74,7 @@ body.playing {
 
 /* Menu Screen */
 .menu-screen {
-    padding: 2rem 1rem;
+    padding: 0.5rem 1rem 2rem;
     position: relative;
 }
 

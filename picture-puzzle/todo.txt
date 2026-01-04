@@ -1,10 +1,10 @@
 To Do:
 
 Bugs:
-- Auto expand on landscape
 
 Possible Ideas:
 - See about a 'picture of the day' that pulls from some website somewhere, and people can download the image to use that for a puzzle. 
+    I looked at Unsplash and even made an account. However, it says I need to keep the API key hidden so, I'd have to move it all over to Vercel and I don't really care enough to do that. 
 - Add a preview of the completed picture
 - See about going to hex shapes and allowing a tap to rotate the piece. 
 - Might as well see about strange puzzle shapes while you're at it. 
