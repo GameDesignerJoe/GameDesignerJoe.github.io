@@ -22,6 +22,9 @@ class PuzzleGame {
         // Uploaded images storage
         this.uploadedImages = this.loadUploadedImages();
         
+        // Auto-hide quit button state
+        this.quitButtonTimeout = null;
+        
         this.initializeUI();
         this.loadGalleryManifest();
     }
@@ -1266,6 +1269,58 @@ class PuzzleGame {
         this.menuScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
         this.quitBtn.classList.remove('hidden');
+        
+        // Set up tap-to-show quit button functionality
+        this.setupQuitButtonBehavior();
+        
+        // Show quit button initially for 3 seconds
+        this.showQuitButton();
+    }
+
+    /**
+     * Set up tap-to-show quit button behavior
+     */
+    setupQuitButtonBehavior() {
+        // Remove any existing listener
+        if (this.canvasTapHandler) {
+            this.canvas.removeEventListener('click', this.canvasTapHandler);
+        }
+        
+        // Create tap handler that shows quit button (but doesn't interfere with dragging)
+        this.canvasTapHandler = (e) => {
+            // Only show button if not currently dragging
+            if (!this.dragHandler || !this.dragHandler.isDragging) {
+                this.showQuitButton();
+            }
+        };
+        
+        // Listen for clicks on canvas
+        this.canvas.addEventListener('click', this.canvasTapHandler);
+    }
+
+    /**
+     * Show quit button with auto-hide timer
+     */
+    showQuitButton() {
+        // Clear any existing timeout
+        if (this.quitButtonTimeout) {
+            clearTimeout(this.quitButtonTimeout);
+        }
+        
+        // Show button
+        this.quitBtn.classList.add('visible');
+        
+        // Set timer to hide after 3 seconds
+        this.quitButtonTimeout = setTimeout(() => {
+            this.hideQuitButton();
+        }, 3000);
+    }
+
+    /**
+     * Hide quit button
+     */
+    hideQuitButton() {
+        this.quitBtn.classList.remove('visible');
     }
 
     /**
