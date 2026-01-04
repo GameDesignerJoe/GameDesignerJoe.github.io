@@ -1316,9 +1316,29 @@ class PuzzleGame {
             }
         }
         
-        // Draw highlight for selected group
+        // Find all unique groups and count their sizes
+        const groupSizes = new Map();
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const piece = this.grid[row][col];
+                if (piece) {
+                    const count = groupSizes.get(piece.group) || 0;
+                    groupSizes.set(piece.group, count + 1);
+                }
+            }
+        }
+        
+        // Draw borders for all connected groups (groups with 2+ pieces)
+        // Use normal line width for non-selected groups
+        for (const [groupId, size] of groupSizes) {
+            if (size > 1 && groupId !== this.highlightedGroup) {
+                this.renderer.highlightGroupBoundingBox(this.grid, this.pieceWidth, this.pieceHeight, groupId, 4);
+            }
+        }
+        
+        // Draw thicker border for the currently highlighted/selected group
         if (this.highlightedGroup !== null) {
-            this.renderer.highlightGroupBoundingBox(this.grid, this.pieceWidth, this.pieceHeight, this.highlightedGroup);
+            this.renderer.highlightGroupBoundingBox(this.grid, this.pieceWidth, this.pieceHeight, this.highlightedGroup, 8);
         }
     }
 

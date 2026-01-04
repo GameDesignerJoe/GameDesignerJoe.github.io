@@ -110,9 +110,9 @@ class CanvasRenderer {
     /**
      * Highlight entire group by drawing outline around connected pieces
      */
-    highlightGroupBoundingBox(grid, pieceWidth, pieceHeight, groupId) {
+    highlightGroupBoundingBox(grid, pieceWidth, pieceHeight, groupId, lineWidth = 6) {
         this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 6;
+        this.ctx.lineWidth = lineWidth;
 
         // Draw borders for each piece, but only on sides that are NOT connected to another piece in the group
         for (let row = 0; row < this.gridSize; row++) {
