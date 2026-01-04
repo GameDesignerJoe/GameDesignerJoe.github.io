@@ -661,18 +661,16 @@ class PuzzleGame {
     }
 
     /**
-     * Handle image upload
+     * Handle image upload with compression
      */
     handleImageUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const dataUrl = event.target.result;
-            
-            // Add image to gallery storage
-            const imageId = this.addUploadedImage(dataUrl);
+        // Compress the image before storing
+        this.compressImage(file, (compressedDataUrl) => {
+            // Add compressed image to gallery storage
+            const imageId = this.addUploadedImage(compressedDataUrl);
             
             // Load the newly uploaded image
             const img = new Image();
@@ -682,14 +680,71 @@ class PuzzleGame {
                 this.currentPuzzleImage = `upload_${imageId}`; // Track for completions
                 
                 // Show the selection modal with uploaded image
-                this.showUploadedImageModal(dataUrl);
+                this.showUploadedImageModal(compressedDataUrl);
             };
-            img.src = dataUrl;
-        };
-        reader.readAsDataURL(file);
+            img.src = compressedDataUrl;
+        });
         
         // Clear the input so same file can be uploaded again
         e.target.value = '';
+    }
+
+    /**
+     * Compress an image file to reduce storage size
+     * @param {File} file - The image file to compress
+     * @param {Function} callback - Callback function to receive compressed data URL
+     */
+    compressImage(file, callback) {
+        const reader = new FileReader();
+        
+        reader.onload = (event) => {
+            const img = new Image();
+            
+            img.onload = () => {
+                // Calculate new dimensions (max 1200px on longest side)
+                const MAX_DIMENSION = 1200;
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > height) {
+                    if (width > MAX_DIMENSION) {
+                        height = Math.round((height * MAX_DIMENSION) / width);
+                        width = MAX_DIMENSION;
+                    }
+                } else {
+                    if (height > MAX_DIMENSION) {
+                        width = Math.round((width * MAX_DIMENSION) / height);
+                        height = MAX_DIMENSION;
+                    }
+                }
+                
+                // Create canvas and draw resized image
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw image with high quality
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Convert to compressed JPEG (80% quality)
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Log compression results
+                const originalSize = event.target.result.length;
+                const compressedSize = compressedDataUrl.length;
+                const savings = Math.round((1 - compressedSize / originalSize) * 100);
+                console.log(`📦 Image compressed: ${Math.round(originalSize/1024)}KB → ${Math.round(compressedSize/1024)}KB (${savings}% smaller)`);
+                
+                callback(compressedDataUrl);
+            };
+            
+            img.src = event.target.result;
+        };
+        
+        reader.readAsDataURL(file);
     }
 
     /**

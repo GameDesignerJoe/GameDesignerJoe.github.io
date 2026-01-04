@@ -5,6 +5,18 @@ Bugs/Tweaks:
 - DONE - Have the borders of the difficulty light up in the color they represent if you've completed them, rather than having the dot in the top right. 
 - When you zoom in on mobile the image shakes a lot. 
 - I hit the max image limit on the second image. 
+    - I need to set up a db for this:
+        IndexedDB Migration (Best Long-Term) 💾
+        - Move uploaded images from localStorage to IndexedDB
+        - IndexedDB can typically store 50MB+ (or unlimited with user permission)
+        - Store images as Blobs instead of base64 (more efficient)
+        - Could allow 50-100+ high-quality images
+        - Pros: Much larger capacity, better performance, more efficient
+        - Cons: Slightly more complex code
+
+- Need to move the pause to the top left so it doesn't get in the way of the delte option for the gallery.
+- The delete button needs to be on the line in the top right. Also, lose the red, make it more hidden. 
+- Add a vertical bar that separates the uploaded images from the gallery images. 
 
 Features:
 - Save partical progress on a puzzle. We'd need to make the puzzle as in progress. Maybe a "?" unless there's a better emoji. We put that in the top right of the thumbnail. Then when you click on it for the preview, we have the same icon in the top right of the difficulty. Remove the dot that's there. 
