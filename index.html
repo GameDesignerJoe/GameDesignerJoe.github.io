@@ -96,7 +96,7 @@
         .box img {
             width: 100%;
             height: 100%;    /* Add this */
-            object-fit: contain;  /* Add this */
+            object-fit: cover;  /* Changed from contain to cover */
             margin: auto;   /* Add this */
         }
 
@@ -167,25 +167,7 @@
             <div class="game-title">PICTURE PUZZLER</div>
             <div class="box">
                 <a href="picture-puzzle/index.html">
-                    <svg width="100%" height="100%" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="puzzleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#14b8a6;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#0d9488;stop-opacity:1" />
-                            </linearGradient>
-                        </defs>
-                        <rect width="512" height="512" fill="#1f2937"/>
-                        <g transform="translate(76, 76)">
-                            <!-- Top-left piece -->
-                            <path d="M 0,0 L 140,0 L 140,50 Q 160,50 160,70 Q 160,90 140,90 L 140,140 L 90,140 Q 90,160 70,160 Q 50,160 50,140 L 0,140 Z" fill="url(#puzzleGrad)" stroke="#fff" stroke-width="3"/>
-                            <!-- Top-right piece -->
-                            <path d="M 220,0 L 360,0 L 360,140 L 310,140 Q 310,120 290,120 Q 270,120 270,140 L 220,140 L 220,90 Q 200,90 200,70 Q 200,50 220,50 Z" fill="url(#puzzleGrad)" stroke="#fff" stroke-width="3" opacity="0.9"/>
-                            <!-- Bottom-left piece -->
-                            <path d="M 0,220 L 50,220 Q 50,200 70,200 Q 90,200 90,220 L 140,220 L 140,360 L 0,360 Z" fill="url(#puzzleGrad)" stroke="#fff" stroke-width="3" opacity="0.85"/>
-                            <!-- Bottom-right piece -->
-                            <path d="M 220,220 L 270,220 Q 270,240 290,240 Q 310,240 310,220 L 360,220 L 360,360 L 220,360 L 220,310 Q 240,310 240,290 Q 240,270 220,270 Z" fill="url(#puzzleGrad)" stroke="#fff" stroke-width="3" opacity="0.8"/>
-                        </g>
-                    </svg>
+                    <img src="art/picturePuzzler.png" alt="Picture Puzzler">
                     <div class="overlay">
                         <h3>Picture Puzzler</h3>
                         <p>Solve our puzzles or use your own.</p>
@@ -207,6 +189,18 @@
                     <div class="overlay">
                         <h3>Color Match</h3>
                         <p>Match color pairs and progress through challenging levels</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+        <div>
+            <div class="game-title">STEAM GAME CLICKER</div>
+            <div class="box">
+                <a href="https://steam-vault-escape.vercel.app/" target="_blank">
+                    <img src="art/steamGameClicker.png" alt="Steam Game Clicker">
+                    <div class="overlay">
+                        <h3>Steam Game Clicker</h3>
+                        <p>A clicker game that encourages you to play your unplayed steam games.</p>
                     </div>
                 </a>
             </div>
