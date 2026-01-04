@@ -180,8 +180,10 @@ class PuzzleGame {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        const availableWidth = viewportWidth;
-        const availableHeight = viewportHeight;
+        // Safe area margins to prevent triggering mobile OS gestures
+        const EDGE_MARGIN = 20; // pixels from screen edge
+        const availableWidth = viewportWidth - (EDGE_MARGIN * 2);
+        const availableHeight = viewportHeight - (EDGE_MARGIN * 2);
         
         // Calculate piece dimensions from the image
         const pieceWidth = this.image.width / this.gridSize;
@@ -791,8 +793,10 @@ class PuzzleGame {
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
         
-        const availableWidth = viewportWidth;
-        const availableHeight = viewportHeight;
+        // Safe area margins to prevent triggering mobile OS gestures
+        const EDGE_MARGIN = 20; // pixels from screen edge
+        const availableWidth = viewportWidth - (EDGE_MARGIN * 2);
+        const availableHeight = viewportHeight - (EDGE_MARGIN * 2);
         
         // Calculate piece dimensions from the image
         const pieceWidth = this.image.width / this.gridSize;
