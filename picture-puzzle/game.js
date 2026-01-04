@@ -480,6 +480,16 @@ class PuzzleGame {
             console.log('Starting puzzle with uploaded image');
             console.log('Grid size:', this.gridSize);
             
+            const imageName = this.currentPuzzleImage;
+            
+            // Check if there's a saved puzzle state for this image/difficulty
+            if (this.hasInProgressPuzzle(imageName, this.gridSize)) {
+                console.log('🔄 Resuming saved puzzle state');
+                this.hideImageSelectionModal();
+                this.resumePuzzle(imageName, this.gridSize);
+                return;
+            }
+            
             this.image = this.uploadedImage;
             
             // Hide modal
@@ -503,6 +513,14 @@ class PuzzleGame {
         console.log('Starting puzzle from modal');
         console.log('Selected image:', imageName);
         console.log('Grid size:', this.gridSize);
+
+        // Check if there's a saved puzzle state for this image/difficulty
+        if (this.hasInProgressPuzzle(imageName, this.gridSize)) {
+            console.log('🔄 Resuming saved puzzle state');
+            this.hideImageSelectionModal();
+            this.resumePuzzle(imageName, this.gridSize);
+            return;
+        }
 
         const img = new Image();
         img.onload = () => {
@@ -1863,6 +1881,9 @@ class PuzzleGame {
         
         // Draw the puzzle
         this.draw();
+        
+        // Check connections to display borders (silent check, no animation)
+        this.checkConnections();
         
         // Show game screen
         this.showGameScreen();
