@@ -138,6 +138,81 @@ class PuzzleGame {
 
         // Load gallery images
         this.loadGallery();
+        
+        // Listen for orientation changes and window resizes during gameplay
+        this.setupOrientationChangeListener();
+    }
+
+    /**
+     * Set up orientation change listener to resize puzzle
+     */
+    setupOrientationChangeListener() {
+        let resizeTimeout;
+        
+        const handleOrientationChange = () => {
+            // Only resize if we're currently playing a puzzle
+            if (!this.image || this.grid.length === 0) return;
+            
+            // Clear any existing timeout
+            if (resizeTimeout) {
+                clearTimeout(resizeTimeout);
+            }
+            
+            // Debounce the resize (wait for rotation animation to finish)
+            resizeTimeout = setTimeout(() => {
+                console.log('📱 Orientation changed - resizing puzzle...');
+                this.resizePuzzle();
+            }, 300);
+        };
+        
+        // Listen for both orientation change and window resize
+        window.addEventListener('orientationchange', handleOrientationChange);
+        window.addEventListener('resize', handleOrientationChange);
+    }
+
+    /**
+     * Resize puzzle to fit new viewport dimensions
+     */
+    resizePuzzle() {
+        if (!this.image || this.grid.length === 0) return;
+        
+        // Recalculate piece dimensions for new viewport
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        const availableWidth = viewportWidth;
+        const availableHeight = viewportHeight;
+        
+        // Calculate piece dimensions from the image
+        const pieceWidth = this.image.width / this.gridSize;
+        const pieceHeight = this.image.height / this.gridSize;
+
+        // Calculate the full puzzle dimensions
+        const puzzleWidth = this.gridSize * pieceWidth;
+        const puzzleHeight = this.gridSize * pieceHeight;
+
+        // Scale to fit within full viewport while maintaining aspect ratio
+        const scale = Math.min(
+            availableWidth / puzzleWidth,
+            availableHeight / puzzleHeight
+        );
+
+        this.pieceWidth = pieceWidth * scale;
+        this.pieceHeight = pieceHeight * scale;
+
+        // Resize canvas
+        this.renderer.setCanvasSize(
+            this.pieceWidth * this.gridSize,
+            this.pieceHeight * this.gridSize
+        );
+        
+        // Reset zoom and pan to fit new size
+        if (this.dragHandler) {
+            this.dragHandler.resetZoomAndPan();
+        }
+        
+        // Redraw puzzle
+        this.draw();
     }
 
     /**
@@ -774,6 +849,7 @@ class PuzzleGame {
         // Initialize drag handler
         if (this.dragHandler) {
             this.dragHandler.resetDrag();
+            this.dragHandler.resetZoomAndPan(); // Reset zoom/pan for new puzzle
         } else {
             this.dragHandler = new DragHandler(this.canvas, this);
         }

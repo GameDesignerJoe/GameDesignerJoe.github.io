@@ -311,4 +311,14 @@ class DragHandler {
         // Clear highlight
         this.game.clearHighlightedGroup();
     }
+
+    /**
+     * Reset zoom and pan to default
+     */
+    resetZoomAndPan() {
+        this.zoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.applyTransform();
+    }
 }
