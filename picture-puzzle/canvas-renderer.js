@@ -183,4 +183,41 @@ class CanvasRenderer {
 
         this.ctx.setLineDash([]);
     }
+
+    /**
+     * Draw ghost outline showing where dragged pieces will land
+     */
+    drawGhostOutline(grid, draggedGroup, offsetRow, offsetCol, pieceWidth, pieceHeight, gridSize) {
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        this.ctx.lineWidth = 3;
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        this.ctx.setLineDash([8, 8]);
+
+        // Draw ghost for each piece in the dragged group
+        for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
+                const piece = grid[row][col];
+                if (piece && piece.group === draggedGroup) {
+                    // Calculate target position
+                    const targetRow = row + offsetRow;
+                    const targetCol = col + offsetCol;
+                    
+                    // Only draw if target is in bounds
+                    if (targetRow >= 0 && targetRow < gridSize &&
+                        targetCol >= 0 && targetCol < gridSize) {
+                        const x = targetCol * pieceWidth;
+                        const y = targetRow * pieceHeight;
+                        
+                        // Draw filled rectangle
+                        this.ctx.fillRect(x, y, pieceWidth, pieceHeight);
+                        
+                        // Draw outline
+                        this.ctx.strokeRect(x, y, pieceWidth, pieceHeight);
+                    }
+                }
+            }
+        }
+
+        this.ctx.setLineDash([]);
+    }
 }

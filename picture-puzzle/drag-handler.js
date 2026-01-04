@@ -223,6 +223,36 @@ class DragHandler {
         
         if (pos) {
             this.currentDragPos = pos;
+            
+            // Draw ghost outline showing where pieces will land
+            this.drawDragGhost();
+        }
+    }
+
+    /**
+     * Draw the puzzle with ghost outline showing drag target
+     */
+    drawDragGhost() {
+        if (!this.isDragging || !this.dragStart || !this.currentDragPos) return;
+        
+        // Calculate offset
+        const offsetRow = this.currentDragPos.row - this.dragStart.row;
+        const offsetCol = this.currentDragPos.col - this.dragStart.col;
+        
+        // Redraw the puzzle
+        this.game.draw();
+        
+        // Draw ghost outline on top
+        if (offsetRow !== 0 || offsetCol !== 0) {
+            this.game.renderer.drawGhostOutline(
+                this.game.grid,
+                this.draggedGroup,
+                offsetRow,
+                offsetCol,
+                this.game.pieceWidth,
+                this.game.pieceHeight,
+                this.game.gridSize
+            );
         }
     }
 
