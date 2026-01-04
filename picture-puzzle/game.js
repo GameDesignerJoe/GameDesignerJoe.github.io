@@ -22,6 +22,9 @@ class PuzzleGame {
         // Uploaded images storage
         this.uploadedImages = this.loadUploadedImages();
         
+        // In-progress puzzles storage
+        this.inProgressPuzzles = this.loadInProgressPuzzles();
+        
         // Auto-hide quit button state
         this.quitButtonTimeout = null;
         
@@ -297,46 +300,32 @@ class PuzzleGame {
             });
             item.appendChild(deleteBtn);
             
-            // Add completion stars overlay
+            // Add completion border based on highest difficulty achieved
             const imageKey = `upload_${uploadedImg.id}`;
             const completions = this.getImageCompletions(imageKey);
-            if (Object.keys(completions).length > 0) {
-                const starsOverlay = document.createElement('div');
-                starsOverlay.className = 'completion-stars';
-                
-                // Easy (3x3) - Bronze
-                if (completions['3']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-easy';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                // Medium (5x5) - Silver
-                if (completions['5']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-medium';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                // Hard (7x7) - Gold
-                if (completions['7']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-hard';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                // Insane (9x9) - Purple
-                if (completions['9']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-insane';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                item.appendChild(starsOverlay);
+            
+            // Determine highest completion tier
+            if (completions['9']) {
+                item.classList.add('completed-insane');
+            } else if (completions['7']) {
+                item.classList.add('completed-hard');
+            } else if (completions['5']) {
+                item.classList.add('completed-medium');
+            } else if (completions['3']) {
+                item.classList.add('completed-easy');
+            }
+            
+            // Check if there are any in-progress puzzles for this image
+            const hasInProgress = ['3', '5', '7', '9'].some(diff => 
+                this.hasInProgressPuzzle(imageKey, parseInt(diff))
+            );
+            
+            if (hasInProgress) {
+                const pauseIndicator = document.createElement('div');
+                pauseIndicator.className = 'in-progress-indicator';
+                pauseIndicator.innerHTML = '⏸️';
+                pauseIndicator.title = 'Puzzle in progress';
+                item.appendChild(pauseIndicator);
             }
             
             item.addEventListener('click', () => this.selectUploadedImage(uploadedImg));
@@ -356,45 +345,31 @@ class PuzzleGame {
             
             item.appendChild(img);
             
-            // Add completion stars overlay
+            // Add completion border based on highest difficulty achieved
             const completions = this.getImageCompletions(imageName);
-            if (Object.keys(completions).length > 0) {
-                const starsOverlay = document.createElement('div');
-                starsOverlay.className = 'completion-stars';
-                
-                // Top-left: Easy (3x3) - Bronze
-                if (completions['3']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-easy';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                // Top-right: Medium (5x5) - Silver
-                if (completions['5']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-medium';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                // Bottom-left: Hard (7x7) - Gold
-                if (completions['7']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-hard';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                // Bottom-right: Insane (9x9) - Purple
-                if (completions['9']) {
-                    const star = document.createElement('div');
-                    star.className = 'completion-star star-insane';
-                    star.innerHTML = '●';
-                    starsOverlay.appendChild(star);
-                }
-                
-                item.appendChild(starsOverlay);
+            
+            // Determine highest completion tier
+            if (completions['9']) {
+                item.classList.add('completed-insane');
+            } else if (completions['7']) {
+                item.classList.add('completed-hard');
+            } else if (completions['5']) {
+                item.classList.add('completed-medium');
+            } else if (completions['3']) {
+                item.classList.add('completed-easy');
+            }
+            
+            // Check if there are any in-progress puzzles for this image
+            const hasInProgress = ['3', '5', '7', '9'].some(diff => 
+                this.hasInProgressPuzzle(imageName, parseInt(diff))
+            );
+            
+            if (hasInProgress) {
+                const pauseIndicator = document.createElement('div');
+                pauseIndicator.className = 'in-progress-indicator';
+                pauseIndicator.innerHTML = '⏸️';
+                pauseIndicator.title = 'Puzzle in progress';
+                item.appendChild(pauseIndicator);
             }
             
             item.addEventListener('click', () => this.selectGalleryImage(imageName));
@@ -433,26 +408,30 @@ class PuzzleGame {
                 btn.classList.add('active');
             }
             
-            // Remove any existing completion stars
-            const existingStar = btn.querySelector('.difficulty-completion-star');
-            if (existingStar) {
-                existingStar.remove();
+            // Remove any existing completion classes and indicators
+            btn.classList.remove('completed-easy', 'completed-medium', 'completed-hard', 'completed-insane');
+            const existingIndicator = btn.querySelector('.in-progress-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
             }
             
-            // Add completion star if completed
+            // Add completion border class if completed
             const difficulty = btn.getAttribute('data-difficulty');
             if (completions[difficulty]) {
-                const star = document.createElement('div');
-                star.className = 'difficulty-completion-star';
-                star.innerHTML = '●';
-                
-                // Add color class based on difficulty
-                if (difficulty === '3') star.classList.add('star-easy');
-                else if (difficulty === '5') star.classList.add('star-medium');
-                else if (difficulty === '7') star.classList.add('star-hard');
-                else if (difficulty === '9') star.classList.add('star-insane');
-                
-                btn.appendChild(star);
+                // Add colored border class based on difficulty
+                if (difficulty === '3') btn.classList.add('completed-easy');
+                else if (difficulty === '5') btn.classList.add('completed-medium');
+                else if (difficulty === '7') btn.classList.add('completed-hard');
+                else if (difficulty === '9') btn.classList.add('completed-insane');
+            }
+            
+            // Add pause indicator if this difficulty is in progress
+            if (this.hasInProgressPuzzle(imageName, parseInt(difficulty))) {
+                const pauseIndicator = document.createElement('div');
+                pauseIndicator.className = 'in-progress-indicator';
+                pauseIndicator.innerHTML = '⏸️';
+                pauseIndicator.title = 'Puzzle in progress';
+                btn.appendChild(pauseIndicator);
             }
         });
         
@@ -663,26 +642,17 @@ class PuzzleGame {
                 btn.classList.add('active');
             }
             
-            // Remove any existing completion stars
-            const existingStar = btn.querySelector('.difficulty-completion-star');
-            if (existingStar) {
-                existingStar.remove();
-            }
+            // Remove any existing completion classes
+            btn.classList.remove('completed-easy', 'completed-medium', 'completed-hard', 'completed-insane');
             
-            // Add completion star if completed
+            // Add completion border class if completed
             const difficulty = btn.getAttribute('data-difficulty');
             if (completions[difficulty]) {
-                const star = document.createElement('div');
-                star.className = 'difficulty-completion-star';
-                star.innerHTML = '●';
-                
-                // Add color class based on difficulty
-                if (difficulty === '3') star.classList.add('star-easy');
-                else if (difficulty === '5') star.classList.add('star-medium');
-                else if (difficulty === '7') star.classList.add('star-hard');
-                else if (difficulty === '9') star.classList.add('star-insane');
-                
-                btn.appendChild(star);
+                // Add colored border class based on difficulty
+                if (difficulty === '3') btn.classList.add('completed-easy');
+                else if (difficulty === '5') btn.classList.add('completed-medium');
+                else if (difficulty === '7') btn.classList.add('completed-hard');
+                else if (difficulty === '9') btn.classList.add('completed-insane');
             }
         });
         
@@ -838,8 +808,19 @@ class PuzzleGame {
             }
         }
 
-        // Shuffle pieces
-        const shuffled = [...pieces].sort(() => Math.random() - 0.5);
+        // Shuffle pieces - ensure it's actually scrambled (not already solved)
+        let shuffled;
+        let isSolved;
+        do {
+            shuffled = [...pieces].sort(() => Math.random() - 0.5);
+            
+            // Check if the shuffle resulted in the correct solution
+            isSolved = shuffled.every((piece, index) => {
+                const row = Math.floor(index / this.gridSize);
+                const col = index % this.gridSize;
+                return piece.originalRow === row && piece.originalCol === col;
+            });
+        } while (isSolved); // Keep shuffling until it's NOT solved
 
         // Place shuffled pieces in grid
         this.grid = [];
@@ -975,6 +956,9 @@ class PuzzleGame {
 
         // Redraw
         this.draw();
+
+        // Auto-save puzzle state after swap
+        this.savePuzzleState();
 
         // Check for connections after a short delay, passing the dragged piece IDs
         setTimeout(() => this.checkConnections(draggedPieceIds), 100);
@@ -1397,7 +1381,9 @@ class PuzzleGame {
         // Save completion for gallery images
         if (this.currentPuzzleImage) {
             this.saveCompletion(this.currentPuzzleImage, this.gridSize);
-            // Reload gallery to update stars
+            // Clear in-progress state since puzzle is complete
+            this.clearPuzzleState(this.currentPuzzleImage, this.gridSize);
+            // Reload gallery to update borders
             this.loadGallery();
         }
         
@@ -1466,6 +1452,10 @@ class PuzzleGame {
         this.grid = [];
         this.imageUpload.value = '';
         this.hideWinMessage();
+        
+        // Reload gallery to update pause icons
+        this.loadGallery();
+        
         this.showMenuScreen();
     }
 
@@ -1668,6 +1658,177 @@ class PuzzleGame {
         setTimeout(() => {
             this.showWinMessage();
         }, 100);
+    }
+
+    /**
+     * Load in-progress puzzles from localStorage
+     */
+    loadInProgressPuzzles() {
+        try {
+            const data = localStorage.getItem('puzzleInProgress');
+            return data ? JSON.parse(data) : {};
+        } catch (e) {
+            console.error('Failed to load in-progress puzzles:', e);
+            return {};
+        }
+    }
+
+    /**
+     * Save in-progress puzzles to localStorage
+     */
+    saveInProgressPuzzles() {
+        try {
+            localStorage.setItem('puzzleInProgress', JSON.stringify(this.inProgressPuzzles));
+            console.log(`💾 Saved ${Object.keys(this.inProgressPuzzles).length} in-progress puzzles`);
+        } catch (e) {
+            console.error('Failed to save in-progress puzzles:', e);
+        }
+    }
+
+    /**
+     * Save current puzzle state
+     */
+    savePuzzleState() {
+        if (!this.currentPuzzleImage || !this.grid || this.grid.length === 0) return;
+        
+        const key = `${this.currentPuzzleImage}_${this.gridSize}`;
+        
+        this.inProgressPuzzles[key] = {
+            imageName: this.currentPuzzleImage,
+            gridSize: this.gridSize,
+            grid: this.grid,
+            timestamp: Date.now()
+        };
+        
+        this.saveInProgressPuzzles();
+        console.log(`💾 Saved puzzle state: ${key}`);
+    }
+
+    /**
+     * Check for auto-resume (finds most recent in-progress puzzle)
+     */
+    checkAutoResume() {
+        const puzzles = Object.values(this.inProgressPuzzles);
+        
+        if (puzzles.length === 0) return;
+        
+        // Find most recent puzzle
+        const mostRecent = puzzles.reduce((latest, current) => {
+            return current.timestamp > latest.timestamp ? current : latest;
+        });
+        
+        console.log(`🔄 Auto-resuming puzzle: ${mostRecent.imageName} ${mostRecent.gridSize}x${mostRecent.gridSize}`);
+        
+        // Resume the most recent puzzle
+        this.resumePuzzle(mostRecent.imageName, mostRecent.gridSize);
+    }
+
+    /**
+     * Resume a saved puzzle
+     */
+    resumePuzzle(imageName, gridSize) {
+        const key = `${imageName}_${gridSize}`;
+        const savedState = this.inProgressPuzzles[key];
+        
+        if (!savedState) {
+            console.error('No saved state found for:', key);
+            return;
+        }
+        
+        this.gridSize = gridSize;
+        this.currentPuzzleImage = imageName;
+        
+        // Load the image
+        if (imageName.startsWith('upload_')) {
+            // Find the uploaded image
+            const imageId = imageName.replace('upload_', '');
+            const uploadedImg = this.uploadedImages.find(img => img.id === parseInt(imageId));
+            
+            if (!uploadedImg) {
+                console.error('Uploaded image not found:', imageId);
+                return;
+            }
+            
+            const img = new Image();
+            img.onload = () => {
+                this.image = img;
+                this.grid = savedState.grid;
+                this.resumePuzzleDisplay();
+            };
+            img.src = uploadedImg.dataUrl;
+        } else {
+            // Gallery image
+            const img = new Image();
+            img.onload = () => {
+                this.image = img;
+                this.grid = savedState.grid;
+                this.resumePuzzleDisplay();
+            };
+            img.src = `sample-pics/${imageName}`;
+        }
+    }
+
+    /**
+     * Resume puzzle display (setup canvas and show game screen)
+     */
+    resumePuzzleDisplay() {
+        // Calculate piece dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const EDGE_MARGIN = 20;
+        const availableWidth = viewportWidth - (EDGE_MARGIN * 2);
+        const availableHeight = viewportHeight - (EDGE_MARGIN * 2);
+        
+        const pieceWidth = this.image.width / this.gridSize;
+        const pieceHeight = this.image.height / this.gridSize;
+        const puzzleWidth = this.gridSize * pieceWidth;
+        const puzzleHeight = this.gridSize * pieceHeight;
+        
+        const scale = Math.min(
+            availableWidth / puzzleWidth,
+            availableHeight / puzzleHeight
+        );
+        
+        this.pieceWidth = pieceWidth * scale;
+        this.pieceHeight = pieceHeight * scale;
+        
+        // Set canvas size
+        this.renderer.setCanvasSize(
+            this.pieceWidth * this.gridSize,
+            this.pieceHeight * this.gridSize
+        );
+        
+        // Initialize or reset drag handler
+        if (this.dragHandler) {
+            this.dragHandler.resetDrag();
+            this.dragHandler.resetZoomAndPan();
+        } else {
+            this.dragHandler = new DragHandler(this.canvas, this);
+        }
+        
+        // Draw the puzzle
+        this.draw();
+        
+        // Show game screen
+        this.showGameScreen();
+    }
+
+    /**
+     * Clear saved puzzle state
+     */
+    clearPuzzleState(imageName, gridSize) {
+        const key = `${imageName}_${gridSize}`;
+        delete this.inProgressPuzzles[key];
+        this.saveInProgressPuzzles();
+        console.log(`🗑️ Cleared puzzle state: ${key}`);
+    }
+
+    /**
+     * Check if a puzzle has in-progress state
+     */
+    hasInProgressPuzzle(imageName, gridSize) {
+        const key = `${imageName}_${gridSize}`;
+        return !!this.inProgressPuzzles[key];
     }
 }
 

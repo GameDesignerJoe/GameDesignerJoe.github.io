@@ -1,6 +1,15 @@
 To Do:
 
-Bugs:
+Bugs/Tweaks:
+- DONE - Make sure the shuffle it's the same as the finsiehd picture. 
+- DONE - Have the borders of the difficulty light up in the color they represent if you've completed them, rather than having the dot in the top right. 
+- When you zoom in on mobile the image shakes a lot. 
+- I hit the max image limit on the second image. 
+
+Features:
+- Save partical progress on a puzzle. We'd need to make the puzzle as in progress. Maybe a "?" unless there's a better emoji. We put that in the top right of the thumbnail. Then when you click on it for the preview, we have the same icon in the top right of the difficulty. Remove the dot that's there. 
+- Change the X out to be a gear. When pressed it brings up the same options, but also has a 'reset puzzle' option.
+- From the complete menu, add a 'play again' and them them select a different difficulty. 
 
 Possible Ideas:
 - See about a 'picture of the day' that pulls from some website somewhere, and people can download the image to use that for a puzzle. 
