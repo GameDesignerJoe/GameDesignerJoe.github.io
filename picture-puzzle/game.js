@@ -56,6 +56,7 @@ class PuzzleGame {
         this.winMessage = document.getElementById('win-message');
         this.viewPictureBtn = document.getElementById('view-picture-btn');
         this.winMainMenuBtn = document.getElementById('win-main-menu-btn');
+        this.playAgainBtn = document.getElementById('play-again-btn');
         this.galleryGrid = document.getElementById('gallery-grid');
         this.galleryOptions = document.getElementById('gallery-options');
         this.startPuzzleBtn = document.getElementById('start-puzzle-btn');
@@ -106,6 +107,10 @@ class PuzzleGame {
             e.stopPropagation();
             this.hideWinMessage();
             this.resetGame();
+        });
+        this.playAgainBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.playAgainSuggestedDifficulty();
         });
 
         // Difficulty selection (gallery)
@@ -1542,6 +1547,67 @@ class PuzzleGame {
     }
 
     /**
+     * Get the next difficulty to suggest for "Play Again"
+     * @returns {Object|null} - {difficulty: number, name: string} or null if all completed
+     */
+    getSuggestedNextDifficulty() {
+        if (!this.currentPuzzleImage) return null;
+        
+        const completions = this.getImageCompletions(this.currentPuzzleImage);
+        const currentDiff = this.gridSize;
+        
+        // Difficulty map
+        const difficulties = [
+            { value: 3, name: 'Easy' },
+            { value: 5, name: 'Medium' },
+            { value: 7, name: 'Hard' },
+            { value: 9, name: 'Insane' }
+        ];
+        
+        // First, try next harder difficulty
+        const currentIndex = difficulties.findIndex(d => d.value === currentDiff);
+        if (currentIndex < difficulties.length - 1) {
+            for (let i = currentIndex + 1; i < difficulties.length; i++) {
+                if (!completions[difficulties[i].value.toString()]) {
+                    return difficulties[i];
+                }
+            }
+        }
+        
+        // If all harder difficulties are done, try easier ones
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            if (!completions[difficulties[i].value.toString()]) {
+                return difficulties[i];
+            }
+        }
+        
+        // All difficulties completed
+        return null;
+    }
+
+    /**
+     * Play again at the suggested difficulty
+     */
+    playAgainSuggestedDifficulty() {
+        const suggested = this.getSuggestedNextDifficulty();
+        if (!suggested) return;
+        
+        console.log(`🔄 Playing again at ${suggested.name} (${suggested.value}x${suggested.value})`);
+        
+        // Hide win message
+        this.hideWinMessage();
+        
+        // Set new difficulty
+        this.gridSize = suggested.value;
+        if (this.renderer) {
+            this.renderer.gridSize = this.gridSize;
+        }
+        
+        // Reinitialize puzzle with same image
+        this.initializePuzzle();
+    }
+
+    /**
      * Show win message with celebration sequence
      */
     showWinMessage() {
@@ -1554,6 +1620,15 @@ class PuzzleGame {
             this.clearPuzzleState(this.currentPuzzleImage, this.gridSize);
             // Reload gallery to update borders
             this.loadGallery();
+            
+            // Configure "Play Again" button
+            const suggested = this.getSuggestedNextDifficulty();
+            if (suggested) {
+                this.playAgainBtn.textContent = `Play again on ${suggested.name}`;
+                this.playAgainBtn.classList.remove('hidden');
+            } else {
+                this.playAgainBtn.classList.add('hidden');
+            }
         }
         
         // Step 1: Flash the grid lines white
