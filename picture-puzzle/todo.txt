@@ -14,12 +14,12 @@ Bugs/Tweaks:
         - Pros: Much larger capacity, better performance, more efficient
         - Cons: Slightly more complex code
 
-- Need to move the pause to the top left so it doesn't get in the way of the delte option for the gallery.
-- The delete button needs to be on the line in the top right. Also, lose the red, make it more hidden. 
-- Add a vertical bar that separates the uploaded images from the gallery images. 
+- DONE - Need to move the pause to the top left so it doesn't get in the way of the delte option for the gallery.
+- DONE - The delete button needs to be on the line in the top right. Also, lose the red, make it more hidden. 
+- DONE - Add a vertical bar that separates the uploaded images from the gallery images. 
 
 Features:
-- Save partical progress on a puzzle. We'd need to make the puzzle as in progress. Maybe a "?" unless there's a better emoji. We put that in the top right of the thumbnail. Then when you click on it for the preview, we have the same icon in the top right of the difficulty. Remove the dot that's there. 
+- DONE - Save partical progress on a puzzle. We'd need to make the puzzle as in progress. Maybe a "?" unless there's a better emoji. We put that in the top right of the thumbnail. Then when you click on it for the preview, we have the same icon in the top right of the difficulty. Remove the dot that's there. 
 - Change the X out to be a gear. When pressed it brings up the same options, but also has a 'reset puzzle' option.
 - From the complete menu, add a 'play again' and them them select a different difficulty. 
 

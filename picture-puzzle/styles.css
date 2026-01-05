@@ -298,7 +298,7 @@ body.playing {
     cursor: pointer;
     transition: all 0.2s;
     border: 3px solid transparent;
-    background: #f3f4f6;
+    background: #2d3748;
 }
 
 /* Gallery completion borders - highest difficulty achieved */
@@ -308,7 +308,7 @@ body.playing {
 }
 
 .gallery-item.completed-medium {
-    border-color: #C0C0C0; /* Silver */
+    border-color: #9CA3AF; /* Silver-Grey */
     border-width: 4px;
 }
 
