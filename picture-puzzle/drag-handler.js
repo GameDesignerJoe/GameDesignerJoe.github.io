@@ -20,6 +20,10 @@ class DragHandler {
         this.lastTouchCenter = null;
         this.isPinching = false;
         this.isPanning = false;
+        
+        // Zoom smoothing
+        this.zoomThreshold = 0.02; // Minimum zoom change to apply (prevents micro-jitter)
+        this.pendingTransform = false; // Debounce transform updates
 
         this.setupEventListeners();
     }
@@ -186,16 +190,20 @@ class DragHandler {
             const currentDistance = this.getTouchDistance(e.touches[0], e.touches[1]);
             const currentCenter = this.getTouchCenter(e.touches[0], e.touches[1]);
             
-            // Calculate zoom change
+            // Calculate zoom change with smoothing
             if (this.lastTouchDistance) {
                 const distanceChange = currentDistance / this.lastTouchDistance;
-                const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * distanceChange));
                 
-                // Zoom around the pinch center
-                const zoomChange = newZoom / this.zoom;
-                this.panX = currentCenter.x - (currentCenter.x - this.panX) * zoomChange;
-                this.panY = currentCenter.y - (currentCenter.y - this.panY) * zoomChange;
-                this.zoom = newZoom;
+                // Only apply zoom if change is significant enough (reduces jitter)
+                if (Math.abs(distanceChange - 1.0) > this.zoomThreshold) {
+                    const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * distanceChange));
+                    
+                    // Zoom around the pinch center
+                    const zoomChange = newZoom / this.zoom;
+                    this.panX = currentCenter.x - (currentCenter.x - this.panX) * zoomChange;
+                    this.panY = currentCenter.y - (currentCenter.y - this.panY) * zoomChange;
+                    this.zoom = newZoom;
+                }
             }
             
             // Calculate pan change
@@ -207,8 +215,14 @@ class DragHandler {
             this.lastTouchDistance = currentDistance;
             this.lastTouchCenter = currentCenter;
             
-            // Apply the transformation
-            this.applyTransform();
+            // Batch transform updates with requestAnimationFrame
+            if (!this.pendingTransform) {
+                this.pendingTransform = true;
+                requestAnimationFrame(() => {
+                    this.applyTransform();
+                    this.pendingTransform = false;
+                });
+            }
             return;
         }
 
