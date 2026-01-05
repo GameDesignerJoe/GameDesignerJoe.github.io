@@ -660,8 +660,12 @@ class PuzzleGame {
                 btn.classList.add('active');
             }
             
-            // Remove any existing completion classes
+            // Remove any existing completion classes and indicators
             btn.classList.remove('completed-easy', 'completed-medium', 'completed-hard', 'completed-insane');
+            const existingIndicator = btn.querySelector('.in-progress-indicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
             
             // Add completion border class if completed
             const difficulty = btn.getAttribute('data-difficulty');
@@ -671,6 +675,15 @@ class PuzzleGame {
                 else if (difficulty === '5') btn.classList.add('completed-medium');
                 else if (difficulty === '7') btn.classList.add('completed-hard');
                 else if (difficulty === '9') btn.classList.add('completed-insane');
+            }
+            
+            // Add pause indicator if this difficulty is in progress
+            if (this.hasInProgressPuzzle(imageKey, parseInt(difficulty))) {
+                const pauseIndicator = document.createElement('div');
+                pauseIndicator.className = 'in-progress-indicator';
+                pauseIndicator.innerHTML = '⏸️';
+                pauseIndicator.title = 'Puzzle in progress';
+                btn.appendChild(pauseIndicator);
             }
         });
         
@@ -1762,7 +1775,13 @@ class PuzzleGame {
      * Save current puzzle state
      */
     savePuzzleState() {
-        if (!this.currentPuzzleImage || !this.grid || this.grid.length === 0) return;
+        if (!this.currentPuzzleImage || !this.grid || this.grid.length === 0) {
+            console.log('⚠️ Cannot save - missing:', {
+                currentPuzzleImage: this.currentPuzzleImage,
+                gridLength: this.grid?.length || 0
+            });
+            return;
+        }
         
         const key = `${this.currentPuzzleImage}_${this.gridSize}`;
         
