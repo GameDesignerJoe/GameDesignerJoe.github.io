@@ -11,9 +11,9 @@ button {
 body {
     font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: 
-        linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-        linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-        linear-gradient(135deg, #14b8a6 0%, #10b981 100%);
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     background-size: 20px 20px, 20px 20px, 100% 100%;
     min-height: 100vh;
     display: flex;
@@ -45,9 +45,9 @@ body.playing {
 }
 
 .game-container {
-    background: white;
+    background: #1e293b;
     border-radius: 1rem;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     padding: 2rem;
     width: 100%;
     position: relative;
@@ -72,7 +72,7 @@ body.playing {
 .game-title {
     font-size: 2.5rem;
     font-weight: 700;
-    color: #1f2937;
+    color: #f1f5f9;
     margin: 0;
 }
 
@@ -87,9 +87,9 @@ body.playing {
     position: absolute;
     bottom: 1rem;
     right: 1rem;
-    background: rgba(107, 114, 128, 0.1);
-    border: 2px solid rgba(107, 114, 128, 0.3);
-    color: #4b5563;
+    background: rgba(148, 163, 184, 0.1);
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    color: #94a3b8;
     font-size: 1.5rem;
     width: 3rem;
     height: 3rem;
@@ -103,8 +103,9 @@ body.playing {
 }
 
 .settings-button:hover {
-    background: rgba(107, 114, 128, 0.2);
-    border-color: rgba(107, 114, 128, 0.5);
+    background: rgba(148, 163, 184, 0.2);
+    border-color: rgba(148, 163, 184, 0.5);
+    color: #cbd5e1;
     transform: rotate(90deg) scale(1.1);
 }
 
@@ -116,7 +117,7 @@ body.playing {
 .menu-subtitle {
     font-size: 1.5rem;
     font-weight: 600;
-    color: #1f2937;
+    color: #e2e8f0;
     margin-bottom: 1rem;
     text-align: center;
 }
@@ -343,7 +344,7 @@ body.playing {
 .gallery-divider {
     grid-column: 1 / -1;
     height: 1px;
-    background: #d1d5db;
+    background: #475569;
     margin: 0.25rem 0;
 }
 
@@ -685,22 +686,23 @@ body.playing {
 }
 
 .win-content {
-    background: white;
+    background: #1e293b;
     padding: 3rem 4rem;
     border-radius: 1rem;
     text-align: center;
     animation: scaleIn 0.4s ease-out;
+    border: 1px solid #334155;
 }
 
 .win-content h2 {
     font-size: 2rem;
-    color: #1f2937;
+    color: #f1f5f9;
     margin-bottom: 1rem;
 }
 
 .win-content p {
     font-size: 1.25rem;
-    color: #6b7280;
+    color: #94a3b8;
     margin-bottom: 2rem;
 }
 
@@ -796,7 +798,7 @@ body.playing {
 
 /* Image Selection Dialog */
 .selection-dialog {
-    background: white;
+    background: #1e293b;
     padding: 2rem;
     border-radius: 1rem;
     animation: scaleIn 0.3s ease-out;
@@ -806,6 +808,7 @@ body.playing {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    border: 1px solid #334155;
 }
 
 .selection-preview-image {
@@ -813,7 +816,7 @@ body.playing {
     max-height: 50vh;
     object-fit: contain;
     border-radius: 0.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .selection-options {
@@ -825,7 +828,7 @@ body.playing {
 .selection-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #1f2937;
+    color: #e2e8f0;
     margin: 0;
     text-align: center;
 }
@@ -838,8 +841,8 @@ body.playing {
 }
 
 .selection-difficulty-btn {
-    background: white;
-    border: 3px solid #d1d5db;
+    background: #0f172a;
+    border: 3px solid #475569;
     border-radius: 0.75rem;
     padding: 1rem 1.5rem;
     cursor: pointer;
@@ -850,6 +853,7 @@ body.playing {
     gap: 0.25rem;
     min-width: 100px;
     position: relative;
+    color: #e2e8f0;
 }
 
 /* In-progress indicator on difficulty buttons */
@@ -937,23 +941,24 @@ body.playing {
 
 /* Confirmation Dialog */
 .confirm-dialog {
-    background: white;
+    background: #1e293b;
     padding: 2rem 3rem;
     border-radius: 1rem;
     text-align: center;
     animation: scaleIn 0.3s ease-out;
     max-width: 400px;
+    border: 1px solid #334155;
 }
 
 .confirm-dialog h3 {
     font-size: 1.5rem;
-    color: #1f2937;
+    color: #f1f5f9;
     margin-bottom: 0.75rem;
 }
 
 .confirm-dialog p {
     font-size: 1rem;
-    color: #6b7280;
+    color: #94a3b8;
     margin-bottom: 2rem;
 }
 
