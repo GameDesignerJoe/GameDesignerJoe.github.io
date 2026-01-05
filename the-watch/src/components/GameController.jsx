@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import MapView from './MapView.jsx';
+import ControlPanel from './ControlPanel.jsx';
 import { initializeGame } from '../systems/initialization.js';
+import { isPositionOccupied } from '../utils/gridUtils.js';
 
 /**
  * GameController Component
@@ -15,9 +17,44 @@ export default function GameController() {
     setGameState(initialState);
   }, []);
 
+  /**
+   * Handle warden selection
+   */
+  const handleWardenClick = (wardenId) => {
+    console.log(`Selected Warden #${wardenId + 1}`);
+    setGameState(prev => ({
+      ...prev,
+      selectedWardenId: prev.selectedWardenId === wardenId ? null : wardenId
+    }));
+  };
+
+  /**
+   * Handle square click - move selected warden or select warden
+   */
   const handleSquareClick = (x, y) => {
-    console.log(`Clicked square [${x}, ${y}]`);
-    // Warden placement logic will go here in Milestone 2
+    if (gameState.selectedWardenId === null) {
+      console.log(`No warden selected. Clicked square [${x}, ${y}]`);
+      return;
+    }
+
+    // Check if another warden is already at this position
+    const otherWardens = gameState.wardens.filter(w => w.id !== gameState.selectedWardenId);
+    if (isPositionOccupied({ x, y }, otherWardens)) {
+      console.log(`Cannot place warden - position occupied`);
+      return;
+    }
+
+    // Move the selected warden
+    console.log(`Moving Warden #${gameState.selectedWardenId + 1} to [${x}, ${y}]`);
+    setGameState(prev => ({
+      ...prev,
+      wardens: prev.wardens.map(warden =>
+        warden.id === prev.selectedWardenId
+          ? { ...warden, position: { x, y } }
+          : warden
+      ),
+      selectedWardenId: null // Deselect after moving
+    }));
   };
 
   // Show loading until game is initialized
@@ -40,25 +77,35 @@ export default function GameController() {
       {/* Main Content */}
       <main>
         <MapView 
-          grid={gameState.grid} 
+          grid={gameState.grid}
+          wardens={gameState.wardens}
+          selectedWardenId={gameState.selectedWardenId}
           onSquareClick={handleSquareClick}
+          onWardenClick={handleWardenClick}
+        />
+        
+        <ControlPanel 
+          gameState={gameState}
+          onRunDay={() => console.log('Run Day - Coming in M3')}
         />
       </main>
 
       {/* Debug Info */}
       <div className="fixed bottom-4 right-4 bg-white p-4 rounded shadow-lg text-xs max-w-xs">
-        <h3 className="font-bold mb-2">Debug Info (M1)</h3>
+        <h3 className="font-bold mb-2">Debug Info (M2)</h3>
         <div className="space-y-1">
           <p>Phase: {gameState.phase}</p>
           <p>Citizens: {gameState.citizens.length}</p>
           <p>Wardens: {gameState.wardens.length}</p>
-          <p>Grid Squares: {gameState.grid.length}</p>
+          <p>Selected: {gameState.selectedWardenId !== null ? `W${gameState.selectedWardenId + 1}` : 'None'}</p>
           <details className="mt-2">
-            <summary className="cursor-pointer font-semibold">Crime Density</summary>
+            <summary className="cursor-pointer font-semibold">Warden Positions</summary>
             <ul className="mt-1 ml-4">
-              <li>Low (0.2): {gameState.grid.filter(s => s.crimeDensity === 0.2).length}</li>
-              <li>Med (0.5): {gameState.grid.filter(s => s.crimeDensity === 0.5).length}</li>
-              <li>High (0.8): {gameState.grid.filter(s => s.crimeDensity === 0.8).length}</li>
+              {gameState.wardens.map(w => (
+                <li key={w.id}>
+                  W{w.id + 1}: [{w.position.x}, {w.position.y}]
+                </li>
+              ))}
             </ul>
           </details>
         </div>

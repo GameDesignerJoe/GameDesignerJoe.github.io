@@ -2,14 +2,23 @@
 
 A strategic game about authority, surveillance, and community trust.
 
-## Current Status: Milestone 1 Complete ✓
+## Current Status: Milestone 2 Complete ✓
 
-### Milestone 1: Foundation & Grid Display
+### Milestone 1: Foundation & Grid Display ✓
 - ✓ React project structure set up
 - ✓ Data structures and types defined
 - ✓ MapView component (5x5 grid) rendering
 - ✓ Initialization system implemented
 - ✓ Grid displays on mount with crime densities
+
+### Milestone 2: Warden Placement ✓
+- ✓ Warden selection state management
+- ✓ Click warden to select/deselect
+- ✓ Click square to move selected warden
+- ✓ Blue patrol zones (3x3) display around wardens
+- ✓ Cannot place two wardens on same square
+- ✓ Visual feedback for selected warden (yellow highlight)
+- ✓ ControlPanel shows warden positions and game info
 
 ## Setup
 
