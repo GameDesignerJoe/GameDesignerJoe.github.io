@@ -1,6 +1,7 @@
 To Do:
 
 Bugs/Tweaks:
+- The quality of the image on mobile seems to be shit. Not sure if that's the image or us doing the compressing. 
 
 Features:
 
