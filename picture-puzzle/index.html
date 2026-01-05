@@ -16,8 +16,8 @@
 <body>
     <div class="game-wrapper">
         <div class="game-container">
-            <!-- Quit Button (positioned absolutely in container) -->
-            <button id="quit-btn" class="quit-button hidden" title="Quit Puzzle">×</button>
+            <!-- Menu Button (positioned absolutely in container) -->
+            <button id="quit-btn" class="quit-button hidden" title="Puzzle Menu">⚙️</button>
             
             <!-- Title -->
             <header class="game-header">
@@ -70,21 +70,19 @@
                         <p>Congratulations!</p>
                         <div class="win-buttons">
                             <button id="view-picture-btn" class="win-btn win-btn-secondary">View Picture</button>
-                            <button id="win-main-menu-btn" class="win-btn win-btn-primary">Main Menu</button>
+                            <button id="win-main-menu-btn" class="win-btn win-btn-primary">Gallery</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-    <!-- Quit Confirmation Modal -->
+    <!-- Puzzle Menu Modal -->
     <div id="quit-modal" class="modal hidden">
         <div class="confirm-dialog">
-            <h3>Quit Puzzle?</h3>
-            <p>Are you sure you want to quit?</p>
-            <div class="confirm-buttons">
-                <button id="confirm-quit-btn" class="confirm-btn confirm-yes">Quit</button>
-                <button id="cancel-quit-btn" class="confirm-btn confirm-no">Cancel</button>
-            </div>
+            <h3>Puzzle Menu</h3>
+            <button id="reset-puzzle-btn" class="confirm-btn confirm-reset">🔄 Reset Puzzle</button>
+            <button id="confirm-quit-btn" class="confirm-btn confirm-gallery">Gallery</button>
+            <button id="cancel-quit-btn" class="confirm-btn confirm-cancel">Cancel</button>
             <button id="debug-solve-btn" class="debug-solve-btn">🔧 Debug: Solve Puzzle</button>
         </div>
     </div>

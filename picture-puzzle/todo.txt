@@ -20,7 +20,7 @@ Bugs/Tweaks:
 
 Features:
 - DONE - Save partical progress on a puzzle. We'd need to make the puzzle as in progress. Maybe a "?" unless there's a better emoji. We put that in the top right of the thumbnail. Then when you click on it for the preview, we have the same icon in the top right of the difficulty. Remove the dot that's there. 
-- Change the X out to be a gear. When pressed it brings up the same options, but also has a 'reset puzzle' option.
+- DONE - Change the X out to be a gear. When pressed it brings up the same options, but also has a 'reset puzzle' option.
 - From the complete menu, add a 'play again' and them them select a different difficulty. 
 
 Possible Ideas:

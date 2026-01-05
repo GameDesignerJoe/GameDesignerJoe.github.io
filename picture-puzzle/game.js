@@ -49,6 +49,7 @@ class PuzzleGame {
         this.quitModal = document.getElementById('quit-modal');
         this.confirmQuitBtn = document.getElementById('confirm-quit-btn');
         this.cancelQuitBtn = document.getElementById('cancel-quit-btn');
+        this.resetPuzzleBtn = document.getElementById('reset-puzzle-btn');
         this.previewModal = document.getElementById('preview-modal');
         this.previewImage = document.getElementById('preview-image');
         this.closePreview = document.getElementById('close-preview');
@@ -86,6 +87,7 @@ class PuzzleGame {
         this.quitBtn.addEventListener('click', () => this.showQuitConfirmation());
         this.confirmQuitBtn.addEventListener('click', () => this.confirmQuit());
         this.cancelQuitBtn.addEventListener('click', () => this.cancelQuit());
+        this.resetPuzzleBtn.addEventListener('click', () => this.resetPuzzle());
         
         // Debug solve button
         this.debugSolveBtn = document.getElementById('debug-solve-btn');
@@ -1603,6 +1605,19 @@ class PuzzleGame {
      */
     cancelQuit() {
         this.quitModal.classList.add('hidden');
+    }
+
+    /**
+     * Reset the current puzzle (reshuffle)
+     */
+    resetPuzzle() {
+        console.log('🔄 Resetting puzzle...');
+        
+        // Close the modal
+        this.quitModal.classList.add('hidden');
+        
+        // Re-initialize the puzzle with the same image and difficulty
+        this.initializePuzzle();
     }
 
     /**
