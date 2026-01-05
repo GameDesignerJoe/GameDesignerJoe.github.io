@@ -43,11 +43,9 @@ export default function ControlPanel({ gameState, onRunDay }) {
             
             <button
               onClick={onRunDay}
-              disabled={true} // Will be enabled in Milestone 3
-              className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition-colors"
             >
               Run Day {gameState.currentDay}
-              {gameState.currentDay <= 1 && <span className="text-xs block">(Coming in M3)</span>}
             </button>
           </div>
         </div>

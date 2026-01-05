@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import MapView from './MapView.jsx';
 import ControlPanel from './ControlPanel.jsx';
+import DayTransition from './DayTransition.jsx';
+import IncidentReport from './IncidentReport.jsx';
 import { initializeGame } from '../systems/initialization.js';
+import { simulateDay } from '../systems/simulation.js';
 import { isPositionOccupied } from '../utils/gridUtils.js';
+import { TOTAL_DAYS } from '../utils/constants.js';
 
 /**
  * GameController Component
@@ -57,6 +61,44 @@ export default function GameController() {
     }));
   };
 
+  /**
+   * Handle running a day simulation
+   */
+  const handleRunDay = () => {
+    console.log(`\n🎬 Running Day ${gameState.currentDay} simulation...`);
+    
+    // Set phase to transition
+    setGameState(prev => ({
+      ...prev,
+      phase: 'transition'
+    }));
+  };
+
+  /**
+   * Handle transition complete - run simulation and show report
+   */
+  const handleTransitionComplete = () => {
+    // Run the simulation
+    const newState = simulateDay(gameState);
+    
+    // Set phase to report
+    setGameState({
+      ...newState,
+      phase: 'report'
+    });
+  };
+
+  /**
+   * Handle continue from report - advance to next day placement
+   */
+  const handleReportContinue = () => {
+    setGameState(prev => ({
+      ...prev,
+      currentDay: prev.currentDay + 1,
+      phase: 'placement'
+    }));
+  };
+
   // Show loading until game is initialized
   if (!gameState) {
     return (
@@ -66,6 +108,33 @@ export default function GameController() {
     );
   }
 
+  // Render based on phase
+  if (gameState.phase === 'transition') {
+    return (
+      <DayTransition 
+        day={gameState.currentDay} 
+        onComplete={handleTransitionComplete}
+      />
+    );
+  }
+
+  if (gameState.phase === 'report') {
+    const lastReport = gameState.dailyReports[gameState.dailyReports.length - 1];
+    const isLastDay = gameState.currentDay > TOTAL_DAYS;
+    
+    return (
+      <IncidentReport
+        report={lastReport}
+        day={lastReport.day}
+        onContinue={handleReportContinue}
+        isLastDay={isLastDay}
+        grid={gameState.grid}
+        wardens={gameState.wardens}
+      />
+    );
+  }
+
+  // Default: placement phase
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -86,28 +155,20 @@ export default function GameController() {
         
         <ControlPanel 
           gameState={gameState}
-          onRunDay={() => console.log('Run Day - Coming in M3')}
+          onRunDay={handleRunDay}
         />
       </main>
 
       {/* Debug Info */}
       <div className="fixed bottom-4 right-4 bg-white p-4 rounded shadow-lg text-xs max-w-xs">
-        <h3 className="font-bold mb-2">Debug Info (M2)</h3>
+        <h3 className="font-bold mb-2">Debug Info (M4)</h3>
         <div className="space-y-1">
           <p>Phase: {gameState.phase}</p>
+          <p>Day: {gameState.currentDay}/{TOTAL_DAYS}</p>
+          <p>Reports: {gameState.dailyReports.length}</p>
           <p>Citizens: {gameState.citizens.length}</p>
           <p>Wardens: {gameState.wardens.length}</p>
           <p>Selected: {gameState.selectedWardenId !== null ? `W${gameState.selectedWardenId + 1}` : 'None'}</p>
-          <details className="mt-2">
-            <summary className="cursor-pointer font-semibold">Warden Positions</summary>
-            <ul className="mt-1 ml-4">
-              {gameState.wardens.map(w => (
-                <li key={w.id}>
-                  W{w.id + 1}: [{w.position.x}, {w.position.y}]
-                </li>
-              ))}
-            </ul>
-          </details>
         </div>
       </div>
     </div>

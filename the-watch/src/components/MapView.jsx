@@ -12,7 +12,8 @@ export default function MapView({
   wardens,
   selectedWardenId,
   onSquareClick,
-  onWardenClick
+  onWardenClick,
+  showCrimes = false
 }) {
   return (
     <div className="flex flex-col items-center justify-center p-8">
@@ -48,6 +49,7 @@ export default function MapView({
               warden={wardenHere}
               selectedWardenId={selectedWardenId}
               onWardenClick={onWardenClick}
+              showCrimes={showCrimes}
             />
           );
         })}
