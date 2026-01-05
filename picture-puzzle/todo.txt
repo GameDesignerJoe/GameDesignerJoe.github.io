@@ -4,7 +4,7 @@ Bugs/Tweaks:
 - DONE - Make sure the shuffle it's the same as the finsiehd picture. 
 - DONE - Have the borders of the difficulty light up in the color they represent if you've completed them, rather than having the dot in the top right. 
 - When you zoom in on mobile the image shakes a lot. 
-- I hit the max image limit on the second image. 
+- DONE - I hit the max image limit on the second image. 
     - I need to set up a db for this:
         IndexedDB Migration (Best Long-Term) 💾
         - Move uploaded images from localStorage to IndexedDB
