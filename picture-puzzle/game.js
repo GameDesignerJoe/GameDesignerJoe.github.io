@@ -328,6 +328,43 @@ class PuzzleGame {
                 item.appendChild(pauseIndicator);
             }
             
+            // Add completion dots for each completed difficulty
+            if (completions['3'] || completions['5'] || completions['7'] || completions['9']) {
+                const starsContainer = document.createElement('div');
+                starsContainer.className = 'completion-stars';
+                
+                if (completions['3']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-easy';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Easy (3x3)';
+                    starsContainer.appendChild(star);
+                }
+                if (completions['5']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-medium';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Medium (5x5)';
+                    starsContainer.appendChild(star);
+                }
+                if (completions['7']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-hard';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Hard (7x7)';
+                    starsContainer.appendChild(star);
+                }
+                if (completions['9']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-insane';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Insane (9x9)';
+                    starsContainer.appendChild(star);
+                }
+                
+                item.appendChild(starsContainer);
+            }
+            
             item.addEventListener('click', () => this.selectUploadedImage(uploadedImg));
             
             this.galleryGrid.appendChild(item);
@@ -377,6 +414,43 @@ class PuzzleGame {
                 pauseIndicator.innerHTML = '⏸️';
                 pauseIndicator.title = 'Puzzle in progress';
                 item.appendChild(pauseIndicator);
+            }
+            
+            // Add completion dots for each completed difficulty
+            if (completions['3'] || completions['5'] || completions['7'] || completions['9']) {
+                const starsContainer = document.createElement('div');
+                starsContainer.className = 'completion-stars';
+                
+                if (completions['3']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-easy';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Easy (3x3)';
+                    starsContainer.appendChild(star);
+                }
+                if (completions['5']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-medium';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Medium (5x5)';
+                    starsContainer.appendChild(star);
+                }
+                if (completions['7']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-hard';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Hard (7x7)';
+                    starsContainer.appendChild(star);
+                }
+                if (completions['9']) {
+                    const star = document.createElement('span');
+                    star.className = 'completion-star star-insane';
+                    star.innerHTML = '●';
+                    star.title = 'Completed Insane (9x9)';
+                    starsContainer.appendChild(star);
+                }
+                
+                item.appendChild(starsContainer);
             }
             
             item.addEventListener('click', () => this.selectGalleryImage(imageName));
