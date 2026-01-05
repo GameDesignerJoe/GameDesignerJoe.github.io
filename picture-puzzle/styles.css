@@ -78,15 +78,15 @@ body.playing {
 
 /* Menu Screen */
 .menu-screen {
-    padding: 0.5rem 1rem 2rem;
+    padding: 0.5rem 1rem 6rem;
     position: relative;
 }
 
 /* Settings Button */
 .settings-button {
     position: absolute;
-    bottom: 1rem;
-    right: 1rem;
+    bottom: 1.5rem;
+    right: 1.5rem;
     background: rgba(148, 163, 184, 0.1);
     border: 2px solid rgba(148, 163, 184, 0.3);
     color: #94a3b8;
