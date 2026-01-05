@@ -335,6 +335,14 @@ body.playing {
     box-shadow: 0 0 0 2px #14b8a6;
 }
 
+/* Gallery Divider */
+.gallery-divider {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: #d1d5db;
+    margin: 0.25rem 0;
+}
+
 /* Completion Stars on Gallery Thumbnails */
 .gallery-item {
     position: relative;

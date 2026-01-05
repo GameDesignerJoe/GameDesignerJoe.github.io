@@ -333,6 +333,13 @@ class PuzzleGame {
             this.galleryGrid.appendChild(item);
         });
         
+        // Add divider if there are uploaded images
+        if (this.uploadedImages.length > 0) {
+            const divider = document.createElement('div');
+            divider.className = 'gallery-divider';
+            this.galleryGrid.appendChild(divider);
+        }
+        
         // Add gallery images
         this.galleryImages.forEach(imageName => {
             const item = document.createElement('div');
