@@ -3,6 +3,7 @@
 
 import * as dropbox from './dropbox.js';
 import { showToast } from './app.js';
+import * as mediaSession from './media-session.js';
 
 // Player state
 const playerState = {
@@ -37,12 +38,19 @@ function setupAudioEvents() {
     playerState.duration = audio.duration;
     console.log('[Player] Track loaded, duration:', formatTime(audio.duration));
     updatePlayerUI();
+    
+    // Update media session
+    if (playerState.currentTrack) {
+      mediaSession.updateMetadata(playerState.currentTrack);
+      mediaSession.updatePositionState(playerState.duration, 0);
+    }
   });
   
   // When playback starts
   audio.addEventListener('play', () => {
     playerState.isPlaying = true;
     updatePlayerUI();
+    mediaSession.updatePlaybackState('playing');
     console.log('[Player] Playback started');
   });
   
@@ -50,6 +58,7 @@ function setupAudioEvents() {
   audio.addEventListener('pause', () => {
     playerState.isPlaying = false;
     updatePlayerUI();
+    mediaSession.updatePlaybackState('paused');
     console.log('[Player] Playback paused');
   });
   
@@ -57,6 +66,11 @@ function setupAudioEvents() {
   audio.addEventListener('timeupdate', () => {
     playerState.currentTime = audio.currentTime;
     updateTimeline();
+    
+    // Update media session position every second
+    if (Math.floor(playerState.currentTime) !== Math.floor(playerState.currentTime - 0.25)) {
+      mediaSession.updatePositionState(playerState.duration, playerState.currentTime);
+    }
   });
   
   // When track ends

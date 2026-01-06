@@ -6,6 +6,7 @@ import * as folderBrowser from './folder-browser.js';
 import * as library from './library.js';
 import * as player from './player.js';
 import * as queue from './queue.js';
+import * as mediaSession from './media-session.js';
 
 // App State
 const appState = {
@@ -57,6 +58,7 @@ async function checkAuthentication() {
     // Initialize modules
     player.init();
     queue.init();
+    mediaSession.init();
     await folderBrowser.init();
     await library.init();
     
@@ -106,6 +108,7 @@ async function handleOAuthCallback() {
     // Initialize modules (same as checkAuthentication)
     player.init();
     queue.init();
+    mediaSession.init();
     await folderBrowser.init();
     await library.init();
     
