@@ -1,5 +1,6 @@
 import { TRUST_LEVELS } from '../utils/constants.js';
 import { isInPatrolZone } from '../utils/gridUtils.js';
+import { CORRUPTION_CONFIG, TRUST_CONFIG } from '../config/gameConfig.js';
 
 /**
  * Update warden corruption levels
@@ -9,7 +10,7 @@ import { isInPatrolZone } from '../utils/gridUtils.js';
  */
 export function updateWardenCorruption(wardens, crimes) {
   wardens.forEach(warden => {
-    let corruptionIncrease = 5; // Base increase per day
+    let corruptionIncrease = CORRUPTION_CONFIG.baseDailyIncrease;
     
     // Count crimes in patrol zone
     const crimesInZone = crimes.filter(c =>
@@ -17,19 +18,19 @@ export function updateWardenCorruption(wardens, crimes) {
     ).length;
     
     // Boredom factor (low activity)
-    if (crimesInZone < 2) {
-      corruptionIncrease += 10; // Bored wardens get corrupt faster
+    if (crimesInZone < CORRUPTION_CONFIG.boredomThreshold) {
+      corruptionIncrease += CORRUPTION_CONFIG.boredomBonus;
     }
     // Burnout factor (high activity)
-    else if (crimesInZone > 8) {
-      corruptionIncrease += 8; // Overwhelmed wardens get corrupt
+    else if (crimesInZone > CORRUPTION_CONFIG.burnoutThreshold) {
+      corruptionIncrease += CORRUPTION_CONFIG.burnoutBonus;
     }
     
-    warden.corruptionLevel = Math.min(100, warden.corruptionLevel + corruptionIncrease);
+    warden.corruptionLevel = Math.min(CORRUPTION_CONFIG.maxCorruption, warden.corruptionLevel + corruptionIncrease);
     warden.daysEmployed++;
     
     // Log corrupt actions if corruption is high
-    if (warden.corruptionLevel > 40 && Math.random() < 0.4) {
+    if (warden.corruptionLevel > CORRUPTION_CONFIG.corruptActionThreshold && Math.random() < CORRUPTION_CONFIG.corruptActionChance) {
       const action = {
         day: 0, // Will be set by simulation
         type: 'excessive_force',
@@ -65,7 +66,7 @@ export function updateCitizenTrust(citizens, wardens, crimes) {
       isInPatrolZone(citizen.homeLocation, w.position, w.patrolRadius)
     ).length;
     
-    trustChange -= wardensNearHome * 2; // -2 per warden nearby
+    trustChange += wardensNearHome * TRUST_CONFIG.watchExposurePenalty;
     citizen.watchExposure += wardensNearHome;
     
     // Crime victim factor
@@ -81,9 +82,9 @@ export function updateCitizenTrust(citizens, wardens, crimes) {
       );
       
       if (victimCrime.status === 'prevented' || victimCrime.status === 'responded') {
-        trustChange += 5; // Good response
+        trustChange += TRUST_CONFIG.goodResponseBonus;
       } else if (victimCrime.status === 'unreported') {
-        trustChange -= 15; // No response, feeling abandoned
+        trustChange += TRUST_CONFIG.noResponsePenalty;
       }
     }
     
@@ -127,8 +128,8 @@ function getTrustScore(trustLevel) {
  * @returns {string}
  */
 function getTrustLevelFromScore(score) {
-  if (score >= 60) return TRUST_LEVELS.TRUSTING;
-  if (score >= 40) return TRUST_LEVELS.NEUTRAL;
-  if (score >= 20) return TRUST_LEVELS.WARY;
+  if (score >= TRUST_CONFIG.trustThresholds.trusting) return TRUST_LEVELS.TRUSTING;
+  if (score >= TRUST_CONFIG.trustThresholds.neutral) return TRUST_LEVELS.NEUTRAL;
+  if (score >= TRUST_CONFIG.trustThresholds.wary) return TRUST_LEVELS.WARY;
   return TRUST_LEVELS.HOSTILE;
 }

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import IntroScreen from './IntroScreen.jsx';
 import MapView from './MapView.jsx';
 import ControlPanel from './ControlPanel.jsx';
 import DayTransition from './DayTransition.jsx';
 import IncidentReport from './IncidentReport.jsx';
+import AuditResults from './AuditResults.jsx';
 import { initializeGame } from '../systems/initialization.js';
 import { simulateDay } from '../systems/simulation.js';
+import { calculateAudit } from '../systems/audit.js';
 import { isPositionOccupied } from '../utils/gridUtils.js';
 import { TOTAL_DAYS } from '../utils/constants.js';
 
@@ -14,12 +17,14 @@ import { TOTAL_DAYS } from '../utils/constants.js';
  */
 export default function GameController() {
   const [gameState, setGameState] = useState(null);
+  const [showIntro, setShowIntro] = useState(true);
 
-  // Initialize game on mount
-  useEffect(() => {
+  // Don't initialize until user starts
+  const handleStartGame = () => {
     const initialState = initializeGame();
     setGameState(initialState);
-  }, []);
+    setShowIntro(false);
+  };
 
   /**
    * Handle warden selection
@@ -89,15 +94,42 @@ export default function GameController() {
   };
 
   /**
-   * Handle continue from report - advance to next day placement
+   * Handle continue from report - advance to next day or show audit
    */
   const handleReportContinue = () => {
-    setGameState(prev => ({
-      ...prev,
-      currentDay: prev.currentDay + 1,
-      phase: 'placement'
-    }));
+    // Check if this was the last day
+    if (gameState.currentDay >= TOTAL_DAYS) {
+      // Calculate audit and show results
+      const auditResults = calculateAudit(gameState);
+      console.log('🔍 Independent Audit Complete:', auditResults);
+      
+      setGameState(prev => ({
+        ...prev,
+        phase: 'audit',
+        auditResults
+      }));
+    } else {
+      // Continue to next day
+      setGameState(prev => ({
+        ...prev,
+        currentDay: prev.currentDay + 1,
+        phase: 'placement'
+      }));
+    }
   };
+
+  /**
+   * Handle game restart
+   */
+  const handleRestart = () => {
+    const initialState = initializeGame();
+    setGameState(initialState);
+  };
+
+  // Show intro screen first
+  if (showIntro) {
+    return <IntroScreen onStart={handleStartGame} />;
+  }
 
   // Show loading until game is initialized
   if (!gameState) {
@@ -120,7 +152,7 @@ export default function GameController() {
 
   if (gameState.phase === 'report') {
     const lastReport = gameState.dailyReports[gameState.dailyReports.length - 1];
-    const isLastDay = gameState.currentDay > TOTAL_DAYS;
+    const isLastDay = gameState.currentDay >= TOTAL_DAYS;
     
     return (
       <IncidentReport
@@ -130,6 +162,15 @@ export default function GameController() {
         isLastDay={isLastDay}
         grid={gameState.grid}
         wardens={gameState.wardens}
+      />
+    );
+  }
+
+  if (gameState.phase === 'audit') {
+    return (
+      <AuditResults
+        auditResults={gameState.auditResults}
+        onRestart={handleRestart}
       />
     );
   }

@@ -1,4 +1,5 @@
 import { CRIME_TYPES, CRIME_STATUS } from '../utils/constants.js';
+import { CRIME_CONFIG } from '../config/gameConfig.js';
 
 let crimeIdCounter = 0;
 
@@ -27,7 +28,7 @@ export function generateCrimes(citizens, grid, wardens, currentDay) {
   
   // Generate location-based crimes
   grid.forEach(square => {
-    const locationCrimeProbability = square.crimeDensity * 0.08; // 8% base at high density
+    const locationCrimeProbability = square.crimeDensity * CRIME_CONFIG.locationCrimeMultiplier;
     
     if (Math.random() < locationCrimeProbability) {
       const crime = createCrime({ x: square.x, y: square.y }, currentDay);
@@ -37,7 +38,7 @@ export function generateCrimes(citizens, grid, wardens, currentDay) {
   
   // Generate corrupt warden crimes (harassment in quiet areas)
   wardens.forEach(warden => {
-    if (warden.corruptionLevel > 30) {
+    if (warden.corruptionLevel > CRIME_CONFIG.corruptWardenThreshold) {
       const corruptCrimes = generateCorruptWardenCrimes(warden, crimes, currentDay);
       crimes.push(...corruptCrimes);
     }
@@ -54,11 +55,11 @@ export function generateCrimes(citizens, grid, wardens, currentDay) {
  * @returns {number}
  */
 function calculateCrimeProbability(citizen, grid) {
-  let baseProbability = 0.05; // 5% base chance
+  let baseProbability = CRIME_CONFIG.baseCitizenCrimeProbability;
   
   // Trust factor - lower trust = higher crime
-  if (citizen.trustLevel === 'wary') baseProbability *= 1.5;
-  if (citizen.trustLevel === 'hostile') baseProbability *= 2.0;
+  if (citizen.trustLevel === 'wary') baseProbability *= CRIME_CONFIG.trustMultipliers.wary;
+  if (citizen.trustLevel === 'hostile') baseProbability *= CRIME_CONFIG.trustMultipliers.hostile;
   
   // Location density factor
   const homeSquare = grid.find(s => s.x === citizen.homeLocation.x && s.y === citizen.homeLocation.y);
@@ -66,7 +67,7 @@ function calculateCrimeProbability(citizen, grid) {
     baseProbability *= homeSquare.crimeDensity;
   }
   
-  return Math.min(baseProbability, 0.3); // Cap at 30%
+  return Math.min(baseProbability, CRIME_CONFIG.maxCrimeProbability);
 }
 
 /**
@@ -106,9 +107,10 @@ function generateCorruptWardenCrimes(warden, existingCrimes, currentDay) {
     Math.abs(c.location.y - warden.position.y) <= warden.patrolRadius
   ).length;
   
-  // If quiet area (< 2 crimes), bored warden manufactures incidents
-  if (patrolZoneCrimes < 2) {
-    const manufactureCount = Math.floor(Math.random() * 2) + 1; // 1-2 incidents
+  // If quiet area, bored warden manufactures incidents
+  if (patrolZoneCrimes < CRIME_CONFIG.corruptCrimeRange[0]) {
+    const [min, max] = CRIME_CONFIG.corruptCrimeRange;
+    const manufactureCount = Math.floor(Math.random() * (max - min + 1)) + min;
     
     for (let i = 0; i < manufactureCount; i++) {
       const crime = {

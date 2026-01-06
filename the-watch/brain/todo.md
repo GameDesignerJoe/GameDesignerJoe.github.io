@@ -1,0 +1,17 @@
+TODO
+- Don't revewal the twist in the opening.
+- Need a file I can edit that let's me tweak without running Cline every time.
+    - Days until audit
+    - Crime occurance 
+- Fucking dark mode
+- Rename the positions [4,1] to be names of things (University Dist., Burrows, The Heights, Downtown, Gaslamp, etc.)
+- When you click "Run Day" we need to make it more dynamics:
+    - A ticker of events that are happening. 
+    - Flashes of hot spots in crime areas as they happen
+    - There needs to be more happening.
+    - The wardens move around their section of patrol
+- The dots for the crimeson the map need t obe bigger. If we had emojis that would be better. 
+- For a place that's having an issue with crime, only having one crime seems a little light.
+- We should start with citizens already spread across the different Trust levels. Weight toward neutral, or wary if you want to hit hte crime angle more.
+- Wardens start out a little bent, or some random roll at least. We're stepping into a town that has a crime problem out of the gate after all. 
+- There's nothing to push back against the player. Nothing is happening that they need to respond to. I didn't move the wardens once and 

@@ -1,5 +1,6 @@
 import { CRIME_STATUS } from '../utils/constants.js';
 import { isInPatrolZone } from '../utils/gridUtils.js';
+import { RESOLUTION_CONFIG } from '../config/gameConfig.js';
 
 /**
  * Resolve crimes based on warden deployment
@@ -29,7 +30,7 @@ export function resolveCrimes(crimes, wardens, citizens) {
     const responder = coveringWardens[0];
     
     // Prevention vs response based on warden effectiveness
-    const preventionChance = 0.30 - (responder.corruptionLevel / 500);
+    const preventionChance = RESOLUTION_CONFIG.basePreventionChance - (responder.corruptionLevel / RESOLUTION_CONFIG.corruptionPenaltyDivisor);
     
     if (Math.random() < preventionChance) {
       // Prevented before it happened
@@ -74,7 +75,7 @@ function resolveWithoutWarden(crime, citizens) {
   
   if (nearbyCitizens.length === 0) {
     // No one around, reported by chance
-    crime.status = Math.random() < 0.3 ? CRIME_STATUS.REPORTED : CRIME_STATUS.UNREPORTED;
+    crime.status = Math.random() < RESOLUTION_CONFIG.randomReportingChance ? CRIME_STATUS.REPORTED : CRIME_STATUS.UNREPORTED;
     return crime;
   }
   
@@ -82,7 +83,7 @@ function resolveWithoutWarden(crime, citizens) {
   const avgTrustScore = calculateAverageTrust(nearbyCitizens);
   
   // Higher trust = more likely to report
-  const reportProbability = avgTrustScore / 100 * 0.8; // Max 80% reporting
+  const reportProbability = avgTrustScore / 100 * RESOLUTION_CONFIG.citizenReporting.reportingMultiplier;
   
   crime.status = Math.random() < reportProbability 
     ? CRIME_STATUS.REPORTED 
