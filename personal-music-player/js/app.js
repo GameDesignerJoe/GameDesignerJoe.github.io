@@ -1,6 +1,9 @@
 // Main App Entry Point
 import config from '../config.js';
 import * as dropbox from './dropbox.js';
+import * as storage from './storage.js';
+import * as folderBrowser from './folder-browser.js';
+import * as library from './library.js';
 
 // App State
 const appState = {
@@ -40,7 +43,7 @@ function registerServiceWorker() {
 }
 
 // Check if user is authenticated
-function checkAuthentication() {
+async function checkAuthentication() {
   if (dropbox.isAuthenticated()) {
     appState.isAuthenticated = true;
     appState.accessToken = dropbox.getAccessToken();
@@ -49,12 +52,13 @@ function checkAuthentication() {
     // Test connection
     testDropboxConnection();
     
+    // Initialize modules
+    await folderBrowser.init();
+    await library.init();
+    
     // Show library screen
     showScreen('library');
     showHeaderActions();
-    
-    // TODO: Load library from IndexedDB
-    // For now, show the scan button
   } else {
     console.log('[App] User not authenticated');
     showScreen('auth');
@@ -163,8 +167,20 @@ function setupEventListeners() {
       
       const tab = btn.dataset.tab;
       console.log('[App] Switching to tab:', tab);
-      // TODO: Implement tab switching logic
+      library.switchTab(tab);
     });
+  });
+  
+  // Add Songs button (will be created dynamically by library module)
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'addSongsBtn') {
+      await folderBrowser.showFolderBrowser();
+    }
+  });
+  
+  // Refresh Library button
+  document.getElementById('refreshLibraryBtn')?.addEventListener('click', async () => {
+    await folderBrowser.showFolderBrowser();
   });
   
   // Search input
