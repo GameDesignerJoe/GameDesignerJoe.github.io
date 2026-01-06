@@ -1,4 +1,4 @@
-# My Music Player - PWA
+# My Playback - PWA
 
 A Spotify-inspired Progressive Web App that streams music from your Dropbox account with lock screen controls.
 
