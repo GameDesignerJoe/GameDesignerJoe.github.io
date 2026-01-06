@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Stream your Dropbox music library with lock screen controls">
+  <meta name="theme-color" content="#1DB954">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Music">
+  
+  <title>My Music Player</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="assets/icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.svg">
+  
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/player.css">
+  <link rel="stylesheet" href="css/library.css">
+  <link rel="stylesheet" href="css/playlists.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <h1 class="app-title">My Music</h1>
+      <div class="header-actions">
+        <button id="refreshLibraryBtn" class="icon-btn" style="display: none;" title="Refresh Library">
+          <span>🔄</span>
+        </button>
+        <button id="disconnectBtn" class="icon-btn" style="display: none;" title="Disconnect">
+          <span>🚪</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+      <!-- Authentication Screen -->
+      <div id="authScreen" class="screen active">
+        <div class="welcome-container">
+          <div class="welcome-icon">🎵</div>
+          <h2>Welcome to My Music Player</h2>
+          <p>Connect your Dropbox account to start streaming your music library.</p>
+          <button id="connectDropboxBtn" class="btn-primary">Connect to Dropbox</button>
+        </div>
+      </div>
+
+      <!-- Loading Screen -->
+      <div id="loadingScreen" class="screen">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p id="loadingMessage">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Library Screen -->
+      <div id="libraryScreen" class="screen">
+        <!-- Library Tabs -->
+        <div class="library-tabs">
+          <button class="tab-btn active" data-tab="songs">Songs</button>
+          <button class="tab-btn" data-tab="artists">Artists</button>
+          <button class="tab-btn" data-tab="albums">Albums</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-container">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search songs, artists, albums...">
+          <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">✕</button>
+        </div>
+
+        <!-- Library Content -->
+        <div id="libraryContent" class="library-content">
+          <div class="empty-state">
+            <p>No tracks found</p>
+            <button id="scanLibraryBtn" class="btn-secondary">Scan Library</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Playlists Screen -->
+      <div id="playlistsScreen" class="screen">
+        <div class="playlists-header">
+          <h2>Playlists</h2>
+          <button id="createPlaylistBtn" class="btn-primary">+ New Playlist</button>
+        </div>
+        <div id="playlistsContent" class="playlists-content">
+          <div class="empty-state">
+            <p>No playlists yet</p>
+            <p class="empty-state-subtitle">Create a playlist to get started</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue Screen -->
+      <div id="queueScreen" class="screen">
+        <div class="queue-header">
+          <button id="closeQueueBtn" class="icon-btn">←</button>
+          <h2>Queue</h2>
+          <button id="clearQueueBtn" class="btn-text">Clear</button>
+        </div>
+        <div id="queueContent" class="queue-content">
+          <div class="empty-state">
+            <p>Queue is empty</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Now Playing Bar (Mini Player) -->
+    <div id="miniPlayer" class="mini-player" style="display: none;">
+      <div class="mini-player-content" id="miniPlayerContent">
+        <img id="miniPlayerArt" class="mini-player-art" src="assets/placeholder-cover.svg" alt="Album Art">
+        <div class="mini-player-info">
+          <div class="mini-player-title">No track playing</div>
+          <div class="mini-player-artist">—</div>
+        </div>
+        <button id="miniPlayPauseBtn" class="mini-play-btn">▶</button>
+      </div>
+    </div>
+
+    <!-- Full Player Screen -->
+    <div id="playerScreen" class="player-screen">
+      <div class="player-header">
+        <button id="closePlayerBtn" class="icon-btn">▼</button>
+        <span class="player-header-title">Now Playing</span>
+        <button id="queueBtn" class="icon-btn">☰</button>
+      </div>
+
+      <div class="player-content">
+        <!-- Album Art -->
+        <div class="album-art-container">
+          <img id="albumArt" class="album-art" src="assets/placeholder-cover.svg" alt="Album Art">
+        </div>
+
+        <!-- Track Info -->
+        <div class="track-info">
+          <h2 id="trackTitle" class="track-title">No track playing</h2>
+          <p id="trackArtist" class="track-artist">—</p>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-container">
+          <div class="timeline-times">
+            <span id="currentTime" class="time-current">0:00</span>
+            <span id="totalTime" class="time-total">0:00</span>
+          </div>
+          <div class="timeline" id="timeline">
+            <div class="timeline-progress" id="timelineProgress"></div>
+            <div class="timeline-handle" id="timelineHandle"></div>
+          </div>
+        </div>
+
+        <!-- Playback Controls -->
+        <div class="playback-controls">
+          <button id="shuffleBtn" class="control-btn control-btn-small" title="Shuffle">
+            <span>🔀</span>
+          </button>
+          <button id="skipBackBtn" class="control-btn" title="Previous">
+            <span>⏮</span>
+          </button>
+          <button id="playPauseBtn" class="control-btn control-btn-large" title="Play">
+            <span id="playPauseIcon">▶</span>
+          </button>
+          <button id="skipForwardBtn" class="control-btn" title="Next">
+            <span>⏭</span>
+          </button>
+          <button id="repeatBtn" class="control-btn control-btn-small" title="Repeat">
+            <span>🔁</span>
+          </button>
+        </div>
+
+        <!-- Volume Control -->
+        <div class="volume-container">
+          <span class="volume-icon">🔊</span>
+          <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="80">
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      <button class="nav-btn" data-screen="library">
+        <span class="nav-icon">🎵</span>
+        <span class="nav-label">Library</span>
+      </button>
+      <button class="nav-btn" data-screen="playlists">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Playlists</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Context Menu (for Add to Playlist, etc.) -->
+  <div id="contextMenu" class="context-menu" style="display: none;"></div>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
