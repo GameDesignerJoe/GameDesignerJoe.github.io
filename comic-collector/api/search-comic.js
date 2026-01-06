@@ -15,8 +15,16 @@ export default async function handler(req, res) {
     }
 
     // Comic Vine API configuration
-    const API_KEY = '6be7a1f7e4ebe66403aca6ff9e8174f6a8aa9717';
+    const API_KEY = process.env.COMIC_VINE_API_KEY;
     const API_BASE_URL = 'https://comicvine.gamespot.com/api';
+    
+    // Validate API key is configured
+    if (!API_KEY) {
+        return res.status(500).json({ 
+            success: false,
+            error: 'API key not configured. Please set COMIC_VINE_API_KEY environment variable.' 
+        });
+    }
     
     try {
         // Build the Comic Vine API URL
