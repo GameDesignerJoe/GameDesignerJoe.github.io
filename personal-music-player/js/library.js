@@ -223,8 +223,9 @@ function createAlbumGroup(album, artist, tracks) {
 // Play a track
 async function playTrack(track) {
   console.log('[Library] Playing track:', track.title);
-  const player = await import('./player.js');
-  await player.playTrack(track);
+  const queue = await import('./queue.js');
+  // Pass all tracks so it continues playing through the library
+  await queue.playTrackWithQueue(track, allTracks);
 }
 
 // Escape HTML to prevent XSS

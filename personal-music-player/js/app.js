@@ -5,6 +5,7 @@ import * as storage from './storage.js';
 import * as folderBrowser from './folder-browser.js';
 import * as library from './library.js';
 import * as player from './player.js';
+import * as queue from './queue.js';
 
 // App State
 const appState = {
@@ -76,17 +77,35 @@ async function testDropboxConnection() {
     }
   } catch (error) {
     console.error('[App] Dropbox connection test failed:', error);
-    showToast('Connection to Dropbox failed. Please try reconnecting.', 'error');
+    
+    // Check if it's an auth error
+    if (error.message.includes('Authentication expired') || error.message.includes('Authentication expired')) {
+      showToast('⚠️ Session expired. Please reconnect to Dropbox.', 'error');
+      
+      // Wait a moment then redirect to auth screen
+      setTimeout(() => {
+        disconnect(false); // Pass false to skip confirmation
+      }, 2000);
+    } else {
+      showToast('Connection to Dropbox failed. Please try reconnecting.', 'error');
+    }
   }
 }
 
 // Handle OAuth callback
-function handleOAuthCallback() {
+async function handleOAuthCallback() {
   const accessToken = dropbox.handleOAuthCallback();
   
   if (accessToken) {
     appState.isAuthenticated = true;
     appState.accessToken = accessToken;
+    
+    console.log('[App] Authentication successful');
+    
+    // Initialize modules (same as checkAuthentication)
+    player.init();
+    await folderBrowser.init();
+    await library.init();
     
     // Show library
     showScreen('library');
@@ -94,8 +113,6 @@ function handleOAuthCallback() {
     
     // Show success toast
     showToast('Connected to Dropbox!', 'success');
-    
-    console.log('[App] Authentication successful');
     
     // Test connection
     testDropboxConnection();
@@ -211,13 +228,11 @@ function setupEventListeners() {
   });
   
   document.getElementById('skipBackBtn')?.addEventListener('click', () => {
-    console.log('[App] Skip back clicked');
-    // TODO: Implement skip back in Milestone 5
+    queue.skipToPrevious();
   });
   
   document.getElementById('skipForwardBtn')?.addEventListener('click', () => {
-    console.log('[App] Skip forward clicked');
-    // TODO: Implement skip forward in Milestone 5
+    queue.skipToNext();
   });
   
   // Player screen navigation
@@ -245,8 +260,7 @@ function setupEventListeners() {
   });
   
   document.getElementById('clearQueueBtn')?.addEventListener('click', () => {
-    console.log('[App] Clear queue clicked');
-    // TODO: Implement clear queue
+    queue.clearQueue();
   });
   
   // Playlist creation
@@ -315,28 +329,32 @@ function connectToDropbox() {
 }
 
 // Disconnect from Dropbox
-function disconnect() {
-  if (confirm('Are you sure you want to disconnect from Dropbox?')) {
-    // Clear stored token
-    dropbox.clearAccessToken();
-    
-    // Clear app state
-    appState.isAuthenticated = false;
-    appState.accessToken = null;
-    
-    // Hide header actions
-    hideHeaderActions();
-    
-    // Show auth screen
-    showScreen('auth');
-    
-    // Show toast
-    showToast('Disconnected from Dropbox', 'success');
-    
-    console.log('[App] User disconnected');
-    
-    // TODO: Clear IndexedDB data
+function disconnect(showConfirmation = true) {
+  if (showConfirmation && !confirm('Are you sure you want to disconnect from Dropbox?')) {
+    return; // User cancelled
   }
+  
+  // Clear stored token
+  dropbox.clearAccessToken();
+  
+  // Clear app state
+  appState.isAuthenticated = false;
+  appState.accessToken = null;
+  
+  // Hide header actions
+  hideHeaderActions();
+  
+  // Show auth screen
+  showScreen('auth');
+  
+  // Show toast if not auto-disconnect
+  if (showConfirmation) {
+    showToast('Disconnected from Dropbox', 'success');
+  }
+  
+  console.log('[App] User disconnected');
+  
+  // TODO: Clear IndexedDB data
 }
 
 // Show toast notification

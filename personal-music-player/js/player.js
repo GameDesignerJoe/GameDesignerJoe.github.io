@@ -60,11 +60,14 @@ function setupAudioEvents() {
   });
   
   // When track ends
-  audio.addEventListener('ended', () => {
+  audio.addEventListener('ended', async () => {
     console.log('[Player] Track ended');
     playerState.isPlaying = false;
     updatePlayerUI();
-    // TODO: Play next track in queue (Milestone 5)
+    
+    // Auto-play next track in queue
+    const queue = await import('./queue.js');
+    await queue.onTrackEnded();
   });
   
   // Error handling
