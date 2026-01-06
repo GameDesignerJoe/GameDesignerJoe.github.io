@@ -4,6 +4,7 @@ import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as folderBrowser from './folder-browser.js';
 import * as library from './library.js';
+import * as player from './player.js';
 
 // App State
 const appState = {
@@ -53,6 +54,7 @@ async function checkAuthentication() {
     testDropboxConnection();
     
     // Initialize modules
+    player.init();
     await folderBrowser.init();
     await library.init();
     
@@ -205,18 +207,17 @@ function setupEventListeners() {
   
   // Player controls
   document.getElementById('playPauseBtn')?.addEventListener('click', () => {
-    console.log('[App] Play/Pause clicked');
-    // TODO: Implement play/pause
+    player.togglePlayPause();
   });
   
   document.getElementById('skipBackBtn')?.addEventListener('click', () => {
     console.log('[App] Skip back clicked');
-    // TODO: Implement skip back
+    // TODO: Implement skip back in Milestone 5
   });
   
   document.getElementById('skipForwardBtn')?.addEventListener('click', () => {
     console.log('[App] Skip forward clicked');
-    // TODO: Implement skip forward
+    // TODO: Implement skip forward in Milestone 5
   });
   
   // Player screen navigation
@@ -235,8 +236,7 @@ function setupEventListeners() {
   
   document.getElementById('miniPlayPauseBtn')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    console.log('[App] Mini player play/pause clicked');
-    // TODO: Implement play/pause
+    player.togglePlayPause();
   });
   
   // Queue screen
@@ -258,8 +258,7 @@ function setupEventListeners() {
   // Volume control
   document.getElementById('volumeSlider')?.addEventListener('input', (e) => {
     const volume = e.target.value / 100;
-    console.log('[App] Volume:', volume);
-    // TODO: Implement volume control
+    player.setVolume(volume);
   });
   
   // Timeline seeking
@@ -295,12 +294,8 @@ function setupTimelineControls() {
     const x = (e.type.includes('touch') ? e.touches[0].clientX : e.clientX) - rect.left;
     const percentage = Math.max(0, Math.min(1, x / rect.width));
     
-    // Update visual
-    document.getElementById('timelineProgress').style.width = `${percentage * 100}%`;
-    document.getElementById('timelineHandle').style.left = `${percentage * 100}%`;
-    
-    console.log('[App] Seek to:', percentage);
-    // TODO: Implement actual seeking
+    // Seek the player
+    player.seekTo(percentage);
   };
   
   // Mouse events

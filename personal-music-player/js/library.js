@@ -223,8 +223,8 @@ function createAlbumGroup(album, artist, tracks) {
 // Play a track
 async function playTrack(track) {
   console.log('[Library] Playing track:', track.title);
-  // TODO: Implement playback in Milestone 4
-  // For now, just log it
+  const player = await import('./player.js');
+  await player.playTrack(track);
 }
 
 // Escape HTML to prevent XSS
