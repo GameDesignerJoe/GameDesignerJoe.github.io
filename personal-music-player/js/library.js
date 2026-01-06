@@ -69,9 +69,9 @@ function displaySongs() {
   
   libraryContent.innerHTML = '';
   
-  // Sort tracks alphabetically by title
+  // Sort tracks with natural/alphanumeric sorting (1, 2, 3... 10, 11 instead of 1, 10, 11, 2)
   const sortedTracks = [...allTracks].sort((a, b) => 
-    a.title.localeCompare(b.title)
+    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
   );
   
   sortedTracks.forEach(track => {
