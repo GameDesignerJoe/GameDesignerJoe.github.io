@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comic Scanner</title>
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 300;
+            color: #e0e0e0;
+        }
+
+        /* Container */
+        .container {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Input Section */
+        .input-section {
+            width: 100%;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #barcodeInput {
+            width: 100%;
+            height: 48px;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #4a4a4a;
+            border-radius: 8px;
+            background-color: #333333;
+            color: #e0e0e0;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #barcodeInput:focus {
+            border-color: #4a9eff;
+        }
+
+        #barcodeInput::placeholder {
+            color: #666666;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            height: 48px;
+            margin-top: 16px;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            color: white;
+            background-color: #4a9eff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background-color: #3a8eef;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Error Message */
+        .error-message {
+            color: #ff6b6b;
+            font-size: 14px;
+            margin-top: 12px;
+            text-align: center;
+            min-height: 20px;
+        }
+
+        /* Results Section */
+        .results-section {
+            display: none;
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 32px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .results-section.show {
+            display: block;
+        }
+
+        .cover-image {
+            max-width: 200px;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .comic-name {
+            font-size: 24px;
+            font-weight: 300;
+            color: #e0e0e0;
+            margin-bottom: 8px;
+        }
+
+        .issue-number {
+            font-size: 18px;
+            color: #a0a0a0;
+            margin-bottom: 24px;
+        }
+
+        /* Loading State */
+        .loading {
+            display: inline-block;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 28px;
+            }
+
+            .input-section {
+                max-width: 100%;
+            }
+
+            #barcodeInput,
+            .btn {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>Comic Scanner</h1>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Input Section -->
+        <div class="input-section">
+            <input 
+                type="text" 
+                id="barcodeInput" 
+                placeholder="Enter barcode number"
+                autocomplete="off"
+            >
+            <button class="btn" id="searchBtn">Search</button>
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <img class="cover-image" id="coverImage" alt="Comic Cover">
+            <div class="comic-name" id="comicName"></div>
+            <div class="issue-number" id="issueNumber"></div>
+            <button class="btn" id="newSearchBtn">Search Another Comic</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const barcodeInput = document.getElementById('barcodeInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultsSection = document.getElementById('resultsSection');
+        const coverImage = document.getElementById('coverImage');
+        const comicName = document.getElementById('comicName');
+        const issueNumber = document.getElementById('issueNumber');
+        const newSearchBtn = document.getElementById('newSearchBtn');
+
+        // Focus input on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            barcodeInput.focus();
+        });
+
+        // Search button click handler
+        searchBtn.addEventListener('click', handleSearch);
+
+        // Enter key handler
+        barcodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSearch();
+            }
+        });
+
+        // New search button handler
+        newSearchBtn.addEventListener('click', resetSearch);
+
+        // Main search function
+        async function handleSearch() {
+            const barcode = barcodeInput.value.trim();
+
+            // Clear previous error
+            errorMessage.textContent = '';
+
+            // Validate input
+            if (!barcode) {
+                showError('Please enter a barcode number');
+                return;
+            }
+
+            // Set loading state
+            setLoading(true);
+
+            try {
+                // Call Comic Vine API
+                const comic = await searchComicByBarcode(barcode);
+
+                if (comic) {
+                    displayResults(comic);
+                } else {
+                    showError('No comic found with this barcode');
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                
+                if (error.message.includes('rate limit')) {
+                    showError('Too many requests. Please wait a moment.');
+                } else {
+                    showError('Error searching. Please try again.');
+                }
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Search comic by barcode using serverless function
+        async function searchComicByBarcode(barcode) {
+            // Call our serverless function which handles Comic Vine API server-side
+            const url = `/api/search-comic?barcode=${encodeURIComponent(barcode)}`;
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                if (response.status === 429) {
+                    throw new Error('rate limit exceeded');
+                }
+                if (response.status === 404) {
+                    return null; // No comic found
+                }
+                throw new Error(`API error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Check if search was successful
+            if (data.success && data.comic) {
+                return data.comic;
+            }
+
+            return null;
+        }
+
+        // Display search results
+        function displayResults(comic) {
+            // Hide input section and show results
+            document.querySelector('.input-section').style.display = 'none';
+            resultsSection.classList.add('show');
+
+            // Set comic data
+            comicName.textContent = comic.name;
+            issueNumber.textContent = `Issue #${comic.issueNumber}`;
+            
+            if (comic.coverUrl) {
+                coverImage.src = comic.coverUrl;
+                coverImage.style.display = 'block';
+            } else {
+                coverImage.style.display = 'none';
+            }
+        }
+
+        // Reset search (go back to input)
+        function resetSearch() {
+            // Clear input and error
+            barcodeInput.value = '';
+            errorMessage.textContent = '';
+
+            // Hide results and show input section
+            resultsSection.classList.remove('show');
+            document.querySelector('.input-section').style.display = 'flex';
+
+            // Focus input
+            barcodeInput.focus();
+        }
+
+        // Show error message
+        function showError(message) {
+            errorMessage.textContent = message;
+        }
+
+        // Set loading state
+        function setLoading(isLoading) {
+            if (isLoading) {
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '<span class="loading">Searching...</span>';
+            } else {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search';
+            }
+        }
+    </script>
+</body>
+</html>
