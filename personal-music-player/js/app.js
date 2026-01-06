@@ -56,6 +56,7 @@ async function checkAuthentication() {
     
     // Initialize modules
     player.init();
+    queue.init();
     await folderBrowser.init();
     await library.init();
     
@@ -104,6 +105,7 @@ async function handleOAuthCallback() {
     
     // Initialize modules (same as checkAuthentication)
     player.init();
+    queue.init();
     await folderBrowser.init();
     await library.init();
     
@@ -273,6 +275,16 @@ function setupEventListeners() {
   document.getElementById('volumeSlider')?.addEventListener('input', (e) => {
     const volume = e.target.value / 100;
     player.setVolume(volume);
+  });
+  
+  // Shuffle button
+  document.getElementById('shuffleBtn')?.addEventListener('click', () => {
+    queue.toggleShuffle();
+  });
+  
+  // Repeat button
+  document.getElementById('repeatBtn')?.addEventListener('click', () => {
+    queue.toggleRepeat();
   });
   
   // Timeline seeking

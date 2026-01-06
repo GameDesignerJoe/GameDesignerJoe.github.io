@@ -191,6 +191,16 @@
   color: var(--color-accent);
 }
 
+/* Repeat mode states */
+.control-btn-small.repeat-off {
+  opacity: 0.5;
+}
+
+.control-btn-small.repeat-all,
+.control-btn-small.repeat-one {
+  color: var(--color-accent);
+}
+
 .control-btn-large {
   width: 64px;
   height: 64px;

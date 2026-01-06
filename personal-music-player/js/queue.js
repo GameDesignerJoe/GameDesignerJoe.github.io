@@ -9,12 +9,43 @@ import { showToast } from './app.js';
 const queueState = {
   tracks: [],           // All tracks in queue
   currentIndex: -1,     // Index of currently playing track
-  history: []          // Previously played tracks
+  history: [],          // Previously played tracks
+  shuffled: false,      // Is shuffle mode on?
+  repeatMode: 'off',    // 'off', 'all', 'one'
+  originalOrder: []     // Original track order (for un-shuffling)
 };
 
 // Initialize queue
 export function init() {
   console.log('[Queue] Queue system initialized');
+  
+  // Load saved preferences
+  loadPreferences();
+  
+  // Update UI to reflect loaded preferences
+  updatePlaybackModeUI();
+}
+
+// Load shuffle/repeat preferences from localStorage
+function loadPreferences() {
+  const savedShuffle = localStorage.getItem('player_shuffle');
+  const savedRepeat = localStorage.getItem('player_repeat');
+  
+  if (savedShuffle !== null) {
+    queueState.shuffled = savedShuffle === 'true';
+  }
+  
+  if (savedRepeat !== null) {
+    queueState.repeatMode = savedRepeat;
+  }
+  
+  console.log('[Queue] Loaded preferences - Shuffle:', queueState.shuffled, 'Repeat:', queueState.repeatMode);
+}
+
+// Save preferences to localStorage
+function savePreferences() {
+  localStorage.setItem('player_shuffle', queueState.shuffled);
+  localStorage.setItem('player_repeat', queueState.repeatMode);
 }
 
 // Play a track and set up queue
@@ -56,6 +87,16 @@ export async function skipToNext() {
     return;
   }
   
+  // Handle repeat one mode
+  if (queueState.repeatMode === 'one') {
+    const currentTrack = getCurrentTrack();
+    if (currentTrack) {
+      console.log('[Queue] Repeat one - replaying:', currentTrack.title);
+      await player.playTrack(currentTrack);
+      return;
+    }
+  }
+  
   // Move to next track
   if (queueState.currentIndex < queueState.tracks.length - 1) {
     // Add current track to history
@@ -72,9 +113,19 @@ export async function skipToNext() {
     updateQueueUI();
     
   } else {
+    // End of queue reached
     console.log('[Queue] End of queue reached');
-    showToast('End of queue', 'info');
-    // TODO: Implement repeat mode in Milestone 6
+    
+    // Handle repeat all mode
+    if (queueState.repeatMode === 'all' && queueState.tracks.length > 0) {
+      console.log('[Queue] Repeat all - restarting from beginning');
+      queueState.currentIndex = 0;
+      const firstTrack = queueState.tracks[0];
+      await player.playTrack(firstTrack);
+      updateQueueUI();
+    } else {
+      showToast('End of queue', 'info');
+    }
   }
 }
 
@@ -296,4 +347,126 @@ export function getQueueState() {
 // Export queue tracks
 export function getQueue() {
   return queueState.tracks;
+}
+
+// Toggle shuffle mode
+export function toggleShuffle() {
+  queueState.shuffled = !queueState.shuffled;
+  
+  if (queueState.shuffled) {
+    // Save original order
+    queueState.originalOrder = [...queueState.tracks];
+    
+    // Get current track before shuffling
+    const currentTrack = getCurrentTrack();
+    
+    // Shuffle the queue
+    shuffleArray(queueState.tracks);
+    
+    // Put current track at the beginning
+    if (currentTrack) {
+      const currentTrackIndex = queueState.tracks.findIndex(t => t.id === currentTrack.id);
+      if (currentTrackIndex !== -1 && currentTrackIndex !== 0) {
+        queueState.tracks.splice(currentTrackIndex, 1);
+        queueState.tracks.unshift(currentTrack);
+      }
+      queueState.currentIndex = 0;
+    }
+    
+    showToast('🔀 Shuffle ON', 'success');
+    console.log('[Queue] Shuffle enabled');
+  } else {
+    // Restore original order
+    if (queueState.originalOrder.length > 0) {
+      const currentTrack = getCurrentTrack();
+      queueState.tracks = [...queueState.originalOrder];
+      
+      // Find current track in restored order
+      if (currentTrack) {
+        const newIndex = queueState.tracks.findIndex(t => t.id === currentTrack.id);
+        queueState.currentIndex = newIndex !== -1 ? newIndex : 0;
+      }
+      
+      queueState.originalOrder = [];
+    }
+    
+    showToast('🔀 Shuffle OFF', 'info');
+    console.log('[Queue] Shuffle disabled');
+  }
+  
+  savePreferences();
+  updateQueueUI();
+  updatePlaybackModeUI();
+}
+
+// Toggle repeat mode (cycles through: off -> all -> one -> off)
+export function toggleRepeat() {
+  switch (queueState.repeatMode) {
+    case 'off':
+      queueState.repeatMode = 'all';
+      showToast('🔁 Repeat All', 'success');
+      break;
+    case 'all':
+      queueState.repeatMode = 'one';
+      showToast('🔂 Repeat One', 'success');
+      break;
+    case 'one':
+      queueState.repeatMode = 'off';
+      showToast('🔁 Repeat OFF', 'info');
+      break;
+  }
+  
+  console.log('[Queue] Repeat mode:', queueState.repeatMode);
+  savePreferences();
+  updatePlaybackModeUI();
+}
+
+// Shuffle array using Fisher-Yates algorithm
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+// Update playback mode UI (shuffle/repeat buttons)
+function updatePlaybackModeUI() {
+  const shuffleBtn = document.getElementById('shuffleBtn');
+  const repeatBtn = document.getElementById('repeatBtn');
+  
+  if (shuffleBtn) {
+    if (queueState.shuffled) {
+      shuffleBtn.classList.add('active');
+    } else {
+      shuffleBtn.classList.remove('active');
+    }
+  }
+  
+  if (repeatBtn) {
+    repeatBtn.classList.remove('repeat-off', 'repeat-all', 'repeat-one');
+    repeatBtn.classList.add(`repeat-${queueState.repeatMode}`);
+    
+    // Update icon
+    switch (queueState.repeatMode) {
+      case 'off':
+        repeatBtn.textContent = '🔁';
+        break;
+      case 'all':
+        repeatBtn.textContent = '🔁';
+        repeatBtn.classList.add('active');
+        break;
+      case 'one':
+        repeatBtn.textContent = '🔂';
+        repeatBtn.classList.add('active');
+        break;
+    }
+  }
+}
+
+// Get current playback modes
+export function getPlaybackModes() {
+  return {
+    shuffled: queueState.shuffled,
+    repeatMode: queueState.repeatMode
+  };
 }
