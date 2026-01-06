@@ -1,4 +1,5 @@
 import { GRID_SIZE, CITIZEN_COUNT, STARTING_WARDENS, CRIME_DENSITY, TRUST_LEVELS } from '../utils/constants.js';
+import { GAME_STRUCTURE } from '../config/gameConfig.js';
 
 /**
  * Initialize a 5x5 grid with random crime densities
@@ -50,18 +51,30 @@ export function initializeGrid() {
 
 /**
  * Initialize citizens with random home locations
- * All start at "trusting" trust level
+ * Trust levels assigned based on config distribution
  * @param {GridSquare[]} grid
  * @returns {Citizen[]}
  */
 export function initializeCitizens(grid) {
   const citizens = [];
+  const { initialTrustDistribution } = GAME_STRUCTURE;
+  
+  // Create array of trust levels based on distribution
+  const trustLevels = [
+    ...Array(initialTrustDistribution.trusting).fill(TRUST_LEVELS.TRUSTING),
+    ...Array(initialTrustDistribution.neutral).fill(TRUST_LEVELS.NEUTRAL),
+    ...Array(initialTrustDistribution.wary).fill(TRUST_LEVELS.WARY),
+    ...Array(initialTrustDistribution.hostile).fill(TRUST_LEVELS.HOSTILE)
+  ];
+  
+  // Shuffle to randomize assignment
+  shuffleArray(trustLevels);
   
   for (let i = 0; i < CITIZEN_COUNT; i++) {
     citizens.push({
       id: i,
       homeLocation: getRandomGridLocation(grid),
-      trustLevel: TRUST_LEVELS.TRUSTING,
+      trustLevel: trustLevels[i] || TRUST_LEVELS.NEUTRAL, // Fallback to neutral
       watchExposure: 0,
       isWarden: false,
       wardenId: null

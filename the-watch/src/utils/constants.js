@@ -1,3 +1,5 @@
+import { GAME_STRUCTURE } from '../config/gameConfig.js';
+
 // Game Constants - MVG Version
 // These will be updated when scaling to full game
 
@@ -8,8 +10,8 @@ export const GRID_SIZE = 5; // 5x5 grid = 25 squares
 export const CITIZEN_COUNT = 10; // 8 civilians + 2 wardens
 export const STARTING_WARDENS = 2;
 
-// Game Duration
-export const TOTAL_DAYS = 3;
+// Game Duration (from config)
+export const TOTAL_DAYS = GAME_STRUCTURE.totalDays;
 
 // Crime Density Values
 export const CRIME_DENSITY = {
