@@ -174,16 +174,21 @@ function createFolderItem(folder) {
   const div = document.createElement('div');
   div.className = 'folder-item';
   
-  // Check if this folder is selected
-  const isSelected = selectedFolders.includes(folder.path_lower);
+  // Check if this folder is selected (handle both string and object formats)
+  const isSelected = selectedFolders.some(selectedPath => {
+    const pathStr = typeof selectedPath === 'string' ? selectedPath : selectedPath?.path || '';
+    return pathStr === folder.path_lower;
+  });
   if (isSelected) {
     div.classList.add('selected');
   }
   
   // Check if this folder contains any selected subfolders
-  const hasSelectedChildren = selectedFolders.some(selectedPath => 
-    selectedPath.startsWith(folder.path_lower + '/') && selectedPath !== folder.path_lower
-  );
+  const hasSelectedChildren = selectedFolders.some(selectedPath => {
+    // Ensure selectedPath is a string
+    const pathStr = typeof selectedPath === 'string' ? selectedPath : selectedPath?.path || '';
+    return pathStr.startsWith(folder.path_lower + '/') && pathStr !== folder.path_lower;
+  });
   if (hasSelectedChildren) {
     div.classList.add('has-selected');
   }
@@ -233,10 +238,14 @@ function createFolderItem(folder) {
 
 // Toggle folder selection
 async function toggleFolderSelection(folderPath) {
-  const index = selectedFolders.indexOf(folderPath);
+  // Find index handling both string and object formats
+  const index = selectedFolders.findIndex(selectedPath => {
+    const pathStr = typeof selectedPath === 'string' ? selectedPath : selectedPath?.path || '';
+    return pathStr === folderPath;
+  });
   
   if (index === -1) {
-    // Add folder
+    // Add folder (always as string)
     selectedFolders.push(folderPath);
     showToast(`Folder added`, 'success');
   } else {
@@ -245,7 +254,9 @@ async function toggleFolderSelection(folderPath) {
     showToast(`Folder removed`, 'info');
   }
   
-  // Save to storage
+  // Save to storage (ensure all entries are strings)
+  const cleanedFolders = selectedFolders.map(f => typeof f === 'string' ? f : f?.path || '').filter(f => f);
+  selectedFolders = cleanedFolders;
   await storage.saveSelectedFolders(selectedFolders);
   
   // Update UI
