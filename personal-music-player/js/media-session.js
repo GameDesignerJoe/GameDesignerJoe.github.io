@@ -49,24 +49,6 @@ function setupActionHandlers() {
       queue.skipToNext();
     });
     
-    // Seek backward (optional - 10 seconds back)
-    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-      console.log('[MediaSession] Seek backward action triggered');
-      const seekOffset = details.seekOffset || 10;
-      const currentState = player.getPlayerState();
-      const newTime = Math.max(0, currentState.currentTime - seekOffset);
-      player.seekTo(newTime / currentState.duration);
-    });
-    
-    // Seek forward (optional - 10 seconds forward)
-    navigator.mediaSession.setActionHandler('seekforward', (details) => {
-      console.log('[MediaSession] Seek forward action triggered');
-      const seekOffset = details.seekOffset || 10;
-      const currentState = player.getPlayerState();
-      const newTime = Math.min(currentState.duration, currentState.currentTime + seekOffset);
-      player.seekTo(newTime / currentState.duration);
-    });
-    
     // Seek to (scrubbing)
     navigator.mediaSession.setActionHandler('seekto', (details) => {
       console.log('[MediaSession] Seek to action triggered:', details.seekTime);
