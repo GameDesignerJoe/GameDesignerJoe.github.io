@@ -179,7 +179,7 @@ function createTrackElement(track) {
   
   div.innerHTML = `
     <div class="track-item-cover">
-      <img src="assets/placeholder-cover.svg" alt="Album art">
+      <img src="assets/icons/icon-song-black..png" alt="Album art">
       <button class="track-play-btn">▶</button>
     </div>
     <div class="track-item-info">
@@ -242,7 +242,7 @@ function createAlbumGroup(album, artist, tracks) {
   const header = document.createElement('div');
   header.className = 'album-group-header';
   header.innerHTML = `
-    <img src="assets/placeholder-cover.svg" alt="Album art" class="album-art-thumb">
+    <img src="assets/icons/icon-song-black..png" alt="Album art" class="album-art-thumb">
     <div class="album-info">
       <h3>${escapeHtml(album)}</h3>
       <p>${escapeHtml(artist)} • ${tracks.length} ${tracks.length === 1 ? 'song' : 'songs'}</p>

@@ -10,8 +10,8 @@ const APP_SHELL = [
   './css/library.css',
   './css/playlists.css',
   './js/app.js',
-  './assets/icons/icon-192.svg',
-  './assets/icons/icon-512.svg',
+  './assets/icons/icon-tape-black.png',
+  './assets/icons/icon-song-black..png',
   './assets/placeholder-cover.svg'
 ];
 

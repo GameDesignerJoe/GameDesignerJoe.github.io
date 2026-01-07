@@ -87,12 +87,12 @@ export function updateMetadata(track) {
       album: track.album || 'Unknown Album',
       artwork: [
         // { src: track.albumArt || 'assets/placeholder-cover.svg', sizes: '96x96', type: 'image/svg+xml' },
-        { src: 'assets/placeholder-cover.svg', sizes: '96x96', type: 'image/svg+xml' },
-        { src: 'assets/placeholder-cover.svg', sizes: '128x128', type: 'image/svg+xml' },
-        { src: 'assets/placeholder-cover.svg', sizes: '192x192', type: 'image/svg+xml' },
-        { src: 'assets/placeholder-cover.svg', sizes: '256x256', type: 'image/svg+xml' },
-        { src: 'assets/placeholder-cover.svg', sizes: '384x384', type: 'image/svg+xml' },
-        { src: 'assets/placeholder-cover.svg', sizes: '512x512', type: 'image/svg+xml' }
+        { src: 'assets/icons/icon-song-black..png', sizes: '96x96', type: 'image/png' },
+        { src: 'assets/icons/icon-song-black..png', sizes: '128x128', type: 'image/png' },
+        { src: 'assets/icons/icon-song-black..png', sizes: '192x192', type: 'image/png' },
+        { src: 'assets/icons/icon-song-black..png', sizes: '256x256', type: 'image/png' },
+        { src: 'assets/icons/icon-song-black..png', sizes: '384x384', type: 'image/png' },
+        { src: 'assets/icons/icon-song-black..png', sizes: '512x512', type: 'image/png' }
       ]
     });
     

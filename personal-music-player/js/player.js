@@ -174,7 +174,7 @@ function updatePlayerUI() {
   if (!track) return;
   
   // Update mini player
-  document.getElementById('miniPlayerArt').src = 'assets/placeholder-cover.svg';
+  document.getElementById('miniPlayerArt').src = 'assets/icons/icon-song-black..png';
   document.getElementById('miniPlayerArt').alt = track.album;
   
   const miniTitle = document.querySelector('.mini-player-title');
@@ -183,7 +183,7 @@ function updatePlayerUI() {
   if (miniArtist) miniArtist.textContent = track.artist;
   
   // Update full player
-  document.getElementById('albumArt').src = 'assets/placeholder-cover.svg';
+  document.getElementById('albumArt').src = 'assets/icons/icon-song-black..png';
   document.getElementById('albumArt').alt = track.album;
   document.getElementById('trackTitle').textContent = track.title;
   document.getElementById('trackArtist').textContent = track.artist;

@@ -231,7 +231,7 @@ export async function viewPlaylist(playlistId) {
             trackDetails.map(track => `
               <div class="track-item" data-track-id="${track.id}">
                 <div class="track-item-cover">
-                  <img src="assets/placeholder-cover.svg" alt="Album art">
+                  <img src="assets/icons/icon-song-black..png" alt="Album art">
                 </div>
                 <div class="track-item-info">
                   <div class="track-item-title">${escapeHtml(track.title)}</div>
