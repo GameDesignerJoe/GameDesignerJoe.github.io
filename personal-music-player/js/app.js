@@ -218,13 +218,15 @@ function setupEventListeners() {
     } else {
       clearSearchBtn.style.display = 'none';
     }
-    // TODO: Implement search
+    // Update library search
+    library.setSearchQuery(query);
   });
   
   clearSearchBtn?.addEventListener('click', () => {
     searchInput.value = '';
     clearSearchBtn.style.display = 'none';
-    // TODO: Clear search results
+    // Clear library search
+    library.setSearchQuery('');
   });
   
   // Player controls

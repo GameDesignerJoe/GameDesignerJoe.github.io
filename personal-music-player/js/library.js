@@ -5,6 +5,7 @@ import * as storage from './storage.js';
 
 let allTracks = [];
 let currentTab = 'songs';
+let searchQuery = '';
 
 // Initialize library
 export async function init() {
@@ -24,12 +25,37 @@ export async function refreshLibrary() {
   displayLibrary(currentTab);
 }
 
+// Set search query and refresh display
+export function setSearchQuery(query) {
+  searchQuery = query.toLowerCase().trim();
+  displayLibrary(currentTab);
+}
+
+// Filter tracks based on search query
+function getFilteredTracks() {
+  if (!searchQuery) {
+    return allTracks;
+  }
+  
+  return allTracks.filter(track => {
+    const title = (track.title || '').toLowerCase();
+    const artist = (track.artist || '').toLowerCase();
+    const album = (track.album || '').toLowerCase();
+    
+    return title.includes(searchQuery) ||
+           artist.includes(searchQuery) ||
+           album.includes(searchQuery);
+  });
+}
+
 // Display library content based on tab
 function displayLibrary(tab) {
   currentTab = tab;
   const libraryContent = document.getElementById('libraryContent');
   
   if (!libraryContent) return;
+  
+  const filteredTracks = getFilteredTracks();
   
   if (allTracks.length === 0) {
     // Show empty state
@@ -49,28 +75,38 @@ function displayLibrary(tab) {
     return;
   }
   
+  // Check if search returned no results
+  if (searchQuery && filteredTracks.length === 0) {
+    libraryContent.innerHTML = `
+      <div class="empty-state">
+        <p>No tracks found matching "${escapeHtml(searchQuery)}"</p>
+      </div>
+    `;
+    return;
+  }
+  
   // Display based on tab
   switch (tab) {
     case 'songs':
-      displaySongs();
+      displaySongs(filteredTracks);
       break;
     case 'artists':
-      displayArtists();
+      displayArtists(filteredTracks);
       break;
     case 'albums':
-      displayAlbums();
+      displayAlbums(filteredTracks);
       break;
   }
 }
 
 // Display all songs
-function displaySongs() {
+function displaySongs(tracks) {
   const libraryContent = document.getElementById('libraryContent');
   
   libraryContent.innerHTML = '';
   
   // Sort tracks with natural/alphanumeric sorting (1, 2, 3... 10, 11 instead of 1, 10, 11, 2)
-  const sortedTracks = [...allTracks].sort((a, b) => 
+  const sortedTracks = [...tracks].sort((a, b) => 
     a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
   );
   
@@ -81,14 +117,14 @@ function displaySongs() {
 }
 
 // Display grouped by artists
-function displayArtists() {
+function displayArtists(tracks) {
   const libraryContent = document.getElementById('libraryContent');
   
   libraryContent.innerHTML = '';
   
   // Group tracks by artist
   const artistMap = {};
-  allTracks.forEach(track => {
+  tracks.forEach(track => {
     const artist = track.artist || 'Unknown Artist';
     if (!artistMap[artist]) {
       artistMap[artist] = [];
@@ -107,14 +143,14 @@ function displayArtists() {
 }
 
 // Display grouped by albums
-function displayAlbums() {
+function displayAlbums(tracks) {
   const libraryContent = document.getElementById('libraryContent');
   
   libraryContent.innerHTML = '';
   
   // Group tracks by album
   const albumMap = {};
-  allTracks.forEach(track => {
+  tracks.forEach(track => {
     const album = track.album || 'Unknown Album';
     if (!albumMap[album]) {
       albumMap[album] = {
@@ -205,6 +241,15 @@ function createAlbumGroup(album, artist, tracks) {
     </div>
     <button class="album-play-all-btn">▶ Play All</button>
   `;
+  
+  // Add click handler for Play All button
+  header.querySelector('.album-play-all-btn').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    console.log('[Library] Playing all tracks from album:', album);
+    const queue = await import('./queue.js');
+    await queue.playTrackWithQueue(tracks[0], tracks);
+  });
+  
   div.appendChild(header);
   
   const trackList = document.createElement('div');
