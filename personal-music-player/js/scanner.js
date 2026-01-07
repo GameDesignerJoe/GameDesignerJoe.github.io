@@ -37,9 +37,11 @@ export async function scanSelectedFolders(folders) {
     
     // Scan each selected folder
     for (const folder of folders) {
-      console.log('[Scanner] Scanning folder:', folder.path);
+      // Handle both string paths and objects with .path property
+      const folderPath = typeof folder === 'string' ? folder : folder.path;
+      console.log('[Scanner] Scanning folder:', folderPath);
       
-      const tracks = await scanFolder(folder.path);
+      const tracks = await scanFolder(folderPath);
       allTracks.push(...tracks);
       
       scanProgress.foldersScanned++;
