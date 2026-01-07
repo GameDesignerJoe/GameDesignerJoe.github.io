@@ -189,33 +189,6 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-md);
-  position: relative;
-}
-
-.floating-add-folder-btn {
-  position: fixed;
-  right: var(--spacing-lg);
-  bottom: calc(80px + var(--spacing-lg)); /* Above bottom nav */
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: var(--color-accent);
-  border: none;
-  color: white;
-  font-size: 1.5rem;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: all var(--transition-fast);
-  z-index: 100;
-}
-
-.floating-add-folder-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-}
-
-.floating-add-folder-btn:active {
-  transform: scale(0.95);
 }
 
 .folder-item {

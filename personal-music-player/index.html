@@ -196,20 +196,20 @@
               <!-- Folder Browser Panel -->
               <div class="browser-panel">
                 <div class="browser-header">
-                  <h3>DROPBOX</h3>
-                  <div class="browser-breadcrumb" id="dropboxBreadcrumb">
-                    <span class="breadcrumb-item">All Files</span>
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                      <h3>DROPBOX</h3>
+                      <div class="browser-breadcrumb" id="dropboxBreadcrumb">
+                        <span class="breadcrumb-item">All Files</span>
+                      </div>
+                    </div>
+                    <button id="addCurrentFolderBtn" class="folder-add-btn" style="display: none;" title="Add current folder">+</button>
                   </div>
                 </div>
 
                 <div class="browser-content" id="dropboxFolderList">
                   <div class="loading">Loading folders...</div>
                 </div>
-                
-                <!-- Floating Add Current Folder Button -->
-                <button id="addCurrentFolderBtn" class="floating-add-folder-btn" style="display: none;" title="Add current folder">
-                  +
-                </button>
               </div>
 
               <!-- File Preview Panel -->

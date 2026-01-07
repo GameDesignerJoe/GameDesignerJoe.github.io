@@ -310,7 +310,8 @@ async function toggleFolderSelection(folderPath) {
   
   // Update UI
   updateFolderCounts();
-  displayFolders(currentFolders);
+  // Reload the current folder to refresh the display
+  await loadDropboxFolders(currentPath);
   
   // Trigger rescan if folders changed
   if (selectedFolders.length > 0) {
