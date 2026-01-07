@@ -1,0 +1,12 @@
+ToDo
+- Improve the folder add option to be it's own thing.
+- Get it to show songs as well as folders
+- Have clicking on a folder go into the folder on double click
+- get rid of those ugly buttons
+- Look at Jason's example
+- Get it to add songs as well as folders
+- Get google drive to work with it.
+- Get it to work with songs on your hard drive
+- Make a playlist with a song from each
+- Do a more Spotify pass on it 
+- Get a logo
