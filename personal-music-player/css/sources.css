@@ -285,7 +285,9 @@
    ========================================== */
 
 .preview-panel {
-  width: 350px;
+  width: 40%;
+  min-width: 300px;
+  max-width: 500px;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-secondary);

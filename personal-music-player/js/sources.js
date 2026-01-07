@@ -105,9 +105,14 @@ export async function loadDropboxFolders(path = '') {
     folderList.innerHTML = `
       <div class="empty-state">
         <p>Error loading folders</p>
-        <button class="btn-secondary" onclick="window.location.reload()">Retry</button>
+        <button class="btn-secondary" id="retryLoadFolders">Retry</button>
       </div>
     `;
+    
+    // Add event listener for retry button
+    document.getElementById('retryLoadFolders')?.addEventListener('click', () => {
+      loadDropboxFolders(path);
+    });
   }
 }
 
