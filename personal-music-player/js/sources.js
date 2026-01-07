@@ -93,14 +93,15 @@ export async function loadDropboxFolders(path = '') {
     // Get folders from Dropbox (recursive: false to only get immediate children)
     const result = await dropbox.listFolder(path, false);
     const folders = result.entries.filter(entry => entry['.tag'] === 'folder');
+    const files = result.entries.filter(entry => entry['.tag'] === 'file' && isAudioFile(entry.name));
     
     currentFolders = folders;
     
     // Update breadcrumb
     updateBreadcrumb(path);
     
-    // Display folders
-    displayFolders(folders);
+    // Display folders and files
+    displayFoldersAndFiles(folders, files);
     
   } catch (error) {
     console.error('[Sources] Error loading folders:', error);
@@ -149,15 +150,15 @@ function updateBreadcrumb(path) {
   }
 }
 
-// Display folders
-function displayFolders(folders) {
+// Display folders and files
+function displayFoldersAndFiles(folders, files) {
   const folderList = document.getElementById('dropboxFolderList');
   if (!folderList) return;
   
-  if (folders.length === 0) {
+  if (folders.length === 0 && files.length === 0) {
     folderList.innerHTML = `
       <div class="empty-state">
-        <p>No folders found</p>
+        <p>No items found</p>
       </div>
     `;
     return;
@@ -165,10 +166,40 @@ function displayFolders(folders) {
   
   folderList.innerHTML = '';
   
+  // Show folders first
   folders.forEach(folder => {
     const folderItem = createFolderItem(folder);
     folderList.appendChild(folderItem);
   });
+  
+  // Then show audio files
+  files.forEach(file => {
+    const fileItem = createFileItem(file);
+    folderList.appendChild(fileItem);
+  });
+}
+
+// Display folders only (fallback for compatibility)
+function displayFolders(folders) {
+  displayFoldersAndFiles(folders, []);
+}
+
+// Create file item element
+function createFileItem(file) {
+  const div = document.createElement('div');
+  div.className = 'folder-item'; // Reuse folder-item styling
+  
+  div.innerHTML = `
+    <span class="folder-icon">🎵</span>
+    <div class="folder-info">
+      <div class="folder-name">${escapeHtml(file.name)}</div>
+    </div>
+    <div class="folder-actions">
+      <!-- Files don't have actions, just display -->
+    </div>
+  `;
+  
+  return div;
 }
 
 // Create folder item element
