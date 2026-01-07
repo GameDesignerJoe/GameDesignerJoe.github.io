@@ -11,3 +11,17 @@ Playback ToDo
 - Do a more Spotify pass on it 
 - Get a logo
 - Get deployments to work for Vercel again. Did I fix it? maybe?
+- Get the faviicon to be white.
+- When you select add songs, it still goes to the old folder add system. 
+- When music is playing the music bar cuts into where you can see folders. 
+- I think we can remove the preview window from Sources
+- The plus button is out of alignment with the circle.
+- Add a 'add folder' "+" to the top of the file structure when you're looking at a group of songs. 
+- The amoung stacked alerts when you add songs is a bit much. 
+- how we're displaying these songs is not ideal. 
+- Need some default abstract images for placeholder songs
+- I would expect to see Pluses selected on sub folders.
+- I would like a list of total song count
+- When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
+- Would be nice to know the path that each of the songs are coming from at some point if we can do it and make it look nice. 
+- We might need a 'home page' 
