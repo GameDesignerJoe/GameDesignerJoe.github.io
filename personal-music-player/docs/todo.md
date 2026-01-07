@@ -1,4 +1,4 @@
-ToDo
+Playback ToDo
 - Improve the folder add option to be it's own thing.
 - Get it to show songs as well as folders
 - Have clicking on a folder go into the folder on double click
