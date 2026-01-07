@@ -88,8 +88,8 @@ export async function loadDropboxFolders(path = '') {
   folderList.innerHTML = '<div class="loading">Loading folders...</div>';
   
   try {
-    // Get folders from Dropbox
-    const result = await dropbox.listFolder(path);
+    // Get folders from Dropbox (recursive: false to only get immediate children)
+    const result = await dropbox.listFolder(path, false);
     const folders = result.entries.filter(entry => entry['.tag'] === 'folder');
     
     currentFolders = folders;
