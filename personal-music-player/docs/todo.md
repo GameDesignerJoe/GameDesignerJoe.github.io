@@ -10,4 +10,4 @@ ToDo
 - Make a playlist with a song from each
 - Do a more Spotify pass on it 
 - Get a logo
-- Get deployments to work for Vercel again.
+- Get deployments to work for Vercel again. Did I fix it?
