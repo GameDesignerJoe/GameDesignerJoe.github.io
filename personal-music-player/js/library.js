@@ -197,6 +197,14 @@ function createTrackElement(track) {
     }
   });
   
+  // More button click handler
+  const moreBtn = div.querySelector('.track-more-btn');
+  moreBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const playlists = await import('./playlists.js');
+    playlists.showAddToPlaylistMenu(track, moreBtn);
+  });
+  
   return div;
 }
 

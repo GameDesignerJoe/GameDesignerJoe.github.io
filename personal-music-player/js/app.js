@@ -4,6 +4,7 @@ import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as folderBrowser from './folder-browser.js';
 import * as library from './library.js';
+import * as playlists from './playlists.js';
 import * as player from './player.js';
 import * as queue from './queue.js';
 import * as mediaSession from './media-session.js';
@@ -61,6 +62,7 @@ async function checkAuthentication() {
     mediaSession.init();
     await folderBrowser.init();
     await library.init();
+    await playlists.init();
     
     // Show library screen
     showScreen('library');
@@ -111,6 +113,7 @@ async function handleOAuthCallback() {
     mediaSession.init();
     await folderBrowser.init();
     await library.init();
+    await playlists.init();
     
     // Show library
     showScreen('library');
@@ -271,9 +274,11 @@ function setupEventListeners() {
   });
   
   // Playlist creation
-  document.getElementById('createPlaylistBtn')?.addEventListener('click', () => {
-    console.log('[App] Create playlist clicked');
-    // TODO: Implement create playlist
+  document.getElementById('createPlaylistBtn')?.addEventListener('click', async () => {
+    const name = prompt('Enter playlist name:');
+    if (name) {
+      await playlists.createPlaylist(name);
+    }
   });
   
   // Volume control
