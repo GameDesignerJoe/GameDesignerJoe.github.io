@@ -366,7 +366,7 @@ async function scanSelectedFolders() {
   
   try {
     // Use scanner module to scan folders
-    await scanner.scanFolders(selectedFolders);
+    await scanner.scanSelectedFolders(selectedFolders);
     
     // Update counts
     await updateFolderCounts();
