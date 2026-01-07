@@ -16,8 +16,10 @@ let activeSource = 'dropbox';
 export async function init() {
   console.log('[Sources] Initializing sources');
   
-  // Load selected folders from storage
-  selectedFolders = await storage.getSelectedFolders() || [];
+  // Load selected folders from storage (returns objects with {path, addedAt})
+  const folderObjects = await storage.getSelectedFolders() || [];
+  // Extract just the paths as strings
+  selectedFolders = folderObjects.map(f => f.path);
   
   // Update counts
   updateFolderCounts();

@@ -113,6 +113,42 @@ export async function removeFolder(folderPath) {
   });
 }
 
+export async function saveSelectedFolders(folderPaths) {
+  if (!db) await initDB();
+  
+  // Clear existing folders and add new ones
+  return new Promise(async (resolve, reject) => {
+    try {
+      const transaction = db.transaction([STORES.FOLDERS], 'readwrite');
+      const store = transaction.objectStore(STORES.FOLDERS);
+      
+      // Clear all first
+      await new Promise((res, rej) => {
+        const clearRequest = store.clear();
+        clearRequest.onsuccess = () => res();
+        clearRequest.onerror = () => rej(clearRequest.error);
+      });
+      
+      // Add all new folders
+      for (const folderPath of folderPaths) {
+        await new Promise((res, rej) => {
+          const addRequest = store.put({
+            path: folderPath,
+            addedAt: Date.now()
+          });
+          addRequest.onsuccess = () => res();
+          addRequest.onerror = () => rej(addRequest.error);
+        });
+      }
+      
+      console.log('[Storage] Saved', folderPaths.length, 'selected folders');
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 // === TRACK OPERATIONS ===
 
 export async function saveTrack(track) {
