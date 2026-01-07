@@ -207,21 +207,29 @@ function createFolderItem(folder) {
   const div = document.createElement('div');
   div.className = 'folder-item';
   
-  // Check if this folder is selected (handle both string and object formats)
-  const isSelected = selectedFolders.some(selectedPath => {
+  // Check if this folder is directly selected
+  const isDirectlySelected = selectedFolders.some(selectedPath => {
     const pathStr = typeof selectedPath === 'string' ? selectedPath : selectedPath?.path || '';
     return pathStr === folder.path_lower;
   });
-  if (isSelected) {
-    div.classList.add('selected');
-  }
+  
+  // Check if this folder is included via a parent folder selection
+  const isIncludedViaParent = selectedFolders.some(selectedPath => {
+    const pathStr = typeof selectedPath === 'string' ? selectedPath : selectedPath?.path || '';
+    return folder.path_lower.startsWith(pathStr + '/') && pathStr !== folder.path_lower;
+  });
   
   // Check if this folder contains any selected subfolders
   const hasSelectedChildren = selectedFolders.some(selectedPath => {
-    // Ensure selectedPath is a string
     const pathStr = typeof selectedPath === 'string' ? selectedPath : selectedPath?.path || '';
     return pathStr.startsWith(folder.path_lower + '/') && pathStr !== folder.path_lower;
   });
+  
+  const isSelected = isDirectlySelected || isIncludedViaParent;
+  
+  if (isSelected) {
+    div.classList.add('selected');
+  }
   if (hasSelectedChildren) {
     div.classList.add('has-selected');
   }
