@@ -40,6 +40,11 @@ function setupEventListeners() {
     switchSource('dropbox');
   });
   
+  // Add current folder button
+  document.getElementById('addCurrentFolderBtn')?.addEventListener('click', async () => {
+    await addCurrentFolder();
+  });
+  
   // Breadcrumb navigation will be set up dynamically
 }
 
@@ -88,6 +93,16 @@ export async function loadDropboxFolders(path = '') {
   
   // Show loading
   folderList.innerHTML = '<div class="loading">Loading folders...</div>';
+  
+  // Show/hide "+ Add Folder" button (hide on root, show when in a folder)
+  const addBtn = document.getElementById('addCurrentFolderBtn');
+  if (addBtn) {
+    if (path && path !== '') {
+      addBtn.style.display = 'block';
+    } else {
+      addBtn.style.display = 'none';
+    }
+  }
   
   try {
     // Get folders from Dropbox (recursive: false to only get immediate children)
@@ -252,13 +267,6 @@ function createFolderItem(folder) {
     await loadDropboxFolders(folder.path_lower);
   });
   
-  // Click preview on folder
-  div.addEventListener('click', async (e) => {
-    if (!e.target.closest('.folder-actions') && !e.target.closest('.folder-info')) {
-      await previewFolder(folder);
-    }
-  });
-  
   // Add/Remove button
   const actionBtn = div.querySelector('.folder-add-btn, .folder-checkmark');
   if (actionBtn && actionBtn.classList.contains('folder-add-btn')) {
@@ -309,6 +317,17 @@ async function toggleFolderSelection(folderPath) {
     // Automatically scan when folders change
     await scanSelectedFolders();
   }
+}
+
+// Add the current folder being viewed
+async function addCurrentFolder() {
+  if (!currentPath || currentPath === '') {
+    showToast('No folder to add', 'info');
+    return;
+  }
+  
+  // Use toggleFolderSelection to add the current folder
+  await toggleFolderSelection(currentPath);
 }
 
 // Preview folder contents

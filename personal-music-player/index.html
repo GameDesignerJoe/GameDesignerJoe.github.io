@@ -196,7 +196,12 @@
               <!-- Folder Browser Panel -->
               <div class="browser-panel">
                 <div class="browser-header">
-                  <h3>DROPBOX</h3>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm);">
+                    <h3 style="margin: 0;">DROPBOX</h3>
+                    <button id="addCurrentFolderBtn" class="btn-secondary" style="display: none; padding: 6px 12px; font-size: 0.85rem;">
+                      + Add Folder
+                    </button>
+                  </div>
                   <div class="browser-breadcrumb" id="dropboxBreadcrumb">
                     <span class="breadcrumb-item">All Files</span>
                   </div>
