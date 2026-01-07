@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="css/player.css">
   <link rel="stylesheet" href="css/library.css">
   <link rel="stylesheet" href="css/playlists.css">
+  <link rel="stylesheet" href="css/sources.css">
   <link rel="stylesheet" href="css/modals.css">
 </head>
 <body>
@@ -108,6 +109,87 @@
           </div>
         </div>
       </div>
+
+      <!-- Sources Screen -->
+      <div id="sourcesScreen" class="screen">
+        <div class="sources-container">
+          <!-- Left Sidebar: Connection Icons -->
+          <div class="sources-sidebar">
+            <h2 class="sources-sidebar-title">SOURCES</h2>
+            
+            <div id="sourcesConnectionsList" class="sources-connections">
+              <!-- Dropbox Connection -->
+              <button class="source-connection-btn active" data-source="dropbox" id="dropboxSourceBtn">
+                <div class="source-icon">
+                  <img src="https://www.dropbox.com/static/images/logo_catalog/dropbox_small_web.svg" alt="Dropbox" class="source-logo">
+                </div>
+                <div class="source-info">
+                  <div class="source-name">Dropbox</div>
+                  <div class="source-status" id="dropboxStatus">
+                    <span class="status-indicator connected">✓</span>
+                    <span class="source-count" id="dropboxCount">0 folders • 0 songs</span>
+                  </div>
+                </div>
+              </button>
+
+              <!-- Google Drive Connection (Placeholder) -->
+              <button class="source-connection-btn disabled" data-source="google-drive" disabled>
+                <div class="source-icon">
+                  <img src="https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png" alt="Google Drive" class="source-logo greyed">
+                </div>
+                <div class="source-info">
+                  <div class="source-name">Google Drive</div>
+                  <div class="source-status">Coming soon</div>
+                </div>
+              </button>
+
+              <!-- Future placeholders can go here -->
+            </div>
+          </div>
+
+          <!-- Main Content: Folder Browser & File Preview -->
+          <div class="sources-main">
+            <!-- Dropbox Browser -->
+            <div id="dropboxBrowser" class="source-browser active">
+              <!-- Folder Browser Panel -->
+              <div class="browser-panel">
+                <div class="browser-header">
+                  <h3>DROPBOX</h3>
+                  <div class="browser-breadcrumb" id="dropboxBreadcrumb">
+                    <span class="breadcrumb-item">All Files</span>
+                  </div>
+                </div>
+
+                <div class="browser-content" id="dropboxFolderList">
+                  <div class="loading">Loading folders...</div>
+                </div>
+              </div>
+
+              <!-- File Preview Panel -->
+              <div class="preview-panel">
+                <div class="preview-header">
+                  <h3 id="previewTitle">Select a folder</h3>
+                </div>
+                <div class="preview-content" id="previewContent">
+                  <div class="empty-state">
+                    <p>Click on a folder to preview its contents</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Google Drive Browser (Placeholder) -->
+            <div id="googleDriveBrowser" class="source-browser">
+              <div class="connect-prompt">
+                <div class="connect-icon">📁</div>
+                <h3>Connect to Google Drive</h3>
+                <p>Link your Google Drive account to access your music files</p>
+                <button class="btn-primary" disabled>Coming Soon</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Now Playing Bar (Mini Player) -->
@@ -190,6 +272,10 @@
       <button class="nav-btn" data-screen="playlists">
         <span class="nav-icon">📋</span>
         <span class="nav-label">Playlists</span>
+      </button>
+      <button class="nav-btn" data-screen="sources">
+        <span class="nav-icon">🌐</span>
+        <span class="nav-label">Sources</span>
       </button>
     </nav>
   </div>

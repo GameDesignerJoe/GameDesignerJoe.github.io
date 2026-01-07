@@ -3,6 +3,7 @@ import config from '../config.js';
 import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as folderBrowser from './folder-browser.js';
+import * as sources from './sources.js';
 import * as library from './library.js';
 import * as playlists from './playlists.js';
 import * as player from './player.js';
@@ -61,11 +62,18 @@ async function checkAuthentication() {
     queue.init();
     mediaSession.init();
     await folderBrowser.init();
+    await sources.init();
     await library.init();
     await playlists.init();
     
-    // Show library screen
-    showScreen('library');
+    // Check if we should show Sources screen on first launch
+    if (sources.shouldShowSourcesOnLaunch()) {
+      showScreen('sources');
+      showToast('👋 Add music folders to get started', 'info');
+    } else {
+      showScreen('library');
+    }
+    
     showHeaderActions();
   } else {
     console.log('[App] User not authenticated');
@@ -112,11 +120,18 @@ async function handleOAuthCallback() {
     queue.init();
     mediaSession.init();
     await folderBrowser.init();
+    await sources.init();
     await library.init();
     await playlists.init();
     
-    // Show library
-    showScreen('library');
+    // Check if we should show Sources screen on first launch
+    if (sources.shouldShowSourcesOnLaunch()) {
+      showScreen('sources');
+      showToast('👋 Add music folders to get started', 'info');
+    } else {
+      showScreen('library');
+    }
+    
     showHeaderActions();
     
     // Show success toast
