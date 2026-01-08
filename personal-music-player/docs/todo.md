@@ -37,3 +37,6 @@ Playback ToDo
 - Pictures for playlists
 - Add a play button right on top of the folders so you can just click play in there without having to drill into the folder (Spotify)
 - Swap the Songs/Artists/Albums with the search option. Not really a fan of the search this way, might just want to have something off to the side that pops out.
+- Need to do an auto refresh of your home folder whenever you add a source.
+- Mobile: Player clips the bottom of the buttons. 
+- Mobile: Sources sidebar looks like crap. Consider running it along the top.Removing the text and just having the icon. 

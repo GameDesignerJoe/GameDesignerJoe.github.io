@@ -146,13 +146,21 @@ function createFolderCard(folder) {
     <div class="folder-card-image">
       <img src="${imageUrl}" alt="${escapeHtml(folder.name)}" loading="lazy">
     </div>
+    <button class="folder-play-btn" title="Play ${escapeHtml(folder.name)}">▶</button>
     <div class="folder-card-info">
       <h3 class="folder-card-name">${escapeHtml(folder.name)}</h3>
       <p class="folder-card-count">${songCount} ${songCount === 1 ? 'song' : 'songs'}</p>
     </div>
   `;
   
-  // Click handler - filter library to this folder
+  // Play button handler - play all songs from this folder
+  const playBtn = card.querySelector('.folder-play-btn');
+  playBtn.addEventListener('click', async (e) => {
+    e.stopPropagation(); // Don't trigger card click
+    await handleFolderPlay(folder.path);
+  });
+  
+  // Card click handler - filter library to this folder
   card.addEventListener('click', () => handleFolderClick(folder.path));
   
   return card;
@@ -178,6 +186,35 @@ function createAddFolderCard() {
   });
   
   return card;
+}
+
+// Handle folder play button - play all songs from folder
+async function handleFolderPlay(folderPath) {
+  console.log('[Home] Playing folder:', folderPath);
+  
+  try {
+    // Get all tracks from this folder
+    const allTracks = await storage.getAllTracks();
+    const folderTracks = allTracks.filter(track => track.path.startsWith(folderPath));
+    
+    if (folderTracks.length === 0) {
+      showToast('No songs found in this folder', 'info');
+      return;
+    }
+    
+    // Shuffle the tracks for variety
+    const shuffledTracks = [...folderTracks].sort(() => Math.random() - 0.5);
+    
+    // Start playing from first track
+    const queue = await import('./queue.js');
+    await queue.playTrackWithQueue(shuffledTracks[0], shuffledTracks);
+    
+    showToast(`▶ Playing ${folderTracks.length} songs`, 'success');
+    
+  } catch (error) {
+    console.error('[Home] Error playing folder:', error);
+    showToast('Error playing folder', 'error');
+  }
 }
 
 // Handle folder card click - filter library to this folder
