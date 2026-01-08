@@ -1,0 +1,381 @@
+/* Sidebar Styles - Desktop Navigation */
+
+.app-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 240px;
+  background: #000000;
+  border-right: 1px solid #282828;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+/* Sidebar Header */
+.sidebar-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #282828;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+  margin: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Collapse Button */
+.sidebar-collapse-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #b3b3b3;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.sidebar-collapse-btn span {
+  transition: transform 0.2s ease;
+}
+
+/* Sidebar Navigation */
+.sidebar-nav {
+  padding: 8px 8px;
+}
+
+.sidebar-nav-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.sidebar-nav-btn:hover {
+  background: #1a1a1a;
+}
+
+.sidebar-nav-btn.active {
+  background: #282828;
+}
+
+.sidebar-nav-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-label {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  text-align: left;
+}
+
+.sidebar-nav-btn:not(.active) .sidebar-nav-label {
+  color: #b3b3b3;
+}
+
+.sidebar-nav-btn:hover .sidebar-nav-label {
+  color: #ffffff;
+}
+
+/* Sidebar Playlists */
+.sidebar-playlists {
+  flex: 1;
+  padding: 16px 8px;
+  border-top: 1px solid #282828;
+  overflow-y: auto;
+}
+
+.sidebar-playlists-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #b3b3b3;
+  margin: 0 0 8px 16px;
+}
+
+/* Create Playlist Button */
+.sidebar-create-playlist-btn {
+  width: calc(100% - 16px);
+  margin: 0 8px 12px 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid #3e3e3e;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #b3b3b3;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sidebar-create-playlist-btn:hover {
+  background: #1a1a1a;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.sidebar-create-playlist-btn .create-icon {
+  font-size: 20px;
+  font-weight: 300;
+}
+
+.sidebar-playlists-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-playlist-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  text-align: left;
+}
+
+.sidebar-playlist-item:hover {
+  background: #1a1a1a;
+}
+
+.sidebar-playlist-icon {
+  width: 40px;
+  height: 40px;
+  background: #282828;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.sidebar-playlist-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-playlist-name {
+  font-size: 14px;
+  font-weight: 400;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.sidebar-playlist-count {
+  font-size: 12px;
+  color: #b3b3b3;
+}
+
+/* Scrollbar */
+.app-sidebar::-webkit-scrollbar {
+  width: 12px;
+}
+
+.app-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: #282828;
+  border-radius: 6px;
+  border: 3px solid #000000;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #3e3e3e;
+}
+
+.sidebar-playlists::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-playlists::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-playlists::-webkit-scrollbar-thumb {
+  background: #282828;
+  border-radius: 4px;
+}
+
+.sidebar-playlists::-webkit-scrollbar-thumb:hover {
+  background: #3e3e3e;
+}
+
+/* Empty State for Playlists */
+.sidebar-playlists-empty {
+  padding: 16px;
+  text-align: center;
+  color: #b3b3b3;
+  font-size: 13px;
+}
+
+/* Responsive - Hide on Mobile */
+@media (max-width: 768px) {
+  .app-sidebar {
+    display: none !important;
+  }
+}
+
+/* Collapsed Sidebar State */
+.app-sidebar.collapsed {
+  width: 72px;
+}
+
+.app-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 24px 12px 16px;
+}
+
+.app-sidebar.collapsed .sidebar-header h2 {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-collapse-btn span {
+  transform: rotate(180deg);
+}
+
+.app-sidebar.collapsed .sidebar-nav {
+  padding: 8px 0;
+}
+
+.app-sidebar.collapsed .sidebar-nav-btn {
+  width: 48px;
+  height: 48px;
+  margin: 4px auto;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.app-sidebar.collapsed .sidebar-nav-label {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-nav-icon {
+  margin: 0;
+  font-size: 26px;
+}
+
+.app-sidebar.collapsed .sidebar-playlists {
+  padding: 16px 0;
+}
+
+.app-sidebar.collapsed .sidebar-playlists-title {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-create-playlist-btn {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px auto;
+  padding: 0;
+  border-radius: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.app-sidebar.collapsed .sidebar-create-playlist-btn .create-icon {
+  font-size: 24px;
+}
+
+.app-sidebar.collapsed .sidebar-create-playlist-btn span:last-child {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-playlist-item {
+  width: 56px;
+  height: 56px;
+  margin: 8px auto;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.app-sidebar.collapsed .sidebar-playlist-info {
+  display: none;
+}
+
+.app-sidebar.collapsed .sidebar-playlist-icon {
+  width: 56px;
+  height: 56px;
+  font-size: 28px;
+  border-radius: 8px;
+  margin: 0;
+}
+
+/* Desktop Layout Adjustments */
+@media (min-width: 769px) {
+  /* Shift main content to account for sidebar */
+  .app-container {
+    padding-left: 240px;
+    transition: padding-left 0.3s ease;
+  }
+  
+  .app-container.sidebar-collapsed {
+    padding-left: 72px;
+  }
+  
+  /* Hide bottom nav on desktop */
+  .bottom-nav {
+    display: none;
+  }
+  
+  /* Adjust mini player for sidebar - FIXED to bottom */
+  .mini-player {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 240px !important;
+    right: auto !important;
+    width: calc(100% - 240px) !important;
+    transition: left 0.3s ease, width 0.3s ease !important;
+  }
+  
+  .app-container.sidebar-collapsed .mini-player {
+    left: 72px !important;
+    right: auto !important;
+    width: calc(100% - 72px) !important;
+  }
+}

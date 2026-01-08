@@ -524,6 +524,45 @@
 }
 
 /* ==========================================
+   Playlist Detail Screen (Full Page)
+   ========================================== */
+
+.playlist-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.playlist-detail-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.playlist-detail-info {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.playlist-stats {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+#playlistDetailContent {
+  padding: var(--spacing-md);
+  padding-bottom: 100px; /* Space for mini player */
+}
+
+/* ==========================================
    Responsive Adjustments
    ========================================== */
 

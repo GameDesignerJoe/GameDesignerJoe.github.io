@@ -32,3 +32,8 @@ Playback ToDo
 - Need to make the song cassette image white instead of black. 
 - Need to rename My Playback to just PLAYBACK in caps
 - Need to make the favicon white instead of black.
+- Repeat icon needs to show if it's on, all, or one.
+- Pictures for songs
+- Pictures for playlists
+- Add a play button right on top of the folders so you can just click play in there without having to drill into the folder (Spotify)
+- Swap the Songs/Artists/Albums with the search option. Not really a fan of the search this way, might just want to have something off to the side that pops out.

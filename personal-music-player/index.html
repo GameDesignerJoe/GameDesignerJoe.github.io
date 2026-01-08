@@ -17,6 +17,7 @@
   <link rel="apple-touch-icon" href="assets/icons/icon-tape-black.png">
   
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/sidebar.css">
   <link rel="stylesheet" href="css/player.css">
   <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/library.css">
@@ -27,21 +28,41 @@
 </head>
 <body>
   <div id="app" class="app-container">
-    <!-- Header -->
-    <header class="app-header">
-      <h1 class="app-title">My Music</h1>
-      <div class="header-actions">
-        <button id="globalSearchBtn" class="icon-btn" style="display: none;" title="Search (Ctrl+K)">
-          <span>🔍</span>
-        </button>
-        <button id="refreshLibraryBtn" class="icon-btn" style="display: none;" title="Refresh Library">
-          <span>🔄</span>
-        </button>
-        <button id="disconnectBtn" class="icon-btn" style="display: none;" title="Disconnect">
-          <span>🚪</span>
+    <!-- Desktop Sidebar -->
+    <aside id="appSidebar" class="app-sidebar" style="display: none;">
+      <div class="sidebar-header">
+        <h2>PLAYBACK</h2>
+        <button id="sidebarCollapseBtn" class="sidebar-collapse-btn" title="Collapse sidebar">
+          <span>‹</span>
         </button>
       </div>
-    </header>
+      
+      <nav class="sidebar-nav">
+        <button class="sidebar-nav-btn active" data-screen="home">
+          <span class="sidebar-nav-icon">🏠</span>
+          <span class="sidebar-nav-label">HOME</span>
+        </button>
+        <button class="sidebar-nav-btn" data-screen="library">
+          <span class="sidebar-nav-icon">🎵</span>
+          <span class="sidebar-nav-label">LIBRARY</span>
+        </button>
+        <button class="sidebar-nav-btn" data-screen="sources">
+          <span class="sidebar-nav-icon">🌐</span>
+          <span class="sidebar-nav-label">SOURCES</span>
+        </button>
+      </nav>
+      
+      <div class="sidebar-playlists">
+        <h3 class="sidebar-playlists-title">PLAYLISTS</h3>
+        <button id="sidebarCreatePlaylistBtn" class="sidebar-create-playlist-btn">
+          <span class="create-icon">+</span>
+          <span>Create Playlist</span>
+        </button>
+        <div id="sidebarPlaylistsList" class="sidebar-playlists-list">
+          <!-- Playlists will be dynamically populated -->
+        </div>
+      </div>
+    </aside>
 
     <!-- Main Content Area -->
     <main class="app-main">
@@ -67,7 +88,12 @@
       <div id="homeScreen" class="screen">
         <div class="home-header">
           <h1>MY MUSIC COLLECTION</h1>
-          <button id="refreshFoldersBtn" class="icon-btn" title="Refresh folders">🔄</button>
+          <div class="home-header-actions">
+            <button id="globalSearchBtn" class="icon-btn" title="Search (Ctrl+K)">
+              <span>🔍</span>
+            </button>
+            <button id="refreshFoldersBtn" class="icon-btn" title="Refresh folders">🔄</button>
+          </div>
         </div>
         <div id="folderGrid" class="folder-grid">
           <!-- Folder cards will be added dynamically by home.js -->
@@ -109,6 +135,26 @@
             <p>No playlists yet</p>
             <p class="empty-state-subtitle">Create a playlist to get started</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Playlist Detail Screen -->
+      <div id="playlistDetailScreen" class="screen">
+        <div class="playlist-detail-header">
+          <button id="closePlaylistDetailBtn" class="icon-btn">←</button>
+          <h2 id="playlistDetailTitle">Playlist</h2>
+          <button id="playlistDetailMenuBtn" class="icon-btn">⋮</button>
+        </div>
+        
+        <div class="playlist-detail-info">
+          <div id="playlistDetailStats" class="playlist-stats"></div>
+          <button id="playPlaylistDetailBtn" class="btn-primary" style="display: none; width: 100%; max-width: 400px;">
+            ▶ Play All
+          </button>
+        </div>
+        
+        <div id="playlistDetailContent" class="library-content">
+          <!-- Tracks will be added dynamically -->
         </div>
       </div>
 

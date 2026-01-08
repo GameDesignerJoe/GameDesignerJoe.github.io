@@ -141,6 +141,46 @@ function displayPlaylists() {
     const playlistEl = createPlaylistElement(playlist);
     playlistsContent.appendChild(playlistEl);
   });
+  
+  // Also update sidebar
+  updateSidebarPlaylists();
+}
+
+// Update sidebar playlists
+function updateSidebarPlaylists() {
+  const sidebarList = document.getElementById('sidebarPlaylistsList');
+  if (!sidebarList) return;
+  
+  if (allPlaylists.length === 0) {
+    sidebarList.innerHTML = `
+      <div class="sidebar-playlists-empty">No playlists yet</div>
+    `;
+    return;
+  }
+  
+  sidebarList.innerHTML = '';
+  
+  allPlaylists.forEach(playlist => {
+    const button = document.createElement('button');
+    button.className = 'sidebar-playlist-item';
+    button.dataset.playlistId = playlist.id;
+    
+    const trackCount = playlist.tracks.length;
+    
+    button.innerHTML = `
+      <div class="sidebar-playlist-icon">📋</div>
+      <div class="sidebar-playlist-info">
+        <div class="sidebar-playlist-name">${escapeHtml(playlist.name)}</div>
+        <div class="sidebar-playlist-count">${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</div>
+      </div>
+    `;
+    
+    button.addEventListener('click', () => {
+      viewPlaylist(playlist.id);
+    });
+    
+    sidebarList.appendChild(button);
+  });
 }
 
 // Create playlist element
@@ -192,10 +232,8 @@ export async function viewPlaylist(playlistId) {
   
   console.log('[Playlists] Viewing playlist:', playlist.name);
   
-  // Create playlist detail modal
-  const modal = document.createElement('div');
-  modal.id = 'playlistDetailModal';
-  modal.className = 'modal active';
+  // Import showScreen from app
+  const { showScreen } = await import('./app.js');
   
   // Get full track details
   const trackDetails = [];
@@ -206,79 +244,116 @@ export async function viewPlaylist(playlistId) {
     }
   }
   
-  modal.innerHTML = `
-    <div class="modal-content playlist-detail">
-      <div class="modal-header">
-        <button id="closePlaylistDetail" class="icon-btn">←</button>
-        <h2>${escapeHtml(playlist.name)}</h2>
-        <button class="icon-btn" id="playlistMenuBtn">⋮</button>
-      </div>
-      
-      <div class="modal-body">
-        <div class="playlist-stats">
-          <span>${trackDetails.length} ${trackDetails.length === 1 ? 'song' : 'songs'}</span>
-        </div>
-        
-        ${trackDetails.length > 0 ? `
-          <button id="playPlaylistBtn" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">
-            ▶ Play All
-          </button>
-        ` : ''}
-        
-        <div id="playlistTracks" class="playlist-tracks">
-          ${trackDetails.length === 0 ? 
-            '<div class="empty-state"><p>No songs in this playlist</p></div>' :
-            trackDetails.map(track => `
-              <div class="track-item" data-track-id="${track.id}">
-                <div class="track-item-cover">
-                  <img src="assets/icons/icon-song-black..png" alt="Album art">
-                </div>
-                <div class="track-item-info">
-                  <div class="track-item-title">${escapeHtml(track.title)}</div>
-                  <div class="track-item-artist">${escapeHtml(track.artist)}</div>
-                </div>
-                <button class="btn-icon track-remove-btn" title="Remove">✕</button>
-              </div>
-            `).join('')
-          }
-        </div>
-      </div>
-    </div>
-  `;
+  // Update screen elements
+  document.getElementById('playlistDetailTitle').textContent = playlist.name;
+  document.getElementById('playlistDetailStats').textContent = 
+    `${trackDetails.length} ${trackDetails.length === 1 ? 'song' : 'songs'}`;
   
-  document.body.appendChild(modal);
-  
-  // Event listeners
-  document.getElementById('closePlaylistDetail').addEventListener('click', () => modal.remove());
-  document.getElementById('playlistMenuBtn').addEventListener('click', (e) => {
-    showPlaylistMenu(playlist.id, e.target);
-  });
-  
+  // Show/hide play button
+  const playBtn = document.getElementById('playPlaylistDetailBtn');
   if (trackDetails.length > 0) {
-    document.getElementById('playPlaylistBtn').addEventListener('click', () => {
-      modal.remove();
-      playPlaylist(playlist.id);
+    playBtn.style.display = 'block';
+  } else {
+    playBtn.style.display = 'none';
+  }
+  
+  // Populate track list
+  const content = document.getElementById('playlistDetailContent');
+  if (trackDetails.length === 0) {
+    content.innerHTML = '<div class="empty-state"><p>No songs in this playlist</p></div>';
+  } else {
+    content.innerHTML = '';
+    trackDetails.forEach(track => {
+      const trackEl = createPlaylistTrackElement(track, playlist.id);
+      content.appendChild(trackEl);
     });
   }
   
-  // Track click and remove handlers
-  modal.querySelectorAll('.track-item').forEach(trackEl => {
-    const trackId = trackEl.dataset.trackId;
-    
-    trackEl.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('track-remove-btn')) {
-        modal.remove();
-        playPlaylistFromTrack(playlist.id, trackId);
+  // Store current playlist ID for event handlers
+  window.currentPlaylistId = playlist.id;
+  
+  // Show the screen
+  showScreen('playlistDetail');
+}
+
+// Create track element for playlist detail
+function createPlaylistTrackElement(track, playlistId) {
+  const div = document.createElement('div');
+  div.className = 'track-item';
+  div.dataset.trackId = track.id;
+  
+  div.innerHTML = `
+    <div class="track-item-cover">
+      <img src="assets/icons/icon-song-black..png" alt="Album art">
+      <button class="track-play-btn">▶</button>
+    </div>
+    <div class="track-item-info">
+      <div class="track-item-title">${escapeHtml(track.title)}</div>
+      <div class="track-item-artist">${escapeHtml(track.artist)}</div>
+    </div>
+    <div class="track-item-album">${escapeHtml(track.album)}</div>
+    <button class="track-more-btn">⋮</button>
+  `;
+  
+  // Click to play from this track
+  div.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('track-more-btn')) {
+      playPlaylistFromTrack(playlistId, track.id);
+    }
+  });
+  
+  // More button - shows remove option
+  div.querySelector('.track-more-btn').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    showRemoveTrackMenu(playlistId, track.id, e.target);
+  });
+  
+  return div;
+}
+
+// Show remove track menu
+function showRemoveTrackMenu(playlistId, trackId, buttonElement) {
+  // Remove existing menu
+  const existingMenu = document.getElementById('removeTrackMenu');
+  if (existingMenu) {
+    existingMenu.remove();
+  }
+  
+  // Create menu
+  const menu = document.createElement('div');
+  menu.id = 'removeTrackMenu';
+  menu.className = 'context-menu active';
+  menu.innerHTML = `
+    <button class="context-menu-item" data-action="remove">
+      ✕ Remove from Playlist
+    </button>
+  `;
+  
+  // Position near button
+  const rect = buttonElement.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = `${rect.bottom + 5}px`;
+  menu.style.right = `${window.innerWidth - rect.right}px`;
+  
+  document.body.appendChild(menu);
+  
+  // Handle click
+  menu.querySelector('.context-menu-item').addEventListener('click', async () => {
+    menu.remove();
+    await removeTrackFromPlaylist(playlistId, trackId);
+    // Refresh the view
+    viewPlaylist(playlistId);
+  });
+  
+  // Close menu when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
       }
     });
-    
-    trackEl.querySelector('.track-remove-btn').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await removeTrackFromPlaylist(playlist.id, trackId);
-      modal.remove();
-      viewPlaylist(playlist.id); // Reopen with updated data
-    });
-  });
+  }, 0);
 }
 
 // Play entire playlist

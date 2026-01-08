@@ -168,7 +168,18 @@ function showScreen(screenName) {
 
 // Update navigation button states
 function updateNavButtons(activeScreen) {
+  // Update bottom nav buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {
+    const screenName = btn.dataset.screen;
+    if (screenName === activeScreen) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Update sidebar nav buttons
+  document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
     const screenName = btn.dataset.screen;
     if (screenName === activeScreen) {
       btn.classList.add('active');
@@ -180,16 +191,29 @@ function updateNavButtons(activeScreen) {
 
 // Show header actions after authentication
 function showHeaderActions() {
-  document.getElementById('globalSearchBtn').style.display = 'flex';
-  document.getElementById('refreshLibraryBtn').style.display = 'flex';
-  document.getElementById('disconnectBtn').style.display = 'flex';
+  // Show sidebar on desktop
+  const sidebar = document.getElementById('appSidebar');
+  const appContainer = document.getElementById('app');
+  
+  if (sidebar) {
+    sidebar.style.display = 'flex';
+    
+    // Restore saved collapse state
+    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    if (isCollapsed) {
+      sidebar.classList.add('collapsed');
+      appContainer?.classList.add('sidebar-collapsed');
+    }
+  }
 }
 
 // Hide header actions
 function hideHeaderActions() {
-  document.getElementById('globalSearchBtn').style.display = 'none';
-  document.getElementById('refreshLibraryBtn').style.display = 'none';
-  document.getElementById('disconnectBtn').style.display = 'none';
+  // Hide sidebar
+  const sidebar = document.getElementById('appSidebar');
+  if (sidebar) {
+    sidebar.style.display = 'none';
+  }
 }
 
 // Setup all event listeners
@@ -205,8 +229,16 @@ function setupEventListeners() {
     search.openSearch();
   });
   
-  // Navigation buttons
+  // Bottom Navigation buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const screen = btn.dataset.screen;
+      showScreen(screen);
+    });
+  });
+  
+  // Sidebar Navigation buttons
+  document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const screen = btn.dataset.screen;
       showScreen(screen);
@@ -335,11 +367,66 @@ function setupEventListeners() {
     queue.clearQueue();
   });
   
-  // Playlist creation
+  // Playlist creation (main screen)
   document.getElementById('createPlaylistBtn')?.addEventListener('click', async () => {
     const name = prompt('Enter playlist name:');
     if (name) {
-      await playlists.createPlaylist(name);
+      const newPlaylist = await playlists.createPlaylist(name);
+      if (newPlaylist) {
+        // Open the playlist after creation
+        playlists.viewPlaylist(newPlaylist.id);
+      }
+    }
+  });
+  
+  // Playlist creation (sidebar)
+  document.getElementById('sidebarCreatePlaylistBtn')?.addEventListener('click', async () => {
+    const name = prompt('Enter playlist name:');
+    if (name) {
+      const newPlaylist = await playlists.createPlaylist(name);
+      if (newPlaylist) {
+        // Open the playlist after creation
+        playlists.viewPlaylist(newPlaylist.id);
+      }
+    }
+  });
+  
+  // Sidebar collapse/expand
+  document.getElementById('sidebarCollapseBtn')?.addEventListener('click', () => {
+    const sidebar = document.getElementById('appSidebar');
+    const appContainer = document.getElementById('app');
+    
+    if (sidebar && appContainer) {
+      sidebar.classList.toggle('collapsed');
+      appContainer.classList.toggle('sidebar-collapsed');
+      
+      // Save state to localStorage
+      const isCollapsed = sidebar.classList.contains('collapsed');
+      localStorage.setItem('sidebarCollapsed', isCollapsed);
+    }
+  });
+  
+  // Playlist detail screen
+  document.getElementById('closePlaylistDetailBtn')?.addEventListener('click', () => {
+    showScreen('playlists');
+  });
+  
+  document.getElementById('playlistDetailMenuBtn')?.addEventListener('click', (e) => {
+    if (window.currentPlaylistId) {
+      // Import playlists dynamically to avoid circular dependency
+      import('./playlists.js').then(({ getAllPlaylists }) => {
+        const allPlaylists = getAllPlaylists();
+        const playlist = allPlaylists.find(p => p.id === window.currentPlaylistId);
+        if (playlist) {
+          showPlaylistMenuForDetail(window.currentPlaylistId, playlist.name, e.target);
+        }
+      });
+    }
+  });
+  
+  document.getElementById('playPlaylistDetailBtn')?.addEventListener('click', () => {
+    if (window.currentPlaylistId) {
+      playlists.playPlaylist(window.currentPlaylistId);
     }
   });
   
@@ -468,6 +555,67 @@ function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Show playlist menu for detail screen
+function showPlaylistMenuForDetail(playlistId, playlistName, buttonElement) {
+  // Remove existing menu
+  const existingMenu = document.getElementById('playlistDetailMenu');
+  if (existingMenu) {
+    existingMenu.remove();
+  }
+  
+  // Create menu
+  const menu = document.createElement('div');
+  menu.id = 'playlistDetailMenu';
+  menu.className = 'context-menu active';
+  menu.innerHTML = `
+    <button class="context-menu-item" data-action="rename">
+      ✏️ Rename
+    </button>
+    <button class="context-menu-item" data-action="delete">
+      🗑️ Delete
+    </button>
+  `;
+  
+  // Position near button
+  const rect = buttonElement.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = `${rect.bottom + 5}px`;
+  menu.style.right = `${window.innerWidth - rect.right}px`;
+  
+  document.body.appendChild(menu);
+  
+  // Handle menu clicks
+  menu.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const action = item.dataset.action;
+      menu.remove();
+      
+      if (action === 'rename') {
+        const newName = prompt('Enter new playlist name:', playlistName);
+        if (newName) {
+          await playlists.renamePlaylist(playlistId, newName);
+          // Refresh the view
+          playlists.viewPlaylist(playlistId);
+        }
+      } else if (action === 'delete') {
+        await playlists.deletePlaylist(playlistId);
+        // Go back to playlists screen
+        showScreen('playlists');
+      }
+    });
+  });
+  
+  // Close menu when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    });
+  }, 0);
 }
 
 // Export for use in other modules
