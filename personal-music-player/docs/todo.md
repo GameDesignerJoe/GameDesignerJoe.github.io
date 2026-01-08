@@ -1,42 +1,36 @@
 Playback ToDo
-- Improve the folder add option to be it's own thing.
-- Get it to show songs as well as folders
-- Have clicking on a folder go into the folder on double click
+Pri 1:
+- PRI 1: The playback blocks the last item in the list. For exaample, in the dropbox folder, I can't see the Tantamount folder or add it, because the playbar is there. 
+- PRI 1: Get google drive to work with it.
+- PRI 1: When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
+
 - get rid of those ugly buttons
 - Look at Jason's example
-- Get it to add songs as well as folders
-- Get google drive to work with it.
 - Get it to work with songs on your hard drive
 - Make a playlist with a song from each
 - Do a more Spotify pass on it 
 - Get a logo
-- Get deployments to work for Vercel again. Did I fix it? maybe?
-- Get the faviicon to be white.
-- When you select add songs, it still goes to the old folder add system. 
 - When music is playing the music bar cuts into where you can see folders. 
-- I think we can remove the preview window from Sources
+- Do we reallyneed a scrollbar on the PC version. Maybe we can dress it up so it's not so ugly.
 - The plus button is out of alignment with the circle.
-- Add a 'add folder' "+" to the top of the file structure when you're looking at a group of songs. 
+- The add current folder when you're in the folder button could be better. It's not alligned and could likely be an actual button "Add Current Folder". 
 - The amoung stacked alerts when you add songs is a bit much. 
 - how we're displaying these songs is not ideal. 
-- Need some default abstract images for placeholder songs
-- I would expect to see Pluses selected on sub folders.
 - I would like a list of total song count
-- When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
 - Would be nice to know the path that each of the songs are coming from at some point if we can do it and make it look nice. 
-- We might need a 'home page' 
 - Can't select a song, press control or shift and select another song and have it select all of them. 
-- Check for duplicate songs
-- Show what song is playing.
-- When you are playing a 'filtered' song from the folder, it doens't play the next song in the filter, but the next song in the overall list. Day 7 went to Day 8, not Day 14.
-- Need to make the song cassette image white instead of black. 
-- Need to rename My Playback to just PLAYBACK in caps
+- Check for duplicate songs and tell the user "You've already got this song in there. Add?"
+- Show what song is playing and make it green or purple.
 - Need to make the favicon white instead of black.
-- Repeat icon needs to show if it's on, all, or one.
-- Pictures for songs
+- Repeat icon needs to show if it's on, all, or one. It's there, but it's tiny. 
+- Pictures for songs. We're going to want them. Need to figure out how. 
 - Pictures for playlists
-- Add a play button right on top of the folders so you can just click play in there without having to drill into the folder (Spotify)
 - Swap the Songs/Artists/Albums with the search option. Not really a fan of the search this way, might just want to have something off to the side that pops out.
+- The Library page needs a ui refresh.
 - Need to do an auto refresh of your home folder whenever you add a source.
 - Mobile: Player clips the bottom of the buttons. 
 - Mobile: Sources sidebar looks like crap. Consider running it along the top.Removing the text and just having the icon. 
+- Mobile: The next song doesn't play if the phone is closed and the screen is black. Actually, it thinks it's playing, I just can't hear anything. I look down and see that the song is 15 seconds in, but no audio comes out. Then if I click on the module it opens up my phone and starts playing... However, it's brought up a different, non-music app of mine. If i close that app, the music stops, despite the music app still being open. 
+- Mobile: Add a small play button next to the folder, just to the left of the text. If you press that it plays the folder without having to go into the playlist. 
+- Mobile: I'm still not getting the < > on the song module. I'm just getting the skip ahead 10 seconds.
+- ID3 tagging within the app? Is that possible?

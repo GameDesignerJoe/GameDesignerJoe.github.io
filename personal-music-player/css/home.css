@@ -163,6 +163,12 @@
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+  filter: brightness(0) invert(1);
+}
+
+.folder-card-image img[src*="http"],
+.folder-card-image img[src*="blob:"] {
+  filter: none;
 }
 
 .folder-card:hover .folder-card-image img {

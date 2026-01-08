@@ -1,6 +1,6 @@
 {
-  "name": "My Playback",
-  "short_name": "Playback",
+  "name": "PLAYBACK",
+  "short_name": "PLAYBACK",
   "description": "Stream your Dropbox music library with lock screen controls",
   "start_url": "./",
   "display": "standalone",
