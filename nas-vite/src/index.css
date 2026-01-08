@@ -1199,3 +1199,33 @@ polygon[data-terrain] {
     gap: 4px;
   }
 }
+
+/* Home Button */
+.home-button {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 2000;
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(1, 58, 99, 0.8);
+}
+
+.home-button:hover {
+  transform: scale(1.1);
+  border-color: #64DFFF;
+  box-shadow: 0 4px 12px rgba(100, 223, 255, 0.3);
+}
+
+.home-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
