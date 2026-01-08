@@ -65,9 +65,9 @@
   height: 100%;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
-  object-fit: cover;
+  object-fit: contain;
   background-color: var(--color-bg-elevated);
-  filter: invert(1) brightness(2);
+  padding: var(--spacing-lg);
 }
 
 /* ==========================================
@@ -301,10 +301,10 @@
   width: 48px;
   height: 48px;
   border-radius: var(--radius-sm);
-  object-fit: cover;
+  object-fit: contain;
   flex-shrink: 0;
   background-color: var(--color-bg-secondary);
-  filter: invert(1) brightness(2);
+  padding: var(--spacing-xs);
 }
 
 .mini-player-info {
