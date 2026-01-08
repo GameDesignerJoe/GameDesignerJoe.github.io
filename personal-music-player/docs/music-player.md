@@ -1,532 +1,943 @@
-Music Player PWA - Design Specification
-Project Overview
-A Progressive Web App that streams music from Dropbox with a polished, Spotify-inspired interface. Install to home screen, control from lock screen, manage playlists - all without touching the app store.
-Technical Stack
+# Music Player PWA - Complete Technical Documentation
 
-Frontend: Vanilla JavaScript (ES6+), HTML5, CSS3
-Audio: Web Audio API for playback control
-Lock Screen: Media Session API
-Storage: IndexedDB for playlists and app state
-Cloud: Dropbox API v2 for file access
-Hosting: Netlify (or Vercel/GitHub Pages)
+## Project Overview
 
-MVP Feature Set
-1. Dropbox Integration
+A Progressive Web App that streams music from cloud storage (currently Dropbox) with a polished, Spotify-inspired interface. The app features lock screen controls, playlist management, and a sophisticated Sources management system for organizing your music library.
 
-OAuth 2.0 authentication flow
-Browse folder structure
-Filter for audio files (.mp3, .m4a, .flac, .wav, .ogg)
-Generate temporary streaming URLs
-Cache library structure in IndexedDB
+**Current Status:** ~90% Complete MVP - Fully functional with some UI/UX polish remaining
 
-2. Music Library
+**Target Platform:** Mobile-first (iOS Safari primary), works on desktop
 
-Display all discovered audio files
-Extract metadata using jsmediatags library:
+**Deployment:** Vercel (Production-ready)
 
-Title, Artist, Album, Track Number
-Embedded cover art
+---
 
+## Technical Stack
 
-Three view modes:
+- **Frontend:** Vanilla JavaScript (ES6+ Modules), HTML5, CSS3
+- **Audio:** HTML5 Audio API with Media Session API for lock screen controls
+- **Storage:** IndexedDB for offline persistence (tracks, playlists, settings, selected folders)
+- **Cloud:** Dropbox API v2 with OAuth 2.0 PKCE authentication
+- **Hosting:** Vercel with automatic deployments
+- **PWA:** Service Worker, Web App Manifest, installable
 
-Songs (flat list)
-Artists (grouped)
-Albums (grouped)
+---
 
+## Architecture Overview
 
-Basic search functionality
+### Modular Design
 
-3. Playback Engine
+The application follows a clean modular architecture with clear separation of concerns:
 
-Core controls: Play, Pause, Skip Forward, Skip Back
-Seekable timeline with current/total time display
-Volume control
-Queue management (current track + up next)
-Playback modes:
-
-Normal (sequential)
-Shuffle
-Repeat Off/One/All
-
-
-Gapless playback between tracks
-
-4. Lock Screen Controls
-
-Display current track metadata
-Show album artwork
-Enable play/pause/skip from:
-
-Lock screen
-Notification center
-Control center
-Bluetooth devices
-
-
-
-5. Playlists
-
-Create new playlists
-Add/remove tracks
-Reorder tracks (drag and drop)
-Delete playlists
-Play entire playlist
-Store in IndexedDB
-
-6. PWA Infrastructure
-
-Manifest.json for installability
-Service worker for offline manifest
-Responsive design (mobile-first)
-Full-screen mode when installed
-App-like navigation (no browser chrome)
-
-UI/UX Design
-Color Scheme (Spotify-inspired)
-
-Primary Background: #121212 (near black)
-Secondary Background: #181818 (cards/sections)
-Accent: #1DB954 (Spotify green)
-Text Primary: #FFFFFF
-Text Secondary: #B3B3B3
-Error/Alert: #E22134
-
-Layout Structure
-Now Playing Screen (main view):
-
-Large album artwork (centered, 80% screen width)
-Track title (bold, 18px)
-Artist name (14px, secondary color)
-Playback timeline with scrubber
-Control buttons row:
-
-Shuffle (toggle)
-Skip back
-Play/Pause (large, primary)
-Skip forward
-Repeat (toggle)
-
-
-Queue button (bottom right)
-Volume slider (optional, can hide on mobile)
-
-Library Screen:
-
-Tab bar: Songs | Artists | Albums
-Search bar (sticky at top)
-Scrollable list/grid of items
-Tap item → shows detail/plays
-
-Playlist Screen:
-
-List of created playlists
-"Create New Playlist" button
-Tap playlist → show tracks
-
-Bottom Navigation Bar (persistent):
-
-Now Playing (mini player when not in full view)
-Library
-Playlists
-
-Gestures & Interactions
-
-Tap album art → expand/collapse now playing
-Swipe down on now playing → minimize to mini player
-Long press track → add to playlist menu
-Drag tracks in playlist → reorder
-
-File Structure
-music-player-pwa/
-├── index.html
-├── manifest.json
-├── sw.js (service worker)
+```
+personal-music-player/
+├── index.html                 # Single-page app entry point
+├── manifest.json             # PWA manifest
+├── sw.js                     # Service worker
+├── config.js                 # Environment configuration
 ├── css/
-│   ├── main.css
-│   ├── player.css
-│   ├── library.css
-│   └── playlists.css
+│   ├── main.css             # Global styles, theme, utilities
+│   ├── player.css           # Player UI (mini + full screen)
+│   ├── library.css          # Library views (songs/artists/albums)
+│   ├── playlists.css        # Playlist management UI
+│   ├── sources.css          # Sources management screen
+│   └── modals.css           # Modal dialogs and overlays
 ├── js/
-│   ├── app.js (main entry point)
-│   ├── dropbox.js (API integration)
-│   ├── player.js (playback engine)
-│   ├── library.js (file management)
-│   ├── playlists.js (playlist CRUD)
-│   ├── ui.js (DOM manipulation)
-│   ├── storage.js (IndexedDB wrapper)
-│   └── mediaSession.js (lock screen controls)
+│   ├── app.js               # Main entry point, initialization
+│   ├── player.js            # Audio playback engine
+│   ├── queue.js             # Queue management, shuffle, repeat
+│   ├── library.js           # Library views and search
+│   ├── playlists.js         # Playlist CRUD operations
+│   ├── sources.js           # Sources screen management
+│   ├── folder-browser.js    # Dropbox folder navigation
+│   ├── scanner.js           # Audio file scanning
+│   ├── dropbox.js           # Dropbox API integration
+│   ├── storage.js           # IndexedDB wrapper
+│   └── media-session.js     # Lock screen controls
 ├── assets/
-│   ├── icons/ (PWA icons: 192x192, 512x512)
-│   └── placeholder-cover.png (fallback artwork)
-└── lib/
-    └── jsmediatags.min.js (metadata extraction)
-Data Models
-Track Object
-javascript{
-  id: string (unique hash of path),
-  path: string (Dropbox path),
-  filename: string,
-  title: string,
-  artist: string,
-  album: string,
-  trackNumber: number,
-  duration: number (seconds),
-  coverArt: string (base64 or null),
-  dropboxUrl: string (temporary link, expires),
-  urlExpiry: timestamp,
-  addedDate: timestamp
+│   └── icons/               # App icons and placeholders
+└── docs/
+    ├── music-player.md      # This file
+    ├── music-played-milestone_plan.md  # Development roadmap
+    └── todo.md              # Current tasks and issues
+```
+
+### Module Responsibilities
+
+**app.js** - Application bootstrap and coordination
+- Service worker registration
+- Authentication state management
+- Screen navigation
+- Event listener setup
+- Toast notifications
+- Module initialization
+
+**player.js** - Core audio playback
+- HTML5 Audio element management
+- Play/pause/seek/volume controls
+- Timeline updates
+- Media Session API integration
+- Dropbox temporary link handling
+
+**queue.js** - Playback queue management
+- Track queue array and position
+- Skip forward/backward logic
+- Shuffle algorithm (Fisher-Yates)
+- Repeat modes (off/all/one)
+- Auto-advance on track end
+- Queue UI updates
+
+**library.js** - Music library display
+- Three view modes: Songs, Artists, Albums
+- Real-time search filtering
+- Track grouping and sorting
+- Play track with queue context
+- Integration with playlists
+
+**playlists.js** - Playlist management
+- Create, rename, delete playlists
+- Add/remove tracks
+- Play entire playlist
+- Playlist detail modal
+- Context menus
+
+**sources.js** - Sources management (NEW major feature)
+- Cloud provider connection management
+- Folder browser interface
+- Folder selection/deselection
+- Breadcrumb navigation
+- Real-time count updates
+- Auto-scanning on changes
+
+**dropbox.js** - Dropbox API client
+- OAuth 2.0 PKCE authentication
+- Folder listing (recursive/non-recursive)
+- File metadata retrieval
+- Temporary link generation (4-hour expiry)
+- Connection testing
+
+**storage.js** - IndexedDB persistence
+- Database initialization and versioning
+- Track CRUD operations
+- Playlist storage
+- Selected folders persistence
+- Settings storage
+
+**media-session.js** - Lock screen integration
+- Media Session API setup
+- Metadata updates (title, artist, album, artwork)
+- Action handlers (play, pause, next, previous, seek)
+- Position state updates
+
+---
+
+## Key Features & Implementation
+
+### 1. Sources Management System
+
+**What it is:**
+A dedicated screen for managing music sources with visual cloud provider icons. Currently supports Dropbox with infrastructure for future providers (Google Drive, OneDrive, Plex, etc.).
+
+**Implementation:**
+```javascript
+// sources.js handles:
+- Folder browsing with breadcrumb navigation
+- Visual selection indicators (+ buttons, checkmarks)
+- Real-time folder/song counts
+- Automatic library scanning on folder changes
+- Parent/child folder relationship handling
+```
+
+**User Flow:**
+1. Navigate to Sources tab (🌐)
+2. Select Dropbox (active by default when authenticated)
+3. Browse folder tree with breadcrumbs
+4. Click + to add folders to library
+5. See checkmarks on selected folders
+6. Auto-scan triggers and updates library
+7. View updated song count in Sources panel
+
+**Technical Details:**
+- Stores selected folder paths in IndexedDB (`folders` store)
+- Handles nested folder selections intelligently
+- Visual indicators: `selected`, `has-selected` classes
+- Prevents duplicate selections
+- Cascading selection logic (parent folders include children)
+
+### 2. Audio Playback System
+
+**Playback Flow:**
+```
+User clicks track → Library calls queue.playTrackWithQueue() →
+Queue sets up track array → Calls player.playTrack() →
+Player requests Dropbox temp link → Loads audio URL →
+Playback starts → Media Session updates → UI updates
+```
+
+**Features:**
+- **Streaming:** Direct from Dropbox via temporary links (4-hour expiry)
+- **Timeline:** Seekable progress bar with time display
+- **Volume:** 0-100% slider control
+- **UI States:** Mini player (bottom) + Full player (modal)
+- **Auto-advance:** Automatic next track when current ends
+
+**Technical Details:**
+```javascript
+// player.js uses HTML5 Audio element
+const audio = new Audio();
+audio.src = dropboxTemporaryLink;
+audio.addEventListener('timeupdate', updateTimeline);
+audio.addEventListener('ended', onTrackEnded);
+```
+
+### 3. Queue System
+
+**Queue Features:**
+- **Dynamic queue:** Tracks added when playing from library/playlist
+- **Current position tracking:** Visual indicator (▶) on active track
+- **Manual manipulation:** Remove tracks, jump to any track
+- **Clear queue:** Keeps currently playing track
+- **History:** Previous track navigation
+
+**Shuffle Implementation:**
+```javascript
+// Fisher-Yates shuffle algorithm
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
 }
-Playlist Object
-javascript{
-  id: string (UUID),
-  name: string,
-  tracks: Array<trackId>,
-  createdDate: timestamp,
-  modifiedDate: timestamp
+```
+
+**Repeat Modes:**
+- **Off:** Stop at end of queue
+- **All:** Loop back to start after last track
+- **One:** Replay current track indefinitely
+
+**Skip Logic:**
+- **Skip Forward:** Next track (or loop if repeat all)
+- **Skip Back:** Restart if >3 seconds, previous if <3 seconds
+
+### 4. Library Organization
+
+**Three View Modes:**
+
+**Songs View:**
+- Flat list of all tracks
+- Alphabetically sorted with natural sorting (1, 2, 10 not 1, 10, 2)
+- Search filters in real-time
+- Click to play with full library as queue
+
+**Artists View:**
+- Grouped by artist name
+- Expandable sections
+- Track count per artist
+- "Unknown Artist" for missing metadata
+
+**Albums View:**
+- Grouped by album name
+- Shows artist and track count
+- "Play All" button per album
+- Placeholder album art
+
+**Search Implementation:**
+```javascript
+// Real-time filtering across metadata
+function getFilteredTracks() {
+  return allTracks.filter(track => {
+    const title = (track.title || '').toLowerCase();
+    const artist = (track.artist || '').toLowerCase();
+    const album = (track.album || '').toLowerCase();
+    return title.includes(query) || 
+           artist.includes(query) || 
+           album.includes(query);
+  });
 }
-App State Object
-javascript{
-  currentTrack: trackId or null,
-  queue: Array<trackId>,
-  queuePosition: number,
-  isPlaying: boolean,
-  currentTime: number,
-  volume: number (0-1),
-  shuffleEnabled: boolean,
-  repeatMode: 'off' | 'one' | 'all',
-  lastView: 'player' | 'library' | 'playlists'
+```
+
+### 5. Playlist Management
+
+**Playlist Features:**
+- **Create:** Custom name via prompt
+- **Add tracks:** Context menu (⋮) on any track
+- **View:** Click playlist card to see contents
+- **Play:** Play All or start from specific track
+- **Edit:** Rename via playlist menu
+- **Delete:** With confirmation dialog
+- **Persistence:** Stored in IndexedDB
+
+**Data Structure:**
+```javascript
+{
+  id: number,              // Auto-increment
+  name: string,           // User-defined
+  tracks: [               // Array of track references
+    { id: trackId, addedAt: timestamp }
+  ],
+  createdAt: timestamp,
+  updatedAt: timestamp
 }
-API Integration Details
-Dropbox OAuth Flow
+```
 
-Redirect to Dropbox authorization URL with app key
-User grants permission
-Dropbox redirects back with access token
-Store token in localStorage (encrypted if possible)
-Use token for all subsequent API calls
+**Context Menu System:**
+- Dynamic positioning near trigger button
+- "Add to Playlist" shows all playlists
+- "+ Create New Playlist" inline option
+- Click-outside-to-close behavior
 
-Required Dropbox API Endpoints
+### 6. Lock Screen Controls
 
-/files/list_folder - Browse directories
-/files/list_folder/continue - Pagination
-/files/get_temporary_link - Get streaming URL (4 hour expiry)
-/files/download - Download file content (for metadata)
-
-Streaming Strategy
-
-When track is selected:
-
-Check if cached URL is still valid (< 3.5 hours old)
-If expired, request new temporary link
-Pass URL to Audio element
-Preload next track in queue
-
-
-
-IndexedDB Schema
-Database Name: musicPlayerDB
-Version: 1
-Object Stores:
-
-tracks
-
-keyPath: id
-Indexes: artist, album, title
-
-
-playlists
-
-keyPath: id
-
-
-appState
-
-keyPath: key
-Single document store
-
-
-cache
-
-keyPath: key
-For storing library scan results, URLs, etc.
-
-
-
-Media Session API Implementation
-javascript// When track starts playing
+**Media Session API Integration:**
+```javascript
 navigator.mediaSession.metadata = new MediaMetadata({
   title: track.title,
   artist: track.artist,
   album: track.album,
-  artwork: [
-    { src: track.coverArt, sizes: '512x512', type: 'image/png' }
-  ]
+  artwork: [{ src: iconUrl, sizes: '512x512' }]
 });
 
-// Register action handlers
-navigator.mediaSession.setActionHandler('play', () => { /* resume */ });
-navigator.mediaSession.setActionHandler('pause', () => { /* pause */ });
-navigator.mediaSession.setActionHandler('previoustrack', () => { /* skip back */ });
-navigator.mediaSession.setActionHandler('nexttrack', () => { /* skip forward */ });
-navigator.mediaSession.setActionHandler('seekto', (details) => { /* seek */ });
-Service Worker Strategy
-Caching Strategy:
+navigator.mediaSession.setActionHandler('play', handlePlay);
+navigator.mediaSession.setActionHandler('pause', handlePause);
+navigator.mediaSession.setActionHandler('nexttrack', skipNext);
+navigator.mediaSession.setActionHandler('previoustrack', skipPrev);
+navigator.mediaSession.setActionHandler('seekto', handleSeek);
+```
 
-App Shell (HTML, CSS, JS): Cache-first
-Audio files: Network-only (too large to cache)
-Cover art: Cache-first with network fallback
-API responses: Network-first with cache fallback
+**Features:**
+- Track metadata on lock screen
+- Album artwork (currently placeholder icons)
+- Play/pause/skip controls
+- Seekable timeline
+- Works with Bluetooth devices
+- Notification center integration
 
-Offline Behavior:
+### 7. PWA Capabilities
 
-Show cached library when offline
-Disable playback if no internet (audio requires streaming)
-Display "No connection" message
-
-Manifest.json
-json{
-  "name": "My Music Player",
+**Manifest Configuration:**
+```json
+{
+  "name": "My Playback",
   "short_name": "Music",
-  "description": "Stream your Dropbox music library",
-  "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#121212",
   "theme_color": "#1DB954",
-  "icons": [
-    {
-      "src": "/assets/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/assets/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "background_color": "#121212",
+  "start_url": "/",
+  "orientation": "portrait"
 }
-Performance Considerations
-
-Lazy Load: Only fetch metadata for visible tracks
-Virtual Scrolling: For large libraries (1000+ tracks)
-Debounce Search: 300ms delay before filtering
-Preload Next Track: Request URL when current track is 80% complete
-Throttle Timeline Updates: Update position every 100ms, not per frame
-Image Optimization: Scale down cover art to 512x512 max
-
-Error Handling
-Critical Errors (show modal):
-
-Dropbox auth fails
-Network completely unavailable
-Audio playback error
-
-Recoverable Errors (show toast):
-
-Failed to load track (skip to next)
-Metadata extraction fails (use filename)
-Cover art missing (use placeholder)
-
-Logging:
-
-Console log all errors in development
-Consider error reporting service for production (optional)
-
-Security Considerations
-
-OAuth Token: Store in localStorage, include expiry handling
-HTTPS Required: PWA requires secure context
-Content Security Policy: Restrict script sources
-No Token in URL: Use POST/headers for API calls
-
-Browser Compatibility
-Primary Target: iOS Safari 15+ (your iPhone)
-Secondary: Chrome Mobile, Firefox Mobile
-Required APIs:
-
-Web Audio API ✓ (universal support)
-Media Session API ✓ (iOS 15+)
-IndexedDB ✓ (universal)
-Service Workers ✓ (iOS 11.3+)
-
-Deployment
-Netlify Setup
-
-Connect GitHub repo
-Build command: none (static files)
-Publish directory: / (root)
-Environment variables: DROPBOX_APP_KEY
-HTTPS: Automatic
-Deploy: Automatic on push to main
-
-Dropbox App Setup
-
-Create app at dropbox.com/developers
-Choose "Scoped access"
-Access type: "Full Dropbox" or "App folder"
-Add redirect URI: https://your-app.netlify.app/callback
-Copy App Key for environment variable
-
-Testing Checklist
-
- Dropbox auth completes successfully
- Audio files discovered and listed
- Metadata extracted correctly
- Playback starts/stops on command
- Skip forward/back works
- Timeline seek works
- Volume control works
- Shuffle randomizes correctly
- Repeat modes function
- Lock screen controls respond
- Album art displays (both embedded and placeholder)
- Playlist creation works
- Track reordering in playlist works
- App installs to home screen
- Full-screen mode activates
- App resumes state after closing
- Search filters correctly
- Long library (100+ tracks) scrolls smoothly
-
-Known Limitations (Document for User)
-
-Internet Required: Streams from Dropbox, no offline playback in MVP
-4-Hour Session: Dropbox URLs expire, app will refresh automatically
-iOS Background: May pause after ~30 min of screen-off (iOS limitation)
-No Equalizer: Web Audio API supports it, but out of scope for MVP
-Single Device: State doesn't sync across devices (yet)
-
-Future Enhancements (Post-MVP)
-
-Offline caching of favorite tracks
-Smart playlists (recently added, most played)
-Lyrics display (if embedded in files)
-Crossfade between tracks
-Gapless playback improvements
-Last.fm scrobbling
-Multiple cloud providers (Google Drive, OneDrive)
-Social features (share playlists)
-
-
-Development Notes
-Dropbox App Key Management
-
-Store in .env file locally
-Add .env to .gitignore
-Set as Netlify environment variable
-Access via process.env.DROPBOX_APP_KEY or build-time replacement
-
-Audio Element vs Web Audio API
-
-Start with <audio> element for simplicity
-Provides built-in buffering, format support
-Can enhance with Web Audio API later for:
-
-Visualizations
-Equalizer
-Crossfade
-
-
-
-Mobile-First Development
-
-Test on actual device early and often
-Chrome DevTools mobile emulation is helpful but not perfect
-iOS Safari has quirks (audio autoplay, fullscreen behavior)
-
-State Management
-
-Keep it simple: vanilla JS with pub/sub pattern
-No framework needed for MVP
-Consider Vue/React only if complexity grows significantly
-
-
-Success Criteria
-MVP is complete when:
-
-You can authenticate with Dropbox
-Browse and play music from your library
-Control playback from lock screen
-Create and manage playlists
-App is installed on your home screen
-Experience feels smooth and responsive
-
-It's working well when:
-
-You actually use it instead of other players
-Playback is reliable
-UI feels intuitive
-Performance is smooth even with large library
-
-## Environment Variables
-
-### Local Development (.env file)
-
-Create a `.env` file in the project root:
-
-```env
-DROPBOX_APP_KEY=w6g3az21d8acv15
-DROPBOX_REDIRECT_URI=http://localhost:8080/callback
 ```
 
-**Important**: Add `.env` to your `.gitignore` file immediately:
-```
-.env
-node_modules/
+**Service Worker:**
+- Registers on app load
+- Basic caching strategy
+- Cache app shell (HTML, CSS, JS)
+- Network-first for API calls
+
+**Installation:**
+- Add to home screen prompt (iOS Safari)
+- Standalone mode when installed
+- No browser chrome
+- Full-screen experience
+
+---
+
+## Data Models
+
+### Track Object
+```javascript
+{
+  id: string,              // Unique hash of path
+  path: string,           // Dropbox file path
+  filename: string,       // Original filename
+  title: string,          // Extracted or from filename
+  artist: string,         // Extracted or "Unknown Artist"
+  album: string,          // Extracted or "Unknown Album"
+  duration: number,       // Seconds (if available)
+  addedDate: timestamp,   // When added to library
+  sourceFolder: string    // Parent folder path
+}
 ```
 
-### Accessing Environment Variables in Code
+### Playlist Object
+```javascript
+{
+  id: number,             // Auto-increment primary key
+  name: string,           // User-defined name
+  tracks: [
+    {
+      id: string,         // Reference to track.id
+      addedAt: timestamp  // When added to playlist
+    }
+  ],
+  createdAt: timestamp,
+  updatedAt: timestamp
+}
+```
 
-Since this is a static PWA with no build step, you'll need to replace environment variables at runtime. Create a `config.js` file:
+### Selected Folder Object
+```javascript
+{
+  path: string,           // Dropbox folder path (primary key)
+  addedAt: timestamp      // When folder was selected
+}
+```
+
+---
+
+## IndexedDB Schema
+
+**Database:** `MusicPlayerDB` (Version 1)
+
+### Object Stores:
+
+**tracks**
+- KeyPath: `id`
+- Indexes: `title`, `artist`, `album`, `path` (unique)
+- Purpose: All scanned audio files
+
+**folders**
+- KeyPath: `path`
+- Purpose: User-selected music folders
+
+**playlists**
+- KeyPath: `id` (auto-increment)
+- Purpose: User-created playlists
+
+**settings**
+- KeyPath: `key`
+- Purpose: App configuration and preferences
+
+### Storage Operations:
 
 ```javascript
-// config.js
+// Example: Get all tracks
+export async function getAllTracks() {
+  const transaction = db.transaction(['tracks'], 'readonly');
+  const store = transaction.objectStore('tracks');
+  return await store.getAll();
+}
+
+// Example: Save playlist
+export async function savePlaylist(playlist) {
+  const transaction = db.transaction(['playlists'], 'readwrite');
+  const store = transaction.objectStore('playlists');
+  return await store.put(playlist);
+}
+```
+
+---
+
+## Dropbox API Integration
+
+### OAuth 2.0 PKCE Flow
+
+```javascript
+// 1. Generate code verifier and challenge
+const codeVerifier = generateRandomString(128);
+const codeChallenge = await sha256(codeVerifier);
+
+// 2. Redirect to Dropbox authorization
+const authUrl = `https://www.dropbox.com/oauth2/authorize?
+  client_id=${appKey}&
+  response_type=code&
+  code_challenge=${codeChallenge}&
+  code_challenge_method=S256&
+  redirect_uri=${redirectUri}`;
+
+// 3. Handle callback with authorization code
+const code = getCodeFromURL();
+const token = await exchangeCodeForToken(code, codeVerifier);
+
+// 4. Store token in localStorage
+localStorage.setItem('dropbox_access_token', token);
+```
+
+### Key API Endpoints Used:
+
+**List Folder:**
+```javascript
+POST https://api.dropboxapi.com/2/files/list_folder
+Body: { path: "/Music", recursive: false }
+Returns: { entries: [...folders and files] }
+```
+
+**Get Temporary Link:**
+```javascript
+POST https://api.dropboxapi.com/2/files/get_temporary_link
+Body: { path: "/Music/song.mp3" }
+Returns: { link: "https://...", expires: "2024-..." }
+Note: Links expire after 4 hours
+```
+
+**Test Connection:**
+```javascript
+POST https://api.dropboxapi.com/2/users/get_current_account
+Returns: User account info or error
+```
+
+### Temporary Link Management:
+
+- Links valid for 4 hours
+- Requested fresh for each track play
+- No caching of audio URLs
+- Automatic re-authentication on 401 errors
+
+---
+
+## UI/UX Design
+
+### Color Scheme (Spotify-Inspired)
+
+```css
+:root {
+  --bg-primary: #121212;      /* Near black */
+  --bg-secondary: #181818;    /* Card backgrounds */
+  --bg-tertiary: #282828;     /* Hover states */
+  --accent: #1DB954;          /* Spotify green */
+  --text-primary: #FFFFFF;    /* Main text */
+  --text-secondary: #B3B3B3;  /* Secondary text */
+  --text-muted: #6a6a6a;      /* Disabled/muted */
+  --error: #E22134;           /* Error states */
+}
+```
+
+### Layout Structure
+
+**Screen Hierarchy:**
+1. **Auth Screen** - Dropbox connection prompt
+2. **Library Screen** - Main music browsing (default after auth)
+3. **Playlists Screen** - Playlist management
+4. **Sources Screen** - Folder/source management
+5. **Queue Screen** - Current queue view
+6. **Player Screen** - Full-screen now playing (modal)
+
+**Persistent UI Elements:**
+- **Header:** App title + action buttons (refresh, disconnect)
+- **Mini Player:** Bottom bar when music playing
+- **Bottom Nav:** Library | Playlists | Sources (3 tabs)
+
+### Interaction Patterns
+
+**Navigation:**
+- Bottom nav tabs switch main screens
+- Back buttons (←) close modals/detail views
+- Breadcrumbs in folder browser
+
+**Playback Control:**
+- Click track → Play immediately with queue
+- Click mini player → Expand to full player
+- Timeline drag/click → Seek to position
+
+**Context Menus:**
+- ⋮ button on tracks → Add to playlist
+- ⋮ button on playlists → Rename/delete
+- Position dynamically near trigger
+
+**Toast Notifications:**
+- Success (green): Actions completed
+- Info (blue): Informational messages
+- Error (red): Failed operations
+- Auto-dismiss after 3 seconds
+
+---
+
+## State Management
+
+### Application State (app.js)
+
+```javascript
+const appState = {
+  isAuthenticated: boolean,
+  currentScreen: string,      // 'auth', 'library', 'playlists', 'sources', 'queue'
+  accessToken: string | null
+};
+```
+
+### Player State (player.js)
+
+```javascript
+const playerState = {
+  audio: Audio | null,
+  currentTrack: Track | null,
+  isPlaying: boolean,
+  volume: number,             // 0.0 - 1.0
+  duration: number,           // Total seconds
+  currentTime: number         // Current position seconds
+};
+```
+
+### Queue State (queue.js)
+
+```javascript
+const queueState = {
+  tracks: Track[],            // All tracks in queue
+  currentIndex: number,       // Currently playing index
+  history: Track[],           // Previously played
+  shuffled: boolean,
+  repeatMode: 'off' | 'all' | 'one',
+  originalOrder: Track[]      // Pre-shuffle order
+};
+```
+
+### Persistence Strategy
+
+**localStorage:**
+- `dropbox_access_token` - OAuth token
+- `player_shuffle` - Shuffle preference
+- `player_repeat` - Repeat mode preference
+
+**IndexedDB:**
+- All tracks (scanned from folders)
+- All playlists with track references
+- Selected folder paths
+- App settings
+
+**Session-only:**
+- Current queue (rebuilds on play)
+- Player state (current time, volume restored from defaults)
+
+---
+
+## Error Handling
+
+### Error Categories
+
+**Network Errors:**
+- Dropbox API failures
+- Connection timeouts
+- 401 Unauthorized (expired token)
+
+**Playback Errors:**
+- Audio loading failures
+- Temporary link expiration
+- Unsupported audio format
+
+**Data Errors:**
+- IndexedDB failures
+- Corrupted track metadata
+- Missing playlist tracks
+
+### Error Handling Strategy
+
+```javascript
+// User-friendly toast notifications
+try {
+  await dropbox.listFolder(path);
+} catch (error) {
+  console.error('[Module] Error:', error);
+  showToast('Failed to load folders. Please try again.', 'error');
+  
+  // Handle specific cases
+  if (error.status === 401) {
+    // Expired token - redirect to re-auth
+    disconnect(false);
+  }
+}
+```
+
+### Logging Convention
+
+All modules use consistent logging:
+```javascript
+console.log('[ModuleName] Action description');
+console.error('[ModuleName] Error description:', error);
+```
+
+---
+
+## Performance Optimizations
+
+### Current Optimizations
+
+1. **Lazy Loading:** Tracks loaded from IndexedDB only when needed
+2. **Debounced Search:** 300ms delay before filtering (via input event)
+3. **Efficient Sorting:** Natural sort algorithm for better UX
+4. **Minimal Re-renders:** Update only changed DOM elements
+5. **Indexed Queries:** IndexedDB indexes on artist, album, title
+
+### Potential Optimizations (Not Yet Implemented)
+
+- **Virtual Scrolling:** For libraries >1000 tracks
+- **Image Lazy Loading:** Album artwork when implemented
+- **Service Worker Caching:** Smarter caching strategy
+- **Preload Next Track:** Request link when current track 80% complete
+- **Web Audio API:** For advanced features (equalizer, crossfade)
+
+---
+
+## Testing & Quality Assurance
+
+### Manual Testing Checklist
+
+**Authentication Flow:**
+- [x] Connect to Dropbox works
+- [x] Callback URL handling
+- [x] Token persistence
+- [x] Auto-login on refresh
+- [x] Disconnect clears state
+
+**Sources & Library:**
+- [x] Browse folders
+- [x] Select/deselect folders
+- [x] Scan and populate library
+- [x] Search filtering
+- [x] View mode switching
+
+**Playback:**
+- [x] Play track
+- [x] Pause/resume
+- [x] Skip forward/back
+- [x] Seek timeline
+- [x] Volume control
+- [x] Auto-advance
+
+**Queue:**
+- [x] Add to queue
+- [x] Remove from queue
+- [x] Jump to track
+- [x] Clear queue
+- [x] Shuffle mode
+- [x] Repeat modes
+
+**Playlists:**
+- [x] Create playlist
+- [x] Add tracks
+- [x] Remove tracks
+- [x] Play playlist
+- [x] Rename
+- [x] Delete
+
+**Lock Screen:**
+- [x] Metadata displays
+- [x] Play/pause works
+- [x] Skip controls
+- [x] Seek works
+
+### Known Issues (from todo.md)
+
+- Folder UI/UX needs improvement
+- Mini player has limited controls
+- Stacked alert notifications
+- Plus button alignment
+- Missing abstract placeholders
+- No total song count display
+- File path display would be nice
+- Consider home page
+
+---
+
+## Deployment
+
+### Vercel Configuration
+
+**vercel.json:**
+```json
+{
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "framework": null
+}
+```
+
+**Environment:**
+- Static file hosting
+- Automatic HTTPS
+- Deploy on git push
+- No build step required
+
+### Dropbox App Configuration
+
+1. App Key: `w6g3az21d8acv15`
+2. Redirect URIs:
+   - `http://localhost:8080/callback` (development)
+   - `https://[your-app].vercel.app/callback` (production)
+3. Permissions: `files.metadata.read`, `files.content.read`
+4. Allow implicit grant: Yes (for PKCE)
+
+### config.js Setup
+
+```javascript
 const config = {
   dropboxAppKey: 'w6g3az21d8acv15',
   redirectUri: window.location.hostname === 'localhost' 
     ? 'http://localhost:8080/callback'
     : `${window.location.origin}/callback`
 };
-
-export default config;
 ```
 
-This automatically uses the correct redirect URI based on where the app is running.
+---
 
-## Deployment
+## Future Enhancements
 
-### Vercel Setup
-1. Connect GitHub repo to Vercel
-2. Framework Preset: Other (static site)
-3. Build Command: leave empty (no build needed)
-4. Output Directory: `.` (root)
-5. Install Command: leave empty
-6. Environment Variables:
-   - Key: `DROPBOX_APP_KEY`
-   - Value: `w6g3az21d8acv15`
-7. HTTPS: Automatic
-8. Deploy: Automatic on push to main branch
+### High Priority
+1. **Album Artwork Extraction** - jsmediatags for embedded cover art
+2. **Mini Player Enhancement** - Add skip/shuffle/repeat controls
+3. **UI Polish** - Address items in todo.md
+4. **PWA Optimization** - Better install prompt, offline handling
 
-### Dropbox App Setup
-1. Create app at dropbox.com/developers ✓ (Already done)
-2. Choose "Scoped access" ✓
-3. Access type: "Full Dropbox" or "App folder" ✓
-4. **Permissions tab**: Enable these scopes:
-   - `files.metadata.read` (required)
-   - `files.content.read` (required)
-   - `files.content.write` (optional, for future features)
-5. **Settings tab** - Add redirect URIs:
-   - `http://localhost:8080/callback` ✓ (Already added)
-   - `https://your-project-name.vercel.app/callback` (add after first deploy)
-6. **Settings tab** - Ensure "Allow public clients (Implicit Grant & PKCE)" is set to "Allow" ✓
-7. Copy App Key: `w6g3az21d8acv15` ✓
+### Medium Priority
+5. **Google Drive Support** - Second cloud provider
+6. **Offline Caching** - Save favorite tracks locally
+7. **Smart Playlists** - Recently added, most played, etc.
+8. **Better Icons** - Custom app icons (not placeholders)
 
-### Post-Deploy Steps
-1. Note your Vercel URL (e.g., `your-project.vercel.app`)
-2. Go back to Dropbox app settings
-3. Add production redirect URI: `https://your-project.vercel.app/callback`
-4. Test OAuth flow on production URL
+### Low Priority
+9. **Equalizer** - Web Audio API controls
+10. **Crossfade** - Smooth track transitions
+11. **Lyrics** - Display if embedded in files
+12. **Statistics** - Listening history and insights
+13. **Social Features** - Share playlists
+14. **Multi-device Sync** - State across devices
+
+---
+
+## Development Guidelines for AI Agents
+
+### Code Style
+
+**ES6+ Modules:**
+```javascript
+// Always use import/export
+import * as storage from './storage.js';
+export async function init() { }
+```
+
+**Async/Await:**
+```javascript
+// Prefer async/await over promises
+async function loadTracks() {
+  const tracks = await storage.getAllTracks();
+  return tracks;
+}
+```
+
+**Error Handling:**
+```javascript
+try {
+  await riskyOperation();
+} catch (error) {
+  console.error('[Module] Error:', error);
+  showToast('User-friendly message', 'error');
+}
+```
+
+**Logging:**
+```javascript
+console.log('[Module] Action started');
+console.error('[Module] Error:', error);
+```
+
+### Module Pattern
+
+Each module follows this structure:
+```javascript
+// Module state (private)
+const moduleState = { };
+
+// Initialize function
+export async function init() {
+  console.log('[Module] Initializing');
+  // Setup code
+}
+
+// Public API functions
+export async function publicFunction() { }
+
+// Private helper functions
+function privateHelper() { }
+```
+
+### UI Update Pattern
+
+```javascript
+// 1. Update data/state
+moduleState.currentValue = newValue;
+
+// 2. Update storage if needed
+await storage.saveSetting('key', newValue);
+
+// 3. Update UI
+updateUI();
+
+// 4. Notify user
+showToast('Action completed', 'success');
+```
+
+### Adding New Features
+
+1. **Plan:** Consider existing patterns
+2. **Module:** Create/update appropriate module
+3. **UI:** Add HTML structure if needed
+4. **CSS:** Add styles to relevant CSS file
+5. **Integration:** Wire up in app.js if needed
+6. **Test:** Manual testing on desktop and mobile
+7. **Document:** Update this file and todo.md
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**"Failed to load folders"**
+- Check Dropbox connection
+- Verify OAuth token valid
+- Check network connectivity
+- See console for detailed error
+
+**"Playback failed"**
+- Temporary link may have expired
+- Try playing again
+- Check audio file format
+- Verify Dropbox access
+
+**"Authentication expired"**
+- Token expired (need to reconnect)
+- App will auto-redirect to auth
+- Click "Connect to Dropbox" again
+
+**"Queue is empty"**
+- No tracks added to queue
+- Play a track from library to start
+- Check that library has tracks
+
+**"No tracks found"**
+- No folders selected in Sources
+- Go to Sources tab and select folders
+- Wait for scan to complete
+
+### Debug Mode
+
+Enable verbose logging:
+```javascript
+// In browser console
+localStorage.setItem('debug', 'true');
+// Reload page
+```
+
+Check IndexedDB:
+```javascript
+// In browser console
+// Chrome DevTools > Application > IndexedDB > MusicPlayerDB
+```
+
+---
+
+## Conclusion
+
+This music player PWA represents a well-architected, functional MVP with ~90% feature completion. The modular design makes it easy to extend and maintain. The Sources management system provides a solid foundation for multi-cloud support. Core playback, queue, and playlist features work reliably.
+
+**Next Steps:**
+1. Address UI/UX items in todo.md
+2. Implement album artwork extraction
+3. Enhance PWA capabilities
+4. Consider Google Drive integration
+
+The app is production-ready and actively deployable, with a clear path for future enhancements.
+
+---
+
+**Document Version:** 2.0  
+**Last Updated:** January 7, 2026  
+**Project Status:** 90% Complete MVP  
+**Deployment:** Live on Vercel

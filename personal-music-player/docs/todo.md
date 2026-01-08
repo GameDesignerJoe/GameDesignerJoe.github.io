@@ -25,3 +25,6 @@ Playback ToDo
 - When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
 - Would be nice to know the path that each of the songs are coming from at some point if we can do it and make it look nice. 
 - We might need a 'home page' 
+- Can't select a song, press control or shift and select another song and have it select all of them. 
+- Check for duplicate songs
+- Show what song is playing.
