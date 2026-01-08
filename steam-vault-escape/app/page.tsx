@@ -747,7 +747,16 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-2 sm:p-4 md:p-8">
+    <main className="min-h-screen p-2 sm:p-4 md:p-8 relative">
+      {/* Home Button */}
+      <a 
+        href="https://gamedesignerjoe.github.io" 
+        className="home-button"
+        title="Back to Portfolio"
+      >
+        <img src="https://gamedesignerjoe.github.io/art/joe_192.png" alt="Home" />
+      </a>
+      
       <div className="max-w-7xl mx-auto">
         {/* Header - Minimized for space */}
         <div className="mb-2 sm:mb-4">
