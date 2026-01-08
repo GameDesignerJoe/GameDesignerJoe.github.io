@@ -34,3 +34,10 @@ Pri 1:
 - Mobile: Add a small play button next to the folder, just to the left of the text. If you press that it plays the folder without having to go into the playlist. 
 - Mobile: I'm still not getting the < > on the song module. I'm just getting the skip ahead 10 seconds.
 - ID3 tagging within the app? Is that possible?
+- Need simple back arrow navigation when it comes to going in and out of the folders.
+- There's a cue that is odd and hard to get to. Need to look at a new design for that (look at what spotify does). You get to it on mobile by pressing the hamburger and then minimizing the now playing. 
+- Need a better cassette tape icon
+- I think playlists should showup on the main page. Perhaps they are circles instead of squares, or maybe it just doesn't matter. 
+- The back arrow and ... right above and below the song list is odd.
+- Images in dropbox aren't loading after coming back in the morning. Need to cache these. Tracks still play.
+-
