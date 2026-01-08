@@ -10,6 +10,7 @@ import * as playlists from './playlists.js';
 import * as player from './player.js';
 import * as queue from './queue.js';
 import * as mediaSession from './media-session.js';
+import * as search from './search.js';
 
 // App State
 const appState = {
@@ -62,6 +63,7 @@ async function checkAuthentication() {
     player.init();
     queue.init();
     mediaSession.init();
+    search.init();
     await folderBrowser.init();
     await sources.init();
     await home.init();
@@ -121,6 +123,7 @@ async function handleOAuthCallback() {
     player.init();
     queue.init();
     mediaSession.init();
+    search.init();
     await folderBrowser.init();
     await sources.init();
     await home.init();
@@ -177,12 +180,14 @@ function updateNavButtons(activeScreen) {
 
 // Show header actions after authentication
 function showHeaderActions() {
+  document.getElementById('globalSearchBtn').style.display = 'flex';
   document.getElementById('refreshLibraryBtn').style.display = 'flex';
   document.getElementById('disconnectBtn').style.display = 'flex';
 }
 
 // Hide header actions
 function hideHeaderActions() {
+  document.getElementById('globalSearchBtn').style.display = 'none';
   document.getElementById('refreshLibraryBtn').style.display = 'none';
   document.getElementById('disconnectBtn').style.display = 'none';
 }
@@ -194,6 +199,11 @@ function setupEventListeners() {
   
   // Disconnect button
   document.getElementById('disconnectBtn')?.addEventListener('click', disconnect);
+  
+  // Global Search button
+  document.getElementById('globalSearchBtn')?.addEventListener('click', () => {
+    search.openSearch();
+  });
   
   // Navigation buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {

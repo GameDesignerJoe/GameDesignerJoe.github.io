@@ -28,3 +28,7 @@ Playback ToDo
 - Can't select a song, press control or shift and select another song and have it select all of them. 
 - Check for duplicate songs
 - Show what song is playing.
+- When you are playing a 'filtered' song from the folder, it doens't play the next song in the filter, but the next song in the overall list. Day 7 went to Day 8, not Day 14.
+- Need to make the song cassette image white instead of black. 
+- Need to rename My Playback to just PLAYBACK in caps
+- Need to make the favicon white instead of black.

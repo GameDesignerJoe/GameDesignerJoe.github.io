@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/library.css">
   <link rel="stylesheet" href="css/playlists.css">
   <link rel="stylesheet" href="css/sources.css">
+  <link rel="stylesheet" href="css/search.css">
   <link rel="stylesheet" href="css/modals.css">
 </head>
 <body>
@@ -30,6 +31,9 @@
     <header class="app-header">
       <h1 class="app-title">My Music</h1>
       <div class="header-actions">
+        <button id="globalSearchBtn" class="icon-btn" style="display: none;" title="Search (Ctrl+K)">
+          <span>🔍</span>
+        </button>
         <button id="refreshLibraryBtn" class="icon-btn" style="display: none;" title="Refresh Library">
           <span>🔄</span>
         </button>
@@ -348,6 +352,22 @@
 
   <!-- Toast Notifications -->
   <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Global Search Modal -->
+  <div id="searchOverlay" class="search-overlay">
+    <div id="searchModal" class="search-modal">
+      <div class="search-header">
+        <span class="search-icon">🔍</span>
+        <div class="search-input-container">
+          <input type="text" id="globalSearchInput" class="search-input" placeholder="Search everything..." autocomplete="off">
+        </div>
+        <button id="closeSearchBtn" class="close-search-btn">✕</button>
+      </div>
+      <div id="searchResults" class="search-results-container">
+        <!-- Results will be dynamically populated -->
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script type="module" src="js/app.js"></script>
