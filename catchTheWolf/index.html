@@ -19,6 +19,11 @@
               margin: 0px;
               padding: 0px;
               border: 0px;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              overflow: hidden;
             }
             canvas {
                       image-rendering: optimizeSpeed;
@@ -26,6 +31,10 @@
                       margin: 0px;
                       padding: 0px;
                       border: 0px;
+                      max-height: 100vh;
+                      max-width: 100vw;
+                      width: auto;
+                      height: auto;
             }
             :-webkit-full-screen #canvas {
                  width: 100%;
@@ -65,10 +74,45 @@
                width: 100%;
                height: 100%;
             }
+            
+            /* Home Button */
+            .home-button {
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                width: 3rem;
+                height: 3rem;
+                border-radius: 50%;
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                z-index: 1000;
+                border: 2px solid rgba(148, 163, 184, 0.3);
+                background: rgba(34, 34, 34, 0.8);
+            }
+            
+            .home-button:hover {
+                transform: scale(1.1);
+                border-color: #4CAF50;
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+            }
+            
+            .home-button img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
         </style>
     </head>
 
     <body>
+        <!-- Home Button -->
+        <a href="../index.html" class="home-button" title="Back to Portfolio">
+            <img src="../art/joe_192.png" alt="Home">
+        </a>
+        
         <div class="gm4html5_div_class" id="gm4html5_div_id">
             <!-- Create the canvas element the game draws to -->
             <canvas id="canvas" width="320" height="480">
