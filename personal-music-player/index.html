@@ -18,6 +18,7 @@
   
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/player.css">
+  <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/library.css">
   <link rel="stylesheet" href="css/playlists.css">
   <link rel="stylesheet" href="css/sources.css">
@@ -55,6 +56,17 @@
         <div class="loading-container">
           <div class="spinner"></div>
           <p id="loadingMessage">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Home Screen -->
+      <div id="homeScreen" class="screen">
+        <div class="home-header">
+          <h1>MY MUSIC COLLECTION</h1>
+          <button id="refreshFoldersBtn" class="icon-btn" title="Refresh folders">🔄</button>
+        </div>
+        <div id="folderGrid" class="folder-grid">
+          <!-- Folder cards will be added dynamically by home.js -->
         </div>
       </div>
 
@@ -312,6 +324,10 @@
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
+      <button class="nav-btn" data-screen="home">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Home</span>
+      </button>
       <button class="nav-btn" data-screen="library">
         <span class="nav-icon">🎵</span>
         <span class="nav-label">Library</span>

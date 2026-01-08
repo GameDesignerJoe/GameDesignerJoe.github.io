@@ -127,6 +127,96 @@ function isAudioFile(filename) {
   return config.audioExtensions.includes(ext);
 }
 
+// Check if file is an image file based on extension
+function isImageFile(filename) {
+  const ext = '.' + filename.split('.').pop().toLowerCase();
+  return config.imageExtensions.includes(ext);
+}
+
+// Find cover image in folder
+async function findCoverImage(folderPath) {
+  try {
+    const entries = await dropbox.listFolder(folderPath, false);
+    
+    // First, look for files named "cover" with any image extension
+    const coverFile = entries.entries.find(entry => {
+      if (entry['.tag'] !== 'file') return false;
+      const nameWithoutExt = entry.name.substring(0, entry.name.lastIndexOf('.')) || entry.name;
+      return nameWithoutExt.toLowerCase() === 'cover' && isImageFile(entry.name);
+    });
+    
+    if (coverFile) {
+      return coverFile.path_lower;
+    }
+    
+    // If no "cover" file, return the first image file found
+    const imageFile = entries.entries.find(entry => {
+      return entry['.tag'] === 'file' && isImageFile(entry.name);
+    });
+    
+    return imageFile ? imageFile.path_lower : null;
+  } catch (error) {
+    console.error('[Scanner] Error finding cover image:', error);
+    return null;
+  }
+}
+
+// Scan folder and build metadata (cover image, song count, subfolders)
+export async function scanFolderMetadata(folderPath) {
+  try {
+    console.log('[Scanner] Scanning metadata for folder:', folderPath);
+    
+    // Get cover image
+    const coverImagePath = await findCoverImage(folderPath);
+    
+    // Get cover image temp URL if found
+    let coverImageUrl = null;
+    if (coverImagePath) {
+      try {
+        const linkData = await dropbox.getTemporaryLink(coverImagePath);
+        coverImageUrl = linkData.link;
+      } catch (error) {
+        console.error('[Scanner] Error getting cover image URL:', error);
+      }
+    }
+    
+    // Count songs in this folder
+    const tracks = await storage.getAllTracks();
+    const songCount = tracks.filter(track => track.path.startsWith(folderPath)).length;
+    
+    // Get folder name from path
+    const pathParts = folderPath.split('/').filter(p => p);
+    const name = pathParts[pathParts.length - 1] || 'Root';
+    
+    // Get subfolders
+    const entries = await dropbox.listFolder(folderPath, false);
+    const subfolders = entries.entries
+      .filter(entry => entry['.tag'] === 'folder')
+      .map(folder => folder.path_lower);
+    
+    const metadata = {
+      path: folderPath,
+      name: name,
+      coverImagePath: coverImagePath,
+      coverImageUrl: coverImageUrl,
+      songCount: songCount,
+      subfolders: subfolders,
+      lastScanned: Date.now(),
+      addedAt: Date.now()
+    };
+    
+    // Save metadata to storage
+    await storage.saveFolderMetadata(metadata);
+    
+    console.log(`[Scanner] Folder metadata saved: ${name} (${songCount} songs, cover: ${coverImagePath ? 'yes' : 'no'})`);
+    
+    return metadata;
+  } catch (error) {
+    console.error('[Scanner] Error scanning folder metadata:', error);
+    return null;
+  }
+}
+
 // Create track object from Dropbox file entry
 function createTrackFromEntry(entry) {
   // Extract basic info from filename and path

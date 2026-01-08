@@ -298,3 +298,47 @@ export function switchTab(tab) {
 export function getAllTracks() {
   return allTracks;
 }
+
+// Filter library by folder path
+export function filterByFolder(folderPath) {
+  console.log('[Library] Filtering by folder:', folderPath);
+  
+  // Filter tracks to this folder
+  const filteredTracks = allTracks.filter(track => 
+    track.path.startsWith(folderPath)
+  );
+  
+  console.log(`[Library] Found ${filteredTracks.length} tracks in folder`);
+  
+  // Display filtered tracks in Songs view
+  currentTab = 'songs';
+  displaySongs(filteredTracks);
+  
+  // Update tabs to show Songs is active
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (btn.dataset.tab === 'songs') {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Update search input placeholder to show filter
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    const folderName = folderPath.split('/').filter(p => p).pop() || 'folder';
+    searchInput.placeholder = `Search in ${folderName}...`;
+  }
+}
+
+// Clear folder filter
+export function clearFilter() {
+  // Reset search placeholder
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.placeholder = 'Search songs, artists, albums...';
+  }
+  
+  // Redisplay full library
+  displayLibrary(currentTab);
+}

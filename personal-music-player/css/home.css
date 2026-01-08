@@ -1,0 +1,240 @@
+/* Home Page Styles - Folder Collection Grid */
+
+/* Home screen container */
+#homeScreen {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+/* Home header */
+.home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0 0.5rem;
+}
+
+.home-header h1 {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+.home-header .icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.home-header .icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  transform: rotate(180deg);
+}
+
+/* Folder grid */
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Mobile: 2 columns */
+  gap: 1rem;
+  padding: 0 0.5rem;
+}
+
+/* Desktop: More columns */
+@media (min-width: 769px) {
+  .folder-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  #homeScreen {
+    padding: 2rem;
+  }
+  
+  .home-header {
+    margin-bottom: 2rem;
+  }
+  
+  .home-header h1 {
+    font-size: 2rem;
+  }
+}
+
+/* Large desktop: More columns */
+@media (min-width: 1400px) {
+  .folder-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+/* Folder card */
+.folder-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.folder-card:hover {
+  background: var(--bg-tertiary);
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.folder-card:active {
+  transform: scale(1.02);
+}
+
+/* Folder card image container */
+.folder-card-image {
+  width: 100%;
+  padding-top: 100%; /* 1:1 aspect ratio */
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-primary);
+  margin-bottom: 0.75rem;
+}
+
+.folder-card-image img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.folder-card:hover .folder-card-image img {
+  transform: scale(1.1);
+}
+
+/* Folder card info */
+.folder-card-info {
+  padding: 0 0.25rem;
+}
+
+.folder-card-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-card-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Add New Folder card */
+.add-folder-card {
+  border: 2px dashed var(--text-muted);
+  background: transparent;
+}
+
+.add-folder-card:hover {
+  border-color: var(--accent);
+  background: rgba(29, 185, 84, 0.1);
+}
+
+.add-folder-card .folder-card-image {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-folder-card .add-icon {
+  font-size: 3rem;
+  color: var(--text-muted);
+  transition: all 0.3s ease;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.add-folder-card:hover .add-icon {
+  color: var(--accent);
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.add-folder-card .folder-card-name {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.add-folder-card:hover .folder-card-name {
+  color: var(--accent);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-secondary);
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+  margin: 0.5rem 0;
+}
+
+.empty-state-subtitle {
+  font-size: 0.9rem !important;
+  color: var(--text-muted);
+}
+
+.empty-state .btn-primary {
+  margin-top: 1.5rem;
+}
+
+/* Loading state */
+.folder-card.loading .folder-card-image {
+  background: linear-gradient(90deg, var(--bg-secondary) 0%, var(--bg-tertiary) 50%, var(--bg-secondary) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Scrollbar styling for home screen */
+#homeScreen::-webkit-scrollbar {
+  width: 8px;
+}
+
+#homeScreen::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#homeScreen::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+#homeScreen::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

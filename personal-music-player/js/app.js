@@ -4,6 +4,7 @@ import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as folderBrowser from './folder-browser.js';
 import * as sources from './sources.js';
+import * as home from './home.js';
 import * as library from './library.js';
 import * as playlists from './playlists.js';
 import * as player from './player.js';
@@ -63,6 +64,7 @@ async function checkAuthentication() {
     mediaSession.init();
     await folderBrowser.init();
     await sources.init();
+    await home.init();
     await library.init();
     await playlists.init();
     
@@ -71,7 +73,7 @@ async function checkAuthentication() {
       showScreen('sources');
       showToast('👋 Add music folders to get started', 'info');
     } else {
-      showScreen('library');
+      showScreen('home');
     }
     
     showHeaderActions();
@@ -121,6 +123,7 @@ async function handleOAuthCallback() {
     mediaSession.init();
     await folderBrowser.init();
     await sources.init();
+    await home.init();
     await library.init();
     await playlists.init();
     
@@ -129,7 +132,7 @@ async function handleOAuthCallback() {
       showScreen('sources');
       showToast('👋 Add music folders to get started', 'info');
     } else {
-      showScreen('library');
+      showScreen('home');
     }
     
     showHeaderActions();
@@ -252,6 +255,11 @@ function setupEventListeners() {
       console.error('[App] Refresh failed:', error);
       showToast('Refresh failed. Please try again.', 'error');
     }
+  });
+  
+  // Refresh Folders button on Home screen
+  document.getElementById('refreshFoldersBtn')?.addEventListener('click', async () => {
+    await home.refreshFolderMetadata();
   });
   
   // Search input

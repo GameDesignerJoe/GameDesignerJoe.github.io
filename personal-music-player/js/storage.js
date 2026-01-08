@@ -149,6 +149,51 @@ export async function saveSelectedFolders(folderPaths) {
   });
 }
 
+// Save folder with metadata (cover image, song count, etc.)
+export async function saveFolderMetadata(folderData) {
+  if (!db) await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.FOLDERS], 'readwrite');
+    const store = transaction.objectStore(STORES.FOLDERS);
+    const request = store.put(folderData);
+    
+    request.onsuccess = () => {
+      console.log('[Storage] Folder metadata saved:', folderData.path);
+      resolve();
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Get folder by path
+export async function getFolderByPath(path) {
+  if (!db) await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.FOLDERS], 'readonly');
+    const store = transaction.objectStore(STORES.FOLDERS);
+    const request = store.get(path);
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Get all folders with full metadata
+export async function getAllFoldersWithMetadata() {
+  if (!db) await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.FOLDERS], 'readonly');
+    const store = transaction.objectStore(STORES.FOLDERS);
+    const request = store.getAll();
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 // === TRACK OPERATIONS ===
 
 export async function saveTrack(track) {

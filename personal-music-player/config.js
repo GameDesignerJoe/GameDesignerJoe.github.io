@@ -1,12 +1,26 @@
 // Configuration for the music player app
 const config = {
   dropboxAppKey: 'w6g3az21d8acw15',
-  redirectUri: window.location.hostname === 'localhost' 
-    ? 'http://localhost:8080/'
-    : window.location.origin + '/',
+  // Get the directory path (remove index.html if present)
+  redirectUri: (() => {
+    const origin = window.location.origin;
+    let path = window.location.pathname;
+    // Remove index.html or any trailing filename
+    if (path.endsWith('index.html')) {
+      path = path.replace('index.html', '');
+    }
+    // Ensure trailing slash
+    if (!path.endsWith('/')) {
+      path += '/';
+    }
+    return origin + path;
+  })(),
   
   // Supported audio file extensions
   audioExtensions: ['.mp3', '.m4a', '.flac', '.wav', '.ogg', '.opus', '.webm', '.aac'],
+  
+  // Supported image file extensions (for cover art)
+  imageExtensions: ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
   
   // App settings
   dropboxUrlExpiry: 4 * 60 * 60 * 1000, // 4 hours in milliseconds
