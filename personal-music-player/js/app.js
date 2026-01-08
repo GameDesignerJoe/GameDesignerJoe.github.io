@@ -220,9 +220,38 @@ function setupEventListeners() {
     }
   });
   
-  // Refresh Library button - Navigate to Sources screen
+  // Refresh Library button - Rescan folders and update library
   document.getElementById('refreshLibraryBtn')?.addEventListener('click', async () => {
-    showScreen('sources');
+    showToast('Refreshing library...', 'info');
+    
+    try {
+      // Test Dropbox connection first
+      const isConnected = await dropbox.testConnection();
+      if (!isConnected) {
+        showToast('Connection failed. Please check Dropbox.', 'error');
+        return;
+      }
+      
+      // Get selected folders and rescan
+      const selectedFolders = sources.getSelectedFolders();
+      if (selectedFolders.length === 0) {
+        showToast('No folders selected. Go to Sources to add music.', 'info');
+        return;
+      }
+      
+      // Rescan folders
+      const scanner = await import('./scanner.js');
+      await scanner.scanSelectedFolders(selectedFolders);
+      
+      // Refresh library display
+      await library.refreshLibrary();
+      
+      showToast('✓ Library refreshed successfully!', 'success');
+      
+    } catch (error) {
+      console.error('[App] Refresh failed:', error);
+      showToast('Refresh failed. Please try again.', 'error');
+    }
   });
   
   // Search input
