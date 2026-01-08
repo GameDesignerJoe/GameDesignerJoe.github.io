@@ -220,9 +220,9 @@ function setupEventListeners() {
     }
   });
   
-  // Refresh Library button
+  // Refresh Library button - Navigate to Sources screen
   document.getElementById('refreshLibraryBtn')?.addEventListener('click', async () => {
-    await folderBrowser.showFolderBrowser();
+    showScreen('sources');
   });
   
   // Search input
