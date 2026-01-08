@@ -4,6 +4,7 @@
 import * as storage from './storage.js';
 
 let allTracks = [];
+let displayedTracks = []; // Currently displayed/filtered tracks
 let currentTab = 'songs';
 let searchQuery = '';
 
@@ -109,6 +110,9 @@ function displaySongs(tracks) {
   const sortedTracks = [...tracks].sort((a, b) => 
     a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
   );
+  
+  // Update displayed tracks for queue
+  displayedTracks = sortedTracks;
   
   sortedTracks.forEach(track => {
     const trackElement = createTrackElement(track);
@@ -277,8 +281,8 @@ function createAlbumGroup(album, artist, tracks) {
 async function playTrack(track) {
   console.log('[Library] Playing track:', track.title);
   const queue = await import('./queue.js');
-  // Pass all tracks so it continues playing through the library
-  await queue.playTrackWithQueue(track, allTracks);
+  // Pass currently displayed tracks so it continues playing through the filtered list
+  await queue.playTrackWithQueue(track, displayedTracks.length > 0 ? displayedTracks : allTracks);
 }
 
 // Escape HTML to prevent XSS
