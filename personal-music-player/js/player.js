@@ -208,15 +208,6 @@ function updatePlayerUI() {
   const track = playerState.currentTrack;
   if (!track) return;
   
-  // Update mini player
-  document.getElementById('miniPlayerArt').src = 'assets/icons/icon-song-black..png';
-  document.getElementById('miniPlayerArt').alt = track.album;
-  
-  const miniTitle = document.querySelector('.mini-player-title');
-  const miniArtist = document.querySelector('.mini-player-artist');
-  if (miniTitle) miniTitle.textContent = track.title;
-  if (miniArtist) miniArtist.textContent = track.artist;
-  
   // Update full player
   document.getElementById('albumArt').src = 'assets/icons/icon-song-black..png';
   document.getElementById('albumArt').alt = track.album;
@@ -248,7 +239,7 @@ function updateTimeline() {
   
   const progress = playerState.currentTime / playerState.duration;
   
-  // Update timeline
+  // Update full player timeline
   const timelineProgress = document.getElementById('timelineProgress');
   const timelineHandle = document.getElementById('timelineHandle');
   const currentTimeEl = document.getElementById('currentTime');
@@ -263,6 +254,12 @@ function updateTimeline() {
   
   if (currentTimeEl) {
     currentTimeEl.textContent = formatTime(playerState.currentTime);
+  }
+  
+  // Update mini player progress bar
+  const miniProgress = document.getElementById('miniPlayerProgress');
+  if (miniProgress) {
+    miniProgress.style.width = `${progress * 100}%`;
   }
 }
 

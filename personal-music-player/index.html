@@ -310,13 +310,24 @@
 
     <!-- Now Playing Bar (Mini Player) -->
     <div id="miniPlayer" class="mini-player" style="display: none;">
+      <!-- Progress Bar -->
+      <div class="mini-player-progress-container">
+        <div class="mini-player-progress" id="miniPlayerProgress"></div>
+      </div>
+      
+      <!-- Controls -->
       <div class="mini-player-content" id="miniPlayerContent">
-        <img id="miniPlayerArt" class="mini-player-art" src="assets/icons/icon-song-black..png" alt="Album Art">
-        <div class="mini-player-info">
-          <div class="mini-player-title">No track playing</div>
-          <div class="mini-player-artist">—</div>
+        <button id="miniShuffleBtn" class="mini-control-btn" title="Shuffle">🔀</button>
+        <button id="miniSkipBackBtn" class="mini-control-btn" title="Previous">⏮</button>
+        <button id="miniPlayPauseBtn" class="mini-control-btn mini-control-btn-play" title="Play">▶</button>
+        <button id="miniSkipForwardBtn" class="mini-control-btn" title="Next">⏭</button>
+        <button id="miniRepeatBtn" class="mini-control-btn" title="Repeat">🔁</button>
+        
+        <!-- Volume Control -->
+        <div class="mini-volume-container">
+          <span class="mini-volume-icon">🔊</span>
+          <input type="range" id="miniVolumeSlider" class="mini-volume-slider" min="0" max="100" value="80">
         </div>
-        <button id="miniPlayPauseBtn" class="mini-play-btn">▶</button>
       </div>
     </div>
 

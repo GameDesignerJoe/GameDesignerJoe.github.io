@@ -395,14 +395,55 @@ function setupEventListeners() {
     showScreen('queue');
   });
   
-  // Mini player
-  document.getElementById('miniPlayerContent')?.addEventListener('click', () => {
-    document.getElementById('playerScreen').classList.add('active');
-  });
-  
+  // Mini player controls
   document.getElementById('miniPlayPauseBtn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     player.togglePlayPause();
+  });
+  
+  document.getElementById('miniSkipBackBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    queue.skipToPrevious();
+  });
+  
+  document.getElementById('miniSkipForwardBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    queue.skipToNext();
+  });
+  
+  document.getElementById('miniShuffleBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    queue.toggleShuffle();
+  });
+  
+  document.getElementById('miniRepeatBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    queue.toggleRepeat();
+  });
+  
+  // Mini player volume control
+  document.getElementById('miniVolumeSlider')?.addEventListener('input', (e) => {
+    e.stopPropagation();
+    const volume = e.target.value / 100;
+    player.setVolume(volume);
+    // Sync with main volume slider
+    const mainVolumeSlider = document.getElementById('volumeSlider');
+    if (mainVolumeSlider) {
+      mainVolumeSlider.value = e.target.value;
+    }
+  });
+  
+  document.getElementById('miniVolumeSlider')?.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent triggering player screen
+  });
+  
+  // Mini player progress bar seeking
+  const miniProgressContainer = document.querySelector('.mini-player-progress-container');
+  miniProgressContainer?.addEventListener('click', (e) => {
+    const rect = miniProgressContainer.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, x / rect.width));
+    player.seekTo(percentage);
   });
   
   // Queue screen
