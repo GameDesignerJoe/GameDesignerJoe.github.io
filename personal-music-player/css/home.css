@@ -3,6 +3,7 @@
 /* Home screen container */
 #homeScreen {
   padding: 1rem;
+  padding-bottom: 0; /* No bottom padding on screen itself */
   overflow-y: auto;
 }
 
@@ -59,6 +60,11 @@
   grid-template-columns: repeat(2, 1fr); /* Mobile: 2 columns */
   gap: 1rem;
   padding: 0 0.5rem;
+  /* Add padding to allow scrolling past mini player */
+  /* Mini player height + bottom nav + extra spacing */
+  /* 70px (mini player) + 60px (bottom nav) + 13px (10% extra) = 143px */
+  padding-bottom: 150px; /* Increased for safety margin */
+  margin-bottom: 0;
 }
 
 /* Desktop: More columns */

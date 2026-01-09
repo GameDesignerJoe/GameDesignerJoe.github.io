@@ -87,7 +87,7 @@
 /* Library Content */
 .library-content {
   padding: var(--spacing-md);
-  padding-bottom: 80px; /* Space for mini player and nav */
+  padding-bottom: 150px; /* Space for mini player and nav - matched with home */
 }
 
 /* ==========================================

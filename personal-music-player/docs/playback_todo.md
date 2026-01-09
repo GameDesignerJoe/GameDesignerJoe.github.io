@@ -1,20 +1,21 @@
 Playback ToDo
-Pri 1:
-- PRI 1: The playback blocks the last item in the list. For exaample, in the dropbox folder, I can't see the Tantamount folder or add it, because the playbar is there. 
-- PRI 1: Get google drive to work with it.
-- PRI 1: When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
-
-- get rid of those ugly buttons
-- Look at Jason's example
+Priority 1:
 - Get it to work with songs on your hard drive
-- Make a playlist with a song from each
-- Do a more Spotify pass on it 
-- Get a logo
-- When music is playing the music bar cuts into where you can see folders. 
-- Do we reallyneed a scrollbar on the PC version. Maybe we can dress it up so it's not so ugly.
-- The plus button is out of alignment with the circle.
+- The playback blocks the last item in the list. For exaample, in the dropbox folder, I can't see the Tantamount folder or add it, because the playbar is there. 
+- Get google drive to work with it.
+- When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
+
+Priority 2: 
 - The add current folder when you're in the folder button could be better. It's not alligned and could likely be an actual button "Add Current Folder". 
 - The amoung stacked alerts when you add songs is a bit much. 
+Priority 3:
+- get rid of those ugly buttons
+- Look at Jason's example for UI layout
+- Make a playlist with a song from each source to test
+- Do a more Spotify pass on it 
+- Get a logo 
+- Do we really need a scrollbar on the PC version. Maybe we can dress it up so it's not so ugly.
+- The plus button is out of alignment with the circle.
 - how we're displaying these songs is not ideal. 
 - I would like a list of total song count
 - Would be nice to know the path that each of the songs are coming from at some point if we can do it and make it look nice. 

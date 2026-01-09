@@ -189,6 +189,9 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-md);
+  /* Add padding to allow scrolling past mini player */
+  /* Mini player (~70px) + bottom nav (60px) + 10% extra padding (~20px) = 150px */
+  padding-bottom: 150px;
 }
 
 .folder-item {
