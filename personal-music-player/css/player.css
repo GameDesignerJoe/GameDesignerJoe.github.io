@@ -281,7 +281,7 @@
 
 .mini-player {
   position: fixed;
-  bottom: 60px; /* Above bottom nav on mobile */
+  bottom: 64px; /* Above bottom nav on mobile with 4px gap */
   left: 0;
   right: 0;
   width: 100%;
