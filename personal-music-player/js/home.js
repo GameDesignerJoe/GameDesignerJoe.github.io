@@ -225,6 +225,27 @@ function createFolderCard(folder) {
   return card;
 }
 
+// Generate subdued gradient for playlist based on ID
+function getPlaylistGradient(playlistId) {
+  // Subdued gradient pairs - muted complementary tones
+  const gradients = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple-blue
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Pink-red
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue-cyan
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', // Green-turquoise
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // Pink-yellow
+    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', // Cyan-purple
+    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', // Mint-pink
+    'linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)', // Orange-pink
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', // Peach gradient
+    'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)'  // Coral-blue
+  ];
+  
+  // Use playlist ID to get consistent gradient
+  const index = playlistId % gradients.length;
+  return gradients[index];
+}
+
 // Create playlist card element (circular)
 function createPlaylistCard(playlist) {
   const card = document.createElement('div');
@@ -233,18 +254,22 @@ function createPlaylistCard(playlist) {
   
   // Get album art from first track in playlist
   let imageUrl = 'assets/icons/icon-512.svg'; // Default square icon
+  let hasAlbumArt = false;
+  
   if (playlist.tracks && playlist.tracks.length > 0) {
     const firstTrack = playlist.tracks[0];
     if (firstTrack.albumArt) {
       imageUrl = firstTrack.albumArt;
+      hasAlbumArt = true;
     }
   }
   
   const songCount = playlist.tracks ? playlist.tracks.length : 0;
+  const playlistGradient = getPlaylistGradient(playlist.id);
   
   card.innerHTML = `
-    <div class="folder-card-image playlist-image">
-      <img src="${imageUrl}" alt="${escapeHtml(playlist.name)}" loading="lazy">
+    <div class="folder-card-image playlist-image" style="${!hasAlbumArt ? `background: ${playlistGradient};` : ''}">
+      <img src="${imageUrl}" alt="${escapeHtml(playlist.name)}" loading="lazy" style="${!hasAlbumArt ? 'opacity: 0.3; filter: brightness(0) invert(1);' : ''}">
     </div>
     <button class="folder-play-btn" title="Play ${escapeHtml(playlist.name)}">▶</button>
     <div class="folder-card-info">
