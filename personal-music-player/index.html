@@ -308,7 +308,10 @@
                         <span class="breadcrumb-item">My Computer</span>
                       </div>
                     </div>
-                    <button id="addCurrentLocalFolderBtn" class="folder-add-btn" style="display: none;" title="Add current folder">+</button>
+                    <div style="display: flex; gap: 8px;">
+                      <button id="rescanLocalFoldersBtn" class="folder-add-btn" style="display: none;" title="Rescan all local folders">🔄</button>
+                      <button id="addCurrentLocalFolderBtn" class="folder-add-btn" style="display: none;" title="Add current folder">+</button>
+                    </div>
                   </div>
                 </div>
 
@@ -485,6 +488,8 @@
   </div>
 
   <!-- Scripts -->
+  <!-- jsmediatags library for reading ID3 tags -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

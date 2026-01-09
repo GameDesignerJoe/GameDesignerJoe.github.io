@@ -173,7 +173,8 @@
 }
 
 .folder-card-image img[src*="http"],
-.folder-card-image img[src*="blob:"] {
+.folder-card-image img[src*="blob:"],
+.folder-card-image img[src*="data:"] {
   filter: none;
 }
 

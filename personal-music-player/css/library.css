@@ -125,7 +125,6 @@
   height: 100%;
   border-radius: var(--radius-sm);
   object-fit: cover;
-  filter: invert(1) brightness(2);
 }
 
 .track-play-btn {
@@ -375,7 +374,6 @@
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
-  filter: invert(1) brightness(2);
 }
 
 .album-info {

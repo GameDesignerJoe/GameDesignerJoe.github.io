@@ -74,11 +74,20 @@ async function createLocalFolderMetadata(localFolderHandles) {
     );
     
     if (songsInFolder.length > 0) {
+      // Get album art from first track (if available)
+      let coverImageUrl = 'assets/icons/icon-song-black..png'; // Default
+      
+      // Find first track with album art
+      const trackWithArt = songsInFolder.find(track => track.albumArt);
+      if (trackWithArt && trackWithArt.albumArt) {
+        coverImageUrl = trackWithArt.albumArt;
+      }
+      
       localFolders.push({
         path: folderPrefix,
         name: folderHandle.name,
         songCount: songsInFolder.length,
-        coverImageUrl: 'assets/icons/icon-song-black..png', // Default icon for local
+        coverImageUrl: coverImageUrl,
         source: 'local',
         subfolders: [] // Local folders don't have subfolder tracking yet
       });

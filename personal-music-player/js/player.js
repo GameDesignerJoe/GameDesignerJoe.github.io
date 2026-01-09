@@ -248,8 +248,11 @@ function updatePlayerUI() {
   const track = playerState.currentTrack;
   if (!track) return;
   
+  // Determine album art URL
+  const albumArtUrl = track.albumArt || 'assets/icons/icon-song-black..png';
+  
   // Update full player
-  document.getElementById('albumArt').src = 'assets/icons/icon-song-black..png';
+  document.getElementById('albumArt').src = albumArtUrl;
   document.getElementById('albumArt').alt = track.album;
   document.getElementById('trackTitle').textContent = track.title;
   document.getElementById('trackArtist').textContent = track.artist;
@@ -260,7 +263,7 @@ function updatePlayerUI() {
   const miniPlayerArtist = document.querySelector('.mini-player-artist');
   
   if (miniPlayerArt) {
-    miniPlayerArt.src = 'assets/icons/icon-song-black..png';
+    miniPlayerArt.src = albumArtUrl;
     miniPlayerArt.alt = track.album;
   }
   

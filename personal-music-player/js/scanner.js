@@ -7,6 +7,7 @@ import * as storage from './storage.js';
 import * as cacheManager from './cache-manager.js';
 import * as linkManager from './link-manager.js';
 import * as localFiles from './local-files.js';
+import * as id3Reader from './id3-reader.js';
 import { showToast, showScreen } from './app.js';
 
 let isScanning = false;
@@ -447,27 +448,66 @@ async function createLocalTrackFromFile(fileEntry, baseFolderName) {
   const filename = fileEntry.name;
   const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
   
-  // Try to parse artist and title from filename
+  // Default values from filename
   let artist = 'Unknown Artist';
   let title = nameWithoutExt;
+  let album = baseFolderName;
+  let albumArt = null;
   
+  // Try to parse artist and title from filename (fallback)
   if (nameWithoutExt.includes(' - ')) {
     const parts = nameWithoutExt.split(' - ');
     const firstPart = parts[0].trim();
     
-    // Check if first part is just a track number
     if (!/^\d+$/.test(firstPart)) {
       artist = firstPart;
       title = parts.slice(1).join(' - ').trim();
     } else {
-      // Just a track number, use the rest as title
       title = parts.slice(1).join(' - ').trim();
     }
   }
   
   // Try to get album from parent folder in path
   const pathParts = fileEntry.path.split('/');
-  const album = pathParts.length > 1 ? pathParts[pathParts.length - 2] : baseFolderName;
+  if (pathParts.length > 1) {
+    album = pathParts[pathParts.length - 2];
+  }
+  
+  // Get file size and read ID3 tags
+  let fileSize = 0;
+  try {
+    const file = await fileEntry.handle.getFile();
+    fileSize = file.size;
+    
+    // Read ID3 tags to get better metadata and album art
+    try {
+      const metadata = await id3Reader.readAudioFileMetadata(file);
+      
+      // Use ID3 metadata if available (prefer over filename parsing)
+      if (metadata.title) title = metadata.title;
+      if (metadata.artist) artist = metadata.artist;
+      if (metadata.album) album = metadata.album;
+      if (metadata.albumArt) {
+        albumArt = metadata.albumArt;
+        console.log('[Scanner] ✓ Album art extracted from:', filename, 
+          '- Size:', Math.round(albumArt.length / 1024), 'KB',
+          '- Preview:', albumArt.substring(0, 50) + '...');
+      }
+      
+      if (metadata.hasAlbumArt && !albumArt) {
+        console.warn('[Scanner] ⚠ Album art detected but not extracted from:', filename);
+      }
+      
+      if (!metadata.hasAlbumArt) {
+        console.log('[Scanner] ℹ No album art in:', filename);
+      }
+    } catch (id3Error) {
+      console.warn('[Scanner] Could not read ID3 tags from:', filename, id3Error.message);
+      // Continue with filename-based metadata
+    }
+  } catch (e) {
+    console.warn('[Scanner] Could not get file:', filename, e);
+  }
   
   // Generate unique ID from path
   let hash = 0;
@@ -479,20 +519,12 @@ async function createLocalTrackFromFile(fileEntry, baseFolderName) {
   }
   const id = 'local_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
   
-  // Get file size
-  let fileSize = 0;
-  try {
-    const file = await fileEntry.handle.getFile();
-    fileSize = file.size;
-  } catch (e) {
-    console.warn('[Scanner] Could not get file size:', filename);
-  }
-  
   return {
     id,
     title,
     artist,
     album,
+    albumArt, // Store album art data URL
     path: `local:${baseFolderName}/${fileEntry.path}`, // Prefix with source
     filename,
     size: fileSize,

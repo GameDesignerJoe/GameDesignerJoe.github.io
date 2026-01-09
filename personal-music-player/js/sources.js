@@ -64,6 +64,11 @@ function setupEventListeners() {
     await selectLocalFolder();
   });
   
+  // Rescan local folders button
+  document.getElementById('rescanLocalFoldersBtn')?.addEventListener('click', async () => {
+    await rescanLocalFolders();
+  });
+  
   // Breadcrumb navigation will be set up dynamically
 }
 
@@ -852,6 +857,59 @@ export async function loadLocalFolders() {
   selectedLocalFolders = await storage.getLocalFolderHandles() || [];
   await updateLocalFolderCounts();
   console.log('[Sources] Loaded', selectedLocalFolders.length, 'local folders');
+  
+  // Show rescan button if we have local folders
+  const rescanBtn = document.getElementById('rescanLocalFoldersBtn');
+  if (rescanBtn && selectedLocalFolders.length > 0) {
+    rescanBtn.style.display = 'block';
+  }
+}
+
+// Rescan all local folders (re-extracts metadata including album art)
+async function rescanLocalFolders() {
+  if (selectedLocalFolders.length === 0) {
+    showToast('No local folders to rescan', 'info');
+    return;
+  }
+  
+  if (!confirm(`This will rescan ${selectedLocalFolders.length} local folder(s) and update all metadata including album art. Continue?`)) {
+    return;
+  }
+  
+  console.log('[Sources] Rescanning local folders');
+  showToast('Rescanning local folders...', 'info');
+  
+  try {
+    // Delete existing local tracks
+    const tracks = await storage.getAllTracks();
+    const localTrackIds = tracks.filter(t => t.source === 'local').map(t => t.id);
+    
+    // Clear local tracks
+    for (const track of tracks.filter(t => t.source === 'local')) {
+      // Note: We'd need a deleteTrack function in storage for this
+      // For now, we'll just rescan and let saveTracks update them
+    }
+    
+    // Rescan with fresh metadata
+    await scanner.scanLocalFolders(selectedLocalFolders);
+    
+    // Update counts
+    await updateLocalFolderCounts();
+    await updateFolderCounts();
+    
+    // Refresh library and home
+    const library = await import('./library.js');
+    await library.refreshLibrary();
+    
+    const home = await import('./home.js');
+    await home.refreshFolders();
+    
+    showToast('✓ Local folders rescanned with fresh metadata!', 'success');
+    
+  } catch (error) {
+    console.error('[Sources] Error rescanning local folders:', error);
+    showToast('Error rescanning folders', 'error');
+  }
 }
 
 export default {

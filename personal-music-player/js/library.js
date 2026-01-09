@@ -181,9 +181,12 @@ function createTrackElement(track) {
   div.className = 'track-item';
   div.dataset.trackId = track.id;
   
+  // Use album art if available, otherwise default icon
+  const albumArtSrc = track.albumArt || 'assets/icons/icon-song-black..png';
+  
   div.innerHTML = `
     <div class="track-item-cover">
-      <img src="assets/icons/icon-song-black..png" alt="Album art">
+      <img src="${albumArtSrc}" alt="Album art">
       <button class="track-play-btn">▶</button>
     </div>
     <div class="track-item-info">
@@ -243,10 +246,14 @@ function createAlbumGroup(album, artist, tracks) {
   const div = document.createElement('div');
   div.className = 'album-group';
   
+  // Find first track with album art, or use default
+  const trackWithArt = tracks.find(t => t.albumArt);
+  const albumArtSrc = trackWithArt?.albumArt || 'assets/icons/icon-song-black..png';
+  
   const header = document.createElement('div');
   header.className = 'album-group-header';
   header.innerHTML = `
-    <img src="assets/icons/icon-song-black..png" alt="Album art" class="album-art-thumb">
+    <img src="${albumArtSrc}" alt="Album art" class="album-art-thumb">
     <div class="album-info">
       <h3>${escapeHtml(album)}</h3>
       <p>${escapeHtml(artist)} • ${tracks.length} ${tracks.length === 1 ? 'song' : 'songs'}</p>
