@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v10-gradient-playlists';
+const CACHE_NAME = 'music-player-v11-2line-wrap';
 const APP_SHELL = [
   './',
   './index.html',
