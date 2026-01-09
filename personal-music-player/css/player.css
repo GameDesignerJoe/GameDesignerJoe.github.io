@@ -348,7 +348,7 @@
 }
 
 .mini-control-btn.active {
-  color: var(--color-accent);
+  color: var(--color-text-primary);
 }
 
 /* Play/Pause Button - Larger */

@@ -431,6 +431,7 @@ function shuffleArray(array) {
 
 // Update playback mode UI (shuffle/repeat buttons)
 function updatePlaybackModeUI() {
+  // Update main player buttons
   const shuffleBtn = document.getElementById('shuffleBtn');
   const repeatBtn = document.getElementById('repeatBtn');
   
@@ -458,6 +459,39 @@ function updatePlaybackModeUI() {
       case 'one':
         repeatBtn.textContent = '🔂';
         repeatBtn.classList.add('active');
+        break;
+    }
+  }
+  
+  // Update mini player buttons
+  const miniShuffleBtn = document.getElementById('miniShuffleBtn');
+  const miniRepeatBtn = document.getElementById('miniRepeatBtn');
+  
+  if (miniShuffleBtn) {
+    if (queueState.shuffled) {
+      miniShuffleBtn.classList.add('active');
+      miniShuffleBtn.textContent = '⇄'; // Same icon, but active class makes it white
+    } else {
+      miniShuffleBtn.classList.remove('active');
+      miniShuffleBtn.textContent = '⇄';
+    }
+  }
+  
+  if (miniRepeatBtn) {
+    miniRepeatBtn.classList.remove('active');
+    
+    // Update icon based on repeat mode
+    switch (queueState.repeatMode) {
+      case 'off':
+        miniRepeatBtn.textContent = '↻';
+        break;
+      case 'all':
+        miniRepeatBtn.textContent = '↻';
+        miniRepeatBtn.classList.add('active');
+        break;
+      case 'one':
+        miniRepeatBtn.textContent = '➀'; // Circled number 1
+        miniRepeatBtn.classList.add('active');
         break;
     }
   }
