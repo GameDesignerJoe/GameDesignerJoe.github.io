@@ -9,8 +9,8 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0 var(--spacing-md);
   position: sticky;
-  top: 0;
-  z-index: 10;
+  top: 64px; /* Position below search bar */
+  z-index: 9;
 }
 
 .tab-btn {
@@ -35,8 +35,8 @@
   padding: var(--spacing-md);
   background-color: var(--color-bg-primary);
   position: sticky;
-  top: 48px;
-  z-index: 9;
+  top: 0;
+  z-index: 10;
 }
 
 .search-input {
