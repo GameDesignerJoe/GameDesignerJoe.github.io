@@ -5,7 +5,7 @@ import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as scanner from './scanner.js';
 import * as localFiles from './local-files.js';
-import { showToast } from './app.js';
+import { showToast, markFoldersModified } from './app.js';
 
 // State
 let selectedFolders = [];
@@ -845,6 +845,9 @@ async function scanLocalFolders() {
     await library.refreshLibrary();
     
     showToast('Local files added!', 'success');
+    
+    // Mark folders as modified so home will auto-refresh
+    markFoldersModified();
     
   } catch (error) {
     console.error('[Sources] Error scanning local folders:', error);

@@ -3,7 +3,7 @@
 
 import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
-import { showToast } from './app.js';
+import { showToast, markFoldersModified } from './app.js';
 
 let currentPath = '';
 let selectedFolders = [];
@@ -283,6 +283,9 @@ async function startScanning() {
   // Import and start the scanner
   const scanner = await import('./scanner.js');
   await scanner.scanSelectedFolders(selectedFolders);
+  
+  // Mark folders as modified so home page will auto-refresh
+  markFoldersModified();
 }
 
 // Close folder browser

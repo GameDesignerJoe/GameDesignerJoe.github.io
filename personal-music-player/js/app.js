@@ -19,7 +19,8 @@ import * as localFiles from './local-files.js';
 const appState = {
   isAuthenticated: false,
   currentScreen: 'auth',
-  accessToken: null
+  accessToken: null,
+  foldersModified: false // Track if folders were added/modified in sources
 };
 
 // Initialize app
@@ -285,16 +286,32 @@ function setupEventListeners() {
   
   // Bottom Navigation buttons
   document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const screen = btn.dataset.screen;
+      
+      // Auto-refresh home page if folders were modified in sources
+      if (screen === 'home' && appState.foldersModified) {
+        console.log('[App] Auto-refreshing home after folder changes');
+        await home.refreshFolders();
+        appState.foldersModified = false;
+      }
+      
       showScreen(screen);
     });
   });
   
   // Sidebar Navigation buttons
   document.querySelectorAll('.sidebar-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const screen = btn.dataset.screen;
+      
+      // Auto-refresh home page if folders were modified in sources
+      if (screen === 'home' && appState.foldersModified) {
+        console.log('[App] Auto-refreshing home after folder changes');
+        await home.refreshFolders();
+        appState.foldersModified = false;
+      }
+      
       showScreen(screen);
     });
   });
@@ -771,5 +788,11 @@ async function loadLocalFolders() {
   }
 }
 
+// Mark that folders have been modified (called from sources module)
+function markFoldersModified() {
+  appState.foldersModified = true;
+  console.log('[App] Folders marked as modified - home will auto-refresh on next visit');
+}
+
 // Export for use in other modules
-export { appState, showScreen, showToast, formatTime };
+export { appState, showScreen, showToast, formatTime, markFoldersModified };
