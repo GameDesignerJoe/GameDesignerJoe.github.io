@@ -2,6 +2,7 @@
 // Handles audio playback, controls, and state
 
 import * as dropbox from './dropbox.js';
+import * as linkManager from './link-manager.js';
 import { showToast } from './app.js';
 import * as mediaSession from './media-session.js';
 
@@ -9,10 +10,12 @@ import * as mediaSession from './media-session.js';
 const playerState = {
   audio: null,
   currentTrack: null,
+  currentTrackLinkExpiresAt: null,
   isPlaying: false,
   volume: 0.8,
   duration: 0,
-  currentTime: 0
+  currentTime: 0,
+  retryAttempted: false
 };
 
 // Initialize player
@@ -84,9 +87,31 @@ function setupAudioEvents() {
     await queue.onTrackEnded();
   });
   
-  // Error handling
-  audio.addEventListener('error', (e) => {
+  // Error handling with automatic retry
+  audio.addEventListener('error', async (e) => {
     console.error('[Player] Playback error:', audio.error);
+    
+    // Check if we haven't already attempted a retry
+    if (!playerState.retryAttempted && playerState.currentTrack) {
+      console.log('[Player] Attempting automatic retry with fresh link...');
+      playerState.retryAttempted = true;
+      
+      // Show retry message
+      showToast('Retrying with fresh link...', 'info');
+      
+      // Wait a moment before retry
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Retry with fresh link
+      try {
+        await playTrack(playerState.currentTrack, true);
+        return; // Success, exit error handler
+      } catch (retryError) {
+        console.error('[Player] Retry failed:', retryError);
+      }
+    }
+    
+    // If retry failed or already attempted
     showToast('Playback error. Please try another track.', 'error');
     playerState.isPlaying = false;
     updatePlayerUI();
@@ -94,21 +119,25 @@ function setupAudioEvents() {
 }
 
 // Play a track
-export async function playTrack(track) {
-  console.log('[Player] Loading track:', track.title);
+export async function playTrack(track, isRetry = false) {
+  console.log('[Player] Loading track:', track.title, isRetry ? '(retry)' : '');
   
   try {
-    // Show loading state
-    showToast('Loading track...', 'info');
+    // Show loading state (only if not retry)
+    if (!isRetry) {
+      showToast('Loading track...', 'info');
+      playerState.retryAttempted = false;
+    }
     
-    // Get temporary download link from Dropbox
-    const linkData = await dropbox.getTemporaryLink(track.path);
-    const audioUrl = linkData.link;
+    // Get fresh temporary download link using link manager
+    const linkData = await linkManager.getFreshTemporaryLink(track.path);
+    const audioUrl = linkData.url;
     
     console.log('[Player] Got audio URL, starting playback');
     
     // Update state
     playerState.currentTrack = track;
+    playerState.currentTrackLinkExpiresAt = linkData.expiresAt;
     
     // Load and play audio
     playerState.audio.src = audioUrl;
@@ -121,10 +150,16 @@ export async function playTrack(track) {
     // Auto-play
     try {
       await playerState.audio.play();
-      showToast(`♪ ${track.title}`, 'success');
+      if (!isRetry) {
+        showToast(`♪ ${track.title}`, 'success');
+      } else {
+        showToast(`✓ ${track.title}`, 'success');
+      }
     } catch (playError) {
       console.error('[Player] Auto-play blocked:', playError);
-      showToast('Click play to start', 'info');
+      if (!isRetry) {
+        showToast('Click play to start', 'info');
+      }
     }
     
   } catch (error) {

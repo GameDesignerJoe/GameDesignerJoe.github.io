@@ -11,6 +11,8 @@ import * as player from './player.js';
 import * as queue from './queue.js';
 import * as mediaSession from './media-session.js';
 import * as search from './search.js';
+import * as linkManager from './link-manager.js';
+import * as cacheManager from './cache-manager.js';
 
 // App State
 const appState = {
@@ -70,6 +72,9 @@ async function checkAuthentication() {
     await library.init();
     await playlists.init();
     
+    // Perform startup link refresh check
+    await performStartupLinkCheck();
+    
     // Check if we should show Sources screen on first launch
     if (sources.shouldShowSourcesOnLaunch()) {
       showScreen('sources');
@@ -79,6 +84,12 @@ async function checkAuthentication() {
     }
     
     showHeaderActions();
+    
+    // Start background link refresh
+    linkManager.startBackgroundRefresh();
+    
+    // Cleanup old cache versions
+    cacheManager.cleanupOldCaches();
   } else {
     console.log('[App] User not authenticated');
     showScreen('auth');
@@ -130,6 +141,9 @@ async function handleOAuthCallback() {
     await library.init();
     await playlists.init();
     
+    // Perform startup link refresh check
+    await performStartupLinkCheck();
+    
     // Check if we should show Sources screen on first launch
     if (sources.shouldShowSourcesOnLaunch()) {
       showScreen('sources');
@@ -145,6 +159,39 @@ async function handleOAuthCallback() {
     
     // Test connection
     testDropboxConnection();
+    
+    // Start background link refresh
+    linkManager.startBackgroundRefresh();
+    
+    // Cleanup old cache versions
+    cacheManager.cleanupOldCaches();
+  }
+}
+
+// Perform startup link check and refresh if needed
+async function performStartupLinkCheck() {
+  try {
+    console.log('[App] Performing startup link check...');
+    
+    // Show loading screen temporarily
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    const result = await linkManager.performStartupCheck(true);
+    
+    if (result.needed && result.refreshed > 0) {
+      console.log(`[App] Startup check: Refreshed ${result.refreshed} expired links`);
+      showToast(`✓ Library refreshed (${result.refreshed} folder${result.refreshed > 1 ? 's' : ''} updated)`, 'success');
+    } else if (result.needed && result.refreshed === 0) {
+      console.log('[App] Startup check: Some links failed to refresh');
+      // Don't show error toast, user can manually refresh
+    } else {
+      console.log('[App] Startup check: All links valid');
+    }
+    
+  } catch (error) {
+    console.error('[App] Startup link check failed:', error);
+    // Don't show error - user can use manual refresh
   }
 }
 

@@ -4,6 +4,8 @@
 import config from '../config.js';
 import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
+import * as cacheManager from './cache-manager.js';
+import * as linkManager from './link-manager.js';
 import { showToast, showScreen } from './app.js';
 
 let isScanning = false;
@@ -169,12 +171,29 @@ export async function scanFolderMetadata(folderPath) {
     // Get cover image
     const coverImagePath = await findCoverImage(folderPath);
     
-    // Get cover image temp URL if found
+    // Get cover image temp URL if found, and cache it
     let coverImageUrl = null;
+    let coverImageUrlExpiresAt = null;
+    
     if (coverImagePath) {
       try {
-        const linkData = await dropbox.getTemporaryLink(coverImagePath);
-        coverImageUrl = linkData.link;
+        // Check if image is already cached
+        const isCached = await cacheManager.isImageCached(coverImagePath);
+        
+        if (isCached) {
+          console.log('[Scanner] Using cached image for:', coverImagePath);
+          // Get blob URL from cache
+          coverImageUrl = await cacheManager.getImageUrl(coverImagePath);
+        } else {
+          // Get temporary link and cache the image
+          const linkData = await dropbox.getTemporaryLink(coverImagePath);
+          coverImageUrl = linkData.link;
+          coverImageUrlExpiresAt = linkManager.calculateExpiration();
+          
+          // Cache the image in the background (don't wait)
+          cacheManager.cacheImage(coverImagePath, coverImageUrl)
+            .catch(err => console.error('[Scanner] Background image caching failed:', err));
+        }
       } catch (error) {
         console.error('[Scanner] Error getting cover image URL:', error);
       }
@@ -199,6 +218,7 @@ export async function scanFolderMetadata(folderPath) {
       name: name,
       coverImagePath: coverImagePath,
       coverImageUrl: coverImageUrl,
+      coverImageUrlExpiresAt: coverImageUrlExpiresAt,
       songCount: songCount,
       subfolders: subfolders,
       lastScanned: Date.now(),
