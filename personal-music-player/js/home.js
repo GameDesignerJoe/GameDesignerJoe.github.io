@@ -26,23 +26,32 @@ export async function refreshFolders() {
   console.log('[Home] Refreshing folders');
   
   try {
-    // Get all selected folders
-    const folders = await storage.getAllFoldersWithMetadata();
+    // Get Dropbox folders
+    const dropboxFolders = await storage.getAllFoldersWithMetadata();
     
-    // Scan metadata for folders that don't have it yet or need updating
-    for (const folder of folders) {
+    // Scan metadata for Dropbox folders that don't have it yet
+    for (const folder of dropboxFolders) {
       if (!folder.coverImagePath || !folder.songCount) {
         await scanner.scanFolderMetadata(folder.path);
       }
     }
     
-    // Reload folders with updated metadata
-    allFolders = await storage.getAllFoldersWithMetadata();
+    // Reload Dropbox folders with updated metadata
+    const updatedDropboxFolders = await storage.getAllFoldersWithMetadata();
+    
+    // Get local folders
+    const localFolderHandles = await storage.getLocalFolderHandles();
+    
+    // Create folder metadata for local folders
+    const localFolders = await createLocalFolderMetadata(localFolderHandles);
+    
+    // Combine both sources
+    allFolders = [...localFolders, ...updatedDropboxFolders];
     
     // Build folder cards including subfolders
     await buildFolderCollection();
     
-    console.log(`[Home] Displayed ${allFolders.length} folders`);
+    console.log(`[Home] Displayed ${allFolders.length} folders (${localFolders.length} local, ${updatedDropboxFolders.length} Dropbox)`);
     
   } catch (error) {
     console.error('[Home] Error refreshing folders:', error);
@@ -50,6 +59,33 @@ export async function refreshFolders() {
   } finally {
     isRefreshing = false;
   }
+}
+
+// Create folder metadata for local folders
+async function createLocalFolderMetadata(localFolderHandles) {
+  const localFolders = [];
+  const allTracks = await storage.getAllTracks();
+  
+  for (const folderHandle of localFolderHandles) {
+    // Count songs from this local folder
+    const folderPrefix = `local:${folderHandle.name}/`;
+    const songsInFolder = allTracks.filter(track => 
+      track.source === 'local' && track.path.startsWith(folderPrefix)
+    );
+    
+    if (songsInFolder.length > 0) {
+      localFolders.push({
+        path: folderPrefix,
+        name: folderHandle.name,
+        songCount: songsInFolder.length,
+        coverImageUrl: 'assets/icons/icon-song-black..png', // Default icon for local
+        source: 'local',
+        subfolders: [] // Local folders don't have subfolder tracking yet
+      });
+    }
+  }
+  
+  return localFolders;
 }
 
 // Build complete folder collection (parents + subfolders with audio)
@@ -195,7 +231,13 @@ async function handleFolderPlay(folderPath) {
   try {
     // Get all tracks from this folder
     const allTracks = await storage.getAllTracks();
-    const folderTracks = allTracks.filter(track => track.path.startsWith(folderPath));
+    const folderTracks = allTracks.filter(track => {
+      // Handle both local and Dropbox paths
+      if (track.source === 'local' || track.path.startsWith('local:')) {
+        return track.path.startsWith(folderPath);
+      }
+      return track.path.startsWith(folderPath);
+    });
     
     if (folderTracks.length === 0) {
       showToast('No songs found in this folder', 'info');

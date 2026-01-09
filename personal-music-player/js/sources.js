@@ -4,6 +4,7 @@
 import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as scanner from './scanner.js';
+import * as localFiles from './local-files.js';
 import { showToast } from './app.js';
 
 // State
@@ -11,6 +12,11 @@ let selectedFolders = [];
 let currentPath = '';
 let currentFolders = [];
 let activeSource = 'dropbox';
+
+// Local files state
+let selectedLocalFolders = []; // Array of {name, handle, path}
+let currentLocalHandle = null;
+let localNavigationStack = []; // Stack of {name, handle} for breadcrumb navigation
 
 // Initialize Sources screen
 export async function init() {
@@ -40,15 +46,28 @@ function setupEventListeners() {
     switchSource('dropbox');
   });
   
-  // Add current folder button
+  document.getElementById('localSourceBtn')?.addEventListener('click', () => {
+    switchSource('local');
+  });
+  
+  // Add current folder buttons
   document.getElementById('addCurrentFolderBtn')?.addEventListener('click', async () => {
     await addCurrentFolder();
+  });
+  
+  document.getElementById('addCurrentLocalFolderBtn')?.addEventListener('click', async () => {
+    await addCurrentLocalFolder();
+  });
+  
+  // Select local folder button
+  document.getElementById('selectLocalFolderBtn')?.addEventListener('click', async () => {
+    await selectLocalFolder();
   });
   
   // Breadcrumb navigation will be set up dynamically
 }
 
-// Switch between sources (Dropbox, Google Drive, etc.)
+// Switch between sources (Dropbox, Local, etc.)
 function switchSource(sourceName) {
   activeSource = sourceName;
   
@@ -68,6 +87,7 @@ function switchSource(sourceName) {
   
   const browserMap = {
     'dropbox': 'dropboxBrowser',
+    'local': 'localBrowser',
     'google-drive': 'googleDriveBrowser'
   };
   
@@ -79,6 +99,11 @@ function switchSource(sourceName) {
   // Load folders if switching to dropbox
   if (sourceName === 'dropbox' && dropbox.isAuthenticated()) {
     loadDropboxFolders(currentPath);
+  }
+  
+  // Load local folders if switching to local
+  if (sourceName === 'local') {
+    displayLocalBrowser();
   }
 }
 
@@ -459,9 +484,380 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// ==========================================
+// LOCAL FILE SYSTEM FUNCTIONS
+// ==========================================
+
+// Select a local folder using File System Access API
+async function selectLocalFolder() {
+  if (!localFiles.isSupported()) {
+    showToast('Local file access not supported in this browser. Please use Chrome or Edge.', 'error');
+    return;
+  }
+  
+  try {
+    const dirHandle = await localFiles.requestFolderAccess();
+    
+    if (!dirHandle) {
+      // User cancelled
+      return;
+    }
+    
+    // Verify permission
+    const hasPermission = await localFiles.verifyPermission(dirHandle);
+    if (!hasPermission) {
+      showToast('Permission denied', 'error');
+      return;
+    }
+    
+    // Set as current folder and display
+    currentLocalHandle = dirHandle;
+    localNavigationStack = [{name: dirHandle.name, handle: dirHandle}];
+    
+    await displayLocalDirectory(dirHandle);
+    
+  } catch (error) {
+    console.error('[Sources] Error selecting local folder:', error);
+    showToast('Error accessing folder', 'error');
+  }
+}
+
+// Display local directory contents
+async function displayLocalDirectory(dirHandle) {
+  const folderList = document.getElementById('localFolderList');
+  if (!folderList) return;
+  
+  // Show loading
+  folderList.innerHTML = '<div class="loading">Loading...</div>';
+  
+  // Update breadcrumb
+  updateLocalBreadcrumb();
+  
+  // Show/hide "+ Add Folder" button
+  const addBtn = document.getElementById('addCurrentLocalFolderBtn');
+  if (addBtn && dirHandle) {
+    addBtn.style.display = 'block';
+  }
+  
+  try {
+    const entries = await localFiles.listDirectory(dirHandle);
+    
+    currentLocalHandle = dirHandle;
+    
+    // Display folders and files
+    displayLocalFoldersAndFiles(entries.folders, entries.files);
+    
+  } catch (error) {
+    console.error('[Sources] Error loading local directory:', error);
+    folderList.innerHTML = `
+      <div class="empty-state">
+        <p>Error loading directory</p>
+        <button class="btn-secondary" id="retryLoadLocal">Retry</button>
+      </div>
+    `;
+    
+    document.getElementById('retryLoadLocal')?.addEventListener('click', async () => {
+      await displayLocalDirectory(dirHandle);
+    });
+  }
+}
+
+// Display local folders and files
+function displayLocalFoldersAndFiles(folders, files) {
+  const folderList = document.getElementById('localFolderList');
+  if (!folderList) return;
+  
+  if (folders.length === 0 && files.length === 0) {
+    folderList.innerHTML = `
+      <div class="empty-state">
+        <p>No items found</p>
+      </div>
+    `;
+    return;
+  }
+  
+  folderList.innerHTML = '';
+  
+  // Show folders first
+  folders.forEach(folder => {
+    const folderItem = createLocalFolderItem(folder);
+    folderList.appendChild(folderItem);
+  });
+  
+  // Then show audio files
+  files.forEach(file => {
+    const fileItem = createLocalFileItem(file);
+    folderList.appendChild(fileItem);
+  });
+}
+
+// Create local folder item
+function createLocalFolderItem(folder) {
+  const div = document.createElement('div');
+  div.className = 'folder-item';
+  
+  // Check if selected
+  const isSelected = selectedLocalFolders.some(f => f.name === folder.name);
+  
+  if (isSelected) {
+    div.classList.add('selected');
+  }
+  
+  div.innerHTML = `
+    <span class="folder-icon">📁</span>
+    <div class="folder-info">
+      <div class="folder-name">${escapeHtml(folder.name)}</div>
+    </div>
+    <div class="folder-actions">
+      ${isSelected ? 
+        '<span class="folder-checkmark">✓</span>' : 
+        '<button class="folder-add-btn" title="Add folder">+</button>'
+      }
+    </div>
+  `;
+  
+  // Click on folder name to navigate
+  div.querySelector('.folder-info').addEventListener('click', async () => {
+    await navigateToLocalFolder(folder);
+  });
+  
+  // Add/Remove button
+  const actionBtn = div.querySelector('.folder-add-btn, .folder-checkmark');
+  if (actionBtn && actionBtn.classList.contains('folder-add-btn')) {
+    actionBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await toggleLocalFolderSelection(folder);
+    });
+  } else if (actionBtn) {
+    actionBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await toggleLocalFolderSelection(folder);
+    });
+  }
+  
+  return div;
+}
+
+// Create local file item
+function createLocalFileItem(file) {
+  const div = document.createElement('div');
+  div.className = 'folder-item';
+  
+  div.innerHTML = `
+    <span class="folder-icon">🎵</span>
+    <div class="folder-info">
+      <div class="folder-name">${escapeHtml(file.name)}</div>
+    </div>
+    <div class="folder-actions">
+      <!-- Files don't have actions -->
+    </div>
+  `;
+  
+  return div;
+}
+
+// Navigate to local subfolder
+async function navigateToLocalFolder(folder) {
+  // Add to navigation stack
+  localNavigationStack.push({name: folder.name, handle: folder.handle});
+  
+  // Display the folder
+  await displayLocalDirectory(folder.handle);
+}
+
+// Update local breadcrumb
+function updateLocalBreadcrumb() {
+  const breadcrumb = document.getElementById('localBreadcrumb');
+  if (!breadcrumb) return;
+  
+  breadcrumb.innerHTML = '';
+  
+  // Add "My Computer" root
+  const rootItem = document.createElement('span');
+  rootItem.className = 'breadcrumb-item';
+  rootItem.textContent = 'My Computer';
+  rootItem.addEventListener('click', () => {
+    localNavigationStack = [];
+    currentLocalHandle = null;
+    displayLocalBrowser();
+  });
+  breadcrumb.appendChild(rootItem);
+  
+  // Add navigation path
+  localNavigationStack.forEach((item, index) => {
+    const breadcrumbItem = document.createElement('span');
+    breadcrumbItem.className = 'breadcrumb-item';
+    breadcrumbItem.textContent = item.name;
+    breadcrumbItem.addEventListener('click', async () => {
+      // Navigate back to this level
+      localNavigationStack = localNavigationStack.slice(0, index + 1);
+      await displayLocalDirectory(item.handle);
+    });
+    breadcrumb.appendChild(breadcrumbItem);
+  });
+}
+
+// Display local browser initial state
+function displayLocalBrowser() {
+  const folderList = document.getElementById('localFolderList');
+  const addBtn = document.getElementById('addCurrentLocalFolderBtn');
+  
+  if (!folderList) return;
+  
+  // Hide add button on initial view
+  if (addBtn) {
+    addBtn.style.display = 'none';
+  }
+  
+  // Show selected folders if any
+  if (selectedLocalFolders.length > 0) {
+    folderList.innerHTML = '';
+    
+    selectedLocalFolders.forEach(folder => {
+      const div = document.createElement('div');
+      div.className = 'folder-item selected';
+      div.innerHTML = `
+        <span class="folder-icon">📁</span>
+        <div class="folder-info">
+          <div class="folder-name">${escapeHtml(folder.name)}</div>
+        </div>
+        <div class="folder-actions">
+          <span class="folder-checkmark">✓</span>
+        </div>
+      `;
+      folderList.appendChild(div);
+    });
+    
+    // Add select button at bottom
+    const selectDiv = document.createElement('div');
+    selectDiv.className = 'empty-state';
+    selectDiv.style.marginTop = '20px';
+    selectDiv.innerHTML = '<button id="selectAnotherFolderBtn" class="btn-primary">📁 Select Another Folder</button>';
+    folderList.appendChild(selectDiv);
+    
+    document.getElementById('selectAnotherFolderBtn')?.addEventListener('click', selectLocalFolder);
+  } else {
+    folderList.innerHTML = `
+      <div class="empty-state">
+        <p>Click "Select Folder" to browse your computer</p>
+        <button id="selectLocalFolderBtn2" class="btn-primary">📁 Select Folder</button>
+      </div>
+    `;
+    
+    document.getElementById('selectLocalFolderBtn2')?.addEventListener('click', selectLocalFolder);
+  }
+  
+  updateLocalBreadcrumb();
+}
+
+// Toggle local folder selection
+async function toggleLocalFolderSelection(folder) {
+  const index = selectedLocalFolders.findIndex(f => f.name === folder.name);
+  
+  if (index === -1) {
+    // Add folder
+    const folderData = {
+      name: folder.name,
+      handle: folder.handle,
+      path: buildLocalPath(),
+      addedAt: Date.now()
+    };
+    
+    selectedLocalFolders.push(folderData);
+    showToast(`Folder "${folder.name}" added`, 'success');
+    
+    // Save to storage
+    await storage.saveLocalFolderHandles(selectedLocalFolders);
+    
+    // Trigger scan
+    await scanLocalFolders();
+  } else {
+    // Remove folder
+    selectedLocalFolders.splice(index, 1);
+    showToast(`Folder removed`, 'info');
+    
+    // Save to storage
+    await storage.saveLocalFolderHandles(selectedLocalFolders);
+  }
+  
+  // Update UI
+  await updateLocalFolderCounts();
+  await displayLocalDirectory(currentLocalHandle);
+}
+
+// Add current local folder
+async function addCurrentLocalFolder() {
+  if (!currentLocalHandle) {
+    showToast('No folder to add', 'info');
+    return;
+  }
+  
+  await toggleLocalFolderSelection({
+    name: currentLocalHandle.name,
+    handle: currentLocalHandle
+  });
+}
+
+// Build local path string from navigation stack
+function buildLocalPath() {
+  return localNavigationStack.map(item => item.name).join('/');
+}
+
+// Update local folder counts
+async function updateLocalFolderCounts() {
+  const countEl = document.getElementById('localCount');
+  if (!countEl) return;
+  
+  const folderCount = selectedLocalFolders.length;
+  
+  // Get local song count from storage
+  const tracks = await storage.getAllTracks();
+  const localTracks = tracks.filter(t => t.source === 'local');
+  const songCount = localTracks.length;
+  
+  countEl.textContent = `${folderCount} ${folderCount === 1 ? 'folder' : 'folders'} • ${songCount} ${songCount === 1 ? 'song' : 'songs'}`;
+}
+
+// Scan local folders
+async function scanLocalFolders() {
+  if (selectedLocalFolders.length === 0) {
+    return;
+  }
+  
+  console.log('[Sources] Scanning local folders:', selectedLocalFolders);
+  showToast('Scanning local files...', 'info');
+  
+  try {
+    // Use scanner module
+    await scanner.scanLocalFolders(selectedLocalFolders);
+    
+    // Update counts
+    await updateLocalFolderCounts();
+    await updateFolderCounts(); // Update total counts
+    
+    // Refresh library
+    const library = await import('./library.js');
+    await library.refreshLibrary();
+    
+    showToast('Local files added!', 'success');
+    
+  } catch (error) {
+    console.error('[Sources] Error scanning local folders:', error);
+    showToast('Error scanning local files', 'error');
+  }
+}
+
+// Load selected local folders from storage
+export async function loadLocalFolders() {
+  selectedLocalFolders = await storage.getLocalFolderHandles() || [];
+  await updateLocalFolderCounts();
+  console.log('[Sources] Loaded', selectedLocalFolders.length, 'local folders');
+}
+
 export default {
   init,
   loadDropboxFolders,
   getSelectedFolders,
-  shouldShowSourcesOnLaunch
+  shouldShowSourcesOnLaunch,
+  loadLocalFolders
 };

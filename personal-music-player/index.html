@@ -187,6 +187,19 @@
             <h2 class="sources-sidebar-title">SOURCES</h2>
             
             <div id="sourcesConnectionsList" class="sources-connections">
+              <!-- Local Drive -->
+              <button class="source-connection-btn" data-source="local" id="localSourceBtn">
+                <div class="source-icon">
+                  <span class="source-icon-emoji">📁</span>
+                </div>
+                <div class="source-info">
+                  <div class="source-name">Local Drive</div>
+                  <div class="source-status" id="localStatus">
+                    <span class="source-count" id="localCount">0 folders • 0 songs</span>
+                  </div>
+                </div>
+              </button>
+
               <!-- Dropbox Connection -->
               <button class="source-connection-btn active" data-source="dropbox" id="dropboxSourceBtn">
                 <div class="source-icon">
@@ -244,17 +257,6 @@
                   <div class="source-status">Coming soon</div>
                 </div>
               </button>
-
-              <!-- Phone Placeholder -->
-              <button class="source-connection-btn disabled" data-source="phone" disabled>
-                <div class="source-icon">
-                  <img src="assets/icons/phone.png" alt="Phone" class="source-logo greyed">
-                </div>
-                <div class="source-info">
-                  <div class="source-name">Phone</div>
-                  <div class="source-status">Coming soon</div>
-                </div>
-              </button>
             </div>
           </div>
 
@@ -287,6 +289,43 @@
                   <h3 id="previewTitle">Preview</h3>
                 </div>
                 <div class="preview-content" id="previewContent">
+                  <div class="empty-state">
+                    <p>Click on a folder to preview its contents</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Local Drive Browser -->
+            <div id="localBrowser" class="source-browser">
+              <!-- Folder Browser Panel -->
+              <div class="browser-panel">
+                <div class="browser-header">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                      <h3>LOCAL DRIVE</h3>
+                      <div class="browser-breadcrumb" id="localBreadcrumb">
+                        <span class="breadcrumb-item">My Computer</span>
+                      </div>
+                    </div>
+                    <button id="addCurrentLocalFolderBtn" class="folder-add-btn" style="display: none;" title="Add current folder">+</button>
+                  </div>
+                </div>
+
+                <div class="browser-content" id="localFolderList">
+                  <div class="empty-state">
+                    <p>Click "Select Folder" to browse your computer</p>
+                    <button id="selectLocalFolderBtn" class="btn-primary">📁 Select Folder</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- File Preview Panel -->
+              <div class="preview-panel">
+                <div class="preview-header">
+                  <h3 id="localPreviewTitle">Preview</h3>
+                </div>
+                <div class="preview-content" id="localPreviewContent">
                   <div class="empty-state">
                     <p>Click on a folder to preview its contents</p>
                   </div>

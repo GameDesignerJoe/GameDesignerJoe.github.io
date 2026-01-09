@@ -6,6 +6,7 @@ import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as cacheManager from './cache-manager.js';
 import * as linkManager from './link-manager.js';
+import * as localFiles from './local-files.js';
 import { showToast, showScreen } from './app.js';
 
 let isScanning = false;
@@ -327,4 +328,176 @@ export function isCurrentlyScanning() {
 
 export function getScanProgress() {
   return scanProgress;
+}
+
+// ==========================================
+// LOCAL FILES SCANNING
+// ==========================================
+
+// Scan local folders for audio files
+export async function scanLocalFolders(localFolderHandles) {
+  if (isScanning) {
+    showToast('Scan already in progress', 'info');
+    return;
+  }
+  
+  isScanning = true;
+  scanProgress = {
+    foldersScanned: 0,
+    totalFolders: localFolderHandles.length,
+    filesFound: 0
+  };
+  
+  console.log('[Scanner] Starting local scan of', localFolderHandles.length, 'folders');
+  
+  // Show loading screen
+  showLoadingScreen(`Scanning local folders... (0/${localFolderHandles.length})`);
+  
+  try {
+    const allTracks = [];
+    
+    // Scan each selected folder
+    for (const folderData of localFolderHandles) {
+      console.log('[Scanner] Scanning local folder:', folderData.name);
+      
+      // Verify permission
+      const hasPermission = await localFiles.verifyPermission(folderData.handle);
+      if (!hasPermission) {
+        console.warn('[Scanner] No permission for folder:', folderData.name);
+        showToast(`Permission denied for "${folderData.name}"`, 'error');
+        continue;
+      }
+      
+      const tracks = await scanLocalFolder(folderData.handle, folderData.name);
+      allTracks.push(...tracks);
+      
+      scanProgress.foldersScanned++;
+      scanProgress.filesFound = allTracks.length;
+      
+      showLoadingScreen(
+        `Scanning local folders... (${scanProgress.foldersScanned}/${scanProgress.totalFolders})`,
+        `Found ${scanProgress.filesFound} audio files`
+      );
+    }
+    
+    // Save all tracks to database
+    if (allTracks.length > 0) {
+      showLoadingScreen('Saving tracks to library...', `Processing ${allTracks.length} files`);
+      await storage.saveTracks(allTracks);
+      console.log(`[Scanner] Saved ${allTracks.length} local tracks to database`);
+    }
+    
+    // Hide loading, show library
+    hideLoadingScreen();
+    showScreen('library');
+    
+    // Refresh library display
+    const library = await import('./library.js');
+    await library.refreshLibrary();
+    
+    // Show success message
+    showToast(`✨ Added ${allTracks.length} local songs!`, 'success');
+    
+  } catch (error) {
+    console.error('[Scanner] Local scan failed:', error);
+    hideLoadingScreen();
+    showToast('Local scan failed. Please try again.', 'error');
+  } finally {
+    isScanning = false;
+  }
+}
+
+// Scan a local folder for audio files
+async function scanLocalFolder(dirHandle, baseFolderName) {
+  const allTracks = [];
+  
+  try {
+    // Get all audio files recursively
+    const audioFiles = await localFiles.getAllAudioFiles(dirHandle);
+    
+    console.log(`[Scanner] Processing ${audioFiles.length} local files from ${baseFolderName}`);
+    
+    // Create track objects
+    for (const fileEntry of audioFiles) {
+      try {
+        const track = await createLocalTrackFromFile(fileEntry, baseFolderName);
+        allTracks.push(track);
+        
+        // Update progress
+        scanProgress.filesFound++;
+        if (scanProgress.filesFound % 10 === 0) {
+          showLoadingScreen(
+            `Scanning local folders... (${scanProgress.foldersScanned}/${scanProgress.totalFolders})`,
+            `Found ${scanProgress.filesFound} audio files`
+          );
+        }
+      } catch (trackError) {
+        console.error('[Scanner] Error processing local file:', fileEntry.name, trackError);
+      }
+    }
+  } catch (error) {
+    console.error('[Scanner] Error scanning local folder:', baseFolderName, error);
+  }
+  
+  return allTracks;
+}
+
+// Create track object from local file
+async function createLocalTrackFromFile(fileEntry, baseFolderName) {
+  const filename = fileEntry.name;
+  const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+  
+  // Try to parse artist and title from filename
+  let artist = 'Unknown Artist';
+  let title = nameWithoutExt;
+  
+  if (nameWithoutExt.includes(' - ')) {
+    const parts = nameWithoutExt.split(' - ');
+    const firstPart = parts[0].trim();
+    
+    // Check if first part is just a track number
+    if (!/^\d+$/.test(firstPart)) {
+      artist = firstPart;
+      title = parts.slice(1).join(' - ').trim();
+    } else {
+      // Just a track number, use the rest as title
+      title = parts.slice(1).join(' - ').trim();
+    }
+  }
+  
+  // Try to get album from parent folder in path
+  const pathParts = fileEntry.path.split('/');
+  const album = pathParts.length > 1 ? pathParts[pathParts.length - 2] : baseFolderName;
+  
+  // Generate unique ID from path
+  let hash = 0;
+  const pathStr = `local:${baseFolderName}/${fileEntry.path}`;
+  for (let i = 0; i < pathStr.length; i++) {
+    const char = pathStr.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  const id = 'local_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+  
+  // Get file size
+  let fileSize = 0;
+  try {
+    const file = await fileEntry.handle.getFile();
+    fileSize = file.size;
+  } catch (e) {
+    console.warn('[Scanner] Could not get file size:', filename);
+  }
+  
+  return {
+    id,
+    title,
+    artist,
+    album,
+    path: `local:${baseFolderName}/${fileEntry.path}`, // Prefix with source
+    filename,
+    size: fileSize,
+    source: 'local', // Mark as local file
+    fileHandle: fileEntry.handle, // Store handle for playback (IndexedDB can store this)
+    addedAt: Date.now()
+  };
 }

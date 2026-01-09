@@ -13,6 +13,7 @@ import * as mediaSession from './media-session.js';
 import * as search from './search.js';
 import * as linkManager from './link-manager.js';
 import * as cacheManager from './cache-manager.js';
+import * as localFiles from './local-files.js';
 
 // App State
 const appState = {
@@ -71,6 +72,9 @@ async function checkAuthentication() {
     await home.init();
     await library.init();
     await playlists.init();
+    
+    // Load and verify local folder permissions
+    await loadLocalFolders();
     
     // Perform startup link refresh check
     await performStartupLinkCheck();
@@ -140,6 +144,9 @@ async function handleOAuthCallback() {
     await home.init();
     await library.init();
     await playlists.init();
+    
+    // Load and verify local folder permissions
+    await loadLocalFolders();
     
     // Perform startup link refresh check
     await performStartupLinkCheck();
@@ -709,6 +716,49 @@ function showPlaylistMenuForDetail(playlistId, playlistName, buttonElement) {
       }
     });
   }, 0);
+}
+
+// Load local folders and request permissions
+async function loadLocalFolders() {
+  try {
+    console.log('[App] Loading local folders...');
+    
+    // Load local folders from sources module
+    await sources.loadLocalFolders();
+    
+    // Get folder handles from storage
+    const localFolders = await storage.getLocalFolderHandles();
+    
+    if (localFolders.length === 0) {
+      console.log('[App] No local folders to load');
+      return;
+    }
+    
+    console.log(`[App] Requesting permissions for ${localFolders.length} local folders`);
+    
+    // Request permissions for each folder
+    let permissionCount = 0;
+    for (const folderData of localFolders) {
+      try {
+        const hasPermission = await localFiles.verifyPermission(folderData.handle);
+        if (hasPermission) {
+          permissionCount++;
+        } else {
+          console.warn('[App] Permission denied for folder:', folderData.name);
+        }
+      } catch (error) {
+        console.error('[App] Error verifying permission for folder:', folderData.name, error);
+      }
+    }
+    
+    if (permissionCount > 0) {
+      console.log(`[App] Permissions granted for ${permissionCount}/${localFolders.length} local folders`);
+    }
+    
+  } catch (error) {
+    console.error('[App] Error loading local folders:', error);
+    // Don't block app initialization if local folders fail
+  }
 }
 
 // Export for use in other modules

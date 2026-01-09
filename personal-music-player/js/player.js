@@ -3,6 +3,8 @@
 
 import * as dropbox from './dropbox.js';
 import * as linkManager from './link-manager.js';
+import * as localFiles from './local-files.js';
+import * as storage from './storage.js';
 import { showToast } from './app.js';
 import * as mediaSession from './media-session.js';
 
@@ -11,6 +13,7 @@ const playerState = {
   audio: null,
   currentTrack: null,
   currentTrackLinkExpiresAt: null,
+  currentBlobUrl: null, // For local files
   isPlaying: false,
   volume: 0.8,
   duration: 0,
@@ -129,15 +132,52 @@ export async function playTrack(track, isRetry = false) {
       playerState.retryAttempted = false;
     }
     
-    // Get fresh temporary download link using link manager
-    const linkData = await linkManager.getFreshTemporaryLink(track.path);
-    const audioUrl = linkData.url;
+    // Revoke previous blob URL if any
+    if (playerState.currentBlobUrl) {
+      localFiles.revokeFileUrl(playerState.currentBlobUrl);
+      playerState.currentBlobUrl = null;
+    }
+    
+    let audioUrl;
+    
+    // Check if this is a local file
+    if (track.source === 'local' || track.path?.startsWith('local:')) {
+      console.log('[Player] Loading local file');
+      
+      // Get file handle from track or storage
+      let fileHandle = track.fileHandle;
+      
+      if (!fileHandle) {
+        // Try to get full track data from storage
+        const fullTrack = await storage.getTrackById(track.id);
+        fileHandle = fullTrack?.fileHandle;
+      }
+      
+      if (!fileHandle) {
+        throw new Error('File handle not found for local track');
+      }
+      
+      // Verify permission
+      const hasPermission = await localFiles.verifyPermission(fileHandle);
+      if (!hasPermission) {
+        throw new Error('Permission denied for local file');
+      }
+      
+      // Create blob URL
+      audioUrl = await localFiles.getFileUrl(fileHandle);
+      playerState.currentBlobUrl = audioUrl;
+      
+    } else {
+      // Dropbox file - get fresh temporary download link
+      const linkData = await linkManager.getFreshTemporaryLink(track.path);
+      audioUrl = linkData.url;
+      playerState.currentTrackLinkExpiresAt = linkData.expiresAt;
+    }
     
     console.log('[Player] Got audio URL, starting playback');
     
     // Update state
     playerState.currentTrack = track;
-    playerState.currentTrackLinkExpiresAt = linkData.expiresAt;
     
     // Load and play audio
     playerState.audio.src = audioUrl;

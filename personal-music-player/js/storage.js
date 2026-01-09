@@ -2,14 +2,15 @@
 // Handles all database operations for the music player
 
 const DB_NAME = 'MusicPlayerDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for local folders support
 
 // Store names
 const STORES = {
   TRACKS: 'tracks',
   FOLDERS: 'folders',
   PLAYLISTS: 'playlists',
-  SETTINGS: 'settings'
+  SETTINGS: 'settings',
+  LOCAL_FOLDERS: 'localFolders' // New store for local folder handles
 };
 
 let db = null;
@@ -41,11 +42,17 @@ export async function initDB() {
         trackStore.createIndex('artist', 'artist', { unique: false });
         trackStore.createIndex('album', 'album', { unique: false });
         trackStore.createIndex('path', 'path', { unique: true });
+        trackStore.createIndex('source', 'source', { unique: false }); // Track source (dropbox/local)
       }
       
-      // Folders store (selected music folders)
+      // Folders store (selected Dropbox folders)
       if (!db.objectStoreNames.contains(STORES.FOLDERS)) {
         db.createObjectStore(STORES.FOLDERS, { keyPath: 'path' });
+      }
+      
+      // Local Folders store (selected local folder handles)
+      if (!db.objectStoreNames.contains(STORES.LOCAL_FOLDERS)) {
+        db.createObjectStore(STORES.LOCAL_FOLDERS, { keyPath: 'name' });
       }
       
       // Playlists store
@@ -393,6 +400,75 @@ export async function getSetting(key) {
     
     request.onsuccess = () => {
       resolve(request.result ? request.result.value : null);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// === LOCAL FOLDER HANDLE OPERATIONS ===
+
+// Save local folder handles (with FileSystemHandle objects)
+export async function saveLocalFolderHandles(localFolders) {
+  if (!db) await initDB();
+  
+  return new Promise(async (resolve, reject) => {
+    try {
+      const transaction = db.transaction([STORES.LOCAL_FOLDERS], 'readwrite');
+      const store = transaction.objectStore(STORES.LOCAL_FOLDERS);
+      
+      // Clear existing
+      await new Promise((res, rej) => {
+        const clearRequest = store.clear();
+        clearRequest.onsuccess = () => res();
+        clearRequest.onerror = () => rej(clearRequest.error);
+      });
+      
+      // Add all folders
+      for (const folder of localFolders) {
+        await new Promise((res, rej) => {
+          const addRequest = store.put(folder);
+          addRequest.onsuccess = () => res();
+          addRequest.onerror = () => rej(addRequest.error);
+        });
+      }
+      
+      console.log('[Storage] Saved', localFolders.length, 'local folder handles');
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Get all local folder handles
+export async function getLocalFolderHandles() {
+  if (!db) await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.LOCAL_FOLDERS], 'readonly');
+    const store = transaction.objectStore(STORES.LOCAL_FOLDERS);
+    const request = store.getAll();
+    
+    request.onsuccess = () => {
+      console.log('[Storage] Retrieved', request.result.length, 'local folder handles');
+      resolve(request.result);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Clear all local folder handles
+export async function clearLocalFolderHandles() {
+  if (!db) await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORES.LOCAL_FOLDERS], 'readwrite');
+    const store = transaction.objectStore(STORES.LOCAL_FOLDERS);
+    const request = store.clear();
+    
+    request.onsuccess = () => {
+      console.log('[Storage] Cleared all local folder handles');
+      resolve();
     };
     request.onerror = () => reject(request.error);
   });
