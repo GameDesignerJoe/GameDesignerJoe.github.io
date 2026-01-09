@@ -40,6 +40,11 @@ export async function createPlaylist(name) {
   showToast(`Playlist "${playlist.name}" created!`, 'success');
   
   await refreshPlaylists();
+  
+  // Refresh home page to show new playlist
+  const home = await import('./home.js');
+  await home.refreshFolders();
+  
   return playlist;
 }
 

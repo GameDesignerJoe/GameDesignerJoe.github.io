@@ -154,6 +154,17 @@
   overflow: hidden;
 }
 
+/* Playlist cards - remove background, adjust overflow */
+.folder-card.playlist-card {
+  background: transparent;
+  overflow: visible;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
 .folder-card:hover {
   background: var(--bg-tertiary);
   transform: scale(1.05);
@@ -229,6 +240,43 @@
 
 .folder-card:hover .folder-card-image img {
   transform: scale(1.1);
+}
+
+/* Playlist card - circular styling - HIGH SPECIFICITY */
+.folder-card.playlist-card .folder-card-image.playlist-image {
+  border-radius: 50% !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  overflow: hidden !important;
+  width: 100%;
+  padding-top: 100%; /* Perfect square */
+  aspect-ratio: 1 / 1;
+  margin-bottom: 0.25rem !important; /* Minimal gap to text */
+}
+
+.folder-card.playlist-card .folder-card-image.playlist-image img {
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  width: 100%;
+  height: 100%;
+}
+
+/* Text alignment for playlists */
+.folder-card.playlist-card .folder-card-info {
+  text-align: center !important;
+  width: 100%;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.folder-card.playlist-card .folder-card-name {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.3;
+}
+
+.folder-card.playlist-card .folder-card-count {
+  text-align: center;
 }
 
 /* Folder card info */

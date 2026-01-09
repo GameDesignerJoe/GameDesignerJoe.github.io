@@ -1,11 +1,12 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v1';
+const CACHE_NAME = 'music-player-v8-square-icon';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './config.js',
   './css/main.css',
+  './css/home.css',
   './css/player.css',
   './css/library.css',
   './css/playlists.css',

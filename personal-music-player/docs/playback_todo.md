@@ -1,13 +1,14 @@
 Playback ToDo
 Priority 1:
-- Get it to work with songs on your hard drive
-- The playback blocks the last item in the list. For exaample, in the dropbox folder, I can't see the Tantamount folder or add it, because the playbar is there. 
+- STILL BROKE: Dropbox links aren't refreshing and images are still not showing up. 
 - Get google drive to work with it.
-- When looking at the play track bar at the bottom. It only has pause, not the rest of the mechanics we want (next, previous, shuffle, etc.)
+
 
 Priority 2: 
 - The add current folder when you're in the folder button could be better. It's not alligned and could likely be an actual button "Add Current Folder". 
 - The amoung stacked alerts when you add songs is a bit much. 
+- The back arrow and ... right above and below the song list is odd.
+
 Priority 3:
 - get rid of those ugly buttons
 - Look at Jason's example for UI layout
@@ -39,6 +40,4 @@ Priority 3:
 - There's a cue that is odd and hard to get to. Need to look at a new design for that (look at what spotify does). You get to it on mobile by pressing the hamburger and then minimizing the now playing. 
 - Need a better cassette tape icon
 - I think playlists should showup on the main page. Perhaps they are circles instead of squares, or maybe it just doesn't matter. 
-- The back arrow and ... right above and below the song list is odd.
-- Images in dropbox aren't loading after coming back in the morning. Need to cache these. Tracks still play.
--
+- Let lines wordwrap

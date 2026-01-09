@@ -4,9 +4,11 @@
 import * as storage from './storage.js';
 import * as scanner from './scanner.js';
 import * as dropbox from './dropbox.js';
+import * as playlists from './playlists.js';
 import { showToast, showScreen } from './app.js';
 
 let allFolders = [];
+let allPlaylists = [];
 let isRefreshing = false;
 
 // Initialize home module
@@ -48,10 +50,16 @@ export async function refreshFolders() {
     // Combine both sources
     allFolders = [...localFolders, ...updatedDropboxFolders];
     
+    // Get playlists (refresh them first to ensure latest data)
+    await playlists.refreshPlaylists();
+    allPlaylists = playlists.getAllPlaylists() || [];
+    
+    console.log('[Home] Fetched playlists:', allPlaylists.length, allPlaylists);
+    
     // Build folder cards including subfolders
     await buildFolderCollection();
     
-    console.log(`[Home] Displayed ${allFolders.length} folders (${localFolders.length} local, ${updatedDropboxFolders.length} Dropbox)`);
+    console.log(`[Home] Displayed ${allFolders.length} folders (${localFolders.length} local, ${updatedDropboxFolders.length} Dropbox) and ${allPlaylists.length} playlists`);
     
   } catch (error) {
     console.error('[Home] Error refreshing folders:', error);
@@ -172,6 +180,12 @@ async function buildFolderCollection() {
     folderGrid.appendChild(card);
   });
   
+  // Create playlist cards (circular)
+  allPlaylists.forEach(playlist => {
+    const card = createPlaylistCard(playlist);
+    folderGrid.appendChild(card);
+  });
+  
   // Add "Add New Folder" card at the end
   const addCard = createAddFolderCard();
   folderGrid.appendChild(addCard);
@@ -207,6 +221,47 @@ function createFolderCard(folder) {
   
   // Card click handler - filter library to this folder
   card.addEventListener('click', () => handleFolderClick(folder.path));
+  
+  return card;
+}
+
+// Create playlist card element (circular)
+function createPlaylistCard(playlist) {
+  const card = document.createElement('div');
+  card.className = 'folder-card playlist-card';
+  card.dataset.playlistId = playlist.id;
+  
+  // Get album art from first track in playlist
+  let imageUrl = 'assets/icons/icon-512.svg'; // Default square icon
+  if (playlist.tracks && playlist.tracks.length > 0) {
+    const firstTrack = playlist.tracks[0];
+    if (firstTrack.albumArt) {
+      imageUrl = firstTrack.albumArt;
+    }
+  }
+  
+  const songCount = playlist.tracks ? playlist.tracks.length : 0;
+  
+  card.innerHTML = `
+    <div class="folder-card-image playlist-image">
+      <img src="${imageUrl}" alt="${escapeHtml(playlist.name)}" loading="lazy">
+    </div>
+    <button class="folder-play-btn" title="Play ${escapeHtml(playlist.name)}">▶</button>
+    <div class="folder-card-info">
+      <h3 class="folder-card-name">${escapeHtml(playlist.name)}</h3>
+      <p class="folder-card-count">${songCount} ${songCount === 1 ? 'song' : 'songs'}</p>
+    </div>
+  `;
+  
+  // Play button handler - play playlist
+  const playBtn = card.querySelector('.folder-play-btn');
+  playBtn.addEventListener('click', async (e) => {
+    e.stopPropagation(); // Don't trigger card click
+    await handlePlaylistPlay(playlist.id);
+  });
+  
+  // Card click handler - open playlist detail
+  card.addEventListener('click', () => handlePlaylistClick(playlist.id));
   
   return card;
 }
@@ -278,6 +333,24 @@ async function handleFolderClick(folderPath) {
   // Filter library to this folder
   const library = await import('./library.js');
   library.filterByFolder(folderPath);
+}
+
+// Handle playlist play button - play playlist
+async function handlePlaylistPlay(playlistId) {
+  console.log('[Home] Playing playlist:', playlistId);
+  
+  try {
+    await playlists.playPlaylist(playlistId);
+  } catch (error) {
+    console.error('[Home] Error playing playlist:', error);
+    showToast('Error playing playlist', 'error');
+  }
+}
+
+// Handle playlist card click - open playlist detail
+function handlePlaylistClick(playlistId) {
+  console.log('[Home] Playlist clicked:', playlistId);
+  playlists.viewPlaylist(playlistId);
 }
 
 // Refresh folder metadata (called by refresh button)
