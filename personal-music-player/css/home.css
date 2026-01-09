@@ -49,9 +49,58 @@
   background: var(--bg-tertiary);
 }
 
-/* Refresh button specific rotation */
-#refreshFoldersBtn:hover {
+/* Refresh Library Button */
+.btn-refresh {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-primary);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-refresh:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: var(--bg-secondary);
+}
+
+.btn-refresh:active {
+  transform: scale(0.98);
+}
+
+.refresh-icon {
+  font-size: 1.1rem;
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.btn-refresh:hover .refresh-icon {
   transform: rotate(180deg);
+}
+
+.refresh-text {
+  display: inline-block;
+}
+
+/* Hide text on smaller mobile screens */
+@media (max-width: 480px) {
+  .refresh-text {
+    display: none;
+  }
+  
+  .btn-refresh {
+    padding: 0.5rem;
+    border-radius: 50%;
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
 }
 
 /* Folder grid */
