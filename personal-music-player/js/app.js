@@ -395,6 +395,11 @@ function setupEventListeners() {
     showScreen('queue');
   });
   
+  // Mini player track info - click to open full player
+  document.querySelector('.mini-player-track-info')?.addEventListener('click', () => {
+    document.getElementById('playerScreen').classList.add('active');
+  });
+  
   // Mini player controls
   document.getElementById('miniPlayPauseBtn')?.addEventListener('click', (e) => {
     e.stopPropagation();

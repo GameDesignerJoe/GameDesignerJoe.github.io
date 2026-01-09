@@ -214,6 +214,24 @@ function updatePlayerUI() {
   document.getElementById('trackTitle').textContent = track.title;
   document.getElementById('trackArtist').textContent = track.artist;
   
+  // Update mini player track info
+  const miniPlayerArt = document.getElementById('miniPlayerArt');
+  const miniPlayerTitle = document.querySelector('.mini-player-title');
+  const miniPlayerArtist = document.querySelector('.mini-player-artist');
+  
+  if (miniPlayerArt) {
+    miniPlayerArt.src = 'assets/icons/icon-song-black..png';
+    miniPlayerArt.alt = track.album;
+  }
+  
+  if (miniPlayerTitle) {
+    miniPlayerTitle.textContent = track.title;
+  }
+  
+  if (miniPlayerArtist) {
+    miniPlayerArtist.textContent = track.artist;
+  }
+  
   // Update play/pause buttons
   const playPauseIcon = document.getElementById('playPauseIcon');
   const miniPlayBtn = document.getElementById('miniPlayPauseBtn');
