@@ -316,38 +316,30 @@
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  gap: 16px;
-  position: relative;
+  gap: 12px;
 }
 
-/* Track Info Left */
-.mini-player-track-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* Album Art - Left */
+.mini-player-art {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  background-color: var(--color-bg-secondary);
+  cursor: pointer;
+}
+
+/* Track Info - Center (mobile) / Next to Art (desktop) */
+.mini-player-info {
   flex: 1;
   min-width: 0;
   cursor: pointer;
 }
 
-.mini-player-art {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-sm);
-  object-fit: contain;
-  flex-shrink: 0;
-  background-color: var(--color-bg-secondary);
-  padding: var(--spacing-xs);
-}
-
-.mini-player-text {
-  flex: 1;
-  min-width: 0;
-}
-
 .mini-player-title {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -356,25 +348,45 @@
 }
 
 .mini-player-artist {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 400;
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Playback Controls Center */
-.mini-player-controls {
-  display: flex;
+/* Desktop Controls - Hidden on mobile */
+.mini-player-controls-desktop {
+  display: none;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
-/* Control Buttons */
+/* Mobile Play Button - Visible on mobile only */
+.mini-play-btn-mobile {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: var(--color-text-primary);
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.mini-play-btn-mobile:active {
+  transform: scale(0.95);
+}
+
+/* Control Buttons (Desktop) */
 .mini-control-btn {
   width: 36px;
   height: 36px;
@@ -404,7 +416,7 @@
   color: var(--color-text-primary);
 }
 
-/* Play/Pause Button - Larger */
+/* Play/Pause Button - Larger (Desktop) */
 .mini-control-btn-play {
   width: 40px;
   height: 40px;
@@ -418,9 +430,9 @@
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Volume Container */
+/* Volume Container - Desktop only */
 .mini-volume-container {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
@@ -473,39 +485,49 @@
   transform: scale(1.2);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .mini-player-track-info {
-    max-width: 200px;
+/* Desktop Layout (768px and up) */
+@media (min-width: 768px) {
+  .mini-player {
+    bottom: 0; /* No bottom nav on desktop */
   }
-}
-
-@media (max-width: 640px) {
-  .mini-volume-container {
+  
+  .mini-player-content {
+    padding: 12px 20px;
+    gap: 16px;
+  }
+  
+  /* Hide mobile play button */
+  .mini-play-btn-mobile {
     display: none;
   }
   
-  .mini-player-track-info {
-    max-width: 150px;
+  /* Show desktop controls */
+  .mini-player-controls-desktop {
+    display: flex;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  
+  /* Show volume control */
+  .mini-volume-container {
+    display: flex;
   }
   
   .mini-player-art {
-    width: 40px;
-    height: 40px;
+    width: 56px;
+    height: 56px;
   }
   
-  .mini-player-title {
-    font-size: 0.85rem;
-  }
-  
-  .mini-player-artist {
-    font-size: 0.75rem;
+  .mini-player-info {
+    max-width: 250px;
   }
 }
 
-@media (max-width: 480px) {
-  .mini-player-track-info {
-    max-width: 120px;
+/* Larger Desktop */
+@media (min-width: 1024px) {
+  .mini-player-info {
+    max-width: 300px;
   }
 }
 

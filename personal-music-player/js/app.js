@@ -402,13 +402,23 @@ function setupEventListeners() {
     showScreen('queue');
   });
   
-  // Mini player track info - click to open full player
-  document.querySelector('.mini-player-track-info')?.addEventListener('click', () => {
+  // Mini player - click album art or track info to open full player
+  document.getElementById('miniPlayerArt')?.addEventListener('click', () => {
     document.getElementById('playerScreen').classList.add('active');
   });
   
-  // Mini player controls
+  document.querySelector('.mini-player-info')?.addEventListener('click', () => {
+    document.getElementById('playerScreen').classList.add('active');
+  });
+  
+  // Mini player controls - Mobile play button
   document.getElementById('miniPlayPauseBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    player.togglePlayPause();
+  });
+  
+  // Mini player controls - Desktop play button
+  document.getElementById('miniPlayPauseBtnDesktop')?.addEventListener('click', (e) => {
     e.stopPropagation();
     player.togglePlayPause();
   });

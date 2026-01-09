@@ -359,25 +359,28 @@
       
       <!-- Controls -->
       <div class="mini-player-content" id="miniPlayerContent">
-        <!-- Track Info Left -->
-        <div class="mini-player-track-info">
-          <img id="miniPlayerArt" class="mini-player-art" src="assets/icons/icon-song-black..png" alt="Album Art">
-          <div class="mini-player-text">
-            <div class="mini-player-title">No track playing</div>
-            <div class="mini-player-artist">—</div>
-          </div>
+        <!-- Album Art Left -->
+        <img id="miniPlayerArt" class="mini-player-art" src="assets/icons/icon-song-black..png" alt="Album Art">
+        
+        <!-- Track Info Center -->
+        <div class="mini-player-info">
+          <div class="mini-player-title">No track playing</div>
+          <div class="mini-player-artist">—</div>
         </div>
         
-        <!-- Playback Controls Center -->
-        <div class="mini-player-controls">
+        <!-- Desktop Controls (hidden on mobile) -->
+        <div class="mini-player-controls-desktop">
           <button id="miniShuffleBtn" class="mini-control-btn" title="Shuffle">⇄</button>
           <button id="miniSkipBackBtn" class="mini-control-btn" title="Previous">⏮</button>
-          <button id="miniPlayPauseBtn" class="mini-control-btn mini-control-btn-play" title="Play">▶</button>
+          <button id="miniPlayPauseBtnDesktop" class="mini-control-btn mini-control-btn-play" title="Play">▶</button>
           <button id="miniSkipForwardBtn" class="mini-control-btn" title="Next">⏭</button>
           <button id="miniRepeatBtn" class="mini-control-btn" title="Repeat">↻</button>
         </div>
         
-        <!-- Volume Control Right -->
+        <!-- Mobile Play Button (visible on mobile only) -->
+        <button id="miniPlayPauseBtn" class="mini-play-btn-mobile" title="Play">▶</button>
+        
+        <!-- Desktop Volume Control (hidden on mobile) -->
         <div class="mini-volume-container">
           <span class="mini-volume-icon">🔊</span>
           <input type="range" id="miniVolumeSlider" class="mini-volume-slider" min="0" max="100" value="80">
