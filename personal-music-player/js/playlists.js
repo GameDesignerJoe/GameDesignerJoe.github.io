@@ -403,10 +403,13 @@ function createPlaylistTrackElement(track, playlistId) {
     div.classList.add('selected');
   }
   
+  // Use album art if available, otherwise default icon
+  const albumArtSrc = track.albumArt || 'assets/icons/icon-song-black..png';
+  
   div.innerHTML = `
     <div class="track-selection-indicator">✓</div>
     <div class="track-item-cover">
-      <img src="assets/icons/icon-song-black..png" alt="Album art">
+      <img src="${albumArtSrc}" alt="Album art">
       <button class="track-play-btn">▶</button>
     </div>
     <div class="track-item-info">

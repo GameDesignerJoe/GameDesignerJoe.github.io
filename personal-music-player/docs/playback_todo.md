@@ -1,18 +1,16 @@
 Playback ToDo
 Priority 1:
 - STILL BROKE: Dropbox links aren't refreshing and images are still not showing up. 
-- Get google drive to work with it.
-- Play button doesn't go to pause visually when playing.
-- Can't select a song, press control or shift and select another song and have it select all of them. 
-- Check for duplicate songs and tell the user "You've already got this song in there. Add?"
 - Need to do an auto refresh of your home folder whenever you add a source.
 
 Priority 2: 
-- The amoung stacked alerts when you add songs is a bit much. 
+- Get google drive to work with it.
+- The amount of stacked alerts when you add songs is a bit much. 
 - The back arrow and ... right above and below the song list is odd.
 - Pictures for playlists
 - : button on songs doesn't scroll with the window so if you're trying to better see the options in the menu, you can't
 - Need to update the very first page
+- We don't show duration
 
 Priority 3:
 Can we get the 'add to playlist' list to also show the gradienat circles.
