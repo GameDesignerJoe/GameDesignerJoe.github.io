@@ -407,9 +407,14 @@ export async function playPlaylist(playlistId) {
     return;
   }
   
-  // Import and play
+  // Import and play with playlist context
   const queue = await import('./queue.js');
-  await queue.playTrackWithQueue(tracks[0], tracks);
+  const context = {
+    type: 'playlist',
+    id: playlistId,
+    name: playlist.name
+  };
+  await queue.playTrackWithQueue(tracks[0], tracks, context);
 }
 
 // Play playlist starting from specific track
@@ -430,9 +435,14 @@ async function playPlaylistFromTrack(playlistId, trackId) {
   const startTrack = tracks.find(t => t.id === trackId);
   if (!startTrack) return;
   
-  // Import and play
+  // Import and play with playlist context
   const queue = await import('./queue.js');
-  await queue.playTrackWithQueue(startTrack, tracks);
+  const context = {
+    type: 'playlist',
+    id: playlistId,
+    name: playlist.name
+  };
+  await queue.playTrackWithQueue(startTrack, tracks, context);
 }
 
 // Show playlist context menu

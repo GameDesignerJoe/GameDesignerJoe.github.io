@@ -12,7 +12,8 @@ const queueState = {
   history: [],          // Previously played tracks
   shuffled: false,      // Is shuffle mode on?
   repeatMode: 'off',    // 'off', 'all', 'one'
-  originalOrder: []     // Original track order (for un-shuffling)
+  originalOrder: [],    // Original track order (for un-shuffling)
+  playbackContext: null // Where the music is being played from: { type, id, name }
 };
 
 // Initialize queue
@@ -48,8 +49,8 @@ function savePreferences() {
   localStorage.setItem('player_repeat', queueState.repeatMode);
 }
 
-// Play a track and set up queue
-export async function playTrackWithQueue(track, queueTracks = []) {
+// Play a track and set up queue with optional context
+export async function playTrackWithQueue(track, queueTracks = [], context = null) {
   console.log('[Queue] Playing track with queue:', track.title);
   
   // If no queue provided, use all library tracks
@@ -59,6 +60,12 @@ export async function playTrackWithQueue(track, queueTracks = []) {
   
   // Set up queue
   queueState.tracks = queueTracks;
+  
+  // Store playback context
+  queueState.playbackContext = context;
+  if (context) {
+    console.log('[Queue] Playback context:', context);
+  }
   
   // Find the track in the queue
   const trackIndex = queueState.tracks.findIndex(t => t.id === track.id);
@@ -503,4 +510,9 @@ export function getPlaybackModes() {
     shuffled: queueState.shuffled,
     repeatMode: queueState.repeatMode
   };
+}
+
+// Get playback context
+export function getPlaybackContext() {
+  return queueState.playbackContext;
 }

@@ -336,9 +336,18 @@ async function handleFolderPlay(folderPath) {
     // Shuffle the tracks for variety
     const shuffledTracks = [...folderTracks].sort(() => Math.random() - 0.5);
     
-    // Start playing from first track
+    // Get folder name from path (remove "local:" prefix if present)
+    let folderName = folderPath.split('/').filter(p => p).pop() || 'Music';
+    folderName = folderName.replace(/^local:/, ''); // Remove "local:" prefix
+    
+    // Start playing from first track with folder context
     const queue = await import('./queue.js');
-    await queue.playTrackWithQueue(shuffledTracks[0], shuffledTracks);
+    const context = {
+      type: 'folder',
+      id: folderPath,
+      name: folderName
+    };
+    await queue.playTrackWithQueue(shuffledTracks[0], shuffledTracks, context);
     
     showToast(`▶ Playing ${folderTracks.length} songs`, 'success');
     

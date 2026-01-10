@@ -362,6 +362,17 @@
   text-overflow: ellipsis;
 }
 
+.mini-player-location {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
 /* Desktop Controls - Hidden on mobile */
 .mini-player-controls-desktop {
   display: none;

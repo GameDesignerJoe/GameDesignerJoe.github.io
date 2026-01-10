@@ -431,25 +431,55 @@ function setupEventListeners() {
     document.getElementById('playerScreen').classList.add('active');
   });
   
-  // Mini player - click song title to navigate to song in library
+  // Mini player - click song title to navigate based on playback context
   document.querySelector('.mini-player-title')?.addEventListener('click', async (e) => {
     e.stopPropagation();
     const player = await import('./player.js');
+    const queue = await import('./queue.js');
     const currentTrack = player.getCurrentTrack();
+    const context = queue.getPlaybackContext();
     
-    if (currentTrack) {
-      // Navigate to library screen
+    if (!currentTrack) return;
+    
+    // Navigate based on context
+    if (context) {
+      if (context.type === 'playlist') {
+        // Navigate to playlist
+        showScreen('playlistDetail');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        playlists.viewPlaylist(context.id);
+      } else if (context.type === 'folder') {
+        // Navigate to home and scroll to folder
+        showScreen('home');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const folderCard = document.querySelector(`.folder-card[data-folder-path="${context.id}"]`);
+        if (folderCard) {
+          folderCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          folderCard.style.boxShadow = '0 0 0 3px rgba(29, 185, 84, 0.5)';
+          setTimeout(() => {
+            folderCard.style.boxShadow = '';
+          }, 1500);
+        }
+      } else {
+        // Default: navigate to library
+        showScreen('library');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const trackElement = document.querySelector(`.track-item[data-track-id="${currentTrack.id}"]`);
+        if (trackElement) {
+          trackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          trackElement.style.backgroundColor = 'rgba(29, 185, 84, 0.2)';
+          setTimeout(() => {
+            trackElement.style.backgroundColor = '';
+          }, 1500);
+        }
+      }
+    } else {
+      // No context: default to library
       showScreen('library');
-      
-      // Wait a moment for library to render
       await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Find and scroll to the current track
       const trackElement = document.querySelector(`.track-item[data-track-id="${currentTrack.id}"]`);
       if (trackElement) {
         trackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        // Flash highlight
         trackElement.style.backgroundColor = 'rgba(29, 185, 84, 0.2)';
         setTimeout(() => {
           trackElement.style.backgroundColor = '';

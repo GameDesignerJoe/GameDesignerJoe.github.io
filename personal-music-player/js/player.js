@@ -244,7 +244,7 @@ export function setVolume(volume) {
 }
 
 // Update player UI elements
-function updatePlayerUI() {
+async function updatePlayerUI() {
   const track = playerState.currentTrack;
   if (!track) return;
   
@@ -261,6 +261,7 @@ function updatePlayerUI() {
   const miniPlayerArt = document.getElementById('miniPlayerArt');
   const miniPlayerTitle = document.querySelector('.mini-player-title');
   const miniPlayerArtist = document.querySelector('.mini-player-artist');
+  const miniPlayerLocation = document.querySelector('.mini-player-location');
   
   if (miniPlayerArt) {
     miniPlayerArt.src = albumArtUrl;
@@ -273,6 +274,22 @@ function updatePlayerUI() {
   
   if (miniPlayerArtist) {
     miniPlayerArtist.textContent = track.artist;
+  }
+  
+  // Update location from playback context
+  if (miniPlayerLocation) {
+    const queue = await import('./queue.js');
+    const context = queue.getPlaybackContext();
+    
+    if (context && context.name) {
+      miniPlayerLocation.textContent = context.name;
+    } else if (track.source === 'local') {
+      miniPlayerLocation.textContent = 'Local Drive';
+    } else if (track.source === 'dropbox' || track.path) {
+      miniPlayerLocation.textContent = 'Dropbox';
+    } else {
+      miniPlayerLocation.textContent = '—';
+    }
   }
   
   // Update play/pause buttons
