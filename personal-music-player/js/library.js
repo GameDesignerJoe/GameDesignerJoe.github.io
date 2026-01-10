@@ -2,6 +2,7 @@
 // Handles displaying tracks in the library
 
 import * as storage from './storage.js';
+import { showToast } from './app.js';
 
 let allTracks = [];
 let displayedTracks = []; // Currently displayed/filtered tracks
@@ -10,6 +11,66 @@ let searchQuery = '';
 let updateInterval = null;
 let selectedTracks = new Set(); // Track IDs of selected tracks
 let lastSelectedTrackId = null; // For shift-click range selection
+let currentFolderPath = null; // Currently viewed folder path
+let currentSortOrder = 'title'; // title, artist, album, dateAdded, duration
+let currentViewMode = 'list'; // list or compact
+let shuffleEnabled = false;
+
+// Generate gradient for folder based on path hash
+function getFolderGradient(folderPath) {
+  const gradients = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    'linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)',
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+    'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)'
+  ];
+  
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < folderPath.length; i++) {
+    hash = ((hash << 5) - hash) + folderPath.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const index = Math.abs(hash) % gradients.length;
+  return gradients[index];
+}
+
+// Detect source location from track path
+function getTrackSource(track) {
+  const path = track.path.toLowerCase();
+  if (path.includes('dropbox')) return 'Dropbox';
+  if (path.includes('google drive') || path.includes('googledrive')) return 'Google Drive';
+  if (path.includes('onedrive')) return 'OneDrive';
+  return 'Local';
+}
+
+// Get folder art (cover.jpg → collage → cassette icon)
+async function getFolderArt(tracks, folderPath) {
+  // Priority 1: Check for cover.jpg/png in folder
+  const coverImages = tracks.filter(t => {
+    const filename = t.path.split('/').pop().toLowerCase();
+    return filename === 'cover.jpg' || filename === 'cover.png';
+  });
+  
+  if (coverImages.length > 0 && coverImages[0].albumArt) {
+    return { type: 'cover', art: coverImages[0].albumArt };
+  }
+  
+  // Priority 2: Create collage from first 4 unique album arts
+  const uniqueAlbumArts = [...new Set(tracks.map(t => t.albumArt))].filter(Boolean).slice(0, 4);
+  if (uniqueAlbumArts.length > 0) {
+    return { type: 'collage', arts: uniqueAlbumArts };
+  }
+  
+  // Priority 3: Default cassette icon
+  return { type: 'icon', art: 'assets/icons/icon-tape-black.png' };
+}
 
 // Initialize library
 export async function init() {
@@ -611,36 +672,379 @@ export function getAllTracks() {
   return allTracks;
 }
 
-// Filter library by folder path
-export function filterByFolder(folderPath) {
-  console.log('[Library] Filtering by folder:', folderPath);
+// Show enhanced folder header
+async function showEnhancedHeader(folderPath, tracks) {
+  const header = document.getElementById('libraryHeader');
+  const toolbar = document.getElementById('libraryToolbar');
+  const columnHeaders = document.getElementById('libraryColumnHeaders');
+  const tabs = document.querySelector('.library-tabs');
   
-  // Filter tracks to this folder
-  const filteredTracks = allTracks.filter(track => 
-    track.path.startsWith(folderPath)
-  );
+  if (!header || !toolbar) return;
   
-  console.log(`[Library] Found ${filteredTracks.length} tracks in folder`);
+  // Show header and toolbar, hide old tabs
+  header.style.display = 'block';
+  toolbar.style.display = 'flex';
+  columnHeaders.style.display = 'grid';
+  tabs.style.display = 'none';
   
-  // Display filtered tracks in Songs view
-  currentTab = 'songs';
-  displaySongs(filteredTracks);
+  // Get folder name from path and remove "local:" prefix
+  let folderName = folderPath.split('/').filter(p => p).pop() || 'Library';
+  folderName = folderName.replace(/^local:/i, '').trim();
   
-  // Update tabs to show Songs is active
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    if (btn.dataset.tab === 'songs') {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
+  // Update title
+  document.getElementById('libraryTitle').textContent = folderName;
+  
+  // Set gradient background
+  const gradient = getFolderGradient(folderPath);
+  header.style.background = gradient;
+  
+  // Get and display folder art
+  const artData = await getFolderArt(tracks, folderPath);
+  const collageEl = document.getElementById('libraryArtCollage');
+  const collageItems = collageEl.querySelectorAll('.collage-item');
+  
+  if (artData.type === 'cover') {
+    // Single cover image
+    collageItems.forEach((item, i) => {
+      item.style.backgroundImage = i === 0 ? `url(${artData.art})` : '';
+    });
+  } else if (artData.type === 'collage') {
+    // 2x2 collage
+    artData.arts.forEach((art, i) => {
+      if (collageItems[i]) {
+        collageItems[i].style.backgroundImage = `url(${art})`;
+      }
+    });
+    // Clear unused slots
+    for (let i = artData.arts.length; i < 4; i++) {
+      collageItems[i].style.backgroundImage = '';
+    }
+  } else {
+    // Icon fallback
+    collageItems[0].style.backgroundImage = `url(${artData.art})`;
+    for (let i = 1; i < 4; i++) {
+      collageItems[i].style.backgroundImage = '';
+    }
+  }
+  
+  // Calculate metadata
+  const trackCount = tracks.length;
+  const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
+  const durationText = formatDuration(totalDuration);
+  
+  // Detect source (check first track)
+  const source = tracks.length > 0 ? getTrackSource(tracks[0]) : 'Unknown';
+  
+  // Update metadata
+  document.querySelector('#libraryStats .playlist-song-count').textContent = 
+    `${trackCount} ${trackCount === 1 ? 'song' : 'songs'}`;
+  document.querySelector('#libraryStats .playlist-duration').textContent = durationText;
+  document.querySelector('#libraryStats .playlist-date-created').textContent = source;
+  
+  // Setup toolbar listeners
+  setupToolbarListeners(folderPath, tracks);
+  
+  // Store current folder
+  currentFolderPath = folderPath;
+}
+
+// Format duration
+function formatDuration(totalSeconds) {
+  if (!totalSeconds || totalSeconds === 0) return '0 min';
+  
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  
+  if (hours > 0) {
+    return `${hours} hr ${minutes} min`;
+  }
+  return `${minutes} min`;
+}
+
+// Setup toolbar event listeners
+function setupToolbarListeners(folderPath, tracks) {
+  // Back button - go to home
+  const backBtn = document.getElementById('libraryBackBtn');
+  backBtn.replaceWith(backBtn.cloneNode(true));
+  document.getElementById('libraryBackBtn').addEventListener('click', async () => {
+    hideEnhancedHeader();
+    clearFilter();
+    // Navigate to home screen
+    const app = await import('./app.js');
+    app.showScreen('home');
+  });
+  
+  // Play All button
+  const playBtn = document.getElementById('playLibraryBtn');
+  playBtn.replaceWith(playBtn.cloneNode(true));
+  document.getElementById('playLibraryBtn').addEventListener('click', async () => {
+    if (tracks.length > 0) {
+      const queue = await import('./queue.js');
+      await queue.playTrackWithQueue(tracks[0], tracks);
     }
   });
   
-  // Update search input placeholder to show filter
-  const searchInput = document.getElementById('searchInput');
-  if (searchInput) {
-    const folderName = folderPath.split('/').filter(p => p).pop() || 'folder';
-    searchInput.placeholder = `Search in ${folderName}...`;
+  // Shuffle button
+  const shuffleBtn = document.getElementById('shuffleLibraryBtn');
+  shuffleBtn.replaceWith(shuffleBtn.cloneNode(true));
+  const newShuffleBtn = document.getElementById('shuffleLibraryBtn');
+  if (shuffleEnabled) {
+    newShuffleBtn.classList.add('active');
   }
+  newShuffleBtn.addEventListener('click', () => {
+    shuffleEnabled = !shuffleEnabled;
+    if (shuffleEnabled) {
+      newShuffleBtn.classList.add('active');
+      showToast('Shuffle on', 'info');
+    } else {
+      newShuffleBtn.classList.remove('active');
+      showToast('Shuffle off', 'info');
+    }
+  });
+  
+  // Search button
+  const searchBtn = document.getElementById('searchLibraryBtn');
+  searchBtn.replaceWith(searchBtn.cloneNode(true));
+  document.getElementById('searchLibraryBtn').addEventListener('click', () => {
+    toggleLibrarySearch();
+  });
+  
+  // Sort/View button
+  const sortBtn = document.getElementById('sortViewLibraryBtn');
+  sortBtn.replaceWith(sortBtn.cloneNode(true));
+  document.getElementById('sortViewLibraryBtn').addEventListener('click', () => {
+    // For now, just show toast - full implementation would need modal
+    showToast('Sort options coming soon', 'info');
+  });
+  
+  // Search input
+  const searchInput = document.getElementById('librarySearchInput');
+  searchInput.replaceWith(searchInput.cloneNode(true));
+  document.getElementById('librarySearchInput').addEventListener('input', (e) => {
+    searchQuery = e.target.value.toLowerCase();
+    filterByFolder(folderPath); // Re-filter with search
+  });
+  
+  // Close search button
+  const closeSearchBtn = document.getElementById('closeLibrarySearchBtn');
+  closeSearchBtn.replaceWith(closeSearchBtn.cloneNode(true));
+  document.getElementById('closeLibrarySearchBtn').addEventListener('click', () => {
+    searchQuery = '';
+    document.getElementById('librarySearchInput').value = '';
+    toggleLibrarySearch();
+    filterByFolder(folderPath);
+  });
+}
+
+// Toggle library search bar
+function toggleLibrarySearch() {
+  const searchBar = document.getElementById('librarySearchBar');
+  const searchBtn = document.getElementById('searchLibraryBtn');
+  
+  if (searchBar.style.display === 'none' || !searchBar.style.display) {
+    searchBar.style.display = 'flex';
+    searchBtn.classList.add('active');
+    document.getElementById('librarySearchInput').focus();
+  } else {
+    searchBar.style.display = 'none';
+    searchBtn.classList.remove('active');
+  }
+}
+
+// Hide enhanced header
+function hideEnhancedHeader() {
+  const tabs = document.querySelector('.library-tabs');
+  
+  document.getElementById('libraryHeader').style.display = 'none';
+  document.getElementById('libraryToolbar').style.display = 'none';
+  document.getElementById('libraryColumnHeaders').style.display = 'none';
+  document.getElementById('librarySearchBar').style.display = 'none';
+  tabs.style.display = 'flex'; // Restore tabs
+  currentFolderPath = null;
+}
+
+// Filter library by folder path
+export async function filterByFolder(folderPath) {
+  console.log('[Library] Filtering by folder:', folderPath);
+  
+  // Filter tracks to this folder
+  let filteredTracks = allTracks.filter(track => 
+    track.path.startsWith(folderPath)
+  );
+  
+  // Apply search query if exists
+  if (searchQuery) {
+    filteredTracks = filteredTracks.filter(track => {
+      const title = (track.title || '').toLowerCase();
+      const artist = (track.artist || '').toLowerCase();
+      const album = (track.album || '').toLowerCase();
+      return title.includes(searchQuery) || artist.includes(searchQuery) || album.includes(searchQuery);
+    });
+  }
+  
+  console.log(`[Library] Found ${filteredTracks.length} tracks in folder`);
+  
+  // Show enhanced header
+  await showEnhancedHeader(folderPath, filteredTracks);
+  
+  // Display filtered tracks
+  currentTab = 'songs';
+  displayedTracks = filteredTracks;
+  
+  const libraryContent = document.getElementById('libraryContent');
+  libraryContent.innerHTML = '';
+  
+  if (filteredTracks.length === 0) {
+    libraryContent.innerHTML = '<div class="empty-state"><p>No tracks in this folder</p></div>';
+    return;
+  }
+  
+  // Sort and display tracks
+  const sortedTracks = sortTracks(filteredTracks);
+  sortedTracks.forEach((track, index) => {
+    const trackEl = createEnhancedTrackElement(track, index + 1);
+    libraryContent.appendChild(trackEl);
+  });
+  
+  // Update tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === 'songs');
+  });
+}
+
+// Sort tracks based on current order
+function sortTracks(tracks) {
+  const sorted = [...tracks];
+  
+  switch (currentSortOrder) {
+    case 'title':
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+      break;
+    case 'artist':
+      sorted.sort((a, b) => a.artist.localeCompare(b.artist));
+      break;
+    case 'album':
+      sorted.sort((a, b) => a.album.localeCompare(b.album));
+      break;
+    case 'duration':
+      sorted.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      break;
+    default:
+      break;
+  }
+  
+  return sorted;
+}
+
+// Create enhanced track element (grid layout like playlists)
+function createEnhancedTrackElement(track, trackNumber) {
+  const div = document.createElement('div');
+  div.className = 'track-item playlist-track-item';
+  div.dataset.trackId = track.id;
+  
+  const albumArtSrc = track.albumArt || 'assets/icons/icon-song-black..png';
+  const durationText = formatTrackDuration(track.duration);
+  
+  div.innerHTML = `
+    <div class="track-number-cell">
+      <div class="track-number">${trackNumber}</div>
+      <button class="track-play-btn">▶</button>
+      <div class="sound-bars">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+    </div>
+    <div class="track-title-cell">
+      <div class="track-item-cover">
+        <img src="${albumArtSrc}" alt="Album art">
+      </div>
+      <div class="track-item-info">
+        <div class="track-item-title">${escapeHtml(track.title)}</div>
+        <div class="track-item-artist">${escapeHtml(track.artist)}</div>
+      </div>
+    </div>
+    <div class="track-item-album">${escapeHtml(track.album)}</div>
+    <div class="track-item-artist">${escapeHtml(track.artist)}</div>
+    <div class="track-item-duration">${durationText}</div>
+    <button class="track-more-btn">⋮</button>
+  `;
+  
+  // Play button - single click to play/pause
+  const playBtn = div.querySelector('.track-play-btn');
+  playBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const player = await import('./player.js');
+    const currentTrack = player.getCurrentTrack();
+    
+    // Check if this is the current track
+    if (currentTrack && currentTrack.id === track.id) {
+      // Same track - toggle play/pause
+      player.togglePlayPause();
+    } else {
+      // Different track - play it
+      playTrack(track);
+    }
+  });
+  
+  // Update play button text dynamically when hovering
+  div.addEventListener('mouseenter', async () => {
+    const player = await import('./player.js');
+    const currentTrack = player.getCurrentTrack();
+    const isPlaying = player.isPlaying();
+    
+    if (currentTrack && currentTrack.id === track.id && isPlaying) {
+      playBtn.textContent = '⏸';
+    } else {
+      playBtn.textContent = '▶';
+    }
+  });
+  
+  // Click handling (same as before)
+  let clickTimer = null;
+  div.addEventListener('click', (e) => {
+    if (e.target.classList.contains('track-more-btn') || 
+        e.target.classList.contains('track-play-btn')) {
+      return;
+    }
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      playTrack(track);
+      return;
+    }
+    
+    if (clickTimer === null) {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+      clickTimer = setTimeout(() => {
+        const syntheticEvent = { ctrlKey: isCtrlOrCmd, metaKey: isCtrlOrCmd, shiftKey: isShift };
+        handleTrackSelection(track.id, div, syntheticEvent);
+        clickTimer = null;
+      }, 300);
+    } else {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      playTrack(track);
+    }
+  });
+  
+  // More button
+  div.querySelector('.track-more-btn').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    showTrackMenu(track, e.target);
+  });
+  
+  return div;
+}
+
+// Format track duration
+function formatTrackDuration(seconds) {
+  if (!seconds || seconds === 0) return '—';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Filter library by artist

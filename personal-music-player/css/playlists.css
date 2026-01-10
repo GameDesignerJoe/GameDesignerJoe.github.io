@@ -355,7 +355,7 @@
 
 .playlist-column-headers {
   display: grid;
-  grid-template-columns: 40px 3fr 2fr 2fr 60px;
+  grid-template-columns: 40px 3fr 2fr 2fr 80px 40px;
   gap: var(--spacing-md);
   padding: var(--spacing-sm) var(--spacing-md);
   background-color: var(--color-bg-secondary);
@@ -415,7 +415,7 @@
 /* Track Item Styles */
 .track-item {
   display: grid;
-  grid-template-columns: 40px 3fr 2fr 2fr 60px;
+  grid-template-columns: 40px 3fr 2fr 2fr 80px 40px;
   gap: var(--spacing-md);
   align-items: center;
   padding: var(--spacing-sm) var(--spacing-md);
@@ -696,8 +696,7 @@ background-color: rgba(255, 255, 255, 0.08);
   font-size: 1.2rem;
   opacity: 0;
   transition: all var(--transition-fast);
-  position: absolute;
-  right: var(--spacing-md);
+  margin: 0 auto;
 }
 
 .track-item:hover .track-more-btn {

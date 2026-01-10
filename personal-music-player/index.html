@@ -112,18 +112,57 @@
 
       <!-- Library Screen -->
       <div id="libraryScreen" class="screen">
-        <!-- Search Bar with Navigation -->
-        <div class="library-header">
-          <div class="library-nav">
-            <button id="navBackBtn" class="nav-arrow-btn" title="Go back">
-              <span>‹</span>
-            </button>
+        <!-- Enhanced Library/Folder Header (like playlist header) -->
+        <div id="libraryHeader" class="playlist-header" style="display: none;">
+          <button id="libraryBackBtn" class="playlist-back-btn">‹</button>
+          
+          <div class="playlist-header-content">
+            <!-- Folder Art -->
+            <div id="libraryArtCollage" class="playlist-art-collage">
+              <div class="collage-item"></div>
+              <div class="collage-item"></div>
+              <div class="collage-item"></div>
+              <div class="collage-item"></div>
+            </div>
+            
+            <!-- Library/Folder Info -->
+            <div class="playlist-header-info">
+              <h1 id="libraryTitle" class="playlist-title">Library</h1>
+              <div id="libraryStats" class="playlist-metadata">
+                <span class="playlist-song-count">0 songs</span>
+                <span class="playlist-separator">•</span>
+                <span class="playlist-duration">0 min</span>
+                <span class="playlist-separator">•</span>
+                <span class="playlist-date-created">Dropbox</span>
+              </div>
+            </div>
           </div>
-          <div class="search-container">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search songs, artists, albums...">
-            <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">✕</button>
-          </div>
-          <div class="library-header-spacer"></div>
+        </div>
+        
+        <!-- Library Toolbar (like playlist toolbar) -->
+        <div id="libraryToolbar" class="playlist-toolbar" style="display: none;">
+          <button id="playLibraryBtn" class="playlist-play-btn">
+            <span class="play-icon">▶</span>
+          </button>
+          
+          <button id="shuffleLibraryBtn" class="playlist-tool-btn" title="Shuffle">
+            <span class="shuffle-icon">⇄</span>
+          </button>
+          
+          <button id="searchLibraryBtn" class="playlist-tool-btn" title="Search">
+            <span>🔍</span>
+          </button>
+          
+          <button id="sortViewLibraryBtn" class="playlist-tool-btn playlist-sort-btn" title="Sort and view options">
+            <span id="sortViewLibraryLabel">Title</span>
+            <span class="sort-icon">☰</span>
+          </button>
+        </div>
+        
+        <!-- Search Bar (hidden by default, shown when search button clicked) -->
+        <div id="librarySearchBar" class="playlist-search-bar" style="display: none;">
+          <input type="text" id="librarySearchInput" class="playlist-search-input" placeholder="Search in library...">
+          <button id="closeLibrarySearchBtn" class="clear-search-btn">✕</button>
         </div>
 
         <!-- Library Tabs -->
@@ -131,6 +170,16 @@
           <button class="tab-btn active" data-tab="songs">Songs</button>
           <button class="tab-btn" data-tab="artists">Artists</button>
           <button class="tab-btn" data-tab="albums">Albums</button>
+        </div>
+        
+        <!-- Column Headers (like playlists) -->
+        <div id="libraryColumnHeaders" class="playlist-column-headers" style="display: none;">
+          <div class="column-header column-number">#</div>
+          <div class="column-header column-title" data-sort="title">Title</div>
+          <div class="column-header column-album" data-sort="album">Album</div>
+          <div class="column-header column-artist" data-sort="artist">Artist</div>
+          <div class="column-header column-duration" data-sort="duration">⏱</div>
+          <div class="column-header column-actions"></div>
         </div>
 
         <!-- Library Content -->
