@@ -340,11 +340,17 @@
 .mini-player-title {
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: #1DB954;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 2px;
+  transition: text-decoration 0.2s ease;
+}
+
+.mini-player-title:hover {
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .mini-player-artist {

@@ -278,13 +278,16 @@ function updatePlayerUI() {
   // Update play/pause buttons
   const playPauseIcon = document.getElementById('playPauseIcon');
   const miniPlayBtn = document.getElementById('miniPlayPauseBtn');
+  const miniPlayBtnDesktop = document.getElementById('miniPlayPauseBtnDesktop');
   
   if (playerState.isPlaying) {
     if (playPauseIcon) playPauseIcon.textContent = '⏸';
     if (miniPlayBtn) miniPlayBtn.textContent = '⏸';
+    if (miniPlayBtnDesktop) miniPlayBtnDesktop.textContent = '⏸';
   } else {
     if (playPauseIcon) playPauseIcon.textContent = '▶';
     if (miniPlayBtn) miniPlayBtn.textContent = '▶';
+    if (miniPlayBtnDesktop) miniPlayBtnDesktop.textContent = '▶';
   }
   
   // Update time display

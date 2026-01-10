@@ -426,12 +426,40 @@ function setupEventListeners() {
     showScreen('queue');
   });
   
-  // Mini player - click album art or track info to open full player
+  // Mini player - click album art to open full player
   document.getElementById('miniPlayerArt')?.addEventListener('click', () => {
     document.getElementById('playerScreen').classList.add('active');
   });
   
-  document.querySelector('.mini-player-info')?.addEventListener('click', () => {
+  // Mini player - click song title to navigate to song in library
+  document.querySelector('.mini-player-title')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const player = await import('./player.js');
+    const currentTrack = player.getCurrentTrack();
+    
+    if (currentTrack) {
+      // Navigate to library screen
+      showScreen('library');
+      
+      // Wait a moment for library to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Find and scroll to the current track
+      const trackElement = document.querySelector(`.track-item[data-track-id="${currentTrack.id}"]`);
+      if (trackElement) {
+        trackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Flash highlight
+        trackElement.style.backgroundColor = 'rgba(29, 185, 84, 0.2)';
+        setTimeout(() => {
+          trackElement.style.backgroundColor = '';
+        }, 1500);
+      }
+    }
+  });
+  
+  // Mini player artist - click to open full player
+  document.querySelector('.mini-player-artist')?.addEventListener('click', () => {
     document.getElementById('playerScreen').classList.add('active');
   });
   
