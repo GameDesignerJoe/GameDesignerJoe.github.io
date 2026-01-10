@@ -159,10 +159,38 @@
   gap: var(--spacing-md);
   background-color: var(--color-bg-secondary);
   border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
   position: relative;
-  margin-bottom: var(--spacing-xs);
+  border: 2px solid transparent;
+}
+
+.track-item.selected {
+  background-color: rgba(29, 185, 84, 0.15);
+  border-color: rgba(29, 185, 84, 0.3);
+}
+
+.track-selection-indicator {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  color: var(--color-bg-primary);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 1;
+}
+
+.track-item.selected .track-selection-indicator {
+  display: flex;
 }
 
 .track-item-cover {

@@ -8,6 +8,8 @@ let displayedTracks = []; // Currently displayed/filtered tracks
 let currentTab = 'songs';
 let searchQuery = '';
 let updateInterval = null;
+let selectedTracks = new Set(); // Track IDs of selected tracks
+let lastSelectedTrackId = null; // For shift-click range selection
 
 // Initialize library
 export async function init() {
@@ -226,10 +228,16 @@ function createTrackElement(track) {
   div.className = 'track-item';
   div.dataset.trackId = track.id;
   
+  // Mark as selected if in selection set
+  if (selectedTracks.has(track.id)) {
+    div.classList.add('selected');
+  }
+  
   // Use album art if available, otherwise default icon
   const albumArtSrc = track.albumArt || 'assets/icons/icon-song-black..png';
   
   div.innerHTML = `
+    <div class="track-selection-indicator">✓</div>
     <div class="track-item-cover">
       <img src="${albumArtSrc}" alt="Album art">
       <div class="sound-bars">
@@ -248,9 +256,44 @@ function createTrackElement(track) {
     <button class="track-more-btn">⋮</button>
   `;
   
-  // Add click event to play track
+  // Prevent text selection on shift-click (but allow the click event to fire)
+  div.addEventListener('mousedown', (e) => {
+    if (e.shiftKey) {
+      e.preventDefault(); // Prevent text selection
+    }
+  });
+  
+  // Single click = select/deselect (desktop only)
+  // Double click = play track
+  let clickTimer = null;
   div.addEventListener('click', (e) => {
-    if (!e.target.classList.contains('track-more-btn')) {
+    // Ignore clicks on buttons
+    if (e.target.classList.contains('track-more-btn') || 
+        e.target.classList.contains('track-play-btn')) {
+      return;
+    }
+    
+    // Check if this is a mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Mobile: single click plays immediately (no multi-select)
+      playTrack(track);
+      return;
+    }
+    
+    // Desktop: distinguish single vs double click
+    if (clickTimer === null) {
+      // First click - wait to see if it's a double click
+      clickTimer = setTimeout(() => {
+        // Single click - handle selection with modifiers
+        handleTrackSelection(track.id, div, e);
+        clickTimer = null;
+      }, 150); // 150ms window for double click (faster response)
+    } else {
+      // Double click - play track
+      clearTimeout(clickTimer);
+      clickTimer = null;
       playTrack(track);
     }
   });
@@ -259,11 +302,210 @@ function createTrackElement(track) {
   const moreBtn = div.querySelector('.track-more-btn');
   moreBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
-    const playlists = await import('./playlists.js');
-    playlists.showAddToPlaylistMenu(track, moreBtn);
+    showTrackMenu(track, moreBtn);
   });
   
   return div;
+}
+
+// Handle track selection with modifier keys
+function handleTrackSelection(trackId, trackElement, event) {
+  const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+  const isShift = event.shiftKey;
+  
+  if (isShift && lastSelectedTrackId) {
+    // Shift-click: Select range from last selected to this track
+    selectRange(lastSelectedTrackId, trackId);
+  } else if (isCtrlOrCmd) {
+    // Ctrl/Cmd-click: Toggle this track (add/remove from selection)
+    toggleTrackSelection(trackId, trackElement);
+    lastSelectedTrackId = trackId;
+  } else {
+    // Normal click: Clear selection and select only this track
+    clearSelection();
+    selectedTracks.add(trackId);
+    trackElement.classList.add('selected');
+    lastSelectedTrackId = trackId;
+    console.log(`[Library] ${selectedTracks.size} track selected`);
+  }
+}
+
+// Toggle track selection
+function toggleTrackSelection(trackId, trackElement) {
+  if (selectedTracks.has(trackId)) {
+    selectedTracks.delete(trackId);
+    trackElement.classList.remove('selected');
+  } else {
+    selectedTracks.add(trackId);
+    trackElement.classList.add('selected');
+  }
+  
+  console.log(`[Library] ${selectedTracks.size} tracks selected`);
+}
+
+// Select range of tracks (for shift-click)
+function selectRange(fromTrackId, toTrackId) {
+  // Get all visible track elements in order
+  const trackElements = Array.from(document.querySelectorAll('.track-item'));
+  
+  // Find indices of from and to tracks
+  const fromIndex = trackElements.findIndex(el => el.dataset.trackId === fromTrackId);
+  const toIndex = trackElements.findIndex(el => el.dataset.trackId === toTrackId);
+  
+  if (fromIndex === -1 || toIndex === -1) return;
+  
+  // Determine range (handle selection in either direction)
+  const startIndex = Math.min(fromIndex, toIndex);
+  const endIndex = Math.max(fromIndex, toIndex);
+  
+  // Select all tracks in range
+  for (let i = startIndex; i <= endIndex; i++) {
+    const trackEl = trackElements[i];
+    const trackId = trackEl.dataset.trackId;
+    
+    if (!selectedTracks.has(trackId)) {
+      selectedTracks.add(trackId);
+      trackEl.classList.add('selected');
+    }
+  }
+  
+  console.log(`[Library] ${selectedTracks.size} tracks selected (range)`);
+}
+
+// Show track menu (either for single track or selected tracks)
+async function showTrackMenu(track, buttonElement) {
+  const playlists = await import('./playlists.js');
+  
+  // Check if we have selected tracks
+  if (selectedTracks.size > 0) {
+    // Show menu for multiple selected tracks
+    showMultiTrackMenu(buttonElement);
+  } else {
+    // Show menu for single track
+    playlists.showAddToPlaylistMenu(track, buttonElement);
+  }
+}
+
+// Show menu for multiple selected tracks
+async function showMultiTrackMenu(buttonElement) {
+  const playlists = await import('./playlists.js');
+  const allPlaylists = playlists.getAllPlaylists();
+  
+  // Remove existing menu
+  const existingMenu = document.getElementById('multiTrackMenu');
+  if (existingMenu) {
+    existingMenu.remove();
+  }
+  
+  // Create menu
+  const menu = document.createElement('div');
+  menu.id = 'multiTrackMenu';
+  menu.className = 'context-menu active';
+  
+  const count = selectedTracks.size;
+  
+  if (allPlaylists.length === 0) {
+    menu.innerHTML = `
+      <div class="context-menu-header">${count} songs selected</div>
+      <div class="context-menu-item disabled">No playlists yet</div>
+      <button class="context-menu-item" data-action="create">
+        ➕ Create New Playlist
+      </button>
+      <div class="context-menu-divider"></div>
+      <button class="context-menu-item" data-action="clear">
+        ✕ Clear Selection
+      </button>
+    `;
+  } else {
+    menu.innerHTML = `
+      <div class="context-menu-header">${count} songs selected</div>
+      <button class="context-menu-item" data-action="create">
+        ➕ Create New Playlist
+      </button>
+      <div class="context-menu-divider"></div>
+      ${allPlaylists.map(playlist => `
+        <button class="context-menu-item" data-playlist-id="${playlist.id}">
+          📋 ${escapeHtml(playlist.name)}
+        </button>
+      `).join('')}
+      <div class="context-menu-divider"></div>
+      <button class="context-menu-item" data-action="clear">
+        ✕ Clear Selection
+      </button>
+    `;
+  }
+  
+  // Position near button
+  const rect = buttonElement.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = `${rect.bottom + 5}px`;
+  menu.style.right = `${window.innerWidth - rect.right}px`;
+  
+  document.body.appendChild(menu);
+  
+  // Handle menu clicks
+  menu.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const playlistId = item.dataset.playlistId;
+      const action = item.dataset.action;
+      menu.remove();
+      
+      if (action === 'create') {
+        const name = prompt('Enter playlist name:');
+        if (name) {
+          const newPlaylist = await playlists.createPlaylist(name);
+          if (newPlaylist) {
+            await addSelectedTracksToPlaylist(newPlaylist.id);
+          }
+        }
+      } else if (action === 'clear') {
+        clearSelection();
+      } else if (playlistId) {
+        await addSelectedTracksToPlaylist(parseInt(playlistId));
+      }
+    });
+  });
+  
+  // Close menu when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    });
+  }, 0);
+}
+
+// Add selected tracks to playlist
+async function addSelectedTracksToPlaylist(playlistId) {
+  const playlists = await import('./playlists.js');
+  const { showToast } = await import('./app.js');
+  
+  // Get full track objects for selected IDs
+  const selectedTrackObjects = allTracks.filter(t => selectedTracks.has(t.id));
+  
+  // Add each track to the playlist
+  for (const track of selectedTrackObjects) {
+    await playlists.addTrackToPlaylist(playlistId, track);
+  }
+  
+  showToast(`Added ${selectedTracks.size} songs to playlist`, 'success');
+  
+  // Clear selection
+  clearSelection();
+}
+
+// Clear all selections
+export function clearSelection() {
+  selectedTracks.clear();
+  
+  // Remove selected class from all tracks
+  document.querySelectorAll('.track-item.selected').forEach(el => {
+    el.classList.remove('selected');
+  });
+  
+  console.log('[Library] Selection cleared');
 }
 
 // Create artist group element
@@ -352,6 +594,8 @@ function escapeHtml(text) {
 
 // Handle tab switching
 export function switchTab(tab) {
+  // Clear selection when switching tabs
+  clearSelection();
   currentTab = tab;
   displayLibrary(tab);
 }

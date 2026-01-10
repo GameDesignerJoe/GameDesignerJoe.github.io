@@ -5,6 +5,8 @@ import * as storage from './storage.js';
 import { showToast } from './app.js';
 
 let allPlaylists = [];
+let selectedTracks = new Set(); // Track IDs of selected tracks in playlist
+let lastSelectedTrackId = null; // For shift-click range selection
 
 // Generate subdued gradient for playlist based on ID
 function getPlaylistGradient(playlistId) {
@@ -309,7 +311,13 @@ function createPlaylistTrackElement(track, playlistId) {
   div.className = 'track-item';
   div.dataset.trackId = track.id;
   
+  // Mark as selected if in selection set
+  if (selectedTracks.has(track.id)) {
+    div.classList.add('selected');
+  }
+  
   div.innerHTML = `
+    <div class="track-selection-indicator">✓</div>
     <div class="track-item-cover">
       <img src="assets/icons/icon-song-black..png" alt="Album art">
       <button class="track-play-btn">▶</button>
@@ -322,20 +330,248 @@ function createPlaylistTrackElement(track, playlistId) {
     <button class="track-more-btn">⋮</button>
   `;
   
-  // Click to play from this track
+  // Prevent text selection on shift-click (but allow the click event to fire)
+  div.addEventListener('mousedown', (e) => {
+    if (e.shiftKey) {
+      e.preventDefault(); // Prevent text selection
+    }
+  });
+  
+  // Single click = select/deselect (desktop only)
+  // Double click = play track
+  let clickTimer = null;
   div.addEventListener('click', (e) => {
-    if (!e.target.classList.contains('track-more-btn')) {
+    // Ignore clicks on buttons
+    if (e.target.classList.contains('track-more-btn') || 
+        e.target.classList.contains('track-play-btn')) {
+      return;
+    }
+    
+    // Check if this is a mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Mobile: single click plays immediately
+      playPlaylistFromTrack(playlistId, track.id);
+      return;
+    }
+    
+    // Desktop: distinguish single vs double click
+    if (clickTimer === null) {
+      clickTimer = setTimeout(() => {
+        // Single click - handle selection with modifiers
+        handleTrackSelection(track.id, div, e);
+        clickTimer = null;
+      }, 150); // 150ms window for double click (faster response)
+    } else {
+      // Double click - play track
+      clearTimeout(clickTimer);
+      clickTimer = null;
       playPlaylistFromTrack(playlistId, track.id);
     }
   });
   
-  // More button - shows remove option
+  // More button - shows remove option or bulk operations
   div.querySelector('.track-more-btn').addEventListener('click', async (e) => {
     e.stopPropagation();
-    showRemoveTrackMenu(playlistId, track.id, e.target);
+    if (selectedTracks.size > 0) {
+      showBulkRemoveMenu(playlistId, e.target);
+    } else {
+      showRemoveTrackMenu(playlistId, track.id, e.target);
+    }
   });
   
   return div;
+}
+
+// Handle track selection with modifier keys
+function handleTrackSelection(trackId, trackElement, event) {
+  const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+  const isShift = event.shiftKey;
+  
+  if (isShift && lastSelectedTrackId) {
+    selectRange(lastSelectedTrackId, trackId);
+  } else if (isCtrlOrCmd) {
+    toggleTrackSelection(trackId, trackElement);
+    lastSelectedTrackId = trackId;
+  } else {
+    clearSelection();
+    selectedTracks.add(trackId);
+    trackElement.classList.add('selected');
+    lastSelectedTrackId = trackId;
+  }
+}
+
+// Toggle track selection
+function toggleTrackSelection(trackId, trackElement) {
+  if (selectedTracks.has(trackId)) {
+    selectedTracks.delete(trackId);
+    trackElement.classList.remove('selected');
+  } else {
+    selectedTracks.add(trackId);
+    trackElement.classList.add('selected');
+  }
+}
+
+// Select range of tracks
+function selectRange(fromTrackId, toTrackId) {
+  const trackElements = Array.from(document.querySelectorAll('.track-item'));
+  const fromIndex = trackElements.findIndex(el => el.dataset.trackId === fromTrackId);
+  const toIndex = trackElements.findIndex(el => el.dataset.trackId === toTrackId);
+  
+  if (fromIndex === -1 || toIndex === -1) return;
+  
+  const startIndex = Math.min(fromIndex, toIndex);
+  const endIndex = Math.max(fromIndex, toIndex);
+  
+  for (let i = startIndex; i <= endIndex; i++) {
+    const trackEl = trackElements[i];
+    const trackId = trackEl.dataset.trackId;
+    
+    if (!selectedTracks.has(trackId)) {
+      selectedTracks.add(trackId);
+      trackEl.classList.add('selected');
+    }
+  }
+}
+
+// Clear all selections
+function clearSelection() {
+  selectedTracks.clear();
+  lastSelectedTrackId = null;
+  document.querySelectorAll('.track-item.selected').forEach(el => {
+    el.classList.remove('selected');
+  });
+}
+
+// Show bulk remove menu
+function showBulkRemoveMenu(playlistId, buttonElement) {
+  const existingMenu = document.getElementById('bulkRemoveMenu');
+  if (existingMenu) {
+    existingMenu.remove();
+  }
+  
+  const menu = document.createElement('div');
+  menu.id = 'bulkRemoveMenu';
+  menu.className = 'context-menu active';
+  
+  const count = selectedTracks.size;
+  
+  // Get other playlists (exclude current one)
+  const otherPlaylists = allPlaylists.filter(p => p.id !== playlistId);
+  
+  let playlistsHTML = '';
+  if (otherPlaylists.length > 0) {
+    playlistsHTML = `
+      <button class="context-menu-item" data-action="create">
+        ➕ Create New Playlist
+      </button>
+      <div class="context-menu-divider"></div>
+      ${otherPlaylists.map(playlist => `
+        <button class="context-menu-item" data-playlist-id="${playlist.id}">
+          📋 ${escapeHtml(playlist.name)}
+        </button>
+      `).join('')}
+      <div class="context-menu-divider"></div>
+    `;
+  } else {
+    playlistsHTML = `
+      <button class="context-menu-item" data-action="create">
+        ➕ Create New Playlist
+      </button>
+      <div class="context-menu-divider"></div>
+    `;
+  }
+  
+  menu.innerHTML = `
+    <div class="context-menu-header">${count} songs selected</div>
+    ${playlistsHTML}
+    <button class="context-menu-item" data-action="remove">
+      ✕ Remove from Playlist
+    </button>
+    <div class="context-menu-divider"></div>
+    <button class="context-menu-item" data-action="clear">
+      Clear Selection
+    </button>
+  `;
+  
+  const rect = buttonElement.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = `${rect.bottom + 5}px`;
+  menu.style.right = `${window.innerWidth - rect.right}px`;
+  
+  document.body.appendChild(menu);
+  
+  menu.querySelectorAll('.context-menu-item').forEach(item => {
+    item.addEventListener('click', async () => {
+      const action = item.dataset.action;
+      const targetPlaylistId = item.dataset.playlistId;
+      menu.remove();
+      
+      if (action === 'remove') {
+        await removeSelectedTracks(playlistId);
+      } else if (action === 'clear') {
+        clearSelection();
+      } else if (action === 'create') {
+        const name = prompt('Enter playlist name:');
+        if (name) {
+          const newPlaylist = await createPlaylist(name);
+          if (newPlaylist) {
+            await addSelectedTracksToPlaylist(newPlaylist.id, playlistId);
+          }
+        }
+      } else if (targetPlaylistId) {
+        await addSelectedTracksToPlaylist(parseInt(targetPlaylistId), playlistId);
+      }
+    });
+  });
+  
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    });
+  }, 0);
+}
+
+// Add selected tracks to another playlist
+async function addSelectedTracksToPlaylist(targetPlaylistId, sourcePlaylistId) {
+  const count = selectedTracks.size;
+  
+  // Get full track objects for selected IDs
+  const selectedTrackIds = Array.from(selectedTracks);
+  for (const trackId of selectedTrackIds) {
+    const track = await storage.getTrackById(trackId);
+    if (track) {
+      await addTrackToPlaylist(targetPlaylistId, track);
+    }
+  }
+  
+  const targetPlaylist = allPlaylists.find(p => p.id === targetPlaylistId);
+  showToast(`Added ${count} songs to "${targetPlaylist?.name}"`, 'success');
+  
+  clearSelection();
+}
+
+// Remove selected tracks from playlist
+async function removeSelectedTracks(playlistId) {
+  const playlist = allPlaylists.find(p => p.id === playlistId);
+  if (!playlist) return;
+  
+  const count = selectedTracks.size;
+  
+  // Remove all selected tracks
+  playlist.tracks = playlist.tracks.filter(t => !selectedTracks.has(t.id));
+  playlist.updatedAt = Date.now();
+  
+  await storage.savePlaylist(playlist);
+  showToast(`Removed ${count} songs from playlist`, 'success');
+  
+  clearSelection();
+  await refreshPlaylists();
+  viewPlaylist(playlistId);
 }
 
 // Show remove track menu

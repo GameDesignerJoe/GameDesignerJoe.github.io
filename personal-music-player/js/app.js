@@ -207,6 +207,16 @@ async function performStartupLinkCheck() {
 
 // Show specific screen
 function showScreen(screenName) {
+  // Clear library selection when leaving library screen
+  if (appState.currentScreen === 'library' && screenName !== 'library') {
+    library.clearSelection();
+  }
+  
+  // Clear playlist selection when leaving playlistDetail screen
+  if (appState.currentScreen === 'playlistDetail' && screenName !== 'playlistDetail') {
+    // Note: clearSelection is private in playlists.js, selection clears on viewPlaylist()
+  }
+  
   // Hide all screens
   document.querySelectorAll('.screen').forEach(screen => {
     screen.classList.remove('active');

@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v21-interactive-mini-player';
+const CACHE_NAME = 'music-player-v26-shift-click-fixed';
 const APP_SHELL = [
   './',
   './index.html',
