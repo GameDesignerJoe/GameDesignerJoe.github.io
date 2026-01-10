@@ -25,21 +25,22 @@
 .nav-arrow-btn {
   width: 36px;
   height: 36px;
-  background: rgba(0, 0, 0, 0.7);
+  background: transparent;
   border: none;
-  border-radius: 50%;
-  color: var(--color-text-primary);
-  font-size: 24px;
+  color: white;
+  font-size: 2rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  padding: 8px;
 }
 
 .nav-arrow-btn:hover {
-  background: rgba(0, 0, 0, 0.9);
-  transform: scale(1.05);
+  transform: scale(1.1);
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.8);
 }
 
 .library-header-spacer {

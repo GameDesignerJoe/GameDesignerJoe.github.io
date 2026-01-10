@@ -35,6 +35,7 @@ Can we get the 'add to playlist' list to also show the gradienat circles.
 - Need to make the favicon white instead of black.
 - There's a cue that is odd and hard to get to. Need to look at a new design for that (look at what spotify does). You get to it on mobile by pressing the hamburger and then minimizing the now playing. 
 - Need a better cassette tape icon
+- Make it so you can add your on image to the playlist art. 
 
 MOBILE:
 - Mobile: Player clips the bottom of the buttons. 
