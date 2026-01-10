@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v29-shift-click-final-fix';
+const CACHE_NAME = 'music-player-v30-allow-duplicates';
 const APP_SHELL = [
   './',
   './index.html',

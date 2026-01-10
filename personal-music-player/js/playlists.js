@@ -139,15 +139,14 @@ export async function addTrackToPlaylist(playlistId, track, skipDuplicateCheck =
       console.log('[Playlists] User cancelled adding duplicate track');
       return;
     }
+    // User confirmed - add the duplicate anyway!
   }
   
-  // Add track (even if duplicate, if user confirmed)
-  if (!isDuplicate || skipDuplicateCheck) {
-    playlist.tracks.push({
-      id: track.id,
-      addedAt: Date.now()
-    });
-  }
+  // Add track (always add if we get here - user either confirmed or it's not a duplicate)
+  playlist.tracks.push({
+    id: track.id,
+    addedAt: Date.now()
+  });
   
   playlist.updatedAt = Date.now();
   
@@ -178,21 +177,17 @@ export async function addTracksToPlaylist(playlistId, tracks, skipDuplicateCheck
       console.log('[Playlists] User cancelled adding duplicate tracks');
       return false;
     }
+    // User confirmed - add all tracks including duplicates!
   }
   
-  // Add all tracks (including duplicates if user confirmed)
+  // Add all tracks (including duplicates if user confirmed or skipDuplicateCheck is true)
   let addedCount = 0;
   for (const track of tracks) {
-    const isDuplicate = playlist.tracks.some(t => t.id === track.id);
-    if (!isDuplicate || skipDuplicateCheck || duplicates.length > 0) {
-      if (!isDuplicate) {
-        playlist.tracks.push({
-          id: track.id,
-          addedAt: Date.now()
-        });
-        addedCount++;
-      }
-    }
+    playlist.tracks.push({
+      id: track.id,
+      addedAt: Date.now()
+    });
+    addedCount++;
   }
   
   playlist.updatedAt = Date.now();
