@@ -15,6 +15,7 @@ Priority 2:
 - Need to update the very first page
 
 Priority 3:
+Can we get the 'add to playlist' list to also show the gradienat circles.
 - Consider view modes for the library (big grid, small grid, list, details, etc)
 - get rid of those ugly buttons
 - Look at Jason's example for UI layout

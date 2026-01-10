@@ -87,30 +87,122 @@ export async function deletePlaylist(playlistId) {
   await refreshPlaylists();
 }
 
-// Add track to playlist
-export async function addTrackToPlaylist(playlistId, track) {
+// Show duplicate confirmation modal
+function showDuplicateConfirmation(playlistName, duplicateCount, totalCount) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('duplicateModal');
+    const message = document.getElementById('duplicateModalMessage');
+    const addAnywayBtn = document.getElementById('duplicateAddAnywayBtn');
+    const cancelBtn = document.getElementById('duplicateCancelBtn');
+    
+    // Set message with proper singular/plural
+    const songWord = duplicateCount === 1 ? 'This song is' : 'These songs are';
+    message.textContent = `${songWord} already in your '${playlistName}' playlist.`;
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Handle buttons
+    const handleAddAnyway = () => {
+      cleanup();
+      resolve(true);
+    };
+    
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+    
+    const cleanup = () => {
+      modal.style.display = 'none';
+      addAnywayBtn.removeEventListener('click', handleAddAnyway);
+      cancelBtn.removeEventListener('click', handleCancel);
+    };
+    
+    addAnywayBtn.addEventListener('click', handleAddAnyway);
+    cancelBtn.addEventListener('click', handleCancel);
+  });
+}
+
+// Add track to playlist (with duplicate detection)
+export async function addTrackToPlaylist(playlistId, track, skipDuplicateCheck = false) {
   const playlist = allPlaylists.find(p => p.id === playlistId);
   if (!playlist) return;
   
   // Check if track already in playlist
-  if (playlist.tracks.some(t => t.id === track.id)) {
-    showToast('Track already in playlist', 'info');
-    return;
+  const isDuplicate = playlist.tracks.some(t => t.id === track.id);
+  
+  if (isDuplicate && !skipDuplicateCheck) {
+    // Show confirmation dialog
+    const shouldAdd = await showDuplicateConfirmation(playlist.name, 1, 1);
+    if (!shouldAdd) {
+      console.log('[Playlists] User cancelled adding duplicate track');
+      return;
+    }
   }
   
-  // Add track
-  playlist.tracks.push({
-    id: track.id,
-    addedAt: Date.now()
-  });
+  // Add track (even if duplicate, if user confirmed)
+  if (!isDuplicate || skipDuplicateCheck) {
+    playlist.tracks.push({
+      id: track.id,
+      addedAt: Date.now()
+    });
+  }
   
   playlist.updatedAt = Date.now();
   
   await storage.savePlaylist(playlist);
   console.log('[Playlists] Added track to playlist:', playlist.name);
-  showToast(`Added to "${playlist.name}"`, 'success');
+  
+  if (!skipDuplicateCheck) {
+    showToast(`Added to "${playlist.name}"`, 'success');
+  }
   
   await refreshPlaylists();
+}
+
+// Add multiple tracks to playlist (with duplicate detection)
+export async function addTracksToPlaylist(playlistId, tracks, skipDuplicateCheck = false) {
+  const playlist = allPlaylists.find(p => p.id === playlistId);
+  if (!playlist) return;
+  
+  // Check for duplicates
+  const duplicates = tracks.filter(track => 
+    playlist.tracks.some(t => t.id === track.id)
+  );
+  
+  if (duplicates.length > 0 && !skipDuplicateCheck) {
+    // Show confirmation dialog
+    const shouldAdd = await showDuplicateConfirmation(playlist.name, duplicates.length, tracks.length);
+    if (!shouldAdd) {
+      console.log('[Playlists] User cancelled adding duplicate tracks');
+      return false;
+    }
+  }
+  
+  // Add all tracks (including duplicates if user confirmed)
+  let addedCount = 0;
+  for (const track of tracks) {
+    const isDuplicate = playlist.tracks.some(t => t.id === track.id);
+    if (!isDuplicate || skipDuplicateCheck || duplicates.length > 0) {
+      if (!isDuplicate) {
+        playlist.tracks.push({
+          id: track.id,
+          addedAt: Date.now()
+        });
+        addedCount++;
+      }
+    }
+  }
+  
+  playlist.updatedAt = Date.now();
+  await storage.savePlaylist(playlist);
+  
+  console.log(`[Playlists] Added ${addedCount} tracks to playlist:`, playlist.name);
+  showToast(`Added ${addedCount} ${addedCount === 1 ? 'song' : 'songs'} to "${playlist.name}"`, 'success');
+  
+  await refreshPlaylists();
+  return true;
 }
 
 // Remove track from playlist
@@ -358,11 +450,16 @@ function createPlaylistTrackElement(track, playlistId) {
     
     // Desktop: distinguish single vs double click
     if (clickTimer === null) {
+      // Capture modifier keys immediately (they become stale in setTimeout)
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+      
       clickTimer = setTimeout(() => {
-        // Single click - handle selection with modifiers
-        handleTrackSelection(track.id, div, e);
+        // Single click - handle selection with captured modifiers
+        const syntheticEvent = { ctrlKey: isCtrlOrCmd, metaKey: isCtrlOrCmd, shiftKey: isShift };
+        handleTrackSelection(track.id, div, syntheticEvent);
         clickTimer = null;
-      }, 150); // 150ms window for double click (faster response)
+      }, 300); // 300ms window for double click
     } else {
       // Double click - play track
       clearTimeout(clickTimer);
@@ -538,21 +635,23 @@ function showBulkRemoveMenu(playlistId, buttonElement) {
 
 // Add selected tracks to another playlist
 async function addSelectedTracksToPlaylist(targetPlaylistId, sourcePlaylistId) {
-  const count = selectedTracks.size;
-  
   // Get full track objects for selected IDs
   const selectedTrackIds = Array.from(selectedTracks);
+  const tracks = [];
   for (const trackId of selectedTrackIds) {
     const track = await storage.getTrackById(trackId);
     if (track) {
-      await addTrackToPlaylist(targetPlaylistId, track);
+      tracks.push(track);
     }
   }
   
-  const targetPlaylist = allPlaylists.find(p => p.id === targetPlaylistId);
-  showToast(`Added ${count} songs to "${targetPlaylist?.name}"`, 'success');
+  // Use the new bulk add function with duplicate detection
+  const added = await addTracksToPlaylist(targetPlaylistId, tracks);
   
-  clearSelection();
+  // Clear selection if tracks were added
+  if (added !== false) {
+    clearSelection();
+  }
 }
 
 // Remove selected tracks from playlist

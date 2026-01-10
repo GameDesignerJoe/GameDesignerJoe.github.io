@@ -284,12 +284,17 @@ function createTrackElement(track) {
     
     // Desktop: distinguish single vs double click
     if (clickTimer === null) {
+      // Capture modifier keys immediately (they become stale in setTimeout)
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+      
       // First click - wait to see if it's a double click
       clickTimer = setTimeout(() => {
-        // Single click - handle selection with modifiers
-        handleTrackSelection(track.id, div, e);
+        // Single click - handle selection with captured modifiers
+        const syntheticEvent = { ctrlKey: isCtrlOrCmd, metaKey: isCtrlOrCmd, shiftKey: isShift };
+        handleTrackSelection(track.id, div, syntheticEvent);
         clickTimer = null;
-      }, 150); // 150ms window for double click (faster response)
+      }, 300); // 300ms window for double click
     } else {
       // Double click - play track
       clearTimeout(clickTimer);
@@ -480,20 +485,17 @@ async function showMultiTrackMenu(buttonElement) {
 // Add selected tracks to playlist
 async function addSelectedTracksToPlaylist(playlistId) {
   const playlists = await import('./playlists.js');
-  const { showToast } = await import('./app.js');
   
   // Get full track objects for selected IDs
   const selectedTrackObjects = allTracks.filter(t => selectedTracks.has(t.id));
   
-  // Add each track to the playlist
-  for (const track of selectedTrackObjects) {
-    await playlists.addTrackToPlaylist(playlistId, track);
+  // Use the new bulk add function with duplicate detection
+  const added = await playlists.addTracksToPlaylist(playlistId, selectedTrackObjects);
+  
+  // Clear selection if tracks were added
+  if (added !== false) {
+    clearSelection();
   }
-  
-  showToast(`Added ${selectedTracks.size} songs to playlist`, 'success');
-  
-  // Clear selection
-  clearSelection();
 }
 
 // Clear all selections
