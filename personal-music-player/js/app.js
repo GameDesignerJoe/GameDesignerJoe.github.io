@@ -449,17 +449,11 @@ function setupEventListeners() {
         await new Promise(resolve => setTimeout(resolve, 100));
         playlists.viewPlaylist(context.id);
       } else if (context.type === 'folder') {
-        // Navigate to home and scroll to folder
-        showScreen('home');
+        // Navigate to library and filter by folder
+        showScreen('library');
         await new Promise(resolve => setTimeout(resolve, 100));
-        const folderCard = document.querySelector(`.folder-card[data-folder-path="${context.id}"]`);
-        if (folderCard) {
-          folderCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          folderCard.style.boxShadow = '0 0 0 3px rgba(29, 185, 84, 0.5)';
-          setTimeout(() => {
-            folderCard.style.boxShadow = '';
-          }, 1500);
-        }
+        const library = await import('./library.js');
+        library.filterByFolder(context.id);
       } else {
         // Default: navigate to library
         showScreen('library');
@@ -488,9 +482,74 @@ function setupEventListeners() {
     }
   });
   
-  // Mini player artist - click to open full player
-  document.querySelector('.mini-player-artist')?.addEventListener('click', () => {
-    document.getElementById('playerScreen').classList.add('active');
+  // Mini player artist - click to filter library by artist
+  document.querySelector('.mini-player-artist')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const player = await import('./player.js');
+    const currentTrack = player.getCurrentTrack();
+    
+    if (currentTrack && currentTrack.artist) {
+      // Navigate to library screen
+      showScreen('library');
+      
+      // Wait a moment for library to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Filter by artist
+      const library = await import('./library.js');
+      library.filterByArtist(currentTrack.artist);
+    }
+  });
+  
+  // Mini player location - click to navigate to playback context
+  document.querySelector('.mini-player-location')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const player = await import('./player.js');
+    const queue = await import('./queue.js');
+    const currentTrack = player.getCurrentTrack();
+    const context = queue.getPlaybackContext();
+    
+    if (!currentTrack) return;
+    
+    // Navigate based on context
+    if (context) {
+      if (context.type === 'playlist') {
+        // Navigate to playlist
+        showScreen('playlistDetail');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        playlists.viewPlaylist(context.id);
+      } else if (context.type === 'folder') {
+        // Navigate to library and filter by folder
+        showScreen('library');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const library = await import('./library.js');
+        library.filterByFolder(context.id);
+      } else {
+        // Default: navigate to library and scroll to track
+        showScreen('library');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const trackElement = document.querySelector(`.track-item[data-track-id="${currentTrack.id}"]`);
+        if (trackElement) {
+          trackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          trackElement.style.backgroundColor = 'rgba(29, 185, 84, 0.2)';
+          setTimeout(() => {
+            trackElement.style.backgroundColor = '';
+          }, 1500);
+        }
+      }
+    } else {
+      // No context: go to library and scroll to track
+      showScreen('library');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const trackElement = document.querySelector(`.track-item[data-track-id="${currentTrack.id}"]`);
+      if (trackElement) {
+        trackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        trackElement.style.backgroundColor = 'rgba(29, 185, 84, 0.2)';
+        setTimeout(() => {
+          trackElement.style.backgroundColor = '';
+        }, 1500);
+      }
+    }
   });
   
   // Mini player controls - Mobile play button

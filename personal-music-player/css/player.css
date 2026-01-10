@@ -360,6 +360,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+  transition: text-decoration 0.2s ease;
+}
+
+.mini-player-artist:hover {
+  text-decoration: underline;
 }
 
 .mini-player-location {
@@ -371,6 +377,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 2px;
+  cursor: pointer;
+  transition: text-decoration 0.2s ease, opacity 0.2s ease;
+}
+
+.mini-player-location:hover {
+  text-decoration: underline;
+  opacity: 1;
 }
 
 /* Desktop Controls - Hidden on mobile */

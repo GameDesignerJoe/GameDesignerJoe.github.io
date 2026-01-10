@@ -393,6 +393,50 @@ export function filterByFolder(folderPath) {
   }
 }
 
+// Filter library by artist
+export function filterByArtist(artistName) {
+  console.log('[Library] Filtering by artist:', artistName);
+  
+  // Filter tracks to this artist
+  const filteredTracks = allTracks.filter(track => 
+    track.artist === artistName
+  );
+  
+  console.log(`[Library] Found ${filteredTracks.length} tracks by artist`);
+  
+  // Display filtered tracks in Artists view
+  currentTab = 'artists';
+  displayArtists(filteredTracks);
+  
+  // Update tabs to show Artists is active
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    if (btn.dataset.tab === 'artists') {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Scroll to the artist section
+  setTimeout(() => {
+    const artistGroup = document.querySelector('.artist-group');
+    if (artistGroup) {
+      artistGroup.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Highlight the artist group
+      artistGroup.style.backgroundColor = 'rgba(29, 185, 84, 0.1)';
+      setTimeout(() => {
+        artistGroup.style.backgroundColor = '';
+      }, 1500);
+    }
+  }, 100);
+  
+  // Update search input placeholder to show filter
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.placeholder = `Showing ${artistName}...`;
+  }
+}
+
 // Clear folder filter
 export function clearFilter() {
   // Reset search placeholder
