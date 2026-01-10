@@ -820,9 +820,11 @@ function setupToolbarListeners(folderPath, tracks) {
   const sortBtn = document.getElementById('sortViewLibraryBtn');
   sortBtn.replaceWith(sortBtn.cloneNode(true));
   document.getElementById('sortViewLibraryBtn').addEventListener('click', () => {
-    // For now, just show toast - full implementation would need modal
-    showToast('Sort options coming soon', 'info');
+    showLibrarySortModal();
   });
+  
+  // Update sort label
+  updateLibrarySortLabel();
   
   // Search input
   const searchInput = document.getElementById('librarySearchInput');
@@ -874,10 +876,17 @@ function hideEnhancedHeader() {
 export async function filterByFolder(folderPath) {
   console.log('[Library] Filtering by folder:', folderPath);
   
-  // Filter tracks to this folder
-  let filteredTracks = allTracks.filter(track => 
-    track.path.startsWith(folderPath)
-  );
+  // Check if viewing full library
+  let filteredTracks;
+  if (folderPath === 'library:all') {
+    // Show all tracks
+    filteredTracks = allTracks;
+  } else {
+    // Filter tracks to this folder
+    filteredTracks = allTracks.filter(track => 
+      track.path.startsWith(folderPath)
+    );
+  }
   
   // Apply search query if exists
   if (searchQuery) {
@@ -1356,6 +1365,74 @@ async function getDurationFromBlob(blob) {
       reject(error);
     }
   });
+}
+
+// Show library sort modal
+function showLibrarySortModal() {
+  const modal = document.getElementById('sortViewModal');
+  modal.style.display = 'flex';
+  
+  // Set current values
+  document.querySelectorAll('input[name="sortBy"]').forEach(input => {
+    input.checked = input.value === currentSortOrder;
+  });
+  
+  document.querySelectorAll('input[name="viewAs"]').forEach(input => {
+    input.checked = input.value === currentViewMode;
+  });
+  
+  // Handle close button
+  const closeBtn = document.getElementById('closeSortViewModal');
+  closeBtn.onclick = () => {
+    modal.style.display = 'none';
+  };
+  
+  // Handle sort option changes
+  document.querySelectorAll('input[name="sortBy"]').forEach(input => {
+    input.onchange = async () => {
+      currentSortOrder = input.value;
+      updateLibrarySortLabel();
+      
+      // Re-display with new sort order
+      if (currentFolderPath) {
+        await filterByFolder(currentFolderPath);
+      }
+    };
+  });
+  
+  // Handle view option changes
+  document.querySelectorAll('input[name="viewAs"]').forEach(input => {
+    input.onchange = async () => {
+      currentViewMode = input.value;
+      
+      // Re-display with new view mode
+      if (currentFolderPath) {
+        await filterByFolder(currentFolderPath);
+      }
+    };
+  });
+  
+  // Close on backdrop click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
+}
+
+// Update sort label
+function updateLibrarySortLabel() {
+  const label = document.getElementById('sortViewLibraryLabel');
+  if (!label) return;
+  
+  const sortLabels = {
+    title: 'Title',
+    artist: 'Artist',
+    album: 'Album',
+    duration: 'Duration'
+  };
+  
+  label.textContent = sortLabels[currentSortOrder] || 'Title';
 }
 
 // Clear folder filter

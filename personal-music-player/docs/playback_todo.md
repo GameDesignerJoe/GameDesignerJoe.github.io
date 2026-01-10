@@ -1,9 +1,6 @@
 Playback ToDo
 Priority 1:
 - Need to do an auto refresh of your home folder whenever you add a source.
-- Add a sort option on the library to be by source (dropbox, local drive, etc.)
-- Sort for FOlders
-- Sort for library
 - Things there no songs in playlists.
 
 
@@ -23,6 +20,7 @@ Priority 2:
 - Look into ID3 tags on your songs, or at least some of them so you can start seeing what that looks like. 
 - Get album art for playlists to show up in side bar, as well as the 'add to playtest menu
 - It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
+- Add sort by tytle, album, artist, direction by pressing on the titles on the bar. 
 
 Priority 3:
 Can we get the 'add to playlist' list to also show the gradienat circles.
