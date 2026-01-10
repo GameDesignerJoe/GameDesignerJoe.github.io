@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v31-playlist-album-art';
+const CACHE_NAME = 'music-player-v40-user-editable';
 const APP_SHELL = [
   './',
   './index.html',

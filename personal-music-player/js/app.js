@@ -214,7 +214,7 @@ function showScreen(screenName) {
   
   // Clear playlist selection when leaving playlistDetail screen
   if (appState.currentScreen === 'playlistDetail' && screenName !== 'playlistDetail') {
-    // Note: clearSelection is private in playlists.js, selection clears on viewPlaylist()
+    playlists.clearSelection();
   }
   
   // Hide all screens

@@ -158,20 +158,73 @@
 
       <!-- Playlist Detail Screen -->
       <div id="playlistDetailScreen" class="screen">
-        <div class="playlist-detail-header">
-          <button id="closePlaylistDetailBtn" class="icon-btn">←</button>
-          <h2 id="playlistDetailTitle">Playlist</h2>
-          <button id="playlistDetailMenuBtn" class="icon-btn">⋮</button>
+        <!-- Enhanced Playlist Header -->
+        <div id="playlistHeader" class="playlist-header">
+          <button id="closePlaylistDetailBtn" class="playlist-back-btn">←</button>
+          
+          <div class="playlist-header-content">
+            <!-- Album Art Collage -->
+            <div id="playlistArtCollage" class="playlist-art-collage">
+              <div class="collage-item"></div>
+              <div class="collage-item"></div>
+              <div class="collage-item"></div>
+              <div class="collage-item"></div>
+            </div>
+            
+            <!-- Playlist Info -->
+            <div class="playlist-header-info">
+              <h1 id="playlistDetailTitle" class="playlist-title">Playlist</h1>
+              <div id="playlistDetailStats" class="playlist-metadata">
+                <span class="playlist-song-count">0 songs</span>
+                <span class="playlist-separator">•</span>
+                <span class="playlist-date-created">Created Jan 2026</span>
+                <span class="playlist-separator">•</span>
+                <span class="playlist-duration">0 min</span>
+              </div>
+            </div>
+          </div>
         </div>
         
-        <div class="playlist-detail-info">
-          <div id="playlistDetailStats" class="playlist-stats"></div>
-          <button id="playPlaylistDetailBtn" class="btn-primary" style="display: none; width: 100%; max-width: 400px;">
-            ▶ Play All
+        <!-- Playlist Toolbar -->
+        <div class="playlist-toolbar">
+          <button id="playPlaylistBtn" class="playlist-play-btn">
+            <span class="play-icon">▶</span>
+          </button>
+          
+          <button id="shufflePlaylistBtn" class="playlist-tool-btn" title="Shuffle">
+            <span class="shuffle-icon">⇄</span>
+          </button>
+          
+          <button id="addPlaylistToPlaylistBtn" class="playlist-tool-btn" title="Add to playlist">
+            <span>⋯</span>
+          </button>
+          
+          <button id="searchPlaylistBtn" class="playlist-tool-btn" title="Search in playlist">
+            <span>🔍</span>
+          </button>
+          
+          <button id="sortViewBtn" class="playlist-tool-btn playlist-sort-btn" title="Sort and view options">
+            <span id="sortViewLabel">Custom order</span>
+            <span class="sort-icon">☰</span>
           </button>
         </div>
         
-        <div id="playlistDetailContent" class="library-content">
+        <!-- Search Bar (hidden by default) -->
+        <div id="playlistSearchBar" class="playlist-search-bar" style="display: none;">
+          <input type="text" id="playlistSearchInput" class="playlist-search-input" placeholder="Search songs in this playlist...">
+          <button id="closePlaylistSearchBtn" class="clear-search-btn">✕</button>
+        </div>
+        
+        <!-- Column Headers -->
+        <div class="playlist-column-headers">
+          <div class="column-header column-number">#</div>
+          <div class="column-header column-title" data-sort="title">Title</div>
+          <div class="column-header column-album" data-sort="album">Album</div>
+          <div class="column-header column-artist" data-sort="artist">Artist</div>
+          <div class="column-header column-duration" data-sort="duration">⏱</div>
+        </div>
+        
+        <div id="playlistDetailContent" class="playlist-detail-content">
           <!-- Tracks will be added dynamically -->
         </div>
       </div>
@@ -510,6 +563,91 @@
       </div>
       <div id="searchResults" class="search-results-container">
         <!-- Results will be dynamically populated -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Sort/View Modal -->
+  <div id="sortViewModal" class="modal-overlay" style="display: none;">
+    <div class="modal-dialog sort-view-modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Sort and View</h3>
+        <button id="closeSortViewModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Sort Options -->
+        <div class="sort-section">
+          <h4 class="sort-section-title">Sort by</h4>
+          <div class="sort-options">
+            <label class="sort-option">
+              <input type="radio" name="sortBy" value="custom" checked>
+              <span class="sort-option-label">Custom order</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+            <label class="sort-option">
+              <input type="radio" name="sortBy" value="title">
+              <span class="sort-option-label">Title</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+            <label class="sort-option">
+              <input type="radio" name="sortBy" value="artist">
+              <span class="sort-option-label">Artist</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+            <label class="sort-option">
+              <input type="radio" name="sortBy" value="album">
+              <span class="sort-option-label">Album</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+            <label class="sort-option">
+              <input type="radio" name="sortBy" value="dateAdded">
+              <span class="sort-option-label">Recently added</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+            <label class="sort-option">
+              <input type="radio" name="sortBy" value="duration">
+              <span class="sort-option-label">Duration</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- View Options -->
+        <div class="sort-section">
+          <h4 class="sort-section-title">View as</h4>
+          <div class="sort-options">
+            <label class="sort-option">
+              <input type="radio" name="viewAs" value="list" checked>
+              <span class="sort-option-icon">☰</span>
+              <span class="sort-option-label">List</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+            <label class="sort-option">
+              <input type="radio" name="viewAs" value="compact">
+              <span class="sort-option-icon">≡</span>
+              <span class="sort-option-label">Compact</span>
+              <span class="sort-option-check">✓</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Playlist to Playlist Modal -->
+  <div id="addPlaylistToPlaylistModal" class="modal-overlay" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Add to Playlist</h3>
+        <button id="closeAddPlaylistToPlaylistModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="playlistSelectionList" class="playlist-selection-list">
+          <!-- Playlists will be populated here -->
+        </div>
+        <button id="createNewPlaylistFromModal" class="btn-secondary" style="width: 100%; margin-top: 12px;">
+          + Create New Playlist
+        </button>
       </div>
     </div>
   </div>

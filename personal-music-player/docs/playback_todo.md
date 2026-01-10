@@ -11,6 +11,12 @@ Priority 2:
 - : button on songs doesn't scroll with the window so if you're trying to better see the options in the menu, you can't
 - Need to update the very first page
 - We don't show duration
+- Get the play button on the numbers thing working.
+- Get all songs to have a number count.
+- Move the play button over to the numbers. 
+- Get durations on songs.
+- Look into ID3 tags on your songs, or at least some of them so you can start seeing what that looks like. 
+- Get album art for playlists to show up in side bar, as well as the 'add to playtest menu
 
 Priority 3:
 Can we get the 'add to playlist' list to also show the gradienat circles.

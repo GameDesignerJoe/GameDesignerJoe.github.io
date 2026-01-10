@@ -350,8 +350,12 @@ function toggleTrackSelection(trackId, trackElement) {
 
 // Select range of tracks (for shift-click)
 function selectRange(fromTrackId, toTrackId) {
-  // Get all visible track elements in order
-  const trackElements = Array.from(document.querySelectorAll('.track-item'));
+  // Only select tracks within the library view
+  const libraryContent = document.getElementById('libraryContent');
+  if (!libraryContent) return;
+  
+  // Get all visible track elements in order within library content only
+  const trackElements = Array.from(libraryContent.querySelectorAll('.track-item'));
   
   // Find indices of from and to tracks
   const fromIndex = trackElements.findIndex(el => el.dataset.trackId === fromTrackId);
