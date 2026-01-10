@@ -688,8 +688,13 @@ async function showEnhancedHeader(folderPath, tracks) {
   tabs.style.display = 'none';
   
   // Get folder name from path and remove "local:" prefix
-  let folderName = folderPath.split('/').filter(p => p).pop() || 'Library';
-  folderName = folderName.replace(/^local:/i, '').trim();
+  let folderName;
+  if (folderPath === 'library:all') {
+    folderName = 'Library';
+  } else {
+    folderName = folderPath.split('/').filter(p => p).pop() || 'Library';
+    folderName = folderName.replace(/^local:/i, '').trim();
+  }
   
   // Update title
   document.getElementById('libraryTitle').textContent = folderName;
@@ -1089,6 +1094,44 @@ export function filterByArtist(artistName) {
   if (searchInput) {
     searchInput.placeholder = `Showing ${artistName}...`;
   }
+}
+
+// Show all tracks with enhanced header (called when clicking Library nav button)
+export async function showAllTracks() {
+  console.log('[Library] Showing all tracks with enhanced header');
+  
+  // Clear search query
+  searchQuery = '';
+  
+  // Get all tracks
+  const tracks = allTracks;
+  
+  if (tracks.length === 0) {
+    console.log('[Library] No tracks to display');
+    return;
+  }
+  
+  // Show enhanced header for "All Library"
+  await showEnhancedHeader('library:all', tracks);
+  
+  // Display tracks
+  currentTab = 'songs';
+  displayedTracks = tracks;
+  
+  const libraryContent = document.getElementById('libraryContent');
+  libraryContent.innerHTML = '';
+  
+  // Sort and display tracks
+  const sortedTracks = sortTracks(tracks);
+  sortedTracks.forEach((track, index) => {
+    const trackEl = createEnhancedTrackElement(track, index + 1);
+    libraryContent.appendChild(trackEl);
+  });
+  
+  // Update tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === 'songs');
+  });
 }
 
 // Clear folder filter

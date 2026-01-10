@@ -313,7 +313,13 @@ function setupEventListeners() {
         appState.foldersModified = false;
       }
       
-      showScreen(screen);
+      // Show all library tracks when clicking Library
+      if (screen === 'library') {
+        showScreen(screen);
+        await library.showAllTracks();
+      } else {
+        showScreen(screen);
+      }
     });
   });
   
@@ -329,7 +335,13 @@ function setupEventListeners() {
         appState.foldersModified = false;
       }
       
-      showScreen(screen);
+      // Show all library tracks when clicking Library
+      if (screen === 'library') {
+        showScreen(screen);
+        await library.showAllTracks();
+      } else {
+        showScreen(screen);
+      }
     });
   });
   
