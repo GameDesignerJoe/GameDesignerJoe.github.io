@@ -345,8 +345,10 @@ async function handleFolderPlay(folderPath) {
       return;
     }
     
-    // Shuffle the tracks for variety
-    const shuffledTracks = [...folderTracks].sort(() => Math.random() - 0.5);
+    // Sort tracks alphabetically by title (default for folders)
+    const sortedTracks = [...folderTracks].sort((a, b) => 
+      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
+    );
     
     // Get folder name from path (remove "local:" prefix if present)
     let folderName = folderPath.split('/').filter(p => p).pop() || 'Music';
@@ -359,9 +361,9 @@ async function handleFolderPlay(folderPath) {
       id: folderPath,
       name: folderName
     };
-    await queue.playTrackWithQueue(shuffledTracks[0], shuffledTracks, context);
+    await queue.playTrackWithQueue(sortedTracks[0], sortedTracks, context);
     
-    showToast(`▶ Playing ${folderTracks.length} songs`, 'success');
+    showToast(`▶ Playing ${sortedTracks.length} songs`, 'success');
     
   } catch (error) {
     console.error('[Home] Error playing folder:', error);

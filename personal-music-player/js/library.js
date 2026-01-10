@@ -784,8 +784,10 @@ function setupToolbarListeners(folderPath, tracks) {
   playBtn.replaceWith(playBtn.cloneNode(true));
   document.getElementById('playLibraryBtn').addEventListener('click', async () => {
     if (tracks.length > 0) {
+      // Sort tracks the same way they're displayed
+      const sortedTracks = sortTracks(tracks);
       const queue = await import('./queue.js');
-      await queue.playTrackWithQueue(tracks[0], tracks);
+      await queue.playTrackWithQueue(sortedTracks[0], sortedTracks);
     }
   });
   

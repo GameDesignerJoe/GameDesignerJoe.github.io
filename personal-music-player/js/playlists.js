@@ -695,6 +695,35 @@ function sortTracks(tracks) {
   return sorted;
 }
 
+// Sort tracks for playback (used by Play All button)
+function sortTracksForPlayback(tracks, sortOrder) {
+  const sorted = [...tracks];
+  
+  switch (sortOrder) {
+    case 'title':
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+      break;
+    case 'artist':
+      sorted.sort((a, b) => a.artist.localeCompare(b.artist));
+      break;
+    case 'album':
+      sorted.sort((a, b) => a.album.localeCompare(b.album));
+      break;
+    case 'dateAdded':
+      sorted.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+      break;
+    case 'duration':
+      sorted.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      break;
+    case 'custom':
+    default:
+      // Keep original order
+      break;
+  }
+  
+  return sorted;
+}
+
 // Refresh current playlist view
 async function refreshCurrentPlaylist() {
   if (!currentPlaylistData) return;
@@ -1171,6 +1200,8 @@ export async function playPlaylist(playlistId) {
   for (const playlistTrack of playlist.tracks) {
     const track = await storage.getTrackById(playlistTrack.id);
     if (track) {
+      // Add playlist-specific metadata for sorting
+      track.addedAt = playlistTrack.addedAt;
       tracks.push(track);
     }
   }
@@ -1180,6 +1211,10 @@ export async function playPlaylist(playlistId) {
     return;
   }
   
+  // Sort tracks based on the playlist's current sort order
+  const sortOrder = playlist.sortOrder || 'custom';
+  const sortedTracks = sortTracksForPlayback(tracks, sortOrder);
+  
   // Import and play with playlist context
   const queue = await import('./queue.js');
   const context = {
@@ -1187,7 +1222,7 @@ export async function playPlaylist(playlistId) {
     id: playlistId,
     name: playlist.name
   };
-  await queue.playTrackWithQueue(tracks[0], tracks, context);
+  await queue.playTrackWithQueue(sortedTracks[0], sortedTracks, context);
 }
 
 // Play playlist starting from specific track
