@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v11-2line-wrap';
+const CACHE_NAME = 'music-player-v13-back-button';
 const APP_SHELL = [
   './',
   './index.html',

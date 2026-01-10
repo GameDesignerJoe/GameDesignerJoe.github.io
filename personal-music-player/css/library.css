@@ -2,6 +2,58 @@
    Library Screen
    ========================================== */
 
+/* Library Header with Navigation */
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: var(--spacing-md);
+}
+
+.library-nav {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.nav-arrow-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-primary);
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.nav-arrow-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.05);
+}
+
+.library-header-spacer {
+  width: 72px; /* Same width as nav arrows */
+  flex-shrink: 0;
+}
+
+/* Hide spacer on mobile */
+@media (max-width: 768px) {
+  .library-header-spacer {
+    display: none;
+  }
+}
+
 /* Library Tabs */
 .library-tabs {
   display: flex;
@@ -29,14 +81,14 @@
   border-bottom-color: var(--color-accent);
 }
 
-/* Search Bar */
-.search-container {
+/* Search Bar - Centered in library header */
+.library-header .search-container {
   position: relative;
-  padding: var(--spacing-md);
-  background-color: var(--color-bg-primary);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: 0;
+  background-color: transparent;
+  flex: 1;
+  max-width: 40%;
+  margin: 0 auto;
 }
 
 .search-input {

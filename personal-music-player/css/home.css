@@ -14,6 +14,39 @@
   align-items: center;
   margin-bottom: 1.5rem;
   padding: 0 0.5rem;
+  gap: 1rem;
+}
+
+/* Navigation arrows */
+.header-nav {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nav-arrow-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  color: var(--text-primary);
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.nav-arrow-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.05);
+}
+
+.nav-arrow-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .home-header h1 {
@@ -22,6 +55,7 @@
   color: var(--text-primary);
   letter-spacing: -0.5px;
   margin: 0;
+  flex: 1;
 }
 
 /* Header actions container */

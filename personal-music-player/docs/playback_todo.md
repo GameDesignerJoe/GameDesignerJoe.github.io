@@ -5,7 +5,6 @@ Priority 1:
 
 
 Priority 2: 
-- The add current folder when you're in the folder button could be better. It's not alligned and could likely be an actual button "Add Current Folder". 
 - The amoung stacked alerts when you add songs is a bit much. 
 - The back arrow and ... right above and below the song list is odd.
 

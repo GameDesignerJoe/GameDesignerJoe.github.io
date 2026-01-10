@@ -112,10 +112,18 @@
 
       <!-- Library Screen -->
       <div id="libraryScreen" class="screen">
-        <!-- Search Bar -->
-        <div class="search-container">
-          <input type="text" id="searchInput" class="search-input" placeholder="Search songs, artists, albums...">
-          <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">✕</button>
+        <!-- Search Bar with Navigation -->
+        <div class="library-header">
+          <div class="library-nav">
+            <button id="navBackBtn" class="nav-arrow-btn" title="Go back">
+              <span>‹</span>
+            </button>
+          </div>
+          <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search songs, artists, albums...">
+            <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">✕</button>
+          </div>
+          <div class="library-header-spacer"></div>
         </div>
 
         <!-- Library Tabs -->

@@ -20,7 +20,9 @@ const appState = {
   isAuthenticated: false,
   currentScreen: 'auth',
   accessToken: null,
-  foldersModified: false // Track if folders were added/modified in sources
+  foldersModified: false, // Track if folders were added/modified in sources
+  navigationHistory: [], // Screen history for back/forward
+  navigationIndex: -1 // Current position in history
 };
 
 // Initialize app
@@ -282,6 +284,11 @@ function setupEventListeners() {
   // Global Search button
   document.getElementById('globalSearchBtn')?.addEventListener('click', () => {
     search.openSearch();
+  });
+  
+  // Library back button - navigate to home
+  document.getElementById('navBackBtn')?.addEventListener('click', () => {
+    showScreen('home');
   });
   
   // Bottom Navigation buttons
