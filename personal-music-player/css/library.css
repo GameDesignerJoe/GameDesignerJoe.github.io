@@ -197,10 +197,80 @@
   opacity: 0;
   transition: opacity 0.2s;
   cursor: pointer;
+  z-index: 3;
 }
 
 .track-item:hover .track-play-btn {
   opacity: 1;
+}
+
+/* Sound bars for now playing indicator */
+.sound-bars {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  padding: 2px 4px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 2;
+}
+
+.sound-bars .bar {
+  width: 3px;
+  background: #16A34A;
+  border-radius: 2px;
+  animation: sound-wave 0.8s ease-in-out infinite;
+}
+
+.sound-bars .bar:nth-child(1) {
+  animation-delay: 0s;
+  height: 30%;
+}
+
+.sound-bars .bar:nth-child(2) {
+  animation-delay: 0.2s;
+  height: 60%;
+}
+
+.sound-bars .bar:nth-child(3) {
+  animation-delay: 0.4s;
+  height: 80%;
+}
+
+.sound-bars .bar:nth-child(4) {
+  animation-delay: 0.6s;
+  height: 50%;
+}
+
+@keyframes sound-wave {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.5);
+  }
+}
+
+/* Show sound bars when track is playing (but not on hover) */
+.track-item.now-playing.playing .sound-bars {
+  opacity: 1;
+}
+
+/* Hide sound bars on hover (show play button instead) */
+.track-item.now-playing.playing:hover .sound-bars {
+  opacity: 0;
+}
+
+/* Green text for now playing track */
+.track-item.now-playing .track-item-title {
+  color: #1DB954;
 }
 
 .track-item-album {
@@ -236,15 +306,6 @@
 
 .track-item:hover, .track-item:active {
   background-color: var(--color-bg-elevated);
-}
-
-.track-item.playing {
-  background-color: var(--color-accent);
-}
-
-.track-item.playing .track-item-title,
-.track-item.playing .track-item-artist {
-  color: var(--color-text-primary);
 }
 
 .track-item-art {

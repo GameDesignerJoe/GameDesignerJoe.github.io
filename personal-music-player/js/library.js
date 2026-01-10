@@ -7,11 +7,56 @@ let allTracks = [];
 let displayedTracks = []; // Currently displayed/filtered tracks
 let currentTab = 'songs';
 let searchQuery = '';
+let updateInterval = null;
 
 // Initialize library
 export async function init() {
   console.log('[Library] Initializing library');
   await refreshLibrary();
+  
+  // Start polling for current track updates
+  startTrackPolling();
+}
+
+// Start polling to update now playing indicators
+function startTrackPolling() {
+  // Clear any existing interval
+  if (updateInterval) {
+    clearInterval(updateInterval);
+  }
+  
+  // Poll every 500ms to update now playing state
+  updateInterval = setInterval(() => {
+    updateNowPlayingIndicators();
+  }, 500);
+  
+  console.log('[Library] Started now playing polling');
+}
+
+// Update now playing indicators for all visible tracks
+async function updateNowPlayingIndicators() {
+  const player = await import('./player.js');
+  const currentTrack = player.getCurrentTrack();
+  const isCurrentlyPlaying = player.isPlaying();
+  
+  // Update all track elements
+  document.querySelectorAll('.track-item').forEach(trackEl => {
+    const trackId = trackEl.dataset.trackId;
+    
+    if (currentTrack && trackId === currentTrack.id) {
+      // This is the current track
+      trackEl.classList.add('now-playing');
+      
+      if (isCurrentlyPlaying) {
+        trackEl.classList.add('playing');
+      } else {
+        trackEl.classList.remove('playing');
+      }
+    } else {
+      // Not the current track
+      trackEl.classList.remove('now-playing', 'playing');
+    }
+  });
 }
 
 // Refresh library display
@@ -187,6 +232,12 @@ function createTrackElement(track) {
   div.innerHTML = `
     <div class="track-item-cover">
       <img src="${albumArtSrc}" alt="Album art">
+      <div class="sound-bars">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
       <button class="track-play-btn">▶</button>
     </div>
     <div class="track-item-info">
