@@ -97,7 +97,8 @@ export function extractMetadata(tags) {
     year: tags.year || null,
     genre: tags.genre || null,
     track: tags.track || null,
-    albumArtist: tags.album_artist || null
+    albumArtist: tags.album_artist || null,
+    duration: tags.TLEN ? parseInt(tags.TLEN) / 1000 : null // TLEN is in milliseconds
   };
 }
 

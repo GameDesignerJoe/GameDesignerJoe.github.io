@@ -487,6 +487,10 @@ async function createLocalTrackFromFile(fileEntry, baseFolderName) {
       if (metadata.title) title = metadata.title;
       if (metadata.artist) artist = metadata.artist;
       if (metadata.album) album = metadata.album;
+      if (metadata.duration) {
+        // Store duration from ID3 tags
+        fileEntry.duration = metadata.duration;
+      }
       if (metadata.albumArt) {
         albumArt = metadata.albumArt;
         console.log('[Scanner] ✓ Album art extracted from:', filename, 
@@ -525,6 +529,7 @@ async function createLocalTrackFromFile(fileEntry, baseFolderName) {
     artist,
     album,
     albumArt, // Store album art data URL
+    duration: fileEntry.duration || 0, // Duration in seconds from ID3 tags
     path: `local:${baseFolderName}/${fileEntry.path}`, // Prefix with source
     filename,
     size: fileSize,

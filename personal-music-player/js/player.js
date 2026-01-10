@@ -40,7 +40,7 @@ function setupAudioEvents() {
   const audio = playerState.audio;
   
   // When track is loaded and ready to play
-  audio.addEventListener('loadedmetadata', () => {
+  audio.addEventListener('loadedmetadata', async () => {
     playerState.duration = audio.duration;
     console.log('[Player] Track loaded, duration:', formatTime(audio.duration));
     updatePlayerUI();
@@ -49,6 +49,14 @@ function setupAudioEvents() {
     if (playerState.currentTrack) {
       mediaSession.updateMetadata(playerState.currentTrack);
       mediaSession.updatePositionState(playerState.duration, 0);
+      
+      // Update track duration in database if missing
+      if ((!playerState.currentTrack.duration || playerState.currentTrack.duration === 0) && audio.duration) {
+        console.log('[Player] Updating track duration in database:', audio.duration);
+        const updatedTrack = { ...playerState.currentTrack, duration: audio.duration };
+        await storage.saveTrack(updatedTrack);
+        playerState.currentTrack.duration = audio.duration;
+      }
     }
   });
   

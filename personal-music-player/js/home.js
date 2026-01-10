@@ -402,7 +402,16 @@ function handlePlaylistClick(playlistId) {
 // Refresh folder metadata (called by refresh button)
 export async function refreshFolderMetadata() {
   console.log('[Home] Manually refreshing folder metadata');
-  showToast('Refreshing folders...', 'info');
+  showToast('Refreshing metadata...', 'info');
+  
+  // Also update track durations for local files
+  try {
+    const library = await import('./library.js');
+    const updatedCount = await library.updateMissingDurations();
+    console.log(`[Home] Updated ${updatedCount} track durations`);
+  } catch (error) {
+    console.error('[Home] Error updating durations:', error);
+  }
   
   try {
     // Re-scan metadata for all folders

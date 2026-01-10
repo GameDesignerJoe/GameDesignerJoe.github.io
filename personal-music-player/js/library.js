@@ -1134,6 +1134,156 @@ export async function showAllTracks() {
   });
 }
 
+// Update all metadata from ID3 tags for local tracks
+export async function updateMissingDurations() {
+  console.log('[Library] Refreshing metadata from ID3 tags...');
+  
+  const tracks = await storage.getAllTracks();
+  
+  // Filter to local files only
+  const localTracks = tracks.filter(t => t.source === 'local' || t.path?.startsWith('local:'));
+  
+  if (localTracks.length === 0) {
+    console.log('[Library] No local tracks to update');
+    showToast('No local tracks found', 'info');
+    return 0;
+  }
+  
+  console.log(`[Library] Updating metadata for ${localTracks.length} local tracks...`);
+  
+  const id3Reader = await import('./id3-reader.js');
+  const localFilesModule = await import('./local-files.js');
+  let updatedCount = 0;
+  let processedCount = 0;
+  
+  // Process tracks in batches
+  for (const track of localTracks) {
+    try {
+      processedCount++;
+      
+      // Show progress every 10 tracks
+      if (processedCount % 10 === 0) {
+        showToast(`Updating metadata... (${processedCount}/${localTracks.length})`, 'info');
+      }
+      
+      // Get file handle
+      let fileHandle = track.fileHandle;
+      if (!fileHandle) {
+        const fullTrack = await storage.getTrackById(track.id);
+        fileHandle = fullTrack?.fileHandle;
+      }
+      
+      if (!fileHandle) {
+        console.warn(`[Library] No file handle for: ${track.title}`);
+        continue;
+      }
+      
+      // Verify permission
+      const hasPermission = await localFilesModule.verifyPermission(fileHandle);
+      if (!hasPermission) {
+        console.warn(`[Library] No permission for: ${track.title}`);
+        continue;
+      }
+      
+      // Get file and read ID3 tags
+      const file = await fileHandle.getFile();
+      const metadata = await id3Reader.readAudioFileMetadata(file);
+      
+      // Get duration from audio element
+      const duration = await getDurationFromFile(fileHandle);
+      
+      // Check if any metadata needs updating
+      let needsUpdate = false;
+      const updates = {};
+      
+      // Title
+      if (metadata.title && metadata.title !== track.title) {
+        updates.title = metadata.title;
+        needsUpdate = true;
+      }
+      
+      // Artist
+      if (metadata.artist && metadata.artist !== track.artist) {
+        updates.artist = metadata.artist;
+        needsUpdate = true;
+      }
+      
+      // Album
+      if (metadata.album && metadata.album !== track.album) {
+        updates.album = metadata.album;
+        needsUpdate = true;
+      }
+      
+      // Album Art
+      if (metadata.albumArt && metadata.albumArt !== track.albumArt) {
+        updates.albumArt = metadata.albumArt;
+        needsUpdate = true;
+      }
+      
+      // Duration - always update if we can get it from the file
+      if (duration && duration > 0) {
+        // Update if missing, zero, or different from stored value
+        if (!track.duration || track.duration === 0 || Math.abs(track.duration - duration) > 1) {
+          updates.duration = duration;
+          needsUpdate = true;
+        }
+      }
+      
+      // Save if anything changed
+      if (needsUpdate) {
+        const updatedTrack = { ...track, ...updates };
+        await storage.saveTrack(updatedTrack);
+        updatedCount++;
+        console.log(`[Library] Updated metadata for: ${track.title}`, updates);
+      }
+      
+    } catch (error) {
+      console.error(`[Library] Failed to update metadata for ${track.title}:`, error);
+    }
+  }
+  
+  console.log(`[Library] Updated ${updatedCount}/${localTracks.length} tracks`);
+  return updatedCount;
+}
+
+// Get duration from audio file using audio element
+async function getDurationFromFile(fileHandle) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const localFiles = await import('./local-files.js');
+      const fileUrl = await localFiles.getFileUrl(fileHandle);
+      
+      const audio = new Audio();
+      
+      audio.addEventListener('loadedmetadata', () => {
+        const duration = audio.duration;
+        audio.src = ''; // Clean up
+        localFiles.revokeFileUrl(fileUrl);
+        resolve(duration);
+      });
+      
+      audio.addEventListener('error', () => {
+        audio.src = ''; // Clean up
+        localFiles.revokeFileUrl(fileUrl);
+        reject(new Error('Failed to load audio'));
+      });
+      
+      audio.src = fileUrl;
+      audio.load();
+      
+      // Timeout after 3 seconds
+      setTimeout(() => {
+        audio.src = '';
+        localFiles.revokeFileUrl(fileUrl);
+        reject(new Error('Timeout loading audio'));
+      }, 3000);
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 // Clear folder filter
 export function clearFilter() {
   // Reset search placeholder

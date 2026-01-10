@@ -365,36 +365,29 @@ function setupEventListeners() {
     }
   });
   
-  // Refresh Library button - Rescan folders and update library
+  // Refresh Library button - Update metadata including durations
   document.getElementById('refreshLibraryBtn')?.addEventListener('click', async () => {
-    showToast('Refreshing library...', 'info');
+    console.log('[App] Refresh Library button clicked');
+    showToast('Updating library metadata...', 'info');
     
     try {
-      // Test Dropbox connection first
-      const isConnected = await dropbox.testConnection();
-      if (!isConnected) {
-        showToast('Connection failed. Please check Dropbox.', 'error');
-        return;
-      }
-      
-      // Get selected folders and rescan
-      const selectedFolders = sources.getSelectedFolders();
-      if (selectedFolders.length === 0) {
-        showToast('No folders selected. Go to Sources to add music.', 'info');
-        return;
-      }
-      
-      // Rescan folders
-      const scanner = await import('./scanner.js');
-      await scanner.scanSelectedFolders(selectedFolders);
+      // Update missing durations for all tracks
+      console.log('[App] Calling updateMissingDurations...');
+      const updatedCount = await library.updateMissingDurations();
+      console.log('[App] updateMissingDurations returned:', updatedCount);
       
       // Refresh library display
       await library.refreshLibrary();
       
-      showToast('✓ Library refreshed successfully!', 'success');
+      if (updatedCount > 0) {
+        showToast(`✓ Updated ${updatedCount} track${updatedCount > 1 ? 's' : ''}!`, 'success');
+      } else {
+        showToast('✓ Library is up to date', 'success');
+      }
       
     } catch (error) {
       console.error('[App] Refresh failed:', error);
+      console.error('[App] Error details:', error.stack);
       showToast('Refresh failed. Please try again.', 'error');
     }
   });

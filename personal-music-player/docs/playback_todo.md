@@ -1,6 +1,7 @@
 Playback ToDo
 Priority 1:
 - Need to do an auto refresh of your home folder whenever you add a source.
+- Add a sort option on the library to be by source (dropbox, local drive, etc.)
 
 Priority 2: 
 - Get google drive to work with it.
