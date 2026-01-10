@@ -1,6 +1,5 @@
 Playback ToDo
 Priority 1:
-- STILL BROKE: Dropbox links aren't refreshing and images are still not showing up. 
 - Need to do an auto refresh of your home folder whenever you add a source.
 
 Priority 2: 
