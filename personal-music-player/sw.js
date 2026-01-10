@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v40-user-editable';
+const CACHE_NAME = 'music-player-v41-image-cache-fix';
 const APP_SHELL = [
   './',
   './index.html',
@@ -61,24 +61,26 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // Skip caching for:
-  // - Dropbox API calls
+  // - Dropbox API calls (but NOT content delivery)
   // - Audio streaming
   // - OAuth callbacks
-  if (
-    url.hostname.includes('dropbox') ||
-    url.hostname.includes('dropboxapi') ||
-    request.url.includes('/callback') ||
-    request.destination === 'audio'
-  ) {
+  const isDropboxAPI = url.hostname === 'api.dropboxapi.com' || 
+                       url.hostname === 'content.dropboxapi.com';
+  const isDropboxContent = url.hostname.includes('dropboxusercontent.com');
+  const isOAuthCallback = request.url.includes('/callback');
+  const isAudioStream = request.destination === 'audio';
+
+  if ((isDropboxAPI || isOAuthCallback || isAudioStream) && !isDropboxContent) {
     return; // Let browser handle normally
   }
 
-  // For app shell and assets: Cache-first strategy
+  // For app shell, assets, and Dropbox images: Cache-first strategy
   event.respondWith(
     caches.match(request)
       .then((cachedResponse) => {
         if (cachedResponse) {
           // Return cached version
+          console.log('[SW] Serving from cache:', url.pathname);
           return cachedResponse;
         }
 
@@ -90,8 +92,11 @@ self.addEventListener('fetch', (event) => {
               // Clone the response
               const responseToCache = networkResponse.clone();
               
-              // Cache for next time
+              // Cache for next time (especially important for Dropbox images)
               caches.open(CACHE_NAME).then((cache) => {
+                if (isDropboxContent) {
+                  console.log('[SW] Caching Dropbox content:', url.pathname);
+                }
                 cache.put(request, responseToCache);
               });
             }
@@ -99,8 +104,8 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           })
           .catch((error) => {
-            console.error('[SW] Fetch failed:', error);
-            // Could return a fallback page here
+            console.error('[SW] Fetch failed for:', url.href, error);
+            // Could return a fallback image here
             throw error;
           });
       })

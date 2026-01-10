@@ -11,12 +11,46 @@ const DROPBOX_API = {
 };
 
 /**
- * Check if user is authenticated
+ * Check if the stored token is expired
+ * @returns {boolean} True if token is expired
+ */
+export function isTokenExpired() {
+  const expirationTime = localStorage.getItem('dropbox_token_expires');
+  
+  if (!expirationTime) {
+    // No expiration time stored, assume expired
+    return true;
+  }
+  
+  const now = Date.now();
+  const expired = now >= parseInt(expirationTime);
+  
+  if (expired) {
+    console.log('[Dropbox] Token has expired');
+  }
+  
+  return expired;
+}
+
+/**
+ * Check if user is authenticated with a valid (non-expired) token
  * @returns {boolean}
  */
 export function isAuthenticated() {
   const token = getAccessToken();
-  return !!token;
+  
+  if (!token) {
+    return false;
+  }
+  
+  // Check if token is expired
+  if (isTokenExpired()) {
+    console.log('[Dropbox] Token expired, clearing authentication');
+    clearAccessToken();
+    return false;
+  }
+  
+  return true;
 }
 
 /**
@@ -28,19 +62,26 @@ export function getAccessToken() {
 }
 
 /**
- * Store access token
+ * Store access token with expiration time
  * @param {string} token 
+ * @param {number} expiresIn - Seconds until expiration (default 4 hours)
  */
-export function setAccessToken(token) {
+export function setAccessToken(token, expiresIn = 14400) {
   localStorage.setItem('dropbox_access_token', token);
-  console.log('[Dropbox] Access token stored');
+  
+  // Store expiration timestamp (current time + expiresIn seconds)
+  const expirationTime = Date.now() + (expiresIn * 1000);
+  localStorage.setItem('dropbox_token_expires', expirationTime.toString());
+  
+  console.log('[Dropbox] Access token stored, expires at:', new Date(expirationTime).toLocaleString());
 }
 
 /**
- * Clear stored access token
+ * Clear stored access token and expiration time
  */
 export function clearAccessToken() {
   localStorage.removeItem('dropbox_access_token');
+  localStorage.removeItem('dropbox_token_expires');
   console.log('[Dropbox] Access token cleared');
 }
 
@@ -90,8 +131,9 @@ export function handleOAuthCallback() {
       console.log('[Dropbox] Token type:', tokenType);
       console.log('[Dropbox] Expires in:', expiresIn, 'seconds');
       
-      // Store the token
-      setAccessToken(accessToken);
+      // Store the token with expiration time
+      const expiresInSeconds = expiresIn ? parseInt(expiresIn) : 14400; // Default 4 hours
+      setAccessToken(accessToken, expiresInSeconds);
       
       // Clear the hash from URL
       window.history.replaceState(null, '', window.location.pathname);
