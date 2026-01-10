@@ -738,6 +738,10 @@ async function refreshCurrentPlaylist() {
     }
   }
   
+  // Update header with current track details
+  updatePlaylistHeader(currentPlaylistData, trackDetails);
+  
+  // Render track list
   renderPlaylistTracks(currentPlaylistData.id, trackDetails);
 }
 
