@@ -15,7 +15,7 @@ let searchQuery = ''; // Current search query
 let shuffleEnabled = false; // Shuffle toggle state
 
 // Generate subdued gradient for playlist based on ID
-function getPlaylistGradient(playlistId) {
+export function getPlaylistGradient(playlistId) {
   // Subdued gradient pairs - muted complementary tones
   const gradients = [
     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple-blue
@@ -33,6 +33,31 @@ function getPlaylistGradient(playlistId) {
   // Use playlist ID to get consistent gradient
   const index = playlistId % gradients.length;
   return gradients[index];
+}
+
+// Generate album art collage HTML for a playlist
+// Returns object with { html, hasImages } where hasImages indicates if any real album art was found
+export async function getPlaylistCollageData(playlistId) {
+  const playlist = allPlaylists.find(p => p.id === playlistId);
+  if (!playlist) {
+    return { albumArts: [], hasImages: false };
+  }
+  
+  // Get unique album arts from playlist tracks (first 4)
+  const albumArts = [];
+  for (const playlistTrack of playlist.tracks) {
+    if (albumArts.length >= 4) break;
+    
+    const track = await storage.getTrackById(playlistTrack.id);
+    if (track && track.albumArt && !albumArts.includes(track.albumArt)) {
+      albumArts.push(track.albumArt);
+    }
+  }
+  
+  return {
+    albumArts,
+    hasImages: albumArts.length > 0
+  };
 }
 
 // Initialize playlists
@@ -268,7 +293,7 @@ function displayPlaylists() {
 }
 
 // Update sidebar playlists
-function updateSidebarPlaylists() {
+async function updateSidebarPlaylists() {
   const sidebarList = document.getElementById('sidebarPlaylistsList');
   if (!sidebarList) return;
   
@@ -281,7 +306,7 @@ function updateSidebarPlaylists() {
   
   sidebarList.innerHTML = '';
   
-  allPlaylists.forEach(playlist => {
+  for (const playlist of allPlaylists) {
     const button = document.createElement('button');
     button.className = 'sidebar-playlist-item';
     button.dataset.playlistId = playlist.id;
@@ -289,8 +314,26 @@ function updateSidebarPlaylists() {
     const trackCount = playlist.tracks.length;
     const gradient = getPlaylistGradient(playlist.id);
     
+    // Get collage data
+    const collageData = await getPlaylistCollageData(playlist.id);
+    
+    let iconHTML = '';
+    if (collageData.hasImages) {
+      const albumArts = collageData.albumArts;
+      iconHTML = `
+        <div class="sidebar-playlist-icon sidebar-playlist-collage" style="background: ${gradient};" title="${escapeHtml(playlist.name)}">
+          <div class="sidebar-collage-grid">
+            ${albumArts.map(art => `<div class="collage-item" style="background-image: url(${art});"></div>`).join('')}
+            ${Array(4 - albumArts.length).fill('<div class="collage-item"></div>').join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      iconHTML = `<div class="sidebar-playlist-icon" style="background: ${gradient};" title="${escapeHtml(playlist.name)}"></div>`;
+    }
+    
     button.innerHTML = `
-      <div class="sidebar-playlist-icon" style="background: ${gradient};" title="${escapeHtml(playlist.name)}"></div>
+      ${iconHTML}
       <div class="sidebar-playlist-info">
         <div class="sidebar-playlist-name">${escapeHtml(playlist.name)}</div>
         <div class="sidebar-playlist-count">${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</div>
@@ -302,7 +345,7 @@ function updateSidebarPlaylists() {
     });
     
     sidebarList.appendChild(button);
-  });
+  }
 }
 
 // Create playlist element
@@ -977,49 +1020,140 @@ async function removeSelectedTracks(playlistId) {
   viewPlaylist(playlistId);
 }
 
-// Show remove track menu
-function showRemoveTrackMenu(playlistId, trackId, buttonElement) {
-  // Remove existing menu
-  const existingMenu = document.getElementById('removeTrackMenu');
-  if (existingMenu) {
-    existingMenu.remove();
+// Show remove track menu with add to playlist options
+async function showRemoveTrackMenu(playlistId, trackId, buttonElement) {
+  // Get the track
+  const track = await storage.getTrackById(trackId);
+  if (!track) return;
+  
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.className = 'modal active';
+  modal.id = 'trackOptionsModal';
+  
+  // Get other playlists (exclude current one)
+  const otherPlaylists = allPlaylists.filter(p => p.id !== playlistId);
+  
+  // Build playlist options HTML
+  let playlistsHTML = '';
+  
+  if (otherPlaylists.length > 0) {
+    for (const playlist of otherPlaylists) {
+      const gradient = getPlaylistGradient(playlist.id);
+      const trackCount = playlist.tracks.length;
+      
+      // Get collage data
+      const collageData = await getPlaylistCollageData(playlist.id);
+      
+      let iconHTML = '';
+      if (collageData.hasImages) {
+        const albumArts = collageData.albumArts;
+        iconHTML = `
+          <div class="playlist-selection-icon playlist-selection-collage" style="background: ${gradient};">
+            <div class="playlist-selection-collage-grid">
+              ${albumArts.map(art => `<div class="collage-item" style="background-image: url(${art});"></div>`).join('')}
+              ${Array(4 - albumArts.length).fill('<div class="collage-item"></div>').join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        iconHTML = `<div class="playlist-selection-icon" style="background: ${gradient};"></div>`;
+      }
+      
+      playlistsHTML += `
+        <button class="playlist-selection-item" data-playlist-id="${playlist.id}">
+          ${iconHTML}
+          <div class="playlist-selection-info">
+            <div class="playlist-selection-name">${escapeHtml(playlist.name)}</div>
+            <div class="playlist-selection-count">${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</div>
+          </div>
+        </button>
+      `;
+    }
   }
   
-  // Create menu
-  const menu = document.createElement('div');
-  menu.id = 'removeTrackMenu';
-  menu.className = 'context-menu active';
-  menu.innerHTML = `
-    <button class="context-menu-item" data-action="remove">
-      ✕ Remove from Playlist
-    </button>
+  modal.innerHTML = `
+    <div class="modal-content sort-view-modal">
+      <div class="modal-header">
+        <h2>Song Options</h2>
+        <button class="modal-close-btn" id="closeTrackOptionsModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="sort-section">
+          <button class="playlist-selection-item remove-from-playlist-btn" data-action="remove">
+            <div class="playlist-selection-icon" style="background: rgba(220, 38, 38, 0.8);">
+              <span style="font-size: 1.5rem;">✕</span>
+            </div>
+            <div class="playlist-selection-info">
+              <div class="playlist-selection-name">Remove from Playlist</div>
+            </div>
+          </button>
+        </div>
+        <div class="sort-section-title">ADD TO PLAYLIST</div>
+        <div class="sort-section">
+          <button class="playlist-selection-item create-playlist-btn" data-action="create">
+            <div class="playlist-selection-icon" style="background: var(--color-accent);">
+              <span style="font-size: 1.5rem;">+</span>
+            </div>
+            <div class="playlist-selection-info">
+              <div class="playlist-selection-name">Create New Playlist</div>
+            </div>
+          </button>
+        </div>
+        ${otherPlaylists.length > 0 ? '<div class="sort-section-title">YOUR PLAYLISTS</div>' : ''}
+        <div class="playlist-selection-list">
+          ${playlistsHTML.length > 0 ? playlistsHTML : '<div class="empty-state"><p>No other playlists</p></div>'}
+        </div>
+      </div>
+    </div>
   `;
   
-  // Position near button
-  const rect = buttonElement.getBoundingClientRect();
-  menu.style.position = 'fixed';
-  menu.style.top = `${rect.bottom + 5}px`;
-  menu.style.right = `${window.innerWidth - rect.right}px`;
+  document.body.appendChild(modal);
   
-  document.body.appendChild(menu);
+  // Handle close button
+  const closeBtn = modal.querySelector('#closeTrackOptionsModalBtn');
+  closeBtn.onclick = () => modal.remove();
   
-  // Handle click
-  menu.querySelector('.context-menu-item').addEventListener('click', async () => {
-    menu.remove();
-    await removeTrackFromPlaylist(playlistId, trackId);
-    // Refresh the view
-    viewPlaylist(playlistId);
+  // Handle remove from playlist
+  const removeBtn = modal.querySelector('.remove-from-playlist-btn');
+  if (removeBtn) {
+    removeBtn.onclick = async () => {
+      modal.remove();
+      await removeTrackFromPlaylist(playlistId, trackId);
+      viewPlaylist(playlistId);
+    };
+  }
+  
+  // Handle create new playlist
+  const createBtn = modal.querySelector('.create-playlist-btn');
+  if (createBtn) {
+    createBtn.onclick = async () => {
+      modal.remove();
+      const name = prompt('Enter playlist name:');
+      if (name) {
+        const newPlaylist = await createPlaylist(name);
+        if (newPlaylist) {
+          await addTrackToPlaylist(newPlaylist.id, track);
+        }
+      }
+    };
+  }
+  
+  // Handle playlist selection
+  modal.querySelectorAll('.playlist-selection-item[data-playlist-id]').forEach(item => {
+    item.onclick = async () => {
+      const targetPlaylistId = parseInt(item.dataset.playlistId);
+      modal.remove();
+      await addTrackToPlaylist(targetPlaylistId, track);
+    };
   });
   
-  // Close menu when clicking outside
-  setTimeout(() => {
-    document.addEventListener('click', function closeMenu(e) {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-      }
-    });
-  }, 0);
+  // Close on backdrop click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
 }
 
 // Play entire playlist
@@ -1144,78 +1278,114 @@ function showPlaylistMenu(playlistId, buttonElement) {
   }, 0);
 }
 
-// Show "Add to Playlist" menu for a track
-export function showAddToPlaylistMenu(track, buttonElement) {
-  // Remove existing menu
-  const existingMenu = document.getElementById('addToPlaylistMenu');
-  if (existingMenu) {
-    existingMenu.remove();
-  }
+// Show "Add to Playlist" modal for a track
+export async function showAddToPlaylistMenu(track, buttonElement) {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.className = 'modal active';
+  modal.id = 'addToPlaylistModal';
   
-  // Create menu
-  const menu = document.createElement('div');
-  menu.id = 'addToPlaylistMenu';
-  menu.className = 'context-menu active';
+  // Build playlist options HTML
+  let playlistsHTML = '';
   
   if (allPlaylists.length === 0) {
-    menu.innerHTML = `
-      <div class="context-menu-item disabled">No playlists yet</div>
-      <button class="context-menu-item" data-action="create">
-        ➕ Create New Playlist
-      </button>
-    `;
+    playlistsHTML = '<div class="empty-state"><p>No playlists yet</p></div>';
   } else {
-    menu.innerHTML = `
-      <button class="context-menu-item" data-action="create">
-        ➕ Create New Playlist
-      </button>
-      <div class="context-menu-divider"></div>
-      ${allPlaylists.map(playlist => `
-        <button class="context-menu-item" data-playlist-id="${playlist.id}">
-          📋 ${escapeHtml(playlist.name)}
+    for (const playlist of allPlaylists) {
+      const gradient = getPlaylistGradient(playlist.id);
+      const trackCount = playlist.tracks.length;
+      
+      // Get collage data
+      const collageData = await getPlaylistCollageData(playlist.id);
+      
+      let iconHTML = '';
+      if (collageData.hasImages) {
+        const albumArts = collageData.albumArts;
+        iconHTML = `
+          <div class="playlist-selection-icon playlist-selection-collage" style="background: ${gradient};">
+            <div class="playlist-selection-collage-grid">
+              ${albumArts.map(art => `<div class="collage-item" style="background-image: url(${art});"></div>`).join('')}
+              ${Array(4 - albumArts.length).fill('<div class="collage-item"></div>').join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        iconHTML = `<div class="playlist-selection-icon" style="background: ${gradient};"></div>`;
+      }
+      
+      playlistsHTML += `
+        <button class="playlist-selection-item" data-playlist-id="${playlist.id}">
+          ${iconHTML}
+          <div class="playlist-selection-info">
+            <div class="playlist-selection-name">${escapeHtml(playlist.name)}</div>
+            <div class="playlist-selection-count">${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</div>
+          </div>
         </button>
-      `).join('')}
-    `;
+      `;
+    }
   }
   
-  // Position near button
-  const rect = buttonElement.getBoundingClientRect();
-  menu.style.position = 'fixed';
-  menu.style.top = `${rect.bottom + 5}px`;
-  menu.style.right = `${window.innerWidth - rect.right}px`;
+  modal.innerHTML = `
+    <div class="modal-content sort-view-modal">
+      <div class="modal-header">
+        <h2>Add to Playlist</h2>
+        <button class="modal-close-btn" id="closeAddToPlaylistModalBtn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="sort-section">
+          <button class="playlist-selection-item create-playlist-btn" data-action="create">
+            <div class="playlist-selection-icon" style="background: var(--color-accent);">
+              <span style="font-size: 1.5rem;">+</span>
+            </div>
+            <div class="playlist-selection-info">
+              <div class="playlist-selection-name">Create New Playlist</div>
+            </div>
+          </button>
+        </div>
+        ${allPlaylists.length > 0 ? '<div class="sort-section-title">YOUR PLAYLISTS</div>' : ''}
+        <div class="playlist-selection-list">
+          ${playlistsHTML}
+        </div>
+      </div>
+    </div>
+  `;
   
-  document.body.appendChild(menu);
+  document.body.appendChild(modal);
   
-  // Handle menu clicks
-  menu.querySelectorAll('.context-menu-item').forEach(item => {
-    item.addEventListener('click', async () => {
-      const playlistId = item.dataset.playlistId;
-      const action = item.dataset.action;
-      menu.remove();
-      
-      if (action === 'create') {
-        const name = prompt('Enter playlist name:');
-        if (name) {
-          const newPlaylist = await createPlaylist(name);
-          if (newPlaylist) {
-            await addTrackToPlaylist(newPlaylist.id, track);
-          }
+  // Handle close button
+  const closeBtn = modal.querySelector('#closeAddToPlaylistModalBtn');
+  closeBtn.onclick = () => modal.remove();
+  
+  // Handle create new playlist
+  const createBtn = modal.querySelector('.create-playlist-btn');
+  if (createBtn) {
+    createBtn.onclick = async () => {
+      modal.remove();
+      const name = prompt('Enter playlist name:');
+      if (name) {
+        const newPlaylist = await createPlaylist(name);
+        if (newPlaylist) {
+          await addTrackToPlaylist(newPlaylist.id, track);
         }
-      } else if (playlistId) {
-        await addTrackToPlaylist(parseInt(playlistId), track);
       }
-    });
+    };
+  }
+  
+  // Handle playlist selection
+  modal.querySelectorAll('.playlist-selection-item[data-playlist-id]').forEach(item => {
+    item.onclick = async () => {
+      const playlistId = parseInt(item.dataset.playlistId);
+      modal.remove();
+      await addTrackToPlaylist(playlistId, track);
+    };
   });
   
-  // Close menu when clicking outside
-  setTimeout(() => {
-    document.addEventListener('click', function closeMenu(e) {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-      }
-    });
-  }, 0);
+  // Close on backdrop click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
 }
 
 // Get all playlists
@@ -1490,7 +1660,7 @@ function showSortViewModal() {
 }
 
 // Show add playlist to playlist modal
-function showAddPlaylistToPlaylistModal(sourcePlaylistId) {
+async function showAddPlaylistToPlaylistModal(sourcePlaylistId) {
   const modal = document.getElementById('addPlaylistToPlaylistModal');
   const list = document.getElementById('playlistSelectionList');
   
@@ -1501,15 +1671,33 @@ function showAddPlaylistToPlaylistModal(sourcePlaylistId) {
     list.innerHTML = '<div class="empty-state"><p>No other playlists available</p></div>';
   } else {
     list.innerHTML = '';
-    otherPlaylists.forEach(playlist => {
+    for (const playlist of otherPlaylists) {
       const item = document.createElement('button');
       item.className = 'playlist-selection-item';
       
       const gradient = getPlaylistGradient(playlist.id);
       const trackCount = playlist.tracks.length;
       
+      // Get collage data
+      const collageData = await getPlaylistCollageData(playlist.id);
+      
+      let iconHTML = '';
+      if (collageData.hasImages) {
+        const albumArts = collageData.albumArts;
+        iconHTML = `
+          <div class="playlist-selection-icon playlist-selection-collage" style="background: ${gradient};">
+            <div class="playlist-selection-collage-grid">
+              ${albumArts.map(art => `<div class="collage-item" style="background-image: url(${art});"></div>`).join('')}
+              ${Array(4 - albumArts.length).fill('<div class="collage-item"></div>').join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        iconHTML = `<div class="playlist-selection-icon" style="background: ${gradient};"></div>`;
+      }
+      
       item.innerHTML = `
-        <div class="playlist-selection-icon" style="background: ${gradient};"></div>
+        ${iconHTML}
         <div class="playlist-selection-info">
           <div class="playlist-selection-name">${escapeHtml(playlist.name)}</div>
           <div class="playlist-selection-count">${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</div>
@@ -1522,7 +1710,7 @@ function showAddPlaylistToPlaylistModal(sourcePlaylistId) {
       };
       
       list.appendChild(item);
-    });
+    }
   }
   
   modal.style.display = 'flex';

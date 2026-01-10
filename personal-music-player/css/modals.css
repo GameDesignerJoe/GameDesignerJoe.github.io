@@ -55,6 +55,22 @@
   color: var(--text-primary);
 }
 
+.modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
 .modal-body {
   flex: 1;
   overflow-y: auto;

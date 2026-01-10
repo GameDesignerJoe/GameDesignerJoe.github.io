@@ -180,11 +180,11 @@ async function buildFolderCollection() {
     folderGrid.appendChild(card);
   });
   
-  // Create playlist cards (circular)
-  allPlaylists.forEach(playlist => {
-    const card = createPlaylistCard(playlist);
+  // Create playlist cards (circular) - now async
+  for (const playlist of allPlaylists) {
+    const card = await createPlaylistCard(playlist);
     folderGrid.appendChild(card);
-  });
+  }
   
   // Add "Add New Folder" card at the end
   const addCard = createAddFolderCard();
@@ -246,31 +246,43 @@ function getPlaylistGradient(playlistId) {
   return gradients[index];
 }
 
-// Create playlist card element (circular)
-function createPlaylistCard(playlist) {
+// Create playlist card element (circular with collage)
+async function createPlaylistCard(playlist) {
   const card = document.createElement('div');
   card.className = 'folder-card playlist-card';
   card.dataset.playlistId = playlist.id;
   
-  // Get album art from first track in playlist
-  let imageUrl = 'assets/icons/icon-512.svg'; // Default square icon
-  let hasAlbumArt = false;
-  
-  if (playlist.tracks && playlist.tracks.length > 0) {
-    const firstTrack = playlist.tracks[0];
-    if (firstTrack.albumArt) {
-      imageUrl = firstTrack.albumArt;
-      hasAlbumArt = true;
-    }
-  }
-  
   const songCount = playlist.tracks ? playlist.tracks.length : 0;
   const playlistGradient = getPlaylistGradient(playlist.id);
   
+  // Get collage data
+  const collageData = await playlists.getPlaylistCollageData(playlist.id);
+  
+  let imageHTML = '';
+  if (collageData.hasImages) {
+    // Create collage with up to 4 album arts
+    const albumArts = collageData.albumArts;
+    imageHTML = `
+      <div class="folder-card-image playlist-image playlist-collage" style="background: ${playlistGradient};">
+        <div class="playlist-collage-grid">
+          ${albumArts.map((art, index) => `
+            <div class="collage-item" style="background-image: url(${art});"></div>
+          `).join('')}
+          ${Array(4 - albumArts.length).fill('<div class="collage-item"></div>').join('')}
+        </div>
+      </div>
+    `;
+  } else {
+    // No album art - show gradient with icon
+    imageHTML = `
+      <div class="folder-card-image playlist-image" style="background: ${playlistGradient};">
+        <img src="assets/icons/icon-512.svg" alt="${escapeHtml(playlist.name)}" loading="lazy" style="opacity: 0.3; filter: brightness(0) invert(1);">
+      </div>
+    `;
+  }
+  
   card.innerHTML = `
-    <div class="folder-card-image playlist-image" style="${!hasAlbumArt ? `background: ${playlistGradient};` : ''}">
-      <img src="${imageUrl}" alt="${escapeHtml(playlist.name)}" loading="lazy" style="${!hasAlbumArt ? 'opacity: 0.3; filter: brightness(0) invert(1);' : ''}">
-    </div>
+    ${imageHTML}
     <button class="folder-play-btn" title="Play ${escapeHtml(playlist.name)}">▶</button>
     <div class="folder-card-info">
       <h3 class="folder-card-name">${escapeHtml(playlist.name)}</h3>
