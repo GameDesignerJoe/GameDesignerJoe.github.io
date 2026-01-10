@@ -178,12 +178,14 @@
   width: 40px;
   height: 40px;
   background: #282828;
-  border-radius: 4px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
 }
 
 .sidebar-playlist-info {
@@ -342,7 +344,7 @@
   width: 56px;
   height: 56px;
   font-size: 28px;
-  border-radius: 8px;
+  border-radius: 50%;
   margin: 0;
 }
 

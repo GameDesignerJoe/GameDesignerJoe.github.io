@@ -6,6 +6,27 @@ import { showToast } from './app.js';
 
 let allPlaylists = [];
 
+// Generate subdued gradient for playlist based on ID
+function getPlaylistGradient(playlistId) {
+  // Subdued gradient pairs - muted complementary tones
+  const gradients = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple-blue
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Pink-red
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue-cyan
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', // Green-turquoise
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // Pink-yellow
+    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', // Cyan-purple
+    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', // Mint-pink
+    'linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)', // Orange-pink
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)', // Peach gradient
+    'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)'  // Coral-blue
+  ];
+  
+  // Use playlist ID to get consistent gradient
+  const index = playlistId % gradients.length;
+  return gradients[index];
+}
+
 // Initialize playlists
 export async function init() {
   console.log('[Playlists] Initializing playlists');
@@ -171,9 +192,10 @@ function updateSidebarPlaylists() {
     button.dataset.playlistId = playlist.id;
     
     const trackCount = playlist.tracks.length;
+    const gradient = getPlaylistGradient(playlist.id);
     
     button.innerHTML = `
-      <div class="sidebar-playlist-icon">📋</div>
+      <div class="sidebar-playlist-icon" style="background: ${gradient};" title="${escapeHtml(playlist.name)}"></div>
       <div class="sidebar-playlist-info">
         <div class="sidebar-playlist-name">${escapeHtml(playlist.name)}</div>
         <div class="sidebar-playlist-count">${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</div>
