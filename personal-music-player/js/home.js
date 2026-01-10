@@ -404,11 +404,17 @@ export async function refreshFolderMetadata() {
   console.log('[Home] Manually refreshing folder metadata');
   showToast('Refreshing metadata...', 'info');
   
-  // Also update track durations for local files
+  // Also update track durations for ALL files (local + Dropbox)
   try {
     const library = await import('./library.js');
     const updatedCount = await library.updateMissingDurations();
     console.log(`[Home] Updated ${updatedCount} track durations`);
+    
+    // Refresh library display to show updated durations
+    if (updatedCount > 0) {
+      await library.refreshLibrary();
+      showToast(`✓ Updated ${updatedCount} tracks!`, 'success');
+    }
   } catch (error) {
     console.error('[Home] Error updating durations:', error);
   }

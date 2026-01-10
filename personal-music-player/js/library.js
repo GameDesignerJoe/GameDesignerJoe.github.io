@@ -1134,22 +1134,19 @@ export async function showAllTracks() {
   });
 }
 
-// Update all metadata from ID3 tags for local tracks
+// Update all metadata from ID3 tags for ALL tracks (local + Dropbox)
 export async function updateMissingDurations() {
   console.log('[Library] Refreshing metadata from ID3 tags...');
   
   const tracks = await storage.getAllTracks();
   
-  // Filter to local files only
-  const localTracks = tracks.filter(t => t.source === 'local' || t.path?.startsWith('local:'));
-  
-  if (localTracks.length === 0) {
-    console.log('[Library] No local tracks to update');
-    showToast('No local tracks found', 'info');
+  if (tracks.length === 0) {
+    console.log('[Library] No tracks to update');
+    showToast('No tracks found', 'info');
     return 0;
   }
   
-  console.log(`[Library] Updating metadata for ${localTracks.length} local tracks...`);
+  console.log(`[Library] Updating metadata for ${tracks.length} tracks...`);
   
   const id3Reader = await import('./id3-reader.js');
   const localFilesModule = await import('./local-files.js');
@@ -1157,40 +1154,79 @@ export async function updateMissingDurations() {
   let processedCount = 0;
   
   // Process tracks in batches
-  for (const track of localTracks) {
+  for (const track of tracks) {
     try {
       processedCount++;
       
       // Show progress every 10 tracks
       if (processedCount % 10 === 0) {
-        showToast(`Updating metadata... (${processedCount}/${localTracks.length})`, 'info');
+        showToast(`Updating metadata... (${processedCount}/${tracks.length})`, 'info');
       }
       
-      // Get file handle
-      let fileHandle = track.fileHandle;
-      if (!fileHandle) {
-        const fullTrack = await storage.getTrackById(track.id);
-        fileHandle = fullTrack?.fileHandle;
+      let metadata = null;
+      let duration = null;
+      
+      // Determine if this is a local file or Dropbox file
+      const isLocal = track.source === 'local' || track.path?.startsWith('local:');
+      
+      if (isLocal) {
+        // LOCAL FILE: Use fileHandle
+        let fileHandle = track.fileHandle;
+        if (!fileHandle) {
+          const fullTrack = await storage.getTrackById(track.id);
+          fileHandle = fullTrack?.fileHandle;
+        }
+        
+        if (!fileHandle) {
+          console.warn(`[Library] No file handle for local file: ${track.title}`);
+          continue;
+        }
+        
+        // Verify permission
+        const hasPermission = await localFilesModule.verifyPermission(fileHandle);
+        if (!hasPermission) {
+          console.warn(`[Library] No permission for: ${track.title}`);
+          continue;
+        }
+        
+        // Get file and read ID3 tags
+        const file = await fileHandle.getFile();
+        metadata = await id3Reader.readAudioFileMetadata(file);
+        
+        // Get duration from audio element
+        duration = await getDurationFromFile(fileHandle);
+        
+      } else {
+        // DROPBOX FILE: Download and read
+        const dropbox = await import('./dropbox.js');
+        
+        try {
+          // Get temporary download link (returns object with 'link' property)
+          const tempLinkData = await dropbox.getTemporaryLink(track.path);
+          const tempLink = tempLinkData.link || tempLinkData;
+          
+          console.log(`[Library] Downloading Dropbox file: ${track.title}`);
+          
+          // Download file as blob
+          const response = await fetch(tempLink);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          console.log(`[Library] Downloaded ${blob.size} bytes for: ${track.title}`);
+          
+          // Read ID3 tags from blob
+          metadata = await id3Reader.readAudioFileMetadata(blob);
+          
+          // Get duration from blob
+          duration = await getDurationFromBlob(blob);
+          
+        } catch (error) {
+          console.warn(`[Library] Failed to download Dropbox file: ${track.title}`, error);
+          continue;
+        }
       }
-      
-      if (!fileHandle) {
-        console.warn(`[Library] No file handle for: ${track.title}`);
-        continue;
-      }
-      
-      // Verify permission
-      const hasPermission = await localFilesModule.verifyPermission(fileHandle);
-      if (!hasPermission) {
-        console.warn(`[Library] No permission for: ${track.title}`);
-        continue;
-      }
-      
-      // Get file and read ID3 tags
-      const file = await fileHandle.getFile();
-      const metadata = await id3Reader.readAudioFileMetadata(file);
-      
-      // Get duration from audio element
-      const duration = await getDurationFromFile(fileHandle);
       
       // Check if any metadata needs updating
       let needsUpdate = false;
@@ -1242,7 +1278,7 @@ export async function updateMissingDurations() {
     }
   }
   
-  console.log(`[Library] Updated ${updatedCount}/${localTracks.length} tracks`);
+  console.log(`[Library] Updated ${updatedCount}/${tracks.length} tracks`);
   return updatedCount;
 }
 
@@ -1277,6 +1313,42 @@ async function getDurationFromFile(fileHandle) {
         localFiles.revokeFileUrl(fileUrl);
         reject(new Error('Timeout loading audio'));
       }, 3000);
+      
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Get duration from blob using audio element
+async function getDurationFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    try {
+      const blobUrl = URL.createObjectURL(blob);
+      const audio = new Audio();
+      
+      audio.addEventListener('loadedmetadata', () => {
+        const duration = audio.duration;
+        audio.src = ''; // Clean up
+        URL.revokeObjectURL(blobUrl);
+        resolve(duration);
+      });
+      
+      audio.addEventListener('error', () => {
+        audio.src = ''; // Clean up
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Failed to load audio from blob'));
+      });
+      
+      audio.src = blobUrl;
+      audio.load();
+      
+      // Timeout after 5 seconds (Dropbox files may be larger)
+      setTimeout(() => {
+        audio.src = '';
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Timeout loading audio from blob'));
+      }, 5000);
       
     } catch (error) {
       reject(error);
