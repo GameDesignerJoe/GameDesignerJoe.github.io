@@ -58,8 +58,19 @@ export async function playTrackWithQueue(track, queueTracks = [], context = null
     queueTracks = await storage.getAllTracks();
   }
   
+  // Give each track in the queue a unique instance ID and display index
+  // This allows us to distinguish between multiple instances of the same song
+  let instanceCounter = Date.now();
+  const tracksWithInstanceIds = queueTracks.map((t, index) => {
+    return {
+      ...t,
+      __instanceId: `${t.id}_${instanceCounter++}`,
+      __displayIndex: index  // Track original position for matching
+    };
+  });
+  
   // Set up queue
-  queueState.tracks = queueTracks;
+  queueState.tracks = tracksWithInstanceIds;
   
   // Store playback context
   queueState.playbackContext = context;
@@ -67,19 +78,23 @@ export async function playTrackWithQueue(track, queueTracks = [], context = null
     console.log('[Queue] Playback context:', context);
   }
   
-  // Find the track in the queue
-  const trackIndex = queueState.tracks.findIndex(t => t.id === track.id);
+  // Find the track in the queue by matching the original track object
+  const trackIndex = queueTracks.findIndex(t => t === track);
   
   if (trackIndex !== -1) {
     queueState.currentIndex = trackIndex;
   } else {
-    // Track not in queue, add it at the beginning
-    queueState.tracks.unshift(track);
+    // Track not in queue, add it at the beginning with instance ID
+    const trackWithInstanceId = {
+      ...track,
+      __instanceId: `${track.id}_${instanceCounter++}`
+    };
+    queueState.tracks.unshift(trackWithInstanceId);
     queueState.currentIndex = 0;
   }
   
-  // Play the track
-  await player.playTrack(track);
+  // Play the track (get the one with instance ID from queue)
+  await player.playTrack(queueState.tracks[queueState.currentIndex]);
   
   // Update queue UI
   updateQueueUI();
@@ -339,6 +354,16 @@ export function getCurrentTrack() {
     return queueState.tracks[queueState.currentIndex];
   }
   return null;
+}
+
+// Get current queue index (for identifying exact instance of duplicate tracks)
+export function getCurrentQueueIndex() {
+  return queueState.currentIndex;
+}
+
+// Get current queue (for matching track instances)
+export function getCurrentQueue() {
+  return queueState.tracks;
 }
 
 // Get queue state (for external use)

@@ -129,12 +129,30 @@ async function updateNowPlayingIndicators() {
   const currentTrack = player.getCurrentTrack();
   const isCurrentlyPlaying = player.isPlaying();
   
+  // Get the display index from the currently playing track
+  const currentDisplayIndex = currentTrack?.__displayIndex;
+  
   // Update all track elements
-  document.querySelectorAll('.track-item').forEach(trackEl => {
+  const trackElements = document.querySelectorAll('.track-item');
+  trackElements.forEach((trackEl) => {
     const trackId = trackEl.dataset.trackId;
+    const trackDisplayIndex = trackEl.dataset.displayIndex;
+    
+    // Check if this track matches by display index
+    let isThisExactInstance = false;
     
     if (currentTrack && trackId === currentTrack.id) {
-      // This is the current track
+      if (currentDisplayIndex !== undefined && trackDisplayIndex !== undefined) {
+        // Match by display index - this ensures exact instance matching
+        isThisExactInstance = (String(currentDisplayIndex) === trackDisplayIndex);
+      } else {
+        // Fallback: no display indices, just match by ID (for backward compatibility)
+        isThisExactInstance = true;
+      }
+    }
+    
+    if (isThisExactInstance) {
+      // This is the exact playing instance
       trackEl.classList.add('now-playing');
       
       if (isCurrentlyPlaying) {
@@ -143,7 +161,7 @@ async function updateNowPlayingIndicators() {
         trackEl.classList.remove('playing');
       }
     } else {
-      // Not the current track
+      // Not the current track instance
       trackEl.classList.remove('now-playing', 'playing');
     }
   });
@@ -1114,6 +1132,8 @@ function createEnhancedTrackElement(track, trackNumber) {
   const div = document.createElement('div');
   div.className = 'track-item playlist-track-item';
   div.dataset.trackId = track.id;
+  // Store the display index (trackNumber - 1 since trackNumber starts at 1)
+  div.dataset.displayIndex = String(trackNumber - 1);
   
   const albumArtSrc = track.albumArt || 'assets/icons/icon-song-black..png';
   const durationText = formatTrackDuration(track.duration);
