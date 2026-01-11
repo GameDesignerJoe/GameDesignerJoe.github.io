@@ -451,11 +451,22 @@ async function scanSelectedFolders() {
   }
   
   console.log('[Sources] Scanning selected folders:', selectedFolders);
-  showToast('Loading new songs...', 'info');
+  showToast('Scanning folders and metadata...', 'info');
   
   try {
-    // Use scanner module to scan folders
+    // First, scan for audio files
     await scanner.scanSelectedFolders(selectedFolders);
+    
+    // Then, scan metadata for each folder (cover images, subfolders, counts)
+    showToast('Scanning folder metadata...', 'info');
+    
+    for (const folderPath of selectedFolders) {
+      const pathStr = typeof folderPath === 'string' ? folderPath : folderPath?.path || '';
+      if (pathStr) {
+        console.log('[Sources] Scanning metadata for:', pathStr);
+        await scanner.scanFolderMetadata(pathStr);
+      }
+    }
     
     // Update counts
     await updateFolderCounts();
@@ -464,7 +475,10 @@ async function scanSelectedFolders() {
     const library = await import('./library.js');
     await library.refreshLibrary();
     
-    showToast('Library updated!', 'success');
+    // Mark folders as modified so home will auto-refresh
+    markFoldersModified();
+    
+    showToast('✓ Library updated!', 'success');
     
   } catch (error) {
     console.error('[Sources] Error scanning folders:', error);
