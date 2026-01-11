@@ -1,41 +1,28 @@
 Playback ToDo
 Priority 1:
 - Need to do an auto refresh of your home folder whenever you add a source.
-- Things there no songs in playlists.
 - There's a scan button on the source drive folder that seems to not be doing things we want. 
-- Duration icon is too far right.
-- Location source still isn't showing up right.
 - Don't support custom order on Folders
+- It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
 
 Priority 2: 
 - Add image replacement for cover art.
 - Get google drive to work with it.
 - The amount of stacked alerts when you add songs is a bit much. 
-- The back arrow and ... right above and below the song list is odd.
-- Pictures for playlists
-- : button on songs doesn't scroll with the window so if you're trying to better see the options in the menu, you can't
 - Need to update the very first page
-- We don't show duration
-- Get the play button on the numbers thing working.
-- Get all songs to have a number count.
-- Move the play button over to the numbers. 
-- Get durations on songs.
-- Look into ID3 tags on your songs, or at least some of them so you can start seeing what that looks like. 
-- Get album art for playlists to show up in side bar, as well as the 'add to playtest menu
-- It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
-- Add sort by tytle, album, artist, direction by pressing on the titles on the bar. 
 - Removing folders from a source isn't great. You have to click it and then it takes you back to library. So if you want to do more than one, you have to keep clicking back to the source you want. A 'disconnect all' for each source buton isn't a bad idea. 
+- Lyrics... lyrics
+- Remove New folder from the Home Page
+- Hover text on source icon shows you the path. Would be nice if it would show the full path for dropbox as well.
+- You have a playlist page that is odd and should likely go away.
+- Add a toggle for playlist versions
+
 Priority 3:
-Can we get the 'add to playlist' list to also show the gradienat circles.
-- Consider view modes for the library (big grid, small grid, list, details, etc)
 - get rid of those ugly buttons
-- Look at Jason's example for UI layout
-- Make a playlist with a song from each source to test
-- Do a more Spotify pass on it 
+- Look at Jason's example for UI layout. See how you can turn up the 'visual celebration of the art'.
 - Get a logo 
 - Do we really need a scrollbar on the PC version. Maybe we can dress it up so it's not so ugly.
 - The plus button is out of alignment with the circle.
-- how we're displaying these songs is not ideal - need more that that to go on. 
 - I would like a list of total song count
 - Would be nice to know the path that each of the songs are coming from at some point if we can do it and make it look nice. 
 - Thought about puting a little icon onthe far right of every song to show its source icon.

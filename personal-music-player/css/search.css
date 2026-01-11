@@ -52,7 +52,7 @@
 }
 
 .search-icon {
-  font-size: 20px;
+  font-size: 25px; /* Increased from 20px (25% larger) */
   color: #b3b3b3;
 }
 
