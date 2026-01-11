@@ -286,6 +286,7 @@ function createTrackFromEntry(entry) {
     pathDisplay: entry.path_display,
     filename,
     size: entry.size,
+    source: 'dropbox', // Mark as Dropbox file
     modifiedTime: entry.server_modified,
     addedAt: Date.now()
   };

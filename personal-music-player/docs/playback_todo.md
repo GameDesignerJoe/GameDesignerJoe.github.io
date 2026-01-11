@@ -2,7 +2,9 @@ Playback ToDo
 Priority 1:
 - Need to do an auto refresh of your home folder whenever you add a source.
 - Things there no songs in playlists.
-
+- There's a scan button on the source drive folder that seems to not be doing things we want. 
+- Duration icon is too far right.
+- Location source still isn't showing up right.
 
 Priority 2: 
 - Add image replacement for cover art.
@@ -21,7 +23,7 @@ Priority 2:
 - Get album art for playlists to show up in side bar, as well as the 'add to playtest menu
 - It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
 - Add sort by tytle, album, artist, direction by pressing on the titles on the bar. 
-
+- Removing folders from a source isn't great. You have to click it and then it takes you back to library. So if you want to do more than one, you have to keep clicking back to the source you want. A 'disconnect all' for each source buton isn't a bad idea. 
 Priority 3:
 Can we get the 'add to playlist' list to also show the gradienat circles.
 - Consider view modes for the library (big grid, small grid, list, details, etc)

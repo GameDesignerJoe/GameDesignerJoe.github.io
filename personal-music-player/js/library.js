@@ -737,14 +737,19 @@ async function showEnhancedHeader(folderPath, tracks) {
   const totalDuration = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
   const durationText = formatDuration(totalDuration);
   
-  // Detect source (check first track)
-  const source = tracks.length > 0 ? getTrackSource(tracks[0]) : 'Unknown';
+  // Detect all unique sources from tracks
+  const sources = new Set();
+  tracks.forEach(track => {
+    const source = getTrackSource(track);
+    sources.add(source);
+  });
+  const sourceText = sources.size > 0 ? Array.from(sources).sort().join(' / ') : 'Unknown';
   
   // Update metadata
   document.querySelector('#libraryStats .playlist-song-count').textContent = 
     `${trackCount} ${trackCount === 1 ? 'song' : 'songs'}`;
   document.querySelector('#libraryStats .playlist-duration').textContent = durationText;
-  document.querySelector('#libraryStats .playlist-date-created').textContent = source;
+  document.querySelector('#libraryStats .playlist-date-created').textContent = sourceText;
   
   // Setup toolbar listeners
   setupToolbarListeners(folderPath, tracks);

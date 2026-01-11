@@ -14,6 +14,41 @@ let draggedTrackIndex = null; // For drag and drop
 let searchQuery = ''; // Current search query
 let shuffleEnabled = false; // Shuffle toggle state
 
+// Detect source location from track
+function getTrackSource(track) {
+  // Check source property first (most reliable)
+  if (track.source) {
+    if (track.source === 'dropbox') return 'Dropbox';
+    if (track.source === 'google-drive') return 'Google Drive';
+    if (track.source === 'onedrive') return 'OneDrive';
+    if (track.source === 'network-drive') return 'Network Drive';
+    if (track.source === 'plex') return 'Plex';
+    if (track.source === 'local') return 'Local';
+  }
+  
+  // Fallback to checking path
+  const path = track.path.toLowerCase();
+  if (path.includes('dropbox')) return 'Dropbox';
+  if (path.includes('google drive') || path.includes('googledrive')) return 'Google Drive';
+  if (path.includes('onedrive')) return 'OneDrive';
+  if (path.includes('network') || path.includes('nas')) return 'Network Drive';
+  if (path.includes('plex')) return 'Plex';
+  return 'Local';
+}
+
+// Get source icon for display
+function getSourceIcon(source) {
+  const icons = {
+    'Dropbox': 'assets/icons/dropbox.png',
+    'Google Drive': 'assets/icons/googledrive.png',
+    'OneDrive': 'assets/icons/onedrive.png',
+    'Network Drive': 'assets/icons/networkdrive.png',
+    'Plex': 'assets/icons/plex.png',
+    'Local': '📁' // Folder emoji
+  };
+  return icons[source] || '📁';
+}
+
 // Generate subdued gradient for playlist based on ID
 export function getPlaylistGradient(playlistId) {
   // Subdued gradient pairs - muted complementary tones
@@ -473,20 +508,31 @@ function updatePlaylistHeader(playlist, tracks) {
   const totalDuration = tracks.reduce((sum, track) => sum + (track.duration || 0), 0);
   const durationText = formatPlaylistDuration(totalDuration);
   
-  // Format date created
-  const dateCreated = formatDate(playlist.createdAt);
+  // Detect all unique sources from tracks
+  const sources = new Set();
+  tracks.forEach(track => {
+    const source = getTrackSource(track);
+    sources.add(source);
+  });
+  const sourceText = sources.size > 0 ? Array.from(sources).sort().join(' / ') : 'Unknown';
   
-  // Update metadata
+  // Format date created (will be replaced by source in the UI)
+  const dateCreated = sourceText;
+  
+  // Update metadata - use specific selectors within playlistHeader
   const songCount = tracks.length;
   const songText = `${songCount} ${songCount === 1 ? 'song' : 'songs'}`;
   
-  const songCountEl = document.querySelector('.playlist-song-count');
-  const dateCreatedEl = document.querySelector('.playlist-date-created');
-  const durationEl = document.querySelector('.playlist-duration');
-  
-  if (songCountEl) songCountEl.textContent = songText;
-  if (dateCreatedEl) dateCreatedEl.textContent = dateCreated;
-  if (durationEl) durationEl.textContent = durationText;
+  const playlistHeader = document.getElementById('playlistHeader');
+  if (playlistHeader) {
+    const songCountEl = playlistHeader.querySelector('.playlist-song-count');
+    const dateCreatedEl = playlistHeader.querySelector('.playlist-date-created');
+    const durationEl = playlistHeader.querySelector('.playlist-duration');
+    
+    if (songCountEl) songCountEl.textContent = songText;
+    if (dateCreatedEl) dateCreatedEl.textContent = sourceText;
+    if (durationEl) durationEl.textContent = durationText;
+  }
 }
 
 // Format playlist duration
@@ -616,7 +662,8 @@ function updateSortViewLabel() {
     artist: 'Artist',
     album: 'Album',
     dateAdded: 'Recently added',
-    duration: 'Duration'
+    duration: 'Duration',
+    source: 'Source'
   };
   label.textContent = sortLabels[currentSortOrder] || 'Custom order';
 }
@@ -685,6 +732,9 @@ function sortTracks(tracks) {
       break;
     case 'duration':
       sorted.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      break;
+    case 'source':
+      sorted.sort((a, b) => getTrackSource(a).localeCompare(getTrackSource(b)));
       break;
     case 'custom':
     default:
@@ -1451,6 +1501,11 @@ function createEnhancedTrackElement(track, trackNumber, playlistId) {
   // Format duration
   const durationText = formatTrackDuration(track.duration);
   
+  // Get source information
+  const source = getTrackSource(track);
+  const sourceIcon = getSourceIcon(source);
+  const isEmoji = sourceIcon.length < 10; // Emoji vs image path
+  
   div.innerHTML = `
     <div class="track-number-cell">
       <div class="track-number">${trackNumber}</div>
@@ -1468,13 +1523,14 @@ function createEnhancedTrackElement(track, trackNumber, playlistId) {
       <div class="track-item-cover">
         <img src="${albumArtSrc}" alt="Album art">
       </div>
-      <div class="track-item-info">
-        <div class="track-item-title">${escapeHtml(track.title)}</div>
-        <div class="track-item-artist">${escapeHtml(track.artist)}</div>
-      </div>
+      <div class="track-item-title">${escapeHtml(track.title)}</div>
     </div>
+    <div class="track-item-artist">${escapeHtml(track.artist)}</div>
     <div class="track-item-album">${escapeHtml(track.album)}</div>
     <div class="track-item-duration">${durationText}</div>
+    <div class="track-item-source" title="${source}">
+      ${isEmoji ? sourceIcon : `<img src="${sourceIcon}" alt="${source}" />`}
+    </div>
     <button class="track-more-btn">⋮</button>
   `;
   
