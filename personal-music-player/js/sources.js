@@ -5,7 +5,7 @@ import * as dropbox from './dropbox.js';
 import * as storage from './storage.js';
 import * as scanner from './scanner.js';
 import * as localFiles from './local-files.js';
-import { showToast, markFoldersModified } from './app.js';
+import { showToast, markFoldersModified, disconnectSource } from './app.js';
 
 // State
 let selectedFolders = [];
@@ -69,6 +69,11 @@ function setupEventListeners() {
     await rescanLocalFolders();
   });
   
+  // Disconnect buttons
+  document.getElementById('disconnectDropboxBtn')?.addEventListener('click', async () => {
+    await disconnectSource('Dropbox');
+  });
+  
   // Breadcrumb navigation will be set up dynamically
 }
 
@@ -120,6 +125,37 @@ export async function loadDropboxFolders(path = '') {
   const folderList = document.getElementById('dropboxFolderList');
   
   if (!folderList) return;
+  
+  // Check if Dropbox is connected
+  const disconnectBtn = document.getElementById('disconnectDropboxBtn');
+  if (!dropbox.isAuthenticated()) {
+    // Show "Connect to Dropbox" button
+    folderList.innerHTML = `
+      <div class="connect-prompt">
+        <div class="connect-icon">📦</div>
+        <h3>Connect to Dropbox</h3>
+        <p>Link your Dropbox account to access your music files</p>
+        <button class="btn-primary" id="connectDropboxFromSources">Connect to Dropbox</button>
+      </div>
+    `;
+    
+    // Wire up connect button
+    document.getElementById('connectDropboxFromSources')?.addEventListener('click', () => {
+      dropbox.initiateOAuth();
+    });
+    
+    // Hide disconnect button
+    if (disconnectBtn) {
+      disconnectBtn.style.display = 'none';
+    }
+    
+    return;
+  }
+  
+  // Show disconnect button when connected
+  if (disconnectBtn) {
+    disconnectBtn.style.display = 'block';
+  }
   
   // Show loading
   folderList.innerHTML = '<div class="loading">Loading folders...</div>';
@@ -436,9 +472,10 @@ async function updateFolderCounts() {
   
   const folderCount = selectedFolders.length;
   
-  // Get song count from storage
+  // Get Dropbox song count from storage (only Dropbox tracks)
   const tracks = await storage.getAllTracks();
-  const songCount = tracks.length;
+  const dropboxTracks = tracks.filter(t => t.source === 'dropbox');
+  const songCount = dropboxTracks.length;
   
   countEl.textContent = `${folderCount} ${folderCount === 1 ? 'folder' : 'folders'} • ${songCount} ${songCount === 1 ? 'song' : 'songs'}`;
 }

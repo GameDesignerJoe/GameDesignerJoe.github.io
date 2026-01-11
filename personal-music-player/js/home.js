@@ -451,18 +451,78 @@ export async function forceRescanMetadata() {
   }
 }
 
-// Refresh folder metadata (called by refresh button - just reloads from cache now)
+// Refresh folder metadata (called by refresh button - scans for cover art)
 export async function refreshFolderMetadata() {
-  console.log('[Home] Refreshing folder display (from cache)');
-  showToast('Refreshing...', 'info');
+  console.log('[Home] Refreshing cover art...');
+  showToast('Scanning for cover art...', 'info');
   
   try {
-    // Just reload from cache - instant!
+    // Get all Dropbox folders
+    const folders = await storage.getAllFoldersWithMetadata();
+    const dropboxFolders = folders.filter(f => f.source !== 'local');
+    
+    if (dropboxFolders.length === 0) {
+      await refreshFolders();
+      showToast('✓ No Dropbox folders to scan', 'info');
+      return;
+    }
+    
+    let scannedCount = 0;
+    let foundCovers = 0;
+    
+    // Scan metadata for each Dropbox folder (includes cover art)
+    for (const folder of dropboxFolders) {
+      scannedCount++;
+      showToast(`Scanning ${scannedCount}/${dropboxFolders.length} folders...`, 'info');
+      
+      // Mobile-optimized scanning with timeout
+      const metadata = await scanner.scanFolderMetadata(folder.path);
+      
+      // Log cover art status for main folder
+      if (metadata && metadata.coverImagePath) {
+        foundCovers++;
+        console.log(`[Home] Found cover for ${metadata.name}:`, metadata.coverImagePath);
+        console.log(`[Home] Cover URL:`, metadata.coverImageUrl ? metadata.coverImageUrl.substring(0, 50) + '...' : 'none');
+      } else {
+        console.log(`[Home] No cover found for ${folder.name}`);
+      }
+      
+      // ALSO scan all subfolders for their cover art
+      if (metadata && metadata.subfolders && metadata.subfolders.length > 0) {
+        console.log(`[Home] Scanning ${metadata.subfolders.length} subfolders for cover art...`);
+        
+        for (const subfolderPath of metadata.subfolders) {
+          try {
+            const subMetadata = await scanner.scanFolderMetadata(subfolderPath);
+            
+            if (subMetadata && subMetadata.coverImagePath) {
+              foundCovers++;
+              console.log(`[Home] ✓ Found cover in subfolder ${subMetadata.name}`);
+            }
+          } catch (error) {
+            console.warn(`[Home] Error scanning subfolder ${subfolderPath}:`, error);
+          }
+        }
+      }
+    }
+    
+    console.log(`[Home] Scan complete: ${foundCovers}/${scannedCount} folders have cover art`);
+    
+    // Force clear the folder cache and reload from database
+    allFolders = [];
+    
+    // Reload display with new cached images
     await refreshFolders();
-    showToast('✓ Folders refreshed!', 'success');
+    
+    if (foundCovers > 0) {
+      showToast(`✓ Found ${foundCovers} cover image${foundCovers > 1 ? 's' : ''}!`, 'success');
+    } else {
+      showToast(`✓ Scan complete - No cover images found`, 'info');
+    }
+    
   } catch (error) {
-    console.error('[Home] Error refreshing folders:', error);
-    showToast('Error refreshing folders', 'error');
+    console.error('[Home] Error refreshing cover art:', error);
+    showToast('Error scanning cover art', 'error');
   }
 }
 

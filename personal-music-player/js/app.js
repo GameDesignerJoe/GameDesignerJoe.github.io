@@ -798,6 +798,62 @@ function disconnect(showConfirmation = true) {
   // TODO: Clear IndexedDB data
 }
 
+// Disconnect from specific source
+async function disconnectSource(sourceName) {
+  const confirmMessage = `Disconnect from ${sourceName}? This will clear all cached songs, folders, and metadata from ${sourceName}. Your playlists will be preserved but songs from this source will be removed from them. Continue?`;
+  
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+  
+  try {
+    showToast(`Disconnecting from ${sourceName}...`, 'info');
+    
+    if (sourceName === 'Dropbox') {
+      // Clear Dropbox token
+      dropbox.clearAccessToken();
+      
+      // Clear Dropbox-specific data
+      const result = await storage.clearDropboxData();
+      console.log(`[App] Cleared ${result.tracksDeleted} Dropbox tracks`);
+      
+      // Update auth state
+      appState.isAuthenticated = false;
+      appState.accessToken = null;
+      
+      showToast(`Disconnected from Dropbox (${result.tracksDeleted} songs removed)`, 'success');
+      
+    } else if (sourceName === 'Local Drive') {
+      // Clear local folder handles and tracks
+      const result = await storage.clearLocalData();
+      console.log(`[App] Cleared ${result.tracksDeleted} local tracks`);
+      
+      showToast(`Disconnected from Local Drive (${result.tracksDeleted} songs removed)`, 'success');
+    }
+    
+    // Refresh sources screen
+    await sources.init();
+    await sources.loadDropboxFolders('');
+    
+    // Refresh library and home
+    const library = await import('./library.js');
+    await library.refreshLibrary();
+    
+    const home = await import('./home.js');
+    await home.refreshFolders();
+    
+    // Update folder counts
+    await sources.init();
+    
+  } catch (error) {
+    console.error(`[App] Error disconnecting from ${sourceName}:`, error);
+    showToast(`Error disconnecting from ${sourceName}`, 'error');
+  }
+}
+
+// Export for use in other modules
+export { appState, showScreen, showToast, formatTime, markFoldersModified, disconnectSource };
+
 // Show toast notification
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
@@ -936,6 +992,3 @@ function markFoldersModified() {
   appState.foldersModified = true;
   console.log('[App] Folders marked as modified - home will auto-refresh on next visit');
 }
-
-// Export for use in other modules
-export { appState, showScreen, showToast, formatTime, markFoldersModified };

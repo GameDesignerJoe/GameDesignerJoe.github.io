@@ -390,11 +390,15 @@
                         <span class="breadcrumb-item">All Files</span>
                       </div>
                     </div>
-                    <button id="addCurrentFolderBtn" class="folder-add-btn" style="display: none;" title="Add current folder">+</button>
+                    <div style="display: flex; gap: 8px;">
+                      <button id="addCurrentFolderBtn" class="folder-add-btn" style="display: none;" title="Add current folder">+</button>
+                      <button id="disconnectDropboxBtn" class="btn-disconnect" style="display: none;">Disconnect Dropbox</button>
+                    </div>
                   </div>
                 </div>
 
                 <div class="browser-content" id="dropboxFolderList">
+                  <!-- Will show either folder browser or connect prompt -->
                   <div class="loading">Loading folders...</div>
                 </div>
               </div>

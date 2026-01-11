@@ -4,16 +4,18 @@
 import * as dropbox from './dropbox.js';
 
 const CACHE_NAME = 'music-player-images-v1';
-const CACHE_PREFIX = 'image:';
+const CACHE_BASE_URL = 'https://cache.musicplayer.local';
 
 // Check if Cache API is available
 export function isCacheSupported() {
   return 'caches' in window;
 }
 
-// Generate cache key from Dropbox path
+// Generate cache key from Dropbox path (must be valid URL for Cache API)
 function getCacheKey(path) {
-  return `${CACHE_PREFIX}${path}`;
+  // Encode the path to make it URL-safe
+  const encodedPath = encodeURIComponent(path);
+  return `${CACHE_BASE_URL}/${encodedPath}`;
 }
 
 // Check if an image is cached

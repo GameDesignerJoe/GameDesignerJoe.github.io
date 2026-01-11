@@ -13,7 +13,10 @@ Priority 1:
 - Need to do an auto refresh of your home folder whenever you add a source.
 - There's a scan button on the source drive folder that seems to not be doing things we want. 
 - Don't support custom order on Folders
-
+- There's folders after Tantamount in Dropbox that Playback didn't get.
+- Search doesn't clear when you go into a different window. 
+- Search exits the search window with every key hit. 
+- Seaerch needs an 'X' on the right to clear it. 
 
 Priority 2: 
 - Add image replacement for cover art.

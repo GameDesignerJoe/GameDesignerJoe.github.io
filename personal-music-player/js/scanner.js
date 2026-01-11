@@ -87,13 +87,19 @@ export async function scanSelectedFolders(folders, progressCallback = null) {
       console.log(`[Scanner] Saved ${allTracks.length} tracks to database`);
     }
     
-    // Hide loading, show library
+    // Hide loading, show library with nice view
     hideLoadingScreen();
-    showScreen('library');
     
-    // Refresh library display
+    // Refresh library display and show the nice library view
     const library = await import('./library.js');
     await library.refreshLibrary();
+    
+    // Import app to show screen properly
+    const app = await import('./app.js');
+    app.showScreen('library');
+    
+    // Show all tracks with the nice header/collage
+    await library.showAllTracks();
     
     // Show success message
     showToast(`✨ Added ${allTracks.length} songs to your library!`, 'success');
@@ -239,14 +245,22 @@ async function scanFolderMetadataInternal(folderPath) {
         // Get blob URL from cache
         coverImageUrl = await cacheManager.getImageUrl(coverImagePath);
       } else {
-        // Get temporary link and cache the image
+        // Get temporary link and cache the image (WAIT for it to complete)
+        console.log('[Scanner] Caching new cover image:', coverImagePath);
         const linkData = await dropbox.getTemporaryLink(coverImagePath);
-        coverImageUrl = linkData.link;
-        coverImageUrlExpiresAt = linkManager.calculateExpiration();
         
-        // Cache the image in the background (don't wait)
-        cacheManager.cacheImage(coverImagePath, coverImageUrl)
-          .catch(err => console.error('[Scanner] Background image caching failed:', err));
+        try {
+          // Cache the image and wait for completion
+          await cacheManager.cacheImage(coverImagePath, linkData.link);
+          // Now get the blob URL from cache
+          coverImageUrl = await cacheManager.getImageUrl(coverImagePath);
+          console.log('[Scanner] ✓ Cover image cached successfully');
+        } catch (cacheError) {
+          console.error('[Scanner] Failed to cache image, using temp link:', cacheError);
+          // Fallback to temp link if caching fails
+          coverImageUrl = linkData.link;
+          coverImageUrlExpiresAt = linkManager.calculateExpiration();
+        }
       }
     } catch (error) {
       console.error('[Scanner] Error getting cover image URL:', error);
@@ -293,28 +307,15 @@ function createTrackFromEntry(entry) {
   const filename = entry.name;
   const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
   
-  // Try to parse artist and title from filename
-  // Common patterns: "Artist - Title.mp3" or "01 - Title.mp3" or just "Title.mp3"
-  let artist = 'Unknown Artist';
-  let title = nameWithoutExt;
+  // Parse metadata from filename with enhanced logic
+  const metadata = parseFilenameMetadata(nameWithoutExt);
   
-  if (nameWithoutExt.includes(' - ')) {
-    const parts = nameWithoutExt.split(' - ');
-    const firstPart = parts[0].trim();
-    
-    // Check if first part is just a track number
-    if (!/^\d+$/.test(firstPart)) {
-      artist = firstPart;
-      title = parts.slice(1).join(' - ').trim();
-    } else {
-      // Just a track number, use the rest as title
-      title = parts.slice(1).join(' - ').trim();
-    }
-  }
-  
-  // Try to get album from parent folder
+  // Get album from parent folder as fallback
   const pathParts = entry.path_display.split('/');
-  const album = pathParts.length > 2 ? pathParts[pathParts.length - 2] : 'Unknown Album';
+  const folderAlbum = pathParts.length > 2 ? pathParts[pathParts.length - 2] : 'Unknown Album';
+  
+  // Use parsed album if available, otherwise use folder name
+  const album = metadata.album || folderAlbum;
   
   // Generate unique ID from path using a simple hash
   let hash = 0;
@@ -327,9 +328,10 @@ function createTrackFromEntry(entry) {
   
   return {
     id,
-    title,
-    artist,
+    title: metadata.title,
+    artist: metadata.artist,
     album,
+    track: metadata.track,
     path: entry.path_lower,
     pathDisplay: entry.path_display,
     filename,
@@ -338,6 +340,114 @@ function createTrackFromEntry(entry) {
     modifiedTime: entry.server_modified,
     addedAt: Date.now()
   };
+}
+
+// Enhanced filename parser - handles multiple formats
+function parseFilenameMetadata(nameWithoutExt) {
+  // Default values
+  let artist = 'Unknown Artist';
+  let album = null; // null means use folder name
+  let track = null;
+  let title = nameWithoutExt;
+  
+  // Check if filename contains separator
+  if (!nameWithoutExt.includes(' - ')) {
+    // No separator - entire name is the title
+    return { artist, album, track, title };
+  }
+  
+  // Split by " - " separator
+  const parts = nameWithoutExt.split(' - ').map(p => p.trim());
+  
+  if (parts.length === 2) {
+    // Pattern: "Part1 - Part2"
+    const firstPart = parts[0];
+    const secondPart = parts[1];
+    
+    // Check if first part is a track number
+    if (isTrackNumber(firstPart)) {
+      // "01 - Title" or "Track 01 - Title"
+      track = extractTrackNumber(firstPart);
+      title = secondPart;
+      // Artist and album will use defaults/folder
+    } else {
+      // "Artist - Title"
+      artist = firstPart;
+      title = secondPart;
+    }
+  } else if (parts.length === 3) {
+    // Pattern: "Part1 - Part2 - Part3"
+    const firstPart = parts[0];
+    const secondPart = parts[1];
+    const thirdPart = parts[2];
+    
+    // Check different patterns
+    if (isTrackNumber(secondPart)) {
+      // "Artist - 01 - Title" or "Artist - Track 01 - Title"
+      artist = firstPart;
+      track = extractTrackNumber(secondPart);
+      title = thirdPart;
+    } else if (isTrackNumber(firstPart)) {
+      // "01 - Album - Title" (less common)
+      track = extractTrackNumber(firstPart);
+      album = secondPart;
+      title = thirdPart;
+    } else {
+      // "Artist - Album - Title"
+      artist = firstPart;
+      album = secondPart;
+      title = thirdPart;
+    }
+  } else if (parts.length >= 4) {
+    // Pattern: "Artist - Album - Track - Title" or more parts
+    const firstPart = parts[0];
+    const secondPart = parts[1];
+    const thirdPart = parts[2];
+    const remainingParts = parts.slice(3);
+    
+    // Check if third part is a track number
+    if (isTrackNumber(thirdPart)) {
+      // "Artist - Album - 01 - Title"
+      artist = firstPart;
+      album = secondPart;
+      track = extractTrackNumber(thirdPart);
+      title = remainingParts.join(' - ');
+    } else if (isTrackNumber(firstPart)) {
+      // "01 - Artist - Album - Title" (unusual but handle it)
+      track = extractTrackNumber(firstPart);
+      artist = secondPart;
+      album = thirdPart;
+      title = remainingParts.join(' - ');
+    } else {
+      // Assume: "Artist - Album - Sub-info - Title..."
+      // Take first as artist, second as album, rest as title
+      artist = firstPart;
+      album = secondPart;
+      title = parts.slice(2).join(' - ');
+    }
+  }
+  
+  return { artist, album, track, title };
+}
+
+// Check if a string represents a track number
+function isTrackNumber(str) {
+  // Patterns: "01", "1", "Track 01", "Track 1", "01.", "1."
+  const trackPatterns = [
+    /^\d{1,3}$/,              // Just digits: "01" or "1"
+    /^Track\s+\d{1,3}$/i,     // "Track 01" or "track 1"
+    /^\d{1,3}\.$/,            // "01." or "1."
+    /^#\d{1,3}$/              // "#01" or "#1"
+  ];
+  
+  return trackPatterns.some(pattern => pattern.test(str.trim()));
+}
+
+// Extract track number from string
+function extractTrackNumber(str) {
+  // Extract just the numeric part
+  const match = str.match(/\d{1,3}/);
+  return match ? match[0] : null;
 }
 
 // Show loading screen with message

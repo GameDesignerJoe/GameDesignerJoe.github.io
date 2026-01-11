@@ -474,6 +474,138 @@ export async function clearLocalFolderHandles() {
   });
 }
 
+// === DISCONNECT/CLEAR OPERATIONS ===
+
+// Clear all Dropbox-specific data
+export async function clearDropboxData() {
+  if (!db) await initDB();
+  
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log('[Storage] Clearing Dropbox data...');
+      
+      // Delete all Dropbox tracks
+      const allTracks = await getAllTracks();
+      const dropboxTracks = allTracks.filter(track => track.source === 'dropbox');
+      
+      const trackTx = db.transaction([STORES.TRACKS], 'readwrite');
+      const trackStore = trackTx.objectStore(STORES.TRACKS);
+      
+      for (const track of dropboxTracks) {
+        trackStore.delete(track.id);
+      }
+      
+      await new Promise((res, rej) => {
+        trackTx.oncomplete = () => res();
+        trackTx.onerror = () => rej(trackTx.error);
+      });
+      
+      console.log(`[Storage] Deleted ${dropboxTracks.length} Dropbox tracks`);
+      
+      // Clear selected folders
+      const folderTx = db.transaction([STORES.FOLDERS], 'readwrite');
+      const folderStore = folderTx.objectStore(STORES.FOLDERS);
+      await new Promise((res, rej) => {
+        const clearRequest = folderStore.clear();
+        clearRequest.onsuccess = () => res();
+        clearRequest.onerror = () => rej(clearRequest.error);
+      });
+      
+      console.log('[Storage] Cleared all Dropbox folders');
+      
+      // Remove Dropbox tracks from playlists
+      const allPlaylists = await getAllPlaylists();
+      if (allPlaylists && allPlaylists.length > 0) {
+        for (const playlist of allPlaylists) {
+          if (playlist.trackIds && Array.isArray(playlist.trackIds)) {
+            const originalCount = playlist.trackIds.length;
+            playlist.trackIds = playlist.trackIds.filter(trackId => {
+              // Check if track is NOT a Dropbox track
+              const track = dropboxTracks.find(t => t.id === trackId);
+              return !track;
+            });
+            
+            if (playlist.trackIds.length !== originalCount) {
+              await savePlaylist(playlist);
+              console.log(`[Storage] Removed Dropbox tracks from playlist: ${playlist.name}`);
+            }
+          }
+        }
+      }
+      
+      console.log('[Storage] Dropbox data cleared successfully');
+      resolve({
+        tracksDeleted: dropboxTracks.length,
+        foldersCleared: true
+      });
+    } catch (error) {
+      console.error('[Storage] Error clearing Dropbox data:', error);
+      reject(error);
+    }
+  });
+}
+
+// Clear all Local Drive-specific data
+export async function clearLocalData() {
+  if (!db) await initDB();
+  
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log('[Storage] Clearing Local Drive data...');
+      
+      // Delete all local tracks
+      const allTracks = await getAllTracks();
+      const localTracks = allTracks.filter(track => track.source === 'local');
+      
+      const trackTx = db.transaction([STORES.TRACKS], 'readwrite');
+      const trackStore = trackTx.objectStore(STORES.TRACKS);
+      
+      for (const track of localTracks) {
+        trackStore.delete(track.id);
+      }
+      
+      await new Promise((res, rej) => {
+        trackTx.oncomplete = () => res();
+        trackTx.onerror = () => rej(trackTx.error);
+      });
+      
+      console.log(`[Storage] Deleted ${localTracks.length} local tracks`);
+      
+      // Clear local folder handles
+      await clearLocalFolderHandles();
+      
+      // Remove local tracks from playlists
+      const allPlaylists = await getAllPlaylists();
+      if (allPlaylists && allPlaylists.length > 0) {
+        for (const playlist of allPlaylists) {
+          if (playlist.trackIds && Array.isArray(playlist.trackIds)) {
+            const originalCount = playlist.trackIds.length;
+            playlist.trackIds = playlist.trackIds.filter(trackId => {
+              // Check if track is NOT a local track
+              const track = localTracks.find(t => t.id === trackId);
+              return !track;
+            });
+            
+            if (playlist.trackIds.length !== originalCount) {
+              await savePlaylist(playlist);
+              console.log(`[Storage] Removed local tracks from playlist: ${playlist.name}`);
+            }
+          }
+        }
+      }
+      
+      console.log('[Storage] Local Drive data cleared successfully');
+      resolve({
+        tracksDeleted: localTracks.length,
+        foldersCleared: true
+      });
+    } catch (error) {
+      console.error('[Storage] Error clearing Local Drive data:', error);
+      reject(error);
+    }
+  });
+}
+
 // Initialize database on module load
 initDB().catch(err => {
   console.error('[Storage] Failed to initialize database:', err);
