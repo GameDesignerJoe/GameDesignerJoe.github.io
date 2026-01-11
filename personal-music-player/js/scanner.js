@@ -8,17 +8,23 @@ import * as cacheManager from './cache-manager.js';
 import * as linkManager from './link-manager.js';
 import * as localFiles from './local-files.js';
 import * as id3Reader from './id3-reader.js';
+import * as utils from './utils.js';
 import { showToast, showScreen } from './app.js';
 
 let isScanning = false;
 let scanProgress = {
   foldersScanned: 0,
   totalFolders: 0,
-  filesFound: 0
+  filesFound: 0,
+  currentFolder: ''
 };
 
-// Scan selected folders for audio files
-export async function scanSelectedFolders(folders) {
+// Get device-optimized settings
+const deviceSettings = utils.getDeviceOptimizedSettings();
+console.log('[Scanner] Device settings:', deviceSettings);
+
+// Scan selected folders for audio files (with throttling and progressive loading)
+export async function scanSelectedFolders(folders, progressCallback = null) {
   if (isScanning) {
     showToast('Scan already in progress', 'info');
     return;
@@ -28,10 +34,12 @@ export async function scanSelectedFolders(folders) {
   scanProgress = {
     foldersScanned: 0,
     totalFolders: folders.length,
-    filesFound: 0
+    filesFound: 0,
+    currentFolder: ''
   };
   
   console.log('[Scanner] Starting scan of', folders.length, 'folders');
+  console.log('[Scanner] Device settings:', deviceSettings);
   
   // Show loading screen
   showLoadingScreen(`Scanning folders... (0/${folders.length})`);
@@ -39,10 +47,12 @@ export async function scanSelectedFolders(folders) {
   try {
     const allTracks = [];
     
-    // Scan each selected folder
+    // Scan each selected folder sequentially with throttling
     for (const folder of folders) {
       // Handle both string paths and objects with .path property
       const folderPath = typeof folder === 'string' ? folder : folder.path;
+      scanProgress.currentFolder = folderPath;
+      
       console.log('[Scanner] Scanning folder:', folderPath);
       
       const tracks = await scanFolder(folderPath);
@@ -55,6 +65,19 @@ export async function scanSelectedFolders(folders) {
         `Scanning folders... (${scanProgress.foldersScanned}/${scanProgress.totalFolders})`,
         `Found ${scanProgress.filesFound} audio files`
       );
+      
+      // Call progress callback if provided (for progressive UI updates)
+      if (progressCallback) {
+        await progressCallback({
+          ...scanProgress,
+          tracks: [...allTracks]
+        });
+      }
+      
+      // Add delay between folders on mobile to prevent timeout
+      if (deviceSettings.isMobile && scanProgress.foldersScanned < folders.length) {
+        await utils.sleep(deviceSettings.apiBatchDelay);
+      }
     }
     
     // Save all tracks to database
@@ -75,10 +98,13 @@ export async function scanSelectedFolders(folders) {
     // Show success message
     showToast(`✨ Added ${allTracks.length} songs to your library!`, 'success');
     
+    return allTracks;
+    
   } catch (error) {
     console.error('[Scanner] Scan failed:', error);
     hideLoadingScreen();
     showToast('Scan failed. Please try again.', 'error');
+    throw error;
   } finally {
     isScanning = false;
   }
@@ -165,78 +191,100 @@ async function findCoverImage(folderPath) {
   }
 }
 
-// Scan folder and build metadata (cover image, song count, subfolders)
-export async function scanFolderMetadata(folderPath) {
+// Scan folder and build metadata (cover image, song count, subfolders) with timeout protection
+export async function scanFolderMetadata(folderPath, timeoutMs = null) {
+  // Use device-specific timeout if not provided
+  if (timeoutMs === null) {
+    timeoutMs = deviceSettings.operationTimeout;
+  }
+  
   try {
-    console.log('[Scanner] Scanning metadata for folder:', folderPath);
+    console.log('[Scanner] Scanning metadata for folder:', folderPath, `(timeout: ${timeoutMs}ms)`);
     
-    // Get cover image
-    const coverImagePath = await findCoverImage(folderPath);
+    // Wrap the operation in a timeout promise
+    const metadataPromise = scanFolderMetadataInternal(folderPath);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Metadata scan timeout')), timeoutMs)
+    );
     
-    // Get cover image temp URL if found, and cache it
-    let coverImageUrl = null;
-    let coverImageUrlExpiresAt = null;
+    return await Promise.race([metadataPromise, timeoutPromise]);
     
-    if (coverImagePath) {
-      try {
-        // Check if image is already cached
-        const isCached = await cacheManager.isImageCached(coverImagePath);
-        
-        if (isCached) {
-          console.log('[Scanner] Using cached image for:', coverImagePath);
-          // Get blob URL from cache
-          coverImageUrl = await cacheManager.getImageUrl(coverImagePath);
-        } else {
-          // Get temporary link and cache the image
-          const linkData = await dropbox.getTemporaryLink(coverImagePath);
-          coverImageUrl = linkData.link;
-          coverImageUrlExpiresAt = linkManager.calculateExpiration();
-          
-          // Cache the image in the background (don't wait)
-          cacheManager.cacheImage(coverImagePath, coverImageUrl)
-            .catch(err => console.error('[Scanner] Background image caching failed:', err));
-        }
-      } catch (error) {
-        console.error('[Scanner] Error getting cover image URL:', error);
-      }
-    }
-    
-    // Count songs in this folder
-    const tracks = await storage.getAllTracks();
-    const songCount = tracks.filter(track => track.path.startsWith(folderPath)).length;
-    
-    // Get folder name from path
-    const pathParts = folderPath.split('/').filter(p => p);
-    const name = pathParts[pathParts.length - 1] || 'Root';
-    
-    // Get subfolders
-    const entries = await dropbox.listFolder(folderPath, false);
-    const subfolders = entries.entries
-      .filter(entry => entry['.tag'] === 'folder')
-      .map(folder => folder.path_lower);
-    
-    const metadata = {
-      path: folderPath,
-      name: name,
-      coverImagePath: coverImagePath,
-      coverImageUrl: coverImageUrl,
-      coverImageUrlExpiresAt: coverImageUrlExpiresAt,
-      songCount: songCount,
-      subfolders: subfolders,
-      lastScanned: Date.now(),
-      addedAt: Date.now()
-    };
-    
-    // Save metadata to storage
-    await storage.saveFolderMetadata(metadata);
-    
-    console.log(`[Scanner] Folder metadata saved: ${name} (${songCount} songs, cover: ${coverImagePath ? 'yes' : 'no'})`);
-    
-    return metadata;
   } catch (error) {
-    console.error('[Scanner] Error scanning folder metadata:', error);
+    if (error.message === 'Metadata scan timeout') {
+      console.error('[Scanner] Metadata scan timed out for:', folderPath);
+      showToast(`Timeout scanning ${folderPath.split('/').pop()}`, 'error');
+    } else {
+      console.error('[Scanner] Error scanning folder metadata:', error);
+    }
     return null;
   }
+}
+
+// Internal metadata scanning function
+async function scanFolderMetadataInternal(folderPath) {
+  // Get cover image
+  const coverImagePath = await findCoverImage(folderPath);
+  
+  // Get cover image temp URL if found, and cache it
+  let coverImageUrl = null;
+  let coverImageUrlExpiresAt = null;
+  
+  if (coverImagePath) {
+    try {
+      // Check if image is already cached
+      const isCached = await cacheManager.isImageCached(coverImagePath);
+      
+      if (isCached) {
+        console.log('[Scanner] Using cached image for:', coverImagePath);
+        // Get blob URL from cache
+        coverImageUrl = await cacheManager.getImageUrl(coverImagePath);
+      } else {
+        // Get temporary link and cache the image
+        const linkData = await dropbox.getTemporaryLink(coverImagePath);
+        coverImageUrl = linkData.link;
+        coverImageUrlExpiresAt = linkManager.calculateExpiration();
+        
+        // Cache the image in the background (don't wait)
+        cacheManager.cacheImage(coverImagePath, coverImageUrl)
+          .catch(err => console.error('[Scanner] Background image caching failed:', err));
+      }
+    } catch (error) {
+      console.error('[Scanner] Error getting cover image URL:', error);
+    }
+  }
+  
+  // Count songs in this folder
+  const tracks = await storage.getAllTracks();
+  const songCount = tracks.filter(track => track.path.startsWith(folderPath)).length;
+  
+  // Get folder name from path
+  const pathParts = folderPath.split('/').filter(p => p);
+  const name = pathParts[pathParts.length - 1] || 'Root';
+  
+  // Get subfolders
+  const entries = await dropbox.listFolder(folderPath, false);
+  const subfolders = entries.entries
+    .filter(entry => entry['.tag'] === 'folder')
+    .map(folder => folder.path_lower);
+  
+  const metadata = {
+    path: folderPath,
+    name: name,
+    coverImagePath: coverImagePath,
+    coverImageUrl: coverImageUrl,
+    coverImageUrlExpiresAt: coverImageUrlExpiresAt,
+    songCount: songCount,
+    subfolders: subfolders,
+    lastScanned: Date.now(),
+    addedAt: Date.now()
+  };
+  
+  // Save metadata to storage
+  await storage.saveFolderMetadata(metadata);
+  
+  console.log(`[Scanner] Folder metadata saved: ${name} (${songCount} songs, ${subfolders.length} subfolders, cover: ${coverImagePath ? 'yes' : 'no'})`);
+  
+  return metadata;
 }
 
 // Create track object from Dropbox file entry

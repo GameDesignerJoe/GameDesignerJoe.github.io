@@ -17,7 +17,7 @@ export async function init() {
   await refreshFolders();
 }
 
-// Refresh folder display
+// Refresh folder display (loads from cache - instant!)
 export async function refreshFolders() {
   if (isRefreshing) {
     showToast('Already refreshing...', 'info');
@@ -25,21 +25,11 @@ export async function refreshFolders() {
   }
   
   isRefreshing = true;
-  console.log('[Home] Refreshing folders');
+  console.log('[Home] Refreshing folders (from cache)');
   
   try {
-    // Get Dropbox folders
+    // Get Dropbox folders (from cache - no re-scanning!)
     const dropboxFolders = await storage.getAllFoldersWithMetadata();
-    
-    // Scan metadata for Dropbox folders that don't have it yet
-    for (const folder of dropboxFolders) {
-      if (!folder.coverImagePath || !folder.songCount) {
-        await scanner.scanFolderMetadata(folder.path);
-      }
-    }
-    
-    // Reload Dropbox folders with updated metadata
-    const updatedDropboxFolders = await storage.getAllFoldersWithMetadata();
     
     // Get local folders
     const localFolderHandles = await storage.getLocalFolderHandles();
@@ -48,7 +38,7 @@ export async function refreshFolders() {
     const localFolders = await createLocalFolderMetadata(localFolderHandles);
     
     // Combine both sources
-    allFolders = [...localFolders, ...updatedDropboxFolders];
+    allFolders = [...localFolders, ...dropboxFolders];
     
     // Get playlists (refresh them first to ensure latest data)
     await playlists.refreshPlaylists();
@@ -59,7 +49,7 @@ export async function refreshFolders() {
     // Build folder cards including subfolders
     await buildFolderCollection();
     
-    console.log(`[Home] Displayed ${allFolders.length} folders (${localFolders.length} local, ${updatedDropboxFolders.length} Dropbox) and ${allPlaylists.length} playlists`);
+    console.log(`[Home] Displayed ${allFolders.length} folders (${localFolders.length} local, ${dropboxFolders.length} Dropbox) and ${allPlaylists.length} playlists`);
     
   } catch (error) {
     console.error('[Home] Error refreshing folders:', error);
@@ -132,6 +122,9 @@ async function buildFolderCollection() {
   const allFolderCards = [];
   const seenPaths = new Set(); // Track which folders we've already added
   
+  // Get all tracks once (optimization - don't query repeatedly)
+  const allTracks = await storage.getAllTracks();
+  
   // Process each selected folder
   for (const folder of allFolders) {
     // Add parent folder card if not already added
@@ -140,7 +133,7 @@ async function buildFolderCollection() {
       seenPaths.add(folder.path);
     }
     
-    // Check for subfolders with audio files
+    // Check for subfolders with audio files (from cache only!)
     if (folder.subfolders && folder.subfolders.length > 0) {
       for (const subfolderPath of folder.subfolders) {
         // Skip if we've already added this subfolder
@@ -149,21 +142,30 @@ async function buildFolderCollection() {
         }
         
         try {
-          // Check if subfolder has audio files
-          const tracks = await storage.getAllTracks();
-          const songsInSubfolder = tracks.filter(track => track.path.startsWith(subfolderPath));
+          // Check if subfolder has audio files (using cached tracks)
+          const songsInSubfolder = allTracks.filter(track => track.path.startsWith(subfolderPath));
           
           if (songsInSubfolder.length > 0) {
-            // Get or create metadata for subfolder
+            // Get metadata for subfolder (from cache only - no scanning!)
             let subfolderData = await storage.getFolderByPath(subfolderPath);
             
-            if (!subfolderData || !subfolderData.songCount) {
-              // Scan subfolder metadata
-              subfolderData = await scanner.scanFolderMetadata(subfolderPath);
-            }
-            
+            // If we have cached metadata, use it
             if (subfolderData) {
               allFolderCards.push(subfolderData);
+              seenPaths.add(subfolderPath);
+            } else {
+              // No cached metadata - create minimal card
+              // Metadata will be created when folder was first added in Sources
+              const pathParts = subfolderPath.split('/').filter(p => p);
+              const name = pathParts[pathParts.length - 1] || 'Folder';
+              
+              allFolderCards.push({
+                path: subfolderPath,
+                name: name,
+                songCount: songsInSubfolder.length,
+                coverImageUrl: null,
+                source: 'dropbox'
+              });
               seenPaths.add(subfolderPath);
             }
           }
@@ -401,22 +403,28 @@ function handlePlaylistClick(playlistId) {
   playlists.viewPlaylist(playlistId);
 }
 
-// Refresh folder metadata (called by refresh button)
-export async function refreshFolderMetadata() {
-  console.log('[Home] Manually refreshing folder metadata');
-  showToast('Refreshing metadata...', 'info');
+// Force re-scan folder metadata (expensive operation - shows warning)
+export async function forceRescanMetadata() {
+  console.log('[Home] Force re-scanning folder metadata');
+  
+  // Show warning
+  const confirmed = confirm(
+    '⚠️ This will re-scan all folders and may take 5-10 minutes on mobile.\n\n' +
+    'Only do this if you\'ve added new songs to existing folders in Dropbox.\n\n' +
+    'Continue?'
+  );
+  
+  if (!confirmed) {
+    return;
+  }
+  
+  showToast('Re-scanning all folders... This may take a while', 'info');
   
   // Also update track durations for ALL files (local + Dropbox)
   try {
     const library = await import('./library.js');
     const updatedCount = await library.updateMissingDurations();
     console.log(`[Home] Updated ${updatedCount} track durations`);
-    
-    // Refresh library display to show updated durations
-    if (updatedCount > 0) {
-      await library.refreshLibrary();
-      showToast(`✓ Updated ${updatedCount} tracks!`, 'success');
-    }
   } catch (error) {
     console.error('[Home] Error updating durations:', error);
   }
@@ -424,18 +432,36 @@ export async function refreshFolderMetadata() {
   try {
     // Re-scan metadata for all folders
     const folders = await storage.getAllFoldersWithMetadata();
+    let scannedCount = 0;
     
     for (const folder of folders) {
+      scannedCount++;
+      showToast(`Scanning ${scannedCount}/${folders.length} folders...`, 'info');
       await scanner.scanFolderMetadata(folder.path);
     }
     
     // Reload display
     await refreshFolders();
     
-    showToast('✓ Folders refreshed!', 'success');
+    showToast('✓ All folders re-scanned!', 'success');
     
   } catch (error) {
     console.error('[Home] Error refreshing folder metadata:', error);
+    showToast('Error re-scanning folders', 'error');
+  }
+}
+
+// Refresh folder metadata (called by refresh button - just reloads from cache now)
+export async function refreshFolderMetadata() {
+  console.log('[Home] Refreshing folder display (from cache)');
+  showToast('Refreshing...', 'info');
+  
+  try {
+    // Just reload from cache - instant!
+    await refreshFolders();
+    showToast('✓ Folders refreshed!', 'success');
+  } catch (error) {
+    console.error('[Home] Error refreshing folders:', error);
     showToast('Error refreshing folders', 'error');
   }
 }

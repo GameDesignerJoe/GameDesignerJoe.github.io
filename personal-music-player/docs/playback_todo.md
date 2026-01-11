@@ -1,9 +1,19 @@
 Playback ToDo
+Priority 0:
+- I think you're hitting a threshold where you're getting diminishing returns on certain elements of the program. 
+    - You're moving into the next phase of this project I think:
+        - Document
+        - Clean up files & code
+        - Spend all time chasing buts. 
+
 Priority 1:
+- Need to rename it to Playback in the first screen. 
+- It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
+    - This was the bug that I think broke the program.
 - Need to do an auto refresh of your home folder whenever you add a source.
 - There's a scan button on the source drive folder that seems to not be doing things we want. 
 - Don't support custom order on Folders
-- It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
+
 
 Priority 2: 
 - Add image replacement for cover art.

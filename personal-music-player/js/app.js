@@ -14,6 +14,7 @@ import * as search from './search.js';
 import * as linkManager from './link-manager.js';
 import * as cacheManager from './cache-manager.js';
 import * as localFiles from './local-files.js';
+import * as utils from './utils.js';
 
 // App State
 const appState = {
@@ -28,6 +29,9 @@ const appState = {
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[App] Initializing Music Player PWA');
+  
+  // Log device info for debugging
+  utils.logDeviceInfo();
   
   // Register service worker
   registerServiceWorker();
