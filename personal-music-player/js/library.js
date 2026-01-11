@@ -43,11 +43,37 @@ function getFolderGradient(folderPath) {
 
 // Detect source location from track path
 function getTrackSource(track) {
+  // Check source property first (most reliable)
+  if (track.source) {
+    if (track.source === 'dropbox') return 'Dropbox';
+    if (track.source === 'google-drive') return 'Google Drive';
+    if (track.source === 'onedrive') return 'OneDrive';
+    if (track.source === 'network-drive') return 'Network Drive';
+    if (track.source === 'plex') return 'Plex';
+    if (track.source === 'local') return 'Local';
+  }
+  
+  // Fallback to checking path
   const path = track.path.toLowerCase();
   if (path.includes('dropbox')) return 'Dropbox';
   if (path.includes('google drive') || path.includes('googledrive')) return 'Google Drive';
   if (path.includes('onedrive')) return 'OneDrive';
+  if (path.includes('network') || path.includes('nas')) return 'Network Drive';
+  if (path.includes('plex')) return 'Plex';
   return 'Local';
+}
+
+// Get source icon for display
+function getSourceIcon(source) {
+  const icons = {
+    'Dropbox': 'assets/icons/dropbox.png',
+    'Google Drive': 'assets/icons/googledrive.png',
+    'OneDrive': 'assets/icons/onedrive.png',
+    'Network Drive': 'assets/icons/networkdrive.png',
+    'Plex': 'assets/icons/plex.png',
+    'Local': '📁' // Folder emoji
+  };
+  return icons[source] || '📁';
 }
 
 // Get folder art (cover.jpg → collage → cassette icon)
@@ -950,6 +976,9 @@ function sortTracks(tracks) {
     case 'duration':
       sorted.sort((a, b) => (b.duration || 0) - (a.duration || 0));
       break;
+    case 'source':
+      sorted.sort((a, b) => getTrackSource(a).localeCompare(getTrackSource(b)));
+      break;
     default:
       break;
   }
@@ -966,6 +995,11 @@ function createEnhancedTrackElement(track, trackNumber) {
   const albumArtSrc = track.albumArt || 'assets/icons/icon-song-black..png';
   const durationText = formatTrackDuration(track.duration);
   
+  // Get source information
+  const source = getTrackSource(track);
+  const sourceIcon = getSourceIcon(source);
+  const isEmoji = sourceIcon.length < 10; // Emoji vs image path
+  
   div.innerHTML = `
     <div class="track-number-cell">
       <div class="track-number">${trackNumber}</div>
@@ -981,14 +1015,14 @@ function createEnhancedTrackElement(track, trackNumber) {
       <div class="track-item-cover">
         <img src="${albumArtSrc}" alt="Album art">
       </div>
-      <div class="track-item-info">
-        <div class="track-item-title">${escapeHtml(track.title)}</div>
-        <div class="track-item-artist">${escapeHtml(track.artist)}</div>
-      </div>
+      <div class="track-item-title">${escapeHtml(track.title)}</div>
     </div>
-    <div class="track-item-album">${escapeHtml(track.album)}</div>
     <div class="track-item-artist">${escapeHtml(track.artist)}</div>
+    <div class="track-item-album">${escapeHtml(track.album)}</div>
     <div class="track-item-duration">${durationText}</div>
+    <div class="track-item-source" title="${source}">
+      ${isEmoji ? sourceIcon : `<img src="${sourceIcon}" alt="${source}" />`}
+    </div>
     <button class="track-more-btn">⋮</button>
   `;
   
@@ -1434,7 +1468,8 @@ function updateLibrarySortLabel() {
     title: 'Title',
     artist: 'Artist',
     album: 'Album',
-    duration: 'Duration'
+    duration: 'Duration',
+    source: 'Source'
   };
   
   label.textContent = sortLabels[currentSortOrder] || 'Title';

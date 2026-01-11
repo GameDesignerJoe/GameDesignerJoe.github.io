@@ -157,7 +157,7 @@
 
 .playlist-track-item {
   display: grid;
-  grid-template-columns: 40px 3fr 2fr 2fr 80px 40px;
+  grid-template-columns: 40px 2fr 2fr 2fr 80px 50px 40px;
   gap: var(--spacing-md);
   align-items: center;
   padding: var(--spacing-sm) var(--spacing-md);
@@ -289,8 +289,28 @@
 .playlist-track-item .track-item-duration {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
-  text-align: right;
+  text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.playlist-track-item .track-item-source {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem; /* 25% smaller than 1.5rem */
+  color: var(--color-text-secondary);
+}
+
+.playlist-track-item .track-item-source img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.playlist-track-item:hover .track-item-source img {
+  opacity: 1;
 }
 
 .playlist-track-item .track-more-btn {
