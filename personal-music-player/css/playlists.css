@@ -374,6 +374,9 @@
   cursor: pointer;
   user-select: none;
   transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .column-header:hover {
@@ -382,6 +385,16 @@
 
 .column-header.sorted {
   color: var(--color-accent);
+}
+
+.column-header .sort-indicator {
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.column-header.sorted .sort-indicator {
+  opacity: 1;
 }
 
 .column-number {

@@ -55,20 +55,23 @@
   color: var(--text-primary);
 }
 
-.modal-close-btn {
+.modal-close-btn,
+.modal-close {
   background: none;
   border: none;
   font-size: 24px;
-  color: var(--text-secondary);
+  color: white;
   cursor: pointer;
   padding: 4px;
   transition: all 0.2s ease;
   line-height: 1;
 }
 
-.modal-close-btn:hover {
-  color: var(--text-primary);
+.modal-close-btn:hover,
+.modal-close:hover {
+  color: white;
   transform: scale(1.1);
+  opacity: 0.8;
 }
 
 .modal-body {

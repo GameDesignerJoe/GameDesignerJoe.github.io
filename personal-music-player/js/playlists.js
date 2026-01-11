@@ -8,11 +8,13 @@ let allPlaylists = [];
 let selectedTracks = new Set(); // Track IDs of selected tracks in playlist
 let lastSelectedTrackId = null; // For shift-click range selection
 let currentPlaylistData = null; // Current playlist being viewed
-let currentSortOrder = 'custom'; // custom, title, artist, album, dateAdded, duration
+let currentSortOrder = 'custom'; // custom, title, artist, album, dateAdded, duration, source
+let currentSortDirection = 'asc'; // asc or desc
 let currentViewMode = 'list'; // list or compact
 let draggedTrackIndex = null; // For drag and drop
 let searchQuery = ''; // Current search query
 let shuffleEnabled = false; // Shuffle toggle state
+let savedCustomOrder = null; // Saved custom order for 3-click cycle
 
 // Detect source location from track
 function getTrackSource(track) {
@@ -514,7 +516,14 @@ function updatePlaylistHeader(playlist, tracks) {
     const source = getTrackSource(track);
     sources.add(source);
   });
-  const sourceText = sources.size > 0 ? Array.from(sources).sort().join(' / ') : 'Unknown';
+  // Sort sources: Local first, then alphabetically
+  const sortedSources = Array.from(sources).sort((a, b) => {
+    if (a === 'Local') return -1;
+    if (b === 'Local') return 1;
+    return a.localeCompare(b);
+  });
+  
+  const sourceText = sortedSources.length > 0 ? sortedSources.join(' / ') : 'Unknown';
   
   // Format date created (will be replaced by source in the UI)
   const dateCreated = sourceText;
@@ -668,6 +677,91 @@ function updateSortViewLabel() {
   label.textContent = sortLabels[currentSortOrder] || 'Custom order';
 }
 
+// Setup column header click listeners for sorting
+function setupColumnHeaderListeners() {
+  const headers = document.querySelectorAll('.playlist-column-headers .column-header[data-sort]');
+  
+  headers.forEach(header => {
+    const sortType = header.dataset.sort;
+    
+    header.onclick = () => {
+      handleColumnHeaderClick(sortType);
+    };
+  });
+  
+  // Update visual indicators
+  updateColumnHeaderIndicators();
+}
+
+// Handle column header click for sorting
+function handleColumnHeaderClick(sortType) {
+  // Save custom order before switching away from it (first time only)
+  if (currentSortOrder === 'custom' && !savedCustomOrder && currentPlaylistData) {
+    savedCustomOrder = [...currentPlaylistData.tracks];
+  }
+  
+  // 3-click cycle: ascending → descending → custom
+  if (currentSortOrder === sortType) {
+    if (currentSortDirection === 'asc') {
+      // First click was asc, now go to desc
+      currentSortDirection = 'desc';
+    } else {
+      // Second click was desc, now return to custom
+      currentSortOrder = 'custom';
+      currentSortDirection = 'asc';
+      
+      // Restore saved custom order
+      if (savedCustomOrder && currentPlaylistData) {
+        currentPlaylistData.tracks = [...savedCustomOrder];
+        savedCustomOrder = null; // Clear saved order
+      }
+    }
+  } else {
+    // New column - start with ascending
+    currentSortOrder = sortType;
+    currentSortDirection = 'asc';
+  }
+  
+  // Save sort preferences to playlist
+  if (currentPlaylistData) {
+    currentPlaylistData.sortOrder = currentSortOrder;
+    storage.savePlaylist(currentPlaylistData);
+  }
+  
+  // Update UI
+  updateSortViewLabel();
+  updateColumnHeaderIndicators();
+  refreshCurrentPlaylist();
+}
+
+// Update column header visual indicators
+function updateColumnHeaderIndicators() {
+  const headers = document.querySelectorAll('.playlist-column-headers .column-header[data-sort]');
+  
+  headers.forEach(header => {
+    const sortType = header.dataset.sort;
+    
+    // Remove existing indicators
+    const existingIndicator = header.querySelector('.sort-indicator');
+    if (existingIndicator) {
+      existingIndicator.remove();
+    }
+    
+    // Remove sorted class
+    header.classList.remove('sorted');
+    
+    // Add indicator if this column is currently sorted
+    if (currentSortOrder === sortType && currentSortOrder !== 'custom') {
+      header.classList.add('sorted');
+      
+      const indicator = document.createElement('span');
+      indicator.className = 'sort-indicator';
+      indicator.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
+      header.appendChild(indicator);
+    }
+  });
+}
+
 // Render playlist tracks
 function renderPlaylistTracks(playlistId, tracks) {
   const content = document.getElementById('playlistDetailContent');
@@ -707,38 +801,61 @@ function renderPlaylistTracks(playlistId, tracks) {
     content.appendChild(trackEl);
   });
   
+  // Setup column header click listeners
+  setupColumnHeaderListeners();
+  
   // Setup drag and drop for custom order
   if (currentSortOrder === 'custom' && !searchQuery) {
     setupDragAndDrop();
   }
 }
 
-// Sort tracks based on current sort order
+// Sort tracks based on current sort order and direction
 function sortTracks(tracks) {
   const sorted = [...tracks];
   
+  // For custom order, return as-is
+  if (currentSortOrder === 'custom') {
+    return sorted;
+  }
+  
+  // Sort based on order
   switch (currentSortOrder) {
     case 'title':
-      sorted.sort((a, b) => a.title.localeCompare(b.title));
+      sorted.sort((a, b) => {
+        const result = a.title.localeCompare(b.title);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'artist':
-      sorted.sort((a, b) => a.artist.localeCompare(b.artist));
+      sorted.sort((a, b) => {
+        const result = a.artist.localeCompare(b.artist);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'album':
-      sorted.sort((a, b) => a.album.localeCompare(b.album));
+      sorted.sort((a, b) => {
+        const result = a.album.localeCompare(b.album);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'dateAdded':
-      sorted.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+      sorted.sort((a, b) => {
+        const result = (a.addedAt || 0) - (b.addedAt || 0);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'duration':
-      sorted.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      sorted.sort((a, b) => {
+        const result = (a.duration || 0) - (b.duration || 0);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'source':
-      sorted.sort((a, b) => getTrackSource(a).localeCompare(getTrackSource(b)));
-      break;
-    case 'custom':
-    default:
-      // Keep original order
+      sorted.sort((a, b) => {
+        const result = getTrackSource(a).localeCompare(getTrackSource(b));
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
   }
   

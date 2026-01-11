@@ -5,6 +5,7 @@ Priority 1:
 - There's a scan button on the source drive folder that seems to not be doing things we want. 
 - Duration icon is too far right.
 - Location source still isn't showing up right.
+- Don't support custom order on Folders
 
 Priority 2: 
 - Add image replacement for cover art.

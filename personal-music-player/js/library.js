@@ -12,7 +12,8 @@ let updateInterval = null;
 let selectedTracks = new Set(); // Track IDs of selected tracks
 let lastSelectedTrackId = null; // For shift-click range selection
 let currentFolderPath = null; // Currently viewed folder path
-let currentSortOrder = 'title'; // title, artist, album, dateAdded, duration
+let currentSortOrder = 'title'; // title, artist, album, duration, source
+let currentSortDirection = 'asc'; // asc or desc
 let currentViewMode = 'list'; // list or compact
 let shuffleEnabled = false;
 
@@ -769,7 +770,15 @@ async function showEnhancedHeader(folderPath, tracks) {
     const source = getTrackSource(track);
     sources.add(source);
   });
-  const sourceText = sources.size > 0 ? Array.from(sources).sort().join(' / ') : 'Unknown';
+  
+  // Sort sources: Local first, then alphabetically
+  const sortedSources = Array.from(sources).sort((a, b) => {
+    if (a === 'Local') return -1;
+    if (b === 'Local') return 1;
+    return a.localeCompare(b);
+  });
+  
+  const sourceText = sortedSources.length > 0 ? sortedSources.join(' / ') : 'Unknown';
   
   // Update metadata
   document.querySelector('#libraryStats .playlist-song-count').textContent = 
@@ -953,31 +962,115 @@ export async function filterByFolder(folderPath) {
     libraryContent.appendChild(trackEl);
   });
   
+  // Setup column header click listeners
+  setupColumnHeaderListeners();
+  
   // Update tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === 'songs');
   });
 }
 
-// Sort tracks based on current order
+// Setup column header click listeners for sorting
+function setupColumnHeaderListeners() {
+  const headers = document.querySelectorAll('#libraryColumnHeaders .column-header[data-sort]');
+  
+  headers.forEach(header => {
+    const sortType = header.dataset.sort;
+    
+    header.onclick = () => {
+      handleColumnHeaderClick(sortType);
+    };
+  });
+  
+  // Update visual indicators
+  updateColumnHeaderIndicators();
+}
+
+// Handle column header click for sorting
+function handleColumnHeaderClick(sortType) {
+  // 2-click toggle for library: ascending ↔ descending
+  if (currentSortOrder === sortType) {
+    // Same column - toggle direction
+    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    // New column - start with ascending
+    currentSortOrder = sortType;
+    currentSortDirection = 'asc';
+  }
+  
+  // Update UI
+  updateLibrarySortLabel();
+  updateColumnHeaderIndicators();
+  
+  // Re-render with new sort
+  if (currentFolderPath) {
+    filterByFolder(currentFolderPath);
+  }
+}
+
+// Update column header visual indicators
+function updateColumnHeaderIndicators() {
+  const headers = document.querySelectorAll('#libraryColumnHeaders .column-header[data-sort]');
+  
+  headers.forEach(header => {
+    const sortType = header.dataset.sort;
+    
+    // Remove existing indicators
+    const existingIndicator = header.querySelector('.sort-indicator');
+    if (existingIndicator) {
+      existingIndicator.remove();
+    }
+    
+    // Remove sorted class
+    header.classList.remove('sorted');
+    
+    // Add indicator if this column is currently sorted
+    if (currentSortOrder === sortType) {
+      header.classList.add('sorted');
+      
+      const indicator = document.createElement('span');
+      indicator.className = 'sort-indicator';
+      indicator.textContent = currentSortDirection === 'asc' ? '▲' : '▼';
+      header.appendChild(indicator);
+    }
+  });
+}
+
+// Sort tracks based on current order and direction
 function sortTracks(tracks) {
   const sorted = [...tracks];
   
   switch (currentSortOrder) {
     case 'title':
-      sorted.sort((a, b) => a.title.localeCompare(b.title));
+      sorted.sort((a, b) => {
+        const result = a.title.localeCompare(b.title);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'artist':
-      sorted.sort((a, b) => a.artist.localeCompare(b.artist));
+      sorted.sort((a, b) => {
+        const result = a.artist.localeCompare(b.artist);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'album':
-      sorted.sort((a, b) => a.album.localeCompare(b.album));
+      sorted.sort((a, b) => {
+        const result = a.album.localeCompare(b.album);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'duration':
-      sorted.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      sorted.sort((a, b) => {
+        const result = (a.duration || 0) - (b.duration || 0);
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     case 'source':
-      sorted.sort((a, b) => getTrackSource(a).localeCompare(getTrackSource(b)));
+      sorted.sort((a, b) => {
+        const result = getTrackSource(a).localeCompare(getTrackSource(b));
+        return currentSortDirection === 'asc' ? result : -result;
+      });
       break;
     default:
       break;
