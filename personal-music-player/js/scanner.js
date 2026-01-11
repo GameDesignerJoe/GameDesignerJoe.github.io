@@ -80,12 +80,8 @@ export async function scanSelectedFolders(folders, progressCallback = null) {
       }
     }
     
-    // Save all tracks to database
-    if (allTracks.length > 0) {
-      showLoadingScreen('Saving tracks to library...', `Processing ${allTracks.length} files`);
-      await storage.saveTracks(allTracks);
-      console.log(`[Scanner] Saved ${allTracks.length} tracks to database`);
-    }
+    // Note: No need to save all tracks again - already saved progressively in scanFolder()
+    console.log(`[Scanner] ✓ All folders scanned: ${allTracks.length} total tracks`);
     
     // Hide loading, show library with nice view
     hideLoadingScreen();
@@ -116,39 +112,68 @@ export async function scanSelectedFolders(folders, progressCallback = null) {
   }
 }
 
-// Scan a folder for audio files (handles pagination)
+// Scan a folder for audio files with progressive batching (mobile-friendly!)
 async function scanFolder(path, allFiles = []) {
   try {
-    // Use Dropbox's getAllFiles which handles pagination automatically
-    const entries = await dropbox.getAllFiles(path);
+    console.log('[Scanner] Starting progressive scan of:', path);
     
-    console.log(`[Scanner] Processing ${entries.length} entries from ${path}`);
+    let hasMore = true;
+    let cursor = null;
+    let batchNumber = 0;
+    let totalProcessed = 0;
     
-    // Just process the files
-    for (const entry of entries) {
-      if (entry['.tag'] === 'file') {
-        // Check if it's an audio file
-        if (isAudioFile(entry.name)) {
+    // Scan in batches using Dropbox pagination
+    while (hasMore) {
+      batchNumber++;
+      
+      // Fetch one batch from Dropbox
+      let response;
+      if (cursor) {
+        response = await dropbox.listFolderContinue(cursor);
+      } else {
+        response = await dropbox.listFolder(path, true);
+      }
+      
+      console.log(`[Scanner] Batch ${batchNumber}: Got ${response.entries.length} entries`);
+      
+      // Process this batch
+      const batchTracks = [];
+      for (const entry of response.entries) {
+        if (entry['.tag'] === 'file' && isAudioFile(entry.name)) {
           try {
             const track = createTrackFromEntry(entry);
-            allFiles.push(track);
-            
-            // Update progress
-            scanProgress.filesFound++;
-            if (scanProgress.filesFound % 10 === 0) {
-              // Update UI every 10 files
-              showLoadingScreen(
-                `Scanning folders... (${scanProgress.foldersScanned}/${scanProgress.totalFolders})`,
-                `Found ${scanProgress.filesFound} audio files`
-              );
-            }
+            batchTracks.push(track);
+            totalProcessed++;
           } catch (trackError) {
             console.error('[Scanner] Error processing track:', entry.name, trackError);
-            // Continue with next track
           }
         }
       }
+      
+      // Save this batch immediately (don't wait for all batches)
+      if (batchTracks.length > 0) {
+        await storage.saveTracks(batchTracks);
+        allFiles.push(...batchTracks);
+        console.log(`[Scanner] ✓ Batch ${batchNumber} saved: ${batchTracks.length} tracks`);
+      }
+      
+      // Update progress
+      scanProgress.filesFound = allFiles.length;
+      showLoadingScreen(
+        `Scanning folders... (${scanProgress.foldersScanned}/${scanProgress.totalFolders})`,
+        `Found ${scanProgress.filesFound} audio files (Batch ${batchNumber})`
+      );
+      
+      // Allow UI to breathe between batches
+      await utils.sleep(50);
+      
+      // Check if there are more pages
+      hasMore = response.has_more || false;
+      cursor = response.cursor || null;
     }
+    
+    console.log(`[Scanner] ✓ Progressive scan complete: ${totalProcessed} tracks in ${batchNumber} batches`);
+    
   } catch (error) {
     console.error('[Scanner] Error scanning folder:', path, error);
     // Continue scanning other folders even if one fails

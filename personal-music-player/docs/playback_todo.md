@@ -17,6 +17,7 @@ Priority 1:
 - Search doesn't clear when you go into a different window. 
 - Search exits the search window with every key hit. 
 - Seaerch needs an 'X' on the right to clear it. 
+- On Mobile it just stops playing after the first song if it's not open. 
 
 Priority 2: 
 - Add image replacement for cover art.
