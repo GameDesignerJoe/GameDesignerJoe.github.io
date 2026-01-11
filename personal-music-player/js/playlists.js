@@ -15,6 +15,7 @@ let draggedTrackIndex = null; // For drag and drop
 let searchQuery = ''; // Current search query
 let shuffleEnabled = false; // Shuffle toggle state
 let savedCustomOrder = null; // Saved custom order for 3-click cycle
+let playlistUpdateInterval = null; // Polling interval for updating play button
 
 // Detect source location from track
 function getTrackSource(track) {
@@ -427,6 +428,49 @@ function createPlaylistElement(playlist) {
   return div;
 }
 
+// Start polling to update play button icon
+function startPlaylistPolling() {
+  // Clear any existing interval
+  if (playlistUpdateInterval) {
+    clearInterval(playlistUpdateInterval);
+  }
+  
+  // Poll every 500ms to update play button state
+  playlistUpdateInterval = setInterval(async () => {
+    const playBtn = document.getElementById('playPlaylistBtn');
+    if (playBtn && currentPlaylistData) {
+      const player = await import('./player.js');
+      const currentTrack = player.getCurrentTrack();
+      const isPlaying = player.isPlaying();
+      
+      // Check if current track is from this playlist
+      const isFromThisPlaylist = currentTrack && 
+                                 currentPlaylistData.tracks.some(t => t.id === currentTrack.id);
+      
+      if (isFromThisPlaylist && isPlaying) {
+        // Show pause icon
+        playBtn.textContent = '⏸';
+        playBtn.setAttribute('title', 'Pause');
+      } else {
+        // Show play icon
+        playBtn.textContent = '▶';
+        playBtn.setAttribute('title', 'Play All');
+      }
+    }
+  }, 500);
+  
+  console.log('[Playlists] Started play button polling');
+}
+
+// Stop polling
+function stopPlaylistPolling() {
+  if (playlistUpdateInterval) {
+    clearInterval(playlistUpdateInterval);
+    playlistUpdateInterval = null;
+    console.log('[Playlists] Stopped play button polling');
+  }
+}
+
 // View playlist details
 export async function viewPlaylist(playlistId) {
   const playlist = allPlaylists.find(p => p.id === playlistId);
@@ -471,6 +515,9 @@ export async function viewPlaylist(playlistId) {
   
   // Store current playlist ID for event handlers
   window.currentPlaylistId = playlist.id;
+  
+  // Start polling for play button updates
+  startPlaylistPolling();
   
   // Show the screen
   showScreen('playlistDetail');
@@ -583,9 +630,26 @@ function setupToolbarListeners(playlistId) {
   // Play button
   const playBtn = document.getElementById('playPlaylistBtn');
   playBtn.replaceWith(playBtn.cloneNode(true)); // Remove old listeners
-  document.getElementById('playPlaylistBtn').addEventListener('click', () => {
-    playPlaylist(playlistId);
+  document.getElementById('playPlaylistBtn').addEventListener('click', async () => {
+    // Check if this playlist is currently playing
+    const player = await import('./player.js');
+    const currentTrack = player.getCurrentTrack();
+    const isPlaying = player.isPlaying();
+    
+    // Check if current track is from this playlist
+    const playlist = allPlaylists.find(p => p.id === playlistId);
+    const isFromThisPlaylist = currentTrack && playlist && 
+                               playlist.tracks.some(t => t.id === currentTrack.id);
+    
+    // If we're playing from this playlist and music is playing, toggle play/pause
+    if (isFromThisPlaylist && isPlaying) {
+      player.togglePlayPause();
+    } else {
+      // Otherwise start playing the playlist
+      playPlaylist(playlistId);
+    }
   });
+
   
   // Shuffle button - toggle only, doesn't play
   const shuffleBtn = document.getElementById('shufflePlaylistBtn');
@@ -1742,9 +1806,13 @@ function createEnhancedTrackElement(track, trackNumber, playlistId) {
       if (currentTrack && currentTrack.id === track.id && isPlaying) {
         // Pause if this track is currently playing
         player.togglePlayPause();
+        // Update icon immediately
+        playBtn.textContent = '▶';
       } else {
         // Play this track
         playPlaylistFromTrack(playlistId, track.id);
+        // Update icon immediately
+        playBtn.textContent = '⏸';
       }
     });
   }

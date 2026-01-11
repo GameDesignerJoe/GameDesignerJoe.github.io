@@ -147,6 +147,23 @@ async function updateNowPlayingIndicators() {
       trackEl.classList.remove('now-playing', 'playing');
     }
   });
+  
+  // Update big green "Play All" button icon
+  const playLibraryBtn = document.getElementById('playLibraryBtn');
+  if (playLibraryBtn && currentFolderPath) {
+    // Check if current track is from displayed tracks
+    const isFromCurrentContext = currentTrack && displayedTracks.some(t => t.id === currentTrack.id);
+    
+    if (isFromCurrentContext && isCurrentlyPlaying) {
+      // Show pause icon
+      playLibraryBtn.textContent = '⏸';
+      playLibraryBtn.setAttribute('title', 'Pause');
+    } else {
+      // Show play icon
+      playLibraryBtn.textContent = '▶';
+      playLibraryBtn.setAttribute('title', 'Play All');
+    }
+  }
 }
 
 // Refresh library display
@@ -824,12 +841,25 @@ function setupToolbarListeners(folderPath, tracks) {
   playBtn.replaceWith(playBtn.cloneNode(true));
   document.getElementById('playLibraryBtn').addEventListener('click', async () => {
     if (tracks.length > 0) {
-      // Sort tracks the same way they're displayed
-      const sortedTracks = sortTracks(tracks);
-      const queue = await import('./queue.js');
-      await queue.playTrackWithQueue(sortedTracks[0], sortedTracks);
+      // Check if currently playing from this folder/library
+      const player = await import('./player.js');
+      const currentTrack = player.getCurrentTrack();
+      const isPlaying = player.isPlaying();
+      
+      // If we're playing a track from this folder/library and music is playing, toggle play/pause
+      const isFromCurrentFolder = currentTrack && tracks.some(t => t.id === currentTrack.id);
+      
+      if (isFromCurrentFolder && isPlaying) {
+        player.togglePlayPause();
+      } else {
+        // Otherwise start playing
+        const sortedTracks = sortTracks(tracks);
+        const queue = await import('./queue.js');
+        await queue.playTrackWithQueue(sortedTracks[0], sortedTracks);
+      }
     }
   });
+
   
   // Shuffle button
   const shuffleBtn = document.getElementById('shuffleLibraryBtn');
@@ -1129,10 +1159,15 @@ function createEnhancedTrackElement(track, trackNumber) {
     // Check if this is the current track
     if (currentTrack && currentTrack.id === track.id) {
       // Same track - toggle play/pause
+      const wasPlaying = player.isPlaying();
       player.togglePlayPause();
+      // Update icon immediately
+      playBtn.textContent = wasPlaying ? '▶' : '⏸';
     } else {
       // Different track - play it
       playTrack(track);
+      // Update icon immediately
+      playBtn.textContent = '⏸';
     }
   });
   

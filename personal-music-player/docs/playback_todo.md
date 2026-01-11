@@ -18,6 +18,7 @@ Priority 2:
 - Add a toggle for playlist versions
 
 Priority 3:
+- Change all the green to blue
 - get rid of those ugly buttons
 - Look at Jason's example for UI layout. See how you can turn up the 'visual celebration of the art'.
 - Get a logo 
