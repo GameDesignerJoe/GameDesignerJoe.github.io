@@ -1004,9 +1004,9 @@
     display: none !important;
   }
   
-  /* Simplify track grid to single column layout */
+  /* Simplify track grid to 2 columns: content + more button */
   .playlist-track-item {
-    grid-template-columns: 56px 1fr 40px;
+    grid-template-columns: 1fr 40px;
     gap: var(--spacing-sm);
     padding: var(--spacing-xs) var(--spacing-md);
     margin: 0;
@@ -1020,22 +1020,25 @@
     display: none !important;
   }
   
+  /* Hide track number cell */
+  .playlist-track-item .track-number-cell {
+    display: none;
+  }
+  
+  /* Title cell becomes the main content area */
+  .playlist-track-item .track-title-cell {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-md);
+    min-width: 0;
+  }
+  
   /* Enlarge album art on mobile */
   .playlist-track-item .track-item-cover {
     width: 56px;
     height: 56px;
-  }
-  
-  /* Stack track number and album art */
-  .playlist-track-item .track-number-cell {
-    display: none; /* Hide track number, show album art instead */
-  }
-  
-  /* Make title cell take full width */
-  .playlist-track-item .track-title-cell {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--spacing-md);
+    flex-shrink: 0;
   }
   
   /* Show artist below title */
