@@ -1127,6 +1127,12 @@ function sortTracks(tracks) {
 
 // Create enhanced track element (grid layout like playlists)
 function createEnhancedTrackElement(track, trackNumber) {
+  console.log('[Library DEBUG] Creating track element:', { 
+    title: track.title, 
+    artist: track.artist,
+    trackNumber 
+  });
+  
   const div = document.createElement('div');
   div.className = 'track-item playlist-track-item';
   div.dataset.trackId = track.id;
@@ -1140,6 +1146,8 @@ function createEnhancedTrackElement(track, trackNumber) {
   const source = getTrackSource(track);
   const sourceIcon = getSourceIcon(source);
   const isEmoji = sourceIcon.length < 10; // Emoji vs image path
+  
+  console.log('[Library DEBUG] About to set innerHTML with title:', track.title, 'artist:', track.artist);
   
   div.innerHTML = `
     <div class="track-number-cell">
