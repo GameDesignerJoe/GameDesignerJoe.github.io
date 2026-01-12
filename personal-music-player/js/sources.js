@@ -69,9 +69,16 @@ function setupEventListeners() {
     await rescanLocalFolders();
   });
   
-  // Disconnect buttons
-  document.getElementById('disconnectDropboxBtn')?.addEventListener('click', async () => {
-    await disconnectSource('Dropbox');
+  // Dropbox toggle button (Connect/Disconnect)
+  document.getElementById('dropboxToggleBtn')?.addEventListener('click', async () => {
+    const dropboxModule = await import('./dropbox.js');
+    if (dropboxModule.isAuthenticated()) {
+      // Currently connected - disconnect
+      await disconnectSource('Dropbox');
+    } else {
+      // Not connected - initiate OAuth
+      dropboxModule.initiateOAuth();
+    }
   });
   
   // Breadcrumb navigation will be set up dynamically
@@ -126,10 +133,10 @@ export async function loadDropboxFolders(path = '') {
   
   if (!folderList) return;
   
-  // Check if Dropbox is connected
-  const disconnectBtn = document.getElementById('disconnectDropboxBtn');
+  // Update toggle button based on connection status
+  const toggleBtn = document.getElementById('dropboxToggleBtn');
   if (!dropbox.isAuthenticated()) {
-    // Show "Connect to Dropbox" button
+    // Not connected - show connect prompt
     folderList.innerHTML = `
       <div class="connect-prompt">
         <div class="connect-icon">📦</div>
@@ -144,17 +151,19 @@ export async function loadDropboxFolders(path = '') {
       dropbox.initiateOAuth();
     });
     
-    // Hide disconnect button
-    if (disconnectBtn) {
-      disconnectBtn.style.display = 'none';
+    // Update toggle button to show "Connect"
+    if (toggleBtn) {
+      toggleBtn.textContent = 'Connect to Dropbox';
+      toggleBtn.className = 'btn-primary';
     }
     
     return;
   }
   
-  // Show disconnect button when connected
-  if (disconnectBtn) {
-    disconnectBtn.style.display = 'block';
+  // Connected - update toggle button to show "Disconnect"
+  if (toggleBtn) {
+    toggleBtn.textContent = 'Disconnect Dropbox';
+    toggleBtn.className = 'btn-disconnect';
   }
   
   // Show loading
