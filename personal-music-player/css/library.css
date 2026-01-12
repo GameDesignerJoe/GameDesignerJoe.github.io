@@ -1042,34 +1042,37 @@
     flex-shrink: 0 !important;
   }
   
-  /* Title and artist are now direct children of title-cell */
-  .playlist-track-item .track-item-title {
-    display: block !important;
-    font-size: 16px !important;
-    font-weight: 400 !important;
-    line-height: 1.5 !important;
-    margin: 0 !important;
-    color: white !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+  /* Wrapper for title and artist - stacks vertically */
+  .playlist-track-item .track-text-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
     flex: 1 !important;
     min-width: 0 !important;
   }
   
-  /* Show artist below title */
-  .playlist-track-item .track-item-artist {
-    display: block !important;
+  /* Title styling */
+  .playlist-track-item .track-text-wrapper .track-item-title {
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    color: #ffffff !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  
+  /* Artist styling */
+  .playlist-track-item .track-text-wrapper .track-item-artist {
     font-size: 14px !important;
     font-weight: 400 !important;
-    line-height: 1.5 !important;
+    line-height: 1.4 !important;
     margin: 0 !important;
     color: #b3b3b3 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    flex: 1 !important;
-    min-width: 0 !important;
   }
   
   /* Always show more button on mobile */
