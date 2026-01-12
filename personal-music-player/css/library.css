@@ -1047,32 +1047,40 @@
     display: flex !important;
     flex-direction: column !important;
     gap: 2px !important;
-    flex: 1 !important;
+    flex: 1 1 auto !important;
     min-width: 0 !important;
+    width: 100% !important;
+    justify-content: center !important;
   }
   
   /* Title styling */
   .playlist-track-item .track-text-wrapper .track-item-title {
+    display: block !important;
     font-size: 16px !important;
     font-weight: 400 !important;
     line-height: 1.4 !important;
     margin: 0 !important;
+    padding: 0 !important;
     color: #ffffff !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    width: 100% !important;
   }
   
   /* Artist styling */
   .playlist-track-item .track-text-wrapper .track-item-artist {
+    display: block !important;
     font-size: 14px !important;
     font-weight: 400 !important;
     line-height: 1.4 !important;
     margin: 0 !important;
+    padding: 0 !important;
     color: #b3b3b3 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    width: 100% !important;
   }
   
   /* Always show more button on mobile */

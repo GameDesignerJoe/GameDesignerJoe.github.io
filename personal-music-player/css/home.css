@@ -286,6 +286,19 @@
   margin-bottom: 0.75rem;
 }
 
+/* Folder cards with cover art get gradient border */
+.folder-card-image.has-cover-art {
+  border: 3px solid transparent;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.7);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.folder-card:hover .folder-card-image.has-cover-art {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.8);
+}
+
 .folder-card-image img {
   position: absolute;
   top: 0;

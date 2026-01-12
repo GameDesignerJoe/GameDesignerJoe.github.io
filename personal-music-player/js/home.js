@@ -193,6 +193,127 @@ async function buildFolderCollection() {
   folderGrid.appendChild(addCard);
 }
 
+// Extract dominant colors from an image and make them vibrant for border gradient
+async function extractImageColors(imgElement) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Use small canvas for performance
+    canvas.width = 100;
+    canvas.height = 100;
+    
+    // Wait for image to load if not already loaded
+    const extractColors = () => {
+      try {
+        ctx.drawImage(imgElement, 0, 0, 100, 100);
+        const imageData = ctx.getImageData(0, 0, 100, 100);
+        const pixels = imageData.data;
+        
+        // Find most common colors (sample every 5th pixel for better coverage)
+        const colorMap = {};
+        for (let i = 0; i < pixels.length; i += 4 * 5) {
+          const r = pixels[i];
+          const g = pixels[i + 1];
+          const b = pixels[i + 2];
+          const a = pixels[i + 3];
+          
+          // Skip transparent pixels
+          if (a < 128) continue;
+          
+          // Skip very dark pixels (pure black backgrounds)
+          const brightness = (r + g + b) / 3;
+          if (brightness < 20) continue;
+          
+          // Group similar colors (bucket size of 30 for better grouping)
+          const colorKey = `${Math.floor(r / 30)},${Math.floor(g / 30)},${Math.floor(b / 30)}`;
+          colorMap[colorKey] = (colorMap[colorKey] || 0) + 1;
+        }
+        
+        // Get top 3 most frequent colors
+        const sortedColors = Object.entries(colorMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        
+        if (sortedColors.length >= 2) {
+          // Convert back to RGB and boost to vibrant HSL
+          const colors = sortedColors.map(([key]) => {
+            const [r, g, b] = key.split(',').map(n => parseInt(n) * 30 + 15);
+            return rgbToVibrantHsl(r, g, b);
+          });
+          
+          // Use first and second most common colors
+          // This captures the actual color palette of the image
+          resolve({
+            start: colors[0],
+            end: colors[1]
+          });
+        } else {
+          // Fallback to hash-based gradient
+          const gradient = getFolderBorderGradient(imgElement.alt || 'folder');
+          resolve({
+            start: gradient.startColor,
+            end: gradient.gradient.match(/hsl\([^)]+\)/g)[1]
+          });
+        }
+      } catch (error) {
+        console.warn('[Home] Error extracting colors:', error);
+        // Fallback to hash-based gradient
+        const gradient = getFolderBorderGradient(imgElement.alt || 'folder');
+        resolve({
+          start: gradient.startColor,
+          end: gradient.gradient.match(/hsl\([^)]+\)/g)[1]
+        });
+      }
+    };
+    
+    if (imgElement.complete) {
+      extractColors();
+    } else {
+      imgElement.addEventListener('load', extractColors);
+      // Timeout fallback
+      setTimeout(() => {
+        const gradient = getFolderBorderGradient(imgElement.alt || 'folder');
+        resolve({
+          start: gradient.startColor,
+          end: gradient.gradient.match(/hsl\([^)]+\)/g)[1]
+        });
+      }, 3000);
+    }
+  });
+}
+
+// Convert RGB to vibrant HSL (boost saturation and adjust lightness)
+function rgbToVibrantHsl(r, g, b) {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  
+  if (max === min) {
+    h = s = 0; // achromatic
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  
+  h = Math.round(h * 360);
+  s = Math.max(60, Math.min(90, s * 100)); // Boost to 60-90% saturation
+  l = Math.max(45, Math.min(60, l * 100)); // Keep lightness in 45-60% range
+  
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
 // Create folder card element
 function createFolderCard(folder) {
   const card = document.createElement('div');
@@ -207,12 +328,21 @@ function createFolderCard(folder) {
   
   // Check if we have a cover image
   if (folder.coverImageUrl && folder.coverImageUrl !== 'assets/icons/icon-song-black..png') {
-    // Has cover art - use regular image
+    // Has cover art - use regular image with gradient border
+    imageContainer.classList.add('has-cover-art');
+    
     const img = document.createElement('img');
     img.src = folder.coverImageUrl;
     img.alt = folder.name;
     img.loading = 'lazy';
     imageContainer.appendChild(img);
+    
+    // Extract colors and apply gradient border when image loads
+    extractImageColors(img).then(colors => {
+      const gradient = `linear-gradient(to top right, ${colors.start}, ${colors.end})`;
+      imageContainer.style.borderImage = gradient + ' 1';
+      imageContainer.style.borderImageSlice = '1';
+    });
   } else {
     // No cover art - use new default folder art with gradient border
     const defaultArt = createDefaultFolderArt(folder.name);
