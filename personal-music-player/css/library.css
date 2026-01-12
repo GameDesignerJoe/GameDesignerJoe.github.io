@@ -258,6 +258,16 @@
   justify-content: center;
 }
 
+.playlist-track-item .track-text-wrapper {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  justify-content: center;
+  flex: 1;
+}
+
 .playlist-track-item .track-item-title {
   font-size: 0.95rem;
   font-weight: 500;
@@ -1004,42 +1014,39 @@
     display: none !important;
   }
   
-  /* Simplify track grid to 2 columns: content + more button */
+  /* COMPLETELY SWITCH TO FLEXBOX ON MOBILE */
   .playlist-track-item {
-    grid-template-columns: 1fr 40px;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xs) var(--spacing-md);
-    margin: 0;
-    border-radius: 0;
+    display: flex !important; /* Override grid with flex */
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px 16px !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
   }
   
   /* Hide unnecessary columns on mobile */
   .playlist-track-item .track-item-album,
   .playlist-track-item .track-item-duration,
-  .playlist-track-item .track-item-source {
+  .playlist-track-item .track-item-source,
+  .playlist-track-item .track-number-cell {
     display: none !important;
   }
   
-  /* Hide track number cell */
-  .playlist-track-item .track-number-cell {
-    display: none;
-  }
-  
-  /* Title cell becomes the main content area */
+  /* Title cell takes up all available space */
   .playlist-track-item .track-title-cell {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     gap: 12px !important;
+    flex: 1 !important;
     min-width: 0 !important;
-    flex: 1 1 auto !important;
     overflow: hidden !important;
-    grid-column: 1 !important; /* Explicitly place in first column */
   }
   
-  /* More button explicitly in second column */
+  /* More button stays on right */
   .playlist-track-item .track-more-btn {
-    grid-column: 2 !important; /* Explicitly place in second column */
+    flex-shrink: 0 !important;
   }
   
   /* Enlarge album art on mobile */

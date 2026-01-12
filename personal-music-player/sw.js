@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v42-gradient-borders';
+const CACHE_NAME = 'music-player-v44-flexbox-mobile';
 const APP_SHELL = [
   './',
   './index.html',
