@@ -1156,9 +1156,11 @@ function createEnhancedTrackElement(track, trackNumber) {
       <div class="track-item-cover">
         <img src="${albumArtSrc}" alt="Album art">
       </div>
-      <div class="track-item-title">${escapeHtml(track.title)}</div>
+      <div class="track-item-info">
+        <div class="track-item-title">${escapeHtml(track.title)}</div>
+        <div class="track-item-artist">${escapeHtml(track.artist)}</div>
+      </div>
     </div>
-    <div class="track-item-artist">${escapeHtml(track.artist)}</div>
     <div class="track-item-album">${escapeHtml(track.album)}</div>
     <div class="track-item-duration">${durationText}</div>
     <div class="track-item-source" title="${source}">
