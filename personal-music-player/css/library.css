@@ -993,3 +993,215 @@
     gap: var(--spacing-lg);
   }
 }
+
+/* ==========================================
+   Mobile-Optimized Track List (Spotify Style)
+   ========================================== */
+
+@media (max-width: 768px) {
+  /* Hide column headers on mobile */
+  #libraryColumnHeaders {
+    display: none !important;
+  }
+  
+  /* Simplify track grid to single column layout */
+  .playlist-track-item {
+    grid-template-columns: 56px 1fr 40px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  /* Hide unnecessary columns on mobile */
+  .playlist-track-item .track-item-album,
+  .playlist-track-item .track-item-duration,
+  .playlist-track-item .track-item-source {
+    display: none !important;
+  }
+  
+  /* Enlarge album art on mobile */
+  .playlist-track-item .track-item-cover {
+    width: 56px;
+    height: 56px;
+  }
+  
+  /* Stack track number and album art */
+  .playlist-track-item .track-number-cell {
+    display: none; /* Hide track number, show album art instead */
+  }
+  
+  /* Make title cell take full width */
+  .playlist-track-item .track-title-cell {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+  
+  /* Show artist below title */
+  .playlist-track-item .track-item-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .playlist-track-item .track-item-title {
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.4;
+    margin-bottom: 2px;
+  }
+  
+  .playlist-track-item .track-item-artist {
+    display: block !important;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+  }
+  
+  /* Always show more button on mobile */
+  .playlist-track-item .track-more-btn {
+    opacity: 1;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Adjust hover states for mobile (tap instead) */
+  .playlist-track-item:hover {
+    background-color: transparent;
+  }
+  
+  .playlist-track-item:active {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+  
+  /* Don't show play button on hover on mobile */
+  .playlist-track-item:hover .track-play-btn {
+    display: none;
+  }
+  
+  /* Playing state adjustments for mobile */
+  .playlist-track-item.now-playing .track-item-title {
+    color: var(--color-accent);
+  }
+  
+  /* Hide sound bars on mobile, use accent color instead */
+  .playlist-track-item.now-playing.playing .sound-bars {
+    display: none;
+  }
+  
+  /* Add spacing between tracks */
+  .playlist-track-item + .playlist-track-item {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  /* Remove padding from library content on mobile for full-width tracks */
+  .library-content {
+    padding: 0;
+    padding-bottom: 150px;
+  }
+  
+  /* Adjust header for mobile */
+  .library-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  /* Hide search container in header on mobile */
+  .library-header .search-container {
+    display: none;
+  }
+}
+
+/* Ultra-small mobile screens */
+@media (max-width: 375px) {
+  .playlist-track-item .track-item-cover {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .playlist-track-item .track-item-title {
+    font-size: 0.95rem;
+  }
+  
+  .playlist-track-item .track-item-artist {
+    font-size: 0.8rem;
+  }
+}
+
+/* ==========================================
+   Mobile Toolbar Optimizations
+   ========================================== */
+
+@media (max-width: 768px) {
+  /* Make toolbar more compact on mobile */
+  .playlist-toolbar {
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+  }
+  
+  /* Smaller play button on mobile */
+  .playlist-play-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+  }
+  
+  /* Smaller tool buttons on mobile */
+  .playlist-tool-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.2rem;
+  }
+  
+  /* Hide sort label text on mobile, keep only icon */
+  #sortViewLibraryLabel,
+  #sortViewLabel {
+    display: none;
+  }
+  
+  .playlist-sort-btn {
+    width: 40px;
+    padding: 0;
+    min-width: 40px;
+  }
+  
+  /* Simplify playlist header on mobile */
+  .playlist-header {
+    padding: var(--spacing-lg) var(--spacing-md);
+  }
+  
+  .playlist-header-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-left: 0;
+  }
+  
+  .playlist-art-collage {
+    width: 160px;
+    height: 160px;
+    min-width: 160px;
+  }
+  
+  .playlist-title {
+    font-size: 2rem;
+  }
+  
+  .playlist-metadata {
+    font-size: 0.85rem;
+    justify-content: center;
+  }
+}
+
+/* Even smaller screens */
+@media (max-width: 480px) {
+  .playlist-art-collage {
+    width: 140px;
+    height: 140px;
+  }
+  
+  .playlist-title {
+    font-size: 1.75rem;
+  }
+}
