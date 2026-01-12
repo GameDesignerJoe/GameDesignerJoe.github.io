@@ -137,3 +137,59 @@ export function logDeviceInfo() {
     settings: settings
   });
 }
+
+// Multi-level sort for library view: Artist → Album → Track → Title
+export function libraryMultiSort(a, b) {
+  // Level 1: Artist (alphabetical)
+  const artistCompare = (a.artist || 'Unknown Artist').localeCompare(
+    b.artist || 'Unknown Artist', 
+    undefined, 
+    { sensitivity: 'base' }
+  );
+  if (artistCompare !== 0) return artistCompare;
+  
+  // Level 2: Album (same artist, alphabetical)
+  const albumCompare = (a.album || 'Unknown Album').localeCompare(
+    b.album || 'Unknown Album', 
+    undefined, 
+    { sensitivity: 'base' }
+  );
+  if (albumCompare !== 0) return albumCompare;
+  
+  // Level 3: Track number (same album)
+  if (a.track && b.track) {
+    const trackCompare = parseInt(a.track) - parseInt(b.track);
+    if (trackCompare !== 0) return trackCompare;
+  }
+  
+  // Track number priority (if only one has it)
+  if (a.track && !b.track) return -1;
+  if (!a.track && b.track) return 1;
+  
+  // Level 4: Title (fallback)
+  return (a.title || 'Untitled').localeCompare(
+    b.title || 'Untitled', 
+    undefined, 
+    { numeric: true, sensitivity: 'base' }
+  );
+}
+
+// Simple track number sort for folder/album playback: Track → Title
+export function trackNumberSort(a, b) {
+  // If both have track numbers, sort by track
+  if (a.track && b.track) {
+    const trackCompare = parseInt(a.track) - parseInt(b.track);
+    if (trackCompare !== 0) return trackCompare;
+  }
+  
+  // Track number priority (if only one has it)
+  if (a.track && !b.track) return -1;
+  if (!a.track && b.track) return 1;
+  
+  // Fallback to title (with numeric sorting for "Track 1" vs "Track 10")
+  return (a.title || 'Untitled').localeCompare(
+    b.title || 'Untitled', 
+    undefined, 
+    { numeric: true, sensitivity: 'base' }
+  );
+}

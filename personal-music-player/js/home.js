@@ -347,10 +347,8 @@ async function handleFolderPlay(folderPath) {
       return;
     }
     
-    // Sort tracks alphabetically by title (default for folders)
-    const sortedTracks = [...folderTracks].sort((a, b) => 
-      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    // Sort tracks by track number, then title (proper album order)
+    const sortedTracks = [...folderTracks].sort(utils.trackNumberSort);
     
     // Get folder name from path (remove "local:" prefix if present)
     let folderName = folderPath.split('/').filter(p => p).pop() || 'Music';

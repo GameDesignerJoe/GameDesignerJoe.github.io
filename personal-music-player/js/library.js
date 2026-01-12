@@ -2,6 +2,7 @@
 // Handles displaying tracks in the library
 
 import * as storage from './storage.js';
+import * as utils from './utils.js';
 import { showToast } from './app.js';
 
 let allTracks = [];
@@ -12,7 +13,7 @@ let updateInterval = null;
 let selectedTracks = new Set(); // Track IDs of selected tracks
 let lastSelectedTrackId = null; // For shift-click range selection
 let currentFolderPath = null; // Currently viewed folder path
-let currentSortOrder = 'title'; // title, artist, album, duration, source
+let currentSortOrder = 'default'; // default (multi-level), title, artist, album, duration, source
 let currentSortDirection = 'asc'; // asc or desc
 let currentViewMode = 'list'; // list or compact
 let shuffleEnabled = false;
@@ -270,24 +271,10 @@ function displayLibrary(tab) {
   }
 }
 
-// Display all songs
-function displaySongs(tracks) {
-  const libraryContent = document.getElementById('libraryContent');
-  
-  libraryContent.innerHTML = '';
-  
-  // Sort tracks with natural/alphanumeric sorting (1, 2, 3... 10, 11 instead of 1, 10, 11, 2)
-  const sortedTracks = [...tracks].sort((a, b) => 
-    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' })
-  );
-  
-  // Update displayed tracks for queue
-  displayedTracks = sortedTracks;
-  
-  sortedTracks.forEach(track => {
-    const trackElement = createTrackElement(track);
-    libraryContent.appendChild(trackElement);
-  });
+// Display all songs - redirects to enhanced view
+async function displaySongs(tracks) {
+  // Don't use old tabs view - always show enhanced header view
+  await showAllTracks();
 }
 
 // Display grouped by artists
@@ -1031,6 +1018,12 @@ function setupColumnHeaderListeners() {
     };
   });
   
+  // Ensure default sort is active on first load
+  if (!currentSortOrder || currentSortOrder === '') {
+    currentSortOrder = 'default';
+    currentSortDirection = 'asc';
+  }
+  
   // Update visual indicators
   updateColumnHeaderIndicators();
 }
@@ -1090,6 +1083,13 @@ function sortTracks(tracks) {
   const sorted = [...tracks];
   
   switch (currentSortOrder) {
+    case 'default':
+      // Multi-level sort: Artist → Album → Track → Title
+      sorted.sort(utils.libraryMultiSort);
+      if (currentSortDirection === 'desc') {
+        sorted.reverse();
+      }
+      break;
     case 'title':
       sorted.sort((a, b) => {
         const result = a.title.localeCompare(b.title);
@@ -1119,8 +1119,6 @@ function sortTracks(tracks) {
         const result = getTrackSource(a).localeCompare(getTrackSource(b));
         return currentSortDirection === 'asc' ? result : -result;
       });
-      break;
-    default:
       break;
   }
   
@@ -1300,6 +1298,10 @@ export async function showAllTracks() {
   
   // Clear search query
   searchQuery = '';
+  
+  // Reset to default sorting when opening library
+  currentSortOrder = 'default';
+  currentSortDirection = 'asc';
   
   // Get all tracks
   const tracks = allTracks;
@@ -1613,6 +1615,7 @@ function updateLibrarySortLabel() {
   if (!label) return;
   
   const sortLabels = {
+    default: 'Default', // Multi-level: Artist → Album → Track → Title
     title: 'Title',
     artist: 'Artist',
     album: 'Album',
@@ -1620,7 +1623,7 @@ function updateLibrarySortLabel() {
     source: 'Source'
   };
   
-  label.textContent = sortLabels[currentSortOrder] || 'Title';
+  label.textContent = sortLabels[currentSortOrder] || 'Default';
 }
 
 // Clear folder filter
