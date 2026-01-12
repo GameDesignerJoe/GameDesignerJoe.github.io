@@ -199,23 +199,54 @@ function createFolderCard(folder) {
   card.className = 'folder-card';
   card.dataset.folderPath = folder.path;
   
-  // Use cover image URL or fallback to cassette tape
-  const imageUrl = folder.coverImageUrl || 'assets/icons/icon-tape-black.png';
   const songCount = folder.songCount || 0;
   
-  card.innerHTML = `
-    <div class="folder-card-image">
-      <img src="${imageUrl}" alt="${escapeHtml(folder.name)}" loading="lazy">
-    </div>
-    <button class="folder-play-btn" title="Play ${escapeHtml(folder.name)}">▶</button>
-    <div class="folder-card-info">
-      <h3 class="folder-card-name">${escapeHtml(folder.name)}</h3>
-      <p class="folder-card-count">${songCount} ${songCount === 1 ? 'song' : 'songs'}</p>
-    </div>
+  // Create card structure
+  const imageContainer = document.createElement('div');
+  imageContainer.className = 'folder-card-image';
+  
+  // Check if we have a cover image
+  if (folder.coverImageUrl && folder.coverImageUrl !== 'assets/icons/icon-song-black..png') {
+    // Has cover art - use regular image
+    const img = document.createElement('img');
+    img.src = folder.coverImageUrl;
+    img.alt = folder.name;
+    img.loading = 'lazy';
+    imageContainer.appendChild(img);
+  } else {
+    // No cover art - use new default folder art with gradient border
+    const defaultArt = createDefaultFolderArt(folder.name);
+    imageContainer.appendChild(defaultArt);
+  }
+  
+  card.appendChild(imageContainer);
+  
+  // Add play button (will be positioned over cassette for default art)
+  const playBtn = document.createElement('button');
+  playBtn.className = 'folder-play-btn';
+  playBtn.title = `Play ${folder.name}`;
+  playBtn.textContent = '▶';
+  
+  // If using default art, add to image container and position over cassette
+  if (!folder.coverImageUrl || folder.coverImageUrl === 'assets/icons/icon-song-black..png') {
+    const { startColor } = getFolderBorderGradient(folder.name);
+    playBtn.classList.add('folder-play-btn-default-art');
+    playBtn.style.setProperty('--play-btn-color', startColor);
+    imageContainer.appendChild(playBtn); // Add to image container, not card
+  } else {
+    card.appendChild(playBtn); // Regular position for cards with cover art
+  }
+  
+  // Add folder info
+  const infoDiv = document.createElement('div');
+  infoDiv.className = 'folder-card-info';
+  infoDiv.innerHTML = `
+    <h3 class="folder-card-name">${escapeHtml(folder.name)}</h3>
+    <p class="folder-card-count">${songCount} ${songCount === 1 ? 'song' : 'songs'}</p>
   `;
+  card.appendChild(infoDiv);
   
   // Play button handler - play all songs from this folder
-  const playBtn = card.querySelector('.folder-play-btn');
   playBtn.addEventListener('click', async (e) => {
     e.stopPropagation(); // Don't trigger card click
     await handleFolderPlay(folder.path);
@@ -225,6 +256,88 @@ function createFolderCard(folder) {
   card.addEventListener('click', () => handleFolderClick(folder.path));
   
   return card;
+}
+
+// Hash function for deterministic color assignment
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return hash;
+}
+
+// Get border gradient colors for default folder art based on folder name hash
+function getFolderBorderGradient(folderName) {
+  // 10 vibrant gradient color pairs (HSL format)
+  const colorPairs = [
+    { start: 'hsl(330, 85%, 55%)', end: 'hsl(280, 80%, 60%)' }, // Hot pink to purple
+    { start: 'hsl(200, 90%, 50%)', end: 'hsl(160, 75%, 45%)' }, // Cyan to teal
+    { start: 'hsl(25, 90%, 55%)', end: 'hsl(340, 80%, 50%)' },  // Orange to red-pink
+    { start: 'hsl(260, 70%, 55%)', end: 'hsl(200, 90%, 50%)' }, // Violet to blue
+    { start: 'hsl(120, 60%, 45%)', end: 'hsl(180, 70%, 50%)' }, // Green to aqua
+    { start: 'hsl(45, 90%, 55%)', end: 'hsl(25, 90%, 55%)' },   // Yellow to orange
+    { start: 'hsl(340, 80%, 50%)', end: 'hsl(330, 85%, 55%)' }, // Red to pink
+    { start: 'hsl(280, 80%, 60%)', end: 'hsl(260, 70%, 55%)' }, // Purple to violet
+    { start: 'hsl(160, 75%, 45%)', end: 'hsl(120, 60%, 45%)' }, // Teal to green
+    { start: 'hsl(200, 90%, 50%)', end: 'hsl(280, 80%, 60%)' }  // Blue to purple
+  ];
+  
+  const index = Math.abs(hashCode(folderName)) % colorPairs.length;
+  const colors = colorPairs[index];
+  
+  return {
+    gradient: `linear-gradient(to top right, ${colors.start}, ${colors.end})`,
+    startColor: colors.start
+  };
+}
+
+// Get dynamic font size based on text length
+function getDynamicFontSize(textLength) {
+  if (textLength <= 6) return '32px';
+  if (textLength <= 10) return '26px';
+  if (textLength <= 14) return '22px';
+  if (textLength <= 18) return '18px';
+  if (textLength <= 22) return '15px';
+  return '13px';
+}
+
+// Create default folder art (black with gradient border and folder name)
+function createDefaultFolderArt(folderName) {
+  const container = document.createElement('div');
+  container.className = 'default-folder-art';
+  
+  // Get gradient colors based on folder name
+  const { gradient, startColor } = getFolderBorderGradient(folderName);
+  
+  // Set border gradient
+  container.style.borderImage = gradient.replace('linear-gradient', 'linear-gradient') + ' 1';
+  container.style.borderImageSlice = '1';
+  
+  // Add folder name text
+  const textSpan = document.createElement('span');
+  textSpan.className = 'folder-art-text';
+  textSpan.textContent = folderName.toUpperCase();
+  textSpan.style.fontSize = getDynamicFontSize(folderName.length);
+  
+  container.appendChild(textSpan);
+  
+  // Add cassette icon at bottom (using CSS mask for proper coloring)
+  const cassetteWrapper = document.createElement('div');
+  cassetteWrapper.className = 'folder-art-cassette';
+  cassetteWrapper.style.backgroundColor = startColor;
+  cassetteWrapper.style.maskImage = 'url(assets/icons/cassette.png)';
+  cassetteWrapper.style.maskSize = 'contain';
+  cassetteWrapper.style.maskRepeat = 'no-repeat';
+  cassetteWrapper.style.maskPosition = 'center';
+  cassetteWrapper.style.webkitMaskImage = 'url(assets/icons/cassette.png)';
+  cassetteWrapper.style.webkitMaskSize = 'contain';
+  cassetteWrapper.style.webkitMaskRepeat = 'no-repeat';
+  cassetteWrapper.style.webkitMaskPosition = 'center';
+  
+  container.appendChild(cassetteWrapper);
+  
+  return container;
 }
 
 // Generate subdued gradient for playlist based on ID
