@@ -1034,6 +1034,12 @@
     min-width: 0 !important;
     flex: 1 1 auto !important;
     overflow: hidden !important;
+    grid-column: 1 !important; /* Explicitly place in first column */
+  }
+  
+  /* More button explicitly in second column */
+  .playlist-track-item .track-more-btn {
+    grid-column: 2 !important; /* Explicitly place in second column */
   }
   
   /* Enlarge album art on mobile */
