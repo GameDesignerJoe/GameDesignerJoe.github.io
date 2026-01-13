@@ -531,12 +531,29 @@ async function scanSelectedFolders() {
     // First, scan for audio files (this finds all the tracks)
     await scanner.scanSelectedFolders(selectedFolders);
     
-    // Then, trigger full metadata scan (cover images, deep subfolders, etc.)
+    // Then, scan metadata for each folder (cover images, subfolders, counts)
     showToast('Scanning folder structure and artwork...', 'info');
     
-    // Import home module and trigger its full scan which handles deep folders
-    const home = await import('./home.js');
-    await home.forceRescanMetadata();
+    for (const folderPath of selectedFolders) {
+      const pathStr = typeof folderPath === 'string' ? folderPath : folderPath?.path || '';
+      if (pathStr) {
+        console.log('[Sources] Scanning metadata for:', pathStr);
+        const metadata = await scanner.scanFolderMetadata(pathStr);
+        
+        // Also scan all subfolders recursively for their metadata (cover art, etc.)
+        if (metadata && metadata.subfolders && metadata.subfolders.length > 0) {
+          console.log(`[Sources] Found ${metadata.subfolders.length} subfolders, scanning their metadata...`);
+          
+          for (const subfolderPath of metadata.subfolders) {
+            try {
+              await scanner.scanFolderMetadata(subfolderPath);
+            } catch (error) {
+              console.warn(`[Sources] Error scanning subfolder ${subfolderPath}:`, error);
+            }
+          }
+        }
+      }
+    }
     
     // Update counts
     await updateFolderCounts();
@@ -547,6 +564,10 @@ async function scanSelectedFolders() {
     
     // Mark folders as modified so home will auto-refresh  
     markFoldersModified();
+    
+    // Refresh home page to show new folders
+    const home = await import('./home.js');
+    await home.refreshFolders();
     
     showToast('✓ Library updated with folder structure!', 'success');
     

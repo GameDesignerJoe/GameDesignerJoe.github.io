@@ -175,7 +175,7 @@ async function updateNowPlayingIndicators() {
     
     if (isFromCurrentContext && isCurrentlyPlaying) {
       // Show pause icon
-      playLibraryBtn.textContent = '||';
+      playLibraryBtn.textContent = '❚❚';
       playLibraryBtn.setAttribute('title', 'Pause');
     } else {
       // Show play icon

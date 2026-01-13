@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v48-reset-button-mobile-fix';
+const CACHE_NAME = 'music-player-v49-sources-home-refresh-fix';
 const APP_SHELL = [
   './',
   './index.html',
