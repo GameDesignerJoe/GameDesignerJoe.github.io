@@ -7,6 +7,7 @@ import * as localFiles from './local-files.js';
 import * as storage from './storage.js';
 import { showToast } from './app.js';
 import * as mediaSession from './media-session.js';
+import * as neonCassette from './neon-cassette.js';
 
 // Player state
 const playerState = {
@@ -259,9 +260,31 @@ async function updatePlayerUI() {
   // Determine album art URL
   const albumArtUrl = track.albumArt || 'assets/icons/icon-song-black..png';
   
-  // Update full player
-  document.getElementById('albumArt').src = albumArtUrl;
-  document.getElementById('albumArt').alt = track.album;
+  // Update full player album art
+  const albumArtContainer = document.querySelector('.album-art-container');
+  const albumArtElement = document.getElementById('albumArt');
+  
+  if (albumArtContainer && albumArtElement) {
+    // Check if we need neon cassette
+    if (neonCassette.isDefaultIcon(albumArtUrl)) {
+      // Replace with neon cassette
+      albumArtElement.style.display = 'none';
+      let neonEl = albumArtContainer.querySelector('.neon-cassette-art');
+      if (!neonEl) {
+        neonEl = neonCassette.createNeonCassette('default');
+        albumArtContainer.appendChild(neonEl);
+      }
+    } else {
+      // Show real album art
+      albumArtElement.style.display = 'block';
+      albumArtElement.src = albumArtUrl;
+      albumArtElement.alt = track.album;
+      // Remove neon cassette if exists
+      const neonEl = albumArtContainer.querySelector('.neon-cassette-art');
+      if (neonEl) neonEl.remove();
+    }
+  }
+  
   document.getElementById('trackTitle').textContent = track.title;
   document.getElementById('trackArtist').textContent = track.artist;
   
@@ -272,8 +295,30 @@ async function updatePlayerUI() {
   const miniPlayerLocation = document.querySelector('.mini-player-location');
   
   if (miniPlayerArt) {
-    miniPlayerArt.src = albumArtUrl;
-    miniPlayerArt.alt = track.album;
+    // Check if we need neon cassette for mini player
+    if (neonCassette.isDefaultIcon(albumArtUrl)) {
+      // Hide original album art completely
+      miniPlayerArt.style.display = 'none';
+      
+      // Check if cassette already exists
+      let neonEl = document.querySelector('#miniPlayerContent .neon-cassette-art.mini');
+      if (!neonEl) {
+        neonEl = neonCassette.createNeonCassette('mini');
+        neonEl.classList.add('mini-player-art'); // Match album art styling
+        // Insert as FIRST child (far left position)
+        const miniPlayerContent = document.getElementById('miniPlayerContent');
+        miniPlayerContent.insertBefore(neonEl, miniPlayerContent.firstChild);
+      }
+    } else {
+      // Show real album art
+      miniPlayerArt.style.display = 'block';
+      miniPlayerArt.src = albumArtUrl;
+      miniPlayerArt.alt = track.album;
+      
+      // Remove neon cassette if exists
+      const neonEl = document.querySelector('.mini-player-content .neon-cassette-art.mini');
+      if (neonEl) neonEl.remove();
+    }
   }
   
   if (miniPlayerTitle) {

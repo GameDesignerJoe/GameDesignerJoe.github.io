@@ -3,6 +3,7 @@
 
 import * as storage from './storage.js';
 import { showToast } from './app.js';
+import * as neonCassette from './neon-cassette.js';
 
 let allPlaylists = [];
 let selectedTracks = new Set(); // Track IDs of selected tracks in playlist
@@ -1702,7 +1703,7 @@ function createEnhancedTrackElement(track, trackNumber, playlistId) {
     </div>
     <div class="track-title-cell">
       <div class="track-item-cover">
-        <img src="${albumArtSrc}" alt="Album art">
+        ${neonCassette.getAlbumArtHTML(albumArtSrc, 'Album art', 'compact')}
       </div>
       <div class="track-item-title">${escapeHtml(track.title)}</div>
     </div>

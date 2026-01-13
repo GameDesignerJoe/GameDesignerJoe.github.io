@@ -7,6 +7,7 @@ import * as dropbox from './dropbox.js';
 import * as playlists from './playlists.js';
 import * as utils from './utils.js';
 import { showToast, showScreen } from './app.js';
+import * as neonCassette from './neon-cassette.js';
 
 let allFolders = [];
 let allPlaylists = [];

@@ -4,6 +4,7 @@
 import * as storage from './storage.js';
 import * as utils from './utils.js';
 import { showToast } from './app.js';
+import * as neonCassette from './neon-cassette.js';
 
 let allTracks = [];
 let displayedTracks = []; // Currently displayed/filtered tracks
@@ -349,7 +350,7 @@ function createTrackElement(track) {
   div.innerHTML = `
     <div class="track-selection-indicator">✓</div>
     <div class="track-item-cover">
-      <img src="${albumArtSrc}" alt="Album art">
+      ${neonCassette.getAlbumArtHTML(albumArtSrc, 'Album art', 'compact')}
       <div class="sound-bars">
         <div class="bar"></div>
         <div class="bar"></div>
@@ -757,27 +758,36 @@ async function showEnhancedHeader(folderPath, tracks) {
   const collageEl = document.getElementById('libraryArtCollage');
   const collageItems = collageEl.querySelectorAll('.collage-item');
   
+  // Clear all existing neon cassettes first
+  collageItems.forEach(item => {
+    const existing = item.querySelector('.neon-cassette-art');
+    if (existing) existing.remove();
+  });
+  
   if (artData.type === 'cover') {
     // Single cover image
     collageItems.forEach((item, i) => {
       item.style.backgroundImage = i === 0 ? `url(${artData.art})` : '';
     });
   } else if (artData.type === 'collage') {
-    // 2x2 collage
+    // 2x2 collage - use neon cassette for missing slots
     artData.arts.forEach((art, i) => {
       if (collageItems[i]) {
         collageItems[i].style.backgroundImage = `url(${art})`;
       }
     });
-    // Clear unused slots
+    // Fill unused slots with neon cassettes
     for (let i = artData.arts.length; i < 4; i++) {
       collageItems[i].style.backgroundImage = '';
+      const neonEl = neonCassette.createNeonCassette('compact');
+      collageItems[i].appendChild(neonEl);
     }
   } else {
-    // Icon fallback
-    collageItems[0].style.backgroundImage = `url(${artData.art})`;
-    for (let i = 1; i < 4; i++) {
+    // Icon fallback - fill all 4 slots with neon cassettes
+    for (let i = 0; i < 4; i++) {
       collageItems[i].style.backgroundImage = '';
+      const neonEl = neonCassette.createNeonCassette('compact');
+      collageItems[i].appendChild(neonEl);
     }
   }
   
@@ -1162,7 +1172,7 @@ function createEnhancedTrackElement(track, trackNumber) {
     </div>
     <div class="track-title-cell">
       <div class="track-item-cover">
-        <img src="${albumArtSrc}" alt="Album art">
+        ${neonCassette.getAlbumArtHTML(albumArtSrc, 'Album art', 'compact')}
       </div>
       <div class="track-text-wrapper">
         <div class="track-item-title">${escapeHtml(track.title)}</div>

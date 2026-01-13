@@ -395,6 +395,7 @@
 }
 
 .mini-player-location {
+  display: none; /* Hide location text - not needed */
   font-size: 0.75rem;
   font-weight: 400;
   color: var(--color-text-secondary);
@@ -410,6 +411,20 @@
 .mini-player-location:hover {
   text-decoration: underline;
   opacity: 1;
+}
+
+/* Neon cassette in mini player - replaces album art on LEFT */
+.mini-player-content .neon-cassette-art.mini {
+  position: relative; /* Override absolute positioning */
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  cursor: pointer;
+  top: auto;
+  left: auto;
+  bottom: auto;
+  right: auto;
 }
 
 /* Desktop Controls - Hidden on mobile */
