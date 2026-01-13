@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="css/sources.css">
   <link rel="stylesheet" href="css/search.css">
   <link rel="stylesheet" href="css/modals.css">
+  <link rel="stylesheet" href="css/loading-overlay.css">
 </head>
 <body>
   <div id="app" class="app-container">
@@ -717,6 +718,28 @@
         <button id="createNewPlaylistFromModal" class="btn-secondary" style="width: 100%; margin-top: 12px;">
           + Create New Playlist
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Sources Overlay -->
+  <div id="loadingSourcesOverlay" class="loading-sources-overlay" style="display: none;">
+    <div class="loading-sources-card">
+      <h2 class="loading-sources-title">Loading Sources</h2>
+      <p class="loading-sources-subtitle">This may take 5-10 minutes on mobile devices</p>
+      
+      <div class="loading-progress-container">
+        <div class="loading-progress-bar">
+          <div id="loadingProgressFill" class="loading-progress-fill"></div>
+        </div>
+        <div class="loading-progress-text">
+          <span id="loadingProgressPercent">0%</span>
+        </div>
+      </div>
+      
+      <div class="loading-current-activity">
+        <div id="loadingCurrentFolder" class="loading-folder-name">Initializing...</div>
+        <div id="loadingStats" class="loading-stats">Preparing to scan folders</div>
       </div>
     </div>
   </div>

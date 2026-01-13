@@ -1,0 +1,212 @@
+/* Loading Sources Overlay */
+.loading-sources-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.loading-sources-card {
+  background: linear-gradient(145deg, rgba(26, 26, 26, 0.98), rgba(18, 18, 18, 0.98));
+  border-radius: 20px;
+  padding: 3rem 2.5rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.loading-sources-title {
+  font-size: 2rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.5px;
+}
+
+.loading-sources-subtitle {
+  color: #888;
+  text-align: center;
+  font-size: 0.9rem;
+  margin: 0 0 2rem 0;
+  font-weight: 500;
+}
+
+.loading-progress-container {
+  margin-bottom: 2rem;
+}
+
+.loading-progress-bar {
+  width: 100%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.loading-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, 
+    #667eea 0%, 
+    #764ba2 25%, 
+    #f093fb 50%, 
+    #764ba2 75%, 
+    #667eea 100%);
+  background-size: 200% 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  animation: shimmer 2s linear infinite;
+  box-shadow: 
+    0 0 15px rgba(102, 126, 234, 0.6),
+    0 0 30px rgba(118, 75, 162, 0.4),
+    0 0 45px rgba(240, 147, 251, 0.3);
+  position: relative;
+}
+
+/* Glowing effect on the progress bar */
+.loading-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent);
+  animation: shine 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.loading-progress-text {
+  text-align: center;
+  margin-top: 0.75rem;
+}
+
+#loadingProgressPercent {
+  font-size: 1.5rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-variant-numeric: tabular-nums;
+}
+
+.loading-current-activity {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.loading-folder-name {
+  font-size: 1.1rem;
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.loading-stats {
+  font-size: 0.9rem;
+  color: #888;
+  font-weight: 500;
+}
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .loading-sources-card {
+    padding: 2rem 1.5rem;
+    width: 95%;
+  }
+  
+  .loading-sources-title {
+    font-size: 1.5rem;
+  }
+  
+  .loading-sources-subtitle {
+    font-size: 0.85rem;
+  }
+  
+  .loading-folder-name {
+    font-size: 1rem;
+  }
+  
+  #loadingProgressPercent {
+    font-size: 1.25rem;
+  }
+}
+
+/* Dark mode adjustments (already looks good but can enhance) */
+@media (prefers-color-scheme: dark) {
+  .loading-sources-overlay {
+    background: rgba(0, 0, 0, 0.97);
+  }
+}

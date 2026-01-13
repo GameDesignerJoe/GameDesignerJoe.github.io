@@ -399,11 +399,21 @@ async function toggleFolderSelection(folderPath) {
   if (index === -1) {
     // Add folder (always as string)
     selectedFolders.push(folderPath);
-    showToast(`Folder added`, 'success');
+    showToast(`Folder added - scanning...`, 'success');
   } else {
     // Remove folder
     selectedFolders.splice(index, 1);
     showToast(`Folder removed`, 'info');
+    
+    // Save to storage
+    const cleanedFolders = selectedFolders.map(f => typeof f === 'string' ? f : f?.path || '').filter(f => f);
+    selectedFolders = cleanedFolders;
+    await storage.saveSelectedFolders(selectedFolders);
+    
+    // Update UI
+    updateFolderCounts();
+    await loadDropboxFolders(currentPath);
+    return; // Don't scan when removing
   }
   
   // Save to storage (ensure all entries are strings)
@@ -411,15 +421,17 @@ async function toggleFolderSelection(folderPath) {
   selectedFolders = cleanedFolders;
   await storage.saveSelectedFolders(selectedFolders);
   
-  // Update UI
-  updateFolderCounts();
-  // Reload the current folder to refresh the display
-  await loadDropboxFolders(currentPath);
+  // Update UI AFTER scanning completes
+  // Don't reload folder list yet - let loading overlay show
   
-  // Trigger rescan if folders changed
+  // Trigger scan with loading overlay (AWAIT IT!)
   if (selectedFolders.length > 0) {
-    // Automatically scan when folders change
+    // Automatically scan when folders change - WAIT for it to complete
     await scanSelectedFolders();
+    
+    // NOW update the UI after scan completes
+    await updateFolderCounts();
+    await loadDropboxFolders(currentPath);
   }
 }
 
@@ -525,18 +537,33 @@ async function scanSelectedFolders() {
   }
   
   console.log('[Sources] Scanning selected folders:', selectedFolders);
-  showToast('Scanning folders and tracks...', 'info');
+  
+  // Import loading manager
+  const loadingManager = await import('./loading-manager.js');
   
   try {
+    // Show loading overlay
+    loadingManager.showLoading();
+    
     // First, scan for audio files (this finds all the tracks)
+    loadingManager.updateActivity('Scanning folders for audio files...', 'Phase 1 of 2');
     await scanner.scanSelectedFolders(selectedFolders);
     
     // Then, scan metadata for each folder (cover images, subfolders, counts)
-    showToast('Scanning folder structure and artwork...', 'info');
+    loadingManager.updateActivity('Scanning metadata and artwork...', 'Phase 2 of 2');
+    
+    let folderIndex = 0;
+    const totalFolders = selectedFolders.length;
     
     for (const folderPath of selectedFolders) {
       const pathStr = typeof folderPath === 'string' ? folderPath : folderPath?.path || '';
       if (pathStr) {
+        folderIndex++;
+        
+        // Get folder name for display
+        const folderName = pathStr.split('/').filter(p => p).pop() || pathStr;
+        loadingManager.updateScanningFolder(folderIndex, totalFolders, folderName);
+        
         console.log('[Sources] Scanning metadata for:', pathStr);
         const metadata = await scanner.scanFolderMetadata(pathStr);
         
@@ -544,8 +571,15 @@ async function scanSelectedFolders() {
         if (metadata && metadata.subfolders && metadata.subfolders.length > 0) {
           console.log(`[Sources] Found ${metadata.subfolders.length} subfolders, scanning their metadata...`);
           
+          let subfolderIndex = 0;
+          const totalSubfolders = metadata.subfolders.length;
+          
           for (const subfolderPath of metadata.subfolders) {
             try {
+              subfolderIndex++;
+              const subfolderName = subfolderPath.split('/').filter(p => p).pop() || subfolderPath;
+              loadingManager.updateMetadataFolder(subfolderIndex, totalSubfolders, subfolderName);
+              
               await scanner.scanFolderMetadata(subfolderPath);
             } catch (error) {
               console.warn(`[Sources] Error scanning subfolder ${subfolderPath}:`, error);
@@ -554,6 +588,10 @@ async function scanSelectedFolders() {
         }
       }
     }
+    
+    // Final phase - updating UI
+    loadingManager.updateProgress(95);
+    loadingManager.updateActivity('Finalizing...', 'Updating library and home screen');
     
     // Update counts
     await updateFolderCounts();
@@ -569,10 +607,23 @@ async function scanSelectedFolders() {
     const home = await import('./home.js');
     await home.refreshFolders();
     
+    // Complete!
+    loadingManager.updateProgress(100);
+    loadingManager.updateActivity('Complete!', 'All folders scanned successfully');
+    
+    // Hide overlay after a brief moment
+    await new Promise(resolve => setTimeout(resolve, 800));
+    loadingManager.hideLoading();
+    
     showToast('✓ Library updated with folder structure!', 'success');
     
   } catch (error) {
     console.error('[Sources] Error scanning folders:', error);
+    
+    // Hide loading on error
+    const loadingManager = await import('./loading-manager.js');
+    loadingManager.hideLoading();
+    
     showToast('Error scanning folders', 'error');
   }
 }

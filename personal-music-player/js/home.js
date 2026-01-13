@@ -702,7 +702,9 @@ export async function forceRescanMetadata() {
 // Refresh folder metadata (called by refresh button - scans for cover art)
 export async function refreshFolderMetadata() {
   console.log('[Home] Refreshing cover art...');
-  showToast('Scanning for cover art...', 'info');
+  
+  // Import loading manager
+  const loadingManager = await import('./loading-manager.js');
   
   try {
     // Get all Dropbox folders
@@ -715,13 +717,21 @@ export async function refreshFolderMetadata() {
       return;
     }
     
+    // Show loading overlay
+    loadingManager.showLoading();
+    loadingManager.updateActivity('Scanning for cover art...', 'Phase 1 of 2');
+    
     let scannedCount = 0;
     let foundCovers = 0;
+    const totalFolders = dropboxFolders.length;
     
     // Scan metadata for each Dropbox folder (includes cover art)
     for (const folder of dropboxFolders) {
       scannedCount++;
-      showToast(`Scanning ${scannedCount}/${dropboxFolders.length} folders...`, 'info');
+      
+      // Get folder name for display
+      const folderName = folder.name || folder.path.split('/').filter(p => p).pop() || 'Folder';
+      loadingManager.updateScanningFolder(scannedCount, totalFolders, folderName);
       
       // Mobile-optimized scanning with timeout
       const metadata = await scanner.scanFolderMetadata(folder.path);
@@ -739,8 +749,15 @@ export async function refreshFolderMetadata() {
       if (metadata && metadata.subfolders && metadata.subfolders.length > 0) {
         console.log(`[Home] Scanning ${metadata.subfolders.length} subfolders for cover art...`);
         
+        let subfolderIndex = 0;
+        const totalSubfolders = metadata.subfolders.length;
+        
         for (const subfolderPath of metadata.subfolders) {
           try {
+            subfolderIndex++;
+            const subfolderName = subfolderPath.split('/').filter(p => p).pop() || subfolderPath;
+            loadingManager.updateMetadataFolder(subfolderIndex, totalSubfolders, subfolderName, foundCovers);
+            
             const subMetadata = await scanner.scanFolderMetadata(subfolderPath);
             
             if (subMetadata && subMetadata.coverImagePath) {
@@ -756,11 +773,23 @@ export async function refreshFolderMetadata() {
     
     console.log(`[Home] Scan complete: ${foundCovers}/${scannedCount} folders have cover art`);
     
+    // Final phase - updating UI
+    loadingManager.updateProgress(95);
+    loadingManager.updateActivity('Finalizing...', 'Updating home screen');
+    
     // Force clear the folder cache and reload from database
     allFolders = [];
     
     // Reload display with new cached images
     await refreshFolders();
+    
+    // Complete!
+    loadingManager.updateProgress(100);
+    loadingManager.updateActivity('Complete!', `Found ${foundCovers} cover images`);
+    
+    // Hide overlay after a brief moment
+    await new Promise(resolve => setTimeout(resolve, 800));
+    loadingManager.hideLoading();
     
     if (foundCovers > 0) {
       showToast(`✓ Found ${foundCovers} cover image${foundCovers > 1 ? 's' : ''}!`, 'success');
@@ -770,6 +799,11 @@ export async function refreshFolderMetadata() {
     
   } catch (error) {
     console.error('[Home] Error refreshing cover art:', error);
+    
+    // Hide loading on error
+    const loadingManager = await import('./loading-manager.js');
+    loadingManager.hideLoading();
+    
     showToast('Error scanning cover art', 'error');
   }
 }
