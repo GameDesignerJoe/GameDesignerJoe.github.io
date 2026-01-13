@@ -606,6 +606,83 @@ export async function clearLocalData() {
   });
 }
 
+// === CLEAR ALL DATA (NUCLEAR OPTION) ===
+
+// Clear ALL app data (but NOT actual MP3 files!)
+export async function clearAllData() {
+  if (!db) await initDB();
+  
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log('[Storage] CLEARING ALL APP DATA...');
+      
+      // Clear all object stores
+      const transaction = db.transaction(
+        [STORES.TRACKS, STORES.FOLDERS, STORES.PLAYLISTS, STORES.SETTINGS, STORES.LOCAL_FOLDERS],
+        'readwrite'
+      );
+      
+      // Clear tracks
+      const trackStore = transaction.objectStore(STORES.TRACKS);
+      await new Promise((res, rej) => {
+        const req = trackStore.clear();
+        req.onsuccess = () => res();
+        req.onerror = () => rej(req.error);
+      });
+      console.log('[Storage] ✓ Tracks cleared');
+      
+      // Clear folders
+      const folderStore = transaction.objectStore(STORES.FOLDERS);
+      await new Promise((res, rej) => {
+        const req = folderStore.clear();
+        req.onsuccess = () => res();
+        req.onerror = () => rej(req.error);
+      });
+      console.log('[Storage] ✓ Folders cleared');
+      
+      // Clear local folders
+      const localFolderStore = transaction.objectStore(STORES.LOCAL_FOLDERS);
+      await new Promise((res, rej) => {
+        const req = localFolderStore.clear();
+        req.onsuccess = () => res();
+        req.onerror = () => rej(req.error);
+      });
+      console.log('[Storage] ✓ Local folder handles cleared');
+      
+      // Clear playlists
+      const playlistStore = transaction.objectStore(STORES.PLAYLISTS);
+      await new Promise((res, rej) => {
+        const req = playlistStore.clear();
+        req.onsuccess = () => res();
+        req.onerror = () => rej(req.error);
+      });
+      console.log('[Storage] ✓ Playlists cleared');
+      
+      // Clear settings
+      const settingsStore = transaction.objectStore(STORES.SETTINGS);
+      await new Promise((res, rej) => {
+        const req = settingsStore.clear();
+        req.onsuccess = () => res();
+        req.onerror = () => rej(req.error);
+      });
+      console.log('[Storage] ✓ Settings cleared');
+      
+      await new Promise((res, rej) => {
+        transaction.oncomplete = () => res();
+        transaction.onerror = () => rej(transaction.error);
+      });
+      
+      console.log('[Storage] ✅ ALL APP DATA CLEARED SUCCESSFULLY');
+      console.log('[Storage] NOTE: Your actual MP3 files on Dropbox and your hard drive are safe and untouched!');
+      resolve();
+      
+    } catch (error) {
+      console.error('[Storage] Error clearing all data:', error);
+      reject(error);
+    }
+  });
+}
+
 // Initialize database on module load
 initDB().catch(err => {
   console.error('[Storage] Failed to initialize database:', err);

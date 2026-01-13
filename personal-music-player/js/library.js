@@ -175,7 +175,7 @@ async function updateNowPlayingIndicators() {
     
     if (isFromCurrentContext && isCurrentlyPlaying) {
       // Show pause icon
-      playLibraryBtn.textContent = '⏸';
+      playLibraryBtn.textContent = '||';
       playLibraryBtn.setAttribute('title', 'Pause');
     } else {
       // Show play icon
@@ -1316,12 +1316,7 @@ export async function showAllTracks() {
   // Get all tracks
   const tracks = allTracks;
   
-  if (tracks.length === 0) {
-    console.log('[Library] No tracks to display');
-    return;
-  }
-  
-  // Show enhanced header for "All Library"
+  // ALWAYS show enhanced header, even when empty
   await showEnhancedHeader('library:all', tracks);
   
   // Display tracks
@@ -1330,6 +1325,17 @@ export async function showAllTracks() {
   
   const libraryContent = document.getElementById('libraryContent');
   libraryContent.innerHTML = '';
+  
+  if (tracks.length === 0) {
+    // Show empty state within the enhanced layout
+    libraryContent.innerHTML = `
+      <div class="empty-state">
+        <p>No tracks in your library yet</p>
+        <p class="empty-state-subtitle">Add music from your sources to get started</p>
+      </div>
+    `;
+    return;
+  }
   
   // Sort and display tracks
   const sortedTracks = sortTracks(tracks);

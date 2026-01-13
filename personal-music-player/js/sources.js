@@ -33,10 +33,11 @@ export async function init() {
   // Setup event listeners
   setupEventListeners();
   
-  // If dropbox is connected, load root folders
-  if (dropbox.isAuthenticated()) {
-    await loadDropboxFolders('');
-  }
+  // Always load dropbox UI (will show connect prompt if not authenticated)
+  await loadDropboxFolders('');
+  
+  // Load local folders
+  await loadLocalFolders();
 }
 
 // Setup event listeners
@@ -79,6 +80,11 @@ function setupEventListeners() {
       // Not connected - initiate OAuth
       dropboxModule.initiateOAuth();
     }
+  });
+  
+  // Reset All Data button (Nuclear option)
+  document.getElementById('resetAllDataBtn')?.addEventListener('click', async () => {
+    await resetAllData();
   });
   
   // Breadcrumb navigation will be set up dynamically
@@ -135,6 +141,10 @@ export async function loadDropboxFolders(path = '') {
   
   // Update toggle button based on connection status
   const toggleBtn = document.getElementById('dropboxToggleBtn');
+  
+  // Update sidebar button appearance based on connection status
+  const dropboxBtn = document.getElementById('dropboxSourceBtn');
+  
   if (!dropbox.isAuthenticated()) {
     // Not connected - show connect prompt
     folderList.innerHTML = `
@@ -151,19 +161,37 @@ export async function loadDropboxFolders(path = '') {
       dropbox.initiateOAuth();
     });
     
-    // Update toggle button to show "Connect"
+    // Update toggle button to show "Connect" with GREEN styling
     if (toggleBtn) {
       toggleBtn.textContent = 'Connect to Dropbox';
-      toggleBtn.className = 'btn-primary';
+      toggleBtn.className = 'btn-connect';
+    }
+    
+    // Remove green border/checkmark from sidebar button when NOT connected
+    if (dropboxBtn) {
+      dropboxBtn.classList.remove('active');
+      const statusIndicator = dropboxBtn.querySelector('.status-indicator');
+      if (statusIndicator) {
+        statusIndicator.style.display = 'none';
+      }
     }
     
     return;
   }
   
-  // Connected - update toggle button to show "Disconnect"
+  // Connected - update toggle button to show "Disconnect" with RED styling
   if (toggleBtn) {
     toggleBtn.textContent = 'Disconnect Dropbox';
     toggleBtn.className = 'btn-disconnect';
+  }
+  
+  // Show green border/checkmark when connected
+  if (dropboxBtn) {
+    dropboxBtn.classList.add('active');
+    const statusIndicator = dropboxBtn.querySelector('.status-indicator');
+    if (statusIndicator) {
+      statusIndicator.style.display = 'inline';
+    }
   }
   
   // Show loading
@@ -972,6 +1000,95 @@ async function rescanLocalFolders() {
   } catch (error) {
     console.error('[Sources] Error rescanning local folders:', error);
     showToast('Error rescanning folders', 'error');
+  }
+}
+
+// ==========================================
+// RESET ALL DATA (NUCLEAR OPTION)
+// ==========================================
+
+async function resetAllData() {
+  console.log('[Sources] Reset All Data requested');
+  
+  // Double confirmation - this is destructive!
+  const confirmed = confirm(
+    '⚠️ RESET ALL APP DATA\n\n' +
+    'This will clear:\n' +
+    '• All music library metadata (track info, album art)\n' +
+    '• All playlists\n' +
+    '• All source connections (Dropbox, Local)\n' +
+    '• All cached data\n\n' +
+    '✅ Your actual MP3 files on Dropbox and your hard drive are SAFE and will NOT be deleted!\n\n' +
+    'The app will return to the welcome screen.\n\n' +
+    'Continue?'
+  );
+  
+  if (!confirmed) {
+    return;
+  }
+  
+  // Final confirmation
+  const finalConfirm = confirm(
+    'Final confirmation:\n\n' +
+    'This will clear all app data but your MP3 files will remain safe.\n\n' +
+    'Proceed with reset?'
+  );
+  if (!finalConfirm) {
+    return;
+  }
+  
+  console.log('[Sources] Proceeding with complete reset...');
+  showToast('Resetting all data...', 'info');
+  
+  try {
+    // 1. Clear Dropbox authentication token
+    if (dropbox.isAuthenticated()) {
+      console.log('[Sources] Clearing Dropbox authentication...');
+      dropbox.clearAccessToken();
+    }
+    
+    // 2. Clear all storage data (tracks, playlists, folders, etc.)
+    console.log('[Sources] Clearing all IndexedDB data...');
+    await storage.clearAllData();
+    
+    // 3. Clear service worker caches
+    console.log('[Sources] Clearing service worker caches...');
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(cacheName => caches.delete(cacheName))
+      );
+    }
+    
+    // 4. Clear localStorage
+    console.log('[Sources] Clearing localStorage...');
+    localStorage.clear();
+    
+    // 5. Reset all local state variables
+    selectedFolders = [];
+    selectedLocalFolders = [];
+    currentPath = '';
+    currentLocalHandle = null;
+    localNavigationStack = [];
+    
+    console.log('[Sources] Reset complete - reloading app...');
+    showToast('✓ All data cleared! Returning to welcome screen...', 'success');
+    
+    // Force complete page reload to return to welcome screen
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+    
+  } catch (error) {
+    console.error('[Sources] Error resetting data:', error);
+    showToast('Error resetting data. Please refresh the page manually.', 'error');
+    
+    // Still try to reload even if there was an error
+    setTimeout(() => {
+      if (confirm('Reset encountered an error. Reload the page anyway?')) {
+        window.location.reload();
+      }
+    }, 2000);
   }
 }
 

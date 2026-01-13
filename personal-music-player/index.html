@@ -18,15 +18,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
   
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="assets/icons/icon-tape-black.png" id="favicon">
-  <link rel="apple-touch-icon" href="assets/icons/icon-tape-black.png">
-  
-  <style>
-    /* Make favicon white using CSS filter */
-    #favicon {
-      filter: brightness(0) invert(1);
-    }
-  </style>
+  <link rel="icon" type="image/png" href="assets/icons/favicon.png">
+  <link rel="apple-touch-icon" href="assets/icons/favicon.png">
   
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/sidebar.css">
@@ -81,10 +74,12 @@
       <!-- Authentication Screen -->
       <div id="authScreen" class="screen active">
         <div class="welcome-container">
-          <div class="welcome-icon">🎵</div>
-          <h2>Welcome to My Music Player</h2>
-          <p>Connect your Dropbox account to start streaming your music library.</p>
-          <button id="connectDropboxBtn" class="btn-primary">Connect to Dropbox</button>
+          <div class="welcome-icon">
+            <img src="assets/icons/cassette.png" alt="Cassette" class="welcome-cassette">
+          </div>
+          <h2>Welcome to Playback</h2>
+          <p>Connect to your cloud storage, network device, or local drive to stream your music library to this device.</p>
+          <button id="connectDropboxBtn" class="btn-primary">Connect to Sources</button>
         </div>
       </div>
 
@@ -378,6 +373,14 @@
                   <div class="source-status">Coming soon</div>
                 </div>
               </button>
+            </div>
+            
+            <!-- Reset All Data Button (Debug/Nuclear Option) -->
+            <div class="sources-reset-section">
+              <button id="resetAllDataBtn" class="btn-reset-all" title="Disconnect all sources and clear all data">
+                🔄 Reset All Data
+              </button>
+              <p class="reset-warning">Warning: This will disconnect all sources and clear all cached data</p>
             </div>
           </div>
 

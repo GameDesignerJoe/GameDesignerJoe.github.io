@@ -306,9 +306,9 @@ async function updatePlayerUI() {
   const miniPlayBtnDesktop = document.getElementById('miniPlayPauseBtnDesktop');
   
   if (playerState.isPlaying) {
-    if (playPauseIcon) playPauseIcon.textContent = '⏸';
-    if (miniPlayBtn) miniPlayBtn.textContent = '⏸';
-    if (miniPlayBtnDesktop) miniPlayBtnDesktop.textContent = '⏸';
+    if (playPauseIcon) playPauseIcon.textContent = '||';
+    if (miniPlayBtn) miniPlayBtn.textContent = '||';
+    if (miniPlayBtnDesktop) miniPlayBtnDesktop.textContent = '||';
   } else {
     if (playPauseIcon) playPauseIcon.textContent = '▶';
     if (miniPlayBtn) miniPlayBtn.textContent = '▶';

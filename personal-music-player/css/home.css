@@ -345,28 +345,25 @@
 }
 
 .folder-art-text {
-  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
-  font-weight: 700;
+  font-family: 'Permanent Marker', cursive;
+  font-weight: 400;
   color: #ffffff;
   text-transform: uppercase;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  letter-spacing: 0.5px;
-  line-height: 1.2;
+  letter-spacing: 0.3px;
+  line-height: 1.15;
   text-align: center;
   position: absolute;
   top: 40%;
   left: 50%;
   transform: translate(-50%, -60%);
   width: 90%;
-  word-wrap: break-word;
-  hyphens: auto;
-}
-
-/* Alternative font option - Permanent Marker */
-.default-folder-art.font-marker .folder-art-text {
-  font-family: 'Permanent Marker', cursive;
-  font-weight: 400;
-  letter-spacing: 1px;
+  /* Responsive font size - scales more aggressively for smaller boxes */
+  font-size: clamp(0.65rem, 3vw, 0.95rem);
+  /* Better word breaking for Permanent Marker font */
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .folder-art-cassette {

@@ -1,5 +1,5 @@
 // Service Worker for Music Player PWA
-const CACHE_NAME = 'music-player-v44-flexbox-mobile';
+const CACHE_NAME = 'music-player-v48-reset-button-mobile-fix';
 const APP_SHELL = [
   './',
   './index.html',

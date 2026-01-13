@@ -289,8 +289,14 @@ function hideHeaderActions() {
 
 // Setup all event listeners
 function setupEventListeners() {
-  // Connect to Dropbox button
-  document.getElementById('connectDropboxBtn')?.addEventListener('click', connectToDropbox);
+  // Connect to Sources button - Navigate to Sources page
+  document.getElementById('connectDropboxBtn')?.addEventListener('click', async () => {
+    // Initialize sources module
+    await sources.init();
+    // Navigate to Sources screen
+    showScreen('sources');
+    showHeaderActions();
+  });
   
   // Disconnect button
   document.getElementById('disconnectBtn')?.addEventListener('click', disconnect);
