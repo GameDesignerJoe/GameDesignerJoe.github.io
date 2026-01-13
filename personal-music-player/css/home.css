@@ -209,14 +209,15 @@
   transform: scale(1.02);
 }
 
-/* Folder Play Button */
+/* Folder Play Button - Universal positioning at bottom center within image container */
 .folder-play-btn {
   position: absolute;
-  bottom: 80px;
-  right: 16px;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
   width: 48px;
   height: 48px;
-  background: #1DB954;
+  background: var(--play-btn-color, #1DB954);
   border-radius: 50%;
   border: none;
   display: flex;
@@ -225,7 +226,6 @@
   font-size: 20px;
   color: #000000;
   opacity: 0;
-  transform: translateY(8px);
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   z-index: 2;
@@ -234,43 +234,19 @@
 
 .folder-card:hover .folder-play-btn {
   opacity: 1;
-  transform: translateY(0);
-}
-
-.folder-play-btn:hover {
-  background: #1ed760;
-  transform: scale(1.1);
-}
-
-.folder-play-btn:active {
-  transform: scale(1.05);
-}
-
-/* Play button for default art cards - centered over cassette within the image container */
-.folder-play-btn-default-art {
-  /* Now positioned relative to image container, same as cassette */
-  bottom: 8px;
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%) translateY(8px);
-  background: var(--play-btn-color, #1DB954);
-}
-
-.folder-card:hover .folder-play-btn-default-art {
-  opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
 
-.folder-play-btn-default-art:hover {
-  transform: translateX(-50%) scale(1.1) !important;
+.folder-play-btn:hover {
   filter: brightness(1.2);
+  transform: translateX(-50%) scale(1.1) !important;
 }
 
-.folder-play-btn-default-art:active {
+.folder-play-btn:active {
   transform: translateX(-50%) scale(1.05) !important;
 }
 
-/* Hide cassette when play button appears over it */
+/* Hide cassette when play button appears over it (for default art) */
 .folder-card:hover .folder-art-cassette {
   opacity: 0;
 }

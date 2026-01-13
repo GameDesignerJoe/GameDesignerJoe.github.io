@@ -209,11 +209,37 @@
   color: var(--color-bg-primary);
   font-size: 1.8rem;
   box-shadow: var(--shadow-md);
+  position: relative;
 }
 
 .control-btn-large:hover, .control-btn-large:active {
   transform: scale(1.05);
   box-shadow: var(--shadow-lg);
+}
+
+/* Pause button - hide text and use pseudo-elements for thick bars */
+.control-btn-large.pause {
+  font-size: 0; /* Hide the text */
+}
+
+.control-btn-large.pause::before,
+.control-btn-large.pause::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 22px;
+  background-color: var(--color-bg-primary);
+  border-radius: 1px;
+}
+
+.control-btn-large.pause::before {
+  left: calc(50% - 8px);
+}
+
+.control-btn-large.pause::after {
+  right: calc(50% - 8px);
 }
 
 /* ==========================================

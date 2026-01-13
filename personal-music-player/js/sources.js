@@ -525,22 +525,18 @@ async function scanSelectedFolders() {
   }
   
   console.log('[Sources] Scanning selected folders:', selectedFolders);
-  showToast('Scanning folders and metadata...', 'info');
+  showToast('Scanning folders and tracks...', 'info');
   
   try {
-    // First, scan for audio files
+    // First, scan for audio files (this finds all the tracks)
     await scanner.scanSelectedFolders(selectedFolders);
     
-    // Then, scan metadata for each folder (cover images, subfolders, counts)
-    showToast('Scanning folder metadata...', 'info');
+    // Then, trigger full metadata scan (cover images, deep subfolders, etc.)
+    showToast('Scanning folder structure and artwork...', 'info');
     
-    for (const folderPath of selectedFolders) {
-      const pathStr = typeof folderPath === 'string' ? folderPath : folderPath?.path || '';
-      if (pathStr) {
-        console.log('[Sources] Scanning metadata for:', pathStr);
-        await scanner.scanFolderMetadata(pathStr);
-      }
-    }
+    // Import home module and trigger its full scan which handles deep folders
+    const home = await import('./home.js');
+    await home.forceRescanMetadata();
     
     // Update counts
     await updateFolderCounts();
@@ -549,10 +545,10 @@ async function scanSelectedFolders() {
     const library = await import('./library.js');
     await library.refreshLibrary();
     
-    // Mark folders as modified so home will auto-refresh
+    // Mark folders as modified so home will auto-refresh  
     markFoldersModified();
     
-    showToast('✓ Library updated!', 'success');
+    showToast('✓ Library updated with folder structure!', 'success');
     
   } catch (error) {
     console.error('[Sources] Error scanning folders:', error);

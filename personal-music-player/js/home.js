@@ -5,6 +5,7 @@ import * as storage from './storage.js';
 import * as scanner from './scanner.js';
 import * as dropbox from './dropbox.js';
 import * as playlists from './playlists.js';
+import * as utils from './utils.js';
 import { showToast, showScreen } from './app.js';
 
 let allFolders = [];
@@ -349,23 +350,29 @@ function createFolderCard(folder) {
     imageContainer.appendChild(defaultArt);
   }
   
-  card.appendChild(imageContainer);
-  
-  // Add play button (will be positioned over cassette for default art)
+  // Add play button - always inside image container at bottom center
   const playBtn = document.createElement('button');
   playBtn.className = 'folder-play-btn';
   playBtn.title = `Play ${folder.name}`;
   playBtn.textContent = '▶';
   
-  // If using default art, add to image container and position over cassette
+  // Set button color based on folder
   if (!folder.coverImageUrl || folder.coverImageUrl === 'assets/icons/icon-song-black..png') {
+    // Default art - use folder-specific gradient color
     const { startColor } = getFolderBorderGradient(folder.name);
-    playBtn.classList.add('folder-play-btn-default-art');
     playBtn.style.setProperty('--play-btn-color', startColor);
-    imageContainer.appendChild(playBtn); // Add to image container, not card
   } else {
-    card.appendChild(playBtn); // Regular position for cards with cover art
+    // Cover art - extract color when image loads and set it
+    const img = imageContainer.querySelector('img');
+    if (img) {
+      extractImageColors(img).then(colors => {
+        playBtn.style.setProperty('--play-btn-color', colors.start);
+      });
+    }
   }
+  
+  imageContainer.appendChild(playBtn); // Always add to image container
+  card.appendChild(imageContainer);
   
   // Add folder info
   const infoDiv = document.createElement('div');
