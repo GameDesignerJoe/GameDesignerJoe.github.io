@@ -455,7 +455,116 @@ function renderInventory(container) {
  * Render Observation Deck
  */
 function renderObservationDeck(container) {
-    container.innerHTML = '<p style="text-align: center;">Observation Deck - Coming in Phase 4</p>';
+    container.className = 'observation-deck';
+    
+    const activeGuardianId = gameState.active_guardian;
+    
+    if (!activeGuardianId) {
+        container.innerHTML = '<p style="text-align: center;">No active Guardian</p>';
+        return;
+    }
+    
+    // Get Guardians with available conversations
+    const guardians = getGuardiansWithConversations(activeGuardianId, gameState);
+    
+    if (guardians.length === 0) {
+        container.innerHTML = '<p style="text-align: center; opacity: 0.7;">No one here right now. Complete more missions to unlock conversations.</p>';
+        return;
+    }
+    
+    const grid = document.createElement('div');
+    grid.className = 'guardian-npc-grid';
+    
+    guardians.forEach(guardian => {
+        const card = document.createElement('div');
+        card.className = 'guardian-npc-card';
+        
+        const portrait = document.createElement('div');
+        portrait.className = 'guardian-card-portrait';
+        renderVisual(guardian.portrait, portrait);
+        if (guardian.portrait.show_name) {
+            portrait.textContent = guardian.name;
+        }
+        
+        const name = document.createElement('div');
+        name.className = 'guardian-card-name';
+        name.textContent = guardian.name;
+        
+        const role = document.createElement('div');
+        role.className = 'guardian-card-role';
+        role.textContent = guardian.role;
+        
+        card.appendChild(portrait);
+        card.appendChild(name);
+        card.appendChild(role);
+        
+        card.onclick = () => showConversationList(guardian.id);
+        
+        grid.appendChild(card);
+    });
+    
+    container.appendChild(grid);
+}
+
+/**
+ * Show conversation list for a Guardian
+ */
+function showConversationList(guardianId) {
+    const sidebar = document.getElementById('workstation-sidebar');
+    const title = document.getElementById('workstation-title');
+    const recipeList = document.getElementById('recipe-list');
+    const recipeDetails = document.getElementById('recipe-details');
+    
+    const guardian = getGuardianById(guardianId);
+    title.textContent = `Talk to ${guardian.name}`;
+    
+    // Get available conversations with this Guardian
+    const conversations = getConversationsForPair(gameState.active_guardian, guardianId);
+    const eligible = conversations.filter(conv => {
+        return checkPlayerCharRequirement(conv, gameState.active_guardian) &&
+               checkConversationPrerequisites(conv, gameState) &&
+               (conv.type === "background" || !gameState.completed_conversations.includes(conv.id));
+    });
+    
+    // Separate by type
+    const important = eligible.filter(c => c.type === "important");
+    const background = eligible.filter(c => c.type === "background");
+    
+    // Show Important conversations + 1 Background
+    const toShow = [...important];
+    if (background.length > 0) {
+        toShow.push(background[0]);
+    }
+    
+    // Render conversation list
+    recipeList.innerHTML = '';
+    toShow.forEach(conv => {
+        const card = document.createElement('div');
+        card.className = 'recipe-card';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'recipe-name';
+        titleDiv.textContent = conv.title;
+        
+        const typeDiv = document.createElement('div');
+        typeDiv.className = 'recipe-description';
+        typeDiv.textContent = conv.type === "important" ? "Story" : "Chat";
+        typeDiv.style.color = conv.type === "important" ? "var(--primary)" : "var(--disabled)";
+        
+        card.appendChild(titleDiv);
+        card.appendChild(typeDiv);
+        
+        card.onclick = () => {
+            startConversation(conv);
+            closeSidebar();
+        };
+        
+        recipeList.appendChild(card);
+    });
+    
+    recipeDetails.innerHTML = '<p class="select-prompt">Select a conversation to begin</p>';
+    
+    sidebar.classList.remove('hidden');
 }
 
 console.log('Room system loaded.');

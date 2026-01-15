@@ -104,6 +104,17 @@ function executeDebugCommand(command) {
             debugResetSave();
             break;
             
+        case 'set_missions_together':
+            const pair = parts[1]; // e.g. stella_vawn
+            const missions = parseInt(parts[2]) || 0;
+            if (!gameState.relationships.missions_together[pair]) {
+                gameState.relationships.missions_together[pair] = 0;
+            }
+            gameState.relationships.missions_together[pair] = missions;
+            autoSave(gameState);
+            debugLog(`Set ${pair} missions_together = ${missions}`, 'success');
+            break;
+            
         case 'help':
             debugLog('Available commands:', 'info');
             debugLog('  give_item [id] [amount]', 'info');
@@ -112,6 +123,7 @@ function executeDebugCommand(command) {
             debugLog('  clear_flag [name]', 'info');
             debugLog('  set_guardian [id]', 'info');
             debugLog('  complete_mission [id]', 'info');
+            debugLog('  set_missions_together [pair] [count]', 'info');
             debugLog('  reset_save', 'info');
             break;
             

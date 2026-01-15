@@ -19,3 +19,4 @@ TODO
 - Be able to level missions 
 - Almost wish I could see the web of missions and where it leads
 - Need to do something when you have duplicate blueprints.
+- Conversations need to go away.
