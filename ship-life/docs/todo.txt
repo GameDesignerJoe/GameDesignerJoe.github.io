@@ -1,0 +1,20 @@
+TODO
+- Need to be able to go to a room and switch characters.
+- UI elements stop being centered after a bit and go to the right.
+- Ship Life prototype screen doesn't go away. 
+- Need a page for inventory
+- Need a reason to pick between different missions
+    - Possible types of resources
+    - Difficulty
+    - Unlocks other missions
+- Portal room seems off now, like why is it here?
+    Eventually, it'll house the load out for what guardians you take and what you bring with you. 
+- We ahve the mission path now, but I don't know what missions I need to take for what stuff to unlock.
+- Seems like you should have to succeed to unlock the other level of missions. 
+- Seems like some missions should go away.Training Exercise
+- New missions should be colored different
+- Text says victor on mission bar, even if you aren't going to win.
+- Be nice to have a mission count
+- Better mission color range from 1 - 10. Red at 3 is too much.
+- Be able to level missions 
+- Almost wish I could see the web of missions and where it leads

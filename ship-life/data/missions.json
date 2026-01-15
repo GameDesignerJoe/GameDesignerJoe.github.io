@@ -1,0 +1,839 @@
+{
+  "_documentation": {
+    "_note": "This object is for documentation only and is ignored by the game",
+    "id": "Unique identifier for this mission (string)",
+    "name": "Display name shown in Mission Computer (string)",
+    "description": "Mission briefing text (string)",
+    "map": "Map/location identifier for this mission (string)",
+    "visual": {
+      "type": "Visual type - currently only 'color' supported (string)",
+      "value": "Hex color code for the mission card (string)",
+      "show_name": "Whether to display name on the color placeholder (boolean)"
+    },
+    "difficulty": "Mission difficulty 1-5 (affects success rate: 1=90%, 2=80%, 3=70%, 4=60%, 5=50%) (number)",
+    "repeatable": "If true, mission stays available after completion; if false, disappears after first success (boolean)",
+    "persist_on_fail": "If true, mission stays available after failure; if false, disappears (boolean)",
+    "prerequisites": {
+      "missions_completed": "Array of mission IDs that must be completed first (array of strings)",
+      "total_missions": "Minimum total missions completed to unlock this mission (number)",
+      "flags": "Array of flag names that must be set to true (array of strings)"
+    },
+    "rewards": {
+      "success": [
+        {
+          "item": "Item ID to reward (string)",
+          "min": "Minimum quantity (number)",
+          "max": "Maximum quantity (number)",
+          "drop_chance": "Percentage chance this reward drops (0-100) (number)"
+        }
+      ],
+      "failure": "Same structure as success - rewards given even on mission failure (array)"
+    },
+    "unlock_on_complete": {
+      "flags": "Array of flag names to set to true when mission completes (array of strings)",
+      "missions": "Array of mission IDs to unlock when this completes (array of strings)"
+    },
+    "simulation": {
+      "messages": [
+        {
+          "text": "Message text displayed during simulation (string)",
+          "bar_progress": "Progress bar percentage when this message displays (0-100) (number)",
+          "display_time": "How many seconds to show this message (number)"
+        }
+      ]
+    }
+  },
+  "missions": [
+    {
+      "id": "first_contact",
+      "name": "First Contact",
+      "description": "Establish communication with the locals on Terminus Prime",
+      "map": "terminus_outpost",
+      "visual": {
+        "type": "color",
+        "value": "#4a90e2",
+        "show_name": true
+      },
+      "difficulty": 1,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 5,
+            "max": 10,
+            "drop_chance": 100
+          },
+          {
+            "item": "common_alloy",
+            "min": 3,
+            "max": 7,
+            "drop_chance": 80
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 60
+          }
+        ],
+        "failure": [
+          {
+            "item": "plasma_cell",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": ["first_contact_complete"],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Approaching Terminus Prime...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "Stella leads the team forward!",
+            "bar_progress": 50,
+            "display_time": 3
+          },
+          {
+            "text": "Contact established! Negotiations in progress...",
+            "bar_progress": 75,
+            "display_time": 3
+          },
+          {
+            "text": "Mission objective complete!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "supply_run",
+      "name": "Supply Run",
+      "description": "Retrieve critical supplies from an abandoned outpost",
+      "map": "ghost_station",
+      "visual": {
+        "type": "color",
+        "value": "#27ae60",
+        "show_name": true
+      },
+      "difficulty": 2,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "metal_parts",
+            "min": 5,
+            "max": 10,
+            "drop_chance": 100
+          },
+          {
+            "item": "battery",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 70
+          },
+          {
+            "item": "rare_alloy",
+            "min": 1,
+            "max": 2,
+            "drop_chance": 30
+          }
+        ],
+        "failure": [
+          {
+            "item": "metal_parts",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Entering the abandoned outpost...",
+            "bar_progress": 20,
+            "display_time": 3
+          },
+          {
+            "text": "Vawn secures the perimeter!",
+            "bar_progress": 40,
+            "display_time": 3
+          },
+          {
+            "text": "Tiberius hacks the supply terminal!",
+            "bar_progress": 70,
+            "display_time": 3
+          },
+          {
+            "text": "Supplies secured! Extraction complete!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "hostile_engagement",
+      "name": "Hostile Engagement",
+      "description": "Defend against Kin raiders attacking a civilian settlement",
+      "map": "frontier_colony",
+      "visual": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "difficulty": 3,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 8,
+            "max": 15,
+            "drop_chance": 100
+          },
+          {
+            "item": "common_alloy",
+            "min": 5,
+            "max": 10,
+            "drop_chance": 90
+          },
+          {
+            "item": "rare_alloy",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 50
+          }
+        ],
+        "failure": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "common_alloy",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 50
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Enemy forces detected! Engaging!",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "Maestra takes position! Suppressing fire!",
+            "bar_progress": 50,
+            "display_time": 3
+          },
+          {
+            "text": "Heavy resistance! Push forward!",
+            "bar_progress": 75,
+            "display_time": 3
+          },
+          {
+            "text": "Enemy neutralized! Colony secured!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "rescue_operation",
+      "name": "Rescue Operation",
+      "description": "Extract stranded Guardians from hostile territory",
+      "map": "danger_zone",
+      "visual": {
+        "type": "color",
+        "value": "#e67e22",
+        "show_name": true
+      },
+      "difficulty": 2,
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": ["first_contact"],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "common_alloy",
+            "min": 10,
+            "max": 20,
+            "drop_chance": 100
+          },
+          {
+            "item": "battery",
+            "min": 3,
+            "max": 6,
+            "drop_chance": 70
+          },
+          {
+            "item": "circuit_board",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 40
+          }
+        ],
+        "failure": [
+          {
+            "item": "common_alloy",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": ["rescue_complete"],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Drop pod incoming! Brace for landing!",
+            "bar_progress": 20,
+            "display_time": 3
+          },
+          {
+            "text": "Vawn locates the extraction point!",
+            "bar_progress": 45,
+            "display_time": 3
+          },
+          {
+            "text": "Hostiles closing in! Defend the position!",
+            "bar_progress": 70,
+            "display_time": 3
+          },
+          {
+            "text": "Rescue successful! Returning to ship!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "tech_salvage",
+      "name": "Tech Salvage",
+      "description": "Recover advanced technology from derelict research facility",
+      "map": "research_ruins",
+      "visual": {
+        "type": "color",
+        "value": "#16a085",
+        "show_name": true
+      },
+      "difficulty": 2,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "circuit_board",
+            "min": 5,
+            "max": 12,
+            "drop_chance": 100
+          },
+          {
+            "item": "battery",
+            "min": 3,
+            "max": 8,
+            "drop_chance": 80
+          },
+          {
+            "item": "exotic_matter",
+            "min": 1,
+            "max": 2,
+            "drop_chance": 25
+          }
+        ],
+        "failure": [
+          {
+            "item": "circuit_board",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Scanning for tech signatures...",
+            "bar_progress": 15,
+            "display_time": 3
+          },
+          {
+            "text": "Tiberius bypasses security protocols!",
+            "bar_progress": 40,
+            "display_time": 3
+          },
+          {
+            "text": "Downloading research data...",
+            "bar_progress": 75,
+            "display_time": 3
+          },
+          {
+            "text": "Technology acquired! Mission complete!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "kin_assault",
+      "name": "Kin Assault",
+      "description": "Launch a preemptive strike against a Kin stronghold",
+      "map": "kin_fortress",
+      "visual": {
+        "type": "color",
+        "value": "#c0392b",
+        "show_name": true
+      },
+      "difficulty": 3,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 3,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "rare_alloy",
+            "min": 5,
+            "max": 12,
+            "drop_chance": 100
+          },
+          {
+            "item": "plasma_cell",
+            "min": 10,
+            "max": 20,
+            "drop_chance": 90
+          },
+          {
+            "item": "crystalline_shard",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 60
+          }
+        ],
+        "failure": [
+          {
+            "item": "plasma_cell",
+            "min": 3,
+            "max": 8,
+            "drop_chance": 100
+          },
+          {
+            "item": "rare_alloy",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 60
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Approaching Kin fortress... sensors active!",
+            "bar_progress": 20,
+            "display_time": 3
+          },
+          {
+            "text": "Stella coordinates the assault!",
+            "bar_progress": 40,
+            "display_time": 3
+          },
+          {
+            "text": "Breaching the inner sanctum!",
+            "bar_progress": 70,
+            "display_time": 3
+          },
+          {
+            "text": "Fortress neutralized! Victory!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "diplomatic_mission",
+      "name": "Diplomatic Mission",
+      "description": "Negotiate a trade agreement with independent colonists",
+      "map": "colony_hub",
+      "visual": {
+        "type": "color",
+        "value": "#f39c12",
+        "show_name": true
+      },
+      "difficulty": 1,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 5,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "common_alloy",
+            "min": 15,
+            "max": 30,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 10,
+            "max": 20,
+            "drop_chance": 100
+          },
+          {
+            "item": "nanomaterial",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 50
+          }
+        ],
+        "failure": [
+          {
+            "item": "common_alloy",
+            "min": 3,
+            "max": 8,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Arriving at colony trade hub...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "Presenting trade proposals...",
+            "bar_progress": 50,
+            "display_time": 3
+          },
+          {
+            "text": "Negotiations proceeding smoothly...",
+            "bar_progress": 75,
+            "display_time": 3
+          },
+          {
+            "text": "Agreement reached! Trade route established!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "deep_space_recon",
+      "name": "Deep Space Reconnaissance",
+      "description": "Explore uncharted sectors for strategic resources",
+      "map": "void_sector",
+      "visual": {
+        "type": "color",
+        "value": "#8e44ad",
+        "show_name": true
+      },
+      "difficulty": 4,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": ["supply_run", "rescue_operation"],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "exotic_matter",
+            "min": 3,
+            "max": 8,
+            "drop_chance": 100
+          },
+          {
+            "item": "crystalline_shard",
+            "min": 5,
+            "max": 12,
+            "drop_chance": 80
+          },
+          {
+            "item": "fusion_core",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 40
+          }
+        ],
+        "failure": [
+          {
+            "item": "exotic_matter",
+            "min": 1,
+            "max": 2,
+            "drop_chance": 100
+          },
+          {
+            "item": "crystalline_shard",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 50
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Jumping to deep space coordinates...",
+            "bar_progress": 15,
+            "display_time": 3
+          },
+          {
+            "text": "Scanning for anomalies... multiple contacts!",
+            "bar_progress": 35,
+            "display_time": 3
+          },
+          {
+            "text": "Maestra provides overwatch during collection!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Unknown entities approaching! Extract now!",
+            "bar_progress": 85,
+            "display_time": 3
+          },
+          {
+            "text": "Data and samples secured! Jump successful!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "reactor_crisis",
+      "name": "Reactor Crisis",
+      "description": "Prevent a catastrophic meltdown at a civilian station",
+      "map": "reactor_station",
+      "visual": {
+        "type": "color",
+        "value": "#d35400",
+        "show_name": true
+      },
+      "difficulty": 4,
+      "repeatable": false,
+      "persist_on_fail": false,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 7,
+        "flags": ["first_contact_complete"]
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "fusion_core",
+            "min": 5,
+            "max": 10,
+            "drop_chance": 100
+          },
+          {
+            "item": "circuit_board",
+            "min": 8,
+            "max": 15,
+            "drop_chance": 100
+          },
+          {
+            "item": "exotic_matter",
+            "min": 3,
+            "max": 6,
+            "drop_chance": 80
+          },
+          {
+            "item": "nanomaterial",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 60
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": ["reactor_crisis_resolved"],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Emergency distress signal received!",
+            "bar_progress": 10,
+            "display_time": 3
+          },
+          {
+            "text": "Arriving at reactor station... radiation critical!",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "Tiberius accessing reactor controls!",
+            "bar_progress": 45,
+            "display_time": 3
+          },
+          {
+            "text": "Cooling systems failing! Manual override required!",
+            "bar_progress": 65,
+            "display_time": 3
+          },
+          {
+            "text": "Vawn stabilizes the core! Crisis averted!",
+            "bar_progress": 90,
+            "display_time": 3
+          },
+          {
+            "text": "Station saved! Thousands of lives spared!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "training_exercise",
+      "name": "Training Exercise",
+      "description": "Run combat drills to maintain Guardian readiness",
+      "map": "training_grounds",
+      "visual": {
+        "type": "color",
+        "value": "#7f8c8d",
+        "show_name": true
+      },
+      "difficulty": 1,
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": [
+          {
+            "item": "plasma_cell",
+            "min": 1,
+            "max": 2,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    }
+  ]
+}

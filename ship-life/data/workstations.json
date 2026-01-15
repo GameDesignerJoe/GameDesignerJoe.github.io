@@ -1,0 +1,190 @@
+{
+  "_documentation": {
+    "_note": "This object is for documentation only and is ignored by the game",
+    "id": "Unique identifier for this workstation (string)",
+    "name": "Base display name for this workstation (string)",
+    "visual": {
+      "type": "Visual type - currently only 'color' supported (string)",
+      "value": "Hex color code for the workstation card (string)",
+      "show_name": "Whether to display name on the color placeholder (boolean)"
+    },
+    "max_level": "Maximum level this workstation can be upgraded to (number)",
+    "level_names": {
+      "1": "Name shown at level 1 (string)",
+      "2": "Name shown at level 2 (string)",
+      "3": "Name shown at level 3 (string)"
+    },
+    "upgrade_costs": [
+      {
+        "level": "Target level for this upgrade (e.g., 2 = upgrade from 1 to 2) (number)",
+        "resources": [
+          {
+            "item": "Item ID required for upgrade (string)",
+            "amount": "Quantity required (number)"
+          }
+        ]
+      }
+    ],
+    "recipes": [
+      {
+        "id": "Unique identifier for this recipe (string)",
+        "name": "Recipe display name (string)",
+        "description": "What this recipe produces (string)",
+        "required_level": "Minimum workstation level to unlock this recipe (number)",
+        "blueprint_required": "Blueprint ID that must be learned to unlock this recipe (string)",
+        "cost": [
+          {
+            "item": "Item ID consumed when crafting (string)",
+            "amount": "Quantity consumed (number)"
+          }
+        ],
+        "output": {
+          "item": "Item ID produced by this recipe (string)",
+          "amount": "Quantity produced (number)"
+        }
+      }
+    ]
+  },
+  "workstations": [
+    {
+      "id": "weapons_bench",
+      "name": "Weapons Bench",
+      "visual": {
+        "type": "color",
+        "value": "#8b0000",
+        "show_name": true
+      },
+      "max_level": 3,
+      "level_names": {
+        "1": "Weapons Bench",
+        "2": "Advanced Weapons Bench",
+        "3": "Master Weapons Bench"
+      },
+      "upgrade_costs": [
+        {
+          "level": 2,
+          "resources": [
+            {
+              "item": "common_alloy",
+              "amount": 50
+            },
+            {
+              "item": "plasma_cell",
+              "amount": 20
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "item": "rare_alloy",
+              "amount": 30
+            },
+            {
+              "item": "battery",
+              "amount": 10
+            }
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "basic_rifle",
+          "name": "Basic Plasma Rifle",
+          "description": "Standard issue energy weapon",
+          "required_level": 1,
+          "blueprint_required": "blueprint_plasma_rifle",
+          "cost": [
+            {
+              "item": "plasma_cell",
+              "amount": 10
+            },
+            {
+              "item": "metal_parts",
+              "amount": 5
+            },
+            {
+              "item": "battery",
+              "amount": 1
+            }
+          ],
+          "output": {
+            "item": "plasma_rifle",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "armor_forge",
+      "name": "Armor Forge",
+      "visual": {
+        "type": "color",
+        "value": "#2c3e50",
+        "show_name": true
+      },
+      "max_level": 3,
+      "level_names": {
+        "1": "Armor Forge",
+        "2": "Advanced Armor Forge",
+        "3": "Master Armor Forge"
+      },
+      "upgrade_costs": [
+        {
+          "level": 2,
+          "resources": [
+            {
+              "item": "common_alloy",
+              "amount": 50
+            },
+            {
+              "item": "metal_parts",
+              "amount": 30
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "item": "rare_alloy",
+              "amount": 30
+            },
+            {
+              "item": "common_alloy",
+              "amount": 50
+            }
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "basic_shield",
+          "name": "Basic Energy Shield",
+          "description": "Personal force field generator",
+          "required_level": 1,
+          "blueprint_required": "blueprint_energy_shield",
+          "cost": [
+            {
+              "item": "battery",
+              "amount": 3
+            },
+            {
+              "item": "metal_parts",
+              "amount": 5
+            },
+            {
+              "item": "common_alloy",
+              "amount": 10
+            }
+          ],
+          "output": {
+            "item": "energy_shield",
+            "amount": 1
+          }
+        }
+      ]
+    }
+  ]
+}

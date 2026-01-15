@@ -1,0 +1,161 @@
+{
+  "_documentation": {
+    "_note": "This object is for documentation only and is ignored by the game",
+    "id": "Unique identifier for this item - used in inventory, recipes, and rewards (string)",
+    "name": "Display name shown to player (string)",
+    "description": "Item description shown in inventory and tooltips (string)",
+    "icon": {
+      "type": "Visual type - currently only 'color' supported (string)",
+      "value": "Hex color code for the placeholder icon (string)",
+      "show_name": "Whether to display name on the color placeholder (boolean)"
+    },
+    "type": "Item category - 'resource' for crafting materials, 'aspect' for equippable items (string)",
+    "stack_count": "Current quantity owned - set to 0 for new items (will be tracked in save file) (number)"
+  },
+  "items": [
+    {
+      "id": "plasma_cell",
+      "name": "Plasma Cell",
+      "description": "Volatile energy source used in weapon crafting",
+      "icon": {
+        "type": "color",
+        "value": "#00ffff",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "common_alloy",
+      "name": "Common Alloy",
+      "description": "Standard metal alloy for basic construction",
+      "icon": {
+        "type": "color",
+        "value": "#95a5a6",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "rare_alloy",
+      "name": "Rare Alloy",
+      "description": "Advanced metal alloy for high-tier equipment",
+      "icon": {
+        "type": "color",
+        "value": "#f39c12",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "metal_parts",
+      "name": "Metal Parts",
+      "description": "Salvaged mechanical components",
+      "icon": {
+        "type": "color",
+        "value": "#7f8c8d",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "battery",
+      "name": "Battery",
+      "description": "Portable power source",
+      "icon": {
+        "type": "color",
+        "value": "#2ecc71",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "exotic_matter",
+      "name": "Exotic Matter",
+      "description": "Rare quantum material from deep space",
+      "icon": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "circuit_board",
+      "name": "Circuit Board",
+      "description": "Advanced computing components",
+      "icon": {
+        "type": "color",
+        "value": "#16a085",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "crystalline_shard",
+      "name": "Crystalline Shard",
+      "description": "Energy-infused crystal fragments",
+      "icon": {
+        "type": "color",
+        "value": "#3498db",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "fusion_core",
+      "name": "Fusion Core",
+      "description": "Compact fusion reactor for power systems",
+      "icon": {
+        "type": "color",
+        "value": "#e67e22",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "nanomaterial",
+      "name": "Nanomaterial",
+      "description": "Self-assembling microscopic construction material",
+      "icon": {
+        "type": "color",
+        "value": "#1abc9c",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "plasma_rifle",
+      "name": "Plasma Rifle",
+      "description": "Standard issue energy weapon",
+      "icon": {
+        "type": "color",
+        "value": "#ff6600",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "energy_shield",
+      "name": "Energy Shield",
+      "description": "Personal force field generator",
+      "icon": {
+        "type": "color",
+        "value": "#3498db",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    }
+  ]
+}

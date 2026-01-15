@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ship Life - Prototype</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/rooms.css">
+    <link rel="stylesheet" href="css/ui.css">
+    <link rel="stylesheet" href="css/debug.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav id="navigation-bar" class="hidden">
+        <!-- Dynamically populated -->
+    </nav>
+    
+    <!-- Active Guardian Display -->
+    <div id="active-guardian-display" class="hidden">
+        <div id="guardian-portrait"></div>
+        <div id="guardian-name"></div>
+    </div>
+    
+    <!-- Room Title -->
+    <div id="room-title"></div>
+    
+    <!-- Room Container -->
+    <div id="room-container">
+        <!-- Dynamically populated based on current room -->
+    </div>
+    
+    <!-- Workstation Sidebar -->
+    <div id="workstation-sidebar" class="sidebar hidden">
+        <div class="sidebar-header">
+            <h3 id="workstation-title"></h3>
+            <button class="close-sidebar" onclick="closeSidebar()">×</button>
+        </div>
+        <div class="sidebar-content">
+            <div id="recipe-list" class="recipe-list">
+                <!-- Recipe cards -->
+            </div>
+            <div id="recipe-details" class="recipe-details">
+                <p class="select-prompt">Select a recipe or upgrade to view details</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Conversation UI -->
+    <div id="conversation-ui" class="modal hidden">
+        <div class="conversation-container">
+            <div class="conversation-portraits">
+                <div id="portrait-left" class="portrait"></div>
+                <div id="portrait-right" class="portrait"></div>
+            </div>
+            <div class="conversation-text">
+                <div id="speaker-name"></div>
+                <div id="dialogue-text"></div>
+                <button id="next-button" onclick="advanceDialogue()">Next</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mission Results Modal -->
+    <div id="mission-results" class="modal hidden">
+        <div class="results-container">
+            <h2 id="results-title"></h2>
+            <div id="results-status"></div>
+            <div id="results-rewards"></div>
+            <button id="continue-button" onclick="continueFromResults()">Continue</button>
+        </div>
+    </div>
+    
+    <!-- Quit Dialog -->
+    <div id="quit-dialog" class="modal hidden">
+        <div class="dialog-container">
+            <h2>Quit to Landing Page?</h2>
+            <p>Progress has been auto-saved.</p>
+            <div class="dialog-buttons">
+                <button onclick="confirmQuit()">Yes</button>
+                <button onclick="cancelQuit()">No</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debug Menu -->
+    <div id="debug-menu" class="hidden">
+        <div class="debug-header">
+            <h3>Debug Menu</h3>
+            <button class="close-debug" onclick="toggleDebugMenu()">×</button>
+        </div>
+        <div class="debug-tabs">
+            <button class="tab-btn active" data-tab="console" onclick="switchDebugTab('console')">Console</button>
+            <button class="tab-btn" data-tab="panels" onclick="switchDebugTab('panels')">Panels</button>
+        </div>
+        <div id="debug-console" class="debug-tab">
+            <div id="debug-output"></div>
+            <input type="text" id="debug-input" placeholder="Enter command..." />
+        </div>
+        <div id="debug-panels" class="debug-tab hidden">
+            <button onclick="debugViewBlackboard()">View Blackboard</button>
+            <button onclick="debugViewInventory()">View Inventory</button>
+            <button onclick="debugResetSave()">Reset Save</button>
+            <button onclick="debugGiveResources()">Give 100 of Each Resource</button>
+        </div>
+    </div>
+    
+    <!-- Debug Toggle Button -->
+    <button id="debug-toggle" onclick="toggleDebugMenu()">⚙️</button>
+    
+    <!-- Scripts -->
+    <script src="js/state.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/rooms.js"></script>
+    <script src="js/guardians.js"></script>
+    <script src="js/missions.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/workstations.js"></script>
+    <script src="js/conversations.js"></script>
+    <script src="js/debug.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

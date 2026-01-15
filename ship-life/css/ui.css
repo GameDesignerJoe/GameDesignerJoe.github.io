@@ -1,0 +1,330 @@
+/* Ship Life - UI Component Styles */
+
+/* Recipe List Sidebar */
+.recipe-list {
+    width: 40%;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 2px solid rgba(74, 144, 226, 0.3);
+}
+
+.recipe-item {
+    background: var(--card-bg);
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.recipe-item:hover:not(.grayed-out) {
+    background: var(--card-hover);
+    border-color: var(--primary);
+    transform: translateX(5px);
+}
+
+.recipe-item.selected {
+    border-color: var(--success);
+    background: rgba(46, 204, 113, 0.2);
+}
+
+.recipe-item-name {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.recipe-item-level {
+    font-size: 12px;
+    color: var(--disabled);
+    margin-top: 5px;
+}
+
+/* Recipe Details Sidebar */
+.recipe-details {
+    width: 60%;
+    padding: 30px;
+    overflow-y: auto;
+}
+
+.recipe-details h3 {
+    margin-bottom: 15px;
+    color: var(--primary);
+}
+
+.recipe-details p {
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.requirements-section {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.requirement-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.requirement-item:last-child {
+    border-bottom: none;
+}
+
+.requirement-label {
+    font-weight: 600;
+}
+
+.requirement-value {
+    color: var(--success);
+}
+
+.requirement-value.insufficient {
+    color: var(--text-insufficient);
+}
+
+.craft-button {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: 700;
+    background: var(--success);
+    color: white;
+    border-radius: 8px;
+    text-transform: uppercase;
+}
+
+.craft-button:hover:not(:disabled) {
+    background: #27ae60;
+    transform: scale(1.02);
+}
+
+.craft-button:disabled {
+    background: var(--disabled);
+}
+
+/* Mission Results Modal */
+.results-container {
+    background: rgba(20, 20, 30, 0.95);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    max-width: 600px;
+    text-align: center;
+}
+
+.results-container h2 {
+    margin-bottom: 20px;
+    font-size: 32px;
+}
+
+.results-status {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 20px 0;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.results-status.success {
+    background: rgba(46, 204, 113, 0.3);
+    color: var(--success);
+}
+
+.results-status.failure {
+    background: rgba(231, 76, 60, 0.3);
+    color: var(--danger);
+}
+
+.results-rewards {
+    margin: 30px 0;
+    text-align: left;
+}
+
+.results-rewards h3 {
+    margin-bottom: 15px;
+    color: var(--primary);
+}
+
+.reward-item {
+    padding: 10px;
+    background: var(--card-bg);
+    margin-bottom: 8px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Conversation UI */
+.conversation-container {
+    background: rgba(20, 20, 30, 0.98);
+    border-radius: var(--border-radius);
+    max-width: 900px;
+    width: 90%;
+    padding: 30px;
+}
+
+.conversation-portraits {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 30px;
+}
+
+.portrait {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.portrait.speaking {
+    border-color: var(--primary);
+    box-shadow: 0 0 30px rgba(74, 144, 226, 0.8);
+    transform: scale(1.1);
+}
+
+.conversation-text {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 25px;
+    border-radius: 8px;
+    min-height: 150px;
+}
+
+#speaker-name {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--primary);
+    margin-bottom: 15px;
+    text-transform: uppercase;
+}
+
+#dialogue-text {
+    font-size: 16px;
+    line-height: 1.8;
+    margin-bottom: 20px;
+    min-height: 60px;
+}
+
+#next-button {
+    float: right;
+    padding: 10px 30px;
+    background: var(--primary);
+    color: white;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+#next-button:hover {
+    background: #357abd;
+}
+
+/* Quit Dialog */
+.dialog-container {
+    background: rgba(20, 20, 30, 0.95);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    max-width: 500px;
+    text-align: center;
+}
+
+.dialog-container h2 {
+    margin-bottom: 20px;
+}
+
+.dialog-container p {
+    margin-bottom: 30px;
+    font-size: 16px;
+    color: var(--disabled);
+}
+
+.dialog-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+.dialog-buttons button {
+    flex: 1;
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.dialog-buttons button:first-child {
+    background: var(--danger);
+}
+
+.dialog-buttons button:first-child:hover {
+    background: #c0392b;
+}
+
+.dialog-buttons button:last-child {
+    background: var(--disabled);
+}
+
+.dialog-buttons button:last-child:hover {
+    background: #95a5a6;
+}
+
+/* Inventory Display */
+.inventory-container {
+    max-width: 800px;
+    padding: 20px;
+}
+
+.inventory-section {
+    margin-bottom: 30px;
+}
+
+.inventory-section h3 {
+    margin-bottom: 15px;
+    color: var(--primary);
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(74, 144, 226, 0.3);
+}
+
+.inventory-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--card-bg);
+    margin-bottom: 8px;
+    border-radius: 8px;
+}
+
+.inventory-item-name {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.inventory-item-quantity {
+    color: var(--success);
+    font-weight: 700;
+}
+
+.inventory-empty {
+    color: var(--disabled);
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+/* Select Prompt */
+.select-prompt {
+    color: var(--disabled);
+    font-style: italic;
+    text-align: center;
+    padding: 40px;
+}

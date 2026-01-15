@@ -1,0 +1,68 @@
+{
+  "_documentation": {
+    "_note": "This object is for documentation only and is ignored by the game",
+    "id": "Unique identifier for this room - used in navigation and code (string)",
+    "name": "Display name shown in navigation bar and room title (string)",
+    "background": {
+      "type": "Background type - currently only 'color' supported (string)",
+      "value": "Hex color code for the room background (string)"
+    },
+    "title_display": "If true, shows room name at top of screen; if false, hides title (boolean)"
+  },
+  "rooms": [
+    {
+      "id": "landing_page",
+      "name": "Landing Page",
+      "background": {
+        "type": "color",
+        "value": "#0a0e27"
+      },
+      "title_display": false
+    },
+    {
+      "id": "character_select",
+      "name": "Character Select",
+      "background": {
+        "type": "color",
+        "value": "#1a2332"
+      },
+      "title_display": false
+    },
+    {
+      "id": "mission_computer",
+      "name": "Mission Computer",
+      "background": {
+        "type": "color",
+        "value": "#2c3e50"
+      },
+      "title_display": true
+    },
+    {
+      "id": "workstation_room",
+      "name": "Workstations",
+      "background": {
+        "type": "color",
+        "value": "#3d1f1f"
+      },
+      "title_display": true
+    },
+    {
+      "id": "planetfall_portal",
+      "name": "Planetfall Portal",
+      "background": {
+        "type": "color",
+        "value": "#1a3d2e"
+      },
+      "title_display": true
+    },
+    {
+      "id": "observation_deck",
+      "name": "Observation Deck",
+      "background": {
+        "type": "color",
+        "value": "#2d1b3d"
+      },
+      "title_display": true
+    }
+  ]
+}

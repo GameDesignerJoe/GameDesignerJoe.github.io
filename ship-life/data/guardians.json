@@ -1,0 +1,70 @@
+{
+  "_documentation": {
+    "_note": "This object is for documentation only and is ignored by the game",
+    "id": "Unique identifier for this Guardian - used in save files and conversations (string)",
+    "name": "Display name shown to player (string)",
+    "portrait": {
+      "type": "Visual type - currently only 'color' supported (string)",
+      "value": "Hex color code for the placeholder portrait (string)",
+      "show_name": "Whether to display name on the color placeholder (boolean)"
+    },
+    "role": "Guardian's combat role - DPS, Tank, Support, Ranged, etc. (string)",
+    "description": "Brief character description shown on selection screen (string)",
+    "starting_guardian": "If true, this Guardian is pre-selected on first launch (boolean)",
+    "unlocked_at_start": "If true, Guardian is available immediately; if false, must be unlocked (boolean)"
+  },
+  "guardians": [
+    {
+      "id": "stella",
+      "name": "Stella",
+      "portrait": {
+        "type": "color",
+        "value": "#ffd700",
+        "show_name": true
+      },
+      "role": "DPS",
+      "description": "A fierce warrior with a strategic mind",
+      "starting_guardian": true,
+      "unlocked_at_start": true
+    },
+    {
+      "id": "vawn",
+      "name": "Vawn",
+      "portrait": {
+        "type": "color",
+        "value": "#4a90e2",
+        "show_name": true
+      },
+      "role": "Tank",
+      "description": "Steadfast defender who never backs down",
+      "starting_guardian": false,
+      "unlocked_at_start": true
+    },
+    {
+      "id": "tiberius",
+      "name": "Tiberius",
+      "portrait": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "role": "Support",
+      "description": "Tech specialist with advanced hacking skills",
+      "starting_guardian": false,
+      "unlocked_at_start": true
+    },
+    {
+      "id": "maestra",
+      "name": "Maestra",
+      "portrait": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "role": "Ranged",
+      "description": "Precision sniper with unmatched accuracy",
+      "starting_guardian": false,
+      "unlocked_at_start": true
+    }
+  ]
+}

@@ -1,0 +1,217 @@
+// Ship Life - Mission System
+
+/**
+ * Get available missions based on prerequisites
+ */
+function getAvailableMissions(missions, state) {
+    return missions.filter(mission => {
+        // Check if already completed and not repeatable
+        if (!mission.repeatable && state.completed_missions.includes(mission.id)) {
+            return false;
+        }
+        
+        const prereqs = mission.prerequisites;
+        
+        // Check completed missions
+        if (prereqs.missions_completed) {
+            for (const reqMission of prereqs.missions_completed) {
+                if (!state.completed_missions.includes(reqMission)) {
+                    return false;
+                }
+            }
+        }
+        
+        // Check total missions
+        if (prereqs.total_missions && state.mission_counters.total < prereqs.total_missions) {
+            return false;
+        }
+        
+        // Check flags
+        if (prereqs.flags) {
+            for (const flag of prereqs.flags) {
+                if (!hasFlag(state, flag)) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    });
+}
+
+/**
+ * Select missions for display (random selection)
+ */
+function selectMissionsForDisplay(availableMissions, count = 3) {
+    const shuffled = [...availableMissions].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+}
+
+/**
+ * Start mission simulation
+ */
+async function startMissionSimulation(mission) {
+    lockNavigation();
+    
+    const container = document.getElementById('room-container');
+    container.innerHTML = '';
+    container.className = 'simulation-screen';
+    
+    // Create simulation UI
+    const title = document.createElement('h2');
+    title.textContent = mission.name;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'simulation-message';
+    messageDiv.textContent = 'Preparing for deployment...';
+    
+    const progressBarContainer = document.createElement('div');
+    progressBarContainer.className = 'progress-bar';
+    
+    const progressFill = document.createElement('div');
+    progressFill.className = 'progress-fill';
+    progressFill.style.width = '0%';
+    progressBarContainer.appendChild(progressFill);
+    
+    const cancelButton = document.createElement('button');
+    cancelButton.className = 'cancel-button hidden';
+    cancelButton.textContent = 'Skip';
+    cancelButton.onclick = () => {
+        skipSimulation = true;
+    };
+    
+    container.appendChild(title);
+    container.appendChild(messageDiv);
+    container.appendChild(progressBarContainer);
+    container.appendChild(cancelButton);
+    
+    // Show cancel button after 3 seconds
+    setTimeout(() => {
+        cancelButton.classList.remove('hidden');
+    }, 3000);
+    
+    // Run simulation
+    let skipSimulation = false;
+    const messages = mission.simulation.messages;
+    
+    for (let i = 0; i < messages.length && !skipSimulation; i++) {
+        const msg = messages[i];
+        messageDiv.textContent = msg.text;
+        await animateProgressBar(progressFill, msg.bar_progress, msg.display_time);
+    }
+    
+    // Ensure progress bar is at 100%
+    if (parseFloat(progressFill.style.width) < 100) {
+        await animateProgressBar(progressFill, 100, 0.5);
+    }
+    
+    // Calculate success
+    const successRate = 100 - (mission.difficulty * 10);
+    const roll = Math.random() * 100;
+    const success = roll <= successRate;
+    
+    // Roll rewards
+    const rewardPool = success ? mission.rewards.success : mission.rewards.failure;
+    const rewards = rollRewards(rewardPool);
+    
+    // Update state
+    addRewardsToInventory(rewards, gameState);
+    incrementMissionCounter(gameState, gameState.active_guardian);
+    
+    // Hardcoded team (all 4 Guardians for MVP)
+    const team = ['stella', 'vawn', 'tiberius', 'maestra'];
+    incrementMissionsTogether(gameState, team);
+    
+    if (success) {
+        gameState.completed_missions.push(mission.id);
+        
+        // Set completion flags
+        if (mission.unlock_on_complete && mission.unlock_on_complete.flags) {
+            mission.unlock_on_complete.flags.forEach(flag => {
+                setFlag(gameState, flag);
+            });
+        }
+    }
+    
+    // Auto-save
+    autoSave(gameState);
+    
+    // Show results
+    showMissionResults(mission, success, rewards);
+}
+
+/**
+ * Roll rewards based on drop chances
+ */
+function rollRewards(rewardArray) {
+    const results = [];
+    
+    for (const reward of rewardArray) {
+        const roll = Math.random() * 100;
+        if (roll <= reward.drop_chance) {
+            const quantity = Math.floor(Math.random() * (reward.max - reward.min + 1)) + reward.min;
+            results.push({ item: reward.item, quantity });
+        }
+    }
+    
+    return results;
+}
+
+/**
+ * Add rewards to inventory
+ */
+function addRewardsToInventory(rewards, state) {
+    rewards.forEach(reward => {
+        addToInventory(state, reward.item, reward.quantity);
+    });
+}
+
+/**
+ * Show mission results modal
+ */
+function showMissionResults(mission, success, rewards) {
+    const modal = document.getElementById('mission-results');
+    modal.classList.remove('hidden');
+    
+    const title = document.getElementById('results-title');
+    title.textContent = mission.name;
+    
+    const status = document.getElementById('results-status');
+    status.className = success ? 'results-status success' : 'results-status failure';
+    status.textContent = success ? 'MISSION SUCCESS' : 'MISSION FAILED';
+    
+    const rewardsDiv = document.getElementById('results-rewards');
+    rewardsDiv.innerHTML = '<h3>Rewards Received</h3>';
+    
+    if (rewards.length === 0) {
+        rewardsDiv.innerHTML += '<p>No rewards this time.</p>';
+    } else {
+        rewards.forEach(reward => {
+            const item = window.itemsData.find(i => i.id === reward.item);
+            const itemName = item ? item.name : reward.item;
+            
+            const rewardItem = document.createElement('div');
+            rewardItem.className = 'reward-item';
+            rewardItem.innerHTML = `
+                <span>${itemName}</span>
+                <span>x${reward.quantity}</span>
+            `;
+            rewardsDiv.appendChild(rewardItem);
+        });
+    }
+}
+
+/**
+ * Continue from mission results
+ */
+function continueFromResults() {
+    const modal = document.getElementById('mission-results');
+    modal.classList.add('hidden');
+    
+    unlockNavigation();
+    
+    // Return to mission computer
+    switchRoom('mission_computer');
+}
+
+console.log('Mission system loaded.');

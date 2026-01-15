@@ -1,0 +1,366 @@
+/* Ship Life - Room-Specific Styles */
+
+/* Landing Page */
+.landing-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+}
+
+.landing-page h1 {
+    font-size: 48px;
+    letter-spacing: 5px;
+    text-shadow: 0 0 20px rgba(74, 144, 226, 0.8);
+}
+
+.landing-button {
+    padding: 20px 60px;
+    font-size: 20px;
+    font-weight: 700;
+    background: var(--primary);
+    color: white;
+    border-radius: var(--border-radius);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.landing-button:hover {
+    background: #357abd;
+    transform: scale(1.1);
+    box-shadow: 0 0 30px rgba(74, 144, 226, 0.6);
+}
+
+.landing-button:active {
+    transform: scale(1.05);
+}
+
+/* Character Select */
+.character-select {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+}
+
+.character-select h2 {
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+
+.guardian-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+
+.guardian-card {
+    width: 200px;
+    height: 250px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.guardian-card:hover {
+    background: var(--card-hover);
+    transform: scale(1.05);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+}
+
+.guardian-card:active {
+    transform: scale(0.98);
+}
+
+.guardian-card-portrait {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid var(--primary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.guardian-card-name {
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.guardian-card-role {
+    font-size: 12px;
+    color: var(--disabled);
+    text-transform: uppercase;
+}
+
+/* Mission Computer */
+.mission-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    max-width: 1200px;
+}
+
+.mission-card {
+    width: 300px;
+    height: 350px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.mission-card:not(.locked):hover {
+    background: var(--card-hover);
+    transform: scale(1.05);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+}
+
+.mission-card.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mission-card-visual {
+    width: 100%;
+    height: 150px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.mission-card-name {
+    font-size: 20px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.mission-card-description {
+    font-size: 14px;
+    line-height: 1.5;
+    flex: 1;
+}
+
+.mission-card-difficulty {
+    font-size: 12px;
+    color: var(--warning);
+    font-weight: 600;
+}
+
+.mission-card-locked {
+    font-size: 12px;
+    color: var(--danger);
+    font-style: italic;
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+}
+
+/* Workstation Room */
+.workstation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 30px;
+    max-width: 1200px;
+    padding: 20px;
+}
+
+.workstation-card {
+    width: 200px;
+    height: 200px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.workstation-card:hover {
+    background: var(--card-hover);
+    transform: scale(1.05);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+}
+
+.workstation-card:active {
+    transform: scale(0.98);
+}
+
+.workstation-visual {
+    width: 100px;
+    height: 100px;
+    border-radius: var(--border-radius);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.workstation-name {
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.workstation-level {
+    font-size: 12px;
+    color: var(--success);
+}
+
+/* Planetfall Portal */
+.planetfall-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    max-width: 600px;
+}
+
+.selected-mission-display {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 30px;
+    text-align: center;
+}
+
+.selected-mission-display h2 {
+    margin-bottom: 15px;
+}
+
+.selected-mission-display p {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.launch-button {
+    padding: 20px 60px;
+    font-size: 20px;
+    font-weight: 700;
+    background: var(--success);
+    color: white;
+    border-radius: var(--border-radius);
+    text-transform: uppercase;
+}
+
+.launch-button:hover {
+    background: #27ae60;
+    transform: scale(1.1);
+    box-shadow: 0 0 30px rgba(46, 204, 113, 0.6);
+}
+
+/* Mission Simulation */
+.simulation-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    max-width: 700px;
+}
+
+.simulation-message {
+    font-size: 20px;
+    text-align: center;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 2px solid var(--primary);
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--success));
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+}
+
+.cancel-button {
+    padding: 12px 30px;
+    background: var(--danger);
+    color: white;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.cancel-button:hover {
+    background: #c0392b;
+    transform: scale(1.05);
+}
+
+/* Observation Deck */
+.guardian-npc-grid {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+}
+
+.guardian-npc-card {
+    width: 200px;
+    height: 250px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.guardian-npc-card:hover {
+    background: var(--card-hover);
+    transform: scale(1.05);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+}

@@ -1,0 +1,41 @@
+{
+  "_documentation": {
+    "_note": "This object is for documentation only and is ignored by the game",
+    "id": "Unique identifier for this blueprint (string)",
+    "name": "Display name shown to player (string)",
+    "description": "What this blueprint unlocks (string)",
+    "icon": {
+      "type": "Visual type - currently only 'color' supported (string)",
+      "value": "Hex color code for the placeholder visual (string)",
+      "show_name": "Whether to display name on the color placeholder (boolean)"
+    },
+    "unlocked_at_start": "If true, automatically added to learned_blueprints on first load (boolean)",
+    "unlocks_recipe": "Recipe ID this blueprint enables in workstations (string)"
+  },
+  "blueprints": [
+    {
+      "id": "blueprint_plasma_rifle",
+      "name": "Plasma Rifle Blueprint",
+      "description": "Unlocks basic plasma rifle crafting",
+      "icon": {
+        "type": "color",
+        "value": "#4a90e2",
+        "show_name": true
+      },
+      "unlocked_at_start": true,
+      "unlocks_recipe": "basic_rifle"
+    },
+    {
+      "id": "blueprint_energy_shield",
+      "name": "Energy Shield Blueprint",
+      "description": "Unlocks basic energy shield crafting",
+      "icon": {
+        "type": "color",
+        "value": "#3498db",
+        "show_name": true
+      },
+      "unlocked_at_start": true,
+      "unlocks_recipe": "basic_shield"
+    }
+  ]
+}
