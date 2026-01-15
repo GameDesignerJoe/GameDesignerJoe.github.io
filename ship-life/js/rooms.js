@@ -99,6 +99,9 @@ function renderRoom(room) {
         case 'planetfall_portal':
             renderPlanetfallPortal(container);
             break;
+        case 'inventory':
+            renderInventory(container);
+            break;
         case 'observation_deck':
             renderObservationDeck(container);
             break;
@@ -350,6 +353,102 @@ function renderWorkstationRoom(container) {
     });
     
     container.appendChild(grid);
+}
+
+/**
+ * Render Inventory
+ */
+function renderInventory(container) {
+    container.className = 'inventory-container';
+    
+    // Get all items owned by player
+    const ownedItems = [];
+    for (const itemId in gameState.inventory) {
+        if (gameState.inventory[itemId] > 0) {
+            const itemData = window.itemsData.find(i => i.id === itemId);
+            if (itemData) {
+                ownedItems.push({
+                    ...itemData,
+                    quantity: gameState.inventory[itemId]
+                });
+            }
+        }
+    }
+    
+    if (ownedItems.length === 0) {
+        container.innerHTML = '<p style="text-align: center; opacity: 0.7;">Your inventory is empty</p>';
+        return;
+    }
+    
+    // Group items by type
+    const groupedItems = {
+        resource: [],
+        blueprint: [],
+        aspect: []
+    };
+    
+    ownedItems.forEach(item => {
+        if (groupedItems[item.type]) {
+            groupedItems[item.type].push(item);
+        }
+    });
+    
+    // Render each group
+    const typeNames = {
+        resource: 'Resources',
+        blueprint: 'Blueprints',
+        aspect: 'Equipment & Aspects'
+    };
+    
+    for (const type in groupedItems) {
+        const items = groupedItems[type];
+        if (items.length === 0) continue;
+        
+        const section = document.createElement('div');
+        section.className = 'inventory-section';
+        
+        const header = document.createElement('h3');
+        header.className = 'inventory-section-header';
+        header.textContent = typeNames[type];
+        section.appendChild(header);
+        
+        const grid = document.createElement('div');
+        grid.className = 'inventory-grid';
+        
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'inventory-item';
+            
+            const icon = document.createElement('div');
+            icon.className = 'inventory-item-icon';
+            renderVisual(item.icon, icon);
+            if (item.icon.show_name) {
+                icon.textContent = item.name;
+            }
+            
+            const name = document.createElement('div');
+            name.className = 'inventory-item-name';
+            name.textContent = item.name;
+            
+            const quantity = document.createElement('div');
+            quantity.className = 'inventory-item-quantity';
+            quantity.textContent = `x${item.quantity}`;
+            
+            const description = document.createElement('div');
+            description.className = 'inventory-item-description';
+            description.textContent = item.description;
+            
+            card.appendChild(icon);
+            card.appendChild(name);
+            card.appendChild(quantity);
+            card.appendChild(description);
+            
+            grid.appendChild(card);
+        });
+        
+        section.appendChild(grid);
+        container.appendChild(section);
+    }
 }
 
 /**

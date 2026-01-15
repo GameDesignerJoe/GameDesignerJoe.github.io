@@ -56,6 +56,15 @@
       "title_display": true
     },
     {
+      "id": "inventory",
+      "name": "Inventory",
+      "background": {
+        "type": "color",
+        "value": "#1a2f1a"
+      },
+      "title_display": true
+    },
+    {
       "id": "observation_deck",
       "name": "Observation Deck",
       "background": {
