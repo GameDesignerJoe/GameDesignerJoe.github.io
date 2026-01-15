@@ -158,6 +158,18 @@ button:disabled {
     align-items: center;
     flex-wrap: wrap;
     gap: 20px;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Grayed Out State */
@@ -183,6 +195,27 @@ button:disabled {
     justify-content: center;
     align-items: center;
     z-index: 200;
+    animation: fadeInBackdrop 0.3s ease;
+}
+
+.modal > div {
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes fadeInBackdrop {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .modal button {
@@ -241,6 +274,18 @@ button:disabled {
     box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
+    animation: slideInFromRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInFromRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 .sidebar-header {

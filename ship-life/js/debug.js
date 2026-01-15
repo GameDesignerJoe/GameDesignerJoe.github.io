@@ -222,4 +222,73 @@ function debugGiveAllItems() {
     showNotification(`All ${count} items added to inventory!`);
 }
 
+/**
+ * Toggle music on/off
+ */
+function debugToggleMusic() {
+    const enabled = window.audioManager.toggleMusic();
+    debugLog(`Music ${enabled ? 'enabled' : 'disabled'}`, 'success');
+    const btn = document.getElementById('debug-toggle-music');
+    btn.textContent = `Music: ${enabled ? 'ON' : 'OFF'}`;
+}
+
+/**
+ * Toggle SFX on/off
+ */
+function debugToggleSFX() {
+    const enabled = window.audioManager.toggleSFX();
+    debugLog(`SFX ${enabled ? 'enabled' : 'disabled'}`, 'success');
+    const btn = document.getElementById('debug-toggle-sfx');
+    btn.textContent = `SFX: ${enabled ? 'ON' : 'OFF'}`;
+}
+
+/**
+ * Test sound effect
+ */
+function debugTestSFX() {
+    window.audioManager.playSFX(SFX.CLICK);
+    debugLog('Testing sound effect: click', 'info');
+}
+
+/**
+ * Validate all data files
+ */
+function debugValidateData() {
+    const output = document.getElementById('debug-output');
+    output.innerHTML = '';
+    
+    debugLog('=== VALIDATING ALL DATA FILES ===', 'info');
+    
+    const result = window.dataValidator.validateAll();
+    
+    debugLog('', 'info');
+    debugLog(`✓ Validation Complete!`, 'success');
+    debugLog(`  Errors: ${result.errors.length}`, result.errors.length > 0 ? 'error' : 'success');
+    debugLog(`  Warnings: ${result.warnings.length}`, result.warnings.length > 0 ? 'error' : 'info');
+    
+    if (result.errors.length > 0) {
+        debugLog('', 'info');
+        debugLog('=== ERRORS ===', 'error');
+        result.errors.forEach(err => {
+            debugLog(`[${err.category}] ${err.message}`, 'error');
+        });
+    }
+    
+    if (result.warnings.length > 0) {
+        debugLog('', 'info');
+        debugLog('=== WARNINGS ===', 'error');
+        result.warnings.forEach(warn => {
+            debugLog(`[${warn.category}] ${warn.message}`, 'error');
+        });
+    }
+    
+    if (result.success) {
+        debugLog('', 'info');
+        debugLog('✅ All data files are valid!', 'success');
+        showNotification('Data validation passed!');
+    } else {
+        showNotification(`Validation failed: ${result.errors.length} errors`, 'error');
+    }
+}
+
 console.log('Debug system loaded.');

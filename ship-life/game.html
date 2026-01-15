@@ -100,9 +100,14 @@
         <div id="debug-panels" class="debug-tab hidden">
             <button onclick="debugViewBlackboard()">View Blackboard</button>
             <button onclick="debugViewInventory()">View Inventory</button>
+            <button onclick="debugValidateData()">🔍 Validate All Data Files</button>
             <button onclick="debugResetSave()">Reset Save</button>
             <button onclick="debugGiveResources()">Give 100 of Each Resource</button>
             <button onclick="debugGiveAllItems()">Give ALL Items (Full Inventory)</button>
+            <hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">
+            <button onclick="debugToggleMusic()" id="debug-toggle-music">Toggle Music</button>
+            <button onclick="debugToggleSFX()" id="debug-toggle-sfx">Toggle SFX</button>
+            <button onclick="debugTestSFX()">Test Sound Effect</button>
         </div>
     </div>
     
@@ -110,15 +115,17 @@
     <button id="debug-toggle" onclick="toggleDebugMenu()">⚙️</button>
     
     <!-- Scripts -->
-    <script src="js/state.js?v=9"></script>
-    <script src="js/ui.js?v=9"></script>
-    <script src="js/rooms.js?v=9"></script>
-    <script src="js/guardians.js?v=9"></script>
-    <script src="js/missions.js?v=9"></script>
-    <script src="js/inventory.js?v=9"></script>
-    <script src="js/workstations.js?v=9"></script>
-    <script src="js/conversations.js?v=9"></script>
-    <script src="js/debug.js?v=9"></script>
-    <script src="js/main.js?v=9"></script>
+    <script src="js/audio.js?v=10"></script>
+    <script src="js/validation.js?v=10"></script>
+    <script src="js/state.js?v=10"></script>
+    <script src="js/ui.js?v=10"></script>
+    <script src="js/rooms.js?v=10"></script>
+    <script src="js/guardians.js?v=10"></script>
+    <script src="js/missions.js?v=10"></script>
+    <script src="js/inventory.js?v=10"></script>
+    <script src="js/workstations.js?v=10"></script>
+    <script src="js/conversations.js?v=10"></script>
+    <script src="js/debug.js?v=10"></script>
+    <script src="js/main.js?v=10"></script>
 </body>
 </html>
