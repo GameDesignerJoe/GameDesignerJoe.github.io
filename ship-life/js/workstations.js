@@ -14,11 +14,16 @@ function openWorkstation(workstation) {
     const currentLevel = gameState.workstations[workstation.id]?.level || 1;
     title.textContent = workstation.level_names[currentLevel] || workstation.name;
     
-    renderRecipeList(workstation);
-    
-    // Clear details panel
-    const detailsPanel = document.getElementById('recipe-details');
-    detailsPanel.innerHTML = '<p class="select-prompt">Select a recipe or upgrade to view details</p>';
+    // Special handling for Knowledge Base
+    if (workstation.id === 'knowledge_base') {
+        renderKnowledgeBase();
+    } else {
+        renderRecipeList(workstation);
+        
+        // Clear details panel
+        const detailsPanel = document.getElementById('recipe-details');
+        detailsPanel.innerHTML = '<p class="select-prompt">Select a recipe or upgrade to view details</p>';
+    }
 }
 
 /**
@@ -288,6 +293,136 @@ function upgradeWorkstation() {
     
     // Refresh displays
     openWorkstation(currentWorkstation);
+}
+
+/**
+ * Render Knowledge Base UI
+ */
+function renderKnowledgeBase() {
+    const recipeList = document.getElementById('recipe-list');
+    const detailsPanel = document.getElementById('recipe-details');
+    
+    // Get all blueprint items
+    const allBlueprints = window.itemsData.filter(item => item.type === 'blueprint');
+    
+    // Separate into learned and unlearned
+    const unlearned = allBlueprints.filter(bp => {
+        const inInventory = gameState.inventory[bp.id] && gameState.inventory[bp.id] > 0;
+        const alreadyLearned = gameState.learned_blueprints.includes(bp.id);
+        return inInventory && !alreadyLearned;
+    });
+    
+    const learned = allBlueprints.filter(bp => gameState.learned_blueprints.includes(bp.id));
+    
+    // Render left panel (available blueprints)
+    recipeList.innerHTML = '<h3 style="padding: 10px; margin: 0; border-bottom: 2px solid var(--primary);">Available Blueprints</h3>';
+    
+    if (unlearned.length === 0) {
+        recipeList.innerHTML += '<p style="padding: 15px; opacity: 0.6;">No blueprints in inventory</p>';
+    } else {
+        unlearned.forEach(bp => {
+            const div = document.createElement('div');
+            div.className = 'recipe-item';
+            div.innerHTML = `
+                <div class="recipe-item-name">${bp.name}</div>
+                <div class="recipe-item-level">Ready to Upload</div>
+            `;
+            div.onclick = () => showBlueprintDetails(bp);
+            recipeList.appendChild(div);
+        });
+    }
+    
+    // Render right panel (learned blueprints)
+    detailsPanel.innerHTML = `
+        <h3>Learned Blueprints</h3>
+        <p>These blueprints have been uploaded to the Knowledge Base.</p>
+        <div style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
+    `;
+    
+    if (learned.length === 0) {
+        detailsPanel.innerHTML += '<p style="opacity: 0.6;">No blueprints learned yet</p>';
+    } else {
+        learned.forEach(bp => {
+            detailsPanel.innerHTML += `
+                <div style="padding: 10px; margin: 5px 0; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                    <div style="font-weight: 600;">${bp.name}</div>
+                    <div style="font-size: 12px; opacity: 0.7;">✓ Uploaded</div>
+                </div>
+            `;
+        });
+    }
+    
+    detailsPanel.innerHTML += '</div>';
+}
+
+/**
+ * Show blueprint details
+ */
+function showBlueprintDetails(blueprint) {
+    const detailsPanel = document.getElementById('recipe-details');
+    
+    detailsPanel.innerHTML = `
+        <h3>${blueprint.name}</h3>
+        <p>${blueprint.description}</p>
+        
+        <div class="requirements-section">
+            <h4>Blueprint Information</h4>
+            <div class="requirement-item">
+                <span class="requirement-label">Status</span>
+                <span class="requirement-value">In Inventory</span>
+            </div>
+            <div class="requirement-item">
+                <span class="requirement-label">Quantity</span>
+                <span class="requirement-value">${gameState.inventory[blueprint.id] || 0}</span>
+            </div>
+        </div>
+        
+        <button class="craft-button" onclick="uploadBlueprint('${blueprint.id}')">
+            Upload to Knowledge Base
+        </button>
+        
+        <p style="margin-top: 15px; font-size: 13px; opacity: 0.7;">
+            Uploading this blueprint will unlock its associated recipe in other workstations.
+        </p>
+    `;
+}
+
+/**
+ * Upload blueprint to Knowledge Base
+ */
+function uploadBlueprint(blueprintId) {
+    // Check if player has the blueprint
+    if (!gameState.inventory[blueprintId] || gameState.inventory[blueprintId] <= 0) {
+        showNotification('Blueprint not in inventory', 'error');
+        return;
+    }
+    
+    // Check if already learned
+    if (gameState.learned_blueprints.includes(blueprintId)) {
+        showNotification('Blueprint already uploaded', 'error');
+        return;
+    }
+    
+    // Remove from inventory
+    removeFromInventory(gameState, blueprintId, 1);
+    
+    // Add to learned blueprints
+    if (!gameState.learned_blueprints.includes(blueprintId)) {
+        gameState.learned_blueprints.push(blueprintId);
+    }
+    
+    // Auto-save
+    autoSave(gameState);
+    
+    // Get blueprint name
+    const blueprint = window.itemsData.find(item => item.id === blueprintId);
+    const blueprintName = blueprint ? blueprint.name : blueprintId;
+    
+    // Show notification
+    showNotification(`Uploaded: ${blueprintName}`);
+    
+    // Refresh Knowledge Base display
+    renderKnowledgeBase();
 }
 
 console.log('Workstation system loaded.');

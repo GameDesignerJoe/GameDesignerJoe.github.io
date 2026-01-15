@@ -126,6 +126,21 @@ function executeDebugCommand(command) {
 function initializeDebugConsole() {
     const input = document.getElementById('debug-input');
     
+    // Make sure input is focusable
+    input.addEventListener('click', () => {
+        input.focus();
+    });
+    
+    // Auto-focus when debug menu opens
+    const debugToggle = document.getElementById('debug-toggle');
+    debugToggle.addEventListener('click', () => {
+        setTimeout(() => {
+            if (!document.getElementById('debug-menu').classList.contains('hidden')) {
+                input.focus();
+            }
+        }, 100);
+    });
+    
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && input.value.trim()) {
             executeDebugCommand(input.value);

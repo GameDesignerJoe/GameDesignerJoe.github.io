@@ -113,6 +113,81 @@
             "item": "plasma_rifle",
             "amount": 1
           }
+        },
+        {
+          "id": "advanced_rifle",
+          "name": "Advanced Plasma Rifle",
+          "description": "Enhanced energy weapon with improved damage",
+          "required_level": 2,
+          "blueprint_required": "blueprint_advanced_rifle",
+          "cost": [
+            {
+              "item": "plasma_cell",
+              "amount": 20
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 10
+            },
+            {
+              "item": "circuit_board",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "advanced_plasma_rifle",
+            "amount": 1
+          }
+        },
+        {
+          "id": "pulse_cannon",
+          "name": "Pulse Cannon",
+          "description": "Heavy weapon firing energy pulses",
+          "required_level": 2,
+          "blueprint_required": "blueprint_pulse_cannon",
+          "cost": [
+            {
+              "item": "plasma_cell",
+              "amount": 25
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 15
+            },
+            {
+              "item": "fusion_core",
+              "amount": 2
+            }
+          ],
+          "output": {
+            "item": "pulse_cannon",
+            "amount": 1
+          }
+        },
+        {
+          "id": "quantum_disruptor",
+          "name": "Quantum Disruptor",
+          "description": "Cutting-edge weapon disrupting matter at quantum level",
+          "required_level": 3,
+          "blueprint_required": "blueprint_quantum_weave",
+          "cost": [
+            {
+              "item": "exotic_matter",
+              "amount": 5
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 10
+            },
+            {
+              "item": "fusion_core",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "quantum_disruptor",
+            "amount": 1
+          }
         }
       ]
     },
@@ -183,8 +258,596 @@
             "item": "energy_shield",
             "amount": 1
           }
+        },
+        {
+          "id": "reinforced_shield",
+          "name": "Reinforced Shield",
+          "description": "Enhanced personal force field",
+          "required_level": 2,
+          "blueprint_required": "blueprint_advanced_shield",
+          "cost": [
+            {
+              "item": "battery",
+              "amount": 5
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 10
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "reinforced_shield",
+            "amount": 1
+          }
+        },
+        {
+          "id": "combat_armor",
+          "name": "Combat Armor",
+          "description": "Heavy protective gear for frontline combat",
+          "required_level": 2,
+          "blueprint_required": "blueprint_combat_armor",
+          "cost": [
+            {
+              "item": "common_alloy",
+              "amount": 20
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 10
+            },
+            {
+              "item": "metal_parts",
+              "amount": 15
+            }
+          ],
+          "output": {
+            "item": "combat_armor",
+            "amount": 1
+          }
+        },
+        {
+          "id": "adaptive_armor",
+          "name": "Adaptive Armor",
+          "description": "Self-adjusting armor that responds to threats",
+          "required_level": 3,
+          "blueprint_required": "blueprint_adaptive_materials",
+          "cost": [
+            {
+              "item": "rare_alloy",
+              "amount": 15
+            },
+            {
+              "item": "nanomaterial",
+              "amount": 5
+            },
+            {
+              "item": "circuit_board",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "adaptive_armor",
+            "amount": 1
+          }
         }
       ]
+    },
+    {
+      "id": "tech_lab",
+      "name": "Tech Lab",
+      "visual": {
+        "type": "color",
+        "value": "#16a085",
+        "show_name": true
+      },
+      "max_level": 3,
+      "level_names": {
+        "1": "Tech Lab",
+        "2": "Advanced Tech Lab",
+        "3": "Master Tech Lab"
+      },
+      "upgrade_costs": [
+        {
+          "level": 2,
+          "resources": [
+            {
+              "item": "circuit_board",
+              "amount": 30
+            },
+            {
+              "item": "battery",
+              "amount": 20
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "item": "circuit_board",
+              "amount": 50
+            },
+            {
+              "item": "exotic_matter",
+              "amount": 10
+            }
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "signal_amplifier",
+          "name": "Signal Amplifier",
+          "description": "Device for boosting communication range",
+          "required_level": 1,
+          "blueprint_required": "blueprint_signal_amplifier",
+          "cost": [
+            {
+              "item": "circuit_board",
+              "amount": 5
+            },
+            {
+              "item": "battery",
+              "amount": 3
+            },
+            {
+              "item": "metal_parts",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "signal_amplifier",
+            "amount": 1
+          }
+        },
+        {
+          "id": "advanced_scanner",
+          "name": "Advanced Scanner",
+          "description": "Multi-spectrum detection device",
+          "required_level": 2,
+          "blueprint_required": "blueprint_signal_amplifier",
+          "cost": [
+            {
+              "item": "circuit_board",
+              "amount": 10
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 5
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "advanced_scanner",
+            "amount": 1
+          }
+        },
+        {
+          "id": "quantum_processor",
+          "name": "Quantum Processor",
+          "description": "Supercomputing module using quantum mechanics",
+          "required_level": 2,
+          "blueprint_required": "blueprint_quantum_processor",
+          "cost": [
+            {
+              "item": "exotic_matter",
+              "amount": 3
+            },
+            {
+              "item": "circuit_board",
+              "amount": 15
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "quantum_processor",
+            "amount": 1
+          }
+        },
+        {
+          "id": "neural_interface",
+          "name": "Neural Interface",
+          "description": "Direct brain-computer connection device",
+          "required_level": 3,
+          "blueprint_required": "blueprint_neural_interface",
+          "cost": [
+            {
+              "item": "exotic_matter",
+              "amount": 5
+            },
+            {
+              "item": "circuit_board",
+              "amount": 20
+            },
+            {
+              "item": "nanomaterial",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "neural_interface",
+            "amount": 1
+          }
+        },
+        {
+          "id": "ai_core",
+          "name": "AI Core",
+          "description": "Autonomous artificial intelligence module",
+          "required_level": 3,
+          "blueprint_required": "blueprint_ai_core",
+          "cost": [
+            {
+              "item": "quantum_processor",
+              "amount": 2
+            },
+            {
+              "item": "exotic_matter",
+              "amount": 8
+            },
+            {
+              "item": "fusion_core",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "ai_core",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "med_station",
+      "name": "Med Station",
+      "visual": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "max_level": 3,
+      "level_names": {
+        "1": "Med Station",
+        "2": "Advanced Med Station",
+        "3": "Master Med Station"
+      },
+      "upgrade_costs": [
+        {
+          "level": 2,
+          "resources": [
+            {
+              "item": "common_alloy",
+              "amount": 40
+            },
+            {
+              "item": "circuit_board",
+              "amount": 20
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "item": "rare_alloy",
+              "amount": 25
+            },
+            {
+              "item": "exotic_matter",
+              "amount": 10
+            }
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "stim_pack",
+          "name": "Stim Pack",
+          "description": "Emergency healing injection",
+          "required_level": 1,
+          "blueprint_required": "blueprint_stim_pack",
+          "cost": [
+            {
+              "item": "metal_parts",
+              "amount": 3
+            },
+            {
+              "item": "battery",
+              "amount": 1
+            }
+          ],
+          "output": {
+            "item": "stim_pack",
+            "amount": 3
+          }
+        },
+        {
+          "id": "first_aid_kit",
+          "name": "First Aid Kit",
+          "description": "Basic medical supplies for field treatment",
+          "required_level": 1,
+          "blueprint_required": "blueprint_stim_pack",
+          "cost": [
+            {
+              "item": "metal_parts",
+              "amount": 5
+            },
+            {
+              "item": "common_alloy",
+              "amount": 3
+            }
+          ],
+          "output": {
+            "item": "first_aid_kit",
+            "amount": 2
+          }
+        },
+        {
+          "id": "advanced_medkit",
+          "name": "Advanced Medkit",
+          "description": "Comprehensive medical treatment package",
+          "required_level": 2,
+          "blueprint_required": "blueprint_advanced_medkit",
+          "cost": [
+            {
+              "item": "circuit_board",
+              "amount": 5
+            },
+            {
+              "item": "battery",
+              "amount": 3
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "advanced_medkit",
+            "amount": 1
+          }
+        },
+        {
+          "id": "regeneration_serum",
+          "name": "Regeneration Serum",
+          "description": "Advanced healing formula promoting rapid tissue repair",
+          "required_level": 2,
+          "blueprint_required": "blueprint_advanced_medkit",
+          "cost": [
+            {
+              "item": "exotic_matter",
+              "amount": 2
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 3
+            },
+            {
+              "item": "battery",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "regeneration_serum",
+            "amount": 2
+          }
+        },
+        {
+          "id": "nano_medical_suite",
+          "name": "Nano-Medical Suite",
+          "description": "Nanomachine-based automated medical system",
+          "required_level": 3,
+          "blueprint_required": "blueprint_nano_medical_suite",
+          "cost": [
+            {
+              "item": "nanomaterial",
+              "amount": 5
+            },
+            {
+              "item": "exotic_matter",
+              "amount": 5
+            },
+            {
+              "item": "circuit_board",
+              "amount": 10
+            }
+          ],
+          "output": {
+            "item": "nano_medical_suite",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "fabrication_bay",
+      "name": "Fabrication Bay",
+      "visual": {
+        "type": "color",
+        "value": "#95a5a6",
+        "show_name": true
+      },
+      "max_level": 3,
+      "level_names": {
+        "1": "Fabrication Bay",
+        "2": "Advanced Fabrication Bay",
+        "3": "Master Fabrication Bay"
+      },
+      "upgrade_costs": [
+        {
+          "level": 2,
+          "resources": [
+            {
+              "item": "common_alloy",
+              "amount": 60
+            },
+            {
+              "item": "metal_parts",
+              "amount": 40
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "resources": [
+            {
+              "item": "rare_alloy",
+              "amount": 40
+            },
+            {
+              "item": "nanomaterial",
+              "amount": 10
+            }
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "composite_plating",
+          "name": "Composite Plating",
+          "description": "Layered protective plating for vehicles and structures",
+          "required_level": 1,
+          "blueprint_required": "blueprint_composite_plating",
+          "cost": [
+            {
+              "item": "common_alloy",
+              "amount": 15
+            },
+            {
+              "item": "metal_parts",
+              "amount": 10
+            }
+          ],
+          "output": {
+            "item": "composite_plating",
+            "amount": 1
+          }
+        },
+        {
+          "id": "reinforced_frame",
+          "name": "Reinforced Frame",
+          "description": "Structural framework with enhanced durability",
+          "required_level": 1,
+          "blueprint_required": "blueprint_composite_plating",
+          "cost": [
+            {
+              "item": "common_alloy",
+              "amount": 20
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 5
+            },
+            {
+              "item": "metal_parts",
+              "amount": 15
+            }
+          ],
+          "output": {
+            "item": "reinforced_frame",
+            "amount": 1
+          }
+        },
+        {
+          "id": "advanced_armor_plating",
+          "name": "Advanced Armor Plating",
+          "description": "Military-grade protective plating",
+          "required_level": 2,
+          "blueprint_required": "blueprint_adaptive_materials",
+          "cost": [
+            {
+              "item": "rare_alloy",
+              "amount": 20
+            },
+            {
+              "item": "common_alloy",
+              "amount": 30
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "advanced_armor_plating",
+            "amount": 1
+          }
+        },
+        {
+          "id": "adaptive_materials",
+          "name": "Adaptive Materials",
+          "description": "Smart materials that adjust properties based on environment",
+          "required_level": 2,
+          "blueprint_required": "blueprint_adaptive_materials",
+          "cost": [
+            {
+              "item": "nanomaterial",
+              "amount": 3
+            },
+            {
+              "item": "circuit_board",
+              "amount": 5
+            },
+            {
+              "item": "rare_alloy",
+              "amount": 10
+            }
+          ],
+          "output": {
+            "item": "adaptive_materials",
+            "amount": 1
+          }
+        },
+        {
+          "id": "quantum_weave_fabric",
+          "name": "Quantum-Weave Fabric",
+          "description": "Exotic fabric woven at quantum scale",
+          "required_level": 3,
+          "blueprint_required": "blueprint_quantum_weave",
+          "cost": [
+            {
+              "item": "exotic_matter",
+              "amount": 10
+            },
+            {
+              "item": "crystalline_shard",
+              "amount": 15
+            },
+            {
+              "item": "nanomaterial",
+              "amount": 5
+            }
+          ],
+          "output": {
+            "item": "quantum_weave_fabric",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "knowledge_base",
+      "name": "Knowledge Base",
+      "visual": {
+        "type": "color",
+        "value": "#3498db",
+        "show_name": true
+      },
+      "max_level": 1,
+      "level_names": {
+        "1": "Knowledge Base"
+      },
+      "upgrade_costs": [],
+      "recipes": []
     }
   ]
 }

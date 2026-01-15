@@ -91,6 +91,11 @@
     </div>
     
     <script>
+        // PASSWORD TEMPORARILY DISABLED - Auto-redirect to game
+        // To re-enable: delete the line below and uncomment the password check code
+        window.location.href = 'game.html';
+        
+        /* PASSWORD CHECK CODE (currently disabled)
         const CORRECT_PASSWORD = 'FellowDivers2025';
         const STORAGE_KEY = 'shiplife_password';
         
@@ -99,6 +104,7 @@
         if (savedPassword === CORRECT_PASSWORD) {
             window.location.href = 'game.html';
         }
+        */
         
         // Allow Enter key to submit
         document.getElementById('passwordInput').addEventListener('keypress', function(e) {

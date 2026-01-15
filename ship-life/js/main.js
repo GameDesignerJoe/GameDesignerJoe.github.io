@@ -5,16 +5,15 @@
  */
 async function loadAllData() {
     try {
-        const [rooms, missions, guardians, items, workstations, blueprints] = await Promise.all([
+        const [rooms, missions, guardians, items, workstations] = await Promise.all([
             fetch('data/rooms.json').then(r => r.json()),
             fetch('data/missions.json').then(r => r.json()),
             fetch('data/guardians.json').then(r => r.json()),
             fetch('data/items.json').then(r => r.json()),
-            fetch('data/workstations.json').then(r => r.json()),
-            fetch('data/blueprints.json').then(r => r.json())
+            fetch('data/workstations.json').then(r => r.json())
         ]);
         
-        return { rooms, missions, guardians, items, workstations, blueprints };
+        return { rooms, missions, guardians, items, workstations };
     } catch (error) {
         console.error('Failed to load data files:', error);
         alert('Failed to load game data. Please refresh the page.');
@@ -37,7 +36,9 @@ async function initializeGame() {
     window.guardiansData = data.guardians.guardians;
     window.itemsData = data.items.items;
     window.workstationsData = data.workstations.workstations;
-    window.blueprintsData = data.blueprints.blueprints;
+    
+    // Get blueprints from items (they're stored as type: "blueprint")
+    window.blueprintsData = window.itemsData.filter(item => item.type === 'blueprint');
     
     roomsData = window.roomsData;
     

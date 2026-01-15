@@ -156,6 +156,450 @@
       },
       "type": "aspect",
       "stack_count": 10
+    },
+    {
+      "id": "blueprint_plasma_rifle",
+      "name": "Plasma Rifle Blueprint",
+      "description": "Unlocks basic plasma rifle crafting",
+      "icon": {
+        "type": "color",
+        "value": "#4a90e2",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_energy_shield",
+      "name": "Energy Shield Blueprint",
+      "description": "Unlocks basic energy shield crafting",
+      "icon": {
+        "type": "color",
+        "value": "#3498db",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_advanced_rifle",
+      "name": "Advanced Rifle Blueprint",
+      "description": "Unlocks advanced plasma rifle crafting",
+      "icon": {
+        "type": "color",
+        "value": "#e67e22",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_pulse_cannon",
+      "name": "Pulse Cannon Blueprint",
+      "description": "Unlocks pulse cannon crafting",
+      "icon": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_advanced_shield",
+      "name": "Advanced Shield Blueprint",
+      "description": "Unlocks reinforced shield crafting",
+      "icon": {
+        "type": "color",
+        "value": "#2980b9",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_combat_armor",
+      "name": "Combat Armor Blueprint",
+      "description": "Unlocks combat armor crafting",
+      "icon": {
+        "type": "color",
+        "value": "#7f8c8d",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_signal_amplifier",
+      "name": "Signal Amplifier Blueprint",
+      "description": "Unlocks signal amplifier crafting",
+      "icon": {
+        "type": "color",
+        "value": "#16a085",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_quantum_processor",
+      "name": "Quantum Processor Blueprint",
+      "description": "Unlocks quantum processor crafting",
+      "icon": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_neural_interface",
+      "name": "Neural Interface Blueprint",
+      "description": "Unlocks neural interface crafting",
+      "icon": {
+        "type": "color",
+        "value": "#8e44ad",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_ai_core",
+      "name": "AI Core Blueprint",
+      "description": "Unlocks AI core crafting",
+      "icon": {
+        "type": "color",
+        "value": "#34495e",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_stim_pack",
+      "name": "Stim Pack Blueprint",
+      "description": "Unlocks basic stim pack crafting",
+      "icon": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_advanced_medkit",
+      "name": "Advanced Medkit Blueprint",
+      "description": "Unlocks advanced medkit crafting",
+      "icon": {
+        "type": "color",
+        "value": "#c0392b",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_nano_medical_suite",
+      "name": "Nano-Medical Suite Blueprint",
+      "description": "Unlocks nano-medical suite crafting",
+      "icon": {
+        "type": "color",
+        "value": "#e91e63",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_composite_plating",
+      "name": "Composite Plating Blueprint",
+      "description": "Unlocks composite plating crafting",
+      "icon": {
+        "type": "color",
+        "value": "#95a5a6",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_adaptive_materials",
+      "name": "Adaptive Materials Blueprint",
+      "description": "Unlocks adaptive materials crafting",
+      "icon": {
+        "type": "color",
+        "value": "#7f8c8d",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_quantum_weave",
+      "name": "Quantum-Weave Blueprint",
+      "description": "Unlocks quantum-weave fabric crafting",
+      "icon": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "type": "blueprint",
+      "stack_count": 0
+    },
+    {
+      "id": "advanced_plasma_rifle",
+      "name": "Advanced Plasma Rifle",
+      "description": "Enhanced energy weapon with improved damage",
+      "icon": {
+        "type": "color",
+        "value": "#e67e22",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "pulse_cannon",
+      "name": "Pulse Cannon",
+      "description": "Heavy weapon firing energy pulses",
+      "icon": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "quantum_disruptor",
+      "name": "Quantum Disruptor",
+      "description": "Cutting-edge weapon disrupting matter at quantum level",
+      "icon": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "reinforced_shield",
+      "name": "Reinforced Shield",
+      "description": "Enhanced personal force field",
+      "icon": {
+        "type": "color",
+        "value": "#2980b9",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "combat_armor",
+      "name": "Combat Armor",
+      "description": "Heavy protective gear for frontline combat",
+      "icon": {
+        "type": "color",
+        "value": "#7f8c8d",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "adaptive_armor",
+      "name": "Adaptive Armor",
+      "description": "Self-adjusting armor that responds to threats",
+      "icon": {
+        "type": "color",
+        "value": "#34495e",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "signal_amplifier",
+      "name": "Signal Amplifier",
+      "description": "Device for boosting communication range",
+      "icon": {
+        "type": "color",
+        "value": "#16a085",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "advanced_scanner",
+      "name": "Advanced Scanner",
+      "description": "Multi-spectrum detection device",
+      "icon": {
+        "type": "color",
+        "value": "#1abc9c",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "quantum_processor",
+      "name": "Quantum Processor",
+      "description": "Supercomputing module using quantum mechanics",
+      "icon": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "neural_interface",
+      "name": "Neural Interface",
+      "description": "Direct brain-computer connection device",
+      "icon": {
+        "type": "color",
+        "value": "#8e44ad",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "ai_core",
+      "name": "AI Core",
+      "description": "Autonomous artificial intelligence module",
+      "icon": {
+        "type": "color",
+        "value": "#34495e",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "stim_pack",
+      "name": "Stim Pack",
+      "description": "Emergency healing injection",
+      "icon": {
+        "type": "color",
+        "value": "#e74c3c",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "first_aid_kit",
+      "name": "First Aid Kit",
+      "description": "Basic medical supplies for field treatment",
+      "icon": {
+        "type": "color",
+        "value": "#c0392b",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "advanced_medkit",
+      "name": "Advanced Medkit",
+      "description": "Comprehensive medical treatment package",
+      "icon": {
+        "type": "color",
+        "value": "#e91e63",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "regeneration_serum",
+      "name": "Regeneration Serum",
+      "description": "Advanced healing formula promoting rapid tissue repair",
+      "icon": {
+        "type": "color",
+        "value": "#f06292",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "nano_medical_suite",
+      "name": "Nano-Medical Suite",
+      "description": "Nanomachine-based automated medical system",
+      "icon": {
+        "type": "color",
+        "value": "#ec407a",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "composite_plating",
+      "name": "Composite Plating",
+      "description": "Layered protective plating for vehicles and structures",
+      "icon": {
+        "type": "color",
+        "value": "#95a5a6",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "reinforced_frame",
+      "name": "Reinforced Frame",
+      "description": "Structural framework with enhanced durability",
+      "icon": {
+        "type": "color",
+        "value": "#7f8c8d",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "advanced_armor_plating",
+      "name": "Advanced Armor Plating",
+      "description": "Military-grade protective plating",
+      "icon": {
+        "type": "color",
+        "value": "#546e7a",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "adaptive_materials",
+      "name": "Adaptive Materials",
+      "description": "Smart materials that adjust properties based on environment",
+      "icon": {
+        "type": "color",
+        "value": "#607d8b",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
+    },
+    {
+      "id": "quantum_weave_fabric",
+      "name": "Quantum-Weave Fabric",
+      "description": "Exotic fabric woven at quantum scale",
+      "icon": {
+        "type": "color",
+        "value": "#9b59b6",
+        "show_name": true
+      },
+      "type": "aspect",
+      "stack_count": 10
     }
   ]
 }

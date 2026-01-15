@@ -18,3 +18,4 @@ TODO
 - Better mission color range from 1 - 10. Red at 3 is too much.
 - Be able to level missions 
 - Almost wish I could see the web of missions and where it leads
+- Need to do something when you have duplicate blueprints.
