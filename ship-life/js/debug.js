@@ -203,4 +203,23 @@ function debugGiveResources() {
     showNotification('Resources added!');
 }
 
+/**
+ * Give ALL items (resources, blueprints, aspects)
+ */
+function debugGiveAllItems() {
+    const allItems = window.itemsData || [];
+    let count = 0;
+    
+    allItems.forEach(item => {
+        // Give appropriate amounts based on type
+        const amount = item.type === 'resource' ? 50 : 5;
+        addToInventory(gameState, item.id, amount);
+        count++;
+    });
+    
+    autoSave(gameState);
+    debugLog(`Added ALL items: ${count} different items`, 'success');
+    showNotification(`All ${count} items added to inventory!`);
+}
+
 console.log('Debug system loaded.');

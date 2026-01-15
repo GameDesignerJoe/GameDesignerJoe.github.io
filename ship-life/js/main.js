@@ -69,14 +69,21 @@ async function initializeGame() {
     // Initialize debug console
     initializeDebugConsole();
     
-    // Check if player has active guardian
+    // Check if player has active guardian and go to appropriate room
     if (gameState.active_guardian) {
         const guardian = getGuardianById(gameState.active_guardian);
         updateGuardianDisplay(guardian);
+        
+        // Show navigation
+        const navBar = document.getElementById('navigation-bar');
+        navBar.classList.remove('hidden');
+        
+        // Go to last room or mission computer
+        switchRoom(gameState.last_room || 'mission_computer');
+    } else {
+        // No guardian selected, go to character select
+        switchRoom('character_select');
     }
-    
-    // Load landing page
-    switchRoom('landing_page');
     
     console.log('Ship Life initialized successfully!');
 }

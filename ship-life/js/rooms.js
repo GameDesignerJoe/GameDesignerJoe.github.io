@@ -117,20 +117,10 @@ function renderRoom(room) {
  * Render Landing Page
  */
 function renderLandingPage(container) {
+    // Landing page should auto-transition, so just return empty
+    // The main.js will handle the initial room switching
     container.className = 'landing-page';
-    
-    // Auto-transition after a brief moment
-    enterFullscreen();
-    
-    // Check if player has active guardian
-    if (!gameState.active_guardian) {
-        switchRoom('character_select');
-    } else {
-        // Show navigation and go to last room
-        const navBar = document.getElementById('navigation-bar');
-        navBar.classList.remove('hidden');
-        switchRoom(gameState.last_room || 'mission_computer');
-    }
+    container.innerHTML = '<p style="opacity: 0;">Loading...</p>';
 }
 
 /**
