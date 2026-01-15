@@ -1,0 +1,1530 @@
+# Ship Life Prototype - Technical Design Document (TDD)
+
+## Document Information
+- **Project**: FellowDivers - Ship Life Prototype
+- **Version**: 1.0 - Implementation Specification
+- **Date**: January 2026
+- **Purpose**: Technical blueprint for development with Cline AI
+
+---
+
+## 1. Technology Stack
+
+### 1.1 Core Technologies
+- **HTML5**: Structure and markup
+- **CSS3**: Styling, animations, responsive layout
+- **Vanilla JavaScript (ES6+)**: All game logic, no frameworks
+- **localStorage API**: Save/load persistence
+- **Fullscreen API**: Fullscreen mode trigger
+- **Google Fonts**: Typography (Orbitron, Inter)
+
+### 1.2 File Structure
+```
+/shiplife-prototype/
+├── index.html              # Entry point, password prompt
+├── game.html               # Main game container
+├── /css/
+│   ├── main.css           # Global styles
+│   ├── rooms.css          # Room-specific styles
+│   ├── ui.css             # UI components (buttons, cards)
+│   └── debug.css          # Debug menu styles
+├── /js/
+│   ├── main.js            # Entry point, initialization
+│   ├── state.js           # Blackboard/save system
+│   ├── rooms.js           # Room loading/switching
+│   ├── missions.js        # Mission system
+│   ├── inventory.js       # Inventory management
+│   ├── workstations.js    # Crafting system
+│   ├── conversations.js   # Dialogue system
+│   ├── guardians.js       # Guardian management
+│   ├── ui.js              # UI utilities
+│   └── debug.js           # Debug menu
+├── /data/
+│   ├── rooms.json         # Room definitions
+│   ├── missions.json      # Mission content
+│   ├── guardians.json     # Guardian data
+│   ├── items.json         # Item definitions
+│   ├── workstations.json  # Workstation/recipe data
+│   ├── conversations.json # Dialogue content
+│   └── blueprints.json    # Blueprint definitions
+├── /assets/
+│   ├── /images/           # Backgrounds, portraits, icons
+│   └── /audio/            # Music, sound effects (future)
+└── README.md              # Developer documentation
+```
+
+---
+
+## 2. Data File Specifications
+
+### 2.1 Rooms.json
+Defines all navigable rooms.
+
+**Structure**:
+```json
+{
+  "rooms": [
+    {
+      "id": "mission_computer",
+      "name": "Mission Computer",
+      "background": {
+        "type": "color",
+        "value": "#2c3e50",
+        "show_name": true
+      },
+      "title_display": true,
+      "music": "mission_room_ambient.mp3",
+      "layout": "auto",
+      "navigation_lockable": true,
+      "interactables": [
+        {
+          "class": "mission",
+          "type": "random",
+          "count": 3
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique room identifier
+- `name` (string, required): Display name shown in nav bar and room title
+- `background` (object, required):
+  - `type` (string): "color" or "image"
+  - `value` (string): HEX code or image filename
+  - `show_name` (boolean): Display room title on placeholder colors
+- `title_display` (boolean): Show room name below nav bar
+- `music` (string): Audio file (hook only, not implemented in MVP)
+- `layout` (string): "auto" (system auto-arranges interactables)
+- `navigation_lockable` (boolean): Can this room lock navigation?
+- `interactables` (array): List of interactive elements
+  - `class` (string): "mission", "workstation", "guardian", "button"
+  - `type` (string): Subtype based on class
+    - mission: "random", "specific"
+    - workstation: workstation ID
+    - guardian: "conversation_eligible", "specific"
+    - button: "launch_mission", "continue"
+  - `count` (number): How many to display (for random types)
+  - `guardian_id` (string, optional): Specific Guardian ID (for type: "specific")
+  - `priority_filter` (string, optional): "important", "background", "any" (for conversation_eligible)
+
+**Example Room Definitions**:
+```json
+{
+  "rooms": [
+    {
+      "id": "landing_page",
+      "name": "Landing Page",
+      "background": { "type": "color", "value": "#0a0e27" },
+      "title_display": false,
+      "navigation_lockable": false,
+      "interactables": [
+        { "class": "button", "type": "play" },
+        { "class": "button", "type": "quit" }
+      ]
+    },
+    {
+      "id": "workstation_room",
+      "name": "Workstations",
+      "background": { "type": "color", "value": "#3d1f1f" },
+      "title_display": true,
+      "layout": "auto",
+      "interactables": [
+        { "class": "workstation", "type": "weapons_bench" },
+        { "class": "workstation", "type": "armor_forge" },
+        { "class": "workstation", "type": "tech_lab" },
+        { "class": "workstation", "type": "knowledge_base" }
+      ]
+    },
+    {
+      "id": "observation_deck",
+      "name": "Observation Deck",
+      "background": { "type": "color", "value": "#2d1b3d" },
+      "title_display": true,
+      "navigation_lockable": true,
+      "layout": "auto",
+      "interactables": [
+        { "class": "guardian", "type": "conversation_eligible", "priority_filter": "important", "count": 2 }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### 2.2 Missions.json
+Defines all missions.
+
+**Structure**:
+```json
+{
+  "missions": [
+    {
+      "id": "first_contact",
+      "name": "First Contact",
+      "description": "Establish communication with the locals on Terminus Prime",
+      "map": "terminus_outpost",
+      "visual": {
+        "type": "color",
+        "value": "#4a90e2",
+        "show_name": true
+      },
+      "difficulty": 1,
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          { "item": "plasma_cell", "min": 5, "max": 10, "drop_chance": 100 },
+          { "item": "common_alloy", "min": 3, "max": 7, "drop_chance": 80 },
+          { "item": "rare_alloy", "min": 1, "max": 3, "drop_chance": 30 }
+        ],
+        "failure": [
+          { "item": "plasma_cell", "min": 1, "max": 3, "drop_chance": 100 }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": ["first_contact_complete"],
+        "missions": ["supply_run", "rescue_operation"]
+      },
+      "simulation": {
+        "messages": [
+          { "text": "Stella leads the charge!", "bar_progress": 25, "display_time": 3 },
+          { "text": "Vawn is taking heavy fire!", "bar_progress": 50, "display_time": 3 },
+          { "text": "Tiberius hacked the mainframe!", "bar_progress": 75, "display_time": 3 },
+          { "text": "The Kin are regrouping!", "bar_progress": 100, "display_time": 3 }
+        ]
+      },
+      "anomalies": {
+        "pool": [],
+        "max_count": 0
+      }
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique mission identifier
+- `name` (string, required): Display name
+- `description` (string, required): Mission brief
+- `map` (string): World location (metadata, not used in MVP)
+- `visual` (object): Card artwork or placeholder
+- `difficulty` (number, 1-10): Affects success rate
+- `repeatable` (boolean): Can appear again after completion
+- `persist_on_fail` (boolean): Stays in pool if failed
+- `prerequisites` (object): Unlock conditions
+  - `missions_completed` (array): Mission IDs required
+  - `total_missions` (number): Min mission count
+  - `flags` (array): Required flags
+- `rewards` (object): Items dropped
+  - `success` (array): Full rewards
+  - `failure` (array): Reduced rewards
+- `unlock_on_complete` (object): What unlocks after success
+  - `flags` (array): Flags to set
+  - `missions` (array): Mission IDs to unlock
+- `simulation` (object): Loading bar config
+  - `messages` (array): Text + timing
+- `anomalies` (object): Mission modifiers (future)
+
+**Success Rate Calculation**:
+```javascript
+const baseSuccessRate = 100 - (mission.difficulty * 10);
+// Difficulty 1 = 90%, Difficulty 5 = 50%, Difficulty 10 = 10%
+```
+
+**Reward Rolling**:
+```javascript
+function rollRewards(rewardArray) {
+  const results = [];
+  for (const reward of rewardArray) {
+    const roll = Math.random() * 100;
+    if (roll <= reward.drop_chance) {
+      const quantity = Math.floor(Math.random() * (reward.max - reward.min + 1)) + reward.min;
+      results.push({ item: reward.item, quantity });
+    }
+  }
+  return results;
+}
+```
+
+---
+
+### 2.3 Guardians.json
+Defines all Guardians.
+
+**Structure**:
+```json
+{
+  "guardians": [
+    {
+      "id": "stella",
+      "name": "Stella",
+      "portrait": {
+        "type": "color",
+        "value": "#ffd700",
+        "show_name": true
+      },
+      "role": "dps",
+      "description": "A fierce warrior with a strategic mind",
+      "starting_guardian": false,
+      "unlocked_at_start": true
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique identifier
+- `name` (string, required): Display name
+- `portrait` (object): Visual representation
+- `role` (string): Tank, DPS, Support, Ranged (future feature)
+- `description` (string): Character bio
+- `starting_guardian` (boolean): Default active Guardian for new players
+- `unlocked_at_start` (boolean): Available from beginning vs locked
+
+---
+
+### 2.4 Items.json
+Defines all inventory items.
+
+**Structure**:
+```json
+{
+  "items": [
+    {
+      "id": "plasma_cell",
+      "name": "Plasma Cell",
+      "description": "Volatile energy source used in weapon crafting",
+      "icon": {
+        "type": "color",
+        "value": "#00ffff",
+        "show_name": true
+      },
+      "type": "resource",
+      "stack_count": 0
+    },
+    {
+      "id": "plasma_rifle",
+      "name": "Plasma Rifle",
+      "description": "Standard issue energy weapon",
+      "icon": {
+        "type": "color",
+        "value": "#ff6600"
+      },
+      "type": "aspect",
+      "stack_count": 10
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique identifier
+- `name` (string, required): Display name
+- `description` (string): Item purpose/lore
+- `icon` (object): Visual representation
+- `type` (string): Resource, Aspect, Blueprint, Cosmetic, Quest
+- `stack_count` (number): Max stack size (0 = infinite)
+
+**Type Categories**:
+- **resource**: Stackable crafting materials
+- **aspect**: Equippable items (future: loadouts)
+- **blueprint**: Recipe unlocks
+- **cosmetic**: Visual customization (future)
+- **quest**: Story items (future)
+
+---
+
+### 2.5 Workstations.json
+Defines all workstations and recipes.
+
+**Structure**:
+```json
+{
+  "workstations": [
+    {
+      "id": "weapons_bench",
+      "name": "Weapons Bench",
+      "visual": {
+        "type": "color",
+        "value": "#8b0000",
+        "show_name": true
+      },
+      "max_level": 3,
+      "level_names": {
+        "1": "Weapons Bench",
+        "2": "Advanced Weapons Bench",
+        "3": "Master Weapons Bench"
+      },
+      "upgrade_costs": [
+        { 
+          "level": 2, 
+          "resources": [
+            { "item": "common_alloy", "amount": 50 },
+            { "item": "plasma_cell", "amount": 20 }
+          ]
+        },
+        { 
+          "level": 3, 
+          "resources": [
+            { "item": "rare_alloy", "amount": 30 },
+            { "item": "exotic_matter", "amount": 10 }
+          ]
+        }
+      ],
+      "recipes": [
+        {
+          "id": "basic_rifle",
+          "name": "Basic Plasma Rifle",
+          "description": "Standard issue energy weapon",
+          "required_level": 1,
+          "blueprint_required": "blueprint_plasma_rifle",
+          "cost": [
+            { "item": "plasma_cell", "amount": 10 },
+            { "item": "metal_parts", "amount": 5 },
+            { "item": "battery", "amount": 1 }
+          ],
+          "output": { "item": "plasma_rifle", "amount": 1 }
+        },
+        {
+          "id": "advanced_rifle",
+          "name": "Advanced Plasma Rifle",
+          "description": "High-output energy weapon",
+          "required_level": 2,
+          "blueprint_required": "blueprint_adv_plasma_rifle",
+          "cost": [
+            { "item": "plasma_cell", "amount": 20 },
+            { "item": "rare_alloy", "amount": 5 },
+            { "item": "battery", "amount": 2 }
+          ],
+          "output": { "item": "adv_plasma_rifle", "amount": 1 }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique workstation ID
+- `name` (string): Base display name
+- `visual` (object): Workstation card appearance
+- `max_level` (number): Highest upgrade tier
+- `level_names` (object): Display name per level
+- `upgrade_costs` (array): Resources per upgrade
+- `recipes` (array): Craftable items
+  - `id` (string): Unique recipe ID
+  - `name` (string): Display name
+  - `description` (string): Item purpose
+  - `required_level` (number): Min workstation level
+  - `blueprint_required` (string, optional): Blueprint ID needed
+  - `cost` (array): Resources consumed
+  - `output` (object): Item created
+
+**Special Case: Knowledge Base**:
+```json
+{
+  "id": "knowledge_base",
+  "name": "Knowledge Base",
+  "max_level": 1,
+  "recipes": []
+}
+```
+Knowledge Base has no recipes (just displays learned blueprints).
+
+---
+
+### 2.6 Conversations.json
+Defines all dialogues.
+
+**Structure**:
+```json
+{
+  "conversations": [
+    {
+      "id": "STELLA_VAWN_001",
+      "priority": "important",
+      "repeatable": false,
+      "player_char_req": "stella",
+      "actor1": "stella",
+      "actor2": "vawn",
+      "prerequisites": {
+        "missions_together": { "stella_vawn": 6 },
+        "total_missions": 5,
+        "flags": [],
+        "previous_convo": ""
+      },
+      "lines": [
+        {
+          "speaker": "stella",
+          "text": "You know, I never thanked you for covering me back there.",
+          "portrait": "stella_neutral.png"
+        },
+        {
+          "speaker": "vawn",
+          "text": "That's what Guardians do. We watch each other's backs.",
+          "portrait": "vawn_smile.png"
+        },
+        {
+          "speaker": "stella",
+          "text": "Still, I owe you one.",
+          "portrait": "stella_smile.png"
+        }
+      ],
+      "on_complete": {
+        "flags": ["stella_vawn_bonding_1"],
+        "relationship_change": 5
+      }
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique conversation ID
+- `priority` (string): "important" or "background"
+- `repeatable` (boolean): Can play multiple times
+- `player_char_req` (string or array): Guardian(s) who can trigger
+  - "stella" = only Stella
+  - ["stella", "vawn"] = Stella OR Vawn
+  - "any" = any Guardian
+- `actor1` (string): First Guardian (left portrait)
+- `actor2` (string): Second Guardian (right portrait)
+- `prerequisites` (object): Unlock conditions
+  - `missions_together` (object): Pair counts (e.g., `{"stella_vawn": 6}`)
+  - `total_missions` (number): Min mission count
+  - `flags` (array): Required flags
+  - `previous_convo` (string): Required conversation ID
+- `lines` (array): Dialogue sequence
+  - `speaker` (string): Guardian ID
+  - `text` (string): Dialogue text
+  - `portrait` (string): Image file or uses Guardian default
+- `on_complete` (object): Post-conversation effects
+  - `flags` (array): Flags to set
+  - `relationship_change` (number): Relationship increment (future)
+
+**Prerequisite Logic**:
+All conditions in `prerequisites` use AND logic (all must be true).
+
+**Speaker Flexibility**:
+`speaker` can be any Guardian ID, not limited to actor1/actor2. This allows 3+ person conversations or overheard dialogues.
+
+---
+
+### 2.7 Blueprints.json
+Defines all blueprints.
+
+**Structure**:
+```json
+{
+  "blueprints": [
+    {
+      "id": "blueprint_plasma_rifle",
+      "name": "Plasma Rifle Blueprint",
+      "description": "Unlocks basic plasma rifle crafting",
+      "icon": {
+        "type": "color",
+        "value": "#4a90e2",
+        "show_name": true
+      },
+      "unlocked_at_start": true,
+      "unlocks_recipe": "basic_rifle"
+    },
+    {
+      "id": "blueprint_adv_plasma_rifle",
+      "name": "Advanced Plasma Rifle Blueprint",
+      "description": "Unlocks advanced plasma rifle crafting",
+      "icon": {
+        "type": "color",
+        "value": "#e24a4a"
+      },
+      "unlocked_at_start": false,
+      "unlocks_recipe": "advanced_rifle"
+    }
+  ]
+}
+```
+
+**Field Definitions**:
+- `id` (string, required): Unique blueprint ID
+- `name` (string): Display name
+- `description` (string): What it unlocks
+- `icon` (object): Visual representation
+- `unlocked_at_start` (boolean): Added to learned_blueprints on first load
+- `unlocks_recipe` (string): Recipe ID this blueprint enables
+
+**Starting Blueprint Flow**:
+```javascript
+function initializeStartingBlueprints(saveState, blueprints) {
+  if (saveState.learned_blueprints.length === 0) {
+    const startingBlueprints = blueprints.filter(bp => bp.unlocked_at_start);
+    saveState.learned_blueprints = startingBlueprints.map(bp => bp.id);
+  }
+}
+```
+
+---
+
+## 3. Save System Architecture
+
+### 3.1 Save File Structure
+**localStorage key**: `shiplife_save`
+
+**JSON Structure**:
+```json
+{
+  "version": "1.0",
+  "active_guardian": "stella",
+  "last_room": "mission_computer",
+  "inventory": {
+    "plasma_cell": 47,
+    "common_alloy": 23,
+    "rare_alloy": 5,
+    "plasma_rifle": 2
+  },
+  "workstations": {
+    "weapons_bench": { "level": 2 },
+    "armor_forge": { "level": 1 },
+    "tech_lab": { "level": 1 },
+    "knowledge_base": { "level": 1 }
+  },
+  "learned_blueprints": [
+    "blueprint_plasma_rifle",
+    "blueprint_energy_cell"
+  ],
+  "completed_missions": [
+    "first_contact",
+    "supply_run"
+  ],
+  "mission_counters": {
+    "total": 15,
+    "stella": 8,
+    "vawn": 10,
+    "tiberius": 6,
+    "maestra": 4
+  },
+  "relationships": {
+    "missions_together": {
+      "stella_vawn": 6,
+      "stella_tiberius": 3,
+      "vawn_tiberius": 8
+    },
+    "conversations_completed": {
+      "stella_vawn": 3,
+      "vawn_tiberius": 1
+    }
+  },
+  "completed_conversations": [
+    "STELLA_VAWN_001",
+    "VAWN_TIBERIUS_001"
+  ],
+  "flags": {
+    "first_contact_complete": true,
+    "reactor_destroyed": false,
+    "alliance_formed": true
+  }
+}
+```
+
+### 3.2 Save Operations
+
+**Load Save**:
+```javascript
+function loadSave() {
+  try {
+    const saveData = localStorage.getItem('shiplife_save');
+    if (!saveData) return createNewSave();
+    return JSON.parse(saveData);
+  } catch (error) {
+    console.error('Save corrupted:', error);
+    alert('Save file corrupted. Starting fresh.');
+    return createNewSave();
+  }
+}
+```
+
+**Auto-Save**:
+```javascript
+function autoSave(state) {
+  try {
+    localStorage.setItem('shiplife_save', JSON.stringify(state));
+    return true;
+  } catch (error) {
+    console.error('Save failed:', error);
+    showWarning('Unable to save progress. Please free up browser storage.');
+    return false;
+  }
+}
+```
+
+**Save Triggers**:
+- Mission completion
+- Item crafted
+- Workstation upgraded
+- Conversation completed
+- Guardian swapped
+- Room changed
+- Flag set
+
+### 3.3 Relationship Key Generation
+```javascript
+function getRelationshipKey(guardian1, guardian2) {
+  const sorted = [guardian1, guardian2].sort();
+  return `${sorted[0]}_${sorted[1]}`;
+}
+// Example: getRelationshipKey('stella', 'vawn') → 'stella_vawn'
+// Example: getRelationshipKey('vawn', 'stella') → 'stella_vawn' (same key)
+```
+
+---
+
+## 4. System Implementations
+
+### 4.1 Mission System
+
+**Mission Selection Logic**:
+```javascript
+function getAvailableMissions(missions, saveState) {
+  return missions.filter(mission => {
+    // Check if already completed and not repeatable
+    if (!mission.repeatable && saveState.completed_missions.includes(mission.id)) {
+      return false;
+    }
+    
+    // Check prerequisites
+    const prereqs = mission.prerequisites;
+    
+    // Check completed missions
+    for (const reqMission of prereqs.missions_completed) {
+      if (!saveState.completed_missions.includes(reqMission)) return false;
+    }
+    
+    // Check total missions
+    if (saveState.mission_counters.total < prereqs.total_missions) return false;
+    
+    // Check flags
+    for (const flag of prereqs.flags) {
+      if (!saveState.flags[flag]) return false;
+    }
+    
+    return true;
+  });
+}
+
+function selectMissionsForDisplay(availableMissions, count = 3) {
+  const shuffled = [...availableMissions].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+```
+
+**Mission Simulation**:
+```javascript
+async function simulateMission(mission, saveState) {
+  // Lock navigation
+  lockNavigation();
+  
+  // Display simulation UI
+  showSimulationScreen(mission);
+  
+  // Run simulation messages
+  for (const message of mission.simulation.messages) {
+    displayMessage(message.text);
+    await animateBar(message.bar_progress, message.display_time);
+  }
+  
+  // Roll success/fail
+  const successRate = 100 - (mission.difficulty * 10);
+  const roll = Math.random() * 100;
+  const success = roll <= successRate;
+  
+  // Roll rewards
+  const rewardPool = success ? mission.rewards.success : mission.rewards.failure;
+  const rewards = rollRewards(rewardPool);
+  
+  // Update state
+  addRewardsToInventory(rewards, saveState);
+  incrementMissionCounters(mission, saveState);
+  
+  if (success) {
+    saveState.completed_missions.push(mission.id);
+    setFlags(mission.unlock_on_complete.flags, saveState);
+  }
+  
+  // Show results
+  showMissionResults(success, rewards);
+  
+  // Auto-save
+  autoSave(saveState);
+  
+  // Unlock navigation
+  unlockNavigation();
+}
+```
+
+---
+
+### 4.2 Crafting System
+
+**Recipe Availability Check**:
+```javascript
+function canCraftRecipe(recipe, saveState) {
+  // Check workstation level
+  const workstation = saveState.workstations[recipe.workstation_id];
+  if (workstation.level < recipe.required_level) return false;
+  
+  // Check blueprint
+  if (recipe.blueprint_required) {
+    if (!saveState.learned_blueprints.includes(recipe.blueprint_required)) {
+      return false;
+    }
+  }
+  
+  // Check resources
+  for (const cost of recipe.cost) {
+    const owned = saveState.inventory[cost.item] || 0;
+    if (owned < cost.amount) return false;
+  }
+  
+  return true;
+}
+
+function craftItem(recipe, saveState) {
+  if (!canCraftRecipe(recipe, saveState)) {
+    console.error('Cannot craft this recipe');
+    return false;
+  }
+  
+  // Deduct resources
+  for (const cost of recipe.cost) {
+    saveState.inventory[cost.item] -= cost.amount;
+  }
+  
+  // Add output
+  const currentAmount = saveState.inventory[recipe.output.item] || 0;
+  saveState.inventory[recipe.output.item] = currentAmount + recipe.output.amount;
+  
+  // Auto-save
+  autoSave(saveState);
+  
+  return true;
+}
+```
+
+**Workstation Upgrade**:
+```javascript
+function upgradeWorkstation(workstation, saveState) {
+  const currentLevel = saveState.workstations[workstation.id].level;
+  if (currentLevel >= workstation.max_level) {
+    console.error('Workstation already at max level');
+    return false;
+  }
+  
+  const upgradeCost = workstation.upgrade_costs.find(u => u.level === currentLevel + 1);
+  
+  // Check resources
+  for (const cost of upgradeCost.resources) {
+    const owned = saveState.inventory[cost.item] || 0;
+    if (owned < cost.amount) {
+      console.error('Insufficient resources');
+      return false;
+    }
+  }
+  
+  // Deduct resources
+  for (const cost of upgradeCost.resources) {
+    saveState.inventory[cost.item] -= cost.amount;
+  }
+  
+  // Increment level
+  saveState.workstations[workstation.id].level += 1;
+  
+  // Auto-save
+  autoSave(saveState);
+  
+  return true;
+}
+```
+
+---
+
+### 4.3 Conversation System
+
+**Conversation Availability Check**:
+```javascript
+function getAvailableConversations(conversations, activeGuardian, saveState) {
+  return conversations.filter(convo => {
+    // Check if already completed and not repeatable
+    if (!convo.repeatable && saveState.completed_conversations.includes(convo.id)) {
+      return false;
+    }
+    
+    // Check player_char_req
+    if (convo.player_char_req === 'any') {
+      // Any Guardian can see this
+    } else if (Array.isArray(convo.player_char_req)) {
+      if (!convo.player_char_req.includes(activeGuardian)) return false;
+    } else {
+      if (convo.player_char_req !== activeGuardian) return false;
+    }
+    
+    // Check prerequisites
+    const prereqs = convo.prerequisites;
+    
+    // Check missions_together
+    for (const [pair, count] of Object.entries(prereqs.missions_together || {})) {
+      const currentCount = saveState.relationships.missions_together[pair] || 0;
+      if (currentCount < count) return false;
+    }
+    
+    // Check total_missions
+    if (saveState.mission_counters.total < (prereqs.total_missions || 0)) return false;
+    
+    // Check flags
+    for (const flag of prereqs.flags || []) {
+      if (!saveState.flags[flag]) return false;
+    }
+    
+    // Check previous_convo
+    if (prereqs.previous_convo) {
+      if (!saveState.completed_conversations.includes(prereqs.previous_convo)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+}
+```
+
+**Guardian Selection for Observation Deck**:
+```javascript
+function selectGuardiansForObservationDeck(conversations, activeGuardian, count = 2) {
+  const importantConvos = conversations.filter(c => c.priority === 'important');
+  const backgroundConvos = conversations.filter(c => c.priority === 'background');
+  
+  // Get Guardians with Important conversations
+  const importantGuardians = new Set();
+  for (const convo of importantConvos) {
+    if (convo.actor1 !== activeGuardian) importantGuardians.add(convo.actor1);
+    if (convo.actor2 !== activeGuardian) importantGuardians.add(convo.actor2);
+  }
+  
+  const selected = [];
+  
+  // Prioritize Important
+  for (const guardian of importantGuardians) {
+    if (selected.length >= count) break;
+    selected.push(guardian);
+  }
+  
+  // Fill remaining slots with Background
+  if (selected.length < count) {
+    const backgroundGuardians = new Set();
+    for (const convo of backgroundConvos) {
+      if (convo.actor1 !== activeGuardian && !selected.includes(convo.actor1)) {
+        backgroundGuardians.add(convo.actor1);
+      }
+      if (convo.actor2 !== activeGuardian && !selected.includes(convo.actor2)) {
+        backgroundGuardians.add(convo.actor2);
+      }
+    }
+    
+    for (const guardian of backgroundGuardians) {
+      if (selected.length >= count) break;
+      selected.push(guardian);
+    }
+  }
+  
+  return selected;
+}
+```
+
+**Conversation Playback**:
+```javascript
+async function playConversation(conversation, saveState) {
+  lockNavigation();
+  
+  // Display portraits
+  displayPortraits(conversation.actor1, conversation.actor2);
+  
+  // Play lines sequentially
+  for (const line of conversation.lines) {
+    highlightSpeaker(line.speaker);
+    await displayLine(line.text, line.portrait);
+    await waitForPlayerInput(); // Click "Next"
+  }
+  
+  // Mark complete
+  saveState.completed_conversations.push(conversation.id);
+  
+  // Set flags
+  for (const flag of conversation.on_complete.flags || []) {
+    saveState.flags[flag] = true;
+  }
+  
+  // Increment relationship (future feature)
+  // const relationshipKey = getRelationshipKey(conversation.actor1, conversation.actor2);
+  // saveState.relationships.conversations_completed[relationshipKey] += 1;
+  
+  // Auto-save
+  autoSave(saveState);
+  
+  unlockNavigation();
+  returnToObservationDeck();
+}
+```
+
+---
+
+### 4.4 Blueprint System
+
+**Knowledge Base UI**:
+```javascript
+function displayKnowledgeBase(blueprints, saveState) {
+  const inInventory = [];
+  const learned = [];
+  
+  for (const blueprint of blueprints) {
+    if (saveState.learned_blueprints.includes(blueprint.id)) {
+      learned.push(blueprint);
+    } else if (saveState.inventory[blueprint.id] > 0) {
+      inInventory.push(blueprint);
+    }
+  }
+  
+  // Display two columns
+  displayColumn('In Inventory', inInventory);
+  displayColumn('Learned', learned);
+  
+  // Show upload button if any in inventory
+  if (inInventory.length > 0) {
+    showUploadButton(() => uploadBlueprints(inInventory, saveState));
+  }
+}
+
+function uploadBlueprints(blueprintsToLearn, saveState) {
+  for (const blueprint of blueprintsToLearn) {
+    // Remove from inventory
+    delete saveState.inventory[blueprint.id];
+    
+    // Add to learned
+    saveState.learned_blueprints.push(blueprint.id);
+    
+    // Show notification
+    showNotification(`Recipe unlocked: ${blueprint.name}`);
+  }
+  
+  autoSave(saveState);
+  refreshKnowledgeBase();
+}
+```
+
+---
+
+## 5. UI/UX Implementation
+
+### 5.1 Navigation System
+
+**HTML Structure**:
+```html
+<nav id="navigation-bar">
+  <button class="nav-button" data-room="mission_computer">Mission Computer</button>
+  <button class="nav-button" data-room="workstation_room">Workstations</button>
+  <button class="nav-button" data-room="planetfall_portal">Planetfall Portal</button>
+  <button class="nav-button" data-room="observation_deck">Observation Deck</button>
+  <button class="nav-button" data-room="character_room">Character Room</button>
+</nav>
+
+<div id="room-title"></div>
+<div id="room-container"></div>
+```
+
+**Room Switching**:
+```javascript
+function switchRoom(roomId, saveState) {
+  // Close sidebars/modals
+  closeSidebars();
+  
+  // Load room data
+  const room = rooms.find(r => r.id === roomId);
+  
+  // Set background
+  if (room.background.type === 'color') {
+    document.body.style.backgroundColor = room.background.value;
+  } else {
+    document.body.style.backgroundImage = `url(assets/images/${room.background.value})`;
+  }
+  
+  // Display room title
+  if (room.title_display) {
+    document.getElementById('room-title').textContent = room.name.toUpperCase();
+  }
+  
+  // Render interactables
+  renderInteractables(room.interactables, saveState);
+  
+  // Update nav highlight
+  document.querySelectorAll('.nav-button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.room === roomId);
+  });
+  
+  // Save last room
+  saveState.last_room = roomId;
+  autoSave(saveState);
+}
+```
+
+**Navigation Locking**:
+```javascript
+function lockNavigation() {
+  document.querySelectorAll('.nav-button').forEach(btn => {
+    btn.disabled = true;
+    btn.classList.add('locked');
+  });
+}
+
+function unlockNavigation() {
+  document.querySelectorAll('.nav-button').forEach(btn => {
+    btn.disabled = false;
+    btn.classList.remove('locked');
+  });
+}
+```
+
+---
+
+### 5.2 Workstation Sidebar
+
+**HTML Structure**:
+```html
+<div id="workstation-sidebar" class="sidebar hidden">
+  <div class="sidebar-header">
+    <h2 id="recipe-name"></h2>
+    <button class="close-sidebar">×</button>
+  </div>
+  <div class="sidebar-body">
+    <p id="recipe-description"></p>
+    <div id="recipe-requirements"></div>
+    <button id="craft-button" class="btn-primary">Craft</button>
+  </div>
+</div>
+```
+
+**Recipe Display**:
+```javascript
+function displayRecipe(recipe, workstation, saveState) {
+  const sidebar = document.getElementById('workstation-sidebar');
+  sidebar.classList.remove('hidden');
+  
+  // Name & description
+  document.getElementById('recipe-name').textContent = recipe.name;
+  document.getElementById('recipe-description').textContent = recipe.description;
+  
+  // Requirements
+  const reqContainer = document.getElementById('recipe-requirements');
+  reqContainer.innerHTML = '<h3>Requirements</h3>';
+  
+  // Workstation level
+  const currentLevel = saveState.workstations[workstation.id].level;
+  const levelReq = document.createElement('div');
+  levelReq.innerHTML = `${workstation.name} Lvl ${recipe.required_level} ${currentLevel >= recipe.required_level ? '✓' : '✗'}`;
+  reqContainer.appendChild(levelReq);
+  
+  // Blueprint
+  if (recipe.blueprint_required) {
+    const bpReq = document.createElement('div');
+    const hasBlueprint = saveState.learned_blueprints.includes(recipe.blueprint_required);
+    bpReq.innerHTML = `Blueprint ${hasBlueprint ? '✓' : '✗'}`;
+    reqContainer.appendChild(bpReq);
+  }
+  
+  // Resources
+  let canCraft = true;
+  for (const cost of recipe.cost) {
+    const owned = saveState.inventory[cost.item] || 0;
+    const sufficient = owned >= cost.amount;
+    if (!sufficient) canCraft = false;
+    
+    const resourceDiv = document.createElement('div');
+    const ownedText = sufficient ? owned : `<span class="insufficient">${owned}</span>`;
+    resourceDiv.innerHTML = `${cost.item}: ${ownedText}/${cost.amount}`;
+    reqContainer.appendChild(resourceDiv);
+  }
+  
+  // Craft button
+  const craftBtn = document.getElementById('craft-button');
+  craftBtn.disabled = !canCraft;
+  craftBtn.onclick = () => {
+    if (craftItem(recipe, saveState)) {
+      showNotification(`Crafted: ${recipe.name}`);
+      displayRecipe(recipe, workstation, saveState); // Refresh
+    }
+  };
+}
+```
+
+---
+
+### 5.3 Mission Simulation
+
+**HTML Structure**:
+```html
+<div id="simulation-screen" class="hidden">
+  <h2 id="mission-name"></h2>
+  <div id="simulation-message"></div>
+  <div class="progress-bar">
+    <div id="progress-fill"></div>
+  </div>
+  <button id="cancel-simulation" class="hidden">Skip</button>
+</div>
+```
+
+**Simulation Animation**:
+```javascript
+async function runSimulation(mission, saveState) {
+  const screen = document.getElementById('simulation-screen');
+  screen.classList.remove('hidden');
+  
+  document.getElementById('mission-name').textContent = mission.name;
+  
+  // Show cancel button after 3 seconds
+  setTimeout(() => {
+    document.getElementById('cancel-simulation').classList.remove('hidden');
+  }, 3000);
+  
+  // Run messages
+  for (const message of mission.simulation.messages) {
+    document.getElementById('simulation-message').textContent = message.text;
+    await animateProgressBar(message.bar_progress, message.display_time);
+  }
+  
+  // Roll success
+  const success = Math.random() * 100 <= (100 - mission.difficulty * 10);
+  
+  // Show results
+  showResults(mission, success, saveState);
+}
+
+async function animateProgressBar(targetPercent, duration) {
+  const fill = document.getElementById('progress-fill');
+  const startPercent = parseInt(fill.style.width) || 0;
+  const startTime = Date.now();
+  
+  return new Promise(resolve => {
+    function animate() {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / (duration * 1000), 1);
+      const currentPercent = startPercent + (targetPercent - startPercent) * progress;
+      fill.style.width = `${currentPercent}%`;
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        resolve();
+      }
+    }
+    animate();
+  });
+}
+```
+
+---
+
+### 5.4 ESC Key Handler
+
+**Implementation**:
+```javascript
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    showQuitDialog();
+  }
+});
+
+function showQuitDialog() {
+  // Pause game
+  pauseGame();
+  
+  // Show modal
+  const modal = document.createElement('div');
+  modal.className = 'quit-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <h2>Quit to Landing Page?</h2>
+      <button id="quit-yes">Yes</button>
+      <button id="quit-no">No</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  // Wire buttons
+  document.getElementById('quit-yes').onclick = () => {
+    exitFullscreen();
+    window.location.href = 'index.html';
+  };
+  
+  document.getElementById('quit-no').onclick = () => {
+    document.body.removeChild(modal);
+    resumeGame();
+  };
+}
+```
+
+---
+
+## 6. Debug System
+
+### 6.1 Debug Menu UI
+
+**HTML Structure**:
+```html
+<div id="debug-menu" class="hidden">
+  <div class="debug-header">
+    <h3>Debug Menu</h3>
+    <button class="close-debug">×</button>
+  </div>
+  <div class="debug-tabs">
+    <button class="tab-btn active" data-tab="console">Console</button>
+    <button class="tab-btn" data-tab="panels">Panels</button>
+  </div>
+  <div id="debug-console" class="debug-tab">
+    <input type="text" id="debug-input" placeholder="Enter command..." />
+    <div id="debug-output"></div>
+  </div>
+  <div id="debug-panels" class="debug-tab hidden">
+    <button onclick="debugViewBlackboard()">View Blackboard</button>
+    <button onclick="debugResetSave()">Reset Save</button>
+    <!-- More buttons -->
+  </div>
+</div>
+
+<button id="debug-toggle" class="debug-icon">⚙️</button>
+```
+
+**Command Parser**:
+```javascript
+function executeDebugCommand(command, saveState) {
+  const parts = command.toLowerCase().split(' ');
+  const cmd = parts[0];
+  
+  switch (cmd) {
+    case 'give_item':
+      const itemId = parts[1];
+      const amount = parseInt(parts[2]) || 1;
+      saveState.inventory[itemId] = (saveState.inventory[itemId] || 0) + amount;
+      autoSave(saveState);
+      return `Added ${amount}x ${itemId}`;
+      
+    case 'set_flag':
+      const flag = parts[1];
+      const value = parts[2] === 'true';
+      saveState.flags[flag] = value;
+      autoSave(saveState);
+      return `Set ${flag} = ${value}`;
+      
+    case 'set_guardian':
+      const guardianId = parts[1];
+      saveState.active_guardian = guardianId;
+      autoSave(saveState);
+      return `Active Guardian: ${guardianId}`;
+      
+    case 'reset_save':
+      localStorage.removeItem('shiplife_save');
+      return 'Save cleared. Reload page to start fresh.';
+      
+    default:
+      return `Unknown command: ${cmd}`;
+  }
+}
+```
+
+---
+
+## 7. Visual Design
+
+### 7.1 Color Palette (Default)
+
+```css
+:root {
+  /* Room backgrounds */
+  --landing-bg: #0a0e27;
+  --mission-bg: #2c3e50;
+  --workstation-bg: #3d1f1f;
+  --observation-bg: #2d1b3d;
+  --character-select-bg: #1a2332;
+  --planetfall-bg: #1a3d2e;
+  
+  /* UI colors */
+  --primary: #4a90e2;
+  --success: #2ecc71;
+  --danger: #e74c3c;
+  --warning: #f39c12;
+  --disabled: #7f8c8d;
+  
+  /* Text */
+  --text-light: #ecf0f1;
+  --text-dark: #2c3e50;
+  --text-insufficient: #e74c3c;
+  
+  /* UI elements */
+  --card-bg: rgba(255, 255, 255, 0.1);
+  --card-hover: rgba(255, 255, 255, 0.2);
+  --border-radius: 12px;
+}
+```
+
+### 7.2 Typography
+
+```css
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Inter:wght@400;600&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  color: var(--text-light);
+}
+
+h1, h2, h3 {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1 { font-size: 36px; }
+h2 { font-size: 28px; }
+h3 { font-size: 20px; }
+```
+
+### 7.3 Interactive Elements
+
+**Hover Effects**:
+```css
+.workstation-card {
+  border-radius: var(--border-radius);
+  background: var(--card-bg);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.workstation-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+}
+
+.workstation-card:active {
+  transform: scale(0.95);
+}
+```
+
+**Grayed Out States**:
+```css
+.grayed-out {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.insufficient {
+  color: var(--text-insufficient);
+  font-weight: 600;
+}
+```
+
+---
+
+## 8. Performance Optimization
+
+### 8.1 Data Loading Strategy
+- Load all JSON files on app initialization
+- Cache in memory (no repeated fetch calls)
+- Use async/await for file loading
+
+```javascript
+async function loadAllData() {
+  const [rooms, missions, guardians, items, workstations, conversations, blueprints] = await Promise.all([
+    fetch('data/rooms.json').then(r => r.json()),
+    fetch('data/missions.json').then(r => r.json()),
+    fetch('data/guardians.json').then(r => r.json()),
+    fetch('data/items.json').then(r => r.json()),
+    fetch('data/workstations.json').then(r => r.json()),
+    fetch('data/conversations.json').then(r => r.json()),
+    fetch('data/blueprints.json').then(r => r.json())
+  ]);
+  
+  return { rooms, missions, guardians, items, workstations, conversations, blueprints };
+}
+```
+
+### 8.2 Render Optimization
+- Only render visible elements (don't render hidden rooms)
+- Use event delegation for interactables
+- Debounce auto-save (max 1 save per second)
+
+---
+
+## 9. Testing Checklist
+
+### 9.1 Core Loop Testing
+- [ ] Can complete mission, receive resources
+- [ ] Can craft item using resources
+- [ ] Can upgrade workstation
+- [ ] Can unlock new mission via prerequisites
+- [ ] Save persists across browser close/reopen
+
+### 9.2 Edge Cases
+- [ ] What happens if inventory full? (No limit in MVP)
+- [ ] Can you craft with exactly enough resources?
+- [ ] Do relationships track correctly for all Guardian pairs?
+- [ ] Do conversations unlock properly after prerequisites met?
+- [ ] Does ESC work during simulation?
+
+### 9.3 Data Validation
+- [ ] All mission IDs unique
+- [ ] All recipe prerequisites reference valid items/blueprints
+- [ ] All conversation prerequisites reference valid missions/flags
+- [ ] No circular mission dependencies
+
+---
+
+## 10. Deployment
+
+### 10.1 Build Process
+No build process required (vanilla JS). Just serve files:
+```bash
+# Using Python
+python -m http.server 8000
+
+# Using Node
+npx serve .
+```
+
+### 10.2 Password Protection
+Add to index.html:
+```html
+<script>
+const CORRECT_PASSWORD = 'FellowDivers2025';
+const savedPassword = localStorage.getItem('shiplife_password');
+
+if (savedPassword !== CORRECT_PASSWORD) {
+  const password = prompt('Enter password:');
+  if (password === CORRECT_PASSWORD) {
+    localStorage.setItem('shiplife_password', password);
+    window.location.href = 'game.html';
+  } else {
+    alert('Incorrect password');
+  }
+} else {
+  window.location.href = 'game.html';
+}
+</script>
+```
+
+---
+
+**END OF TECHNICAL DESIGN DOCUMENT**

@@ -1,0 +1,794 @@
+# Ship Life Prototype - Milestone Plan
+
+## Document Information
+- **Project**: FellowDivers - Ship Life Prototype
+- **Version**: 1.0 - Implementation Roadmap
+- **Date**: January 2026
+- **Timeline**: 6+ weeks (phased rollout)
+
+---
+
+## Overview
+
+This milestone plan breaks Ship Life development into incremental phases, each delivering a testable slice of functionality. Each phase builds on the previous, ensuring the core loop is validated before adding complexity.
+
+**Key Principles**:
+- **Iterative**: Each phase is playable and testable
+- **Extensible**: All content editable via JSON files from Phase 1
+- **Testable**: Acceptance criteria for each deliverable
+- **Flexible**: Phases can be reordered or split based on priorities
+
+---
+
+## Phase 1: Foundation & Core Loop (Week 1-2)
+
+### Goal
+Establish the basic gameplay loop: Mission → Resources → Crafting → Inventory. Prove the save system works and data files are editable.
+
+### Deliverables
+
+#### 1.1 Project Setup
+- [ ] Create file structure (index.html, game.html, /css, /js, /data, /assets)
+- [ ] Set up password protection (index.html with localStorage caching)
+- [ ] Implement Landing Page (fullscreen trigger, Play button, Quit button)
+- [ ] Load Google Fonts (Orbitron, Inter)
+- [ ] Set up CSS variables (color palette, typography)
+
+**Acceptance Criteria**:
+- Opening link prompts for password
+- Correct password → Landing Page loads in windowed mode
+- Clicking "Play" → Enters fullscreen
+- Clicking "Quit" → Exits fullscreen, closes tab
+
+---
+
+#### 1.2 State Management (Blackboard System)
+- [ ] Create `state.js` with save/load functions
+- [ ] Implement localStorage persistence
+- [ ] Create blank save structure
+- [ ] Implement auto-save (triggered after actions)
+- [ ] Handle save corruption (reset to fresh state)
+- [ ] Add first-time initialization (starting blueprints)
+
+**Acceptance Criteria**:
+- Save persists across browser close/reopen
+- Auto-save triggers after mission complete, craft item
+- Corrupted save shows error, resets cleanly
+- Starting blueprints added on first load
+
+**Test Commands**:
+```javascript
+// In browser console
+localStorage.getItem('shiplife_save'); // View save file
+localStorage.removeItem('shiplife_save'); // Delete save
+```
+
+---
+
+#### 1.3 Navigation System
+- [ ] Create persistent navigation bar (HTML structure)
+- [ ] Implement room switching (load backgrounds, titles)
+- [ ] Add room highlighting (active room styled differently)
+- [ ] Implement navigation locking (gray out during locked screens)
+- [ ] Save last room to state
+
+**Acceptance Criteria**:
+- Clicking nav button switches rooms instantly
+- Room background changes (color placeholders for now)
+- Room title displays below nav bar
+- Current room highlighted in nav
+- Last room remembered across sessions
+
+---
+
+#### 1.4 Character Select Screen
+- [ ] Create Guardians.json (4 Guardians: Stella, Vawn, Tiberius, Maestra)
+- [ ] Implement Character Select UI (4 portrait placeholders)
+- [ ] Lock navigation until Guardian chosen
+- [ ] Save active Guardian to state
+- [ ] Display active Guardian portrait in top-right
+- [ ] Return to last Guardian on session restart
+
+**Acceptance Criteria**:
+- First-time player forced to Character Select
+- Clicking Guardian → Sets as active, unlocks navigation
+- Active Guardian portrait visible in top-right
+- Returning player loads as last Guardian (skips Character Select)
+
+---
+
+#### 1.5 Mission Computer Room
+- [ ] Create Missions.json (3 missions: 1 starter, 2 locked)
+- [ ] Implement mission card display (3 cards in row)
+- [ ] Add prerequisite checking (show locked missions grayed out)
+- [ ] Implement mission selection (click → navigate to Planetfall)
+- [ ] Display unlock text on locked missions ("Complete First Contact to unlock")
+
+**Acceptance Criteria**:
+- Mission Computer shows 1 unlocked mission, 2 locked
+- Locked missions display prerequisite text
+- Clicking unlocked mission → Navigates to Planetfall Portal
+- Mission data editable in Missions.json
+
+**Example Missions.json**:
+```json
+{
+  "missions": [
+    {
+      "id": "first_contact",
+      "name": "First Contact",
+      "description": "Establish communication with locals",
+      "visual": { "type": "color", "value": "#4a90e2", "show_name": true },
+      "difficulty": 1,
+      "repeatable": false,
+      "prerequisites": { "missions_completed": [], "total_missions": 0, "flags": [] },
+      "rewards": { "success": [{ "item": "plasma_cell", "min": 5, "max": 10, "drop_chance": 100 }], "failure": [] },
+      "simulation": { "messages": [{ "text": "Engaging hostiles...", "bar_progress": 100, "display_time": 10 }] }
+    }
+  ]
+}
+```
+
+---
+
+#### 1.6 Mission Simulation
+- [ ] Create Planetfall Portal room
+- [ ] Implement "Launch Mission" button
+- [ ] Build simulation UI (loading bar, text display)
+- [ ] Animate loading bar (smooth progress to target %)
+- [ ] Display simulation messages sequentially
+- [ ] Add Cancel button (appears after 3 seconds)
+- [ ] Roll success/fail (based on difficulty)
+- [ ] Lock navigation during simulation
+
+**Acceptance Criteria**:
+- Clicking "Launch Mission" → Simulation starts
+- Loading bar animates smoothly
+- Messages display for configured duration
+- Cancel button skips to results
+- Success rate matches difficulty formula (90% for Difficulty 1)
+
+---
+
+#### 1.7 Mission Results & Rewards
+- [ ] Create Mission Results screen
+- [ ] Display success/fail status
+- [ ] Roll reward drops (check drop_chance, randomize quantity)
+- [ ] Add rewards to inventory
+- [ ] Show "Continue" button
+- [ ] Increment mission counters (total, per-Guardian)
+- [ ] Set completion flags
+- [ ] Unlock new missions (if specified)
+- [ ] Auto-save after results
+
+**Acceptance Criteria**:
+- Results screen shows mission name + success/fail
+- Rewards listed with quantities ("Plasma Cell x7")
+- Clicking "Continue" → Returns to ship, unlocks navigation
+- Mission counters increment correctly
+- Flags set (e.g., "first_contact_complete")
+
+---
+
+#### 1.8 Inventory System
+- [ ] Create Items.json (5-7 basic resources)
+- [ ] Implement inventory display (list view, grouped by Type)
+- [ ] Show item name, icon (color placeholder), quantity
+- [ ] Add to inventory function (handles stacking)
+- [ ] Display inventory as separate screen or sidebar
+
+**Acceptance Criteria**:
+- Inventory shows all owned items
+- Items grouped by Type (Resources, Aspects, etc.)
+- Quantities update after mission rewards
+- Item data editable in Items.json
+
+**Example Items.json**:
+```json
+{
+  "items": [
+    {
+      "id": "plasma_cell",
+      "name": "Plasma Cell",
+      "description": "Energy source",
+      "icon": { "type": "color", "value": "#00ffff", "show_name": true },
+      "type": "resource",
+      "stack_count": 0
+    }
+  ]
+}
+```
+
+---
+
+#### 1.9 Workstation Room
+- [ ] Create Workstations.json (1 workstation: Weapons Bench, 3 recipes)
+- [ ] Implement Workstation Room (1 workstation card displayed)
+- [ ] Add hover effects (scale 1.05x, glow)
+- [ ] Clicking workstation → Opens sidebar
+
+**Acceptance Criteria**:
+- Workstation room shows 1 clickable card
+- Hovering scales/glows card
+- Clicking opens sidebar on right
+
+---
+
+#### 1.10 Crafting System
+- [ ] Build workstation sidebar UI (left: recipe list, right: details)
+- [ ] Display all recipes (normal vs grayed out states)
+- [ ] Clicking recipe → Shows details in right panel
+- [ ] Display requirements (workstation level, blueprint, resources)
+- [ ] Show X/Y resource counts (red text if insufficient)
+- [ ] Implement craft button (grayed out if requirements not met)
+- [ ] Deduct resources, add output to inventory on craft
+- [ ] Refresh sidebar after crafting
+
+**Acceptance Criteria**:
+- Recipe list shows all items, grayed out if can't craft
+- Clicking recipe shows detailed requirements
+- Insufficient resources display in red
+- Craft button disabled if requirements not met
+- Crafting deducts resources, adds item to inventory
+- Sidebar refreshes to show updated counts
+
+**Example Workstations.json**:
+```json
+{
+  "workstations": [
+    {
+      "id": "weapons_bench",
+      "name": "Weapons Bench",
+      "max_level": 3,
+      "recipes": [
+        {
+          "id": "basic_rifle",
+          "name": "Basic Plasma Rifle",
+          "required_level": 1,
+          "cost": [{ "item": "plasma_cell", "amount": 10 }],
+          "output": { "item": "plasma_rifle", "amount": 1 }
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### 1.11 Debug Menu
+- [ ] Create debug menu UI (gear icon, console + panels)
+- [ ] Implement command parser (give_item, set_flag, reset_save)
+- [ ] Add View Blackboard button (display save state as JSON)
+- [ ] Add Reset Save button (clear localStorage)
+- [ ] Display confirmation messages after commands
+
+**Acceptance Criteria**:
+- Gear icon visible in bottom-right (25% opacity)
+- Clicking opens debug menu
+- Commands execute correctly (give_item adds to inventory)
+- View Blackboard shows full save state
+- Reset Save clears localStorage
+
+**Test Commands**:
+```
+give_item plasma_cell 100
+set_flag first_contact_complete true
+reset_save
+```
+
+---
+
+#### 1.12 ESC Key Handler
+- [ ] Implement ESC key listener
+- [ ] Show quit dialog (modal overlay)
+- [ ] Pause game during dialog
+- [ ] "Yes" → Exit fullscreen, navigate to Landing Page
+- [ ] "No" → Close dialog, resume game
+
+**Acceptance Criteria**:
+- Pressing ESC pauses game, shows dialog
+- Dialog has darkened background
+- "Yes" exits fullscreen, returns to Landing Page
+- "No" closes dialog, resumes game
+
+---
+
+### Phase 1 Acceptance Test
+**Complete the following flow without errors**:
+1. Open link → Enter password
+2. Click "Play" → Enter fullscreen
+3. Character Select → Choose Stella
+4. Navigate to Mission Computer → Click "First Contact"
+5. Planetfall Portal → Launch Mission
+6. Simulation runs → Success
+7. Mission Results → Receive 7 Plasma Cells
+8. Navigate to Workstations → Open Weapons Bench
+9. Craft "Basic Plasma Rifle" (requires 10 Plasma Cells - should fail)
+10. Debug: `give_item plasma_cell 3`
+11. Craft "Basic Plasma Rifle" (should succeed)
+12. Check inventory → Shows 1 Plasma Rifle
+13. Press ESC → Quit dialog → Yes → Landing Page
+14. Reopen → Last Guardian (Stella), last room (Workstations)
+
+---
+
+## Phase 2: Mission Progression (Week 2-3)
+
+### Goal
+Expand mission system with unlocking, repeatability, and variable rewards. Test that content scales smoothly.
+
+### Deliverables
+
+#### 2.1 Mission Prerequisites
+- [ ] Implement prerequisite checking (completed missions, flags, total count)
+- [ ] Add mission unlocking (after completing prerequisite missions)
+- [ ] Test mission chains (First Contact → Supply Run → Rescue Op)
+
+**Acceptance Criteria**:
+- Locked missions only appear after prerequisites met
+- Mission Computer updates to show newly unlocked missions
+
+---
+
+#### 2.2 Repeatable Missions
+- [ ] Implement repeatability (repeatable missions stay in pool)
+- [ ] Non-repeatable missions disappear after completion
+- [ ] Test mission pool refreshing
+
+**Acceptance Criteria**:
+- Repeatable missions can be played multiple times
+- Non-repeatable missions vanish after completion
+
+---
+
+#### 2.3 Variable Rewards
+- [ ] Implement drop_chance rolling (each reward rolls independently)
+- [ ] Test multiple drops of same item (stacking)
+- [ ] Add 5-7 more resource types to Items.json
+
+**Acceptance Criteria**:
+- Rewards vary per mission run (RNG working)
+- Low drop_chance items drop rarely (30% = ~3/10 runs)
+- Multiple reward entries of same item stack
+
+---
+
+#### 2.4 Mission Counter Tracking
+- [ ] Track total missions completed
+- [ ] Track per-Guardian mission counts
+- [ ] Test mission unlocking based on total count
+
+**Acceptance Criteria**:
+- Total mission counter increments after each mission
+- Per-Guardian counters track correctly
+
+---
+
+#### 2.5 Content Expansion
+- [ ] Add 7 more missions to Missions.json (10 total)
+- [ ] Add difficulty range (1-5)
+- [ ] Add varied simulation messages per mission
+
+**Acceptance Criteria**:
+- Mission Computer shows diverse missions
+- Difficulty affects success rate (Difficulty 5 = 50% success)
+
+---
+
+### Phase 2 Acceptance Test
+**Complete the following flow**:
+1. Complete "First Contact" mission
+2. Check Mission Computer → "Supply Run" unlocked
+3. Complete "Supply Run" 3 times (test repeatability)
+4. Check Mission Computer → New missions available
+5. Complete 5 total missions
+6. Check Mission Computer → Mission requiring "total_missions: 5" unlocked
+
+---
+
+## Phase 3: Workstation Upgrades (Week 3)
+
+### Goal
+Add workstation progression and blueprint system. Prove upgrade gating works.
+
+### Deliverables
+
+#### 3.1 Workstation Upgrades
+- [ ] Implement upgrade UI (upgrade at top of recipe list)
+- [ ] Display upgrade requirements with X/Y counts
+- [ ] Deduct resources on upgrade, increment level
+- [ ] Remove completed upgrade from list
+- [ ] Unlock new recipes at higher levels
+
+**Acceptance Criteria**:
+- Upgrade displayed at top of recipe list
+- Clicking shows upgrade requirements
+- Upgrading deducts resources, increments level
+- Level 2 recipes become visible after upgrade
+
+---
+
+#### 3.2 Blueprint System
+- [ ] Create Blueprints.json (10 blueprints)
+- [ ] Add blueprint looting (mission rewards)
+- [ ] Create Knowledge Base workstation
+- [ ] Implement "Upload Blueprints" button
+- [ ] Move blueprints from inventory to learned list
+- [ ] Unlock recipes in other workstations
+
+**Acceptance Criteria**:
+- Blueprints drop from missions, added to inventory
+- Knowledge Base shows two columns (In Inventory, Learned)
+- Uploading blueprints moves them to Learned
+- Recipes unlock in workstations after blueprint learned
+
+---
+
+#### 3.3 Recipe Prerequisites
+- [ ] Implement recipe locking (level + blueprint required)
+- [ ] Grayed out if workstation level too low OR blueprint missing
+- [ ] Test unlock flow (learn blueprint → still grayed until level 2)
+
+**Acceptance Criteria**:
+- Recipes require BOTH workstation level AND blueprint
+- Recipe stays grayed until both conditions met
+
+---
+
+#### 3.4 Content Expansion
+- [ ] Add 4 more workstations (Armor Forge, Tech Lab, Med Station, Knowledge Base)
+- [ ] Add 15-20 recipes across all workstations
+- [ ] Distribute recipes across 3 levels
+
+**Acceptance Criteria**:
+- Workstation room shows 5 workstations
+- Each workstation has 4-6 recipes
+- Recipes unlock at Levels 1, 2, 3
+
+---
+
+### Phase 3 Acceptance Test
+**Complete the following flow**:
+1. Complete mission → Loot "Advanced Rifle Blueprint"
+2. Navigate to Knowledge Base → Upload blueprint
+3. Navigate to Weapons Bench → "Advanced Rifle" now visible (grayed)
+4. Debug: `give_item rare_alloy 30`
+5. Upgrade Weapons Bench to Level 2
+6. "Advanced Rifle" now craftable
+7. Craft "Advanced Rifle" → Success
+
+---
+
+## Phase 4: Conversation System (Week 4)
+
+### Goal
+Implement narrative progression through Guardian relationships and dialogue.
+
+### Deliverables
+
+#### 4.1 Observation Deck
+- [ ] Create Observation Deck room
+- [ ] Implement Guardian NPC display (2-3 Guardians)
+- [ ] Filter eligible Guardians (has conversations with active Guardian)
+- [ ] Prioritize Important conversations over Background
+
+**Acceptance Criteria**:
+- Observation Deck shows 2 Guardians
+- Guardians have conversations available with active Guardian
+- Active Guardian doesn't appear (can't talk to self)
+
+---
+
+#### 4.2 Conversation Display
+- [ ] Create Conversations.json (10 conversations)
+- [ ] Implement conversation list UI (click Guardian → see titles)
+- [ ] Display Important conversations + 1 Background
+- [ ] Clicking conversation → Opens dialogue UI
+
+**Acceptance Criteria**:
+- Clicking Guardian shows conversation list
+- Important conversations listed first
+- Background conversation always available
+
+---
+
+#### 4.3 Dialogue System
+- [ ] Build JRPG-style dialogue UI (portraits left/right, text bottom)
+- [ ] Display lines sequentially (typewriter effect placeholder)
+- [ ] Highlight current speaker
+- [ ] "Next" button advances dialogue
+- [ ] Lock navigation during conversation
+
+**Acceptance Criteria**:
+- Portraits display correctly (actor1 left, actor2 right)
+- Text displays line by line
+- Current speaker highlighted
+- Clicking "Next" advances to next line
+- After final line, returns to Observation Deck
+
+---
+
+#### 4.4 Conversation Prerequisites
+- [ ] Implement missions_together tracking (increment per Guardian pair)
+- [ ] Implement prerequisite checking (missions_together, total_missions, flags)
+- [ ] Test conversation unlocking (after 6 missions with Vawn)
+
+**Acceptance Criteria**:
+- missions_together increments after each mission
+- Conversations unlock when prerequisites met
+- Prerequisite checking uses AND logic
+
+---
+
+#### 4.5 Relationship Tracking
+- [ ] Track missions_together per Guardian pair
+- [ ] Track conversations_completed per pair
+- [ ] Auto-generate relationship keys (alphabetical)
+
+**Acceptance Criteria**:
+- missions_together tracks all pairs (stella_vawn, stella_tiberius, etc.)
+- Keys generated consistently ("stella_vawn" not "vawn_stella")
+
+---
+
+#### 4.6 Content Expansion
+- [ ] Add 15-20 conversations to Conversations.json
+- [ ] Mix of Important (story) and Background (filler)
+- [ ] Test varied prerequisites (missions, flags, previous conversations)
+
+**Acceptance Criteria**:
+- Important conversations unlock at key milestones
+- Background conversations fill gaps
+
+---
+
+### Phase 4 Acceptance Test
+**Complete the following flow**:
+1. Play as Stella
+2. Complete 6 missions with Vawn on team
+3. Navigate to Observation Deck → Vawn appears
+4. Click Vawn → "About Last Night" conversation available
+5. Play conversation → Dialogue advances
+6. After final line → Returns to Observation Deck
+7. Check save → stella_vawn missions_together = 6
+
+---
+
+## Phase 5: Guardian Swapping (Week 4-5)
+
+### Goal
+Enable playing as different Guardians, test per-Guardian conversation filtering.
+
+### Deliverables
+
+#### 5.1 Character Room
+- [ ] Create Character Room
+- [ ] Display all Guardians (grid of portraits)
+- [ ] Highlight active Guardian
+- [ ] Clicking Guardian → Swap active Guardian
+- [ ] Refresh Observation Deck after swap
+
+**Acceptance Criteria**:
+- Character Room shows 4 Guardians
+- Active Guardian highlighted
+- Clicking swaps active Guardian
+- Observation Deck updates to show different conversations
+
+---
+
+#### 5.2 Per-Guardian Conversation Filtering
+- [ ] Filter conversations by player_char_req
+- [ ] Test "stella" vs ["stella", "vawn"] vs "any"
+- [ ] Verify swapping changes available conversations
+
+**Acceptance Criteria**:
+- Stella-only conversations hidden when playing as Vawn
+- "any" conversations available to all Guardians
+- Array-based requirements work correctly
+
+---
+
+#### 5.3 Mission Team Tracking
+- [ ] Track which Guardians participated in each mission
+- [ ] Increment missions_together for all pairs on team
+- [ ] Hardcode team (Stella, Vawn, Tiberius, Maestra) for MVP
+
+**Acceptance Criteria**:
+- Completing mission increments 6 pair counters (4 choose 2)
+- missions_together tracks correctly across sessions
+
+---
+
+### Phase 5 Acceptance Test
+**Complete the following flow**:
+1. Play as Stella → Complete 3 missions
+2. Navigate to Character Room → Swap to Vawn
+3. Navigate to Observation Deck → Different conversations available
+4. Play as Vawn → Complete 3 more missions
+5. Swap back to Stella → Original conversations still available
+
+---
+
+## Phase 6: Polish & Extensibility (Week 5-6)
+
+### Goal
+Refine UI, add audio hooks, validate all data files are editable.
+
+### Deliverables
+
+#### 6.1 Rooms.json System
+- [ ] Move all room definitions to Rooms.json
+- [ ] Implement interactable system (class, type, count)
+- [ ] Test adding new room via JSON only
+
+**Acceptance Criteria**:
+- All rooms defined in Rooms.json
+- Interactables auto-render based on config
+- Adding new room doesn't require code changes
+
+---
+
+#### 6.2 Visual Polish
+- [ ] Add rounded corners to all cards
+- [ ] Implement hover animations (scale, glow)
+- [ ] Add click animations (scale down, then action)
+- [ ] Standardize color placeholders (name overlays)
+
+**Acceptance Criteria**:
+- All interactive elements have hover/click feedback
+- UI feels responsive and polished
+
+---
+
+#### 6.3 Audio Hooks
+- [ ] Add music field to Rooms.json
+- [ ] Add sound effect hooks (click, craft, mission complete)
+- [ ] Implement audio loading/playback (placeholder: silent)
+
+**Acceptance Criteria**:
+- Audio files specified in data files
+- Hooks in place (no sound yet, but ready for future)
+
+---
+
+#### 6.4 Data Validation
+- [ ] Implement JSON syntax checking
+- [ ] Check for missing required fields
+- [ ] Check for invalid ID references
+- [ ] Add "Validate Data Files" to debug menu
+
+**Acceptance Criteria**:
+- Validate Data Files catches syntax errors
+- Warns about missing fields, invalid references
+
+---
+
+#### 6.5 Documentation
+- [ ] Write README.md (how to edit data files)
+- [ ] Document each JSON structure
+- [ ] Add examples for common tasks (add mission, add conversation)
+
+**Acceptance Criteria**:
+- README clear and comprehensive
+- Non-developers can add content via JSON
+
+---
+
+### Phase 6 Acceptance Test
+**Complete the following flow**:
+1. Add new mission to Missions.json (without touching code)
+2. Reload game → New mission appears in Mission Computer
+3. Add new conversation to Conversations.json
+4. Reload game → New conversation appears after prerequisites met
+5. Add new workstation to Workstations.json
+6. Reload game → New workstation appears in Workstation room
+
+---
+
+## Phase 7: Advanced Features (Week 6+)
+
+### Goal
+Add depth systems for long-term engagement.
+
+### Deliverables
+
+#### 7.1 Quarters Room
+- [ ] Create Quarters room
+- [ ] Display achievements (missions completed, workstations upgraded)
+- [ ] Add trophies for milestones
+
+**Acceptance Criteria**:
+- Quarters shows progress summary
+- Visual rewards for milestones
+
+---
+
+#### 7.2 Mission Simulation Enhancements
+- [ ] Tie simulation text to mission file
+- [ ] Add Guardian-specific messages
+- [ ] Test varied message counts (4-8 per mission)
+
+**Acceptance Criteria**:
+- Each mission has unique flavor text
+- Simulation feels personalized
+
+---
+
+#### 7.3 Aspect System (Post-MVP)
+- [ ] Add Aspect equipping (per-Guardian loadouts)
+- [ ] Implement success rate modifiers
+- [ ] Test Aspect synergies
+
+**Acceptance Criteria**:
+- Equipping Aspects increases mission success rate
+- Loadouts persist per Guardian
+
+---
+
+#### 7.4 Anomaly System (Post-MVP)
+- [ ] Implement Anomalies.json
+- [ ] Display anomalies on mission cards
+- [ ] Modify difficulty/rewards based on anomalies
+
+**Acceptance Criteria**:
+- Anomalies appear on missions
+- Success rate/rewards adjust accordingly
+
+---
+
+## Testing Strategy
+
+### Unit Testing (Per Phase)
+Test each system in isolation:
+- Mission selection logic
+- Crafting resource checks
+- Conversation prerequisites
+- Save/load persistence
+
+### Integration Testing (End of Phase)
+Test full flows:
+- Mission → Resources → Crafting
+- Missions → Relationships → Conversations
+- Save → Close → Reopen → Continue
+
+### Playtesting Goals
+- **2-3 hours of play**: Does the loop sustain interest?
+- **Content pacing**: Do unlocks feel rewarding?
+- **Clarity**: Do testers understand systems without tutorial?
+
+---
+
+## Risk Management
+
+### High-Risk Areas
+1. **Save corruption**: Implement robust error handling
+2. **Performance**: Test with 50+ items in inventory
+3. **Data validation**: Catch errors before they break game
+
+### Mitigation Strategies
+- Frequent auto-save testing (close browser mid-action)
+- Stress test with debug menu (give 999x items)
+- Validate all JSON files before loading
+
+---
+
+## Success Criteria (Overall)
+
+### MVP is complete when:
+- [ ] All Phase 1-3 deliverables implemented
+- [ ] Core loop tested and stable (Mission → Craft → Upgrade)
+- [ ] Save system persists across sessions
+- [ ] All content editable via JSON (no code changes)
+- [ ] Debug menu functional (view state, give items, reset)
+- [ ] Playtesting confirms 2+ hours of engagement
+
+### Post-MVP goals:
+- [ ] Conversations fully implemented (Phase 4)
+- [ ] Guardian swapping working (Phase 5)
+- [ ] Visual/audio polish (Phase 6)
+- [ ] Advanced features (Aspects, Anomalies) scoped for future
+
+---
+
+**END OF MILESTONE PLAN**
