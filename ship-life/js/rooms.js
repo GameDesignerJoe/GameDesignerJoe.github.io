@@ -99,6 +99,9 @@ function renderRoom(room) {
         case 'planetfall_portal':
             renderPlanetfallPortal(container);
             break;
+        case 'character_room':
+            renderCharacterRoom(container);
+            break;
         case 'inventory':
             renderInventory(container);
             break;
@@ -202,6 +205,93 @@ function selectGuardian(guardian) {
     switchRoom('mission_computer');
     
     showNotification(`${guardian.name} selected!`);
+}
+
+/**
+ * Render Character Room (for switching Guardians during gameplay)
+ */
+function renderCharacterRoom(container) {
+    container.className = 'character-select';
+    
+    const title = document.createElement('h2');
+    title.textContent = 'Switch Guardian';
+    container.appendChild(title);
+    
+    const grid = document.createElement('div');
+    grid.className = 'guardian-grid';
+    
+    // Get guardians data
+    const guardians = window.guardiansData || [];
+    
+    guardians.forEach(guardian => {
+        const card = document.createElement('div');
+        card.className = 'guardian-card';
+        
+        // Highlight active Guardian
+        if (guardian.id === gameState.active_guardian) {
+            card.style.borderColor = 'var(--success)';
+            card.style.background = 'rgba(46, 204, 113, 0.15)';
+        }
+        
+        const portrait = document.createElement('div');
+        portrait.className = 'guardian-card-portrait';
+        renderVisual(guardian.portrait, portrait);
+        if (guardian.portrait.show_name) {
+            portrait.textContent = guardian.name;
+        }
+        
+        const name = document.createElement('div');
+        name.className = 'guardian-card-name';
+        name.textContent = guardian.name;
+        
+        const role = document.createElement('div');
+        role.className = 'guardian-card-role';
+        role.textContent = guardian.role;
+        
+        // Show active indicator
+        if (guardian.id === gameState.active_guardian) {
+            const activeIndicator = document.createElement('div');
+            activeIndicator.style.fontSize = '12px';
+            activeIndicator.style.color = 'var(--success)';
+            activeIndicator.style.fontWeight = '600';
+            activeIndicator.textContent = 'ACTIVE';
+            card.appendChild(portrait);
+            card.appendChild(name);
+            card.appendChild(activeIndicator);
+            card.appendChild(role);
+        } else {
+            card.appendChild(portrait);
+            card.appendChild(name);
+            card.appendChild(role);
+        }
+        
+        card.onclick = () => {
+            if (guardian.id !== gameState.active_guardian) {
+                switchGuardian(guardian);
+            }
+        };
+        
+        grid.appendChild(card);
+    });
+    
+    container.appendChild(grid);
+}
+
+/**
+ * Switch to a different Guardian
+ */
+function switchGuardian(guardian) {
+    const previousGuardian = gameState.active_guardian;
+    gameState.active_guardian = guardian.id;
+    autoSave(gameState);
+    
+    // Update display
+    updateGuardianDisplay(guardian);
+    
+    showNotification(`Switched to ${guardian.name}!`);
+    
+    // Refresh the Character Room to show new active Guardian
+    switchRoom('character_room');
 }
 
 /**

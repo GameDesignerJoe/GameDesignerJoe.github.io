@@ -56,6 +56,15 @@
       "title_display": true
     },
     {
+      "id": "character_room",
+      "name": "Characters",
+      "background": {
+        "type": "color",
+        "value": "#1a2332"
+      },
+      "title_display": true
+    },
+    {
       "id": "inventory",
       "name": "Inventory",
       "background": {
