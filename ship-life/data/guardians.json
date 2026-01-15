@@ -20,7 +20,7 @@
       "portrait": {
         "type": "color",
         "value": "#ffd700",
-        "show_name": true
+        "show_name": false
       },
       "role": "DPS",
       "description": "A fierce warrior with a strategic mind",
@@ -33,7 +33,7 @@
       "portrait": {
         "type": "color",
         "value": "#4a90e2",
-        "show_name": true
+        "show_name": false
       },
       "role": "Tank",
       "description": "Steadfast defender who never backs down",
@@ -46,7 +46,7 @@
       "portrait": {
         "type": "color",
         "value": "#e74c3c",
-        "show_name": true
+        "show_name": false
       },
       "role": "Support",
       "description": "Tech specialist with advanced hacking skills",
@@ -59,7 +59,7 @@
       "portrait": {
         "type": "color",
         "value": "#9b59b6",
-        "show_name": true
+        "show_name": false
       },
       "role": "Ranged",
       "description": "Precision sniper with unmatched accuracy",
