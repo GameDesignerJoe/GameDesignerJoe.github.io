@@ -104,8 +104,11 @@ function getEligibleConversations(activeGuardianId, state) {
             return false;
         }
         
-        // Important conversations: only show if not completed
-        if (conv.type === "important") {
+        // Check if repeatable (default to false if not specified)
+        const isRepeatable = conv.repeatable === true;
+        
+        // Non-repeatable: only show if not completed
+        if (!isRepeatable) {
             if (state.completed_conversations.includes(conv.id)) {
                 return false;
             }

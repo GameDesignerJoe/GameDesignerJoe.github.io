@@ -241,4 +241,19 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Click outside sidebar to close
+ */
+document.addEventListener('click', (e) => {
+    const sidebar = document.getElementById('workstation-sidebar');
+    if (!sidebar.classList.contains('hidden')) {
+        // Check if click is outside sidebar
+        if (!sidebar.contains(e.target) && 
+            !e.target.closest('.workstation-card') &&
+            !e.target.closest('.guardian-npc-card')) {
+            closeSidebar();
+        }
+    }
+});
+
 console.log('UI utilities loaded.');

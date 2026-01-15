@@ -1,22 +1,28 @@
 TODO
-- Need to be able to go to a room and switch characters.
-- UI elements stop being centered after a bit and go to the right.
-- Ship Life prototype screen doesn't go away. 
-- Need a page for inventory
-- Need a reason to pick between different missions
-    - Possible types of resources
-    - Difficulty
-    - Unlocks other missions
+Priority 1:
+- Ship Life prototype screen at the very start doesn't go away. It just opens up the menu above. Perhaps we should clear this screen or take the players straight to the Character selection screen. Do we have any design around this that we need to update. 
+
+- Design Thought: We need a reason to pick between different missions. Some possible ideas:
+	- Show possible types of resources in the mission list so folks can make choices on which to take for the resources they need to unlock things.
+	- Difficulty doesn't have any real risk to it, because we're not losing anything. When we bring in aspects to the mission with the chance of losing them, that might help.
+	- Seeing what missions can unlock other missions. Maybe a 'story' or 'chain' tag with a Subtitle like "The Lost Kin Part 1 or 3" You do Part one, then Part 2 unlocks, sort of things
+	- Seems like you should have to succeed to unlock the other level of missions. 
+	- Seems like some missions should go away. Training Exercise for example
+	- New missions should be colored different. A gold boarder 
+	- Be nice to have a mission count somewhere on the page. "Missions Ran: 23" sort of thing
+	- Need better mission color range from 1 - 10. Red at 3 is too much. Red should be the highest difficulty out of the 10... or did we just go to 5 for now. Either way. Unless 4 and 5 are black.
+	- New feature to consider is that every time you run a mission it gains experience. It can level up and get more reward and more difficulty. We'd need to set up a cap of like any mission can only level up 3 levels beyond what it is (meaning we'd push past the level 5 cap here. We'd need a level count on the mission and a way to show that it's changed from what it was. This would encourage players to run the same mission more than once. 
+
 - Portal room seems off now, like why is it here?
-    Eventually, it'll house the load out for what guardians you take and what you bring with you. 
-- We ahve the mission path now, but I don't know what missions I need to take for what stuff to unlock.
-- Seems like you should have to succeed to unlock the other level of missions. 
-- Seems like some missions should go away.Training Exercise
-- New missions should be colored different
-- Text says victor on mission bar, even if you aren't going to win.
-- Be nice to have a mission count
-- Better mission color range from 1 - 10. Red at 3 is too much.
-- Be able to level missions 
-- Almost wish I could see the web of missions and where it leads
+	- Eventually, it'll house the load out for what guardians you take and what you bring with you. So, maybe just wait for that to come about and see. 
+	- It is odd that you can just rerun the mission over and over again from there. Seems like there should be a state that is after a mission has run, but before the user has picked a new mission that says, "Go to mission room to select a new mission"
+
+- Conversations need to go away, they are marked as background, but that also means the people are always hanging out. Perhaps we can have a different field for 'repeatable' and background versus important, or we just make everything important for now and see how that goes. 
+
+Priority 2:
+- The talk and workstation interact windows cover up the stations behind them. Not the end of the world, but since clicking off the interact window doesn't close the window, it's a little frustrating. 
+- It would be nice if the conversation selection titles appeared above the character sections rather in the larger window.
+- UI elements stop being centered after a bit and go to the right.
+- Need to get background images in so it feels more like the ship.
+- Text says victor on mission bar, even if you don't win. We should have the last few lines for each of these missions be written in a cliffhanger style so it's a surprise if you win or not.
 - Need to do something when you have duplicate blueprints.
-- Conversations need to go away.

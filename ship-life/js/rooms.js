@@ -118,26 +118,19 @@ function renderRoom(room) {
  */
 function renderLandingPage(container) {
     container.className = 'landing-page';
-    container.innerHTML = `
-        <h1>SHIP LIFE</h1>
-        <p>A FellowDivers Prototype</p>
-    `;
     
-    const playButton = createButton('Play', 'landing-button', () => {
-        enterFullscreen();
-        
-        // Check if player has active guardian
-        if (!gameState.active_guardian) {
-            switchRoom('character_select');
-        } else {
-            // Show navigation and go to last room
-            const navBar = document.getElementById('navigation-bar');
-            navBar.classList.remove('hidden');
-            switchRoom(gameState.last_room || 'mission_computer');
-        }
-    });
+    // Auto-transition after a brief moment
+    enterFullscreen();
     
-    container.appendChild(playButton);
+    // Check if player has active guardian
+    if (!gameState.active_guardian) {
+        switchRoom('character_select');
+    } else {
+        // Show navigation and go to last room
+        const navBar = document.getElementById('navigation-bar');
+        navBar.classList.remove('hidden');
+        switchRoom(gameState.last_room || 'mission_computer');
+    }
 }
 
 /**

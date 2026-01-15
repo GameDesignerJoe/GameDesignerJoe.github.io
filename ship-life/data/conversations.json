@@ -4,6 +4,7 @@
     "id": "Unique identifier for this conversation (string)",
     "title": "Display name shown in conversation list (string)",
     "type": "Conversation type - 'important' (story-critical) or 'background' (filler) (string)",
+    "repeatable": "Can this conversation be played more than once? (boolean)",
     "participants": "Array of exactly 2 guardian IDs involved in conversation (array)",
     "player_char_req": "Player character requirement - 'any', specific guardian ID, or array of IDs (string or array)",
     "prerequisites": {
@@ -19,6 +20,7 @@
       "id": "stella_vawn_breaking_ice",
       "title": "Breaking the Ice",
       "type": "important",
+      "repeatable": false,
       "participants": ["stella", "vawn"],
       "player_char_req": "any",
       "prerequisites": {
@@ -41,6 +43,7 @@
       "id": "stella_tiberius_scholar_soldier",
       "title": "The Scholar and the Soldier",
       "type": "important",
+      "repeatable": false,
       "participants": ["stella", "tiberius"],
       "player_char_req": "any",
       "prerequisites": {
@@ -63,6 +66,7 @@
       "id": "vawn_tiberius_old_friends",
       "title": "Old Friends, New War",
       "type": "important",
+      "repeatable": false,
       "participants": ["vawn", "tiberius"],
       "player_char_req": "any",
       "prerequisites": {
@@ -84,6 +88,7 @@
       "id": "stella_maestra_music_and_war",
       "title": "Music in the Dark",
       "type": "important",
+      "repeatable": false,
       "participants": ["stella", "maestra"],
       "player_char_req": "any",
       "prerequisites": {

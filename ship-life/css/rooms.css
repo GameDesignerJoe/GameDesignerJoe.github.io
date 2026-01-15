@@ -113,6 +113,7 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 30px;
     max-width: 1200px;
+    margin: 0 auto;
 }
 
 .mission-card {
@@ -189,6 +190,7 @@
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 30px;
     max-width: 1200px;
+    margin: 0 auto;
     padding: 20px;
 }
 
@@ -251,6 +253,7 @@
     align-items: center;
     gap: 30px;
     max-width: 600px;
+    margin: 0 auto;
 }
 
 .selected-mission-display {
@@ -292,6 +295,7 @@
     align-items: center;
     gap: 30px;
     max-width: 700px;
+    margin: 0 auto;
 }
 
 .simulation-message {
@@ -371,6 +375,7 @@
     flex-direction: column;
     gap: 40px;
     max-width: 1200px;
+    margin: 0 auto;
     padding: 20px;
 }
 
