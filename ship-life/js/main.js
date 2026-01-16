@@ -87,8 +87,8 @@ async function initializeGame() {
         // Go to last room or mission computer
         switchRoom(gameState.last_room || 'mission_computer');
     } else {
-        // No guardian selected, go to character select
-        switchRoom('character_select');
+        // No guardian selected, show landing page first
+        switchRoom('landing_page');
     }
     
     console.log('Ship Life initialized successfully!');

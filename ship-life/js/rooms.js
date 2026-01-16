@@ -125,10 +125,24 @@ function renderRoom(room) {
  * Render Landing Page
  */
 function renderLandingPage(container) {
-    // Landing page should auto-transition, so just return empty
-    // The main.js will handle the initial room switching
     container.className = 'landing-page';
-    container.innerHTML = '<p style="opacity: 0;">Loading...</p>';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Fellowdivers Ship Life';
+    title.style.marginBottom = '60px';
+    
+    const playButton = createButton('Play', 'landing-button', () => {
+        // Start background music when player clicks Play
+        if (window.audioManager && window.audioManager.settings.musicEnabled) {
+            window.audioManager.playMusic('bgm_ship_01');
+        }
+        
+        // Go to character select
+        switchRoom('character_select');
+    });
+    
+    container.appendChild(title);
+    container.appendChild(playButton);
 }
 
 /**

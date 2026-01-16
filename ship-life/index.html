@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ship Life - Password</title>
+    <title>Fellowdivers Ship Life</title>
     <style>
         body {
             margin: 0;
@@ -15,117 +15,130 @@
             align-items: center;
             height: 100vh;
             color: #ecf0f1;
+            overflow: hidden;
         }
         
-        .password-container {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 0 30px rgba(74, 144, 226, 0.3);
+        .landing-container {
             text-align: center;
-            max-width: 400px;
+            animation: fadeIn 1s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         h1 {
             font-family: 'Orbitron', sans-serif;
-            font-size: 28px;
-            margin-bottom: 20px;
+            font-size: 56px;
+            margin-bottom: 60px;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 5px;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.8),
+                         0 0 40px rgba(74, 144, 226, 0.5);
+            animation: glow 2s ease-in-out infinite alternate;
         }
         
-        input {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 2px solid #4a90e2;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #ecf0f1;
-            margin: 20px 0;
-            box-sizing: border-box;
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 20px rgba(74, 144, 226, 0.8),
+                             0 0 40px rgba(74, 144, 226, 0.5);
+            }
+            to {
+                text-shadow: 0 0 30px rgba(74, 144, 226, 1),
+                             0 0 60px rgba(74, 144, 226, 0.7);
+            }
         }
         
-        input:focus {
-            outline: none;
-            border-color: #2ecc71;
-        }
-        
-        button {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            background: #4a90e2;
+        .play-button {
+            padding: 25px 80px;
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #4a90e2, #357abd);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 50px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            box-shadow: 0 8px 25px rgba(74, 144, 226, 0.4);
+            font-family: 'Orbitron', sans-serif;
         }
         
-        button:hover {
-            background: #357abd;
-            transform: scale(1.02);
+        .play-button:hover {
+            background: linear-gradient(135deg, #357abd, #2ecc71);
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 12px 35px rgba(74, 144, 226, 0.6),
+                        0 0 40px rgba(74, 144, 226, 0.4);
         }
         
-        button:active {
-            transform: scale(0.98);
+        .play-button:active {
+            transform: scale(1.05) translateY(-2px);
         }
         
-        .error {
-            color: #e74c3c;
-            margin-top: 10px;
-            font-size: 14px;
+        /* Starfield background effect */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="password-container">
-        <h1>Ship Life</h1>
-        <p>Enter Access Code</p>
-        <input type="password" id="passwordInput" placeholder="Password" autofocus>
-        <button onclick="checkPassword()">Enter</button>
-        <div id="error" class="error"></div>
+    <!-- Starfield background -->
+    <div class="stars" id="starfield"></div>
+    
+    <div class="landing-container">
+        <h1>Fellowdivers<br>Ship Life</h1>
+        <button class="play-button" onclick="startGame()">Play</button>
     </div>
     
     <script>
-        // PASSWORD TEMPORARILY DISABLED - Auto-redirect to game
-        // To re-enable: delete the line below and uncomment the password check code
-        window.location.href = 'game.html';
-        
-        /* PASSWORD CHECK CODE (currently disabled)
-        const CORRECT_PASSWORD = 'FellowDivers2025';
-        const STORAGE_KEY = 'shiplife_password';
-        
-        // Check if password already stored
-        const savedPassword = localStorage.getItem(STORAGE_KEY);
-        if (savedPassword === CORRECT_PASSWORD) {
-            window.location.href = 'game.html';
+        // Create starfield
+        const starfield = document.getElementById('starfield');
+        for (let i = 0; i < 100; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = Math.random() * 3 + 's';
+            starfield.appendChild(star);
         }
-        */
         
-        // Allow Enter key to submit
-        document.getElementById('passwordInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                checkPassword();
-            }
-        });
-        
-        function checkPassword() {
-            const input = document.getElementById('passwordInput');
-            const password = input.value;
-            const errorDiv = document.getElementById('error');
+        function startGame() {
+            // Add click effect
+            const button = event.target;
+            button.style.transform = 'scale(0.95)';
             
-            if (password === CORRECT_PASSWORD) {
-                localStorage.setItem(STORAGE_KEY, password);
+            // Navigate to game after brief delay
+            setTimeout(() => {
                 window.location.href = 'game.html';
-            } else {
-                errorDiv.textContent = 'Incorrect password. Try again.';
-                input.value = '';
-                input.focus();
-            }
+            }, 200);
         }
     </script>
 </body>
