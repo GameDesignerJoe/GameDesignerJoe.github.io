@@ -946,13 +946,22 @@
     .mission-anomaly-badge {
         font-size: 10px;
         padding: 6px 10px;
-        bottom: 50px;
+        position: relative;
+        bottom: auto;
+        left: auto;
+        right: auto;
+        margin-top: 10px;
+        white-space: normal;
     }
     
     .mission-requirement-hint {
         font-size: 9px;
         padding: 5px 8px;
-        bottom: 85px;
+        position: relative;
+        bottom: auto;
+        left: auto;
+        right: auto;
+        margin-top: 8px;
     }
     
     /* Workstation Room */
