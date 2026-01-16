@@ -51,9 +51,14 @@
       "map": "terminus_outpost",
       "mission_type": "diplomatic",
       "requirements": null,
+      "chain": {
+        "name": "Diplomatic Relations",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
-        "value": "#4a90e2",
+        "value": "#27ae60",
         "show_name": true
       },
       "difficulty": 1,
@@ -132,7 +137,7 @@
       "requirements": null,
       "visual": {
         "type": "color",
-        "value": "#27ae60",
+        "value": "#16a085",
         "show_name": true
       },
       "difficulty": 2,
