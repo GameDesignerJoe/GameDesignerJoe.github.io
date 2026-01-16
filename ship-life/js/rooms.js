@@ -430,6 +430,32 @@ function createMissionCard(mission, isLocked) {
         }
         
         card.appendChild(anomalyBadge);
+        
+        // Add requirement hint if anomaly has requirements
+        if (mission.anomaly.effects) {
+            const effects = mission.anomaly.effects;
+            let requirementHint = '';
+            
+            if (effects.requires_minimum_guardians) {
+                requirementHint = `Requires ${effects.requires_minimum_guardians}+ Guardians`;
+            } else if (effects.requires_equipment_type) {
+                const equipName = effects.requires_equipment_type
+                    .split('_')
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(' ');
+                requirementHint = `Requires ${equipName}`;
+            } else if (effects.requires_specific_guardian) {
+                const guard = window.guardiansData?.find(g => g.id === effects.requires_specific_guardian);
+                requirementHint = `Requires ${guard ? guard.name : 'specific Guardian'}`;
+            }
+            
+            if (requirementHint) {
+                const reqDiv = document.createElement('div');
+                reqDiv.className = 'mission-requirement-hint';
+                reqDiv.textContent = `⚠️ ${requirementHint}`;
+                card.appendChild(reqDiv);
+            }
+        }
     }
     
     card.appendChild(visual);

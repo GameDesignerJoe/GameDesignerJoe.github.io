@@ -100,6 +100,12 @@ function executeDebugCommand(command) {
             }
             break;
             
+        case 'reroll_anomalies':
+            switchRoom('mission_computer');
+            debugLog('Rerolled anomalies on Mission Computer', 'success');
+            showNotification('Anomalies rerolled!');
+            break;
+            
         case 'reset_save':
             debugResetSave();
             break;
@@ -124,6 +130,7 @@ function executeDebugCommand(command) {
             debugLog('  set_guardian [id]', 'info');
             debugLog('  complete_mission [id]', 'info');
             debugLog('  set_missions_together [pair] [count]', 'info');
+            debugLog('  reroll_anomalies', 'info');
             debugLog('  reset_save', 'info');
             break;
             

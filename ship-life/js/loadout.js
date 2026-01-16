@@ -232,9 +232,15 @@ function checkMissionRequirements(state, selectedGuardians, mission) {
             }
             
             if (!hasEquipment) {
+                // Capitalize equipment type for display
+                const equipmentName = effects.requires_equipment_type
+                    .split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+                
                 return {
                     met: false,
-                    missing: `${mission.anomaly.name} requires ${effects.requires_equipment_type} equipment`
+                    missing: `Requires at least one Guardian equipped with ${equipmentName} equipment`
                 };
             }
         }

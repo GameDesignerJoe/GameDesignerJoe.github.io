@@ -176,6 +176,17 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
     const anomalyMultiplier = mission.anomaly?.effects?.reward_multiplier || 1.0;
     const rewards = rollRewards(rewardPool, anomalyMultiplier);
     
+    // Add anomaly bonus items (if mission succeeded and anomaly has bonus items)
+    if (success && mission.anomaly?.effects?.reward_bonus_items) {
+        mission.anomaly.effects.reward_bonus_items.forEach(bonusItem => {
+            rewards.push({
+                item: bonusItem.item,
+                quantity: bonusItem.amount
+            });
+        });
+        console.log(`Anomaly "${mission.anomaly.name}" granted bonus items`);
+    }
+    
     // Update state
     addRewardsToInventory(rewards, gameState);
     incrementMissionCounter(gameState, gameState.active_guardian);
@@ -188,6 +199,28 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
     
     // Track missions together for the squad
     incrementMissionsTogether(gameState, squad);
+    
+    // Apply anomaly special effects on success
+    if (success && mission.anomaly?.effects) {
+        const effects = mission.anomaly.effects;
+        
+        // Relationship bonus
+        if (effects.relationship_bonus && squad.length >= 2) {
+            // Add relationship points between all squad members
+            for (let i = 0; i < squad.length; i++) {
+                for (let j = i + 1; j < squad.length; j++) {
+                    incrementRelationship(gameState, squad[i], squad[j], effects.relationship_bonus);
+                }
+            }
+            console.log(`Anomaly "${mission.anomaly.name}" granted +${effects.relationship_bonus} relationship to all pairs`);
+        }
+        
+        // Set anomaly unlock flag
+        if (effects.unlock_flag) {
+            setFlag(gameState, effects.unlock_flag);
+            console.log(`Anomaly "${mission.anomaly.name}" set flag: ${effects.unlock_flag}`);
+        }
+    }
     
     // Set trophy flags based on mission completion
     if (success) {
@@ -264,6 +297,20 @@ function showMissionResults(mission, success, rewards) {
     const status = document.getElementById('results-status');
     status.className = success ? 'results-status success' : 'results-status failure';
     status.textContent = success ? 'MISSION SUCCESS' : 'MISSION FAILED';
+    
+    // Show anomaly effect message if present
+    if (mission.anomaly && success) {
+        const anomalyMessage = document.createElement('div');
+        anomalyMessage.style.fontSize = '14px';
+        anomalyMessage.style.color = 'var(--primary)';
+        anomalyMessage.style.marginTop = '10px';
+        anomalyMessage.style.padding = '10px';
+        anomalyMessage.style.background = 'rgba(74, 144, 226, 0.2)';
+        anomalyMessage.style.borderRadius = '5px';
+        anomalyMessage.textContent = `⚡ ${mission.anomaly.name} enhanced this mission!`;
+        
+        status.parentElement.insertBefore(anomalyMessage, status.nextSibling);
+    }
     
     const rewardsDiv = document.getElementById('results-rewards');
     rewardsDiv.innerHTML = '<h3>Rewards Received</h3>';
