@@ -50,8 +50,11 @@ function selectMissionsForDisplay(availableMissions, count = 3) {
 /**
  * Start mission simulation
  */
-async function startMissionSimulation(mission) {
+async function startMissionSimulation(mission, selectedGuardians = null) {
     lockNavigation();
+    
+    // Use provided squad or fallback to all guardians
+    const squad = selectedGuardians || ['stella', 'vawn', 'tiberius', 'maestra'];
     
     const container = document.getElementById('room-container');
     container.innerHTML = '';
@@ -105,10 +108,15 @@ async function startMissionSimulation(mission) {
         await animateProgressBar(progressFill, 100, 0.5);
     }
     
-    // Calculate success
-    const successRate = 100 - (mission.difficulty * 10);
+    // Calculate success with loadout bonuses
+    const rateCalc = calculateMissionSuccessRate(gameState, squad, mission);
     const roll = Math.random() * 100;
-    const success = roll <= successRate;
+    const success = roll <= rateCalc.final;
+    
+    console.log(`Mission: ${mission.name}`);
+    console.log(`Squad: ${squad.join(', ')}`);
+    console.log(`Success Rate: ${rateCalc.base}% + ${rateCalc.loadoutBonus}% = ${rateCalc.final}%`);
+    console.log(`Roll: ${roll.toFixed(2)} - ${success ? 'SUCCESS' : 'FAILURE'}`);
     
     // Roll rewards
     const rewardPool = success ? mission.rewards.success : mission.rewards.failure;
@@ -118,9 +126,8 @@ async function startMissionSimulation(mission) {
     addRewardsToInventory(rewards, gameState);
     incrementMissionCounter(gameState, gameState.active_guardian);
     
-    // Hardcoded team (all 4 Guardians for MVP)
-    const team = ['stella', 'vawn', 'tiberius', 'maestra'];
-    incrementMissionsTogether(gameState, team);
+    // Track missions together for the squad
+    incrementMissionsTogether(gameState, squad);
     
     if (success) {
         gameState.completed_missions.push(mission.id);

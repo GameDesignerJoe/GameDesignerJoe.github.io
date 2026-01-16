@@ -142,7 +142,11 @@
         "value": "#ff6600",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "weapon",
+      "mission_bonuses": {
+        "combat": 10
+      },
       "stack_count": 10
     },
     {
@@ -154,7 +158,11 @@
         "value": "#3498db",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "armor",
+      "mission_bonuses": {
+        "defend": 10
+      },
       "stack_count": 10
     },
     {
@@ -358,7 +366,11 @@
         "value": "#e67e22",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "weapon",
+      "mission_bonuses": {
+        "combat": 15
+      },
       "stack_count": 10
     },
     {
@@ -370,7 +382,11 @@
         "value": "#e74c3c",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "weapon",
+      "mission_bonuses": {
+        "combat": 15
+      },
       "stack_count": 10
     },
     {
@@ -382,7 +398,11 @@
         "value": "#9b59b6",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "weapon",
+      "mission_bonuses": {
+        "combat": 20
+      },
       "stack_count": 10
     },
     {
@@ -394,7 +414,11 @@
         "value": "#2980b9",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "armor",
+      "mission_bonuses": {
+        "defend": 15
+      },
       "stack_count": 10
     },
     {
@@ -406,7 +430,12 @@
         "value": "#7f8c8d",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "armor",
+      "mission_bonuses": {
+        "combat": 10,
+        "defend": 10
+      },
       "stack_count": 10
     },
     {
@@ -418,7 +447,11 @@
         "value": "#34495e",
         "show_name": true
       },
-      "type": "aspect",
+      "type": "equipment",
+      "subtype": "armor",
+      "mission_bonuses": {
+        "defend": 20
+      },
       "stack_count": 10
     },
     {
@@ -431,6 +464,11 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "tech",
+      "mission_bonuses": {
+        "search": 8,
+        "recon": 8
+      },
       "stack_count": 10
     },
     {
@@ -443,6 +481,12 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "tech",
+      "mission_bonuses": {
+        "search": 12,
+        "recon": 12,
+        "collection": 8
+      },
       "stack_count": 10
     },
     {
@@ -455,6 +499,11 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "tech",
+      "mission_bonuses": {
+        "search": 10,
+        "recon": 10
+      },
       "stack_count": 10
     },
     {
@@ -467,6 +516,12 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "tech",
+      "mission_bonuses": {
+        "combat": 5,
+        "search": 5,
+        "recon": 5
+      },
       "stack_count": 10
     },
     {
@@ -479,6 +534,12 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "tech",
+      "mission_bonuses": {
+        "combat": 8,
+        "search": 8,
+        "recon": 8
+      },
       "stack_count": 10
     },
     {
@@ -491,6 +552,10 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "medical",
+      "mission_bonuses": {
+        "rescue": 8
+      },
       "stack_count": 10
     },
     {
@@ -503,6 +568,10 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "medical",
+      "mission_bonuses": {
+        "rescue": 10
+      },
       "stack_count": 10
     },
     {
@@ -515,6 +584,10 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "medical",
+      "mission_bonuses": {
+        "rescue": 12
+      },
       "stack_count": 10
     },
     {
@@ -527,6 +600,10 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "medical",
+      "mission_bonuses": {
+        "rescue": 15
+      },
       "stack_count": 10
     },
     {
@@ -539,6 +616,10 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "medical",
+      "mission_bonuses": {
+        "rescue": 20
+      },
       "stack_count": 10
     },
     {
@@ -551,6 +632,11 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "structural",
+      "mission_bonuses": {
+        "defend": 8,
+        "collection": 5
+      },
       "stack_count": 10
     },
     {
@@ -563,6 +649,11 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "structural",
+      "mission_bonuses": {
+        "defend": 10,
+        "collection": 8
+      },
       "stack_count": 10
     },
     {
@@ -575,6 +666,11 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "structural",
+      "mission_bonuses": {
+        "defend": 12,
+        "combat": 8
+      },
       "stack_count": 10
     },
     {
@@ -587,6 +683,11 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "structural",
+      "mission_bonuses": {
+        "defend": 15,
+        "collection": 10
+      },
       "stack_count": 10
     },
     {
@@ -599,6 +700,12 @@
         "show_name": true
       },
       "type": "aspect",
+      "subtype": "structural",
+      "mission_bonuses": {
+        "defend": 20,
+        "search": 10,
+        "recon": 10
+      },
       "stack_count": 10
     }
   ]

@@ -71,6 +71,56 @@
         </div>
     </div>
     
+    <!-- Loadout Management Modal -->
+    <div id="loadout-modal" class="modal hidden">
+        <div class="loadout-modal-container">
+            <div class="loadout-header">
+                <div id="loadout-guardian-info">
+                    <div id="loadout-guardian-portrait"></div>
+                    <div id="loadout-guardian-name"></div>
+                </div>
+                <button class="close-modal-btn" onclick="closeLoadoutModal()">×</button>
+            </div>
+            
+            <div class="loadout-content">
+                <!-- Equipment Slots -->
+                <div class="loadout-slots-section">
+                    <h3>Equipment & Aspects</h3>
+                    <div class="loadout-slots">
+                        <div class="loadout-slot equipment-slot" data-slot-type="equipment" data-slot-index="0">
+                            <div class="slot-label">Equipment</div>
+                            <div class="slot-content empty">Empty</div>
+                        </div>
+                        <div class="loadout-slot aspect-slot" data-slot-type="aspect" data-slot-index="0">
+                            <div class="slot-label">Aspect 1</div>
+                            <div class="slot-content empty">Empty</div>
+                        </div>
+                        <div class="loadout-slot aspect-slot" data-slot-type="aspect" data-slot-index="1">
+                            <div class="slot-label">Aspect 2</div>
+                            <div class="slot-content empty">Empty</div>
+                        </div>
+                        <div class="loadout-slot aspect-slot" data-slot-type="aspect" data-slot-index="2">
+                            <div class="slot-label">Aspect 3</div>
+                            <div class="slot-content empty">Empty</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Item Picker -->
+                <div class="loadout-picker-section">
+                    <h3 id="picker-title">Select a slot</h3>
+                    <div id="item-picker" class="item-picker">
+                        <p class="picker-hint">Click a slot above to choose items</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="loadout-footer">
+                <button class="btn-primary" onclick="closeLoadoutModal()">Done</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Quit Dialog -->
     <div id="quit-dialog" class="modal hidden">
         <div class="dialog-container">
@@ -103,6 +153,7 @@
             <button onclick="debugValidateData()">🔍 Validate All Data Files</button>
             <button onclick="debugResetSave()">Reset Save</button>
             <button onclick="debugGiveResources()">Give 100 of Each Resource</button>
+            <button onclick="debugGiveAllBlueprints()">📘 Learn All Blueprints</button>
             <button onclick="debugGiveAllItems()">Give ALL Items (Full Inventory)</button>
             <hr style="margin: 15px 0; border-color: rgba(255,255,255,0.2);">
             <button onclick="debugToggleMusic()" id="debug-toggle-music">Toggle Music</button>
@@ -118,6 +169,7 @@
     <script src="js/audio.js?v=10"></script>
     <script src="js/validation.js?v=10"></script>
     <script src="js/state.js?v=10"></script>
+    <script src="js/loadout.js?v=10"></script>
     <script src="js/ui.js?v=10"></script>
     <script src="js/rooms.js?v=10"></script>
     <script src="js/guardians.js?v=10"></script>

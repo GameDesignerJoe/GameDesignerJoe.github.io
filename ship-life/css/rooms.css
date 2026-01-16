@@ -269,7 +269,7 @@
     flex-direction: column;
     align-items: center;
     gap: 30px;
-    max-width: 600px;
+    max-width: 900px;
     margin: 0 auto;
 }
 
@@ -278,6 +278,7 @@
     border-radius: var(--border-radius);
     padding: 30px;
     text-align: center;
+    width: 100%;
 }
 
 .selected-mission-display h2 {
@@ -287,6 +288,103 @@
 .selected-mission-display p {
     margin: 10px 0;
     line-height: 1.6;
+}
+
+/* Squad Selection */
+.squad-selection-section {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 30px;
+    width: 100%;
+}
+
+.squad-guardian-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.squad-guardian-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.squad-guardian-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+}
+
+.squad-guardian-card.selected {
+    background: rgba(74, 144, 226, 0.2);
+    border-color: var(--primary);
+    border-width: 4px;
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+}
+
+.squad-guardian-portrait {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--primary);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.squad-guardian-name {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.squad-loadout-preview {
+    font-size: 11px;
+    opacity: 0.7;
+    text-align: center;
+}
+
+.manage-loadout-btn {
+    padding: 8px 16px;
+    background: var(--primary);
+    color: white;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    margin-top: 5px;
+}
+
+.manage-loadout-btn:hover {
+    background: #357abd;
+    transform: scale(1.05);
+}
+
+.manage-loadout-btn:active {
+    transform: scale(0.95);
+}
+
+/* Success Rate Display */
+.success-rate-section {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    width: 100%;
+    text-align: center;
 }
 
 .launch-button {

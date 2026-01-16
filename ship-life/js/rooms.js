@@ -370,21 +370,438 @@ function renderPlanetfallPortal(container) {
         return;
     }
     
-    const display = document.createElement('div');
-    display.className = 'selected-mission-display';
-    display.innerHTML = `
+    // Initialize selected guardians if not exists
+    if (!window.selectedGuardians) {
+        window.selectedGuardians = [];
+    }
+    
+    // Mission info section
+    const missionInfo = document.createElement('div');
+    missionInfo.className = 'selected-mission-display';
+    missionInfo.innerHTML = `
         <h2>${mission.name}</h2>
         <p>${mission.description}</p>
         <p><strong>Difficulty:</strong> ${mission.difficulty}/10</p>
-        <p><strong>Success Rate:</strong> ${100 - (mission.difficulty * 10)}%</p>
     `;
     
-    const launchButton = createButton('Launch Mission', 'launch-button', () => {
-        startMissionSimulation(mission);
+    // Squad selection section
+    const squadSection = document.createElement('div');
+    squadSection.className = 'squad-selection-section';
+    
+    const squadTitle = document.createElement('h3');
+    squadTitle.textContent = 'Select Squad (1-4 Guardians)';
+    squadTitle.style.marginBottom = '15px';
+    squadSection.appendChild(squadTitle);
+    
+    const guardianGrid = document.createElement('div');
+    guardianGrid.className = 'squad-guardian-grid';
+    
+    const guardians = window.guardiansData || [];
+    guardians.forEach(guardian => {
+        const card = document.createElement('div');
+        card.className = 'squad-guardian-card';
+        
+        const isSelected = window.selectedGuardians.includes(guardian.id);
+        if (isSelected) {
+            card.classList.add('selected');
+        }
+        
+        // Portrait
+        const portrait = document.createElement('div');
+        portrait.className = 'squad-guardian-portrait';
+        renderVisual(guardian.portrait, portrait);
+        if (guardian.portrait.show_name) {
+            portrait.textContent = guardian.name;
+        }
+        
+        // Name
+        const name = document.createElement('div');
+        name.className = 'squad-guardian-name';
+        name.textContent = guardian.name;
+        
+        // Loadout preview
+        const loadoutPreview = document.createElement('div');
+        loadoutPreview.className = 'squad-loadout-preview';
+        const loadout = getLoadout(gameState, guardian.id);
+        
+        // Show equipped items
+        let equippedCount = 0;
+        if (loadout.equipment) equippedCount++;
+        equippedCount += loadout.aspects.filter(a => a).length;
+        
+        loadoutPreview.textContent = `${equippedCount}/4 equipped`;
+        loadoutPreview.style.fontSize = '11px';
+        loadoutPreview.style.opacity = '0.7';
+        
+        // Manage loadout button
+        const manageBtn = document.createElement('button');
+        manageBtn.className = 'manage-loadout-btn';
+        manageBtn.textContent = 'Manage Loadout';
+        manageBtn.onclick = (e) => {
+            e.stopPropagation();
+            openLoadoutModal(guardian.id);
+        };
+        
+        card.appendChild(portrait);
+        card.appendChild(name);
+        card.appendChild(loadoutPreview);
+        card.appendChild(manageBtn);
+        
+        // Toggle selection
+        card.onclick = () => toggleGuardianSelection(guardian.id);
+        
+        guardianGrid.appendChild(card);
     });
     
-    container.appendChild(display);
+    squadSection.appendChild(guardianGrid);
+    
+    // Success rate display
+    const successSection = document.createElement('div');
+    successSection.className = 'success-rate-section';
+    successSection.id = 'success-rate-display';
+    updateSuccessRateDisplay(successSection, mission);
+    
+    // Launch button
+    const launchButton = createButton('Launch Mission', 'launch-button', () => {
+        launchMissionWithSquad(mission);
+    });
+    
+    container.appendChild(missionInfo);
+    container.appendChild(squadSection);
+    container.appendChild(successSection);
     container.appendChild(launchButton);
+}
+
+/**
+ * Toggle guardian selection for squad
+ */
+function toggleGuardianSelection(guardianId) {
+    if (!window.selectedGuardians) {
+        window.selectedGuardians = [];
+    }
+    
+    const index = window.selectedGuardians.indexOf(guardianId);
+    if (index > -1) {
+        // Deselect
+        window.selectedGuardians.splice(index, 1);
+    } else {
+        // Select (max 4)
+        if (window.selectedGuardians.length < 4) {
+            window.selectedGuardians.push(guardianId);
+        } else {
+            showNotification('Maximum 4 guardians per mission', 'error');
+            return;
+        }
+    }
+    
+    // Refresh planetfall portal
+    switchRoom('planetfall_portal');
+}
+
+/**
+ * Update success rate display
+ */
+function updateSuccessRateDisplay(container, mission) {
+    container.innerHTML = '';
+    
+    if (window.selectedGuardians.length === 0) {
+        container.innerHTML = '<p style="opacity: 0.7;">Select at least 1 guardian</p>';
+        return;
+    }
+    
+    const rateCalc = calculateMissionSuccessRate(gameState, window.selectedGuardians, mission);
+    const requirementCheck = checkMissionRequirements(gameState, window.selectedGuardians, mission);
+    
+    const title = document.createElement('div');
+    title.style.fontSize = '14px';
+    title.style.fontWeight = '600';
+    title.style.marginBottom = '8px';
+    title.textContent = 'Mission Success Rate';
+    
+    const breakdown = document.createElement('div');
+    breakdown.style.fontSize = '13px';
+    breakdown.innerHTML = `
+        <div>Base Rate: ${rateCalc.base}%</div>
+        <div style="color: var(--primary);">Loadout Bonus: +${rateCalc.loadoutBonus}%</div>
+        <div style="font-size: 16px; font-weight: 700; margin-top: 8px; color: ${rateCalc.final >= 80 ? 'var(--success)' : rateCalc.final >= 50 ? 'var(--warning)' : 'var(--error)'};">
+            Final: ${rateCalc.final}%
+        </div>
+    `;
+    
+    container.appendChild(title);
+    container.appendChild(breakdown);
+    
+    // Show requirements warning
+    if (!requirementCheck.met) {
+        const warning = document.createElement('div');
+        warning.style.color = 'var(--error)';
+        warning.style.marginTop = '10px';
+        warning.style.padding = '10px';
+        warning.style.background = 'rgba(231, 76, 60, 0.2)';
+        warning.style.borderRadius = '5px';
+        warning.style.fontSize = '12px';
+        warning.innerHTML = `⚠️ ${requirementCheck.missing}`;
+        container.appendChild(warning);
+    }
+}
+
+/**
+ * Launch mission with selected squad
+ */
+function launchMissionWithSquad(mission) {
+    if (window.selectedGuardians.length === 0) {
+        showNotification('Select at least 1 guardian', 'error');
+        return;
+    }
+    
+    // Check requirements
+    const requirementCheck = checkMissionRequirements(gameState, window.selectedGuardians, mission);
+    if (!requirementCheck.met) {
+        showNotification(requirementCheck.missing, 'error');
+        return;
+    }
+    
+    // Start mission with loadout bonuses
+    startMissionSimulation(mission, window.selectedGuardians);
+}
+
+/**
+ * Open loadout management modal
+ */
+function openLoadoutModal(guardianId) {
+    window.currentLoadoutGuardian = guardianId;
+    const guardian = getGuardianById(guardianId);
+    
+    // Set guardian info
+    const portrait = document.getElementById('loadout-guardian-portrait');
+    const name = document.getElementById('loadout-guardian-name');
+    renderVisual(guardian.portrait, portrait);
+    if (guardian.portrait.show_name) {
+        portrait.textContent = guardian.name;
+    }
+    name.textContent = guardian.name;
+    
+    // Load current loadout into slots
+    refreshLoadoutSlots(guardianId);
+    
+    // Clear item picker
+    const picker = document.getElementById('item-picker');
+    picker.innerHTML = '<p class="picker-hint">Click a slot above to choose items</p>';
+    
+    // Show modal
+    const modal = document.getElementById('loadout-modal');
+    modal.classList.remove('hidden');
+    
+    // Add click handlers to slots
+    document.querySelectorAll('.loadout-slot').forEach(slot => {
+        slot.onclick = () => selectLoadoutSlot(slot);
+    });
+}
+
+/**
+ * Close loadout modal
+ */
+function closeLoadoutModal() {
+    const modal = document.getElementById('loadout-modal');
+    modal.classList.add('hidden');
+    window.currentLoadoutGuardian = null;
+    
+    // Refresh planetfall portal if we're there
+    if (currentRoom && currentRoom.id === 'planetfall_portal') {
+        switchRoom('planetfall_portal');
+    }
+}
+
+/**
+ * Refresh loadout slots display
+ */
+function refreshLoadoutSlots(guardianId) {
+    const loadout = getLoadout(gameState, guardianId);
+    
+    // Equipment slot
+    const equipSlot = document.querySelector('.loadout-slot[data-slot-type="equipment"]');
+    updateSlotDisplay(equipSlot, loadout.equipment);
+    
+    // Aspect slots
+    loadout.aspects.forEach((aspectId, index) => {
+        const slot = document.querySelector(`.loadout-slot[data-slot-type="aspect"][data-slot-index="${index}"]`);
+        updateSlotDisplay(slot, aspectId);
+    });
+}
+
+/**
+ * Update a slot's visual display
+ */
+function updateSlotDisplay(slotElement, itemId) {
+    const content = slotElement.querySelector('.slot-content');
+    
+    if (!itemId) {
+        content.className = 'slot-content empty';
+        content.textContent = 'Empty';
+        return;
+    }
+    
+    const item = window.itemsData.find(i => i.id === itemId);
+    if (!item) {
+        content.className = 'slot-content empty';
+        content.textContent = 'Empty';
+        return;
+    }
+    
+    const slotType = slotElement.dataset.slotType;
+    const slotIndex = parseInt(slotElement.dataset.slotIndex);
+    const guardianId = window.currentLoadoutGuardian;
+    
+    content.className = 'slot-content filled';
+    content.innerHTML = `
+        <div class="slot-item-icon" style="background: ${item.icon.value}"></div>
+        <div class="slot-item-name">${item.name}</div>
+        <button class="slot-unequip-btn" onclick="event.stopPropagation(); unequipSlot('${guardianId}', '${slotType}', ${slotIndex})">×</button>
+    `;
+}
+
+/**
+ * Unequip an item from a slot (called from slot button)
+ */
+function unequipSlot(guardianId, slotType, slotIndex) {
+    unequipItem(gameState, guardianId, slotType, slotIndex);
+    refreshLoadoutSlots(guardianId);
+    autoSave(gameState);
+    
+    // Refresh picker if this slot is currently selected
+    const activeSlot = document.querySelector('.loadout-slot.active');
+    if (activeSlot && 
+        activeSlot.dataset.slotType === slotType && 
+        parseInt(activeSlot.dataset.slotIndex) === slotIndex) {
+        showItemPicker(slotType, slotIndex);
+    }
+    
+    showNotification('Item unequipped', 'success');
+}
+
+/**
+ * Select a loadout slot to equip items
+ */
+function selectLoadoutSlot(slotElement) {
+    // Remove previous selection
+    document.querySelectorAll('.loadout-slot').forEach(s => s.classList.remove('active'));
+    slotElement.classList.add('active');
+    
+    const slotType = slotElement.dataset.slotType;
+    const slotIndex = parseInt(slotElement.dataset.slotIndex);
+    
+    // Update picker title
+    const pickerTitle = document.getElementById('picker-title');
+    pickerTitle.textContent = slotType === 'equipment' ? 'Equipment' : `Aspect ${slotIndex + 1}`;
+    
+    // Show available items
+    showItemPicker(slotType, slotIndex);
+}
+
+/**
+ * Show item picker for a slot
+ */
+function showItemPicker(slotType, slotIndex) {
+    const picker = document.getElementById('item-picker');
+    picker.innerHTML = '';
+    
+    // Get available items
+    const availableItems = getAvailableItemsForSlot(slotType);
+    
+    const guardianId = window.currentLoadoutGuardian;
+    const loadout = getLoadout(gameState, guardianId);
+    const currentItem = slotType === 'equipment' ? loadout.equipment : loadout.aspects[slotIndex];
+    
+    // Show available items
+    availableItems.forEach(item => {
+        // Check if item is owned
+        const owned = gameState.inventory[item.id] || 0;
+        if (owned === 0) return; // Skip items not owned
+        
+        const card = document.createElement('div');
+        card.className = 'item-picker-card';
+        
+        // Check if already equipped
+        const equipped = isItemEquipped(gameState, item.id);
+        if (equipped.equipped) {
+            card.classList.add('equipped');
+            
+            // Add guardian indicator
+            const guardianIndicator = document.createElement('div');
+            guardianIndicator.className = 'equipped-by-indicator';
+            const equippedGuardian = getGuardianById(equipped.guardian);
+            if (equippedGuardian) {
+                guardianIndicator.style.background = equippedGuardian.portrait.value;
+                guardianIndicator.title = `Equipped by ${equippedGuardian.name}`;
+            }
+            card.appendChild(guardianIndicator);
+        }
+        
+        const icon = document.createElement('div');
+        icon.className = 'picker-item-icon';
+        icon.style.background = item.icon.value;
+        
+        const name = document.createElement('div');
+        name.className = 'picker-item-name';
+        name.textContent = item.name;
+        
+        const desc = document.createElement('div');
+        desc.className = 'picker-item-description';
+        desc.textContent = item.description;
+        
+        // Show bonuses if applicable
+        if (item.mission_bonuses && window.selectedMission) {
+            const bonusDiv = document.createElement('div');
+            bonusDiv.className = 'picker-item-bonuses';
+            
+            const missionType = window.selectedMission.mission_type;
+            const bonus = item.mission_bonuses[missionType];
+            
+            if (bonus) {
+                bonusDiv.textContent = `+${bonus}% ${missionType}`;
+                bonusDiv.style.color = 'var(--success)';
+            } else {
+                bonusDiv.textContent = 'No bonus for this mission';
+                bonusDiv.style.opacity = '0.5';
+            }
+            
+            card.appendChild(icon);
+            card.appendChild(name);
+            card.appendChild(bonusDiv);
+            card.appendChild(desc);
+        } else {
+            card.appendChild(icon);
+            card.appendChild(name);
+            card.appendChild(desc);
+        }
+        
+        // Equip on click
+        card.onclick = () => {
+            if (equipped.equipped) {
+                showNotification(`${item.name} is already equipped on ${equipped.guardian}`, 'error');
+                return;
+            }
+            
+            // Unequip old item if slot is occupied
+            const loadout = getLoadout(gameState, guardianId);
+            const oldItem = slotType === 'equipment' ? loadout.equipment : loadout.aspects[slotIndex];
+            
+            equipItem(gameState, guardianId, item.id, slotType, slotIndex);
+            refreshLoadoutSlots(guardianId);
+            autoSave(gameState);
+            
+            // Refresh item picker to update "equipped" states
+            showItemPicker(slotType, slotIndex);
+            
+            showNotification(`Equipped ${item.name}`, 'success');
+        };
+        
+        picker.appendChild(card);
+    });
+    
+    if (picker.children.length === 0 || (picker.children.length === 1 && currentItem)) {
+        picker.innerHTML += '<p class="picker-hint">No items available for this slot</p>';
+    }
 }
 
 /**

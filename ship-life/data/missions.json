@@ -49,6 +49,8 @@
       "name": "First Contact",
       "description": "Establish communication with the locals on Terminus Prime",
       "map": "terminus_outpost",
+      "mission_type": "diplomatic",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#4a90e2",
@@ -126,6 +128,8 @@
       "name": "Supply Run",
       "description": "Retrieve critical supplies from an abandoned outpost",
       "map": "ghost_station",
+      "mission_type": "collection",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#27ae60",
@@ -203,6 +207,8 @@
       "name": "Hostile Engagement",
       "description": "Defend against Kin raiders attacking a civilian settlement",
       "map": "frontier_colony",
+      "mission_type": "combat",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#e74c3c",
@@ -286,6 +292,8 @@
       "name": "Rescue Operation",
       "description": "Extract stranded Guardians from hostile territory",
       "map": "danger_zone",
+      "mission_type": "rescue",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#e67e22",
@@ -369,6 +377,8 @@
       "name": "Tech Salvage",
       "description": "Recover advanced technology from derelict research facility",
       "map": "research_ruins",
+      "mission_type": "search",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#16a085",
@@ -458,6 +468,8 @@
       "name": "Kin Assault",
       "description": "Launch a preemptive strike against a Kin stronghold",
       "map": "kin_fortress",
+      "mission_type": "combat",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#c0392b",
@@ -553,6 +565,8 @@
       "name": "Diplomatic Mission",
       "description": "Negotiate a trade agreement with independent colonists",
       "map": "colony_hub",
+      "mission_type": "diplomatic",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#f39c12",
@@ -630,6 +644,10 @@
       "name": "Deep Space Reconnaissance",
       "description": "Explore uncharted sectors for strategic resources",
       "map": "void_sector",
+      "mission_type": "recon",
+      "requirements": {
+        "equipment_subtype": "tech"
+      },
       "visual": {
         "type": "color",
         "value": "#8e44ad",
@@ -730,6 +748,10 @@
       "name": "Reactor Crisis",
       "description": "Prevent a catastrophic meltdown at a civilian station",
       "map": "reactor_station",
+      "mission_type": "search",
+      "requirements": {
+        "equipment_subtype": "tech"
+      },
       "visual": {
         "type": "color",
         "value": "#d35400",
@@ -828,6 +850,8 @@
       "name": "Training Exercise",
       "description": "Run combat drills to maintain Guardian readiness",
       "map": "training_grounds",
+      "mission_type": "combat",
+      "requirements": null,
       "visual": {
         "type": "color",
         "value": "#7f8c8d",

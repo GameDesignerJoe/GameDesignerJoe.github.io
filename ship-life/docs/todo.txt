@@ -1,6 +1,9 @@
 TODO
 Priority 1:
-- Ship Life prototype screen at the very start doesn't go away. It just opens up the menu above. Perhaps we should clear this screen or take the players straight to the Character selection screen. Do we have any design around this that we need to update. 
+- We should adjust the percentage of success when you take on missions by taking more people with you. 
+- We should have a gold border when people want to talk to you at the observation deck. 
+- Need to gell who has what equipped when doing your load out.
+- Clicking on characters in the Characters section should bring up their loadout.
 
 - Design Thought: We need a reason to pick between different missions. Some possible ideas:
 	- Show possible types of resources in the mission list so folks can make choices on which to take for the resources they need to unlock things.
@@ -13,16 +16,19 @@ Priority 1:
 	- Need better mission color range from 1 - 10. Red at 3 is too much. Red should be the highest difficulty out of the 10... or did we just go to 5 for now. Either way. Unless 4 and 5 are black.
 	- New feature to consider is that every time you run a mission it gains experience. It can level up and get more reward and more difficulty. We'd need to set up a cap of like any mission can only level up 3 levels beyond what it is (meaning we'd push past the level 5 cap here. We'd need a level count on the mission and a way to show that it's changed from what it was. This would encourage players to run the same mission more than once. 
 
-- Portal room seems off now, like why is it here?
-	- Eventually, it'll house the load out for what guardians you take and what you bring with you. So, maybe just wait for that to come about and see. 
-	- It is odd that you can just rerun the mission over and over again from there. Seems like there should be a state that is after a mission has run, but before the user has picked a new mission that says, "Go to mission room to select a new mission"
-
+- It is odd that you can just rerun the mission over and over again from there. Seems like there should be a state that is after a mission has run, but before the user has picked a new mission that says, "Go to mission room to select a new mission"
 - Conversations need to go away, they are marked as background, but that also means the people are always hanging out. Perhaps we can have a different field for 'repeatable' and background versus important, or we just make everything important for now and see how that goes. 
+- I don't know when I've unlocked something or not. It's almost like I want to be able to 'tag' items I want and when I get those resources I get a message that tells me so.
+- It's five missions in and I haven't gotten enough stuff to make anything and no aspects either. 
+- We need a handful of resources to be granted at the start o the game and don't require blueprints. You're stuck right now because you don't have the ability to get blueprints. 
+
 
 Priority 2:
-- The talk and workstation interact windows cover up the stations behind them. Not the end of the world, but since clicking off the interact window doesn't close the window, it's a little frustrating. 
 - It would be nice if the conversation selection titles appeared above the character sections rather in the larger window.
-- UI elements stop being centered after a bit and go to the right.
+- The workstation UI is pushed off to the right for some reason unless you refresh.
 - Need to get background images in so it feels more like the ship.
-- Text says victor on mission bar, even if you don't win. We should have the last few lines for each of these missions be written in a cliffhanger style so it's a surprise if you win or not.
-- Need to do something when you have duplicate blueprints.
+
+Future:
+- Get a popup text with picture profile of the character you're playing at the bottom of the screen, "Stella here! Ready for action" that represents her talking when she's walking around the ship - or any of the characters. 
+- Need to get some sounds hooked up and see if they actually work. 
+- Instead of the bar across the top with text, we can do a running chat log like on a phone from the different characters talking as they are playing the mission with cut ins like director text "The heroes engage the enemy" Then a shout out from one of the characters Vawn: "Pucker up buttercup!". This can be used to show where we might want to have in-mission dialogue in the actal game. 

@@ -26,7 +26,13 @@ function createNewSave() {
             conversations_completed: {}
         },
         completed_conversations: [],
-        flags: {}
+        flags: {},
+        loadouts: {
+            stella: { equipment: null, aspects: [null, null, null] },
+            vawn: { equipment: null, aspects: [null, null, null] },
+            tiberius: { equipment: null, aspects: [null, null, null] },
+            maestra: { equipment: null, aspects: [null, null, null] }
+        }
     };
 }
 
@@ -42,6 +48,18 @@ function loadSave() {
         }
         
         const parsed = JSON.parse(saveData);
+        
+        // Ensure loadouts exist (backward compatibility)
+        if (!parsed.loadouts) {
+            parsed.loadouts = {
+                stella: { equipment: null, aspects: [null, null, null] },
+                vawn: { equipment: null, aspects: [null, null, null] },
+                tiberius: { equipment: null, aspects: [null, null, null] },
+                maestra: { equipment: null, aspects: [null, null, null] }
+            };
+            console.log('Loadouts initialized for existing save.');
+        }
+        
         console.log('Save file loaded successfully.');
         return parsed;
     } catch (error) {

@@ -223,6 +223,23 @@ function debugGiveAllItems() {
 }
 
 /**
+ * Give all blueprints (learn all recipes)
+ */
+function debugGiveAllBlueprints() {
+    const blueprints = window.itemsData.filter(i => i.type === 'blueprint');
+    let count = 0;
+    
+    blueprints.forEach(blueprint => {
+        addToInventory(gameState, blueprint.id, 1);
+        count++;
+    });
+    
+    autoSave(gameState);
+    debugLog(`Learned all blueprints: ${count} total`, 'success');
+    showNotification(`All ${count} blueprints learned!`);
+}
+
+/**
  * Toggle music on/off
  */
 function debugToggleMusic() {
