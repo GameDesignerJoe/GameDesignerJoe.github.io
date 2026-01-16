@@ -851,3 +851,427 @@
     color: white;
     transition: width 0.3s ease;
 }
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES - ROOMS
+   ======================================== */
+
+/* Tablet & Mobile (768px and below) */
+@media (max-width: 768px) {
+    /* Landing Page */
+    .landing-page h1 {
+        font-size: 36px;
+        letter-spacing: 3px;
+        margin-bottom: 40px;
+        padding: 0 20px;
+        line-height: 1.2;
+    }
+    
+    .landing-button {
+        padding: 18px 50px;
+        font-size: 18px;
+        letter-spacing: 2px;
+    }
+    
+    /* Character Select */
+    .guardian-grid {
+        gap: 20px;
+        padding: 0 10px;
+    }
+    
+    .guardian-card {
+        width: 160px;
+        height: 220px;
+        padding: 15px;
+        gap: 12px;
+    }
+    
+    .guardian-card-portrait {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .guardian-card-name {
+        font-size: 16px;
+    }
+    
+    .guardian-card-role {
+        font-size: 11px;
+    }
+    
+    /* Mission Computer */
+    .mission-stats {
+        flex-direction: column;
+        gap: 15px;
+        padding: 12px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-item {
+        gap: 8px;
+        justify-content: space-between;
+    }
+    
+    .mission-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        max-width: 100%;
+    }
+    
+    .mission-card {
+        width: 100%;
+        height: auto;
+        min-height: 400px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .mission-card-visual {
+        height: 120px;
+    }
+    
+    .mission-card-name {
+        font-size: 18px;
+    }
+    
+    .mission-card-description {
+        font-size: 13px;
+    }
+    
+    .new-badge {
+        font-size: 10px;
+        padding: 3px 10px;
+    }
+    
+    .mission-anomaly-badge {
+        font-size: 10px;
+        padding: 6px 10px;
+        bottom: 50px;
+    }
+    
+    .mission-requirement-hint {
+        font-size: 9px;
+        padding: 5px 8px;
+        bottom: 85px;
+    }
+    
+    /* Workstation Room */
+    .workstation-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        padding: 10px;
+    }
+    
+    .workstation-card {
+        width: 100%;
+        height: 180px;
+        padding: 15px;
+    }
+    
+    .workstation-visual {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .workstation-name {
+        font-size: 14px;
+    }
+    
+    .workstation-level {
+        font-size: 11px;
+    }
+    
+    /* Planetfall Portal */
+    .planetfall-container {
+        gap: 20px;
+        max-width: 100%;
+        padding: 0 10px;
+    }
+    
+    .selected-mission-display {
+        padding: 20px;
+    }
+    
+    .selected-mission-display h2 {
+        font-size: 20px;
+        margin-bottom: 12px;
+    }
+    
+    .selected-mission-display p {
+        font-size: 14px;
+        margin: 8px 0;
+    }
+    
+    .squad-selection-section {
+        padding: 20px;
+    }
+    
+    .squad-guardian-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .squad-guardian-card {
+        padding: 12px;
+        gap: 8px;
+    }
+    
+    .squad-guardian-portrait {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .squad-guardian-name {
+        font-size: 13px;
+    }
+    
+    .squad-loadout-preview {
+        font-size: 10px;
+    }
+    
+    .manage-loadout-btn {
+        padding: 6px 12px;
+        font-size: 10px;
+    }
+    
+    .success-rate-section {
+        padding: 20px;
+    }
+    
+    .launch-button {
+        padding: 15px 40px;
+        font-size: 18px;
+        width: 100%;
+    }
+    
+    /* Mission Simulation */
+    .simulation-screen {
+        gap: 20px;
+        max-width: 100%;
+        padding: 0 15px;
+    }
+    
+    .simulation-message {
+        font-size: 16px;
+    }
+    
+    .progress-bar {
+        height: 35px;
+    }
+    
+    .cancel-button {
+        padding: 10px 25px;
+    }
+    
+    /* Observation Deck */
+    .guardian-npc-grid {
+        flex-direction: column;
+        gap: 20px;
+        align-items: center;
+    }
+    
+    .guardian-npc-card {
+        width: 180px;
+        height: 230px;
+    }
+    
+    /* Inventory */
+    .inventory-container {
+        max-width: 100%;
+        padding: 15px;
+    }
+    
+    .inventory-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .inventory-item {
+        padding: 12px;
+    }
+    
+    .inventory-item-icon {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .inventory-item-name {
+        font-size: 14px;
+    }
+    
+    .inventory-item-quantity {
+        font-size: 13px;
+    }
+    
+    .inventory-item-description {
+        font-size: 12px;
+    }
+    
+    /* Quarters */
+    .quarters-container {
+        max-width: 100%;
+        padding: 15px;
+    }
+    
+    .quarters-section-title {
+        font-size: 22px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .stat-card {
+        padding: 15px;
+    }
+    
+    .stat-card-label {
+        font-size: 12px;
+    }
+    
+    .stat-card-value {
+        font-size: 26px;
+    }
+    
+    .trophies-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .trophy-card {
+        padding: 15px;
+    }
+    
+    .trophy-icon {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .trophy-stamp {
+        font-size: 40px;
+    }
+    
+    .trophy-name {
+        font-size: 15px;
+    }
+    
+    .trophy-description {
+        font-size: 12px;
+    }
+}
+
+/* Mobile Only (480px and below) */
+@media (max-width: 480px) {
+    /* Landing Page */
+    .landing-page h1 {
+        font-size: 28px;
+        letter-spacing: 2px;
+        margin-bottom: 30px;
+    }
+    
+    .landing-button {
+        padding: 15px 40px;
+        font-size: 16px;
+    }
+    
+    /* Character Select */
+    .guardian-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .guardian-card {
+        width: 100%;
+        max-width: 300px;
+        height: auto;
+        padding: 20px;
+    }
+    
+    /* Mission Computer */
+    .mission-card {
+        min-height: 380px;
+        padding: 15px;
+    }
+    
+    .mission-card-visual {
+        height: 100px;
+    }
+    
+    /* Workstation Room */
+    .workstation-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .workstation-card {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    
+    /* Planetfall Portal */
+    .squad-guardian-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .squad-guardian-card {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+    
+    .launch-button {
+        font-size: 16px;
+    }
+    
+    /* Observation Deck */
+    .guardian-npc-grid {
+        width: 100%;
+    }
+    
+    .guardian-npc-card {
+        width: 100%;
+        max-width: 250px;
+    }
+    
+    /* Inventory */
+    .inventory-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Quarters */
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-card-value {
+        font-size: 24px;
+    }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    .guardian-card,
+    .mission-card:not(.locked),
+    .workstation-card,
+    .squad-guardian-card,
+    .guardian-npc-card,
+    .inventory-item,
+    .trophy-card {
+        min-height: 44px;
+    }
+    
+    /* Remove hover effects on touch devices */
+    .guardian-card:hover,
+    .mission-card:hover,
+    .workstation-card:hover {
+        transform: none;
+    }
+    
+    /* Active state for touch feedback */
+    .guardian-card:active,
+    .mission-card:not(.locked):active,
+    .workstation-card:active {
+        transform: scale(0.98);
+        opacity: 0.9;
+    }
+}

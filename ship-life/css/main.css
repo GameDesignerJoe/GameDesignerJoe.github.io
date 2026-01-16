@@ -317,3 +317,196 @@ button:disabled {
     display: flex;
     overflow: hidden;
 }
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+
+/* Tablet & Mobile (768px and below) */
+@media (max-width: 768px) {
+    /* Typography scaling */
+    h1 { font-size: 28px; }
+    h2 { font-size: 22px; }
+    h3 { font-size: 18px; }
+    
+    body {
+        font-size: 15px;
+    }
+    
+    /* Navigation Bar - Horizontal scroll */
+    #navigation-bar {
+        padding: 10px;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+    }
+    
+    #navigation-bar::-webkit-scrollbar {
+        display: none; /* Chrome, Safari */
+    }
+    
+    .nav-button {
+        font-size: 11px;
+        padding: 8px 14px;
+        white-space: nowrap;
+        min-width: auto;
+        flex-shrink: 0;
+    }
+    
+    /* Guardian Display - Move to bottom */
+    #active-guardian-display {
+        top: auto;
+        bottom: 15px;
+        right: 15px;
+        padding: 8px 12px;
+        gap: 8px;
+    }
+    
+    #guardian-portrait {
+        width: 35px;
+        height: 35px;
+    }
+    
+    #guardian-name {
+        font-size: 12px;
+    }
+    
+    /* Room Title */
+    #room-title {
+        top: 60px;
+        font-size: 18px;
+        letter-spacing: 2px;
+        padding: 0 15px;
+        text-align: center;
+    }
+    
+    /* Room Container */
+    #room-container {
+        padding-top: 100px;
+        padding-left: 15px;
+        padding-right: 15px;
+        padding-bottom: 80px; /* Space for guardian display */
+    }
+    
+    /* Modals - Full screen on mobile */
+    .modal {
+        align-items: flex-start;
+        padding: 0;
+    }
+    
+    .modal > div {
+        animation: slideUpMobile 0.3s ease;
+        max-width: 100% !important;
+    }
+    
+    @keyframes slideUpMobile {
+        from {
+            transform: translateY(100%);
+        }
+        to {
+            transform: translateY(0);
+        }
+    }
+    
+    /* Notifications - Smaller and centered */
+    .notification {
+        bottom: 80px;
+        right: 10px;
+        left: 10px;
+        text-align: center;
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+    
+    /* Sidebar - Full width */
+    .sidebar {
+        width: 100%;
+        left: 0;
+    }
+    
+    .sidebar-header {
+        padding: 15px;
+    }
+    
+    .close-sidebar {
+        font-size: 28px;
+        width: 35px;
+        height: 35px;
+    }
+}
+
+/* Mobile Only (480px and below) */
+@media (max-width: 480px) {
+    /* Even smaller typography */
+    h1 { font-size: 24px; }
+    h2 { font-size: 20px; }
+    h3 { font-size: 16px; }
+    
+    body {
+        font-size: 14px;
+    }
+    
+    /* Navigation - Even more compact */
+    #navigation-bar {
+        padding: 8px;
+        gap: 6px;
+    }
+    
+    .nav-button {
+        font-size: 10px;
+        padding: 6px 10px;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Room Title */
+    #room-title {
+        font-size: 16px;
+        top: 55px;
+    }
+    
+    /* Room Container */
+    #room-container {
+        padding-top: 85px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    /* Guardian Display */
+    #active-guardian-display {
+        padding: 6px 10px;
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    #guardian-portrait {
+        width: 30px;
+        height: 30px;
+    }
+    
+    #guardian-name {
+        font-size: 11px;
+    }
+    
+    /* Modal buttons */
+    .modal button {
+        padding: 10px 20px;
+        font-size: 14px;
+        margin: 5px;
+    }
+}
+
+/* Landscape Mobile (height < 500px) */
+@media (max-height: 500px) and (orientation: landscape) {
+    #room-container {
+        padding-top: 70px;
+    }
+    
+    #active-guardian-display {
+        bottom: 10px;
+        right: 10px;
+        padding: 6px 10px;
+    }
+}

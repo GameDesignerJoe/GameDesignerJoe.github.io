@@ -748,3 +748,352 @@
 .btn-primary:active {
     transform: scale(0.98);
 }
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES - UI COMPONENTS
+   ======================================== */
+
+/* Tablet & Mobile (768px and below) */
+@media (max-width: 768px) {
+    /* Recipe List Sidebar */
+    .recipe-list {
+        width: 100%;
+        padding: 15px;
+        border-right: none;
+        border-bottom: 2px solid rgba(74, 144, 226, 0.3);
+        max-height: 40vh;
+    }
+    
+    .recipe-details {
+        width: 100%;
+        padding: 20px 15px;
+    }
+    
+    .sidebar-content {
+        flex-direction: column;
+    }
+    
+    .recipe-item {
+        padding: 12px;
+    }
+    
+    .recipe-item-name {
+        font-size: 15px;
+    }
+    
+    .craft-button {
+        padding: 12px;
+        font-size: 16px;
+    }
+    
+    /* Mission Results Modal */
+    .results-container {
+        padding: 30px 20px;
+        max-width: 100%;
+        width: 95%;
+        border-radius: 12px;
+    }
+    
+    .results-container h2 {
+        font-size: 26px;
+    }
+    
+    .results-status {
+        font-size: 20px;
+        padding: 15px;
+    }
+    
+    .reward-item {
+        padding: 8px;
+        font-size: 14px;
+    }
+    
+    /* Conversation UI */
+    .conversation-container {
+        max-width: 100%;
+        width: 95%;
+        padding: 20px;
+    }
+    
+    .conversation-portraits {
+        margin-bottom: 20px;
+    }
+    
+    .portrait {
+        width: 100px;
+        height: 100px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .portrait.speaking {
+        transform: scale(1.05);
+    }
+    
+    .conversation-text {
+        padding: 20px;
+        min-height: 120px;
+    }
+    
+    #speaker-name {
+        font-size: 16px;
+    }
+    
+    #dialogue-text {
+        font-size: 15px;
+        line-height: 1.6;
+    }
+    
+    #next-button {
+        padding: 8px 25px;
+    }
+    
+    /* Quit Dialog */
+    .dialog-container {
+        padding: 30px 20px;
+        max-width: 100%;
+        width: 90%;
+    }
+    
+    .dialog-container h2 {
+        font-size: 22px;
+    }
+    
+    .dialog-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .dialog-buttons button {
+        width: 100%;
+    }
+    
+    /* Loadout Modal - FULL SCREEN & VERTICAL STACK */
+    .loadout-modal-container {
+        max-width: 100%;
+        width: 100%;
+        max-height: 100vh;
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .loadout-header {
+        padding: 15px;
+    }
+    
+    #loadout-guardian-portrait {
+        width: 60px;
+        height: 60px;
+    }
+    
+    #loadout-guardian-name {
+        font-size: 20px;
+    }
+    
+    .close-modal-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 28px;
+    }
+    
+    .loadout-content {
+        flex-direction: column;
+    }
+    
+    .loadout-slots-section {
+        width: 100%;
+        padding: 15px;
+        border-right: none;
+        border-bottom: 2px solid rgba(74, 144, 226, 0.3);
+        max-height: 35vh;
+        overflow-y: auto;
+    }
+    
+    .loadout-slots-section h3 {
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+    
+    .loadout-slots {
+        gap: 12px;
+    }
+    
+    .loadout-slot {
+        padding: 12px;
+    }
+    
+    .slot-label {
+        font-size: 11px;
+    }
+    
+    .slot-item-name {
+        font-size: 13px;
+    }
+    
+    .loadout-picker-section {
+        width: 100%;
+        padding: 15px;
+        flex: 1;
+    }
+    
+    .loadout-picker-section h3 {
+        font-size: 16px;
+        margin-bottom: 12px;
+    }
+    
+    .item-picker {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .item-picker-card {
+        padding: 12px;
+    }
+    
+    .picker-item-icon {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .picker-item-name {
+        font-size: 13px;
+    }
+    
+    .picker-item-description {
+        font-size: 11px;
+    }
+    
+    .picker-item-bonuses {
+        font-size: 11px;
+    }
+    
+    .loadout-footer {
+        padding: 15px;
+    }
+    
+    .btn-primary {
+        width: 100%;
+        padding: 12px 30px;
+    }
+}
+
+/* Mobile Only (480px and below) */
+@media (max-width: 480px) {
+    /* Recipe List */
+    .recipe-list {
+        padding: 12px;
+        max-height: 35vh;
+    }
+    
+    .recipe-details {
+        padding: 15px 12px;
+    }
+    
+    .recipe-item {
+        padding: 10px;
+    }
+    
+    .recipe-item-name {
+        font-size: 14px;
+    }
+    
+    .craft-button {
+        padding: 10px;
+        font-size: 15px;
+    }
+    
+    .requirement-item {
+        padding: 8px 0;
+        font-size: 13px;
+    }
+    
+    /* Conversation UI */
+    .conversation-container {
+        padding: 15px;
+    }
+    
+    .portrait {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .conversation-text {
+        padding: 15px;
+    }
+    
+    #speaker-name {
+        font-size: 15px;
+    }
+    
+    #dialogue-text {
+        font-size: 14px;
+    }
+    
+    /* Results Modal */
+    .results-container {
+        padding: 25px 15px;
+    }
+    
+    .results-container h2 {
+        font-size: 22px;
+    }
+    
+    .results-status {
+        font-size: 18px;
+        padding: 12px;
+    }
+    
+    /* Loadout Modal */
+    .loadout-header {
+        padding: 12px;
+    }
+    
+    #loadout-guardian-portrait {
+        width: 50px;
+        height: 50px;
+    }
+    
+    #loadout-guardian-name {
+        font-size: 18px;
+    }
+    
+    .loadout-slots-section {
+        padding: 12px;
+    }
+    
+    .loadout-slots-section h3 {
+        font-size: 15px;
+    }
+    
+    .loadout-picker-section {
+        padding: 12px;
+    }
+    
+    .loadout-picker-section h3 {
+        font-size: 15px;
+    }
+    
+    .picker-hint {
+        padding: 30px 15px;
+        font-size: 13px;
+    }
+}
+
+/* Landscape Mobile Specific */
+@media (max-height: 500px) and (orientation: landscape) {
+    .loadout-slots-section {
+        max-height: 50vh;
+    }
+    
+    .recipe-list {
+        max-height: 50vh;
+    }
+    
+    .conversation-portraits {
+        margin-bottom: 15px;
+    }
+    
+    .portrait {
+        width: 70px;
+        height: 70px;
+    }
+}

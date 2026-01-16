@@ -43,6 +43,11 @@
             text-shadow: 0 0 20px rgba(74, 144, 226, 0.8),
                          0 0 40px rgba(74, 144, 226, 0.5);
             animation: glow 2s ease-in-out infinite alternate;
+            text-align: center;
+            padding: 0 20px;
+            line-height: 1.2;
+            max-width: 100%;
+            word-wrap: break-word;
         }
         
         @keyframes glow {
@@ -105,6 +110,47 @@
         @keyframes twinkle {
             0%, 100% { opacity: 0.3; }
             50% { opacity: 1; }
+        }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 40px;
+                letter-spacing: 3px;
+                margin-bottom: 50px;
+                padding: 0 15px;
+            }
+            
+            .play-button {
+                padding: 20px 60px;
+                font-size: 26px;
+                letter-spacing: 2px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 32px;
+                letter-spacing: 2px;
+                margin-bottom: 40px;
+            }
+            
+            .play-button {
+                padding: 18px 50px;
+                font-size: 22px;
+            }
+        }
+        
+        @media (max-width: 390px) {
+            h1 {
+                font-size: 28px;
+                letter-spacing: 1px;
+            }
+            
+            .play-button {
+                padding: 15px 40px;
+                font-size: 20px;
+            }
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
