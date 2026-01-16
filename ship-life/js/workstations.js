@@ -291,7 +291,14 @@ function upgradeWorkstation() {
     // Show notification
     showNotification(`Upgraded to ${currentWorkstation.level_names[targetLevel] || `Level ${targetLevel}`}!`);
     
-    // Refresh displays
+    // Refresh workstation room display (updates the card level)
+    if (currentRoom && currentRoom.id === 'workstation_room') {
+        const container = document.getElementById('room-container');
+        clearRoom();
+        renderWorkstationRoom(container);
+    }
+    
+    // Refresh sidebar
     openWorkstation(currentWorkstation);
 }
 
