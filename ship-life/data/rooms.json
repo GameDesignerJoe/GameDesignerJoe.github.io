@@ -7,7 +7,8 @@
       "type": "Background type - currently only 'color' supported (string)",
       "value": "Hex color code for the room background (string)"
     },
-    "title_display": "If true, shows room name at top of screen; if false, hides title (boolean)"
+    "title_display": "If true, shows room name at top of screen; if false, hides title (boolean)",
+    "music": "OPTIONAL - Background music track to play (string). Value should match MP3 filename in audio/music/ folder WITHOUT extension. Example: 'mission_computer' plays audio/music/mission_computer.mp3. If omitted, no music plays. To use same track for multiple rooms, use the same value."
   },
   "rooms": [
     {
@@ -35,7 +36,8 @@
         "type": "color",
         "value": "#2c3e50"
       },
-      "title_display": true
+      "title_display": true,
+      "music": "bgm_ship_01"
     },
     {
       "id": "workstation_room",
@@ -53,7 +55,8 @@
         "type": "color",
         "value": "#1a3d2e"
       },
-      "title_display": true
+      "title_display": true,
+      "music": "bgm_ship_01"
     },
     {
       "id": "character_room",
@@ -62,7 +65,8 @@
         "type": "color",
         "value": "#1a2332"
       },
-      "title_display": true
+      "title_display": true,
+      "music": "bgm_ship_01"
     },
     {
       "id": "inventory",
@@ -71,7 +75,8 @@
         "type": "color",
         "value": "#1a2f1a"
       },
-      "title_display": true
+      "title_display": true,
+      "music": "bgm_ship_01"
     },
     {
       "id": "observation_deck",
@@ -80,7 +85,8 @@
         "type": "color",
         "value": "#2d1b3d"
       },
-      "title_display": true
+      "title_display": true,
+      "music": "bgm_ship_01"
     },
     {
       "id": "quarters",
@@ -89,7 +95,8 @@
         "type": "color",
         "value": "#1f2833"
       },
-      "title_display": true
+      "title_display": true,
+      "music": "bgm_ship_01"
     }
   ]
 }

@@ -44,6 +44,11 @@ function switchRoom(roomId) {
     // Set background
     setRoomBackground(room.background);
     
+    // Play room music if available
+    if (room.music && window.audioManager) {
+        window.audioManager.playMusic(room.music);
+    }
+    
     // Set title
     if (room.title_display) {
         setRoomTitle(room.name);

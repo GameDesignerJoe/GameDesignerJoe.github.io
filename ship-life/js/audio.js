@@ -55,18 +55,18 @@ class AudioManager {
     playMusic(musicId) {
         if (!this.settings.musicEnabled || !musicId) return;
         
-        console.log(`[Audio] Would play music: ${musicId}`);
+        // Don't restart if already playing this track
+        if (this.currentMusicId === musicId) return;
         
-        // TODO: Implement when audio files are added
-        // if (this.currentMusic === musicId) return;
-        // 
-        // this.fadeOutMusic(() => {
-        //     const audio = new Audio(`audio/music/${musicId}.mp3`);
-        //     audio.loop = true;
-        //     audio.volume = this.settings.masterVolume * this.settings.musicVolume;
-        //     audio.play();
-        //     this.currentMusic = musicId;
-        // });
+        this.fadeOutMusic(() => {
+            console.log('[Audio] Playing music:', musicId);
+            const audio = new Audio(`audio/music/${musicId}.mp3`);
+            audio.loop = true;
+            audio.volume = this.settings.masterVolume * this.settings.musicVolume;
+            audio.play().catch(e => console.warn('Music play failed (browser may require user interaction first):', e));
+            this.currentMusic = audio;
+            this.currentMusicId = musicId;
+        });
     }
     
     /**
@@ -76,9 +76,7 @@ class AudioManager {
         if (!this.currentMusic) return;
         
         console.log('[Audio] Stopping music');
-        
-        // TODO: Implement when audio files are added
-        // this.fadeOutMusic();
+        this.fadeOutMusic();
     }
     
     /**
@@ -86,17 +84,22 @@ class AudioManager {
      * @param {function} callback - Called when fade is complete
      */
     fadeOutMusic(callback) {
-        console.log('[Audio] Fading out music');
+        // Stop current music if playing
+        if (this.currentMusic) {
+            console.log('[Audio] Stopping current music');
+            this.currentMusic.pause();
+            this.currentMusic.currentTime = 0;
+            this.currentMusic = null;
+            this.currentMusicId = null;
+        }
         
-        // TODO: Implement when audio files are added
-        // Clear existing fade interval
-        // if (this.musicFadeInterval) {
-        //     clearInterval(this.musicFadeInterval);
-        // }
-        // 
-        // Implement smooth fade out over 1 second
-        // Then call callback
+        // Clear any existing fade interval
+        if (this.musicFadeInterval) {
+            clearInterval(this.musicFadeInterval);
+            this.musicFadeInterval = null;
+        }
         
+        // Call callback immediately (could add fade effect later)
         if (callback) callback();
     }
     
@@ -107,12 +110,9 @@ class AudioManager {
     playSFX(sfxId) {
         if (!this.settings.sfxEnabled || !sfxId) return;
         
-        console.log(`[Audio] Would play SFX: ${sfxId}`);
-        
-        // TODO: Implement when audio files are added
-        // const audio = new Audio(`audio/sfx/${sfxId}.mp3`);
-        // audio.volume = this.settings.masterVolume * this.settings.sfxVolume;
-        // audio.play().catch(e => console.error('SFX play failed:', e));
+        const audio = new Audio(`audio/sfx/${sfxId}.mp3`);
+        audio.volume = this.settings.masterVolume * this.settings.sfxVolume;
+        audio.play().catch(e => console.warn('SFX play failed:', e));
     }
     
     /**

@@ -1,0 +1,52 @@
+Category,Asset Name,Filename,Type,Duration,Priority,Status,Notes,File Location
+Background Music,Landing Page,landing.mp3,Music,2-3min,Tier 1,Pending,,audio/music/
+Background Music,Character Select,character_select.mp3,Music,2-3min,Tier 1,Pending,,audio/music/
+Background Music,Mission Computer,mission_computer.mp3,Music,3-4min,Tier 1,Pending,,audio/music/
+Background Music,Workstations,workstations.mp3,Music,3-5min,Tier 1,Pending,,audio/music/
+Background Music,Planetfall Portal,planetfall.mp3,Music,2-3min,Tier 1,Pending,,audio/music/
+Background Music,Character Room,character_room.mp3,Music,2-3min,Tier 1,Pending,,audio/music/
+Background Music,Inventory,inventory.mp3,Music,3-4min,Tier 1,Pending,,audio/music/
+Background Music,Observation Deck,observation_deck.mp3,Music,3-4min,Tier 1,Pending,,audio/music/
+Background Music,Quarters,quarters.mp3,Music,3-4min,Tier 1,Pending,,audio/music/
+Mission System,Mission Card Click,mission_card_click.mp3,SFX,0.2-0.4s,Tier 2,Pending,,audio/sfx/
+Mission System,Mission Launch,mission_launch.mp3,SFX,1.5-3s,Tier 1,Pending,,audio/sfx/
+Mission System,Mission Progress,mission_progress.mp3,SFX,0.1-0.2s,Tier 3,Pending,Optional,audio/sfx/
+Mission System,Mission Success,mission_success.mp3,SFX,2-4s,Tier 1,Pending,,audio/sfx/
+Mission System,Mission Fail,mission_fail.mp3,SFX,1.5-3s,Tier 1,Pending,,audio/sfx/
+Mission System,Mission Reward,mission_reward.mp3,SFX,0.5-1s,Tier 2,Pending,,audio/sfx/
+Mission System,Mission Unlock,mission_unlock.mp3,SFX,1-2s,Tier 2,Pending,,audio/sfx/
+Navigation & UI,Nav Click,nav_click.mp3,SFX,0.1-0.2s,Tier 1,Pending,,audio/sfx/
+Navigation & UI,Button Click,button_click.mp3,SFX,0.1-0.2s,Tier 1,Pending,,audio/sfx/
+Navigation & UI,Button Hover,button_hover.mp3,SFX,0.05-0.1s,Tier 3,Pending,Optional,audio/sfx/
+Navigation & UI,Sidebar Open,sidebar_open.mp3,SFX,0.3-0.5s,Tier 2,Pending,,audio/sfx/
+Navigation & UI,Modal Open,modal_open.mp3,SFX,0.3-0.5s,Tier 2,Pending,,audio/sfx/
+Guardian System,Guardian Select,guardian_select.mp3,SFX,0.8-1.5s,Tier 1,Pending,,audio/sfx/
+Guardian System,Guardian Switch,guardian_switch.mp3,SFX,0.5-1s,Tier 2,Pending,,audio/sfx/
+Guardian System,Squad Toggle,squad_toggle.mp3,SFX,0.2-0.4s,Tier 2,Pending,,audio/sfx/
+Guardian System,Loadout Open,loadout_open.mp3,SFX,0.4-0.6s,Tier 2,Pending,,audio/sfx/
+Guardian System,Equip Item,equip_item.mp3,SFX,0.4-0.7s,Tier 1,Pending,,audio/sfx/
+Guardian System,Unequip Item,unequip_item.mp3,SFX,0.2-0.4s,Tier 2,Pending,,audio/sfx/
+Crafting & Workstations,Workstation Open,workstation_open.mp3,SFX,0.5-1s,Tier 2,Pending,,audio/sfx/
+Crafting & Workstations,Recipe Select,recipe_select.mp3,SFX,0.2-0.4s,Tier 2,Pending,,audio/sfx/
+Crafting & Workstations,Craft Success,craft_success.mp3,SFX,1-2s,Tier 1,Pending,,audio/sfx/
+Crafting & Workstations,Craft Fail,craft_fail.mp3,SFX,0.5-1s,Tier 1,Pending,,audio/sfx/
+Crafting & Workstations,Blueprint Upload,blueprint_upload.mp3,SFX,0.8-1.5s,Tier 2,Pending,,audio/sfx/
+Crafting & Workstations,Workstation Upgrade,workstation_upgrade.mp3,SFX,1.5-2.5s,Tier 2,Pending,,audio/sfx/
+Crafting & Workstations,Resource Pickup,resource_pickup.mp3,SFX,0.3-0.5s,Tier 3,Pending,Optional,audio/sfx/
+Crafting & Workstations,Inventory Sort,inventory_sort.mp3,SFX,0.4-0.6s,Tier 3,Pending,Optional,audio/sfx/
+Conversation System,Conversation Start,conversation_start.mp3,SFX,0.6-1s,Tier 2,Pending,,audio/sfx/
+Conversation System,Dialogue Advance,dialogue_advance.mp3,SFX,0.1-0.2s,Tier 2,Pending,,audio/sfx/
+Conversation System,Conversation Complete,conversation_complete.mp3,SFX,1-1.5s,Tier 2,Pending,,audio/sfx/
+Conversation System,Important Conversation,important_conversation.mp3,SFX,1.5-2s,Tier 3,Pending,Optional,audio/sfx/
+Trophies & Achievements,Trophy Unlock,trophy_unlock.mp3,SFX,2-3s,Tier 2,Pending,,audio/sfx/
+Trophies & Achievements,Trophy Progress,trophy_progress.mp3,SFX,0.5-1s,Tier 3,Pending,Optional,audio/sfx/
+Trophies & Achievements,Stats Update,stats_update.mp3,SFX,0.3-0.5s,Tier 3,Pending,Optional,audio/sfx/
+Notifications & Feedback,Notification Success,notification_success.mp3,SFX,0.5-1s,Tier 1,Pending,,audio/sfx/
+Notifications & Feedback,Notification Error,notification_error.mp3,SFX,0.4-0.8s,Tier 1,Pending,,audio/sfx/
+Notifications & Feedback,Notification Info,notification_info.mp3,SFX,0.4-0.7s,Tier 2,Pending,,audio/sfx/
+Notifications & Feedback,Warning Resources,warning_resources.mp3,SFX,0.5-1s,Tier 3,Pending,Optional,audio/sfx/
+Notifications & Feedback,Unlock Generic,unlock_generic.mp3,SFX,1-1.5s,Tier 2,Pending,,audio/sfx/
+Loadout & Inventory,Slot Select,slot_select.mp3,SFX,0.2-0.3s,Tier 2,Pending,,audio/sfx/
+Loadout & Inventory,Item Browse,item_browse.mp3,SFX,0.1-0.15s,Tier 3,Pending,Optional,audio/sfx/
+Loadout & Inventory,Already Equipped,already_equipped.mp3,SFX,0.5-0.8s,Tier 2,Pending,,audio/sfx/
+Loadout & Inventory,Inventory Tab,inventory_tab.mp3,SFX,0.2-0.4s,Tier 2,Pending,,audio/sfx/

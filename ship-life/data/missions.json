@@ -1,6 +1,7 @@
 {
   "_documentation": {
     "_note": "This object is for documentation only and is ignored by the game",
+    "_audio_note": "Mission sound effects (mission_start, mission_success, mission_fail) are triggered automatically by code in js/missions.js. There is no 'audio' field in missions - sound effects cannot be customized per mission via JSON. To change mission sounds, edit js/missions.js.",
     "id": "Unique identifier for this mission (string)",
     "name": "Display name shown in Mission Computer (string)",
     "description": "Mission briefing text (string)",

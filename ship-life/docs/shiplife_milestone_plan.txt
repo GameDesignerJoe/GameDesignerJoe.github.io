@@ -28,11 +28,11 @@ Establish the basic gameplay loop: Mission → Resources → Crafting → Invent
 ### Deliverables
 
 #### 1.1 Project Setup
-- [ ] Create file structure (index.html, game.html, /css, /js, /data, /assets)
-- [ ] Set up password protection (index.html with localStorage caching)
-- [ ] Implement Landing Page (fullscreen trigger, Play button, Quit button)
-- [ ] Load Google Fonts (Orbitron, Inter)
-- [ ] Set up CSS variables (color palette, typography)
+- [x] Create file structure (index.html, game.html, /css, /js, /data, /assets)
+- [x] Set up password protection (index.html with localStorage caching)
+- [x] Implement Landing Page (fullscreen trigger, Play button, Quit button)
+- [x] Load Google Fonts (Orbitron, Inter)
+- [x] Set up CSS variables (color palette, typography)
 
 **Acceptance Criteria**:
 - Opening link prompts for password
@@ -43,12 +43,12 @@ Establish the basic gameplay loop: Mission → Resources → Crafting → Invent
 ---
 
 #### 1.2 State Management (Blackboard System)
-- [ ] Create `state.js` with save/load functions
-- [ ] Implement localStorage persistence
-- [ ] Create blank save structure
-- [ ] Implement auto-save (triggered after actions)
-- [ ] Handle save corruption (reset to fresh state)
-- [ ] Add first-time initialization (starting blueprints)
+- [x] Create `state.js` with save/load functions
+- [x] Implement localStorage persistence
+- [x] Create blank save structure
+- [x] Implement auto-save (triggered after actions)
+- [x] Handle save corruption (reset to fresh state)
+- [x] Add first-time initialization (starting blueprints)
 
 **Acceptance Criteria**:
 - Save persists across browser close/reopen
