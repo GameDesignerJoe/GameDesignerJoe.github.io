@@ -75,6 +75,9 @@ async function initializeGame() {
     // Initialize debug console
     initializeDebugConsole();
     
+    // Initialize mute button state
+    initializeMuteButton();
+    
     // Check if player has active guardian and go to appropriate room
     if (gameState.active_guardian) {
         const guardian = getGuardianById(gameState.active_guardian);

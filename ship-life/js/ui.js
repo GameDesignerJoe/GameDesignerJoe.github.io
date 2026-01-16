@@ -254,4 +254,68 @@ document.addEventListener('click', (e) => {
     }
 });
 
+/**
+ * Initialize mute button state on load
+ */
+function initializeMuteButton() {
+    const button = document.getElementById('mute-toggle');
+    
+    if (!window.audioManager || !button) {
+        return;
+    }
+    
+    // Check if audio is muted
+    const isMuted = !window.audioManager.settings.musicEnabled && !window.audioManager.settings.sfxEnabled;
+    
+    if (isMuted) {
+        button.textContent = '🔇';
+        button.classList.add('muted');
+        button.title = 'Unmute All Audio';
+    } else {
+        button.textContent = '🔊';
+        button.classList.remove('muted');
+        button.title = 'Mute All Audio';
+    }
+}
+
+/**
+ * Toggle mute for all audio (music + SFX)
+ */
+function toggleMute() {
+    const button = document.getElementById('mute-toggle');
+    
+    if (!window.audioManager) {
+        console.warn('Audio manager not available');
+        return;
+    }
+    
+    // Get current state (if either is enabled, we consider it unmuted)
+    const currentlyMuted = !window.audioManager.settings.musicEnabled && !window.audioManager.settings.sfxEnabled;
+    
+    if (currentlyMuted) {
+        // Unmute - turn both on
+        window.audioManager.settings.musicEnabled = true;
+        window.audioManager.settings.sfxEnabled = true;
+        window.audioManager.saveSettings();
+        
+        button.textContent = '🔊';
+        button.classList.remove('muted');
+        button.title = 'Mute All Audio';
+        
+        console.log('Audio unmuted');
+    } else {
+        // Mute - turn both off
+        window.audioManager.settings.musicEnabled = false;
+        window.audioManager.settings.sfxEnabled = false;
+        window.audioManager.saveSettings();
+        window.audioManager.stopMusic();
+        
+        button.textContent = '🔇';
+        button.classList.add('muted');
+        button.title = 'Unmute All Audio';
+        
+        console.log('Audio muted');
+    }
+}
+
 console.log('UI utilities loaded.');

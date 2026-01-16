@@ -1,5 +1,38 @@
 /* Ship Life - Debug Menu Styles */
 
+/* Mute Toggle Button */
+#mute-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 80px; /* Left of debug button */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--text-light);
+    font-size: 24px;
+    border: 2px solid var(--success);
+    opacity: 0.25;
+    transition: all 0.3s ease;
+    z-index: 250;
+    cursor: pointer;
+}
+
+#mute-toggle:hover {
+    opacity: 1;
+    transform: scale(1.1);
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+}
+
+#mute-toggle.muted {
+    border-color: var(--danger);
+    opacity: 0.5;
+}
+
+#mute-toggle.muted:hover {
+    box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+}
+
 #debug-toggle {
     position: fixed;
     bottom: 20px;
@@ -247,6 +280,14 @@
    ======================================== */
 
 @media (max-width: 768px) {
+    #mute-toggle {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+        bottom: 80px;
+        right: 70px;
+    }
+    
     #debug-toggle {
         width: 45px;
         height: 45px;
