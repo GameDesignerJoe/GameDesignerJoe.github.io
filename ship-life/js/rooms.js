@@ -108,6 +108,9 @@ function renderRoom(room) {
         case 'observation_deck':
             renderObservationDeck(container);
             break;
+        case 'quarters':
+            renderQuarters(container);
+            break;
         default:
             container.innerHTML = '<p>Room under construction...</p>';
     }
@@ -1126,6 +1129,119 @@ function showConversationList(guardianId) {
     recipeDetails.innerHTML = '<p class="select-prompt">Select a conversation to begin</p>';
     
     sidebar.classList.remove('hidden');
+}
+
+/**
+ * Render Quarters (Statistics & Trophies)
+ */
+function renderQuarters(container) {
+    container.className = 'quarters-container';
+    
+    // Calculate statistics
+    const stats = calculateStatistics(gameState);
+    
+    // Statistics Section
+    const statsSection = document.createElement('div');
+    statsSection.className = 'quarters-section';
+    
+    const statsTitle = document.createElement('h2');
+    statsTitle.className = 'quarters-section-title';
+    statsTitle.textContent = 'Statistics';
+    statsSection.appendChild(statsTitle);
+    
+    const statsGrid = document.createElement('div');
+    statsGrid.className = 'stats-grid';
+    
+    // Mission Stats
+    const missionStats = [
+        { label: 'Missions Completed', value: stats.missions.total },
+        { label: 'Total Missions Run', value: stats.missions.totalRun },
+        { label: 'Success Rate', value: `${stats.missions.successRate}%` },
+        { label: 'Most Used Guardian', value: stats.guardians.mostUsed }
+    ];
+    
+    missionStats.forEach(stat => {
+        const statCard = document.createElement('div');
+        statCard.className = 'stat-card';
+        statCard.innerHTML = `
+            <div class="stat-card-label">${stat.label}</div>
+            <div class="stat-card-value">${stat.value}</div>
+        `;
+        statsGrid.appendChild(statCard);
+    });
+    
+    statsSection.appendChild(statsGrid);
+    container.appendChild(statsSection);
+    
+    // Trophies Section
+    const trophiesSection = document.createElement('div');
+    trophiesSection.className = 'quarters-section';
+    
+    const trophiesTitle = document.createElement('h2');
+    trophiesTitle.className = 'quarters-section-title';
+    trophiesTitle.textContent = 'Trophies';
+    trophiesSection.appendChild(trophiesTitle);
+    
+    const trophiesGrid = document.createElement('div');
+    trophiesGrid.className = 'trophies-grid';
+    
+    // Get trophies with status
+    const trophies = getTrophiesWithStatus(gameState);
+    
+    trophies.forEach(trophy => {
+        const trophyCard = document.createElement('div');
+        trophyCard.className = 'trophy-card';
+        if (trophy.unlocked) {
+            trophyCard.classList.add('unlocked');
+        }
+        
+        const icon = document.createElement('div');
+        icon.className = 'trophy-icon';
+        icon.style.background = trophy.icon.value;
+        
+        // Add unlocked stamp
+        if (trophy.unlocked) {
+            const stamp = document.createElement('div');
+            stamp.className = 'trophy-stamp';
+            stamp.textContent = '✓';
+            icon.appendChild(stamp);
+        }
+        
+        const name = document.createElement('div');
+        name.className = 'trophy-name';
+        name.textContent = trophy.name;
+        
+        const description = document.createElement('div');
+        description.className = 'trophy-description';
+        description.textContent = trophy.description;
+        
+        // Progress bar if not unlocked
+        if (!trophy.unlocked) {
+            const progressBar = document.createElement('div');
+            progressBar.className = 'trophy-progress-bar';
+            
+            const progressFill = document.createElement('div');
+            progressFill.className = 'trophy-progress-fill';
+            progressFill.style.width = `${trophy.progress}%`;
+            progressFill.textContent = `${trophy.progress}%`;
+            
+            progressBar.appendChild(progressFill);
+            
+            trophyCard.appendChild(icon);
+            trophyCard.appendChild(name);
+            trophyCard.appendChild(description);
+            trophyCard.appendChild(progressBar);
+        } else {
+            trophyCard.appendChild(icon);
+            trophyCard.appendChild(name);
+            trophyCard.appendChild(description);
+        }
+        
+        trophiesGrid.appendChild(trophyCard);
+    });
+    
+    trophiesSection.appendChild(trophiesGrid);
+    container.appendChild(trophiesSection);
 }
 
 console.log('Room system loaded.');

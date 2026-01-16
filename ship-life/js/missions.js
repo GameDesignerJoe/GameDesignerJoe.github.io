@@ -135,10 +135,19 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
     // Track missions together for the squad
     incrementMissionsTogether(gameState, squad);
     
+    // Set trophy flags based on mission completion
     if (success) {
         // Track completed missions (only add if not already completed)
         if (!gameState.completed_missions.includes(mission.id)) {
             gameState.completed_missions.push(mission.id);
+        }
+        
+        // Trophy flag: Squad size
+        setFlag(gameState, `squad_size_${squad.length}`);
+        
+        // Trophy flag: Solo difficult mission
+        if (squad.length === 1 && mission.difficulty >= 3) {
+            setFlag(gameState, 'solo_difficult');
         }
         
         // Set completion flags
@@ -147,6 +156,9 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
                 setFlag(gameState, flag);
             });
         }
+        
+        // Check for new trophies
+        checkNewTrophies(gameState);
     }
     
     // Auto-save

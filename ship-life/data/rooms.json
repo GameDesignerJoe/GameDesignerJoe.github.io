@@ -81,6 +81,15 @@
         "value": "#2d1b3d"
       },
       "title_display": true
+    },
+    {
+      "id": "quarters",
+      "name": "Quarters",
+      "background": {
+        "type": "color",
+        "value": "#1f2833"
+      },
+      "title_display": true
     }
   ]
 }
