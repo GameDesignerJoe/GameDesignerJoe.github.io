@@ -24,8 +24,8 @@
       "id": "character_select",
       "name": "Character Select",
       "background": {
-        "type": "color",
-        "value": "#1a2332"
+        "type": "image",
+        "value": "rooms/room_characters.png"
       },
       "title_display": false
     },
@@ -33,8 +33,8 @@
       "id": "mission_computer",
       "name": "Mission Computer",
       "background": {
-        "type": "color",
-        "value": "#2c3e50"
+        "type": "image",
+        "value": "rooms/room_missions.png"
       },
       "title_display": true,
       "music": "bgm_ship_01"
@@ -43,8 +43,8 @@
       "id": "workstation_room",
       "name": "Workstations",
       "background": {
-        "type": "color",
-        "value": "#3d1f1f"
+        "type": "image",
+        "value": "rooms/room_workstations.png"
       },
       "title_display": true
     },
@@ -52,8 +52,8 @@
       "id": "planetfall_portal",
       "name": "Planetfall Portal",
       "background": {
-        "type": "color",
-        "value": "#1a3d2e"
+        "type": "image",
+        "value": "rooms/room_portal.png"
       },
       "title_display": true,
       "music": "bgm_ship_01"
@@ -62,8 +62,8 @@
       "id": "character_room",
       "name": "Characters",
       "background": {
-        "type": "color",
-        "value": "#1a2332"
+        "type": "image",
+        "value": "rooms/room_characters.png"
       },
       "title_display": true,
       "music": "bgm_ship_01"
@@ -72,8 +72,8 @@
       "id": "inventory",
       "name": "Inventory",
       "background": {
-        "type": "color",
-        "value": "#1a2f1a"
+        "type": "image",
+        "value": "rooms/room_inventory.png"
       },
       "title_display": true,
       "music": "bgm_ship_01"
@@ -82,8 +82,8 @@
       "id": "observation_deck",
       "name": "Observation Deck",
       "background": {
-        "type": "color",
-        "value": "#2d1b3d"
+        "type": "image",
+        "value": "rooms/room_observation.png"
       },
       "title_display": true,
       "music": "bgm_ship_01"
@@ -92,8 +92,8 @@
       "id": "quarters",
       "name": "Quarters",
       "background": {
-        "type": "color",
-        "value": "#1f2833"
+        "type": "image",
+        "value": "rooms/room_quarters.png"
       },
       "title_display": true,
       "music": "bgm_ship_01"

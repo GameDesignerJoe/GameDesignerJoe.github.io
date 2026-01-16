@@ -798,11 +798,29 @@ function updateSlotDisplay(slotElement, itemId) {
     const guardianId = window.currentLoadoutGuardian;
     
     content.className = 'slot-content filled';
-    content.innerHTML = `
-        <div class="slot-item-icon" style="background: ${item.icon.value}"></div>
-        <div class="slot-item-name">${item.name}</div>
-        <button class="slot-unequip-btn" onclick="event.stopPropagation(); unequipSlot('${guardianId}', '${slotType}', ${slotIndex})">×</button>
-    `;
+    
+    // Create elements
+    const iconDiv = document.createElement('div');
+    iconDiv.className = 'slot-item-icon';
+    renderVisual(item.icon, iconDiv); // Use renderVisual to handle both color and image
+    
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'slot-item-name';
+    nameDiv.textContent = item.name;
+    
+    const unequipBtn = document.createElement('button');
+    unequipBtn.className = 'slot-unequip-btn';
+    unequipBtn.textContent = '×';
+    unequipBtn.onclick = (e) => {
+        e.stopPropagation();
+        unequipSlot(guardianId, slotType, slotIndex);
+    };
+    
+    // Clear and append
+    content.innerHTML = '';
+    content.appendChild(iconDiv);
+    content.appendChild(nameDiv);
+    content.appendChild(unequipBtn);
 }
 
 /**

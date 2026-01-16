@@ -18,10 +18,10 @@
       "id": "stella",
       "name": "Stella",
       "portrait": {
-        "type": "color",
-        "value": "#ffd700",
+        "type": "image",
+        "value": "guardians/stella_200.png",
         "show_name": false
-      },
+    },
       "role": "DPS",
       "description": "A fierce warrior with a strategic mind",
       "starting_guardian": true,
@@ -31,11 +31,11 @@
       "id": "vawn",
       "name": "Vawn",
       "portrait": {
-        "type": "color",
-        "value": "#4a90e2",
+        "type": "image",
+        "value": "guardians/vawn_200.png",
         "show_name": false
       },
-      "role": "Tank",
+      "role": "DPS",
       "description": "Steadfast defender who never backs down",
       "starting_guardian": false,
       "unlocked_at_start": true
@@ -44,11 +44,11 @@
       "id": "tiberius",
       "name": "Tiberius",
       "portrait": {
-        "type": "color",
-        "value": "#e74c3c",
+        "type": "image",
+        "value": "guardians/tiberius_200.png",
         "show_name": false
       },
-      "role": "Support",
+      "role": "Tank",
       "description": "Tech specialist with advanced hacking skills",
       "starting_guardian": false,
       "unlocked_at_start": true
@@ -57,11 +57,11 @@
       "id": "maestra",
       "name": "Maestra",
       "portrait": {
-        "type": "color",
-        "value": "#9b59b6",
+        "type": "image",
+        "value": "guardians/maestra_200.png",
         "show_name": false
       },
-      "role": "Ranged",
+      "role": "Support",
       "description": "Precision sniper with unmatched accuracy",
       "starting_guardian": false,
       "unlocked_at_start": true

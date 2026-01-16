@@ -80,12 +80,10 @@ function updateGuardianDisplay(guardian) {
     
     display.classList.remove('hidden');
     
-    // Set portrait
-    if (guardian.portrait.type === 'color') {
-        portrait.style.backgroundColor = guardian.portrait.value;
-        if (guardian.portrait.show_name) {
-            portrait.textContent = guardian.name;
-        }
+    // Set portrait using renderVisual (handles both color and image types)
+    renderVisual(guardian.portrait, portrait);
+    if (guardian.portrait.show_name) {
+        portrait.textContent = guardian.name;
     }
     
     name.textContent = guardian.name;

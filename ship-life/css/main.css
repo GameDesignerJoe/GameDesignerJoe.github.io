@@ -39,6 +39,34 @@ body {
     color: var(--text-light);
     background-color: var(--landing-bg);
     overflow-x: hidden;
+    position: relative;
+}
+
+/* Dark overlay for room background images */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7); /* 70% dark overlay */
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Ensure content appears above the overlay */
+#navigation-bar,
+#active-guardian-display,
+#room-title,
+#room-container,
+.modal,
+.sidebar,
+#debug-menu,
+#debug-toggle,
+.notification {
+    position: relative;
+    z-index: 10;
 }
 
 h1, h2, h3 {
