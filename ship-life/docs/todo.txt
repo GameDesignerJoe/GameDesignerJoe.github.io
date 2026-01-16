@@ -5,6 +5,8 @@ Priority 1:
 - Need to gell who has what equipped when doing your load out.
 - Clicking on characters in the Characters section should bring up their loadout.
 - Let's just get work benches to all be on the left side of the screen for now so they don't get squished with the interact window. 
+- We should make it so who ever you are playing you have to take with you on the mission. It's auto selected. If you try and turn it off, it says, "you have to take the character you're playing on the mission."
+- Missions reset when you go away and come back to the page. Seems like we want to hold onto the missions until players do them
 
 - Design Thought: We need a reason to pick between different missions. Some possible ideas:
 	- Difficulty doesn't have any real risk to it, because we're not losing anything. When we bring in aspects to the mission with the chance of losing them, that might help.

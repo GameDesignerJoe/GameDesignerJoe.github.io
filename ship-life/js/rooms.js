@@ -415,6 +415,23 @@ function createMissionCard(mission, isLocked) {
     difficulty.className = 'mission-card-difficulty';
     difficulty.textContent = `Difficulty: ${mission.difficulty}/10`;
     
+    // Add anomaly badge if present
+    if (mission.anomaly) {
+        const anomalyBadge = document.createElement('div');
+        anomalyBadge.className = `mission-anomaly-badge anomaly-${mission.anomaly.category}`;
+        anomalyBadge.style.background = mission.anomaly.icon.value;
+        anomalyBadge.textContent = `⚡ ${mission.anomaly.name}`;
+        anomalyBadge.title = mission.anomaly.description;
+        
+        // Add effect indicator
+        if (mission.anomaly.effects.reward_multiplier && mission.anomaly.effects.reward_multiplier > 1) {
+            const multiplier = Math.round((mission.anomaly.effects.reward_multiplier - 1) * 100);
+            anomalyBadge.textContent += ` (+${multiplier}% rewards)`;
+        }
+        
+        card.appendChild(anomalyBadge);
+    }
+    
     card.appendChild(visual);
     card.appendChild(name);
     card.appendChild(description);

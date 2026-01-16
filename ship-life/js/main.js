@@ -5,17 +5,18 @@
  */
 async function loadAllData() {
     try {
-        const [rooms, missions, guardians, items, workstations, conversations, trophies] = await Promise.all([
+        const [rooms, missions, guardians, items, workstations, conversations, trophies, anomalies] = await Promise.all([
             fetch('data/rooms.json').then(r => r.json()),
             fetch('data/missions.json').then(r => r.json()),
             fetch('data/guardians.json').then(r => r.json()),
             fetch('data/items.json').then(r => r.json()),
             fetch('data/workstations.json').then(r => r.json()),
             fetch('data/conversations.json').then(r => r.json()),
-            fetch('data/trophies.json').then(r => r.json())
+            fetch('data/trophies.json').then(r => r.json()),
+            fetch('data/anomalies.json').then(r => r.json())
         ]);
         
-        return { rooms, missions, guardians, items, workstations, conversations, trophies };
+        return { rooms, missions, guardians, items, workstations, conversations, trophies, anomalies };
     } catch (error) {
         console.error('Failed to load data files:', error);
         alert('Failed to load game data. Please refresh the page.');
@@ -39,6 +40,7 @@ async function initializeGame() {
     window.itemsData = data.items.items;
     window.workstationsData = data.workstations.workstations;
     window.conversationsData = data.conversations.conversations;
+    window.anomaliesData = data.anomalies.anomalies;
     trophiesData = data.trophies;
     
     // Get blueprints from items (they're stored as type: "blueprint")
@@ -54,6 +56,7 @@ async function initializeGame() {
     console.log(`- ${window.workstationsData.length} workstations`);
     console.log(`- ${window.blueprintsData.length} blueprints`);
     console.log(`- ${window.conversationsData.length} conversations`);
+    console.log(`- ${window.anomaliesData.length} anomalies`);
     console.log(`- ${trophiesData.length} trophies`);
     
     // Load or create save

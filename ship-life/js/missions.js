@@ -44,7 +44,60 @@ function getAvailableMissions(missions, state) {
  */
 function selectMissionsForDisplay(availableMissions, count = 3) {
     const shuffled = [...availableMissions].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count);
+    const selected = shuffled.slice(0, count);
+    
+    // Assign anomalies to missions (25% chance per mission)
+    assignAnomalies(selected);
+    
+    return selected;
+}
+
+/**
+ * Get weight for anomaly rarity
+ */
+function getRarityWeight(rarity) {
+    switch (rarity) {
+        case 'common': return 6;      // 60%
+        case 'uncommon': return 3;    // 30%
+        case 'rare': return 1;        // 10%
+        default: return 1;
+    }
+}
+
+/**
+ * Roll a random anomaly weighted by rarity
+ */
+function rollAnomaly() {
+    if (!window.anomaliesData || window.anomaliesData.length === 0) {
+        return null;
+    }
+    
+    // Create weighted pool
+    const pool = [];
+    window.anomaliesData.forEach(anomaly => {
+        const weight = getRarityWeight(anomaly.rarity);
+        for (let i = 0; i < weight; i++) {
+            pool.push(anomaly);
+        }
+    });
+    
+    // Pick random anomaly from weighted pool
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * Assign anomalies to missions
+ * @param {Array} missions - Missions to potentially add anomalies to
+ * @param {number} chance - Chance (0-1) for each mission to get an anomaly
+ */
+function assignAnomalies(missions, chance = 0.25) {
+    missions.forEach(mission => {
+        // Only assign if mission doesn't already have one
+        if (!mission.anomaly && Math.random() < chance) {
+            mission.anomaly = rollAnomaly();
+            console.log(`Assigned anomaly "${mission.anomaly?.name}" to mission "${mission.name}"`);
+        }
+    });
 }
 
 /**

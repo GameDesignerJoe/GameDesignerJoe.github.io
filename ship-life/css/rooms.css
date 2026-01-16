@@ -165,13 +165,13 @@
 
 .mission-card {
     width: 300px;
-    height: 350px;
+    height: 450px;
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
     cursor: pointer;
     border: 3px solid transparent;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -269,6 +269,51 @@
     font-size: 11px;
     font-weight: 700;
     transform: rotate(15deg);
+}
+
+/* Anomaly Badges */
+.mission-anomaly-badge {
+    position: absolute;
+    bottom: 60px;
+    left: 20px;
+    right: 20px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    50% {
+        box-shadow: 0 2px 12px rgba(255, 255, 255, 0.4), 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+}
+
+/* Anomaly category colors */
+.anomaly-environmental {
+    background: linear-gradient(135deg, #ff6b35, #f7931e);
+}
+
+.anomaly-tactical {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.anomaly-opportunity {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+.anomaly-social {
+    background: linear-gradient(135deg, #3498db, #2980b9);
 }
 
 /* Workstation Room */
