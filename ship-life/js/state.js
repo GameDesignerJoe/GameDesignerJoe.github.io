@@ -213,6 +213,22 @@ function incrementMissionsTogether(state, guardians) {
 }
 
 /**
+ * Increment relationship points between two guardians
+ * @param {Object} state - Game state
+ * @param {string} guardian1 - First guardian ID
+ * @param {string} guardian2 - Second guardian ID
+ * @param {number} amount - Amount to increment (default 1)
+ */
+function incrementRelationship(state, guardian1, guardian2, amount = 1) {
+    const key = getRelationshipKey(guardian1, guardian2);
+    if (!state.relationships.missions_together[key]) {
+        state.relationships.missions_together[key] = 0;
+    }
+    state.relationships.missions_together[key] += amount;
+    console.log(`Relationship increased: ${guardian1} & ${guardian2} (+${amount}) = ${state.relationships.missions_together[key]}`);
+}
+
+/**
  * Reset save (debug function)
  */
 function resetSave() {
