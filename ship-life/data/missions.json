@@ -63,7 +63,7 @@
         "show_name": true
       },
       "difficulty": 1,
-      "repeatable": true,
+      "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
         "missions_completed": [],
@@ -889,7 +889,7 @@
         "show_name": true
       },
       "difficulty": 1,
-      "repeatable": true,
+      "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
         "missions_completed": [],

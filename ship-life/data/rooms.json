@@ -15,8 +15,8 @@
       "id": "landing_page",
       "name": "Landing Page",
       "background": {
-        "type": "color",
-        "value": "#0a0e27"
+        "type": "image",
+        "value": "rooms/room_landing.png"
       },
       "title_display": false
     },
