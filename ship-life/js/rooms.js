@@ -281,6 +281,32 @@ function switchGuardian(guardian) {
  * Render Mission Computer
  */
 function renderMissionComputer(container) {
+    // Set container class for proper layout
+    container.className = 'mission-computer-container';
+    
+    // Mission stats section
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'mission-stats';
+    
+    const completedMissions = gameState.completed_missions || [];
+    const totalMissions = completedMissions.length;
+    const totalRun = gameState.total_missions_run || 0;
+    const successRate = totalRun > 0 ? Math.round((totalMissions / totalRun) * 100) : 0;
+    
+    statsDiv.innerHTML = `
+        <div class="stat-item">
+            <span class="stat-label">Missions Completed:</span>
+            <span class="stat-value">${totalMissions}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Success Rate:</span>
+            <span class="stat-value">${successRate}%</span>
+        </div>
+    `;
+    
+    container.appendChild(statsDiv);
+    
+    // Mission grid
     const grid = document.createElement('div');
     grid.className = 'mission-grid';
     
@@ -317,6 +343,19 @@ function createMissionCard(mission, isLocked) {
     card.className = 'mission-card';
     if (isLocked) card.classList.add('locked');
     
+    // Check if mission is new (never completed)
+    if (!isLocked && mission) {
+        const completedMissions = gameState.completed_missions || [];
+        const isNew = !completedMissions.includes(mission.id);
+        if (isNew) {
+            card.classList.add('mission-new');
+            const newBadge = document.createElement('div');
+            newBadge.className = 'new-badge';
+            newBadge.textContent = 'NEW!';
+            card.appendChild(newBadge);
+        }
+    }
+    
     const visual = document.createElement('div');
     visual.className = 'mission-card-visual';
     renderVisual(mission.visual, visual);
@@ -328,9 +367,41 @@ function createMissionCard(mission, isLocked) {
     name.className = 'mission-card-name';
     name.textContent = mission.name;
     
+    // Add chain info if available
+    if (mission.chain) {
+        const chainInfo = document.createElement('div');
+        chainInfo.className = 'mission-chain-badge';
+        chainInfo.textContent = `${mission.chain.name} - Part ${mission.chain.part}/${mission.chain.total}`;
+        card.appendChild(chainInfo);
+    }
+    
     const description = document.createElement('div');
     description.className = 'mission-card-description';
     description.textContent = mission.description;
+    
+    // Add resource preview
+    if (mission.rewards && mission.rewards.success) {
+        const resourcePreview = document.createElement('div');
+        resourcePreview.className = 'mission-resources';
+        
+        // Get top 3 rewards by drop chance
+        const topRewards = mission.rewards.success
+            .sort((a, b) => b.drop_chance - a.drop_chance)
+            .slice(0, 3);
+        
+        const rewardNames = [];
+        topRewards.forEach(reward => {
+            const item = window.itemsData?.find(i => i.id === reward.item);
+            if (item) {
+                rewardNames.push(item.name);
+            }
+        });
+        
+        if (rewardNames.length > 0) {
+            resourcePreview.textContent = 'Rewards: ' + rewardNames.join(', ');
+            card.appendChild(resourcePreview);
+        }
+    }
     
     const difficulty = document.createElement('div');
     difficulty.className = 'mission-card-difficulty';

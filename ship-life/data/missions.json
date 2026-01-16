@@ -216,7 +216,7 @@
       "requirements": null,
       "visual": {
         "type": "color",
-        "value": "#e74c3c",
+        "value": "#f39c12",
         "show_name": true
       },
       "difficulty": 3,
@@ -299,6 +299,11 @@
       "map": "danger_zone",
       "mission_type": "rescue",
       "requirements": null,
+      "chain": {
+        "name": "Lost Kin",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#e67e22",
@@ -384,6 +389,11 @@
       "map": "research_ruins",
       "mission_type": "search",
       "requirements": null,
+      "chain": {
+        "name": "Tech Investigation",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#16a085",
@@ -475,9 +485,14 @@
       "map": "kin_fortress",
       "mission_type": "combat",
       "requirements": null,
+      "chain": {
+        "name": "Lost Kin",
+        "part": 2,
+        "total": 2
+      },
       "visual": {
         "type": "color",
-        "value": "#c0392b",
+        "value": "#f39c12",
         "show_name": true
       },
       "difficulty": 3,
@@ -572,6 +587,11 @@
       "map": "colony_hub",
       "mission_type": "diplomatic",
       "requirements": null,
+      "chain": {
+        "name": "Diplomatic Relations",
+        "part": 2,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#f39c12",
@@ -757,9 +777,14 @@
       "requirements": {
         "equipment_subtype": "tech"
       },
+      "chain": {
+        "name": "Tech Investigation",
+        "part": 2,
+        "total": 2
+      },
       "visual": {
         "type": "color",
-        "value": "#d35400",
+        "value": "#e67e22",
         "show_name": true
       },
       "difficulty": 4,

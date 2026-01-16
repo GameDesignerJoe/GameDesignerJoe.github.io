@@ -126,11 +126,20 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
     addRewardsToInventory(rewards, gameState);
     incrementMissionCounter(gameState, gameState.active_guardian);
     
+    // Track total missions run
+    if (!gameState.total_missions_run) {
+        gameState.total_missions_run = 0;
+    }
+    gameState.total_missions_run++;
+    
     // Track missions together for the squad
     incrementMissionsTogether(gameState, squad);
     
     if (success) {
-        gameState.completed_missions.push(mission.id);
+        // Track completed missions (only add if not already completed)
+        if (!gameState.completed_missions.includes(mission.id)) {
+            gameState.completed_missions.push(mission.id);
+        }
         
         // Set completion flags
         if (mission.unlock_on_complete && mission.unlock_on_complete.flags) {

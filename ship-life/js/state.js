@@ -14,10 +14,19 @@ function createNewSave() {
         version: SAVE_VERSION,
         active_guardian: null,
         last_room: 'landing_page',
-        inventory: {},
+        inventory: {
+            plasma_cell: 20,
+            metal_parts: 15,
+            common_alloy: 10,
+            battery: 5
+        },
         workstations: {},
-        learned_blueprints: [],
+        learned_blueprints: [
+            'blueprint_basic_rifle',
+            'blueprint_basic_shield'
+        ],
         completed_missions: [],
+        total_missions_run: 0,
         mission_counters: {
             total: 0
         },

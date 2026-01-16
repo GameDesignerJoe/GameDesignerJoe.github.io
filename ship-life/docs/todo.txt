@@ -4,17 +4,13 @@ Priority 1:
 - We should have a gold border when people want to talk to you at the observation deck. 
 - Need to gell who has what equipped when doing your load out.
 - Clicking on characters in the Characters section should bring up their loadout.
+- Let's just get work benches to all be on the left side of the screen for now so they don't get squished with the interact window. 
 
 - Design Thought: We need a reason to pick between different missions. Some possible ideas:
-	- Show possible types of resources in the mission list so folks can make choices on which to take for the resources they need to unlock things.
 	- Difficulty doesn't have any real risk to it, because we're not losing anything. When we bring in aspects to the mission with the chance of losing them, that might help.
-	- Seeing what missions can unlock other missions. Maybe a 'story' or 'chain' tag with a Subtitle like "The Lost Kin Part 1 or 3" You do Part one, then Part 2 unlocks, sort of things
 	- Seems like you should have to succeed to unlock the other level of missions. 
 	- Seems like some missions should go away. Training Exercise for example
-	- New missions should be colored different. A gold boarder 
-	- Be nice to have a mission count somewhere on the page. "Missions Ran: 23" sort of thing
-	- Need better mission color range from 1 - 10. Red at 3 is too much. Red should be the highest difficulty out of the 10... or did we just go to 5 for now. Either way. Unless 4 and 5 are black.
-	- New feature to consider is that every time you run a mission it gains experience. It can level up and get more reward and more difficulty. We'd need to set up a cap of like any mission can only level up 3 levels beyond what it is (meaning we'd push past the level 5 cap here. We'd need a level count on the mission and a way to show that it's changed from what it was. This would encourage players to run the same mission more than once. 
+	- New feature to consider is that every time you run a mission it gains experience. It can level up and get more reward and more difficulty. We'd need to set up a cap of like any mission can only level up 3 levels beyond what it is, meaning we'd push past the level 5 cap here. We'd need a level count on the mission and a way to show that it's changed from what it was. This would encourage players to run the same mission more than once. 
 
 - It is odd that you can just rerun the mission over and over again from there. Seems like there should be a state that is after a mission has run, but before the user has picked a new mission that says, "Go to mission room to select a new mission"
 - Conversations need to go away, they are marked as background, but that also means the people are always hanging out. Perhaps we can have a different field for 'repeatable' and background versus important, or we just make everything important for now and see how that goes. 
