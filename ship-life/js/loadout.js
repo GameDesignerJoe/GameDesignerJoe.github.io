@@ -149,15 +149,11 @@ function calculateLoadoutBonus(state, selectedGuardians, mission) {
 }
 
 /**
- * Check if mission requirements are met
+ * Check if mission requirements are met (including anomaly requirements)
  */
 function checkMissionRequirements(state, selectedGuardians, mission) {
-    if (!mission.requirements) {
-        return { met: true, missing: null };
-    }
-    
-    // Check equipment subtype requirement
-    if (mission.requirements.equipment_subtype) {
+    // Check base mission requirements
+    if (mission.requirements && mission.requirements.equipment_subtype) {
         const requiredSubtype = mission.requirements.equipment_subtype;
         let hasRequired = false;
         
@@ -196,11 +192,59 @@ function checkMissionRequirements(state, selectedGuardians, mission) {
         }
     }
     
+    // Check anomaly requirements
+    if (mission.anomaly && mission.anomaly.effects) {
+        const effects = mission.anomaly.effects;
+        
+        // Check minimum Guardian count
+        if (effects.requires_minimum_guardians && selectedGuardians.length < effects.requires_minimum_guardians) {
+            return {
+                met: false,
+                missing: `${mission.anomaly.name} requires at least ${effects.requires_minimum_guardians} Guardians`
+            };
+        }
+        
+        // Check specific Guardian requirement
+        if (effects.requires_specific_guardian && !selectedGuardians.includes(effects.requires_specific_guardian)) {
+            const guardian = window.guardiansData?.find(g => g.id === effects.requires_specific_guardian);
+            const guardianName = guardian ? guardian.name : effects.requires_specific_guardian;
+            return {
+                met: false,
+                missing: `${mission.anomaly.name} requires ${guardianName} in the squad`
+            };
+        }
+        
+        // Check equipment type requirement
+        if (effects.requires_equipment_type) {
+            let hasEquipment = false;
+            
+            for (const guardianId of selectedGuardians) {
+                const loadout = getLoadout(state, guardianId);
+                
+                // Check equipment slot
+                if (loadout.equipment) {
+                    const item = window.itemsData.find(i => i.id === loadout.equipment);
+                    if (item && item.equipment_type === effects.requires_equipment_type) {
+                        hasEquipment = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!hasEquipment) {
+                return {
+                    met: false,
+                    missing: `${mission.anomaly.name} requires ${effects.requires_equipment_type} equipment`
+                };
+            }
+        }
+    }
+    
     return { met: true, missing: null };
 }
 
 /**
- * Calculate mission success rate with loadout bonuses
+ * Calculate mission success rate with loadout bonuses and anomaly modifiers
  */
 function calculateMissionSuccessRate(state, selectedGuardians, mission) {
     // Base success rate
@@ -209,12 +253,19 @@ function calculateMissionSuccessRate(state, selectedGuardians, mission) {
     // Loadout bonus
     const loadoutBonus = calculateLoadoutBonus(state, selectedGuardians, mission);
     
-    // Final success rate (capped at 100%, min 0%)
-    const finalSuccess = Math.min(100, Math.max(0, baseSuccess + loadoutBonus));
+    // Anomaly modifier (makes mission harder or easier)
+    let anomalyModifier = 0;
+    if (mission.anomaly && mission.anomaly.effects && mission.anomaly.effects.difficulty_modifier) {
+        anomalyModifier = -mission.anomaly.effects.difficulty_modifier; // Negative because positive modifier = harder
+    }
+    
+    // Final success rate (capped at 95% max, 5% min)
+    const finalSuccess = Math.min(95, Math.max(5, baseSuccess + loadoutBonus + anomalyModifier));
     
     return {
         base: baseSuccess,
         loadoutBonus: loadoutBonus,
+        anomalyModifier: anomalyModifier,
         final: finalSuccess
     };
 }

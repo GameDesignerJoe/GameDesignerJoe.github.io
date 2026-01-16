@@ -171,9 +171,10 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
     console.log(`Success Rate: ${rateCalc.base}% + ${rateCalc.loadoutBonus}% = ${rateCalc.final}%`);
     console.log(`Roll: ${roll.toFixed(2)} - ${success ? 'SUCCESS' : 'FAILURE'}`);
     
-    // Roll rewards
+    // Roll rewards (with anomaly multiplier)
     const rewardPool = success ? mission.rewards.success : mission.rewards.failure;
-    const rewards = rollRewards(rewardPool);
+    const anomalyMultiplier = mission.anomaly?.effects?.reward_multiplier || 1.0;
+    const rewards = rollRewards(rewardPool, anomalyMultiplier);
     
     // Update state
     addRewardsToInventory(rewards, gameState);
@@ -223,15 +224,18 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
 
 /**
  * Roll rewards based on drop chances
+ * @param {Array} rewardArray - Array of reward definitions
+ * @param {number} multiplier - Multiplier for reward quantities (from anomalies)
  */
-function rollRewards(rewardArray) {
+function rollRewards(rewardArray, multiplier = 1.0) {
     const results = [];
     
     for (const reward of rewardArray) {
         const roll = Math.random() * 100;
         if (roll <= reward.drop_chance) {
-            const quantity = Math.floor(Math.random() * (reward.max - reward.min + 1)) + reward.min;
-            results.push({ item: reward.item, quantity });
+            const baseQuantity = Math.floor(Math.random() * (reward.max - reward.min + 1)) + reward.min;
+            const finalQuantity = Math.max(1, Math.floor(baseQuantity * multiplier));
+            results.push({ item: reward.item, quantity: finalQuantity });
         }
     }
     

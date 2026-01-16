@@ -616,13 +616,22 @@ function updateSuccessRateDisplay(container, mission) {
     
     const breakdown = document.createElement('div');
     breakdown.style.fontSize = '13px';
-    breakdown.innerHTML = `
-        <div>Base Rate: ${rateCalc.base}%</div>
-        <div style="color: var(--primary);">Loadout Bonus: +${rateCalc.loadoutBonus}%</div>
-        <div style="font-size: 16px; font-weight: 700; margin-top: 8px; color: ${rateCalc.final >= 80 ? 'var(--success)' : rateCalc.final >= 50 ? 'var(--warning)' : 'var(--error)'};">
-            Final: ${rateCalc.final}%
-        </div>
-    `;
+    
+    let breakdownHTML = `<div>Base Rate: ${rateCalc.base}%</div>`;
+    breakdownHTML += `<div style="color: var(--primary);">Loadout Bonus: +${rateCalc.loadoutBonus}%</div>`;
+    
+    // Show anomaly modifier if present
+    if (rateCalc.anomalyModifier !== 0) {
+        const modColor = rateCalc.anomalyModifier > 0 ? 'var(--success)' : 'var(--error)';
+        const modSign = rateCalc.anomalyModifier > 0 ? '+' : '';
+        breakdownHTML += `<div style="color: ${modColor};">Anomaly Effect: ${modSign}${rateCalc.anomalyModifier}%</div>`;
+    }
+    
+    breakdownHTML += `<div style="font-size: 16px; font-weight: 700; margin-top: 8px; color: ${rateCalc.final >= 80 ? 'var(--success)' : rateCalc.final >= 50 ? 'var(--warning)' : 'var(--error)'};">
+        Final: ${rateCalc.final}%
+    </div>`;
+    
+    breakdown.innerHTML = breakdownHTML;
     
     container.appendChild(title);
     container.appendChild(breakdown);
