@@ -1,0 +1,22 @@
+{
+  "name": "fellowdivers-editor",
+  "version": "1.0.0",
+  "description": "JSON Editor for FellowDivers game data",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "build:client": "cd client && npm run build"
+  },
+  "keywords": ["json", "editor", "game-dev"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1",
+    "cors": "^2.8.5",
+    "chokidar": "^3.5.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
