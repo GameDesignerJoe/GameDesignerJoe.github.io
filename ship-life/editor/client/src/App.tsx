@@ -5,7 +5,7 @@ import { FileSelector } from './components/FileSelector';
 import { ArrayManager } from './components/ArrayManager';
 import { OptionalField } from './components/OptionalField';
 import { getMainArray, getMainArrayKey, formatFieldName, isTextAreaField, getDropdownOptionsForField } from './utils/fieldHelpers';
-import { getArrayConfig, getOptionalFieldTemplate, getSchemaForFile } from './config/schemas';
+import { getArrayConfig, getOptionalFieldTemplate, getSchemaForFile, getTooltipForField } from './config/schemas';
 import type { OpenFile, DropdownOptions } from './types';
 
 export default function App() {
@@ -270,6 +270,36 @@ export default function App() {
     setShowDeleteModal(false);
   };
 
+  const duplicateCurrentItem = () => {
+    if (activeFileIndex === null || !currentItem) return;
+    const newFiles = [...openFiles];
+    const currentData = newFiles[activeFileIndex].data;
+    const arrayKey = getMainArrayKey(currentData);
+    const currentTab = newFiles[activeFileIndex].activeTab;
+    
+    // Clone the current item
+    const duplicatedItem = JSON.parse(JSON.stringify(currentItem));
+    
+    // Modify id/name to indicate it's a copy
+    if (duplicatedItem.id) duplicatedItem.id = duplicatedItem.id + '_copy';
+    if (duplicatedItem.name) duplicatedItem.name = duplicatedItem.name + ' (Copy)';
+    if (duplicatedItem.title) duplicatedItem.title = duplicatedItem.title + ' (Copy)';
+    
+    const newData = JSON.parse(JSON.stringify(currentData));
+    if (arrayKey) {
+      newData[arrayKey].splice(currentTab + 1, 0, duplicatedItem);
+      newFiles[activeFileIndex].activeTab = currentTab + 1;
+    } else {
+      // Direct array
+      newData.splice(currentTab + 1, 0, duplicatedItem);
+      newFiles[activeFileIndex].activeTab = currentTab + 1;
+    }
+    
+    newFiles[activeFileIndex].data = newData;
+    newFiles[activeFileIndex].isDirty = true;
+    setOpenFiles(newFiles);
+  };
+
   const renderField = (label: string, value: any, path: string[], parentObject?: any): JSX.Element | null => {
     if (value === null || value === undefined) return null;
 
@@ -299,10 +329,15 @@ export default function App() {
     }
 
     if (typeof value === 'number') {
+      // Get tooltip for this field
+      const fieldPath = path.slice(2).join('.');
+      const tooltip = currentFile ? getTooltipForField(currentFile.name, fieldPath) : null;
+      
       return (
         <div key={fieldId} className="mb-3">
-          <label htmlFor={fieldId} className="block text-sm text-gray-400 mb-1">
+          <label htmlFor={fieldId} className="block text-sm text-gray-400 mb-1" title={tooltip || undefined}>
             {label}
+            {tooltip && <span className="ml-1 text-xs text-gray-500 cursor-help">ⓘ</span>}
           </label>
           <input
             id={fieldId}
@@ -316,23 +351,37 @@ export default function App() {
     }
 
     if (typeof value === 'string') {
+      // Check if field is empty (validation warning)
+      const isEmpty = value.trim() === '';
+      const fieldName = path[path.length - 1];
+      // Exclude chain.name from required validation (empty chains are valid)
+      const isRequiredField = ['id', 'name', 'title'].includes(fieldName) && 
+                              path.join('.') !== 'chain.name';
+      const showWarning = isEmpty && isRequiredField;
+      
       if (fieldOptions && fieldOptions.length > 0) {
         return (
           <div key={fieldId} className="mb-3">
             <label htmlFor={fieldId} className="block text-sm text-gray-400 mb-1">
               {label}
+              {showWarning && <span className="text-red-400 ml-1">*</span>}
             </label>
             <select
               id={fieldId}
               value={value}
               onChange={(e) => updateValue(path, e.target.value)}
-              className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-gray-100 focus:outline-none focus:border-blue-500"
+              className={`w-full px-2 py-1.5 text-sm bg-gray-700 border rounded text-gray-100 focus:outline-none focus:border-blue-500 ${
+                showWarning ? 'border-red-500' : 'border-gray-600'
+              }`}
             >
               <option value="">Select...</option>
               {fieldOptions.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
+            {showWarning && (
+              <p className="text-xs text-red-400 mt-1">This field is required</p>
+            )}
           </div>
         );
       }
@@ -342,6 +391,7 @@ export default function App() {
         <div key={fieldId} className="mb-3">
           <label htmlFor={fieldId} className="block text-sm text-gray-400 mb-1">
             {label}
+            {showWarning && <span className="text-red-400 ml-1">*</span>}
           </label>
           {isTextArea ? (
             <textarea
@@ -349,7 +399,9 @@ export default function App() {
               value={value}
               onChange={(e) => updateValue(path, e.target.value)}
               rows={2}
-              className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-gray-100 focus:outline-none focus:border-blue-500 resize-y"
+              className={`w-full px-2 py-1.5 text-sm bg-gray-700 border rounded text-gray-100 focus:outline-none focus:border-blue-500 resize-y ${
+                showWarning ? 'border-red-500' : 'border-gray-600'
+              }`}
             />
           ) : (
             <input
@@ -357,8 +409,13 @@ export default function App() {
               type="text"
               value={value}
               onChange={(e) => updateValue(path, e.target.value)}
-              className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-gray-100 focus:outline-none focus:border-blue-500"
+              className={`w-full px-2 py-1.5 text-sm bg-gray-700 border rounded text-gray-100 focus:outline-none focus:border-blue-500 ${
+                showWarning ? 'border-red-500' : 'border-gray-600'
+              }`}
             />
+          )}
+          {showWarning && (
+            <p className="text-xs text-red-400 mt-1">This field is required</p>
           )}
         </div>
       );
@@ -661,13 +718,23 @@ export default function App() {
                       <h2 className="text-lg font-bold text-white">
                         {currentItem.name || currentItem.title || currentItem.id || 'Untitled'}
                       </h2>
-                      <button
-                        onClick={() => setShowDeleteModal(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded text-sm text-white"
-                      >
-                        <Trash2 size={16} />
-                        Delete
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={duplicateCurrentItem}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm text-white"
+                          title="Duplicate this item"
+                        >
+                          <Plus size={16} />
+                          Duplicate
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteModal(true)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded text-sm text-white"
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     {renderObject(currentItem, [getMainArrayKey(currentFile!.data) || '0', activeTab.toString()])}
                   </>

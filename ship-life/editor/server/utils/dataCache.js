@@ -45,10 +45,12 @@ async function buildCache() {
     const workstations = JSON.parse(workstationsFile);
     dataCache.workstations = workstations.workstations ? workstations.workstations.map(w => w.id) : [];
 
-    // Read blueprints
+    // Read blueprints (alphabetized)
     const blueprintsFile = await fs.readFile(path.join(dataDir, 'blueprints.json'), 'utf-8');
     const blueprints = JSON.parse(blueprintsFile);
-    dataCache.blueprints = blueprints.blueprints ? blueprints.blueprints.map(b => b.id) : [];
+    dataCache.blueprints = blueprints.blueprints 
+      ? blueprints.blueprints.map(b => b.id).sort((a, b) => a.localeCompare(b))
+      : [];
 
     // Read rooms
     const roomsFile = await fs.readFile(path.join(dataDir, 'rooms.json'), 'utf-8');

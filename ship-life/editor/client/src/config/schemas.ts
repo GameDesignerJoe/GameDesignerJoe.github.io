@@ -31,6 +31,9 @@ export interface FileSchema {
     [fieldPath: string]: any; // Template for optional fields
   };
   fieldOrder?: string[]; // Explicit field ordering with positions for optional fields
+  tooltips?: {
+    [fieldPath: string]: string; // Help text for fields
+  };
 }
 
 export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
@@ -62,6 +65,15 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'requirements.equipment_subtype': ['weapon', 'armor', 'tech', 'medical', 'structural'],
       'prerequisites.missions_completed[]': { source: 'missions' },
       'unlock_on_complete.missions[]': { source: 'missions' }
+    },
+    tooltips: {
+      'id': 'Unique identifier for this mission',
+      'difficulty': 'Mission difficulty 1-5 (affects success rate: 1=90%, 2=80%, 3=70%, 4=60%, 5=50%)',
+      'repeatable': 'If true, mission stays available after completion',
+      'persist_on_fail': 'If true, mission stays available after failure',
+      'chain.name': 'Name of the mission chain (empty if standalone)',
+      'chain.part': 'Which part in the chain (1, 2, 3, etc.)',
+      'chain.total': 'Total missions in this chain'
     },
     arrayFields: {
       'prerequisites.missions_completed': {
@@ -301,4 +313,12 @@ export function getOptionalFieldTemplate(filename: string, fieldPath: string): a
   if (!schema || !schema.optionalFields) return null;
 
   return schema.optionalFields[fieldPath];
+}
+
+// Helper to get tooltip for a field
+export function getTooltipForField(filename: string, fieldPath: string): string | null {
+  const schema = getSchemaForFile(filename);
+  if (!schema || !schema.tooltips) return null;
+
+  return schema.tooltips[fieldPath] || null;
 }

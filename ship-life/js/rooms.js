@@ -390,11 +390,15 @@ function createMissionCard(mission, isLocked) {
     name.textContent = mission.name;
     
     // Add chain info if available (and chain has a name)
-    if (mission.chain && mission.chain.name && mission.chain.name.trim() !== '') {
-        const chainInfo = document.createElement('div');
-        chainInfo.className = 'mission-chain-badge';
-        chainInfo.textContent = `${mission.chain.name} - Part ${mission.chain.part}/${mission.chain.total}`;
-        card.appendChild(chainInfo);
+    // Ignore empty strings, "None", "N/A", or "NA" (case insensitive)
+    if (mission.chain && mission.chain.name) {
+        const chainName = mission.chain.name.trim().toLowerCase();
+        if (chainName !== '' && chainName !== 'none' && chainName !== 'n/a' && chainName !== 'na') {
+            const chainInfo = document.createElement('div');
+            chainInfo.className = 'mission-chain-badge';
+            chainInfo.textContent = `${mission.chain.name} - Part ${mission.chain.part}/${mission.chain.total}`;
+            card.appendChild(chainInfo);
+        }
     }
     
     const description = document.createElement('div');

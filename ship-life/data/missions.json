@@ -135,6 +135,95 @@
       }
     },
     {
+      "id": "first_contact_again",
+      "name": "First Contact Again",
+      "description": "Establish communication with the locals on Terminus Prime",
+      "map": "terminus_outpost",
+      "mission_type": "diplomatic",
+      "requirements": null,
+      "chain": {
+        "name": "Diplomatic Relations",
+        "part": 1,
+        "total": 2
+      },
+      "visual": {
+        "type": "color",
+        "value": "#27ae60",
+        "show_name": true
+      },
+      "difficulty": 1,
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 5,
+            "max": 10,
+            "drop_chance": 100
+          },
+          {
+            "item": "common_alloy",
+            "min": 3,
+            "max": 7,
+            "drop_chance": 80
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 60
+          }
+        ],
+        "failure": [
+          {
+            "item": "plasma_cell",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [
+          "first_contact_complete"
+        ],
+        "missions": [
+          "training_exercise",
+          "diplomatic_mission"
+        ]
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Approaching Terminus Prime...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "Stella leads the team forward!",
+            "bar_progress": 50,
+            "display_time": 3
+          },
+          {
+            "text": "Contact established! Negotiations in progress...",
+            "bar_progress": 75,
+            "display_time": 3
+          },
+          {
+            "text": "Mission objective complete!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
       "id": "supply_run",
       "name": "Supply Run",
       "description": "Retrieve critical supplies from an abandoned outpost",
@@ -142,7 +231,7 @@
       "mission_type": "collection",
       "requirements": null,
       "chain": {
-        "name": "",
+        "name": "None",
         "part": 1,
         "total": 2
       },
@@ -226,7 +315,7 @@
       "mission_type": "combat",
       "requirements": null,
       "chain": {
-        "name": "",
+        "name": "None",
         "part": 1,
         "total": 2
       },
@@ -694,7 +783,7 @@
         "equipment_subtype": "tech"
       },
       "chain": {
-        "name": "",
+        "name": "None",
         "part": 1,
         "total": 2
       },
@@ -915,7 +1004,7 @@
       "mission_type": "combat",
       "requirements": null,
       "chain": {
-        "name": "",
+        "name": "None",
         "part": 1,
         "total": 2
       },
