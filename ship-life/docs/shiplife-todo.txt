@@ -1,5 +1,63 @@
 TODO
 Priority 1:
+- There's no reason to take a specific Guardian on a mission with you. They are all exactly the same. 
+	- Need to have Guardians have an inherit skill/trait that gives them a benfit for a mission:
+		- Combat, Research, Support, Diplomacy, Movement
+		OR
+		- Fighting, Agility, Strength, Endurance, Reason, Intuition, Psyche (Classic TSR Marvel Stats)
+			- Each Guardian is great at one, Good at two, horrible at one, bad at two, and okay at the other. 
+		OR
+		- Classic Mobile stats: Health, Attack, Defense, Speed... and maybe we add in Magic and Tech
+			- Each Guardian is Great at one, horrible at one, good at one, bad at one, okay at the other two.
+	- Each mission is looking for some combination of two or more traits traits (Health, Attack, Defense, Speed, Magic, and Tech)
+		- health + attack = a big battle
+		- defense` + health = a hold the line until reinforcements
+		- magic + speed = no idea.
+	- Each mission has a default success chance based off of the difficulty of the mission.
+		- Guardian's great and good traits add to that chance of success. 
+		- Their horrible and bad ones subtract
+		- The trick is to find the right combination of Guardians to pick to do the mission to get the highest chance of success. 
+	- Aspects and Equipment let you either increase a strength or mitigate a weakness.
+	To Do: 
+		- Assign these 6 traits to Guardians
+		- Generate a list of possible missions based off of the combination of two of these traits
+			- Name, Description, Difficulty, etc. 
+		- Build Guardians to have these traits in the game.
+		- Build these missions into the game (start with 3)
+		- Test and see if it makes the player pick what they want to do. 
+
+- There's not enough of a rewards for completing missions to get you to craft anything.
+	- There's no incentive to craft because missions are just buttons you press. 
+	- There's nothing desireable in the crafting stations.
+	- There are too many crafting stations - it's overwhelming.
+
+	- We need to focus on a small number of things that are desirable in a workstation. 
+	- We need to have things in the workstations that you want to make.
+	- We need to give useful rewards.
+
+	To Do: 
+	- Need to gate workstations behind content completion and/or simply comment out the ones we have.
+	- Need to come up with half a dozen things you want to equip on your charcter.
+	- Need to make sure that you get enough resources on a single run to make something, even if it's simple (bandage, consumable)
+
+- There's no reason to talk to anyone on the ship. 
+	- There's no emotion.
+	- There's no progression to it.
+	- There's no benefit.
+
+	To Do: 
+	- We need to reward you for talking to other Guardians (we give you a piece of Equipment)
+	- We need to let you give them gives (make a gifting system and you get special gifts you can give them)
+	- Need to write dialog directly off of what mission you just did.
+	- They need to be a bit more in your face about wanting to talk to you (pop out)
+
+
+
+
+
+
+
+== Older Tasks that are likely still important, but not as much as what's above it. ==
 - We should adjust the percentage of success when you take on missions by taking more people with you. 
 - We should have a gold border when people want to talk to you at the observation deck. 
 - Need to gell who has what equipped when doing your load out.
