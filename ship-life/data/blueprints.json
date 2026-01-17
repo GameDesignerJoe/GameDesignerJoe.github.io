@@ -23,7 +23,7 @@
         "show_name": true
       },
       "unlocked_at_start": true,
-      "unlocks_recipe": "basic_rifle"
+      "unlocks_recipe": "plasma_rifle"
     },
     {
       "id": "blueprint_energy_shield",
@@ -35,7 +35,7 @@
         "show_name": true
       },
       "unlocked_at_start": true,
-      "unlocks_recipe": "basic_shield"
+      "unlocks_recipe": "energy_shield"
     }
   ]
 }

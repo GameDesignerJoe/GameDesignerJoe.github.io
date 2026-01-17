@@ -12,7 +12,12 @@ let dataCache = {
   anomalies: [],
   trophies: [],
   conversationTypes: ['important', 'background'],
-  playerCharReq: ['any']
+  playerCharReq: ['any'],
+  roomImages: [],
+  guardianImages: [],
+  missionImages: [],
+  itemImages: [],
+  workstationImages: []
 };
 
 let dataDir = '';
@@ -59,6 +64,25 @@ async function buildCache() {
     const trophiesFile = await fs.readFile(path.join(dataDir, 'trophies.json'), 'utf-8');
     const trophies = JSON.parse(trophiesFile);
     dataCache.trophies = trophies.trophies ? trophies.trophies.map(t => t.id) : [];
+
+    // Scan image folders
+    const assetsDir = path.join(dataDir, '../assets/images');
+    const imageFolders = ['rooms', 'guardians', 'missions', 'items', 'workstations'];
+    
+    for (const folder of imageFolders) {
+      const folderPath = path.join(assetsDir, folder);
+      const cacheKey = `${folder}Images`;
+      
+      try {
+        const files = await fs.readdir(folderPath);
+        dataCache[cacheKey] = files
+          .filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg'))
+          .map(f => `${folder}/${f}`);
+      } catch (error) {
+        console.error(`Could not read ${folder} images:`, error.message);
+        dataCache[cacheKey] = [];
+      }
+    }
 
     console.log('Data cache rebuilt:', {
       guardians: dataCache.guardians.length,

@@ -101,8 +101,13 @@
         ]
       },
       "unlock_on_complete": {
-        "flags": ["first_contact_complete"],
-        "missions": []
+        "flags": [
+          "first_contact_complete"
+        ],
+        "missions": [
+          "training_exercise",
+          "diplomatic_mission"
+        ]
       },
       "simulation": {
         "messages": [
@@ -136,6 +141,11 @@
       "map": "ghost_station",
       "mission_type": "collection",
       "requirements": null,
+      "chain": {
+        "name": "",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#16a085",
@@ -215,6 +225,11 @@
       "map": "frontier_colony",
       "mission_type": "combat",
       "requirements": null,
+      "chain": {
+        "name": "",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#f39c12",
@@ -314,7 +329,9 @@
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": ["first_contact"],
+        "missions_completed": [
+          "first_contact"
+        ],
         "total_missions": 0,
         "flags": []
       },
@@ -355,7 +372,9 @@
         ]
       },
       "unlock_on_complete": {
-        "flags": ["rescue_complete"],
+        "flags": [
+          "rescue_complete"
+        ],
         "missions": []
       },
       "simulation": {
@@ -674,6 +693,11 @@
       "requirements": {
         "equipment_subtype": "tech"
       },
+      "chain": {
+        "name": "",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#8e44ad",
@@ -683,7 +707,10 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": ["supply_run", "rescue_operation"],
+        "missions_completed": [
+          "supply_run",
+          "rescue_operation"
+        ],
         "total_missions": 0,
         "flags": []
       },
@@ -794,7 +821,9 @@
       "prerequisites": {
         "missions_completed": [],
         "total_missions": 7,
-        "flags": ["first_contact_complete"]
+        "flags": [
+          "first_contact_complete"
+        ]
       },
       "rewards": {
         "success": [
@@ -838,7 +867,9 @@
         "failure": []
       },
       "unlock_on_complete": {
-        "flags": ["reactor_crisis_resolved"],
+        "flags": [
+          "reactor_crisis_resolved"
+        ],
         "missions": []
       },
       "simulation": {
@@ -883,6 +914,11 @@
       "map": "training_grounds",
       "mission_type": "combat",
       "requirements": null,
+      "chain": {
+        "name": "",
+        "part": 1,
+        "total": 2
+      },
       "visual": {
         "type": "color",
         "value": "#7f8c8d",

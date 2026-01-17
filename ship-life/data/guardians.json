@@ -21,7 +21,7 @@
         "type": "image",
         "value": "guardians/stella_200.png",
         "show_name": false
-    },
+      },
       "role": "DPS",
       "description": "A fierce warrior with a strategic mind",
       "starting_guardian": true,

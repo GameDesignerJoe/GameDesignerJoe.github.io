@@ -1,15 +1,91 @@
 import type { DropdownOptions } from '../types';
+import { getSchemaForFile, getDropdownForField as getSchemaDropdown } from '../config/schemas';
 
-// Map field names to dropdown option keys
+// Get dropdown options for a field using schema-driven approach
 export function getDropdownOptionsForField(
   fieldName: string, 
-  dropdownOptions: DropdownOptions | null
+  dropdownOptions: DropdownOptions | null,
+  path?: string[],
+  currentFileName?: string,
+  currentObject?: any
 ): string[] | null {
   if (!dropdownOptions) return null;
 
+  // Build full field path, removing array name and numeric indices
+  // e.g., "guardians.0.portrait.type" becomes "portrait.type"
+  let fieldPath = fieldName;
+  if (path && path.length > 0) {
+    // Remove the first element (array name like "guardians") and any numeric indices
+    const cleanPath = path.slice(1).filter(p => isNaN(parseInt(p)));
+    fieldPath = cleanPath.length > 0 ? cleanPath.join('.') : fieldName;
+  }
+  
+  // CONDITIONAL LOGIC: Check if this is a "value" field with a sibling "type" field
+  if (fieldName.toLowerCase() === 'value' && currentObject && 'type' in currentObject) {
+    const typeValue = currentObject.type;
+    
+    // If type is "image", return image dropdown based on the file
+    if (typeValue === 'image' && currentFileName) {
+      const schema = getSchemaForFile(currentFileName);
+      if (schema?.imageFolder) {
+        const imageKey = `${schema.imageFolder}Images` as keyof DropdownOptions;
+        return dropdownOptions[imageKey] || null;
+      }
+    }
+    
+    // If type is "color", return null (will render as text input)
+    if (typeValue === 'color') {
+      return null;
+    }
+  }
+  
+  // Try schema-based dropdown first (file-specific)
+  if (currentFileName) {
+    const schema = getSchemaForFile(currentFileName);
+    if (schema && schema.dropdowns) {
+      // Check for exact field path match (e.g., "portrait.type")
+      const dropdown = schema.dropdowns[fieldPath];
+      if (dropdown) {
+        if (Array.isArray(dropdown)) {
+          return dropdown;
+        }
+        // If it's a source reference, get from dropdownOptions
+        if (typeof dropdown === 'object' && dropdown.source) {
+          const sourceKey = dropdown.source as keyof DropdownOptions;
+          return dropdownOptions[sourceKey] || null;
+        }
+      }
+      
+      // Check for array item match (e.g., "participants[]" matches array items)
+      const arrayItemPath = fieldPath + '[]';
+      const arrayItemDropdown = schema.dropdowns[arrayItemPath];
+      if (arrayItemDropdown) {
+        if (Array.isArray(arrayItemDropdown)) {
+          return arrayItemDropdown;
+        }
+        if (typeof arrayItemDropdown === 'object' && arrayItemDropdown.source) {
+          const sourceKey = arrayItemDropdown.source as keyof DropdownOptions;
+          return dropdownOptions[sourceKey] || null;
+        }
+      }
+      
+      // Check for simple field name match (e.g., just "type")
+      const simpleFieldDropdown = schema.dropdowns[fieldName];
+      if (simpleFieldDropdown) {
+        if (Array.isArray(simpleFieldDropdown)) {
+          return simpleFieldDropdown;
+        }
+        if (typeof simpleFieldDropdown === 'object' && simpleFieldDropdown.source) {
+          const sourceKey = simpleFieldDropdown.source as keyof DropdownOptions;
+          return dropdownOptions[sourceKey] || null;
+        }
+      }
+    }
+  }
+
+  // Fallback to global field name mapping for cross-file references
   const mapping: Record<string, keyof DropdownOptions> = {
     'actor': 'guardians',
-    'type': 'conversationTypes',
     'player_char_req': 'playerCharReq',
     'item': 'items',
     'item_id': 'items',
@@ -41,6 +117,12 @@ export function getDropdownOptionsForField(
 export function getMainArray(data: any): any[] | null {
   if (!data) return null;
   
+  // Handle direct array (e.g., trophies.json)
+  if (Array.isArray(data)) {
+    return data;
+  }
+  
+  // Handle wrapped array (e.g., { "guardians": [...] })
   const arrayKeys = Object.keys(data).filter(key => 
     Array.isArray(data[key]) && key !== '_documentation'
   );
@@ -52,6 +134,12 @@ export function getMainArray(data: any): any[] | null {
 export function getMainArrayKey(data: any): string | null {
   if (!data) return null;
   
+  // Handle direct array (no key name)
+  if (Array.isArray(data)) {
+    return null; // Direct array has no key
+  }
+  
+  // Handle wrapped array
   const arrayKeys = Object.keys(data).filter(key => 
     Array.isArray(data[key]) && key !== '_documentation'
   );
@@ -61,6 +149,17 @@ export function getMainArrayKey(data: any): string | null {
 
 // Format field name for display
 export function formatFieldName(key: string): string {
+  // Custom labels for specific fields
+  const customLabels: Record<string, string> = {
+    'missions': 'Missions To Unlock',
+    'missions_completed': 'Required Missions'
+  };
+  
+  // Check if there's a custom label
+  const customLabel = customLabels[key.toLowerCase()];
+  if (customLabel) return customLabel;
+  
+  // Default formatting
   return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 

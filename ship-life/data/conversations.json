@@ -21,22 +21,48 @@
       "title": "Breaking the Ice",
       "type": "important",
       "repeatable": false,
-      "participants": ["stella", "vawn"],
+      "participants": [
+        "stella",
+        "vawn"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "stella_vawn": 3 },
+        "missions_together": {
+          "stella_vawn": 3
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "stella", "text": "So... we've been on a few missions together now." },
-        { "actor": "vawn", "text": "Yeah. You're not bad out there." },
-        { "actor": "stella", "text": "Not bad? I saved your life twice!" },
-        { "actor": "vawn", "text": "...Fair point." },
-        { "actor": "vawn", "text": "I appreciate it. Really." },
-        { "actor": "stella", "text": "That's the most genuine thing I've heard you say." },
-        { "actor": "vawn", "text": "Don't get used to it." }
+        {
+          "actor": "stella",
+          "text": "So... we've been on a few missions together now."
+        },
+        {
+          "actor": "vawn",
+          "text": "Yeah. You're not bad out there."
+        },
+        {
+          "actor": "stella",
+          "text": "Not bad? I saved your life twice!"
+        },
+        {
+          "actor": "vawn",
+          "text": "...Fair point."
+        },
+        {
+          "actor": "vawn",
+          "text": "I appreciate it. Really."
+        },
+        {
+          "actor": "stella",
+          "text": "That's the most genuine thing I've heard you say."
+        },
+        {
+          "actor": "vawn",
+          "text": "Don't get used to it."
+        }
       ]
     },
     {
@@ -44,22 +70,48 @@
       "title": "The Scholar and the Soldier",
       "type": "important",
       "repeatable": false,
-      "participants": ["stella", "tiberius"],
+      "participants": [
+        "stella",
+        "tiberius"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "stella_tiberius": 3 },
+        "missions_together": {
+          "stella_tiberius": 3
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "tiberius", "text": "Stella, I've been meaning to ask about your tactical approach." },
-        { "actor": "stella", "text": "My tactical approach? I just keep everyone alive." },
-        { "actor": "tiberius", "text": "Precisely. It's... refreshing." },
-        { "actor": "stella", "text": "Most people would call it reckless." },
-        { "actor": "tiberius", "text": "Most people prioritize objectives over people." },
-        { "actor": "stella", "text": "Not us. Never us." },
-        { "actor": "tiberius", "text": "Indeed. That's why I'm glad to serve alongside you." }
+        {
+          "actor": "tiberius",
+          "text": "Stella, I've been meaning to ask about your tactical approach."
+        },
+        {
+          "actor": "stella",
+          "text": "My tactical approach? I just keep everyone alive."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Precisely. It's... refreshing."
+        },
+        {
+          "actor": "stella",
+          "text": "Most people would call it reckless."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Most people prioritize objectives over people."
+        },
+        {
+          "actor": "stella",
+          "text": "Not us. Never us."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Indeed. That's why I'm glad to serve alongside you."
+        }
       ]
     },
     {
@@ -67,21 +119,44 @@
       "title": "Old Friends, New War",
       "type": "important",
       "repeatable": false,
-      "participants": ["vawn", "tiberius"],
+      "participants": [
+        "vawn",
+        "tiberius"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "tiberius_vawn": 4 },
+        "missions_together": {
+          "tiberius_vawn": 4
+        },
         "total_missions": 5,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "vawn", "text": "Remember when we used to argue about strategy at the academy?" },
-        { "actor": "tiberius", "text": "How could I forget? You were insufferably stubborn." },
-        { "actor": "vawn", "text": "Funny, I remember you being the stubborn one." },
-        { "actor": "tiberius", "text": "Perhaps we both were. Are." },
-        { "actor": "vawn", "text": "At least now we're stubborn on the same side." },
-        { "actor": "tiberius", "text": "A terrifying prospect for our enemies." }
+        {
+          "actor": "vawn",
+          "text": "Remember when we used to argue about strategy at the academy?"
+        },
+        {
+          "actor": "tiberius",
+          "text": "How could I forget? You were insufferably stubborn."
+        },
+        {
+          "actor": "vawn",
+          "text": "Funny, I remember you being the stubborn one."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Perhaps we both were. Are."
+        },
+        {
+          "actor": "vawn",
+          "text": "At least now we're stubborn on the same side."
+        },
+        {
+          "actor": "tiberius",
+          "text": "A terrifying prospect for our enemies."
+        }
       ]
     },
     {
@@ -89,318 +164,724 @@
       "title": "Music in the Dark",
       "type": "important",
       "repeatable": false,
-      "participants": ["stella", "maestra"],
+      "participants": [
+        "stella",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_stella": 5 },
+        "missions_together": {
+          "maestra_stella": 5
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "stella", "text": "Maestra, can I ask you something?" },
-        { "actor": "maestra", "text": "Of course, darling." },
-        { "actor": "stella", "text": "Why did someone like you join FellowDivers?" },
-        { "actor": "maestra", "text": "Someone like me? A musician, you mean?" },
-        { "actor": "stella", "text": "You could have had a peaceful life. Fame, fortune..." },
-        { "actor": "maestra", "text": "Music is about connecting with people, Stella." },
-        { "actor": "maestra", "text": "What better way than fighting alongside them?" },
-        { "actor": "stella", "text": "I... never thought of it that way." },
-        { "actor": "maestra", "text": "We all find meaning in different ways." }
+        {
+          "actor": "stella",
+          "text": "Maestra, can I ask you something?"
+        },
+        {
+          "actor": "maestra",
+          "text": "Of course, darling."
+        },
+        {
+          "actor": "stella",
+          "text": "Why did someone like you join FellowDivers?"
+        },
+        {
+          "actor": "maestra",
+          "text": "Someone like me? A musician, you mean?"
+        },
+        {
+          "actor": "stella",
+          "text": "You could have had a peaceful life. Fame, fortune..."
+        },
+        {
+          "actor": "maestra",
+          "text": "Music is about connecting with people, Stella."
+        },
+        {
+          "actor": "maestra",
+          "text": "What better way than fighting alongside them?"
+        },
+        {
+          "actor": "stella",
+          "text": "I... never thought of it that way."
+        },
+        {
+          "actor": "maestra",
+          "text": "We all find meaning in different ways."
+        }
       ]
     },
     {
       "id": "vawn_maestra_opposites",
       "title": "Opposites Attract",
       "type": "important",
-      "participants": ["vawn", "maestra"],
+      "participants": [
+        "vawn",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_vawn": 6 },
+        "missions_together": {
+          "maestra_vawn": 6
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "maestra", "text": "You know, Vawn, we're quite the pair." },
-        { "actor": "vawn", "text": "What do you mean?" },
-        { "actor": "maestra", "text": "You're all sharp edges and cold logic. I'm... well, I'm not." },
-        { "actor": "vawn", "text": "And?" },
-        { "actor": "maestra", "text": "And somehow, we work beautifully together out there." },
-        { "actor": "vawn", "text": "Your optimism balances my pessimism." },
-        { "actor": "maestra", "text": "See? You do have feelings!" },
-        { "actor": "vawn", "text": "Don't tell anyone." }
+        {
+          "actor": "maestra",
+          "text": "You know, Vawn, we're quite the pair."
+        },
+        {
+          "actor": "vawn",
+          "text": "What do you mean?"
+        },
+        {
+          "actor": "maestra",
+          "text": "You're all sharp edges and cold logic. I'm... well, I'm not."
+        },
+        {
+          "actor": "vawn",
+          "text": "And?"
+        },
+        {
+          "actor": "maestra",
+          "text": "And somehow, we work beautifully together out there."
+        },
+        {
+          "actor": "vawn",
+          "text": "Your optimism balances my pessimism."
+        },
+        {
+          "actor": "maestra",
+          "text": "See? You do have feelings!"
+        },
+        {
+          "actor": "vawn",
+          "text": "Don't tell anyone."
+        }
       ]
     },
     {
       "id": "tiberius_maestra_wisdom",
       "title": "The Weight of Experience",
       "type": "important",
-      "participants": ["tiberius", "maestra"],
+      "participants": [
+        "tiberius",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_tiberius": 7 },
+        "missions_together": {
+          "maestra_tiberius": 7
+        },
         "total_missions": 10,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "tiberius", "text": "Maestra, you carry yourself with such grace." },
-        { "actor": "maestra", "text": "Years of practice, my friend." },
-        { "actor": "tiberius", "text": "Yet I sense a weight beneath it." },
-        { "actor": "maestra", "text": "We've all lost people, Tiberius." },
-        { "actor": "tiberius", "text": "Indeed. The curse of living long lives." },
-        { "actor": "maestra", "text": "But also the blessing of remembering them." },
-        { "actor": "tiberius", "text": "A poignant way to view it." }
+        {
+          "actor": "tiberius",
+          "text": "Maestra, you carry yourself with such grace."
+        },
+        {
+          "actor": "maestra",
+          "text": "Years of practice, my friend."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Yet I sense a weight beneath it."
+        },
+        {
+          "actor": "maestra",
+          "text": "We've all lost people, Tiberius."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Indeed. The curse of living long lives."
+        },
+        {
+          "actor": "maestra",
+          "text": "But also the blessing of remembering them."
+        },
+        {
+          "actor": "tiberius",
+          "text": "A poignant way to view it."
+        }
       ]
     },
     {
       "id": "bg_weather_chat",
       "title": "Weather on Nexus Station",
       "type": "background",
-      "participants": ["stella", "vawn"],
+      "participants": [
+        "stella",
+        "vawn"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "stella_vawn": 1 },
+        "missions_together": {
+          "stella_vawn": 1
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "stella", "text": "Do you ever miss real weather?" },
-        { "actor": "vawn", "text": "Real weather?" },
-        { "actor": "stella", "text": "You know, rain. Wind. Actual seasons." },
-        { "actor": "vawn", "text": "Station life does get monotonous." },
-        { "actor": "stella", "text": "That's the first time I've heard you admit something bothers you." },
-        { "actor": "vawn", "text": "I didn't say it bothers me." },
-        { "actor": "stella", "text": "Right. Of course not." }
+        {
+          "actor": "stella",
+          "text": "Do you ever miss real weather?"
+        },
+        {
+          "actor": "vawn",
+          "text": "Real weather?"
+        },
+        {
+          "actor": "stella",
+          "text": "You know, rain. Wind. Actual seasons."
+        },
+        {
+          "actor": "vawn",
+          "text": "Station life does get monotonous."
+        },
+        {
+          "actor": "stella",
+          "text": "That's the first time I've heard you admit something bothers you."
+        },
+        {
+          "actor": "vawn",
+          "text": "I didn't say it bothers me."
+        },
+        {
+          "actor": "stella",
+          "text": "Right. Of course not."
+        }
       ]
     },
     {
       "id": "bg_food_complaint",
       "title": "Terrible Rations",
       "type": "background",
-      "participants": ["stella", "tiberius"],
+      "participants": [
+        "stella",
+        "tiberius"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "stella_tiberius": 1 },
+        "missions_together": {
+          "stella_tiberius": 1
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "stella", "text": "These rations are getting worse every cycle." },
-        { "actor": "tiberius", "text": "Ah, you've noticed." },
-        { "actor": "stella", "text": "How could I not? This tastes like recycled boot leather." },
-        { "actor": "tiberius", "text": "In my days in the military, we had a saying..." },
-        { "actor": "stella", "text": "Let me guess - 'builds character'?" },
-        { "actor": "tiberius", "text": "No, actually. We said it tasted like recycled boot leather." }
+        {
+          "actor": "stella",
+          "text": "These rations are getting worse every cycle."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Ah, you've noticed."
+        },
+        {
+          "actor": "stella",
+          "text": "How could I not? This tastes like recycled boot leather."
+        },
+        {
+          "actor": "tiberius",
+          "text": "In my days in the military, we had a saying..."
+        },
+        {
+          "actor": "stella",
+          "text": "Let me guess - 'builds character'?"
+        },
+        {
+          "actor": "tiberius",
+          "text": "No, actually. We said it tasted like recycled boot leather."
+        }
       ]
     },
     {
       "id": "bg_training_room",
       "title": "Training Room Habits",
       "type": "background",
-      "participants": ["vawn", "tiberius"],
+      "participants": [
+        "vawn",
+        "tiberius"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "tiberius_vawn": 1 },
+        "missions_together": {
+          "tiberius_vawn": 1
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "vawn", "text": "You're in the training room every morning at 0600." },
-        { "actor": "tiberius", "text": "Routine is important." },
-        { "actor": "vawn", "text": "I'm there at 0530." },
-        { "actor": "tiberius", "text": "I know. I hear you." },
-        { "actor": "vawn", "text": "And yet you never join me." },
-        { "actor": "tiberius", "text": "Some prefer to train alone." },
-        { "actor": "vawn", "text": "Fair enough." }
+        {
+          "actor": "vawn",
+          "text": "You're in the training room every morning at 0600."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Routine is important."
+        },
+        {
+          "actor": "vawn",
+          "text": "I'm there at 0530."
+        },
+        {
+          "actor": "tiberius",
+          "text": "I know. I hear you."
+        },
+        {
+          "actor": "vawn",
+          "text": "And yet you never join me."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Some prefer to train alone."
+        },
+        {
+          "actor": "vawn",
+          "text": "Fair enough."
+        }
       ]
     },
     {
       "id": "bg_music_request",
       "title": "Song Request",
       "type": "background",
-      "participants": ["stella", "maestra"],
+      "participants": [
+        "stella",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_stella": 1 },
+        "missions_together": {
+          "maestra_stella": 1
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "stella", "text": "I heard you playing last night." },
-        { "actor": "maestra", "text": "Oh? Was I too loud?" },
-        { "actor": "stella", "text": "No, it was beautiful. What was it called?" },
-        { "actor": "maestra", "text": "I don't know yet. I'm still composing it." },
-        { "actor": "stella", "text": "Well, it was lovely." },
-        { "actor": "maestra", "text": "Thank you, darling. That means a lot." }
+        {
+          "actor": "stella",
+          "text": "I heard you playing last night."
+        },
+        {
+          "actor": "maestra",
+          "text": "Oh? Was I too loud?"
+        },
+        {
+          "actor": "stella",
+          "text": "No, it was beautiful. What was it called?"
+        },
+        {
+          "actor": "maestra",
+          "text": "I don't know yet. I'm still composing it."
+        },
+        {
+          "actor": "stella",
+          "text": "Well, it was lovely."
+        },
+        {
+          "actor": "maestra",
+          "text": "Thank you, darling. That means a lot."
+        }
       ]
     },
     {
       "id": "stella_vawn_trust",
       "title": "Learning to Trust",
       "type": "important",
-      "participants": ["stella", "vawn"],
+      "participants": [
+        "stella",
+        "vawn"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "stella_vawn": 8 },
+        "missions_together": {
+          "stella_vawn": 8
+        },
         "total_missions": 0,
         "flags": [],
-        "previous_conversations": ["stella_vawn_breaking_ice"]
+        "previous_conversations": [
+          "stella_vawn_breaking_ice"
+        ]
       },
       "lines": [
-        { "actor": "stella", "text": "Vawn, can I ask you something personal?" },
-        { "actor": "vawn", "text": "That depends on the question." },
-        { "actor": "stella", "text": "Why do you keep everyone at arm's length?" },
-        { "actor": "vawn", "text": "..." },
-        { "actor": "stella", "text": "I'm sorry, I shouldn't have—" },
-        { "actor": "vawn", "text": "No. It's a fair question." },
-        { "actor": "vawn", "text": "When you let people in... you give them the power to hurt you." },
-        { "actor": "stella", "text": "But you also give them the power to help you." },
-        { "actor": "vawn", "text": "Maybe. I'm... working on it." }
+        {
+          "actor": "stella",
+          "text": "Vawn, can I ask you something personal?"
+        },
+        {
+          "actor": "vawn",
+          "text": "That depends on the question."
+        },
+        {
+          "actor": "stella",
+          "text": "Why do you keep everyone at arm's length?"
+        },
+        {
+          "actor": "vawn",
+          "text": "..."
+        },
+        {
+          "actor": "stella",
+          "text": "I'm sorry, I shouldn't have—"
+        },
+        {
+          "actor": "vawn",
+          "text": "No. It's a fair question."
+        },
+        {
+          "actor": "vawn",
+          "text": "When you let people in... you give them the power to hurt you."
+        },
+        {
+          "actor": "stella",
+          "text": "But you also give them the power to help you."
+        },
+        {
+          "actor": "vawn",
+          "text": "Maybe. I'm... working on it."
+        }
       ]
     },
     {
       "id": "stella_tiberius_past",
       "title": "Echoes of the Past",
       "type": "important",
-      "participants": ["stella", "tiberius"],
+      "participants": [
+        "stella",
+        "tiberius"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "stella_tiberius": 9 },
+        "missions_together": {
+          "stella_tiberius": 9
+        },
         "total_missions": 12,
         "flags": [],
-        "previous_conversations": ["stella_tiberius_scholar_soldier"]
+        "previous_conversations": [
+          "stella_tiberius_scholar_soldier"
+        ]
       },
       "lines": [
-        { "actor": "tiberius", "text": "Stella, may I share something with you?" },
-        { "actor": "stella", "text": "Of course, Tiberius." },
-        { "actor": "tiberius", "text": "I've commanded many soldiers in my years. Lost many, too." },
-        { "actor": "stella", "text": "I can't imagine how hard that must be." },
-        { "actor": "tiberius", "text": "It never gets easier. You carry each name with you." },
-        { "actor": "stella", "text": "Is that why you value every life so much?" },
-        { "actor": "tiberius", "text": "Indeed. Every person we save is a future I helped preserve." },
-        { "actor": "stella", "text": "That's a beautiful way to look at it." },
-        { "actor": "tiberius", "text": "Thank you for understanding, Stella." }
+        {
+          "actor": "tiberius",
+          "text": "Stella, may I share something with you?"
+        },
+        {
+          "actor": "stella",
+          "text": "Of course, Tiberius."
+        },
+        {
+          "actor": "tiberius",
+          "text": "I've commanded many soldiers in my years. Lost many, too."
+        },
+        {
+          "actor": "stella",
+          "text": "I can't imagine how hard that must be."
+        },
+        {
+          "actor": "tiberius",
+          "text": "It never gets easier. You carry each name with you."
+        },
+        {
+          "actor": "stella",
+          "text": "Is that why you value every life so much?"
+        },
+        {
+          "actor": "tiberius",
+          "text": "Indeed. Every person we save is a future I helped preserve."
+        },
+        {
+          "actor": "stella",
+          "text": "That's a beautiful way to look at it."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Thank you for understanding, Stella."
+        }
       ]
     },
     {
       "id": "vawn_tiberius_academy_story",
       "title": "Academy Days",
       "type": "important",
-      "participants": ["vawn", "tiberius"],
+      "participants": [
+        "vawn",
+        "tiberius"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "tiberius_vawn": 10 },
+        "missions_together": {
+          "tiberius_vawn": 10
+        },
         "total_missions": 15,
         "flags": [],
-        "previous_conversations": ["vawn_tiberius_old_friends"]
+        "previous_conversations": [
+          "vawn_tiberius_old_friends"
+        ]
       },
       "lines": [
-        { "actor": "tiberius", "text": "Remember the final exam? The impossible scenario?" },
-        { "actor": "vawn", "text": "How could I forget? You insisted we could save everyone." },
-        { "actor": "tiberius", "text": "And you said I was being naive." },
-        { "actor": "vawn", "text": "You proved me wrong. We were the only team that managed it." },
-        { "actor": "tiberius", "text": "Because you trusted me, despite your doubts." },
-        { "actor": "vawn", "text": "Still do. Even when you're being stubborn." },
-        { "actor": "tiberius", "text": "The feeling is mutual, old friend." }
+        {
+          "actor": "tiberius",
+          "text": "Remember the final exam? The impossible scenario?"
+        },
+        {
+          "actor": "vawn",
+          "text": "How could I forget? You insisted we could save everyone."
+        },
+        {
+          "actor": "tiberius",
+          "text": "And you said I was being naive."
+        },
+        {
+          "actor": "vawn",
+          "text": "You proved me wrong. We were the only team that managed it."
+        },
+        {
+          "actor": "tiberius",
+          "text": "Because you trusted me, despite your doubts."
+        },
+        {
+          "actor": "vawn",
+          "text": "Still do. Even when you're being stubborn."
+        },
+        {
+          "actor": "tiberius",
+          "text": "The feeling is mutual, old friend."
+        }
       ]
     },
     {
       "id": "stella_maestra_vulnerability",
       "title": "Behind the Smile",
       "type": "important",
-      "participants": ["stella", "maestra"],
+      "participants": [
+        "stella",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_stella": 11 },
+        "missions_together": {
+          "maestra_stella": 11
+        },
         "total_missions": 0,
         "flags": [],
-        "previous_conversations": ["stella_maestra_music_and_war"]
+        "previous_conversations": [
+          "stella_maestra_music_and_war"
+        ]
       },
       "lines": [
-        { "actor": "stella", "text": "Maestra, you're always so positive. Don't you ever get scared?" },
-        { "actor": "maestra", "text": "Oh darling, terrified. Every single mission." },
-        { "actor": "stella", "text": "Really? You never show it." },
-        { "actor": "maestra", "text": "That's the performance, isn't it?" },
-        { "actor": "maestra", "text": "If I let the fear show, it becomes real." },
-        { "actor": "stella", "text": "But you're not alone. We're here for you." },
-        { "actor": "maestra", "text": "I know. And that means more than you realize." },
-        { "actor": "stella", "text": "You don't have to be strong all the time." },
-        { "actor": "maestra", "text": "Thank you, Stella. Truly." }
+        {
+          "actor": "stella",
+          "text": "Maestra, you're always so positive. Don't you ever get scared?"
+        },
+        {
+          "actor": "maestra",
+          "text": "Oh darling, terrified. Every single mission."
+        },
+        {
+          "actor": "stella",
+          "text": "Really? You never show it."
+        },
+        {
+          "actor": "maestra",
+          "text": "That's the performance, isn't it?"
+        },
+        {
+          "actor": "maestra",
+          "text": "If I let the fear show, it becomes real."
+        },
+        {
+          "actor": "stella",
+          "text": "But you're not alone. We're here for you."
+        },
+        {
+          "actor": "maestra",
+          "text": "I know. And that means more than you realize."
+        },
+        {
+          "actor": "stella",
+          "text": "You don't have to be strong all the time."
+        },
+        {
+          "actor": "maestra",
+          "text": "Thank you, Stella. Truly."
+        }
       ]
     },
     {
       "id": "vawn_maestra_understanding",
       "title": "Finding Common Ground",
       "type": "important",
-      "participants": ["vawn", "maestra"],
+      "participants": [
+        "vawn",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_vawn": 12 },
+        "missions_together": {
+          "maestra_vawn": 12
+        },
         "total_missions": 0,
         "flags": [],
-        "previous_conversations": ["vawn_maestra_opposites"]
+        "previous_conversations": [
+          "vawn_maestra_opposites"
+        ]
       },
       "lines": [
-        { "actor": "maestra", "text": "Vawn, I've been thinking about what you said. About logic and emotion." },
-        { "actor": "vawn", "text": "What about it?" },
-        { "actor": "maestra", "text": "I think we're more alike than different." },
-        { "actor": "vawn", "text": "How so?" },
-        { "actor": "maestra", "text": "Music is mathematics. Structure. Pattern. It's all logic, really." },
-        { "actor": "vawn", "text": "Hm. I never thought of it that way." },
-        { "actor": "maestra", "text": "And strategy requires intuition, feeling. Not just calculations." },
-        { "actor": "vawn", "text": "You might be right. Maybe we're not so opposite after all." },
-        { "actor": "maestra", "text": "See? We understand each other." }
+        {
+          "actor": "maestra",
+          "text": "Vawn, I've been thinking about what you said. About logic and emotion."
+        },
+        {
+          "actor": "vawn",
+          "text": "What about it?"
+        },
+        {
+          "actor": "maestra",
+          "text": "I think we're more alike than different."
+        },
+        {
+          "actor": "vawn",
+          "text": "How so?"
+        },
+        {
+          "actor": "maestra",
+          "text": "Music is mathematics. Structure. Pattern. It's all logic, really."
+        },
+        {
+          "actor": "vawn",
+          "text": "Hm. I never thought of it that way."
+        },
+        {
+          "actor": "maestra",
+          "text": "And strategy requires intuition, feeling. Not just calculations."
+        },
+        {
+          "actor": "vawn",
+          "text": "You might be right. Maybe we're not so opposite after all."
+        },
+        {
+          "actor": "maestra",
+          "text": "See? We understand each other."
+        }
       ]
     },
     {
       "id": "tiberius_maestra_memories",
       "title": "Those We've Lost",
       "type": "important",
-      "participants": ["tiberius", "maestra"],
+      "participants": [
+        "tiberius",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_tiberius": 13 },
+        "missions_together": {
+          "maestra_tiberius": 13
+        },
         "total_missions": 18,
         "flags": [],
-        "previous_conversations": ["tiberius_maestra_wisdom"]
+        "previous_conversations": [
+          "tiberius_maestra_wisdom"
+        ]
       },
       "lines": [
-        { "actor": "maestra", "text": "Tiberius, do you ever play their songs in your mind?" },
-        { "actor": "tiberius", "text": "Songs?" },
-        { "actor": "maestra", "text": "The people we've lost. Everyone has a song." },
-        { "actor": "tiberius", "text": "I... yes. I suppose I do, in a way." },
-        { "actor": "maestra", "text": "Their voices. Their laughter. The way they moved." },
-        { "actor": "tiberius", "text": "It's how we keep them with us." },
-        { "actor": "maestra", "text": "Exactly. As long as we remember, they're never truly gone." },
-        { "actor": "tiberius", "text": "A comforting thought. Thank you, Maestra." }
+        {
+          "actor": "maestra",
+          "text": "Tiberius, do you ever play their songs in your mind?"
+        },
+        {
+          "actor": "tiberius",
+          "text": "Songs?"
+        },
+        {
+          "actor": "maestra",
+          "text": "The people we've lost. Everyone has a song."
+        },
+        {
+          "actor": "tiberius",
+          "text": "I... yes. I suppose I do, in a way."
+        },
+        {
+          "actor": "maestra",
+          "text": "Their voices. Their laughter. The way they moved."
+        },
+        {
+          "actor": "tiberius",
+          "text": "It's how we keep them with us."
+        },
+        {
+          "actor": "maestra",
+          "text": "Exactly. As long as we remember, they're never truly gone."
+        },
+        {
+          "actor": "tiberius",
+          "text": "A comforting thought. Thank you, Maestra."
+        }
       ]
     },
     {
       "id": "bg_equipment_check",
       "title": "Pre-Mission Rituals",
       "type": "background",
-      "participants": ["vawn", "maestra"],
+      "participants": [
+        "vawn",
+        "maestra"
+      ],
       "player_char_req": "any",
       "prerequisites": {
-        "missions_together": { "maestra_vawn": 1 },
+        "missions_together": {
+          "maestra_vawn": 1
+        },
         "total_missions": 0,
         "flags": [],
         "previous_conversations": []
       },
       "lines": [
-        { "actor": "vawn", "text": "You always hum before missions." },
-        { "actor": "maestra", "text": "Do I? I hadn't noticed." },
-        { "actor": "vawn", "text": "It's the same melody every time." },
-        { "actor": "maestra", "text": "Ah, it's an old tune. Helps me focus." },
-        { "actor": "vawn", "text": "Superstition?" },
-        { "actor": "maestra", "text": "Ritual. There's a difference." },
-        { "actor": "vawn", "text": "Fair enough." }
+        {
+          "actor": "vawn",
+          "text": "You always hum before missions."
+        },
+        {
+          "actor": "maestra",
+          "text": "Do I? I hadn't noticed."
+        },
+        {
+          "actor": "vawn",
+          "text": "It's the same melody every time."
+        },
+        {
+          "actor": "maestra",
+          "text": "Ah, it's an old tune. Helps me focus."
+        },
+        {
+          "actor": "vawn",
+          "text": "Superstition?"
+        },
+        {
+          "actor": "maestra",
+          "text": "Ritual. There's a difference."
+        },
+        {
+          "actor": "vawn",
+          "text": "Fair enough."
+        }
       ]
     }
   ]

@@ -2,7 +2,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { FileJson, X, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { useApi } from './hooks/useApi';
 import { FileSelector } from './components/FileSelector';
+import { ArrayManager } from './components/ArrayManager';
+import { OptionalField } from './components/OptionalField';
 import { getMainArray, getMainArrayKey, formatFieldName, isTextAreaField, getDropdownOptionsForField } from './utils/fieldHelpers';
+import { getArrayConfig, getOptionalFieldTemplate, getSchemaForFile } from './config/schemas';
 import type { OpenFile, DropdownOptions } from './types';
 
 export default function App() {
@@ -104,17 +107,106 @@ export default function App() {
     setSaveTimeouts(prev => ({ ...prev, [activeFileIndex]: timeout }));
   }, [activeFileIndex, openFiles, saveFile, saveTimeouts]);
 
+  // Array manipulation functions
+  const addArrayItem = useCallback((path: string[], template: any) => {
+    if (activeFileIndex === null) return;
+    
+    const newFiles = [...openFiles];
+    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+    let current = newData;
+    
+    for (let i = 0; i < path.length; i++) {
+      current = current[path[i]];
+    }
+    
+    // Add the new item
+    if (Array.isArray(current)) {
+      current.push(JSON.parse(JSON.stringify(template)));
+    }
+    
+    newFiles[activeFileIndex].data = newData;
+    newFiles[activeFileIndex].isDirty = true;
+    setOpenFiles(newFiles);
+  }, [activeFileIndex, openFiles]);
+
+  const removeArrayItem = useCallback((path: string[], index: number) => {
+    if (activeFileIndex === null) return;
+    
+    const newFiles = [...openFiles];
+    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+    let current = newData;
+    
+    for (let i = 0; i < path.length; i++) {
+      current = current[path[i]];
+    }
+    
+    // Remove the item
+    if (Array.isArray(current)) {
+      current.splice(index, 1);
+    }
+    
+    newFiles[activeFileIndex].data = newData;
+    newFiles[activeFileIndex].isDirty = true;
+    setOpenFiles(newFiles);
+  }, [activeFileIndex, openFiles]);
+
+  const reorderArrayItem = useCallback((path: string[], index: number, direction: 'up' | 'down') => {
+    if (activeFileIndex === null) return;
+    
+    const newFiles = [...openFiles];
+    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+    let current = newData;
+    
+    for (let i = 0; i < path.length; i++) {
+      current = current[path[i]];
+    }
+    
+    // Reorder the item
+    if (Array.isArray(current)) {
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
+      if (newIndex >= 0 && newIndex < current.length) {
+        const [item] = current.splice(index, 1);
+        current.splice(newIndex, 0, item);
+      }
+    }
+    
+    newFiles[activeFileIndex].data = newData;
+    newFiles[activeFileIndex].isDirty = true;
+    setOpenFiles(newFiles);
+  }, [activeFileIndex, openFiles]);
+
+  // Add optional field
+  const addOptionalField = useCallback((path: string[], fieldName: string, template: any) => {
+    if (activeFileIndex === null) return;
+    
+    const newFiles = [...openFiles];
+    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+    let current = newData;
+    
+    // Navigate to the parent object
+    for (let i = 0; i < path.length; i++) {
+      current = current[path[i]];
+    }
+    
+    // Add the optional field with its template value
+    current[fieldName] = JSON.parse(JSON.stringify(template));
+    
+    newFiles[activeFileIndex].data = newData;
+    newFiles[activeFileIndex].isDirty = true;
+    setOpenFiles(newFiles);
+  }, [activeFileIndex, openFiles]);
+
   const addNewItem = () => {
     if (activeFileIndex === null) return;
     const newFiles = [...openFiles];
     const currentData = newFiles[activeFileIndex].data;
     const arrayKey = getMainArrayKey(currentData);
     
-    if (!arrayKey) return;
+    // Handle direct array (trophies.json) vs wrapped array
+    const array = arrayKey ? currentData[arrayKey] : currentData;
+    if (!Array.isArray(array)) return;
     
-    const array = currentData[arrayKey];
     let template: any = {};
-    
     if (array.length > 0) {
       template = JSON.parse(JSON.stringify(array[0]));
       const clearValues = (obj: any) => {
@@ -130,9 +222,15 @@ export default function App() {
     }
     
     const newData = JSON.parse(JSON.stringify(currentData));
-    newData[arrayKey].push(template);
+    if (arrayKey) {
+      newData[arrayKey].push(template);
+      newFiles[activeFileIndex].activeTab = newData[arrayKey].length - 1;
+    } else {
+      // Direct array
+      newData.push(template);
+      newFiles[activeFileIndex].activeTab = newData.length - 1;
+    }
     newFiles[activeFileIndex].data = newData;
-    newFiles[activeFileIndex].activeTab = newData[arrayKey].length - 1;
     setOpenFiles(newFiles);
   };
 
@@ -141,33 +239,48 @@ export default function App() {
     const newFiles = [...openFiles];
     const currentData = newFiles[activeFileIndex].data;
     const arrayKey = getMainArrayKey(currentData);
-    
-    if (!arrayKey) return;
-    
-    const array = currentData[arrayKey];
     const currentTab = newFiles[activeFileIndex].activeTab;
     
-    if (array.length === 0 || currentTab >= array.length) return;
+    // Handle direct array vs wrapped array
+    const array = arrayKey ? currentData[arrayKey] : currentData;
+    if (!Array.isArray(array) || array.length === 0 || currentTab >= array.length) return;
     
     const newData = JSON.parse(JSON.stringify(currentData));
-    newData[arrayKey].splice(currentTab, 1);
-    newFiles[activeFileIndex].data = newData;
-    
-    if (currentTab >= newData[arrayKey].length && newData[arrayKey].length > 0) {
-      newFiles[activeFileIndex].activeTab = newData[arrayKey].length - 1;
-    } else if (newData[arrayKey].length === 0) {
-      newFiles[activeFileIndex].activeTab = 0;
+    if (arrayKey) {
+      newData[arrayKey].splice(currentTab, 1);
+      const newLength = newData[arrayKey].length;
+      if (currentTab >= newLength && newLength > 0) {
+        newFiles[activeFileIndex].activeTab = newLength - 1;
+      } else if (newLength === 0) {
+        newFiles[activeFileIndex].activeTab = 0;
+      }
+    } else {
+      // Direct array
+      newData.splice(currentTab, 1);
+      const newLength = newData.length;
+      if (currentTab >= newLength && newLength > 0) {
+        newFiles[activeFileIndex].activeTab = newLength - 1;
+      } else if (newLength === 0) {
+        newFiles[activeFileIndex].activeTab = 0;
+      }
     }
     
+    newFiles[activeFileIndex].data = newData;
     setOpenFiles(newFiles);
     setShowDeleteModal(false);
   };
 
-  const renderField = (label: string, value: any, path: string[]): JSX.Element | null => {
+  const renderField = (label: string, value: any, path: string[], parentObject?: any): JSX.Element | null => {
     if (value === null || value === undefined) return null;
 
     const fieldId = path.join('-');
-    const fieldOptions = getDropdownOptionsForField(path[path.length - 1], dropdownOptions);
+    const fieldOptions = getDropdownOptionsForField(
+      path[path.length - 1], 
+      dropdownOptions, 
+      path,
+      currentFile?.name,
+      parentObject
+    );
     
     if (typeof value === 'boolean') {
       return (
@@ -255,41 +368,63 @@ export default function App() {
   };
 
   const renderObject = (obj: any, path: string[] = []): JSX.Element[] => {
-    return Object.entries(obj).map(([key, value]) => {
+    const renderedFields = Object.entries(obj).map(([key, value]) => {
       if (key === '_documentation' || key === '_note') return null;
 
       const currentPath = [...path, key];
       const displayName = formatFieldName(key);
 
       if (Array.isArray(value)) {
-        const sectionKey = `${currentPath.join('-')}-array`;
-        const isCollapsed = collapsedSections[sectionKey];
-
+        // ALL ARRAYS get management controls now
+        // Create a template based on the array's existing items
+        let template: any = '';
+        if (value.length > 0) {
+          const firstItem = value[0];
+          if (typeof firstItem === 'object' && !Array.isArray(firstItem)) {
+            // Object: copy structure and clear values
+            template = JSON.parse(JSON.stringify(firstItem));
+            const clearValues = (obj: any) => {
+              for (let k in obj) {
+                if (typeof obj[k] === 'string') obj[k] = '';
+                else if (typeof obj[k] === 'number') obj[k] = 0;
+                else if (typeof obj[k] === 'boolean') obj[k] = false;
+                else if (Array.isArray(obj[k])) obj[k] = [];
+                else if (typeof obj[k] === 'object' && obj[k] !== null) clearValues(obj[k]);
+              }
+            };
+            clearValues(template);
+          } else if (typeof firstItem === 'string') {
+            template = '';
+          } else if (typeof firstItem === 'number') {
+            template = 0;
+          }
+        }
+        
+        // Check schema for specific array config (reordering, etc.)
+        const fieldPath = currentPath.join('.').replace(/\.\d+\./g, '[].').replace(/^\w+\./, '');
+        const arrayConfig = currentFile ? getArrayConfig(currentFile.name, fieldPath) : null;
+        const canReorder = arrayConfig?.canReorder || false;
+        
         return (
           <div key={key} className="mb-4">
-            <button
-              onClick={() => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
-              className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-2"
-            >
-              <ChevronRight 
-                size={16} 
-                className={`transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-              />
-              <span className="font-semibold">{displayName} ({value.length})</span>
-            </button>
-            {!isCollapsed && (
-              <div className="pl-4 space-y-2">
-                {value.map((item, index) => (
-                  <div key={index} className="p-2 bg-gray-800 rounded border border-gray-700">
-                    {typeof item === 'object' && !Array.isArray(item) ? (
-                      renderObject(item, [...currentPath, index.toString()])
-                    ) : (
-                      renderField(key, item, [...currentPath, index.toString()])
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <h4 className="text-sm font-semibold text-blue-400 mb-2">{displayName}</h4>
+            <ArrayManager
+              items={value}
+              itemName={displayName.replace(/s$/, '')}
+              onAdd={() => addArrayItem(currentPath, template)}
+              onRemove={(index) => removeArrayItem(currentPath, index)}
+              onReorder={canReorder ? (index, direction) => reorderArrayItem(currentPath, index, direction) : undefined}
+              canAdd={true}
+              canRemove={true}
+              canReorder={canReorder}
+              renderItem={(item, index) => (
+                typeof item === 'object' && !Array.isArray(item) ? (
+                  <div>{renderObject(item, [...currentPath, index.toString()])}</div>
+                ) : (
+                  <div>{renderField(key, item, [...currentPath, index.toString()])}</div>
+                )
+              )}
+            />
           </div>
         );
       }
@@ -297,19 +432,46 @@ export default function App() {
       if (typeof value === 'object' && value !== null) {
         const sectionKey = `${currentPath.join('-')}-obj`;
         const isCollapsed = collapsedSections[sectionKey];
+        
+        // Check if this is an optional field that can be removed
+        const schema = currentFile ? getSchemaForFile(currentFile.name) : null;
+        const isOptionalField = schema?.optionalFields && key in schema.optionalFields && path.length === 2;
 
         return (
           <div key={key} className="mb-4">
-            <button
-              onClick={() => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
-              className="flex items-center gap-2 text-purple-400 hover:text-purple-300 mb-2"
-            >
-              <ChevronRight 
-                size={16} 
-                className={`transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-              />
-              <span className="font-semibold">{displayName}</span>
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
+                className="flex items-center gap-2 text-purple-400 hover:text-purple-300 mb-2"
+              >
+                <ChevronRight 
+                  size={16} 
+                  className={`transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                />
+                <span className="font-semibold">{displayName}</span>
+              </button>
+              {isOptionalField && (
+                <button
+                  onClick={() => {
+                    if (activeFileIndex === null) return;
+                    const newFiles = [...openFiles];
+                    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+                    let current = newData;
+                    for (let i = 0; i < path.length; i++) {
+                      current = current[path[i]];
+                    }
+                    delete current[key];
+                    newFiles[activeFileIndex].data = newData;
+                    newFiles[activeFileIndex].isDirty = true;
+                    setOpenFiles(newFiles);
+                  }}
+                  className="p-1 text-red-400 hover:text-red-300 hover:bg-gray-700 rounded mb-2"
+                  title={`Remove ${displayName}`}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             {!isCollapsed && (
               <div className="pl-4 border-l-2 border-gray-700">
                 {renderObject(value, currentPath)}
@@ -319,8 +481,32 @@ export default function App() {
         );
       }
 
-      return renderField(displayName, value, currentPath);
+      return renderField(displayName, value, currentPath, obj);
     }).filter(Boolean) as JSX.Element[];
+
+    // Check for optional fields that are missing
+    // Only show at the ROOT level of each item (not in nested objects)
+    if (currentFile && path.length === 2) {
+      // path.length === 2 means we're at the item root (e.g., ["missions", "0"])
+      const schema = getSchemaForFile(currentFile.name);
+      if (schema?.optionalFields) {
+        Object.entries(schema.optionalFields).forEach(([fieldName, template]) => {
+          // Check if this field is missing from the current object
+          if (!(fieldName in obj)) {
+            renderedFields.push(
+              <OptionalField
+                key={`optional-${fieldName}`}
+                fieldName={fieldName}
+                displayName={formatFieldName(fieldName)}
+                onAdd={() => addOptionalField(path, fieldName, template)}
+              />
+            );
+          }
+        });
+      }
+    }
+
+    return renderedFields;
   };
 
   const filteredArray = mainArray ? mainArray.filter((item: any) => {
@@ -353,21 +539,31 @@ export default function App() {
       {openFiles.length > 0 && (
         <div className="bg-gray-800 border-b border-gray-700 px-4 flex gap-1 overflow-x-auto flex-shrink-0">
           {openFiles.map((file, index) => (
-            <button
+            <div
               key={index}
-              onClick={() => setActiveFileIndex(index)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-t transition-colors cursor-pointer ${
                 activeFileIndex === index
                   ? 'bg-gray-900 text-white border-t border-l border-r border-gray-700'
                   : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
               }`}
             >
-              <span className="text-sm whitespace-nowrap">{file.name}</span>
+              <span 
+                className="text-sm whitespace-nowrap" 
+                onClick={() => setActiveFileIndex(index)}
+              >
+                {file.name}
+              </span>
               {file.isDirty && <span className="text-yellow-400">●</span>}
-              <button onClick={(e) => closeFile(index, e)} className="hover:text-red-400">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeFile(index, e);
+                }} 
+                className="hover:text-red-400 p-1"
+              >
                 <X size={14} />
               </button>
-            </button>
+            </div>
           ))}
           <button
             onClick={() => setShowFilePicker(true)}
@@ -473,7 +669,7 @@ export default function App() {
                         Delete
                       </button>
                     </div>
-                    {renderObject(currentItem, [getMainArrayKey(currentFile!.data)!, activeTab.toString()])}
+                    {renderObject(currentItem, [getMainArrayKey(currentFile!.data) || '0', activeTab.toString()])}
                   </>
                 ) : (
                   <div className="text-gray-500 text-center py-8">

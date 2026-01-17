@@ -9,6 +9,11 @@ export interface DropdownOptions {
   trophies: string[];
   conversationTypes: string[];
   playerCharReq: string[];
+  roomImages: string[];
+  guardianImages: string[];
+  missionImages: string[];
+  itemImages: string[];
+  workstationImages: string[];
 }
 
 export interface OpenFile {

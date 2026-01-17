@@ -389,8 +389,8 @@ function createMissionCard(mission, isLocked) {
     name.className = 'mission-card-name';
     name.textContent = mission.name;
     
-    // Add chain info if available
-    if (mission.chain) {
+    // Add chain info if available (and chain has a name)
+    if (mission.chain && mission.chain.name && mission.chain.name.trim() !== '') {
         const chainInfo = document.createElement('div');
         chainInfo.className = 'mission-chain-badge';
         chainInfo.textContent = `${mission.chain.name} - Part ${mission.chain.part}/${mission.chain.total}`;
