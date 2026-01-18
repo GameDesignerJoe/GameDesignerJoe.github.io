@@ -913,21 +913,31 @@ function renderPlanetfallPortal(container) {
     
     squadSection.appendChild(guardianGrid);
     
-    // Success rate display
+    // Success rate display with launch button
     const successSection = document.createElement('div');
     successSection.className = 'success-rate-section';
     successSection.id = 'success-rate-display';
-    updateSuccessRateDisplay(successSection, mission);
+    successSection.style.display = 'flex';
+    successSection.style.alignItems = 'center';
+    successSection.style.justifyContent = 'space-between';
+    successSection.style.gap = '20px';
+    
+    const successRateInfo = document.createElement('div');
+    successRateInfo.style.flex = '1';
+    updateSuccessRateDisplay(successRateInfo, mission);
     
     // Launch button
     const launchButton = createButton('Launch Mission', 'launch-button', () => {
         launchMissionWithSquad(mission);
     });
+    launchButton.style.flexShrink = '0';
+    
+    successSection.appendChild(successRateInfo);
+    successSection.appendChild(launchButton);
     
     container.appendChild(missionInfo);
-    container.appendChild(squadSection);
     container.appendChild(successSection);
-    container.appendChild(launchButton);
+    container.appendChild(squadSection);
 }
 
 /**
