@@ -477,6 +477,16 @@ function renderMissionComputer(container) {
     });
     
     container.appendChild(grid);
+    
+    // Clear the _isNewlyGenerated flags AFTER rendering (so they show during this visit)
+    // This will be cleared for next time we enter the mission computer
+    setTimeout(() => {
+        displayMissions.forEach(mission => {
+            if (mission && mission._isNewlyGenerated) {
+                mission._isNewlyGenerated = false;
+            }
+        });
+    }, 100);
 }
 
 /**
@@ -487,17 +497,13 @@ function createMissionCard(mission, isLocked) {
     card.className = 'mission-card';
     if (isLocked) card.classList.add('locked');
     
-    // Check if mission is new (never completed)
-    if (!isLocked && mission) {
-        const completedMissions = gameState.completed_missions || [];
-        const isNew = !completedMissions.includes(mission.id);
-        if (isNew) {
-            card.classList.add('mission-new');
-            const newBadge = document.createElement('div');
-            newBadge.className = 'new-badge';
-            newBadge.textContent = 'NEW!';
-            card.appendChild(newBadge);
-        }
+    // Check if mission is newly generated (not just never completed)
+    if (!isLocked && mission && mission._isNewlyGenerated) {
+        card.classList.add('mission-new');
+        const newBadge = document.createElement('div');
+        newBadge.className = 'new-badge';
+        newBadge.textContent = 'NEW!';
+        card.appendChild(newBadge);
     }
     
     // 1. Mission rectangle with visual

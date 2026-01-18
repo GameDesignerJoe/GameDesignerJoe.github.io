@@ -62,10 +62,21 @@ function getCurrentMissions(state, availableMissions, count = 3) {
         state.current_missions = [];
     }
     
+    // Initialize seen missions tracker
+    if (!state.seen_current_missions) {
+        state.seen_current_missions = [];
+    }
+    
     // If we have fewer than count missions, generate new ones to fill
     if (state.current_missions.length < count) {
         const needed = count - state.current_missions.length;
         const newMissions = selectMissionsForDisplay(availableMissions, needed);
+        
+        // Mark new missions as NOT seen yet (they'll be marked as seen when displayed)
+        newMissions.forEach(mission => {
+            mission._isNewlyGenerated = true;
+        });
+        
         state.current_missions.push(...newMissions);
         autoSave(state);
     }
@@ -74,6 +85,13 @@ function getCurrentMissions(state, availableMissions, count = 3) {
     state.current_missions = state.current_missions.filter(mission => 
         availableMissions.some(available => available.id === mission.id)
     );
+    
+    // Mark missions as seen (for future visits)
+    state.current_missions.forEach(mission => {
+        if (!state.seen_current_missions.includes(mission.id)) {
+            state.seen_current_missions.push(mission.id);
+        }
+    });
     
     return state.current_missions;
 }
@@ -95,6 +113,8 @@ function replaceCompletedMission(state, completedMissionId, availableMissions) {
         // Add a new mission to replace it
         const newMissions = selectMissionsForDisplay(availableMissions, 1);
         if (newMissions.length > 0) {
+            // Mark as newly generated so it shows NEW badge
+            newMissions[0]._isNewlyGenerated = true;
             state.current_missions.push(newMissions[0]);
         }
         
