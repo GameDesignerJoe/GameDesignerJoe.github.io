@@ -19,7 +19,12 @@ const playerState = {
   volume: 0.8,
   duration: 0,
   currentTime: 0,
-  retryAttempted: false
+  retryAttempted: false,
+  // Preloading state for background playback
+  nextTrackUrl: null,
+  nextTrackBlobUrl: null,
+  nextTrackPreloaded: false,
+  preloadInProgress: false
 };
 
 // Initialize player
@@ -29,6 +34,8 @@ export function init() {
   // Create audio element
   playerState.audio = new Audio();
   playerState.audio.volume = playerState.volume;
+  playerState.audio.preload = 'auto'; // Enable preloading
+  playerState.audio.crossOrigin = 'anonymous'; // For Dropbox URLs
   
   // Set up audio event listeners
   setupAudioEvents();
@@ -86,6 +93,14 @@ function setupAudioEvents() {
     if (Math.floor(playerState.currentTime) !== Math.floor(playerState.currentTime - 0.25)) {
       mediaSession.updatePositionState(playerState.duration, playerState.currentTime);
     }
+    
+    // Preload next track when 80% through current track (for background playback)
+    if (!playerState.nextTrackPreloaded && playerState.duration > 0) {
+      const percentComplete = (playerState.currentTime / playerState.duration) * 100;
+      if (percentComplete >= 80) {
+        preloadNextTrack();
+      }
+    }
   });
   
   // When track ends
@@ -130,6 +145,84 @@ function setupAudioEvents() {
   });
 }
 
+// Preload next track for seamless background playback
+async function preloadNextTrack() {
+  if (playerState.preloadInProgress || playerState.nextTrackPreloaded) return;
+  
+  playerState.preloadInProgress = true;
+  
+  try {
+    // Get the queue module
+    const queue = await import('./queue.js');
+    const queueState = queue.getQueueState();
+    
+    // Check if there's a next track
+    if (!queueState.hasNext) {
+      // Check for repeat all mode
+      const playbackModes = queue.getPlaybackModes();
+      if (playbackModes.repeatMode !== 'all') {
+        playerState.preloadInProgress = false;
+        return;
+      }
+    }
+    
+    // Get the next track from queue
+    const currentQueue = queue.getQueue();
+    const currentIndex = queue.getCurrentQueueIndex();
+    let nextIndex = currentIndex + 1;
+    
+    // Handle repeat all - loop to beginning
+    if (nextIndex >= currentQueue.length) {
+      const playbackModes = queue.getPlaybackModes();
+      if (playbackModes.repeatMode === 'all') {
+        nextIndex = 0;
+      } else {
+        playerState.preloadInProgress = false;
+        return;
+      }
+    }
+    
+    const nextTrack = currentQueue[nextIndex];
+    if (!nextTrack) {
+      playerState.preloadInProgress = false;
+      return;
+    }
+    
+    console.log('[Player] Preloading next track:', nextTrack.title);
+    
+    // Check if it's a local file
+    if (nextTrack.source === 'local' || nextTrack.path?.startsWith('local:')) {
+      // Get file handle
+      let fileHandle = nextTrack.fileHandle;
+      
+      if (!fileHandle) {
+        const fullTrack = await storage.getTrackById(nextTrack.id);
+        fileHandle = fullTrack?.fileHandle;
+      }
+      
+      if (fileHandle) {
+        const hasPermission = await localFiles.verifyPermission(fileHandle);
+        if (hasPermission) {
+          playerState.nextTrackBlobUrl = await localFiles.getFileUrl(fileHandle);
+          playerState.nextTrackPreloaded = true;
+          console.log('[Player] Next track preloaded (local)');
+        }
+      }
+    } else {
+      // Dropbox file - get temporary download link
+      const linkData = await linkManager.getFreshTemporaryLink(nextTrack.path);
+      playerState.nextTrackUrl = linkData.url;
+      playerState.nextTrackPreloaded = true;
+      console.log('[Player] Next track preloaded (Dropbox)');
+    }
+    
+  } catch (error) {
+    console.error('[Player] Error preloading next track:', error);
+  } finally {
+    playerState.preloadInProgress = false;
+  }
+}
+
 // Play a track
 export async function playTrack(track, isRetry = false) {
   console.log('[Player] Loading track:', track.title, isRetry ? '(retry)' : '');
@@ -141,8 +234,18 @@ export async function playTrack(track, isRetry = false) {
       playerState.retryAttempted = false;
     }
     
-    // Revoke previous blob URL if any
-    if (playerState.currentBlobUrl) {
+    // Check if we have a preloaded URL for this track
+    const wasPreloaded = playerState.nextTrackPreloaded;
+    const preloadedUrl = playerState.nextTrackUrl;
+    const preloadedBlobUrl = playerState.nextTrackBlobUrl;
+    
+    // Reset preload state
+    playerState.nextTrackUrl = null;
+    playerState.nextTrackBlobUrl = null;
+    playerState.nextTrackPreloaded = false;
+    
+    // Revoke previous blob URL if any (but not the preloaded one we're about to use)
+    if (playerState.currentBlobUrl && playerState.currentBlobUrl !== preloadedBlobUrl) {
       localFiles.revokeFileUrl(playerState.currentBlobUrl);
       playerState.currentBlobUrl = null;
     }
@@ -151,36 +254,49 @@ export async function playTrack(track, isRetry = false) {
     
     // Check if this is a local file
     if (track.source === 'local' || track.path?.startsWith('local:')) {
-      console.log('[Player] Loading local file');
-      
-      // Get file handle from track or storage
-      let fileHandle = track.fileHandle;
-      
-      if (!fileHandle) {
-        // Try to get full track data from storage
-        const fullTrack = await storage.getTrackById(track.id);
-        fileHandle = fullTrack?.fileHandle;
+      // Use preloaded blob URL if available
+      if (wasPreloaded && preloadedBlobUrl) {
+        console.log('[Player] Using preloaded local file URL');
+        audioUrl = preloadedBlobUrl;
+        playerState.currentBlobUrl = audioUrl;
+      } else {
+        console.log('[Player] Loading local file');
+        
+        // Get file handle from track or storage
+        let fileHandle = track.fileHandle;
+        
+        if (!fileHandle) {
+          // Try to get full track data from storage
+          const fullTrack = await storage.getTrackById(track.id);
+          fileHandle = fullTrack?.fileHandle;
+        }
+        
+        if (!fileHandle) {
+          throw new Error('File handle not found for local track');
+        }
+        
+        // Verify permission
+        const hasPermission = await localFiles.verifyPermission(fileHandle);
+        if (!hasPermission) {
+          throw new Error('Permission denied for local file');
+        }
+        
+        // Create blob URL
+        audioUrl = await localFiles.getFileUrl(fileHandle);
+        playerState.currentBlobUrl = audioUrl;
       }
-      
-      if (!fileHandle) {
-        throw new Error('File handle not found for local track');
-      }
-      
-      // Verify permission
-      const hasPermission = await localFiles.verifyPermission(fileHandle);
-      if (!hasPermission) {
-        throw new Error('Permission denied for local file');
-      }
-      
-      // Create blob URL
-      audioUrl = await localFiles.getFileUrl(fileHandle);
-      playerState.currentBlobUrl = audioUrl;
       
     } else {
-      // Dropbox file - get fresh temporary download link
-      const linkData = await linkManager.getFreshTemporaryLink(track.path);
-      audioUrl = linkData.url;
-      playerState.currentTrackLinkExpiresAt = linkData.expiresAt;
+      // Use preloaded Dropbox URL if available
+      if (wasPreloaded && preloadedUrl) {
+        console.log('[Player] Using preloaded Dropbox URL');
+        audioUrl = preloadedUrl;
+      } else {
+        // Dropbox file - get fresh temporary download link
+        const linkData = await linkManager.getFreshTemporaryLink(track.path);
+        audioUrl = linkData.url;
+        playerState.currentTrackLinkExpiresAt = linkData.expiresAt;
+      }
     }
     
     console.log('[Player] Got audio URL, starting playback');
