@@ -454,9 +454,9 @@ function renderMissionComputer(container) {
     const grid = document.createElement('div');
     grid.className = 'mission-grid';
     
-    // Get available missions
+    // Get available missions and use persistent current missions
     const availableMissions = getAvailableMissions(window.missionsData || [], gameState);
-    const displayMissions = selectMissionsForDisplay(availableMissions, 3);
+    const displayMissions = getCurrentMissions(gameState, availableMissions, 3);
     
     // Fill empty slots if needed
     while (displayMissions.length < 3) {

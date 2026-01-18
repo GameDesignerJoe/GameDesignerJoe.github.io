@@ -53,6 +53,56 @@ function selectMissionsForDisplay(availableMissions, count = 3) {
 }
 
 /**
+ * Get or initialize current missions for display
+ * Missions persist until one is completed
+ */
+function getCurrentMissions(state, availableMissions, count = 3) {
+    // Initialize current_missions if it doesn't exist
+    if (!state.current_missions) {
+        state.current_missions = [];
+    }
+    
+    // If we have fewer than count missions, generate new ones to fill
+    if (state.current_missions.length < count) {
+        const needed = count - state.current_missions.length;
+        const newMissions = selectMissionsForDisplay(availableMissions, needed);
+        state.current_missions.push(...newMissions);
+        autoSave(state);
+    }
+    
+    // Filter out any missions that are no longer available (shouldn't happen normally)
+    state.current_missions = state.current_missions.filter(mission => 
+        availableMissions.some(available => available.id === mission.id)
+    );
+    
+    return state.current_missions;
+}
+
+/**
+ * Remove a completed mission and add a new one
+ */
+function replaceCompletedMission(state, completedMissionId, availableMissions) {
+    if (!state.current_missions) {
+        state.current_missions = [];
+        return;
+    }
+    
+    // Remove the completed mission
+    const index = state.current_missions.findIndex(m => m.id === completedMissionId);
+    if (index !== -1) {
+        state.current_missions.splice(index, 1);
+        
+        // Add a new mission to replace it
+        const newMissions = selectMissionsForDisplay(availableMissions, 1);
+        if (newMissions.length > 0) {
+            state.current_missions.push(newMissions[0]);
+        }
+        
+        autoSave(state);
+    }
+}
+
+/**
  * Get weight for anomaly rarity
  */
 function getRarityWeight(rarity) {
@@ -347,6 +397,16 @@ function showMissionResults(mission, success, rewards) {
 function continueFromResults() {
     const modal = document.getElementById('mission-results');
     modal.classList.add('hidden');
+    
+    // Get the completed mission from window.selectedMission
+    if (window.selectedMission) {
+        // Replace only the completed mission with a new one
+        const availableMissions = getAvailableMissions(window.missionsData || [], gameState);
+        replaceCompletedMission(gameState, window.selectedMission.id, availableMissions);
+        
+        // Clear the selected mission
+        window.selectedMission = null;
+    }
     
     unlockNavigation();
     
