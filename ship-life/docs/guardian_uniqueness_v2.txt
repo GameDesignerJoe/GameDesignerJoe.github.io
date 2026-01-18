@@ -1,0 +1,1054 @@
+# Guardian Uniqueness Feature - Design & Implementation Document v2.0
+
+**Version:** 2.0  
+**Last Updated:** January 2026  
+**Purpose:** Implement stat-based Guardian differentiation integrated with existing codebase
+
+---
+
+## Document Overview
+
+This feature introduces the stat system from the **Mission Difficulty System Design Document** to make Guardian selection strategically meaningful. This implementation extends the existing `loadout.js::calculateMissionSuccessRate()` function and integrates with the current Planetfall Portal UI.
+
+**Key Integration Points:**
+- Extends existing success rate calculation in `loadout.js`
+- Updates `statistics.js` if needed for stat-based calculations
+- Modifies Planetfall Portal display in `rooms.js`
+- Adds stat requirements to mission display
+
+---
+
+## Feature Goals
+
+### Primary Objectives
+1. **Make Guardian selection matter** - Each Guardian has distinct stat profiles
+2. **Create strategic decisions** - Players match Guardian stats to mission requirements
+3. **Enable progression** - Equipment provides stat bonuses to enhance/mitigate Guardian stats
+4. **Maintain extensibility** - All content via JSON (no code changes for new Guardians/missions)
+
+### Success Metrics
+- Players choose different Guardians for different mission types
+- Success rates vary meaningfully based on Guardian/mission match
+- Players engage with equipment to optimize stats
+- Clear feedback: stat mismatch → low success → learn → improve
+
+---
+
+## Design Summary
+
+### The Five Stats System
+
+Every Guardian has five stats (10-50 scale):
+- **❤️ Health** - Durability, stamina, survivability
+- **⚔️ Attack** - Offensive capability, damage output  
+- **🛡️ Defense** - Protective ability, damage mitigation
+- **👟 Movement** - Speed, agility, mobility
+- **🧠 Mind** - Intelligence, tactics, problem-solving
+
+### Guardian Stat Profiles
+
+From **Mission Difficulty System Design Document** and **Guardian Character Profiles**:
+
+| Guardian | Health | Attack | Defense | Movement | Mind | Total | Archetype |
+|----------|--------|--------|---------|----------|------|-------|-----------|
+| **Stella** | 40 | 40 | 50 | 30 | 30 | 190 | Balanced Defender |
+| **Vawn** | 30 | 50 | 20 | 50 | 30 | 180 | Mobile Striker |
+| **Tiberius** | 40 | 30 | 50 | 20 | 50 | 190 | Tactical Tank |
+| **Maestra** | 30 | 50 | 30 | 40 | 50 | 200 | Versatile Specialist |
+| **Nyx** | 40 | 50 | 30 | 40 | 20 | 180 | Assault Specialist |
+| **Shadow** | 30 | 50 | 30 | 50 | 40 | 200 | Infiltrator |
+
+### Mission Stat Requirements
+
+Missions specify 1-3 required stats with weighted priorities:
+- **Primary:** 50% weight in success calculation
+- **Secondary:** 30% weight
+- **Tertiary:** 20% weight
+
+**Example Mission Stat Mappings:**
+
+| Mission Type | Primary | Secondary | Tertiary | Best Guardians |
+|-------------|---------|-----------|----------|----------------|
+| Combat | Attack | Health | Defense | Nyx, Vawn, Stella |
+| Diplomatic | Mind | Defense | Health | Tiberius, Maestra |
+| Rescue | Health | Movement | Defense | Stella, Shadow |
+| Recon | Movement | Mind | Defense | Shadow, Vawn, Maestra |
+| Search/Tech | Mind | Movement | Attack | Maestra, Tiberius |
+| Collection | Movement | Attack | Mind | Vawn, Shadow |
+
+### Success Calculation Formula
+
+**From Mission Difficulty System Design Document:**
+
+```
+Total Points = (Sum of Guardian Contributions) + (Sum of Gear Contributions)
+Success % = min(100, Total Points ÷ Difficulty Multiplier)
+```
+
+**Guardian Contribution (per Guardian):**
+```
+Base Points = 50
+Guardian Contribution = 50 × (weighted stat values)
+
+For single-stat missions:
+  Contribution = 50 × (Stat ÷ 50)
+
+For multi-stat missions:
+  Contribution = 50 × (
+    (Primary Stat ÷ 50 × 0.5) + 
+    (Secondary Stat ÷ 50 × 0.3) + 
+    (Tertiary Stat ÷ 50 × 0.2)
+  )
+```
+
+**Gear Contribution (per Guardian):**
+```
+Each Guardian: 1 equipment + 3 aspects = 4 slots
+Each slot can provide stat bonuses (0-20 points per stat)
+
+For single-stat missions:
+  Gear Contribution = Sum of relevant stat bonuses
+
+For multi-stat missions:
+  Gear Contribution = (
+    (Primary stat bonuses × 0.5) +
+    (Secondary stat bonuses × 0.3) +
+    (Tertiary stat bonuses × 0.2)
+  )
+```
+
+**Difficulty Multipliers:**
+
+| Difficulty | Multiplier | Points for 100% |
+|-----------|-----------|-----------------|
+| 1 | 0.6 | 60 |
+| 2 | 1.1 | 110 |
+| 3 | 1.5 | 150 |
+| 4 | 1.7 | 170 |
+| 5 | 2.0 | 200 |
+| 6 | 3.0 | 300 |
+| 7 | 4.0 | 400 |
+| 8 | 5.5 | 550 |
+| 9 | 6.5 | 650 |
+| 10 | 8.0 | 800 |
+
+---
+
+## JSON Data Specifications
+
+### 1. guardians.json Updates
+
+**Add `stats` object to each Guardian:**
+
+```json
+{
+  "id": "stella",
+  "name": "Stella",
+  "portrait": {
+    "type": "image",
+    "value": "guardians/stella_200.png",
+    "show_name": false
+  },
+  "role": "DPS",
+  "description": "A fierce warrior with a strategic mind",
+  "starting_guardian": true,
+  "unlocked_at_start": true,
+  "stats": {
+    "health": 40,
+    "attack": 40,
+    "defense": 50,
+    "movement": 30,
+    "mind": 30
+  }
+}
+```
+
+**New Field Specification:**
+- `stats` (object, required): Guardian's five stats
+  - `health` (number, 10-50): Durability stat
+  - `attack` (number, 10-50): Offensive stat
+  - `defense` (number, 10-50): Protective stat
+  - `movement` (number, 10-50): Mobility stat
+  - `mind` (number, 10-50): Tactical stat
+
+**Complete Guardian Stats (copy-paste ready):**
+
+```json
+{
+  "id": "stella",
+  "stats": {
+    "health": 40,
+    "attack": 40,
+    "defense": 50,
+    "movement": 30,
+    "mind": 30
+  }
+},
+{
+  "id": "vawn",
+  "stats": {
+    "health": 30,
+    "attack": 50,
+    "defense": 20,
+    "movement": 50,
+    "mind": 30
+  }
+},
+{
+  "id": "tiberius",
+  "stats": {
+    "health": 40,
+    "attack": 30,
+    "defense": 50,
+    "movement": 20,
+    "mind": 50
+  }
+},
+{
+  "id": "maestra",
+  "stats": {
+    "health": 30,
+    "attack": 50,
+    "defense": 30,
+    "movement": 40,
+    "mind": 50
+  }
+}
+```
+
+---
+
+### 2. missions.json Updates
+
+**Add stat requirements and difficulty multiplier to each mission:**
+
+```json
+{
+  "id": "hostile_engagement",
+  "name": "Hostile Engagement",
+  "description": "Defend against Kin raiders attacking a civilian settlement",
+  "difficulty": 3,
+  "difficulty_multiplier": 1.5,
+  "required_stats": {
+    "primary": "attack",
+    "secondary": "health"
+  },
+  // ... existing fields
+}
+```
+
+**New Field Specifications:**
+- `difficulty_multiplier` (number, required): Multiplier from difficulty table (0.6 to 8.0)
+- `required_stats` (object, required): Stats needed for this mission
+  - `primary` (string, required): Main stat - one of: "health", "attack", "defense", "movement", "mind"
+  - `secondary` (string, optional): Secondary stat - same options as primary
+  - `tertiary` (string, optional): Tertiary stat - same options as primary
+
+**Mission Type to Stat Mapping Guide:**
+
+```
+"mission_type": "combat" → primary: "attack", secondary: "health" or "defense"
+"mission_type": "diplomatic" → primary: "mind", secondary: "defense"
+"mission_type": "rescue" → primary: "health", secondary: "movement"
+"mission_type": "recon" → primary: "movement", secondary: "mind"
+"mission_type": "search" → primary: "mind", secondary: "movement"
+"mission_type": "collection" → primary: "movement", secondary: "attack"
+```
+
+**Example Mission Updates (copy-paste ready):**
+
+```json
+{
+  "id": "first_contact",
+  "difficulty": 1,
+  "difficulty_multiplier": 0.6,
+  "required_stats": {
+    "primary": "mind"
+  }
+},
+{
+  "id": "supply_run",
+  "difficulty": 2,
+  "difficulty_multiplier": 1.1,
+  "required_stats": {
+    "primary": "movement",
+    "secondary": "attack"
+  }
+},
+{
+  "id": "hostile_engagement",
+  "difficulty": 3,
+  "difficulty_multiplier": 1.5,
+  "required_stats": {
+    "primary": "attack",
+    "secondary": "health"
+  }
+},
+{
+  "id": "rescue_operation",
+  "difficulty": 2,
+  "difficulty_multiplier": 1.1,
+  "required_stats": {
+    "primary": "health",
+    "secondary": "movement"
+  }
+},
+{
+  "id": "tech_salvage",
+  "difficulty": 2,
+  "difficulty_multiplier": 1.1,
+  "required_stats": {
+    "primary": "mind",
+    "secondary": "movement"
+  }
+},
+{
+  "id": "kin_assault",
+  "difficulty": 3,
+  "difficulty_multiplier": 1.5,
+  "required_stats": {
+    "primary": "attack",
+    "secondary": "defense"
+  }
+},
+{
+  "id": "diplomatic_mission",
+  "difficulty": 1,
+  "difficulty_multiplier": 0.6,
+  "required_stats": {
+    "primary": "mind",
+    "secondary": "defense"
+  }
+},
+{
+  "id": "deep_space_recon",
+  "difficulty": 4,
+  "difficulty_multiplier": 1.7,
+  "required_stats": {
+    "primary": "movement",
+    "secondary": "mind",
+    "tertiary": "defense"
+  }
+},
+{
+  "id": "reactor_crisis",
+  "difficulty": 4,
+  "difficulty_multiplier": 1.7,
+  "required_stats": {
+    "primary": "mind",
+    "secondary": "defense",
+    "tertiary": "health"
+  }
+},
+{
+  "id": "training_exercise",
+  "difficulty": 1,
+  "difficulty_multiplier": 0.6,
+  "required_stats": {
+    "primary": "attack"
+  }
+}
+```
+
+---
+
+### 3. items.json Updates
+
+**Add `stat_bonuses` field to equipment and aspects:**
+
+```json
+{
+  "id": "plasma_rifle",
+  "name": "Plasma Rifle",
+  "description": "Standard issue energy weapon",
+  "icon": {
+    "type": "color",
+    "value": "#ff6600",
+    "show_name": true
+  },
+  "type": "equipment",
+  "subtype": "weapon",
+  "mission_bonuses": {
+    "combat": 10
+  },
+  "stat_bonuses": {
+    "attack": 8
+  },
+  "stack_count": 1
+}
+```
+
+**New Field Specification:**
+- `stat_bonuses` (object, optional): Point bonuses to Guardian stats
+  - `health` (number, optional): Bonus to Health stat
+  - `attack` (number, optional): Bonus to Attack stat
+  - `defense` (number, optional): Bonus to Defense stat
+  - `movement` (number, optional): Bonus to Movement stat
+  - `mind` (number, optional): Bonus to Mind stat
+  - **Note:** Negative values allowed for tradeoff items
+
+**Gear Rarity Guidelines:**
+
+| Rarity | Total Bonus Points | Example |
+|--------|-------------------|---------|
+| Common | 5-8 | {"attack": 5} |
+| Uncommon | 8-12 | {"attack": 10} |
+| Rare | 12-18 | {"attack": 12, "health": 6} |
+| Epic | 18-25 | {"attack": 15, "defense": 10} |
+| Legendary | 25+ | {"attack": 20, "health": 10, "mind": 5} |
+
+**Example Equipment with stat_bonuses:**
+
+```json
+{
+  "id": "basic_shield",
+  "name": "Basic Shield",
+  "type": "equipment",
+  "subtype": "defensive",
+  "mission_bonuses": {},
+  "stat_bonuses": {
+    "defense": 8,
+    "health": 5
+  }
+},
+{
+  "id": "tactical_scanner",
+  "name": "Tactical Scanner",
+  "type": "aspect",
+  "subtype": "tech",
+  "mission_bonuses": {
+    "recon": 5
+  },
+  "stat_bonuses": {
+    "mind": 10,
+    "movement": 5
+  }
+},
+{
+  "id": "berserker_implant",
+  "name": "Berserker Implant",
+  "type": "aspect",
+  "subtype": "combat",
+  "mission_bonuses": {
+    "combat": 15
+  },
+  "stat_bonuses": {
+    "attack": 20,
+    "defense": -10
+  }
+}
+```
+
+---
+
+## Technical Implementation
+
+### 1. Update loadout.js - Success Rate Calculation
+
+**Replace the `calculateMissionSuccessRate()` function:**
+
+```javascript
+/**
+ * Calculate mission success rate with Guardian stats + loadout bonuses
+ */
+function calculateMissionSuccessRate(state, selectedGuardians, mission) {
+    // Get difficulty multiplier (use new field, fallback to old calculation)
+    const difficultyMultiplier = mission.difficulty_multiplier || (mission.difficulty / 5);
+    
+    // Get stat requirements
+    const requiredStats = mission.required_stats || { primary: "attack" };
+    const statWeights = {
+        primary: 0.5,
+        secondary: requiredStats.secondary ? 0.3 : 0,
+        tertiary: requiredStats.tertiary ? 0.2 : 0
+    };
+    
+    // Calculate total points from all Guardians
+    let totalPoints = 0;
+    
+    selectedGuardians.forEach(guardianId => {
+        const guardian = window.guardiansData.find(g => g.id === guardianId);
+        if (!guardian || !guardian.stats) {
+            console.warn(`Guardian ${guardianId} missing stats, skipping`);
+            return;
+        }
+        
+        // Guardian stat contribution (base 50 points × weighted stats)
+        let guardianContribution = 0;
+        
+        // Primary stat (50% weight)
+        const primaryStat = guardian.stats[requiredStats.primary] || 25;
+        guardianContribution += 50 * (primaryStat / 50) * statWeights.primary;
+        
+        // Secondary stat (30% weight)
+        if (requiredStats.secondary) {
+            const secondaryStat = guardian.stats[requiredStats.secondary] || 25;
+            guardianContribution += 50 * (secondaryStat / 50) * statWeights.secondary;
+        }
+        
+        // Tertiary stat (20% weight)
+        if (requiredStats.tertiary) {
+            const tertiaryStat = guardian.stats[requiredStats.tertiary] || 25;
+            guardianContribution += 50 * (tertiaryStat / 50) * statWeights.tertiary;
+        }
+        
+        // If only primary stat, use full 50 points
+        if (!requiredStats.secondary && !requiredStats.tertiary) {
+            guardianContribution = 50 * (primaryStat / 50);
+        }
+        
+        totalPoints += guardianContribution;
+        
+        // Gear stat bonuses from this Guardian's loadout
+        const loadout = getLoadout(state, guardianId);
+        let gearContribution = 0;
+        
+        // Equipment slot
+        if (loadout.equipment) {
+            const item = window.itemsData.find(i => i.id === loadout.equipment);
+            if (item && item.stat_bonuses) {
+                gearContribution += calculateGearStatBonus(item.stat_bonuses, requiredStats, statWeights);
+            }
+        }
+        
+        // Aspect slots
+        loadout.aspects.forEach(aspectId => {
+            if (aspectId) {
+                const item = window.itemsData.find(i => i.id === aspectId);
+                if (item && item.stat_bonuses) {
+                    gearContribution += calculateGearStatBonus(item.stat_bonuses, requiredStats, statWeights);
+                }
+            }
+        });
+        
+        totalPoints += gearContribution;
+    });
+    
+    // Legacy mission_bonuses (will be deprecated)
+    const legacyBonus = calculateLoadoutBonus(state, selectedGuardians, mission);
+    
+    // Anomaly modifier
+    let anomalyModifier = 0;
+    if (mission.anomaly && mission.anomaly.effects && mission.anomaly.effects.difficulty_modifier) {
+        anomalyModifier = -mission.anomaly.effects.difficulty_modifier;
+    }
+    
+    // Final success percentage
+    const successPercentage = Math.min(100, Math.max(0, (totalPoints / difficultyMultiplier)));
+    
+    // Apply legacy bonus and anomaly (as flat % adjustments for backward compatibility)
+    const finalSuccess = Math.min(100, Math.max(0, successPercentage + legacyBonus + anomalyModifier));
+    
+    return {
+        base: Math.round(successPercentage),
+        loadoutBonus: legacyBonus,
+        anomalyModifier: anomalyModifier,
+        final: Math.round(finalSuccess),
+        debug: {
+            totalPoints: totalPoints,
+            difficultyMultiplier: difficultyMultiplier,
+            requiredStats: requiredStats
+        }
+    };
+}
+
+/**
+ * Calculate gear stat bonus with stat weights
+ */
+function calculateGearStatBonus(statBonuses, requiredStats, statWeights) {
+    let bonus = 0;
+    
+    // Primary stat bonus
+    if (requiredStats.primary && statBonuses[requiredStats.primary]) {
+        bonus += statBonuses[requiredStats.primary] * statWeights.primary;
+    }
+    
+    // Secondary stat bonus
+    if (requiredStats.secondary && statBonuses[requiredStats.secondary]) {
+        bonus += statBonuses[requiredStats.secondary] * statWeights.secondary;
+    }
+    
+    // Tertiary stat bonus
+    if (requiredStats.tertiary && statBonuses[requiredStats.tertiary]) {
+        bonus += statBonuses[requiredStats.tertiary] * statWeights.tertiary;
+    }
+    
+    return bonus;
+}
+```
+
+---
+
+### 2. Update rooms.js - Planetfall Portal Display
+
+**Add mission stat requirements display in `renderPlanetfallPortal()` function:**
+
+Find this section:
+```javascript
+// Mission info section
+const missionInfo = document.createElement('div');
+missionInfo.className = 'selected-mission-display';
+missionInfo.innerHTML = `
+    <h2>${mission.name}</h2>
+    <p>${mission.description}</p>
+    <p><strong>Difficulty:</strong> ${mission.difficulty}/10</p>
+`;
+```
+
+**Replace with:**
+```javascript
+// Mission info section
+const missionInfo = document.createElement('div');
+missionInfo.className = 'selected-mission-display';
+
+const title = document.createElement('h2');
+title.textContent = mission.name;
+
+const description = document.createElement('p');
+description.textContent = mission.description;
+
+const difficulty = document.createElement('p');
+difficulty.innerHTML = `<strong>Difficulty:</strong> ${mission.difficulty}/10`;
+
+// Add stat requirements display
+const statsRequired = document.createElement('div');
+statsRequired.className = 'mission-stats-required';
+statsRequired.style.marginTop = '15px';
+statsRequired.style.padding = '12px';
+statsRequired.style.background = 'rgba(74, 144, 226, 0.15)';
+statsRequired.style.borderRadius = '8px';
+
+const statsTitle = document.createElement('div');
+statsTitle.style.fontWeight = '600';
+statsTitle.style.marginBottom = '8px';
+statsTitle.textContent = 'Required Stats:';
+
+const statsList = document.createElement('div');
+statsList.style.display = 'flex';
+statsList.style.gap = '10px';
+statsList.style.flexWrap = 'wrap';
+
+const statEmojis = {
+    health: '❤️',
+    attack: '⚔️',
+    defense: '🛡️',
+    movement: '👟',
+    mind: '🧠'
+};
+
+const statNames = {
+    health: 'Health',
+    attack: 'Attack',
+    defense: 'Defense',
+    movement: 'Movement',
+    mind: 'Mind'
+};
+
+if (mission.required_stats) {
+    if (mission.required_stats.primary) {
+        const statBadge = document.createElement('div');
+        statBadge.style.padding = '6px 12px';
+        statBadge.style.background = 'rgba(255, 215, 0, 0.2)';
+        statBadge.style.borderRadius = '6px';
+        statBadge.style.fontSize = '14px';
+        statBadge.style.fontWeight = '600';
+        statBadge.textContent = `${statEmojis[mission.required_stats.primary]} ${statNames[mission.required_stats.primary]}`;
+        statsList.appendChild(statBadge);
+    }
+    
+    if (mission.required_stats.secondary) {
+        const statBadge = document.createElement('div');
+        statBadge.style.padding = '6px 12px';
+        statBadge.style.background = 'rgba(192, 192, 192, 0.2)';
+        statBadge.style.borderRadius = '6px';
+        statBadge.style.fontSize = '14px';
+        statBadge.textContent = `${statEmojis[mission.required_stats.secondary]} ${statNames[mission.required_stats.secondary]}`;
+        statsList.appendChild(statBadge);
+    }
+    
+    if (mission.required_stats.tertiary) {
+        const statBadge = document.createElement('div');
+        statBadge.style.padding = '6px 12px';
+        statBadge.style.background = 'rgba(205, 127, 50, 0.2)';
+        statBadge.style.borderRadius = '6px';
+        statBadge.style.fontSize = '14px';
+        statBadge.textContent = `${statEmojis[mission.required_stats.tertiary]} ${statNames[mission.required_stats.tertiary]}`;
+        statsList.appendChild(statBadge);
+    }
+}
+
+statsRequired.appendChild(statsTitle);
+statsRequired.appendChild(statsList);
+
+missionInfo.appendChild(title);
+missionInfo.appendChild(description);
+missionInfo.appendChild(difficulty);
+missionInfo.appendChild(statsRequired);
+```
+
+---
+
+### 3. Add Guardian Stat Display (Optional Enhancement)
+
+**In `renderPlanetfallPortal()`, enhance Guardian cards to show stats:**
+
+Find the Guardian card creation in the `guardians.forEach()` loop and add after the portrait:
+
+```javascript
+// Show Guardian stats for selected mission
+if (mission.required_stats && guardian.stats) {
+    const statsPreview = document.createElement('div');
+    statsPreview.className = 'guardian-stats-preview';
+    statsPreview.style.fontSize = '11px';
+    statsPreview.style.marginTop = '5px';
+    statsPreview.style.display = 'flex';
+    statsPreview.style.gap = '8px';
+    statsPreview.style.justifyContent = 'center';
+    
+    const statEmojis = {
+        health: '❤️',
+        attack: '⚔️',
+        defense: '🛡️',
+        movement: '👟',
+        mind: '🧠'
+    };
+    
+    // Show primary stat
+    if (mission.required_stats.primary) {
+        const statValue = guardian.stats[mission.required_stats.primary] || 25;
+        const statDiv = document.createElement('div');
+        statDiv.style.fontWeight = '700';
+        statDiv.style.color = statValue >= 40 ? 'var(--success)' : statValue >= 30 ? 'var(--warning)' : 'var(--error)';
+        statDiv.textContent = `${statEmojis[mission.required_stats.primary]} ${statValue}`;
+        statsPreview.appendChild(statDiv);
+    }
+    
+    // Show secondary stat
+    if (mission.required_stats.secondary) {
+        const statValue = guardian.stats[mission.required_stats.secondary] || 25;
+        const statDiv = document.createElement('div');
+        statDiv.style.opacity = '0.8';
+        statDiv.textContent = `${statEmojis[mission.required_stats.secondary]} ${statValue}`;
+        statsPreview.appendChild(statDiv);
+    }
+    
+    card.appendChild(portrait);
+    card.appendChild(name);
+    card.appendChild(statsPreview);
+    card.appendChild(loadoutPreview);
+    card.appendChild(manageBtn);
+} else {
+    card.appendChild(portrait);
+    card.appendChild(name);
+    card.appendChild(loadoutPreview);
+    card.appendChild(manageBtn);
+}
+```
+
+---
+
+### 4. Update missions.js - Use New Success Calculation
+
+**In `startMissionSimulation()`, the success roll already uses the updated function:**
+
+```javascript
+// Calculate success with loadout bonuses
+const rateCalc = calculateMissionSuccessRate(gameState, squad, mission);
+const roll = Math.random() * 100;
+const success = roll <= rateCalc.final;
+```
+
+**This already works!** Just ensure the console logging includes the new breakdown:
+
+```javascript
+console.log(`Mission: ${mission.name}`);
+console.log(`Squad: ${squad.join(', ')}`);
+console.log(`Required Stats: ${JSON.stringify(mission.required_stats)}`);
+console.log(`Total Points: ${rateCalc.debug.totalPoints}`);
+console.log(`Difficulty Multiplier: ${rateCalc.debug.difficultyMultiplier}`);
+console.log(`Success Rate: ${rateCalc.base}% + ${rateCalc.loadoutBonus}% legacy = ${rateCalc.final}%`);
+console.log(`Roll: ${roll.toFixed(2)} - ${success ? 'SUCCESS' : 'FAILURE'}`);
+```
+
+---
+
+## Migration & Rollout Plan
+
+### Phase 1: Data Updates (Manual JSON Editing)
+
+**Step 1:** Add stats to all Guardians in `guardians.json`
+- Use the stat profiles from the table above
+- Validate: Each Guardian has all 5 stats, values 10-50, total 180-200
+
+**Step 2:** Add difficulty_multiplier and required_stats to all missions in `missions.json`
+- Use the difficulty multiplier table
+- Map mission_type to appropriate stats using the guide above
+- Default: Any mission without required_stats uses `{"primary": "attack"}`
+
+**Step 3:** Add stat_bonuses to equipment/aspects in `items.json`
+- Keep existing mission_bonuses (both systems work together)
+- Start with 5-10 items that have stat_bonuses
+- More can be added over time
+
+### Phase 2: Code Updates
+
+**Step 1:** Update `loadout.js`
+- Replace `calculateMissionSuccessRate()` function with new version
+- Add `calculateGearStatBonus()` helper function
+- Test with console.log to verify calculation
+
+**Step 2:** Update `rooms.js`
+- Modify `renderPlanetfallPortal()` to show mission stat requirements
+- Optional: Add Guardian stat display to squad cards
+- Test by selecting mission and viewing Planetfall Portal
+
+**Step 3:** Verify `missions.js`
+- Ensure simulation uses the updated calculation
+- Check console logs show correct breakdown
+- No changes needed if already calling `calculateMissionSuccessRate()`
+
+### Phase 3: Testing
+
+**Test Scenario 1: Single-Stat Mission**
+```
+Mission: Training Exercise (Difficulty 1, Primary: Attack)
+Squad: Vawn (Attack: 50)
+Expected: 50 × (50/50) × 1.0 = 50 points ÷ 0.6 = 83% base
+```
+
+**Test Scenario 2: Multi-Stat Mission**
+```
+Mission: Hostile Engagement (Difficulty 3, Primary: Attack, Secondary: Health)
+Squad: Stella (Attack: 40, Health: 40)
+Expected: 50 × ((40/50×0.5) + (40/50×0.3)) = 50 × 0.64 = 32 points ÷ 1.5 = 21% base
+(Needs more Guardians or gear!)
+```
+
+**Test Scenario 3: Gear Bonuses**
+```
+Same as Scenario 2 + Stella has equipment with attack: 10, health: 8
+Gear Contribution: (10 × 0.5) + (8 × 0.3) = 5 + 2.4 = 7.4 points
+Total: 32 + 7.4 = 39.4 points ÷ 1.5 = 26% base
+```
+
+### Phase 4: Balance Tuning
+
+**If missions feel too hard:**
+- Lower difficulty multipliers
+- Increase Guardian stat values
+- Add more stat_bonuses to common equipment
+
+**If missions feel too easy:**
+- Increase difficulty multipliers (especially 6-10)
+- Make gear bonuses more specialized
+- Add more multi-stat missions
+
+---
+
+## Web Editor Field Specifications
+
+### For guardians.json Editor:
+
+**New Section: "Stats"**
+
+| Field | Type | Min | Max | Default | Required | Description |
+|-------|------|-----|-----|---------|----------|-------------|
+| stats.health | number | 10 | 50 | 25 | Yes | Guardian's health/durability stat |
+| stats.attack | number | 10 | 50 | 25 | Yes | Guardian's offensive stat |
+| stats.defense | number | 10 | 50 | 25 | Yes | Guardian's defensive stat |
+| stats.movement | number | 10 | 50 | 25 | Yes | Guardian's mobility stat |
+| stats.mind | number | 10 | 50 | 25 | Yes | Guardian's tactical/intelligence stat |
+
+**Validation Rules:**
+- All 5 stats must be present
+- Each stat must be between 10-50
+- Total of all 5 stats should be between 180-200 (warning if outside range)
+
+---
+
+### For missions.json Editor:
+
+**New Fields:**
+
+| Field | Type | Options | Default | Required | Description |
+|-------|------|---------|---------|----------|-------------|
+| difficulty_multiplier | number | - | 1.0 | Yes | Success calculation multiplier (see difficulty table) |
+| required_stats.primary | dropdown | health, attack, defense, movement, mind | attack | Yes | Primary stat requirement (50% weight) |
+| required_stats.secondary | dropdown | health, attack, defense, movement, mind, (none) | (none) | No | Secondary stat requirement (30% weight) |
+| required_stats.tertiary | dropdown | health, attack, defense, movement, mind, (none) | (none) | No | Tertiary stat requirement (20% weight) |
+
+**Difficulty Multiplier Helper:**
+
+Create a lookup table or dropdown based on difficulty:
+```
+Difficulty 1 → 0.6
+Difficulty 2 → 1.1
+Difficulty 3 → 1.5
+Difficulty 4 → 1.7
+Difficulty 5 → 2.0
+Difficulty 6 → 3.0
+Difficulty 7 → 4.0
+Difficulty 8 → 5.5
+Difficulty 9 → 6.5
+Difficulty 10 → 8.0
+```
+
+**Mission Type → Stat Helper:**
+
+Add a "suggest stats" button that auto-fills based on mission_type:
+```
+combat → primary: attack, secondary: health
+diplomatic → primary: mind, secondary: defense
+rescue → primary: health, secondary: movement
+recon → primary: movement, secondary: mind
+search → primary: mind, secondary: movement
+collection → primary: movement, secondary: attack
+```
+
+---
+
+### For items.json Editor:
+
+**New Section: "Stat Bonuses" (nested under Equipment/Aspect types only)**
+
+| Field | Type | Min | Max | Default | Required | Description |
+|-------|------|-----|-----|---------|----------|-------------|
+| stat_bonuses.health | number | -20 | 25 | 0 | No | Bonus/penalty to health stat |
+| stat_bonuses.attack | number | -20 | 25 | 0 | No | Bonus/penalty to attack stat |
+| stat_bonuses.defense | number | -20 | 25 | 0 | No | Bonus/penalty to defense stat |
+| stat_bonuses.movement | number | -20 | 25 | 0 | No | Bonus/penalty to movement stat |
+| stat_bonuses.mind | number | -20 | 25 | 0 | No | Bonus/penalty to mind stat |
+
+**Notes:**
+- Only show this section for items with type "equipment" or "aspect"
+- Negative values are allowed (for tradeoff gear)
+- Leave blank if item provides no bonus to that stat
+
+**Rarity Guidelines (show as hint text):**
+```
+Common: 5-8 total bonus points
+Uncommon: 8-12 total bonus points
+Rare: 12-18 total bonus points
+Epic: 18-25 total bonus points
+Legendary: 25+ total bonus points
+```
+
+---
+
+## Asset Requirements
+
+### Stat Icons
+
+**Option 1: Use Emojis (Recommended)**
+- No asset files needed
+- Already specified in code:
+  - Health: ❤️
+  - Attack: ⚔️
+  - Defense: 🛡️
+  - Movement: 👟
+  - Mind: 🧠
+
+**Option 2: Custom Icons (Future)**
+- If custom icons are preferred later
+- Place in: `assets/images/stats/`
+- Files needed:
+  - `stat_health.png` (32x32px)
+  - `stat_attack.png` (32x32px)
+  - `stat_defense.png` (32x32px)
+  - `stat_movement.png` (32x32px)
+  - `stat_mind.png` (32x32px)
+- Update code to use images instead of emojis
+
+---
+
+## Testing Checklist
+
+### Data Validation
+- [ ] All Guardians have stats object with 5 stats (10-50 range)
+- [ ] All missions have difficulty_multiplier matching their difficulty level
+- [ ] All missions have required_stats with at least primary stat
+- [ ] Equipment/aspects with stat_bonuses have valid values
+
+### Functionality Tests
+- [ ] Success rate calculation uses new formula (check console logs)
+- [ ] Mission stat requirements display in Planetfall Portal
+- [ ] Guardian stat display shows (if implemented)
+- [ ] Success rate changes based on Guardian selection
+- [ ] Gear with stat_bonuses affects success rate
+- [ ] Legacy mission_bonuses still work (backward compatibility)
+
+### Balance Tests
+- [ ] Difficulty 1 missions achievable with 1 Guardian (~80%+)
+- [ ] Difficulty 5 missions require 2-3 Guardians or good gear
+- [ ] Difficulty 10 missions require full squad + optimized gear (~70% max)
+- [ ] Wrong Guardian selection noticeably reduces success
+- [ ] Gear upgrades provide meaningful improvement (5-15% increase)
+
+### Edge Cases
+- [ ] Mission without required_stats defaults to attack
+- [ ] Guardian without stats logs warning but doesn't crash
+- [ ] Item without stat_bonuses doesn't error (treated as 0)
+- [ ] Single Guardian at max stats performs well
+- [ ] Full squad of mismatched Guardians still has low success
+
+---
+
+## Success Criteria
+
+✅ **Phase 1 Complete When:**
+- All Guardians have stats in JSON
+- All missions have difficulty_multiplier and required_stats
+- At least 5 equipment items have stat_bonuses
+
+✅ **Phase 2 Complete When:**
+- Success rate calculation uses new formula
+- Planetfall Portal shows mission stat requirements
+- Success rate updates based on Guardian stats + gear
+
+✅ **Phase 3 Complete When:**
+- Players choose different Guardians for different missions
+- Success rates vary by 20-40% based on stat matching
+- Gear progression provides visible success improvements
+- No major bugs in mission simulation or success rolling
+
+✅ **Feature Complete When:**
+- All above criteria met
+- Balance feels good (missions not too easy/hard)
+- Players understand stat system without tutorial
+- Web editor updated with new fields
+
+---
+
+## Quick Reference
+
+### Stat Emoji Map
+```javascript
+const statEmojis = {
+    health: '❤️',
+    attack: '⚔️',
+    defense: '🛡️',
+    movement: '👟',
+    mind: '🧠'
+};
+```
+
+### Difficulty Multiplier Table
+```javascript
+const difficultyMultipliers = {
+    1: 0.6,  2: 1.1,  3: 1.5,  4: 1.7,  5: 2.0,
+    6: 3.0,  7: 4.0,  8: 5.5,  9: 6.5,  10: 8.0
+};
+```
+
+### Stat Weights
+```javascript
+const statWeights = {
+    primary: 0.5,    // 50%
+    secondary: 0.3,  // 30%
+    tertiary: 0.2    // 20%
+};
+```
+
+---
+
+**END OF DOCUMENT v2.0**
