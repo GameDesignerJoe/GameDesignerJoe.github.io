@@ -63,6 +63,10 @@
         "show_name": true
       },
       "difficulty": 1,
+      "difficulty_multiplier": 0.6,
+      "required_stats": {
+        "primary": "mind"
+      },
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
@@ -152,6 +156,10 @@
         "show_name": true
       },
       "difficulty": 1,
+      "difficulty_multiplier": 0.6,
+      "required_stats": {
+        "primary": "mind"
+      },
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
@@ -241,6 +249,11 @@
         "show_name": true
       },
       "difficulty": 2,
+      "difficulty_multiplier": 1.1,
+      "required_stats": {
+        "primary": "movement",
+        "secondary": "attack"
+      },
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
@@ -325,6 +338,11 @@
         "show_name": true
       },
       "difficulty": 3,
+      "difficulty_multiplier": 1.5,
+      "required_stats": {
+        "primary": "attack",
+        "secondary": "health"
+      },
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
@@ -415,6 +433,11 @@
         "show_name": true
       },
       "difficulty": 2,
+      "difficulty_multiplier": 1.1,
+      "required_stats": {
+        "primary": "health",
+        "secondary": "movement"
+      },
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
@@ -509,6 +532,11 @@
         "show_name": true
       },
       "difficulty": 2,
+      "difficulty_multiplier": 1.1,
+      "required_stats": {
+        "primary": "mind",
+        "secondary": "movement"
+      },
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
@@ -605,6 +633,11 @@
         "show_name": true
       },
       "difficulty": 3,
+      "difficulty_multiplier": 1.5,
+      "required_stats": {
+        "primary": "attack",
+        "secondary": "defense"
+      },
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
@@ -707,6 +740,11 @@
         "show_name": true
       },
       "difficulty": 1,
+      "difficulty_multiplier": 0.6,
+      "required_stats": {
+        "primary": "mind",
+        "secondary": "defense"
+      },
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
@@ -793,6 +831,12 @@
         "show_name": true
       },
       "difficulty": 4,
+      "difficulty_multiplier": 1.7,
+      "required_stats": {
+        "primary": "movement",
+        "secondary": "mind",
+        "tertiary": "defense"
+      },
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
@@ -905,6 +949,12 @@
         "show_name": true
       },
       "difficulty": 4,
+      "difficulty_multiplier": 1.7,
+      "required_stats": {
+        "primary": "mind",
+        "secondary": "defense",
+        "tertiary": "health"
+      },
       "repeatable": false,
       "persist_on_fail": false,
       "prerequisites": {
@@ -1014,6 +1064,10 @@
         "show_name": true
       },
       "difficulty": 1,
+      "difficulty_multiplier": 0.6,
+      "required_stats": {
+        "primary": "attack"
+      },
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {

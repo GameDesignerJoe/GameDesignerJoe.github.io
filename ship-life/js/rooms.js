@@ -176,13 +176,75 @@ function renderCharacterSelect(container) {
         name.className = 'guardian-card-name';
         name.textContent = guardian.name;
         
+        // Add subtitle if available
+        const subtitle = document.createElement('div');
+        subtitle.className = 'guardian-card-subtitle';
+        subtitle.textContent = guardian.subtitle || '';
+        
         const role = document.createElement('div');
         role.className = 'guardian-card-role';
         role.textContent = guardian.role;
         
-        card.appendChild(portrait);
-        card.appendChild(name);
-        card.appendChild(role);
+        // Add stats display
+        if (guardian.stats) {
+            const statsDisplay = document.createElement('div');
+            statsDisplay.className = 'guardian-stats-display';
+            statsDisplay.style.fontSize = '18px';
+            statsDisplay.style.marginTop = '12px';
+            statsDisplay.style.lineHeight = '1.8';
+            
+            const statEmojis = {
+                health: '❤️',
+                attack: '⚔️',
+                defense: '🛡️',
+                movement: '👟',
+                mind: '🧠'
+            };
+            
+            const statNames = {
+                health: 'Health',
+                attack: 'Attack',
+                defense: 'Defense',
+                movement: 'Movement',
+                mind: 'Mind'
+            };
+            
+            const statOrder = ['health', 'attack', 'defense', 'movement', 'mind'];
+            
+            statOrder.forEach(statKey => {
+                const statValue = guardian.stats[statKey] || 0;
+                const iconCount = Math.floor(statValue / 10); // 10 points = 1 icon
+                
+                const statRow = document.createElement('div');
+                statRow.style.marginBottom = '6px';
+                
+                const statLabel = document.createElement('span');
+                statLabel.style.display = 'inline-block';
+                statLabel.style.width = '95px';
+                statLabel.style.fontWeight = '700';
+                statLabel.style.fontSize = '15px';
+                statLabel.textContent = statNames[statKey] + ':';
+                
+                const statIcons = document.createElement('span');
+                statIcons.style.fontSize = '20px';
+                statIcons.textContent = statEmojis[statKey].repeat(iconCount);
+                
+                statRow.appendChild(statLabel);
+                statRow.appendChild(statIcons);
+                statsDisplay.appendChild(statRow);
+            });
+            
+            card.appendChild(portrait);
+            card.appendChild(name);
+            if (guardian.subtitle) card.appendChild(subtitle);
+            card.appendChild(role);
+            card.appendChild(statsDisplay);
+        } else {
+            card.appendChild(portrait);
+            card.appendChild(name);
+            if (guardian.subtitle) card.appendChild(subtitle);
+            card.appendChild(role);
+        }
         
         card.onclick = () => selectGuardian(guardian);
         
@@ -249,9 +311,64 @@ function renderCharacterRoom(container) {
         name.className = 'guardian-card-name';
         name.textContent = guardian.name;
         
+        // Add subtitle if available
+        const subtitle = document.createElement('div');
+        subtitle.className = 'guardian-card-subtitle';
+        subtitle.textContent = guardian.subtitle || '';
+        
         const role = document.createElement('div');
         role.className = 'guardian-card-role';
         role.textContent = guardian.role;
+        
+        // Add stats display
+        const statsDisplay = document.createElement('div');
+        if (guardian.stats) {
+            statsDisplay.className = 'guardian-stats-display';
+            statsDisplay.style.fontSize = '18px';
+            statsDisplay.style.marginTop = '12px';
+            statsDisplay.style.lineHeight = '1.8';
+            
+            const statEmojis = {
+                health: '❤️',
+                attack: '⚔️',
+                defense: '🛡️',
+                movement: '👟',
+                mind: '🧠'
+            };
+            
+            const statNames = {
+                health: 'Health',
+                attack: 'Attack',
+                defense: 'Defense',
+                movement: 'Movement',
+                mind: 'Mind'
+            };
+            
+            const statOrder = ['health', 'attack', 'defense', 'movement', 'mind'];
+            
+            statOrder.forEach(statKey => {
+                const statValue = guardian.stats[statKey] || 0;
+                const iconCount = Math.floor(statValue / 10); // 10 points = 1 icon
+                
+                const statRow = document.createElement('div');
+                statRow.style.marginBottom = '6px';
+                
+                const statLabel = document.createElement('span');
+                statLabel.style.display = 'inline-block';
+                statLabel.style.width = '95px';
+                statLabel.style.fontWeight = '700';
+                statLabel.style.fontSize = '15px';
+                statLabel.textContent = statNames[statKey] + ':';
+                
+                const statIcons = document.createElement('span');
+                statIcons.style.fontSize = '20px';
+                statIcons.textContent = statEmojis[statKey].repeat(iconCount);
+                
+                statRow.appendChild(statLabel);
+                statRow.appendChild(statIcons);
+                statsDisplay.appendChild(statRow);
+            });
+        }
         
         // Show active indicator
         if (guardian.id === gameState.active_guardian) {
@@ -259,15 +376,20 @@ function renderCharacterRoom(container) {
             activeIndicator.style.fontSize = '12px';
             activeIndicator.style.color = 'var(--success)';
             activeIndicator.style.fontWeight = '600';
+            activeIndicator.style.marginTop = '8px';
             activeIndicator.textContent = 'ACTIVE';
             card.appendChild(portrait);
             card.appendChild(name);
+            if (guardian.subtitle) card.appendChild(subtitle);
             card.appendChild(activeIndicator);
             card.appendChild(role);
+            if (guardian.stats) card.appendChild(statsDisplay);
         } else {
             card.appendChild(portrait);
             card.appendChild(name);
+            if (guardian.subtitle) card.appendChild(subtitle);
             card.appendChild(role);
+            if (guardian.stats) card.appendChild(statsDisplay);
         }
         
         card.onclick = () => {
@@ -433,6 +555,63 @@ function createMissionCard(mission, isLocked) {
     difficulty.className = 'mission-card-difficulty';
     difficulty.textContent = `Difficulty: ${mission.difficulty}/10`;
     
+    // Add stat requirements display on mission cards
+    if (mission.required_stats) {
+        const statEmojis = {
+            health: '❤️',
+            attack: '⚔️',
+            defense: '🛡️',
+            movement: '👟',
+            mind: '🧠'
+        };
+        
+        const statsPreview = document.createElement('div');
+        statsPreview.className = 'mission-card-stats';
+        statsPreview.style.fontSize = '18px';
+        statsPreview.style.marginTop = '12px';
+        statsPreview.style.display = 'flex';
+        statsPreview.style.gap = '10px';
+        statsPreview.style.flexWrap = 'wrap';
+        
+        if (mission.required_stats.primary) {
+            const badge = document.createElement('span');
+            badge.style.padding = '6px 14px';
+            badge.style.background = 'rgba(255, 215, 0, 0.25)';
+            badge.style.border = '2px solid rgba(255, 215, 0, 0.5)';
+            badge.style.borderRadius = '6px';
+            badge.style.fontSize = '20px';
+            badge.style.fontWeight = '700';
+            badge.textContent = statEmojis[mission.required_stats.primary];
+            statsPreview.appendChild(badge);
+        }
+        
+        if (mission.required_stats.secondary) {
+            const badge = document.createElement('span');
+            badge.style.padding = '6px 14px';
+            badge.style.background = 'rgba(192, 192, 192, 0.25)';
+            badge.style.border = '2px solid rgba(192, 192, 192, 0.5)';
+            badge.style.borderRadius = '6px';
+            badge.style.fontSize = '20px';
+            badge.style.fontWeight = '700';
+            badge.textContent = statEmojis[mission.required_stats.secondary];
+            statsPreview.appendChild(badge);
+        }
+        
+        if (mission.required_stats.tertiary) {
+            const badge = document.createElement('span');
+            badge.style.padding = '6px 14px';
+            badge.style.background = 'rgba(205, 127, 50, 0.25)';
+            badge.style.border = '2px solid rgba(205, 127, 50, 0.5)';
+            badge.style.borderRadius = '6px';
+            badge.style.fontSize = '20px';
+            badge.style.fontWeight = '700';
+            badge.textContent = statEmojis[mission.required_stats.tertiary];
+            statsPreview.appendChild(badge);
+        }
+        
+        card.appendChild(statsPreview);
+    }
+    
     // Add anomaly badge if present
     if (mission.anomaly) {
         const anomalyBadge = document.createElement('div');
@@ -518,11 +697,91 @@ function renderPlanetfallPortal(container) {
     // Mission info section
     const missionInfo = document.createElement('div');
     missionInfo.className = 'selected-mission-display';
-    missionInfo.innerHTML = `
-        <h2>${mission.name}</h2>
-        <p>${mission.description}</p>
-        <p><strong>Difficulty:</strong> ${mission.difficulty}/10</p>
-    `;
+    
+    const title = document.createElement('h2');
+    title.textContent = mission.name;
+    
+    const description = document.createElement('p');
+    description.textContent = mission.description;
+    
+    const difficulty = document.createElement('p');
+    difficulty.innerHTML = `<strong>Difficulty:</strong> ${mission.difficulty}/10`;
+    
+    // Add stat requirements display
+    const statsRequired = document.createElement('div');
+    statsRequired.className = 'mission-stats-required';
+    statsRequired.style.marginTop = '15px';
+    statsRequired.style.padding = '12px';
+    statsRequired.style.background = 'rgba(74, 144, 226, 0.15)';
+    statsRequired.style.borderRadius = '8px';
+    
+    const statsTitle = document.createElement('div');
+    statsTitle.style.fontWeight = '600';
+    statsTitle.style.marginBottom = '8px';
+    statsTitle.textContent = 'Useful Stats:';
+    
+    const statsList = document.createElement('div');
+    statsList.style.display = 'flex';
+    statsList.style.gap = '10px';
+    statsList.style.flexWrap = 'wrap';
+    statsList.style.justifyContent = 'center';
+    
+    const statEmojis = {
+        health: '❤️',
+        attack: '⚔️',
+        defense: '🛡️',
+        movement: '👟',
+        mind: '🧠'
+    };
+    
+    const statNames = {
+        health: 'Health',
+        attack: 'Attack',
+        defense: 'Defense',
+        movement: 'Movement',
+        mind: 'Mind'
+    };
+    
+    if (mission.required_stats) {
+        if (mission.required_stats.primary) {
+            const statBadge = document.createElement('div');
+            statBadge.style.padding = '6px 12px';
+            statBadge.style.background = 'rgba(255, 215, 0, 0.2)';
+            statBadge.style.borderRadius = '6px';
+            statBadge.style.fontSize = '14px';
+            statBadge.style.fontWeight = '600';
+            statBadge.textContent = `${statEmojis[mission.required_stats.primary]} ${statNames[mission.required_stats.primary]}`;
+            statsList.appendChild(statBadge);
+        }
+        
+        if (mission.required_stats.secondary) {
+            const statBadge = document.createElement('div');
+            statBadge.style.padding = '6px 12px';
+            statBadge.style.background = 'rgba(192, 192, 192, 0.2)';
+            statBadge.style.borderRadius = '6px';
+            statBadge.style.fontSize = '14px';
+            statBadge.textContent = `${statEmojis[mission.required_stats.secondary]} ${statNames[mission.required_stats.secondary]}`;
+            statsList.appendChild(statBadge);
+        }
+        
+        if (mission.required_stats.tertiary) {
+            const statBadge = document.createElement('div');
+            statBadge.style.padding = '6px 12px';
+            statBadge.style.background = 'rgba(205, 127, 50, 0.2)';
+            statBadge.style.borderRadius = '6px';
+            statBadge.style.fontSize = '14px';
+            statBadge.textContent = `${statEmojis[mission.required_stats.tertiary]} ${statNames[mission.required_stats.tertiary]}`;
+            statsList.appendChild(statBadge);
+        }
+    }
+    
+    statsRequired.appendChild(statsTitle);
+    statsRequired.appendChild(statsList);
+    
+    missionInfo.appendChild(title);
+    missionInfo.appendChild(description);
+    missionInfo.appendChild(difficulty);
+    missionInfo.appendChild(statsRequired);
     
     // Squad selection section
     const squadSection = document.createElement('div');
@@ -559,6 +818,35 @@ function renderPlanetfallPortal(container) {
         name.className = 'squad-guardian-name';
         name.textContent = guardian.name;
         
+        // Add compact stats display
+        const statsRow = document.createElement('div');
+        statsRow.style.display = 'flex';
+        statsRow.style.gap = '8px';
+        statsRow.style.fontSize = '13px';
+        statsRow.style.marginTop = '6px';
+        statsRow.style.justifyContent = 'center';
+        statsRow.style.flexWrap = 'wrap';
+        
+        if (guardian.stats) {
+            const statEmojis = {
+                health: '❤️',
+                attack: '⚔️',
+                defense: '🛡️',
+                movement: '👟',
+                mind: '🧠'
+            };
+            
+            const statOrder = ['health', 'attack', 'defense', 'movement', 'mind'];
+            
+            statOrder.forEach(statKey => {
+                const statValue = guardian.stats[statKey] || 0;
+                const statDisplay = document.createElement('span');
+                statDisplay.style.whiteSpace = 'nowrap';
+                statDisplay.textContent = `${statEmojis[statKey]} ${statValue}`;
+                statsRow.appendChild(statDisplay);
+            });
+        }
+        
         // Loadout preview
         const loadoutPreview = document.createElement('div');
         loadoutPreview.className = 'squad-loadout-preview';
@@ -566,8 +854,10 @@ function renderPlanetfallPortal(container) {
         
         // Show equipped items
         let equippedCount = 0;
-        if (loadout.equipment) equippedCount++;
-        equippedCount += loadout.aspects.filter(a => a).length;
+        if (loadout && loadout.equipment) equippedCount++;
+        if (loadout && loadout.aspects) {
+            equippedCount += loadout.aspects.filter(a => a).length;
+        }
         
         loadoutPreview.textContent = `${equippedCount}/4 equipped`;
         loadoutPreview.style.fontSize = '11px';
@@ -584,6 +874,7 @@ function renderPlanetfallPortal(container) {
         
         card.appendChild(portrait);
         card.appendChild(name);
+        if (guardian.stats) card.appendChild(statsRow);
         card.appendChild(loadoutPreview);
         card.appendChild(manageBtn);
         

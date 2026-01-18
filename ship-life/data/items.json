@@ -147,6 +147,9 @@
       "mission_bonuses": {
         "combat": 10
       },
+      "stat_bonuses": {
+        "attack": 8
+      },
       "stack_count": 10
     },
     {
@@ -162,6 +165,10 @@
       "subtype": "armor",
       "mission_bonuses": {
         "defend": 10
+      },
+      "stat_bonuses": {
+        "defense": 8,
+        "health": 5
       },
       "stack_count": 10
     },
@@ -371,6 +378,9 @@
       "mission_bonuses": {
         "combat": 15
       },
+      "stat_bonuses": {
+        "attack": 12
+      },
       "stack_count": 10
     },
     {
@@ -386,6 +396,10 @@
       "subtype": "weapon",
       "mission_bonuses": {
         "combat": 15
+      },
+      "stat_bonuses": {
+        "attack": 15,
+        "movement": -5
       },
       "stack_count": 10
     },
@@ -403,6 +417,10 @@
       "mission_bonuses": {
         "combat": 20
       },
+      "stat_bonuses": {
+        "attack": 18,
+        "mind": 5
+      },
       "stack_count": 10
     },
     {
@@ -418,6 +436,10 @@
       "subtype": "armor",
       "mission_bonuses": {
         "defend": 15
+      },
+      "stat_bonuses": {
+        "defense": 12,
+        "health": 6
       },
       "stack_count": 10
     },
@@ -436,6 +458,11 @@
         "combat": 10,
         "defend": 10
       },
+      "stat_bonuses": {
+        "defense": 10,
+        "health": 8,
+        "movement": -3
+      },
       "stack_count": 10
     },
     {
@@ -451,6 +478,10 @@
       "subtype": "armor",
       "mission_bonuses": {
         "defend": 20
+      },
+      "stat_bonuses": {
+        "defense": 15,
+        "health": 10
       },
       "stack_count": 10
     },
@@ -468,6 +499,10 @@
       "mission_bonuses": {
         "search": 8,
         "recon": 8
+      },
+      "stat_bonuses": {
+        "mind": 8,
+        "movement": 5
       },
       "stack_count": 10
     },
@@ -487,6 +522,10 @@
         "recon": 12,
         "collection": 8
       },
+      "stat_bonuses": {
+        "mind": 10,
+        "movement": 8
+      },
       "stack_count": 10
     },
     {
@@ -503,6 +542,9 @@
       "mission_bonuses": {
         "search": 10,
         "recon": 10
+      },
+      "stat_bonuses": {
+        "mind": 12
       },
       "stack_count": 10
     },
@@ -522,6 +564,10 @@
         "search": 5,
         "recon": 5
       },
+      "stat_bonuses": {
+        "mind": 10,
+        "attack": 5
+      },
       "stack_count": 10
     },
     {
@@ -540,6 +586,10 @@
         "search": 8,
         "recon": 8
       },
+      "stat_bonuses": {
+        "mind": 15,
+        "attack": 5
+      },
       "stack_count": 10
     },
     {
@@ -555,6 +605,9 @@
       "subtype": "medical",
       "mission_bonuses": {
         "rescue": 8
+      },
+      "stat_bonuses": {
+        "health": 8
       },
       "stack_count": 10
     },
@@ -572,6 +625,9 @@
       "mission_bonuses": {
         "rescue": 10
       },
+      "stat_bonuses": {
+        "health": 10
+      },
       "stack_count": 10
     },
     {
@@ -587,6 +643,9 @@
       "subtype": "medical",
       "mission_bonuses": {
         "rescue": 12
+      },
+      "stat_bonuses": {
+        "health": 12
       },
       "stack_count": 10
     },
@@ -604,6 +663,9 @@
       "mission_bonuses": {
         "rescue": 15
       },
+      "stat_bonuses": {
+        "health": 15
+      },
       "stack_count": 10
     },
     {
@@ -619,6 +681,10 @@
       "subtype": "medical",
       "mission_bonuses": {
         "rescue": 20
+      },
+      "stat_bonuses": {
+        "health": 18,
+        "defense": 5
       },
       "stack_count": 10
     },
@@ -637,6 +703,9 @@
         "defend": 8,
         "collection": 5
       },
+      "stat_bonuses": {
+        "defense": 8
+      },
       "stack_count": 10
     },
     {
@@ -653,6 +722,10 @@
       "mission_bonuses": {
         "defend": 10,
         "collection": 8
+      },
+      "stat_bonuses": {
+        "defense": 10,
+        "health": 5
       },
       "stack_count": 10
     },
@@ -671,6 +744,10 @@
         "defend": 12,
         "combat": 8
       },
+      "stat_bonuses": {
+        "defense": 12,
+        "health": 6
+      },
       "stack_count": 10
     },
     {
@@ -687,6 +764,10 @@
       "mission_bonuses": {
         "defend": 15,
         "collection": 10
+      },
+      "stat_bonuses": {
+        "defense": 12,
+        "movement": 8
       },
       "stack_count": 10
     },
@@ -705,6 +786,11 @@
         "defend": 20,
         "search": 10,
         "recon": 10
+      },
+      "stat_bonuses": {
+        "defense": 15,
+        "mind": 10,
+        "movement": 8
       },
       "stack_count": 10
     }

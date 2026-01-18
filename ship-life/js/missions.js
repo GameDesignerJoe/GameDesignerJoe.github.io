@@ -166,10 +166,18 @@ async function startMissionSimulation(mission, selectedGuardians = null) {
     const roll = Math.random() * 100;
     const success = roll <= rateCalc.final;
     
+    console.log(`\n========== MISSION SIMULATION ==========`);
     console.log(`Mission: ${mission.name}`);
+    console.log(`Difficulty: ${mission.difficulty}/10 (Multiplier: ${rateCalc.debug.difficultyMultiplier})`);
+    console.log(`Required Stats:`, rateCalc.debug.requiredStats);
     console.log(`Squad: ${squad.join(', ')}`);
-    console.log(`Success Rate: ${rateCalc.base}% + ${rateCalc.loadoutBonus}% = ${rateCalc.final}%`);
-    console.log(`Roll: ${roll.toFixed(2)} - ${success ? 'SUCCESS' : 'FAILURE'}`);
+    console.log(`Total Points: ${rateCalc.debug.totalPoints.toFixed(2)}`);
+    console.log(`Success Rate: ${rateCalc.base}% (from stats) + ${rateCalc.loadoutBonus}% (legacy) = ${rateCalc.final}%`);
+    if (rateCalc.anomalyModifier !== 0) {
+        console.log(`Anomaly Modifier: ${rateCalc.anomalyModifier > 0 ? '+' : ''}${rateCalc.anomalyModifier}%`);
+    }
+    console.log(`Roll: ${roll.toFixed(2)} vs ${rateCalc.final}% - ${success ? '✓ SUCCESS' : '✗ FAILURE'}`);
+    console.log(`========================================\n`);
     
     // Roll rewards (with anomaly multiplier)
     const rewardPool = success ? mission.rewards.success : mission.rewards.failure;

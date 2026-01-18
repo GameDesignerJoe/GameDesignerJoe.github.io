@@ -23,9 +23,17 @@
         "show_name": false
       },
       "role": "DPS",
+      "subtitle": "Sun-Powered Warrior Princess",
       "description": "A fierce warrior with a strategic mind",
       "starting_guardian": true,
-      "unlocked_at_start": true
+      "unlocked_at_start": true,
+      "stats": {
+        "health": 40,
+        "attack": 40,
+        "defense": 50,
+        "movement": 30,
+        "mind": 30
+      }
     },
     {
       "id": "vawn",
@@ -36,9 +44,17 @@
         "show_name": false
       },
       "role": "DPS",
+      "subtitle": "God-Powered Gunslinger",
       "description": "Steadfast defender who never backs down",
       "starting_guardian": false,
-      "unlocked_at_start": true
+      "unlocked_at_start": true,
+      "stats": {
+        "health": 30,
+        "attack": 50,
+        "defense": 20,
+        "movement": 50,
+        "mind": 30
+      }
     },
     {
       "id": "tiberius",
@@ -49,9 +65,17 @@
         "show_name": false
       },
       "role": "Tank",
+      "subtitle": "Avatar of Winter",
       "description": "Tech specialist with advanced hacking skills",
       "starting_guardian": false,
-      "unlocked_at_start": true
+      "unlocked_at_start": true,
+      "stats": {
+        "health": 40,
+        "attack": 30,
+        "defense": 50,
+        "movement": 20,
+        "mind": 40
+      }
     },
     {
       "id": "maestra",
@@ -62,9 +86,59 @@
         "show_name": false
       },
       "role": "Support",
+      "subtitle": "Cosmic Magical Girl",
       "description": "Precision sniper with unmatched accuracy",
       "starting_guardian": false,
-      "unlocked_at_start": true
+      "unlocked_at_start": true,
+      "stats": {
+        "health": 30,
+        "attack": 40,
+        "defense": 30,
+        "movement": 40,
+        "mind": 50
+      }
+    },
+    {
+      "id": "nyx",
+      "name": "Nyx",
+      "portrait": {
+        "type": "color",
+        "value": "#082759",
+        "show_name": false
+      },
+      "role": "Ranged",
+      "subtitle": "Dragonslayer",
+      "description": "Nyx wields the Askalon Rail, a unique arcanotech weapon forged from St. George's dragon-slaying lance that can wound even Elder Dragons—but only if wielded with absolute courage and conviction. She's great at anti-Dragonkin combat and special operations, good at tactical assault and weapons expertise, okay at diplomacy when it serves her mission, bad at trusting former enemies, and horrible at accepting compromise with imperial forces. The Askalon Rail demands she purge fear from her heart each time she fires it, and her zealous conviction can blind her to nuance.",
+      "starting_guardian": true,
+      "unlocked_at_start": true,
+      "stats": {
+        "health": 40,
+        "attack": 50,
+        "defense": 30,
+        "movement": 40,
+        "mind": 20
+      }
+    },
+    {
+      "id": "shadow",
+      "name": "Shadow",
+      "portrait": {
+        "type": "color",
+        "value": "#06080a",
+        "show_name": false
+      },
+      "role": "DPS",
+      "subtitle": "Clinical Cyborg Assassin",
+      "description": "Shadow is a highly augmented cyborg assassin whose body has been extensively modified with technology that enhances her combat capabilities and sensory processing. She's great at stealth kills and infiltration, good at data analysis and target tracking, okay at sustained firefights, bad at empathetic connections, and horrible at improvisation when missions go off-script. Her cybernetic enhancements give her cold precision but have dulled her emotional responses, making her clinical and detached even from her own Dragonkin heritage.",
+      "starting_guardian": true,
+      "unlocked_at_start": true,
+      "stats": {
+        "health": 30,
+        "attack": 50,
+        "defense": 30,
+        "movement": 50,
+        "mind": 40
+      }
     }
   ]
 }

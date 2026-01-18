@@ -8,16 +8,17 @@ function initializeLoadouts(state) {
         state.loadouts = {};
     }
     
-    // Ensure each guardian has a loadout structure
-    const guardians = ['stella', 'vawn', 'tiberius', 'maestra'];
-    guardians.forEach(guardianId => {
-        if (!state.loadouts[guardianId]) {
-            state.loadouts[guardianId] = {
-                equipment: null,
-                aspects: [null, null, null]
-            };
-        }
-    });
+    // Ensure each guardian from guardiansData has a loadout structure
+    if (window.guardiansData) {
+        window.guardiansData.forEach(guardian => {
+            if (!state.loadouts[guardian.id]) {
+                state.loadouts[guardian.id] = {
+                    equipment: null,
+                    aspects: [null, null, null]
+                };
+            }
+        });
+    }
 }
 
 /**
@@ -25,6 +26,15 @@ function initializeLoadouts(state) {
  */
 function getLoadout(state, guardianId) {
     initializeLoadouts(state);
+    
+    // Ensure this specific guardian has a loadout
+    if (!state.loadouts[guardianId]) {
+        state.loadouts[guardianId] = {
+            equipment: null,
+            aspects: [null, null, null]
+        };
+    }
+    
     return state.loadouts[guardianId];
 }
 
@@ -250,29 +260,130 @@ function checkMissionRequirements(state, selectedGuardians, mission) {
 }
 
 /**
- * Calculate mission success rate with loadout bonuses and anomaly modifiers
+ * Calculate gear stat bonus with stat weights
  */
-function calculateMissionSuccessRate(state, selectedGuardians, mission) {
-    // Base success rate
-    const baseSuccess = 100 - (mission.difficulty * 10);
+function calculateGearStatBonus(statBonuses, requiredStats, statWeights) {
+    let bonus = 0;
     
-    // Loadout bonus
-    const loadoutBonus = calculateLoadoutBonus(state, selectedGuardians, mission);
-    
-    // Anomaly modifier (makes mission harder or easier)
-    let anomalyModifier = 0;
-    if (mission.anomaly && mission.anomaly.effects && mission.anomaly.effects.difficulty_modifier) {
-        anomalyModifier = -mission.anomaly.effects.difficulty_modifier; // Negative because positive modifier = harder
+    // Primary stat bonus
+    if (requiredStats.primary && statBonuses[requiredStats.primary]) {
+        bonus += statBonuses[requiredStats.primary] * statWeights.primary;
     }
     
-    // Final success rate (capped at 95% max, 5% min)
-    const finalSuccess = Math.min(95, Math.max(5, baseSuccess + loadoutBonus + anomalyModifier));
+    // Secondary stat bonus
+    if (requiredStats.secondary && statBonuses[requiredStats.secondary]) {
+        bonus += statBonuses[requiredStats.secondary] * statWeights.secondary;
+    }
+    
+    // Tertiary stat bonus
+    if (requiredStats.tertiary && statBonuses[requiredStats.tertiary]) {
+        bonus += statBonuses[requiredStats.tertiary] * statWeights.tertiary;
+    }
+    
+    return bonus;
+}
+
+/**
+ * Calculate mission success rate with Guardian stats + loadout bonuses
+ */
+function calculateMissionSuccessRate(state, selectedGuardians, mission) {
+    // Get difficulty multiplier (use new field, fallback to old calculation)
+    const difficultyMultiplier = mission.difficulty_multiplier || (mission.difficulty / 5);
+    
+    // Get stat requirements
+    const requiredStats = mission.required_stats || { primary: "attack" };
+    const statWeights = {
+        primary: 0.5,
+        secondary: requiredStats.secondary ? 0.3 : 0,
+        tertiary: requiredStats.tertiary ? 0.2 : 0
+    };
+    
+    // Calculate total points from all Guardians
+    let totalPoints = 0;
+    
+    selectedGuardians.forEach(guardianId => {
+        const guardian = window.guardiansData.find(g => g.id === guardianId);
+        if (!guardian || !guardian.stats) {
+            console.warn(`Guardian ${guardianId} missing stats, skipping`);
+            return;
+        }
+        
+        // Guardian stat contribution (base 50 points × weighted stats)
+        let guardianContribution = 0;
+        
+        // Primary stat (50% weight)
+        const primaryStat = guardian.stats[requiredStats.primary] || 25;
+        guardianContribution += 50 * (primaryStat / 50) * statWeights.primary;
+        
+        // Secondary stat (30% weight)
+        if (requiredStats.secondary) {
+            const secondaryStat = guardian.stats[requiredStats.secondary] || 25;
+            guardianContribution += 50 * (secondaryStat / 50) * statWeights.secondary;
+        }
+        
+        // Tertiary stat (20% weight)
+        if (requiredStats.tertiary) {
+            const tertiaryStat = guardian.stats[requiredStats.tertiary] || 25;
+            guardianContribution += 50 * (tertiaryStat / 50) * statWeights.tertiary;
+        }
+        
+        // If only primary stat, use full 50 points
+        if (!requiredStats.secondary && !requiredStats.tertiary) {
+            guardianContribution = 50 * (primaryStat / 50);
+        }
+        
+        totalPoints += guardianContribution;
+        
+        // Gear stat bonuses from this Guardian's loadout
+        const loadout = getLoadout(state, guardianId);
+        let gearContribution = 0;
+        
+        // Equipment slot
+        if (loadout.equipment) {
+            const item = window.itemsData.find(i => i.id === loadout.equipment);
+            if (item && item.stat_bonuses) {
+                gearContribution += calculateGearStatBonus(item.stat_bonuses, requiredStats, statWeights);
+            }
+        }
+        
+        // Aspect slots
+        loadout.aspects.forEach(aspectId => {
+            if (aspectId) {
+                const item = window.itemsData.find(i => i.id === aspectId);
+                if (item && item.stat_bonuses) {
+                    gearContribution += calculateGearStatBonus(item.stat_bonuses, requiredStats, statWeights);
+                }
+            }
+        });
+        
+        totalPoints += gearContribution;
+    });
+    
+    // Legacy mission_bonuses (will be deprecated)
+    const legacyBonus = calculateLoadoutBonus(state, selectedGuardians, mission);
+    
+    // Anomaly modifier
+    let anomalyModifier = 0;
+    if (mission.anomaly && mission.anomaly.effects && mission.anomaly.effects.difficulty_modifier) {
+        anomalyModifier = -mission.anomaly.effects.difficulty_modifier;
+    }
+    
+    // Final success percentage
+    const successPercentage = Math.min(100, Math.max(0, (totalPoints / difficultyMultiplier)));
+    
+    // Apply legacy bonus and anomaly (as flat % adjustments for backward compatibility)
+    const finalSuccess = Math.min(100, Math.max(0, successPercentage + legacyBonus + anomalyModifier));
     
     return {
-        base: baseSuccess,
-        loadoutBonus: loadoutBonus,
+        base: Math.round(successPercentage),
+        loadoutBonus: legacyBonus,
         anomalyModifier: anomalyModifier,
-        final: finalSuccess
+        final: Math.round(finalSuccess),
+        debug: {
+            totalPoints: totalPoints,
+            difficultyMultiplier: difficultyMultiplier,
+            requiredStats: requiredStats
+        }
     };
 }
 
