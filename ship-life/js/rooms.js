@@ -500,62 +500,19 @@ function createMissionCard(mission, isLocked) {
         }
     }
     
+    // 1. Mission rectangle with visual
+    const visualContainer = document.createElement('div');
+    visualContainer.style.position = 'relative';
+    
     const visual = document.createElement('div');
     visual.className = 'mission-card-visual';
     renderVisual(mission.visual, visual);
     if (mission.visual.show_name) {
         visual.textContent = mission.name;
     }
+    visualContainer.appendChild(visual);
     
-    const name = document.createElement('div');
-    name.className = 'mission-card-name';
-    name.textContent = mission.name;
-    
-    // Add chain info if available (and chain has a name)
-    // Ignore empty strings, "None", "N/A", or "NA" (case insensitive)
-    if (mission.chain && mission.chain.name) {
-        const chainName = mission.chain.name.trim().toLowerCase();
-        if (chainName !== '' && chainName !== 'none' && chainName !== 'n/a' && chainName !== 'na') {
-            const chainInfo = document.createElement('div');
-            chainInfo.className = 'mission-chain-badge';
-            chainInfo.textContent = `${mission.chain.name} - Part ${mission.chain.part}/${mission.chain.total}`;
-            card.appendChild(chainInfo);
-        }
-    }
-    
-    const description = document.createElement('div');
-    description.className = 'mission-card-description';
-    description.textContent = mission.description;
-    
-    // Add resource preview
-    if (mission.rewards && mission.rewards.success) {
-        const resourcePreview = document.createElement('div');
-        resourcePreview.className = 'mission-resources';
-        
-        // Get top 3 rewards by drop chance
-        const topRewards = mission.rewards.success
-            .sort((a, b) => b.drop_chance - a.drop_chance)
-            .slice(0, 3);
-        
-        const rewardNames = [];
-        topRewards.forEach(reward => {
-            const item = window.itemsData?.find(i => i.id === reward.item);
-            if (item) {
-                rewardNames.push(item.name);
-            }
-        });
-        
-        if (rewardNames.length > 0) {
-            resourcePreview.textContent = 'Rewards: ' + rewardNames.join(', ');
-            card.appendChild(resourcePreview);
-        }
-    }
-    
-    const difficulty = document.createElement('div');
-    difficulty.className = 'mission-card-difficulty';
-    difficulty.textContent = `Difficulty: ${mission.difficulty}/10`;
-    
-    // Add stat requirements display on mission cards
+    // 2. Stat requirements (positioned top right of visual)
     if (mission.required_stats) {
         const statEmojis = {
             health: '❤️',
@@ -567,17 +524,19 @@ function createMissionCard(mission, isLocked) {
         
         const statsPreview = document.createElement('div');
         statsPreview.className = 'mission-card-stats';
-        statsPreview.style.fontSize = '18px';
-        statsPreview.style.marginTop = '12px';
+        statsPreview.style.position = 'absolute';
+        statsPreview.style.top = '10px';
+        statsPreview.style.right = '10px';
         statsPreview.style.display = 'flex';
-        statsPreview.style.gap = '10px';
+        statsPreview.style.gap = '8px';
         statsPreview.style.flexWrap = 'wrap';
+        statsPreview.style.justifyContent = 'flex-end';
         
         if (mission.required_stats.primary) {
             const badge = document.createElement('span');
-            badge.style.padding = '6px 14px';
-            badge.style.background = 'rgba(255, 215, 0, 0.25)';
-            badge.style.border = '2px solid rgba(255, 215, 0, 0.5)';
+            badge.style.padding = '6px 12px';
+            badge.style.background = 'rgba(255, 215, 0, 0.35)';
+            badge.style.border = '2px solid rgba(255, 215, 0, 0.7)';
             badge.style.borderRadius = '6px';
             badge.style.fontSize = '20px';
             badge.style.fontWeight = '700';
@@ -587,9 +546,9 @@ function createMissionCard(mission, isLocked) {
         
         if (mission.required_stats.secondary) {
             const badge = document.createElement('span');
-            badge.style.padding = '6px 14px';
-            badge.style.background = 'rgba(192, 192, 192, 0.25)';
-            badge.style.border = '2px solid rgba(192, 192, 192, 0.5)';
+            badge.style.padding = '6px 12px';
+            badge.style.background = 'rgba(192, 192, 192, 0.35)';
+            badge.style.border = '2px solid rgba(192, 192, 192, 0.7)';
             badge.style.borderRadius = '6px';
             badge.style.fontSize = '20px';
             badge.style.fontWeight = '700';
@@ -599,9 +558,9 @@ function createMissionCard(mission, isLocked) {
         
         if (mission.required_stats.tertiary) {
             const badge = document.createElement('span');
-            badge.style.padding = '6px 14px';
-            badge.style.background = 'rgba(205, 127, 50, 0.25)';
-            badge.style.border = '2px solid rgba(205, 127, 50, 0.5)';
+            badge.style.padding = '6px 12px';
+            badge.style.background = 'rgba(205, 127, 50, 0.35)';
+            badge.style.border = '2px solid rgba(205, 127, 50, 0.7)';
             badge.style.borderRadius = '6px';
             badge.style.fontSize = '20px';
             badge.style.fontWeight = '700';
@@ -609,14 +568,51 @@ function createMissionCard(mission, isLocked) {
             statsPreview.appendChild(badge);
         }
         
-        card.appendChild(statsPreview);
+        visualContainer.appendChild(statsPreview);
     }
     
-    // Add anomaly badge if present
+    card.appendChild(visualContainer);
+    
+    // 3. Chain info (if present)
+    if (mission.chain && mission.chain.name) {
+        const chainName = mission.chain.name.trim().toLowerCase();
+        if (chainName !== '' && chainName !== 'none' && chainName !== 'n/a' && chainName !== 'na') {
+            const chainInfo = document.createElement('div');
+            chainInfo.className = 'mission-chain-badge';
+            chainInfo.style.fontSize = '14px';
+            chainInfo.style.fontWeight = '700';
+            chainInfo.style.padding = '8px 12px';
+            chainInfo.style.marginTop = '12px';
+            chainInfo.textContent = `${mission.chain.name} - Part ${mission.chain.part}/${mission.chain.total}`;
+            card.appendChild(chainInfo);
+        }
+    }
+    
+    // 4. Mission Title
+    const name = document.createElement('div');
+    name.className = 'mission-card-name';
+    name.textContent = mission.name;
+    card.appendChild(name);
+    
+    // 5. Mission Description
+    const description = document.createElement('div');
+    description.className = 'mission-card-description';
+    description.textContent = mission.description;
+    card.appendChild(description);
+    
+    // 6. Difficulty
+    const difficulty = document.createElement('div');
+    difficulty.className = 'mission-card-difficulty';
+    difficulty.textContent = `Difficulty: ${mission.difficulty}/10`;
+    card.appendChild(difficulty);
+    
+    // 7. Anomaly (if present)
     if (mission.anomaly) {
         const anomalyBadge = document.createElement('div');
         anomalyBadge.className = `mission-anomaly-badge anomaly-${mission.anomaly.category}`;
         anomalyBadge.style.background = mission.anomaly.icon.value;
+        anomalyBadge.style.position = 'relative';
+        anomalyBadge.style.marginTop = '12px';
         anomalyBadge.textContent = `⚡ ${mission.anomaly.name}`;
         anomalyBadge.title = mission.anomaly.description;
         
@@ -649,16 +645,41 @@ function createMissionCard(mission, isLocked) {
             if (requirementHint) {
                 const reqDiv = document.createElement('div');
                 reqDiv.className = 'mission-requirement-hint';
+                reqDiv.style.position = 'relative';
+                reqDiv.style.marginTop = '8px';
                 reqDiv.textContent = `⚠️ ${requirementHint}`;
                 card.appendChild(reqDiv);
             }
         }
     }
     
-    card.appendChild(visual);
-    card.appendChild(name);
-    card.appendChild(description);
-    card.appendChild(difficulty);
+    // 8. Rewards (at the very bottom with larger font)
+    if (mission.rewards && mission.rewards.success) {
+        const resourcePreview = document.createElement('div');
+        resourcePreview.className = 'mission-resources';
+        resourcePreview.style.fontSize = '16px';
+        resourcePreview.style.fontWeight = '600';
+        resourcePreview.style.marginTop = 'auto';
+        resourcePreview.style.paddingTop = '15px';
+        
+        // Get top 3 rewards by drop chance
+        const topRewards = mission.rewards.success
+            .sort((a, b) => b.drop_chance - a.drop_chance)
+            .slice(0, 3);
+        
+        const rewardNames = [];
+        topRewards.forEach(reward => {
+            const item = window.itemsData?.find(i => i.id === reward.item);
+            if (item) {
+                rewardNames.push(item.name);
+            }
+        });
+        
+        if (rewardNames.length > 0) {
+            resourcePreview.textContent = 'Rewards: ' + rewardNames.join(', ');
+            card.appendChild(resourcePreview);
+        }
+    }
     
     if (!isLocked) {
         card.onclick = () => selectMission(mission);

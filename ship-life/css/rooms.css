@@ -262,20 +262,23 @@
 }
 
 .mission-chain-badge {
-    font-size: 11px;
+    font-size: 14px;
+    font-weight: 700;
     color: var(--primary);
-    background: rgba(74, 144, 226, 0.2);
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin-top: 5px;
+    background: rgba(74, 144, 226, 0.3);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: 12px;
     display: inline-block;
 }
 
 .mission-resources {
-    font-size: 12px;
+    font-size: 16px;
+    font-weight: 600;
     color: var(--success);
-    margin-top: 8px;
-    opacity: 0.8;
+    margin-top: auto;
+    padding-top: 15px;
+    opacity: 1;
 }
 
 .mission-card.mission-new {
@@ -285,33 +288,30 @@
 
 .new-badge {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 15px;
+    left: 15px;
     background: gold;
     color: black;
-    padding: 4px 12px;
-    border-radius: 4px;
-    font-size: 11px;
+    padding: 6px 18px;
+    border-radius: 6px;
+    font-size: 16px;
     font-weight: 700;
-    transform: rotate(15deg);
+    transform: rotate(-5deg);
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.6);
 }
 
 /* Anomaly Badges */
 .mission-anomaly-badge {
-    position: absolute;
-    bottom: 60px;
-    left: 20px;
-    right: 20px;
-    padding: 8px 12px;
+    position: relative;
+    margin-top: 12px;
+    padding: 10px 14px;
     border-radius: 6px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     animation: pulseGlow 2s ease-in-out infinite;
 }
 
@@ -343,14 +343,12 @@
 
 /* Requirement hint on mission cards */
 .mission-requirement-hint {
-    position: absolute;
-    bottom: 95px;
-    left: 20px;
-    right: 20px;
-    padding: 6px 10px;
+    position: relative;
+    margin-top: 8px;
+    padding: 8px 12px;
     background: rgba(231, 76, 60, 0.9);
     border-radius: 5px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: white;
     text-align: center;
