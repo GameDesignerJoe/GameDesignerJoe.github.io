@@ -1,13 +1,12 @@
 Playback ToDo
-Priority 0:
-- I think you're hitting a threshold where you're getting diminishing returns on certain elements of the program. 
-    - You're moving into the next phase of this project I think:
-        - Document
-        - Clean up files & code
-        - Spend all time chasing buts. 
-
 Priority 1:
-- Need to rename it to Playback in the first screen. 
+- You can't advance tracks on mobile. There's no play window anymore.
+- Mobile: I'm still not getting the < > on the song module. I'm just getting the skip ahead 10 seconds.
+- You can't see what song is playing anymore PC or mobile.
+- We need a way to get ID3 tag information on PC and Mobile
+- Making a playlist only shows the artist, not the track, at least on mobile
+
+
 - It's showing the same track in two different playlists as being paused, rather than just the instance of the one you clicked.
     - This was the bug that I think broke the program.
 - Need to do an auto refresh of your home folder whenever you add a source.
@@ -17,7 +16,6 @@ Priority 1:
 - Search doesn't clear when you go into a different window. 
 - Search exits the search window with every key hit. 
 - Seaerch needs an 'X' on the right to clear it. 
-- On Mobile it just stops playing after the first song if it's not open. 
 
 Priority 2: 
 - Add image replacement for cover art.
@@ -47,8 +45,4 @@ Priority 3:
 - Make it so you can add your on image to the playlist art. 
 
 MOBILE:
-- Mobile: Player clips the bottom of the buttons. 
 - Mobile: Sources sidebar looks like crap. Consider running it along the top.Removing the text and just having the icon. 
-- Mobile: The next song doesn't play if the phone is closed and the screen is black. Actually, it thinks it's playing, I just can't hear anything. I look down and see that the song is 15 seconds in, but no audio comes out. Then if I click on the module it opens up my phone and starts playing... However, it's brought up a different, non-music app of mine. If i close that app, the music stops, despite the music app still being open. 
-- Mobile: Add a small play button next to the folder, just to the left of the text. If you press that it plays the folder without having to go into the playlist. 
-- Mobile: I'm still not getting the < > on the song module. I'm just getting the skip ahead 10 seconds.
