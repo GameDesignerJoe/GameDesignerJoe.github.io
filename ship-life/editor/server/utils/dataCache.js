@@ -35,6 +35,15 @@ async function buildCache() {
     const items = JSON.parse(itemsFile);
     dataCache.items = items.items ? items.items.map(i => i.id) : [];
 
+    // Read blueprints from items.json (filter by type: 'blueprint')
+    // This replaces the deprecated blueprints.json file
+    dataCache.blueprints = items.items 
+      ? items.items
+          .filter(i => i.type === 'blueprint')
+          .map(i => i.id)
+          .sort((a, b) => a.localeCompare(b))
+      : [];
+
     // Read missions
     const missionsFile = await fs.readFile(path.join(dataDir, 'missions.json'), 'utf-8');
     const missions = JSON.parse(missionsFile);
@@ -44,13 +53,6 @@ async function buildCache() {
     const workstationsFile = await fs.readFile(path.join(dataDir, 'workstations.json'), 'utf-8');
     const workstations = JSON.parse(workstationsFile);
     dataCache.workstations = workstations.workstations ? workstations.workstations.map(w => w.id) : [];
-
-    // Read blueprints (alphabetized)
-    const blueprintsFile = await fs.readFile(path.join(dataDir, 'blueprints.json'), 'utf-8');
-    const blueprints = JSON.parse(blueprintsFile);
-    dataCache.blueprints = blueprints.blueprints 
-      ? blueprints.blueprints.map(b => b.id).sort((a, b) => a.localeCompare(b))
-      : [];
 
     // Read rooms
     const roomsFile = await fs.readFile(path.join(dataDir, 'rooms.json'), 'utf-8');

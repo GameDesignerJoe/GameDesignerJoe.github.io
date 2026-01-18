@@ -21,10 +21,7 @@ function createNewSave() {
             battery: 5
         },
         workstations: {},
-        learned_blueprints: [
-            'blueprint_basic_rifle',
-            'blueprint_basic_shield'
-        ],
+        learned_blueprints: [],
         completed_missions: [],
         total_missions_run: 0,
         mission_counters: {
@@ -95,10 +92,11 @@ function autoSave(state) {
 
 /**
  * Initialize starting blueprints
+ * Blueprints are now stored in items.json with type: "blueprint"
  */
 function initializeStartingBlueprints(state, blueprints) {
     if (state.learned_blueprints.length === 0) {
-        const startingBlueprints = blueprints.filter(bp => bp.unlocked_at_start);
+        const startingBlueprints = blueprints.filter(bp => bp.unlocked_at_start === true);
         state.learned_blueprints = startingBlueprints.map(bp => bp.id);
         console.log('Starting blueprints initialized:', state.learned_blueprints);
     }

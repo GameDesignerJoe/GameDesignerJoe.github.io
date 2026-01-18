@@ -88,8 +88,12 @@ function createRecipeItem(recipe, workstation) {
         div.classList.add('grayed-out');
     }
     
+    // Get item name from items.json
+    const itemData = window.itemsData.find(i => i.id === recipe.item);
+    const itemName = itemData ? itemData.name : recipe.item;
+    
     div.innerHTML = `
-        <div class="recipe-item-name">${recipe.name}</div>
+        <div class="recipe-item-name">${itemName}</div>
         <div class="recipe-item-level">Requires Level ${recipe.required_level}</div>
     `;
     
@@ -109,9 +113,14 @@ function canCraftRecipe(recipe, workstation, state) {
         return false;
     }
     
-    // Check blueprint
-    if (recipe.blueprint_required) {
-        if (!state.learned_blueprints.includes(recipe.blueprint_required)) {
+    // Check blueprint (optional - only if blueprint_required is specified and not "none")
+    if (recipe.blueprint_required && recipe.blueprint_required.toLowerCase() !== 'none') {
+        // Check if learned OR unlocked at start
+        const isLearned = state.learned_blueprints.includes(recipe.blueprint_required);
+        const blueprintData = window.itemsData.find(i => i.id === recipe.blueprint_required);
+        const unlockedAtStart = blueprintData && blueprintData.unlocked_at_start === true;
+        
+        if (!isLearned && !unlockedAtStart) {
             return false;
         }
     }
@@ -170,9 +179,14 @@ function showRecipeDetails(recipe, workstation) {
     const currentLevel = gameState.workstations[workstation.id]?.level || 1;
     const canCraft = canCraftRecipe(recipe, workstation, gameState);
     
+    // Get item info from items.json
+    const itemData = window.itemsData.find(i => i.id === recipe.item);
+    const itemName = itemData ? itemData.name : recipe.item;
+    const itemDescription = itemData ? itemData.description : 'No description available.';
+    
     let html = `
-        <h3>${recipe.name}</h3>
-        <p>${recipe.description || 'No description available.'}</p>
+        <h3>${itemName}</h3>
+        <p>${itemDescription}</p>
         
         <div class="requirements-section">
             <h4>Requirements</h4>
@@ -185,9 +199,13 @@ function showRecipeDetails(recipe, workstation) {
             </div>
     `;
     
-    // Check blueprint
-    if (recipe.blueprint_required) {
-        const hasBlueprint = gameState.learned_blueprints.includes(recipe.blueprint_required);
+    // Check blueprint (only show if required and not "none")
+    if (recipe.blueprint_required && recipe.blueprint_required.toLowerCase() !== 'none') {
+        const isLearned = gameState.learned_blueprints.includes(recipe.blueprint_required);
+        const blueprintData = window.itemsData.find(i => i.id === recipe.blueprint_required);
+        const unlockedAtStart = blueprintData && blueprintData.unlocked_at_start === true;
+        const hasBlueprint = isLearned || unlockedAtStart;
+        
         html += `
             <div class="requirement-item">
                 <span class="requirement-label">Blueprint</span>
@@ -218,7 +236,7 @@ function showRecipeDetails(recipe, workstation) {
         </div>
         <button class="craft-button" ${canCraft ? '' : 'disabled'} 
                 onclick="craftItem('${recipe.id}')">
-            Craft ${recipe.name}
+            Craft ${itemName}
         </button>
     `;
     
@@ -245,14 +263,18 @@ function craftItem(recipeId) {
         removeFromInventory(gameState, req.item, req.amount);
     });
     
-    // Add output
-    addToInventory(gameState, recipe.output.item, recipe.output.amount);
+    // Add output (new structure: recipe.item and recipe.amount)
+    addToInventory(gameState, recipe.item, recipe.amount);
     
     // Auto-save
     autoSave(gameState);
     
+    // Get item name for notification
+    const itemData = window.itemsData.find(i => i.id === recipe.item);
+    const itemName = itemData ? itemData.name : recipe.item;
+    
     // Show notification
-    showNotification(`Crafted: ${recipe.name}`);
+    showNotification(`Crafted: ${itemName} x${recipe.amount}`);
     
     // Refresh displays
     openWorkstation(currentWorkstation);

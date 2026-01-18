@@ -28,20 +28,16 @@
     "recipes": [
       {
         "id": "Unique identifier for this recipe (string)",
-        "name": "Recipe display name (string)",
-        "description": "What this recipe produces (string)",
+        "item": "Item ID from items.json that this recipe produces (string)",
+        "amount": "Quantity produced (number)",
         "required_level": "Minimum workstation level to unlock this recipe (number)",
-        "blueprint_required": "Blueprint ID that must be learned to unlock this recipe (string)",
+        "blueprint_required": "Blueprint ID that must be learned to unlock this recipe (optional, can be 'none' or null) (string)",
         "cost": [
           {
             "item": "Item ID consumed when crafting (string)",
             "amount": "Quantity consumed (number)"
           }
-        ],
-        "output": {
-          "item": "Item ID produced by this recipe (string)",
-          "amount": "Quantity produced (number)"
-        }
+        ]
       }
     ]
   },
@@ -90,15 +86,15 @@
       ],
       "recipes": [
         {
-          "id": "basic_rifle",
-          "name": "Basic Plasma Rifle",
-          "description": "Standard issue energy weapon",
+          "id": "recipe_plasma_rifle",
+          "item": "plasma_rifle",
+          "amount": 1,
           "required_level": 1,
           "blueprint_required": "blueprint_plasma_rifle",
           "cost": [
             {
               "item": "plasma_cell",
-              "amount": 10
+              "amount": 1
             },
             {
               "item": "metal_parts",
@@ -108,18 +104,14 @@
               "item": "battery",
               "amount": 1
             }
-          ],
-          "output": {
-            "item": "plasma_rifle",
-            "amount": 1
-          }
+          ]
         },
         {
-          "id": "advanced_rifle",
-          "name": "Advanced Plasma Rifle",
-          "description": "Enhanced energy weapon with improved damage",
+          "id": "recipe_advanced_plasma_rifle",
+          "item": "advanced_plasma_rifle",
+          "amount": 1,
           "required_level": 2,
-          "blueprint_required": "blueprint_advanced_rifle",
+          "blueprint_required": "blueprint_advanced_plasma_rifle",
           "cost": [
             {
               "item": "plasma_cell",
@@ -133,16 +125,12 @@
               "item": "circuit_board",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "advanced_plasma_rifle",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "pulse_cannon",
-          "name": "Pulse Cannon",
-          "description": "Heavy weapon firing energy pulses",
+          "item": "pulse_cannon",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_pulse_cannon",
           "cost": [
@@ -158,16 +146,12 @@
               "item": "fusion_core",
               "amount": 2
             }
-          ],
-          "output": {
-            "item": "pulse_cannon",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "quantum_disruptor",
-          "name": "Quantum Disruptor",
-          "description": "Cutting-edge weapon disrupting matter at quantum level",
+          "item": "quantum_disruptor",
+          "amount": 1,
           "required_level": 3,
           "blueprint_required": "blueprint_quantum_weave",
           "cost": [
@@ -183,11 +167,7 @@
               "item": "fusion_core",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "quantum_disruptor",
-            "amount": 1
-          }
+          ]
         }
       ]
     },
@@ -236,8 +216,8 @@
       "recipes": [
         {
           "id": "basic_shield",
-          "name": "Basic Energy Shield",
-          "description": "Personal force field generator",
+          "item": "energy_shield",
+          "amount": 1,
           "required_level": 1,
           "blueprint_required": "blueprint_energy_shield",
           "cost": [
@@ -253,16 +233,12 @@
               "item": "common_alloy",
               "amount": 10
             }
-          ],
-          "output": {
-            "item": "energy_shield",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "reinforced_shield",
-          "name": "Reinforced Shield",
-          "description": "Enhanced personal force field",
+          "item": "reinforced_shield",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_advanced_shield",
           "cost": [
@@ -278,16 +254,12 @@
               "item": "crystalline_shard",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "reinforced_shield",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "combat_armor",
-          "name": "Combat Armor",
-          "description": "Heavy protective gear for frontline combat",
+          "item": "combat_armor",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_combat_armor",
           "cost": [
@@ -303,16 +275,12 @@
               "item": "metal_parts",
               "amount": 15
             }
-          ],
-          "output": {
-            "item": "combat_armor",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "adaptive_armor",
-          "name": "Adaptive Armor",
-          "description": "Self-adjusting armor that responds to threats",
+          "item": "adaptive_armor",
+          "amount": 1,
           "required_level": 3,
           "blueprint_required": "blueprint_adaptive_materials",
           "cost": [
@@ -328,11 +296,7 @@
               "item": "circuit_board",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "adaptive_armor",
-            "amount": 1
-          }
+          ]
         }
       ]
     },
@@ -381,8 +345,8 @@
       "recipes": [
         {
           "id": "signal_amplifier",
-          "name": "Signal Amplifier",
-          "description": "Device for boosting communication range",
+          "item": "signal_amplifier",
+          "amount": 1,
           "required_level": 1,
           "blueprint_required": "blueprint_signal_amplifier",
           "cost": [
@@ -398,16 +362,12 @@
               "item": "metal_parts",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "signal_amplifier",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "advanced_scanner",
-          "name": "Advanced Scanner",
-          "description": "Multi-spectrum detection device",
+          "item": "advanced_scanner",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_signal_amplifier",
           "cost": [
@@ -423,16 +383,12 @@
               "item": "rare_alloy",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "advanced_scanner",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "quantum_processor",
-          "name": "Quantum Processor",
-          "description": "Supercomputing module using quantum mechanics",
+          "item": "quantum_processor",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_quantum_processor",
           "cost": [
@@ -448,16 +404,12 @@
               "item": "crystalline_shard",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "quantum_processor",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "neural_interface",
-          "name": "Neural Interface",
-          "description": "Direct brain-computer connection device",
+          "item": "neural_interface",
+          "amount": 1,
           "required_level": 3,
           "blueprint_required": "blueprint_neural_interface",
           "cost": [
@@ -473,16 +425,12 @@
               "item": "nanomaterial",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "neural_interface",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "ai_core",
-          "name": "AI Core",
-          "description": "Autonomous artificial intelligence module",
+          "item": "ai_core",
+          "amount": 1,
           "required_level": 3,
           "blueprint_required": "blueprint_ai_core",
           "cost": [
@@ -498,11 +446,7 @@
               "item": "fusion_core",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "ai_core",
-            "amount": 1
-          }
+          ]
         }
       ]
     },
@@ -551,8 +495,8 @@
       "recipes": [
         {
           "id": "stim_pack",
-          "name": "Stim Pack",
-          "description": "Emergency healing injection",
+          "item": "stim_pack",
+          "amount": 3,
           "required_level": 1,
           "blueprint_required": "blueprint_stim_pack",
           "cost": [
@@ -564,16 +508,12 @@
               "item": "battery",
               "amount": 1
             }
-          ],
-          "output": {
-            "item": "stim_pack",
-            "amount": 3
-          }
+          ]
         },
         {
           "id": "first_aid_kit",
-          "name": "First Aid Kit",
-          "description": "Basic medical supplies for field treatment",
+          "item": "first_aid_kit",
+          "amount": 2,
           "required_level": 1,
           "blueprint_required": "blueprint_stim_pack",
           "cost": [
@@ -585,16 +525,12 @@
               "item": "common_alloy",
               "amount": 3
             }
-          ],
-          "output": {
-            "item": "first_aid_kit",
-            "amount": 2
-          }
+          ]
         },
         {
           "id": "advanced_medkit",
-          "name": "Advanced Medkit",
-          "description": "Comprehensive medical treatment package",
+          "item": "advanced_medkit",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_advanced_medkit",
           "cost": [
@@ -610,16 +546,12 @@
               "item": "rare_alloy",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "advanced_medkit",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "regeneration_serum",
-          "name": "Regeneration Serum",
-          "description": "Advanced healing formula promoting rapid tissue repair",
+          "item": "regeneration_serum",
+          "amount": 2,
           "required_level": 2,
           "blueprint_required": "blueprint_advanced_medkit",
           "cost": [
@@ -635,16 +567,12 @@
               "item": "battery",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "regeneration_serum",
-            "amount": 2
-          }
+          ]
         },
         {
           "id": "nano_medical_suite",
-          "name": "Nano-Medical Suite",
-          "description": "Nanomachine-based automated medical system",
+          "item": "nano_medical_suite",
+          "amount": 1,
           "required_level": 3,
           "blueprint_required": "blueprint_nano_medical_suite",
           "cost": [
@@ -660,11 +588,7 @@
               "item": "circuit_board",
               "amount": 10
             }
-          ],
-          "output": {
-            "item": "nano_medical_suite",
-            "amount": 1
-          }
+          ]
         }
       ]
     },
@@ -713,8 +637,8 @@
       "recipes": [
         {
           "id": "composite_plating",
-          "name": "Composite Plating",
-          "description": "Layered protective plating for vehicles and structures",
+          "item": "composite_plating",
+          "amount": 1,
           "required_level": 1,
           "blueprint_required": "blueprint_composite_plating",
           "cost": [
@@ -726,16 +650,12 @@
               "item": "metal_parts",
               "amount": 10
             }
-          ],
-          "output": {
-            "item": "composite_plating",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "reinforced_frame",
-          "name": "Reinforced Frame",
-          "description": "Structural framework with enhanced durability",
+          "item": "reinforced_frame",
+          "amount": 1,
           "required_level": 1,
           "blueprint_required": "blueprint_composite_plating",
           "cost": [
@@ -751,16 +671,12 @@
               "item": "metal_parts",
               "amount": 15
             }
-          ],
-          "output": {
-            "item": "reinforced_frame",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "advanced_armor_plating",
-          "name": "Advanced Armor Plating",
-          "description": "Military-grade protective plating",
+          "item": "advanced_armor_plating",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_adaptive_materials",
           "cost": [
@@ -776,16 +692,12 @@
               "item": "crystalline_shard",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "advanced_armor_plating",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "adaptive_materials",
-          "name": "Adaptive Materials",
-          "description": "Smart materials that adjust properties based on environment",
+          "item": "adaptive_materials",
+          "amount": 1,
           "required_level": 2,
           "blueprint_required": "blueprint_adaptive_materials",
           "cost": [
@@ -801,16 +713,12 @@
               "item": "rare_alloy",
               "amount": 10
             }
-          ],
-          "output": {
-            "item": "adaptive_materials",
-            "amount": 1
-          }
+          ]
         },
         {
           "id": "quantum_weave_fabric",
-          "name": "Quantum-Weave Fabric",
-          "description": "Exotic fabric woven at quantum scale",
+          "item": "quantum_weave_fabric",
+          "amount": 1,
           "required_level": 3,
           "blueprint_required": "blueprint_quantum_weave",
           "cost": [
@@ -826,11 +734,7 @@
               "item": "nanomaterial",
               "amount": 5
             }
-          ],
-          "output": {
-            "item": "quantum_weave_fabric",
-            "amount": 1
-          }
+          ]
         }
       ]
     },

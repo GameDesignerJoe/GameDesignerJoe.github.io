@@ -1,4 +1,5 @@
 {
+  "_DEPRECATION_WARNING": "This file is DEPRECATED and no longer used by the game. Blueprints are now stored in items.json with type: 'blueprint' and an optional 'unlocked_at_start' property. This file is kept only for reference.",
   "_documentation": {
     "_note": "This object is for documentation only and is ignored by the game",
     "id": "Unique identifier for this blueprint (string)",

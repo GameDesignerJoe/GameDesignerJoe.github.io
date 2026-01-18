@@ -224,16 +224,23 @@ class DataValidator {
                         });
                     }
                     
-                    // Check recipe output
-                    if (recipe.output && recipe.output.item) {
-                        const itemExists = window.itemsData.some(i => i.id === recipe.output.item);
+                    // Check recipe output item (new structure: recipe.item instead of recipe.output.item)
+                    if (recipe.item) {
+                        const itemExists = window.itemsData.some(i => i.id === recipe.item);
                         if (!itemExists) {
-                            this.addError('Workstations', `Recipe '${recipe.id}' in '${ws.id}' outputs invalid item: '${recipe.output.item}'`);
+                            this.addError('Workstations', `Recipe '${recipe.id}' in '${ws.id}' outputs invalid item: '${recipe.item}'`);
                         }
+                    } else {
+                        this.addError('Workstations', `Recipe '${recipe.id}' in '${ws.id}' missing 'item' field`);
                     }
                     
-                    // Check blueprint requirement
-                    if (recipe.blueprint_required) {
+                    // Check amount
+                    if (!recipe.amount || recipe.amount <= 0) {
+                        this.addError('Workstations', `Recipe '${recipe.id}' in '${ws.id}' has invalid amount: '${recipe.amount}'`);
+                    }
+                    
+                    // Check blueprint requirement (optional - can be "none" or empty)
+                    if (recipe.blueprint_required && recipe.blueprint_required.toLowerCase() !== 'none') {
                         const blueprintExists = window.itemsData.some(i => i.id === recipe.blueprint_required && i.type === 'blueprint');
                         if (!blueprintExists) {
                             this.addError('Workstations', `Recipe '${recipe.id}' requires invalid blueprint: '${recipe.blueprint_required}'`);

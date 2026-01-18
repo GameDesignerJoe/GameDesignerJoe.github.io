@@ -78,20 +78,20 @@
         "success": [
           {
             "item": "plasma_cell",
-            "min": 5,
-            "max": 10,
+            "min": 1,
+            "max": 5,
             "drop_chance": 100
           },
           {
-            "item": "common_alloy",
+            "item": "metal_parts",
             "min": 3,
             "max": 7,
             "drop_chance": 80
           },
           {
-            "item": "metal_parts",
-            "min": 2,
-            "max": 5,
+            "item": "battery",
+            "min": 1,
+            "max": 2,
             "drop_chance": 60
           }
         ],

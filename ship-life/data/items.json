@@ -174,7 +174,7 @@
     },
     {
       "id": "blueprint_plasma_rifle",
-      "name": "Plasma Rifle Blueprint",
+      "name": "Blueprint Plasma Rifle",
       "description": "Unlocks basic plasma rifle crafting",
       "icon": {
         "type": "color",
@@ -182,11 +182,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": true,
       "stack_count": 0
     },
     {
       "id": "blueprint_energy_shield",
-      "name": "Energy Shield Blueprint",
+      "name": "Blueprint Energy Shield ",
       "description": "Unlocks basic energy shield crafting",
       "icon": {
         "type": "color",
@@ -194,11 +195,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": true,
       "stack_count": 0
     },
     {
-      "id": "blueprint_advanced_rifle",
-      "name": "Advanced Rifle Blueprint",
+      "id": "blueprint_advanced_plasma_rifle",
+      "name": "Blueprint Advanced Plasma Rifle ",
       "description": "Unlocks advanced plasma rifle crafting",
       "icon": {
         "type": "color",
@@ -206,11 +208,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_pulse_cannon",
-      "name": "Pulse Cannon Blueprint",
+      "name": "Blueprint Pulse Cannon",
       "description": "Unlocks pulse cannon crafting",
       "icon": {
         "type": "color",
@@ -218,11 +221,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_advanced_shield",
-      "name": "Advanced Shield Blueprint",
+      "name": "Blueprint Advanced Shield",
       "description": "Unlocks reinforced shield crafting",
       "icon": {
         "type": "color",
@@ -230,11 +234,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_combat_armor",
-      "name": "Combat Armor Blueprint",
+      "name": "Blueprint Combat Armor",
       "description": "Unlocks combat armor crafting",
       "icon": {
         "type": "color",
@@ -242,11 +247,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_signal_amplifier",
-      "name": "Signal Amplifier Blueprint",
+      "name": "Blueprint Signal Amplifier",
       "description": "Unlocks signal amplifier crafting",
       "icon": {
         "type": "color",
@@ -254,11 +260,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": true,
       "stack_count": 0
     },
     {
       "id": "blueprint_quantum_processor",
-      "name": "Quantum Processor Blueprint",
+      "name": "Blueprint Quantum Processor",
       "description": "Unlocks quantum processor crafting",
       "icon": {
         "type": "color",
@@ -266,11 +273,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_neural_interface",
-      "name": "Neural Interface Blueprint",
+      "name": "Blueprint Neural Interface",
       "description": "Unlocks neural interface crafting",
       "icon": {
         "type": "color",
@@ -278,11 +286,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_ai_core",
-      "name": "AI Core Blueprint",
+      "name": "Blueprint AI Core",
       "description": "Unlocks AI core crafting",
       "icon": {
         "type": "color",
@@ -290,11 +299,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_stim_pack",
-      "name": "Stim Pack Blueprint",
+      "name": "Blueprint Stim Pack ",
       "description": "Unlocks basic stim pack crafting",
       "icon": {
         "type": "color",
@@ -302,11 +312,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": true,
       "stack_count": 0
     },
     {
       "id": "blueprint_advanced_medkit",
-      "name": "Advanced Medkit Blueprint",
+      "name": "Blueprint Advanced Medkit ",
       "description": "Unlocks advanced medkit crafting",
       "icon": {
         "type": "color",
@@ -314,11 +325,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_nano_medical_suite",
-      "name": "Nano-Medical Suite Blueprint",
+      "name": "Blueprint Nano-Medical Suite ",
       "description": "Unlocks nano-medical suite crafting",
       "icon": {
         "type": "color",
@@ -326,11 +338,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_composite_plating",
-      "name": "Composite Plating Blueprint",
+      "name": "Blueprint Composite Plating ",
       "description": "Unlocks composite plating crafting",
       "icon": {
         "type": "color",
@@ -338,11 +351,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_adaptive_materials",
-      "name": "Adaptive Materials Blueprint",
+      "name": "Blueprint Adaptive Materials",
       "description": "Unlocks adaptive materials crafting",
       "icon": {
         "type": "color",
@@ -350,11 +364,12 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
       "id": "blueprint_quantum_weave",
-      "name": "Quantum-Weave Blueprint",
+      "name": "Blueprint Quantum-Weave",
       "description": "Unlocks quantum-weave fabric crafting",
       "icon": {
         "type": "color",
@@ -362,6 +377,7 @@
         "show_name": true
       },
       "type": "blueprint",
+      "unlocked_at_start": false,
       "stack_count": 0
     },
     {
@@ -793,6 +809,30 @@
         "movement": 8
       },
       "stack_count": 10
+    },
+    {
+      "id": "basic_plasma_rifle",
+      "name": "Basic Plasma Rifle",
+      "description": "It's a plasma rifle",
+      "icon": {
+        "type": "color",
+        "value": "#00040a",
+        "show_name": false
+      },
+      "type": "equipment",
+      "stack_count": 0
+    },
+    {
+      "id": "blueprint_basic_plasma_rifle",
+      "name": "Basic Plasma Rifle (Blueprint)",
+      "description": "It's a blueprint for a basic plasma rifle",
+      "icon": {
+        "type": "color",
+        "value": "#0560f2",
+        "show_name": false
+      },
+      "type": "blueprint",
+      "stack_count": 0
     }
   ]
 }
