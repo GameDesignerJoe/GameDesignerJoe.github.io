@@ -63,12 +63,31 @@ export function useApi() {
     return response.json();
   };
 
+  const refreshCache = async (): Promise<void> => {
+    try {
+      const response = await fetch(`${API_BASE}/files/meta/refresh-cache`, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to refresh cache');
+      }
+      
+      const data = await response.json();
+      setDropdownOptions(data.options);
+    } catch (error) {
+      console.error('Failed to refresh cache:', error);
+      throw error;
+    }
+  };
+
   return {
     dropdownOptions,
     availableFiles,
     listFiles,
     loadFile,
     saveFile,
+    refreshCache,
     reloadDropdownOptions: loadDropdownOptions,
     reloadFileList: loadFileList
   };

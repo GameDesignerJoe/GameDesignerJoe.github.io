@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { FileJson, X, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { FileJson, X, Plus, Trash2, ChevronUp, ChevronDown, ChevronRight, Search, RefreshCw } from 'lucide-react';
 import { useApi } from './hooks/useApi';
 import { FileSelector } from './components/FileSelector';
 import { ArrayManager } from './components/ArrayManager';
@@ -9,7 +9,7 @@ import { getArrayConfig, getOptionalFieldTemplate, getSchemaForFile, getTooltipF
 import type { OpenFile, DropdownOptions } from './types';
 
 export default function App() {
-  const { dropdownOptions, availableFiles, loadFile, saveFile } = useApi();
+  const { dropdownOptions, availableFiles, loadFile, saveFile, refreshCache } = useApi();
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
   const [activeFileIndex, setActiveFileIndex] = useState<number | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
@@ -602,13 +602,30 @@ export default function App() {
             <FileJson className="text-blue-400" size={28} />
             <h1 className="text-xl font-bold text-white">FellowDivers JSON Editor</h1>
           </div>
-          {currentFile && (
-            <div className="text-sm text-gray-400">
-              {currentFile.saveStatus === 'saving' && '💾 Saving...'}
-              {currentFile.saveStatus === 'saved' && '✓ All changes saved'}
-              {currentFile.saveStatus === 'error' && '⚠ Save failed'}
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  await refreshCache();
+                  alert('Dropdowns refreshed! New images and items are now available.');
+                } catch (error) {
+                  alert('Failed to refresh cache. Check console for details.');
+                }
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-300 hover:text-white transition-colors"
+              title="Refresh dropdown options (use after adding new images or items)"
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+            {currentFile && (
+              <div className="text-sm text-gray-400">
+                {currentFile.saveStatus === 'saving' && '💾 Saving...'}
+                {currentFile.saveStatus === 'saved' && '✓ All changes saved'}
+                {currentFile.saveStatus === 'error' && '⚠ Save failed'}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

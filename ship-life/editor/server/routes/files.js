@@ -57,4 +57,19 @@ router.get('/meta/dropdown-options', async (req, res) => {
   }
 });
 
+// POST /api/meta/refresh-cache - Refresh the dropdown options cache
+router.post('/meta/refresh-cache', async (req, res) => {
+  const { refreshCache } = require('../utils/dataCache');
+  try {
+    await refreshCache();
+    const { getDropdownOptions } = require('../utils/dataCache');
+    const options = await getDropdownOptions();
+    console.log('✓ Cache refreshed');
+    res.json({ success: true, options });
+  } catch (error) {
+    console.error('✗ Error refreshing cache:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

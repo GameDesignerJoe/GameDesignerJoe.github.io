@@ -132,4 +132,9 @@ function getDropdownOptions() {
   return dataCache;
 }
 
-module.exports = { initDataCache, getDropdownOptions };
+function refreshCache() {
+  console.log('Refreshing data cache...');
+  return buildCache();
+}
+
+module.exports = { initDataCache, getDropdownOptions, refreshCache };

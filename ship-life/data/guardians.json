@@ -102,8 +102,8 @@
       "id": "nyx",
       "name": "Nyx",
       "portrait": {
-        "type": "color",
-        "value": "#082759",
+        "type": "image",
+        "value": "guardians/nyx_200.png",
         "show_name": false
       },
       "role": "Ranged",
@@ -123,8 +123,8 @@
       "id": "shadow",
       "name": "Shadow",
       "portrait": {
-        "type": "color",
-        "value": "#06080a",
+        "type": "image",
+        "value": "guardians/shadow_200.png",
         "show_name": false
       },
       "role": "DPS",
