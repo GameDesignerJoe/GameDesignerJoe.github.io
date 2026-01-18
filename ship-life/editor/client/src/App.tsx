@@ -14,6 +14,7 @@ export default function App() {
   const [activeFileIndex, setActiveFileIndex] = useState<number | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [searchFilter, setSearchFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saveTimeouts, setSaveTimeouts] = useState<Record<number, NodeJS.Timeout>>({});
 
@@ -566,11 +567,30 @@ export default function App() {
     return renderedFields;
   };
 
+  // Get unique item types for filtering (only for items.json)
+  const itemTypes = currentFile?.name === 'items.json' && mainArray
+    ? Array.from(new Set(mainArray.map((item: any) => item.type).filter(Boolean))).sort()
+    : [];
+
   const filteredArray = mainArray ? mainArray.filter((item: any) => {
-    if (!searchFilter) return true;
-    const searchLower = searchFilter.toLowerCase();
-    const title = (item.name || item.title || item.id || '').toLowerCase();
-    return title.includes(searchLower);
+    // Apply search filter
+    if (searchFilter) {
+      const searchLower = searchFilter.toLowerCase();
+      const title = (item.name || item.title || item.id || '').toLowerCase();
+      if (!title.includes(searchLower)) return false;
+    }
+    
+    // Apply type filter (only for items.json)
+    if (typeFilter && currentFile?.name === 'items.json') {
+      if (item.type !== typeFilter) return false;
+    }
+    
+    return true;
+  }).sort((a: any, b: any) => {
+    // Alphabetically sort by name, title, or id
+    const aName = (a.name || a.title || a.id || '').toLowerCase();
+    const bName = (b.name || b.title || b.id || '').toLowerCase();
+    return aName.localeCompare(bName);
   }) : null;
 
   return (
@@ -655,6 +675,37 @@ export default function App() {
             {mainArray && (
               <div className="w-72 bg-gray-800 border-r border-gray-700 overflow-y-auto flex-shrink-0">
                 <div className="p-3">
+                  {/* Type Filter Buttons (items.json only) */}
+                  {itemTypes.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        <button
+                          onClick={() => setTypeFilter('')}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            typeFilter === ''
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          All
+                        </button>
+                        {itemTypes.map((type: string) => (
+                          <button
+                            key={type}
+                            onClick={() => setTypeFilter(type)}
+                            className={`px-2 py-1 text-xs rounded transition-colors capitalize ${
+                              typeFilter === type
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="mb-3">
                     <div className="relative">
                       <Search size={16} className="absolute left-2 top-2 text-gray-400" />

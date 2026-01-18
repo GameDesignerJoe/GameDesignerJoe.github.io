@@ -174,7 +174,7 @@
     },
     {
       "id": "blueprint_plasma_rifle",
-      "name": "Blueprint Plasma Rifle",
+      "name": "Blueprint: Plasma Rifle",
       "description": "Unlocks basic plasma rifle crafting",
       "icon": {
         "type": "color",
@@ -187,7 +187,7 @@
     },
     {
       "id": "blueprint_energy_shield",
-      "name": "Blueprint Energy Shield ",
+      "name": "Blueprint: Energy Shield ",
       "description": "Unlocks basic energy shield crafting",
       "icon": {
         "type": "color",
@@ -200,7 +200,7 @@
     },
     {
       "id": "blueprint_advanced_plasma_rifle",
-      "name": "Blueprint Advanced Plasma Rifle ",
+      "name": "Blueprint: Advanced Plasma Rifle ",
       "description": "Unlocks advanced plasma rifle crafting",
       "icon": {
         "type": "color",
@@ -213,7 +213,7 @@
     },
     {
       "id": "blueprint_pulse_cannon",
-      "name": "Blueprint Pulse Cannon",
+      "name": "Blueprint: Pulse Cannon",
       "description": "Unlocks pulse cannon crafting",
       "icon": {
         "type": "color",
@@ -226,7 +226,7 @@
     },
     {
       "id": "blueprint_advanced_shield",
-      "name": "Blueprint Advanced Shield",
+      "name": "Blueprint: Advanced Shield",
       "description": "Unlocks reinforced shield crafting",
       "icon": {
         "type": "color",
@@ -239,7 +239,7 @@
     },
     {
       "id": "blueprint_combat_armor",
-      "name": "Blueprint Combat Armor",
+      "name": "Blueprint: Combat Armor",
       "description": "Unlocks combat armor crafting",
       "icon": {
         "type": "color",
@@ -252,7 +252,7 @@
     },
     {
       "id": "blueprint_signal_amplifier",
-      "name": "Blueprint Signal Amplifier",
+      "name": "Blueprint: Signal Amplifier",
       "description": "Unlocks signal amplifier crafting",
       "icon": {
         "type": "color",
@@ -265,7 +265,7 @@
     },
     {
       "id": "blueprint_quantum_processor",
-      "name": "Blueprint Quantum Processor",
+      "name": "Blueprint: Quantum Processor",
       "description": "Unlocks quantum processor crafting",
       "icon": {
         "type": "color",
@@ -278,7 +278,7 @@
     },
     {
       "id": "blueprint_neural_interface",
-      "name": "Blueprint Neural Interface",
+      "name": "Blueprint: Neural Interface",
       "description": "Unlocks neural interface crafting",
       "icon": {
         "type": "color",
@@ -291,7 +291,7 @@
     },
     {
       "id": "blueprint_ai_core",
-      "name": "Blueprint AI Core",
+      "name": "Blueprint: AI Core",
       "description": "Unlocks AI core crafting",
       "icon": {
         "type": "color",
@@ -304,7 +304,7 @@
     },
     {
       "id": "blueprint_stim_pack",
-      "name": "Blueprint Stim Pack ",
+      "name": "Blueprint: Stim Pack ",
       "description": "Unlocks basic stim pack crafting",
       "icon": {
         "type": "color",
@@ -317,7 +317,7 @@
     },
     {
       "id": "blueprint_advanced_medkit",
-      "name": "Blueprint Advanced Medkit ",
+      "name": "Blueprint: Advanced Medkit ",
       "description": "Unlocks advanced medkit crafting",
       "icon": {
         "type": "color",
@@ -330,7 +330,7 @@
     },
     {
       "id": "blueprint_nano_medical_suite",
-      "name": "Blueprint Nano-Medical Suite ",
+      "name": "Blueprint: Nano-Medical Suite ",
       "description": "Unlocks nano-medical suite crafting",
       "icon": {
         "type": "color",
@@ -343,7 +343,7 @@
     },
     {
       "id": "blueprint_composite_plating",
-      "name": "Blueprint Composite Plating ",
+      "name": "Blueprint: Composite Plating ",
       "description": "Unlocks composite plating crafting",
       "icon": {
         "type": "color",
@@ -356,7 +356,7 @@
     },
     {
       "id": "blueprint_adaptive_materials",
-      "name": "Blueprint Adaptive Materials",
+      "name": "Blueprint: Adaptive Materials",
       "description": "Unlocks adaptive materials crafting",
       "icon": {
         "type": "color",
@@ -369,7 +369,7 @@
     },
     {
       "id": "blueprint_quantum_weave",
-      "name": "Blueprint Quantum-Weave",
+      "name": "Blueprint: Quantum-Weave",
       "description": "Unlocks quantum-weave fabric crafting",
       "icon": {
         "type": "color",
@@ -502,8 +502,8 @@
       "stack_count": 10
     },
     {
-      "id": "signal_amplifier",
-      "name": "Signal Amplifier",
+      "id": "aspect_signal_amplifier",
+      "name": "Aspect: Signal Amplifier",
       "description": "Device for boosting communication range",
       "icon": {
         "type": "color",
@@ -523,8 +523,8 @@
       "stack_count": 10
     },
     {
-      "id": "advanced_scanner",
-      "name": "Advanced Scanner",
+      "id": "aspect_advanced_scanner",
+      "name": "Aspect: Advanced Scanner",
       "description": "Multi-spectrum detection device",
       "icon": {
         "type": "color",
@@ -545,8 +545,8 @@
       "stack_count": 10
     },
     {
-      "id": "quantum_processor",
-      "name": "Quantum Processor",
+      "id": "aspect_quantum_processor",
+      "name": "Aspect: Quantum Processor",
       "description": "Supercomputing module using quantum mechanics",
       "icon": {
         "type": "color",
@@ -565,8 +565,8 @@
       "stack_count": 10
     },
     {
-      "id": "neural_interface",
-      "name": "Neural Interface",
+      "id": "aspect_neural_interface",
+      "name": "Aspect: Neural Interface",
       "description": "Direct brain-computer connection device",
       "icon": {
         "type": "color",
@@ -587,8 +587,8 @@
       "stack_count": 10
     },
     {
-      "id": "ai_core",
-      "name": "AI Core",
+      "id": "aspect_ai_core",
+      "name": "Aspect AI Core",
       "description": "Autonomous artificial intelligence module",
       "icon": {
         "type": "color",
@@ -609,8 +609,8 @@
       "stack_count": 10
     },
     {
-      "id": "stim_pack",
-      "name": "Stim Pack",
+      "id": "aspect_stim_pack",
+      "name": "Aspect Stim Pack",
       "description": "Emergency healing injection",
       "icon": {
         "type": "color",
@@ -628,8 +628,8 @@
       "stack_count": 10
     },
     {
-      "id": "first_aid_kit",
-      "name": "First Aid Kit",
+      "id": "aspect_first_aid_kit",
+      "name": "Aspect: First Aid Kit",
       "description": "Basic medical supplies for field treatment",
       "icon": {
         "type": "color",
@@ -647,8 +647,8 @@
       "stack_count": 10
     },
     {
-      "id": "advanced_medkit",
-      "name": "Advanced Medkit",
+      "id": "aspect_advanced_medkit",
+      "name": "Aspect Advanced Medkit",
       "description": "Comprehensive medical treatment package",
       "icon": {
         "type": "color",
@@ -666,8 +666,8 @@
       "stack_count": 10
     },
     {
-      "id": "regeneration_serum",
-      "name": "Regeneration Serum",
+      "id": "aspect_regeneration_serum",
+      "name": "Aspect: Regeneration Serum",
       "description": "Advanced healing formula promoting rapid tissue repair",
       "icon": {
         "type": "color",
@@ -685,8 +685,8 @@
       "stack_count": 10
     },
     {
-      "id": "nano_medical_suite",
-      "name": "Nano-Medical Suite",
+      "id": "aspect_nano_medical_suite",
+      "name": "Aspect: Nano-Medical Suite",
       "description": "Nanomachine-based automated medical system",
       "icon": {
         "type": "color",
@@ -705,8 +705,8 @@
       "stack_count": 10
     },
     {
-      "id": "composite_plating",
-      "name": "Composite Plating",
+      "id": "aspect_composite_plating",
+      "name": "Aspect: Composite Plating",
       "description": "Layered protective plating for vehicles and structures",
       "icon": {
         "type": "color",
@@ -725,8 +725,8 @@
       "stack_count": 10
     },
     {
-      "id": "reinforced_frame",
-      "name": "Reinforced Frame",
+      "id": "aspect_reinforced_frame",
+      "name": "Aspect: Reinforced Frame",
       "description": "Structural framework with enhanced durability",
       "icon": {
         "type": "color",
@@ -746,8 +746,8 @@
       "stack_count": 10
     },
     {
-      "id": "advanced_armor_plating",
-      "name": "Advanced Armor Plating",
+      "id": "aspect_advanced_armor_plating",
+      "name": "Aspect: Advanced Armor Plating",
       "description": "Military-grade protective plating",
       "icon": {
         "type": "color",
@@ -767,8 +767,8 @@
       "stack_count": 10
     },
     {
-      "id": "adaptive_materials",
-      "name": "Adaptive Materials",
+      "id": "aspect_adaptive_materials",
+      "name": "Aspect: Adaptive Materials",
       "description": "Smart materials that adjust properties based on environment",
       "icon": {
         "type": "color",
@@ -788,8 +788,8 @@
       "stack_count": 10
     },
     {
-      "id": "quantum_weave_fabric",
-      "name": "Quantum-Weave Fabric",
+      "id": "aspect_quantum_weave_fabric",
+      "name": "Aspect: Quantum-Weave Fabric",
       "description": "Exotic fabric woven at quantum scale",
       "icon": {
         "type": "color",
@@ -820,18 +820,6 @@
         "show_name": false
       },
       "type": "equipment",
-      "stack_count": 0
-    },
-    {
-      "id": "blueprint_basic_plasma_rifle",
-      "name": "Basic Plasma Rifle (Blueprint)",
-      "description": "It's a blueprint for a basic plasma rifle",
-      "icon": {
-        "type": "color",
-        "value": "#0560f2",
-        "show_name": false
-      },
-      "type": "blueprint",
       "stack_count": 0
     }
   ]
