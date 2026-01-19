@@ -62,8 +62,8 @@
         "value": "#27ae60",
         "show_name": true
       },
-      "difficulty": 6,
-      "difficulty_multiplier": 3,
+      "difficulty": 1,
+      "difficulty_multiplier": 0.6,
       "required_stats": {
         "primary": "mind"
       },
@@ -1071,8 +1071,10 @@
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
-        "total_missions": 0,
+        "missions_completed": [
+          "training_exercise"
+        ],
+        "total_missions": 5,
         "flags": []
       },
       "rewards": {
@@ -1141,7 +1143,7 @@
         "show_name": true
       },
       "difficulty": 6,
-      "difficulty_multiplier": 0.6,
+      "difficulty_multiplier": 3,
       "required_stats": {
         "primary": "attack"
       },
