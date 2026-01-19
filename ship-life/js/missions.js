@@ -41,9 +41,17 @@ function getAvailableMissions(missions, state) {
 
 /**
  * Select missions for display (random selection)
+ * @param {Array} availableMissions - Pool of missions to choose from
+ * @param {number} count - How many missions to select
+ * @param {Array} excludeMissions - Missions to exclude (already selected)
  */
-function selectMissionsForDisplay(availableMissions, count = 3) {
-    const shuffled = [...availableMissions].sort(() => Math.random() - 0.5);
+function selectMissionsForDisplay(availableMissions, count = 3, excludeMissions = []) {
+    // Filter out already-selected missions (filter out null/undefined first)
+    const excludeIds = excludeMissions.filter(m => m != null).map(m => m.id);
+    const filteredMissions = availableMissions.filter(m => !excludeIds.includes(m.id));
+    
+    // Shuffle and select unique missions
+    const shuffled = [...filteredMissions].sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, count);
     
     // Assign anomalies to missions (25% chance per mission)
@@ -67,10 +75,24 @@ function getCurrentMissions(state, availableMissions, count = 3) {
         state.seen_current_missions = [];
     }
     
+    console.log(`[Mission System] Available missions pool: ${availableMissions.length}`);
+    console.log(`[Mission System] Available mission names:`, availableMissions.map(m => m.name));
+    console.log(`[Mission System] Current missions: ${state.current_missions.length}/${count}`);
+    
+    // Filter out any missions that are no longer available FIRST (before filling)
+    state.current_missions = state.current_missions.filter(mission => 
+        mission && availableMissions.some(available => available.id === mission.id)
+    );
+    console.log(`[Mission System] After filtering invalid: ${state.current_missions.length}/${count}`);
+    
     // If we have fewer than count missions, generate new ones to fill
     if (state.current_missions.length < count) {
         const needed = count - state.current_missions.length;
-        const newMissions = selectMissionsForDisplay(availableMissions, needed);
+        console.log(`[Mission System] Need ${needed} more missions`);
+        
+        // Exclude currently displayed missions to prevent duplicates
+        const newMissions = selectMissionsForDisplay(availableMissions, needed, state.current_missions);
+        console.log(`[Mission System] Selected ${newMissions.length} new missions:`, newMissions.map(m => m.name));
         
         // Mark new missions as NOT seen yet (they'll be marked as seen when displayed)
         newMissions.forEach(mission => {
@@ -80,11 +102,6 @@ function getCurrentMissions(state, availableMissions, count = 3) {
         state.current_missions.push(...newMissions);
         autoSave(state);
     }
-    
-    // Filter out any missions that are no longer available (shouldn't happen normally)
-    state.current_missions = state.current_missions.filter(mission => 
-        mission && availableMissions.some(available => available.id === mission.id)
-    );
     
     // Mark missions as seen (for future visits)
     state.current_missions.forEach(mission => {
@@ -108,14 +125,21 @@ function replaceCompletedMission(state, completedMissionId, availableMissions) {
     // Remove the completed mission
     const index = state.current_missions.findIndex(m => m.id === completedMissionId);
     if (index !== -1) {
+        const completedMission = state.current_missions[index];
         state.current_missions.splice(index, 1);
         
         // Add a new mission to replace it
-        const newMissions = selectMissionsForDisplay(availableMissions, 1);
+        // Exclude: 1) other currently displayed missions, 2) the just-completed mission
+        const excludeList = [...state.current_missions, completedMission];
+        const newMissions = selectMissionsForDisplay(availableMissions, 1, excludeList);
+        
         if (newMissions.length > 0) {
             // Mark as newly generated so it shows NEW badge
             newMissions[0]._isNewlyGenerated = true;
             state.current_missions.push(newMissions[0]);
+            console.log(`[Mission System] Replaced "${completedMission.name}" with "${newMissions[0].name}"`);
+        } else {
+            console.log(`[Mission System] No other missions available to replace "${completedMission.name}"`);
         }
         
         autoSave(state);
@@ -366,6 +390,9 @@ function addRewardsToInventory(rewards, state) {
  * Show mission results modal
  */
 function showMissionResults(mission, success, rewards) {
+    // Store success state for continueFromResults to check
+    window.lastMissionSuccess = success;
+    
     const modal = document.getElementById('mission-results');
     modal.classList.remove('hidden');
     
@@ -419,13 +446,39 @@ function continueFromResults() {
     modal.classList.add('hidden');
     
     // Get the completed mission from window.selectedMission
-    if (window.selectedMission) {
-        // Replace only the completed mission with a new one
-        const availableMissions = getAvailableMissions(window.missionsData || [], gameState);
-        replaceCompletedMission(gameState, window.selectedMission.id, availableMissions);
+    if (window.selectedMission && window.lastMissionSuccess !== undefined) {
+        const mission = window.selectedMission;
+        const success = window.lastMissionSuccess;
         
-        // Clear the selected mission
+        // Replace mission if succeeded (repeatable means it stays in pool, not in slot)
+        // Keep mission only if failed AND persist_on_fail is true
+        const shouldReplace = success || !mission.persist_on_fail;
+        
+        if (shouldReplace) {
+            const availableMissions = getAvailableMissions(window.missionsData || [], gameState);
+            replaceCompletedMission(gameState, mission.id, availableMissions);
+            console.log(`Mission "${mission.name}" ${success ? 'succeeded' : 'failed (no persist)'} - replaced with new mission`);
+            
+            // Remove from failed missions list if it was there
+            if (gameState.failed_missions && gameState.failed_missions.includes(mission.id)) {
+                gameState.failed_missions = gameState.failed_missions.filter(id => id !== mission.id);
+            }
+        } else {
+            console.log(`Mission "${mission.name}" failed (persist_on_fail) - keeping in mission slot`);
+            
+            // Mark as failed for UI badge
+            if (!gameState.failed_missions) {
+                gameState.failed_missions = [];
+            }
+            if (!gameState.failed_missions.includes(mission.id)) {
+                gameState.failed_missions.push(mission.id);
+            }
+            autoSave(gameState);
+        }
+        
+        // Clear the selected mission and success state
         window.selectedMission = null;
+        window.lastMissionSuccess = undefined;
     }
     
     unlockNavigation();

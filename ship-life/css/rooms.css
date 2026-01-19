@@ -301,6 +301,26 @@
     box-shadow: 0 4px 12px rgba(255, 215, 0, 0.6);
 }
 
+.mission-card.mission-failed {
+    border: 2px solid #e74c3c;
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.3);
+}
+
+.failed-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: #e74c3c;
+    color: white;
+    padding: 6px 18px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 700;
+    transform: rotate(5deg);
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.6);
+}
+
 /* Anomaly Badges */
 .mission-anomaly-badge {
     position: relative;

@@ -62,8 +62,8 @@
         "value": "missions/mission_01.png",
         "show_name": false
       },
-      "difficulty": 2,
-      "difficulty_multiplier": 1.1,
+      "difficulty": 3,
+      "difficulty_multiplier": 1.5,
       "required_stats": {
         "primary": "mind"
       },
@@ -155,8 +155,8 @@
         "value": "missions/mission_08.png",
         "show_name": false
       },
-      "difficulty": 2,
-      "difficulty_multiplier": 1.1,
+      "difficulty": 3,
+      "difficulty_multiplier": 1.5,
       "required_stats": {
         "primary": "movement",
         "secondary": "attack"
@@ -244,8 +244,8 @@
         "value": "missions/mission_03.png",
         "show_name": false
       },
-      "difficulty": 3,
-      "difficulty_multiplier": 1.5,
+      "difficulty": 4,
+      "difficulty_multiplier": 1.7,
       "required_stats": {
         "primary": "attack",
         "secondary": "health"
@@ -345,7 +345,7 @@
         "primary": "health",
         "secondary": "movement"
       },
-      "repeatable": true,
+      "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
         "missions_completed": [],
@@ -436,8 +436,8 @@
         "value": "missions/mission_09.png",
         "show_name": false
       },
-      "difficulty": 3,
-      "difficulty_multiplier": 1.5,
+      "difficulty": 4,
+      "difficulty_multiplier": 1.7,
       "required_stats": {
         "primary": "mind",
         "secondary": "movement"
@@ -539,13 +539,13 @@
         "value": "missions/mission_04.png",
         "show_name": false
       },
-      "difficulty": 3,
-      "difficulty_multiplier": 1.5,
+      "difficulty": 5,
+      "difficulty_multiplier": 2,
       "required_stats": {
         "primary": "attack",
         "secondary": "defense"
       },
-      "repeatable": true,
+      "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
         "missions_completed": [],
@@ -646,8 +646,8 @@
         "value": "missions/mission_02.png",
         "show_name": false
       },
-      "difficulty": 2,
-      "difficulty_multiplier": 1.1,
+      "difficulty": 4,
+      "difficulty_multiplier": 1.7,
       "required_stats": {
         "primary": "mind",
         "secondary": "defense"
@@ -655,7 +655,9 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
+        "missions_completed": [
+          "first_contact"
+        ],
         "total_missions": 1,
         "flags": []
       },
@@ -973,8 +975,8 @@
         "value": "missions/mission_05.png",
         "show_name": false
       },
-      "difficulty": 4,
-      "difficulty_multiplier": 1.7,
+      "difficulty": 5,
+      "difficulty_multiplier": 2,
       "required_stats": {
         "primary": "mind",
         "secondary": "defense",
@@ -1088,8 +1090,8 @@
         "value": "missions/mission_10.png",
         "show_name": false
       },
-      "difficulty": 2,
-      "difficulty_multiplier": 1.1,
+      "difficulty": 3,
+      "difficulty_multiplier": 1.5,
       "required_stats": {
         "primary": "attack"
       },
@@ -1242,8 +1244,8 @@
         "value": "missions/mission_14.png",
         "show_name": false
       },
-      "difficulty": 4,
-      "difficulty_multiplier": 1.7,
+      "difficulty": 5,
+      "difficulty_multiplier": 2,
       "required_stats": {
         "primary": "mind",
         "secondary": "movement"
@@ -1902,8 +1904,8 @@
         "value": "missions/mission_13.png",
         "show_name": false
       },
-      "difficulty": 5,
-      "difficulty_multiplier": 2,
+      "difficulty": 6,
+      "difficulty_multiplier": 3,
       "required_stats": {
         "primary": "defense",
         "secondary": "attack"

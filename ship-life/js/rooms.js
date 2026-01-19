@@ -436,6 +436,9 @@ function renderMissionComputer(container) {
     const availableMissions = getAvailableMissions(window.missionsData || [], gameState);
     const displayMissions = getCurrentMissions(gameState, availableMissions, 3);
     
+    console.log('[Mission Computer] Displaying missions:', displayMissions.map(m => m ? m.name : 'NULL'));
+    console.log('[Mission Computer] Mission details:', displayMissions);
+    
     // Fill empty slots if needed
     while (displayMissions.length < 3) {
         displayMissions.push(null);
@@ -482,6 +485,15 @@ function createMissionCard(mission, isLocked) {
         newBadge.className = 'new-badge';
         newBadge.textContent = 'NEW!';
         card.appendChild(newBadge);
+    }
+    
+    // Check if mission was failed and persisted
+    if (!isLocked && mission && gameState.failed_missions && gameState.failed_missions.includes(mission.id)) {
+        card.classList.add('mission-failed');
+        const failedBadge = document.createElement('div');
+        failedBadge.className = 'failed-badge';
+        failedBadge.textContent = 'FAILED!';
+        card.appendChild(failedBadge);
     }
     
     // 1. Mission rectangle with visual
