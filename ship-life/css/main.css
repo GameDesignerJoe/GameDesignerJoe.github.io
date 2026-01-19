@@ -384,22 +384,24 @@ button:disabled {
         flex-shrink: 0;
     }
     
-    /* Guardian Display - Move to bottom */
+    /* Guardian Display - Move to LEFT of nav bar */
     #active-guardian-display {
-        top: auto;
-        bottom: 15px;
-        right: 15px;
-        padding: 8px 12px;
-        gap: 8px;
+        top: 10px;
+        left: 10px;
+        right: auto;
+        bottom: auto;
+        padding: 6px;
+        gap: 0;
     }
     
     #guardian-portrait {
-        width: 35px;
-        height: 35px;
+        width: 40px;
+        height: 40px;
+        margin: 0;
     }
     
     #guardian-name {
-        font-size: 12px;
+        display: none;
     }
     
     /* Room Title */
@@ -413,10 +415,10 @@ button:disabled {
     
     /* Room Container */
     #room-container {
-        padding-top: 100px;
-        padding-left: 15px;
-        padding-right: 15px;
-        padding-bottom: 80px; /* Space for guardian display */
+        padding-top: 75px;
+        padding-left: 0;
+        padding-right: 0;
+        padding-bottom: 70px;
     }
     
     /* Modals - Full screen on mobile */
@@ -497,21 +499,22 @@ button:disabled {
     
     /* Room Container */
     #room-container {
-        padding-top: 85px;
+        padding-top: 65px;
         padding-left: 10px;
         padding-right: 10px;
+        padding-bottom: 60px;
     }
     
     /* Guardian Display */
     #active-guardian-display {
-        padding: 6px 10px;
-        bottom: 10px;
-        right: 10px;
+        top: 8px;
+        left: 8px;
+        padding: 5px;
     }
     
     #guardian-portrait {
-        width: 30px;
-        height: 30px;
+        width: 36px;
+        height: 36px;
     }
     
     #guardian-name {

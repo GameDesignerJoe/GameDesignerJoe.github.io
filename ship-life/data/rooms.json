@@ -36,7 +36,7 @@
         "type": "image",
         "value": "rooms/room_missions.png"
       },
-      "title_display": true,
+      "title_display": false,
       "music": "bgm_ship_01"
     },
     {

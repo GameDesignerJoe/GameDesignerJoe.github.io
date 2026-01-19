@@ -280,24 +280,25 @@
    ======================================== */
 
 @media (max-width: 768px) {
-    #mute-toggle {
-        width: 45px;
-        height: 45px;
+    /* Make buttons 20% smaller: 50px → 40px */
+    #mute-toggle,
+    #debug-toggle {
+        width: 40px;
+        height: 40px;
         font-size: 20px;
-        bottom: 80px;
-        right: 70px;
+        bottom: 15px;
+    }
+    
+    #mute-toggle {
+        right: 60px;
     }
     
     #debug-toggle {
-        width: 45px;
-        height: 45px;
-        font-size: 20px;
-        bottom: 80px;
-        right: 15px;
+        right: 10px;
     }
     
     #debug-menu {
-        bottom: 135px;
+        bottom: 65px;
         right: 10px;
         left: 10px;
         width: auto;
@@ -327,16 +328,24 @@
 }
 
 @media (max-width: 480px) {
+    #mute-toggle,
     #debug-toggle {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         font-size: 18px;
-        bottom: 70px;
-        right: 10px;
+        bottom: 12px;
+    }
+    
+    #mute-toggle {
+        right: 54px;
+    }
+    
+    #debug-toggle {
+        right: 8px;
     }
     
     #debug-menu {
-        bottom: 120px;
+        bottom: 58px;
         right: 5px;
         left: 5px;
         height: 45vh;

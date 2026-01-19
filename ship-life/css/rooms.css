@@ -966,18 +966,23 @@
         grid-template-columns: 1fr;
         gap: 20px;
         max-width: 100%;
+        padding: 0 15px;
     }
     
     .mission-card {
-        width: 100%;
+        width: calc(100% - 30px);
         height: auto;
         min-height: 400px;
-        max-width: 500px;
+        max-width: 450px;
         margin: 0 auto;
+        padding: 18px;
     }
     
     .mission-card-visual {
-        height: 120px;
+        height: 140px;
+        background-size: cover;
+        background-position: center;
+        object-fit: cover;
     }
     
     .mission-card-name {
@@ -988,9 +993,19 @@
         font-size: 13px;
     }
     
+    .new-badge,
+    .failed-badge {
+        font-size: 12px;
+        padding: 4px 12px;
+        top: 12px;
+    }
+    
     .new-badge {
-        font-size: 10px;
-        padding: 3px 10px;
+        left: 12px;
+    }
+    
+    .failed-badge {
+        right: 12px;
     }
     
     .mission-anomaly-badge {
