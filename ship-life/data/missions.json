@@ -62,8 +62,8 @@
         "value": "#27ae60",
         "show_name": true
       },
-      "difficulty": 1,
-      "difficulty_multiplier": 0.6,
+      "difficulty": 6,
+      "difficulty_multiplier": 3,
       "required_stats": {
         "primary": "mind"
       },

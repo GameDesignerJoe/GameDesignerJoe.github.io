@@ -68,7 +68,8 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
     },
     tooltips: {
       'id': 'Unique identifier for this mission',
-      'difficulty': 'Mission difficulty 1-5 (affects success rate: 1=90%, 2=80%, 3=70%, 4=60%, 5=50%)',
+      'difficulty': 'Mission difficulty 1-10 scale (visible to player)',
+      'difficulty_multiplier': 'Calculation multiplier - Defaults: 1=0.6, 2=1.1, 3=1.5, 4=1.7, 5=2.0, 6=3.0, 7=4.0, 8=5.5, 9=6.5, 10=8.0',
       'repeatable': 'If true, mission stays available after completion',
       'persist_on_fail': 'If true, mission stays available after failure',
       'chain.name': 'Name of the mission chain (empty if standalone)',

@@ -82,6 +82,28 @@ export default function App() {
     }
     current[path[path.length - 1]] = value;
     
+    // Auto-update difficulty_multiplier when difficulty changes (missions.json only)
+    if (newFiles[activeFileIndex].name === 'missions.json' && 
+        path[path.length - 1] === 'difficulty' && 
+        typeof value === 'number') {
+      const difficultyMultipliers: { [key: number]: number } = {
+        1: 0.6,
+        2: 1.1,
+        3: 1.5,
+        4: 1.7,
+        5: 2.0,
+        6: 3.0,
+        7: 4.0,
+        8: 5.5,
+        9: 6.5,
+        10: 8.0
+      };
+      
+      if (difficultyMultipliers[value] !== undefined) {
+        current.difficulty_multiplier = difficultyMultipliers[value];
+      }
+    }
+    
     newFiles[activeFileIndex].data = newData;
     newFiles[activeFileIndex].isDirty = true;
     newFiles[activeFileIndex].saveStatus = 'saving';
