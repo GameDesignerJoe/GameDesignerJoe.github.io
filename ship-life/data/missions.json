@@ -433,7 +433,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_09.png",
+        "value": "missions/mission_16.png",
         "show_name": false
       },
       "difficulty": 4,
@@ -727,7 +727,7 @@
       "map": "void_sector",
       "mission_type": "recon",
       "requirements": {
-        "equipment_subtype": "tech"
+        "equipment_subtype": "armor"
       },
       "chain": {
         "name": "None",
@@ -854,7 +854,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_05.png",
+        "value": "missions/mission_18.png",
         "show_name": false
       },
       "difficulty": 7,
@@ -963,7 +963,7 @@
       "map": "reactor_station",
       "mission_type": "search",
       "requirements": {
-        "equipment_subtype": "tech"
+        "equipment_subtype": "armor"
       },
       "chain": {
         "name": "Tech Investigation",
@@ -1312,7 +1312,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_01.png",
+        "value": "missions/mission_17.png",
         "show_name": false
       },
       "difficulty": 6,
@@ -1384,7 +1384,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_02.png",
+        "value": "missions/mission_19.png",
         "show_name": false
       },
       "difficulty": 7,
@@ -1456,7 +1456,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_03.png",
+        "value": "missions/mission_20.png",
         "show_name": false
       },
       "difficulty": 9,
@@ -1528,7 +1528,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_04.png",
+        "value": "missions/mission_02.png",
         "show_name": false
       },
       "difficulty": 10,
@@ -1827,7 +1827,7 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_14.png",
+        "value": "missions/mission_01.png",
         "show_name": false
       },
       "difficulty": 9,

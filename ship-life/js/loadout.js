@@ -195,9 +195,12 @@ function checkMissionRequirements(state, selectedGuardians, mission) {
         }
         
         if (!hasRequired) {
+            // Capitalize first letter for display
+            const displaySubtype = requiredSubtype.charAt(0).toUpperCase() + requiredSubtype.slice(1);
+            
             return {
                 met: false,
-                missing: `Requires ${requiredSubtype} equipment`
+                missing: `Mission requires at least one piece of ${displaySubtype} equipment`
             };
         }
     }

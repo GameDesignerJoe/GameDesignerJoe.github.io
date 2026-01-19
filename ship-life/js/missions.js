@@ -403,9 +403,14 @@ function showMissionResults(mission, success, rewards) {
     status.className = success ? 'results-status success' : 'results-status failure';
     status.textContent = success ? 'MISSION SUCCESS' : 'MISSION FAILED';
     
+    // Clear any existing anomaly messages first
+    const existingAnomalyMessages = status.parentElement.querySelectorAll('.anomaly-effect-message');
+    existingAnomalyMessages.forEach(msg => msg.remove());
+    
     // Show anomaly effect message if present
     if (mission.anomaly && success) {
         const anomalyMessage = document.createElement('div');
+        anomalyMessage.className = 'anomaly-effect-message'; // Add class for easy cleanup
         anomalyMessage.style.fontSize = '14px';
         anomalyMessage.style.color = 'var(--primary)';
         anomalyMessage.style.marginTop = '10px';
