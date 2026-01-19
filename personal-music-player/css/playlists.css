@@ -576,6 +576,11 @@
   opacity: 0;
 }
 
+/* Green text for now-playing track */
+.track-item.now-playing .track-item-title {
+  color: #1DB954; /* Spotify green */
+}
+
 /* On hover of playing track, hide sound bars and show pause button */
 .track-item.now-playing.playing:hover .sound-bars {
   display: none;

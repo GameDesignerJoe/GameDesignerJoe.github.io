@@ -106,6 +106,7 @@ To verify the fix works:
 
 ## Files Modified
 - `js/playlists.js` - Added missing now-playing indicator update function
+- `css/playlists.css` - Added green text CSS rule (was missing)
 
 ## Comparison
 - **Library module** (`js/library.js`) - Already had `updateNowPlayingIndicators()` ✓
