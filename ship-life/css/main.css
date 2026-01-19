@@ -384,24 +384,34 @@ button:disabled {
         flex-shrink: 0;
     }
     
-    /* Guardian Display - Move to LEFT of nav bar */
+    /* Guardian Display - Position INSIDE nav bar, left side */
     #active-guardian-display {
+        position: fixed;
         top: 10px;
         left: 10px;
         right: auto;
         bottom: auto;
-        padding: 6px;
+        padding: 0;
         gap: 0;
+        background: transparent;
+        border-radius: 50%;
+        z-index: 102; /* Above nav bar */
     }
     
     #guardian-portrait {
         width: 40px;
         height: 40px;
         margin: 0;
+        border: 2px solid var(--primary);
     }
     
     #guardian-name {
         display: none;
+    }
+    
+    /* Adjust nav bar to make room for guardian icon */
+    #navigation-bar {
+        padding-left: 60px; /* Make room for 40px icon + spacing */
     }
     
     /* Room Title */

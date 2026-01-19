@@ -46,7 +46,7 @@
         "type": "image",
         "value": "rooms/room_workstations.png"
       },
-      "title_display": true
+      "title_display": false
     },
     {
       "id": "planetfall_portal",
@@ -55,7 +55,7 @@
         "type": "image",
         "value": "rooms/room_portal.png"
       },
-      "title_display": true,
+      "title_display": false,
       "music": "bgm_ship_01"
     },
     {
@@ -65,7 +65,7 @@
         "type": "image",
         "value": "rooms/room_characters.png"
       },
-      "title_display": true,
+      "title_display": false,
       "music": "bgm_ship_01"
     },
     {
@@ -75,7 +75,7 @@
         "type": "image",
         "value": "rooms/room_inventory.png"
       },
-      "title_display": true,
+      "title_display": false,
       "music": "bgm_ship_01"
     },
     {
@@ -85,7 +85,7 @@
         "type": "image",
         "value": "rooms/room_observation.png"
       },
-      "title_display": true,
+      "title_display": false,
       "music": "bgm_ship_01"
     },
     {
@@ -95,7 +95,7 @@
         "type": "image",
         "value": "rooms/room_quarters.png"
       },
-      "title_display": true,
+      "title_display": false,
       "music": "bgm_ship_01"
     }
   ]
