@@ -156,36 +156,38 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
 }
 
 .control-btn {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
+  border-radius: 0;
   color: var(--color-text-primary);
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   transition: all var(--transition-fast);
   background-color: transparent;
+  border: none;
 }
 
 .control-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.9);
 }
 
 .control-btn-small {
-  width: 40px;
-  height: 40px;
-  font-size: 1.2rem;
+  width: 48px;
+  height: 48px;
+  font-size: 1.5rem;
   color: var(--color-text-secondary);
 }
 
 .control-btn-small:hover, .control-btn-small:active {
   color: var(--color-text-primary);
+  transform: scale(1.1);
 }
 
 .control-btn-small.active {
@@ -203,18 +205,18 @@
 }
 
 .control-btn-large {
-  width: 64px;
-  height: 64px;
-  background-color: var(--color-text-primary);
-  color: var(--color-bg-primary);
-  font-size: 1.8rem;
-  box-shadow: var(--shadow-md);
+  width: 72px;
+  height: 72px;
+  background-color: transparent;
+  color: var(--color-text-primary);
+  font-size: 2.5rem;
+  border: none;
+  border-radius: 0;
   position: relative;
 }
 
 .control-btn-large:hover, .control-btn-large:active {
-  transform: scale(1.05);
-  box-shadow: var(--shadow-lg);
+  transform: scale(1.1);
 }
 
 /* Pause button - hide text and use pseudo-elements for thick bars */
@@ -228,18 +230,18 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 5px;
-  height: 22px;
-  background-color: var(--color-bg-primary);
+  width: 6px;
+  height: 28px;
+  background-color: var(--color-text-primary);
   border-radius: 1px;
 }
 
 .control-btn-large.pause::before {
-  left: calc(50% - 8px);
+  left: calc(50% - 10px);
 }
 
 .control-btn-large.pause::after {
-  right: calc(50% - 8px);
+  right: calc(50% - 10px);
 }
 
 /* ==========================================
