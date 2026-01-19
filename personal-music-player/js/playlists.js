@@ -429,14 +429,14 @@ function createPlaylistElement(playlist) {
   return div;
 }
 
-// Start polling to update play button icon
+// Start polling to update play button icon and now-playing indicators
 function startPlaylistPolling() {
   // Clear any existing interval
   if (playlistUpdateInterval) {
     clearInterval(playlistUpdateInterval);
   }
   
-  // Poll every 500ms to update play button state
+  // Poll every 500ms to update play button state and now-playing indicators
   playlistUpdateInterval = setInterval(async () => {
     const playBtn = document.getElementById('playPlaylistBtn');
     if (playBtn && currentPlaylistData) {
@@ -458,9 +458,40 @@ function startPlaylistPolling() {
         playBtn.setAttribute('title', 'Play All');
       }
     }
+    
+    // Update now-playing indicators for playlist tracks
+    updatePlaylistNowPlayingIndicators();
   }, 500);
   
-  console.log('[Playlists] Started play button polling');
+  console.log('[Playlists] Started play button polling and now-playing updates');
+}
+
+// Update now-playing indicators for all visible playlist tracks
+async function updatePlaylistNowPlayingIndicators() {
+  const player = await import('./player.js');
+  const currentTrack = player.getCurrentTrack();
+  const isCurrentlyPlaying = player.isPlaying();
+  
+  // Update all playlist track elements
+  const trackElements = document.querySelectorAll('.playlist-track-item');
+  trackElements.forEach((trackEl) => {
+    const trackId = trackEl.dataset.trackId;
+    
+    // Check if this is the currently playing track
+    if (currentTrack && trackId === currentTrack.id) {
+      // This is the current track
+      trackEl.classList.add('now-playing');
+      
+      if (isCurrentlyPlaying) {
+        trackEl.classList.add('playing');
+      } else {
+        trackEl.classList.remove('playing');
+      }
+    } else {
+      // Not the current track
+      trackEl.classList.remove('now-playing', 'playing');
+    }
+  });
 }
 
 // Stop polling
