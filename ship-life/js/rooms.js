@@ -496,7 +496,7 @@ function createMissionCard(mission, isLocked) {
     }
     visualContainer.appendChild(visual);
     
-    // 2. Stat requirements (positioned top right of visual)
+    // 2. Stat requirements (positioned bottom left of visual)
     if (mission.required_stats) {
         const statEmojis = {
             health: '❤️',
@@ -509,50 +509,66 @@ function createMissionCard(mission, isLocked) {
         const statsPreview = document.createElement('div');
         statsPreview.className = 'mission-card-stats';
         statsPreview.style.position = 'absolute';
-        statsPreview.style.top = '10px';
-        statsPreview.style.right = '10px';
+        statsPreview.style.bottom = '10px';
+        statsPreview.style.left = '10px';
         statsPreview.style.display = 'flex';
-        statsPreview.style.gap = '8px';
+        statsPreview.style.gap = '6px';
         statsPreview.style.flexWrap = 'wrap';
-        statsPreview.style.justifyContent = 'flex-end';
+        statsPreview.style.justifyContent = 'flex-start';
         
-        if (mission.required_stats.primary) {
+        // Only show badge if stat is not empty
+        if (mission.required_stats.primary && mission.required_stats.primary.trim() !== '') {
             const badge = document.createElement('span');
-            badge.style.padding = '6px 12px';
-            badge.style.background = 'rgba(255, 215, 0, 0.35)';
-            badge.style.border = '2px solid rgba(255, 215, 0, 0.7)';
-            badge.style.borderRadius = '6px';
-            badge.style.fontSize = '20px';
+            badge.style.width = '32px';
+            badge.style.height = '32px';
+            badge.style.display = 'flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.background = 'rgba(41, 128, 185, 0.85)';
+            badge.style.border = 'none';
+            badge.style.borderRadius = '50%';
+            badge.style.fontSize = '18px';
             badge.style.fontWeight = '700';
             badge.textContent = statEmojis[mission.required_stats.primary];
             statsPreview.appendChild(badge);
         }
         
-        if (mission.required_stats.secondary) {
+        if (mission.required_stats.secondary && mission.required_stats.secondary.trim() !== '') {
             const badge = document.createElement('span');
-            badge.style.padding = '6px 12px';
-            badge.style.background = 'rgba(192, 192, 192, 0.35)';
-            badge.style.border = '2px solid rgba(192, 192, 192, 0.7)';
-            badge.style.borderRadius = '6px';
-            badge.style.fontSize = '20px';
+            badge.style.width = '32px';
+            badge.style.height = '32px';
+            badge.style.display = 'flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.background = 'rgba(41, 128, 185, 0.85)';
+            badge.style.border = 'none';
+            badge.style.borderRadius = '50%';
+            badge.style.fontSize = '18px';
             badge.style.fontWeight = '700';
             badge.textContent = statEmojis[mission.required_stats.secondary];
             statsPreview.appendChild(badge);
         }
         
-        if (mission.required_stats.tertiary) {
+        if (mission.required_stats.tertiary && mission.required_stats.tertiary.trim() !== '') {
             const badge = document.createElement('span');
-            badge.style.padding = '6px 12px';
-            badge.style.background = 'rgba(205, 127, 50, 0.35)';
-            badge.style.border = '2px solid rgba(205, 127, 50, 0.7)';
-            badge.style.borderRadius = '6px';
-            badge.style.fontSize = '20px';
+            badge.style.width = '32px';
+            badge.style.height = '32px';
+            badge.style.display = 'flex';
+            badge.style.alignItems = 'center';
+            badge.style.justifyContent = 'center';
+            badge.style.background = 'rgba(41, 128, 185, 0.85)';
+            badge.style.border = 'none';
+            badge.style.borderRadius = '50%';
+            badge.style.fontSize = '18px';
             badge.style.fontWeight = '700';
             badge.textContent = statEmojis[mission.required_stats.tertiary];
             statsPreview.appendChild(badge);
         }
         
-        visualContainer.appendChild(statsPreview);
+        // Only append if we have any badges
+        if (statsPreview.children.length > 0) {
+            visualContainer.appendChild(statsPreview);
+        }
     }
     
     card.appendChild(visualContainer);
@@ -748,7 +764,7 @@ function renderPlanetfallPortal(container) {
     };
     
     if (mission.required_stats) {
-        if (mission.required_stats.primary) {
+        if (mission.required_stats.primary && mission.required_stats.primary.trim() !== '') {
             const statBadge = document.createElement('div');
             statBadge.style.padding = '6px 12px';
             statBadge.style.background = 'rgba(255, 215, 0, 0.2)';
@@ -759,7 +775,7 @@ function renderPlanetfallPortal(container) {
             statsList.appendChild(statBadge);
         }
         
-        if (mission.required_stats.secondary) {
+        if (mission.required_stats.secondary && mission.required_stats.secondary.trim() !== '') {
             const statBadge = document.createElement('div');
             statBadge.style.padding = '6px 12px';
             statBadge.style.background = 'rgba(192, 192, 192, 0.2)';
@@ -769,7 +785,7 @@ function renderPlanetfallPortal(container) {
             statsList.appendChild(statBadge);
         }
         
-        if (mission.required_stats.tertiary) {
+        if (mission.required_stats.tertiary && mission.required_stats.tertiary.trim() !== '') {
             const statBadge = document.createElement('div');
             statBadge.style.padding = '6px 12px';
             statBadge.style.background = 'rgba(205, 127, 50, 0.2)';
@@ -783,10 +799,17 @@ function renderPlanetfallPortal(container) {
     statsRequired.appendChild(statsTitle);
     statsRequired.appendChild(statsList);
     
-    missionInfo.appendChild(title);
-    missionInfo.appendChild(description);
-    missionInfo.appendChild(difficulty);
-    missionInfo.appendChild(statsRequired);
+    // Only show stats section if there are any stats
+    if (statsList.children.length > 0) {
+        missionInfo.appendChild(title);
+        missionInfo.appendChild(description);
+        missionInfo.appendChild(difficulty);
+        missionInfo.appendChild(statsRequired);
+    } else {
+        missionInfo.appendChild(title);
+        missionInfo.appendChild(description);
+        missionInfo.appendChild(difficulty);
+    }
     
     // Squad selection section
     const squadSection = document.createElement('div');

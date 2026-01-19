@@ -62,8 +62,8 @@
         "value": "missions/mission_01.png",
         "show_name": false
       },
-      "difficulty": 1,
-      "difficulty_multiplier": 0.6,
+      "difficulty": 2,
+      "difficulty_multiplier": 1.1,
       "required_stats": {
         "primary": "mind"
       },
@@ -164,10 +164,8 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [
-          "first_contact"
-        ],
-        "total_missions": 0,
+        "missions_completed": [],
+        "total_missions": 1,
         "flags": []
       },
       "rewards": {
@@ -255,10 +253,8 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [
-          "first_contact"
-        ],
-        "total_missions": 0,
+        "missions_completed": [],
+        "total_missions": 2,
         "flags": []
       },
       "rewards": {
@@ -343,19 +339,17 @@
         "value": "missions/mission_06.png",
         "show_name": false
       },
-      "difficulty": 2,
-      "difficulty_multiplier": 1.1,
+      "difficulty": 4,
+      "difficulty_multiplier": 1.7,
       "required_stats": {
         "primary": "health",
         "secondary": "movement"
       },
-      "repeatable": false,
+      "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [
-          "first_contact"
-        ],
-        "total_missions": 0,
+        "missions_completed": [],
+        "total_missions": 4,
         "flags": []
       },
       "rewards": {
@@ -442,8 +436,8 @@
         "value": "missions/mission_09.png",
         "show_name": false
       },
-      "difficulty": 2,
-      "difficulty_multiplier": 1.1,
+      "difficulty": 3,
+      "difficulty_multiplier": 1.5,
       "required_stats": {
         "primary": "mind",
         "secondary": "movement"
@@ -554,9 +548,7 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [
-          "first_contact"
-        ],
+        "missions_completed": [],
         "total_missions": 3,
         "flags": []
       },
@@ -654,8 +646,8 @@
         "value": "missions/mission_02.png",
         "show_name": false
       },
-      "difficulty": 1,
-      "difficulty_multiplier": 0.6,
+      "difficulty": 2,
+      "difficulty_multiplier": 1.1,
       "required_stats": {
         "primary": "mind",
         "secondary": "defense"
@@ -664,7 +656,7 @@
       "persist_on_fail": true,
       "prerequisites": {
         "missions_completed": [],
-        "total_missions": 5,
+        "total_missions": 1,
         "flags": []
       },
       "rewards": {
@@ -745,8 +737,8 @@
         "value": "missions/mission_12.png",
         "show_name": false
       },
-      "difficulty": 4,
-      "difficulty_multiplier": 1.7,
+      "difficulty": 5,
+      "difficulty_multiplier": 2,
       "required_stats": {
         "primary": "movement",
         "secondary": "mind",
@@ -757,6 +749,124 @@
       "prerequisites": {
         "missions_completed": [
           "supply_run",
+          "rescue_operation"
+        ],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "exotic_matter",
+            "min": 3,
+            "max": 8,
+            "drop_chance": 100
+          },
+          {
+            "item": "crystalline_shard",
+            "min": 5,
+            "max": 12,
+            "drop_chance": 80
+          },
+          {
+            "item": "fusion_core",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 40
+          },
+          {
+            "item": "blueprint_quantum_weave",
+            "min": 1,
+            "max": 1,
+            "drop_chance": 25
+          },
+          {
+            "item": "blueprint_neural_interface",
+            "min": 1,
+            "max": 1,
+            "drop_chance": 15
+          }
+        ],
+        "failure": [
+          {
+            "item": "exotic_matter",
+            "min": 1,
+            "max": 2,
+            "drop_chance": 100
+          },
+          {
+            "item": "crystalline_shard",
+            "min": 1,
+            "max": 3,
+            "drop_chance": 50
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Jumping to deep space coordinates...",
+            "bar_progress": 15,
+            "display_time": 3
+          },
+          {
+            "text": "Scanning for anomalies... multiple contacts!",
+            "bar_progress": 35,
+            "display_time": 3
+          },
+          {
+            "text": "Maestra provides overwatch during collection!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Unknown entities approaching! Extract now!",
+            "bar_progress": 85,
+            "display_time": 3
+          },
+          {
+            "text": "Data and samples secured! Jump successful!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "safe_haven",
+      "name": "Safe Haven",
+      "description": "Secure and defend a new settlement site for the refugee fleet. Hostile forces and environmental hazards threaten the colony's survival.",
+      "map": "frontier_colony",
+      "mission_type": "recon",
+      "requirements": {
+        "equipment_subtype": "tech"
+      },
+      "chain": {
+        "name": "Exodus Fleet",
+        "part": 2,
+        "total": 2
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_05.png",
+        "show_name": false
+      },
+      "difficulty": 7,
+      "difficulty_multiplier": 4,
+      "required_stats": {
+        "primary": "health",
+        "secondary": "defense",
+        "tertiary": "movement"
+      },
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [
+          "refugee_escort",
           "rescue_operation"
         ],
         "total_missions": 0,
@@ -963,7 +1073,7 @@
     },
     {
       "id": "training_exercise",
-      "name": "Training Exercise",
+      "name": "Training: Combat",
       "description": "Run combat drills to maintain Guardian readiness",
       "map": "training_grounds",
       "mission_type": "combat",
@@ -983,11 +1093,11 @@
       "required_stats": {
         "primary": "attack"
       },
-      "repeatable": false,
+      "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
         "missions_completed": [],
-        "total_missions": 5,
+        "total_missions": 0,
         "flags": []
       },
       "rewards": {
@@ -1039,9 +1149,9 @@
       }
     },
     {
-      "id": "training_exercise_advanced",
-      "name": "Advanced Training Exercise",
-      "description": "Run enhanced combat drills to maintain Guardian readiness",
+      "id": "movement_training",
+      "name": "Training: Movement",
+      "description": "Run, jump, slide, and glide your way to a better you.",
       "map": "training_grounds",
       "mission_type": "combat",
       "requirements": null,
@@ -1052,21 +1162,19 @@
       },
       "visual": {
         "type": "image",
-        "value": "missions/mission_11.png",
+        "value": "missions/mission_09.png",
         "show_name": false
       },
-      "difficulty": 6,
-      "difficulty_multiplier": 3,
+      "difficulty": 3,
+      "difficulty_multiplier": 1.5,
       "required_stats": {
-        "primary": "attack"
+        "primary": "movement"
       },
-      "repeatable": false,
+      "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [
-          "training_exercise"
-        ],
-        "total_missions": 0,
+        "missions_completed": [],
+        "total_missions": 2,
         "flags": []
       },
       "rewards": {
@@ -1092,6 +1200,737 @@
             "drop_chance": 100
           }
         ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "asteroid_belt",
+      "name": "Asteroid Mining Rights",
+      "description": "Mediate a territorial dispute between rival mining corporations before it escalates into open warfare in the asteroid belt.",
+      "map": "asteroid_belt",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "None",
+        "part": 0,
+        "total": 0
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_14.png",
+        "show_name": false
+      },
+      "difficulty": 4,
+      "difficulty_multiplier": 1.7,
+      "required_stats": {
+        "primary": "mind",
+        "secondary": "movement"
+      },
+      "repeatable": true,
+      "persist_on_fail": false,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 2,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "phantom_ship",
+      "name": "Phantom Ship",
+      "description": "Investigate a derelict capital ship broadcasting a distress beacon. Scans show no life signs, but something is moving inside.",
+      "map": "ghost_station",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "None",
+        "part": 0,
+        "total": 0
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_01.png",
+        "show_name": false
+      },
+      "difficulty": 6,
+      "difficulty_multiplier": 3,
+      "required_stats": {
+        "primary": "movement",
+        "secondary": "mind",
+        "tertiary": "health"
+      },
+      "repeatable": true,
+      "persist_on_fail": false,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 6,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "void_leviathan",
+      "name": "Void Leviathan",
+      "description": "A massive space creature is threatening shipping lanes. Study it, relocate it, or if necessary, eliminate the threat.",
+      "map": " void_sector",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "None",
+        "part": 0,
+        "total": 0
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_02.png",
+        "show_name": false
+      },
+      "difficulty": 7,
+      "difficulty_multiplier": 4,
+      "required_stats": {
+        "primary": "attack",
+        "secondary": "movement",
+        "tertiary": "health"
+      },
+      "repeatable": true,
+      "persist_on_fail": false,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 7,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "temporal_anomaly",
+      "name": "Temporal Anomaly",
+      "description": "A Republic science vessel has become trapped in a time distortion field. Rescue the crew before the anomaly collapses and erases them from existence.",
+      "map": " void_sector",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "None",
+        "part": 0,
+        "total": 0
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_03.png",
+        "show_name": false
+      },
+      "difficulty": 9,
+      "difficulty_multiplier": 6.5,
+      "required_stats": {
+        "primary": "mind",
+        "secondary": "defense",
+        "tertiary": "movement"
+      },
+      "repeatable": true,
+      "persist_on_fail": false,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 9,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "last_stand_at_meridian",
+      "name": "Last Stand at Meridian",
+      "description": "The Kin armada is launching a final assault on Meridian Station, humanity's last major stronghold in the sector. This is where legends are forged.",
+      "map": "meridian_station",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "None",
+        "part": 0,
+        "total": 0
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_04.png",
+        "show_name": false
+      },
+      "difficulty": 10,
+      "difficulty_multiplier": 8,
+      "required_stats": {
+        "primary": "health",
+        "secondary": "attack",
+        "tertiary": "defense"
+      },
+      "repeatable": true,
+      "persist_on_fail": false,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 10,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "training_exercise_advanced",
+      "name": "Training: Advanced Tactics",
+      "description": "Run enhanced combat drills to maintain Guardian readiness",
+      "map": "training_grounds",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "None",
+        "part": 1,
+        "total": 2
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_11.png",
+        "show_name": false
+      },
+      "difficulty": 6,
+      "difficulty_multiplier": 3,
+      "required_stats": {
+        "primary": "attack"
+      },
+      "repeatable": true,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [
+          "training_exercise"
+        ],
+        "total_missions": 4,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": [
+          {
+            "item": "plasma_cell",
+            "min": 1,
+            "max": 2,
+            "drop_chance": 100
+          }
+        ]
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "encrypted_signal",
+      "name": "Encrypted Signal",
+      "description": "Intercept and decrypt a mysterious transmission originating from deep within Kin-controlled space. The signal contains coordinates to an unknown facility.",
+      "map": "void_sector",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "Shadow Protocol",
+        "part": 1,
+        "total": 3
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_07.png",
+        "show_name": false
+      },
+      "difficulty": 7,
+      "difficulty_multiplier": 4,
+      "required_stats": {
+        "primary": "mind",
+        "secondary": "movement",
+        "tertiary": "defense"
+      },
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [
+          "training_exercise"
+        ],
+        "total_missions": 5,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "black_site_infiltration",
+      "name": "Black Site Infiltration",
+      "description": "Infiltrate the covert Kin research facility discovered in the encrypted transmission. Evidence suggests they're developing something dangerous.",
+      "map": "black_site",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "Shadow Protocol",
+        "part": 2,
+        "total": 3
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_15.png",
+        "show_name": false
+      },
+      "difficulty": 8,
+      "difficulty_multiplier": 5.5,
+      "required_stats": {
+        "primary": "movement",
+        "secondary": "mind",
+        "tertiary": "attack"
+      },
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [
+          "encrypted_signal"
+        ],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "kin_black_site",
+      "name": "Protocol Termination",
+      "description": "Destroy the Kin's prototype weapon before it becomes operational. This is a one-way mission - extraction is not guaranteed.",
+      "map": "black_site",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "Shadow Protocol",
+        "part": 3,
+        "total": 3
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_14.png",
+        "show_name": false
+      },
+      "difficulty": 9,
+      "difficulty_multiplier": 6.5,
+      "required_stats": {
+        "primary": "attack",
+        "secondary": "health",
+        "tertiary": "defense"
+      },
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [
+          "black_site_infiltration"
+        ],
+        "total_missions": 0,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
+      },
+      "unlock_on_complete": {
+        "flags": [],
+        "missions": []
+      },
+      "simulation": {
+        "messages": [
+          {
+            "text": "Initiating combat simulation protocols...",
+            "bar_progress": 25,
+            "display_time": 3
+          },
+          {
+            "text": "All Guardians performing tactical maneuvers!",
+            "bar_progress": 60,
+            "display_time": 3
+          },
+          {
+            "text": "Simulation complete! Skills maintained!",
+            "bar_progress": 100,
+            "display_time": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "refugee_escort",
+      "name": "Refugee Escort",
+      "description": "Protect a convoy of civilian refugees fleeing Dragon Kin occupation. Pirates and raiders see them as easy prey.",
+      "map": "frontier_colony",
+      "mission_type": "combat",
+      "requirements": null,
+      "chain": {
+        "name": "Exodus Fleet",
+        "part": 1,
+        "total": 2
+      },
+      "visual": {
+        "type": "image",
+        "value": "missions/mission_13.png",
+        "show_name": false
+      },
+      "difficulty": 5,
+      "difficulty_multiplier": 2,
+      "required_stats": {
+        "primary": "defense",
+        "secondary": "attack"
+      },
+      "repeatable": false,
+      "persist_on_fail": true,
+      "prerequisites": {
+        "missions_completed": [],
+        "total_missions": 7,
+        "flags": []
+      },
+      "rewards": {
+        "success": [
+          {
+            "item": "plasma_cell",
+            "min": 2,
+            "max": 5,
+            "drop_chance": 100
+          },
+          {
+            "item": "metal_parts",
+            "min": 2,
+            "max": 4,
+            "drop_chance": 80
+          }
+        ],
+        "failure": []
       },
       "unlock_on_complete": {
         "flags": [],

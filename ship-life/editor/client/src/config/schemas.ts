@@ -65,9 +65,9 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'requirements.equipment_subtype': ['weapon', 'armor', 'tech', 'medical', 'structural'],
       'prerequisites.missions_completed[]': { source: 'missions' },
       'unlock_on_complete.missions[]': { source: 'missions' },
-      'required_stats.primary': ['health', 'attack', 'defense', 'movement', 'mind'],
-      'required_stats.secondary': ['health', 'attack', 'defense', 'movement', 'mind'],
-      'required_stats.tertiary': ['health', 'attack', 'defense', 'movement', 'mind']
+      'required_stats.primary': ['', 'health', 'attack', 'defense', 'movement', 'mind'],
+      'required_stats.secondary': ['', 'health', 'attack', 'defense', 'movement', 'mind'],
+      'required_stats.tertiary': ['', 'health', 'attack', 'defense', 'movement', 'mind']
     },
     tooltips: {
       'id': 'Unique identifier for this mission',
@@ -83,9 +83,8 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'required_stats.tertiary': 'Tertiary stat (Bronze) - 20% weight in success calculation'
     },
     optionalFields: {
-      'required_stats': {
-        primary: ''
-      }
+      'required_stats.secondary': '',
+      'required_stats.tertiary': ''
     },
     arrayFields: {
       'prerequisites.missions_completed': {

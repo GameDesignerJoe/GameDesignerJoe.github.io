@@ -581,22 +581,41 @@ export default function App() {
     }).filter(Boolean) as JSX.Element[];
 
     // Check for optional fields that are missing
-    // Only show at the ROOT level of each item (not in nested objects)
-    if (currentFile && path.length === 2) {
-      // path.length === 2 means we're at the item root (e.g., ["missions", "0"])
+    // Show at the ROOT level of each item AND within nested objects (like required_stats)
+    if (currentFile) {
       const schema = getSchemaForFile(currentFile.name);
       if (schema?.optionalFields) {
+        // Build current path string for matching (e.g., "required_stats")
+        const currentPathStr = path.length > 2 ? path.slice(2).join('.') : '';
+        
         Object.entries(schema.optionalFields).forEach(([fieldName, template]) => {
-          // Check if this field is missing from the current object
-          if (!(fieldName in obj)) {
-            renderedFields.push(
-              <OptionalField
-                key={`optional-${fieldName}`}
-                fieldName={fieldName}
-                displayName={formatFieldName(fieldName)}
-                onAdd={() => addOptionalField(path, fieldName, template)}
-              />
-            );
+          // Check for root-level optional fields (no dot in fieldName)
+          if (path.length === 2 && !fieldName.includes('.')) {
+            if (!(fieldName in obj)) {
+              renderedFields.push(
+                <OptionalField
+                  key={`optional-${fieldName}`}
+                  fieldName={fieldName}
+                  displayName={formatFieldName(fieldName)}
+                  onAdd={() => addOptionalField(path, fieldName, template)}
+                />
+              );
+            }
+          }
+          // Check for nested optional fields (e.g., "required_stats.secondary")
+          else if (fieldName.includes('.')) {
+            const [parentField, childField] = fieldName.split('.');
+            // If we're inside the parent object and child field is missing
+            if (currentPathStr === parentField && !(childField in obj)) {
+              renderedFields.push(
+                <OptionalField
+                  key={`optional-${fieldName}`}
+                  fieldName={childField}
+                  displayName={formatFieldName(childField)}
+                  onAdd={() => addOptionalField(path, childField, template)}
+                />
+              );
+            }
           }
         });
       }
