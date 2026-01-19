@@ -15,6 +15,7 @@ export default function App() {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [searchFilter, setSearchFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [sortMode, setSortMode] = useState<'alpha' | 'difficulty-asc' | 'difficulty-desc'>('alpha');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saveTimeouts, setSaveTimeouts] = useState<Record<number, NodeJS.Timeout>>({});
 
@@ -257,7 +258,7 @@ export default function App() {
     setOpenFiles(newFiles);
   };
 
-  const deleteCurrentItem = () => {
+  const deleteCurrentItem = async () => {
     if (activeFileIndex === null) return;
     const newFiles = [...openFiles];
     const currentData = newFiles[activeFileIndex].data;
@@ -289,8 +290,23 @@ export default function App() {
     }
     
     newFiles[activeFileIndex].data = newData;
+    newFiles[activeFileIndex].isDirty = true;
+    newFiles[activeFileIndex].saveStatus = 'saving';
     setOpenFiles(newFiles);
     setShowDeleteModal(false);
+    
+    // Save immediately
+    try {
+      await saveFile(newFiles[activeFileIndex].name, newFiles[activeFileIndex].data);
+      newFiles[activeFileIndex].isDirty = false;
+      newFiles[activeFileIndex].saveStatus = 'saved';
+      setOpenFiles([...newFiles]);
+    } catch (error) {
+      console.error('Save failed:', error);
+      newFiles[activeFileIndex].saveStatus = 'error';
+      setOpenFiles([...newFiles]);
+      alert('Failed to save deletion. Please try again.');
+    }
   };
 
   const duplicateCurrentItem = () => {
@@ -609,7 +625,20 @@ export default function App() {
     
     return true;
   }).sort((a: any, b: any) => {
-    // Alphabetically sort by name, title, or id
+    // Sort based on mode
+    if (currentFile?.name === 'missions.json' && sortMode !== 'alpha') {
+      // Difficulty-based sorting
+      const aDiff = a.difficulty || 0;
+      const bDiff = b.difficulty || 0;
+      
+      if (sortMode === 'difficulty-asc') {
+        return aDiff - bDiff; // Easy to Hard (1-10)
+      } else if (sortMode === 'difficulty-desc') {
+        return bDiff - aDiff; // Hard to Easy (10-1)
+      }
+    }
+    
+    // Default: Alphabetically sort by name, title, or id
     const aName = (a.name || a.title || a.id || '').toLowerCase();
     const bName = (b.name || b.title || b.id || '').toLowerCase();
     return aName.localeCompare(bName);
@@ -741,6 +770,47 @@ export default function App() {
                             {type}
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Sort Buttons (missions.json only) */}
+                  {currentFile?.name === 'missions.json' && (
+                    <div className="mb-3">
+                      <label className="block text-xs font-semibold text-gray-400 uppercase mb-1">
+                        Sort By
+                      </label>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          onClick={() => setSortMode('alpha')}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            sortMode === 'alpha'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          A-Z
+                        </button>
+                        <button
+                          onClick={() => setSortMode('difficulty-asc')}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            sortMode === 'difficulty-asc'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          Easy → Hard
+                        </button>
+                        <button
+                          onClick={() => setSortMode('difficulty-desc')}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            sortMode === 'difficulty-desc'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          }`}
+                        >
+                          Hard → Easy
+                        </button>
                       </div>
                     </div>
                   )}

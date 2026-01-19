@@ -428,28 +428,6 @@ function renderMissionComputer(container) {
     // Set container class for proper layout
     container.className = 'mission-computer-container';
     
-    // Mission stats section
-    const statsDiv = document.createElement('div');
-    statsDiv.className = 'mission-stats';
-    
-    const completedMissions = gameState.completed_missions || [];
-    const totalMissions = completedMissions.length;
-    const totalRun = gameState.total_missions_run || 0;
-    const successRate = totalRun > 0 ? Math.round((totalMissions / totalRun) * 100) : 0;
-    
-    statsDiv.innerHTML = `
-        <div class="stat-item">
-            <span class="stat-label">Missions Completed:</span>
-            <span class="stat-value">${totalMissions}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Success Rate:</span>
-            <span class="stat-value">${successRate}%</span>
-        </div>
-    `;
-    
-    container.appendChild(statsDiv);
-    
     // Mission grid
     const grid = document.createElement('div');
     grid.className = 'mission-grid';

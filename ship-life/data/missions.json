@@ -48,7 +48,7 @@
     {
       "id": "first_contact",
       "name": "First Contact",
-      "description": "Establish communication with the locals on Terminus Prime",
+      "description": "Newly arrived on Terminus Shoal. The Dragon Kin have already begun moving in on this once Republic controlled world.",
       "map": "terminus_outpost",
       "mission_type": "diplomatic",
       "requirements": null,
@@ -58,9 +58,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#27ae60",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_01.png",
+        "show_name": false
       },
       "difficulty": 1,
       "difficulty_multiplier": 0.6,
@@ -139,99 +139,6 @@
       }
     },
     {
-      "id": "first_contact_again",
-      "name": "First Contact Again",
-      "description": "Establish communication with the locals on Terminus Prime",
-      "map": "terminus_outpost",
-      "mission_type": "diplomatic",
-      "requirements": null,
-      "chain": {
-        "name": "Diplomatic Relations",
-        "part": 1,
-        "total": 2
-      },
-      "visual": {
-        "type": "color",
-        "value": "#27ae60",
-        "show_name": true
-      },
-      "difficulty": 1,
-      "difficulty_multiplier": 0.6,
-      "required_stats": {
-        "primary": "mind"
-      },
-      "repeatable": false,
-      "persist_on_fail": true,
-      "prerequisites": {
-        "missions_completed": [],
-        "total_missions": 0,
-        "flags": []
-      },
-      "rewards": {
-        "success": [
-          {
-            "item": "plasma_cell",
-            "min": 5,
-            "max": 10,
-            "drop_chance": 100
-          },
-          {
-            "item": "common_alloy",
-            "min": 3,
-            "max": 7,
-            "drop_chance": 80
-          },
-          {
-            "item": "metal_parts",
-            "min": 2,
-            "max": 5,
-            "drop_chance": 60
-          }
-        ],
-        "failure": [
-          {
-            "item": "plasma_cell",
-            "min": 1,
-            "max": 3,
-            "drop_chance": 100
-          }
-        ]
-      },
-      "unlock_on_complete": {
-        "flags": [
-          "first_contact_complete"
-        ],
-        "missions": [
-          "training_exercise",
-          "diplomatic_mission"
-        ]
-      },
-      "simulation": {
-        "messages": [
-          {
-            "text": "Approaching Terminus Prime...",
-            "bar_progress": 25,
-            "display_time": 3
-          },
-          {
-            "text": "Stella leads the team forward!",
-            "bar_progress": 50,
-            "display_time": 3
-          },
-          {
-            "text": "Contact established! Negotiations in progress...",
-            "bar_progress": 75,
-            "display_time": 3
-          },
-          {
-            "text": "Mission objective complete!",
-            "bar_progress": 100,
-            "display_time": 2
-          }
-        ]
-      }
-    },
-    {
       "id": "supply_run",
       "name": "Supply Run",
       "description": "Retrieve critical supplies from an abandoned outpost",
@@ -244,9 +151,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#16a085",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_08.png",
+        "show_name": false
       },
       "difficulty": 2,
       "difficulty_multiplier": 1.1,
@@ -257,7 +164,9 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
+        "missions_completed": [
+          "first_contact"
+        ],
         "total_missions": 0,
         "flags": []
       },
@@ -333,9 +242,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#f39c12",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_03.png",
+        "show_name": false
       },
       "difficulty": 3,
       "difficulty_multiplier": 1.5,
@@ -346,7 +255,9 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
+        "missions_completed": [
+          "first_contact"
+        ],
         "total_missions": 0,
         "flags": []
       },
@@ -428,9 +339,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#e67e22",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_06.png",
+        "show_name": false
       },
       "difficulty": 2,
       "difficulty_multiplier": 1.1,
@@ -527,9 +438,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#16a085",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_09.png",
+        "show_name": false
       },
       "difficulty": 2,
       "difficulty_multiplier": 1.1,
@@ -540,7 +451,9 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
+        "missions_completed": [
+          "first_contact"
+        ],
         "total_missions": 0,
         "flags": []
       },
@@ -628,9 +541,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#f39c12",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_04.png",
+        "show_name": false
       },
       "difficulty": 3,
       "difficulty_multiplier": 1.5,
@@ -641,7 +554,9 @@
       "repeatable": true,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
+        "missions_completed": [
+          "first_contact"
+        ],
         "total_missions": 3,
         "flags": []
       },
@@ -735,9 +650,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#f39c12",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_02.png",
+        "show_name": false
       },
       "difficulty": 1,
       "difficulty_multiplier": 0.6,
@@ -826,9 +741,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#8e44ad",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_12.png",
+        "show_name": false
       },
       "difficulty": 4,
       "difficulty_multiplier": 1.7,
@@ -944,9 +859,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#e67e22",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_05.png",
+        "show_name": false
       },
       "difficulty": 4,
       "difficulty_multiplier": 1.7,
@@ -1059,21 +974,19 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#7f8c8d",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_10.png",
+        "show_name": false
       },
-      "difficulty": 1,
-      "difficulty_multiplier": 0.6,
+      "difficulty": 2,
+      "difficulty_multiplier": 1.1,
       "required_stats": {
         "primary": "attack"
       },
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [
-          "training_exercise"
-        ],
+        "missions_completed": [],
         "total_missions": 5,
         "flags": []
       },
@@ -1138,9 +1051,9 @@
         "total": 2
       },
       "visual": {
-        "type": "color",
-        "value": "#7f8c8d",
-        "show_name": true
+        "type": "image",
+        "value": "missions/mission_11.png",
+        "show_name": false
       },
       "difficulty": 6,
       "difficulty_multiplier": 3,
@@ -1150,7 +1063,9 @@
       "repeatable": false,
       "persist_on_fail": true,
       "prerequisites": {
-        "missions_completed": [],
+        "missions_completed": [
+          "training_exercise"
+        ],
         "total_missions": 0,
         "flags": []
       },

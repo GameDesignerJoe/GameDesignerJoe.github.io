@@ -83,7 +83,7 @@ function getCurrentMissions(state, availableMissions, count = 3) {
     
     // Filter out any missions that are no longer available (shouldn't happen normally)
     state.current_missions = state.current_missions.filter(mission => 
-        availableMissions.some(available => available.id === mission.id)
+        mission && availableMissions.some(available => available.id === mission.id)
     );
     
     // Mark missions as seen (for future visits)

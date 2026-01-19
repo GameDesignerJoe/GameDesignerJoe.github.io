@@ -64,7 +64,10 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'mission_type': ['diplomatic', 'collection', 'combat', 'rescue', 'search', 'recon'],
       'requirements.equipment_subtype': ['weapon', 'armor', 'tech', 'medical', 'structural'],
       'prerequisites.missions_completed[]': { source: 'missions' },
-      'unlock_on_complete.missions[]': { source: 'missions' }
+      'unlock_on_complete.missions[]': { source: 'missions' },
+      'required_stats.primary': ['health', 'attack', 'defense', 'movement', 'mind'],
+      'required_stats.secondary': ['health', 'attack', 'defense', 'movement', 'mind'],
+      'required_stats.tertiary': ['health', 'attack', 'defense', 'movement', 'mind']
     },
     tooltips: {
       'id': 'Unique identifier for this mission',
@@ -74,7 +77,15 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'persist_on_fail': 'If true, mission stays available after failure',
       'chain.name': 'Name of the mission chain (empty if standalone)',
       'chain.part': 'Which part in the chain (1, 2, 3, etc.)',
-      'chain.total': 'Total missions in this chain'
+      'chain.total': 'Total missions in this chain',
+      'required_stats.primary': 'Primary stat (Gold) - 50% weight in success calculation',
+      'required_stats.secondary': 'Secondary stat (Silver) - 30% weight in success calculation',
+      'required_stats.tertiary': 'Tertiary stat (Bronze) - 20% weight in success calculation'
+    },
+    optionalFields: {
+      'required_stats': {
+        primary: ''
+      }
     },
     arrayFields: {
       'prerequisites.missions_completed': {
