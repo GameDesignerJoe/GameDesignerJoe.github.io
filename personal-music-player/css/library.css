@@ -409,8 +409,10 @@
   display: none;
 }
 
-.playlist-track-item.now-playing .track-item-title {
-  color: var(--color-accent);
+/* Green text for now-playing track - consolidated rule */
+.playlist-track-item.now-playing .track-item-title,
+.track-item.now-playing .track-item-title {
+  color: #1DB954 !important; /* Spotify green */
 }
 
 /* ==========================================

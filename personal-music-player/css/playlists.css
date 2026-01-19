@@ -577,8 +577,9 @@
 }
 
 /* Green text for now-playing track */
-.track-item.now-playing .track-item-title {
-  color: #1DB954; /* Spotify green */
+.track-item.now-playing .track-item-title,
+.playlist-track-item.now-playing .track-item-title {
+  color: #1DB954 !important; /* Spotify green */
 }
 
 /* On hover of playing track, hide sound bars and show pause button */
