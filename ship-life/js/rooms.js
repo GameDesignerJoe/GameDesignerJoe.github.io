@@ -23,6 +23,14 @@ function initializeNavigation(rooms) {
         button.onclick = () => switchRoom(room.id);
         navBar.appendChild(button);
     });
+    
+    // Make guardian display clickable to go to character room
+    const guardianDisplay = document.getElementById('active-guardian-display');
+    if (guardianDisplay) {
+        guardianDisplay.onclick = () => switchRoom('character_room');
+        guardianDisplay.style.cursor = 'pointer';
+        guardianDisplay.title = 'Switch Guardian';
+    }
 }
 
 /**

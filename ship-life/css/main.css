@@ -361,7 +361,7 @@ button:disabled {
         font-size: 15px;
     }
     
-    /* Navigation Bar - Horizontal scroll */
+    /* Navigation Bar - Normal padding, no special left space */
     #navigation-bar {
         padding: 10px;
         gap: 8px;
@@ -384,18 +384,27 @@ button:disabled {
         flex-shrink: 0;
     }
     
-    /* Guardian Display - Position INSIDE nav bar, left side */
+    /* Guardian Display - Make it a navigation button */
     #active-guardian-display {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        right: auto;
-        bottom: auto;
+        position: static;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 0;
         gap: 0;
-        background: transparent;
+        background: var(--card-bg);
         border-radius: 50%;
-        z-index: 102; /* Above nav bar */
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        order: -1; /* Place it first in the nav bar */
+    }
+    
+    #active-guardian-display:hover {
+        background: var(--card-hover);
+        transform: translateY(-2px);
     }
     
     #guardian-portrait {
@@ -403,15 +412,11 @@ button:disabled {
         height: 40px;
         margin: 0;
         border: 2px solid var(--primary);
+        border-radius: 50%;
     }
     
     #guardian-name {
         display: none;
-    }
-    
-    /* Adjust nav bar to make room for guardian icon */
-    #navigation-bar {
-        padding-left: 60px; /* Make room for 40px icon + spacing */
     }
     
     /* Room Title */
@@ -515,11 +520,10 @@ button:disabled {
         padding-bottom: 60px;
     }
     
-    /* Guardian Display */
+    /* Guardian Display - Slightly smaller on very small screens */
     #active-guardian-display {
-        top: 8px;
-        left: 8px;
-        padding: 5px;
+        width: 40px;
+        height: 40px;
     }
     
     #guardian-portrait {

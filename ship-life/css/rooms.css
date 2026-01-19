@@ -1110,6 +1110,8 @@
     
     .success-rate-section {
         padding: 20px;
+        flex-direction: column !important;
+        gap: 15px !important;
     }
     
     .launch-button {
@@ -1294,8 +1296,15 @@
         margin: 0 auto;
     }
     
+    .success-rate-section {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 15px !important;
+    }
+    
     .launch-button {
-        font-size: 16px;
+        font-size: 14px;
+        padding: 12px 20px;
     }
     
     /* Observation Deck */
