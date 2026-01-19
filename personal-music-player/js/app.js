@@ -456,6 +456,26 @@ function setupEventListeners() {
     document.getElementById('playerScreen').classList.add('active');
   });
   
+  // Mini player - click anywhere on mini player (except buttons) to open full player (mobile friendly)
+  document.getElementById('miniPlayerContent')?.addEventListener('click', (e) => {
+    // Don't open if clicking on buttons or controls
+    if (e.target.closest('.mini-play-btn-mobile') ||
+        e.target.closest('.mini-control-btn') ||
+        e.target.closest('.mini-volume-slider') ||
+        e.target.id === 'miniPlayPauseBtn' ||
+        e.target.id === 'miniPlayPauseBtnDesktop' ||
+        e.target.id === 'miniSkipBackBtn' ||
+        e.target.id === 'miniSkipForwardBtn' ||
+        e.target.id === 'miniShuffleBtn' ||
+        e.target.id === 'miniRepeatBtn' ||
+        e.target.id === 'miniVolumeSlider') {
+      return; // Button click, don't open player
+    }
+    
+    // Open full player screen
+    document.getElementById('playerScreen').classList.add('active');
+  });
+  
   // Mini player - click song title to navigate based on playback context
   document.querySelector('.mini-player-title')?.addEventListener('click', async (e) => {
     e.stopPropagation();
