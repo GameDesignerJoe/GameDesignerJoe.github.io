@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Success Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: #0f172a;
+      color: white;
+      padding: 24px;
+    }
+    
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    
+    h1 {
+      font-size: 1.875rem;
+      font-weight: bold;
+    }
+    
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    
+    h3 {
+      font-size: 1.125rem;
+      color: #cbd5e1;
+    }
+    
+    .section {
+      background-color: #1e293b;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    
+    .section-header {
+      padding: 24px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.2s;
+      border-radius: 8px;
+    }
+    
+    .section-header:hover {
+      background-color: #334155;
+    }
+    
+    .section-content {
+      padding: 0 24px 24px 24px;
+      display: none;
+    }
+    
+    .section-content.open {
+      display: block;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+      font-weight: 500;
+    }
+    
+    .btn-primary {
+      background-color: #2563eb;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #1d4ed8;
+    }
+    
+    .btn-success {
+      background-color: #16a34a;
+      color: white;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .btn-toggle {
+      padding: 8px 16px;
+      background-color: #475569;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .btn-toggle:hover {
+      background-color: #334155;
+    }
+    
+    .btn-toggle.active-blue {
+      background-color: #2563eb;
+    }
+    
+    .btn-toggle.active-blue:hover {
+      background-color: #1d4ed8;
+    }
+    
+    .btn-toggle.active-green {
+      background-color: #16a34a;
+    }
+    
+    .btn-toggle.active-green:hover {
+      background-color: #15803d;
+    }
+    
+    .btn-toggle.active-purple {
+      background-color: #9333ea;
+    }
+    
+    .btn-toggle.active-purple:hover {
+      background-color: #7e22ce;
+    }
+    
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    
+    .control-group {
+      margin-bottom: 16px;
+    }
+    
+    .label {
+      display: block;
+      font-size: 0.875rem;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    
+    .slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #475569;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+    }
+    
+    .slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #2563eb;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .value-display {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+    
+    .config-card {
+      background-color: #334155;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    
+    .config-value {
+      font-size: 1.875rem;
+      font-weight: bold;
+      text-align: center;
+      margin: 8px 0;
+    }
+    
+    .config-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-align: center;
+    }
+    
+    .text-center {
+      text-align: center;
+    }
+    
+    .text-sm {
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+    
+    .mt-4 {
+      margin-top: 16px;
+    }
+    
+    .mb-4 {
+      margin-bottom: 16px;
+    }
+    
+    input[type="number"] {
+      width: 100%;
+      padding: 8px 12px;
+      background-color: #334155;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: white;
+      font-size: 1rem;
+    }
+    
+    .space-y-4 > * + * {
+      margin-top: 16px;
+    }
+    
+    .toggle-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Mission Success Calculator</h1>
+      <button class="btn btn-primary" id="copyBtn" onclick="exportSettings()">Copy Settings</button>
+    </div>
+    
+    <!-- Quick Presets -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('presets')">
+        <h2>Quick Presets</h2>
+        <span class="toggle-icon" id="presets-icon">−</span>
+      </div>
+      <div class="section-content open" id="presets-content">
+        <div class="control-group">
+          <label class="label">Team Size</label>
+          <div class="btn-group">
+            <button class="btn-toggle active-blue" onclick="setGuardians(1)">Solo</button>
+            <button class="btn-toggle" onclick="setGuardians(4)">Full Team</button>
+          </div>
+        </div>
+        
+        <div class="control-group">
+          <label class="label">Guardian Stats</label>
+          <div class="btn-group">
+            <button class="btn-toggle active-green" onclick="setGuardianStat(25)">Average (25)</button>
+          </div>
+        </div>
+        
+        <div class="control-group">
+          <label class="label">Gear Tier</label>
+          <div class="btn-group">
+            <button class="btn-toggle" onclick="setGear(0)">No Gear</button>
+            <button class="btn-toggle" onclick="setGear(5)">Gear I (5)</button>
+            <button class="btn-toggle active-purple" onclick="setGear(10)">Gear II (10)</button>
+            <button class="btn-toggle" onclick="setGear(15)">Gear III (15)</button>
+            <button class="btn-toggle" onclick="setGear(20)">Gear IV (20)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Fine-Tune Controls -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('controls')">
+        <h2>Fine-Tune Controls</h2>
+        <span class="toggle-icon" id="controls-icon">−</span>
+      </div>
+      <div class="section-content open" id="controls-content">
+        <div class="grid-3">
+          <div>
+            <label class="label">Guardian Stat (10-50)</label>
+            <input type="range" class="slider" min="10" max="50" step="5" value="25" id="guardianStatSlider" oninput="updateGuardianStat(this.value)">
+            <div class="value-display" id="guardianStatValue">25</div>
+          </div>
+          
+          <div>
+            <label class="label">Gear Bonus per Slot (0-20)</label>
+            <input type="range" class="slider" min="0" max="20" step="5" value="10" id="gearBonusSlider" oninput="updateGearBonus(this.value)">
+            <div class="value-display" id="gearBonusValue">10</div>
+          </div>
+          
+          <div>
+            <label class="label">Number of Guardians (1-4)</label>
+            <input type="range" class="slider" min="1" max="4" step="1" value="4" id="numGuardiansSlider" oninput="updateNumGuardians(this.value)">
+            <div class="value-display" id="numGuardiansValue">4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Current Configuration -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('config')">
+        <h2>Current Configuration</h2>
+        <span class="toggle-icon" id="config-icon">−</span>
+      </div>
+      <div class="section-content open" id="config-content">
+        <div class="grid-3">
+          <div class="config-card">
+            <h3>Difficulty 1</h3>
+            <div class="config-value" id="diff1">100.0%</div>
+            <div class="config-label">Success Rate</div>
+          </div>
+          <div class="config-card">
+            <h3>Difficulty 5</h3>
+            <div class="config-value" id="diff5">100.0%</div>
+            <div class="config-label">Success Rate</div>
+          </div>
+          <div class="config-card">
+            <h3>Difficulty 10</h3>
+            <div class="config-value" id="diff10">34.7%</div>
+            <div class="config-label">Success Rate</div>
+          </div>
+        </div>
+        <div class="text-center text-sm mt-4" id="configSummary">
+          4 Guardians (Stat: 25) + 16 Gear Slots (10 each)
+        </div>
+      </div>
+    </div>
+    
+    <!-- Chart -->
+    <div class="section">
+      <div class="section-content open">
+        <h2 class="mb-4">Success Rate by Difficulty</h2>
+        <canvas id="chart" style="max-height: 400px;"></canvas>
+      </div>
+    </div>
+    
+    <!-- Difficulty Multipliers -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('multipliers')">
+        <div>
+          <h2>Difficulty Multipliers</h2>
+          <p class="text-sm mt-4">Lower numbers make missions easier, higher numbers make them harder</p>
+        </div>
+        <span class="toggle-icon" id="multipliers-icon">+</span>
+      </div>
+      <div class="section-content" id="multipliers-content">
+        <div class="grid-2">
+          <div class="space-y-4">
+            <div>
+              <label class="label">Difficulty 1 (default: 0.5)</label>
+              <input type="number" step="0.1" min="0.1" value="0.5" id="mult0" oninput="updateMultiplier(0, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 2 (default: 0.75)</label>
+              <input type="number" step="0.1" min="0.1" value="0.75" id="mult1" oninput="updateMultiplier(1, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 3 (default: 1.0)</label>
+              <input type="number" step="0.1" min="0.1" value="1.0" id="mult2" oninput="updateMultiplier(2, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 4 (default: 1.5)</label>
+              <input type="number" step="0.1" min="0.1" value="1.5" id="mult3" oninput="updateMultiplier(3, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 5 (default: 2.0)</label>
+              <input type="number" step="0.1" min="0.1" value="2.0" id="mult4" oninput="updateMultiplier(4, this.value)">
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div>
+              <label class="label">Difficulty 6 (default: 3.0)</label>
+              <input type="number" step="0.1" min="0.1" value="3.0" id="mult5" oninput="updateMultiplier(5, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 7 (default: 4.0)</label>
+              <input type="number" step="0.1" min="0.1" value="4.0" id="mult6" oninput="updateMultiplier(6, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 8 (default: 5.5)</label>
+              <input type="number" step="0.1" min="0.1" value="5.5" id="mult7" oninput="updateMultiplier(7, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 9 (default: 6.5)</label>
+              <input type="number" step="0.1" min="0.1" value="6.5" id="mult8" oninput="updateMultiplier(8, this.value)">
+            </div>
+            <div>
+              <label class="label">Difficulty 10 (default: 7.5)</label>
+              <input type="number" step="0.1" min="0.1" value="7.5" id="mult9" oninput="updateMultiplier(9, this.value)">
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary mt-4" onclick="resetMultipliers()">Reset to Defaults</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let state = {
+      guardianStat: 25,
+      gearBonus: 10,
+      numGuardians: 4,
+      multipliers: [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.5, 6.5, 7.5],
+      defaultMultipliers: [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.5, 6.5, 7.5]
+    };
+
+    let chart = null;
+
+    // Initialize
+    function init() {
+      createChart();
+      updateAll();
+    }
+
+    // Section Toggle
+    function toggleSection(sectionId) {
+      const content = document.getElementById(sectionId + '-content');
+      const icon = document.getElementById(sectionId + '-icon');
+      content.classList.toggle('open');
+      icon.textContent = content.classList.contains('open') ? '−' : '+';
+    }
+
+    // Calculate Success
+    function calculateSuccess(difficulty, guardians, stat, gear) {
+      const guardianPoints = guardians * 50 * (stat / 50);
+      const gearPoints = guardians * 4 * gear;
+      const totalPoints = guardianPoints + gearPoints;
+      const successRate = totalPoints / state.multipliers[difficulty - 1];
+      return Math.min(successRate, 100);
+    }
+
+    // Update Functions
+    function updateGuardianStat(value) {
+      state.guardianStat = parseInt(value);
+      document.getElementById('guardianStatValue').textContent = value;
+      updateAll();
+    }
+
+    function updateGearBonus(value) {
+      state.gearBonus = parseInt(value);
+      document.getElementById('gearBonusValue').textContent = value;
+      updateAll();
+    }
+
+    function updateNumGuardians(value) {
+      state.numGuardians = parseInt(value);
+      document.getElementById('numGuardiansValue').textContent = value;
+      updateAll();
+    }
+
+    function updateMultiplier(index, value) {
+      state.multipliers[index] = parseFloat(value) || 0.1;
+      updateAll();
+    }
+
+    function setGuardians(num) {
+      state.numGuardians = num;
+      document.getElementById('numGuardiansSlider').value = num;
+      document.getElementById('numGuardiansValue').textContent = num;
+      
+      // Update button states
+      const buttons = document.querySelectorAll('.btn-group .btn-toggle');
+      buttons.forEach((btn, idx) => {
+        if (idx < 2) { // First two buttons are team size
+          btn.classList.remove('active-blue');
+          if ((idx === 0 && num === 1) || (idx === 1 && num === 4)) {
+            btn.classList.add('active-blue');
+          }
+        }
+      });
+      
+      updateAll();
+    }
+
+    function setGuardianStat(stat) {
+      state.guardianStat = stat;
+      document.getElementById('guardianStatSlider').value = stat;
+      document.getElementById('guardianStatValue').textContent = stat;
+      updateAll();
+    }
+
+    function setGear(gear) {
+      state.gearBonus = gear;
+      document.getElementById('gearBonusSlider').value = gear;
+      document.getElementById('gearBonusValue').textContent = gear;
+      
+      // Update button states
+      const gearButtons = document.querySelectorAll('.btn-group:last-child .btn-toggle');
+      gearButtons.forEach((btn) => {
+        btn.classList.remove('active-purple');
+      });
+      
+      const gearIndex = [0, 5, 10, 15, 20].indexOf(gear);
+      if (gearIndex !== -1) {
+        gearButtons[gearIndex].classList.add('active-purple');
+      }
+      
+      updateAll();
+    }
+
+    function resetMultipliers() {
+      state.multipliers = [...state.defaultMultipliers];
+      for (let i = 0; i < 10; i++) {
+        document.getElementById('mult' + i).value = state.defaultMultipliers[i];
+      }
+      updateAll();
+    }
+
+    function updateAll() {
+      // Update difficulty displays
+      document.getElementById('diff1').textContent = calculateSuccess(1, state.numGuardians, state.guardianStat, state.gearBonus).toFixed(1) + '%';
+      document.getElementById('diff5').textContent = calculateSuccess(5, state.numGuardians, state.guardianStat, state.gearBonus).toFixed(1) + '%';
+      document.getElementById('diff10').textContent = calculateSuccess(10, state.numGuardians, state.guardianStat, state.gearBonus).toFixed(1) + '%';
+      
+      // Update summary
+      const plural = state.numGuardians > 1 ? 's' : '';
+      document.getElementById('configSummary').textContent = 
+        `${state.numGuardians} Guardian${plural} (Stat: ${state.guardianStat}) + ${state.numGuardians * 4} Gear Slots (${state.gearBonus} each)`;
+      
+      // Update chart
+      updateChart();
+    }
+
+    function createChart() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          datasets: [
+            {
+              label: '1 Guardian',
+              data: [],
+              borderColor: '#ef4444',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              tension: 0.1
+            },
+            {
+              label: '2 Guardians',
+              data: [],
+              borderColor: '#f59e0b',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              tension: 0.1
+            },
+            {
+              label: '3 Guardians',
+              data: [],
+              borderColor: '#10b981',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              tension: 0.1
+            },
+            {
+              label: '4 Guardians',
+              data: [],
+              borderColor: '#3b82f6',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              labels: {
+                color: '#9CA3AF'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Mission Difficulty',
+                color: '#9CA3AF'
+              },
+              ticks: {
+                color: '#9CA3AF'
+              },
+              grid: {
+                color: '#374151'
+              }
+            },
+            y: {
+              min: 0,
+              max: 100,
+              title: {
+                display: true,
+                text: 'Mission Success %',
+                color: '#9CA3AF'
+              },
+              ticks: {
+                color: '#9CA3AF'
+              },
+              grid: {
+                color: '#374151'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart() {
+      for (let g = 1; g <= 4; g++) {
+        const data = [];
+        for (let d = 1; d <= 10; d++) {
+          data.push(calculateSuccess(d, g, state.guardianStat, state.gearBonus));
+        }
+        chart.data.datasets[g - 1].data = data;
+      }
+      chart.update();
+    }
+
+    function exportSettings() {
+      const settings = `MISSION SUCCESS SYSTEM - CONFIGURATION
+===========================================
+
+FORMULAS:
+---------
+Guardian Contribution = 50 points × (Guardian Stat ÷ 50)
+Gear Contribution = Number of Guardians × 4 slots × Gear Bonus per slot
+Total Points = Guardian Contribution + Gear Contribution
+Success % = Total Points ÷ Difficulty Multiplier (capped at 100%)
+
+WEIGHTED STAT SYSTEM:
+---------------------
+Missions can require 1-3 stats with weights:
+- Primary (Gold): 50%
+- Secondary (Silver): 30%
+- Tertiary (Bronze): 20%
+
+Guardian contribution is multiplied by their stat match percentage.
+Example: Guardian with 30 Attack on an Attack (Gold) + Mind (Silver) mission:
+  Contribution = 50 × ((30÷50 × 0.5) + (their_mind÷50 × 0.3))
+
+CURRENT CONFIGURATION:
+----------------------
+Guardian Stat: ${state.guardianStat}
+Gear Bonus per Slot: ${state.gearBonus}
+Number of Guardians: ${state.numGuardians}
+
+DIFFICULTY MULTIPLIERS:
+-----------------------
+${state.multipliers.map((mult, idx) => `Difficulty ${idx + 1}: ${mult}`).join('\n')}
+
+SUCCESS RATES AT KEY DIFFICULTIES:
+----------------------------------
+Difficulty 1: ${calculateSuccess(1, state.numGuardians, state.guardianStat, state.gearBonus).toFixed(1)}%
+Difficulty 5: ${calculateSuccess(5, state.numGuardians, state.guardianStat, state.gearBonus).toFixed(1)}%
+Difficulty 10: ${calculateSuccess(10, state.numGuardians, state.guardianStat, state.gearBonus).toFixed(1)}%
+
+Generated: ${new Date().toLocaleString()}
+`;
+
+      // Try to copy to clipboard
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(settings).then(() => {
+          showCopySuccess();
+        }).catch(() => {
+          fallbackCopy(settings);
+        });
+      } else {
+        fallbackCopy(settings);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showCopySuccess();
+      } catch (err) {
+        alert('Copy failed. Please try selecting and copying manually.');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function showCopySuccess() {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✓ Copied to Clipboard!';
+      btn.className = 'btn btn-success';
+      setTimeout(() => {
+        btn.textContent = 'Copy Settings';
+        btn.className = 'btn btn-primary';
+      }, 2000);
+    }
+
+    // Initialize on load
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
