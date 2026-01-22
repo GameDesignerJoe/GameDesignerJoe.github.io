@@ -136,7 +136,7 @@ function renderLandingPage(container) {
     container.className = 'landing-page';
     
     const title = document.createElement('h1');
-    title.textContent = 'Fellowdivers Ship Life';
+    title.textContent = 'Endeavor Ship Life';
     title.style.marginBottom = '60px';
     
     const playButton = createButton('Play', 'landing-button', () => {
