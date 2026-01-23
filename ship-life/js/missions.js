@@ -198,6 +198,11 @@ function assignAnomalies(missions, chance = 0.25) {
  * Start mission simulation
  */
 async function startMissionSimulation(mission, selectedGuardians = null) {
+    // Play intro scene if defined
+    if (mission.intro_scene) {
+        await playCinematic(mission.intro_scene);
+    }
+    
     lockNavigation();
     
     // Use provided squad or fallback to all guardians
@@ -446,7 +451,7 @@ function showMissionResults(mission, success, rewards) {
 /**
  * Continue from mission results
  */
-function continueFromResults() {
+async function continueFromResults() {
     const modal = document.getElementById('mission-results');
     modal.classList.add('hidden');
     
@@ -454,6 +459,21 @@ function continueFromResults() {
     if (window.selectedMission && window.lastMissionSuccess !== undefined) {
         const mission = window.selectedMission;
         const success = window.lastMissionSuccess;
+        
+        // Determine which outro scene to play (if any)
+        let sceneId = null;
+        if (success && mission.outro_scene_success) {
+            sceneId = mission.outro_scene_success;
+        } else if (!success && mission.outro_scene_failure) {
+            sceneId = mission.outro_scene_failure;
+        } else if (mission.outro_scene) {
+            sceneId = mission.outro_scene;
+        }
+        
+        // Play outro scene if defined
+        if (sceneId) {
+            await playCinematic(sceneId);
+        }
         
         // Replace mission if succeeded (repeatable means it stays in pool, not in slot)
         // Keep mission only if failed AND persist_on_fail is true

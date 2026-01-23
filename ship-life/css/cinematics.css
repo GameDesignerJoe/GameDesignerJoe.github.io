@@ -1,0 +1,162 @@
+/* Cinematic System Styles */
+
+.cinematic-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* Background Layer */
+.cinematic-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    z-index: 1;
+}
+
+/* Caption Layer (bottom-left) */
+.cinematic-caption {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    max-width: 400px;
+    padding: 15px 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-secondary);
+    opacity: 0;
+    z-index: 2;
+    white-space: pre-line;
+}
+
+/* Narrator Layer (center) */
+.cinematic-narrator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 70%;
+    padding: 30px;
+    color: var(--text);
+    font-family: var(--font-secondary);
+    text-align: center;
+    opacity: 0;
+    z-index: 3;
+    white-space: pre-line;
+}
+
+/* Portrait Layers */
+.cinematic-portrait-left,
+.cinematic-portrait-right {
+    position: absolute;
+    bottom: 20%;
+    width: 300px;
+    height: 400px;
+    opacity: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.cinematic-portrait-left {
+    left: 10%;
+}
+
+.cinematic-portrait-right {
+    right: 10%;
+}
+
+/* Dialogue Layer */
+.cinematic-dialogue {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 800px;
+    width: 90%;
+    padding: 20px 30px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid var(--primary);
+    border-radius: 12px;
+    opacity: 0;
+    z-index: 5;
+}
+
+.dialogue-name {
+    font-family: var(--font-primary);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 8px;
+}
+
+.dialogue-text {
+    font-family: var(--font-secondary);
+    font-size: 16px;
+    color: var(--text);
+    line-height: 1.6;
+}
+
+/* Skip Button */
+.cinematic-skip {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    font-family: var(--font-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s;
+}
+
+.cinematic-skip:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Text Size Variants */
+.size-small {
+    font-size: 14px;
+}
+
+.size-normal {
+    font-size: 16px;
+}
+
+.size-large {
+    font-size: 24px;
+}
+
+/* Text Style Variants */
+.style-normal {
+    font-style: normal;
+    font-weight: 400;
+}
+
+.style-italic {
+    font-style: italic;
+}
+
+.style-bold {
+    font-weight: 600;
+}

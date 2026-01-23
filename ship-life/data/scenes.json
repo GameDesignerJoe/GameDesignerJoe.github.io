@@ -1,0 +1,234 @@
+{
+  "_documentation": {
+    "description": "Cinematic scene definitions for Ship Life. Scenes are PowerPoint-style narrative sequences with backgrounds, portraits, dialogue, and text overlays.",
+    "timing_system": {
+      "delay": "Time in seconds to wait AFTER the previous event started (relative timing). First event's delay is from scene start.",
+      "duration": "How long the ENTRY animation takes to complete (e.g., fade-in time).",
+      "lifetime": "OPTIONAL: How long the element stays visible before auto-exiting. If omitted, element persists until explicitly removed.",
+      "exit_action": "OPTIONAL: How the element exits (fade_out, slide_out, hide, clear). Smart default: opposite of entry action.",
+      "exit_duration": "OPTIONAL: How long the EXIT animation takes. Smart default: same as entry duration.",
+      "example": "Event at 0.0s with delay 1.0 → triggers at 1.0s. Next event with delay 2.0 → triggers at 3.0s"
+    },
+    "lifecycle_examples": {
+      "without_lifetime": {
+        "description": "Element persists until manually removed",
+        "code": "{ type: 'narrator', action: 'fade_in', duration: 0.5 } // Stays visible forever"
+      },
+      "with_lifetime": {
+        "description": "Element auto-exits after specified time",
+        "code": "{ type: 'narrator', action: 'fade_in', duration: 0.5, lifetime: 3.0 } // Exits 3s after trigger, uses smart defaults",
+        "timeline": "0.0s: triggers, 0.5s: fully visible, 3.0s: starts fade-out, 3.5s: fully gone"
+      },
+      "with_custom_exit": {
+        "description": "Full control over exit behavior",
+        "code": "{ type: 'narrator', action: 'fade_in', duration: 0.5, lifetime: 3.0, exit_action: 'fade_out', exit_duration: 2.0 }",
+        "timeline": "0.0s: triggers, 0.5s: visible, 3.0s: starts 2s fade-out, 5.0s: gone"
+      }
+    },
+    "smart_defaults": {
+      "description": "If lifetime is specified but exit parameters are omitted, smart defaults apply",
+      "exit_action_defaults": {
+        "fade_in": "fade_out",
+        "slide_in": "slide_out",
+        "show": "hide",
+        "cut_in": "clear"
+      },
+      "exit_duration_default": "Same as entry duration"
+    },
+    "element_types": {
+      "background": {
+        "description": "Full-screen background image or solid color",
+        "actions": ["fade_in", "fade_out", "cut_in"],
+        "supports_lifetime": true,
+        "parameters": {
+          "asset": "Image filename in assets/scenes/ (e.g. 'starship_bridge.jpg')",
+          "color": "Color name ('black', 'white', 'space_blue', 'deep_space') or hex code ('#1a2332')",
+          "lifetime": "OPTIONAL: Seconds before auto-exit",
+          "exit_action": "OPTIONAL: fade_out | clear",
+          "exit_duration": "OPTIONAL: Exit animation time"
+        }
+      },
+      "narrator": {
+        "description": "Center-screen narrative text (like opening crawls)",
+        "actions": ["fade_in", "fade_out", "show", "hide"],
+        "supports_lifetime": true,
+        "parameters": {
+          "text": "Text content (use \\n for line breaks)",
+          "align": "left | center | right | justify (default: center)",
+          "size": "small | normal | large (default: normal)",
+          "style": "normal | italic | bold (default: normal)",
+          "lifetime": "OPTIONAL: Seconds before auto-exit",
+          "exit_action": "OPTIONAL: fade_out | hide",
+          "exit_duration": "OPTIONAL: Exit animation time"
+        }
+      },
+      "caption": {
+        "description": "Bottom-left context text (location/time)",
+        "actions": ["fade_in", "fade_out", "show", "hide"],
+        "supports_lifetime": true,
+        "parameters": {
+          "text": "Text content (use \\n for line breaks)",
+          "size": "small | normal | large (default: normal)",
+          "style": "normal | italic | bold (default: normal)",
+          "lifetime": "OPTIONAL: Seconds before auto-exit",
+          "exit_action": "OPTIONAL: fade_out | hide",
+          "exit_duration": "OPTIONAL: Exit animation time"
+        }
+      },
+      "portrait": {
+        "description": "Character portraits sliding in from sides",
+        "actions": ["slide_in", "slide_out", "fade_in", "fade_out", "cut_in"],
+        "supports_lifetime": true,
+        "parameters": {
+          "character": "Guardian ID (stella, vawn, tiberius, maestra, shadow, nyx)",
+          "side": "left | right (required for slide actions)",
+          "lifetime": "OPTIONAL: Seconds before auto-exit",
+          "exit_action": "OPTIONAL: slide_out | fade_out",
+          "exit_duration": "OPTIONAL: Exit animation time"
+        }
+      },
+      "dialogue": {
+        "description": "Character speech box at bottom center",
+        "actions": ["show", "hide"],
+        "supports_lifetime": true,
+        "parameters": {
+          "character": "Guardian ID (for name display)",
+          "text": "Dialogue content",
+          "lifetime": "OPTIONAL: Seconds before auto-exit",
+          "exit_action": "OPTIONAL: hide",
+          "exit_duration": "OPTIONAL: Exit animation time"
+        }
+      },
+      "all": {
+        "description": "Affects all elements simultaneously (mass cleanup)",
+        "actions": ["fade_out", "clear"],
+        "supports_lifetime": false,
+        "note": "Rarely needed now that elements can auto-exit with lifetime"
+      }
+    },
+    "layer_order": [
+      "background (z-index: 1)",
+      "caption (z-index: 2)",
+      "narrator (z-index: 3)",
+      "portrait_left & portrait_right (z-index: 4)",
+      "dialogue (z-index: 5)"
+    ],
+    "implicit_replacement": "New elements on the same layer automatically replace old elements (e.g., new background replaces previous background)",
+    "skip_support": "Skip button appears after 3 seconds. Fast-forwards remaining events (including auto-generated exits) instantly.",
+    "mission_integration": {
+      "intro_scene": "Plays before mission simulation starts",
+      "outro_scene": "Plays after mission results (success or failure)",
+      "outro_scene_success": "Plays only on success (overrides outro_scene)",
+      "outro_scene_failure": "Plays only on failure (overrides outro_scene)"
+    },
+    "best_practices": [
+      "Use 'lifetime' for self-contained elements that should auto-exit",
+      "Omit 'lifetime' for persistent elements (backgrounds that last entire scene)",
+      "Stack text elements with different lifetimes for layered storytelling",
+      "Keep entry/exit durations between 0.5-2.0 seconds for smooth feel",
+      "Use smart defaults - only specify exit_action/exit_duration when needed",
+      "Portraits: Use lifetime with slide_in for natural character appearances"
+    ],
+    "comparison_before_after": {
+      "old_way": [
+        "{ delay: 0.0, type: 'narrator', action: 'fade_in', duration: 0.5 }",
+        "{ delay: 3.0, type: 'narrator', action: 'fade_out', duration: 1.0 }"
+      ],
+      "new_way": [
+        "{ delay: 0.0, type: 'narrator', action: 'fade_in', duration: 0.5, lifetime: 3.0, exit_duration: 1.0 }"
+      ],
+      "benefit": "2 events → 1 event. Element lifecycle in one place!"
+    }
+  },
+  "scenes": [
+    {
+      "scene_id": "test_simple",
+      "default_fade_duration": 1.0,
+      "events": [
+        {
+          "delay": 0.0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1.0,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1.0,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3.0,
+          "exit_duration": 1.0
+        }
+      ]
+    },
+    {
+      "scene_id": "mission_briefing",
+      "default_fade_duration": 1.0,
+      "events": [
+        {
+          "delay": 0.0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "space_blue",
+          "duration": 1.5,
+          "lifetime": 12.0,
+          "exit_duration": 1.0
+        },
+        {
+          "delay": 1.0,
+          "type": "caption",
+          "action": "fade_in",
+          "text": "Mission Control\nStarship Destiny",
+          "size": "small",
+          "duration": 0.5,
+          "lifetime": 11.0,
+          "exit_duration": 0.5
+        },
+        {
+          "delay": 0.5,
+          "type": "portrait",
+          "action": "slide_in",
+          "character": "stella",
+          "side": "left",
+          "duration": 0.5,
+          "lifetime": 6.0,
+          "exit_action": "slide_out",
+          "exit_duration": 0.5
+        },
+        {
+          "delay": 0.3,
+          "type": "dialogue",
+          "action": "show",
+          "character": "stella",
+          "text": "Team, we have incoming anomaly readings. Everyone ready?",
+          "lifetime": 3.0
+        },
+        {
+          "delay": 2.5,
+          "type": "portrait",
+          "action": "slide_in",
+          "character": "vawn",
+          "side": "right",
+          "duration": 0.5,
+          "lifetime": 3.5,
+          "exit_action": "slide_out",
+          "exit_duration": 0.5
+        },
+        {
+          "delay": 0.3,
+          "type": "dialogue",
+          "action": "show",
+          "character": "vawn",
+          "text": "I'm detecting energy signatures. Let's check it out.",
+          "lifetime": 3.0
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 ## READ THIS FIRST
 
-You are building a **web-based prototype** that simulates the "life between missions" gameplay loop for FellowDivers, a space superhero game. This is a **proof of concept** to test whether narrative progression and resource management can drive long-term player engagement.
+You are building a **web-based prototype** that simulates the "life between missions" gameplay loop for Endeavor, a space superhero game. This is a **proof of concept** to test whether narrative progression and resource management can drive long-term player engagement.
 
 **Your client**: Joe, a World Director who needs this prototype to demonstrate core systems to stakeholders.
 
@@ -47,13 +47,14 @@ You are building a **web-based prototype** that simulates the "life between miss
 ├── /css/                   # Styles
 ├── /js/                    # Game logic
 ├── /data/                  # JSON files (Joe edits these)
+│   ├── anomalies.json
 │   ├── rooms.json
 │   ├── missions.json
 │   ├── guardians.json
 │   ├── items.json
 │   ├── workstations.json
 │   ├── conversations.json
-│   └── blueprints.json
+│   └── trophies.json
 ├── /assets/                # Images, audio (mostly placeholders)
 └── README.md
 ```
@@ -146,7 +147,7 @@ const rewards = rollRewards(mission.rewards.success);
 
 ### Must-Have Features (Phase 1)
 
-1. **Password protection** → index.html blocks access until correct password entered
+CUT - 1. **Password protection** → index.html blocks access until correct password entered
 2. **Landing Page** → "Play" button enters fullscreen, navigates to Character Select
 3. **Character Select** → Forces player to choose one of 4 Guardians (Stella, Vawn, Tiberius, Maestra)
 4. **Navigation system** → Persistent bar at top, room switching, save last room

@@ -106,6 +106,16 @@ function executeDebugCommand(command) {
             showNotification('Anomalies rerolled!');
             break;
             
+        case 'play_scene':
+            const sceneId = parts[1];
+            if (sceneId) {
+                playCinematic(sceneId);
+                debugLog(`Playing scene: ${sceneId}`, 'success');
+            } else {
+                debugLog('Usage: play_scene <scene_id>', 'error');
+            }
+            break;
+            
         case 'reset_save':
             debugResetSave();
             break;
@@ -130,6 +140,7 @@ function executeDebugCommand(command) {
             debugLog('  set_guardian [id]', 'info');
             debugLog('  complete_mission [id]', 'info');
             debugLog('  set_missions_together [pair] [count]', 'info');
+            debugLog('  play_scene [scene_id]', 'info');
             debugLog('  reroll_anomalies', 'info');
             debugLog('  reset_save', 'info');
             break;
