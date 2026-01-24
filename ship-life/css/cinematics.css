@@ -68,7 +68,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-size: cover;
+    background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
 }
@@ -159,4 +159,254 @@
 
 .style-bold {
     font-weight: 600;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - TABLET
+   ======================================== */
+@media (max-width: 1023px) {
+    /* Caption adjustments */
+    .cinematic-caption {
+        bottom: 15px;
+        left: 15px;
+        max-width: 300px;
+        padding: 12px 16px;
+        font-size: 13px;
+    }
+
+    /* Narrator adjustments */
+    .cinematic-narrator {
+        max-width: 80%;
+        padding: 20px;
+    }
+
+    /* Portrait adjustments */
+    .cinematic-portrait-left,
+    .cinematic-portrait-right {
+        width: 220px;
+        height: 300px;
+        bottom: 18%;
+    }
+
+    .cinematic-portrait-left {
+        left: 5%;
+    }
+
+    .cinematic-portrait-right {
+        right: 5%;
+    }
+
+    /* Dialogue adjustments */
+    .cinematic-dialogue {
+        bottom: 40px;
+        max-width: 600px;
+        padding: 16px 24px;
+    }
+
+    .dialogue-name {
+        font-size: 16px;
+        margin-bottom: 6px;
+    }
+
+    .dialogue-text {
+        font-size: 14px;
+    }
+
+    /* Text size variants - tablet */
+    .size-small {
+        font-size: 12px;
+    }
+
+    .size-normal {
+        font-size: 14px;
+    }
+
+    .size-large {
+        font-size: 20px;
+    }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - MOBILE
+   ======================================== */
+@media (max-width: 767px) {
+    /* Caption adjustments */
+    .cinematic-caption {
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        max-width: calc(100% - 20px);
+        padding: 10px 14px;
+        font-size: 12px;
+    }
+
+    /* Narrator adjustments */
+    .cinematic-narrator {
+        max-width: 90%;
+        padding: 15px;
+    }
+
+    /* Portrait adjustments - significantly smaller */
+    .cinematic-portrait-left,
+    .cinematic-portrait-right {
+        width: 120px;
+        height: 160px;
+        bottom: 22%;
+    }
+
+    .cinematic-portrait-left {
+        left: 2%;
+    }
+
+    .cinematic-portrait-right {
+        right: 2%;
+    }
+
+    /* Dialogue adjustments */
+    .cinematic-dialogue {
+        bottom: 20px;
+        max-width: calc(100% - 20px);
+        width: calc(100% - 20px);
+        padding: 12px 16px;
+        border-radius: 8px;
+    }
+
+    .dialogue-name {
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .dialogue-text {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* Skip button - smaller */
+    .cinematic-skip {
+        top: 10px;
+        right: 10px;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+
+    /* Text size variants - mobile */
+    .size-small {
+        font-size: 11px;
+    }
+
+    .size-normal {
+        font-size: 13px;
+    }
+
+    .size-large {
+        font-size: 18px;
+    }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - VERY SMALL MOBILE
+   ======================================== */
+@media (max-width: 480px) {
+    /* Caption - even smaller */
+    .cinematic-caption {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+
+    /* Narrator - tighter spacing */
+    .cinematic-narrator {
+        max-width: 95%;
+        padding: 12px;
+    }
+
+    /* Portraits - much smaller */
+    .cinematic-portrait-left,
+    .cinematic-portrait-right {
+        width: 90px;
+        height: 120px;
+        bottom: 25%;
+    }
+
+    .cinematic-portrait-left {
+        left: 1%;
+    }
+
+    .cinematic-portrait-right {
+        right: 1%;
+    }
+
+    /* Dialogue - compact */
+    .cinematic-dialogue {
+        bottom: 15px;
+        padding: 10px 12px;
+    }
+
+    .dialogue-name {
+        font-size: 13px;
+    }
+
+    .dialogue-text {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    /* Skip button - compact */
+    .cinematic-skip {
+        top: 8px;
+        right: 8px;
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+
+    /* Text size variants - very small mobile */
+    .size-small {
+        font-size: 10px;
+    }
+
+    .size-normal {
+        font-size: 12px;
+    }
+
+    .size-large {
+        font-size: 16px;
+    }
+}
+
+/* ========================================
+   LANDSCAPE MOBILE OPTIMIZATION
+   ======================================== */
+@media (max-width: 767px) and (orientation: landscape) {
+    /* Portraits - smaller in landscape to fit */
+    .cinematic-portrait-left,
+    .cinematic-portrait-right {
+        width: 100px;
+        height: 140px;
+        bottom: 15%;
+    }
+
+    /* Narrator - less vertical padding */
+    .cinematic-narrator {
+        padding: 10px 15px;
+    }
+
+    /* Dialogue - smaller bottom margin */
+    .cinematic-dialogue {
+        bottom: 10px;
+        padding: 8px 12px;
+    }
+
+    .dialogue-name {
+        font-size: 12px;
+        margin-bottom: 3px;
+    }
+
+    .dialogue-text {
+        font-size: 11px;
+    }
+
+    /* Caption - smaller */
+    .cinematic-caption {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
 }
