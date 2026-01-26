@@ -70,7 +70,6 @@ function showTextChainUI() {
             </div>
         </div>
         <div class="extraction-container hidden" id="extractionContainer">
-            <div class="extraction-reason" id="extractionReason"></div>
             <button class="btn-extract" onclick="handleExtraction()">Extract and Return to Ship</button>
         </div>
     `;
@@ -105,7 +104,7 @@ function processNextActivity() {
     // Check if we've processed all activities
     if (textChainState.currentActivityIndex >= textChainState.activities.length) {
         // No more activities, trigger extraction
-        triggerExtraction('Completed exploration');
+        triggerExtraction('Ran out of time');
         return;
     }
     
@@ -259,6 +258,14 @@ function handleAvoid(activity) {
             // Successfully avoided
             addEntry('system-event', 'You slip past undetected.');
             // Don't increment counter for successful avoidance
+            
+            // PHASE 3: Replace avoided activity with new one
+            const newActivity = spawnReplacementActivity(textChainState.location, textChainState.activities);
+            if (newActivity) {
+                console.log(`[Replace] Spawned ${newActivity.name} (${newActivity.type}, ${newActivity.rarity}) to replace avoided activity`);
+                // Add to end of activities list
+                textChainState.activities.push(newActivity);
+            }
             
             setTimeout(() => {
                 // Move to next activity
@@ -478,9 +485,6 @@ function triggerExtraction(reason) {
     // Show extraction button
     setTimeout(() => {
         const extractionContainer = document.getElementById('extractionContainer');
-        const extractionReasonDiv = document.getElementById('extractionReason');
-        
-        extractionReasonDiv.textContent = reason.toUpperCase();
         extractionContainer.classList.remove('hidden');
     }, 2000);
 }
