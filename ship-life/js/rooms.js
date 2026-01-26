@@ -1157,38 +1157,8 @@ function launchLocationDrop(location) {
     console.log('[Launch] Guardian:', window.selectedGuardians[0]);
     console.log('[Launch] Activities spawned:', location.spawnedActivities.length);
     
-    // Phase 1: Auto-success - calculate loot and award it
-    const loot = calculateActivityLoot(location.spawnedActivities);
-    awardActivityLoot(loot);
-    
-    // Update progression
-    if (!gameState.progression) {
-        gameState.progression = {
-            total_drops: 0,
-            successful_drops: 0,
-            failed_drops: 0,
-            activities_completed: {
-                _total: 0
-            }
-        };
-    }
-    
-    gameState.progression.total_drops++;
-    gameState.progression.successful_drops++;
-    gameState.progression.activities_completed._total += location.spawnedActivities.length;
-    
-    // Track individual activities
-    location.spawnedActivities.forEach(activity => {
-        if (!gameState.progression.activities_completed[activity.id]) {
-            gameState.progression.activities_completed[activity.id] = 0;
-        }
-        gameState.progression.activities_completed[activity.id]++;
-    });
-    
-    autoSave(gameState);
-    
-    // Show results
-    showLocationDropResults(location, loot);
+    // Start text chain system (Phase 2)
+    initTextChain(location, location.spawnedActivities, window.selectedGuardians[0]);
 }
 
 /**
@@ -1651,6 +1621,7 @@ function renderInventory(container) {
     const groupedItems = {
         resource: [],
         blueprint: [],
+        equipment: [],
         aspect: []
     };
     
@@ -1664,7 +1635,8 @@ function renderInventory(container) {
     const typeNames = {
         resource: 'Resources',
         blueprint: 'Blueprints',
-        aspect: 'Equipment & Aspects'
+        equipment: 'Equipment',
+        aspect: 'Aspects'
     };
     
     for (const type in groupedItems) {
