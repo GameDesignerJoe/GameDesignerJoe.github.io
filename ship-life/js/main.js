@@ -5,7 +5,7 @@
  */
 async function loadAllData() {
     try {
-        const [rooms, missions, guardians, items, workstations, conversations, trophies, anomalies, scenes] = await Promise.all([
+        const [rooms, missions, guardians, items, workstations, conversations, trophies, anomalies, scenes, planets, locations, activities, gameConfig] = await Promise.all([
             fetch('data/rooms.json').then(r => r.json()),
             fetch('data/missions.json').then(r => r.json()),
             fetch('data/guardians.json').then(r => r.json()),
@@ -14,10 +14,14 @@ async function loadAllData() {
             fetch('data/conversations.json').then(r => r.json()),
             fetch('data/trophies.json').then(r => r.json()),
             fetch('data/anomalies.json').then(r => r.json()),
-            fetch('data/scenes.json').then(r => r.json())
+            fetch('data/scenes.json').then(r => r.json()),
+            fetch('data/planets.json').then(r => r.json()),
+            fetch('data/locations.json').then(r => r.json()),
+            fetch('data/activities.json').then(r => r.json()),
+            fetch('data/game_config.json').then(r => r.json())
         ]);
         
-        return { rooms, missions, guardians, items, workstations, conversations, trophies, anomalies, scenes };
+        return { rooms, missions, guardians, items, workstations, conversations, trophies, anomalies, scenes, planets, locations, activities, gameConfig };
     } catch (error) {
         console.error('Failed to load data files:', error);
         alert('Failed to load game data. Please refresh the page.');
@@ -42,6 +46,10 @@ async function initializeGame() {
     window.workstationsData = data.workstations.workstations;
     window.conversationsData = data.conversations.conversations;
     window.anomaliesData = data.anomalies.anomalies;
+    window.planetsData = data.planets.planets;
+    window.locationsData = data.locations.locations;
+    window.activitiesData = data.activities.activities;
+    window.gameConfigData = data.gameConfig;
     trophiesData = data.trophies;
     
     // Get blueprints from items (they're stored as type: "blueprint")
@@ -60,6 +68,9 @@ async function initializeGame() {
     console.log(`- ${window.anomaliesData.length} anomalies`);
     console.log(`- ${data.scenes.scenes.length} scenes`);
     console.log(`- ${trophiesData.length} trophies`);
+    console.log(`- ${window.planetsData.length} planets`);
+    console.log(`- ${window.locationsData.length} locations`);
+    console.log(`- ${window.activitiesData.length} activities`);
     
     // Load or create save
     gameState = loadSave();

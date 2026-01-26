@@ -1,0 +1,10 @@
+{
+  "planets": [
+    {
+      "id": "earth",
+      "name": "Earth",
+      "subtitle": "Humanity's Homeworld",
+      "map_image": "assets/images/maps/earth_map.png"
+    }
+  ]
+}

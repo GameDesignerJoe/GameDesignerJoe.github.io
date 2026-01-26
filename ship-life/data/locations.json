@@ -1,0 +1,91 @@
+{
+  "locations": [
+    {
+      "id": "frozen_wastes",
+      "planet_id": "earth",
+      "name": "Frozen Wastes",
+      "description": "A harsh arctic region with limited visibility and extreme cold. Ruins of ancient structures dot the landscape.",
+      "location_image": "assets/images/locations/frozen_wastes.png",
+      "hotspot_position": {
+        "x": 25.5,
+        "y": 40.0
+      },
+      "locked": false,
+      "unlock_requirements": {
+        "drop_count": 0,
+        "activities_completed": 0,
+        "specific_activities": []
+      },
+      "activity_spawn_range": {
+        "min": 2,
+        "max": 4
+      },
+      "max_activities": 5,
+      "activity_type_distribution": {
+        "combat": 60,
+        "resource_gathering": 20,
+        "investigating": 15,
+        "puzzle": 5
+      },
+      "possible_resources": ["ice_crystals", "frozen_metal", "cryo_cells"]
+    },
+    {
+      "id": "burning_plains",
+      "planet_id": "earth",
+      "name": "Burning Plains",
+      "description": "Volcanic wastelands with rivers of lava and ash storms. High danger, high reward.",
+      "location_image": "assets/images/locations/burning_plains.png",
+      "hotspot_position": {
+        "x": 65.0,
+        "y": 55.0
+      },
+      "locked": true,
+      "unlock_requirements": {
+        "drop_count": 5,
+        "activities_completed": 10,
+        "specific_activities": []
+      },
+      "activity_spawn_range": {
+        "min": 3,
+        "max": 4
+      },
+      "max_activities": 6,
+      "activity_type_distribution": {
+        "combat": 70,
+        "resource_gathering": 15,
+        "investigating": 10,
+        "puzzle": 5
+      },
+      "possible_resources": ["lava_core", "heat_cells", "obsidian_shards"]
+    },
+    {
+      "id": "crystal_caves",
+      "planet_id": "earth",
+      "name": "Crystal Caves",
+      "description": "Underground cavern systems filled with luminescent crystals and strange echoes.",
+      "location_image": "assets/images/locations/crystal_caves.png",
+      "hotspot_position": {
+        "x": 45.0,
+        "y": 25.0
+      },
+      "locked": true,
+      "unlock_requirements": {
+        "drop_count": 10,
+        "activities_completed": 20,
+        "specific_activities": []
+      },
+      "activity_spawn_range": {
+        "min": 2,
+        "max": 3
+      },
+      "max_activities": 5,
+      "activity_type_distribution": {
+        "combat": 40,
+        "resource_gathering": 30,
+        "investigating": 20,
+        "puzzle": 10
+      },
+      "possible_resources": ["crystal_shards", "resonance_cores", "rare_minerals"]
+    }
+  ]
+}

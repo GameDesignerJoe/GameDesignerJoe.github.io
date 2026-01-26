@@ -104,7 +104,7 @@ function renderRoom(room) {
             renderCharacterSelect(container);
             break;
         case 'mission_computer':
-            renderMissionComputer(container);
+            loadMapRoom();
             break;
         case 'workstation_room':
             renderWorkstationRoom(container);
@@ -723,12 +723,22 @@ function selectMission(mission) {
 function renderPlanetfallPortal(container) {
     container.className = 'planetfall-container';
     
+    // Check if we have a location (new system) or mission (old system)
+    const location = window.selectedLocation;
     const mission = window.selectedMission;
     
-    if (!mission) {
-        container.innerHTML = '<p>No mission selected</p>';
+    if (!location && !mission) {
+        container.innerHTML = '<p>No location or mission selected</p>';
         return;
     }
+    
+    // If we have a location, render location-based planetfall
+    if (location) {
+        renderLocationBasedPlanetfall(container, location);
+        return;
+    }
+    
+    // Otherwise, render mission-based planetfall (legacy)
     
     // Initialize selected guardians if not exists
     if (!window.selectedGuardians) {
@@ -836,7 +846,7 @@ function renderPlanetfallPortal(container) {
     squadSection.className = 'squad-selection-section';
     
     const squadTitle = document.createElement('h3');
-    squadTitle.textContent = 'Select Squad (1-4 Guardians)';
+    squadTitle.textContent = 'Select 1 Guardian';
     squadTitle.style.marginBottom = '15px';
     squadSection.appendChild(squadTitle);
     
@@ -962,7 +972,252 @@ function renderPlanetfallPortal(container) {
 }
 
 /**
- * Toggle guardian selection for squad
+ * Render Location-Based Planetfall (New System)
+ */
+function renderLocationBasedPlanetfall(container, location) {
+    console.log('[Planetfall] Rendering location-based planetfall for:', location.name);
+    
+    // Initialize selected guardians if not exists
+    if (!window.selectedGuardians) {
+        window.selectedGuardians = [];
+    }
+    
+    // Location info section
+    const locationInfo = document.createElement('div');
+    locationInfo.className = 'selected-mission-display';
+    
+    const title = document.createElement('h2');
+    title.textContent = location.name;
+    
+    const description = document.createElement('p');
+    description.textContent = location.description;
+    
+    // Show activities that will spawn
+    const activitiesInfo = document.createElement('div');
+    activitiesInfo.style.marginTop = '15px';
+    activitiesInfo.style.padding = '12px';
+    activitiesInfo.style.background = 'rgba(74, 144, 226, 0.15)';
+    activitiesInfo.style.borderRadius = '8px';
+    
+    const activitiesTitle = document.createElement('div');
+    activitiesTitle.style.fontWeight = '600';
+    activitiesTitle.style.marginBottom = '8px';
+    activitiesTitle.textContent = `Expected Activities: ${location.activity_spawn_range.min}-${location.activity_spawn_range.max}`;
+    
+    activitiesInfo.appendChild(activitiesTitle);
+    
+    locationInfo.appendChild(title);
+    locationInfo.appendChild(description);
+    locationInfo.appendChild(activitiesInfo);
+    
+    // Squad selection section
+    const squadSection = document.createElement('div');
+    squadSection.className = 'squad-selection-section';
+    
+    const squadTitle = document.createElement('h3');
+    squadTitle.textContent = 'Select 1 Guardian';
+    squadTitle.style.marginBottom = '15px';
+    squadSection.appendChild(squadTitle);
+    
+    const guardianGrid = document.createElement('div');
+    guardianGrid.className = 'squad-guardian-grid';
+    
+    const guardians = window.guardiansData || [];
+    guardians.forEach(guardian => {
+        const card = document.createElement('div');
+        card.className = 'squad-guardian-card';
+        
+        const isSelected = window.selectedGuardians.includes(guardian.id);
+        if (isSelected) {
+            card.classList.add('selected');
+        }
+        
+        // Portrait
+        const portrait = document.createElement('div');
+        portrait.className = 'squad-guardian-portrait';
+        renderVisual(guardian.portrait, portrait);
+        if (guardian.portrait.show_name) {
+            portrait.textContent = guardian.name;
+        }
+        
+        // Name
+        const name = document.createElement('div');
+        name.className = 'squad-guardian-name';
+        name.textContent = guardian.name;
+        
+        // Add compact stats display
+        const statsRow = document.createElement('div');
+        statsRow.style.display = 'flex';
+        statsRow.style.gap = '8px';
+        statsRow.style.fontSize = '13px';
+        statsRow.style.marginTop = '6px';
+        statsRow.style.justifyContent = 'center';
+        statsRow.style.flexWrap = 'wrap';
+        
+        if (guardian.stats) {
+            const statEmojis = {
+                health: '❤️',
+                attack: '⚔️',
+                defense: '🛡️',
+                movement: '👟',
+                mind: '🧠'
+            };
+            
+            const statOrder = ['health', 'attack', 'defense', 'movement', 'mind'];
+            
+            statOrder.forEach(statKey => {
+                const statValue = guardian.stats[statKey] || 0;
+                const statDisplay = document.createElement('span');
+                statDisplay.style.whiteSpace = 'nowrap';
+                statDisplay.textContent = `${statEmojis[statKey]} ${statValue}`;
+                statsRow.appendChild(statDisplay);
+            });
+        }
+        
+        // Loadout preview
+        const loadoutPreview = document.createElement('div');
+        loadoutPreview.className = 'squad-loadout-preview';
+        const loadout = getLoadout(gameState, guardian.id);
+        
+        // Show equipped items
+        let equippedCount = 0;
+        if (loadout && loadout.equipment) equippedCount++;
+        if (loadout && loadout.aspects) {
+            equippedCount += loadout.aspects.filter(a => a).length;
+        }
+        
+        loadoutPreview.textContent = `${equippedCount}/4 equipped`;
+        loadoutPreview.style.fontSize = '11px';
+        loadoutPreview.style.opacity = '0.7';
+        
+        // Manage loadout button
+        const manageBtn = document.createElement('button');
+        manageBtn.className = 'manage-loadout-btn';
+        manageBtn.textContent = 'Manage Loadout';
+        manageBtn.onclick = (e) => {
+            e.stopPropagation();
+            openLoadoutModal(guardian.id);
+        };
+        
+        card.appendChild(portrait);
+        card.appendChild(name);
+        if (guardian.stats) card.appendChild(statsRow);
+        card.appendChild(loadoutPreview);
+        card.appendChild(manageBtn);
+        
+        // Toggle selection
+        card.onclick = () => toggleGuardianSelection(guardian.id);
+        
+        guardianGrid.appendChild(card);
+    });
+    
+    squadSection.appendChild(guardianGrid);
+    
+    // Launch section with simple button (Phase 1 - no success rate calculation)
+    const launchSection = document.createElement('div');
+    launchSection.className = 'success-rate-section';
+    launchSection.style.display = 'flex';
+    launchSection.style.alignItems = 'center';
+    launchSection.style.justifyContent = 'space-between';
+    launchSection.style.gap = '20px';
+    
+    const readyInfo = document.createElement('div');
+    readyInfo.style.flex = '1';
+    
+    if (window.selectedGuardians.length === 0) {
+        readyInfo.innerHTML = '<p style="opacity: 0.7;">Select a guardian to begin</p>';
+    } else {
+        readyInfo.innerHTML = '<p style="color: var(--success); font-weight: 600;">Ready to drop!</p>';
+    }
+    
+    // Launch button
+    const launchButton = createButton('Begin Drop', 'launch-button', () => {
+        launchLocationDrop(location);
+    });
+    launchButton.style.flexShrink = '0';
+    
+    launchSection.appendChild(readyInfo);
+    launchSection.appendChild(launchButton);
+    
+    container.appendChild(locationInfo);
+    container.appendChild(launchSection);
+    container.appendChild(squadSection);
+}
+
+/**
+ * Launch location drop (new system)
+ */
+function launchLocationDrop(location) {
+    if (window.selectedGuardians.length === 0) {
+        showNotification('Select a guardian first', 'error');
+        return;
+    }
+    
+    console.log('[Launch] Starting drop to:', location.name);
+    console.log('[Launch] Guardian:', window.selectedGuardians[0]);
+    console.log('[Launch] Activities spawned:', location.spawnedActivities.length);
+    
+    // Phase 1: Auto-success - calculate loot and award it
+    const loot = calculateActivityLoot(location.spawnedActivities);
+    awardActivityLoot(loot);
+    
+    // Update progression
+    if (!gameState.progression) {
+        gameState.progression = {
+            total_drops: 0,
+            successful_drops: 0,
+            failed_drops: 0,
+            activities_completed: {
+                _total: 0
+            }
+        };
+    }
+    
+    gameState.progression.total_drops++;
+    gameState.progression.successful_drops++;
+    gameState.progression.activities_completed._total += location.spawnedActivities.length;
+    
+    // Track individual activities
+    location.spawnedActivities.forEach(activity => {
+        if (!gameState.progression.activities_completed[activity.id]) {
+            gameState.progression.activities_completed[activity.id] = 0;
+        }
+        gameState.progression.activities_completed[activity.id]++;
+    });
+    
+    autoSave(gameState);
+    
+    // Show results
+    showLocationDropResults(location, loot);
+}
+
+/**
+ * Show location drop results
+ */
+function showLocationDropResults(location, loot) {
+    const resultsModal = document.getElementById('mission-results');
+    const resultsTitle = document.getElementById('results-title');
+    const resultsStatus = document.getElementById('results-status');
+    const resultsRewards = document.getElementById('results-rewards');
+    
+    resultsTitle.textContent = 'Drop Complete!';
+    resultsStatus.innerHTML = `<p style="color: var(--success); font-size: 18px; font-weight: 600;">Successfully completed drop at ${location.name}</p>`;
+    
+    // Show loot
+    let rewardsHTML = '<h3 style="margin-top: 20px;">Resources Collected:</h3><ul style="margin-top: 10px;">';
+    for (const [itemId, quantity] of Object.entries(loot)) {
+        const item = window.itemsData?.find(i => i.id === itemId);
+        rewardsHTML += `<li>${item?.name || itemId}: ${quantity}</li>`;
+    }
+    rewardsHTML += '</ul>';
+    
+    resultsRewards.innerHTML = rewardsHTML;
+    
+    resultsModal.classList.remove('hidden');
+}
+
+/**
+ * Toggle guardian selection for squad (PHASE 1: Single guardian only)
  */
 function toggleGuardianSelection(guardianId) {
     if (!window.selectedGuardians) {
@@ -974,12 +1229,18 @@ function toggleGuardianSelection(guardianId) {
         // Deselect
         window.selectedGuardians.splice(index, 1);
     } else {
-        // Select (max 4)
-        if (window.selectedGuardians.length < 4) {
+        // Select (max 1 for Phase 1)
+        if (window.selectedGuardians.length < 1) {
             window.selectedGuardians.push(guardianId);
         } else {
-            showNotification('Maximum 4 guardians per mission', 'error');
-            return;
+            // Replace current selection
+            window.selectedGuardians = [guardianId];
+        }
+        
+        // Save last selected guardian
+        if (gameState) {
+            gameState.last_selected_guardian = guardianId;
+            autoSave(gameState);
         }
     }
     
