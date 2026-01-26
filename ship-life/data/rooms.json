@@ -31,7 +31,7 @@
     },
     {
       "id": "mission_computer",
-      "name": "Mission Computer",
+      "name": "Map Room",
       "background": {
         "type": "image",
         "value": "rooms/room_missions.png"
