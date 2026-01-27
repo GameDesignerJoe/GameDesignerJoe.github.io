@@ -279,6 +279,116 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'background.type': ['image', 'color'],
       'background.value': { source: 'roomImages' }
     }
+  },
+
+  'planets.json': {
+    name: 'Planets',
+    visualField: {
+      path: 'map_image',
+      types: ['image', 'color']
+    },
+    imageFolder: 'planets',
+    dropdowns: {
+      'map_image.type': ['image', 'color'],
+      'map_image.value': { source: 'planetsImages' }
+    },
+    tooltips: {
+      'id': 'Unique identifier for this planet (text field - enter new ID when creating planet)',
+      'name': 'Display name shown to players',
+      'subtitle': 'Descriptive subtitle (e.g., "Humanity\'s Homeworld")',
+      'map_image': 'Visual for planet map - can be image path or color hex'
+    }
+  },
+
+  'locations.json': {
+    name: 'Locations',
+    visualField: {
+      path: 'location_image',
+      types: ['image', 'color']
+    },
+    imageFolder: 'locations',
+    dropdowns: {
+      'planet_id': { source: 'planets' },
+      'location_image.type': ['image', 'color'],
+      'location_image.value': { source: 'locationImages' },
+      'unlock_requirements.specific_activities[]': { source: 'activities' },
+      'possible_resources[]': { source: 'items' }
+    },
+    arrayFields: {
+      'unlock_requirements.specific_activities': {
+        canAdd: true,
+        canRemove: true,
+        template: ''
+      },
+      'possible_resources': {
+        canAdd: true,
+        canRemove: true,
+        template: ''
+      }
+    },
+    tooltips: {
+      'id': 'Unique identifier for this location',
+      'planet_id': 'Which planet this location is on',
+      'hotspot_position.x': 'X position on map (0-100 percentage)',
+      'hotspot_position.y': 'Y position on map (0-100 percentage)',
+      'locked': 'If true, location must be unlocked before access',
+      'unlock_requirements.drop_count': 'Total drops required to unlock',
+      'unlock_requirements.activities_completed': 'Total activities required to unlock',
+      'activity_spawn_range.min': 'Minimum activities spawned per drop',
+      'activity_spawn_range.max': 'Maximum activities spawned per drop',
+      'max_activities': 'Maximum activities player can engage before extraction',
+      'activity_type_distribution': 'Percentage chances for each activity type (must total 100%)',
+      'possible_resources': 'Items that can be found at this location (for future use)'
+    }
+  },
+
+  'activities.json': {
+    name: 'Activities',
+    dropdowns: {
+      'type': ['combat', 'resource_gathering', 'investigating', 'puzzle'],
+      'rarity': ['common', 'uncommon', 'rare'],
+      'stat_requirements.primary.stat': ['health', 'attack', 'defense', 'movement', 'mind'],
+      'stat_requirements.secondary.stat': ['health', 'attack', 'defense', 'movement', 'mind'],
+      'stat_requirements.tertiary.stat': ['health', 'attack', 'defense', 'movement', 'mind'],
+      'loot_table[].resource_id': { source: 'items' }
+    },
+    arrayFields: {
+      'loot_table': {
+        canAdd: true,
+        canRemove: true,
+        template: { resource_id: '', min: 1, max: 1, drop_chance: 100 }
+      }
+    },
+    optionalFields: {
+      'stat_requirements.tertiary': { stat: '', value: 0 }
+    },
+    tooltips: {
+      'id': 'Unique identifier for this activity',
+      'type': 'Activity category (affects spawning distribution)',
+      'rarity': 'Spawn rarity (common: 66%, rare/uncommon: 33%)',
+      'difficulty': 'Activity difficulty 1-10 scale',
+      'stat_requirements.primary': 'Primary stat check (most important)',
+      'stat_requirements.primary.stat': 'Which guardian stat to check (health, attack, defense, movement, mind)',
+      'stat_requirements.primary.value': 'Minimum stat value required for success',
+      'stat_requirements.secondary': 'Secondary stat check (moderately important, optional)',
+      'stat_requirements.secondary.stat': 'Which guardian stat to check',
+      'stat_requirements.secondary.value': 'Minimum stat value required',
+      'stat_requirements.tertiary': 'Tertiary stat check (least important, optional)',
+      'stat_requirements.tertiary.stat': 'Which guardian stat to check',
+      'stat_requirements.tertiary.value': 'Minimum stat value required',
+      'detection_risk': 'Chance (%) of being detected when attempting to avoid',
+      'flee_chance': 'Chance (%) of successfully fleeing when detected',
+      'down_risk': 'Chance (%) of guardian being downed on failure',
+      'loot_table[].resource_id': 'Item ID to drop (should be dropdown - requires React fix)',
+      'dialogue': 'Guardian-specific dialogue (5 moments: initiate, engage, success, fail, downed). Use "default" for fallback dialogue, then add guardian IDs (stella, vawn, etc.) for character-specific lines. NOTE: Adding new guardians requires manual JSON editing currently.'
+    }
+  },
+
+  'game_config.json': {
+    name: 'Game Config',
+    tooltips: {
+      '_note': 'Game configuration file - edit with caution. Contains global game settings.'
+    }
   }
 };
 

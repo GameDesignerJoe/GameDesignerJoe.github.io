@@ -1,1 +1,0 @@
-I have a number of different repos here that have various projects I've played around with. The main thing I'd suggest is to load up the index.html at the root and go through everything through there if you want to see what it is. That covers nearly all of the things I'm working on. 

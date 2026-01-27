@@ -69,6 +69,35 @@ export function getDropdownOptionsForField(
         }
       }
       
+      // NEW: Check for nested array element patterns (e.g., "loot_table[].resource_id")
+      // Build all possible array patterns from the path
+      if (path && path.length > 2) {
+        // Try to match patterns like "arrayName[].fieldName"
+        const pathWithoutIndices = path.slice(1).map(p => isNaN(parseInt(p)) ? p : '[INDEX]');
+        
+        // Look for array patterns in schema
+        for (const schemaKey in schema.dropdowns) {
+          if (schemaKey.includes('[]')) {
+            // Extract the field name after []
+            const parts = schemaKey.split('[].');
+            if (parts.length === 2 && parts[1] === fieldName) {
+              // Check if our path contains the array name
+              const arrayName = parts[0];
+              if (pathWithoutIndices.includes(arrayName) || fieldPath.includes(arrayName)) {
+                const dropdownDef = schema.dropdowns[schemaKey];
+                if (Array.isArray(dropdownDef)) {
+                  return dropdownDef;
+                }
+                if (typeof dropdownDef === 'object' && dropdownDef.source) {
+                  const sourceKey = dropdownDef.source as keyof DropdownOptions;
+                  return dropdownOptions[sourceKey] || null;
+                }
+              }
+            }
+          }
+        }
+      }
+      
       // Check for simple field name match (e.g., just "type")
       const simpleFieldDropdown = schema.dropdowns[fieldName];
       if (simpleFieldDropdown) {

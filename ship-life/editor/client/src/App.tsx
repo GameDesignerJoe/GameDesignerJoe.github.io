@@ -17,6 +17,8 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [sortMode, setSortMode] = useState<'alpha' | 'difficulty-asc' | 'difficulty-desc'>('alpha');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showGuardianSelector, setShowGuardianSelector] = useState(false);
+  const [guardianSelectorPath, setGuardianSelectorPath] = useState<string[]>([]);
   const [saveTimeouts, setSaveTimeouts] = useState<Record<number, NodeJS.Timeout>>({});
 
   const currentFile = activeFileIndex !== null ? openFiles[activeFileIndex] : null;
@@ -463,6 +465,61 @@ export default function App() {
     return null;
   };
 
+  const renderDialogueObject = (dialogueObj: any, path: string[]): JSX.Element[] => {
+    // Render dialogue sections with delete buttons for guardian sections
+    return Object.entries(dialogueObj).map(([guardianKey, dialogueLines]) => {
+      if (typeof dialogueLines !== 'object' || dialogueLines === null) return null;
+      
+      const sectionKey = `${path.join('-')}-${guardianKey}`;
+      const isCollapsed = collapsedSections[sectionKey];
+      const isDefault = guardianKey.toLowerCase() === 'default';
+      
+      return (
+        <div key={guardianKey} className="mb-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
+              className="flex items-center gap-2 text-pink-400 hover:text-pink-300 mb-2"
+            >
+              <ChevronRight 
+                size={14} 
+                className={`transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+              />
+              <span className="font-semibold capitalize">{guardianKey}</span>
+            </button>
+            {!isDefault && (
+              <button
+                onClick={() => {
+                  if (!confirm(`Remove dialogue for ${guardianKey}?`)) return;
+                  if (activeFileIndex === null) return;
+                  const newFiles = [...openFiles];
+                  const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+                  let current = newData;
+                  for (let i = 0; i < path.length; i++) {
+                    current = current[path[i]];
+                  }
+                  delete current[guardianKey];
+                  newFiles[activeFileIndex].data = newData;
+                  newFiles[activeFileIndex].isDirty = true;
+                  setOpenFiles(newFiles);
+                }}
+                className="p-1 text-red-400 hover:text-red-300 hover:bg-gray-700 rounded mb-2"
+                title={`Remove ${guardianKey} dialogue`}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {!isCollapsed && (
+            <div className="pl-4 border-l-2 border-pink-900">
+              {renderObject(dialogueLines, [...path, guardianKey])}
+            </div>
+          )}
+        </div>
+      );
+    }).filter(Boolean) as JSX.Element[];
+  };
+
   const renderObject = (obj: any, path: string[] = []): JSX.Element[] => {
     const renderedFields = Object.entries(obj).map(([key, value]) => {
       if (key === '_documentation' || key === '_note') return null;
@@ -533,6 +590,9 @@ export default function App() {
         const schema = currentFile ? getSchemaForFile(currentFile.name) : null;
         const isOptionalField = schema?.optionalFields && key in schema.optionalFields && path.length === 2;
 
+        // Special handling for "dialogue" objects
+        const isDialogueObject = key.toLowerCase() === 'dialogue';
+
         return (
           <div key={key} className="mb-4">
             <div className="flex items-center justify-between">
@@ -546,31 +606,45 @@ export default function App() {
                 />
                 <span className="font-semibold">{displayName}</span>
               </button>
-              {isOptionalField && (
-                <button
-                  onClick={() => {
-                    if (activeFileIndex === null) return;
-                    const newFiles = [...openFiles];
-                    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
-                    let current = newData;
-                    for (let i = 0; i < path.length; i++) {
-                      current = current[path[i]];
-                    }
-                    delete current[key];
-                    newFiles[activeFileIndex].data = newData;
-                    newFiles[activeFileIndex].isDirty = true;
-                    setOpenFiles(newFiles);
-                  }}
-                  className="p-1 text-red-400 hover:text-red-300 hover:bg-gray-700 rounded mb-2"
-                  title={`Remove ${displayName}`}
-                >
-                  <X size={14} />
-                </button>
-              )}
+              <div className="flex gap-2">
+                {isDialogueObject && !isCollapsed && (
+                  <button
+                    onClick={() => {
+                      setGuardianSelectorPath(currentPath);
+                      setShowGuardianSelector(true);
+                    }}
+                    className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 rounded text-white mb-2"
+                    title="Add Guardian Dialogue"
+                  >
+                    + Add Guardian
+                  </button>
+                )}
+                {isOptionalField && (
+                  <button
+                    onClick={() => {
+                      if (activeFileIndex === null) return;
+                      const newFiles = [...openFiles];
+                      const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+                      let current = newData;
+                      for (let i = 0; i < path.length; i++) {
+                        current = current[path[i]];
+                      }
+                      delete current[key];
+                      newFiles[activeFileIndex].data = newData;
+                      newFiles[activeFileIndex].isDirty = true;
+                      setOpenFiles(newFiles);
+                    }}
+                    className="p-1 text-red-400 hover:text-red-300 hover:bg-gray-700 rounded mb-2"
+                    title={`Remove ${displayName}`}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
             {!isCollapsed && (
               <div className="pl-4 border-l-2 border-gray-700">
-                {renderObject(value, currentPath)}
+                {isDialogueObject ? renderDialogueObject(value, currentPath) : renderObject(value, currentPath)}
               </div>
             )}
           </div>
@@ -1014,6 +1088,66 @@ export default function App() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Guardian Selector Modal */}
+      {showGuardianSelector && dropdownOptions?.guardians && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">Select Guardian</h3>
+              <button
+                onClick={() => setShowGuardianSelector(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Choose a guardian to add dialogue for:
+            </p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {dropdownOptions.guardians.map((guardianId) => (
+                <button
+                  key={guardianId}
+                  onClick={() => {
+                    if (activeFileIndex === null) return;
+                    const newFiles = [...openFiles];
+                    const newData = JSON.parse(JSON.stringify(newFiles[activeFileIndex].data));
+                    let current = newData;
+                    for (let i = 0; i < guardianSelectorPath.length; i++) {
+                      current = current[guardianSelectorPath[i]];
+                    }
+                    
+                    // Check if already exists
+                    if (guardianId in current) {
+                      alert(`Dialogue for ${guardianId} already exists!`);
+                      return;
+                    }
+                    
+                    // Add new guardian dialogue with template
+                    current[guardianId] = {
+                      initiate: '',
+                      engage: '',
+                      success: '',
+                      fail: '',
+                      downed: ''
+                    };
+                    
+                    newFiles[activeFileIndex].data = newData;
+                    newFiles[activeFileIndex].isDirty = true;
+                    setOpenFiles(newFiles);
+                    setShowGuardianSelector(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded transition-colors text-left bg-gray-700 hover:bg-gray-600 text-gray-100 capitalize"
+                >
+                  <span className="text-pink-400">●</span>
+                  <span>{guardianId}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>

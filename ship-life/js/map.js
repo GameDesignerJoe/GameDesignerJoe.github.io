@@ -33,8 +33,28 @@ function renderPlanetMap(planet, locations) {
     const mapBackground = document.createElement('div');
     mapBackground.className = 'map-background';
     
-    // Use color background for now (Phase 1 - no image yet)
-    mapBackground.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)';
+    // Apply planet map image or color
+    if (planet.map_image) {
+        if (typeof planet.map_image === 'object') {
+            // New format: {type: 'image'|'color', value: '...'}
+            if (planet.map_image.type === 'image') {
+                mapBackground.style.backgroundImage = `url('assets/images/${planet.map_image.value}')`;
+                mapBackground.style.backgroundSize = 'cover';
+                mapBackground.style.backgroundPosition = 'center';
+            } else if (planet.map_image.type === 'color') {
+                mapBackground.style.background = planet.map_image.value;
+            }
+        } else {
+            // Old format: string path (backward compatibility)
+            mapBackground.style.backgroundImage = `url('${planet.map_image}')`;
+            mapBackground.style.backgroundSize = 'cover';
+            mapBackground.style.backgroundPosition = 'center';
+        }
+    } else {
+        // Fallback gradient
+        mapBackground.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)';
+    }
+    
     mapBackground.style.position = 'relative';
     mapBackground.style.width = '100%';
     mapBackground.style.height = '80vh';
@@ -189,11 +209,10 @@ function showLocationSidebar(location, isUnlocked) {
     
     content.innerHTML = '';
     
-    // Location image placeholder
+    // Location image
     const imagePlaceholder = document.createElement('div');
     imagePlaceholder.style.width = '100%';
     imagePlaceholder.style.height = '200px';
-    imagePlaceholder.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
     imagePlaceholder.style.borderRadius = '8px';
     imagePlaceholder.style.marginBottom = '20px';
     imagePlaceholder.style.display = 'flex';
@@ -202,7 +221,32 @@ function showLocationSidebar(location, isUnlocked) {
     imagePlaceholder.style.fontSize = '18px';
     imagePlaceholder.style.fontWeight = '600';
     imagePlaceholder.style.color = 'rgba(255, 255, 255, 0.8)';
-    imagePlaceholder.textContent = location.name;
+    
+    // Apply location image or color
+    if (location.location_image) {
+        if (typeof location.location_image === 'object') {
+            // New format: {type: 'image'|'color', value: '...'}
+            if (location.location_image.type === 'image') {
+                imagePlaceholder.style.backgroundImage = `url('assets/images/${location.location_image.value}')`;
+                imagePlaceholder.style.backgroundSize = 'cover';
+                imagePlaceholder.style.backgroundPosition = 'center';
+                imagePlaceholder.textContent = ''; // Clear text when image is shown
+            } else if (location.location_image.type === 'color') {
+                imagePlaceholder.style.background = location.location_image.value;
+                imagePlaceholder.textContent = location.name;
+            }
+        } else {
+            // Old format: string path (backward compatibility)
+            imagePlaceholder.style.backgroundImage = `url('${location.location_image}')`;
+            imagePlaceholder.style.backgroundSize = 'cover';
+            imagePlaceholder.style.backgroundPosition = 'center';
+            imagePlaceholder.textContent = ''; // Clear text when image is shown
+        }
+    } else {
+        // Fallback gradient with text
+        imagePlaceholder.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        imagePlaceholder.textContent = location.name;
+    }
     
     if (!isUnlocked) {
         imagePlaceholder.style.filter = 'grayscale(100%)';

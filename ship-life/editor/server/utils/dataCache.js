@@ -11,13 +11,17 @@ let dataCache = {
   rooms: [],
   anomalies: [],
   trophies: [],
+  planets: [],
+  activities: [],
   conversationTypes: ['important', 'background'],
   playerCharReq: ['any'],
   roomImages: [],
   guardianImages: [],
   missionImages: [],
   itemImages: [],
-  workstationImages: []
+  workstationImages: [],
+  mapImages: [],
+  locationImages: []
 };
 
 let dataDir = '';
@@ -69,9 +73,19 @@ async function buildCache() {
     const trophies = JSON.parse(trophiesFile);
     dataCache.trophies = trophies.trophies ? trophies.trophies.map(t => t.id) : [];
 
+    // Read planets
+    const planetsFile = await fs.readFile(path.join(dataDir, 'planets.json'), 'utf-8');
+    const planets = JSON.parse(planetsFile);
+    dataCache.planets = planets.planets ? planets.planets.map(p => p.id) : [];
+
+    // Read activities
+    const activitiesFile = await fs.readFile(path.join(dataDir, 'activities.json'), 'utf-8');
+    const activities = JSON.parse(activitiesFile);
+    dataCache.activities = activities.activities ? activities.activities.map(a => a.id) : [];
+
     // Scan image folders
     const assetsDir = path.join(dataDir, '../assets/images');
-    const imageFolders = ['rooms', 'guardians', 'missions', 'items', 'workstations'];
+    const imageFolders = ['rooms', 'guardians', 'missions', 'items', 'workstations', 'planets', 'locations'];
     
     for (const folder of imageFolders) {
       const folderPath = path.join(assetsDir, folder);
@@ -96,7 +110,9 @@ async function buildCache() {
       blueprints: dataCache.blueprints.length,
       rooms: dataCache.rooms.length,
       anomalies: dataCache.anomalies.length,
-      trophies: dataCache.trophies.length
+      trophies: dataCache.trophies.length,
+      planets: dataCache.planets.length,
+      activities: dataCache.activities.length
     });
   } catch (error) {
     console.error('Error building cache:', error.message);

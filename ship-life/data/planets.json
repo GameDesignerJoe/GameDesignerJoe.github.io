@@ -2,9 +2,21 @@
   "planets": [
     {
       "id": "earth",
-      "name": "Earth",
-      "subtitle": "Humanity's Homeworld",
-      "map_image": "assets/images/maps/earth_map.png"
+      "name": "Terminus Shoal",
+      "subtitle": "A quiet planet of little apparent consequence",
+      "map_image": {
+        "type": "image",
+        "value": "planets/crux_map.jpg"
+      }
+    },
+    {
+      "id": "terminus_shoal",
+      "name": "Terminus Shoal New",
+      "subtitle": "A quiet planet of little apparent consequence",
+      "map_image": {
+        "type": "image",
+        "value": "planets/crux_map.jpg"
+      }
     }
   ]
 }
