@@ -143,6 +143,7 @@
   "scenes": [
     {
       "scene_id": "test_simple",
+      "name": "Test Simple Scene",
       "default_fade_duration": 1.0,
       "events": [
         {
@@ -169,6 +170,7 @@
     },
     {
       "scene_id": "mission_briefing",
+      "name": "Mission Briefing",
       "default_fade_duration": 1.0,
       "events": [
         {

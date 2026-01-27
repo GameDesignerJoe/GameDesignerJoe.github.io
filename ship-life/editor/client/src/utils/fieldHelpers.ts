@@ -156,7 +156,17 @@ export function getMainArray(data: any): any[] | null {
     Array.isArray(data[key]) && key !== '_documentation'
   );
   
-  return arrayKeys.length > 0 ? data[arrayKeys[0]] : null;
+  // Check if the array contains objects (normal case) or primitives (config case)
+  if (arrayKeys.length > 0) {
+    const firstArray = data[arrayKeys[0]];
+    // If array contains primitives (strings, numbers), return null to trigger config mode
+    if (firstArray.length > 0 && typeof firstArray[0] !== 'object') {
+      return null;
+    }
+    return firstArray;
+  }
+  
+  return null;
 }
 
 // Get the array key name from data

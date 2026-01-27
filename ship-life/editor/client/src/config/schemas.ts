@@ -30,6 +30,14 @@ export interface FileSchema {
   optionalFields?: {
     [fieldPath: string]: any; // Template for optional fields
   };
+  dynamicObjects?: {
+    [fieldPath: string]: {
+      keySource: string; // Dropdown source for available keys (e.g., 'activityTypes')
+      defaultValue: any; // Default value for new keys
+      canAdd: boolean;
+      canRemove: boolean;
+    };
+  };
   fieldOrder?: string[]; // Explicit field ordering with positions for optional fields
   tooltips?: {
     [fieldPath: string]: string; // Help text for fields
@@ -312,7 +320,8 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'location_image.type': ['image', 'color'],
       'location_image.value': { source: 'locationImages' },
       'unlock_requirements.specific_activities[]': { source: 'activities' },
-      'possible_resources[]': { source: 'items' }
+      'possible_resources[]': { source: 'items' },
+      'activity_type_distribution[].type': { source: 'activityTypes' }
     },
     arrayFields: {
       'unlock_requirements.specific_activities': {
@@ -324,6 +333,11 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
         canAdd: true,
         canRemove: true,
         template: ''
+      },
+      'activity_type_distribution': {
+        canAdd: true,
+        canRemove: true,
+        template: { type: '', percentage: 0 }
       }
     },
     tooltips: {
@@ -337,7 +351,7 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       'activity_spawn_range.min': 'Minimum activities spawned per drop',
       'activity_spawn_range.max': 'Maximum activities spawned per drop',
       'max_activities': 'Maximum activities player can engage before extraction',
-      'activity_type_distribution': 'Percentage chances for each activity type (must total 100%)',
+      'activity_type_distribution': 'Array of activity types with percentages. Add/remove types as needed. Total should equal 100%.',
       'possible_resources': 'Items that can be found at this location (for future use)'
     }
   },
@@ -386,8 +400,51 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
 
   'game_config.json': {
     name: 'Game Config',
+    arrayFields: {
+      'activity_types': {
+        canAdd: true,
+        canRemove: true,
+        template: ''
+      }
+    },
     tooltips: {
-      '_note': 'Game configuration file - edit with caution. Contains global game settings.'
+      '_note': 'Game configuration file - edit with caution. Contains global game settings.',
+      'activity_types': 'Array of activity type strings (combat, resource_gathering, investigating, puzzle)'
+    }
+  },
+
+  'scenes.json': {
+    name: 'Scenes',
+    tooltips: {
+      'scene_id': 'Unique technical identifier for this scene (used in code references)',
+      'name': 'Human-readable display name for the scene',
+      'default_fade_duration': 'Default fade duration in seconds for scene transitions',
+      'events': 'Array of timed cinematic events (backgrounds, dialogue, portraits, etc.)'
+    },
+    arrayFields: {
+      'events': {
+        canAdd: true,
+        canRemove: true,
+        canReorder: true,
+        template: {
+          delay: 0.0,
+          type: 'narrator',
+          action: 'fade_in',
+          text: '',
+          duration: 1.0
+        }
+      }
+    },
+    dropdowns: {
+      'events[].type': ['background', 'narrator', 'caption', 'portrait', 'dialogue', 'all'],
+      'events[].action': ['fade_in', 'fade_out', 'slide_in', 'slide_out', 'show', 'hide', 'cut_in', 'clear'],
+      'events[].character': { source: 'guardians' },
+      'events[].side': ['left', 'right'],
+      'events[].align': ['left', 'center', 'right', 'justify'],
+      'events[].size': ['small', 'normal', 'large'],
+      'events[].style': ['normal', 'italic', 'bold'],
+      'events[].color': ['black', 'white', 'space_blue', 'deep_space'],
+      'events[].exit_action': ['fade_out', 'slide_out', 'hide', 'clear']
     }
   }
 };
@@ -442,4 +499,12 @@ export function getTooltipForField(filename: string, fieldPath: string): string 
   if (!schema || !schema.tooltips) return null;
 
   return schema.tooltips[fieldPath] || null;
+}
+
+// Helper to check if field is a dynamic object that can have keys added/removed
+export function getDynamicObjectConfig(filename: string, fieldPath: string) {
+  const schema = getSchemaForFile(filename);
+  if (!schema || !schema.dynamicObjects) return null;
+
+  return schema.dynamicObjects[fieldPath] || null;
 }

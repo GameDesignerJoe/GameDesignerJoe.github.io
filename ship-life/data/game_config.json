@@ -3,6 +3,7 @@
     "combat",
     "resource_gathering",
     "investigating",
-    "puzzle"
+    "puzzle",
+    "test"
   ]
 }

@@ -5,7 +5,7 @@ import { FileSelector } from './components/FileSelector';
 import { ArrayManager } from './components/ArrayManager';
 import { OptionalField } from './components/OptionalField';
 import { getMainArray, getMainArrayKey, formatFieldName, isTextAreaField, getDropdownOptionsForField } from './utils/fieldHelpers';
-import { getArrayConfig, getOptionalFieldTemplate, getSchemaForFile, getTooltipForField } from './config/schemas';
+import { getArrayConfig, getOptionalFieldTemplate, getSchemaForFile, getTooltipForField, getDynamicObjectConfig } from './config/schemas';
 import type { OpenFile, DropdownOptions } from './types';
 
 export default function App() {
@@ -990,6 +990,17 @@ export default function App() {
                       </div>
                     </div>
                     {renderObject(currentItem, [getMainArrayKey(currentFile!.data) || '0', activeTab.toString()])}
+                  </>
+                ) : currentFile && !mainArray ? (
+                  // Config-style file (no main array) - render entire data object
+                  <>
+                    <div className="mb-4 pb-3 border-b border-gray-700">
+                      <h2 className="text-lg font-bold text-white">
+                        {currentFile.name}
+                      </h2>
+                      <p className="text-sm text-gray-400 mt-1">Configuration File</p>
+                    </div>
+                    {renderObject(currentFile.data, [])}
                   </>
                 ) : (
                   <div className="text-gray-500 text-center py-8">
