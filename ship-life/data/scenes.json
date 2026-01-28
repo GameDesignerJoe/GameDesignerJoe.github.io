@@ -38,7 +38,11 @@
     "element_types": {
       "background": {
         "description": "Full-screen background image or solid color",
-        "actions": ["fade_in", "fade_out", "cut_in"],
+        "actions": [
+          "fade_in",
+          "fade_out",
+          "cut_in"
+        ],
         "supports_lifetime": true,
         "parameters": {
           "asset": "Image filename in assets/scenes/ (e.g. 'starship_bridge.jpg')",
@@ -50,7 +54,12 @@
       },
       "narrator": {
         "description": "Center-screen narrative text (like opening crawls)",
-        "actions": ["fade_in", "fade_out", "show", "hide"],
+        "actions": [
+          "fade_in",
+          "fade_out",
+          "show",
+          "hide"
+        ],
         "supports_lifetime": true,
         "parameters": {
           "text": "Text content (use \\n for line breaks)",
@@ -64,7 +73,12 @@
       },
       "caption": {
         "description": "Bottom-left context text (location/time)",
-        "actions": ["fade_in", "fade_out", "show", "hide"],
+        "actions": [
+          "fade_in",
+          "fade_out",
+          "show",
+          "hide"
+        ],
         "supports_lifetime": true,
         "parameters": {
           "text": "Text content (use \\n for line breaks)",
@@ -77,7 +91,13 @@
       },
       "portrait": {
         "description": "Character portraits sliding in from sides",
-        "actions": ["slide_in", "slide_out", "fade_in", "fade_out", "cut_in"],
+        "actions": [
+          "slide_in",
+          "slide_out",
+          "fade_in",
+          "fade_out",
+          "cut_in"
+        ],
         "supports_lifetime": true,
         "parameters": {
           "character": "Guardian ID (stella, vawn, tiberius, maestra, shadow, nyx)",
@@ -89,7 +109,10 @@
       },
       "dialogue": {
         "description": "Character speech box at bottom center",
-        "actions": ["show", "hide"],
+        "actions": [
+          "show",
+          "hide"
+        ],
         "supports_lifetime": true,
         "parameters": {
           "character": "Guardian ID (for name display)",
@@ -101,7 +124,10 @@
       },
       "all": {
         "description": "Affects all elements simultaneously (mass cleanup)",
-        "actions": ["fade_out", "clear"],
+        "actions": [
+          "fade_out",
+          "clear"
+        ],
         "supports_lifetime": false,
         "note": "Rarely needed now that elements can auto-exit with lifetime"
       }
@@ -144,52 +170,457 @@
     {
       "scene_id": "test_simple",
       "name": "Test Simple Scene",
-      "default_fade_duration": 1.0,
+      "default_fade_duration": 1,
       "events": [
         {
-          "delay": 0.0,
+          "delay": 0,
           "type": "background",
           "action": "fade_in",
           "color": "black",
-          "duration": 1.0,
+          "duration": 1,
           "lifetime": 5.5,
           "exit_duration": 1.5
         },
         {
-          "delay": 1.0,
+          "delay": 1,
           "type": "narrator",
           "action": "fade_in",
           "text": "Once upon a time in a distant galaxy...",
           "align": "center",
           "size": "large",
           "duration": 0.5,
-          "lifetime": 3.0,
-          "exit_duration": 1.0
+          "lifetime": 3,
+          "exit_duration": 1
         }
-      ]
+      ],
+      "trigger": {
+        "type": "game_start",
+        "play_once": true,
+        "activity_id": "",
+        "drop_count": 0,
+        "location_id": "",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple10",
+      "name": "Test Simple Scene drop",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "before_drop",
+        "play_once": true,
+        "activity_id": "",
+        "drop_count": 2,
+        "location_id": "",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple11",
+      "name": "Test Simple Scene extract",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "after_extraction",
+        "play_once": true,
+        "activity_id": "",
+        "drop_count": 0,
+        "location_id": "",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple12",
+      "name": "Test Simple Scene loc visit",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "location_first_visited",
+        "play_once": true,
+        "activity_id": "",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple2",
+      "name": "Test Simple Scene Act Patrol",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_encountered",
+        "play_once": true,
+        "activity_id": "patrol_encounter",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple3",
+      "name": "Test Simple Scene Act Patrol (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_encountered",
+        "play_once": true,
+        "activity_id": "crashed_ship",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple4",
+      "name": "Test Simple Scene Act Patrol (Copy) (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_encountered",
+        "play_once": true,
+        "activity_id": "resource_node",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple5",
+      "name": "Test Simple Scene Act Patrol (Copy) (Copy) (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_encountered",
+        "play_once": true,
+        "activity_id": "abandoned_outpost",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple6",
+      "name": "Test Simple Scene Act Patrol (Copy) (Copy) (Copy) (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_completed",
+        "play_once": true,
+        "activity_id": "abandoned_outpost",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple7",
+      "name": "Test Simple Scene Act Patrol (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_completed",
+        "play_once": true,
+        "activity_id": "resource_node",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple8",
+      "name": "Test Simple Scene Act Patrol (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_completed",
+        "play_once": true,
+        "activity_id": "crashed_ship",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
+    },
+    {
+      "scene_id": "test_simple9",
+      "name": "Test Simple Scene Act Patrol (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "default_fade_duration": 1,
+      "events": [
+        {
+          "delay": 0,
+          "type": "background",
+          "action": "fade_in",
+          "color": "black",
+          "duration": 1,
+          "lifetime": 5.5,
+          "exit_duration": 1.5
+        },
+        {
+          "delay": 1,
+          "type": "narrator",
+          "action": "fade_in",
+          "text": "Once upon a time in a distant galaxy...",
+          "align": "center",
+          "size": "large",
+          "duration": 0.5,
+          "lifetime": 3,
+          "exit_duration": 1
+        }
+      ],
+      "trigger": {
+        "type": "activity_completed",
+        "play_once": true,
+        "activity_id": "patrol_encounter",
+        "drop_count": 0,
+        "location_id": "frozen_wastes",
+        "successful_drops": 0,
+        "flag": ""
+      }
     },
     {
       "scene_id": "mission_briefing",
       "name": "Mission Briefing",
-      "default_fade_duration": 1.0,
+      "default_fade_duration": 1,
       "events": [
         {
-          "delay": 0.0,
+          "delay": 0,
           "type": "background",
           "action": "fade_in",
           "color": "space_blue",
           "duration": 1.5,
-          "lifetime": 12.0,
-          "exit_duration": 1.0
+          "lifetime": 12,
+          "exit_duration": 1
         },
         {
-          "delay": 1.0,
+          "delay": 1,
           "type": "caption",
           "action": "fade_in",
           "text": "Mission Control\nStarship Destiny",
           "size": "small",
           "duration": 0.5,
-          "lifetime": 11.0,
+          "lifetime": 11,
           "exit_duration": 0.5
         },
         {
@@ -199,7 +630,7 @@
           "character": "stella",
           "side": "left",
           "duration": 0.5,
-          "lifetime": 6.0,
+          "lifetime": 6,
           "exit_action": "slide_out",
           "exit_duration": 0.5
         },
@@ -209,7 +640,7 @@
           "action": "show",
           "character": "stella",
           "text": "Team, we have incoming anomaly readings. Everyone ready?",
-          "lifetime": 3.0
+          "lifetime": 3
         },
         {
           "delay": 2.5,
@@ -228,7 +659,7 @@
           "action": "show",
           "character": "vawn",
           "text": "I'm detecting energy signatures. Let's check it out.",
-          "lifetime": 3.0
+          "lifetime": 3
         }
       ]
     }

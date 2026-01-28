@@ -500,4 +500,144 @@ function slideOut(element, side, duration, callback) {
     }
 }
 
+/**
+ * ============================================
+ * SCENE TRIGGER SYSTEM
+ * ============================================
+ */
+
+/**
+ * Check and play scene triggers
+ * Returns: true if scene played, false if none matched
+ */
+async function checkSceneTriggers(triggerType, context = {}) {
+    const data = await loadScenes();
+    
+    // Find all matching scenes
+    const matchingScenes = data.scenes.filter(scene => {
+        if (!scene.trigger || scene.trigger.type !== triggerType) return false;
+        return meetsSceneConditions(scene, context);
+    });
+    
+    if (matchingScenes.length === 0) return false;
+    
+    // CONFLICT WARNING: Multiple scenes matched
+    if (matchingScenes.length > 1) {
+        console.warn(`⚠️ SCENE TRIGGER CONFLICT: ${matchingScenes.length} scenes matched for trigger type "${triggerType}"`);
+        console.warn('Matched scenes:', matchingScenes.map(s => s.scene_id));
+        console.warn('Playing random scene. FIX: Adjust trigger conditions to avoid conflicts.');
+    }
+    
+    // Pick random scene if multiple
+    const sceneToPlay = matchingScenes[Math.floor(Math.random() * matchingScenes.length)];
+    
+    console.log(`[Trigger] Playing scene "${sceneToPlay.scene_id}" (type: ${triggerType})`);
+    
+    // Play the scene
+    await playCinematic(sceneToPlay.scene_id);
+    
+    // Mark as played if play_once
+    if (sceneToPlay.trigger.play_once) {
+        markScenePlayed(sceneToPlay.scene_id);
+    }
+    
+    // Set flag if specified
+    if (sceneToPlay.trigger.flag) {
+        setSceneFlag(sceneToPlay.trigger.flag);
+    }
+    
+    return true;
+}
+
+/**
+ * Check if scene conditions are met
+ */
+function meetsSceneConditions(scene, context) {
+    const trigger = scene.trigger;
+    
+    // Check play_once
+    if (trigger.play_once && hasScenePlayed(scene.scene_id)) {
+        return false;
+    }
+    
+    // Check drop_count (exact match)
+    // NOTE: Editor displays drop_count as 1-based (user-friendly), but stored as 0-based
+    if (trigger.drop_count !== undefined && trigger.drop_count !== null) {
+        const totalDrops = gameState.progression?.total_drops || 0;
+        if (totalDrops !== trigger.drop_count) return false;
+    }
+    
+    // Check successful_drops (exact match)
+    // NOTE: Editor displays successful_drops as 1-based (user-friendly), but stored as 0-based
+    if (trigger.successful_drops !== undefined && trigger.successful_drops !== null) {
+        const successDrops = gameState.progression?.successful_drops || 0;
+        if (successDrops !== trigger.successful_drops) return false;
+    }
+    
+    // Check location_id (treat empty string as not set)
+    if (trigger.location_id && trigger.location_id.trim() !== '' && context.location_id !== trigger.location_id) {
+        return false;
+    }
+    
+    // Check activity_id (treat empty string as not set)
+    if (trigger.activity_id && trigger.activity_id.trim() !== '' && context.activity_id !== trigger.activity_id) {
+        return false;
+    }
+    
+    // Check flag (if flag already set, don't replay) (treat empty string as not set)
+    if (trigger.flag && trigger.flag.trim() !== '' && hasSceneFlag(trigger.flag)) {
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Check if scene has been played
+ */
+function hasScenePlayed(sceneId) {
+    if (!gameState.scenes_played) {
+        gameState.scenes_played = {};
+    }
+    return gameState.scenes_played[sceneId]?.played || false;
+}
+
+/**
+ * Mark scene as played
+ */
+function markScenePlayed(sceneId) {
+    if (!gameState.scenes_played) {
+        gameState.scenes_played = {};
+    }
+    if (!gameState.scenes_played[sceneId]) {
+        gameState.scenes_played[sceneId] = { played: false, times: 0 };
+    }
+    gameState.scenes_played[sceneId].played = true;
+    gameState.scenes_played[sceneId].times++;
+    autoSave(gameState);
+    console.log(`[Trigger] Marked scene "${sceneId}" as played (${gameState.scenes_played[sceneId].times} times)`);
+}
+
+/**
+ * Check if scene flag is set
+ */
+function hasSceneFlag(flag) {
+    if (!gameState.scene_flags) {
+        gameState.scene_flags = {};
+    }
+    return gameState.scene_flags[flag] || false;
+}
+
+/**
+ * Set scene flag
+ */
+function setSceneFlag(flag) {
+    if (!gameState.scene_flags) {
+        gameState.scene_flags = {};
+    }
+    gameState.scene_flags[flag] = true;
+    autoSave(gameState);
+    console.log(`[Trigger] Set scene flag: ${flag}`);
+}
+
 console.log('Cinematic system loaded.');

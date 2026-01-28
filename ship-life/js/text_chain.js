@@ -95,7 +95,7 @@ function startDropSequence() {
 /**
  * Process the next activity in the sequence
  */
-function processNextActivity() {
+async function processNextActivity() {
     // Check extraction conditions first
     if (checkExtractionConditions()) {
         return; // Extraction triggered
@@ -111,6 +111,12 @@ function processNextActivity() {
     const activity = textChainState.activities[textChainState.currentActivityIndex];
     
     console.log('[Text Chain] Processing activity:', activity.name);
+    
+    // Check for activity_encountered scenes
+    await checkSceneTriggers('activity_encountered', {
+        activity_id: activity.id,
+        location_id: textChainState.location.id
+    });
     
     // Show initiate dialogue
     const initiateDialogue = getDialogue(activity, textChainState.guardian.id, 'initiate');
@@ -370,7 +376,7 @@ function rollActivitySuccess(activity) {
 /**
  * Handle activity success
  */
-function handleActivitySuccess(activity) {
+async function handleActivitySuccess(activity) {
     // Show success dialogue
     const successDialogue = getDialogue(activity, textChainState.guardian.id, 'success');
     if (successDialogue) {
@@ -380,6 +386,13 @@ function handleActivitySuccess(activity) {
     // Award loot
     const loot = calculateActivityLoot([activity]);
     awardActivityLoot(loot);
+    
+    // Check for activity_completed scenes
+    await checkSceneTriggers('activity_completed', {
+        activity_id: activity.id,
+        location_id: textChainState.location.id,
+        result: 'success'
+    });
     
     // Show loot notification
     setTimeout(() => {
@@ -492,7 +505,7 @@ function triggerExtraction(reason) {
 /**
  * Handle extraction button click
  */
-function handleExtraction() {
+async function handleExtraction() {
     console.log('[Extraction] Returning to ship');
     
     // Update progression
@@ -515,6 +528,13 @@ function handleExtraction() {
     
     gameState.progression.total_drops++;
     autoSave(gameState);
+    
+    // Check for after_extraction scenes (only on successful extractions)
+    if (!isDowned) {
+        await checkSceneTriggers('after_extraction', {
+            successful_drops: gameState.progression.successful_drops
+        });
+    }
     
     // Show results
     showDropResults(isDowned);

@@ -16,6 +16,15 @@ export interface FileSchema {
     types: string[]; // e.g., ["image", "color"]
   };
   imageFolder?: string; // Folder name in assets/images/
+  conditionalField?: {
+    path: string; // e.g., "trigger"
+    typeField: string; // e.g., "type"
+    types: {
+      [typeValue: string]: {
+        fields: string[]; // Array of field names to show for this type
+      };
+    };
+  };
   dropdowns?: {
     [fieldPath: string]: string[] | { source: string };
   };
@@ -415,11 +424,53 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
 
   'scenes.json': {
     name: 'Scenes',
+    fieldOrder: ['scene_id', 'name', 'trigger', 'default_fade_duration', 'events'],
+    conditionalField: {
+      path: 'trigger',
+      typeField: 'type',
+      types: {
+        '': {
+          fields: []
+        },
+        'game_start': {
+          fields: ['play_once']
+        },
+        'before_drop': {
+          fields: ['play_once', 'drop_count']
+        },
+        'after_extraction': {
+          fields: ['play_once', 'successful_drops']
+        },
+        'location_first_visited': {
+          fields: ['play_once', 'location_id']
+        },
+        'activity_encountered': {
+          fields: ['play_once', 'activity_id']
+        },
+        'activity_completed': {
+          fields: ['play_once', 'activity_id']
+        }
+      }
+    },
     tooltips: {
       'scene_id': 'Unique technical identifier for this scene (used in code references)',
       'name': 'Human-readable display name for the scene',
       'default_fade_duration': 'Default fade duration in seconds for scene transitions',
-      'events': 'Array of timed cinematic events (backgrounds, dialogue, portraits, etc.)'
+      'events': 'Array of timed cinematic events (backgrounds, dialogue, portraits, etc.)',
+      'trigger': 'Defines when this scene automatically plays (optional)',
+      'trigger.type': 'What event triggers this scene',
+      'trigger.play_once': 'If true, scene only plays once ever',
+      'trigger.drop_count': 'Which drop number triggers this scene (1=first drop, 2=second drop, etc.). Exact match.',
+      'trigger.successful_drops': 'Which successful extraction triggers this scene (1=first success, 2=second success, etc.). Exact match.',
+      'trigger.location_id': 'Select which location (required for location_first_visited)',
+      'trigger.activity_id': 'Select which activity triggers this scene',
+      'trigger.flag': 'OPTIONAL: Advanced - Scene flag to check/set to prevent re-trigger'
+    },
+    optionalFields: {
+      'trigger': {
+        type: '',
+        play_once: false
+      }
     },
     arrayFields: {
       'events': {
@@ -436,6 +487,9 @@ export const FILE_SCHEMAS: { [filename: string]: FileSchema } = {
       }
     },
     dropdowns: {
+      'trigger.type': ['', 'game_start', 'before_drop', 'after_extraction', 'location_first_visited', 'activity_encountered', 'activity_completed'],
+      'trigger.location_id': { source: 'locations' },
+      'trigger.activity_id': { source: 'activities' },
       'events[].type': ['background', 'narrator', 'caption', 'portrait', 'dialogue', 'all'],
       'events[].action': ['fade_in', 'fade_out', 'slide_in', 'slide_out', 'show', 'hide', 'cut_in', 'clear'],
       'events[].character': { source: 'guardians' },

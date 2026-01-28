@@ -373,6 +373,13 @@ export default function App() {
       // Get tooltip for this field
       const fieldPath = path.slice(2).join('.');
       const tooltip = currentFile ? getTooltipForField(currentFile.name, fieldPath) : null;
+      const fieldName = path[path.length - 1];
+      
+      // User-friendly +1 offset for drop_count and successful_drops
+      // Display: user enters 1 for "first drop"
+      // Storage: saved as 0 internally
+      const isOffsetField = (fieldName === 'drop_count' || fieldName === 'successful_drops');
+      const displayValue = isOffsetField ? value + 1 : value;
       
       return (
         <div key={fieldId} className="mb-3">
@@ -383,8 +390,13 @@ export default function App() {
           <input
             id={fieldId}
             type="number"
-            value={value}
-            onChange={(e) => updateValue(path, parseFloat(e.target.value) || 0)}
+            value={displayValue}
+            onChange={(e) => {
+              const inputValue = parseFloat(e.target.value) || 0;
+              const storedValue = isOffsetField ? Math.max(0, inputValue - 1) : inputValue;
+              updateValue(path, storedValue);
+            }}
+            min={isOffsetField ? 1 : undefined}
             className="w-full px-2 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded text-gray-100 focus:outline-none focus:border-blue-500"
           />
         </div>
@@ -520,7 +532,193 @@ export default function App() {
     }).filter(Boolean) as JSX.Element[];
   };
 
+  const renderConditionalField = (obj: any, path: string[], conditionalConfig: any): JSX.Element | null => {
+    const conditionalFieldName = conditionalConfig.path;
+    const conditionalValue = obj[conditionalFieldName];
+    
+    if (!conditionalValue) return null;
+    
+    const currentPath = [...path, conditionalFieldName];
+    const typeFieldPath = [...currentPath, conditionalConfig.typeField];
+    const selectedType = conditionalValue[conditionalConfig.typeField] || '';
+    
+    const typeConfig = conditionalConfig.types[selectedType];
+    const fieldsToShow = typeConfig ? typeConfig.fields : [];
+    
+    return (
+      <div key={conditionalFieldName} className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-semibold text-purple-400">{formatFieldName(conditionalFieldName)}</h4>
+        </div>
+        <div className="pl-4 border-l-2 border-gray-700">
+          {renderField(
+            formatFieldName(conditionalConfig.typeField),
+            selectedType,
+            typeFieldPath,
+            conditionalValue
+          )}
+          
+          {fieldsToShow.map((fieldName: string) => {
+            let fieldValue = conditionalValue[fieldName];
+            const fieldPath = [...currentPath, fieldName];
+            
+            // Initialize field if undefined based on type
+            if (fieldValue === undefined) {
+              // Determine default value based on field name or type
+              if (fieldName === 'play_once') {
+                fieldValue = false;
+              } else if (fieldName === 'drop_count' || fieldName === 'successful_drops') {
+                fieldValue = 0;
+              } else if (fieldName === 'location_id' || fieldName === 'activity_id' || fieldName === 'flag') {
+                fieldValue = '';
+              } else {
+                fieldValue = '';
+              }
+              
+              // Auto-initialize the field in the data
+              conditionalValue[fieldName] = fieldValue;
+              if (activeFileIndex !== null) {
+                const newFiles = [...openFiles];
+                newFiles[activeFileIndex].isDirty = true;
+                setOpenFiles(newFiles);
+              }
+            }
+            
+            return (
+              <div key={fieldName}>
+                {renderField(formatFieldName(fieldName), fieldValue, fieldPath, conditionalValue)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderObject = (obj: any, path: string[] = []): JSX.Element[] => {
+    const schema = currentFile ? getSchemaForFile(currentFile.name) : null;
+    const hasFieldOrder = schema?.fieldOrder && path.length === 2;
+    const conditionalField = schema?.conditionalField;
+    
+    if (hasFieldOrder && schema?.fieldOrder) {
+      const renderedFields: JSX.Element[] = [];
+      const processedKeys = new Set<string>();
+      
+      for (const fieldKey of schema.fieldOrder) {
+        processedKeys.add(fieldKey);
+        const value = obj[fieldKey];
+        
+        if (value === undefined) continue;
+        
+        if (conditionalField && fieldKey === conditionalField.path) {
+          const conditionalElement = renderConditionalField(obj, path, conditionalField);
+          if (conditionalElement) {
+            renderedFields.push(conditionalElement);
+          }
+          continue;
+        }
+        
+        const currentPath = [...path, fieldKey];
+        const displayName = formatFieldName(fieldKey);
+        
+        if (Array.isArray(value)) {
+          let template: any = '';
+          if (value.length > 0) {
+            const firstItem = value[0];
+            if (typeof firstItem === 'object' && !Array.isArray(firstItem)) {
+              template = JSON.parse(JSON.stringify(firstItem));
+              const clearValues = (obj: any) => {
+                for (let k in obj) {
+                  if (typeof obj[k] === 'string') obj[k] = '';
+                  else if (typeof obj[k] === 'number') obj[k] = 0;
+                  else if (typeof obj[k] === 'boolean') obj[k] = false;
+                  else if (Array.isArray(obj[k])) obj[k] = [];
+                  else if (typeof obj[k] === 'object' && obj[k] !== null) clearValues(obj[k]);
+                }
+              };
+              clearValues(template);
+            } else if (typeof firstItem === 'string') {
+              template = '';
+            } else if (typeof firstItem === 'number') {
+              template = 0;
+            }
+          }
+          
+          const fieldPath = currentPath.join('.').replace(/\.\d+\./g, '[].').replace(/^\w+\./, '');
+          const arrayConfig = currentFile ? getArrayConfig(currentFile.name, fieldPath) : null;
+          const canReorder = arrayConfig?.canReorder || false;
+          
+          renderedFields.push(
+            <div key={fieldKey} className="mb-4">
+              <h4 className="text-sm font-semibold text-blue-400 mb-2">{displayName}</h4>
+              <ArrayManager
+                items={value}
+                itemName={displayName.replace(/s$/, '')}
+                onAdd={() => addArrayItem(currentPath, template)}
+                onRemove={(index) => removeArrayItem(currentPath, index)}
+                onReorder={canReorder ? (index, direction) => reorderArrayItem(currentPath, index, direction) : undefined}
+                canAdd={true}
+                canRemove={true}
+                canReorder={canReorder}
+                renderItem={(item, index) => (
+                  typeof item === 'object' && !Array.isArray(item) ? (
+                    <div>{renderObject(item, [...currentPath, index.toString()])}</div>
+                  ) : (
+                    <div>{renderField(fieldKey, item, [...currentPath, index.toString()])}</div>
+                  )
+                )}
+              />
+            </div>
+          );
+        } else if (typeof value === 'object' && value !== null) {
+          const sectionKey = `${currentPath.join('-')}-obj`;
+          const isCollapsed = collapsedSections[sectionKey];
+          const isDialogueObject = fieldKey.toLowerCase() === 'dialogue';
+          
+          renderedFields.push(
+            <div key={fieldKey} className="mb-4">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !prev[sectionKey] }))}
+                  className="flex items-center gap-2 text-purple-400 hover:text-purple-300 mb-2"
+                >
+                  <ChevronRight 
+                    size={16} 
+                    className={`transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                  />
+                  <span className="font-semibold">{displayName}</span>
+                </button>
+                {isDialogueObject && !isCollapsed && (
+                  <button
+                    onClick={() => {
+                      setGuardianSelectorPath(currentPath);
+                      setShowGuardianSelector(true);
+                    }}
+                    className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 rounded text-white mb-2"
+                    title="Add Guardian Dialogue"
+                  >
+                    + Add Guardian
+                  </button>
+                )}
+              </div>
+              {!isCollapsed && (
+                <div className="pl-4 border-l-2 border-gray-700">
+                  {isDialogueObject ? renderDialogueObject(value, currentPath) : renderObject(value, currentPath)}
+                </div>
+              )}
+            </div>
+          );
+        } else {
+          const fieldElement = renderField(displayName, value, currentPath, obj);
+          if (fieldElement) {
+            renderedFields.push(fieldElement);
+          }
+        }
+      }
+      
+      return renderedFields;
+    }
+    
     const renderedFields = Object.entries(obj).map(([key, value]) => {
       if (key === '_documentation' || key === '_note') return null;
 

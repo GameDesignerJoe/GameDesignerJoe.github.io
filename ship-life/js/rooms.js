@@ -139,11 +139,14 @@ function renderLandingPage(container) {
     title.textContent = 'Endeavor Ship Life';
     title.style.marginBottom = '60px';
     
-    const playButton = createButton('Play', 'landing-button', () => {
+    const playButton = createButton('Play', 'landing-button', async () => {
         // Start background music when player clicks Play
         if (window.audioManager && window.audioManager.settings.musicEnabled) {
             window.audioManager.playMusic('bgm_ship_01');
         }
+        
+        // Check for game_start scenes (intro cinematics, etc.)
+        await checkSceneTriggers('game_start', {});
         
         // Go to character select
         switchRoom('character_select');
@@ -1147,7 +1150,7 @@ function renderLocationBasedPlanetfall(container, location) {
 /**
  * Launch location drop (new system)
  */
-function launchLocationDrop(location) {
+async function launchLocationDrop(location) {
     if (window.selectedGuardians.length === 0) {
         showNotification('Select a guardian first', 'error');
         return;
@@ -1156,6 +1159,20 @@ function launchLocationDrop(location) {
     console.log('[Launch] Starting drop to:', location.name);
     console.log('[Launch] Guardian:', window.selectedGuardians[0]);
     console.log('[Launch] Activities spawned:', location.spawnedActivities.length);
+    
+    // Check for before_drop scenes (BEFORE text chain starts)
+    const totalDrops = gameState.progression?.total_drops || 0;
+    await checkSceneTriggers('before_drop', {
+        drop_count: totalDrops,
+        location_id: location.id
+    });
+    
+    // Check for location_first_visited scenes
+    const visitFlag = `visited_${location.id}`;
+    await checkSceneTriggers('location_first_visited', {
+        location_id: location.id,
+        flag: visitFlag
+    });
     
     // Start text chain system (Phase 2)
     initTextChain(location, location.spawnedActivities, window.selectedGuardians[0]);
