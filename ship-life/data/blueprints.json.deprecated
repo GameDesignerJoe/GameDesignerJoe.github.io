@@ -1,7 +1,0 @@
-{
-  "_DEPRECATED": "This file is no longer used as of January 2026",
-  "_REASON": "Blueprints are now stored in items.json with type: 'blueprint'",
-  "_MIGRATION": "All blueprint data has been moved to items.json. The editor and game now read blueprints from items.json instead of this file.",
-  "_DO_NOT_USE": "This file is kept for reference only. Do not edit or use it.",
-  "_SEE_ALSO": "items.json - Contains all blueprints with type: 'blueprint'"
-}
