@@ -1,9 +1,0 @@
-{
-  "activity_types": [
-    "combat",
-    "resource_gathering",
-    "investigating",
-    "puzzle",
-    "test"
-  ]
-}
