@@ -1,0 +1,2108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Cartographer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+DW+Pica+SC&family=Caveat:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1611;
+    overflow: hidden;
+    font-family: 'IM Fell English', serif;
+    color: #3a2f24;
+    cursor: crosshair;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #gameCanvas { display: block; position: absolute; top: 0; left: 0; }
+
+  #uiLayer {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; z-index: 10;
+  }
+
+  /* Tool bar */
+  #toolbar {
+    position: absolute; bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 6px;
+    pointer-events: all;
+    background: rgba(62, 48, 34, 0.85);
+    border: 1px solid #5a4a38;
+    border-radius: 8px;
+    padding: 8px 14px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .tool-btn {
+    width: 56px; height: 56px;
+    border: 2px solid #5a4a38; border-radius: 6px;
+    background: rgba(245, 235, 220, 0.08);
+    color: #c4a882; font-size: 11px;
+    font-family: 'IM Fell DW Pica SC', serif;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    transition: all 0.2s; position: relative;
+  }
+
+  .tool-btn svg { width: 22px; height: 22px; stroke: #c4a882; fill: none; stroke-width: 1.5; }
+  .tool-btn:hover { background: rgba(245, 235, 220, 0.15); border-color: #c4a882; }
+  .tool-btn.active { background: rgba(196, 168, 130, 0.25); border-color: #d4b896; color: #e8d5bc; }
+  .tool-btn.active svg { stroke: #e8d5bc; }
+  .tool-btn.measuring { background: rgba(196, 85, 61, 0.3); border-color: #c4553d; }
+  .tool-btn.measuring svg { stroke: #e8a090; }
+
+  .tool-key {
+    position: absolute; top: -8px; right: -4px;
+    background: #5a4a38; color: #c4a882;
+    font-size: 9px; padding: 1px 4px;
+    border-radius: 3px; font-family: monospace;
+  }
+
+  /* Title card */
+  #titleCard {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; pointer-events: all;
+    z-index: 100; animation: fadeIn 1.5s ease;
+  }
+
+  #titleCard h1 {
+    font-family: 'IM Fell DW Pica SC', serif;
+    font-size: 52px; color: #e8d5bc;
+    letter-spacing: 6px; text-transform: uppercase;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  }
+
+  #titleCard p {
+    font-family: 'IM Fell English', serif;
+    font-style: italic; color: #a89478;
+    font-size: 16px; margin-bottom: 32px;
+  }
+
+  #startBtn {
+    font-family: 'IM Fell DW Pica SC', serif;
+    font-size: 18px; color: #e8d5bc;
+    background: rgba(62, 48, 34, 0.8);
+    border: 1px solid #5a4a38;
+    padding: 12px 40px; border-radius: 6px;
+    cursor: pointer; letter-spacing: 3px;
+    transition: all 0.3s;
+  }
+  #startBtn:hover { background: rgba(82, 68, 54, 0.9); border-color: #c4a882; }
+
+  /* Info panel */
+  #infoPanel {
+    position: absolute; top: 16px; left: 16px;
+    pointer-events: none; opacity: 0; transition: opacity 0.5s;
+  }
+  #infoPanel.visible { opacity: 1; }
+
+  #islandName {
+    font-family: 'IM Fell DW Pica SC', serif;
+    font-size: 20px; color: #c4a882; letter-spacing: 2px;
+  }
+  #mapProgress {
+    font-family: 'IM Fell English', serif;
+    font-style: italic; color: #8a7a68; font-size: 13px; margin-top: 4px;
+  }
+
+  /* Quest tracker */
+  #questTracker {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(90, 74, 56, 0.3);
+  }
+
+  .quest-item {
+    font-family: 'IM Fell English', serif;
+    font-size: 12px;
+    color: #6a5a48;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.5s;
+  }
+
+  .quest-item.complete {
+    color: #8a9a6a;
+  }
+
+  .quest-check {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #5a4a38;
+    border-radius: 2px;
+    flex-shrink: 0;
+    position: relative;
+    transition: border-color 0.5s, background 0.5s;
+  }
+
+  .quest-item.complete .quest-check {
+    border-color: #8a9a6a;
+    background: rgba(138, 154, 106, 0.15);
+  }
+
+  .quest-item.complete .quest-check::after {
+    content: '✓';
+    position: absolute;
+    top: -2px; left: 1px;
+    font-size: 11px;
+    color: #8a9a6a;
+  }
+
+  .quest-detail {
+    font-size: 11px;
+    color: #5a4a38;
+    opacity: 0.7;
+  }
+
+  .quest-item.complete .quest-detail {
+    color: #7a8a5a;
+  }
+
+  /* New Map button */
+  #newMapBtn {
+    display: none;
+    margin-top: 12px;
+    font-family: 'IM Fell DW Pica SC', serif;
+    font-size: 14px;
+    color: #e8d5bc;
+    background: rgba(62, 48, 34, 0.8);
+    border: 1px solid #5a4a38;
+    padding: 8px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    pointer-events: all;
+    transition: all 0.3s;
+    animation: fadeIn 1s ease;
+  }
+  #newMapBtn:hover { background: rgba(82, 68, 54, 0.9); border-color: #c4a882; }
+
+  /* Measure distance display */
+  #measureDisplay {
+    position: absolute; bottom: 96px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Caveat', cursive; font-size: 22px;
+    color: #c4553d; text-align: center;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.3s; white-space: nowrap;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  #measureDisplay.visible { opacity: 1; }
+  #measureDisplay .label {
+    font-family: 'IM Fell English', serif;
+    font-size: 11px; color: #8a7a68;
+    font-style: italic; display: block;
+  }
+
+  /* Tool hint */
+  #toolHint {
+    position: absolute; bottom: 96px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'IM Fell English', serif;
+    font-style: italic; color: #8a7a68; font-size: 13px;
+    text-align: center; pointer-events: none;
+    opacity: 0; transition: opacity 0.4s; white-space: nowrap;
+  }
+  #toolHint.visible { opacity: 1; }
+
+  /* Compass */
+  #compass {
+    position: absolute; top: 16px; right: 16px;
+    width: 60px; height: 60px;
+    pointer-events: none; opacity: 0; transition: opacity 0.5s;
+  }
+  #compass.visible { opacity: 1; }
+
+  /* Specimen panel */
+  #specimenPanel {
+    position: absolute; top: 16px; right: 90px;
+    display: flex; gap: 8px;
+    pointer-events: none; opacity: 0; transition: opacity 0.5s;
+  }
+  #specimenPanel.visible { opacity: 1; }
+
+  .specimen-slot {
+    width: 44px; height: 44px;
+    border: 1px solid #5a4a38; border-radius: 4px;
+    background: rgba(62, 48, 34, 0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; opacity: 0.3; transition: opacity 0.5s;
+  }
+  .specimen-slot.collected { opacity: 1; background: rgba(62, 48, 34, 0.8); }
+
+  /* Sextant coordinate HUD */
+  #coordPanel {
+    position: absolute; bottom: 96px; right: 16px;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.5s;
+    background: rgba(62, 48, 34, 0.75);
+    border: 1px solid #5a4a38;
+    border-radius: 6px;
+    padding: 10px 14px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    min-width: 200px;
+  }
+  #coordPanel.visible { opacity: 1; }
+
+  #coordPanel .coord-title {
+    font-family: 'IM Fell DW Pica SC', serif;
+    font-size: 11px; color: #8a7a68;
+    letter-spacing: 2px; margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  #coordPanel .coord-row {
+    font-family: 'Caveat', cursive;
+    font-size: 20px; color: #c4a882;
+    letter-spacing: 1px; line-height: 1.4;
+  }
+
+  #coordPanel .coord-row .digit {
+    display: inline-block;
+    min-width: 12px;
+    text-align: center;
+    transition: color 0.5s, text-shadow 0.5s;
+  }
+
+  #coordPanel .coord-row .digit.hidden {
+    color: #5a4a38;
+  }
+
+  #coordPanel .coord-row .digit.revealed {
+    color: #e8d5bc;
+    text-shadow: 0 0 8px rgba(196, 168, 130, 0.4);
+  }
+
+  #coordPanel .coord-row .digit.fresh {
+    color: #c4a882;
+    animation: digitReveal 1.2s ease;
+  }
+
+  #coordPanel .coord-progress {
+    margin-top: 8px;
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: #6a5a48;
+  }
+
+  #coordPanel .coord-progress-bar {
+    height: 3px;
+    background: #3a3025;
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  #coordPanel .coord-progress-fill {
+    height: 100%;
+    background: #4a7a9a;
+    border-radius: 2px;
+    transition: width 0.8s ease;
+    width: 0%;
+  }
+
+  /* Sextant feedback toast */
+  #sextantFeedback {
+    position: absolute;
+    bottom: 200px; right: 16px;
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: #8a7a68;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s;
+    text-align: right;
+    max-width: 220px;
+  }
+  #sextantFeedback.visible { opacity: 1; }
+  #sextantFeedback.success { color: #4a7a9a; }
+
+  @keyframes digitReveal {
+    0% { color: #4a7a9a; text-shadow: 0 0 16px rgba(74, 122, 154, 0.8); transform: scale(1.3); }
+    50% { text-shadow: 0 0 12px rgba(74, 122, 154, 0.5); }
+    100% { color: #e8d5bc; text-shadow: 0 0 8px rgba(196, 168, 130, 0.4); transform: scale(1); }
+  }
+
+  /* Landmark discovery toast */
+  #landmarkToast {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'IM Fell DW Pica SC', serif;
+    font-size: 24px; color: #c4a882;
+    letter-spacing: 3px; text-align: center;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.6s;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  #landmarkToast .sub {
+    font-family: 'IM Fell English', serif;
+    font-size: 14px; font-style: italic;
+    color: #8a7a68; letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  #landmarkToast.visible { opacity: 1; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -48%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="uiLayer">
+  <div id="titleCard">
+    <h1>The Cartographer</h1>
+    <p>Chart the unknown. One measurement at a time.</p>
+    <button id="startBtn" onclick="startGame()">Begin Expedition</button>
+  </div>
+
+  <div id="infoPanel">
+    <div id="islandName"></div>
+    <div id="mapProgress">Map: 0% charted</div>
+    <div id="questTracker">
+      <div class="quest-item" id="questPosition">
+        <span class="quest-check"></span>
+        <span>Position Fixed <span class="quest-detail" id="questPositionDetail">0/10</span></span>
+      </div>
+      <div class="quest-item" id="questSpecimens">
+        <span class="quest-check"></span>
+        <span>Samples Collected <span class="quest-detail" id="questSpecimensDetail">0/6</span></span>
+      </div>
+      <div class="quest-item" id="questLandmarks">
+        <span class="quest-check"></span>
+        <span>Landmarks Discovered <span class="quest-detail" id="questLandmarksDetail">0/?</span></span>
+      </div>
+    </div>
+    <button id="newMapBtn" onclick="newMap()">New Expedition</button>
+  </div>
+
+  <div id="compass">
+    <svg viewBox="0 0 60 60">
+      <circle cx="30" cy="30" r="28" fill="none" stroke="#5a4a38" stroke-width="1"/>
+      <text x="30" y="14" text-anchor="middle" fill="#c4a882" font-size="10" font-family="IM Fell DW Pica SC">N</text>
+      <text x="30" y="54" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">S</text>
+      <text x="8" y="34" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">W</text>
+      <text x="52" y="34" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">E</text>
+      <polygon points="30,16 27,28 33,28" fill="#c4553d" opacity="0.9"/>
+      <polygon points="30,44 27,32 33,32" fill="#5a4a38" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <div id="specimenPanel"></div>
+  <div id="coordPanel">
+    <div class="coord-title">Position Fix</div>
+    <div class="coord-row" id="coordLat"></div>
+    <div class="coord-row" id="coordLng"></div>
+    <div class="coord-progress"><span id="coordStatus">No readings taken</span>
+      <div class="coord-progress-bar"><div class="coord-progress-fill" id="coordFill"></div></div>
+    </div>
+  </div>
+  <div id="sextantFeedback"></div>
+  <div id="measureDisplay"><span class="label">Measuring</span><span id="measureDist">0m</span></div>
+  <div id="toolHint"></div>
+  <div id="landmarkToast"><span id="toastName"></span><div class="sub" id="toastSub"></div></div>
+
+  <div id="toolbar" style="display:none;">
+    <button class="tool-btn active" data-tool="walk" onclick="selectTool('walk')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M10 10l-1 8 3-2 3 2-1-8"/><path d="M9 22l1-6m5 6l-1-6"/></svg>
+      Walk
+      <span class="tool-key">1</span>
+    </button>
+    <button class="tool-btn" data-tool="theodolite" onclick="selectTool('theodolite')">
+      <svg viewBox="0 0 24 24"><path d="M12 3v6m-4 12h8m-4-12v12"/><circle cx="12" cy="9" r="3"/><path d="M6 9h12"/></svg>
+      Survey
+      <span class="tool-key">2</span>
+    </button>
+    <button class="tool-btn" data-tool="measure" onclick="selectTool('measure')">
+      <svg viewBox="0 0 24 24"><path d="M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4"/><path d="M8 10v4m4-5v6m4-5v4"/></svg>
+      Measure
+      <span class="tool-key">3</span>
+    </button>
+    <button class="tool-btn" data-tool="sextant" onclick="selectTool('sextant')">
+      <svg viewBox="0 0 24 24"><path d="M12 3l-8 16h16z" fill="none"/><circle cx="12" cy="13" r="2"/><path d="M12 3v8"/></svg>
+      Sextant
+      <span class="tool-key">4</span>
+    </button>
+    <button class="tool-btn" data-tool="naturalist" onclick="selectTool('naturalist')">
+      <svg viewBox="0 0 24 24"><path d="M12 22c-4 0-7-3-7-7 0-5 7-12 7-12s7 7 7 12c0 4-3 7-7 7z"/><path d="M12 22v-9m-3 5c1.5-1 3-3 3-5m3 5c-1.5-1-3-3-3-5"/></svg>
+      Collect
+      <span class="tool-key">5</span>
+    </button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// THE CARTOGRAPHER - v2
+// ============================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// --- GAME STATE ---
+let gameStarted = false;
+let currentTool = 'walk';
+let player = { x: 0, y: 0 };
+let camera = { x: 0, y: 0 };
+let zoom = 1.0; // 1.0 = current view (furthest out), higher = closer
+const ZOOM_MIN = 1.0;
+const ZOOM_MAX = 3.0;
+const ZOOM_SPEED = 0.1;
+let revealedTiles = new Set();
+let surveyedTiles = new Set();
+let specimens = [];
+let collectedSpecimens = [];
+let mapPercent = 0;
+
+// Measure state (toggle-based trail)
+let measuring = false;
+let measureTrail = []; // array of {x,y} world positions
+let measureDistance = 0; // running total in game meters
+let completedMeasures = []; // saved completed measure paths
+
+// Sextant state (digit reveal system)
+let sextantReadings = []; // {x, y, time} - positions where readings were taken
+let coordDigitsLat = [];  // the actual coordinate digits for latitude
+let coordDigitsLng = [];  // the actual coordinate digits for longitude  
+let revealedDigitCount = 0;
+const TOTAL_DIGITS = 10; // 5 per coordinate
+const MIN_DISTANCE_BASE = 3; // minimum tile distance for first reveal
+const DISTANCE_SCALE = 0.8;  // gentler scaling per digit
+
+// Landmarks
+let landmarks = [];
+let discoveredLandmarks = new Set();
+
+// Movement
+let keys = {};
+let moveTarget = null;
+
+// Seed for map variation
+let seedOffset = Math.floor(Math.random() * 100000);
+let placementSeed = Math.floor(Math.random() * 100000);
+
+// Animations
+let activeAnimation = null;
+
+// --- ISLAND GENERATION ---
+const TILE = 40;
+const ISLAND_R = 14;
+const GRID = ISLAND_R * 2 + 1;
+
+function seededRandom(x, y) {
+  let n = Math.sin((x + seedOffset) * 127.1 + (y + seedOffset) * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function smoothNoise(x, y, scale) {
+  const sx = x / scale, sy = y / scale;
+  const ix = Math.floor(sx), iy = Math.floor(sy);
+  const fx = sx - ix, fy = sy - iy;
+  const a = seededRandom(ix, iy), b = seededRandom(ix + 1, iy);
+  const c = seededRandom(ix, iy + 1), d = seededRandom(ix + 1, iy + 1);
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
+}
+
+function getElevation(tx, ty) {
+  const cx = ISLAND_R, cy = ISLAND_R;
+  let dx = tx - cx, dy = ty - cy;
+
+  // --- GLOBAL SHAPE DEFORMATION ---
+  // Random stretch/rotation makes islands elongated, not always round
+  const stretchAngle = seededRandom(seedOffset + 700, 701) * Math.PI;
+  const stretchAmount = 0.4 + seededRandom(seedOffset + 702, 703) * 0.6; // 0.4 to 1.0
+  const cosS = Math.cos(stretchAngle), sinS = Math.sin(stretchAngle);
+  // Rotate into stretch space, squish one axis, rotate back
+  const rx = dx * cosS + dy * sinS;
+  const ry = (-dx * sinS + dy * cosS) * (1 / stretchAmount);
+  const dist = Math.sqrt(rx * rx + ry * ry) / ISLAND_R;
+
+  if (dist > 1.4) return -0.3;
+
+  // --- IRREGULAR COASTLINE ---
+  const angle = Math.atan2(dy, dx);
+
+  // Strong low-frequency shape — creates big lobes and deep bays
+  let coastWarp = 0;
+  const lobeCount = 2 + Math.floor(seededRandom(seedOffset + 710, 711) * 3); // 2-4 lobes
+  const lobeStrength = 0.3 + seededRandom(seedOffset + 712, 713) * 0.4;
+  const lobePhase = seededRandom(seedOffset + 714, 715) * Math.PI * 2;
+  coastWarp += Math.sin(angle * lobeCount + lobePhase) * lobeStrength;
+
+  // Medium detail — bays and headlands
+  coastWarp += smoothNoise(angle * 4 + seedOffset * 0.017, seedOffset * 0.013, 1.2) * 0.3;
+  coastWarp += smoothNoise(angle * 7 + seedOffset * 0.023 + 80, seedOffset * 0.019 + 80, 1.0) * 0.15;
+
+  // Fine coastline detail
+  coastWarp += smoothNoise(angle * 14 + seedOffset * 0.031 + 160, seedOffset * 0.029 + 160, 0.8) * 0.08;
+
+  // Occasional deep cut/fjord
+  const cutAngle = seededRandom(seedOffset + 720, 721) * Math.PI * 2;
+  const cutWidth = 0.3 + seededRandom(seedOffset + 722, 723) * 0.4;
+  let angleDiff = Math.abs(angle - cutAngle);
+  if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+  if (angleDiff < cutWidth) {
+    const cutDepth = 0.2 + seededRandom(seedOffset + 724, 725) * 0.35;
+    coastWarp -= cutDepth * (1 - angleDiff / cutWidth);
+  }
+
+  const effectiveRadius = 0.75 + coastWarp;
+
+  const relDist = dist / Math.max(0.15, effectiveRadius);
+  if (relDist > 1.15) return -0.2;
+
+  // --- TERRAIN ELEVATION ---
+  let e = 0;
+  e += smoothNoise(tx, ty, 8) * 1.0;
+  e += smoothNoise(tx, ty, 4) * 0.5;
+  e += smoothNoise(tx, ty, 2) * 0.25;
+  e /= 1.75;
+
+  const mask = Math.max(0, 1 - relDist * relDist);
+  e = e * mask;
+
+  // --- PEAKS ---
+  const peak1Angle = seededRandom(seedOffset + 500, 1) * Math.PI * 2;
+  const peak1R = 0.2 + seededRandom(seedOffset + 501, 2) * 0.25;
+  const peak1X = cx + Math.cos(peak1Angle) * peak1R * ISLAND_R;
+  const peak1Y = cy + Math.sin(peak1Angle) * peak1R * ISLAND_R;
+  const peak1Dist = Math.sqrt((tx - peak1X) ** 2 + (ty - peak1Y) ** 2) / 6;
+  e += Math.max(0, 0.4 - peak1Dist) * 1.2;
+
+  const peak2Angle = peak1Angle + Math.PI * 0.6 + seededRandom(seedOffset + 502, 3) * Math.PI * 0.8;
+  const peak2R = 0.2 + seededRandom(seedOffset + 503, 4) * 0.3;
+  const peak2X = cx + Math.cos(peak2Angle) * peak2R * ISLAND_R;
+  const peak2Y = cy + Math.sin(peak2Angle) * peak2R * ISLAND_R;
+  const peak2Dist = Math.sqrt((tx - peak2X) ** 2 + (ty - peak2Y) ** 2) / 5;
+  e += Math.max(0, 0.3 - peak2Dist) * 0.8;
+
+  return e;
+}
+
+function getTerrain(tx, ty) {
+  const e = getElevation(tx, ty);
+  if (e < -0.02) return 'water';
+  if (e < 0.08) return 'beach';
+  if (e < 0.25) return 'lowland';
+  if (e < 0.45) return 'forest';
+  if (e < 0.65) return 'highland';
+  return 'peak';
+}
+
+function isLand(tx, ty) { return getTerrain(tx, ty) !== 'water'; }
+function isWalkable(tx, ty) { return getTerrain(tx, ty) !== 'water'; }
+
+// --- LANDMARKS ---
+function generateLandmarks() {
+  landmarks = [];
+
+  // Build pools of valid tiles per terrain type
+  const pools = {};
+  const coastalTiles = [];
+  let highestTile = null, maxE = 0;
+
+  for (let tx = 0; tx < GRID; tx++) {
+    for (let ty = 0; ty < GRID; ty++) {
+      const t = getTerrain(tx, ty);
+      const e = getElevation(tx, ty);
+      if (t !== 'water') {
+        if (!pools[t]) pools[t] = [];
+        pools[t].push({ tx, ty });
+
+        if (e > maxE) { maxE = e; highestTile = { tx, ty }; }
+
+        // Check coastal
+        if (t === 'beach') {
+          const neighbors = [[-1,0],[1,0],[0,-1],[0,1]];
+          if (neighbors.some(([dx,dy]) => getElevation(tx+dx, ty+dy) < -0.02)) {
+            coastalTiles.push({ tx, ty });
+          }
+        }
+      }
+    }
+  }
+
+  function pickRandom(pool) {
+    if (!pool || pool.length === 0) return null;
+    const idx = Math.floor(Math.random() * pool.length);
+    const tile = pool[idx];
+    pool.splice(idx, 1); // prevent duplicates
+    return tile;
+  }
+
+  // Summit Peak - always the actual highest point
+  if (highestTile) {
+    landmarks.push({ name: 'Summit Peak', type: 'mountain', ...highestTile, icon: '▲', desc: 'The highest point on the island' });
+  }
+
+  // Mirror Lake - random lowland tile (simulating a depression)
+  const lakeTile = pickRandom(pools['lowland']);
+  if (lakeTile) {
+    landmarks.push({ name: 'Mirror Lake', type: 'lake', ...lakeTile, icon: '~', desc: 'A still freshwater lake' });
+  }
+
+  // Whispering Cave - random highland tile
+  const caveTile = pickRandom(pools['highland']);
+  if (caveTile) {
+    landmarks.push({ name: 'Whispering Cave', type: 'cave', ...caveTile, icon: '◖', desc: 'A deep cave in the hillside' });
+  }
+
+  // The Elder Oak - random forest tile
+  const treeTile = pickRandom(pools['forest']);
+  if (treeTile) {
+    landmarks.push({ name: 'The Elder Oak', type: 'ancient_tree', ...treeTile, icon: '♣', desc: 'A massive ancient tree' });
+  }
+
+  // Neptune's Arch - random coastal tile
+  const archTile = pickRandom(coastalTiles);
+  if (archTile) {
+    landmarks.push({ name: "Neptune's Arch", type: 'rock_arch', ...archTile, icon: '⌒', desc: 'A natural stone arch over the waves' });
+  }
+
+  // Crystal Spring - random highland tile (different from cave)
+  const springTile = pickRandom(pools['highland']);
+  if (springTile) {
+    landmarks.push({ name: 'Crystal Spring', type: 'spring', ...springTile, icon: '⊙', desc: 'Fresh water bubbling from the rock' });
+  }
+}
+
+// --- TILE FEATURES ---
+function getTileFeatures(tx, ty) {
+  const terrain = getTerrain(tx, ty);
+  const r = seededRandom(tx * 13 + 7, ty * 17 + 3);
+  const features = [];
+
+  if (terrain === 'forest') {
+    const numTrees = Math.floor(r * 4) + 2;
+    for (let i = 0; i < numTrees; i++) {
+      features.push({
+        type: 'tree',
+        ox: seededRandom(tx + i * 3, ty + i * 7) * 0.8 + 0.1,
+        oy: seededRandom(tx + i * 5, ty + i * 2) * 0.8 + 0.1,
+        size: 0.5 + seededRandom(tx + i, ty) * 0.5
+      });
+    }
+  }
+  if (terrain === 'highland' || terrain === 'peak') {
+    if (r > 0.4) features.push({ type: 'rock', ox: 0.3 + r * 0.4, oy: 0.3 + seededRandom(tx, ty + 1) * 0.4, size: 0.6 + r * 0.4 });
+  }
+  if (terrain === 'lowland') {
+    if (r > 0.5) {
+      const numGrass = Math.floor(r * 3) + 1;
+      for (let i = 0; i < numGrass; i++) {
+        features.push({
+          type: 'grass',
+          ox: seededRandom(tx + i * 2, ty + i * 5) * 0.8 + 0.1,
+          oy: seededRandom(tx + i * 4, ty + i * 3) * 0.8 + 0.1
+        });
+      }
+    }
+  }
+  return features;
+}
+
+// --- SPECIMENS ---
+function generateSpecimens() {
+  const types = [
+    { name: 'Blue Orchid', emoji: '🌺', terrain: 'forest' },
+    { name: 'Giant Beetle', emoji: '🪲', terrain: 'lowland' },
+    { name: 'Sea Shell', emoji: '🐚', terrain: 'beach' },
+    { name: 'Fern Fossil', emoji: '🪨', terrain: 'highland' },
+    { name: 'Butterfly', emoji: '🦋', terrain: 'lowland' },
+    { name: 'Wild Mushroom', emoji: '🍄', terrain: 'forest' },
+  ];
+
+  // Build pools of valid tiles per terrain type
+  const terrainPools = {};
+  for (let tx = 0; tx < GRID; tx++) {
+    for (let ty = 0; ty < GRID; ty++) {
+      const t = getTerrain(tx, ty);
+      if (t !== 'water') {
+        if (!terrainPools[t]) terrainPools[t] = [];
+        terrainPools[t].push({ tx, ty });
+      }
+    }
+  }
+
+  specimens = [];
+  for (const spec of types) {
+    const pool = terrainPools[spec.terrain];
+    if (pool && pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      const tile = pool[idx];
+      specimens.push({ ...spec, tx: tile.tx, ty: tile.ty, collected: false });
+      // Remove from pool so no two specimens land on same tile
+      pool.splice(idx, 1);
+    }
+  }
+
+  const panel = document.getElementById('specimenPanel');
+  panel.innerHTML = '';
+  specimens.forEach((s, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'specimen-slot';
+    slot.id = `spec-${i}`;
+    slot.textContent = s.emoji;
+    slot.title = s.name;
+    panel.appendChild(slot);
+  });
+}
+
+// --- ISLAND NAME ---
+function generateIslandName() {
+  const prefixes = ['Port', 'Isle of', 'Cape', 'Mount', 'Fort', 'St.'];
+  const names = ['Whitmore', 'Ashdown', 'Blackwater', 'Fernhollow', 'Greymist', 'Bramley', 'Thornwick', 'Seagrove', 'Dunhaven', 'Millcrest'];
+  return `${prefixes[Math.floor(Math.random() * prefixes.length)]} ${names[Math.floor(Math.random() * names.length)]}`;
+}
+
+// --- COLORS ---
+const COLORS = {
+  parchment: '#f5ebdc', ink: '#3a2f24', inkLight: '#6a5a48',
+  waterInk: '#5a7a8a', fog: '#ddd4c4', red: '#c4553d',
+  coordBlue: '#4a7a9a'
+};
+
+// --- DRAWING HELPERS ---
+function wobblyLine(x1, y1, x2, y2, wobble = 2) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  const steps = Math.max(3, Math.floor(dist / 8));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    ctx.lineTo(
+      x1 + (x2 - x1) * t + (Math.random() - 0.5) * wobble,
+      y1 + (y2 - y1) * t + (Math.random() - 0.5) * wobble
+    );
+  }
+  ctx.stroke();
+}
+
+// Stable version for coastlines - wobble is deterministic based on position
+function coastLine(x1, y1, x2, y2, wobble = 1.5) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  const steps = Math.max(4, Math.floor(dist / 6));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    // Use seeded random based on pixel position for stable wobble
+    const seed1 = seededRandom(Math.round(x1 + i * 7.1), Math.round(y1 + i * 13.3));
+    const seed2 = seededRandom(Math.round(x1 + i * 11.7), Math.round(y1 + i * 5.9));
+    ctx.lineTo(
+      x1 + (x2 - x1) * t + (seed1 - 0.5) * wobble,
+      y1 + (y2 - y1) * t + (seed2 - 0.5) * wobble
+    );
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawTree(x, y, size) {
+  const s = size * 8;
+  ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 0.8;
+  wobblyLine(x, y, x, y - s * 0.6, 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x, y - s * 1.4);
+  ctx.quadraticCurveTo(x - s * 0.5 + Math.random(), y - s * 0.7, x - s * 0.4, y - s * 0.5);
+  ctx.quadraticCurveTo(x - s * 0.1, y - s * 0.55, x, y - s * 0.6);
+  ctx.quadraticCurveTo(x + s * 0.1, y - s * 0.55, x + s * 0.4, y - s * 0.5);
+  ctx.quadraticCurveTo(x + s * 0.5 + Math.random(), y - s * 0.7, x, y - s * 1.4);
+  ctx.fillStyle = 'rgba(100, 120, 70, 0.15)';
+  ctx.fill(); ctx.stroke();
+}
+
+function drawRock(x, y, size) {
+  const s = size * 6;
+  ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.4, y);
+  ctx.lineTo(x - s * 0.3, y - s * 0.5);
+  ctx.lineTo(x + s * 0.1, y - s * 0.7);
+  ctx.lineTo(x + s * 0.4, y - s * 0.3);
+  ctx.lineTo(x + s * 0.3, y); ctx.closePath();
+  ctx.fillStyle = 'rgba(160, 140, 120, 0.1)';
+  ctx.fill(); ctx.stroke();
+  wobblyLine(x - s * 0.15, y - s * 0.1, x + s * 0.1, y - s * 0.55, 0.5);
+}
+
+function drawGrass(x, y) {
+  ctx.strokeStyle = COLORS.inkLight; ctx.lineWidth = 0.6;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + i * 2, y);
+    ctx.quadraticCurveTo(x + i * 3, y - 5, x + i * 4, y - 8);
+    ctx.stroke();
+  }
+}
+
+// --- CONTOUR LINES (improved - real flowing lines across tiles) ---
+function drawContourForTile(sx, sy, tx, ty) {
+  const e = getElevation(tx, ty);
+  if (e < 0.1) return;
+
+  const levels = [0.15, 0.3, 0.45, 0.6, 0.75];
+  
+  for (const level of levels) {
+    if (Math.abs(e - level) < 0.08) {
+      ctx.strokeStyle = `rgba(58, 47, 36, ${0.12 + (level * 0.15)})`;
+      ctx.lineWidth = level > 0.5 ? 1.0 : 0.7;
+
+      // Draw contour segment through this tile
+      // Sample edges to find where contour crosses
+      const samples = 6;
+      const points = [];
+      
+      for (let side = 0; side < 4; side++) {
+        for (let i = 0; i <= samples; i++) {
+          const t = i / samples;
+          let stx, sty;
+          if (side === 0) { stx = tx + t; sty = ty; }       // top
+          else if (side === 1) { stx = tx + 1; sty = ty + t; } // right
+          else if (side === 2) { stx = tx + 1 - t; sty = ty + 1; } // bottom
+          else { stx = tx; sty = ty + 1 - t; }                // left
+          
+          const se = getElevation(Math.floor(stx), Math.floor(sty));
+          if (Math.abs(se - level) < 0.05) {
+            const px = sx + (stx - tx) * TILE;
+            const py = sy + (sty - ty) * TILE;
+            points.push({ x: px, y: py });
+          }
+        }
+      }
+
+      if (points.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x + (Math.random() - 0.5), points[0].y + (Math.random() - 0.5));
+        for (let i = 1; i < Math.min(points.length, 4); i++) {
+          ctx.lineTo(
+            points[i].x + (Math.random() - 0.5) * 1.5,
+            points[i].y + (Math.random() - 0.5) * 1.5
+          );
+        }
+        ctx.stroke();
+      }
+
+      // Elevation label on some tiles
+      if (seededRandom(tx * 41 + level * 100, ty * 43) > 0.92) {
+        ctx.save();
+        ctx.font = '8px "Caveat", cursive';
+        ctx.fillStyle = `rgba(58, 47, 36, ${0.25 + level * 0.2})`;
+        const elev = Math.round(level * 340);
+        ctx.fillText(`${elev}`, sx + TILE * 0.3, sy + TILE * 0.5);
+        ctx.restore();
+      }
+    }
+  }
+}
+
+// --- LANDMARK DRAWING ---
+function drawLandmarkOnMap(lm) {
+  const key = `${lm.tx},${lm.ty}`;
+  if (!revealedTiles.has(key) && !surveyedTiles.has(key)) return;
+
+  const scr = worldToScreen(lm.tx + 0.5, lm.ty + 0.5);
+  const discovered = discoveredLandmarks.has(lm.name);
+
+  if (lm.type === 'mountain') {
+    // Mountain symbol - small triangle
+    ctx.strokeStyle = discovered ? COLORS.ink : 'rgba(58,47,36,0.3)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(scr.x, scr.y - 12);
+    ctx.lineTo(scr.x - 8, scr.y + 4);
+    ctx.lineTo(scr.x + 8, scr.y + 4);
+    ctx.closePath();
+    ctx.stroke();
+    if (discovered) {
+      ctx.fillStyle = 'rgba(190, 175, 155, 0.3)';
+      ctx.fill();
+    }
+  } else if (lm.type === 'lake') {
+    // Lake - wavy circle
+    ctx.strokeStyle = discovered ? COLORS.waterInk : 'rgba(90,122,138,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let a = 0; a < Math.PI * 2; a += 0.2) {
+      const r = 10 + Math.sin(a * 3) * 2;
+      const px = scr.x + Math.cos(a) * r;
+      const py = scr.y + Math.sin(a) * r;
+      if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    if (discovered) { ctx.fillStyle = 'rgba(140, 175, 195, 0.2)'; ctx.fill(); }
+    ctx.stroke();
+    // Small wave inside
+    ctx.beginPath();
+    ctx.moveTo(scr.x - 5, scr.y);
+    ctx.quadraticCurveTo(scr.x - 2, scr.y - 3, scr.x + 1, scr.y);
+    ctx.quadraticCurveTo(scr.x + 4, scr.y + 3, scr.x + 7, scr.y);
+    ctx.stroke();
+  } else if (lm.type === 'cave') {
+    // Cave - dark arc
+    ctx.strokeStyle = discovered ? COLORS.ink : 'rgba(58,47,36,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y, 7, Math.PI, 0);
+    ctx.stroke();
+    if (discovered) {
+      ctx.fillStyle = 'rgba(40, 30, 20, 0.3)';
+      ctx.beginPath();
+      ctx.arc(scr.x, scr.y, 6, Math.PI, 0);
+      ctx.fill();
+    }
+  } else if (lm.type === 'ancient_tree') {
+    // Big tree symbol
+    const s = 1.8;
+    ctx.strokeStyle = discovered ? COLORS.ink : 'rgba(58,47,36,0.3)';
+    ctx.lineWidth = 1;
+    wobblyLine(scr.x, scr.y + 4, scr.x, scr.y - 4, 0.5);
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y - 9, 7 * s, 0, Math.PI * 2);
+    ctx.fillStyle = discovered ? 'rgba(80, 110, 55, 0.2)' : 'rgba(80,110,55,0.08)';
+    ctx.fill();
+    ctx.stroke();
+  } else if (lm.type === 'rock_arch') {
+    // Arch shape
+    ctx.strokeStyle = discovered ? COLORS.ink : 'rgba(58,47,36,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y + 2, 9, Math.PI, 0);
+    ctx.stroke();
+    wobblyLine(scr.x - 9, scr.y + 2, scr.x - 9, scr.y + 8, 0.5);
+    wobblyLine(scr.x + 9, scr.y + 2, scr.x + 9, scr.y + 8, 0.5);
+  } else if (lm.type === 'spring') {
+    // Spring symbol - circle with lines
+    ctx.strokeStyle = discovered ? COLORS.waterInk : 'rgba(90,122,138,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y, 5, 0, Math.PI * 2);
+    ctx.stroke();
+    if (discovered) {
+      ctx.fillStyle = 'rgba(140, 175, 195, 0.3)';
+      ctx.fill();
+    }
+    // Radiating lines
+    for (let a = 0; a < 4; a++) {
+      const angle = a * Math.PI / 2 + Math.PI / 4;
+      wobblyLine(scr.x + Math.cos(angle) * 6, scr.y + Math.sin(angle) * 6,
+                  scr.x + Math.cos(angle) * 10, scr.y + Math.sin(angle) * 10, 0.5);
+    }
+  }
+
+  // Name label (only if discovered and surveyed)
+  if (discovered && surveyedTiles.has(key)) {
+    ctx.save();
+    ctx.font = 'italic 11px "Caveat", cursive';
+    ctx.fillStyle = COLORS.ink;
+    ctx.textAlign = 'center';
+    ctx.fillText(lm.name, scr.x, scr.y + 20);
+    ctx.restore();
+  }
+}
+
+// --- WATER DRAWING ---
+function drawWater(screenX, screenY, tx, ty) {
+  ctx.strokeStyle = COLORS.waterInk;
+  ctx.lineWidth = 0.5;
+  const time = Date.now() / 3000;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    const yOff = screenY + 8 + i * 12;
+    for (let x = 0; x < TILE; x += 4) {
+      const px = screenX + x;
+      const py = yOff + Math.sin(time + tx * 2 + x * 0.1 + i) * 2;
+      if (x === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+// --- TILE DRAWING ---
+function drawTile(tx, ty, revealed, surveyed) {
+  const scr = worldToScreen(tx, ty);
+  const sx = scr.x, sy = scr.y;
+  if (sx + TILE < -TILE || sx > W + TILE || sy + TILE < -TILE || sy > H + TILE) return;
+
+  const terrain = getTerrain(tx, ty);
+
+  if (terrain === 'water') {
+    ctx.fillStyle = COLORS.parchment;
+    ctx.fillRect(sx, sy, TILE, TILE);
+    drawWater(sx, sy, tx, ty);
+
+    // Draw coastline from the water side if adjacent land is visible
+    const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (const [ndx, ndy] of neighbors) {
+      const ntx = tx + ndx, nty = ty + ndy;
+      const nKey = `${ntx},${nty}`;
+      if (isLand(ntx, nty) && (revealedTiles.has(nKey) || surveyedTiles.has(nKey))) {
+        const strong = surveyedTiles.has(nKey);
+        ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
+        ctx.lineWidth = strong ? 1.5 : 1.0;
+        // Draw on the edge closest to the land neighbor
+        if (ndx === -1) coastLine(sx, sy, sx, sy + TILE, 1.5);
+        if (ndx === 1) coastLine(sx + TILE, sy, sx + TILE, sy + TILE, 1.5);
+        if (ndy === -1) coastLine(sx, sy, sx + TILE, sy, 1.5);
+        if (ndy === 1) coastLine(sx, sy + TILE, sx + TILE, sy + TILE, 1.5);
+      }
+    }
+    return;
+  }
+
+  if (!revealed && !surveyed) {
+    ctx.fillStyle = COLORS.fog;
+    ctx.fillRect(sx, sy, TILE, TILE);
+    if (seededRandom(tx * 3, ty * 7) > 0.7) {
+      ctx.fillStyle = 'rgba(195, 185, 170, 0.5)';
+      ctx.fillRect(sx + Math.random() * TILE, sy + Math.random() * TILE, 2, 2);
+    }
+
+    // Even on fog tiles, draw coastline if this land tile borders water
+    // and any adjacent visible tile exists (so the coast connects)
+    if (isLand(tx, ty)) {
+      const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      let hasVisibleNeighbor = false;
+      for (const [ndx, ndy] of neighbors) {
+        const nKey = `${tx + ndx},${ty + ndy}`;
+        if (revealedTiles.has(nKey) || surveyedTiles.has(nKey)) {
+          hasVisibleNeighbor = true;
+          break;
+        }
+      }
+      if (hasVisibleNeighbor) {
+        for (const [ndx, ndy] of neighbors) {
+          if (!isLand(tx + ndx, ty + ndy)) {
+            ctx.strokeStyle = 'rgba(58, 47, 36, 0.3)';
+            ctx.lineWidth = 0.8;
+            if (ndx === -1) coastLine(sx, sy, sx, sy + TILE, 1.5);
+            if (ndx === 1) coastLine(sx + TILE, sy, sx + TILE, sy + TILE, 1.5);
+            if (ndy === -1) coastLine(sx, sy, sx + TILE, sy, 1.5);
+            if (ndy === 1) coastLine(sx, sy + TILE, sx + TILE, sy + TILE, 1.5);
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  const terrainColors = {
+    beach: 'rgba(220, 200, 160, 0.3)',
+    lowland: 'rgba(180, 190, 140, 0.15)',
+    forest: 'rgba(120, 145, 85, 0.2)',
+    highland: 'rgba(170, 155, 130, 0.2)',
+    peak: 'rgba(190, 175, 155, 0.25)'
+  };
+
+  ctx.fillStyle = COLORS.parchment;
+  ctx.fillRect(sx, sy, TILE, TILE);
+  ctx.fillStyle = terrainColors[terrain] || COLORS.parchment;
+  ctx.fillRect(sx, sy, TILE, TILE);
+
+  if (surveyed) {
+    const features = getTileFeatures(tx, ty);
+    for (const f of features) {
+      const fx = sx + f.ox * TILE, fy = sy + f.oy * TILE;
+      if (f.type === 'tree') drawTree(fx, fy, f.size);
+      if (f.type === 'rock') drawRock(fx, fy, f.size);
+      if (f.type === 'grass') drawGrass(fx, fy);
+    }
+
+    // Contour lines (from theodolite survey)
+    drawContourForTile(sx, sy, tx, ty);
+  }
+
+  // Coastline - draw on ANY visible tile that borders water
+  if ((revealed || surveyed) && isLand(tx, ty)) {
+    const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    // Use heavier ink if this tile OR the neighbor tile is surveyed
+    for (const [ndx, ndy] of neighbors) {
+      if (!isLand(tx + ndx, ty + ndy)) {
+        const neighborKey = `${tx + ndx},${ty + ndy}`;
+        const strong = surveyed || surveyedTiles.has(neighborKey);
+        ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
+        ctx.lineWidth = strong ? 1.5 : 1.0;
+        if (ndx === -1) coastLine(sx, sy, sx, sy + TILE, 1.5);
+        if (ndx === 1) coastLine(sx + TILE, sy, sx + TILE, sy + TILE, 1.5);
+        if (ndy === -1) coastLine(sx, sy, sx + TILE, sy, 1.5);
+        if (ndy === 1) coastLine(sx, sy + TILE, sx + TILE, sy + TILE, 1.5);
+      }
+    }
+  }
+}
+
+// --- PLAYER DRAWING ---
+function drawPlayer() {
+  const scr = worldToScreen(player.x, player.y);
+  const px = scr.x, py = scr.y;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.beginPath();
+  ctx.ellipse(px, py + 4, 6, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = COLORS.red;
+  ctx.strokeStyle = COLORS.ink;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(px, py - 8, 5, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(px - 3, py - 4);
+  ctx.lineTo(px, py + 2);
+  ctx.lineTo(px + 3, py - 4);
+  ctx.fill();
+
+  // Tool indicator ring
+  if (currentTool === 'theodolite') {
+    ctx.strokeStyle = COLORS.ink; ctx.lineWidth = 0.8;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(px, py - 8, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (currentTool === 'naturalist') {
+    ctx.strokeStyle = 'rgba(100, 160, 80, 0.5)'; ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.arc(px, py - 4, 18, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (measuring) {
+    // Pulsing red ring when measuring
+    const pulse = 0.5 + Math.sin(Date.now() / 300) * 0.3;
+    ctx.strokeStyle = `rgba(196, 85, 61, ${pulse})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.arc(px, py - 4, 14, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// --- MEASURE TRAIL DRAWING ---
+function drawMeasureTrails() {
+  // Draw completed measures
+  for (const m of completedMeasures) {
+    drawMeasurePath(m.trail, m.distance, 0.4);
+  }
+
+  // Draw active measure
+  if (measuring && measureTrail.length >= 2) {
+    drawMeasurePath(measureTrail, measureDistance, 0.7);
+  }
+}
+
+function drawMeasurePath(trail, totalDist, alpha) {
+  if (trail.length < 2) return;
+
+  ctx.strokeStyle = `rgba(196, 85, 61, ${alpha})`;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 3]);
+
+  ctx.beginPath();
+  const first = worldToScreen(trail[0].x, trail[0].y);
+  ctx.moveTo(first.x, first.y);
+
+  for (let i = 1; i < trail.length; i++) {
+    const p = worldToScreen(trail[i].x, trail[i].y);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Start marker
+  ctx.fillStyle = `rgba(196, 85, 61, ${alpha})`;
+  ctx.beginPath();
+  ctx.arc(first.x, first.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // End marker + distance label
+  const last = worldToScreen(trail[trail.length - 1].x, trail[trail.length - 1].y);
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Distance label at midpoint
+  const midIdx = Math.floor(trail.length / 2);
+  const mid = worldToScreen(trail[midIdx].x, trail[midIdx].y);
+  ctx.font = 'italic 12px "Caveat", cursive';
+  ctx.fillStyle = `rgba(196, 85, 61, ${alpha + 0.1})`;
+  ctx.fillText(`${Math.round(totalDist)}m`, mid.x + 6, mid.y - 8);
+}
+
+// --- SEXTANT / COORDINATE DRAWING ---
+function drawCoordinateGrid() {
+  // Draw light grid lines that fade in based on how many readings taken
+  if (sextantReadings.length === 0) return;
+
+  const alpha = Math.min(0.2, sextantReadings.length * 0.04);
+  const gridSpacing = 4;
+  ctx.strokeStyle = `rgba(74, 122, 154, ${alpha})`;
+  ctx.lineWidth = 0.4;
+  ctx.setLineDash([8, 8]);
+
+  for (let tx = 0; tx < GRID; tx += gridSpacing) {
+    const top = worldToScreen(tx, -1);
+    const bot = worldToScreen(tx, GRID + 1);
+    ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(bot.x, bot.y); ctx.stroke();
+  }
+  for (let ty = 0; ty < GRID; ty += gridSpacing) {
+    const left = worldToScreen(-1, ty);
+    const right = worldToScreen(GRID + 1, ty);
+    ctx.beginPath(); ctx.moveTo(left.x, left.y); ctx.lineTo(right.x, right.y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+function drawSextantFixes() {
+  for (const reading of sextantReadings) {
+    const scr = worldToScreen(reading.x, reading.y);
+    const age = (Date.now() - reading.time) / 1000;
+    const alpha = Math.min(0.7, age / 0.5);
+
+    // Crosshair marker at reading position
+    ctx.strokeStyle = `rgba(74, 122, 154, ${alpha * 0.5})`;
+    ctx.lineWidth = 0.8;
+    const s = 8;
+    ctx.beginPath();
+    ctx.moveTo(scr.x - s, scr.y); ctx.lineTo(scr.x + s, scr.y);
+    ctx.moveTo(scr.x, scr.y - s); ctx.lineTo(scr.x, scr.y + s);
+    ctx.stroke();
+
+    // Small circle
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y, 4, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Tiny label
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.font = '9px "Caveat", cursive';
+    ctx.fillStyle = COLORS.coordBlue;
+    ctx.fillText('fix', scr.x + 10, scr.y - 2);
+    ctx.restore();
+  }
+}
+
+// --- SPECIMENS DRAWING ---
+function drawSpecimens() {
+  for (const spec of specimens) {
+    if (spec.collected) continue;
+    const key = `${spec.tx},${spec.ty}`;
+    if (!revealedTiles.has(key) && !surveyedTiles.has(key)) continue;
+
+    const scr = worldToScreen(spec.tx + 0.5, spec.ty + 0.5);
+    const bob = Math.sin(Date.now() / 800 + spec.tx) * 2;
+
+    // Soft backing circle so emoji pops against any terrain
+    ctx.fillStyle = 'rgba(245, 235, 220, 0.75)';
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y - 2 + bob, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(58, 47, 36, 0.15)';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    ctx.font = '22px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(spec.emoji, scr.x, scr.y - 1 + bob);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+
+    if (currentTool === 'naturalist') {
+      const pdx = player.x - (spec.tx + 0.5);
+      const pdy = player.y - (spec.ty + 0.5);
+      if (Math.sqrt(pdx * pdx + pdy * pdy) < 2) {
+        ctx.strokeStyle = 'rgba(100, 160, 80, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y - 2, 18, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+// --- ANIMATIONS ---
+function drawAnimations() {
+  if (!activeAnimation) return;
+  const t = (Date.now() - activeAnimation.startTime) / activeAnimation.duration;
+  if (t > 1) { activeAnimation = null; return; }
+  const ease = 1 - Math.pow(1 - t, 3);
+
+  if (activeAnimation.type === 'survey') {
+    const scr = worldToScreen(player.x, player.y);
+    const r = activeAnimation.maxRadius * ease;
+    ctx.strokeStyle = `rgba(58, 47, 36, ${0.4 * (1 - t)})`;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y - 4, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const len = r * 0.3;
+    ctx.strokeStyle = `rgba(58, 47, 36, ${0.2 * (1 - t)})`;
+    ctx.lineWidth = 0.8;
+    for (let a = 0; a < 4; a++) {
+      const angle = a * Math.PI / 2 + t * 0.3;
+      wobblyLine(
+        scr.x + Math.cos(angle) * (r - len), scr.y - 4 + Math.sin(angle) * (r - len),
+        scr.x + Math.cos(angle) * r, scr.y - 4 + Math.sin(angle) * r, 1
+      );
+    }
+  }
+
+  if (activeAnimation.type === 'sextant') {
+    const scr = worldToScreen(activeAnimation.x, activeAnimation.y);
+    const alpha = 0.6 * (1 - t);
+
+    // Star sight lines going upward
+    ctx.strokeStyle = `rgba(74, 122, 154, ${alpha})`;
+    ctx.lineWidth = 0.8;
+    for (let i = 0; i < 5; i++) {
+      const angle = -Math.PI / 2 + (i - 2) * 0.2;
+      const len = 80 * ease;
+      wobblyLine(scr.x, scr.y, scr.x + Math.cos(angle) * len, scr.y + Math.sin(angle) * len, 1);
+    }
+
+    // Angle arc
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y, 25 * ease, -Math.PI * 0.85, -Math.PI * 0.15);
+    ctx.stroke();
+
+    // Small star dots
+    ctx.fillStyle = `rgba(74, 122, 154, ${alpha * 0.8})`;
+    for (let i = 0; i < 3; i++) {
+      const angle = -Math.PI / 2 + (i - 1) * 0.25;
+      const len = 60 + i * 15;
+      ctx.beginPath();
+      ctx.arc(scr.x + Math.cos(angle) * len * ease, scr.y + Math.sin(angle) * len * ease, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// --- WORLD TO SCREEN ---
+function worldToScreen(wx, wy) {
+  return {
+    x: wx * TILE - camera.x + W / 2,
+    y: wy * TILE - camera.y + H / 2
+  };
+}
+
+function screenToWorld(sx, sy) {
+  // Reverse the canvas transform: translate(W/2) → scale(zoom) → translate(-W/2)
+  // So: world_screen = (world * TILE - camera + W/2 - W/2) * zoom + W/2
+  //     world_screen = (world * TILE - camera) * zoom + W/2
+  const wx = ((sx - W / 2) / zoom + camera.x) / TILE;
+  const wy = ((sy - H / 2) / zoom + camera.y) / TILE;
+  return { x: wx, y: wy };
+}
+
+// --- TOOL ACTIONS ---
+function doSurvey() {
+  activeAnimation = {
+    type: 'survey',
+    maxRadius: TILE * 3.5,
+    startTime: Date.now(),
+    duration: 1800
+  };
+
+  const ptx = Math.floor(player.x);
+  const pty = Math.floor(player.y);
+  for (let dx = -3; dx <= 3; dx++) {
+    for (let dy = -3; dy <= 3; dy++) {
+      if (Math.sqrt(dx * dx + dy * dy) <= 3.5) {
+        const ttx = ptx + dx, tty = pty + dy;
+        if (isLand(ttx, tty)) surveyedTiles.add(`${ttx},${tty}`);
+      }
+    }
+  }
+
+  // Check landmark discovery
+  checkLandmarkDiscovery();
+}
+
+function toggleMeasure() {
+  if (measuring) {
+    // Stop measuring - save the trail
+    if (measureTrail.length >= 2) {
+      completedMeasures.push({ trail: [...measureTrail], distance: measureDistance });
+    }
+    measuring = false;
+    measureTrail = [];
+    measureDistance = 0;
+    document.getElementById('measureDisplay').classList.remove('visible');
+    document.querySelector('[data-tool="measure"]').classList.remove('measuring');
+  } else {
+    // Start measuring
+    measuring = true;
+    measureTrail = [{ x: player.x, y: player.y }];
+    measureDistance = 0;
+    document.getElementById('measureDisplay').classList.add('visible');
+    document.getElementById('measureDist').textContent = '0m';
+    document.querySelector('[data-tool="measure"]').classList.add('measuring');
+  }
+}
+
+function doSextant() {
+  // Calculate minimum distance from all previous readings
+  let minDistFromPrevious = Infinity;
+  for (const reading of sextantReadings) {
+    const dx = player.x - reading.x;
+    const dy = player.y - reading.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    minDistFromPrevious = Math.min(minDistFromPrevious, dist);
+  }
+
+  // First reading is always free
+  if (sextantReadings.length === 0) {
+    minDistFromPrevious = Infinity;
+  }
+
+  // Calculate how many digits to reveal based on distance
+  // The required distance scales up for each subsequent digit
+  const digitsAlreadyRevealed = revealedDigitCount;
+  const requiredDistance = MIN_DISTANCE_BASE + (digitsAlreadyRevealed * DISTANCE_SCALE);
+
+  // Play the animation regardless
+  activeAnimation = {
+    type: 'sextant',
+    x: player.x, y: player.y,
+    startTime: Date.now(),
+    duration: 1500
+  };
+
+  if (revealedDigitCount >= TOTAL_DIGITS) {
+    showSextantFeedback('Position fully established. Coordinates complete.', false);
+    return;
+  }
+
+  if (minDistFromPrevious < requiredDistance) {
+    // Too close to a previous reading
+    const needed = Math.ceil(requiredDistance - minDistFromPrevious);
+    if (minDistFromPrevious < 2) {
+      showSextantFeedback('Reading too similar to a previous fix. Travel further afield.', false);
+    } else {
+      showSextantFeedback(`Insufficient distance from nearest fix. Move ~${needed} more paces.`, false);
+    }
+    return;
+  }
+
+  // Success! Reveal 2 digits
+  sextantReadings.push({ x: player.x, y: player.y, time: Date.now() });
+  
+  const digitsToReveal = Math.min(2, TOTAL_DIGITS - revealedDigitCount);
+  for (let i = 0; i < digitsToReveal; i++) {
+    revealDigit(revealedDigitCount);
+    revealedDigitCount++;
+  }
+
+  updateCoordDisplay();
+  updateQuestTracker();
+
+  const remaining = TOTAL_DIGITS - revealedDigitCount;
+  if (remaining === 0) {
+    showSextantFeedback('Position fully triangulated! Coordinates complete.', true);
+  } else {
+    showSextantFeedback(`New digits revealed! ${remaining} remaining.`, true);
+  }
+}
+
+function showSextantFeedback(msg, success) {
+  const el = document.getElementById('sextantFeedback');
+  el.textContent = msg;
+  el.className = success ? 'visible success' : 'visible';
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => el.className = '', 3000);
+}
+
+function initCoordinates() {
+  // Generate the actual coordinate numbers
+  // Something like 28°24.317'N, 17°51.842'W
+  const latDeg = '28';
+  const latMin = '24';
+  const latDec = '' + Math.floor(seededRandom(42, 99) * 9 + 1) + 
+                 Math.floor(seededRandom(43, 98) * 10) + 
+                 Math.floor(seededRandom(44, 97) * 10);
+  const lngDeg = '17';
+  const lngMin = '51';
+  const lngDec = '' + Math.floor(seededRandom(45, 96) * 9 + 1) + 
+                 Math.floor(seededRandom(46, 95) * 10) + 
+                 Math.floor(seededRandom(47, 94) * 10);
+
+  // Lat digits: the 5 variable digits (degree tens not counted since it's always "28")
+  // We'll make the mystery digits be the minutes and decimal parts
+  // Display: 28° ??.???'N  ->  digits are the 5 chars of "24.317" minus the dot
+  coordDigitsLat = [
+    { char: latMin[0], revealed: false },
+    { char: latMin[1], revealed: false },
+    { char: latDec[0], revealed: false },
+    { char: latDec[1], revealed: false },
+    { char: latDec[2], revealed: false },
+  ];
+
+  coordDigitsLng = [
+    { char: lngMin[0], revealed: false },
+    { char: lngMin[1], revealed: false },
+    { char: lngDec[0], revealed: false },
+    { char: lngDec[1], revealed: false },
+    { char: lngDec[2], revealed: false },
+  ];
+
+  updateCoordDisplay();
+}
+
+function revealDigit(index) {
+  // Alternate between lat and lng
+  if (index % 2 === 0) {
+    const latIdx = Math.floor(index / 2);
+    if (latIdx < coordDigitsLat.length) {
+      coordDigitsLat[latIdx].revealed = true;
+      coordDigitsLat[latIdx].fresh = true;
+      setTimeout(() => { coordDigitsLat[latIdx].fresh = false; updateCoordDisplay(); }, 1500);
+    }
+  } else {
+    const lngIdx = Math.floor(index / 2);
+    if (lngIdx < coordDigitsLng.length) {
+      coordDigitsLng[lngIdx].revealed = true;
+      coordDigitsLng[lngIdx].fresh = true;
+      setTimeout(() => { coordDigitsLng[lngIdx].fresh = false; updateCoordDisplay(); }, 1500);
+    }
+  }
+}
+
+function updateCoordDisplay() {
+  // Build lat display: 28° XX.XXX'N
+  const latEl = document.getElementById('coordLat');
+  const lngEl = document.getElementById('coordLng');
+
+  function buildDigitSpan(d) {
+    const cls = d.revealed ? (d.fresh ? 'digit fresh' : 'digit revealed') : 'digit hidden';
+    const ch = d.revealed ? d.char : '?';
+    return `<span class="${cls}">${ch}</span>`;
+  }
+
+  let latHTML = `<span class="digit revealed">2</span><span class="digit revealed">8</span>°`;
+  latHTML += buildDigitSpan(coordDigitsLat[0]);
+  latHTML += buildDigitSpan(coordDigitsLat[1]);
+  latHTML += `<span class="digit revealed">.</span>`;
+  latHTML += buildDigitSpan(coordDigitsLat[2]);
+  latHTML += buildDigitSpan(coordDigitsLat[3]);
+  latHTML += buildDigitSpan(coordDigitsLat[4]);
+  latHTML += `<span class="digit revealed">'N</span>`;
+
+  let lngHTML = `<span class="digit revealed">1</span><span class="digit revealed">7</span>°`;
+  lngHTML += buildDigitSpan(coordDigitsLng[0]);
+  lngHTML += buildDigitSpan(coordDigitsLng[1]);
+  lngHTML += `<span class="digit revealed">.</span>`;
+  lngHTML += buildDigitSpan(coordDigitsLng[2]);
+  lngHTML += buildDigitSpan(coordDigitsLng[3]);
+  lngHTML += buildDigitSpan(coordDigitsLng[4]);
+  lngHTML += `<span class="digit revealed">'W</span>`;
+
+  latEl.innerHTML = latHTML;
+  lngEl.innerHTML = lngHTML;
+
+  // Progress
+  const pct = Math.round((revealedDigitCount / TOTAL_DIGITS) * 100);
+  document.getElementById('coordFill').style.width = pct + '%';
+  
+  if (revealedDigitCount === 0) {
+    document.getElementById('coordStatus').textContent = 'No readings taken';
+  } else if (revealedDigitCount >= TOTAL_DIGITS) {
+    document.getElementById('coordStatus').textContent = 'Position established ✓';
+  } else {
+    document.getElementById('coordStatus').textContent = `${revealedDigitCount}/${TOTAL_DIGITS} digits fixed`;
+  }
+}
+
+function tryCollectSpecimen() {
+  for (let i = 0; i < specimens.length; i++) {
+    const spec = specimens[i];
+    if (spec.collected) continue;
+    const dx = player.x - (spec.tx + 0.5);
+    const dy = player.y - (spec.ty + 0.5);
+    if (Math.sqrt(dx * dx + dy * dy) < 2) {
+      spec.collected = true;
+      collectedSpecimens.push(spec);
+      document.getElementById(`spec-${i}`).classList.add('collected');
+      updateQuestTracker();
+    }
+  }
+}
+
+function checkLandmarkDiscovery() {
+  const ptx = Math.floor(player.x);
+  const pty = Math.floor(player.y);
+
+  for (const lm of landmarks) {
+    if (discoveredLandmarks.has(lm.name)) continue;
+    const dx = lm.tx - ptx;
+    const dy = lm.ty - pty;
+    if (Math.sqrt(dx * dx + dy * dy) <= 3.5 && surveyedTiles.has(`${lm.tx},${lm.ty}`)) {
+      discoveredLandmarks.add(lm.name);
+      showLandmarkToast(lm);
+      updateQuestTracker();
+    }
+  }
+}
+
+function showLandmarkToast(lm) {
+  const toast = document.getElementById('landmarkToast');
+  document.getElementById('toastName').textContent = lm.name;
+  document.getElementById('toastSub').textContent = lm.desc;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 2500);
+}
+
+// --- QUEST TRACKER ---
+function updateQuestTracker() {
+  // Position Fixed
+  const posEl = document.getElementById('questPosition');
+  const posDetail = document.getElementById('questPositionDetail');
+  posDetail.textContent = `${revealedDigitCount}/${TOTAL_DIGITS}`;
+  if (revealedDigitCount >= TOTAL_DIGITS) {
+    posEl.classList.add('complete');
+  }
+
+  // Samples Collected
+  const specEl = document.getElementById('questSpecimens');
+  const specDetail = document.getElementById('questSpecimensDetail');
+  const totalSpec = specimens.length;
+  const collectedCount = specimens.filter(s => s.collected).length;
+  specDetail.textContent = `${collectedCount}/${totalSpec}`;
+  if (totalSpec > 0 && collectedCount >= totalSpec) {
+    specEl.classList.add('complete');
+  }
+
+  // Landmarks Discovered
+  const lmEl = document.getElementById('questLandmarks');
+  const lmDetail = document.getElementById('questLandmarksDetail');
+  const totalLm = landmarks.length;
+  const discoveredCount = discoveredLandmarks.size;
+  lmDetail.textContent = `${discoveredCount}/${totalLm}`;
+  if (totalLm > 0 && discoveredCount >= totalLm) {
+    lmEl.classList.add('complete');
+  }
+
+  // Check full completion
+  const mapDone = mapPercent >= 100;
+  const posDone = revealedDigitCount >= TOTAL_DIGITS;
+  const specDone = totalSpec > 0 && collectedCount >= totalSpec;
+  const lmDone = totalLm > 0 && discoveredCount >= totalLm;
+
+  if (mapDone && posDone && specDone && lmDone) {
+    document.getElementById('newMapBtn').style.display = 'block';
+  }
+}
+
+function newMap() {
+  // Reset all state
+  zoom = 1.0;
+  revealedTiles = new Set();
+  surveyedTiles = new Set();
+  specimens = [];
+  collectedSpecimens = [];
+  mapPercent = 0;
+  measuring = false;
+  measureTrail = [];
+  measureDistance = 0;
+  completedMeasures = [];
+  sextantReadings = [];
+  coordDigitsLat = [];
+  coordDigitsLng = [];
+  revealedDigitCount = 0;
+  landmarks = [];
+  discoveredLandmarks = new Set();
+  moveTarget = null;
+  activeAnimation = null;
+
+  // Reset UI
+  document.getElementById('newMapBtn').style.display = 'none';
+  document.getElementById('measureDisplay').classList.remove('visible');
+  document.querySelector('[data-tool="measure"]').classList.remove('measuring');
+  document.querySelectorAll('.quest-item').forEach(el => el.classList.remove('complete'));
+
+  // Generate fresh island (shift the seed)
+  seedOffset = Math.floor(Math.random() * 100000);
+  placementSeed = Math.floor(Math.random() * 100000);
+
+  // Set new name and regenerate
+  document.getElementById('islandName').textContent = generateIslandName();
+  generateLandmarks();
+  initCoordinates();
+
+  // Find new beach start
+  for (let tx = 0; tx < GRID; tx++) {
+    for (let ty = 0; ty < GRID; ty++) {
+      if (getTerrain(tx, ty) === 'beach') {
+        player.x = tx + 0.5;
+        player.y = ty + 0.5;
+        camera.x = player.x * TILE;
+        camera.y = player.y * TILE;
+        lastPlayerPos = { x: player.x, y: player.y };
+
+        for (let ddx = -2; ddx <= 2; ddx++) {
+          for (let ddy = -2; ddy <= 2; ddy++) {
+            revealedTiles.add(`${tx + ddx},${ty + ddy}`);
+          }
+        }
+
+        generateSpecimens();
+        selectTool('walk');
+        updateMapPercent();
+        updateQuestTracker();
+        return;
+      }
+    }
+  }
+}
+
+// --- MAP PERCENT ---
+function updateMapPercent() {
+  let landTiles = 0, revealed = 0;
+  for (let tx = 0; tx < GRID; tx++) {
+    for (let ty = 0; ty < GRID; ty++) {
+      if (isLand(tx, ty)) {
+        landTiles++;
+        const key = `${tx},${ty}`;
+        if (surveyedTiles.has(key)) revealed++;
+        else if (revealedTiles.has(key)) revealed += 0.3;
+      }
+    }
+  }
+  mapPercent = Math.round((revealed / landTiles) * 100);
+  document.getElementById('mapProgress').textContent = `Map: ${mapPercent}% charted`;
+}
+
+// --- MAIN RENDER ---
+function render() {
+  ctx.fillStyle = COLORS.parchment;
+  ctx.fillRect(0, 0, W, H);
+
+  // Paper texture
+  ctx.fillStyle = 'rgba(200, 185, 165, 0.08)';
+  for (let i = 0; i < 300; i++) {
+    ctx.fillRect((i * 137.5 + Date.now() * 0.001) % W, (i * 97.3) % H, 1, 1);
+  }
+
+  if (!gameStarted) {
+    ctx.strokeStyle = 'rgba(90, 122, 138, 0.12)';
+    ctx.lineWidth = 0.6;
+    const time = Date.now() / 4000;
+    for (let i = 0; i < 20; i++) {
+      ctx.beginPath();
+      for (let x = 0; x < W; x += 8) {
+        const y = H / 2 + 100 + i * 25 + Math.sin(time + x * 0.005 + i * 0.5) * 8;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    requestAnimationFrame(render);
+    return;
+  }
+
+  // Camera
+  camera.x += (player.x * TILE - camera.x) * 0.08;
+  camera.y += (player.y * TILE - camera.y) * 0.08;
+
+  // Apply zoom transform - everything after this is in zoomed world space
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-W / 2, -H / 2);
+
+  const viewW = W / zoom;
+  const viewH = H / zoom;
+  const startTX = Math.floor((camera.x - viewW / 2) / TILE) - 1;
+  const endTX = Math.ceil((camera.x + viewW / 2) / TILE) + 1;
+  const startTY = Math.floor((camera.y - viewH / 2) / TILE) - 1;
+  const endTY = Math.ceil((camera.y + viewH / 2) / TILE) + 1;
+
+  // Coordinate grid (behind everything)
+  drawCoordinateGrid();
+
+  // Tiles
+  for (let ty = startTY; ty <= endTY; ty++) {
+    for (let tx = startTX; tx <= endTX; tx++) {
+      if (tx < 0 || tx >= GRID || ty < 0 || ty >= GRID) {
+        const scr = worldToScreen(tx, ty);
+        ctx.fillStyle = COLORS.parchment;
+        ctx.fillRect(scr.x, scr.y, TILE, TILE);
+        drawWater(scr.x, scr.y, tx, ty);
+        continue;
+      }
+      const key = `${tx},${ty}`;
+      drawTile(tx, ty, revealedTiles.has(key), surveyedTiles.has(key));
+    }
+  }
+
+  // Landmarks
+  for (const lm of landmarks) drawLandmarkOnMap(lm);
+
+  // Measure trails
+  drawMeasureTrails();
+
+  // Sextant fixes
+  drawSextantFixes();
+
+  // Specimens
+  drawSpecimens();
+
+  // Player
+  drawPlayer();
+
+  // Animations
+  drawAnimations();
+
+  // End zoom transform
+  ctx.restore();
+
+  requestAnimationFrame(render);
+}
+
+// --- INPUT ---
+document.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key >= '1' && e.key <= '5') {
+    const tools = ['walk', 'theodolite', 'measure', 'sextant', 'naturalist'];
+    selectTool(tools[parseInt(e.key) - 1]);
+  }
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function handleInteraction(worldX, worldY) {
+  if (!gameStarted) return;
+
+  if (currentTool === 'walk') {
+    moveTarget = { x: worldX, y: worldY };
+  } else if (currentTool === 'theodolite') {
+    doSurvey();
+  } else if (currentTool === 'measure') {
+    toggleMeasure();
+  } else if (currentTool === 'sextant') {
+    doSextant();
+  } else if (currentTool === 'naturalist') {
+    tryCollectSpecimen();
+  }
+}
+
+canvas.addEventListener('click', e => {
+  const world = screenToWorld(e.clientX, e.clientY);
+  handleInteraction(world.x, world.y);
+});
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const world = screenToWorld(touch.clientX, touch.clientY);
+    handleInteraction(world.x, world.y);
+  }
+}, { passive: false });
+
+// Zoom with mouse wheel
+canvas.addEventListener('wheel', e => {
+  if (!gameStarted) return;
+  e.preventDefault();
+  const delta = -Math.sign(e.deltaY) * ZOOM_SPEED;
+  zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta));
+}, { passive: false });
+
+// Pinch to zoom on mobile
+let lastPinchDist = 0;
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (lastPinchDist > 0) {
+      const pinchDelta = (dist - lastPinchDist) * 0.005;
+      zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + pinchDelta));
+    }
+    lastPinchDist = dist;
+  }
+}, { passive: false });
+canvas.addEventListener('touchend', () => { lastPinchDist = 0; });
+
+// --- GAME LOOP ---
+let lastPlayerPos = { x: 0, y: 0 };
+
+function update() {
+  if (!gameStarted) { requestAnimationFrame(update); return; }
+
+  const speed = 0.06;
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup']) dy -= 1;
+  if (keys['s'] || keys['arrowdown']) dy += 1;
+  if (keys['a'] || keys['arrowleft']) dx -= 1;
+  if (keys['d'] || keys['arrowright']) dx += 1;
+
+  if (dx || dy) {
+    moveTarget = null;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    dx /= len; dy /= len;
+    tryMove(dx * speed, dy * speed);
+  }
+
+  if (moveTarget) {
+    const mdx = moveTarget.x - player.x;
+    const mdy = moveTarget.y - player.y;
+    const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+    if (mdist > 0.1) {
+      tryMove((mdx / mdist) * speed, (mdy / mdist) * speed);
+    } else {
+      moveTarget = null;
+    }
+  }
+
+  // Walking reveals nearby tiles
+  const ptx = Math.floor(player.x);
+  const pty = Math.floor(player.y);
+  for (let ddx = -1; ddx <= 1; ddx++) {
+    for (let ddy = -1; ddy <= 1; ddy++) {
+      if (isLand(ptx + ddx, pty + ddy)) revealedTiles.add(`${ptx + ddx},${pty + ddy}`);
+    }
+  }
+
+  // Measure trail tracking
+  if (measuring) {
+    const moveDx = player.x - lastPlayerPos.x;
+    const moveDy = player.y - lastPlayerPos.y;
+    const moveDist = Math.sqrt(moveDx * moveDx + moveDy * moveDy);
+
+    if (moveDist > 0.15) {
+      measureTrail.push({ x: player.x, y: player.y });
+      measureDistance += moveDist * 23; // Convert to game meters
+      document.getElementById('measureDist').textContent = `${Math.round(measureDistance)}m`;
+
+      // Also reveal tiles along measure path
+      for (let ddx = -1; ddx <= 1; ddx++) {
+        for (let ddy = -1; ddy <= 1; ddy++) {
+          if (isLand(ptx + ddx, pty + ddy)) revealedTiles.add(`${ptx + ddx},${pty + ddy}`);
+        }
+      }
+
+      lastPlayerPos.x = player.x;
+      lastPlayerPos.y = player.y;
+    }
+  } else {
+    lastPlayerPos.x = player.x;
+    lastPlayerPos.y = player.y;
+  }
+
+  if (Date.now() % 30 < 17) { updateMapPercent(); updateQuestTracker(); }
+
+  requestAnimationFrame(update);
+}
+
+function tryMove(dx, dy) {
+  const nx = player.x + dx;
+  const ny = player.y + dy;
+  // Check the tile at the player center AND a small buffer in the movement direction
+  // This prevents creeping past tile boundaries into water
+  const margin = 0.15;
+  const checkX1 = Math.floor(nx + (dx > 0 ? margin : -margin));
+  const checkY1 = Math.floor(ny + (dy > 0 ? margin : -margin));
+  const checkX2 = Math.floor(nx);
+  const checkY2 = Math.floor(ny);
+  if (isWalkable(checkX1, checkY1) && isWalkable(checkX2, checkY2)) {
+    player.x = nx;
+    player.y = ny;
+  }
+}
+
+function selectTool(tool) {
+  // If switching away from measure while measuring, stop measuring
+  if (tool !== 'measure' && measuring) {
+    toggleMeasure();
+  }
+
+  currentTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+
+  const hints = {
+    walk: 'Click to move · WASD or Arrow keys',
+    theodolite: 'Click to survey — reveals terrain, contours & landmarks',
+    measure: 'Click to start/stop measuring — walk to trace distances',
+    sextant: 'Click to take a reading — travel far between fixes for new digits',
+    naturalist: 'Walk near specimens and click to collect'
+  };
+  const hint = document.getElementById('toolHint');
+  hint.textContent = hints[tool];
+  hint.classList.add('visible');
+  clearTimeout(hint._timeout);
+  hint._timeout = setTimeout(() => hint.classList.remove('visible'), 3000);
+}
+
+function startGame() {
+  gameStarted = true;
+  document.getElementById('titleCard').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('infoPanel').classList.add('visible');
+  document.getElementById('compass').classList.add('visible');
+  document.getElementById('specimenPanel').classList.add('visible');
+  document.getElementById('coordPanel').classList.add('visible');
+  document.getElementById('islandName').textContent = generateIslandName();
+
+  generateLandmarks();
+  initCoordinates();
+
+  // Find beach start
+  for (let tx = 0; tx < GRID; tx++) {
+    for (let ty = 0; ty < GRID; ty++) {
+      if (getTerrain(tx, ty) === 'beach') {
+        player.x = tx + 0.5;
+        player.y = ty + 0.5;
+        camera.x = player.x * TILE;
+        camera.y = player.y * TILE;
+        lastPlayerPos = { x: player.x, y: player.y };
+
+        for (let ddx = -2; ddx <= 2; ddx++) {
+          for (let ddy = -2; ddy <= 2; ddy++) {
+            revealedTiles.add(`${tx + ddx},${ty + ddy}`);
+          }
+        }
+
+        generateSpecimens();
+        selectTool('walk');
+        return;
+      }
+    }
+  }
+}
+
+// --- INIT ---
+render();
+update();
+</script>
+</body>
+</html>
