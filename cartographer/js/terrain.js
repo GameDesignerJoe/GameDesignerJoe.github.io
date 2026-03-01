@@ -49,7 +49,7 @@ export function getElevation(tx, ty) {
   coastWarp += Math.sin(angle * lobeCount + lobePhase) * lobeStrength;
   coastWarp += smoothNoise(angle * 4  + state.seedOffset * 0.017, state.seedOffset * 0.013, 1.2) * 0.30;
   coastWarp += smoothNoise(angle * 7  + state.seedOffset * 0.023 + 80, state.seedOffset * 0.019 + 80, 1.0) * 0.15;
-  coastWarp += smoothNoise(angle * 14 + state.seedOffset * 0.031 + 160, state.seedOffset * 0.029 + 160, 0.8) * 0.08;
+  coastWarp += smoothNoise(angle * 14 + state.seedOffset * 0.031 + 160, state.seedOffset * 0.029 + 160, 0.8) * 0.15;
 
   // Deep fjord cut
   const cutAngle = seededRandom(state.seedOffset + 720, 721) * Math.PI * 2;
@@ -59,6 +59,19 @@ export function getElevation(tx, ty) {
   if (angleDiff < cutWidth) {
     const cutDepth = 0.2 + seededRandom(state.seedOffset + 724, 725) * 0.35;
     coastWarp -= cutDepth * (1 - angleDiff / cutWidth);
+  }
+
+  // Additional bay cuts — shallower inlets that break up long straight coastline segments
+  const N_BAYS = 2 + Math.floor(seededRandom(state.seedOffset + 730, 731) * 3); // 2–4
+  for (let b = 0; b < N_BAYS; b++) {
+    const bayAngle = seededRandom(state.seedOffset + 732 + b * 10, 733 + b * 10) * Math.PI * 2;
+    const bayWidth = 0.08 + seededRandom(state.seedOffset + 734 + b * 10, 735 + b * 10) * 0.14;
+    const bayDepth = 0.07 + seededRandom(state.seedOffset + 736 + b * 10, 737 + b * 10) * 0.16;
+    let bayDiff = Math.abs(angle - bayAngle);
+    if (bayDiff > Math.PI) bayDiff = Math.PI * 2 - bayDiff;
+    if (bayDiff < bayWidth) {
+      coastWarp -= bayDepth * (1 - bayDiff / bayWidth);
+    }
   }
 
   const effectiveRadius = 0.75 + coastWarp;

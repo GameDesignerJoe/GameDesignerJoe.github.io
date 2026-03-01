@@ -8,13 +8,12 @@ import { TILE, COLORS, GRID } from './config.js';
 import { state } from './state.js';
 import { worldToScreen } from './camera.js';
 import { drawTile } from './draw/tiles.js';
-import { coastLine } from './draw/coastline.js';
-import { isLand, seededRandom } from './terrain.js';
+import { isLand } from './terrain.js';
+import { drawCoastlineBezier } from './draw/coastline-bezier.js';
 import { drawLandmarks, drawSpecimens, drawPlayer,
          drawMeasureTrails, drawSextantFixes, drawCoordinateGrid } from './draw/entities.js';
 import { drawAnimations } from './draw/animations.js';
 
-const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
 export function render() {
   const W = canvas.width, H = canvas.height;
@@ -68,34 +67,30 @@ export function render() {
       if (tx < 0 || tx >= GRID || ty < 0 || ty >= GRID) {
         // Out-of-bounds: draw open ocean
         const scr = worldToScreen(tx, ty);
-        ctx.fillStyle = COLORS.parchment;
+        ctx.fillStyle = COLORS.water;
         ctx.fillRect(scr.x, scr.y, TILE, TILE);
         if (!state.debug.hideOcean) {
           _drawOcean(scr.x, scr.y, tx, ty);
-          // Draw coastline edges facing visible in-bounds land neighbors,
-          // matching what the water-tile branch in drawTile does for in-bounds water.
-          for (const [ndx, ndy] of NEIGHBORS) {
-            const ntx = tx + ndx, nty = ty + ndy;
-            const nKey = `${ntx},${nty}`;
-            if (ntx >= 0 && ntx < GRID && nty >= 0 && nty < GRID &&
-                isLand(ntx, nty) &&
-                (state.revealedTiles.has(nKey) || state.surveyedTiles.has(nKey))) {
-              const strong = state.surveyedTiles.has(nKey);
-              ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
-              ctx.lineWidth   = strong ? 1.5 : 1.0;
-              const canonTX = tx + Math.min(0, ndx);
-              const canonTY = ty + Math.min(0, ndy);
-              const edgeDir = ndx !== 0 ? 0 : 1;
-              const edgeSeed = seededRandom(canonTX * 7 + edgeDir * 1000, canonTY * 11);
-              if (ndx === -1) coastLine(scr.x,        scr.y,        scr.x,        scr.y + TILE, 1.5, edgeSeed);
-              if (ndx ===  1) coastLine(scr.x + TILE, scr.y,        scr.x + TILE, scr.y + TILE, 1.5, edgeSeed);
-              if (ndy === -1) coastLine(scr.x,        scr.y,        scr.x + TILE, scr.y,        1.5, edgeSeed);
-              if (ndy ===  1) coastLine(scr.x,        scr.y + TILE, scr.x + TILE, scr.y + TILE, 1.5, edgeSeed);
-            }
-          }
         }
       } else {
         drawTile(tx, ty);
+      }
+    }
+  }
+
+  // Bezier flood-fill: paints water area with COLORS.water, trimming tile corners.
+  // This overwrites the wave lines drawn during the tile pass, so we redraw them.
+  drawCoastlineBezier();
+
+  // Wave redraw pass — restores wave lines erased by the flood fill
+  if (!state.debug.hideOcean) {
+    for (let ty = startTY; ty <= endTY; ty++) {
+      for (let tx = startTX; tx <= endTX; tx++) {
+        const outOfBounds = tx < 0 || tx >= GRID || ty < 0 || ty >= GRID;
+        if (outOfBounds || !isLand(tx, ty)) {
+          const scr = worldToScreen(tx, ty);
+          _drawOcean(scr.x, scr.y, tx, ty);
+        }
       }
     }
   }

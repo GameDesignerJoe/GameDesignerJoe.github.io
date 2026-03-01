@@ -32,6 +32,7 @@ export const CONTOUR_LEVELS = [0.15, 0.3, 0.45, 0.6, 0.75];
 
 export const COLORS = {
   parchment: '#f5ebdc',
+  water: '#e8ecee',     // faint cool blue — ocean fill, contrasts with warm parchment land
   ink: '#3a2f24',
   inkLight: '#6a5a48',
   waterInk: '#5a7a8a',
