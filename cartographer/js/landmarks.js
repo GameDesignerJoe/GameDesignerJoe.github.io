@@ -3,7 +3,7 @@
 // Landmark type definitions, procedural generation, discovery.
 // ============================================================
 
-import { GRID, LANDMARK_DISCOVERY_RADIUS } from './config.js';
+import { GRID, LANDMARK_DISCOVERY_RADIUS, MEASURE_METERS_PER_TILE } from './config.js';
 import { state } from './state.js';
 import { getTerrain, getElevation } from './terrain.js';
 
@@ -77,6 +77,20 @@ export function generateLandmarks() {
   // Crystal Spring — second random highland (after cave was picked)
   const springTile = pickRandom(pools['highland']);
   if (springTile) state.landmarks.push({ ...LANDMARK_TYPES[5], ...springTile });
+}
+
+// Generate a landmark-to-landmark measurement quest for the current island.
+// Always anchors on Summit Peak (lms[0]) as one endpoint.
+export function generateMeasurementQuest() {
+  const lms = state.landmarks;
+  if (lms.length < 2) { state.measurementQuest = null; return; }
+
+  const lm1 = lms[0]; // Summit Peak — always present, players discover it first
+  const lm2 = lms[Math.floor(Math.random() * (lms.length - 1)) + 1];
+
+  const dx = lm2.tx - lm1.tx, dy = lm2.ty - lm1.ty;
+  const targetDist = Math.round(Math.sqrt(dx * dx + dy * dy) * MEASURE_METERS_PER_TILE);
+  state.measurementQuest = { lm1, lm2, targetDist, completed: false };
 }
 
 // Check if any undiscovered landmarks are now in range after a survey.

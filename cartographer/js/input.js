@@ -3,7 +3,7 @@
 // Keyboard, mouse, and touch event handlers.
 // ============================================================
 
-import { ZOOM_MIN, ZOOM_MAX, ZOOM_SPEED } from './config.js';
+import { ZOOM_MIN_FULL, ZOOM_MAX, ZOOM_SPEED } from './config.js';
 import { state } from './state.js';
 import { canvas } from './canvas.js';
 import { screenToWorld } from './camera.js';
@@ -41,8 +41,9 @@ export function setupInputHandlers(onStartGame, onNewMap) {
   canvas.addEventListener('wheel', e => {
     if (!state.gameStarted) return;
     e.preventDefault();
+    const zoomMin = Math.max(ZOOM_MIN_FULL, 3.0 - 2.3 * (state.mapPercent / 100));
     const delta = -Math.sign(e.deltaY) * ZOOM_SPEED;
-    state.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, state.zoom + delta));
+    state.zoom = Math.max(zoomMin, Math.min(ZOOM_MAX, state.zoom + delta));
   }, { passive: false });
 
   // Pinch-to-zoom
@@ -53,8 +54,9 @@ export function setupInputHandlers(onStartGame, onNewMap) {
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (state.lastPinchDist > 0) {
+        const zoomMin = Math.max(ZOOM_MIN_FULL, 3.0 - 2.3 * (state.mapPercent / 100));
         const pinchDelta = (dist - state.lastPinchDist) * 0.005;
-        state.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, state.zoom + pinchDelta));
+        state.zoom = Math.max(zoomMin, Math.min(ZOOM_MAX, state.zoom + pinchDelta));
       }
       state.lastPinchDist = dist;
     }
@@ -81,6 +83,7 @@ export function setupInputHandlers(onStartGame, onNewMap) {
   // Start / new map buttons
   document.getElementById('startBtn').addEventListener('click', onStartGame);
   document.getElementById('newMapBtn').addEventListener('click', onNewMap);
+  document.getElementById('completionNewBtn').addEventListener('click', onNewMap);
 
   // Info panel collapse toggle
   document.getElementById('panelToggle').addEventListener('click', () => {

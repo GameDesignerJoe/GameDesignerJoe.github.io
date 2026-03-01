@@ -7,9 +7,12 @@ export const TILE = 40;         // pixels per tile at zoom 1
 export const ISLAND_R = 14;     // island radius in tiles
 export const GRID = ISLAND_R * 2 + 1; // 29
 
-export const ZOOM_MIN = 1.0;
-export const ZOOM_MAX = 3.0;
-export const ZOOM_SPEED = 0.1;
+export const ZOOM_MIN      = 1.0;   // absolute floor (unused by input.js — computed dynamically)
+export const ZOOM_MIN_FULL = 0.7;   // zoom-out limit once island is fully charted
+export const ZOOM_MAX      = 3.0;
+export const ZOOM_SPEED    = 0.1;
+
+export const SURVEY_COOLDOWN = 1800; // ms — matches survey animation duration
 
 export const PLAYER_SPEED = 0.06;        // tiles per frame
 export const CAMERA_LERP = 0.08;

@@ -18,6 +18,11 @@ import {
 // --- THEODOLITE (SURVEY) ---
 
 export function doSurvey() {
+  // Prevent re-survey while animation is running (natural cooldown gate)
+  if (state.activeAnimation?.type === 'survey') return;
+
+  state.moveTarget = null; // cancel any pending click-walk
+
   state.activeAnimation = {
     type: 'survey',
     maxRadius: 40 * SURVEY_RADIUS, // TILE * SURVEY_RADIUS in pixels
@@ -38,8 +43,9 @@ export function doSurvey() {
 
 export function toggleMeasure() {
   if (state.measuring) {
-    // Stop — save the trail
+    // Stop — check measurement quest BEFORE clearing trail, then save
     if (state.measureTrail.length >= 2) {
+      _checkMeasurementQuest();
       state.completedMeasures.push({ trail: [...state.measureTrail], distance: state.measureDistance });
     }
     state.measuring = false;
@@ -61,6 +67,8 @@ export function toggleMeasure() {
 // --- SEXTANT ---
 
 export function doSextant() {
+  state.moveTarget = null; // cancel any pending click-walk
+
   // Play animation regardless of success
   state.activeAnimation = {
     type: 'sextant',
@@ -110,6 +118,41 @@ export function doSextant() {
   } else {
     showSextantFeedback(`New digits revealed! ${remaining} remaining.`, true);
   }
+}
+
+// --- MEASUREMENT QUEST CHECK ---
+
+function _checkMeasurementQuest() {
+  const q = state.measurementQuest;
+  if (!q || q.completed) return;
+
+  const trail = state.measureTrail;
+  const start = trail[0], end = trail[trail.length - 1];
+  const ENDPOINT_R = 4.0; // tiles — generous radius so player doesn't need pixel precision
+
+  const near = (p, lm) => {
+    const dx = p.x - (lm.tx + 0.5), dy = p.y - (lm.ty + 0.5);
+    return Math.sqrt(dx * dx + dy * dy) < ENDPOINT_R;
+  };
+
+  const validEndpoints =
+    (near(start, q.lm1) && near(end, q.lm2)) ||
+    (near(start, q.lm2) && near(end, q.lm1));
+
+  if (!validEndpoints) {
+    showSextantFeedback('Measure between the two quest landmarks to record distance.', false);
+    return;
+  }
+
+  // Require at least 50% of the target distance to prevent trivial one-tile measures
+  if (state.measureDistance < q.targetDist * 0.5) {
+    showSextantFeedback('Trail too short — walk more of the route between landmarks.', false);
+    return;
+  }
+
+  q.completed = true;
+  showSextantFeedback('Distance confirmed! Measurement recorded.', true);
+  updateQuestTracker();
 }
 
 // --- NATURALIST (COLLECT) ---

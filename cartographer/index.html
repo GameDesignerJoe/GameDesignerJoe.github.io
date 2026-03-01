@@ -40,6 +40,10 @@
         <span class="quest-check"></span>
         <span>Landmarks Discovered <span class="quest-detail" id="questLandmarksDetail">0/?</span></span>
       </div>
+      <div class="quest-item" id="questMeasure">
+        <span class="quest-check"></span>
+        <span>Distance Measured <span class="quest-detail" id="questMeasureDetail">? ↔ ?</span></span>
+      </div>
     </div>
     <div id="coordSection">
       <div class="coord-title">Position Fix</div>
@@ -63,6 +67,15 @@
   <div id="measureDisplay"><span class="label">Measuring</span><span id="measureDist">0m</span></div>
   <div id="toolHint"></div>
   <div id="landmarkToast"><span id="toastName"></span><div class="sub" id="toastSub"></div></div>
+
+  <div id="completionOverlay">
+    <div id="completionCard">
+      <div id="completionHeading">Expedition Complete</div>
+      <div id="completionIslandName"></div>
+      <div id="completionStats"></div>
+      <button id="completionNewBtn">Begin New Expedition</button>
+    </div>
+  </div>
 
   <div id="toolbar" style="display:none;">
     <button class="tool-btn active" data-tool="walk">

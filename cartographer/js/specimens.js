@@ -9,12 +9,28 @@ import { state } from './state.js';
 import { getTerrain } from './terrain.js';
 
 export const SPECIMEN_TYPES = [
-  { name: 'Blue Orchid',   emoji: '🌺', terrain: 'forest'   },
-  { name: 'Giant Beetle',  emoji: '🪲', terrain: 'lowland'  },
-  { name: 'Sea Shell',     emoji: '🐚', terrain: 'beach'    },
-  { name: 'Fern Fossil',   emoji: '🪨', terrain: 'highland' },
-  { name: 'Butterfly',     emoji: '🦋', terrain: 'lowland'  },
-  { name: 'Wild Mushroom', emoji: '🍄', terrain: 'forest'   },
+  // Beach
+  { name: 'Sea Shell',      emoji: '🐚', terrain: 'beach'    },
+  { name: 'Coral Fragment', emoji: '🪸', terrain: 'beach'    },
+  { name: 'Hermit Crab',    emoji: '🦀', terrain: 'beach'    },
+  { name: 'Starfish',       emoji: '⭐', terrain: 'beach'    },
+  // Lowland
+  { name: 'Giant Beetle',   emoji: '🪲', terrain: 'lowland'  },
+  { name: 'Butterfly',      emoji: '🦋', terrain: 'lowland'  },
+  { name: 'Wild Berries',   emoji: '🫐', terrain: 'lowland'  },
+  { name: 'River Stone',    emoji: '🪨', terrain: 'lowland'  },
+  // Forest
+  { name: 'Blue Orchid',    emoji: '🌺', terrain: 'forest'   },
+  { name: 'Wild Mushroom',  emoji: '🍄', terrain: 'forest'   },
+  { name: 'Bird Feather',   emoji: '🪶', terrain: 'forest'   },
+  { name: 'Tree Frog',      emoji: '🐸', terrain: 'forest'   },
+  { name: 'Pine Cone',      emoji: '🌲', terrain: 'forest'   },
+  // Highland
+  { name: 'Fern Fossil',    emoji: '🌿', terrain: 'highland' },
+  { name: 'Ancient Coin',   emoji: '🪙', terrain: 'highland' },
+  { name: 'Volcanic Glass', emoji: '💎', terrain: 'highland' },
+  { name: 'Quartz Crystal', emoji: '🔮', terrain: 'highland' },
+  { name: 'Amber Insect',   emoji: '🫙', terrain: 'highland' },
 ];
 
 const NAME_PREFIXES = ['Port', 'Isle of', 'Cape', 'Mount', 'Fort', 'St.'];
@@ -27,7 +43,9 @@ export function generateIslandName() {
   return `${prefix} ${word}`;
 }
 
-// Place one specimen of each type on a terrain-matching tile.
+const SPECIMENS_PER_ISLAND = 6;
+
+// Randomly select 6 specimen types, place each on a matching terrain tile.
 // Returns the generated specimens array (also mutates state.specimens).
 export function generateSpecimens() {
   // Build per-terrain tile pools
@@ -45,12 +63,14 @@ export function generateSpecimens() {
   state.specimens = [];
   state.collectedSpecimens = [];
 
-  for (const spec of SPECIMEN_TYPES) {
+  // Shuffle the full pool, then pick the first 6 that have a valid tile
+  const shuffled = [...SPECIMEN_TYPES].sort(() => Math.random() - 0.5);
+  for (const spec of shuffled) {
+    if (state.specimens.length >= SPECIMENS_PER_ISLAND) break;
     const pool = terrainPools[spec.terrain];
     if (pool && pool.length > 0) {
       const idx = Math.floor(Math.random() * pool.length);
-      const tile = pool[idx];
-      pool.splice(idx, 1); // prevent two specimens on same tile
+      const tile = pool.splice(idx, 1)[0]; // remove to prevent duplicates
       state.specimens.push({ ...spec, tx: tile.tx, ty: tile.ty, collected: false });
     }
   }

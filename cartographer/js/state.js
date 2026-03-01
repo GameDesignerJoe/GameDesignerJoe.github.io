@@ -12,7 +12,7 @@ export const state = {
   // Player & camera
   player: { x: 0, y: 0 },
   camera: { x: 0, y: 0 },
-  zoom: 1.0,
+  zoom: 3.0,
   moveTarget: null,
   lastPlayerPos: { x: 0, y: 0 },
 
@@ -42,6 +42,13 @@ export const state = {
   coordDigitsLat: [],       // Array of { char, revealed, fresh }
   coordDigitsLng: [],       // Array of { char, revealed, fresh }
   revealedDigitCount: 0,
+
+  // Measurement quest
+  measurementQuest: null,   // { lm1, lm2, targetDist, completed }
+
+  // Completion
+  completionShown: false,
+  startTime: 0,
 
   // Active canvas animation
   activeAnimation: null,

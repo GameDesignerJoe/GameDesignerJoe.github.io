@@ -9,7 +9,7 @@ import { getTerrain } from './terrain.js';
 import { updateCamera } from './camera.js';
 import { revealSquareAround, revealAroundPlayer } from './fogOfWar.js';
 import { processKeyboardMovement, processClickMovement, updateMeasureTrail } from './movement.js';
-import { generateLandmarks } from './landmarks.js';
+import { generateLandmarks, generateMeasurementQuest } from './landmarks.js';
 import { generateSpecimens, generateIslandName } from './specimens.js';
 import { render } from './rendering.js';
 import { setupInputHandlers } from './input.js';
@@ -63,11 +63,14 @@ function renderLoop() {
 
 export function startGame() {
   state.gameStarted = true;
+  state.zoom = 3.0;
 
   const islandName = generateIslandName();
   showGameUI(islandName);
 
   generateLandmarks();
+  generateMeasurementQuest();
+  state.startTime = Date.now();
   initCoordDisplay();
   _spawnPlayer();
   generateSpecimens();
@@ -81,7 +84,7 @@ export function startGame() {
 
 export function newMap() {
   // Reset mutable state
-  state.zoom = 1.0;
+  state.zoom = 3.0;
   state.revealedTiles = new Set();
   state.surveyedTiles = new Set();
   state.specimens = [];
@@ -99,6 +102,9 @@ export function newMap() {
   state.discoveredLandmarks = new Set();
   state.moveTarget = null;
   state.activeAnimation = null;
+  state.measurementQuest = null;
+  state.completionShown = false;
+  state.startTime = 0;
 
   // New island seed
   state.seedOffset = Math.floor(Math.random() * 100000);
@@ -108,6 +114,8 @@ export function newMap() {
   setIslandName(generateIslandName());
 
   generateLandmarks();
+  generateMeasurementQuest();
+  state.startTime = Date.now();
   initCoordDisplay();
   _spawnPlayer();
   generateSpecimens();

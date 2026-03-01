@@ -3,7 +3,7 @@
 // Debug panel: hidden gear icon + diagnostic buttons.
 // ============================================================
 
-import { GRID } from './config.js';
+import { GRID, TOTAL_DIGITS } from './config.js';
 import { state } from './state.js';
 import { getTerrain } from './terrain.js';
 import { updateMapPercent, updateQuestTracker } from './ui.js';
@@ -58,18 +58,30 @@ function _removeFog() {
 function _completeMap() {
   if (!state.gameStarted) return;
   _removeFog();
+
+  // Discover all landmarks
   for (const lm of state.landmarks) {
     state.discoveredLandmarks.add(lm.name);
   }
+
+  // Collect all specimens
   for (const spec of state.specimens) {
     if (!spec.collected) {
       spec.collected = true;
       state.collectedSpecimens.push(spec);
     }
   }
-  state.mapPercent = 100;
+
+  // Reveal all sextant digits
+  state.revealedDigitCount = TOTAL_DIGITS;
+  for (const d of state.coordDigitsLat) { d.revealed = true; d.fresh = false; }
+  for (const d of state.coordDigitsLng) { d.revealed = true; d.fresh = false; }
+
+  // Complete measurement quest
+  if (state.measurementQuest) {
+    state.measurementQuest.completed = true;
+  }
+
   updateMapPercent();
   updateQuestTracker();
-  const btn = document.getElementById('newMapBtn');
-  if (btn) btn.style.display = 'block';
 }

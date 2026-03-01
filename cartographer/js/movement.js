@@ -27,6 +27,9 @@ export function tryMove(dx, dy) {
 
 // Process WASD / arrow key movement. Called each update frame.
 export function processKeyboardMovement() {
+  // Lock player during survey/sextant animations
+  if (state.activeAnimation?.type === 'survey' || state.activeAnimation?.type === 'sextant') return;
+
   let dx = 0, dy = 0;
   if (state.keys['w'] || state.keys['arrowup'])    dy -= 1;
   if (state.keys['s'] || state.keys['arrowdown'])  dy += 1;
@@ -42,6 +45,8 @@ export function processKeyboardMovement() {
 
 // Walk player toward click-to-move target. Called each update frame.
 export function processClickMovement() {
+  // Lock player during survey/sextant animations
+  if (state.activeAnimation?.type === 'survey' || state.activeAnimation?.type === 'sextant') return;
   if (!state.moveTarget) return;
   const mdx = state.moveTarget.x - state.player.x;
   const mdy = state.moveTarget.y - state.player.y;
@@ -67,6 +72,24 @@ export function updateMeasureTrail() {
   const moveDist = Math.sqrt(moveDx * moveDx + moveDy * moveDy);
 
   if (moveDist > MEASURE_STEP_THRESHOLD) {
+    // Erase: if player is geometrically moving back toward the second-to-last point, pop the last
+    if (state.measureTrail.length >= 3) {
+      const secondLast = state.measureTrail[state.measureTrail.length - 2];
+      const distToSecondLast = Math.hypot(
+        state.player.x - secondLast.x,
+        state.player.y - secondLast.y,
+      );
+      if (distToSecondLast < moveDist) {
+        const popped = state.measureTrail.pop();
+        const lastNow = state.measureTrail[state.measureTrail.length - 1];
+        const segLen = Math.hypot(popped.x - lastNow.x, popped.y - lastNow.y);
+        state.measureDistance = Math.max(0, state.measureDistance - segLen * MEASURE_METERS_PER_TILE);
+        state.lastPlayerPos.x = lastNow.x;
+        state.lastPlayerPos.y = lastNow.y;
+        return -1;
+      }
+    }
+    // Forward: add new trail point
     state.measureTrail.push({ x: state.player.x, y: state.player.y });
     state.measureDistance += moveDist * MEASURE_METERS_PER_TILE;
     state.lastPlayerPos.x = state.player.x;

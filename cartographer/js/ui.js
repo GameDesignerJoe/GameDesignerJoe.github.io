@@ -8,6 +8,28 @@ import { TOTAL_DIGITS, GRID } from './config.js';
 import { state } from './state.js';
 import { isLand, seededRandom } from './terrain.js';
 
+// --- COMPLETION OVERLAY ---
+
+export function showCompletionOverlay() {
+  document.getElementById('completionIslandName').textContent =
+    document.getElementById('islandName').textContent;
+
+  const elapsed = state.startTime
+    ? Math.max(1, Math.round((Date.now() - state.startTime) / 60000))
+    : '?';
+  const measuredDist = state.completedMeasures.reduce((s, m) => s + m.distance, 0);
+
+  document.getElementById('completionStats').innerHTML =
+    `Map charted: 100%<br>` +
+    `Specimens collected: ${state.specimens.length}/${state.specimens.length}<br>` +
+    `Landmarks discovered: ${state.landmarks.length}/${state.landmarks.length}<br>` +
+    `Sextant fixes taken: ${state.sextantReadings.length}<br>` +
+    `Distance measured: ${Math.round(measuredDist)}m<br>` +
+    `Time at sea: ~${elapsed} min`;
+
+  document.getElementById('completionOverlay').classList.add('visible');
+}
+
 // --- MAP PROGRESS ---
 
 export function updateMapPercent() {
@@ -54,12 +76,37 @@ export function updateQuestTracker() {
   lmDetail.textContent = `${discoveredCount}/${totalLm}`;
   lmEl.classList.toggle('complete', totalLm > 0 && discoveredCount >= totalLm);
 
+  // Measurement quest
+  const measureEl     = document.getElementById('questMeasure');
+  const measureDetail = document.getElementById('questMeasureDetail');
+  let measureDone = true;
+  if (state.measurementQuest) {
+    const q  = state.measurementQuest;
+    const d1 = state.discoveredLandmarks.has(q.lm1.name);
+    const d2 = state.discoveredLandmarks.has(q.lm2.name);
+    measureDone = q.completed;
+    if (q.completed) {
+      measureDetail.textContent = '✓';
+    } else if (d1 && d2) {
+      measureDetail.textContent = `${q.lm1.name} ↔ ${q.lm2.name}`;
+    } else {
+      measureDetail.textContent = '? ↔ ?';
+    }
+    measureEl.classList.toggle('complete', q.completed);
+  }
+
   const mapDone  = state.mapPercent >= 100;
   const posDone  = state.revealedDigitCount >= TOTAL_DIGITS;
   const specDone = totalSpec > 0 && collectedCount >= totalSpec;
   const lmDone   = totalLm  > 0 && discoveredCount >= totalLm;
-  document.getElementById('newMapBtn').style.display =
-    (mapDone && posDone && specDone && lmDone) ? 'inline-block' : 'none';
+  const allDone  = mapDone && posDone && specDone && lmDone && measureDone;
+
+  document.getElementById('newMapBtn').style.display = allDone ? 'inline-block' : 'none';
+
+  if (allDone && !state.completionShown) {
+    state.completionShown = true;
+    showCompletionOverlay();
+  }
 }
 
 // --- SPECIMEN SLOTS ---
@@ -247,6 +294,8 @@ export function resetQuestUI() {
   document.getElementById('measureDisplay').classList.remove('visible');
   document.querySelector('[data-tool="measure"]')?.classList.remove('measuring');
   document.querySelectorAll('.quest-item').forEach(el => el.classList.remove('complete'));
+  document.getElementById('questMeasureDetail').textContent = '? ↔ ?';
+  document.getElementById('completionOverlay').classList.remove('visible');
 }
 
 export function setIslandName(name) {

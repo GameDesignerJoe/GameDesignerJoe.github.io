@@ -1,0 +1,12 @@
+TODO:
+- Look at getting the square tiles to take on more of the curved shape like the border so it feels more natural. 
+- Figure out why things are moving so slowly when you walk arcorss the island.
+- Take another swing at getting rid of the hard straight lines on the island border.
+- Figure out how to get actual animation in for some sprites to see about making a chracter with a walk cycle.
+- Get the game zoomed in a lot more by default. 
+- Figure out what the numbers mean that are on the tiles and resolve that.
+- Add a little more mechanics into the gameplay buttons you have:
+    - Survey brings up a circle and you have to drag, clockwise around it to 'survey' the space. Then it fills it all in. 
+    - Sextant brings up a picture of the sun over a horizon line. There's a circle that you need to click on and drag it over the sun to get a measurement. Numbers that look like coordinates/measurements appear on the size and change as you move the circle. 
+- Font is really small to read on desktop
+- Feel like we should have areas that the players can't walk, step cliffs and they have to find their way around them. This would mean we'd need to keep an eye on pathing so the player doesn't get trapped in a space or can't get to certain areas. 
