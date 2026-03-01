@@ -86,4 +86,9 @@ export function setupInputHandlers(onStartGame, onNewMap) {
   document.getElementById('panelToggle').addEventListener('click', () => {
     document.getElementById('infoPanel').classList.toggle('collapsed');
   });
+
+  // Auto-collapse the info panel on small screens so the map gets priority
+  if (window.innerWidth <= 600) {
+    document.getElementById('infoPanel').classList.add('collapsed');
+  }
 }
