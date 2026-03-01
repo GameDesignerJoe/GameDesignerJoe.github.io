@@ -1,0 +1,344 @@
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+DW+Pica+SC&family=Caveat:wght@400;600&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #1a1611;
+  overflow: hidden;
+  font-family: 'IM Fell English', serif;
+  color: #3a2f24;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#gameCanvas { display: block; position: absolute; top: 0; left: 0; }
+
+#uiLayer {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; z-index: 10;
+}
+
+/* ---------------------------------------------------------- */
+/* TOOLBAR                                                     */
+/* ---------------------------------------------------------- */
+
+#toolbar {
+  position: absolute; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 6px;
+  pointer-events: all;
+  background: rgba(62, 48, 34, 0.85);
+  border: 1px solid #5a4a38;
+  border-radius: 8px;
+  padding: 8px 14px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.tool-btn {
+  width: 56px; height: 56px;
+  border: 2px solid #5a4a38; border-radius: 6px;
+  background: rgba(245, 235, 220, 0.08);
+  color: #c4a882; font-size: 11px;
+  font-family: 'IM Fell DW Pica SC', serif;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px;
+  transition: all 0.2s; position: relative;
+}
+
+.tool-btn svg { width: 22px; height: 22px; stroke: #c4a882; fill: none; stroke-width: 1.5; }
+.tool-btn:hover { background: rgba(245, 235, 220, 0.15); border-color: #c4a882; }
+.tool-btn.active { background: rgba(196, 168, 130, 0.25); border-color: #d4b896; color: #e8d5bc; }
+.tool-btn.active svg { stroke: #e8d5bc; }
+.tool-btn.measuring { background: rgba(196, 85, 61, 0.3); border-color: #c4553d; }
+.tool-btn.measuring svg { stroke: #e8a090; }
+
+.tool-key {
+  position: absolute; top: -8px; right: -4px;
+  background: #5a4a38; color: #c4a882;
+  font-size: 9px; padding: 1px 4px;
+  border-radius: 3px; font-family: monospace;
+}
+
+/* ---------------------------------------------------------- */
+/* TITLE CARD                                                  */
+/* ---------------------------------------------------------- */
+
+#titleCard {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center; pointer-events: all;
+  z-index: 100; animation: fadeIn 1.5s ease;
+}
+
+#titleCard h1 {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 52px; color: #e8d5bc;
+  letter-spacing: 6px; text-transform: uppercase;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+}
+
+#titleCard p {
+  font-family: 'IM Fell English', serif;
+  font-style: italic; color: #a89478;
+  font-size: 16px; margin-bottom: 32px;
+}
+
+#startBtn {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 18px; color: #e8d5bc;
+  background: rgba(62, 48, 34, 0.8);
+  border: 1px solid #5a4a38;
+  padding: 12px 40px; border-radius: 6px;
+  cursor: pointer; letter-spacing: 3px;
+  transition: all 0.3s;
+}
+#startBtn:hover { background: rgba(82, 68, 54, 0.9); border-color: #c4a882; }
+
+/* ---------------------------------------------------------- */
+/* INFO PANEL (top-left)                                       */
+/* ---------------------------------------------------------- */
+
+#infoPanel {
+  position: absolute; top: 16px; left: 16px;
+  pointer-events: none; opacity: 0; transition: opacity 0.5s;
+}
+#infoPanel.visible { opacity: 1; }
+
+#islandName {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 20px; color: #c4a882; letter-spacing: 2px;
+}
+#mapProgress {
+  font-family: 'IM Fell English', serif;
+  font-style: italic; color: #8a7a68; font-size: 13px; margin-top: 4px;
+}
+
+/* ---------------------------------------------------------- */
+/* QUEST TRACKER                                               */
+/* ---------------------------------------------------------- */
+
+#questTracker {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(90, 74, 56, 0.3);
+}
+
+.quest-item {
+  font-family: 'IM Fell English', serif;
+  font-size: 12px; color: #6a5a48;
+  margin-top: 5px;
+  display: flex; align-items: center; gap: 6px;
+  transition: color 0.5s;
+}
+.quest-item.complete { color: #8a9a6a; }
+
+.quest-check {
+  display: inline-block; width: 12px; height: 12px;
+  border: 1px solid #5a4a38; border-radius: 2px;
+  flex-shrink: 0; position: relative;
+  transition: border-color 0.5s, background 0.5s;
+}
+.quest-item.complete .quest-check {
+  border-color: #8a9a6a;
+  background: rgba(138, 154, 106, 0.15);
+}
+.quest-item.complete .quest-check::after {
+  content: '✓'; position: absolute;
+  top: -2px; left: 1px;
+  font-size: 11px; color: #8a9a6a;
+}
+
+.quest-detail { font-size: 11px; color: #5a4a38; opacity: 0.7; }
+.quest-item.complete .quest-detail { color: #7a8a5a; }
+
+/* ---------------------------------------------------------- */
+/* NEW MAP BUTTON                                              */
+/* ---------------------------------------------------------- */
+
+#newMapBtn {
+  display: none; margin-top: 12px;
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 14px; color: #e8d5bc;
+  background: rgba(62, 48, 34, 0.8);
+  border: 1px solid #5a4a38;
+  padding: 8px 20px; border-radius: 5px;
+  cursor: pointer; letter-spacing: 2px;
+  pointer-events: all;
+  transition: all 0.3s; animation: fadeIn 1s ease;
+}
+#newMapBtn:hover { background: rgba(82, 68, 54, 0.9); border-color: #c4a882; }
+
+/* ---------------------------------------------------------- */
+/* MEASURE DISPLAY                                             */
+/* ---------------------------------------------------------- */
+
+#measureDisplay {
+  position: absolute; bottom: 96px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Caveat', cursive; font-size: 22px;
+  color: #c4553d; text-align: center;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.3s; white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+#measureDisplay.visible { opacity: 1; }
+#measureDisplay .label {
+  font-family: 'IM Fell English', serif;
+  font-size: 11px; color: #8a7a68;
+  font-style: italic; display: block;
+}
+
+/* ---------------------------------------------------------- */
+/* TOOL HINT                                                   */
+/* ---------------------------------------------------------- */
+
+#toolHint {
+  position: absolute; bottom: 96px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'IM Fell English', serif;
+  font-style: italic; color: #8a7a68; font-size: 13px;
+  text-align: center; pointer-events: none;
+  opacity: 0; transition: opacity 0.4s; white-space: nowrap;
+}
+#toolHint.visible { opacity: 1; }
+
+/* ---------------------------------------------------------- */
+/* COMPASS                                                     */
+/* ---------------------------------------------------------- */
+
+#compass {
+  position: absolute; top: 16px; right: 16px;
+  width: 60px; height: 60px;
+  pointer-events: none; opacity: 0; transition: opacity 0.5s;
+}
+#compass.visible { opacity: 1; }
+
+/* ---------------------------------------------------------- */
+/* SPECIMEN PANEL                                              */
+/* ---------------------------------------------------------- */
+
+#specimenPanel {
+  position: absolute; top: 16px; right: 90px;
+  display: flex; gap: 8px;
+  pointer-events: none; opacity: 0; transition: opacity 0.5s;
+}
+#specimenPanel.visible { opacity: 1; }
+
+.specimen-slot {
+  width: 44px; height: 44px;
+  border: 1px solid #5a4a38; border-radius: 4px;
+  background: rgba(62, 48, 34, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; opacity: 0.3; transition: opacity 0.5s;
+}
+.specimen-slot.collected { opacity: 1; background: rgba(62, 48, 34, 0.8); }
+
+/* ---------------------------------------------------------- */
+/* SEXTANT COORDINATE PANEL                                    */
+/* ---------------------------------------------------------- */
+
+#coordPanel {
+  position: absolute; bottom: 96px; right: 16px;
+  pointer-events: none; opacity: 0; transition: opacity 0.5s;
+  background: rgba(62, 48, 34, 0.75);
+  border: 1px solid #5a4a38; border-radius: 6px;
+  padding: 10px 14px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  min-width: 200px;
+}
+#coordPanel.visible { opacity: 1; }
+
+#coordPanel .coord-title {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 11px; color: #8a7a68;
+  letter-spacing: 2px; margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+#coordPanel .coord-row {
+  font-family: 'Caveat', cursive;
+  font-size: 20px; color: #c4a882;
+  letter-spacing: 1px; line-height: 1.4;
+}
+
+#coordPanel .coord-row .digit {
+  display: inline-block; min-width: 12px;
+  text-align: center; transition: color 0.5s, text-shadow 0.5s;
+}
+#coordPanel .coord-row .digit.hidden  { color: #5a4a38; }
+#coordPanel .coord-row .digit.revealed {
+  color: #e8d5bc;
+  text-shadow: 0 0 8px rgba(196, 168, 130, 0.4);
+}
+#coordPanel .coord-row .digit.fresh {
+  color: #c4a882;
+  animation: digitReveal 1.2s ease;
+}
+
+#coordPanel .coord-progress {
+  margin-top: 8px;
+  font-family: 'IM Fell English', serif;
+  font-style: italic; font-size: 11px; color: #6a5a48;
+}
+#coordPanel .coord-progress-bar {
+  height: 3px; background: #3a3025;
+  border-radius: 2px; margin-top: 4px; overflow: hidden;
+}
+#coordPanel .coord-progress-fill {
+  height: 100%; background: #4a7a9a;
+  border-radius: 2px; transition: width 0.8s ease; width: 0%;
+}
+
+/* ---------------------------------------------------------- */
+/* SEXTANT FEEDBACK TOAST                                      */
+/* ---------------------------------------------------------- */
+
+#sextantFeedback {
+  position: absolute; bottom: 200px; right: 16px;
+  font-family: 'IM Fell English', serif; font-style: italic;
+  font-size: 13px; color: #8a7a68;
+  pointer-events: none; opacity: 0; transition: opacity 0.4s;
+  text-align: right; max-width: 220px;
+}
+#sextantFeedback.visible { opacity: 1; }
+#sextantFeedback.success { color: #4a7a9a; }
+
+/* ---------------------------------------------------------- */
+/* LANDMARK DISCOVERY TOAST                                    */
+/* ---------------------------------------------------------- */
+
+#landmarkToast {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 24px; color: #c4a882;
+  letter-spacing: 3px; text-align: center;
+  pointer-events: none; opacity: 0; transition: opacity 0.6s;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+#landmarkToast .sub {
+  font-family: 'IM Fell English', serif;
+  font-size: 14px; font-style: italic;
+  color: #8a7a68; letter-spacing: 1px; margin-top: 4px;
+}
+#landmarkToast.visible { opacity: 1; }
+
+/* ---------------------------------------------------------- */
+/* KEYFRAME ANIMATIONS                                         */
+/* ---------------------------------------------------------- */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -48%); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes digitReveal {
+  0%   { color: #4a7a9a; text-shadow: 0 0 16px rgba(74,122,154,0.8); transform: scale(1.3); }
+  50%  { text-shadow: 0 0 12px rgba(74,122,154,0.5); }
+  100% { color: #e8d5bc; text-shadow: 0 0 8px rgba(196,168,130,0.4); transform: scale(1); }
+}

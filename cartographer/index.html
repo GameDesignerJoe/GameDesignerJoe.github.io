@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Cartographer</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="uiLayer">
+  <div id="titleCard">
+    <h1>The Cartographer</h1>
+    <p>Chart the unknown. One measurement at a time.</p>
+    <button id="startBtn">Begin Expedition</button>
+  </div>
+
+  <div id="infoPanel">
+    <div id="islandName"></div>
+    <div id="mapProgress">Map: 0% charted</div>
+    <div id="questTracker">
+      <div class="quest-item" id="questPosition">
+        <span class="quest-check"></span>
+        <span>Position Fixed <span class="quest-detail" id="questPositionDetail">0/10</span></span>
+      </div>
+      <div class="quest-item" id="questSpecimens">
+        <span class="quest-check"></span>
+        <span>Samples Collected <span class="quest-detail" id="questSpecimensDetail">0/6</span></span>
+      </div>
+      <div class="quest-item" id="questLandmarks">
+        <span class="quest-check"></span>
+        <span>Landmarks Discovered <span class="quest-detail" id="questLandmarksDetail">0/?</span></span>
+      </div>
+    </div>
+    <button id="newMapBtn">New Expedition</button>
+  </div>
+
+  <div id="compass">
+    <svg viewBox="0 0 60 60">
+      <circle cx="30" cy="30" r="28" fill="none" stroke="#5a4a38" stroke-width="1"/>
+      <text x="30" y="14" text-anchor="middle" fill="#c4a882" font-size="10" font-family="IM Fell DW Pica SC">N</text>
+      <text x="30" y="54" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">S</text>
+      <text x="8"  y="34" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">W</text>
+      <text x="52" y="34" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">E</text>
+      <polygon points="30,16 27,28 33,28" fill="#c4553d" opacity="0.9"/>
+      <polygon points="30,44 27,32 33,32" fill="#5a4a38" opacity="0.7"/>
+    </svg>
+  </div>
+
+  <div id="specimenPanel"></div>
+
+  <div id="coordPanel">
+    <div class="coord-title">Position Fix</div>
+    <div class="coord-row" id="coordLat"></div>
+    <div class="coord-row" id="coordLng"></div>
+    <div class="coord-progress">
+      <span id="coordStatus">No readings taken</span>
+      <div class="coord-progress-bar"><div class="coord-progress-fill" id="coordFill"></div></div>
+    </div>
+  </div>
+
+  <div id="sextantFeedback"></div>
+  <div id="measureDisplay"><span class="label">Measuring</span><span id="measureDist">0m</span></div>
+  <div id="toolHint"></div>
+  <div id="landmarkToast"><span id="toastName"></span><div class="sub" id="toastSub"></div></div>
+
+  <div id="toolbar" style="display:none;">
+    <button class="tool-btn active" data-tool="walk">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M10 10l-1 8 3-2 3 2-1-8"/><path d="M9 22l1-6m5 6l-1-6"/></svg>
+      Walk
+      <span class="tool-key">1</span>
+    </button>
+    <button class="tool-btn" data-tool="theodolite">
+      <svg viewBox="0 0 24 24"><path d="M12 3v6m-4 12h8m-4-12v12"/><circle cx="12" cy="9" r="3"/><path d="M6 9h12"/></svg>
+      Survey
+      <span class="tool-key">2</span>
+    </button>
+    <button class="tool-btn" data-tool="measure">
+      <svg viewBox="0 0 24 24"><path d="M3 12h18M3 12l4-4M3 12l4 4M21 12l-4-4M21 12l-4 4"/><path d="M8 10v4m4-5v6m4-5v4"/></svg>
+      Measure
+      <span class="tool-key">3</span>
+    </button>
+    <button class="tool-btn" data-tool="sextant">
+      <svg viewBox="0 0 24 24"><path d="M12 3l-8 16h16z" fill="none"/><circle cx="12" cy="13" r="2"/><path d="M12 3v8"/></svg>
+      Sextant
+      <span class="tool-key">4</span>
+    </button>
+    <button class="tool-btn" data-tool="naturalist">
+      <svg viewBox="0 0 24 24"><path d="M12 22c-4 0-7-3-7-7 0-5 7-12 7-12s7 7 7 12c0 4-3 7-7 7z"/><path d="M12 22v-9m-3 5c1.5-1 3-3 3-5m3 5c-1.5-1-3-3-3-5"/></svg>
+      Collect
+      <span class="tool-key">5</span>
+    </button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
