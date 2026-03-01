@@ -188,18 +188,16 @@ export function drawSpecimens() {
     const scr = worldToScreen(spec.tx + 0.5, spec.ty + 0.5);
     const bob = Math.sin(Date.now() / 800 + spec.tx) * 2;
 
-    ctx.fillStyle = 'rgba(245, 235, 220, 0.75)';
+    // Small neutral backing so emoji colors render correctly over parchment
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
     ctx.beginPath();
-    ctx.arc(scr.x, scr.y - 2 + bob, 14, 0, Math.PI * 2);
+    ctx.arc(scr.x, scr.y + bob, 8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(58, 47, 36, 0.15)';
-    ctx.lineWidth = 0.8;
-    ctx.stroke();
 
-    ctx.font = '22px serif';
+    ctx.font = '13px serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(spec.emoji, scr.x, scr.y - 1 + bob);
+    ctx.fillText(spec.emoji, scr.x, scr.y + bob);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
 
@@ -211,7 +209,7 @@ export function drawSpecimens() {
         ctx.strokeStyle = 'rgba(100, 160, 80, 0.5)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(scr.x, scr.y - 2, 18, 0, Math.PI * 2);
+        ctx.arc(scr.x, scr.y, 12, 0, Math.PI * 2);
         ctx.stroke();
       }
     }

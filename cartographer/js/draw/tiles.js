@@ -102,6 +102,16 @@ export function drawTile(tx, ty) {
   ctx.fillStyle = TERRAIN_COLORS[terrain] || COLORS.parchment;
   ctx.fillRect(sx, sy, TILE, TILE);
 
+  // Sand stipple — small seeded dots on beach tiles
+  if (terrain === 'beach') {
+    ctx.fillStyle = 'rgba(175, 152, 110, 0.45)';
+    for (let i = 0; i < 14; i++) {
+      const dx = seededRandom(tx * 11 + i * 7 + 1, ty * 17 + i * 3 + 1) * (TILE - 2) + 1;
+      const dy = seededRandom(tx * 11 + i * 7 + 2, ty * 17 + i * 3 + 2) * (TILE - 2) + 1;
+      ctx.fillRect(sx + dx, sy + dy, 1, 1);
+    }
+  }
+
   if (surveyed) {
     const features = getTileFeatures(tx, ty);
     for (const f of features) {
