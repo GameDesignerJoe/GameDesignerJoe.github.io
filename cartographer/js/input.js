@@ -28,14 +28,13 @@ export function setupInputHandlers(onStartGame, onNewMap) {
     handleInteraction(world.x, world.y);
   });
 
-  // Touch tap
+  // Touch tap — detected on touchend so pinch first-finger doesn't fire interaction
+  let _tapStart = null;
   canvas.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const world = screenToWorld(touch.clientX, touch.clientY);
-      handleInteraction(world.x, world.y);
-    }
+    e.preventDefault();
+    _tapStart = e.touches.length === 1
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+      : null; // multi-touch clears tap intent
   }, { passive: false });
 
   // Mouse wheel zoom
@@ -60,7 +59,19 @@ export function setupInputHandlers(onStartGame, onNewMap) {
       state.lastPinchDist = dist;
     }
   }, { passive: false });
-  canvas.addEventListener('touchend', () => { state.lastPinchDist = 0; });
+  canvas.addEventListener('touchend', e => {
+    state.lastPinchDist = 0;
+    if (_tapStart && e.changedTouches.length === 1) {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - _tapStart.x;
+      const dy = t.clientY - _tapStart.y;
+      if (dx * dx + dy * dy < 100 && Date.now() - _tapStart.t < 400) {
+        const world = screenToWorld(t.clientX, t.clientY);
+        handleInteraction(world.x, world.y);
+      }
+    }
+    _tapStart = null;
+  }, { passive: true });
 
   // Tool buttons
   document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -70,4 +81,9 @@ export function setupInputHandlers(onStartGame, onNewMap) {
   // Start / new map buttons
   document.getElementById('startBtn').addEventListener('click', onStartGame);
   document.getElementById('newMapBtn').addEventListener('click', onNewMap);
+
+  // Info panel collapse toggle
+  document.getElementById('panelToggle').addEventListener('click', () => {
+    document.getElementById('infoPanel').classList.toggle('collapsed');
+  });
 }
