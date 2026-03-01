@@ -9,7 +9,7 @@ import { state } from './state.js';
 import { worldToScreen } from './camera.js';
 import { drawTile } from './draw/tiles.js';
 import { coastLine } from './draw/coastline.js';
-import { isLand } from './terrain.js';
+import { isLand, seededRandom } from './terrain.js';
 import { drawLandmarks, drawSpecimens, drawPlayer,
          drawMeasureTrails, drawSextantFixes, drawCoordinateGrid } from './draw/entities.js';
 import { drawAnimations } from './draw/animations.js';
@@ -83,10 +83,14 @@ export function render() {
               const strong = state.surveyedTiles.has(nKey);
               ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
               ctx.lineWidth   = strong ? 1.5 : 1.0;
-              if (ndx === -1) coastLine(scr.x,        scr.y,        scr.x,        scr.y + TILE, 1.5);
-              if (ndx ===  1) coastLine(scr.x + TILE, scr.y,        scr.x + TILE, scr.y + TILE, 1.5);
-              if (ndy === -1) coastLine(scr.x,        scr.y,        scr.x + TILE, scr.y,        1.5);
-              if (ndy ===  1) coastLine(scr.x,        scr.y + TILE, scr.x + TILE, scr.y + TILE, 1.5);
+              const canonTX = tx + Math.min(0, ndx);
+              const canonTY = ty + Math.min(0, ndy);
+              const edgeDir = ndx !== 0 ? 0 : 1;
+              const edgeSeed = seededRandom(canonTX * 7 + edgeDir * 1000, canonTY * 11);
+              if (ndx === -1) coastLine(scr.x,        scr.y,        scr.x,        scr.y + TILE, 1.5, edgeSeed);
+              if (ndx ===  1) coastLine(scr.x + TILE, scr.y,        scr.x + TILE, scr.y + TILE, 1.5, edgeSeed);
+              if (ndy === -1) coastLine(scr.x,        scr.y,        scr.x + TILE, scr.y,        1.5, edgeSeed);
+              if (ndy ===  1) coastLine(scr.x,        scr.y + TILE, scr.x + TILE, scr.y + TILE, 1.5, edgeSeed);
             }
           }
         }
