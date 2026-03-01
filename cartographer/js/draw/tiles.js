@@ -62,15 +62,37 @@ export function drawTile(tx, ty) {
   if (!revealed && !surveyed) {
     ctx.fillStyle = COLORS.fog;
     ctx.fillRect(sx, sy, TILE, TILE);
-    if (seededRandom(tx * 3, ty * 7) > 0.7) {
-      ctx.fillStyle = 'rgba(195, 185, 170, 0.5)';
-      ctx.fillRect(
-        sx + seededRandom(tx * 7 + 1, ty * 11 + 1) * TILE,
-        sy + seededRandom(tx * 7 + 2, ty * 11 + 2) * TILE,
-        2, 2,
-      );
+
+    // Three fog swirls in a fixed triangle: one top-center, two bottom row.
+    ctx.save();
+    ctx.strokeStyle = 'rgba(155, 143, 127, 0.5)';
+    ctx.lineWidth = 0.7;
+    ctx.lineCap = 'round';
+
+    const swirlPositions = [
+      [0.5,  0.3 ],   // top-center
+      [0.28, 0.68],   // bottom-left
+      [0.72, 0.68],   // bottom-right
+    ];
+    for (let s = 0; s < 3; s++) {
+      const cx    = sx + swirlPositions[s][0] * TILE;
+      const cy    = sy + swirlPositions[s][1] * TILE;
+      const maxR  = 6;
+      const start = seededRandom(tx * 7 + s * 17, ty * 13 + s * 19) * Math.PI * 2;
+
+      ctx.beginPath();
+      for (let i = 0; i <= 36; i++) {
+        const t     = i / 36;
+        const angle = start + t * 2.5 * Math.PI * 2;
+        const r     = t * maxR;
+        const px = cx + r * Math.cos(angle);
+        const py = cy + r * Math.sin(angle);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
     }
 
+    ctx.restore();
     return;
   }
 
