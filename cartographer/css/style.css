@@ -342,3 +342,49 @@ body {
   50%  { text-shadow: 0 0 12px rgba(74,122,154,0.5); }
   100% { color: #e8d5bc; text-shadow: 0 0 8px rgba(196,168,130,0.4); transform: scale(1); }
 }
+
+/* ---------------------------------------------------------- */
+/* DEBUG PANEL                                                 */
+/* ---------------------------------------------------------- */
+
+#debugGear {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  opacity: 0.2;
+  cursor: pointer;
+  color: #3a2f24;
+  transition: opacity 0.2s;
+  z-index: 9999;
+  padding: 4px;
+}
+#debugGear:hover { opacity: 0.7; }
+
+#debugPanel {
+  display: none;
+  position: fixed;
+  bottom: 44px;
+  right: 12px;
+  background: rgba(40, 30, 20, 0.92);
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 9999;
+  flex-direction: column;
+  gap: 5px;
+}
+#debugPanel.visible { display: flex; }
+
+#debugPanel button {
+  background: rgba(245, 235, 220, 0.12);
+  border: 1px solid rgba(245, 235, 220, 0.25);
+  color: #e8d5bc;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font: 13px 'Caveat', cursive;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#debugPanel button:hover { background: rgba(245, 235, 220, 0.22); }

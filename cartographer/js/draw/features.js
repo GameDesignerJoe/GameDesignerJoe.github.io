@@ -7,7 +7,7 @@
 import { ctx } from '../canvas.js';
 import { TILE, COLORS, CONTOUR_LEVELS } from '../config.js';
 import { seededRandom, smoothNoise, getTerrain, getElevation } from '../terrain.js';
-import { wobblyLine } from './coastline.js';
+import { wobblyLine, stableLine } from './coastline.js';
 
 // Returns array of feature descriptors for a surveyed tile (deterministic)
 export function getTileFeatures(tx, ty) {
@@ -20,9 +20,10 @@ export function getTileFeatures(tx, ty) {
     for (let i = 0; i < numTrees; i++) {
       features.push({
         type: 'tree',
-        ox: seededRandom(tx + i * 3, ty + i * 7) * 0.8 + 0.1,
-        oy: seededRandom(tx + i * 5, ty + i * 2) * 0.8 + 0.1,
+        ox:   seededRandom(tx + i * 3, ty + i * 7) * 0.8 + 0.1,
+        oy:   seededRandom(tx + i * 5, ty + i * 2) * 0.8 + 0.1,
         size: 0.5 + seededRandom(tx + i, ty) * 0.5,
+        seed: seededRandom(tx * 11 + i * 7, ty * 13 + i * 5),
       });
     }
   }
@@ -34,6 +35,7 @@ export function getTileFeatures(tx, ty) {
         ox: 0.3 + r * 0.4,
         oy: 0.3 + seededRandom(tx, ty + 1) * 0.4,
         size: 0.6 + r * 0.4,
+        seed: seededRandom(tx * 17 + 3, ty * 19 + 7),
       });
     }
   }
@@ -52,23 +54,25 @@ export function getTileFeatures(tx, ty) {
   return features;
 }
 
-export function drawTree(x, y, size) {
+export function drawTree(x, y, size, seed = 0.5) {
   const s = size * 8;
+  const jL = (seed - 0.5) * 2;         // left canopy offset  (-1 to +1)
+  const jR = ((seed * 7919) % 1 - 0.5) * 2; // right canopy offset (different value from same seed)
   ctx.strokeStyle = COLORS.ink;
   ctx.lineWidth = 0.8;
-  wobblyLine(x, y, x, y - s * 0.6, 0.5);
+  stableLine(x, y, x, y - s * 0.6, seed, 0.5);
   ctx.beginPath();
   ctx.moveTo(x, y - s * 1.4);
-  ctx.quadraticCurveTo(x - s * 0.5 + Math.random(), y - s * 0.7, x - s * 0.4, y - s * 0.5);
+  ctx.quadraticCurveTo(x - s * 0.5 + jL, y - s * 0.7, x - s * 0.4, y - s * 0.5);
   ctx.quadraticCurveTo(x - s * 0.1, y - s * 0.55, x, y - s * 0.6);
   ctx.quadraticCurveTo(x + s * 0.1, y - s * 0.55, x + s * 0.4, y - s * 0.5);
-  ctx.quadraticCurveTo(x + s * 0.5 + Math.random(), y - s * 0.7, x, y - s * 1.4);
+  ctx.quadraticCurveTo(x + s * 0.5 + jR, y - s * 0.7, x, y - s * 1.4);
   ctx.fillStyle = 'rgba(100, 120, 70, 0.15)';
   ctx.fill();
   ctx.stroke();
 }
 
-export function drawRock(x, y, size) {
+export function drawRock(x, y, size, seed = 0.5) {
   const s = size * 6;
   ctx.strokeStyle = COLORS.ink;
   ctx.lineWidth = 0.8;
@@ -82,7 +86,7 @@ export function drawRock(x, y, size) {
   ctx.fillStyle = 'rgba(160, 140, 120, 0.1)';
   ctx.fill();
   ctx.stroke();
-  wobblyLine(x - s * 0.15, y - s * 0.1, x + s * 0.1, y - s * 0.55, 0.5);
+  stableLine(x - s * 0.15, y - s * 0.1, x + s * 0.1, y - s * 0.55, seed, 0.5);
 }
 
 export function drawGrass(x, y) {
@@ -124,11 +128,14 @@ export function drawContourForTile(sx, sy, tx, ty) {
 
       if (points.length >= 2) {
         ctx.beginPath();
-        ctx.moveTo(points[0].x + (Math.random() - 0.5), points[0].y + (Math.random() - 0.5));
+        ctx.moveTo(
+          points[0].x + (seededRandom(tx * 17,     ty * 23    ) - 0.5),
+          points[0].y + (seededRandom(tx * 17 + 1,  ty * 23 + 1) - 0.5),
+        );
         for (let i = 1; i < Math.min(points.length, 4); i++) {
           ctx.lineTo(
-            points[i].x + (Math.random() - 0.5) * 1.5,
-            points[i].y + (Math.random() - 0.5) * 1.5,
+            points[i].x + (seededRandom(tx * 17 + i * 3,     ty * 23 + i * 5    ) - 0.5) * 1.5,
+            points[i].y + (seededRandom(tx * 17 + i * 3 + 1,  ty * 23 + i * 5 + 1) - 0.5) * 1.5,
           );
         }
         ctx.stroke();

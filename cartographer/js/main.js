@@ -14,6 +14,7 @@ import { generateSpecimens, generateIslandName } from './specimens.js';
 import { render } from './rendering.js';
 import { setupInputHandlers } from './input.js';
 import { selectTool } from './tools.js';
+import { initDebugPanel } from './debug.js';
 import {
   showGameUI, resetQuestUI, setIslandName,
   rebuildSpecimenSlots, initCoordDisplay,
@@ -135,5 +136,6 @@ function _spawnPlayer() {
 // --- INIT ---
 
 setupInputHandlers(startGame, newMap);
+initDebugPanel();
 update();
 renderLoop();

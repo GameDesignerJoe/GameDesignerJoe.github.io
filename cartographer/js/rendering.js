@@ -8,9 +8,13 @@ import { TILE, COLORS, GRID } from './config.js';
 import { state } from './state.js';
 import { worldToScreen } from './camera.js';
 import { drawTile } from './draw/tiles.js';
+import { coastLine } from './draw/coastline.js';
+import { isLand } from './terrain.js';
 import { drawLandmarks, drawSpecimens, drawPlayer,
          drawMeasureTrails, drawSextantFixes, drawCoordinateGrid } from './draw/entities.js';
 import { drawAnimations } from './draw/animations.js';
+
+const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
 export function render() {
   const W = canvas.width, H = canvas.height;
@@ -66,7 +70,26 @@ export function render() {
         const scr = worldToScreen(tx, ty);
         ctx.fillStyle = COLORS.parchment;
         ctx.fillRect(scr.x, scr.y, TILE, TILE);
-        _drawOcean(scr.x, scr.y, tx, ty);
+        if (!state.debug.hideOcean) {
+          _drawOcean(scr.x, scr.y, tx, ty);
+          // Draw coastline edges facing visible in-bounds land neighbors,
+          // matching what the water-tile branch in drawTile does for in-bounds water.
+          for (const [ndx, ndy] of NEIGHBORS) {
+            const ntx = tx + ndx, nty = ty + ndy;
+            const nKey = `${ntx},${nty}`;
+            if (ntx >= 0 && ntx < GRID && nty >= 0 && nty < GRID &&
+                isLand(ntx, nty) &&
+                (state.revealedTiles.has(nKey) || state.surveyedTiles.has(nKey))) {
+              const strong = state.surveyedTiles.has(nKey);
+              ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
+              ctx.lineWidth   = strong ? 1.5 : 1.0;
+              if (ndx === -1) coastLine(scr.x,        scr.y,        scr.x,        scr.y + TILE, 1.5);
+              if (ndx ===  1) coastLine(scr.x + TILE, scr.y,        scr.x + TILE, scr.y + TILE, 1.5);
+              if (ndy === -1) coastLine(scr.x,        scr.y,        scr.x + TILE, scr.y,        1.5);
+              if (ndy ===  1) coastLine(scr.x,        scr.y + TILE, scr.x + TILE, scr.y + TILE, 1.5);
+            }
+          }
+        }
       } else {
         drawTile(tx, ty);
       }

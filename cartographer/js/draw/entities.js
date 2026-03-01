@@ -8,7 +8,8 @@ import { ctx } from '../canvas.js';
 import { TILE, COLORS, GRID } from '../config.js';
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
-import { wobblyLine } from './coastline.js';
+import { stableLine } from './coastline.js';
+import { seededRandom } from '../terrain.js';
 
 // --- PLAYER ---
 
@@ -83,6 +84,8 @@ function drawLandmarkOnMap(lm) {
 
   const scr = worldToScreen(lm.tx + 0.5, lm.ty + 0.5);
   const discovered = state.discoveredLandmarks.has(lm.name);
+  const lmSeed  = seededRandom(lm.tx * 31, lm.ty * 37);
+  const lmSeed2 = seededRandom(lm.tx * 37, lm.ty * 31);
 
   if (lm.type === 'mountain') {
     ctx.strokeStyle = discovered ? COLORS.ink : 'rgba(58,47,36,0.3)';
@@ -130,7 +133,7 @@ function drawLandmarkOnMap(lm) {
     const s = 1.8;
     ctx.strokeStyle = discovered ? COLORS.ink : 'rgba(58,47,36,0.3)';
     ctx.lineWidth = 1;
-    wobblyLine(scr.x, scr.y + 4, scr.x, scr.y - 4, 0.5);
+    stableLine(scr.x, scr.y + 4, scr.x, scr.y - 4, lmSeed, 0.5);
     ctx.beginPath();
     ctx.arc(scr.x, scr.y - 9, 7 * s, 0, Math.PI * 2);
     ctx.fillStyle = discovered ? 'rgba(80, 110, 55, 0.2)' : 'rgba(80,110,55,0.08)';
@@ -143,8 +146,8 @@ function drawLandmarkOnMap(lm) {
     ctx.beginPath();
     ctx.arc(scr.x, scr.y + 2, 9, Math.PI, 0);
     ctx.stroke();
-    wobblyLine(scr.x - 9, scr.y + 2, scr.x - 9, scr.y + 8, 0.5);
-    wobblyLine(scr.x + 9, scr.y + 2, scr.x + 9, scr.y + 8, 0.5);
+    stableLine(scr.x - 9, scr.y + 2, scr.x - 9, scr.y + 8, lmSeed,  0.5);
+    stableLine(scr.x + 9, scr.y + 2, scr.x + 9, scr.y + 8, lmSeed2, 0.5);
 
   } else if (lm.type === 'spring') {
     ctx.strokeStyle = discovered ? COLORS.waterInk : 'rgba(90,122,138,0.3)';
@@ -155,9 +158,10 @@ function drawLandmarkOnMap(lm) {
     if (discovered) { ctx.fillStyle = 'rgba(140, 175, 195, 0.3)'; ctx.fill(); }
     for (let a = 0; a < 4; a++) {
       const angle = a * Math.PI / 2 + Math.PI / 4;
-      wobblyLine(
+      stableLine(
         scr.x + Math.cos(angle) * 6, scr.y + Math.sin(angle) * 6,
-        scr.x + Math.cos(angle) * 10, scr.y + Math.sin(angle) * 10, 0.5,
+        scr.x + Math.cos(angle) * 10, scr.y + Math.sin(angle) * 10,
+        (lmSeed + a * 0.13) % 1, 0.5,
       );
     }
   }

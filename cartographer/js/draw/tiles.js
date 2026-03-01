@@ -53,17 +53,19 @@ export function drawTile(tx, ty) {
   if (terrain === 'water') {
     ctx.fillStyle = COLORS.parchment;
     ctx.fillRect(sx, sy, TILE, TILE);
-    drawWater(sx, sy, tx, ty);
+    if (!state.debug.hideOcean) {
+      drawWater(sx, sy, tx, ty);
 
-    // Coastline from water side: draw edge facing a visible land neighbor
-    for (const [ndx, ndy] of NEIGHBORS) {
-      const ntx = tx + ndx, nty = ty + ndy;
-      const nKey = `${ntx},${nty}`;
-      if (isLand(ntx, nty) && (state.revealedTiles.has(nKey) || state.surveyedTiles.has(nKey))) {
-        const strong = state.surveyedTiles.has(nKey);
-        ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
-        ctx.lineWidth   = strong ? 1.5 : 1.0;
-        _drawEdge(sx, sy, ndx, ndy);
+      // Coastline from water side: draw edge facing a visible land neighbor
+      for (const [ndx, ndy] of NEIGHBORS) {
+        const ntx = tx + ndx, nty = ty + ndy;
+        const nKey = `${ntx},${nty}`;
+        if (isLand(ntx, nty) && (state.revealedTiles.has(nKey) || state.surveyedTiles.has(nKey))) {
+          const strong = state.surveyedTiles.has(nKey);
+          ctx.strokeStyle = strong ? COLORS.ink : 'rgba(58, 47, 36, 0.4)';
+          ctx.lineWidth   = strong ? 1.5 : 1.0;
+          _drawEdge(sx, sy, ndx, ndy);
+        }
       }
     }
     return;
@@ -75,7 +77,11 @@ export function drawTile(tx, ty) {
     ctx.fillRect(sx, sy, TILE, TILE);
     if (seededRandom(tx * 3, ty * 7) > 0.7) {
       ctx.fillStyle = 'rgba(195, 185, 170, 0.5)';
-      ctx.fillRect(sx + Math.random() * TILE, sy + Math.random() * TILE, 2, 2);
+      ctx.fillRect(
+        sx + seededRandom(tx * 7 + 1, ty * 11 + 1) * TILE,
+        sy + seededRandom(tx * 7 + 2, ty * 11 + 2) * TILE,
+        2, 2,
+      );
     }
 
     // Still draw coastline if adjacent to a visible tile (prevents disconnected coastline)
@@ -109,8 +115,8 @@ export function drawTile(tx, ty) {
     const features = getTileFeatures(tx, ty);
     for (const f of features) {
       const fx = sx + f.ox * TILE, fy = sy + f.oy * TILE;
-      if (f.type === 'tree')  drawTree(fx, fy, f.size);
-      if (f.type === 'rock')  drawRock(fx, fy, f.size);
+      if (f.type === 'tree')  drawTree(fx, fy, f.size, f.seed);
+      if (f.type === 'rock')  drawRock(fx, fy, f.size, f.seed);
       if (f.type === 'grass') drawGrass(fx, fy);
     }
     drawContourForTile(sx, sy, tx, ty);

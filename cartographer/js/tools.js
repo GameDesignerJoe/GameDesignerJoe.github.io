@@ -3,7 +3,7 @@
 // Tool actions: survey, measure, sextant, collect, selectTool.
 // ============================================================
 
-import { TOTAL_DIGITS, MIN_DISTANCE_BASE, DISTANCE_SCALE, SURVEY_RADIUS } from './config.js';
+import { TOTAL_DIGITS, MIN_DISTANCE_BASE, DISTANCE_SCALE, SURVEY_RADIUS, ISLAND_R } from './config.js';
 import { state } from './state.js';
 import { surveyAroundPlayer } from './fogOfWar.js';
 import { checkLandmarkDiscovery } from './landmarks.js';
@@ -86,7 +86,8 @@ export function doSextant() {
   // First reading is always free
   if (state.sextantReadings.length === 0) minDist = Infinity;
 
-  const requiredDistance = MIN_DISTANCE_BASE + (state.revealedDigitCount * DISTANCE_SCALE);
+  // Scale required distance proportionally to island size (ISLAND_R=14 is the reference size)
+  const requiredDistance = (MIN_DISTANCE_BASE + (state.revealedDigitCount * DISTANCE_SCALE)) * (ISLAND_R / 14);
 
   if (minDist < requiredDistance) {
     const needed = Math.ceil(requiredDistance - minDist);

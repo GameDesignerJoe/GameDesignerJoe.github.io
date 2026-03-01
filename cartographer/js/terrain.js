@@ -4,7 +4,7 @@
 // All functions are pure given state.seedOffset.
 // ============================================================
 
-import { ISLAND_R } from './config.js';
+import { ISLAND_R, GRID } from './config.js';
 import { state } from './state.js';
 
 // Deterministic hash-based pseudo-random, seeded by island seedOffset
@@ -94,7 +94,10 @@ export function getElevation(tx, ty) {
 }
 
 // Maps elevation to biome string. Source of truth for tile type.
+// Out-of-bounds tiles are always water — rendering clips at GRID but terrain
+// generation doesn't, so the bounds check must live here.
 export function getTerrain(tx, ty) {
+  if (tx < 0 || tx >= GRID || ty < 0 || ty >= GRID) return 'water';
   const e = getElevation(tx, ty);
   if (e < -0.02) return 'water';
   if (e < 0.08)  return 'beach';

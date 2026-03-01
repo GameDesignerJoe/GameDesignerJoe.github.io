@@ -8,16 +8,18 @@ import { state } from './state.js';
 import { isWalkable } from './terrain.js';
 import { revealAroundPlayer } from './fogOfWar.js';
 
-// Attempt to move player by (dx, dy) tiles. Checks walkability with margin.
+// Attempt to move player by (dx, dy) tiles.
+// Checks all 4 corners of a 0.3-tile bounding box (AABB collision).
 export function tryMove(dx, dy) {
   const nx = state.player.x + dx;
   const ny = state.player.y + dy;
-  const margin = 0.15;
-  const checkX1 = Math.floor(nx + (dx > 0 ? margin : -margin));
-  const checkY1 = Math.floor(ny + (dy > 0 ? margin : -margin));
-  const checkX2 = Math.floor(nx);
-  const checkY2 = Math.floor(ny);
-  if (isWalkable(checkX1, checkY1) && isWalkable(checkX2, checkY2)) {
+  const r = 0.3;
+  const walkable =
+    isWalkable(Math.floor(nx - r), Math.floor(ny - r)) &&
+    isWalkable(Math.floor(nx + r), Math.floor(ny - r)) &&
+    isWalkable(Math.floor(nx - r), Math.floor(ny + r)) &&
+    isWalkable(Math.floor(nx + r), Math.floor(ny + r));
+  if (walkable) {
     state.player.x = nx;
     state.player.y = ny;
   }

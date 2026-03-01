@@ -49,4 +49,7 @@ export const state = {
   // Input state
   keys: {},
   lastPinchDist: 0,
+
+  // Debug flags
+  debug: { hideOcean: false },
 };
