@@ -8,7 +8,7 @@ import { TILE, COLORS, GRID } from './config.js';
 import { state } from './state.js';
 import { worldToScreen } from './camera.js';
 import { drawTile } from './draw/tiles.js';
-import { isLand } from './terrain.js';
+import { isLand, seededRandom } from './terrain.js';
 import { drawCoastlineBezier } from './draw/coastline-bezier.js';
 import { drawLandmarks, drawSpecimens, drawPlayer,
          drawMeasureTrails, drawSextantFixes, drawCoordinateGrid } from './draw/entities.js';
@@ -28,18 +28,40 @@ export function render() {
     ctx.fillRect((i * 137.5 + Date.now() * 0.001) % W, (i * 97.3) % H, 1, 1);
   }
 
-  // Title screen: animated wave lines, then return early
+  // Title screen: full-screen fog tile grid (slowly drifting)
   if (!state.gameStarted) {
-    ctx.strokeStyle = 'rgba(90, 122, 138, 0.12)';
-    ctx.lineWidth = 0.6;
-    const time = Date.now() / 4000;
-    for (let i = 0; i < 20; i++) {
-      ctx.beginPath();
-      for (let x = 0; x < W; x += 8) {
-        const y = H / 2 + 100 + i * 25 + Math.sin(time + x * 0.005 + i * 0.5) * 8;
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    const drift = (Date.now() * 0.004) % TILE;
+    const ox = drift, oy = drift * 0.65;
+    const cols = Math.ceil(W / TILE) + 2;
+    const rows = Math.ceil(H / TILE) + 2;
+    const swirlPos = [[0.5, 0.3], [0.28, 0.68], [0.72, 0.68]];
+
+    for (let row = -1; row < rows; row++) {
+      for (let col = -1; col < cols; col++) {
+        const sx = col * TILE - ox, sy = row * TILE - oy;
+        ctx.fillStyle = COLORS.fog;
+        ctx.fillRect(sx, sy, TILE, TILE);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(155, 143, 127, 0.5)';
+        ctx.lineWidth = 0.7;
+        ctx.lineCap = 'round';
+        for (let s = 0; s < 3; s++) {
+          const cx = sx + swirlPos[s][0] * TILE;
+          const cy = sy + swirlPos[s][1] * TILE;
+          const start = seededRandom(col * 7 + s * 17, row * 13 + s * 19) * Math.PI * 2;
+          ctx.beginPath();
+          for (let i = 0; i <= 24; i++) {
+            const t = i / 24;
+            const angle = start + t * 2.5 * Math.PI * 2;
+            const r = t * 6;
+            const px = cx + r * Math.cos(angle), py = cy + r * Math.sin(angle);
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
       }
-      ctx.stroke();
     }
     return;
   }

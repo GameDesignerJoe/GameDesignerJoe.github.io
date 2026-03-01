@@ -18,9 +18,16 @@
   </div>
 
   <div id="infoPanel">
-    <div id="islandName"></div>
-    <div id="mapProgress">Map: 0% charted</div>
+    <div id="panelHeader">
+      <button id="panelToggle" aria-label="Collapse panel"></button>
+      <div id="islandName"></div>
+    </div>
+    <span id="panelSummary"></span>
     <div id="questTracker">
+      <div class="quest-item" id="questMap">
+        <span class="quest-check"></span>
+        <span>Map Charted <span class="quest-detail" id="questMapDetail">0%</span></span>
+      </div>
       <div class="quest-item" id="questPosition">
         <span class="quest-check"></span>
         <span>Position Fixed <span class="quest-detail" id="questPositionDetail">0/10</span></span>
@@ -34,33 +41,23 @@
         <span>Landmarks Discovered <span class="quest-detail" id="questLandmarksDetail">0/?</span></span>
       </div>
     </div>
-    <button id="newMapBtn">New Expedition</button>
-    <button id="panelToggle" aria-label="Collapse panel"></button>
-  </div>
-
-  <div id="compass">
-    <svg viewBox="0 0 60 60">
-      <circle cx="30" cy="30" r="28" fill="none" stroke="#5a4a38" stroke-width="1"/>
-      <text x="30" y="14" text-anchor="middle" fill="#c4a882" font-size="10" font-family="IM Fell DW Pica SC">N</text>
-      <text x="30" y="54" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">S</text>
-      <text x="8"  y="34" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">W</text>
-      <text x="52" y="34" text-anchor="middle" fill="#6a5a48" font-size="9" font-family="IM Fell DW Pica SC">E</text>
-      <polygon points="30,16 27,28 33,28" fill="#c4553d" opacity="0.9"/>
-      <polygon points="30,44 27,32 33,32" fill="#5a4a38" opacity="0.7"/>
-    </svg>
-  </div>
-
-  <div id="specimenPanel"></div>
-
-  <div id="coordPanel">
-    <div class="coord-title">Position Fix</div>
-    <div class="coord-row" id="coordLat"></div>
-    <div class="coord-row" id="coordLng"></div>
-    <div class="coord-progress">
-      <span id="coordStatus">No readings taken</span>
-      <div class="coord-progress-bar"><div class="coord-progress-fill" id="coordFill"></div></div>
+    <div id="coordSection">
+      <div class="coord-title">Position Fix</div>
+      <div class="coord-row" id="coordLat"></div>
+      <div class="coord-row" id="coordLng"></div>
+      <div class="coord-progress">
+        <span id="coordStatus">No readings taken</span>
+        <div class="coord-progress-bar"><div class="coord-progress-fill" id="coordFill"></div></div>
+      </div>
     </div>
+    <div id="specimenSection">
+      <div class="coord-title">Specimens</div>
+      <div id="specimenPanel"></div>
+    </div>
+    <button id="newMapBtn">New Expedition</button>
   </div>
+
+  <div id="zoomIndicator"></div>
 
   <div id="sextantFeedback"></div>
   <div id="measureDisplay"><span class="label">Measuring</span><span id="measureDist">0m</span></div>

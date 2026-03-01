@@ -23,7 +23,12 @@ export function updateMapPercent() {
     }
   }
   state.mapPercent = landTiles > 0 ? Math.round((progress / landTiles) * 100) : 0;
-  document.getElementById('mapProgress').textContent = `Map: ${state.mapPercent}% charted`;
+  const detail = document.getElementById('questMapDetail');
+  if (detail) detail.textContent = `${state.mapPercent}%`;
+  const mapEl = document.getElementById('questMap');
+  if (mapEl) mapEl.classList.toggle('complete', state.mapPercent >= 100);
+  const summary = document.getElementById('panelSummary');
+  if (summary) summary.textContent = `${state.mapPercent}% charted`;
 }
 
 // --- QUEST TRACKER ---
@@ -54,7 +59,7 @@ export function updateQuestTracker() {
   const specDone = totalSpec > 0 && collectedCount >= totalSpec;
   const lmDone   = totalLm  > 0 && discoveredCount >= totalLm;
   document.getElementById('newMapBtn').style.display =
-    (mapDone && posDone && specDone && lmDone) ? 'block' : 'none';
+    (mapDone && posDone && specDone && lmDone) ? 'inline-block' : 'none';
 }
 
 // --- SPECIMEN SLOTS ---
@@ -199,6 +204,13 @@ export function showToolHint(tool) {
   hint._timeout = setTimeout(() => hint.classList.remove('visible'), 3000);
 }
 
+// --- ZOOM INDICATOR ---
+
+export function updateZoomIndicator() {
+  const el = document.getElementById('zoomIndicator');
+  if (el) el.textContent = `×${state.zoom.toFixed(1)}`;
+}
+
 // --- MEASURE DISPLAY ---
 
 export function updateMeasureDisplay() {
@@ -226,9 +238,7 @@ export function showGameUI(islandName) {
   document.getElementById('titleCard').style.display = 'none';
   document.getElementById('toolbar').style.display = 'flex';
   document.getElementById('infoPanel').classList.add('visible');
-  document.getElementById('compass').classList.add('visible');
-  document.getElementById('specimenPanel').classList.add('visible');
-  document.getElementById('coordPanel').classList.add('visible');
+  document.getElementById('zoomIndicator').classList.add('visible');
   document.getElementById('islandName').textContent = islandName;
 }
 

@@ -19,7 +19,7 @@ import {
   showGameUI, resetQuestUI, setIslandName,
   rebuildSpecimenSlots, initCoordDisplay,
   updateMapPercent, updateQuestTracker,
-  updateMeasureDisplay,
+  updateMeasureDisplay, updateZoomIndicator,
 } from './ui.js';
 
 // --- GAME LOOP ---
@@ -47,6 +47,7 @@ function update() {
     lastQuestUpdate = now;
     updateMapPercent();
     updateQuestTracker();
+    updateZoomIndicator();
   }
 
   requestAnimationFrame(update);
