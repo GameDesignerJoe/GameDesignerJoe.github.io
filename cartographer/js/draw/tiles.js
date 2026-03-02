@@ -13,9 +13,17 @@ import { worldToScreen } from '../camera.js';
 const TERRAIN_COLORS = {
   beach:    'rgba(220, 200, 160, 0.3)',
   lowland:  'rgba(180, 190, 140, 0.15)',
-  forest:   'rgba(120, 145,  85, 0.2)',
+  forest:   'rgba(120, 145,  85, 0.38)',
   highland: 'rgba(170, 155, 130, 0.2)',
   peak:     'rgba(190, 175, 155, 0.25)',
+};
+
+const TERRAIN_COLORS_SURVEYED = {
+  beach:    'rgba(220, 200, 160, 0.55)',
+  lowland:  'rgba(180, 190, 140, 0.40)',
+  forest:   'rgba(120, 145,  85, 0.50)',
+  highland: 'rgba(170, 155, 130, 0.45)',
+  peak:     'rgba(190, 175, 155, 0.50)',
 };
 
 const NEIGHBORS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
@@ -92,6 +100,10 @@ export function drawTile(tx, ty) {
       ctx.stroke();
     }
 
+    if (state.debug.showUnsurveyed) {
+      ctx.fillStyle = 'rgba(200, 40, 40, 0.45)';
+      ctx.fillRect(sx, sy, TILE, TILE);
+    }
     ctx.restore();
     return;
   }
@@ -99,7 +111,7 @@ export function drawTile(tx, ty) {
   // --- REVEALED OR SURVEYED ---
   ctx.fillStyle = COLORS.parchment;
   ctx.fillRect(sx, sy, TILE, TILE);
-  ctx.fillStyle = TERRAIN_COLORS[terrain] || COLORS.parchment;
+  ctx.fillStyle = (surveyed ? TERRAIN_COLORS_SURVEYED[terrain] : TERRAIN_COLORS[terrain]) || COLORS.parchment;
   ctx.fillRect(sx, sy, TILE, TILE);
 
   // Sand stipple — small seeded dots on beach tiles
@@ -112,6 +124,16 @@ export function drawTile(tx, ty) {
     }
   }
 
+  // Grass stipple — short seeded lines on surveyed lowland tiles
+  if (terrain === 'lowland' && surveyed) {
+    ctx.fillStyle = 'rgba(130, 148, 95, 0.55)';
+    for (let i = 0; i < 12; i++) {
+      const dx = seededRandom(tx * 13 + i * 9 + 3, ty * 19 + i * 5 + 3) * (TILE - 3) + 1;
+      const dy = seededRandom(tx * 13 + i * 9 + 4, ty * 19 + i * 5 + 4) * (TILE - 5) + 1;
+      ctx.fillRect(sx + dx, sy + dy, 1, 3);
+    }
+  }
+
   if (surveyed) {
     const features = getTileFeatures(tx, ty);
     for (const f of features) {
@@ -120,6 +142,11 @@ export function drawTile(tx, ty) {
       if (f.type === 'rock')  drawRock(fx, fy, f.size, f.seed);
       if (f.type === 'grass') drawGrass(fx, fy);
     }
+  }
+
+  if (state.debug.showUnsurveyed && !surveyed) {
+    ctx.fillStyle = 'rgba(200, 40, 40, 0.45)';
+    ctx.fillRect(sx, sy, TILE, TILE);
   }
 
   // Coast edges and corner smoothing are handled by the bezier overlay pass

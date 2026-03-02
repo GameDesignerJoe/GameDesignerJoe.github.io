@@ -57,8 +57,7 @@ export function updateMapPercent() {
       if (isLand(tx, ty)) {
         landTiles++;
         const key = `${tx},${ty}`;
-        if (state.surveyedTiles.has(key))      progress += 1;
-        else if (state.revealedTiles.has(key)) progress += 0.3;
+        if (state.surveyedTiles.has(key)) progress += 1;
       }
     }
   }

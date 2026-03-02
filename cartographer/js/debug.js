@@ -29,7 +29,14 @@ export function initDebugPanel() {
     btnOcean.textContent = `Hide Ocean: ${oceanHidden ? 'ON' : 'OFF'}`;
   });
 
-  panel.append(btnFog, btnComplete, btnOcean);
+  let unshownSurveyed = false;
+  const btnUnsurveyed = _btn('Unsurveyed: OFF', () => {
+    unshownSurveyed = !unshownSurveyed;
+    state.debug.showUnsurveyed = unshownSurveyed;
+    btnUnsurveyed.textContent = `Unsurveyed: ${unshownSurveyed ? 'ON' : 'OFF'}`;
+  });
+
+  panel.append(btnFog, btnComplete, btnOcean, btnUnsurveyed);
   document.body.appendChild(panel);
 
   gear.addEventListener('click', () => panel.classList.toggle('visible'));

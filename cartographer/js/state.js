@@ -62,5 +62,5 @@ export const state = {
   lastPinchDist: 0,
 
   // Debug flags
-  debug: { hideOcean: false },
+  debug: { hideOcean: false, showUnsurveyed: false },
 };
