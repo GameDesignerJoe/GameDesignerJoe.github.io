@@ -23,24 +23,37 @@ export function startArrival(islandName, onComplete) {
   const len = Math.sqrt(dx * dx + dy * dy);
   const normX = dx / len, normY = dy / len;
 
+  // Ship stops in the water, one tile offshore from the beach
+  const shipEndX = bx + normX * 1.0;
+  const shipEndY = by + normY * 1.0;
+
+  // Ship always enters from the left — 12 tiles to the left of its destination, same Y
+  const shipStartX = shipEndX - 12;
+  const shipStartY = shipEndY;
+
+  // Store the ship's permanent water position so drawShip() uses it after arrival
+  state.ship.drawX = shipEndX;
+  state.ship.drawY = shipEndY;
+
   state.arrival = {
-    phase:      'fadein',
+    phase:      'sailing',   // start sailing immediately — no separate fadein phase
     phaseStart:  Date.now(),
+    fadeStart:   Date.now(), // drives black-to-clear overlay independently of phase
     islandName,
-    shipStartX:  bx + normX * 12,  // 12 tiles offshore
-    shipStartY:  by + normY * 12,
-    shipEndX:    bx,
-    shipEndY:    by,
-    shipX:       bx + normX * 12,  // current animated ship position (separate from player)
-    shipY:       by + normY * 12,
+    shipStartX,
+    shipStartY,
+    shipEndX,
+    shipEndY,
+    shipX:       shipStartX, // current animated ship position (separate from player)
+    shipY:       shipStartY,
     normX,
     normY,
     onComplete,
   };
 
-  // Set player pos = ship start so updateCamera() follows naturally (no camera.js change needed)
-  state.player.x = state.arrival.shipStartX;
-  state.player.y = state.arrival.shipStartY;
+  // Camera anchored at the beach — player stays fixed here while ship slides in from left
+  state.player.x = shipEndX;
+  state.player.y = shipEndY;
   state.camera.x = state.player.x * TILE;
   state.camera.y = state.player.y * TILE;
 }
@@ -48,10 +61,9 @@ export function startArrival(islandName, onComplete) {
 // Skip to end immediately — any key/tap triggers this.
 export function skipSequence() {
   if (!state.arrival) return;
-  // Place player in front of (inland from) the ship
-  const { normX, normY } = state.arrival;
-  state.player.x = state.ship.tx + 0.5 - normX * 1.2;
-  state.player.y = state.ship.ty + 0.5 - normY * 1.2;
+  // Place player on the beach tile (ship is anchored in the water beside it)
+  state.player.x = state.ship.tx + 0.5;
+  state.player.y = state.ship.ty + 0.5;
   state.camera.x = state.player.x * TILE;
   state.camera.y = state.player.y * TILE;
   _completeArrival();
@@ -76,32 +88,18 @@ export function updateArrival() {
   const elapsed = Date.now() - state.arrival.phaseStart;
   const { phase, shipStartX, shipStartY, shipEndX, shipEndY, normX, normY } = state.arrival;
 
-  if (phase === 'fadein') {
-    // Hold ship at start, let black fade dissipate
-    state.arrival.shipX = shipStartX;
-    state.arrival.shipY = shipStartY;
-    state.player.x = shipStartX;
-    state.player.y = shipStartY;
-    if (elapsed > 1200) _nextPhase('sailing');
-
-  } else if (phase === 'sailing') {
-    // Ease ship from offshore to beach (6 seconds)
-    const t    = Math.min(elapsed / 6000, 1);
+  if (phase === 'sailing') {
+    // Ship slides in from the left; camera stays fixed at beach (player not updated here)
+    const t    = Math.min(elapsed / 12000, 1);
     const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease in-out
-    const sx = shipStartX + (shipEndX - shipStartX) * ease;
-    const sy = shipStartY + (shipEndY - shipStartY) * ease;
-    state.arrival.shipX = sx;
-    state.arrival.shipY = sy;
-    state.player.x = sx;
-    state.player.y = sy;
-    if (elapsed > 6000) _nextPhase('anchoring');
+    state.arrival.shipX = shipStartX + (shipEndX - shipStartX) * ease;
+    state.arrival.shipY = shipStartY + (shipEndY - shipStartY) * ease;
+    if (elapsed > 12000) _nextPhase('anchoring');
 
   } else if (phase === 'anchoring') {
-    // Ship stopped at beach — rocking handled in drawShip
+    // Ship stopped — rocking handled in drawShip; camera still fixed
     state.arrival.shipX = shipEndX;
     state.arrival.shipY = shipEndY;
-    state.player.x = shipEndX;
-    state.player.y = shipEndY;
     if (elapsed > 700) _nextPhase('disembark');
 
   } else if (phase === 'disembark') {
@@ -113,9 +111,9 @@ export function updateArrival() {
     // Bow is the front of the ship (facing land, -norm direction from center)
     const bowX = shipEndX - normX * 0.4;
     const bowY = shipEndY - normY * 0.4;
-    // Player walks to 1.2 tiles inland from ship center
-    const landX = shipEndX - normX * 1.2;
-    const landY = shipEndY - normY * 1.2;
+    // Player walks onto the beach tile (ship stays in the water)
+    const landX = state.ship.tx + 0.5;
+    const landY = state.ship.ty + 0.5;
     state.player.x = bowX + (landX - bowX) * ease;
     state.player.y = bowY + (landY - bowY) * ease;
     if (elapsed > 900) {
@@ -125,7 +123,7 @@ export function updateArrival() {
     }
 
   } else if (phase === 'namecard') {
-    if (elapsed > 1600) _completeArrival();
+    if (elapsed > 3200) _completeArrival();
   }
 }
 
@@ -137,9 +135,9 @@ export function drawShip() {
   if (!state.ship) return;
 
   // During sequence the ship uses its own animated position (separate from player during disembark);
-  // after the sequence it sits permanently at the anchored beach tile.
-  const wx = state.arrival ? state.arrival.shipX : state.ship.tx + 0.5;
-  const wy = state.arrival ? state.arrival.shipY : state.ship.ty + 0.5;
+  // after the sequence it sits permanently in the water beside the beach.
+  const wx = state.arrival ? state.arrival.shipX : (state.ship.drawX ?? state.ship.tx + 0.5);
+  const wy = state.arrival ? state.arrival.shipY : (state.ship.drawY ?? state.ship.ty + 0.5);
   const { x: sx, y: sy } = worldToScreen(wx, wy);
   const S = TILE * 0.5; // half-tile as the ship size unit (~correct visual scale)
 
@@ -175,7 +173,7 @@ export function drawShip() {
 
   // --- Sail (only while sailing, anchoring, or fading in) ---
   const showSail = state.arrival &&
-    ['fadein', 'sailing', 'anchoring'].includes(state.arrival.phase);
+    ['sailing', 'anchoring'].includes(state.arrival.phase);
 
   if (showSail) {
     const billow = state.arrival.phase === 'sailing'
@@ -215,23 +213,22 @@ export function drawShip() {
 export function drawArrivalOverlay() {
   if (!state.arrival) return;
 
-  const { phase, phaseStart, islandName } = state.arrival;
+  const { phase, phaseStart, fadeStart, islandName } = state.arrival;
   const W = canvas.width, H = canvas.height;
   const elapsed = Date.now() - phaseStart;
 
-  // --- Black fade during fadein ---
-  if (phase === 'fadein') {
-    const alpha = 1 - Math.min(elapsed / 1200, 1);
-    if (alpha > 0) {
-      ctx.fillStyle = `rgba(20, 15, 10, ${alpha})`;
-      ctx.fillRect(0, 0, W, H);
-    }
+  // --- Black fade at sequence start (independent of phase — ship is already moving under it) ---
+  const fadeElapsed = Date.now() - fadeStart;
+  const fadeAlpha = 1 - Math.min(fadeElapsed / 1200, 1);
+  if (fadeAlpha > 0) {
+    ctx.fillStyle = `rgba(20, 15, 10, ${fadeAlpha})`;
+    ctx.fillRect(0, 0, W, H);
   }
 
-  // --- Island name card during namecard phase ---
+  // --- Island name card during namecard phase (twice as long as before) ---
   if (phase === 'namecard') {
     const tIn  = Math.min(elapsed / 400, 1);
-    const tOut = elapsed > 1200 ? (elapsed - 1200) / 400 : 0;
+    const tOut = elapsed > 2400 ? (elapsed - 2400) / 400 : 0;
     const alpha = Math.max(0, tIn - tOut);
     if (alpha <= 0) return;
 
