@@ -8,10 +8,12 @@ import { state } from './state.js';
 import { canvas } from './canvas.js';
 import { screenToWorld } from './camera.js';
 import { handleInteraction, selectTool } from './tools.js';
+import { isSequenceActive, skipSequence } from './arrival.js';
 
 export function setupInputHandlers(onStartGame, onNewMap) {
   // Keyboard
   document.addEventListener('keydown', e => {
+    if (isSequenceActive()) { skipSequence(); return; }
     state.keys[e.key.toLowerCase()] = true;
     if (e.key >= '1' && e.key <= '5') {
       const tools = ['walk', 'theodolite', 'measure', 'sextant', 'naturalist'];
@@ -24,6 +26,7 @@ export function setupInputHandlers(onStartGame, onNewMap) {
 
   // Canvas click
   canvas.addEventListener('click', e => {
+    if (isSequenceActive()) { skipSequence(); return; }
     const world = screenToWorld(e.clientX, e.clientY);
     handleInteraction(world.x, world.y);
   });
@@ -68,8 +71,11 @@ export function setupInputHandlers(onStartGame, onNewMap) {
       const dx = t.clientX - _tapStart.x;
       const dy = t.clientY - _tapStart.y;
       if (dx * dx + dy * dy < 100 && Date.now() - _tapStart.t < 400) {
-        const world = screenToWorld(t.clientX, t.clientY);
-        handleInteraction(world.x, world.y);
+        if (isSequenceActive()) { skipSequence(); }
+        else {
+          const world = screenToWorld(t.clientX, t.clientY);
+          handleInteraction(world.x, world.y);
+        }
       }
     }
     _tapStart = null;

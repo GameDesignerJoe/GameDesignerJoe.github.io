@@ -15,8 +15,9 @@ import { render } from './rendering.js';
 import { setupInputHandlers } from './input.js';
 import { selectTool } from './tools.js';
 import { initDebugPanel } from './debug.js';
+import { startArrival, updateArrival, isSequenceActive } from './arrival.js';
 import {
-  showGameUI, resetQuestUI, setIslandName,
+  showGameUI, resetQuestUI,
   rebuildSpecimenSlots, initCoordDisplay,
   updateMapPercent, updateQuestTracker,
   updateMeasureDisplay, updateZoomIndicator,
@@ -27,7 +28,15 @@ import {
 let lastQuestUpdate = 0;
 
 function update() {
+  updateArrival(); // always first — advances sequence phases each frame
+
   if (!state.gameStarted) {
+    requestAnimationFrame(update);
+    return;
+  }
+
+  if (isSequenceActive()) {
+    // Block normal gameplay input during arrival sequence
     requestAnimationFrame(update);
     return;
   }
@@ -66,7 +75,8 @@ export function startGame() {
   state.zoom = 3.0;
 
   const islandName = generateIslandName();
-  showGameUI(islandName);
+  // Hide the title card immediately; the rest of the game UI is deferred until arrival completes
+  document.getElementById('titleCard').style.display = 'none';
 
   generateLandmarks();
   generateMeasurementQuest();
@@ -76,8 +86,12 @@ export function startGame() {
   generateSpecimens();
   rebuildSpecimenSlots();
   selectTool('walk');
-  updateMapPercent();
-  updateQuestTracker();
+
+  startArrival(islandName, () => {
+    showGameUI(islandName);
+    updateMapPercent();
+    updateQuestTracker();
+  });
 }
 
 // --- NEW MAP ---
@@ -105,13 +119,16 @@ export function newMap() {
   state.measurementQuest = null;
   state.completionShown = false;
   state.startTime = 0;
+  state.ship    = null;
+  state.arrival = null;
 
   // New island seed
   state.seedOffset = Math.floor(Math.random() * 100000);
   state.placementSeed = Math.floor(Math.random() * 100000);
 
   resetQuestUI();
-  setIslandName(generateIslandName());
+
+  const islandName = generateIslandName();
 
   generateLandmarks();
   generateMeasurementQuest();
@@ -121,15 +138,20 @@ export function newMap() {
   generateSpecimens();
   rebuildSpecimenSlots();
   selectTool('walk');
-  updateMapPercent();
-  updateQuestTracker();
+
+  startArrival(islandName, () => {
+    showGameUI(islandName);
+    updateMapPercent();
+    updateQuestTracker();
+  });
 }
 
-// Find a beach tile to spawn on and set initial camera / reveal
+// Find a beach tile to spawn on, anchor the ship there, set initial camera / reveal
 function _spawnPlayer() {
   for (let tx = 0; tx < GRID; tx++) {
     for (let ty = 0; ty < GRID; ty++) {
       if (getTerrain(tx, ty) === 'beach') {
+        state.ship = { tx, ty };  // ship anchors at this beach tile
         state.player.x = tx + 0.5;
         state.player.y = ty + 0.5;
         state.camera.x = state.player.x * TILE;

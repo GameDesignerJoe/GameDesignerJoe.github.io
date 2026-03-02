@@ -53,6 +53,10 @@ export const state = {
   // Active canvas animation
   activeAnimation: null,
 
+  // Ship & arrival sequence
+  ship:    null,   // { tx, ty } — beach tile where ship is anchored; set by _spawnPlayer()
+  arrival: null,   // sequence state machine (managed by arrival.js); null when not active
+
   // Input state
   keys: {},
   lastPinchDist: 0,

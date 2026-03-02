@@ -13,6 +13,7 @@ import { drawCoastlineBezier } from './draw/coastline-bezier.js';
 import { drawLandmarks, drawSpecimens, drawPlayer,
          drawMeasureTrails, drawSextantFixes, drawCoordinateGrid } from './draw/entities.js';
 import { drawAnimations } from './draw/animations.js';
+import { drawShip, drawArrivalOverlay, isPlayerVisible } from './arrival.js';
 
 
 export function render() {
@@ -122,11 +123,15 @@ export function render() {
   drawMeasureTrails();
   drawSextantFixes();
   drawSpecimens();
-  drawPlayer();
+  drawShip();
+  if (isPlayerVisible()) drawPlayer();
   drawAnimations();
 
   // End zoom transform
   ctx.restore();
+
+  // Screen-space overlays (outside zoom transform)
+  drawArrivalOverlay();
 }
 
 // Ocean waves for tiles outside the island grid
