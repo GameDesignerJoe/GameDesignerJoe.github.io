@@ -64,6 +64,13 @@ body {
   border-radius: 3px; font-family: monospace;
 }
 
+#audioSettingsBtn {
+  font-size: 24px;
+  font-family: system-ui, sans-serif; /* ⚙ renders as text glyph, not emoji */
+  line-height: 1;
+  color: #c4a882;
+}
+
 /* ---------------------------------------------------------- */
 /* TITLE CARD                                                  */
 /* ---------------------------------------------------------- */
@@ -471,6 +478,73 @@ body {
   touch-action: manipulation;
 }
 #completionNewBtn:hover { background: #5a4a38; }
+
+/* ---------------------------------------------------------- */
+/* AUDIO SETTINGS MODAL                                        */
+/* ---------------------------------------------------------- */
+
+#audioModal {
+  position: absolute; inset: 0;
+  background: rgba(20, 14, 8, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.25s;
+}
+#audioModal.visible { pointer-events: all; opacity: 1; }
+
+.modal-card {
+  background: rgba(50, 38, 26, 0.97);
+  border: 1px solid #5a4a38;
+  border-radius: 8px;
+  padding: 24px 28px;
+  min-width: 260px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-title {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 14px; color: #c4a882;
+  letter-spacing: 3px; text-transform: uppercase;
+  text-align: center; margin-bottom: 16px;
+}
+
+.modal-mute-btn {
+  width: 100%; padding: 9px;
+  font-family: 'IM Fell English', serif;
+  font-size: 14px; color: #e8d5bc;
+  background: rgba(245, 235, 220, 0.08);
+  border: 1px solid #5a4a38; border-radius: 5px;
+  cursor: pointer; margin-bottom: 16px;
+  transition: background 0.2s, color 0.2s;
+}
+.modal-mute-btn:hover { background: rgba(245, 235, 220, 0.15); }
+.modal-mute-btn.muted { color: #7a6a58; border-color: #3a2f24; }
+
+.modal-sliders {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 16px;
+}
+.modal-sliders label {
+  font-family: 'IM Fell English', serif;
+  font-size: 12px; color: #a89478;
+  display: flex; justify-content: space-between;
+  align-items: center; gap: 10px;
+}
+.modal-sliders input[type="range"] {
+  flex: 1; accent-color: #c4a882; cursor: pointer;
+}
+
+#audioModalClose {
+  width: 100%; padding: 8px;
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 12px; letter-spacing: 2px;
+  color: #6a5a48; background: none;
+  border: 1px solid #3a3025; border-radius: 5px;
+  cursor: pointer; transition: all 0.2s;
+}
+#audioModalClose:hover { border-color: #5a4a38; color: #c4a882; }
 
 /* ---------------------------------------------------------- */
 /* MOBILE — max-width: 600px                                   */

@@ -105,50 +105,46 @@ export function drawContourForTile(sx, sy, tx, ty) {
   if (e < 0.1) return;
 
   for (const level of CONTOUR_LEVELS) {
-    if (Math.abs(e - level) < 0.08) {
-      ctx.strokeStyle = `rgba(58, 47, 36, ${0.12 + level * 0.15})`;
-      ctx.lineWidth = level > 0.5 ? 1.0 : 0.7;
+    // Proper edge-crossing test: a contour crosses an edge only when this tile and
+    // its neighbour straddle the level (one above, one below). This prevents the
+    // old approach from producing straight horizontal/vertical artifact lines along
+    // tile boundaries when a tile's own elevation equals the contour level.
+    const eN = getElevation(tx,     ty - 1);
+    const eE = getElevation(tx + 1, ty    );
+    const eS = getElevation(tx,     ty + 1);
+    const eW = getElevation(tx - 1, ty    );
 
-      const samples = 6;
-      const points = [];
-      for (let side = 0; side < 4; side++) {
-        for (let i = 0; i <= samples; i++) {
-          const t = i / samples;
-          let stx, sty;
-          if (side === 0) { stx = tx + t;     sty = ty; }
-          if (side === 1) { stx = tx + 1;     sty = ty + t; }
-          if (side === 2) { stx = tx + 1 - t; sty = ty + 1; }
-          if (side === 3) { stx = tx;          sty = ty + 1 - t; }
-          const se = getElevation(Math.floor(stx), Math.floor(sty));
-          if (Math.abs(se - level) < 0.05) {
-            points.push({ x: sx + (stx - tx) * TILE, y: sy + (sty - ty) * TILE });
-          }
-        }
-      }
+    const points = [];
+    if ((e - level) * (eN - level) < 0) points.push({ x: sx + TILE * 0.5, y: sy             });
+    if ((e - level) * (eE - level) < 0) points.push({ x: sx + TILE,       y: sy + TILE * 0.5 });
+    if ((e - level) * (eS - level) < 0) points.push({ x: sx + TILE * 0.5, y: sy + TILE       });
+    if ((e - level) * (eW - level) < 0) points.push({ x: sx,              y: sy + TILE * 0.5  });
 
-      if (points.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(
-          points[0].x + (seededRandom(tx * 17,     ty * 23    ) - 0.5),
-          points[0].y + (seededRandom(tx * 17 + 1,  ty * 23 + 1) - 0.5),
-        );
-        for (let i = 1; i < Math.min(points.length, 4); i++) {
-          ctx.lineTo(
-            points[i].x + (seededRandom(tx * 17 + i * 3,     ty * 23 + i * 5    ) - 0.5) * 1.5,
-            points[i].y + (seededRandom(tx * 17 + i * 3 + 1,  ty * 23 + i * 5 + 1) - 0.5) * 1.5,
-          );
-        }
-        ctx.stroke();
-      }
+    if (points.length < 2) continue;
 
-      // Elevation label on occasional tiles
-      if (seededRandom(tx * 41 + level * 100, ty * 43) > 0.92) {
-        ctx.save();
-        ctx.font = '8px "Caveat", cursive';
-        ctx.fillStyle = `rgba(58, 47, 36, ${0.25 + level * 0.2})`;
-        ctx.fillText(`${Math.round(level * 340)}`, sx + TILE * 0.3, sy + TILE * 0.5);
-        ctx.restore();
-      }
+    ctx.strokeStyle = `rgba(58, 47, 36, ${0.12 + level * 0.15})`;
+    ctx.lineWidth = level > 0.5 ? 1.0 : 0.7;
+
+    ctx.beginPath();
+    ctx.moveTo(
+      points[0].x + (seededRandom(tx * 17,     ty * 23    ) - 0.5) * 2,
+      points[0].y + (seededRandom(tx * 17 + 1,  ty * 23 + 1) - 0.5) * 2,
+    );
+    for (let i = 1; i < Math.min(points.length, 4); i++) {
+      ctx.lineTo(
+        points[i].x + (seededRandom(tx * 17 + i * 3,     ty * 23 + i * 5    ) - 0.5) * 2,
+        points[i].y + (seededRandom(tx * 17 + i * 3 + 1,  ty * 23 + i * 5 + 1) - 0.5) * 2,
+      );
+    }
+    ctx.stroke();
+
+    // Elevation label on occasional tiles
+    if (seededRandom(tx * 41 + level * 100, ty * 43) > 0.92) {
+      ctx.save();
+      ctx.font = '8px "Caveat", cursive';
+      ctx.fillStyle = `rgba(58, 47, 36, ${0.25 + level * 0.2})`;
+      ctx.fillText(`${Math.round(level * 340)}`, sx + TILE * 0.3, sy + TILE * 0.5);
+      ctx.restore();
     }
   }
 }

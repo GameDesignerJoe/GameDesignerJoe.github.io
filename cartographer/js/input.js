@@ -9,6 +9,7 @@ import { canvas } from './canvas.js';
 import { screenToWorld } from './camera.js';
 import { handleInteraction, selectTool } from './tools.js';
 import { isSequenceActive, skipSequence } from './arrival.js';
+import { playSFX } from './audio.js';
 
 export function setupInputHandlers(onStartGame, onNewMap) {
   // Keyboard
@@ -81,13 +82,13 @@ export function setupInputHandlers(onStartGame, onNewMap) {
     _tapStart = null;
   }, { passive: true });
 
-  // Tool buttons
-  document.querySelectorAll('.tool-btn').forEach(btn => {
+  // Tool buttons (only wire buttons that have a data-tool attribute)
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
     btn.addEventListener('click', () => selectTool(btn.dataset.tool));
   });
 
   // Start / new map buttons
-  document.getElementById('startBtn').addEventListener('click', onStartGame);
+  document.getElementById('startBtn').addEventListener('click', () => { playSFX('snd_begin_button'); onStartGame(); });
   document.getElementById('newMapBtn').addEventListener('click', onNewMap);
   document.getElementById('completionNewBtn').addEventListener('click', onNewMap);
 

@@ -77,6 +77,20 @@
     </div>
   </div>
 
+  <div id="audioModal">
+    <div class="modal-card">
+      <div class="modal-title">Audio Settings</div>
+      <button id="modalMuteBtn" class="modal-mute-btn">🔊 Unmuted</button>
+      <div class="modal-sliders">
+        <label>Master   <input type="range" id="vol-master" min="0" max="1" step="0.05" value="0.8"></label>
+        <label>Music    <input type="range" id="vol-music"  min="0" max="1" step="0.05" value="0.1"></label>
+        <label>SFX      <input type="range" id="vol-sfx"    min="0" max="1" step="0.05" value="0.85"></label>
+        <label>Ambience <input type="range" id="vol-amb"    min="0" max="1" step="0.05" value="0.45"></label>
+      </div>
+      <button id="audioModalClose">Close</button>
+    </div>
+  </div>
+
   <div id="toolbar" style="display:none;">
     <button class="tool-btn active" data-tool="walk">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M10 10l-1 8 3-2 3 2-1-8"/><path d="M9 22l1-6m5 6l-1-6"/></svg>
@@ -103,6 +117,7 @@
       Collect
       <span class="tool-key">5</span>
     </button>
+    <button id="audioSettingsBtn" class="tool-btn" title="Audio Settings" aria-label="Audio Settings">⚙</button>
   </div>
 </div>
 

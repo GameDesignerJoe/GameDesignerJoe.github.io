@@ -22,10 +22,15 @@ import {
   updateMapPercent, updateQuestTracker,
   updateMeasureDisplay, updateZoomIndicator,
 } from './ui.js';
+import {
+  initAudio, playMusic, playLoop, stopLoop,
+  updateAmbience, onPlayerMoved, playSFX, fadeOutAmbience, resetAudio,
+} from './audio.js';
 
 // --- GAME LOOP ---
 
 let lastQuestUpdate = 0;
+let _prevFootX = 0, _prevFootY = 0; // independent footstep tracking
 
 function update() {
   updateArrival(); // always first — advances sequence phases each frame
@@ -45,6 +50,16 @@ function update() {
   processClickMovement();
   revealAroundPlayer();
 
+  // Footsteps: detect movement each frame; audio handles start/stop/terrain swap
+  const fdx      = state.player.x - _prevFootX;
+  const fdy      = state.player.y - _prevFootY;
+  const isMoving = fdx * fdx + fdy * fdy > 0.000001;
+  const ftx      = Math.floor(state.player.x);
+  const fty      = Math.floor(state.player.y);
+  onPlayerMoved(isMoving, getTerrain(ftx, fty));
+  _prevFootX = state.player.x;
+  _prevFootY = state.player.y;
+
   const moved = updateMeasureTrail();
   if (moved && state.measuring) {
     updateMeasureDisplay();
@@ -57,6 +72,9 @@ function update() {
     updateMapPercent();
     updateQuestTracker();
     updateZoomIndicator();
+    // Update terrain ambience (crossfades automatically when terrain changes)
+    const tx = Math.floor(state.player.x), ty = Math.floor(state.player.y);
+    updateAmbience(getTerrain(tx, ty));
   }
 
   requestAnimationFrame(update);
@@ -78,17 +96,28 @@ export function startGame() {
   // Hide the title card immediately; the rest of the game UI is deferred until arrival completes
   document.getElementById('titleCard').style.display = 'none';
 
+  initAudio(); // unlock AudioContext — startBtn click is the required user gesture
+
   generateLandmarks();
   generateMeasurementQuest();
   state.startTime = Date.now();
   initCoordDisplay();
   _spawnPlayer();
+  _prevFootX = state.player.x; _prevFootY = state.player.y;
   generateSpecimens();
   rebuildSpecimenSlots();
   selectTool('walk');
 
+  // Cinematic audio: ocean ambience + sailboat SFX loop during arrival
+  updateAmbience('beach');
+  playLoop('snd_sailboat');
+
   startArrival(islandName, () => {
+    stopLoop('snd_sailboat');
     showGameUI(islandName);
+    playMusic('bgm_empty_island');
+    playSFX('snd_start_play_01');
+    setTimeout(() => fadeOutAmbience(), 4000);
     updateMapPercent();
     updateQuestTracker();
   });
@@ -98,6 +127,7 @@ export function startGame() {
 
 export function newMap() {
   // Reset mutable state
+  resetAudio();
   state.zoom = 3.0;
   state.revealedTiles = new Set();
   state.surveyedTiles = new Set();
@@ -135,12 +165,21 @@ export function newMap() {
   state.startTime = Date.now();
   initCoordDisplay();
   _spawnPlayer();
+  _prevFootX = state.player.x; _prevFootY = state.player.y;
   generateSpecimens();
   rebuildSpecimenSlots();
   selectTool('walk');
 
+  // Cinematic audio: ocean ambience + sailboat SFX loop during arrival
+  updateAmbience('beach');
+  playLoop('snd_sailboat');
+
   startArrival(islandName, () => {
+    stopLoop('snd_sailboat');
     showGameUI(islandName);
+    playMusic('bgm_empty_island');
+    playSFX('snd_start_play_01');
+    setTimeout(() => fadeOutAmbience(), 4000);
     updateMapPercent();
     updateQuestTracker();
   });

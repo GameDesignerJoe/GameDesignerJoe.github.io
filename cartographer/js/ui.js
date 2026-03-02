@@ -7,6 +7,10 @@
 import { TOTAL_DIGITS, GRID } from './config.js';
 import { state } from './state.js';
 import { isLand, seededRandom } from './terrain.js';
+import { toggleMute, isMuted, setVolume, getVolumes, playSFX } from './audio.js';
+
+// Tracks which quests have fired their completion sound this expedition
+const _questSoundsFired = new Set();
 
 // --- COMPLETION OVERLAY ---
 
@@ -101,10 +105,19 @@ export function updateQuestTracker() {
   const lmDone   = totalLm  > 0 && discoveredCount >= totalLm;
   const allDone  = mapDone && posDone && specDone && lmDone && measureDone;
 
+  // Play sound the first time each individual quest completes
+  for (const [k, done] of [['map', mapDone], ['pos', posDone], ['spec', specDone], ['lm', lmDone]]) {
+    if (done && !_questSoundsFired.has(k)) {
+      _questSoundsFired.add(k);
+      playSFX('snd_quest_complete');
+    }
+  }
+
   document.getElementById('newMapBtn').style.display = allDone ? 'inline-block' : 'none';
 
   if (allDone && !state.completionShown) {
     state.completionShown = true;
+    playSFX('snd_quest_complete');
     showCompletionOverlay();
   }
 }
@@ -287,9 +300,55 @@ export function showGameUI(islandName) {
   document.getElementById('infoPanel').classList.add('visible');
   document.getElementById('zoomIndicator').classList.add('visible');
   document.getElementById('islandName').textContent = islandName;
+  _initAudioUI();
+}
+
+function _initAudioUI() {
+  const settingsBtn = document.getElementById('audioSettingsBtn');
+  if (!settingsBtn || settingsBtn._wired) { _syncAudioUI(); return; }
+  settingsBtn._wired = true;
+
+  const modal    = document.getElementById('audioModal');
+  const muteBtn  = document.getElementById('modalMuteBtn');
+  const closeBtn = document.getElementById('audioModalClose');
+
+  settingsBtn.addEventListener('click', () => modal.classList.toggle('visible'));
+  closeBtn.addEventListener('click', () => modal.classList.remove('visible'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('visible'); });
+
+  muteBtn.addEventListener('click', () => {
+    toggleMute();
+    _updateMuteDisplay();
+  });
+
+  for (const id of ['master', 'music', 'sfx', 'amb']) {
+    const el = document.getElementById(`vol-${id}`);
+    if (!el) continue;
+    el.addEventListener('input', () => setVolume(id === 'amb' ? 'ambience' : id, +el.value));
+  }
+
+  _syncAudioUI();
+}
+
+function _syncAudioUI() {
+  const vols = getVolumes();
+  const map = { master: vols.master, music: vols.music, sfx: vols.sfx, amb: vols.ambience };
+  for (const [id, val] of Object.entries(map)) {
+    const el = document.getElementById(`vol-${id}`);
+    if (el) el.value = val;
+  }
+  _updateMuteDisplay();
+}
+
+function _updateMuteDisplay() {
+  const muteBtn = document.getElementById('modalMuteBtn');
+  if (!muteBtn) return;
+  muteBtn.textContent = isMuted() ? '🔇  Unmute' : '🔊  Mute';
+  muteBtn.classList.toggle('muted', isMuted());
 }
 
 export function resetQuestUI() {
+  _questSoundsFired.clear();
   document.getElementById('newMapBtn').style.display = 'none';
   document.getElementById('measureDisplay').classList.remove('visible');
   document.querySelector('[data-tool="measure"]')?.classList.remove('measuring');

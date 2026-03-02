@@ -4,6 +4,7 @@
 // ============================================================
 
 import { TOTAL_DIGITS, MIN_DISTANCE_BASE, DISTANCE_SCALE, SURVEY_RADIUS, ISLAND_R } from './config.js';
+import { playSFX } from './audio.js';
 import { state } from './state.js';
 import { surveyAroundPlayer } from './fogOfWar.js';
 import { checkLandmarkDiscovery } from './landmarks.js';
@@ -30,6 +31,7 @@ export function doSurvey() {
     duration: 1800,
   };
 
+  playSFX('snd_survey');
   surveyAroundPlayer();
 
   const discovered = checkLandmarkDiscovery();
@@ -77,6 +79,7 @@ export function doSextant() {
     startTime: Date.now(),
     duration: 1500,
   };
+  playSFX('snd_sextant');
 
   if (state.revealedDigitCount >= TOTAL_DIGITS) {
     showSextantFeedback('Position fully established. Coordinates complete.', false);
@@ -151,6 +154,7 @@ function _checkMeasurementQuest() {
   }
 
   q.completed = true;
+  playSFX('snd_quest_complete');
   showSextantFeedback('Distance confirmed! Measurement recorded.', true);
   updateQuestTracker();
 }
@@ -160,6 +164,7 @@ function _checkMeasurementQuest() {
 export function doCollect() {
   const idx = tryCollectSpecimen();
   if (idx >= 0) {
+    playSFX('snd_collect');
     markSpecimenCollected(idx);
     updateQuestTracker();
   }

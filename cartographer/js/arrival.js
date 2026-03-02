@@ -7,6 +7,7 @@ import { TILE, GRID } from './config.js';
 import { state } from './state.js';
 import { ctx, canvas } from './canvas.js';
 import { worldToScreen } from './camera.js';
+import { playSFX } from './audio.js';
 
 // ============================================================
 // PUBLIC API
@@ -94,7 +95,7 @@ export function updateArrival() {
     const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease in-out
     state.arrival.shipX = shipStartX + (shipEndX - shipStartX) * ease;
     state.arrival.shipY = shipStartY + (shipEndY - shipStartY) * ease;
-    if (elapsed > 12000) _nextPhase('anchoring');
+    if (elapsed > 12000) { playSFX('snd_exit_boat'); _nextPhase('anchoring'); }
 
   } else if (phase === 'anchoring') {
     // Ship stopped — rocking handled in drawShip; camera still fixed

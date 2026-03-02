@@ -10,3 +10,16 @@ TODO:
     - Sextant brings up a picture of the sun over a horizon line. There's a circle that you need to click on and drag it over the sun to get a measurement. Numbers that look like coordinates/measurements appear on the size and change as you move the circle. 
 - Font is really small to read on desktop
 - Feel like we should have areas that the players can't walk, step cliffs and they have to find their way around them. This would mean we'd need to keep an eye on pathing so the player doesn't get trapped in a space or can't get to certain areas. 
+- Need a debug that shows squares that haven't been disovered yet in red.
+- Need a debug that shows where a valid spot to survey would be (I might just need to have us pick fixed locations on the map that are good spots to survey)
+- Need a sound for discovering new locations
+- Need a shorter walk sound
+- We should pulse the quest text when you collect increase the count and then do a nice big flash when you complete it. 
+- Need a noise for when the location comes up at the start. 
+- Need to add some magic to the collecting of the samples. Maybe a happy sigh from the character. 
+- Need to look into a journal of some sort of the things you're collecting. The writing of lines that appear somewhere "The ancient shell of nanatoto said to bear whisper of a lost love if you put your ear to it."
+- Really starting to like the idea that the character is searching for their lost love and finding her journals along the way. He's also leaving journals after every map, there's a new update. 
+- I think we need to darken the background colors, add more contrast to them, maybe them brighter once they've been surveyed so it's easier for the player to know what's what. 
+- We should add a little popup when you've completed a quest on the screen in the same way we bring up the location name of the island.
+- The help text is way to small to actually read and goes away too quickly.
+- You're going to eventually want to come up with things that can happen on the maps that make it slightly more interesting to solve the quests. Right now, while everything is in different locations and the island is a different shape, you're not doing anything different gameplay wise. 
