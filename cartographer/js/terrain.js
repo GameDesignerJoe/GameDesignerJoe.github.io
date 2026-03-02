@@ -24,8 +24,26 @@ export function smoothNoise(x, y, scale) {
   return a * (1 - ux) * (1 - uy) + b * ux * (1 - uy) + c * (1 - ux) * uy + d * ux * uy;
 }
 
-// Source of truth for all terrain. Returns elevation float.
+// Elevation cache — rebuilt once per seedOffset change
+const _elevCache = new Float64Array(GRID * GRID);
+let   _cacheSeed = undefined;
+
+function _buildCache() {
+  for (let ty = 0; ty < GRID; ty++)
+    for (let tx = 0; tx < GRID; tx++)
+      _elevCache[ty * GRID + tx] = _computeElevation(tx, ty);
+  _cacheSeed = state.seedOffset;
+}
+
 export function getElevation(tx, ty) {
+  if (_cacheSeed !== state.seedOffset) _buildCache();
+  if (tx >= 0 && tx < GRID && ty >= 0 && ty < GRID)
+    return _elevCache[ty * GRID + tx];
+  return _computeElevation(tx, ty); // out-of-bounds fallback
+}
+
+// Source of truth for all terrain. Returns elevation float.
+function _computeElevation(tx, ty) {
   const cx = ISLAND_R, cy = ISLAND_R;
   let dx = tx - cx, dy = ty - cy;
 
