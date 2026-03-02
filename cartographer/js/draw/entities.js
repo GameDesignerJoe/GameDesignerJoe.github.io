@@ -5,7 +5,7 @@
 // ============================================================
 
 import { ctx } from '../canvas.js';
-import { TILE, COLORS, GRID } from '../config.js';
+import { TILE, COLORS, GRID, SPECIMEN_COLLECT_RADIUS } from '../config.js';
 import { state } from '../state.js';
 import { worldToScreen } from '../camera.js';
 import { stableLine } from './coastline.js';
@@ -53,7 +53,7 @@ export function drawPlayer() {
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.arc(px, py - 4, 18, 0, Math.PI * 2);
+    ctx.arc(px, py, 18, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -205,11 +205,11 @@ export function drawSpecimens() {
     if (state.currentTool === 'naturalist') {
       const pdx = state.player.x - (spec.tx + 0.5);
       const pdy = state.player.y - (spec.ty + 0.5);
-      if (Math.sqrt(pdx * pdx + pdy * pdy) < 2) {
-        ctx.strokeStyle = 'rgba(100, 160, 80, 0.5)';
+      if (Math.sqrt(pdx * pdx + pdy * pdy) < SPECIMEN_COLLECT_RADIUS) {
+        ctx.strokeStyle = 'rgba(100, 160, 80, 0.8)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(scr.x, scr.y, 12, 0, Math.PI * 2);
+        ctx.arc(scr.x, scr.y + bob, 14, 0, Math.PI * 2);
         ctx.stroke();
       }
     }

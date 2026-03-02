@@ -63,6 +63,12 @@ export function generateSpecimens() {
   state.specimens = [];
   state.collectedSpecimens = [];
 
+  // Exclude tiles already occupied by landmarks
+  const landmarkTiles = new Set(state.landmarks.map(lm => `${lm.tx},${lm.ty}`));
+  for (const t of Object.keys(terrainPools)) {
+    terrainPools[t] = terrainPools[t].filter(({ tx, ty }) => !landmarkTiles.has(`${tx},${ty}`));
+  }
+
   // Shuffle the full pool, then pick the first 6 that have a valid tile
   const shuffled = [...SPECIMEN_TYPES].sort(() => Math.random() - 0.5);
   for (const spec of shuffled) {

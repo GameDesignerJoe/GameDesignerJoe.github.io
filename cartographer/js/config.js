@@ -24,7 +24,7 @@ export const SURVEY_RADIUS = 3.5;        // theodolite survey radius in tiles
 export const MEASURE_STEP_THRESHOLD = 0.15; // min move to record trail point
 export const MEASURE_METERS_PER_TILE = 23;  // game-world meters per tile
 
-export const SPECIMEN_COLLECT_RADIUS = 2;   // tiles proximity to collect
+export const SPECIMEN_COLLECT_RADIUS = 1;   // tiles proximity to collect
 export const LANDMARK_DISCOVERY_RADIUS = 3.5;
 
 export const TOTAL_DIGITS = 10;     // sextant coordinate digits total (5 lat + 5 lng)

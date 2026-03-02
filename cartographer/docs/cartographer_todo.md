@@ -1,11 +1,18 @@
 TODO:
 PRI1:
-- Need a debug that shows where a valid spot to survey would be (I might just need to have us pick fixed locations on the map that are good spots to survey)
+- Need a debug that shows where a valid spot to survey would be (I might just need to have us pick fixed locations on the map that are good spots to survey). I'm finding more and more that depending on where I put down a sextant marking, I can screw myself out of getting all the numbers. So, we either need to determine that 'you've found enough and give them to you or we need to start dropping in 'Sextant Stones' that have you take a reading from that location. You find all 5 of them and use the sextant you get the coordinates. 
 - Need a noise for when the location comes up at the start. Just use the one you're using for when you discover a landmark.
 - The quest completion popups don't look as good as the location name popup. The location name popup is in the style of the game, where as the completion popups are boring boxes and fonts. This is also true with the menu popup and the quest background box. Please update these to match the style of the location popup. 
 - You should look at making treasure maps where you have to check the distance between two points to draw a line, then the distance between two othe intersecting points to draw an X. Where the two lines meet, is where you can then collect something important (like our journals), but for now, we'll just have it be gold. 
 - On mobile you should think about creating a 'virtual controller in the bottom right that lets you steer the player around. 
-
+Control improvements:
+    - Make left click move
+    - Make double click on the left Survey
+    - Make right sextant
+    - Make double right click collect if you are clicking on the object and close enough. 
+    - mouse wheel does measure
+    - All of these return to 'walk' once you've done them. 
+- You're starting to see 'islands' that you can get to. they'll have a single land tile and it isn't connected to the mainland so you can't get to it. Worse, one of them had a collectible out there. 
 
 PRI2:
 - The Discovered locations should use the same popup we're using for quest completion and new locations. 
@@ -28,3 +35,4 @@ PRI3:
 - Need to look into a journal of some sort of the things you're collecting. The writing of lines that appear somewhere "The ancient shell of nanatoto said to bear whisper of a lost love if you put your ear to it."
 - If we could pop the landmark names when you discover htem along with the landmakrk themselves a bit that will draw the eye to it for the player to see what they just discovered. 
 - I think all the tiles should have a texture on them so they stand out more than just the flat color. 
+- you should do custom sounds for each of the collectibles. 

@@ -120,6 +120,7 @@ export function updateArrival() {
     if (elapsed > 900) {
       state.player.x = landX;
       state.player.y = landY;
+      playSFX('snd_discover_site');
       _nextPhase('namecard');
     }
 
