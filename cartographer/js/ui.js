@@ -12,6 +12,20 @@ import { toggleMute, isMuted, setVolume, getVolumes, playSFX } from './audio.js'
 // Tracks which quests have fired their completion sound this expedition
 const _questSoundsFired = new Set();
 
+// Previous counts for pulse-on-change detection
+let _prevMapPct   = -1;
+let _prevPosCount = -1;
+let _prevSpecCount = -1;
+let _prevLmCount  = -1;
+
+function _pulseDetail(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('pulse');
+  void el.offsetWidth; // force reflow to restart animation
+  el.classList.add('pulse');
+}
+
 // --- COMPLETION OVERLAY ---
 
 export function showCompletionOverlay() {
@@ -65,6 +79,16 @@ export function updateQuestTracker() {
   const discoveredCount = state.discoveredLandmarks.size;
   const totalLm         = state.landmarks.length;
 
+  // Pulse detail text on count increases
+  if (_prevMapPct >= 0 && state.mapPercent > _prevMapPct)           _pulseDetail('questMapDetail');
+  if (_prevPosCount >= 0 && state.revealedDigitCount > _prevPosCount) _pulseDetail('questPositionDetail');
+  if (_prevSpecCount >= 0 && collectedCount > _prevSpecCount)        _pulseDetail('questSpecimensDetail');
+  if (_prevLmCount >= 0 && discoveredCount > _prevLmCount)           _pulseDetail('questLandmarksDetail');
+  _prevMapPct    = state.mapPercent;
+  _prevPosCount  = state.revealedDigitCount;
+  _prevSpecCount = collectedCount;
+  _prevLmCount   = discoveredCount;
+
   const posEl     = document.getElementById('questPosition');
   const posDetail = document.getElementById('questPositionDetail');
   posDetail.textContent = `${state.revealedDigitCount}/${TOTAL_DIGITS}`;
@@ -105,11 +129,19 @@ export function updateQuestTracker() {
   const lmDone   = totalLm  > 0 && discoveredCount >= totalLm;
   const allDone  = mapDone && posDone && specDone && lmDone && measureDone;
 
-  // Play sound the first time each individual quest completes
-  for (const [k, done] of [['map', mapDone], ['pos', posDone], ['spec', specDone], ['lm', lmDone]]) {
+  // Play sound + show toast the first time each individual quest completes
+  const questLabels = {
+    map:     'Map Charted!',
+    pos:     'Position Fixed!',
+    spec:    'Samples Collected!',
+    lm:      'Landmarks Discovered!',
+    measure: 'Distance Measured!',
+  };
+  for (const [k, done] of [['map', mapDone], ['pos', posDone], ['spec', specDone], ['lm', lmDone], ['measure', measureDone]]) {
     if (done && !_questSoundsFired.has(k)) {
       _questSoundsFired.add(k);
       playSFX('snd_quest_complete');
+      showQuestCompleteToast(questLabels[k]);
     }
   }
 
@@ -241,6 +273,15 @@ export function showSextantFeedback(msg, success) {
   el._timeout = setTimeout(() => { el.className = ''; }, 3000);
 }
 
+export function showQuestCompleteToast(text) {
+  const el = document.getElementById('questCompleteToast');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('visible');
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => el.classList.remove('visible'), 2500);
+}
+
 export function showLandmarkToast(lm) {
   document.getElementById('toastName').textContent = lm.name;
   document.getElementById('toastSub').textContent = lm.desc;
@@ -261,7 +302,7 @@ export function showToolHint(tool) {
   hint.textContent = hints[tool] || '';
   hint.classList.add('visible');
   clearTimeout(hint._timeout);
-  hint._timeout = setTimeout(() => hint.classList.remove('visible'), 3000);
+  hint._timeout = setTimeout(() => hint.classList.remove('visible'), 6000);
 }
 
 // --- ZOOM INDICATOR ---
@@ -349,6 +390,7 @@ function _updateMuteDisplay() {
 
 export function resetQuestUI() {
   _questSoundsFired.clear();
+  _prevMapPct = _prevPosCount = _prevSpecCount = _prevLmCount = -1;
   document.getElementById('newMapBtn').style.display = 'none';
   document.getElementById('measureDisplay').classList.remove('visible');
   document.querySelector('[data-tool="measure"]')?.classList.remove('measuring');

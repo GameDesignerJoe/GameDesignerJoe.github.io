@@ -36,6 +36,7 @@ const SFX_FILES = {
   snd_survey:        'snd_survey.mp3',
   snd_sextant:       'snd_sextant.mp3',
   snd_exit_boat:     'snd_exit_boat.mp3',
+  snd_discover_site: 'snd_discover_site.mp3',
   step_sand:         'snd_walking_sand.mp3',
   step_grass:        'snd_walking_grass.mp3',
   step_leaf:         'snd_walking_forest.mp3',
@@ -97,11 +98,11 @@ export function stopLoop(key) {
 
 // Fade out current ambience and suppress ocean from restarting this expedition.
 // Called after arrival to let the island feel quiet before terrain takes over.
-export function fadeOutAmbience() {
+export function fadeOutAmbience(ms = FADE_MS) {
   _oceanFaded = true;
   const key = _currentAmbienceKey;
   _currentAmbienceKey = null;
-  if (key && _loops[key]) _fadeOut(_loops[key], FADE_MS, () => _stopLoop(key));
+  if (key && _loops[key]) _fadeOut(_loops[key], ms, () => _stopLoop(key));
 }
 
 // Reset session-specific audio state for a new expedition.
@@ -214,12 +215,15 @@ export function isMuted() { return _muted; }
 // PRIVATE HELPERS
 // ============================================================
 
+// Keys that should play once rather than loop
+const _PLAY_ONCE = new Set(['snd_sailboat']);
+
 function _startLoop(key, vol) {
   if (_loops[key]) return _loops[key];
   const file = LOOP_FILES[key];
   if (!file) return null;
   const audio    = new Audio(AUDIO_PATH + file);
-  audio.loop     = true;
+  audio.loop     = !_PLAY_ONCE.has(key);
   audio.volume   = _muted ? 0 : Math.max(0, Math.min(1, vol));
   audio.play().catch(() => {});
   _loops[key] = audio;

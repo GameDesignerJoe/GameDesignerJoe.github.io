@@ -133,7 +133,7 @@ body {
 #panelSummary {
   display: none;
   font-family: 'IM Fell English', serif;
-  font-style: italic; color: #8a9a6a; font-size: 12px; margin-top: 3px;
+  font-style: italic; color: #8a9a6a; font-size: 24px; margin-top: 3px;
 }
 
 /* ---------------------------------------------------------- */
@@ -148,7 +148,7 @@ body {
 
 .quest-item {
   font-family: 'IM Fell English', serif;
-  font-size: 12px; color: #a89478;
+  font-size: 18px; color: #a89478;
   margin-top: 5px;
   display: flex; align-items: center; gap: 6px;
   transition: color 0.5s;
@@ -171,8 +171,9 @@ body {
   font-size: 11px; color: #9aaa7a;
 }
 
-.quest-detail { font-size: 11px; color: #8a7a68; }
+.quest-detail { font-size: 22px; color: #8a7a68; }
 .quest-item.complete .quest-detail { color: #8a9a6a; }
+#questMeasureDetail { font-size: 18px; }
 
 /* ---------------------------------------------------------- */
 /* NEW MAP BUTTON                                              */
@@ -244,7 +245,7 @@ body {
   position: absolute; bottom: 96px; left: 50%;
   transform: translateX(-50%);
   font-family: 'IM Fell English', serif;
-  font-style: italic; color: #8a7a68; font-size: 13px;
+  font-style: italic; color: #8a7a68; font-size: 26px;
   text-align: center; pointer-events: none;
   opacity: 0; transition: opacity 0.4s; white-space: nowrap;
 }
@@ -345,7 +346,7 @@ body {
   position: absolute; bottom: 160px; left: 50%;
   transform: translateX(-50%);
   font-family: 'IM Fell English', serif; font-style: italic;
-  font-size: 13px; color: #8a7a68;
+  font-size: 26px; color: #8a7a68;
   pointer-events: none; opacity: 0; transition: opacity 0.4s;
   text-align: center; white-space: nowrap;
 }
@@ -387,6 +388,42 @@ body {
   100% { color: #e8d5bc; text-shadow: 0 0 8px rgba(196,168,130,0.4); transform: scale(1); }
 }
 
+@keyframes detailPulse {
+  0%   { transform: scale(1);    color: inherit; }
+  30%  { transform: scale(1.25); color: #c4a882; }
+  100% { transform: scale(1);    color: inherit; }
+}
+
+.quest-detail.pulse {
+  display: inline-block;
+  animation: detailPulse 0.5s ease-out forwards;
+}
+
+/* ---------------------------------------------------------- */
+/* QUEST COMPLETE TOAST                                        */
+/* ---------------------------------------------------------- */
+
+#questCompleteToast {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translateX(-50%);
+  background: rgba(90, 120, 80, 0.92);
+  color: #f5f0e8;
+  font-family: 'IM Fell English', serif;
+  font-size: 22px;
+  padding: 14px 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.2);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 200;
+  text-align: center;
+  white-space: nowrap;
+}
+#questCompleteToast.visible { opacity: 1; }
+
 /* ---------------------------------------------------------- */
 /* DEBUG PANEL                                                 */
 /* ---------------------------------------------------------- */
@@ -427,7 +464,7 @@ body {
   color: #e8d5bc;
   padding: 5px 10px;
   border-radius: 4px;
-  font: 13px 'Caveat', cursive;
+  font: 20px 'Caveat', cursive;
   cursor: pointer;
   white-space: nowrap;
 }

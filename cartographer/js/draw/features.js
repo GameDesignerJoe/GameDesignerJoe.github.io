@@ -137,14 +137,5 @@ export function drawContourForTile(sx, sy, tx, ty) {
       );
     }
     ctx.stroke();
-
-    // Elevation label on occasional tiles
-    if (seededRandom(tx * 41 + level * 100, ty * 43) > 0.92) {
-      ctx.save();
-      ctx.font = '8px "Caveat", cursive';
-      ctx.fillStyle = `rgba(58, 47, 36, ${0.25 + level * 0.2})`;
-      ctx.fillText(`${Math.round(level * 340)}`, sx + TILE * 0.3, sy + TILE * 0.5);
-      ctx.restore();
-    }
   }
 }

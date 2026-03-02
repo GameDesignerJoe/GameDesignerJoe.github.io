@@ -117,7 +117,7 @@ export function startGame() {
     showGameUI(islandName);
     playMusic('bgm_empty_island');
     playSFX('snd_start_play_01');
-    setTimeout(() => fadeOutAmbience(), 4000);
+    fadeOutAmbience(10000);
     updateMapPercent();
     updateQuestTracker();
   });
@@ -179,7 +179,7 @@ export function newMap() {
     showGameUI(islandName);
     playMusic('bgm_empty_island');
     playSFX('snd_start_play_01');
-    setTimeout(() => fadeOutAmbience(), 4000);
+    fadeOutAmbience(10000);
     updateMapPercent();
     updateQuestTracker();
   });

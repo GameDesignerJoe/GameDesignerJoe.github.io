@@ -120,7 +120,6 @@ export function drawTile(tx, ty) {
       if (f.type === 'rock')  drawRock(fx, fy, f.size, f.seed);
       if (f.type === 'grass') drawGrass(fx, fy);
     }
-    drawContourForTile(sx, sy, tx, ty);
   }
 
   // Coast edges and corner smoothing are handled by the bezier overlay pass

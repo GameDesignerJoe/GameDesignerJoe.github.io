@@ -36,6 +36,7 @@ export function doSurvey() {
 
   const discovered = checkLandmarkDiscovery();
   for (const lm of discovered) {
+    playSFX('snd_discover_site');
     showLandmarkToast(lm);
     updateQuestTracker();
   }
