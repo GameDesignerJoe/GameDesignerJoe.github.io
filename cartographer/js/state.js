@@ -60,6 +60,7 @@ export const state = {
   // Input state
   keys: {},
   lastPinchDist: 0,
+  isMobile: false,
 
   // Journals (per-expedition; cross-expedition data lives in localStorage via journals.js)
   journalPages: [],           // [{tx, ty, entryIndex, collected}]

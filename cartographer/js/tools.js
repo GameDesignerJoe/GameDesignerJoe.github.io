@@ -186,6 +186,15 @@ export function doCollect() {
 // --- TOOL SELECTION ---
 
 export function selectTool(tool) {
+  // Mobile: re-tapping the measure button while measuring stops it and returns to walk
+  if (tool === 'measure' && state.currentTool === 'measure' && state.measuring && state.isMobile) {
+    toggleMeasure();
+    state.currentTool = 'walk';
+    setToolActive('walk');
+    showToolHint('walk');
+    return;
+  }
+
   // Stop measuring if switching away from measure tool
   if (tool !== 'measure' && state.measuring) {
     toggleMeasure();
@@ -204,7 +213,14 @@ export function handleInteraction(worldX, worldY) {
   switch (state.currentTool) {
     case 'walk':       state.moveTarget = { x: worldX, y: worldY }; break;
     case 'theodolite': doSurvey();   break;
-    case 'measure':    toggleMeasure(); break;
+    case 'measure':
+      if (state.isMobile) {
+        if (!state.measuring) toggleMeasure(); // auto-start on first tap
+        state.moveTarget = { x: worldX, y: worldY }; // walk while measuring
+      } else {
+        toggleMeasure(); // PC: click canvas to start/stop (unchanged)
+      }
+      break;
     case 'sextant':    doSextant();  break;
     case 'naturalist': doCollect();  break;
   }

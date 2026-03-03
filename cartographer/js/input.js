@@ -13,6 +13,8 @@ import { playSFX } from './audio.js';
 import { showJournalOverlay, hideJournalOverlay } from './journalUI.js';
 
 export function setupInputHandlers(onStartGame, onNewMap) {
+  state.isMobile = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
   // Keyboard
   document.addEventListener('keydown', e => {
     if (isSequenceActive()) { skipSequence(); return; }
