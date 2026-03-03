@@ -517,6 +517,210 @@ body {
 #completionNewBtn:hover { background: #5a4a38; }
 
 /* ---------------------------------------------------------- */
+/* JOURNAL COLLECT TOAST                                       */
+/* ---------------------------------------------------------- */
+
+#journalCollectToast {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translateX(-50%);
+  background: rgba(90, 70, 40, 0.92);
+  color: #f5ebdc;
+  font-family: 'IM Fell English', serif;
+  font-style: italic;
+  font-size: 20px;
+  padding: 12px 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(196, 168, 130, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+  z-index: 200;
+  text-align: center;
+  white-space: nowrap;
+}
+#journalCollectToast.visible { opacity: 1; }
+
+/* ---------------------------------------------------------- */
+/* JOURNAL OVERLAY                                             */
+/* ---------------------------------------------------------- */
+
+#journalOverlay {
+  position: absolute; inset: 0;
+  background: rgba(20, 14, 8, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.25s;
+}
+#journalOverlay.visible { pointer-events: all; opacity: 1; }
+
+#journalCard {
+  background: #f5ebdc;
+  border: 2px solid #3a2f24;
+  border-radius: 6px;
+  padding: 0;
+  width: min(560px, 92vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+#journalCardHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid rgba(58, 47, 36, 0.25);
+  flex-shrink: 0;
+}
+
+#journalCardTitle {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 16px; color: #3a2f24;
+  letter-spacing: 3px; text-transform: uppercase;
+}
+
+#journalCloseBtn {
+  background: none; border: none;
+  font-size: 18px; color: #8a7a68;
+  cursor: pointer; padding: 0 4px;
+  font-family: system-ui, sans-serif;
+  line-height: 1; transition: color 0.2s;
+}
+#journalCloseBtn:hover { color: #3a2f24; }
+
+/* --- Directory --- */
+
+#journalDirectory {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+#journalCompleteHeader {
+  font-family: 'IM Fell English', serif;
+  font-style: italic; color: #8a9a6a;
+  font-size: 14px; text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(58, 47, 36, 0.15);
+}
+
+#journalSetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.journal-set-card {
+  border: 1px solid #c4a882;
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: rgba(58, 47, 36, 0.06);
+  transition: background 0.2s, border-color 0.2s;
+}
+.journal-set-card.known { cursor: pointer; }
+.journal-set-card.known:hover { background: rgba(58, 47, 36, 0.12); border-color: #3a2f24; }
+.journal-set-card.unknown { opacity: 0.5; cursor: default; }
+.journal-set-card.complete { border-color: #b8962e; background: rgba(184, 150, 46, 0.08); }
+
+.journal-set-name {
+  font-family: 'IM Fell English', serif;
+  font-size: 14px; color: #3a2f24;
+  line-height: 1.3; margin-bottom: 6px;
+}
+.journal-set-card.unknown .journal-set-name { color: #8a7a68; font-style: italic; }
+.journal-set-card.complete .journal-set-name { color: #7a5c1a; }
+
+.journal-set-progress {
+  font-family: 'Caveat', cursive;
+  font-size: 13px; color: #8a7a68;
+}
+.journal-set-card.complete .journal-set-progress { color: #b8962e; font-size: 14px; }
+
+.journal-empty {
+  font-family: 'IM Fell English', serif;
+  font-style: italic; color: #8a7a68;
+  text-align: center; padding: 24px;
+}
+
+/* --- Entry Reader --- */
+
+#journalEntryReader {
+  padding: 16px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#readerBackBtn {
+  background: none; border: none;
+  font-family: 'IM Fell English', serif;
+  font-size: 13px; color: #8a7a68;
+  cursor: pointer; padding: 0;
+  margin-bottom: 16px; text-align: left;
+  transition: color 0.2s;
+}
+#readerBackBtn:hover { color: #3a2f24; }
+
+#readerSetName {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 11px; color: #a89478;
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+#readerEntryTitle {
+  font-family: 'IM Fell English', serif;
+  font-size: 20px; color: #3a2f24;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(58, 47, 36, 0.2);
+}
+
+#readerEntryBody {
+  font-family: 'Caveat', cursive;
+  font-size: 18px; color: #3a2f24;
+  line-height: 1.7; flex: 1;
+}
+#readerEntryBody.unknown-entry {
+  font-style: italic; color: #a89478;
+  font-family: 'IM Fell English', serif;
+  font-size: 15px;
+}
+
+#readerFooter {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(58, 47, 36, 0.2);
+  flex-shrink: 0;
+}
+
+#readerProgress {
+  font-family: 'Caveat', cursive;
+  font-size: 14px; color: #8a7a68;
+}
+
+#readerPrev, #readerNext {
+  font-family: 'IM Fell DW Pica SC', serif;
+  font-size: 13px; letter-spacing: 1px;
+  color: #6a5a48; background: none;
+  border: 1px solid #c4a882;
+  border-radius: 3px; padding: 6px 14px;
+  cursor: pointer; transition: all 0.2s;
+}
+#readerPrev:hover:not(:disabled), #readerNext:hover:not(:disabled) {
+  border-color: #3a2f24; color: #3a2f24;
+}
+#readerPrev:disabled, #readerNext:disabled {
+  opacity: 0.35; cursor: default;
+}
+
+/* ---------------------------------------------------------- */
 /* AUDIO SETTINGS MODAL                                        */
 /* ---------------------------------------------------------- */
 

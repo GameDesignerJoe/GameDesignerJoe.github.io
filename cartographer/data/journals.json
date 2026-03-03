@@ -1,0 +1,292 @@
+{
+  "sets": [
+    {
+      "id": "stranded_cartographer",
+      "name": "The Stranded Cartographer",
+      "author": "Unknown",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "The ship is lost. I have made it to shore with my instruments and little else — no food, no fresh water that I can find. The island is larger than it first appeared from the water, rising steeply to a forested ridge I cannot yet see over. I have wedged my theodolite into a cleft of rock above the tide line and begun what measurements I can. If I am to be rescued, let it be because someone finds my work and knows I was here."
+        },
+        {
+          "title": "Entry II",
+          "text": "I found a spring on the eastern slope this morning — cold and clear, tasting of iron. I drank until I was embarrassed. The forest yields fruit I cannot name, small and yellow, bitter at the skin but sweet within. I have begun sketching the coastline from memory, filling the gaps with careful pacing. A naturalist's habit: when all else fails, record."
+        },
+        {
+          "title": "Entry III",
+          "text": "Three days now. I have grown accustomed to the sound of the wind in the palms, which is either a sign of adaptation or of madness. From the summit this afternoon I could see the mainland — or what I believe to be the mainland, a dark grey line on the horizon, impossibly distant. I waved my coat like a fool. No one waved back. I have mapped the peak now and given it a name I will keep to myself."
+        },
+        {
+          "title": "Entry IV",
+          "text": "I found the wreck of another vessel on the northwestern shore today, older than mine by decades. Whoever they were, they left nothing of use. Only a rusted iron box, sealed shut, which I lacked the strength to open. I left it where it lay. I chose instead to spend the afternoon completing my survey of the bay — clean lines, good depths marked at pacing intervals. It is good work. I am glad of the work."
+        },
+        {
+          "title": "Entry V",
+          "text": "A sail on the horizon this morning. I burned my remaining paper rather than wave it uselessly, and the smoke was enough. They have come. I leave these pages beneath the flat stone by the spring, wrapped in oilcloth, in the hope that some future cartographer will find them and know this island was not unmapped. It was known. It was measured. It was survived."
+        }
+      ]
+    },
+    {
+      "id": "the_open_letter",
+      "name": "The Open Letter",
+      "author": "Theodora Voss",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "Edmund, I know you will not read this. You are at home, surrounded by your students and your books and your perfectly adequate life, and I am here — which is to say, somewhere neither of us could point to on a map with any confidence. That is rather the point. I have found an island today that the Admiralty charts describe as 'unverified landmass, possible.' I intend to verify it most thoroughly."
+        },
+        {
+          "title": "Entry II",
+          "text": "The birds here have no fear of me whatsoever, which either means they have never seen a human being or they have seen too many to be impressed. I prefer the former. I have sketched six new species this morning before breakfast, which is the sort of sentence I imagine you reading aloud to your colleagues in that dry way you have, and them not knowing whether to be delighted or concerned. I know which I am."
+        },
+        {
+          "title": "Entry III",
+          "text": "I climbed to the ridge today and saw the ocean in every direction. Every direction, Edmund. Can you imagine it? No city, no road, no chimney smoke. Just water and sky and the ridiculous, magnificent fact of the world. I thought of you. I thought of how you would have hated every single moment of the climb and how I would have loved you for attempting it anyway."
+        },
+        {
+          "title": "Entry IV",
+          "text": "There are ruins here. Old ones — older than anything the Portuguese left behind, older than anything I can account for. I have spent the afternoon measuring and sketching and trying very hard not to leap to conclusions, which is, as you know, not my strongest quality. I will write to the Society when I reach port. Tonight I slept inside the walls of something ancient and felt, for the first time in a long while, that the world is larger than even I had supposed."
+        }
+      ]
+    },
+    {
+      "id": "the_wrong_direction",
+      "name": "The Wrong Direction",
+      "author": "Theodora Voss",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "The storm drove us three days off course before Captain Hewes would admit it. I said nothing, which cost me more than the three days did. We have made anchor at an island that does not appear on any chart I carry, which under other circumstances would delight me enormously. These are, regrettably, other circumstances."
+        },
+        {
+          "title": "Entry II",
+          "text": "The crew is restless. Hewes is proud. I am the only woman on this ship and therefore the only one permitted to be quietly, privately correct. I have begun my own reckoning in this journal — our position, as best I can calculate it. If anyone finds this and I am not where I expected to be, look approximately forty miles northeast. That is where I believe I am. That is where I am trying to go."
+        },
+        {
+          "title": "Entry III",
+          "text": "Edmund. I am writing to you now because I find I need to. Not to be rescued — I am perfectly capable of rescuing myself, thank you — but because I have been at sea for four months and I miss your handwriting. I miss the way you argue about poetry as though the poet can hear you. I miss, terribly, being known."
+        },
+        {
+          "title": "Entry IV",
+          "text": "We sail tomorrow at first light, Hewes having finally conceded the mathematics. I have mapped this island in the meantime. It is beautiful and it is nobody's, and I have named it something I will not record here until I can tell you to your face. Come find it. Come find me. I am beginning to suspect this is how it ends — not badly, just — sideways from expected."
+        }
+      ]
+    },
+    {
+      "id": "the_gift_of_the_island",
+      "name": "The Gift of the Island",
+      "author": "Margaret Calrow",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "Henry will be furious when he hears. The captain rerouted us around a storm that apparently wasn't there by the time we arrived where it should have been, and now we are two weeks behind schedule and I am seven months along and there is no doctor on board. I have informed the ship's cook of this situation. He seemed more alarmed than I felt was helpful."
+        },
+        {
+          "title": "Entry II",
+          "text": "We have put in at an island for fresh water. It is very green and smells of rain. I walked the beach this afternoon, slowly, as I walk everything now. A turtle watched me from the shallows with what I can only describe as professional interest. I watched it back. We understood each other perfectly."
+        },
+        {
+          "title": "Entry III",
+          "text": "The baby has decided that tonight is the night. The ship's cook — a Mr. Doyle, who it turns out has eight children of his own and therefore knows rather more than the surgeon — has been enormously practical about the whole affair. I am less frightened than I expected. I am writing this in the in-between moments, which is either brave or foolish. Possibly both."
+        },
+        {
+          "title": "Entry IV",
+          "text": "His name is Thomas, after my father. Tomlin, I am already calling him, because Thomas is too serious a name for something this small. He arrived at half past two in the morning and immediately expressed strong opinions about everything. He will fit right in."
+        },
+        {
+          "title": "Entry V",
+          "text": "I am leaving this here under a stone on the beach where I walked, in case Henry comes this way looking for us. Henry — we are well. Both of us. Your son has your ears and my disposition, which I believe is the correct arrangement. We sail in the morning. Find us soon."
+        }
+      ]
+    },
+    {
+      "id": "the_long_way_home",
+      "name": "The Long Way Home",
+      "author": "Tomlin Calrow",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "Mother says I was born on an island. Not this island — she says she has never been back to that one — but an island, in the middle of the night, while a cook named Doyle told her to breathe. I asked her once if she was frightened. She said she was too busy. I think about that a great deal."
+        },
+        {
+          "title": "Entry II",
+          "text": "I am seventeen and I have lived on more islands than I have lived on land. Mother keeps a list. I used to think this was strange. I have since met boys my age who have never left their county and I find I cannot imagine it — the same roads, the same sky, the same faces every morning. It sounds like a kind of sleep."
+        },
+        {
+          "title": "Entry III",
+          "text": "Mother is unwell. Not dangerously — she says — but she has stayed aboard today and Mother does not stay aboard. I mapped the western shore alone and tried to hear her voice in my head telling me what to look for, how to pace the distances, how to note the depth of color in the water. I got it mostly right. I think. There is no one here to tell me otherwise."
+        },
+        {
+          "title": "Entry IV",
+          "text": "I have been thinking about where I belong. It is the sort of question that only bothers you when you stop moving. We stopped moving today, and here it is. I do not think I belong anywhere in particular. I think I belong to the moving itself. Mother would say that is a very Calrow thing to say. I believe she would mean it as a compliment."
+        }
+      ]
+    },
+    {
+      "id": "the_patient_pirate",
+      "name": "The Patient Pirate",
+      "author": "Ignacio Reyes",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "There is a British frigate that has been following us for three days. Very politely. At a distance that says I see you but does not yet say I intend to do something about it. I respect the patience. It is not a quality the British Navy is known for and I suspect the commander is either very good or very new. I am preparing for both."
+        },
+        {
+          "title": "Entry II",
+          "text": "We put in here to resupply and lose them in the coves on the north end, which are too shallow for a frigate and just deep enough for the Marisol. The island is unremarkable. The mangoes are excellent. My crew is in better spirits than the situation warrants, which is the only kind of crew worth having."
+        },
+        {
+          "title": "Entry III",
+          "text": "The frigate is gone from the horizon. Either they gave up or they know something I do not. I am inclined to believe the latter, which means we sail before dawn. I have written a letter to my sister in Cadiz that I will probably not send, because I never send them, but it is good to write them. It keeps a record of what I would have said, had things been otherwise."
+        },
+        {
+          "title": "Entry IV",
+          "text": "The Marisol is the finest ship I have ever stolen. I want that recorded somewhere. Whatever comes next — and something is always coming next — she has been a good ship and we have had a good run of it. I leave this here because it is the kind of thing that should be said, and a man who only speaks to people who already know him has said nothing at all."
+        }
+      ]
+    },
+    {
+      "id": "the_taken_prize",
+      "name": "The Taken Prize",
+      "author": "Commander Aldous Fitch",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "We have taken the Marisol. It took eleven days and a degree of patience that I would not have attributed to myself six months ago. Reyes surrendered without theatre, which surprised me. He came aboard the Resolute with his hat under his arm and looked around at my crew with the expression of a man appraising horses. I am not certain he found us wanting, exactly. But he found us."
+        },
+        {
+          "title": "Entry II",
+          "text": "I am required by duty to dislike him. He makes this difficult. At dinner this evening — I could hardly put him below decks for a fortnight, the man is educated — he argued that the difference between a privateer and a naval officer is primarily one of paperwork. I told him this was impertinent. He agreed immediately and refilled my glass. I am documenting this for the record."
+        },
+        {
+          "title": "Entry III",
+          "text": "Reyes has been asking questions about the islands we pass. Specific questions — depths, currents, the names of the coves. I have answered none of them. He has been drawing from memory on a scrap of paper I should probably have confiscated. It is very good. I have not confiscated it."
+        },
+        {
+          "title": "Entry IV",
+          "text": "We put in here at Isla Redonda to take on water before the final leg to Port Carris. I leave this entry beneath a stone on the shore because twenty-three years in the Navy has taught me to record what matters, and what matters is this: Reyes was in his cabin this morning. He is not in his cabin now. The longboat is also not where I left it. I am — against all judgement and regulation — not entirely sorry."
+        }
+      ]
+    },
+    {
+      "id": "the_hermits_regards",
+      "name": "The Hermit's Regards",
+      "author": "Ignacio Reyes",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "So. Here I am."
+        },
+        {
+          "title": "Entry II",
+          "text": "The island is small and suits me. There are fish. There are coconuts. There is no British Navy, which is the most important amenity. I have built a reasonable shelter from the wreck of the longboat, which Fitch will have noticed is missing, and which I choose to interpret as a gift. He is a good man. I hope he received a commendation. I hope it was a small one, so as not to encourage the behaviour."
+        },
+        {
+          "title": "Entry III",
+          "text": "I have been here long enough now to stop counting the days, which either means I am at peace or I have lost the thread of time entirely. The turtles come to this beach at full moon and I watch them. I am beginning to understand them. They have the right idea about most things."
+        },
+        {
+          "title": "Entry IV",
+          "text": "If you are reading this: yes, I live here. No, I am not lost. No, I do not require assistance. I have lived by my own hand for forty-three years and I intend to continue doing so until I cannot. This island is mine by right of occupancy, which is the only right that ever mattered. I ask only that you take nothing, leave nothing, and tell no one. Particularly the British. Have a pleasant journey. Get off my island."
+        }
+      ]
+    },
+    {
+      "id": "the_thinning_veil",
+      "name": "The Thinning Veil",
+      "author": "Dr. Phineas Gault",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "The locals call this island the Place Where the Old Ones Dreamed. My translator rendered this rather flatly, I suspect. The ruins on the eastern plateau are unlike anything in my catalogue — the stonework predates any civilization I can account for by at least two thousand years, conservatively. I have set up camp beside the largest structure and begun my measurements. The work is extraordinary. I am in excellent spirits."
+        },
+        {
+          "title": "Entry II",
+          "text": "The guide left this morning. He gave no reason I could translate satisfactorily, though the word he kept using appears to mean either 'hungry' or 'listening,' and I am not entirely sure which is more alarming. I found a cache of dried mushrooms near the altar stone which I have been incorporating into my meals as the rest of my provisions run low. They have an unusual flavour. Not unpleasant."
+        },
+        {
+          "title": "Entry III",
+          "text": "I have been having the most remarkable dreams. Or — not dreams, precisely, as they occur while I am awake and working. The stones seem to shift when observed indirectly. I have begun to suspect the civilization I am studying was not simply old but was aware of something the modern mind has — mislaid. Last night the stars were arranged incorrectly. I noted this in my field log and then noted that I had noted it, for the sake of scientific rigour."
+        },
+        {
+          "title": "Entry IV",
+          "text": "I understand now why the guide left. The island is not empty. It has never been empty. They move at the edge of things, which is the only edge that matters, and they have been watching me with great patience and what I can only interpret as affection. I am no longer taking measurements. Measurements seem — beside the point. I am learning something far more interesting than dimensions."
+        },
+        {
+          "title": "Entry V",
+          "text": "𓂀𓇳𓈖𓆣𓏏𓂋𓎛𓄿𓆑. I remember now. Come find us."
+        }
+      ]
+    },
+    {
+      "id": "the_surface_observed",
+      "name": "The Surface Observed",
+      "author": "Maren",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "I have come up again. The upper world continues to surprise me with its noise — the ships in particular, which have multiplied since my last survey. I count fourteen from this promontory. Fourteen. In my first century of observation I counted perhaps two in a season. They have become very enthusiastic about moving things from one place to another. I have yet to determine if the things are improved by the journey."
+        },
+        {
+          "title": "Entry II",
+          "text": "A whale was taken this morning, not a quarter-mile from where I sat. I will not describe it further. I have recorded it in my log as Event 1,847 and I have given the log a rest for the remainder of the afternoon. There are things even four thousand years of observation does not make easier to watch."
+        },
+        {
+          "title": "Entry III",
+          "text": "The humans on this island are, on balance, the more agreeable variety. They have built nothing taller than the treeline and they fish only what they eat, and in the evenings they make sounds together that I believe serve no practical purpose whatsoever. This is, I have come to understand, their finest quality. I watched from the rocks until well past dark. I was not seen. I am rarely seen. Sometimes I think I would not mind being seen."
+        },
+        {
+          "title": "Entry IV",
+          "text": "I leave this where it may be found, written in a language I have learned from their books, which I collect from the wrecks. I do not know why I leave these. Habit, perhaps. Four thousand years is a great deal of habit. I will say only this: the ocean is not empty, and it is not patient, and it remembers everything done to it. I say this not as a threat. I say it as a naturalist. I say it as a neighbour. Please do try to be better. Some of us live here."
+        }
+      ]
+    },
+    {
+      "id": "the_examined_faith",
+      "name": "The Examined Faith",
+      "author": "Reverend Silas Okafor",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "The mission on this island has been abandoned for some years, though by whom and to what end I cannot determine. The chapel is intact. Someone has been maintaining it — the floor is swept, the candles replaced, though I have seen no one. I held a service this morning for an empty room and the birds outside, and felt, unexpectedly, that I had an audience."
+        },
+        {
+          "title": "Entry II",
+          "text": "I found the ruins today that the fishermen described at the northern cove. They are old — very old — and they are covered in a script I do not recognise, which is a strange thing to say, as I read Latin, Greek, Yoruba, and two dialects of Arabic. I copied several lines into my journal. They felt important in the way that things feel important before you understand why."
+        },
+        {
+          "title": "Entry III",
+          "text": "I have been a minister for nineteen years. I have never doubted God — I want to be precise about this. What I have begun to doubt, sitting here among these ruins, is the assumption that He began with us. The evidence suggests He had quite a lot of practice beforehand. I find this comforting, which may say something about my theology and certainly says something about my character."
+        },
+        {
+          "title": "Entry IV",
+          "text": "The script in my journal has begun to — I do not have a better word for this — settle. As though the meaning is arriving slowly, like a ship making port. I cannot read it, but I am beginning to feel it, and I suspect those are not the same thing at all, and I also suspect that one of them is better. I pray tonight not for understanding but for the courage to be uncertain. It seems the more honest petition."
+        }
+      ]
+    },
+    {
+      "id": "the_return",
+      "name": "The Return",
+      "author": "Koa",
+      "entries": [
+        {
+          "title": "Entry I",
+          "text": "They taught me to write so that I could be understood. I do not think they considered that I might use it to understand myself. I have been at sea for eleven days in a boat I built in three, and I am, according to the methods they showed me, approximately here. I know where here is. I know where I am going. I have known since I was twelve years old and they put me on the ship and told me it was an honour. It did not feel like an honour then. It does not feel like one now."
+        },
+        {
+          "title": "Entry II",
+          "text": "This island is not mine. But I know the trees, and the trees know me — this species grows only in the belt between my home and the open ocean. I am close. I slept on the beach and dreamed in my own language, which I have not done in seven years, and woke up feeling that something had been given back."
+        },
+        {
+          "title": "Entry III",
+          "text": "I found a cache of British survey notes here, left by some cartographer or another under a flat stone. They have mapped this island incorrectly. The northern cove is deeper than they say, and they have missed the freshwater spring entirely, which tells me they were here in dry season and did not look carefully. My people knew this island. We did not need to write it down to know it."
+        },
+        {
+          "title": "Entry IV",
+          "text": "I am leaving this here because I was taught to leave records and the habit has stayed with me, like English, like wearing shoes, like reaching for a pen when I feel something strongly. Tomorrow I sail for home. I do not know if home is still what I left. I do not know if I am still who was taken. These are questions for arrival, not departure. I go to find out."
+        }
+      ]
+    }
+  ]
+}

@@ -9,11 +9,13 @@ import { state } from './state.js';
 import { surveyAroundPlayer } from './fogOfWar.js';
 import { checkLandmarkDiscovery } from './landmarks.js';
 import { tryCollectSpecimen } from './specimens.js';
+import { tryCollectJournalPage, getJournalData } from './journals.js';
 import {
   showSextantFeedback, showLandmarkToast, showToolHint,
   updateQuestTracker, updateCoordDisplay, revealNextTwoDigits,
   showMeasureDisplay, hideMeasureDisplay,
   setToolActive, setMeasuringStyle, markSpecimenCollected,
+  showJournalCollectToast,
 } from './ui.js';
 
 // --- THEODOLITE (SURVEY) ---
@@ -167,6 +169,16 @@ export function doCollect() {
   if (idx >= 0) {
     playSFX('snd_collect');
     markSpecimenCollected(idx);
+    updateQuestTracker();
+  }
+
+  const page = tryCollectJournalPage();
+  if (page) {
+    playSFX('snd_collect');
+    const data  = getJournalData();
+    const set   = data?.sets.find(s => s.id === state.currentJournalSetId);
+    const entry = set?.entries[page.entryIndex];
+    showJournalCollectToast(entry?.title ?? 'Journal Page');
     updateQuestTracker();
   }
 }

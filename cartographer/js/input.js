@@ -10,6 +10,7 @@ import { screenToWorld } from './camera.js';
 import { handleInteraction, selectTool } from './tools.js';
 import { isSequenceActive, skipSequence } from './arrival.js';
 import { playSFX } from './audio.js';
+import { showJournalOverlay, hideJournalOverlay } from './journalUI.js';
 
 export function setupInputHandlers(onStartGame, onNewMap) {
   // Keyboard
@@ -19,6 +20,11 @@ export function setupInputHandlers(onStartGame, onNewMap) {
     if (e.key >= '1' && e.key <= '5') {
       const tools = ['walk', 'theodolite', 'measure', 'sextant', 'naturalist'];
       selectTool(tools[parseInt(e.key) - 1]);
+    }
+    if (e.key === '6' && state.gameStarted) {
+      const overlay = document.getElementById('journalOverlay');
+      if (overlay.classList.contains('visible')) hideJournalOverlay();
+      else showJournalOverlay();
     }
   });
   document.addEventListener('keyup', e => {

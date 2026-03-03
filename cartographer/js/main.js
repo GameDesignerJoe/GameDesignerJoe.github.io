@@ -26,6 +26,8 @@ import {
   initAudio, playMusic, playLoop, stopLoop,
   updateAmbience, onPlayerMoved, playSFX, fadeOutAmbience, resetAudio,
 } from './audio.js';
+import { initJournals, generateJournalPages } from './journals.js';
+import { initJournalUI } from './journalUI.js';
 
 // --- GAME LOOP ---
 
@@ -105,6 +107,7 @@ export function startGame() {
   _spawnPlayer();
   _prevFootX = state.player.x; _prevFootY = state.player.y;
   generateSpecimens();
+  generateJournalPages();
   rebuildSpecimenSlots();
   selectTool('walk');
 
@@ -151,6 +154,10 @@ export function newMap() {
   state.startTime = 0;
   state.ship    = null;
   state.arrival = null;
+  state.journalPages = [];
+  state.currentJournalSetId = null;
+  state.journalTotal = 0;
+  state.journalsCollected = 0;
 
   // New island seed
   state.seedOffset = Math.floor(Math.random() * 100000);
@@ -167,6 +174,7 @@ export function newMap() {
   _spawnPlayer();
   _prevFootX = state.player.x; _prevFootY = state.player.y;
   generateSpecimens();
+  generateJournalPages();
   rebuildSpecimenSlots();
   selectTool('walk');
 
@@ -207,5 +215,7 @@ function _spawnPlayer() {
 
 setupInputHandlers(startGame, newMap);
 initDebugPanel();
+initJournalUI();
+initJournals(); // async fetch — completes before player could possibly start a new island
 update();
 renderLoop();

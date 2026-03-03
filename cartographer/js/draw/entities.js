@@ -216,6 +216,45 @@ export function drawSpecimens() {
   }
 }
 
+// --- JOURNAL PAGES ---
+
+export function drawJournalPages() {
+  for (const page of state.journalPages) {
+    if (page.collected) continue;
+    const key = `${page.tx},${page.ty}`;
+    if (!state.revealedTiles.has(key) && !state.surveyedTiles.has(key)) continue;
+
+    const scr = worldToScreen(page.tx + 0.5, page.ty + 0.5);
+    const bob = Math.sin(Date.now() / 900 + page.tx * 1.3) * 2;
+
+    // Backing circle (matches specimen pattern)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.beginPath();
+    ctx.arc(scr.x, scr.y + bob, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = '13px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('📜', scr.x, scr.y + bob);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+
+    // Highlight ring when naturalist tool active and in range
+    if (state.currentTool === 'naturalist') {
+      const pdx = state.player.x - (page.tx + 0.5);
+      const pdy = state.player.y - (page.ty + 0.5);
+      if (Math.sqrt(pdx * pdx + pdy * pdy) < SPECIMEN_COLLECT_RADIUS) {
+        ctx.strokeStyle = 'rgba(196, 168, 80, 0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y + bob, 14, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
 // --- MEASURE TRAILS ---
 
 export function drawMeasureTrails() {

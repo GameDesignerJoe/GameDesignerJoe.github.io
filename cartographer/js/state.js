@@ -61,6 +61,12 @@ export const state = {
   keys: {},
   lastPinchDist: 0,
 
+  // Journals (per-expedition; cross-expedition data lives in localStorage via journals.js)
+  journalPages: [],           // [{tx, ty, entryIndex, collected}]
+  currentJournalSetId: null,  // which set is placed on this island
+  journalTotal: 0,            // pages placed this expedition
+  journalsCollected: 0,       // pages collected this expedition
+
   // Debug flags
   debug: { hideOcean: false, showUnsurveyed: false },
 };

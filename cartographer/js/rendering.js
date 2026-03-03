@@ -10,7 +10,7 @@ import { worldToScreen } from './camera.js';
 import { drawTile } from './draw/tiles.js';
 import { isLand, seededRandom } from './terrain.js';
 import { drawCoastlineBezier } from './draw/coastline-bezier.js';
-import { drawLandmarks, drawSpecimens, drawPlayer,
+import { drawLandmarks, drawSpecimens, drawJournalPages, drawPlayer,
          drawMeasureTrails, drawSextantFixes, drawCoordinateGrid } from './draw/entities.js';
 import { drawAnimations } from './draw/animations.js';
 import { drawShip, drawArrivalOverlay, isPlayerVisible } from './arrival.js';
@@ -123,6 +123,7 @@ export function render() {
   drawMeasureTrails();
   drawSextantFixes();
   drawSpecimens();
+  drawJournalPages();
   drawShip();
   if (isPlayerVisible()) drawPlayer();
   drawAnimations();

@@ -36,7 +36,9 @@ export function initDebugPanel() {
     btnUnsurveyed.textContent = `Unsurveyed: ${unshownSurveyed ? 'ON' : 'OFF'}`;
   });
 
-  panel.append(btnFog, btnComplete, btnOcean, btnUnsurveyed);
+  const btnClearJournals = _btn('Clear Journal Data', _clearJournals);
+
+  panel.append(btnFog, btnComplete, btnOcean, btnUnsurveyed, btnClearJournals);
   document.body.appendChild(panel);
 
   gear.addEventListener('click', () => panel.classList.toggle('visible'));
@@ -60,6 +62,11 @@ function _removeFog() {
       }
     }
   }
+}
+
+function _clearJournals() {
+  localStorage.removeItem('cartographer_journals');
+  alert('Journal data cleared. Start a new expedition to reset.');
 }
 
 function _completeMap() {

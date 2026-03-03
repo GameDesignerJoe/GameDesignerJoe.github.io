@@ -44,6 +44,10 @@
         <span class="quest-check"></span>
         <span>Distance Measured <span class="quest-detail" id="questMeasureDetail">? ↔ ?</span></span>
       </div>
+      <div class="quest-item" id="questJournals" style="display:none;">
+        <span class="quest-check"></span>
+        <span>Journals Found <span class="quest-detail" id="questJournalsDetail">0/0</span></span>
+      </div>
     </div>
     <div id="coordSection">
       <div class="coord-title">Position Fix</div>
@@ -68,6 +72,7 @@
   <div id="toolHint"></div>
   <div id="landmarkToast"><span id="toastName"></span><div class="sub" id="toastSub"></div></div>
   <div id="questCompleteToast"></div>
+  <div id="journalCollectToast"></div>
 
   <div id="completionOverlay">
     <div id="completionCard">
@@ -75,6 +80,34 @@
       <div id="completionIslandName"></div>
       <div id="completionStats"></div>
       <button id="completionNewBtn">Begin New Expedition</button>
+    </div>
+  </div>
+
+  <div id="journalOverlay">
+    <div id="journalCard">
+      <div id="journalCardHeader">
+        <div id="journalCardTitle">Field Journals</div>
+        <button id="journalCloseBtn">✕</button>
+      </div>
+
+      <!-- Directory view -->
+      <div id="journalDirectory">
+        <div id="journalCompleteHeader" style="display:none;">Collection Complete</div>
+        <div id="journalSetGrid"></div>
+      </div>
+
+      <!-- Entry reader view -->
+      <div id="journalEntryReader" style="display:none;">
+        <button id="readerBackBtn">← All Journals</button>
+        <div id="readerSetName"></div>
+        <div id="readerEntryTitle"></div>
+        <div id="readerEntryBody"></div>
+        <div id="readerFooter">
+          <button id="readerPrev">‹ Prev</button>
+          <span id="readerProgress"></span>
+          <button id="readerNext">Next ›</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -117,6 +150,11 @@
       <svg viewBox="0 0 24 24"><path d="M12 22c-4 0-7-3-7-7 0-5 7-12 7-12s7 7 7 12c0 4-3 7-7 7z"/><path d="M12 22v-9m-3 5c1.5-1 3-3 3-5m3 5c-1.5-1-3-3-3-5"/></svg>
       Collect
       <span class="tool-key">5</span>
+    </button>
+    <button id="journalBtn" class="tool-btn" title="Field Journals" aria-label="Field Journals">
+      <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="12" y1="8" x2="17" y2="8"/><line x1="12" y1="12" x2="17" y2="12"/><line x1="12" y1="16" x2="17" y2="16"/></svg>
+      Journal
+      <span class="tool-key">6</span>
     </button>
     <button id="audioSettingsBtn" class="tool-btn" title="Audio Settings" aria-label="Audio Settings">⚙</button>
   </div>

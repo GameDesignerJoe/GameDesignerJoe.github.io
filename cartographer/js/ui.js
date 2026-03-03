@@ -8,15 +8,17 @@ import { TOTAL_DIGITS, GRID } from './config.js';
 import { state } from './state.js';
 import { isLand, seededRandom } from './terrain.js';
 import { toggleMute, isMuted, setVolume, getVolumes, playSFX } from './audio.js';
+import { showJournalOverlay } from './journalUI.js';
 
 // Tracks which quests have fired their completion sound this expedition
 const _questSoundsFired = new Set();
 
 // Previous counts for pulse-on-change detection
-let _prevMapPct   = -1;
-let _prevPosCount = -1;
-let _prevSpecCount = -1;
-let _prevLmCount  = -1;
+let _prevMapPct      = -1;
+let _prevPosCount    = -1;
+let _prevSpecCount   = -1;
+let _prevLmCount     = -1;
+let _prevJournalCount = -1;
 
 function _pulseDetail(id) {
   const el = document.getElementById(id);
@@ -79,14 +81,16 @@ export function updateQuestTracker() {
   const totalLm         = state.landmarks.length;
 
   // Pulse detail text on count increases
-  if (_prevMapPct >= 0 && state.mapPercent > _prevMapPct)           _pulseDetail('questMapDetail');
+  if (_prevMapPct >= 0 && state.mapPercent > _prevMapPct)             _pulseDetail('questMapDetail');
   if (_prevPosCount >= 0 && state.revealedDigitCount > _prevPosCount) _pulseDetail('questPositionDetail');
-  if (_prevSpecCount >= 0 && collectedCount > _prevSpecCount)        _pulseDetail('questSpecimensDetail');
-  if (_prevLmCount >= 0 && discoveredCount > _prevLmCount)           _pulseDetail('questLandmarksDetail');
-  _prevMapPct    = state.mapPercent;
-  _prevPosCount  = state.revealedDigitCount;
-  _prevSpecCount = collectedCount;
-  _prevLmCount   = discoveredCount;
+  if (_prevSpecCount >= 0 && collectedCount > _prevSpecCount)         _pulseDetail('questSpecimensDetail');
+  if (_prevLmCount >= 0 && discoveredCount > _prevLmCount)            _pulseDetail('questLandmarksDetail');
+  if (_prevJournalCount >= 0 && state.journalsCollected > _prevJournalCount) _pulseDetail('questJournalsDetail');
+  _prevMapPct       = state.mapPercent;
+  _prevPosCount     = state.revealedDigitCount;
+  _prevSpecCount    = collectedCount;
+  _prevLmCount      = discoveredCount;
+  _prevJournalCount = state.journalsCollected;
 
   const posEl     = document.getElementById('questPosition');
   const posDetail = document.getElementById('questPositionDetail');
@@ -122,11 +126,27 @@ export function updateQuestTracker() {
     measureEl.classList.toggle('complete', q.completed);
   }
 
+  // Journal quest (only shown when there are pages on this island)
+  const journalEl     = document.getElementById('questJournals');
+  const journalDetail = document.getElementById('questJournalsDetail');
+  let journalDone = true;
+  if (journalEl && journalDetail) {
+    if (state.journalTotal > 0) {
+      journalEl.style.display = '';
+      journalDetail.textContent = `${state.journalsCollected}/${state.journalTotal}`;
+      journalDone = state.journalsCollected >= state.journalTotal;
+      journalEl.classList.toggle('complete', journalDone);
+    } else {
+      journalEl.style.display = 'none';
+      journalDone = true; // no journals this island — don't block completion
+    }
+  }
+
   const mapDone  = state.mapPercent >= 100;
   const posDone  = state.revealedDigitCount >= TOTAL_DIGITS;
   const specDone = totalSpec > 0 && collectedCount >= totalSpec;
   const lmDone   = totalLm  > 0 && discoveredCount >= totalLm;
-  const allDone  = mapDone && posDone && specDone && lmDone && measureDone;
+  const allDone  = mapDone && posDone && specDone && lmDone && measureDone && journalDone;
 
   // Play sound + show toast the first time each individual quest completes
   const questLabels = {
@@ -135,8 +155,9 @@ export function updateQuestTracker() {
     spec:    'Samples Collected!',
     lm:      'Landmarks Discovered!',
     measure: 'Distance Measured!',
+    journal: 'Journals Collected!',
   };
-  for (const [k, done] of [['map', mapDone], ['pos', posDone], ['spec', specDone], ['lm', lmDone], ['measure', measureDone]]) {
+  for (const [k, done] of [['map', mapDone], ['pos', posDone], ['spec', specDone], ['lm', lmDone], ['measure', measureDone], ['journal', journalDone && state.journalTotal > 0]]) {
     if (done && !_questSoundsFired.has(k)) {
       _questSoundsFired.add(k);
       playSFX('snd_quest_complete');
@@ -281,6 +302,15 @@ export function showQuestCompleteToast(text) {
   el._timeout = setTimeout(() => el.classList.remove('visible'), 2500);
 }
 
+export function showJournalCollectToast(entryTitle) {
+  const el = document.getElementById('journalCollectToast');
+  if (!el) return;
+  el.textContent = `Found: ${entryTitle}`;
+  el.classList.add('visible');
+  clearTimeout(el._timeout);
+  el._timeout = setTimeout(() => el.classList.remove('visible'), 2500);
+}
+
 export function showLandmarkToast(lm) {
   document.getElementById('toastName').textContent = lm.name;
   document.getElementById('toastSub').textContent = lm.desc;
@@ -295,7 +325,7 @@ export function showToolHint(tool) {
     theodolite: 'Click to survey — reveals terrain, contours & landmarks',
     measure:    'Click to start/stop measuring — walk to trace distances',
     sextant:    'Click to take a reading — travel far between fixes for new digits',
-    naturalist: 'Walk near specimens and click to collect',
+    naturalist: 'Walk near specimens or journal pages and click to collect',
   };
   const hint = document.getElementById('toolHint');
   hint.textContent = hints[tool] || '';
@@ -341,6 +371,14 @@ export function showGameUI(islandName) {
   document.getElementById('zoomIndicator').classList.add('visible');
   document.getElementById('islandName').textContent = islandName;
   _initAudioUI();
+  _initJournalBtn();
+}
+
+function _initJournalBtn() {
+  const btn = document.getElementById('journalBtn');
+  if (!btn || btn._wired) return;
+  btn._wired = true;
+  btn.addEventListener('click', showJournalOverlay);
 }
 
 function _initAudioUI() {
@@ -389,7 +427,7 @@ function _updateMuteDisplay() {
 
 export function resetQuestUI() {
   _questSoundsFired.clear();
-  _prevMapPct = _prevPosCount = _prevSpecCount = _prevLmCount = -1;
+  _prevMapPct = _prevPosCount = _prevSpecCount = _prevLmCount = _prevJournalCount = -1;
   document.getElementById('newMapBtn').style.display = 'none';
   document.getElementById('measureDisplay').classList.remove('visible');
   document.querySelector('[data-tool="measure"]')?.classList.remove('measuring');

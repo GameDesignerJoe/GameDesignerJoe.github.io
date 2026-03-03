@@ -23,16 +23,25 @@ PRI2:
 - Take another swing at getting rid of the hard straight lines on the island border.
 - Feel like we should have areas that the players can't walk, step cliffs and they have to find their way around them. This would mean we'd need to keep an eye on pathing so the player doesn't get trapped in a space or can't get to certain areas. 
 - Add the locations to measure to a new indented line.
-- you collect things from too far away. Reduce by half.
 - You're going to eventually want to come up with things that can happen on the maps that make it slightly more interesting to solve the quests. Right now, while everything is in different locations and the island is a different shape, you're not doing anything different gameplay wise. 
-- Really starting to like the idea that the character is searching for their lost love and finding her journals along the way. He's also leaving journals after every map, there's a new update. 
 - Consider some sort of measure mechanics where you have to place a marker down and then go to another location and then 'look' for that marker to see it and measure its distance. So, the look at would be you dragging and holding a circle over the marker as the distance simulates being calculated. This is closer to actual measuring. 
+- Need some opening text while on the boat about 'the map of my heart is like the map of the world' or 'I will find you my love, even if I must map the whole damn world.' This is written out with pen scratching 
+noises on a piece of parchment popup. 
 
 PRI3:
 - Figure out how to get actual animation in for some sprites to see about making a chracter with a walk cycle.
 - Explore topographical options for map display.
 - Need to add some magic to the collecting of the samples. Maybe a happy sigh from the character. 
-- Need to look into a journal of some sort of the things you're collecting. The writing of lines that appear somewhere "The ancient shell of nanatoto said to bear whisper of a lost love if you put your ear to it."
-- If we could pop the landmark names when you discover htem along with the landmakrk themselves a bit that will draw the eye to it for the player to see what they just discovered. 
+- Need to look into a journal entries for the samples you collect. The writing of lines that appear somewhere "The ancient shell of nanatoto said to bear whisper of a lost love if you put your ear to it."
+- If we could pop the landmark names when you discover them along with the landmakrk themselves a bit that will draw the eye to it for the player to see what they just discovered. 
 - I think all the tiles should have a texture on them so they stand out more than just the flat color. 
 - you should do custom sounds for each of the collectibles. 
+- Music and sound plays despite my phone being muted. 
+- ui in mobile issues, clip in the top, interact button bar too high and had extra space, the text clips over the ui buttons
+- Measure doesn’t work
+- move, survey, etc. is awkward at the moment
+- movement around corners isn’t smooth
+- Add an appreciate button on the bar, maybe it’s the same. Look and record. 
+- help text says WASD when on mobile 
+- Quest text can be smaller on mobile
+- We should let you go to the ship and leave the island if you want (or if there's a bug).
