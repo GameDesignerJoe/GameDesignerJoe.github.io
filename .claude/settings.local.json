@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"c:\\\\Users\\\\GameD\\\\GameDesignerJoe.github.io\\\\flickpicker\")",
+      "Bash(git -C \"c:/Users/GameD/GameDesignerJoe.github.io\" status --short)",
+      "Bash(npm install)",
+      "Bash(npx vercel --version)",
+      "Bash(node dev-server.js)",
+      "Bash(curl -s \"http://localhost:3000/api/tmdb?query=Severance\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://image.tmdb.org/t/p/w342/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg\")",
+      "Bash(curl -s \"http://localhost:3000/api/tmdb?query=Tom+Clancy%27s+Jack+Ryan\")",
+      "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(''without year:'',j.results?.length\\)}\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/tmdb?query=Tom+Clancy%27s+Jack+Ryan&year=2018\")",
+      "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(j.results?.length,''results''\\);if\\(j.results?.[0]\\)console.log\\(''poster:'',j.results[0].poster_path\\)}\\)\")",
+      "WebFetch(domain:developer.themoviedb.org)",
+      "WebFetch(domain:api.themoviedb.org)",
+      "WebFetch(domain:www.themoviedb.org)"
+    ]
+  }
+}

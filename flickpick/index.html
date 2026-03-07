@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flickpick</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --border: #2a2a3a;
+    --accent: #e8c547;
+    --accent2: #7b6cf6;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --seen: #4ade80;
+    --want: #e8c547;
+    --danger: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 60px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--accent);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .nav-btn.active {
+    color: var(--text);
+    background: var(--surface2);
+  }
+
+  .nav-btn:hover:not(.active) {
+    color: var(--text);
+  }
+
+  .want-count {
+    position: absolute;
+    top: 4px; right: 6px;
+    background: var(--accent);
+    color: #000;
+    font-size: 9px;
+    font-weight: 700;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .want-count.visible { opacity: 1; }
+
+  /* PAGES */
+  .page {
+    display: none;
+    padding-top: 60px;
+    min-height: 100vh;
+  }
+  .page.active { display: block; }
+
+  /* DISCOVER PAGE */
+  .search-hero {
+    padding: 60px 32px 40px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .search-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .search-wrapper {
+    position: relative;
+    display: flex;
+    gap: 12px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 16px 28px;
+    color: #000;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover { background: #f5d060; transform: translateY(-1px); }
+  .search-btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
+
+  /* FEATURED RESULT */
+  .featured-section {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 32px 60px;
+    display: none;
+  }
+
+  .featured-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .featured-poster {
+    width: 200px;
+    height: 280px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .featured-poster-placeholder {
+    width: 200px;
+    height: 280px;
+    background: var(--surface2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .poster-emoji { font-size: 40px; }
+
+  .featured-info {
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .featured-type {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .featured-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+
+  .featured-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .featured-desc {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #b0b0c0;
+    flex: 1;
+  }
+
+  .featured-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 8px;
+  }
+
+  .btn-seen, .btn-want, .btn-nope {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+
+  .btn-seen {
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    color: var(--seen);
+  }
+  .btn-seen:hover, .btn-seen.active {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: var(--seen);
+  }
+  .btn-seen.active { background: var(--seen); color: #000; }
+
+  .btn-want {
+    background: rgba(232, 197, 71, 0.1);
+    border: 1px solid rgba(232, 197, 71, 0.3);
+    color: var(--want);
+  }
+  .btn-want:hover, .btn-want.active {
+    background: rgba(232, 197, 71, 0.2);
+    border-color: var(--want);
+  }
+  .btn-want.active { background: var(--want); color: #000; }
+
+  /* SIMILAR SECTION */
+  .similar-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .similar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .similar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+
+  .similar-card:hover {
+    border-color: var(--accent2);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+
+  .similar-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+  }
+
+  .similar-poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2/3;
+    background: var(--surface2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 28px;
+  }
+
+  .similar-body {
+    padding: 14px;
+  }
+
+  .similar-title {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+
+  .similar-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .similar-actions {
+    display: flex;
+    gap: 6px;
+    padding: 0 14px 14px;
+  }
+
+  .mini-btn {
+    flex: 1;
+    padding: 7px 8px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    text-align: center;
+  }
+
+  .mini-seen {
+    background: rgba(74, 222, 128, 0.08);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    color: var(--seen);
+  }
+  .mini-seen:hover { background: rgba(74, 222, 128, 0.18); }
+  .mini-seen.active { background: var(--seen); color: #000; border-color: var(--seen); }
+
+  .mini-want {
+    background: rgba(232, 197, 71, 0.08);
+    border: 1px solid rgba(232, 197, 71, 0.25);
+    color: var(--want);
+  }
+  .mini-want:hover { background: rgba(232, 197, 71, 0.18); }
+  .mini-want.active { background: var(--want); color: #000; border-color: var(--want); }
+
+  .btn-nope {
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    color: var(--danger);
+  }
+  .btn-nope:hover, .btn-nope.active {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: var(--danger);
+  }
+  .btn-nope.active { background: var(--danger); color: #000; }
+
+  .mini-nope {
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    color: var(--danger);
+  }
+  .mini-nope:hover { background: rgba(248, 113, 113, 0.18); }
+  .mini-nope.active { background: var(--danger); color: #000; border-color: var(--danger); }
+
+  .similar-card.removing {
+    animation: fadeOut 0.3s ease forwards;
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: scale(0.95); }
+  }
+
+  .similar-card.swapping-in {
+    animation: swapIn 0.3s ease forwards;
+  }
+  @keyframes swapIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .similar-card.loading-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    cursor: default;
+  }
+  .similar-card.loading-placeholder:hover {
+    transform: none;
+    border-color: var(--border);
+    box-shadow: none;
+  }
+  .similar-card.loading-placeholder .loading-spinner {
+    width: 24px; height: 24px;
+    margin: 0;
+  }
+
+  /* RATING BUTTONS */
+  .rating-btns {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .rating-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 18px;
+    transition: all 0.2s;
+    opacity: 0.4;
+  }
+  .rating-btn:hover { opacity: 0.8; }
+  .rating-btn.active-loved {
+    opacity: 1;
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.4);
+  }
+  .rating-btn.active-liked {
+    opacity: 1;
+    background: rgba(74, 222, 128, 0.12);
+    border-color: rgba(74, 222, 128, 0.4);
+  }
+  .rating-btn.active-disliked {
+    opacity: 1;
+    background: rgba(107, 107, 128, 0.2);
+    border-color: rgba(107, 107, 128, 0.4);
+  }
+
+  .seen-count {
+    position: absolute;
+    top: 4px; right: 6px;
+    background: var(--seen);
+    color: #000;
+    font-size: 9px;
+    font-weight: 700;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .seen-count.visible { opacity: 1; }
+
+  /* LOADING */
+  .loading-state {
+    text-align: center;
+    padding: 60px 32px;
+    color: var(--muted);
+    display: none;
+  }
+
+  .loading-spinner {
+    width: 36px; height: 36px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* WANT PAGE */
+  .want-page-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+
+  .page-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .page-subheading {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-bottom: 40px;
+  }
+
+  .want-empty {
+    text-align: center;
+    padding: 80px 32px;
+    color: var(--muted);
+  }
+
+  .want-empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .want-empty-text { font-size: 15px; }
+
+  .want-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .want-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 20px;
+    transition: all 0.2s;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .want-item:hover { border-color: var(--border); background: var(--surface2); }
+
+  .want-item-emoji { font-size: 28px; flex-shrink: 0; }
+
+  .want-item-info { flex: 1; min-width: 0; }
+
+  .want-item-title {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .want-item-meta {
+    font-size: 12px;
+    color: var(--muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .want-item-type {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 4px 10px;
+    background: rgba(232, 197, 71, 0.08);
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+
+  .btn-remove {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 12px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .btn-remove:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(248, 113, 113, 0.08);
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 999;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ERROR STATE */
+  .error-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--danger);
+    font-size: 14px;
+    display: none;
+  }
+
+  @media (max-width: 600px) {
+    .featured-card { grid-template-columns: 1fr; }
+    .featured-poster, .featured-poster-placeholder { width: 100%; height: 200px; }
+    .featured-title { font-size: 32px; }
+    nav { padding: 0 16px; }
+    .search-hero, .featured-section { padding-left: 16px; padding-right: 16px; }
+    .similar-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">FLICKPICK</div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="showPage('discover', event)">Discover</button>
+    <button class="nav-btn" onclick="showPage('seen', event)" id="seen-nav-btn">
+      Seen
+      <span class="seen-count" id="seen-count">0</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('watchlist', event)" id="watchlist-nav-btn">
+      Watchlist
+      <span class="want-count" id="want-count">0</span>
+    </button>
+  </div>
+</nav>
+
+<!-- DISCOVER PAGE -->
+<div class="page active" id="page-discover">
+  <div class="search-hero">
+    <div class="search-label">Find something to watch</div>
+    <div class="search-wrapper">
+      <input
+        class="search-input"
+        type="text"
+        id="search-input"
+        placeholder="e.g. The Bear, Inception, Severance…"
+        onkeydown="if(event.key==='Enter') doSearch()"
+      />
+      <button class="search-btn" id="search-btn" onclick="doSearch()">Search</button>
+    </div>
+  </div>
+
+  <div class="loading-state" id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Finding matches…</div>
+  </div>
+
+  <div class="error-state" id="error-state">Something went wrong. Try again.</div>
+
+  <div class="featured-section" id="featured-section">
+    <div class="featured-card" id="featured-card"></div>
+    <div class="similar-label">You might also like</div>
+    <div class="similar-grid" id="similar-grid"></div>
+  </div>
+</div>
+
+<!-- SEEN PAGE -->
+<div class="page" id="page-seen">
+  <div class="want-page-inner">
+    <div class="page-heading">SEEN IT</div>
+    <div class="page-subheading" id="seen-subheading">Loading…</div>
+    <div id="seen-list-container"></div>
+  </div>
+</div>
+
+<!-- WATCHLIST PAGE -->
+<div class="page" id="page-watchlist">
+  <div class="want-page-inner">
+    <div class="page-heading">YOUR WATCHLIST</div>
+    <div class="page-subheading" id="watchlist-subheading">Loading…</div>
+    <div id="want-list-container"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let state = {
+  seen: {},   // id -> item
+  want: {},   // id -> item
+  nope: {},   // id -> item
+};
+
+let currentFeatured = null;
+let shownIds = new Set();
+let replacementBuffer = [];
+let bufferFetching = false;
+const GRID_SIZE = 4;
+const BUFFER_LOW = 3;
+
+// ─── TMDB POSTER CACHE ───────────────────────────────────────────────────────
+const posterCache = {};
+
+async function fetchPoster(title, year) {
+  const cacheKey = `${title}::${year || ''}`;
+  if (posterCache[cacheKey] !== undefined) return posterCache[cacheKey];
+
+  try {
+    console.log('[TMDB] Fetching poster for:', title);
+    let tmdbUrl = `/api/tmdb?query=${encodeURIComponent(title)}`;
+    if (year) tmdbUrl += `&year=${year}`;
+    const res = await fetch(tmdbUrl);
+    const data = await res.json();
+    console.log('[TMDB] Response:', data.results?.length, 'results');
+
+    if (data.results && data.results.length > 0) {
+      // Find best match — prefer exact title match
+      const match = data.results.find(r =>
+        (r.title || r.name || '').toLowerCase() === title.toLowerCase()
+      ) || data.results[0];
+
+      if (match.poster_path) {
+        const url = `https://image.tmdb.org/t/p/w342${match.poster_path}`;
+        posterCache[cacheKey] = url;
+        return url;
+      }
+    }
+    posterCache[cacheKey] = null;
+    return null;
+  } catch (err) {
+    console.warn('TMDB lookup failed:', err.message);
+    posterCache[cacheKey] = null;
+    return null;
+  }
+}
+
+function loadPosterFor(itemId, title, year) {
+  console.log('[TMDB] loadPosterFor called:', itemId, title, year);
+  fetchPoster(title, year).then(url => {
+    console.log('[TMDB] Got URL for', title, ':', url);
+    if (!url) return;
+    const el = document.querySelector(`[data-poster-id="${itemId}"]`);
+    console.log('[TMDB] Found element:', !!el);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = title;
+    const isFeatured = el.classList.contains('featured-poster-placeholder');
+    img.className = isFeatured ? 'featured-poster' : 'similar-poster';
+    if (!isFeatured) {
+      img.style.cursor = 'pointer';
+      const onclickAttr = el.getAttribute('onclick');
+      if (onclickAttr) img.setAttribute('onclick', onclickAttr);
+    }
+    img.onload = () => el.replaceWith(img);
+  });
+}
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('flickpick_state');
+    if (s) {
+      const parsed = JSON.parse(s);
+      state.seen = parsed.seen || {};
+      state.want = parsed.want || {};
+      state.nope = parsed.nope || {};
+      // Ensure all seen items have a rating field
+      for (const id in state.seen) {
+        if (state.seen[id].rating === undefined) state.seen[id].rating = null;
+      }
+    }
+  } catch(e) {}
+}
+
+function getExclusionList() {
+  const titles = new Set();
+  for (const item of Object.values(state.nope)) titles.add(item.title);
+  for (const item of Object.values(state.seen)) titles.add(item.title);
+  if (titles.size === 0) return '';
+  const list = [...titles].map(t => `- ${t}`).join('\n');
+  return `\n\nDo NOT include any of these titles (the user has already seen or rejected them):\n${list}`;
+}
+
+function getShownExclusion() {
+  const titles = new Set();
+  for (const id of shownIds) {
+    const item = state.seen[id] || state.want[id] || state.nope[id];
+    if (item) titles.add(item.title);
+  }
+  // Also grab titles from the current grid directly
+  document.querySelectorAll('#similar-grid .similar-title').forEach(el => {
+    titles.add(el.textContent);
+  });
+  if (currentFeatured) titles.add(currentFeatured.title);
+  if (titles.size === 0) return '';
+  const list = [...titles].map(t => `- ${t}`).join('\n');
+  return `\n\nAlso do NOT include these already-shown titles:\n${list}`;
+}
+
+function filterResults(items) {
+  return items.filter(item => !state.nope[item.id] && !state.seen[item.id]);
+}
+
+function saveState() {
+  localStorage.setItem('flickpick_state', JSON.stringify(state));
+  updateWantCount();
+  updateSeenCount();
+}
+
+function updateWantCount() {
+  const count = Object.keys(state.want).length;
+  const el = document.getElementById('want-count');
+  el.textContent = count;
+  el.classList.toggle('visible', count > 0);
+}
+
+function updateSeenCount() {
+  const count = Object.keys(state.seen).length;
+  const el = document.getElementById('seen-count');
+  el.textContent = count;
+  el.classList.toggle('visible', count > 0);
+}
+
+loadState();
+updateWantCount();
+updateSeenCount();
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function showPage(page, e) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (e && e.currentTarget) e.currentTarget.classList.add('active');
+  if (page === 'watchlist') renderWatchlist();
+  if (page === 'seen') renderSeenList();
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── GENRE EMOJI ─────────────────────────────────────────────────────────────
+function genreEmoji(genres) {
+  const g = (genres || '').toLowerCase();
+  if (g.includes('horror')) return '👻';
+  if (g.includes('sci-fi') || g.includes('science fiction')) return '🚀';
+  if (g.includes('comedy')) return '😂';
+  if (g.includes('romance')) return '💕';
+  if (g.includes('thriller') || g.includes('mystery')) return '🔍';
+  if (g.includes('animation') || g.includes('anime')) return '✨';
+  if (g.includes('crime')) return '🔫';
+  if (g.includes('action') || g.includes('adventure')) return '⚡';
+  if (g.includes('drama')) return '🎭';
+  if (g.includes('documentary')) return '🎬';
+  if (g.includes('fantasy')) return '🧙';
+  return '🎞️';
+}
+
+// ─── SEARCH ──────────────────────────────────────────────────────────────────
+async function doSearch() {
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+
+  document.getElementById('featured-section').style.display = 'none';
+  document.getElementById('error-state').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('search-btn').disabled = true;
+
+  try {
+    const prompt = `You are a film and TV expert assistant for a streaming recommendation app called Flickpick.
+
+The user searched for: "${query}"
+
+Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
+{
+  "main": {
+    "id": "unique-slug-no-spaces",
+    "title": "Exact title",
+    "type": "TV Show" or "Movie",
+    "year": "2023",
+    "genres": "Drama, Thriller",
+    "description": "2-3 sentence description of what this show/movie is about.",
+    "emoji": "single relevant emoji"
+  },
+  "similar": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "description": "1-2 sentences about why a fan would enjoy this.",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly 4 similar titles. Make them genuinely good recommendations — mix TV and movies, vary the genres slightly while staying thematically connected. Use real, well-known titles. The "id" field must be lowercase with hyphens only.` + getExclusionList();
+
+    const res = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1500,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(text);
+
+    shownIds = new Set();
+    replacementBuffer = [];
+    bufferFetching = false;
+    renderFeatured(result.main);
+    renderSimilar(filterResults(result.similar));
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('featured-section').style.display = 'block';
+
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-state').style.display = 'block';
+    document.getElementById('search-btn').disabled = false;
+  }
+
+  document.getElementById('search-btn').disabled = false;
+}
+
+// ─── RENDER FEATURED ─────────────────────────────────────────────────────────
+function renderFeatured(item) {
+  currentFeatured = item;
+  const seenActive = state.seen[item.id] ? 'active' : '';
+  const wantActive = state.want[item.id] ? 'active' : '';
+  const nopeActive = state.nope[item.id] ? 'active' : '';
+  const emoji = item.emoji || genreEmoji(item.genres);
+  const safeItem = JSON.stringify(item).replace(/'/g, "&#39;");
+
+  document.getElementById('featured-card').innerHTML = `
+    <div class="featured-poster-placeholder" data-poster-id="${item.id}">
+      <span class="poster-emoji">${emoji}</span>
+    </div>
+    <div class="featured-info">
+      <div class="featured-type">${item.type}</div>
+      <div class="featured-title">${item.title}</div>
+      <div class="featured-meta">
+        <span>${item.year}</span>
+        <span>${item.genres}</span>
+      </div>
+      <div class="featured-desc">${item.description}</div>
+      <div class="featured-actions">
+        <button class="btn-seen ${seenActive}" onclick="toggleSeen('${item.id}', this)" data-item='${safeItem}'>
+          ${state.seen[item.id] ? '✓ Seen' : 'Mark Seen'}
+        </button>
+        <button class="btn-want ${wantActive}" onclick="toggleWant('${item.id}', this)" data-item='${safeItem}'>
+          ${state.want[item.id] ? '★ Saved' : '+ Watchlist'}
+        </button>
+        <button class="btn-nope ${nopeActive}" onclick="toggleNope('${item.id}', this)" data-item='${safeItem}'>
+          ${state.nope[item.id] ? '✕ Noped' : 'Nope'}
+        </button>
+      </div>
+    </div>
+  `;
+  loadPosterFor(item.id, item.title, item.year);
+}
+
+// ─── RENDER SIMILAR ──────────────────────────────────────────────────────────
+function renderSingleCard(item) {
+  const seenActive = state.seen[item.id] ? 'active' : '';
+  const wantActive = state.want[item.id] ? 'active' : '';
+  const nopeActive = state.nope[item.id] ? 'active' : '';
+  const emoji = item.emoji || genreEmoji(item.genres);
+  const safeItem = JSON.stringify(item).replace(/'/g, "&#39;");
+
+  return `
+    <div class="similar-card swapping-in" data-card-id="${item.id}">
+      <div class="similar-poster-placeholder" data-poster-id="${item.id}" onclick="loadItem('${item.id}')">
+        ${emoji}
+      </div>
+      <div class="similar-body" onclick="loadItem('${item.id}')">
+        <div class="similar-title">${item.title}</div>
+        <div class="similar-subtitle">${item.description}</div>
+      </div>
+      <div class="similar-actions">
+        <button class="mini-btn mini-seen ${seenActive}" onclick="toggleSeen('${item.id}', this)" data-item='${safeItem}'>
+          ${state.seen[item.id] ? '✓ Seen' : 'Seen'}
+        </button>
+        <button class="mini-btn mini-want ${wantActive}" onclick="toggleWant('${item.id}', this)" data-item='${safeItem}'>
+          ${state.want[item.id] ? '★' : '+ Want'}
+        </button>
+        <button class="mini-btn mini-nope ${nopeActive}" onclick="toggleNope('${item.id}', this)" data-item='${safeItem}'>
+          ${state.nope[item.id] ? '✕' : 'Nope'}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function renderPlaceholderCard() {
+  return `<div class="similar-card loading-placeholder"><div class="loading-spinner"></div></div>`;
+}
+
+function renderSimilar(items) {
+  items.forEach(item => shownIds.add(item.id));
+  const grid = document.getElementById('similar-grid');
+  grid.innerHTML = items.map(item => renderSingleCard(item)).join('');
+  // Load posters for all cards
+  items.forEach(item => loadPosterFor(item.id, item.title, item.year));
+  // Start pre-fetching buffer
+  maybeRefillBuffer();
+}
+
+// ─── BUFFER SYSTEM ───────────────────────────────────────────────────────────
+function maybeRefillBuffer() {
+  if (replacementBuffer.length < BUFFER_LOW && !bufferFetching && currentFeatured) {
+    fillBuffer();
+  }
+}
+
+async function fillBuffer() {
+  if (bufferFetching || !currentFeatured) return;
+  bufferFetching = true;
+
+  try {
+    const exclusion = getExclusionList() + getShownExclusion();
+    const prompt = `You are a film and TV expert for Flickpick.
+
+The user is exploring titles similar to: "${currentFeatured.title}" (${currentFeatured.type}, ${currentFeatured.year})
+
+They want MORE recommendations beyond what's already been shown.${exclusion}
+
+Return ONLY a JSON object with exactly this structure, no markdown:
+{
+  "similar": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "description": "1-2 sentences about why a fan would enjoy this.",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphenated ids. Dig deep — suggest lesser-known gems, not just the obvious picks.`;
+
+    const res = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1200,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(text);
+    const filtered = filterResults(result.similar);
+
+    filtered.forEach(item => {
+      if (!shownIds.has(item.id)) {
+        replacementBuffer.push(item);
+        shownIds.add(item.id);
+      }
+    });
+
+    // Fill any waiting placeholders
+    fillWaitingPlaceholders();
+  } catch(e) {
+    console.error('Buffer fill error:', e);
+  }
+
+  bufferFetching = false;
+}
+
+function fillWaitingPlaceholders() {
+  const placeholders = document.querySelectorAll('.similar-card.loading-placeholder');
+  if (placeholders.length === 0) return;
+
+  placeholders.forEach(ph => {
+    if (replacementBuffer.length > 0) {
+      const item = replacementBuffer.shift();
+      ph.outerHTML = renderSingleCard(item);
+      loadPosterFor(item.id, item.title, item.year);
+    }
+  });
+
+  // If there are still placeholders and we're not fetching, try again
+  const remaining = document.querySelectorAll('.similar-card.loading-placeholder');
+  if (remaining.length > 0 && !bufferFetching) {
+    fillBuffer();
+  }
+}
+
+function replaceCard(card) {
+  if (replacementBuffer.length > 0) {
+    const item = replacementBuffer.shift();
+    card.classList.add('removing');
+    setTimeout(() => {
+      card.outerHTML = renderSingleCard(item);
+      loadPosterFor(item.id, item.title, item.year);
+    }, 300);
+  } else {
+    card.classList.add('removing');
+    setTimeout(() => {
+      card.outerHTML = renderPlaceholderCard();
+      // Set a timeout — if still a placeholder after 15s, just remove it
+      setTimeout(() => {
+        const stillWaiting = document.querySelectorAll('.similar-card.loading-placeholder');
+        stillWaiting.forEach(ph => ph.remove());
+      }, 15000);
+    }, 300);
+  }
+  maybeRefillBuffer();
+}
+
+// ─── LOAD ITEM AS FEATURED ───────────────────────────────────────────────────
+async function loadItem(itemId) {
+  const allBtns = document.querySelectorAll('#similar-grid [data-item]');
+  let foundItem = null;
+  allBtns.forEach(b => {
+    try {
+      const parsed = JSON.parse(b.getAttribute('data-item').replace(/&#39;/g, "'"));
+      if (parsed.id === itemId) foundItem = parsed;
+    } catch(e) {}
+  });
+
+  if (!foundItem) return;
+
+  // Scroll to top
+  window.scrollTo({ top: 60, behavior: 'smooth' });
+
+  // Put this item as featured
+  renderFeatured(foundItem);
+
+  // Load new similar for this item
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('featured-section').style.display = 'none';
+
+  try {
+    const prompt = `You are a film and TV expert for Flickpick.
+
+The user just selected: "${foundItem.title}" (${foundItem.type}, ${foundItem.year})
+
+Return ONLY a JSON object with exactly this structure, no markdown:
+{
+  "similar": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "description": "1-2 sentences about why a fan would enjoy this.",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphenated ids.` + getExclusionList();
+
+    const res = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 800,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(text);
+
+    shownIds = new Set();
+    replacementBuffer = [];
+    bufferFetching = false;
+    renderSimilar(filterResults(result.similar));
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('featured-section').style.display = 'block';
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('featured-section').style.display = 'block';
+  }
+}
+
+// ─── TOGGLE SEEN ─────────────────────────────────────────────────────────────
+function toggleSeen(id, btn) {
+  const item = JSON.parse(btn.getAttribute('data-item').replace(/&#39;/g, "'"));
+  const isMini = btn.classList.contains('mini-btn');
+
+  if (state.seen[id]) {
+    delete state.seen[id];
+    btn.classList.remove('active');
+    btn.textContent = isMini ? 'Seen' : 'Mark Seen';
+    showToast(`Removed "${item.title}" from seen`);
+  } else {
+    state.seen[id] = { ...item, rating: null };
+    btn.classList.add('active');
+    btn.textContent = isMini ? '✓ Seen' : '✓ Seen';
+    showToast(`Marked "${item.title}" as seen`);
+    if (isMini) {
+      const card = btn.closest('.similar-card');
+      if (card) { replaceCard(card); saveState(); return; }
+    }
+  }
+  saveState();
+}
+
+// ─── TOGGLE NOPE ─────────────────────────────────────────────────────────────
+function toggleNope(id, btn) {
+  const item = JSON.parse(btn.getAttribute('data-item').replace(/&#39;/g, "'"));
+  const isMini = btn.classList.contains('mini-btn');
+
+  if (state.nope[id]) {
+    delete state.nope[id];
+    btn.classList.remove('active');
+    btn.textContent = isMini ? 'Nope' : 'Nope';
+    showToast(`Removed "${item.title}" from nope list`);
+  } else {
+    state.nope[id] = item;
+    btn.classList.add('active');
+    btn.textContent = isMini ? '✕' : '✕ Noped';
+    showToast(`"${item.title}" noped`);
+    if (isMini) {
+      const card = btn.closest('.similar-card');
+      if (card) { replaceCard(card); saveState(); return; }
+    }
+  }
+  saveState();
+}
+
+// ─── TOGGLE WANT ─────────────────────────────────────────────────────────────
+function toggleWant(id, btn) {
+  const item = JSON.parse(btn.getAttribute('data-item').replace(/&#39;/g, "'"));
+  const isMini = btn.classList.contains('mini-btn');
+
+  if (state.want[id]) {
+    delete state.want[id];
+    btn.classList.remove('active');
+    btn.textContent = isMini ? '+ Want' : '+ Watchlist';
+    showToast(`Removed "${item.title}" from watchlist`);
+  } else {
+    state.want[id] = item;
+    btn.classList.add('active');
+    btn.textContent = isMini ? '★' : '★ Saved';
+    showToast(`Added "${item.title}" to watchlist`);
+    if (isMini) {
+      const card = btn.closest('.similar-card');
+      if (card) { replaceCard(card); saveState(); return; }
+    }
+  }
+  saveState();
+}
+
+// ─── WATCHLIST PAGE ───────────────────────────────────────────────────────────
+function renderWatchlist() {
+  const items = Object.values(state.want);
+  const sub = document.getElementById('watchlist-subheading');
+  const container = document.getElementById('want-list-container');
+
+  sub.textContent = items.length === 0
+    ? 'Nothing saved yet'
+    : `${items.length} title${items.length === 1 ? '' : 's'} saved`;
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div class="want-empty">
+        <div class="want-empty-icon">🎬</div>
+        <div class="want-empty-text">Search for something and hit "+ Watchlist" to save it here.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="want-list">${items.map(item => `
+    <div class="want-item" id="want-${item.id}">
+      <div class="want-item-emoji">${item.emoji || genreEmoji(item.genres)}</div>
+      <div class="want-item-info">
+        <div class="want-item-title">${item.title}</div>
+        <div class="want-item-meta">${item.year} · ${item.genres}</div>
+      </div>
+      <div class="want-item-type">${item.type}</div>
+      <button class="btn-remove" onclick="removeFromWant('${item.id}')">Remove</button>
+    </div>
+  `).join('')}</div>`;
+}
+
+function removeFromWant(id) {
+  const item = state.want[id];
+  if (!item) return;
+  delete state.want[id];
+  saveState();
+  const el = document.getElementById('want-' + id);
+  if (el) el.remove();
+  showToast(`Removed "${item.title}"`);
+  const remaining = Object.keys(state.want).length;
+  document.getElementById('watchlist-subheading').textContent =
+    remaining === 0 ? 'Nothing saved yet' : `${remaining} title${remaining === 1 ? '' : 's'} saved`;
+  if (remaining === 0) renderWatchlist();
+}
+
+// ─── SEEN PAGE ───────────────────────────────────────────────────────────────
+function renderSeenList() {
+  const items = Object.values(state.seen);
+  const sub = document.getElementById('seen-subheading');
+  const container = document.getElementById('seen-list-container');
+
+  sub.textContent = items.length === 0
+    ? 'Nothing marked as seen yet'
+    : `${items.length} title${items.length === 1 ? '' : 's'} seen`;
+
+  if (items.length === 0) {
+    container.innerHTML = `
+      <div class="want-empty">
+        <div class="want-empty-icon">👀</div>
+        <div class="want-empty-text">Mark shows as "Seen" in Discover to track them here.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="want-list">${items.map(item => {
+    const r = item.rating;
+    return `
+    <div class="want-item" id="seen-${item.id}">
+      <div class="want-item-emoji">${item.emoji || genreEmoji(item.genres)}</div>
+      <div class="want-item-info">
+        <div class="want-item-title">${item.title}</div>
+        <div class="want-item-meta">${item.year} · ${item.genres}</div>
+      </div>
+      <div class="want-item-type">${item.type}</div>
+      <div class="rating-btns">
+        <button class="rating-btn ${r === 'loved' ? 'active-loved' : ''}" onclick="setRating('${item.id}', 'loved', this)" title="Loved">❤️</button>
+        <button class="rating-btn ${r === 'liked' ? 'active-liked' : ''}" onclick="setRating('${item.id}', 'liked', this)" title="Liked">👍</button>
+        <button class="rating-btn ${r === 'disliked' ? 'active-disliked' : ''}" onclick="setRating('${item.id}', 'disliked', this)" title="Disliked">👎</button>
+      </div>
+      <button class="btn-remove" onclick="removeFromSeen('${item.id}')">Remove</button>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function setRating(id, rating, btn) {
+  if (!state.seen[id]) return;
+  // Toggle off if clicking the same rating
+  if (state.seen[id].rating === rating) {
+    state.seen[id].rating = null;
+  } else {
+    state.seen[id].rating = rating;
+  }
+  saveState();
+  // Update button states in the row
+  const row = btn.closest('.rating-btns');
+  row.querySelectorAll('.rating-btn').forEach(b => {
+    b.classList.remove('active-loved', 'active-liked', 'active-disliked');
+  });
+  const r = state.seen[id].rating;
+  if (r) {
+    btn.classList.add('active-' + r);
+  }
+}
+
+function removeFromSeen(id) {
+  const item = state.seen[id];
+  if (!item) return;
+  delete state.seen[id];
+  saveState();
+  const el = document.getElementById('seen-' + id);
+  if (el) el.remove();
+  showToast(`Removed "${item.title}" from seen`);
+  const remaining = Object.keys(state.seen).length;
+  document.getElementById('seen-subheading').textContent =
+    remaining === 0 ? 'Nothing marked as seen yet' : `${remaining} title${remaining === 1 ? '' : 's'} seen`;
+  if (remaining === 0) renderSeenList();
+}
+</script>
+</body>
+</html>
