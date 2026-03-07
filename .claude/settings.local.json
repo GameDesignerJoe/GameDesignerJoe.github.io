@@ -31,7 +31,8 @@
       "Bash(curl -s \"https://streaming-availability.p.rapidapi.com/shows/tv/73375?country=us&series_granularity=show\" -H \"X-RapidAPI-Key: eebb7cba10mshe8cf35e2def4ccap1435c3jsn8bb970d3cdf7\" -H \"X-RapidAPI-Host: streaming-availability.p.rapidapi.com\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); opts=d.get\\(''streamingOptions'',{}\\).get\\(''us'',[]\\); [print\\(f\"\"{o[''service''][''name'']}: {o[''type'']} → {o[''link'']}\"\"\\) for o in opts[:5]]\")",
       "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const opts=j.streamingOptions?.us||[];opts.slice\\(0,8\\).forEach\\(o=>console.log\\(o.service.name+'': ''+o.type+'' → ''+o.link\\)\\)}\\)\")",
-      "Bash(node -e \"require\\(''dotenv''\\).config\\(\\); console.log\\(''STREAM_AVAIL_API_KEY set:'', !!process.env.STREAM_AVAIL_API_KEY\\); console.log\\(''Key starts with:'', process.env.STREAM_AVAIL_API_KEY?.substring\\(0,10\\)\\)\")"
+      "Bash(node -e \"require\\(''dotenv''\\).config\\(\\); console.log\\(''STREAM_AVAIL_API_KEY set:'', !!process.env.STREAM_AVAIL_API_KEY\\); console.log\\(''Key starts with:'', process.env.STREAM_AVAIL_API_KEY?.substring\\(0,10\\)\\)\")",
+      "Bash(node -e \"const fs = require\\(''fs''\\); const html = fs.readFileSync\\(''index.html'', ''utf-8''\\); console.log\\(''Lines:'', html.split\\(''\\\\n''\\).length\\); console.log\\(''initDiscoverCarousels calls:'', \\(html.match\\(/initDiscoverCarousels/g\\)||[]\\).length\\); console.log\\(''renderWatchlistCarousel calls:'', \\(html.match\\(/renderWatchlistCarousel/g\\)||[]\\).length\\); console.log\\(''renderLovedCarousel calls:'', \\(html.match\\(/renderLovedCarousel/g\\)||[]\\).length\\); console.log\\(''data-search-title count:'', \\(html.match\\(/data-search-title/g\\)||[]\\).length\\);\")"
     ]
   }
 }

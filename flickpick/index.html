@@ -811,7 +811,7 @@
 
   .watchlist-card {
     display: grid;
-    grid-template-columns: 120px 1fr;
+    grid-template-columns: 160px 1fr;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -921,6 +921,140 @@
     border-color: var(--accent);
   }
 
+  /* DISCOVER CAROUSELS */
+  .discover-carousels {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .carousel-section {
+    margin-bottom: 24px;
+  }
+
+  .carousel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .carousel-label {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .carousel-nav {
+    display: flex;
+    gap: 6px;
+  }
+
+  .carousel-arrow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+  .carousel-arrow:hover { background: var(--surface2); border-color: var(--accent2); }
+  .carousel-arrow:disabled { opacity: 0.3; cursor: default; }
+  .carousel-arrow:disabled:hover { background: var(--surface); border-color: var(--border); }
+
+  .carousel-track {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .carousel-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .carousel-item:hover {
+    border-color: var(--accent2);
+    background: var(--surface2);
+  }
+
+  .carousel-item-poster {
+    width: 100%;
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    display: block;
+  }
+
+  .carousel-item-placeholder {
+    width: 100%;
+    aspect-ratio: 2/3;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+  }
+
+  .carousel-item-title {
+    padding: 8px 6px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .carousel-loading {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 600px) {
+    .carousel-track {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .discover-carousels { padding: 0 16px; }
+  }
+
+  /* CLICKABLE TITLES + POSTERS (seen + watchlist) */
+  .clickable-title {
+    cursor: pointer;
+    transition: color 0.2s, opacity 0.2s;
+  }
+  .clickable-title:hover {
+    color: var(--accent);
+  }
+  img.clickable-title:hover {
+    opacity: 0.8;
+  }
+
+  /* SEEN CARDS (extends watchlist card styles) */
+  .seen-rating-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .seen-rating-row .rating-btn {
+    font-size: 16px;
+    padding: 3px 6px;
+  }
+
   /* TOAST */
   .toast {
     position: fixed;
@@ -984,10 +1118,10 @@
       margin-left: auto;
     }
     .watchlist-card {
-      grid-template-columns: 90px 1fr;
+      grid-template-columns: 120px 1fr;
     }
     .watchlist-poster-placeholder {
-      min-height: 135px;
+      min-height: 180px;
     }
     .watchlist-title { font-size: 16px; }
     .watchlist-extras { gap: 8px; }
@@ -1024,6 +1158,29 @@
         onkeydown="if(event.key==='Enter') doSearch()"
       />
       <button class="search-btn" id="search-btn" onclick="doSearch()">Search</button>
+    </div>
+  </div>
+
+  <div class="discover-carousels" id="discover-carousels">
+    <div class="carousel-section" id="watchlist-carousel" style="display:none">
+      <div class="carousel-header">
+        <div class="carousel-label">From Your Watchlist</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" id="wl-car-prev" onclick="carouselPrev('watchlist')" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" id="wl-car-next" onclick="carouselNext('watchlist')">&rsaquo;</button>
+        </div>
+      </div>
+      <div class="carousel-track" id="wl-car-track"></div>
+    </div>
+    <div class="carousel-section" id="loved-carousel" style="display:none">
+      <div class="carousel-header">
+        <div class="carousel-label">Because You Loved...</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" id="loved-car-prev" onclick="carouselPrev('loved')" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" id="loved-car-next" onclick="carouselNext('loved')">&rsaquo;</button>
+        </div>
+      </div>
+      <div class="carousel-track" id="loved-car-track"></div>
     </div>
   </div>
 
@@ -1460,6 +1617,155 @@ function filterResults(items) {
   return items.filter(item => !state.nope[item.id] && !state.seen[item.id]);
 }
 
+// ─── DISCOVER CAROUSELS ─────────────────────────────────────────────────────
+const CAROUSEL_PAGE = 4;
+const CAROUSEL_PAGE_MOBILE = 3;
+const carouselState = { watchlist: { page: 0 }, loved: { page: 0, items: [] } };
+let lovedRecsCache = null;
+
+function getCarouselPageSize() {
+  return window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
+}
+
+function renderCarouselItem(item) {
+  const emoji = item.emoji || genreEmoji(item.genres || '');
+  const safeTitle = item.title.replace(/"/g, '&quot;');
+  return `
+    <div class="carousel-item" data-search-title="${safeTitle}">
+      <div class="carousel-item-placeholder" data-car-poster="${item.id || item.title}">
+        ${emoji}
+      </div>
+      <div class="carousel-item-title" title="${safeTitle}">${item.title}</div>
+    </div>`;
+}
+
+function loadCarouselPoster(item, selector) {
+  fetchPoster(item.title, item.year).then(url => {
+    if (!url) return;
+    const el = document.querySelector(`[data-car-poster="${item.id || item.title}"]`);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = item.title;
+    img.className = 'carousel-item-poster';
+    img.onload = () => el.replaceWith(img);
+  });
+}
+
+function renderWatchlistCarousel() {
+  const items = Object.values(state.want);
+  const section = document.getElementById('watchlist-carousel');
+  if (items.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  const pageSize = getCarouselPageSize();
+  const s = carouselState.watchlist;
+  const start = s.page * pageSize;
+  const batch = items.slice(start, start + pageSize);
+  const track = document.getElementById('wl-car-track');
+  track.style.gridTemplateColumns = `repeat(${pageSize}, 1fr)`;
+  track.innerHTML = batch.map(item => renderCarouselItem(item)).join('');
+  batch.forEach(item => loadCarouselPoster(item));
+
+  document.getElementById('wl-car-prev').disabled = s.page === 0;
+  document.getElementById('wl-car-next').disabled = start + pageSize >= items.length;
+}
+
+async function renderLovedCarousel() {
+  const lovedItems = Object.values(state.seen).filter(i => i.rating === 'loved');
+  const section = document.getElementById('loved-carousel');
+  if (lovedItems.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  // Use cached recommendations if we have them and loved list hasn't changed
+  const lovedKey = lovedItems.map(i => i.id).sort().join(',');
+  if (lovedRecsCache && lovedRecsCache.key === lovedKey) {
+    displayLovedCarousel(lovedRecsCache.items);
+    return;
+  }
+
+  const track = document.getElementById('loved-car-track');
+  track.innerHTML = `<div class="carousel-loading">Finding recommendations...</div>`;
+
+  try {
+    const titles = lovedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
+    const prompt = `You are a film and TV expert for Flickpick.
+
+The user loved these shows: ${titles}
+
+Based on their taste, recommend shows they might enjoy.
+
+Return ONLY a JSON object with exactly this structure, no markdown:
+{
+  "recommendations": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly 12 recommendations. Real, well-known titles only. Lowercase hyphenated ids. Do NOT include any of the titles the user already loved.` + getExclusionList();
+
+    const res = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1200,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(text);
+
+    lovedRecsCache = { key: lovedKey, items: result.recommendations };
+    carouselState.loved.page = 0;
+    displayLovedCarousel(result.recommendations);
+  } catch(e) {
+    track.innerHTML = '';
+    section.style.display = 'none';
+  }
+}
+
+function displayLovedCarousel(items) {
+  carouselState.loved.items = items;
+  const pageSize = getCarouselPageSize();
+  const s = carouselState.loved;
+  const start = s.page * pageSize;
+  const batch = items.slice(start, start + pageSize);
+  const track = document.getElementById('loved-car-track');
+  track.style.gridTemplateColumns = `repeat(${pageSize}, 1fr)`;
+  track.innerHTML = batch.map(item => renderCarouselItem(item)).join('');
+  batch.forEach(item => loadCarouselPoster(item));
+
+  document.getElementById('loved-car-prev').disabled = s.page === 0;
+  document.getElementById('loved-car-next').disabled = start + pageSize >= items.length;
+}
+
+function carouselPrev(type) {
+  carouselState[type].page = Math.max(0, carouselState[type].page - 1);
+  if (type === 'watchlist') renderWatchlistCarousel();
+  else displayLovedCarousel(carouselState.loved.items);
+}
+
+function carouselNext(type) {
+  carouselState[type].page++;
+  if (type === 'watchlist') renderWatchlistCarousel();
+  else displayLovedCarousel(carouselState.loved.items);
+}
+
+function initDiscoverCarousels() {
+  renderWatchlistCarousel();
+  renderLovedCarousel();
+}
+
 function saveState() {
   localStorage.setItem('flickpick_state', JSON.stringify(state));
   updateWantCount();
@@ -1483,6 +1789,7 @@ function updateSeenCount() {
 loadState();
 updateWantCount();
 updateSeenCount();
+initDiscoverCarousels();
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function showPage(page, e) {
@@ -1493,6 +1800,24 @@ function showPage(page, e) {
   if (page === 'watchlist') renderWatchlist();
   if (page === 'seen') renderSeenList();
 }
+
+// ─── SEARCH FOR SHOW (from Seen/Watchlist) ──────────────────────────────────
+function searchForShow(title) {
+  showPage('discover');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.nav-btn').classList.add('active'); // first nav-btn = Discover
+  document.getElementById('search-input').value = title;
+  doSearch();
+}
+
+// Delegated click handler for clickable titles (Seen + Watchlist pages)
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-search-title]');
+  if (el) {
+    e.stopPropagation();
+    searchForShow(el.getAttribute('data-search-title'));
+  }
+});
 
 // ─── TOAST ───────────────────────────────────────────────────────────────────
 let toastTimer;
@@ -1528,6 +1853,7 @@ async function doSearch() {
 
   document.getElementById('featured-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
+  document.getElementById('discover-carousels').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('search-btn').disabled = true;
   viewHistory.length = 0;
@@ -1659,7 +1985,7 @@ function renderSingleCard(item) {
           ${state.seen[item.id] ? '✓ Seen' : 'Seen'}
         </button>
         <button class="mini-btn mini-want ${wantActive}" onclick="toggleWant('${item.id}', this)" data-item='${safeItem}'>
-          ${state.want[item.id] ? '★' : '+ Want'}
+          ${state.want[item.id] ? '★' : 'Want'}
         </button>
         <button class="mini-btn mini-nope ${nopeActive}" onclick="toggleNope('${item.id}', this)" data-item='${safeItem}'>
           ${state.nope[item.id] ? '✕' : 'Nope'}
@@ -1808,18 +2134,53 @@ function goBack() {
   renderFeatured(prev.featured);
   document.getElementById('similar-grid').innerHTML = prev.similarHtml;
 
-  // Re-load posters for restored cards (images don't survive innerHTML save)
-  document.querySelectorAll('#similar-grid [data-poster-id]').forEach(el => {
-    const cardEl = el.closest('.similar-card');
-    if (!cardEl) return;
-    const cardId = cardEl.getAttribute('data-card-id');
+  // Re-load posters and refresh button states for restored cards
+  document.querySelectorAll('#similar-grid .similar-card').forEach(cardEl => {
     const btn = cardEl.querySelector('[data-item]');
     if (!btn) return;
     try {
       const item = JSON.parse(btn.getAttribute('data-item').replace(/&#39;/g, "'"));
       loadPosterFor(item.id, item.title, item.year);
+
+      // Refresh seen/want/nope button states to match current state
+      const seenBtn = cardEl.querySelector('.mini-seen');
+      const wantBtn = cardEl.querySelector('.mini-want');
+      const nopeBtn = cardEl.querySelector('.mini-nope');
+      if (seenBtn) {
+        seenBtn.classList.toggle('active', !!state.seen[item.id]);
+        seenBtn.textContent = state.seen[item.id] ? '\u2713 Seen' : 'Seen';
+      }
+      if (wantBtn) {
+        wantBtn.classList.toggle('active', !!state.want[item.id]);
+        wantBtn.textContent = state.want[item.id] ? '\u2605' : 'Want';
+      }
+      if (nopeBtn) {
+        nopeBtn.classList.toggle('active', !!state.nope[item.id]);
+        nopeBtn.textContent = state.nope[item.id] ? '\u2715' : 'Nope';
+      }
     } catch(e) {}
   });
+
+  // Also refresh the featured card buttons
+  const featuredActions = document.querySelector('.featured-actions');
+  if (featuredActions && prev.featured) {
+    const id = prev.featured.id;
+    const seenBtn = featuredActions.querySelector('.btn-seen');
+    const wantBtn = featuredActions.querySelector('.btn-want');
+    const nopeBtn = featuredActions.querySelector('.btn-nope');
+    if (seenBtn) {
+      seenBtn.classList.toggle('active', !!state.seen[id]);
+      seenBtn.textContent = state.seen[id] ? '\u2713 Seen' : 'Mark Seen';
+    }
+    if (wantBtn) {
+      wantBtn.classList.toggle('active', !!state.want[id]);
+      wantBtn.textContent = state.want[id] ? '\u2605 Saved' : '+ Watchlist';
+    }
+    if (nopeBtn) {
+      nopeBtn.classList.toggle('active', !!state.nope[id]);
+      nopeBtn.textContent = state.nope[id] ? '\u2715 Noped' : 'Nope';
+    }
+  }
 
   updateBackButton();
   window.scrollTo({ top: 60, behavior: 'smooth' });
@@ -1851,14 +2212,17 @@ async function loadItem(itemId) {
   // Scroll to top
   window.scrollTo({ top: 60, behavior: 'smooth' });
 
-  // Put this item as featured
+  // Show featured card immediately
   renderFeatured(foundItem);
   updateBackButton();
+  document.getElementById('featured-section').style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
 
-  // Load new similar for this item
-  document.getElementById('loading').style.display = 'block';
-  document.getElementById('featured-section').style.display = 'none';
+  // Show placeholder cards while suggestions load
+  const grid = document.getElementById('similar-grid');
+  grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
 
+  // Fetch new similar items in background
   try {
     const prompt = `You are a film and TV expert for Flickpick.
 
@@ -1899,11 +2263,9 @@ Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphena
     replacementBuffer = [];
     bufferFetching = false;
     renderSimilar(filterResults(result.similar));
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('featured-section').style.display = 'block';
   } catch(e) {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('featured-section').style.display = 'block';
+    // Clear placeholders on error
+    grid.innerHTML = '';
   }
 }
 
@@ -1961,7 +2323,7 @@ function toggleWant(id, btn) {
   if (state.want[id]) {
     delete state.want[id];
     btn.classList.remove('active');
-    btn.textContent = isMini ? '+ Want' : '+ Watchlist';
+    btn.textContent = isMini ? 'Want' : '+ Watchlist';
     showToast(`Removed "${item.title}" from watchlist`);
   } else {
     state.want[id] = item;
@@ -1985,12 +2347,12 @@ function renderWatchlistCard(item) {
   const cardId = `wl-${item.id}`;
   return `
     <div class="watchlist-card" id="${cardId}">
-      <div class="watchlist-poster-placeholder" data-wl-poster="${item.id}">
+      <div class="watchlist-poster-placeholder clickable-title" data-wl-poster="${item.id}" data-search-title="${item.title.replace(/"/g, '&quot;')}">
         ${emoji}
       </div>
       <div class="watchlist-info">
         <div class="watchlist-header">
-          <div class="watchlist-title">${item.title}</div>
+          <div class="watchlist-title clickable-title" data-search-title="${item.title.replace(/"/g, '&quot;')}">${item.title}</div>
           <div class="watchlist-type">${item.type}</div>
         </div>
         <div class="watchlist-meta">${item.year} · ${item.genres}</div>
@@ -2012,7 +2374,9 @@ function loadWatchlistExtras(item) {
     const img = document.createElement('img');
     img.src = url;
     img.alt = item.title;
-    img.className = 'watchlist-poster';
+    img.className = 'watchlist-poster clickable-title';
+    img.setAttribute('data-search-title', item.title);
+    img.style.cursor = 'pointer';
     img.onload = () => el.replaceWith(img);
   });
 
@@ -2110,6 +2474,71 @@ function removeFromWant(id) {
 }
 
 // ─── SEEN PAGE ───────────────────────────────────────────────────────────────
+const SEEN_PAGE_SIZE = 10;
+let seenShown = 0;
+
+function renderSeenCard(item) {
+  const emoji = item.emoji || genreEmoji(item.genres);
+  const cardId = `seen-${item.id}`;
+  const r = item.rating;
+  return `
+    <div class="watchlist-card" id="${cardId}">
+      <div class="watchlist-poster-placeholder clickable-title" data-seen-poster="${item.id}" data-search-title="${item.title.replace(/"/g, '&quot;')}">
+        ${emoji}
+      </div>
+      <div class="watchlist-info">
+        <div class="watchlist-header">
+          <div class="watchlist-title clickable-title" data-search-title="${item.title.replace(/"/g, '&quot;')}">${item.title}</div>
+          <div class="watchlist-type">${item.type}</div>
+        </div>
+        <div class="watchlist-meta">${item.year} · ${item.genres}</div>
+        <div class="watchlist-desc">${item.description || ''}</div>
+        <div class="watchlist-extras" data-seen-extras="${item.id}"></div>
+        <div class="seen-rating-row">
+          <button class="rating-btn ${r === 'loved' ? 'active-loved' : ''}" onclick="setRating('${item.id}', 'loved', this)" title="Loved">❤️</button>
+          <button class="rating-btn ${r === 'liked' ? 'active-liked' : ''}" onclick="setRating('${item.id}', 'liked', this)" title="Liked">👍</button>
+          <button class="rating-btn ${r === 'disliked' ? 'active-disliked' : ''}" onclick="setRating('${item.id}', 'disliked', this)" title="Disliked">👎</button>
+        </div>
+        <div class="watchlist-actions">
+          <button class="btn-remove" onclick="removeFromSeen('${item.id}')">Remove</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function loadSeenExtras(item) {
+  fetchPoster(item.title, item.year).then(url => {
+    if (!url) return;
+    const el = document.querySelector(`[data-seen-poster="${item.id}"]`);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = item.title;
+    img.className = 'watchlist-poster clickable-title';
+    img.setAttribute('data-search-title', item.title);
+    img.style.cursor = 'pointer';
+    img.onload = () => el.replaceWith(img);
+  });
+
+  Promise.all([
+    fetchTmdbExtras(item.title, item.year),
+    fetchStreamingLinks(item.title, item.year)
+  ]).then(([{ trailerKey, providers, watchLink }, streamingLinks]) => {
+    const extrasEl = document.querySelector(`[data-seen-extras="${item.id}"]`);
+    if (!extrasEl) return;
+    if (!trailerKey && providers.length === 0 && !streamingLinks) return;
+
+    let html = '';
+    if (trailerKey) {
+      html += `<button class="mini-trailer-btn" onclick="openTrailerModal('${trailerKey}')">&#9654; Trailer</button>`;
+    }
+    if (providers.length > 0 || streamingLinks) {
+      html += renderProviders(providers, watchLink, streamingLinks);
+    }
+    extrasEl.innerHTML = html;
+  });
+}
+
 function renderSeenList() {
   const items = Object.values(state.seen);
   const sub = document.getElementById('seen-subheading');
@@ -2125,40 +2554,56 @@ function renderSeenList() {
         <div class="want-empty-icon">👀</div>
         <div class="want-empty-text">Mark shows as "Seen" in Discover to track them here.</div>
       </div>`;
+    seenShown = 0;
     return;
   }
 
-  container.innerHTML = `<div class="want-list">${items.map(item => {
-    const r = item.rating;
-    return `
-    <div class="want-item" id="seen-${item.id}">
-      <div class="want-item-emoji">${item.emoji || genreEmoji(item.genres)}</div>
-      <div class="want-item-info">
-        <div class="want-item-title">${item.title}</div>
-        <div class="want-item-meta">${item.year} · ${item.genres}</div>
-      </div>
-      <div class="want-item-type">${item.type}</div>
-      <div class="rating-btns">
-        <button class="rating-btn ${r === 'loved' ? 'active-loved' : ''}" onclick="setRating('${item.id}', 'loved', this)" title="Loved">❤️</button>
-        <button class="rating-btn ${r === 'liked' ? 'active-liked' : ''}" onclick="setRating('${item.id}', 'liked', this)" title="Liked">👍</button>
-        <button class="rating-btn ${r === 'disliked' ? 'active-disliked' : ''}" onclick="setRating('${item.id}', 'disliked', this)" title="Disliked">👎</button>
-      </div>
-      <button class="btn-remove" onclick="removeFromSeen('${item.id}')">Remove</button>
-    </div>`;
-  }).join('')}</div>`;
+  seenShown = 0;
+  const batch = items.slice(0, SEEN_PAGE_SIZE);
+  seenShown = batch.length;
+
+  let html = `<div class="watchlist-grid" id="seen-grid">`;
+  html += batch.map(item => renderSeenCard(item)).join('');
+  html += `</div>`;
+
+  if (items.length > seenShown) {
+    html += `<button class="btn-load-more" id="seen-load-more" onclick="loadMoreSeen()">Load More (${items.length - seenShown} remaining)</button>`;
+  }
+
+  container.innerHTML = html;
+  batch.forEach(item => loadSeenExtras(item));
+}
+
+function loadMoreSeen() {
+  const items = Object.values(state.seen);
+  const grid = document.getElementById('seen-grid');
+  if (!grid) return;
+
+  const batch = items.slice(seenShown, seenShown + SEEN_PAGE_SIZE);
+  seenShown += batch.length;
+
+  batch.forEach(item => {
+    grid.insertAdjacentHTML('beforeend', renderSeenCard(item));
+    loadSeenExtras(item);
+  });
+
+  const loadMoreBtn = document.getElementById('seen-load-more');
+  if (seenShown >= items.length) {
+    if (loadMoreBtn) loadMoreBtn.remove();
+  } else if (loadMoreBtn) {
+    loadMoreBtn.textContent = `Load More (${items.length - seenShown} remaining)`;
+  }
 }
 
 function setRating(id, rating, btn) {
   if (!state.seen[id]) return;
-  // Toggle off if clicking the same rating
   if (state.seen[id].rating === rating) {
     state.seen[id].rating = null;
   } else {
     state.seen[id].rating = rating;
   }
   saveState();
-  // Update button states in the row
-  const row = btn.closest('.rating-btns');
+  const row = btn.closest('.seen-rating-row');
   row.querySelectorAll('.rating-btn').forEach(b => {
     b.classList.remove('active-loved', 'active-liked', 'active-disliked');
   });
@@ -2174,12 +2619,12 @@ function removeFromSeen(id) {
   delete state.seen[id];
   saveState();
   const el = document.getElementById('seen-' + id);
-  if (el) el.remove();
+  if (el) { el.style.transition = 'all 0.3s'; el.style.opacity = '0'; el.style.transform = 'scale(0.95)'; setTimeout(() => el.remove(), 300); }
   showToast(`Removed "${item.title}" from seen`);
   const remaining = Object.keys(state.seen).length;
   document.getElementById('seen-subheading').textContent =
     remaining === 0 ? 'Nothing marked as seen yet' : `${remaining} title${remaining === 1 ? '' : 's'} seen`;
-  if (remaining === 0) renderSeenList();
+  if (remaining === 0) setTimeout(() => renderSeenList(), 350);
 }
 </script>
 </body>
