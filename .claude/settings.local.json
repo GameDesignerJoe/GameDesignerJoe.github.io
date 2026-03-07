@@ -18,7 +18,8 @@
       "Bash(curl -s \"http://localhost:3000/api/tmdb-details?id=95396&type=tv\")",
       "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const vids=j.videos?.results?.filter\\(v=>v.type===''Trailer''&&v.site===''YouTube''\\);console.log\\(''Trailers:'',vids?.length\\);if\\(vids?.[0]\\)console.log\\(''Key:'',vids[0].key\\);const us=j[''watch/providers'']?.results?.US;console.log\\(''US providers:'',us?.flatrate?.map\\(p=>p.provider_name\\)\\)}\\)\")",
       "Bash(curl -s \"http://localhost:3000/api/tmdb-details?id=73375&type=tv\")",
-      "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const us=j[''watch/providers'']?.results?.US;console.log\\(''link:'',us?.link\\);console.log\\(''flatrate:'',JSON.stringify\\(us?.flatrate,null,2\\)\\)}\\)\")"
+      "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const us=j[''watch/providers'']?.results?.US;console.log\\(''link:'',us?.link\\);console.log\\(''flatrate:'',JSON.stringify\\(us?.flatrate,null,2\\)\\)}\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/\")"
     ]
   }
 }
