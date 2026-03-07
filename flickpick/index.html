@@ -796,6 +796,125 @@
     background: rgba(248, 113, 113, 0.08);
   }
 
+  /* WATCHLIST CARDS */
+  .watchlist-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .watchlist-card {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+    animation: slideIn 0.3s ease;
+  }
+
+  .watchlist-card:hover {
+    border-color: var(--accent2);
+    background: var(--surface2);
+  }
+
+  .watchlist-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .watchlist-poster-placeholder {
+    width: 100%;
+    min-height: 180px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+  }
+
+  .watchlist-info {
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .watchlist-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .watchlist-title {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .watchlist-type {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 3px 8px;
+    background: rgba(232, 197, 71, 0.08);
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+
+  .watchlist-meta {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .watchlist-desc {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    opacity: 0.8;
+  }
+
+  .watchlist-extras {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: auto;
+  }
+
+  .watchlist-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .btn-load-more {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--accent);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-load-more:hover {
+    background: var(--surface2);
+    border-color: var(--accent);
+  }
+
   /* TOAST */
   .toast {
     position: fixed;
@@ -858,6 +977,14 @@
       order: 5;
       margin-left: auto;
     }
+    .watchlist-card {
+      grid-template-columns: 90px 1fr;
+    }
+    .watchlist-poster-placeholder {
+      min-height: 135px;
+    }
+    .watchlist-title { font-size: 16px; }
+    .watchlist-extras { gap: 8px; }
   }
 </style>
 </head>
@@ -1685,6 +1812,68 @@ function toggleWant(id, btn) {
 }
 
 // ─── WATCHLIST PAGE ───────────────────────────────────────────────────────────
+const WATCHLIST_PAGE_SIZE = 10;
+let watchlistShown = 0;
+
+function renderWatchlistCard(item) {
+  const emoji = item.emoji || genreEmoji(item.genres);
+  const cardId = `wl-${item.id}`;
+  return `
+    <div class="watchlist-card" id="${cardId}">
+      <div class="watchlist-poster-placeholder" data-wl-poster="${item.id}">
+        ${emoji}
+      </div>
+      <div class="watchlist-info">
+        <div class="watchlist-header">
+          <div class="watchlist-title">${item.title}</div>
+          <div class="watchlist-type">${item.type}</div>
+        </div>
+        <div class="watchlist-meta">${item.year} · ${item.genres}</div>
+        <div class="watchlist-desc">${item.description || ''}</div>
+        <div class="watchlist-extras" data-wl-extras="${item.id}"></div>
+        <div class="watchlist-actions">
+          <button class="btn-remove" onclick="removeFromWant('${item.id}')">Remove</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function loadWatchlistExtras(item) {
+  // Load poster
+  fetchPoster(item.title, item.year).then(url => {
+    if (!url) return;
+    const el = document.querySelector(`[data-wl-poster="${item.id}"]`);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = item.title;
+    img.className = 'watchlist-poster';
+    img.onload = () => el.replaceWith(img);
+  });
+
+  // Load trailer + providers
+  fetchTmdbExtras(item.title, item.year).then(({ trailerKey, providers, watchLink }) => {
+    const extrasEl = document.querySelector(`[data-wl-extras="${item.id}"]`);
+    if (!extrasEl) return;
+    if (!trailerKey && providers.length === 0) return;
+
+    let html = '';
+    if (trailerKey) {
+      html += `<button class="mini-trailer-btn" onclick="openTrailerModal('${trailerKey}')">&#9654; Trailer</button>`;
+    }
+    if (providers.length > 0) {
+      const linkOpen = watchLink ? `<a href="${watchLink}" target="_blank" rel="noopener" class="watch-providers-link">` : '';
+      const linkClose = watchLink ? '</a>' : '';
+      html += `<div class="watch-providers"><span class="providers-label">Watch on</span>${linkOpen}`;
+      providers.forEach(p => {
+        html += `<img class="provider-logo" src="${p.logo}" alt="${p.name}" title="${p.name}">`;
+      });
+      html += `${linkClose}</div>`;
+    }
+    extrasEl.innerHTML = html;
+  });
+}
+
 function renderWatchlist() {
   const items = Object.values(state.want);
   const sub = document.getElementById('watchlist-subheading');
@@ -1700,20 +1889,48 @@ function renderWatchlist() {
         <div class="want-empty-icon">🎬</div>
         <div class="want-empty-text">Search for something and hit "+ Watchlist" to save it here.</div>
       </div>`;
+    watchlistShown = 0;
     return;
   }
 
-  container.innerHTML = `<div class="want-list">${items.map(item => `
-    <div class="want-item" id="want-${item.id}">
-      <div class="want-item-emoji">${item.emoji || genreEmoji(item.genres)}</div>
-      <div class="want-item-info">
-        <div class="want-item-title">${item.title}</div>
-        <div class="want-item-meta">${item.year} · ${item.genres}</div>
-      </div>
-      <div class="want-item-type">${item.type}</div>
-      <button class="btn-remove" onclick="removeFromWant('${item.id}')">Remove</button>
-    </div>
-  `).join('')}</div>`;
+  // Show first batch
+  watchlistShown = 0;
+  const batch = items.slice(0, WATCHLIST_PAGE_SIZE);
+  watchlistShown = batch.length;
+
+  let html = `<div class="watchlist-grid" id="watchlist-grid">`;
+  html += batch.map(item => renderWatchlistCard(item)).join('');
+  html += `</div>`;
+
+  if (items.length > watchlistShown) {
+    html += `<button class="btn-load-more" id="wl-load-more" onclick="loadMoreWatchlist()">Load More (${items.length - watchlistShown} remaining)</button>`;
+  }
+
+  container.innerHTML = html;
+
+  // Async load posters + extras for visible cards
+  batch.forEach(item => loadWatchlistExtras(item));
+}
+
+function loadMoreWatchlist() {
+  const items = Object.values(state.want);
+  const grid = document.getElementById('watchlist-grid');
+  if (!grid) return;
+
+  const batch = items.slice(watchlistShown, watchlistShown + WATCHLIST_PAGE_SIZE);
+  watchlistShown += batch.length;
+
+  batch.forEach(item => {
+    grid.insertAdjacentHTML('beforeend', renderWatchlistCard(item));
+    loadWatchlistExtras(item);
+  });
+
+  const loadMoreBtn = document.getElementById('wl-load-more');
+  if (watchlistShown >= items.length) {
+    if (loadMoreBtn) loadMoreBtn.remove();
+  } else if (loadMoreBtn) {
+    loadMoreBtn.textContent = `Load More (${items.length - watchlistShown} remaining)`;
+  }
 }
 
 function removeFromWant(id) {
@@ -1721,13 +1938,13 @@ function removeFromWant(id) {
   if (!item) return;
   delete state.want[id];
   saveState();
-  const el = document.getElementById('want-' + id);
-  if (el) el.remove();
+  const el = document.getElementById('wl-' + id);
+  if (el) { el.style.transition = 'all 0.3s'; el.style.opacity = '0'; el.style.transform = 'scale(0.95)'; setTimeout(() => el.remove(), 300); }
   showToast(`Removed "${item.title}"`);
   const remaining = Object.keys(state.want).length;
   document.getElementById('watchlist-subheading').textContent =
     remaining === 0 ? 'Nothing saved yet' : `${remaining} title${remaining === 1 ? '' : 's'} saved`;
-  if (remaining === 0) renderWatchlist();
+  if (remaining === 0) setTimeout(() => renderWatchlist(), 350);
 }
 
 // ─── SEEN PAGE ───────────────────────────────────────────────────────────────
