@@ -71,6 +71,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Handle TMDB details proxy (trailers + watch providers)
+  if (req.method === 'GET' && req.url.startsWith('/api/tmdb-details?')) {
+    const params = new URL(req.url, `http://localhost:${PORT}`).searchParams;
+    const id = params.get('id');
+    const type = params.get('type');
+    if (!id || !type || !['tv', 'movie'].includes(type)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing or invalid id/type' }));
+      return;
+    }
+
+    try {
+      const tmdbUrl = `https://api.themoviedb.org/3/${type}/${id}?api_key=${process.env.TMDB_API_KEY}&append_to_response=videos,watch/providers`;
+      const tmdbRes = await fetch(tmdbUrl);
+      const data = await tmdbRes.json();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      console.error('TMDB details error:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // Serve index.html for everything else
   if (req.method === 'GET') {
     try {

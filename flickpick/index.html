@@ -247,6 +247,144 @@
     flex: 1;
   }
 
+  .featured-extras {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .trailer-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: rgba(255, 0, 0, 0.12);
+    border: 1px solid rgba(255, 0, 0, 0.35);
+    border-radius: 8px;
+    color: #ff4444;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .trailer-btn:hover {
+    background: rgba(255, 0, 0, 0.25);
+    border-color: #ff4444;
+  }
+
+  .watch-providers {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .watch-providers-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+
+  .providers-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .provider-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    object-fit: cover;
+    transition: transform 0.15s;
+  }
+
+  .provider-logo:hover {
+    transform: scale(1.15);
+  }
+
+  .similar-trailer {
+    padding: 0 14px 8px;
+  }
+
+  .mini-trailer-btn {
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 6px;
+    color: #ff4444;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .mini-trailer-btn:hover {
+    background: rgba(255, 0, 0, 0.2);
+    border-color: #ff4444;
+  }
+
+  /* Trailer modal */
+  .trailer-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .trailer-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+  }
+
+  .trailer-modal-content {
+    position: relative;
+    width: 90vw;
+    max-width: 900px;
+    aspect-ratio: 16/9;
+  }
+
+  .trailer-modal-content iframe {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+  }
+
+  .trailer-modal-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 32px;
+    cursor: pointer;
+    padding: 4px 12px;
+    line-height: 1;
+  }
+
+  .trailer-modal-close:hover {
+    color: #ff4444;
+  }
+
   .featured-actions {
     display: flex;
     gap: 10px;
@@ -751,26 +889,29 @@ let bufferFetching = false;
 const GRID_SIZE = 4;
 const BUFFER_LOW = 3;
 
-// ─── TMDB POSTER CACHE ───────────────────────────────────────────────────────
+// ─── TMDB CACHE ─────────────────────────────────────────────────────────────
 const posterCache = {};
+const tmdbIdCache = {};
 
 async function fetchPoster(title, year) {
   const cacheKey = `${title}::${year || ''}`;
   if (posterCache[cacheKey] !== undefined) return posterCache[cacheKey];
 
   try {
-    console.log('[TMDB] Fetching poster for:', title);
     let tmdbUrl = `/api/tmdb?query=${encodeURIComponent(title)}`;
     if (year) tmdbUrl += `&year=${year}`;
     const res = await fetch(tmdbUrl);
     const data = await res.json();
-    console.log('[TMDB] Response:', data.results?.length, 'results');
 
     if (data.results && data.results.length > 0) {
-      // Find best match — prefer exact title match
       const match = data.results.find(r =>
         (r.title || r.name || '').toLowerCase() === title.toLowerCase()
       ) || data.results[0];
+
+      // Cache TMDB ID + media type for trailer/provider lookups
+      if (match.id && match.media_type) {
+        tmdbIdCache[cacheKey] = { tmdbId: match.id, mediaType: match.media_type };
+      }
 
       if (match.poster_path) {
         const url = `https://image.tmdb.org/t/p/w342${match.poster_path}`;
@@ -787,13 +928,14 @@ async function fetchPoster(title, year) {
   }
 }
 
+function getTmdbInfo(title, year) {
+  return tmdbIdCache[`${title}::${year || ''}`] || null;
+}
+
 function loadPosterFor(itemId, title, year) {
-  console.log('[TMDB] loadPosterFor called:', itemId, title, year);
   fetchPoster(title, year).then(url => {
-    console.log('[TMDB] Got URL for', title, ':', url);
     if (!url) return;
     const el = document.querySelector(`[data-poster-id="${itemId}"]`);
-    console.log('[TMDB] Found element:', !!el);
     if (!el) return;
     const img = document.createElement('img');
     img.src = url;
@@ -806,6 +948,122 @@ function loadPosterFor(itemId, title, year) {
       if (onclickAttr) img.setAttribute('onclick', onclickAttr);
     }
     img.onload = () => el.replaceWith(img);
+  });
+}
+
+// ─── TMDB EXTRAS (TRAILERS + PROVIDERS) ─────────────────────────────────────
+const tmdbExtrasCache = {};
+
+async function fetchTmdbExtras(title, year) {
+  const cacheKey = `${title}::${year || ''}`;
+  if (tmdbExtrasCache[cacheKey]) return tmdbExtrasCache[cacheKey];
+
+  // Ensure poster search has run (populates tmdbIdCache)
+  await fetchPoster(title, year);
+  const info = getTmdbInfo(title, year);
+  if (!info) return { trailerKey: null, providers: [], watchLink: null };
+
+  try {
+    const res = await fetch(`/api/tmdb-details?id=${info.tmdbId}&type=${info.mediaType}`);
+    const data = await res.json();
+
+    // Find best trailer — prefer official trailers
+    let trailerKey = null;
+    if (data.videos && data.videos.results) {
+      const trailer = data.videos.results.find(v =>
+        v.type === 'Trailer' && v.site === 'YouTube'
+      ) || data.videos.results.find(v => v.site === 'YouTube');
+      if (trailer) trailerKey = trailer.key;
+    }
+
+    // Get US streaming providers (flatrate = subscription services)
+    let providers = [];
+    let watchLink = null;
+    if (data['watch/providers'] && data['watch/providers'].results) {
+      const us = data['watch/providers'].results.US;
+      if (us) {
+        watchLink = us.link || null;
+        if (us.flatrate) {
+          providers = us.flatrate.map(p => ({
+            name: p.provider_name,
+            logo: `https://image.tmdb.org/t/p/w45${p.logo_path}`
+          }));
+        }
+      }
+    }
+
+    const result = { trailerKey, providers, watchLink };
+    tmdbExtrasCache[cacheKey] = result;
+    return result;
+  } catch (err) {
+    console.warn('TMDB extras fetch failed:', err.message);
+    return { trailerKey: null, providers: [], watchLink: null };
+  }
+}
+
+// ─── TRAILER MODAL ──────────────────────────────────────────────────────────
+function openTrailerModal(youtubeKey) {
+  const existing = document.getElementById('trailer-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'trailer-modal';
+  modal.className = 'trailer-modal';
+  modal.innerHTML = `
+    <div class="trailer-modal-backdrop"></div>
+    <div class="trailer-modal-content">
+      <button class="trailer-modal-close" onclick="closeTrailerModal()">&times;</button>
+      <iframe src="https://www.youtube.com/embed/${youtubeKey}?autoplay=1&rel=0"
+        frameborder="0" allowfullscreen
+        allow="autoplay; encrypted-media; picture-in-picture">
+      </iframe>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector('.trailer-modal-backdrop').addEventListener('click', closeTrailerModal);
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') { closeTrailerModal(); document.removeEventListener('keydown', escHandler); }
+  });
+}
+
+function closeTrailerModal() {
+  const modal = document.getElementById('trailer-modal');
+  if (modal) modal.remove();
+}
+
+function playTrailer(title, year, btn) {
+  if (btn) btn.textContent = '⏳';
+  fetchTmdbExtras(title, year).then(({ trailerKey }) => {
+    if (trailerKey) {
+      openTrailerModal(trailerKey);
+    }
+    if (btn) btn.textContent = '▶ Trailer';
+  });
+}
+
+function loadFeaturedExtras(title, year) {
+  fetchTmdbExtras(title, year).then(({ trailerKey, providers, watchLink }) => {
+    if (!trailerKey && providers.length === 0) return;
+
+    const actionsEl = document.querySelector('#featured-card .featured-actions');
+    if (!actionsEl) return;
+
+    let html = '<div class="featured-extras">';
+    if (trailerKey) {
+      html += `<button class="trailer-btn" onclick="openTrailerModal('${trailerKey}')">&#9654; Watch Trailer</button>`;
+    }
+    if (providers.length > 0) {
+      const linkOpen = watchLink ? `<a href="${watchLink}" target="_blank" rel="noopener" class="watch-providers-link">` : '';
+      const linkClose = watchLink ? '</a>' : '';
+      html += `<div class="watch-providers"><span class="providers-label">Watch on</span>${linkOpen}`;
+      providers.forEach(p => {
+        html += `<img class="provider-logo" src="${p.logo}" alt="${p.name}" title="${p.name}">`;
+      });
+      html += `${linkClose}</div>`;
+    }
+    html += '</div>';
+
+    actionsEl.insertAdjacentHTML('beforebegin', html);
   });
 }
 
@@ -1023,6 +1281,7 @@ function renderFeatured(item) {
     </div>
   `;
   loadPosterFor(item.id, item.title, item.year);
+  loadFeaturedExtras(item.title, item.year);
 }
 
 // ─── RENDER SIMILAR ──────────────────────────────────────────────────────────
@@ -1041,6 +1300,9 @@ function renderSingleCard(item) {
       <div class="similar-body" onclick="loadItem('${item.id}')">
         <div class="similar-title">${item.title}</div>
         <div class="similar-subtitle">${item.description}</div>
+      </div>
+      <div class="similar-trailer">
+        <button class="mini-trailer-btn" onclick="event.stopPropagation(); playTrailer('${item.title.replace(/'/g, "\\'")}', '${item.year}', this)">&#9654; Trailer</button>
       </div>
       <div class="similar-actions">
         <button class="mini-btn mini-seen ${seenActive}" onclick="toggleSeen('${item.id}', this)" data-item='${safeItem}'>
