@@ -1,7 +1,3 @@
 == FlickPick ToDo ==
-- Clicking the FlickPick name in the top left should take you back to the discover page. 
-- The Because You Loved section should show a loading bar/circle to indicate it's doing something.
-- We should sort the Seen movies by the most recent one you've added at the top.
-- You shouldn't be showing suggestions of shows that are already on my watchlist. 
-- When you click on a show from the watchlist bar, can it load the core information about the show much faster like we do with the suggestions in normal search. Same for the Because you loved
-- Clicking the discover button at the top right doesn't seem to do anything because you're in the 'discover page' I guess. What we should treat that button like is a refresh of the discover section to start over. 
+- There's a bug in the because you loved it that when you click on a 'seen' button it adds a checkmark to it. This causes that cell to expand to hold it and it looks odd. We should just remove the check mark and make the cell green like we do. Plus now that we're replacing it with a new entry we don't have to worry about it sticking around.
+- I want to change the because you loved it section a bit. We should just make it one screen of 4x3, so 12 shows in total. No 'next' arrow on the right. It's just the full 12 displayed. However, I'm not a fan of how long it takes to load even the 8 that we have. Perhaps we should do the api calls or searches or whatever in smaller chunks so we can get partial loadings? Open to discuss that. 

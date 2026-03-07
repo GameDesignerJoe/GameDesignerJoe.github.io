@@ -648,6 +648,11 @@
     background: rgba(74, 222, 128, 0.12);
     border-color: rgba(74, 222, 128, 0.4);
   }
+  .rating-btn.active-meh {
+    opacity: 1;
+    background: rgba(200, 180, 100, 0.15);
+    border-color: rgba(200, 180, 100, 0.4);
+  }
   .rating-btn.active-disliked {
     opacity: 1;
     background: rgba(107, 107, 128, 0.2);
@@ -1008,13 +1013,37 @@
   }
 
   .carousel-item-title {
-    padding: 8px 6px;
+    padding: 8px 6px 4px;
     font-size: 12px;
     font-weight: 500;
     line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .carousel-item-actions {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 4px 6px;
+    flex-wrap: wrap;
+  }
+
+  .carousel-item-actions .mini-btn {
+    font-size: 10px;
+    padding: 2px 6px;
+    min-width: 0;
+  }
+
+  .carousel-item-trailer {
+    padding: 0 4px 4px;
+  }
+
+  .carousel-item-trailer .mini-trailer-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    width: 100%;
   }
 
   .carousel-loading {
@@ -1029,6 +1058,7 @@
       grid-template-columns: repeat(3, 1fr);
     }
     .discover-carousels { padding: 0 16px; }
+    .carousel-item-actions .mini-btn { font-size: 9px; padding: 2px 4px; }
   }
 
   /* CLICKABLE TITLES + POSTERS (seen + watchlist) */
@@ -1131,9 +1161,9 @@
 <body>
 
 <nav>
-  <div class="logo">FLICKPICK</div>
+  <div class="logo" onclick="resetDiscover()" style="cursor:pointer">FLICKPICK</div>
   <div class="nav-links">
-    <button class="nav-btn active" onclick="showPage('discover', event)">Discover</button>
+    <button class="nav-btn active" onclick="resetDiscover(); if(event.currentTarget) event.currentTarget.classList.add('active')">Discover</button>
     <button class="nav-btn" onclick="showPage('seen', event)" id="seen-nav-btn">
       Seen
       <span class="seen-count" id="seen-count">0</span>
@@ -1592,9 +1622,10 @@ function getExclusionList() {
   const titles = new Set();
   for (const item of Object.values(state.nope)) titles.add(item.title);
   for (const item of Object.values(state.seen)) titles.add(item.title);
+  for (const item of Object.values(state.want)) titles.add(item.title);
   if (titles.size === 0) return '';
   const list = [...titles].map(t => `- ${t}`).join('\n');
-  return `\n\nDo NOT include any of these titles (the user has already seen or rejected them):\n${list}`;
+  return `\n\nDo NOT include any of these titles (the user has already seen, rejected, or saved them):\n${list}`;
 }
 
 function getShownExclusion() {
@@ -1614,7 +1645,7 @@ function getShownExclusion() {
 }
 
 function filterResults(items) {
-  return items.filter(item => !state.nope[item.id] && !state.seen[item.id]);
+  return items.filter(item => !state.nope[item.id] && !state.seen[item.id] && !state.want[item.id]);
 }
 
 // ─── DISCOVER CAROUSELS ─────────────────────────────────────────────────────
@@ -1627,15 +1658,41 @@ function getCarouselPageSize() {
   return window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
 }
 
-function renderCarouselItem(item) {
+function renderCarouselItem(item, showActions) {
   const emoji = item.emoji || genreEmoji(item.genres || '');
   const safeTitle = item.title.replace(/"/g, '&quot;');
+  const safeItem = JSON.stringify(item).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  const safeItemAttr = JSON.stringify(item).replace(/'/g, "&#39;");
+
+  let actionsHtml = '';
+  if (showActions && item.id) {
+    const seenActive = state.seen[item.id] ? 'active' : '';
+    const wantActive = state.want[item.id] ? 'active' : '';
+    const nopeActive = state.nope[item.id] ? 'active' : '';
+    actionsHtml = `
+      <div class="carousel-item-trailer">
+        <button class="mini-trailer-btn" onclick="event.stopPropagation(); playTrailer('${item.title.replace(/'/g, "\\'")}', '${item.year}', this)">&#9654; Trailer</button>
+      </div>
+      <div class="carousel-item-actions">
+        <button class="mini-btn mini-seen ${seenActive}" onclick="event.stopPropagation(); toggleSeen('${item.id}', this)" data-item='${safeItemAttr}'>
+          ${state.seen[item.id] ? '✓' : 'Seen'}
+        </button>
+        <button class="mini-btn mini-want ${wantActive}" onclick="event.stopPropagation(); toggleWant('${item.id}', this)" data-item='${safeItemAttr}'>
+          ${state.want[item.id] ? '★' : 'Want'}
+        </button>
+        <button class="mini-btn mini-nope ${nopeActive}" onclick="event.stopPropagation(); toggleNope('${item.id}', this)" data-item='${safeItemAttr}'>
+          ${state.nope[item.id] ? '✕' : 'Nope'}
+        </button>
+      </div>`;
+  }
+
   return `
-    <div class="carousel-item" data-search-title="${safeTitle}">
+    <div class="carousel-item" data-carousel-item="${safeItem}">
       <div class="carousel-item-placeholder" data-car-poster="${item.id || item.title}">
         ${emoji}
       </div>
       <div class="carousel-item-title" title="${safeTitle}">${item.title}</div>
+      ${actionsHtml}
     </div>`;
 }
 
@@ -1685,7 +1742,7 @@ async function renderLovedCarousel() {
   }
 
   const track = document.getElementById('loved-car-track');
-  track.innerHTML = `<div class="carousel-loading">Finding recommendations...</div>`;
+  track.innerHTML = `<div class="carousel-loading"><div class="loading-spinner" style="margin:0 auto 8px"></div>Finding recommendations...</div>`;
 
   try {
     const titles = lovedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
@@ -1734,15 +1791,51 @@ Return exactly 12 recommendations. Real, well-known titles only. Lowercase hyphe
   }
 }
 
+function getLovedPageSize() {
+  const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
+  return cols * 2; // 2 rows
+}
+
+function replaceLovedCard(cardEl) {
+  const items = carouselState.loved.items;
+  // Find items currently displayed in the track
+  const track = document.getElementById('loved-car-track');
+  const displayedIds = new Set();
+  track.querySelectorAll('[data-carousel-item]').forEach(el => {
+    try {
+      const parsed = JSON.parse(el.getAttribute('data-carousel-item').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+      if (parsed.id) displayedIds.add(parsed.id);
+    } catch(e) {}
+  });
+  // Find first item not currently displayed and not in seen/want/nope
+  const replacement = items.find(i => i.id && !displayedIds.has(i.id) && !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]);
+  if (replacement) {
+    cardEl.style.transition = 'all 0.3s';
+    cardEl.style.opacity = '0';
+    cardEl.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      cardEl.outerHTML = renderCarouselItem(replacement, true);
+      loadCarouselPoster(replacement);
+    }, 300);
+  } else {
+    // No replacement available — just fade out and remove
+    cardEl.style.transition = 'all 0.3s';
+    cardEl.style.opacity = '0';
+    cardEl.style.transform = 'scale(0.95)';
+    setTimeout(() => cardEl.remove(), 300);
+  }
+}
+
 function displayLovedCarousel(items) {
   carouselState.loved.items = items;
-  const pageSize = getCarouselPageSize();
+  const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
+  const pageSize = cols * 2;
   const s = carouselState.loved;
   const start = s.page * pageSize;
   const batch = items.slice(start, start + pageSize);
   const track = document.getElementById('loved-car-track');
-  track.style.gridTemplateColumns = `repeat(${pageSize}, 1fr)`;
-  track.innerHTML = batch.map(item => renderCarouselItem(item)).join('');
+  track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  track.innerHTML = batch.map(item => renderCarouselItem(item, true)).join('');
   batch.forEach(item => loadCarouselPoster(item));
 
   document.getElementById('loved-car-prev').disabled = s.page === 0;
@@ -1801,6 +1894,20 @@ function showPage(page, e) {
   if (page === 'seen') renderSeenList();
 }
 
+function resetDiscover() {
+  showPage('discover');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.nav-btn').classList.add('active');
+  document.getElementById('search-input').value = '';
+  document.getElementById('featured-section').style.display = 'none';
+  document.getElementById('error-state').style.display = 'none';
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('discover-carousels').style.display = '';
+  viewHistory.length = 0;
+  currentFeatured = null;
+  initDiscoverCarousels();
+}
+
 // ─── SEARCH FOR SHOW (from Seen/Watchlist) ──────────────────────────────────
 function searchForShow(title) {
   showPage('discover');
@@ -1810,8 +1917,19 @@ function searchForShow(title) {
   doSearch();
 }
 
-// Delegated click handler for clickable titles (Seen + Watchlist pages)
+// Delegated click handler for clickable titles and carousel items
 document.addEventListener('click', (e) => {
+  // Carousel items → fast load directly
+  const carEl = e.target.closest('[data-carousel-item]');
+  if (carEl) {
+    e.stopPropagation();
+    try {
+      const item = JSON.parse(carEl.getAttribute('data-carousel-item').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
+      loadItemDirect(item);
+    } catch(err) {}
+    return;
+  }
+  // Clickable titles (Seen/Watchlist) → search
   const el = e.target.closest('[data-search-title]');
   if (el) {
     e.stopPropagation();
@@ -2186,6 +2304,79 @@ function goBack() {
   window.scrollTo({ top: 60, behavior: 'smooth' });
 }
 
+// ─── LOAD ITEM DIRECTLY (from carousel / external) ──────────────────────────
+async function loadItemDirect(item) {
+  // Switch to discover page and show featured section
+  showPage('discover');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.nav-btn').classList.add('active');
+  document.getElementById('discover-carousels').style.display = 'none';
+
+  // Save history if we have a current item
+  if (currentFeatured) {
+    viewHistory.push({
+      featured: currentFeatured,
+      similarHtml: document.getElementById('similar-grid').innerHTML,
+      buffer: [...replacementBuffer],
+      shownIds: new Set(shownIds)
+    });
+  }
+
+  window.scrollTo({ top: 60, behavior: 'smooth' });
+
+  renderFeatured(item);
+  updateBackButton();
+  document.getElementById('featured-section').style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+
+  const grid = document.getElementById('similar-grid');
+  grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
+
+  try {
+    const prompt = `You are a film and TV expert for Flickpick.
+
+The user just selected: "${item.title}" (${item.type}, ${item.year})
+
+Return ONLY a JSON object with exactly this structure, no markdown:
+{
+  "similar": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "description": "1-2 sentences about why a fan would enjoy this.",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphenated ids.` + getExclusionList();
+
+    const res = await fetch("/api/recommend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 800,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(text);
+
+    shownIds = new Set();
+    replacementBuffer = [];
+    bufferFetching = false;
+    renderSimilar(filterResults(result.similar));
+  } catch(e) {
+    grid.innerHTML = '';
+  }
+}
+
 // ─── LOAD ITEM AS FEATURED ───────────────────────────────────────────────────
 async function loadItem(itemId) {
   const allBtns = document.querySelectorAll('#similar-grid [data-item]');
@@ -2280,13 +2471,15 @@ function toggleSeen(id, btn) {
     btn.textContent = isMini ? 'Seen' : 'Mark Seen';
     showToast(`Removed "${item.title}" from seen`);
   } else {
-    state.seen[id] = { ...item, rating: null };
+    state.seen[id] = { ...item, rating: null, addedAt: Date.now() };
     btn.classList.add('active');
     btn.textContent = isMini ? '✓ Seen' : '✓ Seen';
     showToast(`Marked "${item.title}" as seen`);
     if (isMini) {
       const card = btn.closest('.similar-card');
       if (card) { replaceCard(card); saveState(); return; }
+      const carCard = btn.closest('.carousel-item');
+      if (carCard) { replaceLovedCard(carCard); saveState(); return; }
     }
   }
   saveState();
@@ -2310,6 +2503,8 @@ function toggleNope(id, btn) {
     if (isMini) {
       const card = btn.closest('.similar-card');
       if (card) { replaceCard(card); saveState(); return; }
+      const carCard = btn.closest('.carousel-item');
+      if (carCard) { replaceLovedCard(carCard); saveState(); return; }
     }
   }
   saveState();
@@ -2333,6 +2528,8 @@ function toggleWant(id, btn) {
     if (isMini) {
       const card = btn.closest('.similar-card');
       if (card) { replaceCard(card); saveState(); return; }
+      const carCard = btn.closest('.carousel-item');
+      if (carCard) { replaceLovedCard(carCard); saveState(); return; }
     }
   }
   saveState();
@@ -2497,6 +2694,7 @@ function renderSeenCard(item) {
         <div class="seen-rating-row">
           <button class="rating-btn ${r === 'loved' ? 'active-loved' : ''}" onclick="setRating('${item.id}', 'loved', this)" title="Loved">❤️</button>
           <button class="rating-btn ${r === 'liked' ? 'active-liked' : ''}" onclick="setRating('${item.id}', 'liked', this)" title="Liked">👍</button>
+          <button class="rating-btn ${r === 'meh' ? 'active-meh' : ''}" onclick="setRating('${item.id}', 'meh', this)" title="Meh">😐</button>
           <button class="rating-btn ${r === 'disliked' ? 'active-disliked' : ''}" onclick="setRating('${item.id}', 'disliked', this)" title="Disliked">👎</button>
         </div>
         <div class="watchlist-actions">
@@ -2540,7 +2738,7 @@ function loadSeenExtras(item) {
 }
 
 function renderSeenList() {
-  const items = Object.values(state.seen);
+  const items = Object.values(state.seen).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   const sub = document.getElementById('seen-subheading');
   const container = document.getElementById('seen-list-container');
 
@@ -2605,7 +2803,7 @@ function setRating(id, rating, btn) {
   saveState();
   const row = btn.closest('.seen-rating-row');
   row.querySelectorAll('.rating-btn').forEach(b => {
-    b.classList.remove('active-loved', 'active-liked', 'active-disliked');
+    b.classList.remove('active-loved', 'active-liked', 'active-meh', 'active-disliked');
   });
   const r = state.seen[id].rating;
   if (r) {
