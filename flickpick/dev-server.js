@@ -96,6 +96,37 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Handle Streaming Availability proxy (direct service links)
+  if (req.method === 'GET' && req.url.startsWith('/api/streaming?')) {
+    const params = new URL(req.url, `http://localhost:${PORT}`).searchParams;
+    const tmdbId = params.get('tmdbId');
+    const type = params.get('type');
+    if (!tmdbId || !type || !['tv', 'movie'].includes(type)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing or invalid tmdbId/type' }));
+      return;
+    }
+
+    try {
+      const showId = `${type}/${tmdbId}`;
+      const url = `https://streaming-availability.p.rapidapi.com/shows/${showId}?country=us&series_granularity=show`;
+      const apiRes = await fetch(url, {
+        headers: {
+          'X-RapidAPI-Key': process.env.STREAM_AVAIL_API_KEY,
+          'X-RapidAPI-Host': 'streaming-availability.p.rapidapi.com'
+        }
+      });
+      const data = await apiRes.json();
+      res.writeHead(apiRes.status, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      console.error('Streaming Availability error:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // Serve index.html for everything else
   if (req.method === 'GET') {
     try {

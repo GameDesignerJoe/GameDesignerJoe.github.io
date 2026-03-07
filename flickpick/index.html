@@ -312,6 +312,12 @@
     text-decoration: none;
   }
 
+  .provider-link {
+    display: inline-block;
+    text-decoration: none;
+    line-height: 0;
+  }
+
   .providers-label {
     font-size: 11px;
     color: var(--muted);
@@ -1184,6 +1190,168 @@ async function fetchTmdbExtras(title, year) {
   }
 }
 
+// ─── STREAMING AVAILABILITY (DIRECT LINKS) ──────────────────────────────────
+const streamingCache = {};
+const STREAMING_CACHE_KEY = 'flickpick_streaming_cache';
+const STREAMING_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+// Load persistent cache from localStorage on startup
+(function loadStreamingCache() {
+  try {
+    const stored = localStorage.getItem(STREAMING_CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const now = Date.now();
+      for (const key in parsed) {
+        if (now - parsed[key].ts < STREAMING_CACHE_TTL) {
+          streamingCache[key] = parsed[key];
+        }
+      }
+    }
+  } catch (e) {}
+})();
+
+function saveStreamingCache() {
+  try { localStorage.setItem(STREAMING_CACHE_KEY, JSON.stringify(streamingCache)); } catch (e) {}
+}
+
+function checkStreamingBudget() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('flickpick_streaming_budget') || '{}');
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (stored.month !== currentMonth) return { month: currentMonth, count: 0 };
+    return stored;
+  } catch (e) { return { month: new Date().toISOString().slice(0, 7), count: 0 }; }
+}
+
+function incrementStreamingBudget() {
+  const budget = checkStreamingBudget();
+  budget.count++;
+  localStorage.setItem('flickpick_streaming_budget', JSON.stringify(budget));
+}
+
+async function fetchStreamingLinks(title, year) {
+  const cacheKey = `${title}::${year || ''}`;
+  if (streamingCache[cacheKey] && streamingCache[cacheKey].data) {
+    return streamingCache[cacheKey].data;
+  }
+
+  // Check budget
+  const budget = checkStreamingBudget();
+  if (budget.count >= 900) {
+    console.warn('Streaming API monthly budget nearly exhausted, skipping');
+    return null;
+  }
+
+  await fetchPoster(title, year);
+  const info = getTmdbInfo(title, year);
+  if (!info) return null;
+
+  try {
+    const res = await fetch(`/api/streaming?tmdbId=${info.tmdbId}&type=${info.mediaType}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+
+    const options = data.streamingOptions?.us || [];
+    if (options.length === 0) {
+      streamingCache[cacheKey] = { data: null, ts: Date.now() };
+      saveStreamingCache();
+      return null;
+    }
+
+    // Deduplicate by service, preferring subscription > free > addon > rent > buy
+    const typePriority = { subscription: 0, free: 1, addon: 2, rent: 3, buy: 4 };
+    const byService = {};
+    for (const opt of options) {
+      const sid = opt.service.id;
+      if (!byService[sid] || (typePriority[opt.type] || 99) < (typePriority[byService[sid].type] || 99)) {
+        byService[sid] = opt;
+      }
+    }
+
+    const result = Object.values(byService).map(opt => ({
+      serviceId: opt.service.id,
+      serviceName: opt.service.name,
+      type: opt.type,
+      link: opt.link,
+      logoUrl: opt.service.imageSet?.darkThemeImage || null
+    }));
+
+    streamingCache[cacheKey] = { data: result, ts: Date.now() };
+    saveStreamingCache();
+    incrementStreamingBudget();
+    return result;
+  } catch (err) {
+    console.warn('Streaming Availability fetch failed:', err.message);
+    return null;
+  }
+}
+
+// ─── PROVIDER RENDERING ─────────────────────────────────────────────────────
+const PROVIDER_ALIASES = {
+  'amazon prime video': 'prime',
+  'disney plus': 'disney',
+  'disney+': 'disney',
+  'hbo max': 'max',
+  'paramount+': 'paramount',
+  'paramount plus': 'paramount',
+  'apple tv+': 'apple',
+  'apple tv plus': 'apple',
+  'peacock premium': 'peacock',
+};
+
+function renderProviders(providers, watchLink, streamingLinks) {
+  // Build lookup: normalized name/alias → direct link
+  const directLinks = {};
+  if (streamingLinks) {
+    for (const s of streamingLinks) {
+      directLinks[s.serviceName.toLowerCase()] = s.link;
+      directLinks[s.serviceId.toLowerCase()] = s.link;
+    }
+  }
+
+  function findDirectLink(providerName) {
+    const name = providerName.toLowerCase();
+    if (directLinks[name]) return directLinks[name];
+    const alias = PROVIDER_ALIASES[name];
+    if (alias && directLinks[alias]) return directLinks[alias];
+    return null;
+  }
+
+  let html = '<div class="watch-providers"><span class="providers-label">Watch on</span>';
+
+  providers.forEach(p => {
+    const href = findDirectLink(p.name) || watchLink || null;
+    if (href) {
+      html += `<a href="${href}" target="_blank" rel="noopener" class="provider-link" title="${p.name}">`;
+      html += `<img class="provider-logo" src="${p.logo}" alt="${p.name}">`;
+      html += `</a>`;
+    } else {
+      html += `<img class="provider-logo" src="${p.logo}" alt="${p.name}" title="${p.name}">`;
+    }
+  });
+
+  // Render streaming services not in TMDB's list
+  if (streamingLinks) {
+    const tmdbNames = new Set(providers.map(p => p.name.toLowerCase()));
+    const tmdbAliases = new Set();
+    providers.forEach(p => {
+      const alias = PROVIDER_ALIASES[p.name.toLowerCase()];
+      if (alias) tmdbAliases.add(alias);
+    });
+    for (const s of streamingLinks) {
+      if (!tmdbNames.has(s.serviceName.toLowerCase()) && !tmdbAliases.has(s.serviceId) && s.logoUrl) {
+        html += `<a href="${s.link}" target="_blank" rel="noopener" class="provider-link" title="${s.serviceName}">`;
+        html += `<img class="provider-logo" src="${s.logoUrl}" alt="${s.serviceName}">`;
+        html += `</a>`;
+      }
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
 // ─── TRAILER MODAL ──────────────────────────────────────────────────────────
 function openTrailerModal(youtubeKey) {
   const existing = document.getElementById('trailer-modal');
@@ -1225,8 +1393,11 @@ function playTrailer(title, year, btn) {
 }
 
 function loadFeaturedExtras(title, year) {
-  fetchTmdbExtras(title, year).then(({ trailerKey, providers, watchLink }) => {
-    if (!trailerKey && providers.length === 0) return;
+  Promise.all([
+    fetchTmdbExtras(title, year),
+    fetchStreamingLinks(title, year)
+  ]).then(([{ trailerKey, providers, watchLink }, streamingLinks]) => {
+    if (!trailerKey && providers.length === 0 && !streamingLinks) return;
 
     const actionsEl = document.querySelector('#featured-card .featured-actions');
     if (!actionsEl) return;
@@ -1235,14 +1406,8 @@ function loadFeaturedExtras(title, year) {
     if (trailerKey) {
       html += `<button class="trailer-btn" onclick="openTrailerModal('${trailerKey}')">&#9654; Watch Trailer</button>`;
     }
-    if (providers.length > 0) {
-      const linkOpen = watchLink ? `<a href="${watchLink}" target="_blank" rel="noopener" class="watch-providers-link">` : '';
-      const linkClose = watchLink ? '</a>' : '';
-      html += `<div class="watch-providers"><span class="providers-label">Watch on</span>${linkOpen}`;
-      providers.forEach(p => {
-        html += `<img class="provider-logo" src="${p.logo}" alt="${p.name}" title="${p.name}">`;
-      });
-      html += `${linkClose}</div>`;
+    if (providers.length > 0 || streamingLinks) {
+      html += renderProviders(providers, watchLink, streamingLinks);
     }
     html += '</div>';
 
@@ -1851,24 +2016,21 @@ function loadWatchlistExtras(item) {
     img.onload = () => el.replaceWith(img);
   });
 
-  // Load trailer + providers
-  fetchTmdbExtras(item.title, item.year).then(({ trailerKey, providers, watchLink }) => {
+  // Load trailer + providers + streaming links in parallel
+  Promise.all([
+    fetchTmdbExtras(item.title, item.year),
+    fetchStreamingLinks(item.title, item.year)
+  ]).then(([{ trailerKey, providers, watchLink }, streamingLinks]) => {
     const extrasEl = document.querySelector(`[data-wl-extras="${item.id}"]`);
     if (!extrasEl) return;
-    if (!trailerKey && providers.length === 0) return;
+    if (!trailerKey && providers.length === 0 && !streamingLinks) return;
 
     let html = '';
     if (trailerKey) {
       html += `<button class="mini-trailer-btn" onclick="openTrailerModal('${trailerKey}')">&#9654; Trailer</button>`;
     }
-    if (providers.length > 0) {
-      const linkOpen = watchLink ? `<a href="${watchLink}" target="_blank" rel="noopener" class="watch-providers-link">` : '';
-      const linkClose = watchLink ? '</a>' : '';
-      html += `<div class="watch-providers"><span class="providers-label">Watch on</span>${linkOpen}`;
-      providers.forEach(p => {
-        html += `<img class="provider-logo" src="${p.logo}" alt="${p.name}" title="${p.name}">`;
-      });
-      html += `${linkClose}</div>`;
+    if (providers.length > 0 || streamingLinks) {
+      html += renderProviders(providers, watchLink, streamingLinks);
     }
     extrasEl.innerHTML = html;
   });

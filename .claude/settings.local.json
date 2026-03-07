@@ -19,7 +19,19 @@
       "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const vids=j.videos?.results?.filter\\(v=>v.type===''Trailer''&&v.site===''YouTube''\\);console.log\\(''Trailers:'',vids?.length\\);if\\(vids?.[0]\\)console.log\\(''Key:'',vids[0].key\\);const us=j[''watch/providers'']?.results?.US;console.log\\(''US providers:'',us?.flatrate?.map\\(p=>p.provider_name\\)\\)}\\)\")",
       "Bash(curl -s \"http://localhost:3000/api/tmdb-details?id=73375&type=tv\")",
       "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const us=j[''watch/providers'']?.results?.US;console.log\\(''link:'',us?.link\\);console.log\\(''flatrate:'',JSON.stringify\\(us?.flatrate,null,2\\)\\)}\\)\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/\")",
+      "WebFetch(domain:www.movieofthenight.com)",
+      "WebFetch(domain:docs.movieofthenight.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ileolami.mintlify.app)",
+      "Bash(source .env)",
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS: %{http_code}\\\\n\" \"https://streaming-availability.p.rapidapi.com/shows/tv/73375?country=us&series_granularity=show\" -H \"X-RapidAPI-Key: $STREAM_AVAIL_API_KEY\" -H \"X-RapidAPI-Host: streaming-availability.p.rapidapi.com\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://streaming-availability.p.rapidapi.com/shows/tv/73375?country=us&series_granularity=show\" -H \"X-RapidAPI-Key: eebb7cba10mshe8cf35e2def4ccap1435c3jsn8bb970d3cdf7\" -H \"X-RapidAPI-Host: streaming-availability.p.rapidapi.com\")",
+      "Bash(curl -s \"https://streaming-availability.p.rapidapi.com/shows/tv/73375?country=us&series_granularity=show\" -H \"X-RapidAPI-Key: eebb7cba10mshe8cf35e2def4ccap1435c3jsn8bb970d3cdf7\" -H \"X-RapidAPI-Host: streaming-availability.p.rapidapi.com\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); opts=d.get\\(''streamingOptions'',{}\\).get\\(''us'',[]\\); [print\\(f\"\"{o[''service''][''name'']}: {o[''type'']} → {o[''link'']}\"\"\\) for o in opts[:5]]\")",
+      "Bash(node -e \"let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const j=JSON.parse\\(d\\);const opts=j.streamingOptions?.us||[];opts.slice\\(0,8\\).forEach\\(o=>console.log\\(o.service.name+'': ''+o.type+'' → ''+o.link\\)\\)}\\)\")",
+      "Bash(node -e \"require\\(''dotenv''\\).config\\(\\); console.log\\(''STREAM_AVAIL_API_KEY set:'', !!process.env.STREAM_AVAIL_API_KEY\\); console.log\\(''Key starts with:'', process.env.STREAM_AVAIL_API_KEY?.substring\\(0,10\\)\\)\")"
     ]
   }
 }
