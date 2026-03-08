@@ -82,23 +82,14 @@
     color: var(--text);
   }
 
-  .want-count {
-    position: absolute;
-    top: 4px; right: 6px;
-    background: var(--accent);
-    color: #000;
-    font-size: 9px;
-    font-weight: 700;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s;
+  .want-count, .seen-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    display: none;
   }
 
-  .want-count.visible { opacity: 1; }
+  .want-count.visible, .seen-count.visible { display: inline; }
 
   .nav-gear {
     font-size: 18px;
@@ -704,22 +695,7 @@
     border-color: rgba(107, 107, 128, 0.4);
   }
 
-  .seen-count {
-    position: absolute;
-    top: 4px; right: 6px;
-    background: var(--seen);
-    color: #000;
-    font-size: 9px;
-    font-weight: 700;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .seen-count.visible { opacity: 1; }
+  /* .seen-count styles merged with .want-count above */
 
   /* LOADING */
   .loading-state {
@@ -1239,6 +1215,9 @@
     }
     .watchlist-title { font-size: 16px; }
     .watchlist-extras { gap: 8px; }
+    .nav-gear { padding: 8px 6px; font-size: 16px; }
+    .settings-menu { right: 12px; }
+    .watch-providers { flex-wrap: wrap; }
   }
 </style>
 </head>
@@ -1249,12 +1228,10 @@
   <div class="nav-links">
     <button class="nav-btn active" onclick="resetDiscover(); if(event.currentTarget) event.currentTarget.classList.add('active')">Discover</button>
     <button class="nav-btn" onclick="showPage('seen', event)" id="seen-nav-btn">
-      Seen
-      <span class="seen-count" id="seen-count">0</span>
+      Seen <span class="seen-count" id="seen-count"></span>
     </button>
     <button class="nav-btn" onclick="showPage('watchlist', event)" id="watchlist-nav-btn">
-      Watchlist
-      <span class="want-count" id="want-count">0</span>
+      Watchlist <span class="want-count" id="want-count"></span>
     </button>
     <button class="nav-btn nav-gear" onclick="toggleSettingsMenu(event)" id="settings-btn" title="Settings">&#9881;</button>
   </div>
@@ -1326,6 +1303,17 @@
   <div class="want-page-inner">
     <div class="page-heading">SEEN IT</div>
     <div class="page-subheading" id="seen-subheading">Loading…</div>
+    <div class="watchlist-controls" id="seen-controls" style="display:none">
+      <input class="watchlist-search" type="text" id="seen-search" placeholder="Search your seen list…" oninput="filterSeenList()">
+      <select class="watchlist-sort" id="seen-sort" onchange="filterSeenList()">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="title-az">Title A–Z</option>
+        <option value="title-za">Title Z–A</option>
+        <option value="type">By Type</option>
+        <option value="rating">By Rating</option>
+      </select>
+    </div>
     <div id="seen-list-container"></div>
   </div>
 </div>
@@ -1422,7 +1410,7 @@ async function fetchPoster(title, year) {
     return null;
   } catch (err) {
     console.warn('TMDB lookup failed:', err.message);
-    posterCache[cacheKey] = null;
+    // Don't cache failures — allow retries on network errors
     return null;
   }
 }
@@ -1446,6 +1434,7 @@ function loadPosterFor(itemId, title, year) {
       const onclickAttr = el.getAttribute('onclick');
       if (onclickAttr) img.setAttribute('onclick', onclickAttr);
     }
+    retryPosterLoad(img, title, year, 2);
     img.onload = () => el.replaceWith(img);
   });
 }
@@ -1846,6 +1835,19 @@ function renderCarouselItem(item, showActions) {
     </div>`;
 }
 
+function retryPosterLoad(img, title, year, retries) {
+  if (retries <= 0) return;
+  img.onerror = () => {
+    // Clear cache so fetchPoster re-fetches from TMDB
+    delete posterCache[`${title}::${year || ''}`];
+    setTimeout(() => {
+      fetchPoster(title, year).then(url => {
+        if (url) { img.onerror = null; img.src = url; }
+      });
+    }, 2000);
+  };
+}
+
 function loadCarouselPoster(item, selector) {
   fetchPoster(item.title, item.year).then(url => {
     if (!url) return;
@@ -1855,6 +1857,7 @@ function loadCarouselPoster(item, selector) {
     img.src = url;
     img.alt = item.title;
     img.className = 'carousel-item-poster';
+    retryPosterLoad(img, item.title, item.year, 2);
     img.onload = () => el.replaceWith(img);
   });
 }
@@ -1896,11 +1899,8 @@ function renderWatchlistCarousel() {
 }
 
 async function fetchLovedBatch(count) {
-  if (lovedFetchInProgress) return [];
-  lovedFetchInProgress = true;
-
   const lovedItems = Object.values(state.seen).filter(i => i.rating === 'loved');
-  if (lovedItems.length === 0) { lovedFetchInProgress = false; return []; }
+  if (lovedItems.length === 0) return [];
 
   const titles = lovedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
 
@@ -1966,20 +1966,20 @@ Return exactly ${count} recommendations. Real, well-known titles only. IMPORTANT
     );
 
     fresh.forEach(i => lovedAllFetchedIds.add(i.id));
-    lovedFetchInProgress = false;
     return fresh;
   } catch(e) {
     console.error('Loved recommendations fetch error:', e);
-    lovedFetchInProgress = false;
     return [];
   }
 }
 
 async function refillLovedQueue() {
   if (lovedQueue.length >= 12 || lovedFetchInProgress) return;
+  lovedFetchInProgress = true;
   const items = await fetchLovedBatch(12);
   const fresh = items.filter(i => !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]);
   lovedQueue.push(...fresh);
+  lovedFetchInProgress = false;
 }
 
 async function renderLovedCarousel() {
@@ -2015,30 +2015,34 @@ async function renderLovedCarousel() {
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   track.innerHTML = Array(displayCount).fill(`<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`).join('');
 
-  // Fetch initial batch (request 20 so we have queue items right away)
-  const items = await fetchLovedBatch(20);
+  // Fetch row by row (3 calls of cols each) so first row appears fast
+  let anyLoaded = false;
+  for (let row = 0; row < 3; row++) {
+    const rowItems = await fetchLovedBatch(cols);
+    if (rowItems.length === 0 && !anyLoaded) {
+      track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
+        <div style="font-size:1.5rem;margin-bottom:8px">😕</div>
+        <div>Couldn't load recommendations right now. Try again later.</div>
+      </div>`;
+      return;
+    }
+    anyLoaded = true;
+    carouselState.loved.items.push(...rowItems);
 
-  if (items.length === 0) {
-    track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
-      <div style="font-size:1.5rem;margin-bottom:8px">😕</div>
-      <div>Couldn't load recommendations right now. Try again later.</div>
-    </div>`;
-    return;
+    // Replace loading placeholders with actual cards
+    const loadingCards = track.querySelectorAll('.carousel-item-loading');
+    rowItems.forEach((item, i) => {
+      if (loadingCards[i]) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = renderCarouselItem(item, true);
+        loadingCards[i].replaceWith(tmp.firstElementChild);
+        loadCarouselPoster(item);
+      }
+    });
   }
 
-  // Display first 12, queue the rest
-  const toDisplay = items.slice(0, displayCount);
-  lovedQueue = items.slice(displayCount);
-  carouselState.loved.items = toDisplay;
-
-  // Progressive display: stagger items appearing one at a time
-  track.innerHTML = '';
-  toDisplay.forEach((item, i) => {
-    setTimeout(() => {
-      track.insertAdjacentHTML('beforeend', renderCarouselItem(item, true));
-      loadCarouselPoster(item);
-    }, i * 80);
-  });
+  // Remove any leftover placeholders (if API returned fewer than requested)
+  track.querySelectorAll('.carousel-item-loading').forEach(el => el.remove());
 
   // Background: fetch more to fill the queue to ~12
   refillLovedQueue();
@@ -2184,14 +2188,14 @@ function importData(e) {
 function updateWantCount() {
   const count = Object.keys(state.want).length;
   const el = document.getElementById('want-count');
-  el.textContent = count;
+  el.textContent = `(${count})`;
   el.classList.toggle('visible', count > 0);
 }
 
 function updateSeenCount() {
   const count = Object.keys(state.seen).length;
   const el = document.getElementById('seen-count');
-  el.textContent = count;
+  el.textContent = `(${count})`;
   el.classList.toggle('visible', count > 0);
 }
 
@@ -2235,13 +2239,23 @@ function searchForShow(title) {
 
 // Delegated click handler for clickable titles and carousel items
 document.addEventListener('click', (e) => {
-  // Carousel items → fast load directly
+  // Carousel items → context-dependent navigation
   const carEl = e.target.closest('[data-carousel-item]');
   if (carEl) {
     e.stopPropagation();
     try {
       const item = JSON.parse(carEl.getAttribute('data-carousel-item').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
-      loadItemDirect(item);
+      // If from watchlist carousel, go to watchlist page and scroll to that show
+      if (carEl.closest('#wl-car-track')) {
+        showPage('watchlist', null);
+        document.getElementById('watchlist-nav-btn').classList.add('active');
+        setTimeout(() => {
+          const card = document.getElementById('wl-' + item.id);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      } else {
+        loadItemDirect(item);
+      }
     } catch(err) {}
     return;
   }
@@ -2913,6 +2927,7 @@ function loadWatchlistExtras(item) {
     img.className = 'watchlist-poster clickable-title';
     img.setAttribute('data-direct-item', JSON.stringify(item).replace(/'/g, "&#39;"));
     img.style.cursor = 'pointer';
+    retryPosterLoad(img, item.title, item.year, 2);
     img.onload = () => el.replaceWith(img);
   });
 
@@ -3141,6 +3156,7 @@ function loadSeenExtras(item) {
     img.className = 'watchlist-poster clickable-title';
     img.setAttribute('data-direct-item', JSON.stringify(item).replace(/'/g, "&#39;"));
     img.style.cursor = 'pointer';
+    retryPosterLoad(img, item.title, item.year, 2);
     img.onload = () => el.replaceWith(img);
   });
 
@@ -3163,22 +3179,87 @@ function loadSeenExtras(item) {
   });
 }
 
+const RATING_ORDER = { loved: 0, liked: 1, meh: 2, disliked: 3 };
+
+function getFilteredSeenList() {
+  const query = (document.getElementById('seen-search').value || '').trim().toLowerCase();
+  const sortBy = document.getElementById('seen-sort').value;
+  let items = Object.values(state.seen);
+
+  if (query) {
+    items = items.filter(item =>
+      item.title.toLowerCase().includes(query) ||
+      (item.genres || '').toLowerCase().includes(query) ||
+      (item.type || '').toLowerCase().includes(query) ||
+      (item.year || '').toLowerCase().includes(query) ||
+      (item.rating || '').toLowerCase().includes(query)
+    );
+  }
+
+  switch (sortBy) {
+    case 'newest': items.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)); break;
+    case 'oldest': items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0)); break;
+    case 'title-az': items.sort((a, b) => a.title.localeCompare(b.title)); break;
+    case 'title-za': items.sort((a, b) => b.title.localeCompare(a.title)); break;
+    case 'type': items.sort((a, b) => (a.type || '').localeCompare(b.type || '') || a.title.localeCompare(b.title)); break;
+    case 'rating': items.sort((a, b) => (RATING_ORDER[a.rating] ?? 99) - (RATING_ORDER[b.rating] ?? 99) || a.title.localeCompare(b.title)); break;
+  }
+  return items;
+}
+
 function renderSeenList() {
-  const items = Object.values(state.seen).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  const allItems = Object.values(state.seen);
   const sub = document.getElementById('seen-subheading');
   const container = document.getElementById('seen-list-container');
+  const controls = document.getElementById('seen-controls');
 
-  sub.textContent = items.length === 0
+  sub.textContent = allItems.length === 0
     ? 'Nothing marked as seen yet'
-    : `${items.length} title${items.length === 1 ? '' : 's'} seen`;
+    : `${allItems.length} title${allItems.length === 1 ? '' : 's'} seen`;
 
-  if (items.length === 0) {
+  if (allItems.length === 0) {
+    controls.style.display = 'none';
     container.innerHTML = `
       <div class="want-empty">
         <div class="want-empty-icon">👀</div>
         <div class="want-empty-text">Search for a show on the Discover page and tap <strong>Seen</strong> to start tracking what you've watched. Rate them with ❤️ to unlock personalized recommendations!</div>
       </div>`;
     seenShown = 0;
+    return;
+  }
+
+  controls.style.display = 'flex';
+  document.getElementById('seen-search').value = '';
+  document.getElementById('seen-sort').value = 'newest';
+
+  const items = getFilteredSeenList();
+  seenShown = 0;
+  const batch = items.slice(0, SEEN_PAGE_SIZE);
+  seenShown = batch.length;
+
+  let html = `<div class="watchlist-grid" id="seen-grid">`;
+  html += batch.map(item => renderSeenCard(item)).join('');
+  html += `</div>`;
+
+  if (items.length > seenShown) {
+    html += `<button class="btn-load-more" id="seen-load-more" onclick="loadMoreSeen()">Load More (${items.length - seenShown} remaining)</button>`;
+  }
+
+  container.innerHTML = html;
+  batch.forEach(item => loadSeenExtras(item));
+}
+
+function filterSeenList() {
+  const items = getFilteredSeenList();
+  const container = document.getElementById('seen-list-container');
+
+  if (items.length === 0) {
+    const query = document.getElementById('seen-search').value.trim();
+    container.innerHTML = `
+      <div class="want-empty">
+        <div class="want-empty-icon">🔍</div>
+        <div class="want-empty-text">No matches for "${query}"</div>
+      </div>`;
     return;
   }
 
@@ -3199,7 +3280,7 @@ function renderSeenList() {
 }
 
 function loadMoreSeen() {
-  const items = Object.values(state.seen);
+  const items = getFilteredSeenList();
   const grid = document.getElementById('seen-grid');
   if (!grid) return;
 
