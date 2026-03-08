@@ -1443,6 +1443,14 @@ function loadPosterFor(itemId, title, year) {
   });
 }
 
+function loadTrailerBtnFor(itemId, title, year) {
+  fetchTmdbExtras(title, year).then(({ trailerKey }) => {
+    if (!trailerKey) return;
+    const el = document.querySelector(`[data-trailer-id="${itemId}"]`);
+    if (el) el.style.display = '';
+  });
+}
+
 // ─── TMDB EXTRAS (TRAILERS + PROVIDERS) ─────────────────────────────────────
 const tmdbExtrasCache = {};
 
@@ -1815,7 +1823,7 @@ function renderCarouselItem(item, showActions) {
     const wantActive = state.want[item.id] ? 'active' : '';
     const nopeActive = state.nope[item.id] ? 'active' : '';
     actionsHtml = `
-      <div class="carousel-item-trailer">
+      <div class="carousel-item-trailer" data-trailer-id="${item.id}" style="display:none">
         <button class="mini-trailer-btn" onclick="event.stopPropagation(); playTrailer('${item.title.replace(/'/g, "\\'")}', '${item.year}', this)">&#9654; Trailer</button>
       </div>
       <div class="carousel-item-actions">
@@ -1975,6 +1983,7 @@ function lovedPump() {
           tmp.innerHTML = renderCarouselItem(item, true);
           ph.replaceWith(tmp.firstElementChild);
           loadCarouselPoster(item);
+          loadTrailerBtnFor(item.id, item.title, item.year);
         }
       }
       updateLovedNav();
@@ -2039,21 +2048,25 @@ function displayLovedCarousel() {
 
   const placeholder = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
 
+  const hasLoved = Object.values(state.seen).some(i => i.rating === 'loved');
   let html = '';
   for (let i = 0; i < cols; i++) {
     if (batch[i]) {
       html += renderCarouselItem(batch[i], true);
-    } else if (lovedInFlight > 0) {
+    } else if (lovedInFlight > 0 || hasLoved) {
       html += placeholder;
     }
   }
-  // Edge case: nothing loaded yet and nothing in flight
-  if (!html && available.length === 0 && lovedInFlight === 0 && lovedPool.length > 0) {
+  // Edge case: nothing loaded yet and nothing in flight and pump exhausted
+  if (!html && available.length === 0 && lovedInFlight === 0 && !hasLoved && lovedPool.length > 0) {
     html = `<div style="grid-column:1/-1;text-align:center;padding:24px 16px;color:var(--text-muted)">No more recommendations available.</div>`;
   }
 
   track.innerHTML = html;
-  batch.forEach(item => loadCarouselPoster(item));
+  batch.forEach(item => {
+    loadCarouselPoster(item);
+    loadTrailerBtnFor(item.id, item.title, item.year);
+  });
   updateLovedNav();
 }
 
@@ -2070,10 +2083,9 @@ function updateLovedNav() {
 function replaceLovedCard(cardEl) {
   // Item was already added to seen/want/nope by the toggle function.
   // It's filtered out of getAvailableLovedItems() automatically.
-  // Re-render the current page — pool shifts to fill the gap.
-  displayLovedCarousel();
-  // Pump more to replace the consumed item
+  // Pump first so lovedInFlight is incremented before rendering placeholders.
   lovedPump();
+  displayLovedCarousel();
 }
 
 function carouselPrev(type) {
@@ -2281,6 +2293,113 @@ function genreEmoji(genres) {
   return '🎞️';
 }
 
+// ─── TMDB GENRE ID → NAME MAPPING ────────────────────────────────────────────
+const TMDB_GENRES = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
+  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
+  14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music',
+  9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
+  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+  10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News',
+  10764: 'Reality', 10765: 'Sci-Fi & Fantasy', 10766: 'Soap',
+  10767: 'Talk', 10768: 'War & Politics'
+};
+
+function tmdbGenreIdsToString(genreIds) {
+  if (!genreIds || !Array.isArray(genreIds)) return '';
+  return genreIds.map(id => TMDB_GENRES[id]).filter(Boolean).join(', ');
+}
+
+function tmdbResultToItem(tmdbItem) {
+  const isMovie = tmdbItem.media_type === 'movie' || (tmdbItem.title && !tmdbItem.name);
+  const title = isMovie ? tmdbItem.title : tmdbItem.name;
+  const year = (isMovie ? tmdbItem.release_date : tmdbItem.first_air_date || '').slice(0, 4);
+  const genres = tmdbGenreIdsToString(tmdbItem.genre_ids);
+  const description = tmdbItem.overview || '';
+  const mediaType = isMovie ? 'movie' : 'tv';
+
+  // Pre-cache TMDB ID and poster so subsequent lookups are instant
+  const cacheKey = `${title}::${year}`;
+  if (tmdbItem.id && !tmdbIdCache[cacheKey]) {
+    tmdbIdCache[cacheKey] = { tmdbId: tmdbItem.id, mediaType };
+  }
+  if (tmdbItem.poster_path && !posterCache[cacheKey]) {
+    posterCache[cacheKey] = `https://image.tmdb.org/t/p/w342${tmdbItem.poster_path}`;
+  }
+
+  return {
+    id: normalizeId(title, year),
+    title,
+    type: isMovie ? 'Movie' : 'TV Show',
+    year,
+    genres,
+    description
+  };
+}
+
+async function fetchTmdbRecommendations(item, count = 4) {
+  await fetchPoster(item.title, item.year);
+  const info = getTmdbInfo(item.title, item.year);
+  if (!info) return null;
+
+  try {
+    const res = await fetch(`/api/tmdb-recommendations?id=${info.tmdbId}&type=${info.mediaType}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) return null;
+
+    const items = data.results
+      .filter(r => r.overview && (r.title || r.name))
+      .map(tmdbResultToItem);
+
+    const filtered = filterResults(items).filter(i => !shownIds.has(i.id));
+    return filtered.length > 0 ? filtered.slice(0, count) : null;
+  } catch (err) {
+    console.warn('TMDB recommendations failed:', err.message);
+    return null;
+  }
+}
+
+async function fetchClaudeSimilar(title, type, year, count = 4) {
+  const prompt = `You are a film and TV expert for Flickpick.
+
+The user just selected: "${title}" (${type}, ${year})
+
+Return ONLY a JSON object with exactly this structure, no markdown:
+{
+  "similar": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "description": "1-2 sentence factual description of what this show/movie is about.",
+      "blurb": "1 sentence about why a fan of the selected title would enjoy this.",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly ${count} similar titles. Real, well-known titles only. Lowercase hyphenated ids.
+IMPORTANT: "description" must be a factual synopsis — NOT a recommendation.
+Put the recommendation reason in "blurb".` + getExclusionList();
+
+  const res = await fetch("/api/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: count <= 4 ? 1000 : 2500,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  const data = await res.json();
+  const text = data.content[0].text.replace(/```json|```/g, '').trim();
+  const result = JSON.parse(text);
+  return filterResults(normalizeItems(result.similar));
+}
+
 // ─── SEARCH ──────────────────────────────────────────────────────────────────
 async function doSearch() {
   const query = document.getElementById('search-input').value.trim();
@@ -2418,7 +2537,7 @@ function renderSingleCard(item) {
         <div class="similar-title">${item.title}</div>
         <div class="similar-subtitle">${subtitle}</div>
       </div>
-      <div class="similar-trailer">
+      <div class="similar-trailer" data-trailer-id="${item.id}" style="display:none">
         <button class="mini-trailer-btn" onclick="event.stopPropagation(); playTrailer('${item.title.replace(/'/g, "\\'")}', '${item.year}', this)">&#9654; Trailer</button>
       </div>
       <div class="similar-actions">
@@ -2453,8 +2572,15 @@ function displaySuggestionPage(idx) {
   const start = idx * GRID_SIZE;
   const items = suggestionPool.slice(start, start + GRID_SIZE);
   const grid = document.getElementById('similar-grid');
-  grid.innerHTML = items.map(item => renderSingleCard(item)).join('');
-  items.forEach(item => loadPosterFor(item.id, item.title, item.year));
+  // Pad with loading placeholders if we have fewer than GRID_SIZE items
+  const placeholders = items.length < GRID_SIZE
+    ? Array(GRID_SIZE - items.length).fill(renderPlaceholderCard()).join('')
+    : '';
+  grid.innerHTML = items.map(item => renderSingleCard(item)).join('') + placeholders;
+  items.forEach(item => {
+    loadPosterFor(item.id, item.title, item.year);
+    loadTrailerBtnFor(item.id, item.title, item.year);
+  });
   updateSimilarArrows();
 }
 
@@ -2512,9 +2638,15 @@ async function fillSuggestionPool() {
 
   try {
     const needed = POOL_SIZE - suggestionPool.length;
-    const batchSize = Math.min(needed, 8);
-    const exclusion = getExclusionList() + getShownExclusion();
-    const prompt = `You are a film and TV expert for Flickpick.
+
+    // Try TMDB first — returns up to 20 items in one call
+    let newItems = await fetchTmdbRecommendations(currentFeatured, needed);
+
+    if (!newItems || newItems.length === 0) {
+      // Fallback: Claude batch
+      const batchSize = Math.min(needed, 8);
+      const exclusion = getExclusionList() + getShownExclusion();
+      const prompt = `You are a film and TV expert for Flickpick.
 
 The user is exploring titles similar to: "${currentFeatured.title}" (${currentFeatured.type}, ${currentFeatured.year})
 
@@ -2538,22 +2670,37 @@ Return ONLY a JSON object with exactly this structure, no markdown:
 
 Return exactly ${batchSize} similar titles. Real, well-known titles only. Lowercase hyphenated ids. Dig deep — suggest lesser-known gems, not just the obvious picks. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".`;
 
-    const res = await fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: batchSize <= 4 ? 1200 : 2500,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
+      const res = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: batchSize <= 4 ? 1200 : 2500,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const text = data.content[0].text.replace(/```json|```/g, '').trim();
+      const result = JSON.parse(text);
+      newItems = filterResults(normalizeItems(result.similar));
+    }
 
-    const data = await res.json();
-    const text = data.content[0].text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(text);
-    const filtered = filterResults(normalizeItems(result.similar));
-    filtered.forEach(item => shownIds.add(item.id));
-    suggestionPool.push(...filtered);
+    if (newItems) {
+      const poolIds = new Set(suggestionPool.map(i => i.id));
+      const deduped = newItems.filter(i => !poolIds.has(i.id) && !shownIds.has(i.id));
+      deduped.forEach(item => shownIds.add(item.id));
+      const prevLen = suggestionPool.length;
+      suggestionPool.push(...deduped);
+
+      // Re-render current page if it had placeholder gaps that can now be filled
+      if (deduped.length > 0) {
+        const pageStart = suggestionPageIdx * GRID_SIZE;
+        const pageEnd = pageStart + GRID_SIZE;
+        if (prevLen < pageEnd && suggestionPool.length > prevLen) {
+          displaySuggestionPage(suggestionPageIdx);
+        }
+      }
+    }
   } catch(e) {
     console.error('Pool fill error:', e);
   }
@@ -2653,48 +2800,18 @@ async function loadItemDirect(item) {
   const grid = document.getElementById('similar-grid');
   grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
 
+  // Fetch similar items — try TMDB first, fall back to Claude
   try {
-    const prompt = `You are a film and TV expert for Flickpick.
-
-The user just selected: "${item.title}" (${item.type}, ${item.year})
-
-Return ONLY a JSON object with exactly this structure, no markdown:
-{
-  "similar": [
-    {
-      "id": "unique-slug",
-      "title": "Title",
-      "type": "TV Show" or "Movie",
-      "year": "2022",
-      "genres": "Comedy, Drama",
-      "description": "1-2 sentence factual description of what this show/movie is about.",
-      "blurb": "1 sentence about why a fan of the selected title would enjoy this.",
-      "emoji": "single relevant emoji"
+    let similar = await fetchTmdbRecommendations(item, GRID_SIZE);
+    if (!similar) {
+      similar = await fetchClaudeSimilar(item.title, item.type, item.year, GRID_SIZE);
     }
-  ]
-}
-
-Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphenated ids. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".` + getExclusionList();
-
-    const res = await fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    const text = data.content[0].text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(text);
 
     shownIds = new Set();
     suggestionPool = [];
     suggestionPageIdx = 0;
     poolFetching = false;
-    renderSimilar(filterResults(normalizeItems(result.similar)));
+    renderSimilar(similar);
   } catch(e) {
     grid.innerHTML = '';
   }
@@ -2736,49 +2853,18 @@ async function loadItem(itemId) {
   const grid = document.getElementById('similar-grid');
   grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
 
-  // Fetch new similar items in background
+  // Fetch new similar items — try TMDB first, fall back to Claude
   try {
-    const prompt = `You are a film and TV expert for Flickpick.
-
-The user just selected: "${foundItem.title}" (${foundItem.type}, ${foundItem.year})
-
-Return ONLY a JSON object with exactly this structure, no markdown:
-{
-  "similar": [
-    {
-      "id": "unique-slug",
-      "title": "Title",
-      "type": "TV Show" or "Movie",
-      "year": "2022",
-      "genres": "Comedy, Drama",
-      "description": "1-2 sentence factual description of what this show/movie is about.",
-      "blurb": "1 sentence about why a fan of the selected title would enjoy this.",
-      "emoji": "single relevant emoji"
+    let similar = await fetchTmdbRecommendations(foundItem, GRID_SIZE);
+    if (!similar) {
+      similar = await fetchClaudeSimilar(foundItem.title, foundItem.type, foundItem.year, GRID_SIZE);
     }
-  ]
-}
-
-Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphenated ids. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".` + getExclusionList();
-
-    const res = await fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    const text = data.content[0].text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(text);
 
     shownIds = new Set();
     suggestionPool = [];
     suggestionPageIdx = 0;
     poolFetching = false;
-    renderSimilar(filterResults(normalizeItems(result.similar)));
+    renderSimilar(similar);
   } catch(e) {
     // Clear placeholders on error
     grid.innerHTML = '';

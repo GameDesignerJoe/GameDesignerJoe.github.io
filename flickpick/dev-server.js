@@ -96,6 +96,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Handle TMDB recommendations proxy
+  if (req.method === 'GET' && req.url.startsWith('/api/tmdb-recommendations?')) {
+    const params = new URL(req.url, `http://localhost:${PORT}`).searchParams;
+    const id = params.get('id');
+    const type = params.get('type');
+    if (!id || !type || !['tv', 'movie'].includes(type)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing or invalid id/type' }));
+      return;
+    }
+
+    try {
+      const tmdbUrl = `https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${process.env.TMDB_API_KEY}&language=en-US&page=1`;
+      const tmdbRes = await fetch(tmdbUrl);
+      const data = await tmdbRes.json();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      console.error('TMDB recommendations error:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
+  }
+
   // Handle Streaming Availability proxy (direct service links)
   if (req.method === 'GET' && req.url.startsWith('/api/streaming?')) {
     const params = new URL(req.url, `http://localhost:${PORT}`).searchParams;
