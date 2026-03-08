@@ -1272,6 +1272,10 @@
     <div class="carousel-section" id="loved-carousel" style="display:none">
       <div class="carousel-header">
         <div class="carousel-label">Based On What You Love</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" id="loved-car-prev" onclick="carouselPrev('loved')" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" id="loved-car-next" onclick="carouselNext('loved')">&rsaquo;</button>
+        </div>
       </div>
       <div class="carousel-track" id="loved-car-track"></div>
     </div>
@@ -1787,9 +1791,11 @@ const CAROUSEL_PAGE = 4;
 const CAROUSEL_PAGE_MOBILE = 3;
 const carouselState = { watchlist: { page: 0 }, loved: { page: 0, items: [] } };
 let lovedRecsCache = null;
-let lovedQueue = [];              // items ready to replace displayed ones
-let lovedFetchInProgress = false; // prevents concurrent API calls
-let lovedAllFetchedIds = new Set(); // tracks all fetched IDs to avoid dupes across batches
+let lovedPool = [];               // all fetched recommendations (paginated display)
+let lovedInFlight = 0;            // number of API calls currently in progress
+let lovedAllFetchedIds = new Set(); // tracks all fetched IDs to avoid dupes
+const LOVED_MAX_CONCURRENT = 3;   // max simultaneous API calls
+const LOVED_TARGET_POOL = 12;     // keep this many available items in the pool
 
 function getCarouselPageSize() {
   return window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
@@ -1898,45 +1904,27 @@ function renderWatchlistCarousel() {
   document.getElementById('wl-car-next').disabled = start + pageSize >= shuffled.length;
 }
 
-async function fetchLovedBatch(count) {
+// Fetch a single recommendation — fast (~1s) since Claude only generates one item
+async function fetchOneLovedRec() {
   const lovedItems = Object.values(state.seen).filter(i => i.rating === 'loved');
-  if (lovedItems.length === 0) return [];
+  if (lovedItems.length === 0) return null;
 
   const titles = lovedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
 
-  // Exclude everything the user has interacted with + already fetched recs
   const excludeTitles = new Set();
   for (const item of Object.values(state.seen)) excludeTitles.add(item.title);
   for (const item of Object.values(state.want)) excludeTitles.add(item.title);
   for (const item of Object.values(state.nope)) excludeTitles.add(item.title);
-  for (const item of [...carouselState.loved.items, ...lovedQueue]) excludeTitles.add(item.title);
+  for (const item of lovedPool) excludeTitles.add(item.title);
 
   const excludeStr = excludeTitles.size > 0
-    ? `\n\nDo NOT include any of these titles (already seen, saved, or suggested):\n${[...excludeTitles].map(t => `- ${t}`).join('\n')}`
+    ? `\nDo NOT include any of these titles:\n${[...excludeTitles].map(t => `- ${t}`).join('\n')}`
     : '';
 
-  const prompt = `You are a film and TV expert for Flickpick.
-
-The user loved these shows: ${titles}
-
-Based on their taste, recommend shows they might enjoy.
-
-Return ONLY a JSON object with exactly this structure, no markdown:
-{
-  "recommendations": [
-    {
-      "title": "Title",
-      "type": "TV Show" or "Movie",
-      "year": "2022",
-      "genres": "Comedy, Drama",
-      "emoji": "single relevant emoji",
-      "description": "Brief one-sentence factual description of what this show/movie is about.",
-      "blurb": "1 sentence about why the user would enjoy this based on their loved shows."
-    }
-  ]
-}
-
-Return exactly ${count} recommendations. Real, well-known titles only. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".${excludeStr}`;
+  const prompt = `You are a film and TV expert. The user loved: ${titles}
+Recommend ONE show they'd enjoy. Return ONLY valid JSON, no markdown:
+{"title":"Title","type":"TV Show or Movie","year":"2022","genres":"Comedy, Drama","emoji":"🎭","description":"Factual one-sentence synopsis.","blurb":"Why they'd enjoy this."}
+Real titles only. Description must be factual, not a recommendation.${excludeStr}`;
 
   try {
     const res = await fetch("/api/recommend", {
@@ -1944,42 +1932,60 @@ Return exactly ${count} recommendations. Real, well-known titles only. IMPORTANT
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2500,
+        max_tokens: 250,
         messages: [{ role: "user", content: prompt }]
       })
     });
-
-    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
-    if (!data.content || !data.content[0]) throw new Error('Unexpected API response shape');
+    if (!data.content || !data.content[0]) throw new Error('Bad response');
     const text = data.content[0].text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(text);
-    const items = normalizeItems(result.recommendations || []);
+    const item = normalizeItem(JSON.parse(text));
 
-    // Filter out dupes and already-interacted items
-    const fresh = items.filter(i =>
-      i.id &&
-      !lovedAllFetchedIds.has(i.id) &&
-      !state.seen[i.id] &&
-      !state.want[i.id] &&
-      !state.nope[i.id]
-    );
-
-    fresh.forEach(i => lovedAllFetchedIds.add(i.id));
-    return fresh;
+    // Dedupe — discard if we already have it
+    if (lovedAllFetchedIds.has(item.id) || state.seen[item.id] || state.want[item.id] || state.nope[item.id]) {
+      return null;
+    }
+    lovedAllFetchedIds.add(item.id);
+    return item;
   } catch(e) {
-    console.error('Loved recommendations fetch error:', e);
-    return [];
+    console.error('Loved rec fetch error:', e);
+    return null;
   }
 }
 
-async function refillLovedQueue() {
-  if (lovedQueue.length >= 12 || lovedFetchInProgress) return;
-  lovedFetchInProgress = true;
-  const items = await fetchLovedBatch(12);
-  const fresh = items.filter(i => !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]);
-  lovedQueue.push(...fresh);
-  lovedFetchInProgress = false;
+// Pump: keeps up to LOVED_MAX_CONCURRENT requests in flight to maintain pool size
+function lovedPump() {
+  const available = getAvailableLovedItems();
+  const needed = LOVED_TARGET_POOL - available.length - lovedInFlight;
+  if (needed <= 0) return;
+
+  const toFire = Math.min(needed, LOVED_MAX_CONCURRENT - lovedInFlight);
+  for (let i = 0; i < toFire; i++) {
+    lovedInFlight++;
+    fetchOneLovedRec().then(item => {
+      lovedInFlight--;
+      if (item) {
+        lovedPool.push(item);
+        // If current page has a placeholder, replace the first one with this item
+        const track = document.getElementById('loved-car-track');
+        const ph = track && track.querySelector('.carousel-item-loading');
+        if (ph) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = renderCarouselItem(item, true);
+          ph.replaceWith(tmp.firstElementChild);
+          loadCarouselPoster(item);
+        }
+      }
+      updateLovedNav();
+      // Keep pumping if we still need more
+      lovedPump();
+    });
+  }
+}
+
+function getAvailableLovedItems() {
+  return lovedPool.filter(i => !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]);
 }
 
 async function renderLovedCarousel() {
@@ -1991,115 +1997,83 @@ async function renderLovedCarousel() {
       <div style="font-size:1.5rem;margin-bottom:8px">❤️</div>
       <div>Rate shows in your <strong>Seen</strong> list with ❤️ to get personalized recommendations here.</div>
     </div>`;
+    updateLovedNav();
     return;
   }
   section.style.display = '';
 
-  // If loved list unchanged and we have displayed items, just re-render
+  // If loved list unchanged and we have pool items, just re-render
   const lovedKey = lovedItems.map(i => i.id).sort().join(',');
-  if (lovedRecsCache && lovedRecsCache.key === lovedKey && carouselState.loved.items.length > 0) {
+  if (lovedRecsCache && lovedRecsCache.key === lovedKey && lovedPool.length > 0) {
     displayLovedCarousel();
+    lovedPump(); // top up pool in background
     return;
   }
 
   // Reset for new loved list
   lovedRecsCache = { key: lovedKey };
-  lovedQueue = [];
+  lovedPool = [];
   lovedAllFetchedIds = new Set();
-  carouselState.loved.items = [];
+  lovedInFlight = 0;
   carouselState.loved.page = 0;
 
+  // Show loading placeholders then start the pump
   const track = document.getElementById('loved-car-track');
-  const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
-  const displayCount = cols * 3;
+  const cols = getCarouselPageSize();
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-  track.innerHTML = Array(displayCount).fill(`<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`).join('');
-
-  // Fetch row by row (3 calls of cols each) so first row appears fast
-  let anyLoaded = false;
-  for (let row = 0; row < 3; row++) {
-    const rowItems = await fetchLovedBatch(cols);
-    if (rowItems.length === 0 && !anyLoaded) {
-      track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
-        <div style="font-size:1.5rem;margin-bottom:8px">😕</div>
-        <div>Couldn't load recommendations right now. Try again later.</div>
-      </div>`;
-      return;
-    }
-    anyLoaded = true;
-    carouselState.loved.items.push(...rowItems);
-
-    // Replace loading placeholders with actual cards
-    const loadingCards = track.querySelectorAll('.carousel-item-loading');
-    rowItems.forEach((item, i) => {
-      if (loadingCards[i]) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = renderCarouselItem(item, true);
-        loadingCards[i].replaceWith(tmp.firstElementChild);
-        loadCarouselPoster(item);
-      }
-    });
-  }
-
-  // Remove any leftover placeholders (if API returned fewer than requested)
-  track.querySelectorAll('.carousel-item-loading').forEach(el => el.remove());
-
-  // Background: fetch more to fill the queue to ~12
-  refillLovedQueue();
-}
-
-function getLovedPageSize() {
-  const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
-  return cols * 3; // 3 rows
-}
-
-function replaceLovedCard(cardEl) {
-  // Pull replacement from the queue
-  const replacement = lovedQueue.find(i =>
-    i.id && !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]
-  );
-
-  if (replacement) {
-    lovedQueue = lovedQueue.filter(i => i !== replacement);
-
-    // Update displayed items tracking
-    try {
-      const oldData = JSON.parse(cardEl.getAttribute('data-carousel-item').replace(/&quot;/g, '"').replace(/&#39;/g, "'"));
-      carouselState.loved.items = carouselState.loved.items.filter(i => i.id !== oldData.id);
-    } catch(e) {}
-    carouselState.loved.items.push(replacement);
-
-    cardEl.style.transition = 'all 0.3s';
-    cardEl.style.opacity = '0';
-    cardEl.style.transform = 'scale(0.95)';
-    setTimeout(() => {
-      cardEl.outerHTML = renderCarouselItem(replacement, true);
-      loadCarouselPoster(replacement);
-    }, 300);
-
-    // Refill queue if running low
-    if (lovedQueue.length < 8) {
-      refillLovedQueue();
-    }
-  } else {
-    // No replacement available — fade out and try to fetch more
-    cardEl.style.transition = 'all 0.3s';
-    cardEl.style.opacity = '0';
-    cardEl.style.transform = 'scale(0.95)';
-    setTimeout(() => cardEl.remove(), 300);
-    refillLovedQueue();
-  }
+  const placeholder = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
+  track.innerHTML = Array(cols).fill(placeholder).join('');
+  updateLovedNav();
+  lovedPump();
 }
 
 function displayLovedCarousel() {
-  const items = carouselState.loved.items;
-  const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
+  const available = getAvailableLovedItems();
+  const cols = getCarouselPageSize();
   const track = document.getElementById('loved-car-track');
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-  // Filter out items user has since interacted with
-  const batch = items.filter(i => !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]).slice(0, cols * 3);
-  track.innerHTML = batch.map(item => renderCarouselItem(item, true)).join('');
+
+  const s = carouselState.loved;
+  const start = s.page * cols;
+  const batch = available.slice(start, start + cols);
+
+  const placeholder = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
+
+  let html = '';
+  for (let i = 0; i < cols; i++) {
+    if (batch[i]) {
+      html += renderCarouselItem(batch[i], true);
+    } else if (lovedInFlight > 0) {
+      html += placeholder;
+    }
+  }
+  // Edge case: nothing loaded yet and nothing in flight
+  if (!html && available.length === 0 && lovedInFlight === 0 && lovedPool.length > 0) {
+    html = `<div style="grid-column:1/-1;text-align:center;padding:24px 16px;color:var(--text-muted)">No more recommendations available.</div>`;
+  }
+
+  track.innerHTML = html;
   batch.forEach(item => loadCarouselPoster(item));
+  updateLovedNav();
+}
+
+function updateLovedNav() {
+  const available = getAvailableLovedItems();
+  const cols = getCarouselPageSize();
+  const s = carouselState.loved;
+  const prevBtn = document.getElementById('loved-car-prev');
+  const nextBtn = document.getElementById('loved-car-next');
+  if (prevBtn) prevBtn.disabled = s.page === 0;
+  if (nextBtn) nextBtn.disabled = (s.page + 1) * cols >= available.length;
+}
+
+function replaceLovedCard(cardEl) {
+  // Item was already added to seen/want/nope by the toggle function.
+  // It's filtered out of getAvailableLovedItems() automatically.
+  // Re-render the current page — pool shifts to fill the gap.
+  displayLovedCarousel();
+  // Pump more to replace the consumed item
+  lovedPump();
 }
 
 function carouselPrev(type) {
@@ -2111,7 +2085,10 @@ function carouselPrev(type) {
 function carouselNext(type) {
   carouselState[type].page++;
   if (type === 'watchlist') renderWatchlistCarousel();
-  else displayLovedCarousel();
+  else {
+    displayLovedCarousel();
+    lovedPump(); // fetch more as user pages forward
+  }
 }
 
 function initDiscoverCarousels() {

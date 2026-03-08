@@ -1,12 +1,8 @@
 == FlickPick ToDo ==
-(all items below completed)
-- [x] The gear button on mobile is off the frame.
-- [x] On mobile, the streaming icons bleed off the edge rather than wrap around to a new row.
-- [x] Break up API call for the first 12 Based on what you loved section into 3 calls (one per row) for faster display.
-- [x] When an image fails to load, retry loading it automatically.
-- [x] The indicator that counts how many shows you've seen or watched can't deal with numbers over 99. Changed to inline text "Seen (132)" / "Watchlist (323)".
-- [x] Add the same search and sort to Seen that we have for Watchlist. Added search + sort (including "By Rating" option).
-- [x] Clicking on a show in the watchlist carousel now navigates to watchlist page and scrolls to that show.
+== Mark task completed [x] when you've done them.
+- How up to date is this information we're pulling?
+- Does TMDB offer suggestions in their API? If so, should we just use that?
+- 
 
 
 FOR LATER:
