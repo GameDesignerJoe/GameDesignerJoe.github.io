@@ -559,11 +559,11 @@
   }
 
   .similar-subtitle {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
     line-height: 1.4;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -1354,9 +1354,9 @@ let state = {
 let currentFeatured = null;
 let shownIds = new Set();
 const GRID_SIZE = 4;
-const POOL_SIZE = 16;
+const POOL_BUFFER = 8; // keep this many items buffered ahead of current page
 const viewHistory = []; // stack of { featured, suggestionPool, suggestionPageIdx, shownIds }
-let suggestionPool = [];     // flat array of up to POOL_SIZE items
+let suggestionPool = [];     // flat array of suggestion items (grows as user pages)
 let suggestionPageIdx = 0;
 let poolFetching = false;
 
@@ -2315,7 +2315,10 @@ function tmdbResultToItem(tmdbItem) {
   const title = isMovie ? tmdbItem.title : tmdbItem.name;
   const year = (isMovie ? tmdbItem.release_date : tmdbItem.first_air_date || '').slice(0, 4);
   const genres = tmdbGenreIdsToString(tmdbItem.genre_ids);
-  const description = tmdbItem.overview || '';
+  // Truncate to first 2 sentences so cards stay compact
+  const raw = tmdbItem.overview || '';
+  const sentences = raw.match(/[^.!?]+[.!?]+/g);
+  const description = sentences ? sentences.slice(0, 2).join('').trim() : raw;
   const mediaType = isMovie ? 'movie' : 'tv';
 
   // Pre-cache TMDB ID and poster so subsequent lookups are instant
@@ -2420,54 +2423,50 @@ The user searched for: "${query}"
 
 Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
 {
-  "main": {
-    "id": "unique-slug-no-spaces",
-    "title": "Exact title",
-    "type": "TV Show" or "Movie",
-    "year": "2023",
-    "genres": "Drama, Thriller",
-    "description": "2-3 sentence description of what this show/movie is about.",
-    "emoji": "single relevant emoji"
-  },
-  "similar": [
-    {
-      "id": "unique-slug",
-      "title": "Title",
-      "type": "TV Show" or "Movie",
-      "year": "2022",
-      "genres": "Comedy, Drama",
-      "description": "1-2 sentence factual description of what this show/movie is about.",
-      "blurb": "1 sentence about why a fan of the searched title would enjoy this.",
-      "emoji": "single relevant emoji"
-    }
-  ]
+  "id": "unique-slug-no-spaces",
+  "title": "Exact title",
+  "type": "TV Show" or "Movie",
+  "year": "2023",
+  "genres": "Drama, Thriller",
+  "description": "2-3 sentence description of what this show/movie is about.",
+  "emoji": "single relevant emoji"
 }
 
-Return exactly 4 similar titles. Make them genuinely good recommendations — mix TV and movies, vary the genres slightly while staying thematically connected. Use real, well-known titles. The "id" field must be lowercase with hyphens only. IMPORTANT: "description" must be a factual synopsis of the show — NOT a recommendation or comparison. Put the recommendation reason in "blurb".` + getExclusionList();
+Return the single best match for the user's search. Use the real, well-known title. The "id" field must be lowercase with hyphens only.`;
 
     const res = await fetch("/api/recommend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 1500,
+        max_tokens: 400,
         messages: [{ role: "user", content: prompt }]
       })
     });
 
     const data = await res.json();
     const text = data.content[0].text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(text);
+    const mainItem = normalizeItem(JSON.parse(text));
 
     shownIds = new Set();
     suggestionPool = [];
     suggestionPageIdx = 0;
     poolFetching = false;
-    renderFeatured(normalizeItem(result.main));
-    renderSimilar(filterResults(normalizeItems(result.similar)));
+    renderFeatured(mainItem);
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('featured-section').style.display = 'block';
+
+    // Show placeholder cards while TMDB similar items load
+    const grid = document.getElementById('similar-grid');
+    grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
+
+    // Fetch similar items from TMDB, fall back to Claude
+    let similar = await fetchTmdbRecommendations(mainItem, GRID_SIZE);
+    if (!similar) {
+      similar = await fetchClaudeSimilar(mainItem.title, mainItem.type, mainItem.year, GRID_SIZE);
+    }
+    renderSimilar(similar || []);
 
   } catch(e) {
     document.getElementById('loading').style.display = 'none';
@@ -2589,9 +2588,8 @@ function updateSimilarArrows() {
   const nextBtn = document.getElementById('similar-next');
   if (!prevBtn || !nextBtn) return;
   prevBtn.disabled = suggestionPageIdx <= 0;
-  const nextStart = (suggestionPageIdx + 1) * GRID_SIZE;
-  const hasNext = nextStart < suggestionPool.length;
-  nextBtn.disabled = !hasNext && !poolFetching;
+  // Next is always available when we have a featured item (infinite scrolling)
+  nextBtn.disabled = !currentFeatured;
 }
 
 function similarNext() {
@@ -2599,12 +2597,14 @@ function similarNext() {
   if (nextStart < suggestionPool.length) {
     suggestionPageIdx++;
     displaySuggestionPage(suggestionPageIdx);
-  } else if (poolFetching) {
-    // Items are still loading — show placeholders and wait
+    fillSuggestionPool(); // pre-fetch next batch as user pages forward
+  } else {
+    // No items ready — show placeholders, trigger fetch if needed, and wait
     suggestionPageIdx++;
     const grid = document.getElementById('similar-grid');
     grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
     updateSimilarArrows();
+    fillSuggestionPool();
     waitForPoolPage(suggestionPageIdx);
   }
   window.scrollTo({ top: document.getElementById('similar-grid').offsetTop - 80, behavior: 'smooth' });
@@ -2632,12 +2632,13 @@ function similarPrev() {
 }
 
 async function fillSuggestionPool() {
-  if (suggestionPool.length >= POOL_SIZE || poolFetching || !currentFeatured) return;
+  const buffer = suggestionPool.length - (suggestionPageIdx * GRID_SIZE);
+  if (buffer >= POOL_BUFFER || poolFetching || !currentFeatured) return;
   poolFetching = true;
   updateSimilarArrows();
 
   try {
-    const needed = POOL_SIZE - suggestionPool.length;
+    const needed = POOL_BUFFER - buffer;
 
     // Try TMDB first — returns up to 20 items in one call
     let newItems = await fetchTmdbRecommendations(currentFeatured, needed);
@@ -2708,8 +2709,9 @@ Return exactly ${batchSize} similar titles. Real, well-known titles only. Lowerc
   poolFetching = false;
   updateSimilarArrows();
 
-  // Keep filling if still below target
-  if (suggestionPool.length < POOL_SIZE && currentFeatured) {
+  // Keep filling if still below buffer target
+  const remainingBuffer = suggestionPool.length - (suggestionPageIdx * GRID_SIZE);
+  if (remainingBuffer < POOL_BUFFER && currentFeatured) {
     fillSuggestionPool();
   }
 }
