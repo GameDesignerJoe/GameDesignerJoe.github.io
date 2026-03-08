@@ -1,7 +1,12 @@
 == FlickPick ToDo ==
-- I got to a point in the Based on what you love section where everything just decided to relodad itself. I was clicking all the seen, want, nopes and then boom, all 12 of them just reloaded. Was that because you were doing work there?
+- The gear button om mobile is off the frame.
+- On mobile, the streaming icons bleed off the edge rather than wrap around to a new row.
+- I think we should find a way to break up our api call for the first 12 Based on what you loved section, maybe in to 3 different calls of 4 each. So, we call one row, then the second, then the third, then we move onto the back up calls for the ones in the cue. Really trying to not have to wait what feels ilke forever, but is likely 10+ seconds to get anything to show up. User will just move on. 
+- When an image fails to load, is there a way we can know that and try to get it to load again? It just shows the emoji which is fine I guess, but would like to see it refresh, especially when I click on it for more information. 
+- The indicator that counts how many shows you've seen or watched can't deal with numbers over 99. Perhaps we don't show the number of make it part of the text "Seen (132)" "Watchlist (323)
+- We need to add the same search and short to Seen that we have for Watchlist. I added a number of shows to seen and they aren't showing up. Need to short to figure out why.
+
+
+
+FOR LATER:
 - Since we have a gear, we might want to think about making a section in there where users can click on what streaming services they have. We could then add a filter in the watch list for 'shows you can stream' or something where it only shows you the shows that are on the streaming services you've checked.
-- Not a fan of the huge red trailer button in the watch list window. I think we can make that closer to a decent scale.
-- Going from watch list and clicking in the image of one of the shows and it going to the discover section to show that show and some suggestions, the show itself took a long time to load and loaded with the suggestions. This makes me think that we're not loading the show first and the suggestions second. 
-- Noticed a bug on the suggestions bar now having arrows to a new section. When you select a button on one of these suggestions, it clears out by default, which is what we want, but it leaves a blank space. you can clear out the first four and have nothing there. Then you click the arrow to the right and get four new shows. Seems like we should instead try and shift shows in the second group over to the visible group. And we just try and make sure we always have some number of preloaded new suggestions in the background.
-- I got to a point where the suggestions just ran out. I think it was about four rows in. Or what might have been happening is it was trying to load more and wasn't giving me any feedback. Yeah, that's what it was. I waited and it loaded them. We should instead of not giving feedback. Let the user advance to the next row, but show that the four suggestions are loading. 
