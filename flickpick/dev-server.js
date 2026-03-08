@@ -152,15 +152,37 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // Serve index.html for everything else
+  // Serve static files
   if (req.method === 'GET') {
+    const MIME_TYPES = {
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.js': 'application/javascript',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.svg': 'image/svg+xml',
+    };
+
+    // Map URL path to file — default to index.html for bare /
+    let filePath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
+    const ext = filePath.substring(filePath.lastIndexOf('.'));
+    const contentType = MIME_TYPES[ext] || 'text/html';
+
     try {
-      const html = await readFile(join(__dirname, 'index.html'), 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(html);
+      const data = await readFile(join(__dirname, filePath));
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
     } catch {
-      res.writeHead(404);
-      res.end('Not found');
+      // Fall back to index.html for SPA routes
+      try {
+        const html = await readFile(join(__dirname, 'index.html'), 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(html);
+      } catch {
+        res.writeHead(404);
+        res.end('Not found');
+      }
     }
     return;
   }
