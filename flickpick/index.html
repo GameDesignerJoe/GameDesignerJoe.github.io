@@ -100,6 +100,41 @@
 
   .want-count.visible { opacity: 1; }
 
+  .nav-gear {
+    font-size: 18px;
+    padding: 8px 10px;
+    line-height: 1;
+  }
+
+  .settings-menu {
+    display: none;
+    position: fixed;
+    top: 52px;
+    right: 32px;
+    z-index: 200;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  .settings-menu.open { display: block; }
+
+  .settings-item {
+    display: block;
+    width: 100%;
+    padding: 12px 20px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .settings-item:hover { background: var(--surface); }
+
   /* PAGES */
   .page {
     display: none;
@@ -461,12 +496,21 @@
   .btn-want.active { background: var(--want); color: #000; }
 
   /* SIMILAR SECTION */
+  .similar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
   .similar-label {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 13px;
     letter-spacing: 4px;
     color: var(--muted);
-    margin-bottom: 20px;
+  }
+  .similar-nav {
+    display: flex;
+    gap: 6px;
   }
 
   .similar-grid {
@@ -1172,13 +1216,19 @@
       Watchlist
       <span class="want-count" id="want-count">0</span>
     </button>
+    <button class="nav-btn nav-gear" onclick="toggleSettingsMenu(event)" id="settings-btn" title="Settings">&#9881;</button>
   </div>
 </nav>
+<div class="settings-menu" id="settings-menu">
+  <button class="settings-item" onclick="exportData()">Export Data</button>
+  <button class="settings-item" onclick="document.getElementById('import-file').click()">Import Data</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+</div>
 
 <!-- DISCOVER PAGE -->
 <div class="page active" id="page-discover">
   <div class="search-hero">
-    <div class="search-label">Find something to watch</div>
+    <div class="search-label">Search For A Show You Like</div>
     <div class="search-wrapper">
       <input
         class="search-input"
@@ -1204,11 +1254,7 @@
     </div>
     <div class="carousel-section" id="loved-carousel" style="display:none">
       <div class="carousel-header">
-        <div class="carousel-label">Because You Loved...</div>
-        <div class="carousel-nav">
-          <button class="carousel-arrow" id="loved-car-prev" onclick="carouselPrev('loved')" disabled>&lsaquo;</button>
-          <button class="carousel-arrow" id="loved-car-next" onclick="carouselNext('loved')">&rsaquo;</button>
-        </div>
+        <div class="carousel-label">Based On What You Love</div>
       </div>
       <div class="carousel-track" id="loved-car-track"></div>
     </div>
@@ -1224,7 +1270,13 @@
   <div class="featured-section" id="featured-section">
     <button class="back-btn" id="back-btn" style="display:none" onclick="goBack()">&larr; Back</button>
     <div class="featured-card" id="featured-card"></div>
-    <div class="similar-label">You might also like</div>
+    <div class="similar-header">
+      <div class="similar-label">You might also like</div>
+      <div class="similar-nav">
+        <button class="carousel-arrow" id="similar-prev" onclick="similarPrev()" disabled>&lsaquo;</button>
+        <button class="carousel-arrow" id="similar-next" onclick="similarNext()" disabled>&rsaquo;</button>
+      </div>
+    </div>
     <div class="similar-grid" id="similar-grid"></div>
   </div>
 </div>
@@ -1259,11 +1311,11 @@ let state = {
 
 let currentFeatured = null;
 let shownIds = new Set();
-let replacementBuffer = [];
-let bufferFetching = false;
 const GRID_SIZE = 4;
-const BUFFER_LOW = 3;
-const viewHistory = []; // stack of { featured, similarHtml, buffer, shownIds }
+const viewHistory = []; // stack of { featured, similarPages, similarPageIdx, shownIds }
+let similarPages = [];       // array of 4-item arrays — page 0 is displayed first
+let similarPageIdx = 0;
+let similarFetching = false;
 
 // ─── TMDB CACHE ─────────────────────────────────────────────────────────────
 const posterCache = {};
@@ -1675,7 +1727,7 @@ function renderCarouselItem(item, showActions) {
       </div>
       <div class="carousel-item-actions">
         <button class="mini-btn mini-seen ${seenActive}" onclick="event.stopPropagation(); toggleSeen('${item.id}', this)" data-item='${safeItemAttr}'>
-          ${state.seen[item.id] ? '✓' : 'Seen'}
+          Seen
         </button>
         <button class="mini-btn mini-want ${wantActive}" onclick="event.stopPropagation(); toggleWant('${item.id}', this)" data-item='${safeItemAttr}'>
           ${state.want[item.id] ? '★' : 'Want'}
@@ -1709,29 +1761,52 @@ function loadCarouselPoster(item, selector) {
   });
 }
 
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function renderWatchlistCarousel() {
   const items = Object.values(state.want);
   const section = document.getElementById('watchlist-carousel');
   if (items.length === 0) { section.style.display = 'none'; return; }
   section.style.display = '';
 
+  // Shuffle on first render or when page resets to 0
+  if (!carouselState.watchlist.shuffled || carouselState.watchlist.page === 0) {
+    carouselState.watchlist.shuffled = shuffleArray(items);
+  }
+  const shuffled = carouselState.watchlist.shuffled;
+
   const pageSize = getCarouselPageSize();
   const s = carouselState.watchlist;
   const start = s.page * pageSize;
-  const batch = items.slice(start, start + pageSize);
+  const batch = shuffled.slice(start, start + pageSize);
   const track = document.getElementById('wl-car-track');
   track.style.gridTemplateColumns = `repeat(${pageSize}, 1fr)`;
   track.innerHTML = batch.map(item => renderCarouselItem(item)).join('');
   batch.forEach(item => loadCarouselPoster(item));
 
   document.getElementById('wl-car-prev').disabled = s.page === 0;
-  document.getElementById('wl-car-next').disabled = start + pageSize >= items.length;
+  document.getElementById('wl-car-next').disabled = start + pageSize >= shuffled.length;
 }
 
 async function renderLovedCarousel() {
   const lovedItems = Object.values(state.seen).filter(i => i.rating === 'loved');
   const section = document.getElementById('loved-carousel');
-  if (lovedItems.length === 0) { section.style.display = 'none'; return; }
+  if (lovedItems.length === 0) {
+    section.style.display = '';
+    const track = document.getElementById('loved-car-track');
+    track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
+      <div style="font-size:1.5rem;margin-bottom:8px">❤️</div>
+      <div>Rate shows in your <strong>Seen</strong> list with ❤️ to get personalized recommendations here.</div>
+    </div>`;
+    return;
+  }
   section.style.display = '';
 
   // Use cached recommendations if we have them and loved list hasn't changed
@@ -1742,7 +1817,10 @@ async function renderLovedCarousel() {
   }
 
   const track = document.getElementById('loved-car-track');
-  track.innerHTML = `<div class="carousel-loading"><div class="loading-spinner" style="margin:0 auto 8px"></div>Finding recommendations...</div>`;
+  const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
+  const placeholderCount = cols * 3;
+  track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  track.innerHTML = Array(placeholderCount).fill(`<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`).join('');
 
   try {
     const titles = lovedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
@@ -1761,19 +1839,20 @@ Return ONLY a JSON object with exactly this structure, no markdown:
       "type": "TV Show" or "Movie",
       "year": "2022",
       "genres": "Comedy, Drama",
-      "emoji": "single relevant emoji"
+      "emoji": "single relevant emoji",
+      "description": "Brief one-sentence description of the show"
     }
   ]
 }
 
-Return exactly 12 recommendations. Real, well-known titles only. Lowercase hyphenated ids. Do NOT include any of the titles the user already loved.` + getExclusionList();
+Return exactly 20 recommendations. Real, well-known titles only. Lowercase hyphenated ids. Do NOT include any of the titles the user already loved.` + getExclusionList();
 
     const res = await fetch("/api/recommend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1200,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2500,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -1793,7 +1872,7 @@ Return exactly 12 recommendations. Real, well-known titles only. Lowercase hyphe
 
 function getLovedPageSize() {
   const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
-  return cols * 2; // 2 rows
+  return cols * 3; // 3 rows
 }
 
 function replaceLovedCard(cardEl) {
@@ -1818,28 +1897,30 @@ function replaceLovedCard(cardEl) {
       loadCarouselPoster(replacement);
     }, 300);
   } else {
-    // No replacement available — just fade out and remove
+    // No replacement available — fade out and fetch more in background
     cardEl.style.transition = 'all 0.3s';
     cardEl.style.opacity = '0';
     cardEl.style.transform = 'scale(0.95)';
     setTimeout(() => cardEl.remove(), 300);
+    // Trigger a fresh fetch if buffer is exhausted
+    if (!lovedRefetching) {
+      lovedRefetching = true;
+      lovedRecsCache = null; // Clear cache to force re-fetch
+      renderLovedCarousel().finally(() => { lovedRefetching = false; });
+    }
   }
 }
+let lovedRefetching = false;
 
 function displayLovedCarousel(items) {
   carouselState.loved.items = items;
   const cols = window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
-  const pageSize = cols * 2;
-  const s = carouselState.loved;
-  const start = s.page * pageSize;
-  const batch = items.slice(start, start + pageSize);
   const track = document.getElementById('loved-car-track');
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  // Show all items (up to 12) — no pagination
+  const batch = items.filter(i => !state.seen[i.id] && !state.want[i.id] && !state.nope[i.id]).slice(0, cols * 3);
   track.innerHTML = batch.map(item => renderCarouselItem(item, true)).join('');
   batch.forEach(item => loadCarouselPoster(item));
-
-  document.getElementById('loved-car-prev').disabled = s.page === 0;
-  document.getElementById('loved-car-next').disabled = start + pageSize >= items.length;
 }
 
 function carouselPrev(type) {
@@ -1863,6 +1944,66 @@ function saveState() {
   localStorage.setItem('flickpick_state', JSON.stringify(state));
   updateWantCount();
   updateSeenCount();
+}
+
+// ─── SETTINGS / IMPORT / EXPORT ─────────────────────────────────────────────
+function toggleSettingsMenu(e) {
+  e.stopPropagation();
+  document.getElementById('settings-menu').classList.toggle('open');
+}
+document.addEventListener('click', () => {
+  document.getElementById('settings-menu').classList.remove('open');
+});
+
+function exportData() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    state: state
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `flickpick-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('settings-menu').classList.remove('open');
+  showToast('Data exported!');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      const imported = data.state || data;
+      if (!imported.seen && !imported.want && !imported.nope) {
+        showToast('Invalid backup file');
+        return;
+      }
+      // Merge: imported data takes priority, but keep any items not in the import
+      if (imported.seen) Object.assign(state.seen, imported.seen);
+      if (imported.want) Object.assign(state.want, imported.want);
+      if (imported.nope) Object.assign(state.nope, imported.nope);
+      saveState();
+      showToast(`Imported ${Object.keys(imported.seen || {}).length} seen, ${Object.keys(imported.want || {}).length} watchlist items`);
+      // Refresh current page
+      const activePage = document.querySelector('.page.active');
+      if (activePage) {
+        if (activePage.id === 'page-seen') renderSeenList();
+        else if (activePage.id === 'page-watchlist') renderWatchlist();
+        else initDiscoverCarousels();
+      }
+    } catch(err) {
+      showToast('Failed to read backup file');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+  document.getElementById('settings-menu').classList.remove('open');
 }
 
 function updateWantCount() {
@@ -2023,8 +2164,9 @@ Return exactly 4 similar titles. Make them genuinely good recommendations — mi
     const result = JSON.parse(text);
 
     shownIds = new Set();
-    replacementBuffer = [];
-    bufferFetching = false;
+    similarPages = [];
+    similarPageIdx = 0;
+    similarFetching = false;
     renderFeatured(result.main);
     renderSimilar(filterResults(result.similar));
 
@@ -2100,7 +2242,7 @@ function renderSingleCard(item) {
       </div>
       <div class="similar-actions">
         <button class="mini-btn mini-seen ${seenActive}" onclick="toggleSeen('${item.id}', this)" data-item='${safeItem}'>
-          ${state.seen[item.id] ? '✓ Seen' : 'Seen'}
+          Seen
         </button>
         <button class="mini-btn mini-want ${wantActive}" onclick="toggleWant('${item.id}', this)" data-item='${safeItem}'>
           ${state.want[item.id] ? '★' : 'Want'}
@@ -2119,24 +2261,51 @@ function renderPlaceholderCard() {
 
 function renderSimilar(items) {
   items.forEach(item => shownIds.add(item.id));
-  const grid = document.getElementById('similar-grid');
-  grid.innerHTML = items.map(item => renderSingleCard(item)).join('');
-  // Load posters for all cards
-  items.forEach(item => loadPosterFor(item.id, item.title, item.year));
-  // Start pre-fetching buffer
-  maybeRefillBuffer();
+  similarPages = [items];
+  similarPageIdx = 0;
+  displaySimilarPage(0);
+  prefetchSimilarPage();
 }
 
-// ─── BUFFER SYSTEM ───────────────────────────────────────────────────────────
-function maybeRefillBuffer() {
-  if (replacementBuffer.length < BUFFER_LOW && !bufferFetching && currentFeatured) {
-    fillBuffer();
+// ─── SUGGESTION PAGINATION ──────────────────────────────────────────────────
+function displaySimilarPage(idx) {
+  const items = similarPages[idx] || [];
+  const grid = document.getElementById('similar-grid');
+  grid.innerHTML = items.map(item => renderSingleCard(item)).join('');
+  items.forEach(item => loadPosterFor(item.id, item.title, item.year));
+  updateSimilarArrows();
+}
+
+function updateSimilarArrows() {
+  const prevBtn = document.getElementById('similar-prev');
+  const nextBtn = document.getElementById('similar-next');
+  if (!prevBtn || !nextBtn) return;
+  prevBtn.disabled = similarPageIdx <= 0;
+  const hasNext = similarPages[similarPageIdx + 1] && similarPages[similarPageIdx + 1].length > 0;
+  nextBtn.disabled = !hasNext && !similarFetching;
+}
+
+function similarNext() {
+  if (similarPages[similarPageIdx + 1]) {
+    similarPageIdx++;
+    displaySimilarPage(similarPageIdx);
+    prefetchSimilarPage();
+    window.scrollTo({ top: document.getElementById('similar-grid').offsetTop - 80, behavior: 'smooth' });
   }
 }
 
-async function fillBuffer() {
-  if (bufferFetching || !currentFeatured) return;
-  bufferFetching = true;
+function similarPrev() {
+  if (similarPageIdx > 0) {
+    similarPageIdx--;
+    displaySimilarPage(similarPageIdx);
+    window.scrollTo({ top: document.getElementById('similar-grid').offsetTop - 80, behavior: 'smooth' });
+  }
+}
+
+async function prefetchSimilarPage() {
+  if (similarPages[similarPageIdx + 1] || similarFetching || !currentFeatured) return;
+  similarFetching = true;
+  updateSimilarArrows();
 
   try {
     const exclusion = getExclusionList() + getShownExclusion();
@@ -2177,62 +2346,20 @@ Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphena
     const text = data.content[0].text.replace(/```json|```/g, '').trim();
     const result = JSON.parse(text);
     const filtered = filterResults(result.similar);
+    filtered.forEach(item => shownIds.add(item.id));
 
-    filtered.forEach(item => {
-      if (!shownIds.has(item.id)) {
-        replacementBuffer.push(item);
-        shownIds.add(item.id);
-      }
-    });
-
-    // Fill any waiting placeholders
-    fillWaitingPlaceholders();
+    similarPages.push(filtered);
   } catch(e) {
-    console.error('Buffer fill error:', e);
+    console.error('Prefetch error:', e);
   }
 
-  bufferFetching = false;
-}
-
-function fillWaitingPlaceholders() {
-  const placeholders = document.querySelectorAll('.similar-card.loading-placeholder');
-  if (placeholders.length === 0) return;
-
-  placeholders.forEach(ph => {
-    if (replacementBuffer.length > 0) {
-      const item = replacementBuffer.shift();
-      ph.outerHTML = renderSingleCard(item);
-      loadPosterFor(item.id, item.title, item.year);
-    }
-  });
-
-  // If there are still placeholders and we're not fetching, try again
-  const remaining = document.querySelectorAll('.similar-card.loading-placeholder');
-  if (remaining.length > 0 && !bufferFetching) {
-    fillBuffer();
-  }
+  similarFetching = false;
+  updateSimilarArrows();
 }
 
 function replaceCard(card) {
-  if (replacementBuffer.length > 0) {
-    const item = replacementBuffer.shift();
-    card.classList.add('removing');
-    setTimeout(() => {
-      card.outerHTML = renderSingleCard(item);
-      loadPosterFor(item.id, item.title, item.year);
-    }, 300);
-  } else {
-    card.classList.add('removing');
-    setTimeout(() => {
-      card.outerHTML = renderPlaceholderCard();
-      // Set a timeout — if still a placeholder after 15s, just remove it
-      setTimeout(() => {
-        const stillWaiting = document.querySelectorAll('.similar-card.loading-placeholder');
-        stillWaiting.forEach(ph => ph.remove());
-      }, 15000);
-    }, 300);
-  }
-  maybeRefillBuffer();
+  card.classList.add('removing');
+  setTimeout(() => card.remove(), 300);
 }
 
 // ─── NAVIGATION HISTORY ─────────────────────────────────────────────────────
@@ -2246,38 +2373,12 @@ function goBack() {
   const prev = viewHistory.pop();
 
   currentFeatured = prev.featured;
-  replacementBuffer = prev.buffer;
+  similarPages = prev.similarPages || [];
+  similarPageIdx = prev.similarPageIdx || 0;
   shownIds = prev.shownIds;
 
   renderFeatured(prev.featured);
-  document.getElementById('similar-grid').innerHTML = prev.similarHtml;
-
-  // Re-load posters and refresh button states for restored cards
-  document.querySelectorAll('#similar-grid .similar-card').forEach(cardEl => {
-    const btn = cardEl.querySelector('[data-item]');
-    if (!btn) return;
-    try {
-      const item = JSON.parse(btn.getAttribute('data-item').replace(/&#39;/g, "'"));
-      loadPosterFor(item.id, item.title, item.year);
-
-      // Refresh seen/want/nope button states to match current state
-      const seenBtn = cardEl.querySelector('.mini-seen');
-      const wantBtn = cardEl.querySelector('.mini-want');
-      const nopeBtn = cardEl.querySelector('.mini-nope');
-      if (seenBtn) {
-        seenBtn.classList.toggle('active', !!state.seen[item.id]);
-        seenBtn.textContent = state.seen[item.id] ? '\u2713 Seen' : 'Seen';
-      }
-      if (wantBtn) {
-        wantBtn.classList.toggle('active', !!state.want[item.id]);
-        wantBtn.textContent = state.want[item.id] ? '\u2605' : 'Want';
-      }
-      if (nopeBtn) {
-        nopeBtn.classList.toggle('active', !!state.nope[item.id]);
-        nopeBtn.textContent = state.nope[item.id] ? '\u2715' : 'Nope';
-      }
-    } catch(e) {}
-  });
+  displaySimilarPage(similarPageIdx);
 
   // Also refresh the featured card buttons
   const featuredActions = document.querySelector('.featured-actions');
@@ -2316,8 +2417,8 @@ async function loadItemDirect(item) {
   if (currentFeatured) {
     viewHistory.push({
       featured: currentFeatured,
-      similarHtml: document.getElementById('similar-grid').innerHTML,
-      buffer: [...replacementBuffer],
+      similarPages: similarPages.map(p => [...p]),
+      similarPageIdx: similarPageIdx,
       shownIds: new Set(shownIds)
     });
   }
@@ -2369,8 +2470,9 @@ Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphena
     const result = JSON.parse(text);
 
     shownIds = new Set();
-    replacementBuffer = [];
-    bufferFetching = false;
+    similarPages = [];
+    similarPageIdx = 0;
+    similarFetching = false;
     renderSimilar(filterResults(result.similar));
   } catch(e) {
     grid.innerHTML = '';
@@ -2394,8 +2496,8 @@ async function loadItem(itemId) {
   if (currentFeatured) {
     viewHistory.push({
       featured: currentFeatured,
-      similarHtml: document.getElementById('similar-grid').innerHTML,
-      buffer: [...replacementBuffer],
+      similarPages: similarPages.map(p => [...p]),
+      similarPageIdx: similarPageIdx,
       shownIds: new Set(shownIds)
     });
   }
@@ -2451,8 +2553,9 @@ Return exactly 4 similar titles. Real, well-known titles only. Lowercase hyphena
     const result = JSON.parse(text);
 
     shownIds = new Set();
-    replacementBuffer = [];
-    bufferFetching = false;
+    similarPages = [];
+    similarPageIdx = 0;
+    similarFetching = false;
     renderSimilar(filterResults(result.similar));
   } catch(e) {
     // Clear placeholders on error
@@ -2473,7 +2576,7 @@ function toggleSeen(id, btn) {
   } else {
     state.seen[id] = { ...item, rating: null, addedAt: Date.now() };
     btn.classList.add('active');
-    btn.textContent = isMini ? '✓ Seen' : '✓ Seen';
+    btn.textContent = isMini ? 'Seen' : '✓ Seen';
     showToast(`Marked "${item.title}" as seen`);
     if (isMini) {
       const card = btn.closest('.similar-card');
@@ -2521,7 +2624,7 @@ function toggleWant(id, btn) {
     btn.textContent = isMini ? 'Want' : '+ Watchlist';
     showToast(`Removed "${item.title}" from watchlist`);
   } else {
-    state.want[id] = item;
+    state.want[id] = { ...item, addedAt: Date.now() };
     btn.classList.add('active');
     btn.textContent = isMini ? '★' : '★ Saved';
     showToast(`Added "${item.title}" to watchlist`);
@@ -2598,7 +2701,7 @@ function loadWatchlistExtras(item) {
 }
 
 function renderWatchlist() {
-  const items = Object.values(state.want);
+  const items = Object.values(state.want).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   const sub = document.getElementById('watchlist-subheading');
   const container = document.getElementById('want-list-container');
 
@@ -2610,7 +2713,7 @@ function renderWatchlist() {
     container.innerHTML = `
       <div class="want-empty">
         <div class="want-empty-icon">🎬</div>
-        <div class="want-empty-text">Search for something and hit "+ Watchlist" to save it here.</div>
+        <div class="want-empty-text">Search for a show on the Discover page and tap <strong>Watchlist</strong> to save it here for later.</div>
       </div>`;
     watchlistShown = 0;
     return;
@@ -2636,7 +2739,7 @@ function renderWatchlist() {
 }
 
 function loadMoreWatchlist() {
-  const items = Object.values(state.want);
+  const items = Object.values(state.want).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   const grid = document.getElementById('watchlist-grid');
   if (!grid) return;
 
@@ -2750,7 +2853,7 @@ function renderSeenList() {
     container.innerHTML = `
       <div class="want-empty">
         <div class="want-empty-icon">👀</div>
-        <div class="want-empty-text">Mark shows as "Seen" in Discover to track them here.</div>
+        <div class="want-empty-text">Search for a show on the Discover page and tap <strong>Seen</strong> to start tracking what you've watched. Rate them with ❤️ to unlock personalized recommendations!</div>
       </div>`;
     seenShown = 0;
     return;
