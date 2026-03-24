@@ -37,7 +37,10 @@
       "Bash(node -e \"const fs = require\\(''fs''\\); const html = fs.readFileSync\\(''index.html'', ''utf-8''\\); console.log\\(''Lines:'', html.split\\(''\\\\n''\\).length\\); console.log\\(''renderCarouselItem\\(item, true\\):'', \\(html.match\\(/renderCarouselItem\\\\\\(item, true\\\\\\)/g\\)||[]\\).length\\); console.log\\(''renderCarouselItem\\(item\\):'', \\(html.match\\(/renderCarouselItem\\\\\\(item\\\\\\)[^,]/g\\)||[]\\).length\\); console.log\\(''carousel-item-actions:'', \\(html.match\\(/carousel-item-actions/g\\)||[]\\).length\\);\")",
       "Bash(node -e \"const fs = require\\(''fs''\\); const html = fs.readFileSync\\(''index.html'', ''utf-8''\\); console.log\\(''Lines:'', html.split\\(''\\\\n''\\).length\\); console.log\\(''replaceLovedCard:'', \\(html.match\\(/replaceLovedCard/g\\)||[]\\).length\\); console.log\\(''active-meh:'', \\(html.match\\(/active-meh/g\\)||[]\\).length\\); console.log\\(''getLovedPageSize:'', \\(html.match\\(/getLovedPageSize/g\\)||[]\\).length\\);\")",
       "Bash(node -c state.js)",
-      "Bash(node -c app.js)"
+      "Bash(node -c app.js)",
+      "Bash(npm run build)",
+      "Bash(cp -r AddScore/dist/* AddScore/)",
+      "Bash(rm -rf AddScore/dist)"
     ]
   }
 }

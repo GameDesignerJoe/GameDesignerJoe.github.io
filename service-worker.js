@@ -175,6 +175,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(event.request).then((response) => {
         return response || fetch(event.request);
+      }).catch(() => {
+        // Network failed and not in cache — let browser handle normally
+        return new Response('Not found', { status: 404 });
       })
     );
   }
