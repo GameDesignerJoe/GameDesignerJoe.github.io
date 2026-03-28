@@ -267,7 +267,7 @@ function doConnect(resolve, reject) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     code: response.code,
-                    redirect_uri: window.location.origin
+                    redirect_uri: 'postmessage'
                 })
             });
 
