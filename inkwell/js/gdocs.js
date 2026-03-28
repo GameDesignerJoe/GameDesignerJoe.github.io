@@ -239,10 +239,12 @@ export async function appendTextToDoc(text, pageNumber) {
 // --- Internal helpers ---
 
 function setupCodeClient(clientId) {
+    console.log('[gdocs] Setting up code client with origin:', window.location.origin);
     codeClient = google.accounts.oauth2.initCodeClient({
         client_id: clientId,
         scope: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
         ux_mode: 'popup',
+        redirect_uri: 'postmessage',
         callback: () => {} // Overridden per-call in doConnect
     });
 }
