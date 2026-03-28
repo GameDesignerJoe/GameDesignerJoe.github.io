@@ -13,7 +13,7 @@ const btnScan = document.getElementById('btn-scan');
 const transcriptTitle = document.getElementById('transcript-title');
 const btnCopy = document.getElementById('btn-copy');
 const btnNewStory = document.getElementById('btn-new-story');
-const dots = document.querySelectorAll('.dot');
+const viewTabs = document.querySelectorAll('.view-tab');
 const statusPill = document.getElementById('status-pill');
 const pageCounter = document.getElementById('page-counter');
 
@@ -24,6 +24,7 @@ let wakeLock = null;
 initSettings();
 initHomeScreen();
 initSwipe();
+initTabs();
 initTextActions();
 
 // --- Home Screen ---
@@ -53,7 +54,7 @@ async function startSession() {
     screenHome.style.display = 'none';
     swipeContainer.classList.remove('hidden');
     currentView = 0;
-    updateSwipeDots();
+    updateTabs();
 
     // Request wake lock
     await requestWakeLock();
@@ -94,7 +95,29 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// --- Swipe Navigation ---
+// --- Tab Navigation (click) ---
+function initTabs() {
+    viewTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const view = parseInt(tab.dataset.view);
+            switchView(view);
+        });
+    });
+}
+
+function switchView(view) {
+    currentView = view;
+    swipeContainer.style.transform = `translateX(${-currentView * window.innerWidth}px)`;
+    updateTabs();
+}
+
+function updateTabs() {
+    viewTabs.forEach(tab => {
+        tab.classList.toggle('active', parseInt(tab.dataset.view) === currentView);
+    });
+}
+
+// --- Swipe Navigation (touch) ---
 function initSwipe() {
     let startX = 0;
     let startTime = 0;
@@ -115,7 +138,6 @@ function initSwipe() {
         if (!dragging) return;
         deltaX = e.touches[0].clientX - startX;
 
-        // Apply resistance at edges
         const atLeftEdge = currentView === 0 && deltaX > 0;
         const atRightEdge = currentView === 1 && deltaX < 0;
         const resistedDelta = (atLeftEdge || atRightEdge) ? deltaX * 0.2 : deltaX;
@@ -142,13 +164,7 @@ function initSwipe() {
         }
 
         swipeContainer.style.transform = `translateX(${-currentView * window.innerWidth}px)`;
-        updateSwipeDots();
-    });
-}
-
-function updateSwipeDots() {
-    dots.forEach((dot, i) => {
-        dot.classList.toggle('active', i === currentView);
+        updateTabs();
     });
 }
 
@@ -182,7 +198,7 @@ function endSession() {
     swipeContainer.classList.add('hidden');
     swipeContainer.style.transform = 'translateX(0)';
     currentView = 0;
-    updateSwipeDots();
+    updateTabs();
     screenHome.style.display = '';
     screenHome.classList.add('active');
     storyInput.value = '';
