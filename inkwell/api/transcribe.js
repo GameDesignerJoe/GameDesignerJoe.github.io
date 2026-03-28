@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
                         },
                         {
                             type: 'text',
-                            text: 'This is a page from a handwritten notebook. Please transcribe all the handwritten text exactly as written, preserving paragraph breaks. Do not add any commentary, headings, or formatting — just the raw transcribed text. If a word is unclear, make your best guess and continue.'
+                            text: 'This is a photo of a handwritten notebook page. The page may be rotated sideways (90°, 180°, or 270°) — rotate it mentally to find the correct reading orientation before transcribing. Transcribe all the handwritten text exactly as written, preserving paragraph breaks. Output only the raw transcribed text — no commentary, no headings, no formatting. If a word is unclear, make your best guess and continue.'
                         }
                     ]
                 }]
