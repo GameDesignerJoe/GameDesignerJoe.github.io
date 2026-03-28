@@ -11,7 +11,7 @@ import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
 })();
 import { startCamera, stopCamera, refocus } from './camera.js';
 import { init as initCapture, teardown as teardownCapture, scanPage } from './capture.js';
-import { clearTranscript, copyAll, getPages, renderSavedPages, removeLastPage, getPageCount } from './transcript.js';
+import { clearTranscript, copyAll, getPages, viewSavedEntry, exitViewMode, isViewing, removeLastPage, getPageCount } from './transcript.js';
 import { updateStatusPill, updatePageCounter } from './ui.js';
 import { saveTranscript, deleteTranscript, getFullText, renderLibrary } from './library.js';
 
@@ -34,6 +34,7 @@ const btnCancelSave = document.getElementById('btn-cancel-save');
 let currentView = 0; // 0 = scan, 1 = text, 2 = library
 let wakeLock = null;
 let cameraStarted = false;
+const isDesktop = () => window.innerWidth >= 900;
 
 // --- Init ---
 initSettings();
@@ -90,8 +91,6 @@ function initTabs() {
     });
 }
 
-const isDesktop = () => window.innerWidth >= 900;
-
 function switchView(view) {
     currentView = view;
     viewTabs.forEach(tab => {
@@ -105,6 +104,11 @@ function switchView(view) {
         // Mobile: slide views
         document.body.classList.remove('library-active');
         viewContainer.style.transform = `translateX(${-currentView * 100}vw)`;
+    }
+
+    // Exit view mode when navigating away from text
+    if (currentView !== 1 && isViewing()) {
+        exitViewMode();
     }
 
     // Refresh library when switching to it
@@ -252,6 +256,7 @@ function initTextActions() {
     });
 
     btnSave.addEventListener('click', () => {
+        if (isViewing()) return; // Already saved
         const pages = getPages();
         if (pages.length === 0) return;
         saveNameInput.value = '';
@@ -260,6 +265,10 @@ function initTextActions() {
     });
 
     btnClear.addEventListener('click', () => {
+        if (isViewing()) {
+            exitViewMode();
+            return;
+        }
         if (!confirm('Clear current transcript?')) return;
         clearTranscript();
     });
@@ -310,7 +319,7 @@ function refreshLibrary() {
         },
         // onView
         (entry) => {
-            renderSavedPages(entry.pages);
+            viewSavedEntry(entry);
             switchView(1);
         }
     );
