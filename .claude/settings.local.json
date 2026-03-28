@@ -40,7 +40,10 @@
       "Bash(node -c app.js)",
       "Bash(npm run build)",
       "Bash(cp -r AddScore/dist/* AddScore/)",
-      "Bash(rm -rf AddScore/dist)"
+      "Bash(rm -rf AddScore/dist)",
+      "Bash(node -e \":*)",
+      "Bash(node --version)",
+      "Bash(npm --version)"
     ]
   }
 }

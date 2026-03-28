@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0d0d0d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Inkwell</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Lora:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Home Screen -->
+    <section id="screen-home" class="screen active">
+        <div class="home-content">
+            <h1 class="app-title">Inkwell</h1>
+            <p class="app-subtitle">handwritten → digital</p>
+            <div class="home-form">
+                <label for="story-title" class="input-label">Story title:</label>
+                <input type="text" id="story-title" class="text-input" placeholder="Enter a title…" autocomplete="off">
+                <button id="btn-start" class="btn-primary" disabled>Start Scanning</button>
+            </div>
+        </div>
+        <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">⚙</button>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <h2 class="modal-title">Settings</h2>
+                <label for="api-key-input" class="input-label">Claude API Key:</label>
+                <input type="password" id="api-key-input" class="text-input" placeholder="sk-ant-…">
+                <div class="modal-actions">
+                    <button id="btn-save-key" class="btn-primary btn-small">Save</button>
+                    <button id="btn-cancel-settings" class="btn-secondary btn-small">Cancel</button>
+                </div>
+                <p id="key-status" class="key-status"></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Swipe Container (Scan + Text views) -->
+    <div id="swipe-container" class="swipe-container hidden">
+
+        <!-- Scan View -->
+        <section id="screen-scan" class="screen swipe-screen">
+            <div class="scan-viewport">
+                <video id="camera-feed" autoplay playsinline muted></video>
+                <div id="crop-guide" class="crop-guide">
+                    <div class="crop-corner top-left"></div>
+                    <div class="crop-corner top-right"></div>
+                    <div class="crop-corner bottom-left"></div>
+                    <div class="crop-corner bottom-right"></div>
+                </div>
+                <div id="scan-flash" class="scan-flash"></div>
+            </div>
+            <div id="status-pill" class="status-pill">Waiting…</div>
+            <div id="error-bar" class="error-bar hidden">
+                <span id="error-msg"></span>
+                <button id="btn-retry" class="retry-btn">Retry</button>
+                <button id="btn-skip" class="retry-btn skip-btn">Skip</button>
+            </div>
+            <div id="page-counter" class="page-counter">Pages: 0</div>
+            <button id="btn-scan" class="scan-btn">Scan</button>
+        </section>
+
+        <!-- Text View -->
+        <section id="screen-text" class="screen swipe-screen">
+            <div class="text-header">
+                <h2 id="transcript-title" class="transcript-title"></h2>
+            </div>
+            <div id="transcript-body" class="transcript-body">
+                <p class="transcript-placeholder">Scanned pages will appear here…</p>
+            </div>
+            <div class="text-actions">
+                <button id="btn-copy" class="btn-primary btn-small">Copy All</button>
+                <button id="btn-new-story" class="btn-secondary btn-small">New Story</button>
+            </div>
+        </section>
+
+        <!-- Swipe Dots -->
+        <div class="swipe-dots">
+            <span class="dot active"></span>
+            <span class="dot"></span>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
