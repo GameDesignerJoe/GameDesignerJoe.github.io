@@ -1,4 +1,14 @@
-import { initSettings, hasApiKey } from './settings.js';
+import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
+
+// Migrate old single-key format to new multi-provider format
+(function migrateOldKey() {
+    const oldKey = localStorage.getItem('inkwell_api_key');
+    if (oldKey) {
+        setApiKey('claude', oldKey);
+        setProvider('claude');
+        localStorage.removeItem('inkwell_api_key');
+    }
+})();
 import { startCamera, stopCamera } from './camera.js';
 import { init as initCapture, teardown as teardownCapture, scanPage } from './capture.js';
 import { clearTranscript, copyAll, getPages } from './transcript.js';

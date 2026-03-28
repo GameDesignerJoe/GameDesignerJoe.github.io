@@ -1,13 +1,26 @@
-import { getApiKey } from './settings.js';
+import { getApiKey, getProvider } from './settings.js';
+
+const ENDPOINTS = {
+    claude: '/api/transcribe',
+    gemini: '/api/transcribe-gemini',
+    gcv: '/api/transcribe-gcv'
+};
 
 export async function transcribePage(base64Image) {
-    const apiKey = getApiKey();
+    const provider = getProvider();
+    const apiKey = getApiKey(provider);
+
     if (!apiKey) {
-        return { text: null, error: 'No API key configured' };
+        return { text: null, error: `No API key for ${provider}` };
+    }
+
+    const endpoint = ENDPOINTS[provider];
+    if (!endpoint) {
+        return { text: null, error: `Unknown provider: ${provider}` };
     }
 
     try {
-        const response = await fetch('/api/transcribe', {
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

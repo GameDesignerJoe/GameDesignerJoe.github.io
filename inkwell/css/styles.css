@@ -238,6 +238,38 @@ html, body {
     min-height: 1.2em;
 }
 
+/* Provider selector */
+.provider-selector {
+    display: flex;
+    gap: 2px;
+    background: #111;
+    border-radius: 8px;
+    padding: 2px;
+    border: 1px solid #333;
+}
+
+.provider-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #666;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+.provider-btn.active {
+    background: #333;
+    color: #f5f0e8;
+}
+
+.key-section.hidden {
+    display: none;
+}
+
 /* === Scan View === */
 .scan-viewport {
     flex: 1;

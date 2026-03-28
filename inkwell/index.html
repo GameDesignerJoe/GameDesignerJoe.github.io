@@ -25,7 +25,7 @@
             <button class="view-tab" data-view="2">Library</button>
         </div>
         <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">&#9881;</button>
-        <span class="version-tag">v4</span>
+        <span class="version-tag">v5</span>
     </header>
 
     <!-- Main Container (3 views) -->
@@ -79,8 +79,27 @@
         <div class="modal-backdrop"></div>
         <div class="modal-content">
             <h2 class="modal-title">Settings</h2>
-            <label for="api-key-input" class="input-label">Claude API Key:</label>
-            <input type="password" id="api-key-input" class="text-input" placeholder="sk-ant-…">
+
+            <label class="input-label">OCR Provider:</label>
+            <div class="provider-selector">
+                <button class="provider-btn active" data-provider="claude">Claude</button>
+                <button class="provider-btn" data-provider="gemini">Gemini</button>
+                <button class="provider-btn" data-provider="gcv">Google Vision</button>
+            </div>
+
+            <div id="key-section-claude" class="key-section">
+                <label for="api-key-claude" class="input-label">Claude API Key:</label>
+                <input type="password" id="api-key-claude" class="text-input" placeholder="sk-ant-…">
+            </div>
+            <div id="key-section-gemini" class="key-section hidden">
+                <label for="api-key-gemini" class="input-label">Gemini API Key:</label>
+                <input type="password" id="api-key-gemini" class="text-input" placeholder="AIza…">
+            </div>
+            <div id="key-section-gcv" class="key-section hidden">
+                <label for="api-key-gcv" class="input-label">Google Cloud API Key:</label>
+                <input type="password" id="api-key-gcv" class="text-input" placeholder="AIza…">
+            </div>
+
             <div class="modal-actions">
                 <button id="btn-save-key" class="btn-primary btn-small">Save</button>
                 <button id="btn-cancel-settings" class="btn-secondary btn-small">Cancel</button>
