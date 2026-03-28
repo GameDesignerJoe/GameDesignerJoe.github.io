@@ -779,20 +779,19 @@ html, body {
         transition: none;
     }
 
-    /* Scan + Text always visible side by side */
-    #screen-scan,
-    #screen-text {
-        width: 100%;
+    /* Override ALL mobile .view-screen properties that break grid */
+    .view-screen {
+        width: auto !important;
+        min-width: 0;
+        flex-shrink: 1;
     }
 
-    /* Library overlays full width when active */
+    /* Library hidden by default on desktop */
     #screen-library {
         display: none;
-        width: 100%;
     }
 
-    body.library-active #screen-scan,
-    body.library-active #screen-text {
+    body.library-active .view-screen {
         display: none;
     }
 
