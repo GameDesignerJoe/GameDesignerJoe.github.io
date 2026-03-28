@@ -19,6 +19,14 @@ export function getPages() {
     return pages;
 }
 
+export function removeLastPage() {
+    if (pages.length > 0) {
+        pages.pop();
+        render();
+    }
+    return pages.length;
+}
+
 export function clearTranscript() {
     pages.length = 0;
     render();

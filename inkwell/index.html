@@ -25,7 +25,7 @@
             <button class="view-tab" data-view="2">Library</button>
         </div>
         <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">&#9881;</button>
-        <span class="version-tag">v6</span>
+        <span class="version-tag">v7</span>
     </header>
 
     <!-- Main Container (3 views) -->
@@ -53,7 +53,13 @@
                 <div id="page-counter" class="page-counter">Pages: 0</div>
                 <button id="btn-new-doc" class="btn-new-doc">+ New Doc</button>
             </div>
-            <button id="btn-scan" class="scan-btn">Scan</button>
+            <div id="scan-preview" class="scan-preview hidden">
+                <div class="scan-preview-text"></div>
+            </div>
+            <div class="scan-btn-row">
+                <button id="btn-rescan" class="rescan-btn hidden">Rescan</button>
+                <button id="btn-scan" class="scan-btn">Scan</button>
+            </div>
         </section>
 
         <!-- Text View -->

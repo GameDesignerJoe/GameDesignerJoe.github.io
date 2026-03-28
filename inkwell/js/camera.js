@@ -24,6 +24,15 @@ export async function startCamera() {
     videoEl.srcObject = stream;
     await videoEl.play();
 
+    // Enable continuous autofocus if supported
+    const track = stream.getVideoTracks()[0];
+    try {
+        const caps = track.getCapabilities?.();
+        if (caps?.focusMode?.includes('continuous')) {
+            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        }
+    } catch (e) {}
+
     return videoEl;
 }
 
@@ -35,6 +44,19 @@ export function stopCamera() {
     if (videoEl) {
         videoEl.srcObject = null;
     }
+}
+
+export async function refocus() {
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    try {
+        const caps = track.getCapabilities?.();
+        if (caps?.focusMode?.includes('manual') && caps?.focusMode?.includes('continuous')) {
+            await track.applyConstraints({ advanced: [{ focusMode: 'manual' }] });
+            await new Promise(r => setTimeout(r, 100));
+            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        }
+    } catch (e) {}
 }
 
 export function getVideoElement() {

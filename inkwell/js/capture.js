@@ -28,6 +28,9 @@ export async function scanPage() {
     if (scanning || !videoEl) return;
     scanning = true;
 
+    const scanBtn = document.getElementById('btn-scan');
+    scanBtn.classList.add('scanning');
+    scanBtn.textContent = '…';
     updateStatusPill('Scanning…', 'scanning');
 
     // Get crop guide bounds relative to the video
@@ -71,6 +74,9 @@ async function doCapture(base64) {
     const result = await transcribePage(base64);
 
     scanning = false;
+    const scanBtn = document.getElementById('btn-scan');
+    scanBtn.classList.remove('scanning');
+    scanBtn.textContent = 'Scan';
 
     if (result.error || !result.text) {
         lastFailedImage = base64;
@@ -98,6 +104,9 @@ async function doCapture(base64) {
     playBeep();
     flashCropGuide();
     updateStatusPill('✓ Done', 'done');
+
+    // Notify app of new scan (for preview toast etc.)
+    document.dispatchEvent(new CustomEvent('inkwell:scanned', { detail: { text: result.text } }));
 
     // Return to ready after brief feedback
     setTimeout(() => {

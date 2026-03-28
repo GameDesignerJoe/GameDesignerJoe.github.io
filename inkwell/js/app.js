@@ -9,10 +9,10 @@ import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
         localStorage.removeItem('inkwell_api_key');
     }
 })();
-import { startCamera, stopCamera } from './camera.js';
+import { startCamera, stopCamera, refocus } from './camera.js';
 import { init as initCapture, teardown as teardownCapture, scanPage } from './capture.js';
-import { clearTranscript, copyAll, getPages, renderSavedPages } from './transcript.js';
-import { updateStatusPill } from './ui.js';
+import { clearTranscript, copyAll, getPages, renderSavedPages, removeLastPage, getPageCount } from './transcript.js';
+import { updateStatusPill, updatePageCounter } from './ui.js';
 import { saveTranscript, deleteTranscript, getFullText, renderLibrary } from './library.js';
 
 // --- DOM refs ---
@@ -22,6 +22,7 @@ const btnCopy = document.getElementById('btn-copy');
 const btnSave = document.getElementById('btn-save');
 const btnClear = document.getElementById('btn-clear');
 const btnNewDoc = document.getElementById('btn-new-doc');
+const btnRescan = document.getElementById('btn-rescan');
 const viewTabs = document.querySelectorAll('.view-tab');
 
 // Save modal
@@ -40,6 +41,7 @@ initTabs();
 initScanActions();
 initTextActions();
 initSaveModal();
+if (isDesktop()) viewContainer.style.transform = 'none';
 boot();
 
 // --- Boot: API key check then straight to camera ---
@@ -88,18 +90,60 @@ function initTabs() {
     });
 }
 
+const isDesktop = () => window.innerWidth >= 900;
+
 function switchView(view) {
     currentView = view;
-    viewContainer.style.transform = `translateX(${-currentView * 100}vw)`;
     viewTabs.forEach(tab => {
         tab.classList.toggle('active', parseInt(tab.dataset.view) === currentView);
     });
+
+    if (isDesktop()) {
+        // Desktop: scan+text always visible; library toggles overlay
+        document.body.classList.toggle('library-active', currentView === 2);
+    } else {
+        // Mobile: slide views
+        document.body.classList.remove('library-active');
+        viewContainer.style.transform = `translateX(${-currentView * 100}vw)`;
+    }
 
     // Refresh library when switching to it
     if (currentView === 2) {
         refreshLibrary();
     }
 }
+
+// --- Handle resize between mobile/desktop ---
+window.addEventListener('resize', () => {
+    if (isDesktop()) {
+        viewContainer.style.transform = '';
+        document.body.classList.toggle('library-active', currentView === 2);
+    } else {
+        document.body.classList.remove('library-active');
+        viewContainer.style.transform = `translateX(${-currentView * 100}vw)`;
+    }
+});
+
+// --- Scan Preview Toast (mobile only) ---
+(function initPreviewToast() {
+    const preview = document.getElementById('scan-preview');
+    const previewText = preview.querySelector('.scan-preview-text');
+    let hideTimer = null;
+
+    document.addEventListener('inkwell:scanned', (e) => {
+        if (isDesktop()) return; // Desktop shows transcript live
+        previewText.textContent = e.detail.text;
+        preview.classList.remove('hidden');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => preview.classList.add('hidden'), 4000);
+    });
+
+    // Tap to dismiss
+    preview.addEventListener('click', () => {
+        preview.classList.add('hidden');
+        clearTimeout(hideTimer);
+    });
+})();
 
 // --- Swipe Navigation (touch) ---
 (function initSwipe() {
@@ -109,6 +153,7 @@ function switchView(view) {
     let dragging = false;
 
     viewContainer.addEventListener('touchstart', (e) => {
+        if (isDesktop()) return;
         if (e.target.closest('button, .transcript-body, .library-list')) return;
         startX = e.touches[0].clientX;
         startTime = Date.now();
@@ -118,7 +163,7 @@ function switchView(view) {
     }, { passive: true });
 
     viewContainer.addEventListener('touchmove', (e) => {
-        if (!dragging) return;
+        if (!dragging || isDesktop()) return;
         deltaX = e.touches[0].clientX - startX;
 
         const atLeftEdge = currentView === 0 && deltaX > 0;
@@ -158,6 +203,24 @@ function initScanActions() {
             return;
         }
         scanPage();
+    });
+
+    btnRescan.addEventListener('click', () => {
+        if (!hasApiKey()) {
+            document.getElementById('btn-settings').click();
+            return;
+        }
+        removeLastPage();
+        updatePageCounter(getPageCount());
+        scanPage();
+    });
+
+    // Tap camera feed to refocus
+    document.querySelector('.scan-viewport').addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        refocus();
+        updateStatusPill('Refocusing…', 'working');
+        setTimeout(() => updateStatusPill('Ready', 'ready'), 1000);
     });
 
     btnNewDoc.addEventListener('click', () => {

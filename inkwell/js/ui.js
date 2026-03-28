@@ -20,6 +20,8 @@ export function updateStatusPill(text, state) {
 
 export function updatePageCounter(count) {
     pageCounter.textContent = `Pages: ${count}`;
+    const rescanBtn = document.getElementById('btn-rescan');
+    if (rescanBtn) rescanBtn.classList.toggle('hidden', count === 0);
 }
 
 export function showError(message, onRetry, onSkip) {
