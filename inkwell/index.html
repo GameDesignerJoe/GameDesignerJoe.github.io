@@ -25,7 +25,7 @@
             <button class="view-tab" data-view="2">Library</button>
         </div>
         <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">&#9881;</button>
-        <span class="version-tag">v13</span>
+        <span class="version-tag">v14</span>
     </header>
 
     <!-- Main Container (3 views) -->
@@ -64,9 +64,26 @@
 
         <!-- Text View -->
         <section id="screen-text" class="screen view-screen">
+            <!-- Google Docs connect banner (shown when not connected) -->
+            <div id="gdocs-banner" class="gdocs-banner">
+                <span class="gdocs-banner-text">Scan directly into a Google Doc</span>
+                <button id="btn-gdocs-connect" class="btn-primary btn-small">Connect</button>
+            </div>
+
             <div id="transcript-body" class="transcript-body">
                 <p class="transcript-placeholder">Scanned pages will appear here…</p>
             </div>
+
+            <!-- Google Docs iframe container (shown when connected) -->
+            <div id="gdocs-frame-container" class="gdocs-frame-container hidden">
+                <div class="gdocs-connection-bar">
+                    <span id="gdocs-doc-name" class="gdocs-doc-name">Untitled</span>
+                    <button id="btn-gdocs-switch" class="btn-icon gdocs-bar-btn" title="Switch doc">&#8644;</button>
+                    <button id="btn-gdocs-disconnect" class="btn-icon gdocs-bar-btn" title="Disconnect">&#10005;</button>
+                </div>
+                <iframe id="gdocs-frame" class="gdocs-frame" allow="clipboard-write"></iframe>
+            </div>
+
             <div class="text-actions">
                 <button id="btn-copy" class="btn-primary btn-small">Copy All</button>
                 <button id="btn-save" class="btn-primary btn-small">Save</button>
@@ -109,6 +126,15 @@
                 <input type="password" id="api-key-gcv" class="text-input" placeholder="AIza…">
             </div>
 
+            <div class="settings-divider"></div>
+
+            <label class="input-label">Google Docs Integration:</label>
+            <div class="key-section">
+                <label for="gdocs-client-id" class="input-label input-label-sub">OAuth Client ID:</label>
+                <input type="password" id="gdocs-client-id" class="text-input" placeholder="xxxx.apps.googleusercontent.com">
+            </div>
+            <p id="gdocs-auth-status" class="key-status"></p>
+
             <div class="modal-actions">
                 <button id="btn-save-key" class="btn-primary btn-small">Save</button>
                 <button id="btn-cancel-settings" class="btn-secondary btn-small">Cancel</button>
@@ -128,6 +154,20 @@
                 <button id="btn-confirm-save" class="btn-primary btn-small">Save</button>
                 <button id="btn-cancel-save" class="btn-secondary btn-small">Cancel</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Google Docs Picker Modal -->
+    <div id="gdocs-picker-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <h2 class="modal-title">Google Docs</h2>
+            <p class="gdocs-picker-text">Where should scanned text go?</p>
+            <div class="modal-actions gdocs-picker-actions">
+                <button id="btn-gdocs-new" class="btn-primary btn-small">Create New Doc</button>
+                <button id="btn-gdocs-existing" class="btn-secondary btn-small">Open Existing</button>
+            </div>
+            <button id="btn-gdocs-picker-cancel" class="btn-secondary btn-small gdocs-picker-cancel">Cancel</button>
         </div>
     </div>
 

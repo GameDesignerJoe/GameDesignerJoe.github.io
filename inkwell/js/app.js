@@ -1,4 +1,9 @@
 import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
+import {
+    initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
+    createNewDoc, openDocPicker, getDocEmbedUrl, getDocName, getDocId,
+    getClientId, setClientId
+} from './gdocs.js';
 
 // Migrate old single-key format to new multi-provider format
 (function migrateOldKey() {
@@ -42,6 +47,7 @@ initTabs();
 initScanActions();
 initTextActions();
 initSaveModal();
+initGoogleDocs();
 if (isDesktop()) viewContainer.style.transform = 'none';
 boot();
 
@@ -323,6 +329,156 @@ function refreshLibrary() {
             switchView(1);
         }
     );
+}
+
+// --- Google Docs Integration ---
+
+function initGoogleDocs() {
+    const banner = document.getElementById('gdocs-banner');
+    const btnConnect = document.getElementById('btn-gdocs-connect');
+    const frameContainer = document.getElementById('gdocs-frame-container');
+    const frame = document.getElementById('gdocs-frame');
+    const transcriptBody = document.getElementById('transcript-body');
+    const docNameEl = document.getElementById('gdocs-doc-name');
+    const btnSwitch = document.getElementById('btn-gdocs-switch');
+    const btnDisconnect = document.getElementById('btn-gdocs-disconnect');
+
+    // Doc picker modal
+    const pickerModal = document.getElementById('gdocs-picker-modal');
+    const btnNewDoc = document.getElementById('btn-gdocs-new');
+    const btnExisting = document.getElementById('btn-gdocs-existing');
+    const btnPickerCancel = document.getElementById('btn-gdocs-picker-cancel');
+
+    // Settings: Google Client ID
+    const clientIdInput = document.getElementById('gdocs-client-id');
+    const authStatus = document.getElementById('gdocs-auth-status');
+
+    // Load saved client ID into settings input whenever modal opens
+    clientIdInput.value = getClientId();
+    document.getElementById('btn-settings').addEventListener('click', () => {
+        clientIdInput.value = getClientId();
+        authStatus.textContent = isConnected() ? 'Connected' : hasAuth() ? 'Authenticated' : '';
+        authStatus.style.color = '#4ade80';
+    });
+
+    // Hook into settings save to persist client ID
+    const btnSaveSettings = document.getElementById('btn-save-key');
+    btnSaveSettings.addEventListener('click', () => {
+        const newId = clientIdInput.value.trim();
+        const oldId = getClientId();
+        setClientId(newId);
+
+        if (newId && newId !== oldId) {
+            authStatus.textContent = 'Client ID saved';
+            authStatus.style.color = '#4ade80';
+            initGoogleAuth();
+        } else if (!newId) {
+            authStatus.textContent = '';
+        }
+    });
+
+    // Initialize auth on load if client ID exists
+    initGoogleAuth();
+
+    // Restore connected state on load
+    if (isConnected()) {
+        showConnectedUI();
+    }
+
+    // Connect button in banner
+    btnConnect.addEventListener('click', async () => {
+        if (!getClientId()) {
+            document.getElementById('btn-settings').click();
+            return;
+        }
+
+        // If already authed, skip straight to doc picker
+        if (hasAuth()) {
+            showDocPicker();
+            return;
+        }
+
+        try {
+            await connectGoogle();
+            showDocPicker();
+        } catch (err) {
+            console.error('Google connect failed:', err);
+        }
+    });
+
+    // Doc picker modal
+    btnNewDoc.addEventListener('click', async () => {
+        pickerModal.classList.add('hidden');
+        try {
+            await createNewDoc();
+            showConnectedUI();
+        } catch (err) {
+            console.error('Create doc failed:', err);
+        }
+    });
+
+    btnExisting.addEventListener('click', async () => {
+        pickerModal.classList.add('hidden');
+        try {
+            await openDocPicker();
+            showConnectedUI();
+        } catch (err) {
+            if (err.message !== 'Picker cancelled') {
+                console.error('Picker failed:', err);
+            }
+        }
+    });
+
+    btnPickerCancel.addEventListener('click', () => {
+        pickerModal.classList.add('hidden');
+    });
+
+    pickerModal.querySelector('.modal-backdrop').addEventListener('click', () => {
+        pickerModal.classList.add('hidden');
+    });
+
+    // Switch doc
+    btnSwitch.addEventListener('click', () => {
+        showDocPicker();
+    });
+
+    // Disconnect
+    btnDisconnect.addEventListener('click', () => {
+        disconnectGoogle();
+        showDisconnectedUI();
+    });
+
+    // Listen for events from gdocs.js
+    document.addEventListener('inkwell:gdocs-connected', () => {
+        showConnectedUI();
+    });
+
+    document.addEventListener('inkwell:gdocs-disconnected', () => {
+        showDisconnectedUI();
+    });
+
+    function showDocPicker() {
+        pickerModal.classList.remove('hidden');
+    }
+
+    function showConnectedUI() {
+        banner.classList.add('hidden');
+        transcriptBody.classList.add('hidden');
+        frameContainer.classList.remove('hidden');
+        docNameEl.textContent = getDocName();
+
+        const embedUrl = getDocEmbedUrl();
+        if (embedUrl && frame.src !== embedUrl) {
+            frame.src = embedUrl;
+        }
+    }
+
+    function showDisconnectedUI() {
+        banner.classList.remove('hidden');
+        transcriptBody.classList.remove('hidden');
+        frameContainer.classList.add('hidden');
+        frame.src = '';
+    }
 }
 
 // --- Service Worker Registration ---

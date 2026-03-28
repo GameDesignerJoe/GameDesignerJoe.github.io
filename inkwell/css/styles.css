@@ -566,6 +566,10 @@ html, body {
     -webkit-overflow-scrolling: touch;
 }
 
+.transcript-body.hidden {
+    display: none;
+}
+
 .transcript-placeholder {
     color: #444;
     font-style: italic;
@@ -814,4 +818,116 @@ html, body {
     #screen-text {
         border-left: 1px solid #1a1a1a;
     }
+}
+
+/* ===== Google Docs Integration ===== */
+
+/* Connect banner at top of text view */
+.gdocs-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: #161616;
+    border-bottom: 1px solid #222;
+    flex-shrink: 0;
+}
+
+.gdocs-banner.hidden {
+    display: none;
+}
+
+.gdocs-banner-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: #888;
+}
+
+/* iframe container — replaces transcript-body when connected */
+.gdocs-frame-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.gdocs-frame-container.hidden {
+    display: none;
+}
+
+/* Connection bar showing doc name + controls */
+.gdocs-connection-bar {
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0.75rem;
+    background: #111;
+    border-bottom: 1px solid #282828;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.gdocs-doc-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: #4ade80;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gdocs-bar-btn {
+    font-size: 0.75rem;
+    color: #666;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.gdocs-bar-btn:hover {
+    color: #ccc;
+    background: #222;
+}
+
+/* The actual Google Docs iframe */
+.gdocs-frame {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: #fff;
+    border-radius: 0 0 4px 4px;
+}
+
+/* Doc picker modal specifics */
+.gdocs-picker-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    color: #999;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.gdocs-picker-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.gdocs-picker-cancel {
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+/* Settings divider */
+.settings-divider {
+    border-top: 1px solid #282828;
+    margin: 1rem 0;
+}
+
+.input-label-sub {
+    font-size: 0.65rem;
+    color: #666;
 }

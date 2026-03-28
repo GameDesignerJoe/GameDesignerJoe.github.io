@@ -2,6 +2,7 @@ import { transcribePage } from './api.js';
 import { addPage } from './transcript.js';
 import { updateStatusPill, updatePageCounter, showError } from './ui.js';
 import { playBeep, flashCropGuide } from './feedback.js';
+import { isConnected, appendTextToDoc } from './gdocs.js';
 
 let videoEl = null;
 let scanning = false;
@@ -120,6 +121,13 @@ async function doCapture(base64) {
     playBeep();
     flashCropGuide();
     updateStatusPill('✓ Done', 'done');
+
+    // Sync to Google Docs if connected (non-blocking)
+    if (isConnected()) {
+        appendTextToDoc(result.text, count).catch(err => {
+            console.warn('Google Docs sync failed:', err);
+        });
+    }
 
     // Notify app of new scan (for preview toast etc.)
     document.dispatchEvent(new CustomEvent('inkwell:scanned', { detail: { text: result.text } }));
