@@ -33,25 +33,41 @@ export async function scanPage() {
     scanBtn.textContent = '…';
     updateStatusPill('Scanning…', 'scanning');
 
-    // Get crop guide bounds relative to the video
+    // Get crop guide bounds relative to the video, accounting for object-fit: cover
     const cropGuide = document.getElementById('crop-guide');
     const viewport = document.querySelector('.scan-viewport');
     const viewRect = viewport.getBoundingClientRect();
     const guideRect = cropGuide.getBoundingClientRect();
 
-    // Calculate crop region as fractions of the viewport
-    const left = (guideRect.left - viewRect.left) / viewRect.width;
-    const top = (guideRect.top - viewRect.top) / viewRect.height;
-    const width = guideRect.width / viewRect.width;
-    const height = guideRect.height / viewRect.height;
-
-    // Map fractions to actual video resolution
     const vw = videoEl.videoWidth;
     const vh = videoEl.videoHeight;
-    const sx = Math.round(left * vw);
-    const sy = Math.round(top * vh);
-    const sw = Math.round(width * vw);
-    const sh = Math.round(height * vh);
+
+    // object-fit: cover scales video to fill container, cropping overflow
+    const containerAspect = viewRect.width / viewRect.height;
+    const videoAspect = vw / vh;
+
+    let renderW, renderH, offsetX, offsetY;
+    if (videoAspect > containerAspect) {
+        // Video is wider — height fits, width is cropped
+        renderH = viewRect.height;
+        renderW = viewRect.height * videoAspect;
+        offsetX = (renderW - viewRect.width) / 2;
+        offsetY = 0;
+    } else {
+        // Video is taller — width fits, height is cropped
+        renderW = viewRect.width;
+        renderH = viewRect.width / videoAspect;
+        offsetX = 0;
+        offsetY = (renderH - viewRect.height) / 2;
+    }
+
+    // Map guide rect from screen space to video pixel space
+    const scaleX = vw / renderW;
+    const scaleY = vh / renderH;
+    const sx = Math.round(((guideRect.left - viewRect.left) + offsetX) * scaleX);
+    const sy = Math.round(((guideRect.top - viewRect.top) + offsetY) * scaleY);
+    const sw = Math.round(guideRect.width * scaleX);
+    const sh = Math.round(guideRect.height * scaleY);
 
     // Draw only the cropped region
     captureCanvas.width = sw;

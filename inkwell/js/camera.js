@@ -24,12 +24,19 @@ export async function startCamera() {
     videoEl.srcObject = stream;
     await videoEl.play();
 
-    // Enable continuous autofocus if supported
+    // Lock zoom to 1x and enable continuous autofocus if supported
     const track = stream.getVideoTracks()[0];
     try {
         const caps = track.getCapabilities?.();
+        const advanced = [];
+        if (caps?.zoom) {
+            advanced.push({ zoom: caps.zoom.min });
+        }
         if (caps?.focusMode?.includes('continuous')) {
-            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            advanced.push({ focusMode: 'continuous' });
+        }
+        if (advanced.length > 0) {
+            await track.applyConstraints({ advanced });
         }
     } catch (e) {}
 
@@ -52,9 +59,13 @@ export async function refocus() {
     try {
         const caps = track.getCapabilities?.();
         if (caps?.focusMode?.includes('manual') && caps?.focusMode?.includes('continuous')) {
-            await track.applyConstraints({ advanced: [{ focusMode: 'manual' }] });
+            const advanced = [{ focusMode: 'manual' }];
+            if (caps?.zoom) advanced.push({ zoom: caps.zoom.min });
+            await track.applyConstraints({ advanced });
             await new Promise(r => setTimeout(r, 100));
-            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            const advanced2 = [{ focusMode: 'continuous' }];
+            if (caps?.zoom) advanced2.push({ zoom: caps.zoom.min });
+            await track.applyConstraints({ advanced: advanced2 });
         }
     } catch (e) {}
 }
