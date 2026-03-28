@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inkwell-v3';
+const CACHE_NAME = 'inkwell-v4';
 const SHELL_FILES = [
     './',
     './index.html',
@@ -12,6 +12,7 @@ const SHELL_FILES = [
     './js/settings.js',
     './js/ui.js',
     './js/library.js',
+    './js/debug.js',
     './manifest.json'
 ];
 

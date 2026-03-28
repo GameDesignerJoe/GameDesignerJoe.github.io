@@ -97,6 +97,7 @@ html, body {
     width: 100vw;
     height: 100%;
     position: relative;
+    overflow: hidden;
 }
 
 /* === Buttons === */
@@ -560,6 +561,7 @@ html, body {
 .transcript-body {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 1.5rem;
     -webkit-overflow-scrolling: touch;
 }
@@ -596,6 +598,9 @@ html, body {
     line-height: 1.7;
     color: #ddd;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
 }
 
 .text-actions {
@@ -763,6 +768,31 @@ html, body {
 
 .skip-btn:active {
     background: rgba(255, 255, 255, 0.05);
+}
+
+/* === Debug Panel === */
+.debug-panel {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.9);
+    color: #0f0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.6rem;
+    line-height: 1.4;
+    padding: 0.4rem 0.6rem;
+    z-index: 9999;
+    max-width: 320px;
+    max-height: 50vh;
+    overflow-y: auto;
+    pointer-events: none;
+    border: 1px solid #333;
+    white-space: pre;
+}
+
+.debug-panel .changed {
+    color: #f87171;
+    font-weight: bold;
 }
 
 /* === Desktop Side-by-Side Layout === */

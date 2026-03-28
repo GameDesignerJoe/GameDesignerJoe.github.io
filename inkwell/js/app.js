@@ -1,4 +1,5 @@
 import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
+import { initDebug } from './debug.js';
 
 // Migrate old single-key format to new multi-provider format
 (function migrateOldKey() {
@@ -43,6 +44,7 @@ initScanActions();
 initTextActions();
 initSaveModal();
 if (isDesktop()) viewContainer.style.transform = 'none';
+initDebug();
 boot();
 
 // --- Boot: API key check then straight to camera ---
