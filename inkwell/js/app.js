@@ -11,7 +11,7 @@ import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
 })();
 import { startCamera, stopCamera } from './camera.js';
 import { init as initCapture, teardown as teardownCapture, scanPage } from './capture.js';
-import { clearTranscript, copyAll, getPages } from './transcript.js';
+import { clearTranscript, copyAll, getPages, renderSavedPages } from './transcript.js';
 import { updateStatusPill } from './ui.js';
 import { saveTranscript, deleteTranscript, getFullText, renderLibrary } from './library.js';
 
@@ -21,6 +21,7 @@ const btnScan = document.getElementById('btn-scan');
 const btnCopy = document.getElementById('btn-copy');
 const btnSave = document.getElementById('btn-save');
 const btnClear = document.getElementById('btn-clear');
+const btnNewDoc = document.getElementById('btn-new-doc');
 const viewTabs = document.querySelectorAll('.view-tab');
 
 // Save modal
@@ -158,6 +159,19 @@ function initScanActions() {
         }
         scanPage();
     });
+
+    btnNewDoc.addEventListener('click', () => {
+        const pages = getPages();
+        if (pages.length > 0) {
+            if (confirm('Save current transcript before starting new?')) {
+                saveNameInput.value = '';
+                saveModal.classList.remove('hidden');
+                saveNameInput.focus();
+                return;
+            }
+        }
+        clearTranscript();
+    });
 }
 
 // --- Text Actions ---
@@ -230,6 +244,11 @@ function refreshLibrary() {
         (id) => {
             deleteTranscript(id);
             refreshLibrary();
+        },
+        // onView
+        (entry) => {
+            renderSavedPages(entry.pages);
+            switchView(1);
         }
     );
 }

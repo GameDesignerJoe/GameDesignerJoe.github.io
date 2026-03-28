@@ -378,14 +378,35 @@ html, body {
     50% { opacity: 0.6; }
 }
 
-.page-counter {
+.scan-info-row {
     position: absolute;
     top: 1rem;
     right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 10;
+}
+
+.page-counter {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 0.75rem;
     color: #666;
-    z-index: 10;
+}
+
+.btn-new-doc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(255,255,255,0.08);
+    color: #aaa;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-new-doc:active {
+    background: rgba(255,255,255,0.15);
 }
 
 .scan-btn {

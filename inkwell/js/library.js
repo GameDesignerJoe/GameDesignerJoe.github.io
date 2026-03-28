@@ -36,7 +36,7 @@ export function getFullText(entry) {
     return entry.pages.map((text, i) => `— Page ${i + 1} —\n\n${text}`).join('\n\n');
 }
 
-export function renderLibrary(onCopy, onDelete) {
+export function renderLibrary(onCopy, onDelete, onView) {
     const listEl = document.getElementById('library-list');
     const entries = loadLibrary();
 
@@ -69,6 +69,14 @@ export function renderLibrary(onCopy, onDelete) {
             e.stopPropagation();
             const entry = getTranscript(btn.dataset.id);
             if (entry) onCopy(entry, btn);
+        });
+    });
+
+    // Wire up item clicks (view)
+    listEl.querySelectorAll('.library-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const entry = getTranscript(item.dataset.id);
+            if (entry && onView) onView(entry);
         });
     });
 

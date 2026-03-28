@@ -24,6 +24,12 @@ export function clearTranscript() {
     render();
 }
 
+export function renderSavedPages(savedPages) {
+    pages.length = 0;
+    savedPages.forEach(p => pages.push(p));
+    render();
+}
+
 export async function copyAll() {
     if (pages.length === 0) return false;
     try {
