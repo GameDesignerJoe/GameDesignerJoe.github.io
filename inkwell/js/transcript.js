@@ -15,6 +15,10 @@ export function getPageCount() {
     return pages.length;
 }
 
+export function getPages() {
+    return pages;
+}
+
 export function clearTranscript() {
     pages.length = 0;
     render();

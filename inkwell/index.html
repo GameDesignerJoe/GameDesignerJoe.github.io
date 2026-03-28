@@ -17,40 +17,21 @@
 </head>
 <body>
 
-    <!-- Home Screen -->
-    <section id="screen-home" class="screen active">
-        <div class="home-content">
-            <h1 class="app-title">Inkwell</h1>
-            <p class="app-subtitle">handwritten → digital</p>
-            <div class="home-form">
-                <label for="story-title" class="input-label">Story title:</label>
-                <input type="text" id="story-title" class="text-input" placeholder="Enter a title…" autocomplete="off">
-                <button id="btn-start" class="btn-primary" disabled>Start Scanning</button>
-            </div>
+    <!-- Top Bar -->
+    <header class="top-bar">
+        <div class="view-tabs">
+            <button class="view-tab active" data-view="0">Scan</button>
+            <button class="view-tab" data-view="1">Text</button>
+            <button class="view-tab" data-view="2">Library</button>
         </div>
-        <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">⚙</button>
+        <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">&#9881;</button>
+    </header>
 
-        <!-- Settings Modal -->
-        <div id="settings-modal" class="modal hidden">
-            <div class="modal-backdrop"></div>
-            <div class="modal-content">
-                <h2 class="modal-title">Settings</h2>
-                <label for="api-key-input" class="input-label">Claude API Key:</label>
-                <input type="password" id="api-key-input" class="text-input" placeholder="sk-ant-…">
-                <div class="modal-actions">
-                    <button id="btn-save-key" class="btn-primary btn-small">Save</button>
-                    <button id="btn-cancel-settings" class="btn-secondary btn-small">Cancel</button>
-                </div>
-                <p id="key-status" class="key-status"></p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Swipe Container (Scan + Text views) -->
-    <div id="swipe-container" class="swipe-container hidden">
+    <!-- Main Container (3 views) -->
+    <div id="view-container" class="view-container">
 
         <!-- Scan View -->
-        <section id="screen-scan" class="screen swipe-screen">
+        <section id="screen-scan" class="screen view-screen">
             <div class="scan-viewport">
                 <video id="camera-feed" autoplay playsinline muted></video>
                 <div id="crop-guide" class="crop-guide">
@@ -72,23 +53,52 @@
         </section>
 
         <!-- Text View -->
-        <section id="screen-text" class="screen swipe-screen">
-            <div class="text-header">
-                <h2 id="transcript-title" class="transcript-title"></h2>
-            </div>
+        <section id="screen-text" class="screen view-screen">
             <div id="transcript-body" class="transcript-body">
                 <p class="transcript-placeholder">Scanned pages will appear here…</p>
             </div>
             <div class="text-actions">
                 <button id="btn-copy" class="btn-primary btn-small">Copy All</button>
-                <button id="btn-new-story" class="btn-secondary btn-small">New Story</button>
+                <button id="btn-save" class="btn-primary btn-small">Save</button>
+                <button id="btn-clear" class="btn-secondary btn-small">Clear</button>
             </div>
         </section>
 
-        <!-- View Tabs -->
-        <div class="view-tabs">
-            <button class="view-tab active" data-view="0">Scan</button>
-            <button class="view-tab" data-view="1">Text</button>
+        <!-- Library View -->
+        <section id="screen-library" class="screen view-screen">
+            <div id="library-list" class="library-list">
+                <p class="library-placeholder">No saved transcripts yet.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Settings Modal (global) -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <h2 class="modal-title">Settings</h2>
+            <label for="api-key-input" class="input-label">Claude API Key:</label>
+            <input type="password" id="api-key-input" class="text-input" placeholder="sk-ant-…">
+            <div class="modal-actions">
+                <button id="btn-save-key" class="btn-primary btn-small">Save</button>
+                <button id="btn-cancel-settings" class="btn-secondary btn-small">Cancel</button>
+            </div>
+            <p id="key-status" class="key-status"></p>
+        </div>
+    </div>
+
+    <!-- Save Modal -->
+    <div id="save-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <h2 class="modal-title">Save Transcript</h2>
+            <label for="save-name-input" class="input-label">Name:</label>
+            <input type="text" id="save-name-input" class="text-input" placeholder="My story…" autocomplete="off">
+            <div class="modal-actions">
+                <button id="btn-confirm-save" class="btn-primary btn-small">Save</button>
+                <button id="btn-cancel-save" class="btn-secondary btn-small">Cancel</button>
+            </div>
         </div>
     </div>
 
