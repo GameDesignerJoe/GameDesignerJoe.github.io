@@ -2,7 +2,6 @@ import { transcribePage } from './api.js';
 import { addPage } from './transcript.js';
 import { updateStatusPill, updatePageCounter, showError } from './ui.js';
 import { playBeep, flashCropGuide } from './feedback.js';
-import { debugPreScan, debugPostScan } from './debug.js';
 
 let videoEl = null;
 let scanning = false;
@@ -28,8 +27,6 @@ export function teardown() {
 export async function scanPage() {
     if (scanning || !videoEl) return;
     scanning = true;
-
-    debugPreScan();
 
     const scanBtn = document.getElementById('btn-scan');
     scanBtn.classList.add('scanning');
@@ -100,7 +97,6 @@ async function doCapture(base64) {
     if (result.error || !result.text) {
         lastFailedImage = base64;
         updateStatusPill('⚠ Scan failed', 'error');
-        debugPostScan();
         showError(
             result.error || 'No text returned',
             () => {
@@ -124,14 +120,9 @@ async function doCapture(base64) {
     playBeep();
     flashCropGuide();
     updateStatusPill('✓ Done', 'done');
-    debugPostScan();
 
     // Notify app of new scan (for preview toast etc.)
     document.dispatchEvent(new CustomEvent('inkwell:scanned', { detail: { text: result.text } }));
-
-    // Delayed debug check — catch async layout shifts
-    setTimeout(() => debugPostScan(), 500);
-    setTimeout(() => debugPostScan(), 2000);
 
     // Return to ready after brief feedback
     setTimeout(() => {
