@@ -37,6 +37,16 @@ html, body {
     transform: translateY(-50%);
 }
 
+.version-tag {
+    position: absolute;
+    left: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.55rem;
+    color: #333;
+}
+
 /* === View Tabs === */
 .view-tabs {
     display: flex;

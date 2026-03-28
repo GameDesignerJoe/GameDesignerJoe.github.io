@@ -43,7 +43,8 @@
       "Bash(rm -rf AddScore/dist)",
       "Bash(node -e \":*)",
       "Bash(node --version)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(chmod +x c:/Users/GameD/GameDesignerJoe.github.io/.git/hooks/pre-commit)"
     ]
   }
 }
