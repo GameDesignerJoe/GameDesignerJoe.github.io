@@ -587,6 +587,132 @@ export async function openFolderPicker() {
     });
 }
 
+// --- Scan Image Backup ---
+
+// Cache: docId → scan subfolder ID (avoids re-querying Drive each scan)
+const scanFolderCache = new Map();
+
+/**
+ * Build a camelCase filename from OCR text: "01_PagesAreJust.jpg"
+ */
+function buildScanFilename(pageNumber, text) {
+    const num = String(pageNumber).padStart(2, '0');
+    const words = text.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 4);
+    const camel = words
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join('');
+    return `${num}_${camel || 'Scan'}.jpg`;
+}
+
+/**
+ * Find or create a "{docName} Scans" subfolder in Drive for the active doc.
+ * Returns the folder ID.
+ */
+async function getOrCreateScanFolder() {
+    const docId = getDocId();
+    if (!docId) throw new Error('No doc connected');
+
+    // Check cache first
+    if (scanFolderCache.has(docId)) return scanFolderCache.get(docId);
+
+    await ensureValidToken();
+
+    const docName = getDocName();
+    const folderName = `${docName} Scans`;
+    const parentId = getFolderId() || 'root';
+
+    // Search for existing subfolder
+    const q = `name = '${folderName.replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const searchRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    );
+
+    if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData.files?.length > 0) {
+            const folderId = searchData.files[0].id;
+            scanFolderCache.set(docId, folderId);
+            return folderId;
+        }
+    }
+
+    // Create the subfolder
+    const metadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId]
+    };
+
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(metadata)
+    });
+
+    if (!createRes.ok) {
+        const err = await createRes.json();
+        throw new Error(err.error?.message || 'Failed to create scan folder');
+    }
+
+    const folder = await createRes.json();
+    scanFolderCache.set(docId, folder.id);
+    return folder.id;
+}
+
+/**
+ * Upload a scan image to the doc's scan subfolder in Google Drive.
+ * Fire-and-forget — errors are logged but never block scanning.
+ */
+export async function uploadScanImage(base64, pageNumber, text) {
+    await ensureValidToken();
+
+    const folderId = await getOrCreateScanFolder();
+    const filename = buildScanFilename(pageNumber, text);
+
+    const metadata = {
+        name: filename,
+        parents: [folderId]
+    };
+
+    // Convert base64 to binary Blob
+    const byteChars = atob(base64);
+    const byteArray = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+        byteArray[i] = byteChars.charCodeAt(i);
+    }
+    const imageBlob = new Blob([byteArray], { type: 'image/jpeg' });
+
+    // Build multipart body: JSON metadata + binary image
+    const boundary = '---inkwell_upload';
+    const metaPart =
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+        JSON.stringify(metadata) + '\r\n';
+    const binaryHeader = `--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`;
+    const closing = `\r\n--${boundary}--`;
+
+    const body = new Blob([metaPart, binaryHeader, imageBlob, closing]);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || 'Failed to upload scan image');
+    }
+
+    return res.json();
+}
+
 // --- Internal helpers ---
 
 function setupCodeClient(clientId) {

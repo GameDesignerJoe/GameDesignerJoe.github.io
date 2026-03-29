@@ -2,7 +2,7 @@ import { transcribePage } from './api.js';
 import { addPage } from './transcript.js';
 import { updateStatusPill, updatePageCounter, showError } from './ui.js';
 import { playBeep, flashCropGuide } from './feedback.js';
-import { isConnected, appendTextToDoc } from './gdocs.js';
+import { isConnected, appendTextToDoc, uploadScanImage } from './gdocs.js';
 
 let videoEl = null;
 let scanning = false;
@@ -126,6 +126,9 @@ async function doCapture(base64) {
     if (isConnected()) {
         appendTextToDoc(result.text, count).catch(err => {
             console.warn('Google Docs sync failed:', err);
+        });
+        uploadScanImage(base64, count, result.text).catch(err => {
+            console.warn('Scan image backup failed:', err);
         });
     }
 
