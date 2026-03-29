@@ -482,6 +482,36 @@ html, body {
     display: none;
 }
 
+.mic-btn {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: #888;
+    font-size: 1.1rem;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: background 0.15s, border-color 0.15s;
+    line-height: 1;
+}
+
+.mic-btn:active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.mic-btn.listening {
+    border-color: #f87171;
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    animation: mic-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
 /* === Scan Preview Toast (mobile) === */
 .scan-preview {
     position: absolute;

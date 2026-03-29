@@ -598,6 +598,8 @@ export async function openFolderPicker() {
 
 // Cache: docId → scan subfolder ID (avoids re-querying Drive each scan)
 const scanFolderCache = new Map();
+// Per-doc scan image counter (docId → next number)
+const scanCounters = new Map();
 
 /**
  * Build a camelCase filename from OCR text: "01_PagesAreJust.jpg"
@@ -674,11 +676,16 @@ async function getOrCreateScanFolder() {
  * Upload a scan image to the doc's scan subfolder in Google Drive.
  * Fire-and-forget — errors are logged but never block scanning.
  */
-export async function uploadScanImage(base64, pageNumber, text) {
+export async function uploadScanImage(base64, _pageNumber, text) {
     await ensureValidToken();
 
+    const docId = getDocId();
     const folderId = await getOrCreateScanFolder();
-    const filename = buildScanFilename(pageNumber, text);
+
+    // Use per-doc counter instead of transcript page count
+    const count = (scanCounters.get(docId) || 0) + 1;
+    scanCounters.set(docId, count);
+    const filename = buildScanFilename(count, text);
 
     const metadata = {
         name: filename,

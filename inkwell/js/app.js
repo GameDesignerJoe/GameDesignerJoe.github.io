@@ -21,6 +21,7 @@ import { init as initCapture, teardown as teardownCapture, scanPage } from './ca
 import { clearTranscript, copyAll, getPages, viewSavedEntry, exitViewMode, isViewing, removeLastPage, getPageCount } from './transcript.js';
 import { updateStatusPill, updatePageCounter } from './ui.js';
 import { saveTranscript, deleteTranscript, getFullText, renderLibrary } from './library.js';
+import { isSupported as voiceSupported, isListening, startListening, stopListening } from './voice.js';
 
 // --- DOM refs ---
 const viewContainer = document.getElementById('view-container');
@@ -234,6 +235,26 @@ function initScanActions() {
         updateStatusPill('Refocusing…', 'working');
         setTimeout(() => updateStatusPill('Ready', 'ready'), 1000);
     });
+
+    // Voice scan toggle
+    const btnMic = document.getElementById('btn-mic');
+    if (!voiceSupported()) {
+        btnMic.style.display = 'none';
+    } else {
+        btnMic.addEventListener('click', () => {
+            if (isListening()) {
+                stopListening();
+                btnMic.classList.remove('listening');
+            } else {
+                if (!hasApiKey()) {
+                    document.getElementById('btn-settings').click();
+                    return;
+                }
+                startListening(() => scanPage());
+                btnMic.classList.add('listening');
+            }
+        });
+    }
 
     btnNewDoc.addEventListener('click', () => {
         if (isConnected()) {
