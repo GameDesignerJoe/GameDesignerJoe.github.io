@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
                         },
                         {
                             type: 'text',
-                            text: 'This is a photo of a handwritten notebook page. The page may be rotated sideways (90°, 180°, or 270°) — rotate it mentally to find the correct reading orientation before transcribing. Transcribe all the handwritten text exactly as written. Preserve the original formatting as closely as possible: maintain line breaks where they appear, preserve indentation and unusual spacing (including creative/poetic layouts where words are spaced apart or staggered), and keep paragraph breaks. Use spaces to replicate horizontal positioning of words on the page. Output only the raw transcribed text — no commentary, no headings, no markup. If a word is unclear, make your best guess and continue.'
+                            text: 'This is a photo of a handwritten or typewritten notebook page. The page may be rotated sideways (90°, 180°, or 270°) — rotate it mentally to find the correct reading orientation before transcribing. Transcribe all the text exactly as written. Preserve the original formatting as closely as possible: maintain line breaks where they appear, preserve indentation and unusual spacing (including creative/poetic layouts where words are spaced apart or staggered), and keep paragraph breaks. Use spaces to replicate horizontal positioning of words on the page. If text is centered on the page, add leading spaces to center it relative to a ~60-character line width. Output only the raw transcribed text — no commentary, no headings, no markup. If a word is unclear, make your best guess and continue.'
                         }
                     ]
                 }]
