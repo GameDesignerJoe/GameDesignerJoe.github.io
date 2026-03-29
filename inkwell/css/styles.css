@@ -43,8 +43,8 @@ html, body {
     top: 50%;
     transform: translateY(-50%);
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.55rem;
-    color: #333;
+    font-size: 0.7rem;
+    color: #999;
 }
 
 /* === View Tabs === */
@@ -995,8 +995,7 @@ html, body {
     flex-shrink: 0;
 }
 
-/* Hide Save and Clear buttons when Google Docs is active */
-body.gdocs-active #btn-save,
-body.gdocs-active #btn-clear {
+/* Hide text action bar when Google Docs is active */
+body.gdocs-active .text-actions {
     display: none;
 }

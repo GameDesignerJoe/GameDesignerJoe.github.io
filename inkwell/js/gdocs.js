@@ -33,7 +33,13 @@ export function getDocName() {
 export function getDocEmbedUrl() {
     const docId = getDocId();
     if (!docId) return null;
-    return `https://docs.google.com/document/d/${docId}/edit?embedded=true&rm=minimal`;
+    return `https://docs.google.com/document/d/${docId}/edit?embedded=true`;
+}
+
+export function getDocFullUrl() {
+    const docId = getDocId();
+    if (!docId) return null;
+    return `https://docs.google.com/document/d/${docId}/edit`;
 }
 
 export function getClientId() {

@@ -1,7 +1,7 @@
 import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
 import {
     initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
-    createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocName, getDocId,
+    createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocFullUrl, getDocName, getDocId,
     getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder
 } from './gdocs.js';
 
@@ -345,6 +345,7 @@ function initGoogleDocs() {
     const frame = document.getElementById('gdocs-frame');
     const transcriptBody = document.getElementById('transcript-body');
     const docNameEl = document.getElementById('gdocs-doc-name');
+    const btnOpen = document.getElementById('btn-gdocs-open');
     const btnSwitch = document.getElementById('btn-gdocs-switch');
     const btnDisconnect = document.getElementById('btn-gdocs-disconnect');
 
@@ -547,6 +548,7 @@ function initGoogleDocs() {
         frameContainer.classList.remove('hidden');
         docNameEl.textContent = getDocName();
         folderPathEl.textContent = getFolderName() ? getFolderName() + ' / ' : '';
+        btnOpen.href = getDocFullUrl() || '#';
         document.body.classList.add('gdocs-active');
 
         const embedUrl = getDocEmbedUrl();
