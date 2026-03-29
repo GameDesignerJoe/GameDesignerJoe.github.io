@@ -1,8 +1,8 @@
 import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
 import {
     initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
-    createNewDoc, openDocPicker, getDocEmbedUrl, getDocName, getDocId,
-    getClientId, setClientId
+    createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocName, getDocId,
+    getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder
 } from './gdocs.js';
 
 // Migrate old single-key format to new multi-provider format
@@ -348,6 +348,9 @@ function initGoogleDocs() {
     const btnNewDoc = document.getElementById('btn-gdocs-new');
     const btnExisting = document.getElementById('btn-gdocs-existing');
     const btnPickerCancel = document.getElementById('btn-gdocs-picker-cancel');
+    const folderPathEl = document.getElementById('gdocs-folder-path');
+    const btnChooseFolder = document.getElementById('btn-gdocs-folder');
+    const folderNameDisplay = document.getElementById('gdocs-folder-display');
 
     // Settings: Google Client ID
     const clientIdInput = document.getElementById('gdocs-client-id');
@@ -406,6 +409,24 @@ function initGoogleDocs() {
         }
     });
 
+    // Update folder display in the picker modal
+    function updateFolderDisplay() {
+        const name = getFolderName();
+        folderNameDisplay.textContent = name ? name : 'My Drive (root)';
+    }
+
+    // Choose folder button in picker modal
+    btnChooseFolder.addEventListener('click', async () => {
+        try {
+            await openFolderPicker();
+            updateFolderDisplay();
+        } catch (err) {
+            if (err.message !== 'Picker cancelled') {
+                console.error('Folder picker failed:', err);
+            }
+        }
+    });
+
     // Doc picker modal
     btnNewDoc.addEventListener('click', async () => {
         pickerModal.classList.add('hidden');
@@ -437,6 +458,48 @@ function initGoogleDocs() {
         pickerModal.classList.add('hidden');
     });
 
+    // Click doc name to rename
+    docNameEl.addEventListener('click', () => {
+        docNameEl.contentEditable = 'true';
+        docNameEl.classList.add('editing');
+        docNameEl.focus();
+
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(docNameEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    function commitRename() {
+        if (docNameEl.contentEditable !== 'true') return;
+        docNameEl.contentEditable = 'false';
+        docNameEl.classList.remove('editing');
+
+        const newName = docNameEl.textContent.trim();
+        if (!newName || newName === getDocName()) {
+            docNameEl.textContent = getDocName();
+            return;
+        }
+
+        renameDoc(newName).catch(err => {
+            console.error('Rename failed:', err);
+            docNameEl.textContent = getDocName();
+        });
+    }
+
+    docNameEl.addEventListener('blur', commitRename);
+    docNameEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            docNameEl.blur();
+        } else if (e.key === 'Escape') {
+            docNameEl.textContent = getDocName();
+            docNameEl.blur();
+        }
+    });
+
     // Switch doc
     btnSwitch.addEventListener('click', () => {
         showDocPicker();
@@ -458,7 +521,14 @@ function initGoogleDocs() {
     });
 
     function showDocPicker() {
+        updateFolderDisplay();
         pickerModal.classList.remove('hidden');
+    }
+
+    function buildPathDisplay() {
+        const folder = getFolderName();
+        const doc = getDocName();
+        return folder ? `${folder} / ${doc}` : doc;
     }
 
     function showConnectedUI() {
@@ -466,6 +536,8 @@ function initGoogleDocs() {
         transcriptBody.classList.add('hidden');
         frameContainer.classList.remove('hidden');
         docNameEl.textContent = getDocName();
+        folderPathEl.textContent = getFolderName() ? getFolderName() + ' / ' : '';
+        document.body.classList.add('gdocs-active');
 
         const embedUrl = getDocEmbedUrl();
         if (embedUrl && frame.src !== embedUrl) {
@@ -478,6 +550,7 @@ function initGoogleDocs() {
         transcriptBody.classList.remove('hidden');
         frameContainer.classList.add('hidden');
         frame.src = '';
+        document.body.classList.remove('gdocs-active');
     }
 }
 

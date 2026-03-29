@@ -25,7 +25,7 @@
             <button class="view-tab" data-view="2">Library</button>
         </div>
         <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">&#9881;</button>
-        <span class="version-tag">v16</span>
+        <span class="version-tag">v17</span>
     </header>
 
     <!-- Main Container (3 views) -->
@@ -77,6 +77,7 @@
             <!-- Google Docs iframe container (shown when connected) -->
             <div id="gdocs-frame-container" class="gdocs-frame-container hidden">
                 <div class="gdocs-connection-bar">
+                    <span id="gdocs-folder-path" class="gdocs-folder-path"></span>
                     <span id="gdocs-doc-name" class="gdocs-doc-name">Untitled</span>
                     <button id="btn-gdocs-switch" class="btn-icon gdocs-bar-btn" title="Switch doc">&#8644;</button>
                     <button id="btn-gdocs-disconnect" class="btn-icon gdocs-bar-btn" title="Disconnect">&#10005;</button>
@@ -163,6 +164,11 @@
         <div class="modal-content">
             <h2 class="modal-title">Google Docs</h2>
             <p class="gdocs-picker-text">Where should scanned text go?</p>
+            <div class="gdocs-folder-selector">
+                <span class="gdocs-folder-label">Folder:</span>
+                <span id="gdocs-folder-display" class="gdocs-folder-name-display">My Drive (root)</span>
+                <button id="btn-gdocs-folder" class="btn-secondary btn-tiny">Change</button>
+            </div>
             <div class="modal-actions gdocs-picker-actions">
                 <button id="btn-gdocs-new" class="btn-primary btn-small">Create New Doc</button>
                 <button id="btn-gdocs-existing" class="btn-secondary btn-small">Open Existing</button>

@@ -875,6 +875,25 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.gdocs-doc-name:hover {
+    border-color: #333;
+    background: #1a1a1a;
+}
+
+.gdocs-doc-name.editing {
+    border-color: #4ade80;
+    background: #1a1a1a;
+    outline: none;
+    cursor: text;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .gdocs-bar-btn {
@@ -930,4 +949,54 @@ html, body {
 .input-label-sub {
     font-size: 0.65rem;
     color: #666;
+}
+
+/* Folder path in connection bar */
+.gdocs-folder-path {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: #666;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Folder selector in picker modal */
+.gdocs-folder-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    background: #111;
+    border: 1px solid #282828;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.gdocs-folder-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.gdocs-folder-name-display {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: #ccc;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-tiny {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.65rem;
+    flex-shrink: 0;
+}
+
+/* Hide Save and Clear buttons when Google Docs is active */
+body.gdocs-active #btn-save,
+body.gdocs-active #btn-clear {
+    display: none;
 }

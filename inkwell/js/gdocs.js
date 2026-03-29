@@ -4,6 +4,8 @@ const STORAGE_REFRESH = 'inkwell_gdocs_refresh';
 const STORAGE_DOCID = 'inkwell_gdocs_docid';
 const STORAGE_DOCNAME = 'inkwell_gdocs_docname';
 const STORAGE_CLIENT_ID = 'inkwell_gdocs_client_id';
+const STORAGE_FOLDERID = 'inkwell_gdocs_folderid';
+const STORAGE_FOLDERNAME = 'inkwell_gdocs_foldername';
 
 let accessToken = null;
 let tokenExpiry = 0;
@@ -40,6 +42,24 @@ export function getClientId() {
 
 export function setClientId(id) {
     localStorage.setItem(STORAGE_CLIENT_ID, id.trim());
+}
+
+export function getFolderId() {
+    return localStorage.getItem(STORAGE_FOLDERID) || '';
+}
+
+export function getFolderName() {
+    return localStorage.getItem(STORAGE_FOLDERNAME) || '';
+}
+
+export function setFolder(id, name) {
+    if (id) {
+        localStorage.setItem(STORAGE_FOLDERID, id);
+        localStorage.setItem(STORAGE_FOLDERNAME, name || 'Untitled folder');
+    } else {
+        localStorage.removeItem(STORAGE_FOLDERID);
+        localStorage.removeItem(STORAGE_FOLDERNAME);
+    }
 }
 
 /**
@@ -114,13 +134,25 @@ export function disconnectGoogle() {
 export async function createNewDoc(title) {
     await ensureValidToken();
 
-    const res = await fetch('https://docs.googleapis.com/v1/documents', {
+    const docTitle = title || `Inkwell Scan — ${new Date().toLocaleDateString()}`;
+    const folderId = getFolderId();
+
+    // Create via Drive API so we can specify the parent folder
+    const metadata = {
+        name: docTitle,
+        mimeType: 'application/vnd.google-apps.document'
+    };
+    if (folderId) {
+        metadata.parents = [folderId];
+    }
+
+    const res = await fetch('https://www.googleapis.com/drive/v3/files', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ title: title || `Inkwell Scan — ${new Date().toLocaleDateString()}` })
+        body: JSON.stringify(metadata)
     });
 
     if (!res.ok) {
@@ -128,15 +160,15 @@ export async function createNewDoc(title) {
         throw new Error(err.error?.message || 'Failed to create doc');
     }
 
-    const doc = await res.json();
-    localStorage.setItem(STORAGE_DOCID, doc.documentId);
-    localStorage.setItem(STORAGE_DOCNAME, doc.title);
+    const file = await res.json();
+    localStorage.setItem(STORAGE_DOCID, file.id);
+    localStorage.setItem(STORAGE_DOCNAME, docTitle);
 
     document.dispatchEvent(new CustomEvent('inkwell:gdocs-connected', {
-        detail: { docId: doc.documentId, docName: doc.title }
+        detail: { docId: file.id, docName: docTitle }
     }));
 
-    return doc.documentId;
+    return file.id;
 }
 
 /**
@@ -170,6 +202,33 @@ export async function openDocPicker() {
 
         picker.setVisible(true);
     });
+}
+
+/**
+ * Rename the connected Google Doc.
+ */
+export async function renameDoc(newTitle) {
+    const docId = getDocId();
+    if (!docId) throw new Error('No doc connected');
+
+    await ensureValidToken();
+
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${docId}`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: newTitle })
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || 'Failed to rename doc');
+    }
+
+    localStorage.setItem(STORAGE_DOCNAME, newTitle);
+    return newTitle;
 }
 
 /**
@@ -236,10 +295,41 @@ export async function appendTextToDoc(text, pageNumber) {
     return batchRes.json();
 }
 
+/**
+ * Open the Google Drive Picker to select a folder.
+ * Returns { id, name } of the selected folder.
+ */
+export async function openFolderPicker() {
+    await ensureValidToken();
+    await loadPickerApi();
+
+    return new Promise((resolve, reject) => {
+        const folderView = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+            .setSelectFolderEnabled(true)
+            .setMimeTypes('application/vnd.google-apps.folder');
+
+        const picker = new google.picker.PickerBuilder()
+            .addView(folderView)
+            .setOAuthToken(accessToken)
+            .setTitle('Choose a folder for Inkwell docs')
+            .setCallback((data) => {
+                if (data.action === google.picker.Action.PICKED) {
+                    const folder = data.docs[0];
+                    setFolder(folder.id, folder.name);
+                    resolve({ id: folder.id, name: folder.name });
+                } else if (data.action === google.picker.Action.CANCEL) {
+                    reject(new Error('Picker cancelled'));
+                }
+            })
+            .build();
+
+        picker.setVisible(true);
+    });
+}
+
 // --- Internal helpers ---
 
 function setupCodeClient(clientId) {
-    console.log('[gdocs] Setting up code client with origin:', window.location.origin);
     codeClient = google.accounts.oauth2.initCodeClient({
         client_id: clientId,
         scope: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
@@ -324,6 +414,8 @@ function clearAuth() {
     localStorage.removeItem(STORAGE_REFRESH);
     localStorage.removeItem(STORAGE_DOCID);
     localStorage.removeItem(STORAGE_DOCNAME);
+    localStorage.removeItem(STORAGE_FOLDERID);
+    localStorage.removeItem(STORAGE_FOLDERNAME);
 }
 
 async function loadPickerApi() {
