@@ -6,6 +6,9 @@ let recognition = null;
 let listening = false;
 let onScanCallback = null;
 let onStatusCallback = null;
+let micStream = null; // Hold getUserMedia stream to keep mic active
+
+const STORAGE_MIC = 'inkwell_mic_device';
 
 export function isSupported() {
     return !!SpeechRecognition;
@@ -15,8 +18,59 @@ export function isListening() {
     return listening;
 }
 
+/** Get saved mic deviceId (empty string = default) */
+export function getSavedMicId() {
+    return localStorage.getItem(STORAGE_MIC) || '';
+}
+
+/** Save selected mic deviceId */
+export function setSavedMicId(deviceId) {
+    if (deviceId) {
+        localStorage.setItem(STORAGE_MIC, deviceId);
+    } else {
+        localStorage.removeItem(STORAGE_MIC);
+    }
+}
+
+/** Enumerate audio input devices (requires mic permission) */
+export async function listMics() {
+    try {
+        // Request mic permission first so labels are populated
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        return devices.filter(d => d.kind === 'audioinput');
+    } catch {
+        return [];
+    }
+}
+
 function status(msg, type) {
     if (onStatusCallback) onStatusCallback(msg, type);
+}
+
+/**
+ * Activate a specific mic via getUserMedia before starting SpeechRecognition.
+ * This makes the browser route audio from that device to the speech engine.
+ */
+async function activateMic(deviceId) {
+    // Release any previous stream
+    if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+    }
+
+    if (!deviceId) return; // Use default
+
+    try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: deviceId } }
+        });
+        // Keep the stream alive — SpeechRecognition will use this device
+    } catch (err) {
+        status(`Mic select failed: ${err.message}`, 'error');
+    }
 }
 
 /**
@@ -24,12 +78,17 @@ function status(msg, type) {
  * onScan() fires each time "scan" is detected.
  * onStatus(msg, type) fires on state changes for UI feedback.
  */
-export function startListening(onScan, onStatus) {
+export async function startListening(onScan, onStatus) {
     if (!SpeechRecognition) return;
     if (listening) return;
 
     onScanCallback = onScan;
     onStatusCallback = onStatus || null;
+
+    // Activate selected mic before starting recognition
+    const selectedMic = getSavedMicId();
+    await activateMic(selectedMic);
+
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -99,6 +158,11 @@ export function stopListening() {
     if (recognition) {
         try { recognition.stop(); } catch {}
         recognition = null;
+    }
+    // Release mic stream
+    if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
     }
     onScanCallback = null;
     onStatusCallback = null;

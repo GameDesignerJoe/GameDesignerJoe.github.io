@@ -1116,3 +1116,12 @@ body.gdocs-active .text-actions {
 .gdocs-toggle-row input[type="checkbox"] {
     accent-color: #4ade80;
 }
+
+/* Mic selector in settings */
+.mic-select {
+    width: 100%;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.8rem;
+    appearance: auto;
+    cursor: pointer;
+}

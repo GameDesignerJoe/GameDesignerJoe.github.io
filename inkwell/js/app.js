@@ -21,7 +21,7 @@ import { init as initCapture, teardown as teardownCapture, scanPage } from './ca
 import { clearTranscript, copyAll, getPages, viewSavedEntry, exitViewMode, isViewing, removeLastPage, getPageCount } from './transcript.js';
 import { updateStatusPill, updatePageCounter } from './ui.js';
 import { saveTranscript, deleteTranscript, getFullText, renderLibrary } from './library.js';
-import { isSupported as voiceSupported, isListening, startListening, stopListening } from './voice.js';
+import { isSupported as voiceSupported, isListening, startListening, stopListening, listMics, getSavedMicId, setSavedMicId } from './voice.js';
 
 // --- DOM refs ---
 const viewContainer = document.getElementById('view-container');
@@ -395,6 +395,25 @@ function initGoogleDocs() {
         setImagesOnly(imagesOnlyCheckbox.checked);
     });
 
+    // Mic selector
+    const micSelect = document.getElementById('mic-select');
+    micSelect.addEventListener('change', () => {
+        setSavedMicId(micSelect.value);
+    });
+
+    async function populateMicList() {
+        const mics = await listMics();
+        const saved = getSavedMicId();
+        micSelect.innerHTML = '<option value="">Default</option>';
+        mics.forEach(mic => {
+            const opt = document.createElement('option');
+            opt.value = mic.deviceId;
+            opt.textContent = mic.label || `Mic (${mic.deviceId.slice(0, 8)}…)`;
+            if (mic.deviceId === saved) opt.selected = true;
+            micSelect.appendChild(opt);
+        });
+    }
+
     // Load saved client ID into settings input whenever modal opens
     clientIdInput.value = getClientId();
     document.getElementById('btn-settings').addEventListener('click', () => {
@@ -404,6 +423,7 @@ function initGoogleDocs() {
         btnDisconnect.classList.toggle('hidden', !hasAuth());
         imagesOnlyRow.classList.toggle('hidden', !hasAuth());
         imagesOnlyCheckbox.checked = getImagesOnly();
+        populateMicList();
     });
 
     // Hook into settings save to persist client ID
