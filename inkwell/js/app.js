@@ -245,12 +245,16 @@ function initScanActions() {
             if (isListening()) {
                 stopListening();
                 btnMic.classList.remove('listening');
+                updateStatusPill('Ready — tap Scan', null);
             } else {
                 if (!hasApiKey()) {
                     document.getElementById('btn-settings').click();
                     return;
                 }
-                startListening(() => scanPage());
+                startListening(
+                    () => scanPage(),
+                    (msg, type) => updateStatusPill(msg, type)
+                );
                 btnMic.classList.add('listening');
             }
         });
