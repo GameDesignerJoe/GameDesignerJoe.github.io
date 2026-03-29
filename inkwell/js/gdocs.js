@@ -32,6 +32,34 @@ export function getDocName() {
     return localStorage.getItem(STORAGE_DOCNAME) || 'Untitled';
 }
 
+/**
+ * Fetch the current doc title from Google Drive and update the tab if it changed.
+ * Returns the title, or null if the check failed silently.
+ */
+export async function syncDocTitle() {
+    const docId = getDocId();
+    if (!docId) return null;
+
+    try {
+        await ensureValidToken();
+        const res = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${docId}?fields=name`,
+            { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+        if (!res.ok) return null;
+        const file = await res.json();
+        const currentName = getDocName();
+        if (file.name && file.name !== currentName) {
+            localStorage.setItem(STORAGE_DOCNAME, file.name);
+            renameTabDoc(getActiveTabIndex(), file.name);
+            return file.name;
+        }
+        return currentName;
+    } catch {
+        return null;
+    }
+}
+
 export function getDocEmbedUrl() {
     const docId = getDocId();
     if (!docId) return null;
@@ -316,11 +344,18 @@ export async function renameDoc(newTitle) {
  * Returns the trimmed text if centered, or null if left-aligned.
  */
 function detectCentered(line) {
-    // A line is "centered" if it has 4+ leading spaces and isn't just indentation
-    // (indented lines typically have 2-4 spaces; centered lines have more)
+    // OCR approximates centering with leading spaces. To distinguish real centering
+    // from simple indentation (e.g. poetry continuation lines with 4-8 spaces),
+    // require substantial leading space AND check that the indent is roughly what
+    // you'd expect if the text were centered on a ~70-char line.
     const leadingSpaces = line.match(/^( +)/)?.[1].length || 0;
     const trimmed = line.trim();
-    if (leadingSpaces >= 4 && trimmed.length > 0 && trimmed.length < 60) {
+    if (trimmed.length === 0 || trimmed.length >= 60) return null;
+
+    // Expect centering indent to be roughly (lineWidth - textLength) / 2
+    // Use a generous minimum of 15 spaces to avoid false positives on indented lines
+    const expectedIndent = Math.max(15, Math.floor((70 - trimmed.length) / 2) - 10);
+    if (leadingSpaces >= expectedIndent) {
         return trimmed;
     }
     return null;

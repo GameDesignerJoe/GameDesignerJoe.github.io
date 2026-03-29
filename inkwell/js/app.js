@@ -3,7 +3,7 @@ import {
     initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
     createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocFullUrl, getDocName, getDocId,
     getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder,
-    getTabs, getActiveTabIndex, addTab, removeTab, switchTab, renameTabDoc
+    getTabs, getActiveTabIndex, addTab, removeTab, switchTab, renameTabDoc, syncDocTitle
 } from './gdocs.js';
 
 // Migrate old single-key format to new multi-provider format
@@ -483,32 +483,6 @@ function initGoogleDocs() {
             const nameEl = document.createElement('span');
             nameEl.className = 'gdocs-tab-name';
             nameEl.textContent = tab.docName;
-            nameEl.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                const input = document.createElement('input');
-                input.className = 'gdocs-tab-rename';
-                input.value = tab.docName;
-                input.style.cssText = 'background:#222;border:1px solid #4ade80;color:#f5f0e8;font-family:inherit;font-size:inherit;padding:0 0.2rem;border-radius:2px;width:120px;outline:none;';
-                nameEl.replaceWith(input);
-                input.focus();
-                input.select();
-                const finish = async () => {
-                    const newName = input.value.trim();
-                    if (newName && newName !== tab.docName) {
-                        try {
-                            await renameDoc(newName);
-                        } catch (err) {
-                            console.error('Rename failed:', err);
-                        }
-                    }
-                    renderTabs();
-                };
-                input.addEventListener('blur', finish);
-                input.addEventListener('keydown', (ev) => {
-                    if (ev.key === 'Enter') input.blur();
-                    if (ev.key === 'Escape') { input.value = tab.docName; input.blur(); }
-                });
-            });
             tabEl.appendChild(nameEl);
 
             const closeEl = document.createElement('button');
@@ -528,6 +502,15 @@ function initGoogleDocs() {
             tabEl.appendChild(closeEl);
 
             tabEl.addEventListener('click', () => {
+                if (i === activeIndex) {
+                    // Tapping the active tab opens rename prompt
+                    const newName = prompt('Rename document:', tab.docName);
+                    if (newName && newName.trim() && newName.trim() !== tab.docName) {
+                        renameDoc(newName.trim()).then(() => renderTabs())
+                            .catch(err => console.error('Rename failed:', err));
+                    }
+                    return;
+                }
                 switchTab(i);
                 showConnectedUI();
             });
@@ -582,6 +565,11 @@ function initGoogleDocs() {
         if (embedUrl && frame.src !== embedUrl) {
             frame.src = embedUrl;
         }
+
+        // Sync doc title from Google Drive in case it was renamed in-doc
+        syncDocTitle().then(name => {
+            if (name) renderTabs();
+        });
     }
 
     function showDisconnectedUI() {
