@@ -18,8 +18,8 @@ import {
 })();
 import { startCamera, stopCamera, refocus } from './camera.js';
 import { init as initCapture, teardown as teardownCapture, scanPage } from './capture.js';
-import { clearTranscript, copyAll, getPages, viewSavedEntry, exitViewMode, isViewing, removeLastPage, getPageCount } from './transcript.js';
-import { updateStatusPill, updatePageCounter } from './ui.js';
+import { clearTranscript, copyAll, getPages, viewSavedEntry, exitViewMode, isViewing, removeLastPage } from './transcript.js';
+import { updateStatusPill } from './ui.js';
 import { saveTranscript, deleteTranscript, getFullText, renderLibrary } from './library.js';
 import { isSupported as voiceSupported, isListening, startListening, stopListening, listMics, getSavedMicId, setSavedMicId } from './voice.js';
 
@@ -29,7 +29,6 @@ const btnScan = document.getElementById('btn-scan');
 const btnCopy = document.getElementById('btn-copy');
 const btnSave = document.getElementById('btn-save');
 const btnClear = document.getElementById('btn-clear');
-const btnNewDoc = document.getElementById('btn-new-doc');
 const btnRescan = document.getElementById('btn-rescan');
 const viewTabs = document.querySelectorAll('.view-tab');
 
@@ -224,7 +223,6 @@ function initScanActions() {
             return;
         }
         removeLastPage();
-        updatePageCounter(getPageCount());
         scanPage();
     });
 
@@ -260,23 +258,6 @@ function initScanActions() {
         });
     }
 
-    btnNewDoc.addEventListener('click', () => {
-        if (isConnected()) {
-            // In Google Docs mode, "New Doc" opens the doc picker
-            document.dispatchEvent(new CustomEvent('inkwell:request-doc-picker'));
-            return;
-        }
-        const pages = getPages();
-        if (pages.length > 0) {
-            if (confirm('Save current transcript before starting new?')) {
-                saveNameInput.value = '';
-                saveModal.classList.remove('hidden');
-                saveNameInput.focus();
-                return;
-            }
-        }
-        clearTranscript();
-    });
 }
 
 // --- Text Actions ---

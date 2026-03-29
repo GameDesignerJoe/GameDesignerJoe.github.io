@@ -1,7 +1,6 @@
 // Shared UI update functions — avoids circular imports between app.js and capture.js
 
 const statusPill = document.getElementById('status-pill');
-const pageCounter = document.getElementById('page-counter');
 const errorBar = document.getElementById('error-bar');
 const errorMsg = document.getElementById('error-msg');
 const btnRetry = document.getElementById('btn-retry');
@@ -18,10 +17,8 @@ export function updateStatusPill(text, state) {
     }
 }
 
-export function updatePageCounter(count) {
-    pageCounter.textContent = `Pages: ${count}`;
-    const rescanBtn = document.getElementById('btn-rescan');
-    if (rescanBtn) rescanBtn.classList.toggle('hidden', count === 0);
+export function updatePageCounter() {
+    // Page counter removed from UI — kept as no-op for callers
 }
 
 export function showError(message, onRetry, onSkip) {
