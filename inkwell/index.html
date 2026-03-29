@@ -25,7 +25,7 @@
             <button class="view-tab" data-view="2">Library</button>
         </div>
         <button id="btn-settings" class="btn-icon settings-btn" aria-label="Settings">&#9881;</button>
-        <span class="version-tag">v22</span>
+        <span class="version-tag">v23</span>
     </header>
 
     <!-- Main Container (3 views) -->
@@ -76,12 +76,13 @@
 
             <!-- Google Docs iframe container (shown when connected) -->
             <div id="gdocs-frame-container" class="gdocs-frame-container hidden">
-                <div class="gdocs-connection-bar">
-                    <span id="gdocs-folder-path" class="gdocs-folder-path"></span>
-                    <span id="gdocs-doc-name" class="gdocs-doc-name">Untitled</span>
-                    <a id="btn-gdocs-open" class="btn-icon gdocs-bar-btn" title="Open in Google Docs" target="_blank" rel="noopener">&#8599;</a>
-                    <button id="btn-gdocs-switch" class="btn-icon gdocs-bar-btn" title="Switch doc">&#8644;</button>
-                    <button id="btn-gdocs-disconnect" class="btn-icon gdocs-bar-btn" title="Disconnect">&#10005;</button>
+                <div class="gdocs-tab-bar">
+                    <div id="gdocs-tabs" class="gdocs-tabs"></div>
+                    <button id="btn-gdocs-add-tab" class="gdocs-add-tab" title="New doc">+</button>
+                    <div class="gdocs-bar-actions">
+                        <a id="btn-gdocs-open" class="btn-icon gdocs-bar-btn" title="Open in Google Docs" target="_blank" rel="noopener">&#8599;</a>
+                        <button id="btn-gdocs-disconnect" class="btn-icon gdocs-bar-btn" title="Disconnect">&#10005;</button>
+                    </div>
                 </div>
                 <iframe id="gdocs-frame" class="gdocs-frame" allow="clipboard-write"></iframe>
             </div>

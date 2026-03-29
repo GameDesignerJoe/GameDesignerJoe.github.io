@@ -6,6 +6,8 @@ const STORAGE_DOCNAME = 'inkwell_gdocs_docname';
 const STORAGE_CLIENT_ID = 'inkwell_gdocs_client_id';
 const STORAGE_FOLDERID = 'inkwell_gdocs_folderid';
 const STORAGE_FOLDERNAME = 'inkwell_gdocs_foldername';
+const STORAGE_TABS = 'inkwell_gdocs_tabs';
+const STORAGE_ACTIVE_TAB = 'inkwell_gdocs_active_tab';
 
 let accessToken = null;
 let tokenExpiry = 0;
@@ -65,6 +67,78 @@ export function setFolder(id, name) {
     } else {
         localStorage.removeItem(STORAGE_FOLDERID);
         localStorage.removeItem(STORAGE_FOLDERNAME);
+    }
+}
+
+// --- Tab Management ---
+
+export function getTabs() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_TABS)) || [];
+    } catch { return []; }
+}
+
+export function getActiveTabIndex() {
+    return parseInt(localStorage.getItem(STORAGE_ACTIVE_TAB)) || 0;
+}
+
+function saveTabs(tabs, activeIndex) {
+    localStorage.setItem(STORAGE_TABS, JSON.stringify(tabs));
+    localStorage.setItem(STORAGE_ACTIVE_TAB, String(activeIndex));
+
+    // Keep legacy STORAGE_DOCID/DOCNAME synced with active tab
+    const active = tabs[activeIndex];
+    if (active) {
+        localStorage.setItem(STORAGE_DOCID, active.docId);
+        localStorage.setItem(STORAGE_DOCNAME, active.docName);
+    } else {
+        localStorage.removeItem(STORAGE_DOCID);
+        localStorage.removeItem(STORAGE_DOCNAME);
+    }
+}
+
+export function addTab(docId, docName) {
+    const tabs = getTabs();
+    // Don't add duplicate
+    const existing = tabs.findIndex(t => t.docId === docId);
+    if (existing >= 0) {
+        saveTabs(tabs, existing);
+        return existing;
+    }
+    tabs.push({ docId, docName });
+    const newIndex = tabs.length - 1;
+    saveTabs(tabs, newIndex);
+    return newIndex;
+}
+
+export function removeTab(index) {
+    const tabs = getTabs();
+    if (index < 0 || index >= tabs.length) return;
+    tabs.splice(index, 1);
+
+    let activeIndex = getActiveTabIndex();
+    if (tabs.length === 0) {
+        localStorage.removeItem(STORAGE_TABS);
+        localStorage.removeItem(STORAGE_ACTIVE_TAB);
+        localStorage.removeItem(STORAGE_DOCID);
+        localStorage.removeItem(STORAGE_DOCNAME);
+        return;
+    }
+    if (activeIndex >= tabs.length) activeIndex = tabs.length - 1;
+    saveTabs(tabs, activeIndex);
+}
+
+export function switchTab(index) {
+    const tabs = getTabs();
+    if (index < 0 || index >= tabs.length) return;
+    saveTabs(tabs, index);
+}
+
+export function renameTabDoc(index, newName) {
+    const tabs = getTabs();
+    if (index >= 0 && index < tabs.length) {
+        tabs[index].docName = newName;
+        saveTabs(tabs, getActiveTabIndex());
     }
 }
 
@@ -167,8 +241,7 @@ export async function createNewDoc(title) {
     }
 
     const file = await res.json();
-    localStorage.setItem(STORAGE_DOCID, file.id);
-    localStorage.setItem(STORAGE_DOCNAME, docTitle);
+    addTab(file.id, docTitle);
 
     document.dispatchEvent(new CustomEvent('inkwell:gdocs-connected', {
         detail: { docId: file.id, docName: docTitle }
@@ -192,8 +265,7 @@ export async function openDocPicker() {
             .setCallback(async (data) => {
                 if (data.action === google.picker.Action.PICKED) {
                     const doc = data.docs[0];
-                    localStorage.setItem(STORAGE_DOCID, doc.id);
-                    localStorage.setItem(STORAGE_DOCNAME, doc.name);
+                    addTab(doc.id, doc.name);
 
                     document.dispatchEvent(new CustomEvent('inkwell:gdocs-connected', {
                         detail: { docId: doc.id, docName: doc.name }
@@ -493,6 +565,8 @@ function clearAuth() {
     localStorage.removeItem(STORAGE_DOCNAME);
     localStorage.removeItem(STORAGE_FOLDERID);
     localStorage.removeItem(STORAGE_FOLDERNAME);
+    localStorage.removeItem(STORAGE_TABS);
+    localStorage.removeItem(STORAGE_ACTIVE_TAB);
 }
 
 async function loadPickerApi() {

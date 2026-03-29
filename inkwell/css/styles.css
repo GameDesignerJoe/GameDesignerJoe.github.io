@@ -856,44 +856,108 @@ html, body {
     display: none;
 }
 
-/* Connection bar showing doc name + controls */
-.gdocs-connection-bar {
+/* Tab bar */
+.gdocs-tab-bar {
+    display: flex;
+    align-items: stretch;
+    background: #0a0a0a;
+    border-bottom: 1px solid #282828;
+    flex-shrink: 0;
+    min-height: 2rem;
+}
+
+.gdocs-tabs {
+    display: flex;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    gap: 1px;
+}
+
+.gdocs-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.gdocs-tab {
     display: flex;
     align-items: center;
-    padding: 0.4rem 0.75rem;
-    background: #111;
-    border-bottom: 1px solid #282828;
     gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    background: #111;
+    border: none;
+    border-right: 1px solid #1a1a1a;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: #666;
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 180px;
     flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
 }
 
-.gdocs-doc-name {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.7rem;
+.gdocs-tab:hover {
+    background: #1a1a1a;
+    color: #aaa;
+}
+
+.gdocs-tab.active {
+    background: #1a1a1a;
     color: #4ade80;
-    flex: 1;
+    border-bottom: 2px solid #4ade80;
+}
+
+.gdocs-tab-name {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 140px;
+}
+
+.gdocs-tab-close {
+    font-size: 0.6rem;
+    color: #555;
     cursor: pointer;
-    padding: 0.15rem 0.3rem;
-    border-radius: 3px;
-    border: 1px solid transparent;
-    transition: border-color 0.15s, background 0.15s;
+    padding: 0 0.15rem;
+    border-radius: 2px;
+    line-height: 1;
+    background: none;
+    border: none;
+    font-family: inherit;
+    transition: color 0.15s, background 0.15s;
 }
 
-.gdocs-doc-name:hover {
-    border-color: #333;
-    background: #1a1a1a;
+.gdocs-tab-close:hover {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.15);
 }
 
-.gdocs-doc-name.editing {
-    border-color: #4ade80;
-    background: #1a1a1a;
-    outline: none;
-    cursor: text;
-    overflow: visible;
-    text-overflow: clip;
+.gdocs-add-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    background: none;
+    border: none;
+    border-right: 1px solid #1a1a1a;
+    color: #555;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+}
+
+.gdocs-add-tab:hover {
+    color: #4ade80;
+    background: #111;
+}
+
+.gdocs-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0 0.4rem;
+    flex-shrink: 0;
 }
 
 .gdocs-bar-btn {

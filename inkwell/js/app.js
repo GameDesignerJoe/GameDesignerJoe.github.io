@@ -2,7 +2,8 @@ import { initSettings, hasApiKey, setApiKey, setProvider } from './settings.js';
 import {
     initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
     createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocFullUrl, getDocName, getDocId,
-    getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder
+    getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder,
+    getTabs, getActiveTabIndex, addTab, removeTab, switchTab
 } from './gdocs.js';
 
 // Migrate old single-key format to new multi-provider format
@@ -344,17 +345,16 @@ function initGoogleDocs() {
     const frameContainer = document.getElementById('gdocs-frame-container');
     const frame = document.getElementById('gdocs-frame');
     const transcriptBody = document.getElementById('transcript-body');
-    const docNameEl = document.getElementById('gdocs-doc-name');
     const btnOpen = document.getElementById('btn-gdocs-open');
-    const btnSwitch = document.getElementById('btn-gdocs-switch');
     const btnDisconnect = document.getElementById('btn-gdocs-disconnect');
+    const tabsContainer = document.getElementById('gdocs-tabs');
+    const btnAddTab = document.getElementById('btn-gdocs-add-tab');
 
     // Doc picker modal
     const pickerModal = document.getElementById('gdocs-picker-modal');
     const btnNewDoc = document.getElementById('btn-gdocs-new');
     const btnExisting = document.getElementById('btn-gdocs-existing');
     const btnPickerCancel = document.getElementById('btn-gdocs-picker-cancel');
-    const folderPathEl = document.getElementById('gdocs-folder-path');
     const btnChooseFolder = document.getElementById('btn-gdocs-folder');
     const folderNameDisplay = document.getElementById('gdocs-folder-display');
 
@@ -401,7 +401,6 @@ function initGoogleDocs() {
             return;
         }
 
-        // If already authed, skip straight to doc picker
         if (hasAuth()) {
             showDocPicker();
             return;
@@ -415,13 +414,12 @@ function initGoogleDocs() {
         }
     });
 
-    // Update folder display in the picker modal
+    // --- Folder picker ---
     function updateFolderDisplay() {
         const name = getFolderName();
         folderNameDisplay.textContent = name ? name : 'My Drive (root)';
     }
 
-    // Choose folder button in picker modal
     btnChooseFolder.addEventListener('click', async () => {
         try {
             await openFolderPicker();
@@ -433,7 +431,7 @@ function initGoogleDocs() {
         }
     });
 
-    // Doc picker modal
+    // --- Doc picker modal ---
     btnNewDoc.addEventListener('click', async () => {
         pickerModal.classList.add('hidden');
         try {
@@ -464,52 +462,60 @@ function initGoogleDocs() {
         pickerModal.classList.add('hidden');
     });
 
-    // Click doc name to rename
-    docNameEl.addEventListener('click', () => {
-        docNameEl.contentEditable = 'true';
-        docNameEl.classList.add('editing');
-        docNameEl.focus();
+    // --- Tab bar ---
 
-        // Select all text
-        const range = document.createRange();
-        range.selectNodeContents(docNameEl);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-    });
-
-    function commitRename() {
-        if (docNameEl.contentEditable !== 'true') return;
-        docNameEl.contentEditable = 'false';
-        docNameEl.classList.remove('editing');
-
-        const newName = docNameEl.textContent.trim();
-        if (!newName || newName === getDocName()) {
-            docNameEl.textContent = getDocName();
+    // "+" button creates a new doc in the last-used folder
+    btnAddTab.addEventListener('click', async () => {
+        if (!hasAuth()) {
+            showDocPicker();
             return;
         }
-
-        renameDoc(newName).catch(err => {
-            console.error('Rename failed:', err);
-            docNameEl.textContent = getDocName();
-        });
-    }
-
-    docNameEl.addEventListener('blur', commitRename);
-    docNameEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            docNameEl.blur();
-        } else if (e.key === 'Escape') {
-            docNameEl.textContent = getDocName();
-            docNameEl.blur();
+        try {
+            await createNewDoc();
+            showConnectedUI();
+        } catch (err) {
+            console.error('Quick create failed:', err);
         }
     });
 
-    // Switch doc
-    btnSwitch.addEventListener('click', () => {
-        showDocPicker();
-    });
+    function renderTabs() {
+        const tabs = getTabs();
+        const activeIndex = getActiveTabIndex();
+        tabsContainer.innerHTML = '';
+
+        tabs.forEach((tab, i) => {
+            const tabEl = document.createElement('div');
+            tabEl.className = 'gdocs-tab' + (i === activeIndex ? ' active' : '');
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'gdocs-tab-name';
+            nameEl.textContent = tab.docName;
+            tabEl.appendChild(nameEl);
+
+            const closeEl = document.createElement('button');
+            closeEl.className = 'gdocs-tab-close';
+            closeEl.textContent = '\u00d7';
+            closeEl.title = 'Close tab';
+            closeEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeTab(i);
+                const remaining = getTabs();
+                if (remaining.length === 0) {
+                    showDisconnectedUI();
+                } else {
+                    showConnectedUI();
+                }
+            });
+            tabEl.appendChild(closeEl);
+
+            tabEl.addEventListener('click', () => {
+                switchTab(i);
+                showConnectedUI();
+            });
+
+            tabsContainer.appendChild(tabEl);
+        });
+    }
 
     // Disconnect
     btnDisconnect.addEventListener('click', () => {
@@ -526,7 +532,7 @@ function initGoogleDocs() {
         showDisconnectedUI();
     });
 
-    // Allow other parts of the app to request the doc picker (e.g. "+ New Doc" button)
+    // Allow other parts of the app to request the doc picker
     document.addEventListener('inkwell:request-doc-picker', () => {
         showDocPicker();
     });
@@ -536,20 +542,20 @@ function initGoogleDocs() {
         pickerModal.classList.remove('hidden');
     }
 
-    function buildPathDisplay() {
-        const folder = getFolderName();
-        const doc = getDocName();
-        return folder ? `${folder} / ${doc}` : doc;
-    }
-
     function showConnectedUI() {
         banner.classList.add('hidden');
         transcriptBody.classList.add('hidden');
         frameContainer.classList.remove('hidden');
-        docNameEl.textContent = getDocName();
-        folderPathEl.textContent = getFolderName() ? getFolderName() + ' / ' : '';
-        btnOpen.href = getDocFullUrl() || '#';
         document.body.classList.add('gdocs-active');
+
+        // Migrate: if we have a docId but no tabs, create the first tab
+        const tabs = getTabs();
+        if (tabs.length === 0 && getDocId()) {
+            addTab(getDocId(), getDocName());
+        }
+
+        renderTabs();
+        btnOpen.href = getDocFullUrl() || '#';
 
         const embedUrl = getDocEmbedUrl();
         if (embedUrl && frame.src !== embedUrl) {
