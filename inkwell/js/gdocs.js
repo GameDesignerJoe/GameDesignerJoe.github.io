@@ -310,9 +310,26 @@ export async function renameDoc(newTitle) {
 }
 
 /**
+ * Detect if a line has leading whitespace indicating it should be centered.
+ * OCR models add leading spaces to approximate centering on the page.
+ * Returns the trimmed text if centered, or null if left-aligned.
+ */
+function detectCentered(line) {
+    // A line is "centered" if it has 4+ leading spaces and isn't just indentation
+    // (indented lines typically have 2-4 spaces; centered lines have more)
+    const leadingSpaces = line.match(/^( +)/)?.[1].length || 0;
+    const trimmed = line.trim();
+    if (leadingSpaces >= 4 && trimmed.length > 0 && trimmed.length < 60) {
+        return trimmed;
+    }
+    return null;
+}
+
+/**
  * Append scanned text to the connected Google Doc.
  * Always inserts a page break if the doc already has content.
  * Detects a title on the first line and formats it as a heading.
+ * Detects centered lines and applies Google Docs center alignment.
  * Sets font to Calibri for all inserted text.
  */
 export async function appendTextToDoc(text, pageNumber) {
@@ -354,7 +371,7 @@ export async function appendTextToDoc(text, pageNumber) {
     // Detect title: first line if it's short, followed by a blank line or more text
     const lines = text.split('\n');
     let titleLine = null;
-    let bodyText = text;
+    let bodyStartLine = 0;
 
     if (lines.length >= 2) {
         const firstLine = lines[0].trim();
@@ -364,14 +381,16 @@ export async function appendTextToDoc(text, pageNumber) {
             !firstLine.startsWith('"') && !firstLine.startsWith('---[')) {
             titleLine = firstLine;
             // Skip the title line (and an optional blank line after it) for the body
-            const bodyStart = lines[1].trim() === '' ? 2 : 1;
-            bodyText = lines.slice(bodyStart).join('\n');
+            bodyStartLine = lines[1].trim() === '' ? 2 : 1;
         }
     }
 
+    // Track paragraph ranges that need center alignment
+    const centeredRanges = [];
+
     // Insert title if detected
-    const titleStartIndex = insertAt;
     if (titleLine) {
+        const titleIsCentered = detectCentered(lines[0]) !== null;
         requests.push({
             insertText: {
                 location: { index: insertAt },
@@ -389,6 +408,11 @@ export async function appendTextToDoc(text, pageNumber) {
             }
         });
 
+        // Center-align the title if it was centered on the page
+        if (titleIsCentered) {
+            centeredRanges.push({ startIndex: insertAt, endIndex: titleEndIndex + 1 });
+        }
+
         // Set title font to Calibri
         requests.push({
             updateTextStyle: {
@@ -403,26 +427,77 @@ export async function appendTextToDoc(text, pageNumber) {
         insertAt += titleLine.length + 1; // +1 for the newline
     }
 
-    // Insert body text
-    if (bodyText.trim()) {
+    // Process body lines: strip leading spaces from centered lines and track their positions
+    const bodyLines = lines.slice(bodyStartLine || 0);
+    // If we extracted a title, body starts after bodyStartLine
+    if (titleLine) {
+        bodyLines.splice(0, bodyLines.length);
+        bodyLines.push(...lines.slice(bodyStartLine));
+    }
+
+    if (bodyLines.length > 0) {
         const bodyStartIndex = insertAt;
-        requests.push({
-            insertText: {
-                location: { index: insertAt },
-                text: bodyText + '\n'
+
+        // Build the body text, stripping leading spaces from centered lines
+        // and tracking which line ranges need center alignment
+        const processedLines = [];
+        const lineCenterFlags = [];
+
+        for (const line of bodyLines) {
+            const centered = detectCentered(line);
+            if (centered !== null) {
+                processedLines.push(centered);
+                lineCenterFlags.push(true);
+            } else {
+                processedLines.push(line);
+                lineCenterFlags.push(false);
             }
-        });
+        }
 
-        const bodyEndIndex = insertAt + bodyText.length;
+        const bodyText = processedLines.join('\n');
+        if (bodyText.trim()) {
+            requests.push({
+                insertText: {
+                    location: { index: insertAt },
+                    text: bodyText + '\n'
+                }
+            });
 
-        // Set body font to Calibri
+            // Set body font to Calibri
+            const bodyEndIndex = insertAt + bodyText.length;
+            requests.push({
+                updateTextStyle: {
+                    range: { startIndex: bodyStartIndex, endIndex: bodyEndIndex },
+                    textStyle: {
+                        weightedFontFamily: { fontFamily: 'Calibri' }
+                    },
+                    fields: 'weightedFontFamily'
+                }
+            });
+
+            // Calculate centered paragraph ranges from line positions
+            let pos = insertAt;
+            for (let i = 0; i < processedLines.length; i++) {
+                const lineLen = processedLines[i].length;
+                if (lineCenterFlags[i]) {
+                    // Range covers this paragraph (line + its newline)
+                    centeredRanges.push({
+                        startIndex: pos,
+                        endIndex: pos + lineLen + 1 // +1 for newline
+                    });
+                }
+                pos += lineLen + 1; // +1 for newline separator
+            }
+        }
+    }
+
+    // Apply center alignment to all detected centered paragraphs
+    for (const range of centeredRanges) {
         requests.push({
-            updateTextStyle: {
-                range: { startIndex: bodyStartIndex, endIndex: bodyEndIndex },
-                textStyle: {
-                    weightedFontFamily: { fontFamily: 'Calibri' }
-                },
-                fields: 'weightedFontFamily'
+            updateParagraphStyle: {
+                range: { startIndex: range.startIndex, endIndex: range.endIndex },
+                paragraphStyle: { alignment: 'CENTER' },
+                fields: 'alignment'
             }
         });
     }
