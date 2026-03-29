@@ -239,7 +239,9 @@ export async function renameDoc(newTitle) {
 
 /**
  * Append scanned text to the connected Google Doc.
- * Inserts a page break (except for the first page) followed by the text.
+ * Always inserts a page break if the doc already has content.
+ * Detects a title on the first line and formats it as a heading.
+ * Sets font to Calibri for all inserted text.
  */
 export async function appendTextToDoc(text, pageNumber) {
     const docId = getDocId();
@@ -247,7 +249,7 @@ export async function appendTextToDoc(text, pageNumber) {
 
     await ensureValidToken();
 
-    // First, get the doc to find the end index
+    // Get the doc to find the end index
     const docRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
     });
@@ -260,29 +262,98 @@ export async function appendTextToDoc(text, pageNumber) {
     const doc = await docRes.json();
     const endIndex = doc.body.content[doc.body.content.length - 1].endIndex - 1;
 
-    // Build the batch update requests
-    const requests = [];
+    // Check if doc already has real content (more than just a single newline)
+    const docHasContent = endIndex > 1;
 
-    // For pages after the first, insert a page break
-    if (pageNumber > 1) {
+    const requests = [];
+    let insertAt = endIndex;
+
+    // Insert a page break if the doc already has content
+    if (docHasContent) {
         requests.push({
             insertPageBreak: {
-                location: { index: endIndex }
+                location: { index: insertAt }
+            }
+        });
+        // Page break adds 2 characters (newline + page break)
+        insertAt += 2;
+    }
+
+    // Detect title: first line if it's short, followed by a blank line or more text
+    const lines = text.split('\n');
+    let titleLine = null;
+    let bodyText = text;
+
+    if (lines.length >= 2) {
+        const firstLine = lines[0].trim();
+        // Title heuristic: first line is short (under 60 chars), non-empty,
+        // and doesn't start with common body-text patterns
+        if (firstLine.length > 0 && firstLine.length < 60 &&
+            !firstLine.startsWith('"') && !firstLine.startsWith('---[')) {
+            titleLine = firstLine;
+            // Skip the title line (and an optional blank line after it) for the body
+            const bodyStart = lines[1].trim() === '' ? 2 : 1;
+            bodyText = lines.slice(bodyStart).join('\n');
+        }
+    }
+
+    // Insert title if detected
+    const titleStartIndex = insertAt;
+    if (titleLine) {
+        requests.push({
+            insertText: {
+                location: { index: insertAt },
+                text: titleLine + '\n'
+            }
+        });
+        const titleEndIndex = insertAt + titleLine.length;
+
+        // Style title as Heading 2
+        requests.push({
+            updateParagraphStyle: {
+                range: { startIndex: insertAt, endIndex: titleEndIndex + 1 },
+                paragraphStyle: { namedStyleType: 'HEADING_2' },
+                fields: 'namedStyleType'
+            }
+        });
+
+        // Set title font to Calibri
+        requests.push({
+            updateTextStyle: {
+                range: { startIndex: insertAt, endIndex: titleEndIndex },
+                textStyle: {
+                    weightedFontFamily: { fontFamily: 'Calibri' }
+                },
+                fields: 'weightedFontFamily'
+            }
+        });
+
+        insertAt += titleLine.length + 1; // +1 for the newline
+    }
+
+    // Insert body text
+    if (bodyText.trim()) {
+        const bodyStartIndex = insertAt;
+        requests.push({
+            insertText: {
+                location: { index: insertAt },
+                text: bodyText + '\n'
+            }
+        });
+
+        const bodyEndIndex = insertAt + bodyText.length;
+
+        // Set body font to Calibri
+        requests.push({
+            updateTextStyle: {
+                range: { startIndex: bodyStartIndex, endIndex: bodyEndIndex },
+                textStyle: {
+                    weightedFontFamily: { fontFamily: 'Calibri' }
+                },
+                fields: 'weightedFontFamily'
             }
         });
     }
-
-    // Insert the scanned text after the page break (or at end for first page)
-    // We need to calculate the new index after inserting the page break
-    // A page break adds 2 characters (newline + page break)
-    const textIndex = pageNumber > 1 ? endIndex + 2 : endIndex;
-
-    requests.push({
-        insertText: {
-            location: { index: textIndex },
-            text: text + '\n'
-        }
-    });
 
     const batchRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
         method: 'POST',
