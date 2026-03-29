@@ -598,8 +598,6 @@ export async function openFolderPicker() {
 
 // Cache: docId → scan subfolder ID (avoids re-querying Drive each scan)
 const scanFolderCache = new Map();
-// Per-doc scan image counter (docId → next number)
-const scanCounters = new Map();
 
 /**
  * Build a camelCase filename from OCR text: "01_PagesAreJust.jpg"
@@ -679,12 +677,21 @@ async function getOrCreateScanFolder() {
 export async function uploadScanImage(base64, _pageNumber, text) {
     await ensureValidToken();
 
-    const docId = getDocId();
     const folderId = await getOrCreateScanFolder();
 
-    // Use per-doc counter instead of transcript page count
-    const count = (scanCounters.get(docId) || 0) + 1;
-    scanCounters.set(docId, count);
+    // Query Drive for existing file count in this folder to determine next number
+    let count = 1;
+    try {
+        const q = `'${folderId}' in parents and trashed = false`;
+        const listRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1000`,
+            { headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+        if (listRes.ok) {
+            const data = await listRes.json();
+            count = (data.files?.length || 0) + 1;
+        }
+    } catch {}
     const filename = buildScanFilename(count, text);
 
     const metadata = {
