@@ -98,6 +98,13 @@ export function setFolder(id, name) {
     }
 }
 
+// --- Images-only mode ---
+
+let imagesOnlyMode = false;
+
+export function getImagesOnly() { return imagesOnlyMode; }
+export function setImagesOnly(val) { imagesOnlyMode = !!val; }
+
 // --- Tab Management ---
 
 export function getTabs() {

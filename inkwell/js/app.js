@@ -3,7 +3,8 @@ import {
     initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
     createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocFullUrl, getDocName, getDocId,
     getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder,
-    getTabs, getActiveTabIndex, addTab, removeTab, switchTab, renameTabDoc, syncDocTitle
+    getTabs, getActiveTabIndex, addTab, removeTab, switchTab, renameTabDoc, syncDocTitle,
+    getImagesOnly, setImagesOnly
 } from './gdocs.js';
 
 // Migrate old single-key format to new multi-provider format
@@ -362,6 +363,12 @@ function initGoogleDocs() {
     // Settings: Google Client ID
     const clientIdInput = document.getElementById('gdocs-client-id');
     const authStatus = document.getElementById('gdocs-auth-status');
+    const imagesOnlyRow = document.getElementById('gdocs-images-only-row');
+    const imagesOnlyCheckbox = document.getElementById('gdocs-images-only');
+
+    imagesOnlyCheckbox.addEventListener('change', () => {
+        setImagesOnly(imagesOnlyCheckbox.checked);
+    });
 
     // Load saved client ID into settings input whenever modal opens
     clientIdInput.value = getClientId();
@@ -370,6 +377,8 @@ function initGoogleDocs() {
         authStatus.textContent = isConnected() ? 'Connected' : hasAuth() ? 'Authenticated' : '';
         authStatus.style.color = '#4ade80';
         btnDisconnect.classList.toggle('hidden', !hasAuth());
+        imagesOnlyRow.classList.toggle('hidden', !hasAuth());
+        imagesOnlyCheckbox.checked = getImagesOnly();
     });
 
     // Hook into settings save to persist client ID
