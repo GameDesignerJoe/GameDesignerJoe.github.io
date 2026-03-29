@@ -234,6 +234,11 @@ function initScanActions() {
     });
 
     btnNewDoc.addEventListener('click', () => {
+        if (isConnected()) {
+            // In Google Docs mode, "New Doc" opens the doc picker
+            document.dispatchEvent(new CustomEvent('inkwell:request-doc-picker'));
+            return;
+        }
         const pages = getPages();
         if (pages.length > 0) {
             if (confirm('Save current transcript before starting new?')) {
@@ -518,6 +523,11 @@ function initGoogleDocs() {
 
     document.addEventListener('inkwell:gdocs-disconnected', () => {
         showDisconnectedUI();
+    });
+
+    // Allow other parts of the app to request the doc picker (e.g. "+ New Doc" button)
+    document.addEventListener('inkwell:request-doc-picker', () => {
+        showDocPicker();
     });
 
     function showDocPicker() {
