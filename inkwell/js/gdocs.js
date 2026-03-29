@@ -306,6 +306,7 @@ export async function renameDoc(newTitle) {
     }
 
     localStorage.setItem(STORAGE_DOCNAME, newTitle);
+    renameTabDoc(getActiveTabIndex(), newTitle);
     return newTitle;
 }
 

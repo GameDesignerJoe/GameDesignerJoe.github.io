@@ -3,7 +3,7 @@ import {
     initGoogleAuth, connectGoogle, disconnectGoogle, isConnected, hasAuth,
     createNewDoc, openDocPicker, openFolderPicker, getDocEmbedUrl, getDocFullUrl, getDocName, getDocId,
     getClientId, setClientId, renameDoc, getFolderName, getFolderId, setFolder,
-    getTabs, getActiveTabIndex, addTab, removeTab, switchTab
+    getTabs, getActiveTabIndex, addTab, removeTab, switchTab, renameTabDoc
 } from './gdocs.js';
 
 // Migrate old single-key format to new multi-provider format
@@ -347,6 +347,7 @@ function initGoogleDocs() {
     const transcriptBody = document.getElementById('transcript-body');
     const btnOpen = document.getElementById('btn-gdocs-open');
     const btnDisconnect = document.getElementById('btn-gdocs-disconnect');
+    const settingsModal = document.getElementById('settings-modal');
     const tabsContainer = document.getElementById('gdocs-tabs');
     const btnAddTab = document.getElementById('btn-gdocs-add-tab');
 
@@ -368,6 +369,7 @@ function initGoogleDocs() {
         clientIdInput.value = getClientId();
         authStatus.textContent = isConnected() ? 'Connected' : hasAuth() ? 'Authenticated' : '';
         authStatus.style.color = '#4ade80';
+        btnDisconnect.classList.toggle('hidden', !hasAuth());
     });
 
     // Hook into settings save to persist client ID
@@ -464,18 +466,9 @@ function initGoogleDocs() {
 
     // --- Tab bar ---
 
-    // "+" button creates a new doc in the last-used folder
-    btnAddTab.addEventListener('click', async () => {
-        if (!hasAuth()) {
-            showDocPicker();
-            return;
-        }
-        try {
-            await createNewDoc();
-            showConnectedUI();
-        } catch (err) {
-            console.error('Quick create failed:', err);
-        }
+    // "+" button opens doc picker (create new or open existing)
+    btnAddTab.addEventListener('click', () => {
+        showDocPicker();
     });
 
     function renderTabs() {
@@ -490,6 +483,32 @@ function initGoogleDocs() {
             const nameEl = document.createElement('span');
             nameEl.className = 'gdocs-tab-name';
             nameEl.textContent = tab.docName;
+            nameEl.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.className = 'gdocs-tab-rename';
+                input.value = tab.docName;
+                input.style.cssText = 'background:#222;border:1px solid #4ade80;color:#f5f0e8;font-family:inherit;font-size:inherit;padding:0 0.2rem;border-radius:2px;width:120px;outline:none;';
+                nameEl.replaceWith(input);
+                input.focus();
+                input.select();
+                const finish = async () => {
+                    const newName = input.value.trim();
+                    if (newName && newName !== tab.docName) {
+                        try {
+                            await renameDoc(newName);
+                        } catch (err) {
+                            console.error('Rename failed:', err);
+                        }
+                    }
+                    renderTabs();
+                };
+                input.addEventListener('blur', finish);
+                input.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') input.blur();
+                    if (ev.key === 'Escape') { input.value = tab.docName; input.blur(); }
+                });
+            });
             tabEl.appendChild(nameEl);
 
             const closeEl = document.createElement('button');
@@ -517,10 +536,12 @@ function initGoogleDocs() {
         });
     }
 
-    // Disconnect
+    // Disconnect (in settings modal)
     btnDisconnect.addEventListener('click', () => {
+        if (!confirm('Disconnect from Google Docs?')) return;
         disconnectGoogle();
         showDisconnectedUI();
+        settingsModal.classList.add('hidden');
     });
 
     // Listen for events from gdocs.js
