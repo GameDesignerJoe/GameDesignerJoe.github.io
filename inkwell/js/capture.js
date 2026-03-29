@@ -129,7 +129,7 @@ async function doCapture(base64) {
                 console.warn('Google Docs sync failed:', err);
             });
         }
-        uploadScanImage(base64, count, result.text).catch(err => {
+        uploadScanImage(base64, result.text).catch(err => {
             console.warn('Scan image backup failed:', err);
         });
     }

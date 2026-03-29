@@ -600,15 +600,14 @@ export async function openFolderPicker() {
 const scanFolderCache = new Map();
 
 /**
- * Build a camelCase filename from OCR text: "01_PagesAreJust.jpg"
+ * Build a camelCase filename from OCR text: "PagesAreJust.jpg"
  */
-function buildScanFilename(pageNumber, text) {
-    const num = String(pageNumber).padStart(2, '0');
+function buildScanFilename(text) {
     const words = text.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 4);
     const camel = words
         .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join('');
-    return `${num}_${camel || 'Scan'}.jpg`;
+    return `${camel || 'Scan'}.jpg`;
 }
 
 /**
@@ -674,25 +673,12 @@ async function getOrCreateScanFolder() {
  * Upload a scan image to the doc's scan subfolder in Google Drive.
  * Fire-and-forget — errors are logged but never block scanning.
  */
-export async function uploadScanImage(base64, _pageNumber, text) {
+export async function uploadScanImage(base64, text) {
     await ensureValidToken();
 
     const folderId = await getOrCreateScanFolder();
 
-    // Query Drive for existing file count in this folder to determine next number
-    let count = 1;
-    try {
-        const q = `'${folderId}' in parents and trashed = false`;
-        const listRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1000`,
-            { headers: { 'Authorization': `Bearer ${accessToken}` } }
-        );
-        if (listRes.ok) {
-            const data = await listRes.json();
-            count = (data.files?.length || 0) + 1;
-        }
-    } catch {}
-    const filename = buildScanFilename(count, text);
+    const filename = buildScanFilename(text);
 
     const metadata = {
         name: filename,
