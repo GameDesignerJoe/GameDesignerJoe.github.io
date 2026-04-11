@@ -47,7 +47,9 @@ export function createScenario(): Scenario {
     title: "",
     subtitle: "",
     emoji: "📖",
+    scenario: "",
     openingHook: "",
+    playerCharacter: "",
     aiInstructions: "",
     companion: {
       name: "",

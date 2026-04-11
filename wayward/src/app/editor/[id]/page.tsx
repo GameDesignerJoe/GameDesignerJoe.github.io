@@ -190,6 +190,30 @@ export default function EditorPage() {
             </div>
 
             <div className="field">
+              <label className="field-label">Who You Are</label>
+              <textarea
+                value={scenario.playerCharacter || ""}
+                onChange={(e) => update({ playerCharacter: e.target.value.slice(0, 1000) })}
+                placeholder="Describe who you are in this scenario — your name, background, relationship to the companion, any relevant traits."
+                rows={4}
+                maxLength={1000}
+              />
+              <div className="field-hint">{(scenario.playerCharacter || "").length}/1000</div>
+            </div>
+
+            <div className="field">
+              <label className="field-label">Scenario</label>
+              <textarea
+                value={scenario.scenario || ""}
+                onChange={(e) => update({ scenario: e.target.value.slice(0, 4000) })}
+                placeholder="Describe the world and situation — where this takes place, what's going on, the circumstances the player and companion are in."
+                rows={6}
+                maxLength={4000}
+              />
+              <div className="field-hint">{(scenario.scenario || "").length}/4000</div>
+            </div>
+
+            <div className="field">
               <label className="field-label">AI Instructions</label>
               <textarea
                 value={scenario.aiInstructions}

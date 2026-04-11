@@ -11,7 +11,9 @@ export interface Scenario {
   title: string;
   subtitle: string;
   emoji: string;
+  scenario: string;
   openingHook: string;
+  playerCharacter: string;
   aiInstructions: string;
   companion: Companion;
   createdAt: string;

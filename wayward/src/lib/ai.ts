@@ -9,7 +9,13 @@ const STYLE_INSTRUCTIONS: Record<NarrationStyle, string> = {
 
 export function buildSystemPrompt(scenario: Scenario, style: NarrationStyle = "voice"): string {
   return `SCENARIO:
+${scenario.scenario}
+
+INTRO:
 ${scenario.openingHook}
+
+YOU ARE:
+${scenario.playerCharacter}
 
 YOUR COMPANION IS:
 ${scenario.companion.name}. ${scenario.companion.description}
