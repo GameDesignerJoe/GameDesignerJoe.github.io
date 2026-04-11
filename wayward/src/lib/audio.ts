@@ -53,12 +53,16 @@ export async function playTTS(
 
   if (!text || !voiceId) return null;
 
+  // Convert *expression* asterisk notation to [expression] bracket notation
+  // so Cartesia Sonic-3 renders them as actual audio (laughter, sighs, etc.)
+  const transcript = text.replace(/\*([a-zA-Z]+)\*/g, "[$1]");
+
   const speed = getTTSSpeed();
 
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voiceId, speed }),
+    body: JSON.stringify({ text: transcript, voiceId, speed }),
   });
 
   if (!res.ok) return null;
@@ -71,11 +75,8 @@ export async function playTTS(
   currentAudio = audio;
 
   audio.addEventListener("ended", () => {
-    URL.revokeObjectURL(url);
-    if (currentAudio === audio) {
-      currentAudio = null;
-      currentUrl = null;
-    }
+    // Reset to start so the play button can replay it
+    audio.currentTime = 0;
     onEnd?.();
   });
 
