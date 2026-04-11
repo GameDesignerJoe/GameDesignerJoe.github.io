@@ -11,7 +11,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { text, voiceId } = await req.json();
+  const { text, voiceId, speed } = await req.json();
+
+  const body: Record<string, unknown> = {
+    model_id: "sonic-3",
+    transcript: text,
+    voice: { mode: "id", id: voiceId },
+    output_format: {
+      container: "mp3",
+      bit_rate: 128000,
+      sample_rate: 44100,
+    },
+  };
+
+  if (typeof speed === "number") {
+    body.generation_config = { speed };
+  }
 
   const response = await fetch(CARTESIA_API_URL, {
     method: "POST",
@@ -20,16 +35,7 @@ export async function POST(req: NextRequest) {
       "Cartesia-Version": "2024-06-10",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model_id: "sonic-3",
-      transcript: text,
-      voice: { mode: "id", id: voiceId },
-      output_format: {
-        container: "mp3",
-        bit_rate: 128000,
-        sample_rate: 44100,
-      },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

@@ -30,6 +30,20 @@ export function isPlaying(): boolean {
   return currentAudio !== null && !currentAudio.paused;
 }
 
+const SPEED_KEY = "wayward_tts_speed";
+
+export function getTTSSpeed(): number {
+  if (typeof window === "undefined") return 1.0;
+  const val = localStorage.getItem(SPEED_KEY);
+  if (!val) return 1.0;
+  const n = parseFloat(val);
+  return isNaN(n) ? 1.0 : n;
+}
+
+export function setTTSSpeed(speed: number): void {
+  localStorage.setItem(SPEED_KEY, String(speed));
+}
+
 export async function playTTS(
   text: string,
   voiceId: string,
@@ -39,10 +53,12 @@ export async function playTTS(
 
   if (!text || !voiceId) return null;
 
+  const speed = getTTSSpeed();
+
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voiceId }),
+    body: JSON.stringify({ text, voiceId, speed }),
   });
 
   if (!res.ok) return null;

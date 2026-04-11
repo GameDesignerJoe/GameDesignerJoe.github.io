@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Scenario, ChatMessage, Exchange, InputMode } from "@/lib/types";
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
-import { playTTS, stopAudio, toggleAudio, isPlaying } from "@/lib/audio";
+import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed } from "@/lib/audio";
 
 type Phase = "loading" | "playing";
 
@@ -23,6 +23,8 @@ export default function PlayPage() {
   const [inputText, setInputText] = useState("");
   const [generating, setGenerating] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [speed, setSpeed] = useState(1.0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -42,6 +44,7 @@ export default function PlayPage() {
     }
     setScenario(s);
     scenarioRef.current = s;
+    setSpeed(getTTSSpeed());
   }, [id, router]);
 
   // Auto-scroll to bottom
@@ -340,7 +343,68 @@ export default function PlayPage() {
         <span className="text-secondary" style={{ fontSize: "0.85rem" }}>
           {scenario.title}
         </span>
-        <div style={{ width: 40 }} />
+        <div style={{ position: "relative" }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setShowSettings(!showSettings)}
+            title="Settings"
+          >
+            ⚙
+          </button>
+          {showSettings && (
+            <div
+              style={{
+                position: "absolute",
+                top: 36,
+                right: 0,
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "14px 16px",
+                width: 220,
+                zIndex: 20,
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.75rem",
+                  color: "var(--text-secondary)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginBottom: 8,
+                }}
+              >
+                Speech Speed: {speed.toFixed(1)}x
+              </label>
+              <input
+                type="range"
+                min="0.6"
+                max="1.5"
+                step="0.1"
+                value={speed}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setSpeed(v);
+                  setTTSSpeed(v);
+                }}
+                style={{ width: "100%", accentColor: "var(--accent)" }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "0.7rem",
+                  color: "var(--text-muted)",
+                  marginTop: 4,
+                }}
+              >
+                <span>Slow</span>
+                <span>Fast</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Narrative area */}
