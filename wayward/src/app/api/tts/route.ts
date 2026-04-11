@@ -11,11 +11,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { text, voiceId, speed, emotion } = await req.json();
+  const { text, voiceId, speed } = await req.json();
 
   const generationConfig: Record<string, unknown> = {};
   if (typeof speed === "number") generationConfig.speed = speed;
-  if (typeof emotion === "string" && emotion !== "neutral") generationConfig.emotion = emotion;
 
   const body: Record<string, unknown> = {
     model_id: "sonic-3",
