@@ -6,6 +6,28 @@ import { getAudioProvider } from "./settings";
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 
+// Persistent audio element — primed on first user gesture to satisfy
+// mobile browser autoplay restrictions (iOS Safari, etc.)
+let primedAudio: HTMLAudioElement | null = null;
+
+/**
+ * Call this from any user tap/click handler early in the session.
+ * It plays a silent buffer on the shared Audio element, which "unlocks"
+ * it for programmatic playback later (after async fetch completes).
+ */
+export function primeAudio(): void {
+  if (primedAudio) return;
+  primedAudio = new Audio();
+  // Play a tiny silent WAV to unlock the audio context
+  primedAudio.src =
+    "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+  primedAudio.volume = 0;
+  primedAudio.play().catch(() => {
+    // Ignore — we'll retry on next user gesture
+    primedAudio = null;
+  });
+}
+
 export function stopAudio(): void {
   if (currentAudio) {
     currentAudio.pause();
@@ -96,14 +118,18 @@ export async function playTTS(
   const url = URL.createObjectURL(blob);
   currentUrl = url;
 
-  const audio = new Audio(url);
+  // Reuse the primed audio element if available (mobile unlock),
+  // otherwise create a new one (desktop).
+  const audio = primedAudio || new Audio();
+  primedAudio = null; // consumed — will re-prime on next user gesture
+  audio.src = url;
+  audio.volume = 1;
   currentAudio = audio;
 
   audio.addEventListener("ended", () => {
-    // Reset to start so the play button can replay it
     audio.currentTime = 0;
     onEnd?.();
-  });
+  }, { once: true });
 
   await audio.play();
   return audio;

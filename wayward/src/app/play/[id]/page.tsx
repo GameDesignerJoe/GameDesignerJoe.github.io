@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Scenario, ChatMessage, Exchange, InputMode, Emotion, AudioProvider } from "@/lib/types";
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
-import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed } from "@/lib/audio";
+import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed, primeAudio } from "@/lib/audio";
 import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle, getAudioProvider } from "@/lib/settings";
 
 type Phase = "loading" | "playing";
@@ -62,6 +62,21 @@ export default function PlayPage() {
     }
     return null;
   }
+
+  // Prime audio on first user gesture to unlock mobile autoplay
+  useEffect(() => {
+    function handleGesture() {
+      primeAudio();
+      document.removeEventListener("touchstart", handleGesture);
+      document.removeEventListener("click", handleGesture);
+    }
+    document.addEventListener("touchstart", handleGesture, { once: true });
+    document.addEventListener("click", handleGesture, { once: true });
+    return () => {
+      document.removeEventListener("touchstart", handleGesture);
+      document.removeEventListener("click", handleGesture);
+    };
+  }, []);
 
   useEffect(() => {
     const s = getScenario(id);

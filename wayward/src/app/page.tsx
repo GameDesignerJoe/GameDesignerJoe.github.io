@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Scenario, AudioProvider } from "@/lib/types";
 import { getScenarios, createScenario, saveScenario, deleteScenario } from "@/lib/scenarios";
 import { getAudioProvider, setAudioProvider } from "@/lib/settings";
+import { primeAudio } from "@/lib/audio";
 
 export default function Home() {
   const router = useRouter();
@@ -132,6 +133,7 @@ export default function Home() {
                 }}
                 onClick={() => {
                   if (s.title && s.openingHook && s.companion.name && hasAnyVoice) {
+                    primeAudio();
                     router.push(`/play/${s.id}`);
                   } else {
                     router.push(`/editor/${s.id}`);
