@@ -1,6 +1,13 @@
 import { Scenario, ChatMessage, ParsedResponse, InputMode, Emotion, VALID_EMOTIONS } from "./types";
+import type { NarrationStyle } from "./settings";
 
-export function buildSystemPrompt(scenario: Scenario): string {
+const STYLE_INSTRUCTIONS: Record<NarrationStyle, string> = {
+  story: `- STYLE — Write your responses as dialogue with action beats, exactly like how dialogue appears in a novel. The character speaks in their natural voice, but actions and physical details are woven in as brief narrative beats. Example: "Are you awake?" I say as I walk across the bedroom and open the windows. Keep the same character voice and personality — only the format changes, not the tone.`,
+  blend: `- STYLE — Mix natural conversational dialogue with occasional descriptive narration when the moment is dramatic or atmospheric. Lean toward speaking but allow prose when it adds weight.`,
+  voice: `- STYLE — Speak entirely in first-person conversational dialogue as a real person would. Never write actions as a narrator would. Express movement and action through speech. Example: "Morning Joe — I'm going to grab a seat and read for a bit. Did you get coffee?"`,
+};
+
+export function buildSystemPrompt(scenario: Scenario, style: NarrationStyle = "voice"): string {
   return `SCENARIO:
 ${scenario.openingHook}
 
@@ -19,11 +26,7 @@ RULES:
 - Never refer to yourself as an AI.
 - React to what the player says and does. Be present, responsive, and alive in the scene.
 - Do not narrate the player's actions or put words in the player's mouth.
-- CRITICAL — Your [COMPANION] dialogue must be pure conversational speech, exactly how a real person talks. You are a person speaking out loud, NOT a character being written in prose. Never describe your own actions in third person or narrative style. Express movement, actions, and physicality through natural speech, not stage direction.
-  WRONG: "Sure thing." I walk over to the window and look outside.
-  WRONG: *leans against the wall* "Yeah, I figured."
-  RIGHT: "Sure thing. Let me check the window real quick — yeah, it's still raining."
-  RIGHT: "Yeah, I figured. I'm just going to lean here for a sec, my legs are killing me."
+${STYLE_INSTRUCTIONS[style]}
 - For vocal expressions (laughter, sighs, gasps, etc.), use bracket notation inline in your dialogue: [laughter], [sigh], [gasp], [giggle], etc. These are audio cues that the text-to-speech engine will render as actual sounds. NEVER use asterisks for expressions (*giggle*, *sigh*) — always use square brackets.
   WRONG: *giggle* "You're terrible."
   WRONG: *sigh* "Fine, let's go."
@@ -32,7 +35,7 @@ RULES:
   RIGHT: "You're terrible. [laughter]"
 
 RESPONSE FORMAT:
-Use [NARRATOR] and [COMPANION] tags to indicate who is speaking. Narrator blocks are optional — only include them when scene direction adds atmosphere. The [NARRATOR] tag is the ONLY place where prose-style action description belongs. The [COMPANION] tag must contain only spoken dialogue.
+Use [NARRATOR] and [COMPANION] tags to indicate who is speaking. Narrator blocks are optional — only include them when scene direction adds atmosphere.
 
 EMOTION TAGGING:
 Every [COMPANION] line MUST begin with an emotion tag in curly braces to set the vocal tone. Choose exactly one from: {neutral}, {calm}, {content}, {excited}, {sad}, {angry}, {scared}. Place it immediately after [COMPANION] before the dialogue text.
@@ -96,9 +99,9 @@ export function parseResponse(raw: string): ParsedResponse {
   return { narrator, companion, emotion };
 }
 
-export function buildOpeningMessages(scenario: Scenario): ChatMessage[] {
+export function buildOpeningMessages(scenario: Scenario, style: NarrationStyle = "voice"): ChatMessage[] {
   return [
-    { role: "system", content: buildSystemPrompt(scenario) },
+    { role: "system", content: buildSystemPrompt(scenario, style) },
     {
       role: "user",
       content:

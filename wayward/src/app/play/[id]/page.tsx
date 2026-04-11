@@ -6,7 +6,7 @@ import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
 import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed } from "@/lib/audio";
-import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens } from "@/lib/settings";
+import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle } from "@/lib/settings";
 
 type Phase = "loading" | "playing";
 
@@ -24,9 +24,11 @@ export default function PlayPage() {
   const [inputText, setInputText] = useState("");
   const [generating, setGenerating] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [speed, setSpeed] = useState(1.0);
   const [lengthIdx, setLengthIdx] = useState(1);
+  const [narrationStyle, setNarrationStyleState] = useState<NarrationStyle>("voice");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -48,6 +50,7 @@ export default function PlayPage() {
     scenarioRef.current = s;
     setSpeed(getTTSSpeed());
     setLengthIdx(getResponseLengthIndex());
+    setNarrationStyleState(getNarrationStyle());
   }, [id, router]);
 
   // Auto-scroll to bottom
@@ -60,19 +63,42 @@ export default function PlayPage() {
     }, 50);
   }, []);
 
-  // Send messages to AI and get response
+  // Auto-dismiss errors
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 6000);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  // Send messages to AI and get response, injecting current style into system prompt
   const sendToAI = useCallback(
     async (messages: ChatMessage[]): Promise<string | null> => {
+      // Replace system prompt with current narration style
+      const s = scenarioRef.current;
+      const styled = [...messages];
+      if (s && styled.length > 0 && styled[0].role === "system") {
+        styled[0] = { role: "system", content: buildSystemPrompt(s, getNarrationStyle()) };
+      }
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages, max_tokens: getMaxTokens() }),
+          body: JSON.stringify({ messages: styled, max_tokens: getMaxTokens() }),
         });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          if (res.status === 429) {
+            setError("Groq rate limit reached — wait a moment and try again.");
+          } else if (res.status === 402 || res.status === 403) {
+            setError("Groq API quota exhausted — check your plan at groq.com.");
+          } else {
+            setError(`Groq API error (${res.status}).`);
+          }
+          return null;
+        }
         const data = await res.json();
         return data.choices?.[0]?.message?.content ?? null;
       } catch {
+        setError("Network error — couldn't reach the AI service.");
         return null;
       }
     },
@@ -85,9 +111,14 @@ export default function PlayPage() {
       const s = scenarioRef.current;
       if (!s || !text) return;
       setAudioPlaying(true);
-      await playTTS(text, s.companion.voiceId, emotion, () => {
+      try {
+        await playTTS(text, s.companion.voiceId, emotion, () => {
+          setAudioPlaying(false);
+        });
+      } catch (e) {
         setAudioPlaying(false);
-      });
+        setError(e instanceof Error ? e.message : "Audio playback failed.");
+      }
     },
     []
   );
@@ -439,10 +470,66 @@ export default function PlayPage() {
                   </button>
                 ))}
               </div>
-            </div>
+              {/* Narration style */}
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.75rem",
+                  color: "var(--text-secondary)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginTop: 16,
+                  marginBottom: 8,
+                }}
+              >
+                Narration Style: {NARRATION_STYLES.find((s) => s.key === narrationStyle)?.label}
+              </label>
+              <div style={{ display: "flex", gap: 4 }}>
+                {NARRATION_STYLES.map((opt) => (
+                  <button
+                    key={opt.key}
+                    className={`btn btn-sm ${narrationStyle === opt.key ? "btn-accent" : "btn-surface"}`}
+                    style={{ flex: 1, padding: "6px 0", fontSize: "0.75rem" }}
+                    onClick={() => {
+                      setNarrationStyleState(opt.key);
+                      setNarrationStyle(opt.key);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              </div>
           )}
         </div>
       </div>
+
+      {/* Error toast */}
+      {error && (
+        <div
+          style={{
+            background: "rgba(255, 74, 74, 0.12)",
+            border: "1px solid var(--danger)",
+            borderRadius: "var(--radius-sm)",
+            padding: "10px 14px",
+            margin: "8px 0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ color: "var(--danger)", fontSize: "0.85rem" }}>{error}</span>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ color: "var(--danger)", flexShrink: 0 }}
+            onClick={() => setError(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Narrative area */}
       <div

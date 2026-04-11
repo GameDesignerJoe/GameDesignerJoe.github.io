@@ -68,7 +68,14 @@ export async function playTTS(
     body: JSON.stringify({ text: transcript, voiceId, speed, emotion }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error("Cartesia rate limit reached — wait a moment and try again.");
+    } else if (res.status === 402 || res.status === 403) {
+      throw new Error("Cartesia API quota exhausted — check your plan at cartesia.ai.");
+    }
+    throw new Error(`Cartesia TTS error (${res.status}).`);
+  }
 
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
