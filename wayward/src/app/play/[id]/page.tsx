@@ -10,6 +10,10 @@ import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMa
 
 type Phase = "loading" | "playing";
 
+function stripBracketTags(text: string): string {
+  return text.replace(/\[([^\]]*)\]\s*/g, "").trim();
+}
+
 export default function PlayPage() {
   const params = useParams();
   const router = useRouter();
@@ -606,7 +610,7 @@ export default function PlayPage() {
             {/* Companion text */}
             {ex.companion && (
               <div style={{ marginBottom: 8 }}>
-                <div className="companion-text">{ex.companion}</div>
+                <div className="companion-text">{stripBracketTags(ex.companion)}</div>
                 {/* Audio control — only on latest exchange */}
                 {i === visibleExchanges.length - 1 && (
                   <button

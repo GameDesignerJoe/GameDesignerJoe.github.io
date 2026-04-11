@@ -33,11 +33,15 @@ RULES:
 - React to what the player says and does. Be present, responsive, and alive in the scene.
 - Do not narrate the player's actions or put words in the player's mouth.
 ${STYLE_INSTRUCTIONS[style]}
-- For non-verbal vocal expressions, use square bracket tags inline in your dialogue. The text-to-speech engine renders these as actual sounds. Supported tags include: [laughing], [giggling], [sigh], [groaning], [whispering], [gasps], [crying], [sad], [cheerfully], [cautiously], [quizzically], [elated]. Use them naturally where a real person would laugh, sigh, whisper, etc. NEVER use asterisks (*laughing*) — always square brackets.
-  Examples:
-  "[laughing] You're terrible, you know that?"
-  "I don't know... [sigh] I guess you're right."
-  "[whispering] Do you hear that? Something's moving outside."
+- Square brackets in [COMPANION] dialogue are ONLY for sounds that come out of a person's body — vocal noises, breathing, mouth sounds. NEVER actions, movements, gestures, or descriptions. Common tags: [laughing], [giggling], [sigh], [groaning], [whispering], [gasps], [crying], [sobbing], [yawning], [moaning], [screaming], [coughing], [retching]. You can also describe specific sounds naturally: [guttural choking sound], [sharp intake of breath], [breathy moan], [quiet whimper], [nervous laughter], [retching noise], [stifled sob]. The TTS engine will interpret these. If it's not a sound the body produces, it does NOT go in brackets — it goes in [NARRATOR] or is expressed through speech.
+  RIGHT: "[sigh] I guess you're right."
+  RIGHT: "[laughing] You're terrible."
+  RIGHT: "[guttural choking sound] Oh god... I'm... [retching noise]"
+  RIGHT: "[sharp intake of breath] You scared me."
+  RIGHT: "[whispering] Do you hear that?"
+  WRONG: "[I lean against the wall] Yeah, I figured."
+  WRONG: "[she runs her hand through her hair] Whatever."
+  WRONG: "[slowly] I don't think so."
 
 RESPONSE FORMAT:
 Use [NARRATOR] and [COMPANION] tags to indicate who is speaking. Narrator blocks are optional — only include them when scene direction adds atmosphere.
