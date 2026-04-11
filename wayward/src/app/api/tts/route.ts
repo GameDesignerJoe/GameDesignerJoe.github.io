@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model_id: "sonic-2",
+      model_id: "sonic-3",
       transcript: text,
       voice: { mode: "id", id: voiceId },
       output_format: {
