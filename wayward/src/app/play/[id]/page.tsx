@@ -6,6 +6,7 @@ import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
 import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed } from "@/lib/audio";
+import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens } from "@/lib/settings";
 
 type Phase = "loading" | "playing";
 
@@ -25,6 +26,7 @@ export default function PlayPage() {
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [speed, setSpeed] = useState(1.0);
+  const [lengthIdx, setLengthIdx] = useState(1);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -45,6 +47,7 @@ export default function PlayPage() {
     setScenario(s);
     scenarioRef.current = s;
     setSpeed(getTTSSpeed());
+    setLengthIdx(getResponseLengthIndex());
   }, [id, router]);
 
   // Auto-scroll to bottom
@@ -64,7 +67,7 @@ export default function PlayPage() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages }),
+          body: JSON.stringify({ messages, max_tokens: getMaxTokens() }),
         });
         if (!res.ok) return null;
         const data = await res.json();
@@ -405,6 +408,36 @@ export default function PlayPage() {
               >
                 <span>Slow</span>
                 <span>Fast</span>
+              </div>
+
+              {/* Response length */}
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.75rem",
+                  color: "var(--text-secondary)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginTop: 16,
+                  marginBottom: 8,
+                }}
+              >
+                Response Length: {RESPONSE_LENGTHS[lengthIdx].label}
+              </label>
+              <div style={{ display: "flex", gap: 4 }}>
+                {RESPONSE_LENGTHS.map((opt, i) => (
+                  <button
+                    key={opt.label}
+                    className={`btn btn-sm ${i === lengthIdx ? "btn-accent" : "btn-surface"}`}
+                    style={{ flex: 1, padding: "6px 0", fontSize: "0.75rem" }}
+                    onClick={() => {
+                      setLengthIdx(i);
+                      setResponseLengthIndex(i);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}

@@ -11,7 +11,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { messages, model = "llama-3.3-70b-versatile" } = await req.json();
+  const { messages, model = "llama-3.3-70b-versatile", max_tokens = 200 } = await req.json();
+
+  // Clamp to safe range
+  const tokens = Math.min(Math.max(Number(max_tokens) || 200, 50), 1024);
 
   const response = await fetch(GROQ_API_URL, {
     method: "POST",
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
       model,
       messages,
       temperature: 0.9,
-      max_tokens: 1024,
+      max_tokens: tokens,
     }),
   });
 

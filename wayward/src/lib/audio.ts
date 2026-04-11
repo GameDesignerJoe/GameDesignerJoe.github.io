@@ -30,6 +30,8 @@ export function isPlaying(): boolean {
   return currentAudio !== null && !currentAudio.paused;
 }
 
+// --- Settings persistence ---
+
 const SPEED_KEY = "wayward_tts_speed";
 
 export function getTTSSpeed(): number {
