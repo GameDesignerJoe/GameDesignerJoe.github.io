@@ -1,17 +1,8 @@
-export type AudioProvider = "cartesia" | "elevenlabs";
-
 export interface Companion {
   name: string;
   description: string;
-  // Legacy fields (kept for backward compat with existing localStorage data)
   voiceId: string;
   voiceName: string;
-  voicePreview: string;
-  // Dual provider voice slots
-  cartesiaVoiceId: string;
-  cartesiaVoiceName: string;
-  elevenLabsVoiceId: string;
-  elevenLabsVoiceName: string;
 }
 
 export interface Scenario {
@@ -49,14 +40,6 @@ export interface Exchange {
   narrator: string | null;
   companion: string | null;
   emotion: Emotion;
-}
-
-export interface CartesiaVoice {
-  id: string;
-  name: string;
-  description: string;
-  language: string;
-  is_public: boolean;
 }
 
 export interface ElevenLabsVoice {

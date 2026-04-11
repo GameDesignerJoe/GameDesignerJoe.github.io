@@ -61,20 +61,3 @@ export function getNarrationStyle(): NarrationStyle {
 export function setNarrationStyle(style: NarrationStyle): void {
   localStorage.setItem(NARRATION_STYLE_KEY, style);
 }
-
-// --- Audio provider ---
-
-import type { AudioProvider } from "./types";
-
-const AUDIO_PROVIDER_KEY = "wayward_audio_provider";
-
-export function getAudioProvider(): AudioProvider {
-  if (typeof window === "undefined") return "cartesia";
-  const val = localStorage.getItem(AUDIO_PROVIDER_KEY);
-  if (val === "elevenlabs") return "elevenlabs";
-  return "cartesia";
-}
-
-export function setAudioProvider(provider: AudioProvider): void {
-  localStorage.setItem(AUDIO_PROVIDER_KEY, provider);
-}

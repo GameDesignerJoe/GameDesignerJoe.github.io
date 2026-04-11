@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Scenario, ChatMessage, Exchange, InputMode, Emotion, AudioProvider } from "@/lib/types";
+import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types";
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
-import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed, primeAudio } from "@/lib/audio";
-import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle, getAudioProvider } from "@/lib/settings";
+import { playTTS, stopAudio, toggleAudio, isPlaying, primeAudio } from "@/lib/audio";
+import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle } from "@/lib/settings";
 
 type Phase = "loading" | "playing";
 
@@ -30,7 +30,6 @@ export default function PlayPage() {
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [speed, setSpeed] = useState(1.0);
   const [lengthIdx, setLengthIdx] = useState(1);
   const [narrationStyle, setNarrationStyleState] = useState<NarrationStyle>("voice");
 
@@ -43,25 +42,6 @@ export default function PlayPage() {
   useEffect(() => {
     historyRef.current = history;
   }, [history]);
-
-  // Resolve voice ID and provider for TTS
-  function resolveVoice(s: Scenario): { voiceId: string; provider: AudioProvider } | null {
-    const pref = getAudioProvider();
-    const primary =
-      pref === "elevenlabs" ? s.companion.elevenLabsVoiceId : (s.companion.cartesiaVoiceId || s.companion.voiceId);
-    if (primary) return { voiceId: primary, provider: pref };
-
-    // Fallback to the other provider
-    const fallbackProvider: AudioProvider = pref === "elevenlabs" ? "cartesia" : "elevenlabs";
-    const fallback =
-      fallbackProvider === "elevenlabs" ? s.companion.elevenLabsVoiceId : (s.companion.cartesiaVoiceId || s.companion.voiceId);
-    if (fallback) {
-      const label = pref === "elevenlabs" ? "ElevenLabs" : "Cartesia";
-      setError(`No ${label} voice set for this companion — go to the scenario editor to add one.`);
-      return { voiceId: fallback, provider: fallbackProvider };
-    }
-    return null;
-  }
 
   // Prime audio on first user gesture to unlock mobile autoplay
   useEffect(() => {
@@ -80,17 +60,12 @@ export default function PlayPage() {
 
   useEffect(() => {
     const s = getScenario(id);
-    const hasAnyVoice =
-      s?.companion.cartesiaVoiceId ||
-      s?.companion.elevenLabsVoiceId ||
-      s?.companion.voiceId;
-    if (!s || !s.title || !hasAnyVoice) {
+    if (!s || !s.title || !s.companion.voiceId) {
       router.replace("/");
       return;
     }
     setScenario(s);
     scenarioRef.current = s;
-    setSpeed(getTTSSpeed());
     setLengthIdx(getResponseLengthIndex());
     setNarrationStyleState(getNarrationStyle());
   }, [id, router]);
@@ -151,15 +126,10 @@ export default function PlayPage() {
   const playCompanionAudio = useCallback(
     async (text: string) => {
       const s = scenarioRef.current;
-      if (!s || !text) return;
-      const voice = resolveVoice(s);
-      if (!voice) {
-        setError("No voice configured for this companion.");
-        return;
-      }
+      if (!s || !text || !s.companion.voiceId) return;
       setAudioPlaying(true);
       try {
-        await playTTS(text, voice.voiceId, voice.provider, () => {
+        await playTTS(text, s.companion.voiceId, () => {
           setAudioPlaying(false);
         });
       } catch (e) {
@@ -167,7 +137,6 @@ export default function PlayPage() {
         setError(e instanceof Error ? e.message : "Audio playback failed.");
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -460,44 +429,6 @@ export default function PlayPage() {
                 zIndex: 20,
               }}
             >
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.75rem",
-                  color: "var(--text-secondary)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  marginBottom: 8,
-                }}
-              >
-                Speech Speed: {speed.toFixed(1)}x
-              </label>
-              <input
-                type="range"
-                min="0.6"
-                max="1.5"
-                step="0.1"
-                value={speed}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setSpeed(v);
-                  setTTSSpeed(v);
-                }}
-                style={{ width: "100%", accentColor: "var(--accent)" }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "0.7rem",
-                  color: "var(--text-muted)",
-                  marginTop: 4,
-                }}
-              >
-                <span>Slow</span>
-                <span>Fast</span>
-              </div>
-
               {/* Response length */}
               <label
                 style={{
