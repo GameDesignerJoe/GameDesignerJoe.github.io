@@ -56,11 +56,15 @@ export default function EditorPage() {
 
   if (!scenario) return null;
 
+  const hasAnyVoice =
+    scenario.companion.cartesiaVoiceId ||
+    scenario.companion.elevenLabsVoiceId ||
+    scenario.companion.voiceId;
   const isReady =
     scenario.title &&
     scenario.openingHook &&
     scenario.companion.name &&
-    scenario.companion.voiceId;
+    hasAnyVoice;
 
   return (
     <div className="page">
@@ -252,8 +256,8 @@ export default function EditorPage() {
             </div>
 
             <div className="field">
-              <label className="field-label">Voice</label>
-              {scenario.companion.voiceName ? (
+              <label className="field-label">Cartesia Voice</label>
+              {scenario.companion.cartesiaVoiceName ? (
                 <div
                   className="card"
                   style={{
@@ -263,25 +267,60 @@ export default function EditorPage() {
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 500 }}>{scenario.companion.voiceName}</div>
+                    <div style={{ fontWeight: 500 }}>{scenario.companion.cartesiaVoiceName}</div>
                     <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-                      Voice selected
+                      Cartesia voice
                     </div>
                   </div>
                   <button
                     className="btn btn-surface btn-sm"
-                    onClick={() => router.push(`/voices/${id}`)}
+                    onClick={() => router.push(`/voices/${id}?provider=cartesia`)}
                   >
                     Change
                   </button>
                 </div>
               ) : (
                 <button
-                  className="btn btn-accent"
+                  className="btn btn-surface"
                   style={{ width: "100%" }}
-                  onClick={() => router.push(`/voices/${id}`)}
+                  onClick={() => router.push(`/voices/${id}?provider=cartesia`)}
                 >
-                  Pick Voice
+                  Pick Cartesia Voice
+                </button>
+              )}
+            </div>
+
+            <div className="field">
+              <label className="field-label">ElevenLabs Voice</label>
+              {scenario.companion.elevenLabsVoiceName ? (
+                <div
+                  className="card"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 500 }}>{scenario.companion.elevenLabsVoiceName}</div>
+                    <div className="text-muted" style={{ fontSize: "0.8rem" }}>
+                      ElevenLabs voice
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-surface btn-sm"
+                    onClick={() => router.push(`/voices/${id}?provider=elevenlabs`)}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-surface"
+                  style={{ width: "100%" }}
+                  onClick={() => router.push(`/voices/${id}?provider=elevenlabs`)}
+                >
+                  Pick ElevenLabs Voice
                 </button>
               )}
             </div>

@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types";
+import { Scenario, ChatMessage, Exchange, InputMode, Emotion, AudioProvider } from "@/lib/types";
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
 import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed } from "@/lib/audio";
-import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle } from "@/lib/settings";
+import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle, getAudioProvider } from "@/lib/settings";
 
 type Phase = "loading" | "playing";
 
@@ -40,9 +40,32 @@ export default function PlayPage() {
     historyRef.current = history;
   }, [history]);
 
+  // Resolve voice ID and provider for TTS
+  function resolveVoice(s: Scenario): { voiceId: string; provider: AudioProvider } | null {
+    const pref = getAudioProvider();
+    const primary =
+      pref === "elevenlabs" ? s.companion.elevenLabsVoiceId : (s.companion.cartesiaVoiceId || s.companion.voiceId);
+    if (primary) return { voiceId: primary, provider: pref };
+
+    // Fallback to the other provider
+    const fallbackProvider: AudioProvider = pref === "elevenlabs" ? "cartesia" : "elevenlabs";
+    const fallback =
+      fallbackProvider === "elevenlabs" ? s.companion.elevenLabsVoiceId : (s.companion.cartesiaVoiceId || s.companion.voiceId);
+    if (fallback) {
+      const label = pref === "elevenlabs" ? "ElevenLabs" : "Cartesia";
+      setError(`No ${label} voice set for this companion — go to the scenario editor to add one.`);
+      return { voiceId: fallback, provider: fallbackProvider };
+    }
+    return null;
+  }
+
   useEffect(() => {
     const s = getScenario(id);
-    if (!s || !s.title || !s.companion.voiceId) {
+    const hasAnyVoice =
+      s?.companion.cartesiaVoiceId ||
+      s?.companion.elevenLabsVoiceId ||
+      s?.companion.voiceId;
+    if (!s || !s.title || !hasAnyVoice) {
       router.replace("/");
       return;
     }
@@ -107,12 +130,17 @@ export default function PlayPage() {
 
   // Play companion audio
   const playCompanionAudio = useCallback(
-    async (text: string, emotion: Emotion = "neutral") => {
+    async (text: string) => {
       const s = scenarioRef.current;
       if (!s || !text) return;
+      const voice = resolveVoice(s);
+      if (!voice) {
+        setError("No voice configured for this companion.");
+        return;
+      }
       setAudioPlaying(true);
       try {
-        await playTTS(text, s.companion.voiceId, emotion, () => {
+        await playTTS(text, voice.voiceId, voice.provider, () => {
           setAudioPlaying(false);
         });
       } catch (e) {
@@ -120,6 +148,7 @@ export default function PlayPage() {
         setError(e instanceof Error ? e.message : "Audio playback failed.");
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -157,7 +186,7 @@ export default function PlayPage() {
       scrollToBottom();
 
       if (parsed.companion) {
-        playCompanionAudio(parsed.companion, parsed.emotion);
+        playCompanionAudio(parsed.companion);
       }
     }
 
@@ -214,7 +243,7 @@ export default function PlayPage() {
     scrollToBottom();
 
     if (parsed.companion) {
-      playCompanionAudio(parsed.companion, parsed.emotion);
+      playCompanionAudio(parsed.companion);
     }
   }
 
@@ -255,7 +284,7 @@ export default function PlayPage() {
     scrollToBottom();
 
     if (parsed.companion) {
-      playCompanionAudio(parsed.companion, parsed.emotion);
+      playCompanionAudio(parsed.companion);
     }
   }
 
@@ -293,7 +322,7 @@ export default function PlayPage() {
     scrollToBottom();
 
     if (parsed.companion) {
-      playCompanionAudio(parsed.companion, parsed.emotion);
+      playCompanionAudio(parsed.companion);
     }
   }
 

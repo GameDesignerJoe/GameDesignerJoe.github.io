@@ -1,9 +1,17 @@
+export type AudioProvider = "cartesia" | "elevenlabs";
+
 export interface Companion {
   name: string;
   description: string;
+  // Legacy fields (kept for backward compat with existing localStorage data)
   voiceId: string;
   voiceName: string;
   voicePreview: string;
+  // Dual provider voice slots
+  cartesiaVoiceId: string;
+  cartesiaVoiceName: string;
+  elevenLabsVoiceId: string;
+  elevenLabsVoiceName: string;
 }
 
 export interface Scenario {
@@ -25,9 +33,7 @@ export interface ChatMessage {
   content: string;
 }
 
-export type Emotion = "neutral" | "calm" | "content" | "excited" | "sad" | "angry" | "scared";
-
-export const VALID_EMOTIONS: Emotion[] = ["neutral", "calm", "content", "excited", "sad", "angry", "scared"];
+export type Emotion = "neutral";
 
 export interface ParsedResponse {
   narrator: string | null;
@@ -51,4 +57,12 @@ export interface CartesiaVoice {
   description: string;
   language: string;
   is_public: boolean;
+}
+
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  category: string;
+  labels: Record<string, string>;
+  preview_url: string;
 }

@@ -1,18 +1,27 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { CartesiaVoice, Scenario } from "@/lib/types";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { CartesiaVoice, ElevenLabsVoice, Scenario, AudioProvider } from "@/lib/types";
 import { getScenario, saveScenario } from "@/lib/scenarios";
 
 type GenderFilter = "any" | "male" | "female" | "neutral";
 
+interface NormalizedVoice {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export default function VoicePickerPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const provider = (searchParams.get("provider") || "cartesia") as AudioProvider;
+
   const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [voices, setVoices] = useState<CartesiaVoice[]>([]);
+  const [voices, setVoices] = useState<NormalizedVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gender, setGender] = useState<GenderFilter>("any");
@@ -31,17 +40,38 @@ export default function VoicePickerPage() {
 
   useEffect(() => {
     async function fetchVoices() {
+      setLoading(true);
+      setError(null);
+      setVoices([]);
       try {
-        const res = await fetch("/api/voices");
-        if (!res.ok) throw new Error("Failed to fetch voices");
-        const data = await res.json();
-        // Cartesia returns an array directly or nested in a field
-        const list = Array.isArray(data) ? data : data.voices || [];
-        // Filter to English, public voices
-        const english = list.filter(
-          (v: CartesiaVoice) => v.is_public && v.language === "en"
-        );
-        setVoices(english);
+        if (provider === "elevenlabs") {
+          const res = await fetch("/api/elevenlabs-voices");
+          if (!res.ok) throw new Error("Failed to fetch ElevenLabs voices");
+          const data = await res.json();
+          const list: ElevenLabsVoice[] = data.voices || [];
+          setVoices(
+            list.map((v) => ({
+              id: v.voice_id,
+              name: v.name,
+              description: Object.values(v.labels || {}).join(", "),
+            }))
+          );
+        } else {
+          const res = await fetch("/api/voices");
+          if (!res.ok) throw new Error("Failed to fetch Cartesia voices");
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : data.voices || [];
+          const english = list.filter(
+            (v: CartesiaVoice) => v.is_public && v.language === "en"
+          );
+          setVoices(
+            english.map((v: CartesiaVoice) => ({
+              id: v.id,
+              name: v.name,
+              description: v.description,
+            }))
+          );
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load voices");
       } finally {
@@ -49,7 +79,7 @@ export default function VoicePickerPage() {
       }
     }
     fetchVoices();
-  }, []);
+  }, [provider]);
 
   function stopPreview() {
     if (audioRef.current) {
@@ -59,7 +89,7 @@ export default function VoicePickerPage() {
     setPreviewId(null);
   }
 
-  async function handlePreview(voice: CartesiaVoice) {
+  async function handlePreview(voice: NormalizedVoice) {
     if (previewId === voice.id) {
       stopPreview();
       return;
@@ -67,8 +97,11 @@ export default function VoicePickerPage() {
     stopPreview();
     setPreviewId(voice.id);
 
+    const endpoint =
+      provider === "elevenlabs" ? "/api/elevenlabs-tts" : "/api/tts";
+
     try {
-      const res = await fetch("/api/tts", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -91,17 +124,27 @@ export default function VoicePickerPage() {
     }
   }
 
-  function handleSelect(voice: CartesiaVoice) {
+  function handleSelect(voice: NormalizedVoice) {
     if (!scenario) return;
     stopPreview();
+
+    const companionPatch =
+      provider === "elevenlabs"
+        ? {
+            elevenLabsVoiceId: voice.id,
+            elevenLabsVoiceName: voice.name,
+          }
+        : {
+            cartesiaVoiceId: voice.id,
+            cartesiaVoiceName: voice.name,
+            // Also set legacy fields for backward compat
+            voiceId: voice.id,
+            voiceName: voice.name,
+          };
+
     const updated = {
       ...scenario,
-      companion: {
-        ...scenario.companion,
-        voiceId: voice.id,
-        voiceName: voice.name,
-        voicePreview: "",
-      },
+      companion: { ...scenario.companion, ...companionPatch },
     };
     saveScenario(updated);
     router.push(`/editor/${id}`);
@@ -128,6 +171,8 @@ export default function VoicePickerPage() {
 
   if (!scenario) return null;
 
+  const providerLabel = provider === "elevenlabs" ? "ElevenLabs" : "Cartesia";
+
   return (
     <div className="page">
       <div className="header">
@@ -137,7 +182,7 @@ export default function VoicePickerPage() {
         }}>
           ← Back
         </button>
-        <span className="header-title">Pick Voice</span>
+        <span className="header-title">Pick {providerLabel} Voice</span>
         <div style={{ width: 60 }} />
       </div>
 
@@ -168,7 +213,7 @@ export default function VoicePickerPage() {
       <div className="scroll-area" style={{ paddingBottom: 32 }}>
         {loading && (
           <div style={{ textAlign: "center", padding: 40 }}>
-            <p className="loading-pulse text-secondary">Loading voices...</p>
+            <p className="loading-pulse text-secondary">Loading {providerLabel} voices...</p>
           </div>
         )}
 

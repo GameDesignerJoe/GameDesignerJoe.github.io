@@ -1,5 +1,8 @@
 "use client";
 
+import type { AudioProvider } from "./types";
+import { getAudioProvider } from "./settings";
+
 let currentAudio: HTMLAudioElement | null = null;
 let currentUrl: string | null = null;
 
@@ -49,32 +52,44 @@ export function setTTSSpeed(speed: number): void {
 export async function playTTS(
   text: string,
   voiceId: string,
-  emotion?: string,
+  provider?: AudioProvider,
   onEnd?: () => void
 ): Promise<HTMLAudioElement | null> {
   stopAudio();
 
   if (!text || !voiceId) return null;
 
+  const activeProvider = provider || getAudioProvider();
+
   // Convert *expression* asterisk notation to [expression] bracket notation
-  // so Cartesia Sonic-3 renders them as actual audio (laughter, sighs, etc.)
   const transcript = text.replace(/\*([a-zA-Z]+)\*/g, "[$1]");
 
-  const speed = getTTSSpeed();
+  let endpoint: string;
+  let body: Record<string, unknown>;
 
-  const res = await fetch("/api/tts", {
+  if (activeProvider === "elevenlabs") {
+    endpoint = "/api/elevenlabs-tts";
+    body = { text: transcript, voiceId };
+  } else {
+    endpoint = "/api/tts";
+    const speed = getTTSSpeed();
+    body = { text: transcript, voiceId, speed };
+  }
+
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: transcript, voiceId, speed, emotion }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
+    const label = activeProvider === "elevenlabs" ? "ElevenLabs" : "Cartesia";
     if (res.status === 429) {
-      throw new Error("Cartesia rate limit reached — wait a moment and try again.");
+      throw new Error(`${label} rate limit reached — wait a moment and try again.`);
     } else if (res.status === 402 || res.status === 403) {
-      throw new Error("Cartesia API quota exhausted — check your plan at cartesia.ai.");
+      throw new Error(`${label} API quota exhausted — check your plan.`);
     }
-    throw new Error(`Cartesia TTS error (${res.status}).`);
+    throw new Error(`${label} TTS error (${res.status}).`);
   }
 
   const blob = await res.blob();
