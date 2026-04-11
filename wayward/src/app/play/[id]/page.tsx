@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Scenario, ChatMessage, Exchange, InputMode } from "@/lib/types";
+import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types";
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
 import { playTTS, stopAudio, toggleAudio, isPlaying, getTTSSpeed, setTTSSpeed } from "@/lib/audio";
@@ -78,11 +78,11 @@ export default function PlayPage() {
 
   // Play companion audio
   const playCompanionAudio = useCallback(
-    async (text: string) => {
+    async (text: string, emotion: Emotion = "neutral") => {
       const s = scenarioRef.current;
       if (!s || !text) return;
       setAudioPlaying(true);
-      await playTTS(text, s.companion.voiceId, () => {
+      await playTTS(text, s.companion.voiceId, emotion, () => {
         setAudioPlaying(false);
       });
     },
@@ -115,6 +115,7 @@ export default function PlayPage() {
           playerMode: null,
           narrator: parsed.narrator,
           companion: parsed.companion,
+          emotion: parsed.emotion,
         },
       ]);
       setGenerating(false);
@@ -122,7 +123,7 @@ export default function PlayPage() {
       scrollToBottom();
 
       if (parsed.companion) {
-        playCompanionAudio(parsed.companion);
+        playCompanionAudio(parsed.companion, parsed.emotion);
       }
     }
 
@@ -172,13 +173,14 @@ export default function PlayPage() {
         playerMode: mode,
         narrator: parsed.narrator,
         companion: parsed.companion,
+        emotion: parsed.emotion,
       },
     ]);
     setGenerating(false);
     scrollToBottom();
 
     if (parsed.companion) {
-      playCompanionAudio(parsed.companion);
+      playCompanionAudio(parsed.companion, parsed.emotion);
     }
   }
 
@@ -212,13 +214,14 @@ export default function PlayPage() {
         playerMode: null,
         narrator: parsed.narrator,
         companion: parsed.companion,
+        emotion: parsed.emotion,
       },
     ]);
     setGenerating(false);
     scrollToBottom();
 
     if (parsed.companion) {
-      playCompanionAudio(parsed.companion);
+      playCompanionAudio(parsed.companion, parsed.emotion);
     }
   }
 
@@ -248,6 +251,7 @@ export default function PlayPage() {
         ...updated[updated.length - 1],
         narrator: parsed.narrator,
         companion: parsed.companion,
+        emotion: parsed.emotion,
       };
       return updated;
     });
@@ -255,7 +259,7 @@ export default function PlayPage() {
     scrollToBottom();
 
     if (parsed.companion) {
-      playCompanionAudio(parsed.companion);
+      playCompanionAudio(parsed.companion, parsed.emotion);
     }
   }
 

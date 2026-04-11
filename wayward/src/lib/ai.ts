@@ -1,4 +1,4 @@
-import { Scenario, ChatMessage, ParsedResponse, InputMode } from "./types";
+import { Scenario, ChatMessage, ParsedResponse, InputMode, Emotion, VALID_EMOTIONS } from "./types";
 
 export function buildSystemPrompt(scenario: Scenario): string {
   return `SCENARIO:
@@ -32,11 +32,21 @@ RULES:
   RIGHT: "You're terrible. [laughter]"
 
 RESPONSE FORMAT:
-Use [NARRATOR] and [COMPANION] tags to indicate who is speaking. Narrator blocks are optional — only include them when scene direction adds atmosphere. The [NARRATOR] tag is the ONLY place where prose-style action description belongs. The [COMPANION] tag must contain only spoken dialogue. Example:
+Use [NARRATOR] and [COMPANION] tags to indicate who is speaking. Narrator blocks are optional — only include them when scene direction adds atmosphere. The [NARRATOR] tag is the ONLY place where prose-style action description belongs. The [COMPANION] tag must contain only spoken dialogue.
+
+EMOTION TAGGING:
+Every [COMPANION] line MUST begin with an emotion tag in curly braces to set the vocal tone. Choose exactly one from: {neutral}, {calm}, {content}, {excited}, {sad}, {angry}, {scared}. Place it immediately after [COMPANION] before the dialogue text.
+
+Example:
 
 [NARRATOR] The wind rattles the window pane. ${scenario.companion.name} moves to the window, pressing a hand against the cold glass.
 
-[COMPANION] Did you hear that? Sounded like something outside.`;
+[COMPANION] {scared} Did you hear that? Sounded like something outside.
+
+More examples:
+[COMPANION] {calm} Hey, good morning. Sleep well?
+[COMPANION] {excited} Oh my god, you actually did it! [laughter]
+[COMPANION] {sad} Yeah... I don't really want to talk about it.`;
 }
 
 export function wrapPlayerInput(text: string, mode: InputMode): string {
@@ -53,6 +63,7 @@ export function wrapPlayerInput(text: string, mode: InputMode): string {
 export function parseResponse(raw: string): ParsedResponse {
   let narrator: string | null = null;
   let companion: string | null = null;
+  let emotion: Emotion = "neutral";
 
   const narratorMatch = raw.match(/\[NARRATOR\]\s*([\s\S]*?)(?=\[COMPANION\]|$)/i);
   const companionMatch = raw.match(/\[COMPANION\]\s*([\s\S]*?)$/i);
@@ -69,7 +80,20 @@ export function parseResponse(raw: string): ParsedResponse {
     companion = raw.trim();
   }
 
-  return { narrator, companion };
+  // Extract emotion tag from companion text: {calm}, {excited}, etc.
+  if (companion) {
+    const emotionMatch = companion.match(/^\{(\w+)\}\s*/);
+    if (emotionMatch) {
+      const candidate = emotionMatch[1].toLowerCase() as Emotion;
+      if (VALID_EMOTIONS.includes(candidate)) {
+        emotion = candidate;
+      }
+      // Strip the emotion tag from display text
+      companion = companion.slice(emotionMatch[0].length);
+    }
+  }
+
+  return { narrator, companion, emotion };
 }
 
 export function buildOpeningMessages(scenario: Scenario): ChatMessage[] {

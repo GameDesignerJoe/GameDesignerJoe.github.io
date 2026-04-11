@@ -47,6 +47,7 @@ export function setTTSSpeed(speed: number): void {
 export async function playTTS(
   text: string,
   voiceId: string,
+  emotion?: string,
   onEnd?: () => void
 ): Promise<HTMLAudioElement | null> {
   stopAudio();
@@ -62,7 +63,7 @@ export async function playTTS(
   const res = await fetch("/api/tts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: transcript, voiceId, speed }),
+    body: JSON.stringify({ text: transcript, voiceId, speed, emotion }),
   });
 
   if (!res.ok) return null;

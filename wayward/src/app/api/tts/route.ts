@@ -11,7 +11,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { text, voiceId, speed } = await req.json();
+  const { text, voiceId, speed, emotion } = await req.json();
+
+  const generationConfig: Record<string, unknown> = {};
+  if (typeof speed === "number") generationConfig.speed = speed;
+  if (typeof emotion === "string" && emotion !== "neutral") generationConfig.emotion = emotion;
 
   const body: Record<string, unknown> = {
     model_id: "sonic-3",
@@ -24,8 +28,8 @@ export async function POST(req: NextRequest) {
     },
   };
 
-  if (typeof speed === "number") {
-    body.generation_config = { speed };
+  if (Object.keys(generationConfig).length > 0) {
+    body.generation_config = generationConfig;
   }
 
   const response = await fetch(CARTESIA_API_URL, {

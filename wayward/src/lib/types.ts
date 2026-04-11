@@ -23,9 +23,14 @@ export interface ChatMessage {
   content: string;
 }
 
+export type Emotion = "neutral" | "calm" | "content" | "excited" | "sad" | "angry" | "scared";
+
+export const VALID_EMOTIONS: Emotion[] = ["neutral", "calm", "content", "excited", "sad", "angry", "scared"];
+
 export interface ParsedResponse {
   narrator: string | null;
   companion: string | null;
+  emotion: Emotion;
 }
 
 export type InputMode = "say" | "do" | "direct";
@@ -35,6 +40,7 @@ export interface Exchange {
   playerMode: InputMode | null;
   narrator: string | null;
   companion: string | null;
+  emotion: Emotion;
 }
 
 export interface CartesiaVoice {
