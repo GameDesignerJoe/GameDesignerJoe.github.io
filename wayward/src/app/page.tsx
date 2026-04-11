@@ -47,6 +47,15 @@ export default function Home() {
               ⚙
             </button>
             {showSettings && (
+              <>
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 19,
+                }}
+                onClick={() => setShowSettings(false)}
+              />
               <div
                 style={{
                   position: "absolute",
@@ -88,6 +97,7 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+              </>
             )}
           </div>
           <button className="btn btn-accent btn-sm" onClick={handleNew}>

@@ -438,6 +438,15 @@ export default function PlayPage() {
             ⚙
           </button>
           {showSettings && (
+            <>
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 19,
+              }}
+              onClick={() => setShowSettings(false)}
+            />
             <div
               style={{
                 position: "absolute",
@@ -548,6 +557,7 @@ export default function PlayPage() {
                 ))}
               </div>
               </div>
+            </>
           )}
         </div>
       </div>
@@ -579,11 +589,17 @@ export default function PlayPage() {
         </div>
       )}
 
-      {/* Narrative area */}
+      {/* Narrative area — tap to stop audio */}
       <div
         ref={scrollRef}
         className="scroll-area"
         style={{ flex: 1, padding: "20px 0" }}
+        onClick={() => {
+          if (isPlaying()) {
+            stopAudio();
+            setAudioPlaying(false);
+          }
+        }}
       >
         {visibleExchanges.map((ex, i) => (
           <div key={i} style={{ marginBottom: 24 }}>
@@ -669,7 +685,10 @@ export default function PlayPage() {
               <button
                 key={mode}
                 className={`btn btn-sm ${inputMode === mode ? "btn-accent" : "btn-surface"}`}
-                onClick={() => setInputMode(mode)}
+                onClick={() => {
+                  setInputMode(mode);
+                  setTimeout(() => inputRef.current?.focus(), 10);
+                }}
               >
                 {label}
               </button>

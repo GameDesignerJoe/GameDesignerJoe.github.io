@@ -147,7 +147,7 @@ export default function VoicePickerPage() {
       companion: { ...scenario.companion, ...companionPatch },
     };
     saveScenario(updated);
-    router.push(`/editor/${id}`);
+    router.push(`/editor/${id}?tab=companion`);
   }
 
   // Filter voices

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Scenario } from "@/lib/types";
 import { getScenario, saveScenario } from "@/lib/scenarios";
 
@@ -12,9 +12,11 @@ const EMOJI_OPTIONS = ["📖", "🏰", "🌲", "⚔️", "🌙", "🔮", "🗡�
 export default function EditorPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const initialTab = (searchParams.get("tab") === "companion" ? "companion" : "story") as Tab;
   const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [tab, setTab] = useState<Tab>("story");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [showEmoji, setShowEmoji] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

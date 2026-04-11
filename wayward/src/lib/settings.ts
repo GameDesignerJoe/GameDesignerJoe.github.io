@@ -8,7 +8,7 @@ export interface ResponseLengthOption {
 }
 
 export const RESPONSE_LENGTHS: ResponseLengthOption[] = [
-  { label: "Short", tokens: 100 },
+  { label: "Short", tokens: 150 },
   { label: "Normal", tokens: 200 },
   { label: "Long", tokens: 350 },
   { label: "Epic", tokens: 500 },
