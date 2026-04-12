@@ -152,6 +152,10 @@ button:active { transform: scale(0.97); }
   display: block;
 }
 
+.app.dropdown-open .fret-cell {
+  pointer-events: none;
+}
+
 /* ── Board Card ── */
 .board-card {
   border: 1px solid var(--fret-wire);
@@ -344,7 +348,7 @@ button:active { transform: scale(0.97); }
   position: absolute;
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: var(--inlay);
+  background: #fff;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -370,6 +374,11 @@ button:active { transform: scale(0.97); }
 
 .note-dot.root {
   background: var(--root-color);
+}
+
+.note-dot.has-finger {
+  font-size: clamp(0.65rem, 1vw, 1rem);
+  font-weight: 800;
 }
 
 .fret-cell:hover .note-dot { transform: scale(1.1); }

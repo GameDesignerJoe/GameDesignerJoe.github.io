@@ -54,7 +54,7 @@ function renderBoardToCanvas(board, canvasWidth) {
 
   // Inlay dots
   const inlayFrets = [3, 5, 7, 9];
-  ctx.fillStyle = '#333';
+  ctx.fillStyle = '#ffffff';
   for (const f of inlayFrets) {
     const x = startX + (f - 0.5) * fretWidth;
     ctx.beginPath();
@@ -66,7 +66,7 @@ function renderBoardToCanvas(board, canvasWidth) {
   ctx.beginPath(); ctx.arc(x12, startY + 3.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
 
   // Strings
-  const stringLabels = ['E', 'B', 'G', 'D', 'A', 'E'];
+  const stringLabels = ['e', 'B', 'G', 'D', 'A', 'E'];
   for (let s = 0; s < 6; s++) {
     const y = startY + s * stringSpacing;
     const isMuted = board.muted[s];
@@ -112,7 +112,14 @@ function renderBoardToCanvas(board, canvasWidth) {
       ctx.arc(x, y, 12, 0, Math.PI * 2);
       ctx.fill();
 
-      if (board.labelMode !== 'none') {
+      const finger = board.fingers[s][f];
+      if (finger > 0) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(finger.toString(), x, y);
+      } else if (board.labelMode !== 'none') {
         const label = board.labelMode === 'intervals'
           ? state.intervalName(s, f, board.key)
           : state.noteName(s, f);

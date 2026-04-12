@@ -20,6 +20,7 @@ export function createBoard() {
   const board = {
     id: nextId++,
     grid: Array.from({ length: 6 }, () => new Array(FRET_COUNT).fill(false)),
+    fingers: Array.from({ length: 6 }, () => new Array(FRET_COUNT).fill(0)), // 0=none, 1-4=finger
     muted: new Array(6).fill(false), // per-string mute flags
     key: 0,
     scale: '',
@@ -44,12 +45,15 @@ export function getBoard(id) {
 
 export function clearGrid(board) {
   for (let s = 0; s < 6; s++)
-    for (let f = 0; f < FRET_COUNT; f++)
+    for (let f = 0; f < FRET_COUNT; f++) {
       board.grid[s][f] = false;
+      board.fingers[s][f] = 0;
+    }
 }
 
 export function toggle(board, string, fret) {
   board.grid[string][fret] = !board.grid[string][fret];
+  if (!board.grid[string][fret]) board.fingers[string][fret] = 0;
 }
 
 // Get the note name at a given string/fret position

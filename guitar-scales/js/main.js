@@ -52,11 +52,16 @@ async function init() {
 
   // Export dropdown toggle
   const dropdown = document.querySelector('.dropdown');
+  const appEl = document.querySelector('.app');
   document.getElementById('btn-export').addEventListener('click', (e) => {
     e.stopPropagation();
     dropdown.classList.toggle('open');
+    appEl.classList.toggle('dropdown-open', dropdown.classList.contains('open'));
   });
-  document.addEventListener('click', () => dropdown.classList.remove('open'));
+  document.addEventListener('click', () => {
+    dropdown.classList.remove('open');
+    appEl.classList.remove('dropdown-open');
+  });
 
   const closeAndRun = (fn) => () => { dropdown.classList.remove('open'); fn(); };
   document.getElementById('btn-copy').addEventListener('click', closeAndRun(() => exp.copyToClipboard()));

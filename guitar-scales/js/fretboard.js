@@ -2,7 +2,7 @@ import * as state from './state.js';
 import * as scales from './scales.js';
 import * as chords from './chords.js';
 
-const STRING_LABELS = ['E', 'B', 'G', 'D', 'A', 'E'];
+const STRING_LABELS = ['e', 'B', 'G', 'D', 'A', 'E'];
 const INLAY_FRETS = [3, 5, 7, 9, 12];
 const INLAY_STRING = 2;
 
@@ -118,14 +118,27 @@ function renderGrid(board, container) {
         const dot = document.createElement('div');
         dot.className = 'note-dot';
         if (state.isRoot(s, f, board.key)) dot.classList.add('root');
-        if (board.labelMode === 'notes') dot.textContent = state.noteName(s, f);
-        else if (board.labelMode === 'intervals') dot.textContent = state.intervalName(s, f, board.key);
+        const finger = board.fingers[s][f];
+        if (finger > 0) {
+          dot.textContent = finger;
+          dot.classList.add('has-finger');
+        } else if (board.labelMode === 'notes') {
+          dot.textContent = state.noteName(s, f);
+        } else if (board.labelMode === 'intervals') {
+          dot.textContent = state.intervalName(s, f, board.key);
+        }
         cell.appendChild(dot);
       }
 
-      cell.addEventListener('click', () => {
+      cell.addEventListener('click', (e) => {
+        if (e.shiftKey && board.grid[s][f]) {
+          // Shift-click on active dot: cycle finger 1→2→3→4→clear
+          board.fingers[s][f] = board.fingers[s][f] >= 4 ? 0 : board.fingers[s][f] + 1;
+          render();
+          fireChange();
+          return;
+        }
         state.toggle(board, s, f);
-        // If adding a note on a muted string, unmute it
         if (board.grid[s][f] && board.muted[s]) board.muted[s] = false;
         board.scale = '';
         board.chord = '';
