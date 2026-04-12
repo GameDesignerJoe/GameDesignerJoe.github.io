@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(find /c/Users/GameD/GameDesignerJoe.github.io/wayward -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.json -o -name .env* \\\\\\))",
-      "WebFetch(domain:console.groq.com)"
+      "WebFetch(domain:console.groq.com)",
+      "WebFetch(domain:www.guitarmasterclass.net)"
     ]
   }
 }
