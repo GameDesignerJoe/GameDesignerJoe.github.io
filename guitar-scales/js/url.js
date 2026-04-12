@@ -58,14 +58,21 @@ export function decode(param) {
 // Update the browser URL without reloading
 export function pushToUrl() {
   const encoded = encode();
-  const url = new URL(window.location);
-  url.searchParams.set('rebuild', encoded);
-  history.replaceState(null, '', url);
+  const u = new URL(window.location);
+  u.searchParams.set('rebuild', encoded);
+  if (state.caption) {
+    u.searchParams.set('title', encodeURIComponent(state.caption));
+  } else {
+    u.searchParams.delete('title');
+  }
+  history.replaceState(null, '', u);
 }
 
 // Read from current URL
 export function readFromUrl() {
-  const url = new URL(window.location);
-  const param = url.searchParams.get('rebuild');
+  const u = new URL(window.location);
+  const param = u.searchParams.get('rebuild');
+  const title = u.searchParams.get('title');
+  if (title) state.setCaption(decodeURIComponent(title));
   return param ? decode(param) : false;
 }

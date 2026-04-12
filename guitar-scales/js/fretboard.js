@@ -4,12 +4,16 @@ const STRING_LABELS = ['E', 'B', 'G', 'D', 'A', 'E'];
 const INLAY_FRETS = [3, 5, 7, 9, 12]; // frets that get dot inlays
 const INLAY_STRING = 2; // inlay appears on string index 2 (middle area), plus 12th fret double
 
-let showNotes = false;
+let labelMode = 'none'; // 'none' | 'notes' | 'intervals'
 let onChangeCallback = null;
 
-export function setShowNotes(val) {
-  showNotes = val;
+export function setLabelMode(mode) {
+  labelMode = mode;
   render();
+}
+
+export function getLabelMode() {
+  return labelMode;
 }
 
 export function onChange(cb) {
@@ -51,7 +55,8 @@ export function render() {
         const dot = document.createElement('div');
         dot.className = 'note-dot';
         if (state.isRoot(s, f)) dot.classList.add('root');
-        if (showNotes) dot.textContent = state.noteName(s, f);
+        if (labelMode === 'notes') dot.textContent = state.noteName(s, f);
+        else if (labelMode === 'intervals') dot.textContent = state.intervalName(s, f);
         cell.appendChild(dot);
       }
 

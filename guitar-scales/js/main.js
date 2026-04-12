@@ -19,9 +19,11 @@ async function init() {
 
   // Check URL for rebuild parameter
   const keySelect = document.getElementById('key-select');
+  const captionInput = document.getElementById('caption');
   if (url.readFromUrl()) {
     keySelect.value = state.currentKey;
     scaleSelect.value = state.currentScale;
+    captionInput.value = state.caption;
   } else {
     // Default: C Major
     scales.applyScale('Major', 0);
@@ -65,8 +67,8 @@ async function init() {
     url.pushToUrl();
   });
 
-  document.getElementById('show-notes').addEventListener('change', (e) => {
-    fretboard.setShowNotes(e.target.checked);
+  document.getElementById('label-mode').addEventListener('change', (e) => {
+    fretboard.setLabelMode(e.target.value);
   });
 
   document.getElementById('btn-clear').addEventListener('click', () => {
@@ -77,10 +79,25 @@ async function init() {
     url.pushToUrl();
   });
 
-  document.getElementById('btn-copy').addEventListener('click', () => exp.copyToClipboard());
-  document.getElementById('btn-png').addEventListener('click', () => exp.downloadPng());
-  document.getElementById('btn-print').addEventListener('click', () => exp.printPdf());
-  document.getElementById('btn-share').addEventListener('click', () => exp.shareUrl());
+  captionInput.addEventListener('input', () => {
+    state.setCaption(captionInput.value);
+    url.pushToUrl();
+  });
+
+  // Export dropdown toggle
+  const dropdown = document.querySelector('.dropdown');
+  document.getElementById('btn-export').addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', () => dropdown.classList.remove('open'));
+
+  // Export actions — close dropdown after each
+  const closeAndRun = (fn) => () => { dropdown.classList.remove('open'); fn(); };
+  document.getElementById('btn-copy').addEventListener('click', closeAndRun(() => exp.copyToClipboard()));
+  document.getElementById('btn-png').addEventListener('click', closeAndRun(() => exp.downloadPng()));
+  document.getElementById('btn-print').addEventListener('click', closeAndRun(() => exp.printPdf()));
+  document.getElementById('btn-share').addEventListener('click', closeAndRun(() => exp.shareUrl()));
 }
 
 init();

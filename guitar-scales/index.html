@@ -38,19 +38,31 @@
         </select>
       </div>
 
-      <div class="control-group toggle-group">
-        <label>
-          <input type="checkbox" id="show-notes"> Show note names
-        </label>
+      <div class="control-group">
+        <label for="label-mode">Labels</label>
+        <select id="label-mode">
+          <option value="none">None</option>
+          <option value="notes">Note Names</option>
+          <option value="intervals">Intervals</option>
+        </select>
       </div>
 
       <div class="control-group btn-group">
         <button id="btn-clear" title="Clear all notes">Clear</button>
-        <button id="btn-copy" title="Copy fretboard image to clipboard">Copy Image</button>
-        <button id="btn-png" title="Download as PNG">Download PNG</button>
-        <button id="btn-print" title="Print / Save as PDF">Print / PDF</button>
-        <button id="btn-share" title="Copy shareable URL">Share URL</button>
+        <div class="dropdown">
+          <button id="btn-export" class="dropdown-toggle">Export</button>
+          <div class="dropdown-menu" id="export-menu">
+            <button id="btn-copy">Copy Image</button>
+            <button id="btn-png">Download PNG</button>
+            <button id="btn-print">Print / PDF</button>
+            <button id="btn-share">Share URL</button>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <div class="caption-wrapper">
+      <input type="text" id="caption" class="caption-input" placeholder="Add a title (e.g. A Minor Pentatonic - Position 1)" maxlength="100">
     </div>
 
     <div class="fretboard-wrapper">

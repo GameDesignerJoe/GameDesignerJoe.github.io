@@ -1,4 +1,5 @@
 import * as state from './state.js';
+import { getLabelMode } from './fretboard.js';
 
 function showToast(msg) {
   const toast = document.getElementById('toast');
@@ -17,8 +18,10 @@ function renderToCanvas() {
   const fretWidth = 70;
   const openWidth = 40;
   const stringSpacing = 36;
+  const hasCaption = state.caption.length > 0;
+  const captionHeight = hasCaption ? 36 : 0;
   const totalWidth = openWidth + fretWidth * 12 + padding * 2;
-  const totalHeight = stringSpacing * 5 + padding * 2 + 30; // +30 for fret numbers
+  const totalHeight = stringSpacing * 5 + padding * 2 + 30 + captionHeight;
 
   const canvas = document.createElement('canvas');
   canvas.width = totalWidth;
@@ -29,8 +32,17 @@ function renderToCanvas() {
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, totalWidth, totalHeight);
 
+  // Caption
+  if (hasCaption) {
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(state.caption, totalWidth / 2, 10);
+  }
+
   const startX = padding + openWidth;
-  const startY = padding;
+  const startY = padding + captionHeight;
 
   // Draw fret wires
   ctx.strokeStyle = '#555';
@@ -98,12 +110,16 @@ function renderToCanvas() {
       ctx.arc(x, y, 12, 0, Math.PI * 2);
       ctx.fill();
 
-      // Note name
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(state.noteName(s, f), x, y);
+      // Label
+      const mode = getLabelMode();
+      if (mode !== 'none') {
+        const label = mode === 'intervals' ? state.intervalName(s, f) : state.noteName(s, f);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, y);
+      }
     }
   }
 
