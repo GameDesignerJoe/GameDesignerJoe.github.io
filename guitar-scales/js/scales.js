@@ -50,6 +50,7 @@ export function applyScale(board, scaleName, rootSemitone, positionIndex = -1) {
   state.clearGrid(board);
   board.key = rootSemitone;
   board.scale = scaleName;
+  board.chord = '';
   board.position = positionIndex;
 
   const intervals = scaleData[scaleName];

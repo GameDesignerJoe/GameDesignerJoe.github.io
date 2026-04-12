@@ -69,18 +69,32 @@ function renderBoardToCanvas(board, canvasWidth) {
   const stringLabels = ['E', 'B', 'G', 'D', 'A', 'E'];
   for (let s = 0; s < 6; s++) {
     const y = startY + s * stringSpacing;
+    const isMuted = board.muted[s];
+
+    ctx.globalAlpha = isMuted ? 0.2 : 1;
     ctx.strokeStyle = '#c0a060';
     ctx.lineWidth = 1.5 + (s * 0.4);
     ctx.beginPath();
     ctx.moveTo(padding, y);
     ctx.lineTo(startX + 12 * fretWidth, y);
     ctx.stroke();
+    ctx.globalAlpha = 1;
 
-    ctx.fillStyle = '#8888aa';
-    ctx.font = 'bold 12px sans-serif';
+    // String label + mute X
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(stringLabels[s], padding - 12, y);
+    if (isMuted) {
+      ctx.fillStyle = 'rgba(136,136,170,0.35)';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(stringLabels[s], padding - 18, y);
+      ctx.fillStyle = '#e94560';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('X', padding - 6, y);
+    } else {
+      ctx.fillStyle = '#8888aa';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(stringLabels[s], padding - 12, y);
+    }
   }
 
   // Note dots
@@ -92,6 +106,7 @@ function renderBoardToCanvas(board, canvasWidth) {
       const y = startY + s * stringSpacing;
       const isRoot = state.isRoot(s, f, board.key);
 
+      ctx.globalAlpha = board.muted[s] ? 0.25 : 1;
       ctx.fillStyle = isRoot ? '#e94560' : '#0f9b8e';
       ctx.beginPath();
       ctx.arc(x, y, 12, 0, Math.PI * 2);
@@ -107,6 +122,7 @@ function renderBoardToCanvas(board, canvasWidth) {
         ctx.textBaseline = 'middle';
         ctx.fillText(label, x, y);
       }
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -127,10 +143,12 @@ function renderToCanvas() {
   const boards = state.getExportBoards();
   const canvasWidth = 960;
   const gap = 16;
+  const hasPageTitle = state.pageTitle.length > 0;
+  const pageTitleHeight = hasPageTitle ? 44 : 0;
 
   // Render each board
   const rendered = boards.map(b => renderBoardToCanvas(b, canvasWidth));
-  const totalHeight = rendered.reduce((sum, r) => sum + r.height, 0) + gap * (rendered.length - 1);
+  const totalHeight = pageTitleHeight + rendered.reduce((sum, r) => sum + r.height, 0) + gap * (rendered.length - 1);
 
   const canvas = document.createElement('canvas');
   canvas.width = canvasWidth;
@@ -141,8 +159,18 @@ function renderToCanvas() {
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, canvasWidth, totalHeight);
 
-  // Stack boards
+  // Page title
   let y = 0;
+  if (hasPageTitle) {
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(state.pageTitle, canvasWidth / 2, 12);
+    y = pageTitleHeight;
+  }
+
+  // Stack boards
   for (const { canvas: boardCanvas, height } of rendered) {
     ctx.drawImage(boardCanvas, 0, y);
     y += height + gap;

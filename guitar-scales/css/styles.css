@@ -37,10 +37,31 @@ header {
   padding: 1rem 0 0.25rem;
 }
 
-h1 {
+.page-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text);
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--text);
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.page-title-input::placeholder {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.page-title-input:hover {
+  border-bottom-color: var(--fret-wire);
+}
+
+.page-title-input:focus {
+  border-bottom-color: var(--accent);
 }
 
 /* ── Top bar ── */
@@ -239,6 +260,35 @@ button:active { transform: scale(0.97); }
   color: var(--muted);
 }
 
+.string-label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  user-select: none;
+}
+
+.string-label:hover { color: var(--text); }
+
+.string-label .string-name.dimmed {
+  opacity: 0.35;
+}
+
+.mute-x {
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* Muted string: fade the string line and any remaining dots */
+.fret-cell.string-muted::before {
+  opacity: 0.2;
+}
+
+.fret-cell.string-muted .note-dot {
+  opacity: 0.25;
+}
+
 .fretboard-col {
   flex: 1;
   display: flex;
@@ -370,8 +420,8 @@ button:active { transform: scale(0.97); }
 @media print {
   body { background: #fff; color: #000; padding: 0; }
   .top-bar, .toast, .add-board-btn,
-  .board-clear, .board-delete, .board-export-label { display: none !important; }
-  header h1 { color: #000; font-size: 1.2rem; }
+  .board-controls select, .board-clear, .board-delete, .board-export-label { display: none !important; }
+  .page-title-input { color: #000; font-size: 1.3rem; border: none; }
   .board-card { border-color: #ccc; background: #fff; }
   .board-caption { border: none; font-size: 1rem; color: #000; }
   .board-controls select { border-color: #ccc; color: #000; background: #fff; }
@@ -380,6 +430,10 @@ button:active { transform: scale(0.97); }
   .note-dot { color: #fff; }
   .note-dot.root { background: #c00; }
   .string-labels, .fret-numbers { color: #333; }
+  .string-label .string-name.dimmed { opacity: 0.3; }
+  .mute-x { color: #c00; }
+  .fret-cell.string-muted::before { opacity: 0.15; }
+  .fret-cell.string-muted .note-dot { opacity: 0.2; }
   .fret-cell { border-right-color: #999; }
   .fret-cell[data-fret="0"] { border-right-color: #333; }
 }

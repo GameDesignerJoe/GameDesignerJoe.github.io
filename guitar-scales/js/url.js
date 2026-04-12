@@ -56,6 +56,8 @@ export function pushToUrl() {
     u.searchParams.delete(key);
   }
 
+  if (state.pageTitle) u.searchParams.set('pt', encodeURIComponent(state.pageTitle));
+
   for (let i = 0; i < state.boards.length; i++) {
     const board = state.boards[i];
     u.searchParams.set(`b${i}`, encodeBoard(board));
@@ -70,6 +72,10 @@ export function pushToUrl() {
 // Read boards from current URL. Returns true if boards were loaded.
 export function readFromUrl() {
   const u = new URL(window.location);
+
+  // Page title
+  const pt = u.searchParams.get('pt');
+  if (pt) state.setPageTitle(decodeURIComponent(pt));
 
   // New multi-board format: b0, b1, b2...
   if (u.searchParams.has('b0')) {

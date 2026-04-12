@@ -8,6 +8,9 @@ export const FRET_COUNT = 13; // 0 (open) through 12
 // Interval names indexed by semitone distance from root
 const INTERVAL_NAMES = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
 
+export let pageTitle = '';
+export function setPageTitle(t) { pageTitle = t; }
+
 let nextId = 0;
 
 // All boards
@@ -17,8 +20,10 @@ export function createBoard() {
   const board = {
     id: nextId++,
     grid: Array.from({ length: 6 }, () => new Array(FRET_COUNT).fill(false)),
+    muted: new Array(6).fill(false), // per-string mute flags
     key: 0,
     scale: '',
+    chord: '',
     position: -1, // -1 = all positions, 0+ = specific position index
     caption: '',
     labelMode: 'none',

@@ -1,20 +1,28 @@
 import * as state from './state.js';
 import * as scales from './scales.js';
+import * as chords from './chords.js';
 import * as fretboard from './fretboard.js';
 import * as url from './url.js';
 import * as exp from './export.js';
 
 async function init() {
-  await scales.loadScales();
+  await Promise.all([scales.loadScales(), chords.loadChords()]);
 
   // Load boards from URL, or create a default one
+  const pageTitleInput = document.getElementById('page-title');
   if (!url.readFromUrl()) {
     const board = state.createBoard();
     scales.applyScale(board, 'Major', 0);
   }
+  pageTitleInput.value = state.pageTitle;
 
   // When any board changes, update URL
   fretboard.onChange(() => url.pushToUrl());
+
+  pageTitleInput.addEventListener('input', () => {
+    state.setPageTitle(pageTitleInput.value);
+    url.pushToUrl();
+  });
 
   // Initial render
   fretboard.render();
@@ -34,10 +42,11 @@ async function init() {
   // New / Reset button
   document.getElementById('btn-new').addEventListener('click', () => {
     state.boards.length = 0;
+    state.setPageTitle('');
+    pageTitleInput.value = '';
     const board = state.createBoard();
     scales.applyScale(board, 'Major', 0);
     fretboard.render();
-    // Strip URL params
     history.replaceState(null, '', window.location.pathname);
   });
 

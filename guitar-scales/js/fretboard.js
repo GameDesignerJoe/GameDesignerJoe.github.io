@@ -1,5 +1,6 @@
 import * as state from './state.js';
 import * as scales from './scales.js';
+import * as chords from './chords.js';
 
 const STRING_LABELS = ['E', 'B', 'G', 'D', 'A', 'E'];
 const INLAY_FRETS = [3, 5, 7, 9, 12];
@@ -22,15 +23,15 @@ function keyOptionsHtml(selected) {
     'F# / Gb', 'G', 'G# / Ab', 'A', 'A# / Bb', 'B'
   ];
   return keys.map((name, i) =>
-    `<option value="${i}"${i === selected ? ' selected' : ''}>${name}</option>`
+    `<option value="${i}"${i === selected ? ' selected' : ''}>Key: ${name}</option>`
   ).join('');
 }
 
 // Build <option> HTML for scale selects
 function scaleOptionsHtml(selected) {
-  let html = `<option value=""${selected === '' ? ' selected' : ''}>-- Custom --</option>`;
+  let html = `<option value=""${selected === '' ? ' selected' : ''}>Scale: Custom</option>`;
   for (const name of scales.getScaleNames()) {
-    html += `<option value="${name}"${name === selected ? ' selected' : ''}>${name}</option>`;
+    html += `<option value="${name}"${name === selected ? ' selected' : ''}>Scale: ${name}</option>`;
   }
   return html;
 }
@@ -39,16 +40,30 @@ function scaleOptionsHtml(selected) {
 function labelOptionsHtml(selected) {
   const modes = [['none', 'None'], ['notes', 'Note Names'], ['intervals', 'Intervals']];
   return modes.map(([val, label]) =>
-    `<option value="${val}"${val === selected ? ' selected' : ''}>${label}</option>`
+    `<option value="${val}"${val === selected ? ' selected' : ''}>Labels: ${label}</option>`
   ).join('');
 }
 
 // Build <option> HTML for position selects
 function positionOptionsHtml(scaleName, rootSemitone, selected) {
-  let html = `<option value="-1"${selected === -1 ? ' selected' : ''}>All</option>`;
+  let html = `<option value="-1"${selected === -1 ? ' selected' : ''}>Position: All</option>`;
   const positions = scales.computePositions(scaleName, rootSemitone);
   for (let i = 0; i < positions.length; i++) {
-    html += `<option value="${i}"${i === selected ? ' selected' : ''}>Pos ${i + 1}</option>`;
+    html += `<option value="${i}"${i === selected ? ' selected' : ''}>Position: ${i + 1}</option>`;
+  }
+  return html;
+}
+
+// Build <option> HTML for chord selects (grouped by category)
+function chordOptionsHtml(selected) {
+  let html = `<option value=""${selected === '' ? ' selected' : ''}>Chord: None</option>`;
+  const categories = chords.getCategories();
+  for (const [category, chordMap] of Object.entries(categories)) {
+    html += `<optgroup label="${category}">`;
+    for (const name of Object.keys(chordMap)) {
+      html += `<option value="${name}"${name === selected ? ' selected' : ''}>Chord: ${name}</option>`;
+    }
+    html += '</optgroup>';
   }
   return html;
 }
@@ -58,12 +73,21 @@ function renderGrid(board, container) {
   const wrapper = document.createElement('div');
   wrapper.className = 'fretboard-wrapper';
 
-  // String labels
+  // String labels (clickable to toggle mute)
   const sl = document.createElement('div');
   sl.className = 'string-labels';
   for (let s = 0; s < 6; s++) {
     const lbl = document.createElement('div');
-    lbl.textContent = STRING_LABELS[s];
+    lbl.className = 'string-label' + (board.muted[s] ? ' muted' : '');
+    lbl.innerHTML = board.muted[s]
+      ? `<span class="string-name dimmed">${STRING_LABELS[s]}</span><span class="mute-x">X</span>`
+      : `<span class="string-name">${STRING_LABELS[s]}</span>`;
+    lbl.title = board.muted[s] ? 'Click to unmute' : 'Click to mute';
+    lbl.addEventListener('click', () => {
+      board.muted[s] = !board.muted[s];
+      render();
+      fireChange();
+    });
     sl.appendChild(lbl);
   }
   wrapper.appendChild(sl);
@@ -82,6 +106,8 @@ function renderGrid(board, container) {
       cell.dataset.string = s;
       cell.dataset.fret = f;
 
+      if (board.muted[s]) cell.classList.add('string-muted');
+
       if (f === 12 && (s === 1 || s === 4)) {
         cell.classList.add('inlay');
       } else if (INLAY_FRETS.includes(f) && f !== 12 && s === INLAY_STRING) {
@@ -99,7 +125,10 @@ function renderGrid(board, container) {
 
       cell.addEventListener('click', () => {
         state.toggle(board, s, f);
+        // If adding a note on a muted string, unmute it
+        if (board.grid[s][f] && board.muted[s]) board.muted[s] = false;
         board.scale = '';
+        board.chord = '';
         board.position = -1;
         render();
         fireChange();
@@ -132,12 +161,13 @@ function renderBoardControls(board, container) {
   const hasScale = board.scale !== '';
   bar.innerHTML = `
     <input type="text" class="board-caption" placeholder="Title..." maxlength="100" value="${board.caption.replace(/"/g, '&quot;')}">
-    <select class="board-key" title="Key">${keyOptionsHtml(board.key)}</select>
-    <select class="board-scale" title="Scale">${scaleOptionsHtml(board.scale)}</select>
-    <select class="board-position" title="Position"${hasScale ? '' : ' disabled'}>
-      ${hasScale ? positionOptionsHtml(board.scale, board.key, board.position) : '<option value="-1">N/A</option>'}
+    <select class="board-key">${keyOptionsHtml(board.key)}</select>
+    <select class="board-scale">${scaleOptionsHtml(board.scale)}</select>
+    <select class="board-position"${hasScale ? '' : ' disabled'}>
+      ${hasScale ? positionOptionsHtml(board.scale, board.key, board.position) : '<option value="-1" selected>Position: N/A</option>'}
     </select>
-    <select class="board-labels" title="Labels">${labelOptionsHtml(board.labelMode)}</select>
+    <select class="board-chord">${chordOptionsHtml(board.chord)}</select>
+    <select class="board-labels">${labelOptionsHtml(board.labelMode)}</select>
     <label class="board-export-label" title="Include in export">
       <input type="checkbox" class="board-export" ${board.includeInExport ? 'checked' : ''}> Export
     </label>
@@ -149,6 +179,7 @@ function renderBoardControls(board, container) {
   const keySelect = bar.querySelector('.board-key');
   const scaleSelect = bar.querySelector('.board-scale');
   const positionSelect = bar.querySelector('.board-position');
+  const chordSelect = bar.querySelector('.board-chord');
   const labelsSelect = bar.querySelector('.board-labels');
   const captionInput = bar.querySelector('.board-caption');
   const exportCheck = bar.querySelector('.board-export');
@@ -170,7 +201,8 @@ function renderBoardControls(board, container) {
     const scaleName = scaleSelect.value;
     const root = parseInt(keySelect.value);
     if (scaleName) {
-      board.position = -1; // reset to All when switching scales
+      board.chord = ''; // clear chord when picking a scale
+      board.position = -1;
       scales.applyScale(board, scaleName, root, -1);
     } else {
       board.scale = '';
@@ -184,6 +216,17 @@ function renderBoardControls(board, container) {
     const pos = parseInt(positionSelect.value);
     if (board.scale) {
       scales.applyScale(board, board.scale, board.key, pos);
+    }
+    render();
+    fireChange();
+  });
+
+  chordSelect.addEventListener('change', () => {
+    const chordName = chordSelect.value;
+    if (chordName) {
+      chords.applyChord(board, chordName); // clears scale + position internally
+    } else {
+      board.chord = '';
     }
     render();
     fireChange();
@@ -205,7 +248,9 @@ function renderBoardControls(board, container) {
 
   clearBtn.addEventListener('click', () => {
     state.clearGrid(board);
+    board.muted.fill(false);
     board.scale = '';
+    board.chord = '';
     board.position = -1;
     render();
     fireChange();
