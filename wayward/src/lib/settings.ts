@@ -61,3 +61,16 @@ export function getNarrationStyle(): NarrationStyle {
 export function setNarrationStyle(style: NarrationStyle): void {
   localStorage.setItem(NARRATION_STYLE_KEY, style);
 }
+
+// --- Audio debug ---
+
+const AUDIO_DEBUG_KEY = "wayward_audio_debug";
+
+export function getAudioDebugEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(AUDIO_DEBUG_KEY) === "true";
+}
+
+export function setAudioDebugEnabled(enabled: boolean): void {
+  localStorage.setItem(AUDIO_DEBUG_KEY, String(enabled));
+}

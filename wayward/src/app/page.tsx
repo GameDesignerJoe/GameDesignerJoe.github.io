@@ -6,19 +6,24 @@ import { Scenario } from "@/lib/types";
 import { getScenarios, createScenario, saveScenario, deleteScenario } from "@/lib/scenarios";
 import { primeAudio } from "@/lib/audio";
 import { getSyncCode, setSyncCode, pushScenarios, pullScenarios } from "@/lib/sync";
+import { getAudioDebugEnabled, setAudioDebugEnabled } from "@/lib/settings";
+import { logDeviceInfo } from "@/lib/audioDebug";
+import { AudioDebugOverlay } from "@/lib/AudioDebugOverlay";
 
 export default function Home() {
   const router = useRouter();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [showSync, setShowSync] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [syncCode, setSyncCodeState] = useState("");
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [audioDebug, setAudioDebug] = useState(false);
 
   useEffect(() => {
     setScenarios(getScenarios());
     setSyncCodeState(getSyncCode());
+    setAudioDebug(getAudioDebugEnabled());
     setLoaded(true);
   }, []);
 
@@ -85,17 +90,16 @@ export default function Home() {
           <div style={{ position: "relative" }}>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => setShowSync(!showSync)}
-              title="Cloud Sync"
-              style={{ fontSize: "0.85rem" }}
+              onClick={() => setShowSettings(!showSettings)}
+              title="Settings"
             >
-              {syncCode ? "☁" : "☁"}
+              ⚙
             </button>
-            {showSync && (
+            {showSettings && (
               <>
                 <div
                   style={{ position: "fixed", inset: 0, zIndex: 19 }}
-                  onClick={() => setShowSync(false)}
+                  onClick={() => setShowSettings(false)}
                 />
                 <div
                   style={{
@@ -110,6 +114,7 @@ export default function Home() {
                     zIndex: 20,
                   }}
                 >
+                  {/* Cloud Sync */}
                   <label
                     style={{
                       display: "block",
@@ -181,6 +186,33 @@ export default function Home() {
                     Use the same code on any device to sync your scenarios.
                     Upload saves your local data. Download replaces it with cloud data.
                   </div>
+
+                  {/* Audio Debug */}
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.75rem",
+                      color: "var(--text-secondary)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      marginTop: 16,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Audio Debug
+                  </label>
+                  <button
+                    className={`btn btn-sm ${audioDebug ? "btn-accent" : "btn-surface"}`}
+                    style={{ width: "100%", padding: "6px 0", fontSize: "0.75rem" }}
+                    onClick={() => {
+                      const next = !audioDebug;
+                      setAudioDebug(next);
+                      setAudioDebugEnabled(next);
+                      if (next) logDeviceInfo();
+                    }}
+                  >
+                    {audioDebug ? "On" : "Off"}
+                  </button>
                 </div>
               </>
             )}
@@ -190,6 +222,16 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* Audio debug overlay */}
+      {audioDebug && (
+        <AudioDebugOverlay
+          onClose={() => {
+            setAudioDebug(false);
+            setAudioDebugEnabled(false);
+          }}
+        />
+      )}
 
       {scenarios.length === 0 ? (
         <div

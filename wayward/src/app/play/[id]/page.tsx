@@ -6,7 +6,9 @@ import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
 import { playTTS, stopAudio, toggleAudio, isPlaying, primeAudio } from "@/lib/audio";
-import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle } from "@/lib/settings";
+import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle, getAudioDebugEnabled, setAudioDebugEnabled } from "@/lib/settings";
+import { logDeviceInfo } from "@/lib/audioDebug";
+import { AudioDebugOverlay } from "@/lib/AudioDebugOverlay";
 
 type Phase = "loading" | "playing";
 
@@ -32,6 +34,7 @@ export default function PlayPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [lengthIdx, setLengthIdx] = useState(1);
   const [narrationStyle, setNarrationStyleState] = useState<NarrationStyle>("voice");
+  const [audioDebug, setAudioDebug] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -68,6 +71,9 @@ export default function PlayPage() {
     scenarioRef.current = s;
     setLengthIdx(getResponseLengthIndex());
     setNarrationStyleState(getNarrationStyle());
+    const debugOn = getAudioDebugEnabled();
+    setAudioDebug(debugOn);
+    if (debugOn) logDeviceInfo();
   }, [id, router]);
 
   // Auto-scroll to bottom
@@ -487,11 +493,47 @@ export default function PlayPage() {
                   </button>
                 ))}
               </div>
+              {/* Audio Debug */}
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.75rem",
+                  color: "var(--text-secondary)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  marginTop: 16,
+                  marginBottom: 8,
+                }}
+              >
+                Audio Debug
+              </label>
+              <button
+                className={`btn btn-sm ${audioDebug ? "btn-accent" : "btn-surface"}`}
+                style={{ width: "100%", padding: "6px 0", fontSize: "0.75rem" }}
+                onClick={() => {
+                  const next = !audioDebug;
+                  setAudioDebug(next);
+                  setAudioDebugEnabled(next);
+                  if (next) logDeviceInfo();
+                }}
+              >
+                {audioDebug ? "On" : "Off"}
+              </button>
               </div>
             </>
           )}
         </div>
       </div>
+
+      {/* Audio debug overlay */}
+      {audioDebug && (
+        <AudioDebugOverlay
+          onClose={() => {
+            setAudioDebug(false);
+            setAudioDebugEnabled(false);
+          }}
+        />
+      )}
 
       {/* Error toast */}
       {error && (
@@ -709,6 +751,7 @@ export default function PlayPage() {
           Erase
         </button>
       </div>
+
     </div>
   );
 }
