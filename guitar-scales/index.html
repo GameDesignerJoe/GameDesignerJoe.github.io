@@ -12,66 +12,21 @@
       <h1>Guitar Scale Generator</h1>
     </header>
 
-    <div class="controls">
-      <div class="control-group">
-        <label for="key-select">Key</label>
-        <select id="key-select">
-          <option value="0">C</option>
-          <option value="1">C# / Db</option>
-          <option value="2">D</option>
-          <option value="3">D# / Eb</option>
-          <option value="4">E</option>
-          <option value="5">F</option>
-          <option value="6">F# / Gb</option>
-          <option value="7">G</option>
-          <option value="8">G# / Ab</option>
-          <option value="9">A</option>
-          <option value="10">A# / Bb</option>
-          <option value="11">B</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label for="scale-select">Scale</label>
-        <select id="scale-select">
-          <option value="">-- Custom --</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label for="label-mode">Labels</label>
-        <select id="label-mode">
-          <option value="none">None</option>
-          <option value="notes">Note Names</option>
-          <option value="intervals">Intervals</option>
-        </select>
-      </div>
-
-      <div class="control-group btn-group">
-        <button id="btn-clear" title="Clear all notes">Clear</button>
-        <div class="dropdown">
-          <button id="btn-export" class="dropdown-toggle">Export</button>
-          <div class="dropdown-menu" id="export-menu">
-            <button id="btn-copy">Copy Image</button>
-            <button id="btn-png">Download PNG</button>
-            <button id="btn-print">Print / PDF</button>
-            <button id="btn-share">Share URL</button>
-          </div>
+    <div class="top-bar">
+      <div class="dropdown">
+        <button id="btn-export" class="dropdown-toggle">Export</button>
+        <div class="dropdown-menu" id="export-menu">
+          <button id="btn-copy">Copy Image</button>
+          <button id="btn-png">Download PNG</button>
+          <button id="btn-print">Print / PDF</button>
+          <button id="btn-share">Share URL</button>
         </div>
       </div>
     </div>
 
-    <div class="caption-wrapper">
-      <input type="text" id="caption" class="caption-input" placeholder="Add a title (e.g. A Minor Pentatonic - Position 1)" maxlength="100">
-    </div>
+    <div id="boards-container"></div>
 
-    <div class="fretboard-wrapper">
-      <div class="string-labels" id="string-labels"></div>
-      <div class="fretboard-col">
-        <div class="fretboard" id="fretboard"></div>
-        <div class="fret-numbers" id="fret-numbers"></div>
-      </div>
-    </div>
+    <button id="btn-add-board" class="add-board-btn">+ Add Fretboard</button>
 
     <div id="toast" class="toast" hidden></div>
   </div>

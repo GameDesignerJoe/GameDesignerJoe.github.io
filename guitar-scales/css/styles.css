@@ -34,7 +34,7 @@ body {
 /* ── Header ── */
 header {
   text-align: center;
-  padding: 1rem 0 0.5rem;
+  padding: 1rem 0 0.25rem;
 }
 
 h1 {
@@ -43,58 +43,28 @@ h1 {
   color: var(--text);
 }
 
-/* ── Controls ── */
-.controls {
+/* ── Top bar ── */
+.top-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: end;
-  padding: 0.75rem 0;
+  justify-content: flex-end;
+  padding: 0.5rem 0;
+  gap: 0.5rem;
 }
 
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.control-group label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-}
-
-.toggle-group {
-  justify-content: end;
-}
-
-.toggle-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: var(--text);
-  text-transform: none;
-}
-
-select {
+/* ── Shared form styles ── */
+select, .board-caption {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--fret-wire);
   border-radius: 4px;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.9rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-.btn-group {
-  flex-direction: row;
-  gap: 0.4rem;
-  margin-left: auto;
+select:focus, .board-caption:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 button {
@@ -102,7 +72,7 @@ button {
   color: var(--text);
   border: 1px solid var(--fret-wire);
   border-radius: 4px;
-  padding: 0.4rem 0.75rem;
+  padding: 0.3rem 0.6rem;
   font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.15s;
@@ -117,7 +87,7 @@ button:active { transform: scale(0.97); }
 }
 
 .dropdown-toggle::after {
-  content: ' \25BE'; /* small down triangle */
+  content: ' \25BE';
 }
 
 .dropdown-menu {
@@ -156,40 +126,102 @@ button:active { transform: scale(0.97); }
   display: block;
 }
 
-/* ── Caption ── */
-.caption-wrapper {
-  margin-top: 0.5rem;
+/* ── Board Card ── */
+.board-card {
+  border: 1px solid var(--fret-wire);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin-bottom: 1rem;
+  background: rgba(255,255,255,0.02);
 }
 
-.caption-input {
-  width: 100%;
+/* ── Board Inline Controls ── */
+.board-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.board-caption {
+  flex: 1;
+  min-width: 120px;
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--fret-wire);
   color: var(--text);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  padding: 0.4rem 0.2rem;
-  text-align: center;
+  padding: 0.25rem 0.2rem;
   outline: none;
-  transition: border-color 0.2s;
 }
 
-.caption-input::placeholder {
+.board-caption::placeholder {
   color: var(--muted);
   font-weight: 400;
-  font-size: 0.9rem;
 }
 
-.caption-input:focus {
+.board-caption:focus {
   border-bottom-color: var(--accent);
+}
+
+.board-export-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.board-clear {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.board-delete {
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.15rem 0.45rem;
+  color: var(--muted);
+  border-color: transparent;
+  background: transparent;
+}
+
+.board-delete:hover {
+  color: var(--accent);
+  background: rgba(233,69,96,0.1);
+}
+
+/* ── Add Fretboard Button ── */
+.add-board-btn {
+  display: block;
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+  border: 2px dashed var(--fret-wire);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.add-board-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: transparent;
 }
 
 /* ── Fretboard ── */
 .fretboard-wrapper {
   display: flex;
   gap: 0;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .string-labels {
@@ -210,11 +242,11 @@ button:active { transform: scale(0.97); }
 
 .fretboard {
   display: grid;
-  grid-template-columns: 3% repeat(12, 1fr); /* open string narrow, frets fill remaining */
+  grid-template-columns: 3% repeat(12, 1fr);
   grid-template-rows: repeat(6, 1fr);
   border: none;
   position: relative;
-  min-height: 280px;
+  min-height: 240px;
 }
 
 /* Individual fret cell */
@@ -224,7 +256,7 @@ button:active { transform: scale(0.97); }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  min-height: clamp(36px, 4vw, 52px);
+  min-height: clamp(30px, 3.5vw, 46px);
   border-right: 2px solid var(--fret-wire);
   user-select: none;
 }
@@ -299,7 +331,7 @@ button:active { transform: scale(0.97); }
 /* ── Fret numbers ── */
 .fret-numbers {
   display: grid;
-  grid-template-columns: 3% repeat(12, 1fr); /* match fretboard */
+  grid-template-columns: 3% repeat(12, 1fr);
   color: var(--muted);
   font-size: 0.75rem;
   text-align: center;
@@ -332,10 +364,13 @@ button:active { transform: scale(0.97); }
 /* ── Print styles ── */
 @media print {
   body { background: #fff; color: #000; padding: 0; }
-  .controls, .toast { display: none !important; }
-  .caption-input { border: none; font-size: 1rem; color: #000; }
+  .top-bar, .toast, .add-board-btn,
+  .board-clear, .board-delete, .board-export-label { display: none !important; }
   header h1 { color: #000; font-size: 1.2rem; }
-  .fretboard { min-height: 180px; }
+  .board-card { border-color: #ccc; background: #fff; }
+  .board-caption { border: none; font-size: 1rem; color: #000; }
+  .board-controls select { border-color: #ccc; color: #000; background: #fff; }
+  .fretboard { min-height: 160px; }
   .fret-cell::before { background: #333; }
   .note-dot { color: #fff; }
   .note-dot.root { background: #c00; }
@@ -346,7 +381,7 @@ button:active { transform: scale(0.97); }
 
 /* ── Responsive ── */
 @media (max-width: 700px) {
-  .controls { flex-direction: column; align-items: stretch; }
-  .btn-group { margin-left: 0; flex-wrap: wrap; }
-  .fretboard { min-height: 200px; }
+  .board-controls { gap: 0.3rem; }
+  .board-controls select { font-size: 0.7rem; padding: 0.2rem 0.3rem; }
+  .fretboard { min-height: 180px; }
 }

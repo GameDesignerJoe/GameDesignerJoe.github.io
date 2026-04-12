@@ -16,11 +16,11 @@ export function getIntervals(scaleName) {
   return scaleData[scaleName] || null;
 }
 
-// Apply a scale to the grid: for each string/fret, activate if the note is in the scale
-export function applyScale(scaleName, rootSemitone) {
-  state.clearGrid();
-  state.setKey(rootSemitone);
-  state.setScale(scaleName);
+// Apply a scale to a board's grid
+export function applyScale(board, scaleName, rootSemitone) {
+  state.clearGrid(board);
+  board.key = rootSemitone;
+  board.scale = scaleName;
 
   const intervals = scaleData[scaleName];
   if (!intervals) return;
@@ -31,7 +31,7 @@ export function applyScale(scaleName, rootSemitone) {
     for (let f = 0; f < state.FRET_COUNT; f++) {
       const semitone = (state.TUNING[s] + f) % 12;
       if (scaleNotes.has(semitone)) {
-        state.grid[s][f] = true;
+        board.grid[s][f] = true;
       }
     }
   }

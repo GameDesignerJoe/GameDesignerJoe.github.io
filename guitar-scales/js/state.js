@@ -5,25 +5,45 @@ export const STRING_NAMES = ['e1', 'b', 'g', 'd', 'a', 'e6'];
 export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 export const FRET_COUNT = 13; // 0 (open) through 12
 
-// 6 strings × 13 frets, true = note active
-export const grid = Array.from({ length: 6 }, () => new Array(FRET_COUNT).fill(false));
+// Interval names indexed by semitone distance from root
+const INTERVAL_NAMES = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
 
-export let currentKey = 0;   // semitone index into NOTE_NAMES (0 = C)
-export let currentScale = ''; // scale name or '' for custom
-export let caption = '';
+let nextId = 0;
 
-export function setKey(k) { currentKey = k; }
-export function setScale(s) { currentScale = s; }
-export function setCaption(c) { caption = c; }
+// All boards
+export const boards = [];
 
-export function clearGrid() {
-  for (let s = 0; s < 6; s++)
-    for (let f = 0; f < FRET_COUNT; f++)
-      grid[s][f] = false;
+export function createBoard() {
+  const board = {
+    id: nextId++,
+    grid: Array.from({ length: 6 }, () => new Array(FRET_COUNT).fill(false)),
+    key: 0,
+    scale: '',
+    caption: '',
+    labelMode: 'none',
+    includeInExport: true,
+  };
+  boards.push(board);
+  return board;
 }
 
-export function toggle(string, fret) {
-  grid[string][fret] = !grid[string][fret];
+export function removeBoard(id) {
+  const idx = boards.findIndex(b => b.id === id);
+  if (idx !== -1) boards.splice(idx, 1);
+}
+
+export function getBoard(id) {
+  return boards.find(b => b.id === id);
+}
+
+export function clearGrid(board) {
+  for (let s = 0; s < 6; s++)
+    for (let f = 0; f < FRET_COUNT; f++)
+      board.grid[s][f] = false;
+}
+
+export function toggle(board, string, fret) {
+  board.grid[string][fret] = !board.grid[string][fret];
 }
 
 // Get the note name at a given string/fret position
@@ -33,17 +53,20 @@ export function noteName(string, fret) {
 }
 
 // Check if a fret position is a root note
-export function isRoot(string, fret) {
+export function isRoot(string, fret, key) {
   const semitone = (TUNING[string] + fret) % 12;
-  return semitone === currentKey;
+  return semitone === key;
 }
 
-// Interval names indexed by semitone distance from root
-const INTERVAL_NAMES = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
-
-// Get the interval name at a given string/fret position relative to current key
-export function intervalName(string, fret) {
+// Get the interval name relative to a key
+export function intervalName(string, fret, key) {
   const semitone = (TUNING[string] + fret) % 12;
-  const interval = (semitone - currentKey + 12) % 12;
+  const interval = (semitone - key + 12) % 12;
   return INTERVAL_NAMES[interval];
+}
+
+// Get boards to export (checked ones, or all if none checked)
+export function getExportBoards() {
+  const checked = boards.filter(b => b.includeInExport);
+  return checked.length > 0 ? checked : boards;
 }
