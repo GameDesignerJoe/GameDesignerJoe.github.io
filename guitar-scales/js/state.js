@@ -25,6 +25,7 @@ export function createBoard() {
     key: 0,
     scale: '',
     chord: '',
+    overlay: '', // chord name to overlay on top of scale
     position: -1, // -1 = all positions, 0+ = specific position index
     caption: '',
     labelMode: 'none',

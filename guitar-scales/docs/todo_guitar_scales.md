@@ -13,10 +13,11 @@
 - Left-handed flip — Mirror the fretboard. Lefty students exist.
 - Highlight a path/sequence — Number the dots 1-2-3-4... to show a specific practice sequence or lick, not just "here are the notes."
 - Save/load library — LocalStorage or simple JSON export so the teacher can build a collection of diagrams they use repeatedly across lessons, rather than rebuilding from URLs each time.
+- Add a default finger positioning into the Labels dropdown
 
 == Guessing at other features ==
 - A midi player that plays the fret, either as a full strum or as sequence?
 - A way to translate a progression of frets to a more standard sheet music?
 - A way to do some sort of training based off of the selected scales, like a guitar hero sort of experience where notes come up and the student has to teach them?
 - Is it possible to have the microphone active and to actually be able to detect that the correct note or chord was selected?
-- Ensure that when we export more than four frets we can scale to fit four frets on a portait page, since 4 time is pretty common. Or maybe some other features for how the scales fit on a page options during the export to pdf style?
+- [DONE] Ensure that when we export more than four frets we can scale to fit four frets on a portait page, since 4 time is pretty common. Or maybe some other features for how the scales fit on a page options during the export to pdf style?

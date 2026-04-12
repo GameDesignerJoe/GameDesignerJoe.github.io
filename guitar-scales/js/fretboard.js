@@ -68,6 +68,20 @@ function chordOptionsHtml(selected) {
   return html;
 }
 
+// Build <option> HTML for overlay chord selects
+function overlayOptionsHtml(selected) {
+  let html = `<option value=""${selected === '' ? ' selected' : ''}>Overlay: None</option>`;
+  const categories = chords.getCategories();
+  for (const [category, chordMap] of Object.entries(categories)) {
+    html += `<optgroup label="${category}">`;
+    for (const name of Object.keys(chordMap)) {
+      html += `<option value="${name}"${name === selected ? ' selected' : ''}>Overlay: ${name}</option>`;
+    }
+    html += '</optgroup>';
+  }
+  return html;
+}
+
 // Render a single board's fretboard grid into a container element
 function renderGrid(board, container) {
   const wrapper = document.createElement('div');
@@ -99,6 +113,9 @@ function renderGrid(board, container) {
   const fb = document.createElement('div');
   fb.className = 'fretboard';
 
+  // Compute overlay grid if an overlay chord is set
+  const overlayGrid = board.overlay ? chords.computeOverlayGrid(board.overlay) : null;
+
   for (let s = 0; s < 6; s++) {
     for (let f = 0; f < state.FRET_COUNT; f++) {
       const cell = document.createElement('div');
@@ -114,9 +131,13 @@ function renderGrid(board, container) {
         cell.classList.add('inlay');
       }
 
-      if (board.grid[s][f]) {
+      const isOverlay = overlayGrid && overlayGrid[s][f];
+      const isActive = board.grid[s][f];
+
+      if (isActive) {
         const dot = document.createElement('div');
         dot.className = 'note-dot';
+        if (isOverlay) dot.classList.add('overlay-hit'); // scale + chord overlap
         if (state.isRoot(s, f, board.key)) dot.classList.add('root');
         const finger = board.fingers[s][f];
         if (finger > 0) {
@@ -127,6 +148,13 @@ function renderGrid(board, container) {
         } else if (board.labelMode === 'intervals') {
           dot.textContent = state.intervalName(s, f, board.key);
         }
+        cell.appendChild(dot);
+      } else if (isOverlay) {
+        // Overlay-only dot (chord tone not in the current scale/grid)
+        const dot = document.createElement('div');
+        dot.className = 'note-dot overlay-only';
+        if (board.labelMode === 'notes') dot.textContent = state.noteName(s, f);
+        else if (board.labelMode === 'intervals') dot.textContent = state.intervalName(s, f, board.key);
         cell.appendChild(dot);
       }
 
@@ -180,6 +208,7 @@ function renderBoardControls(board, container) {
       ${hasScale ? positionOptionsHtml(board.scale, board.key, board.position) : '<option value="-1" selected>Position: N/A</option>'}
     </select>
     <select class="board-chord">${chordOptionsHtml(board.chord)}</select>
+    <select class="board-overlay">${overlayOptionsHtml(board.overlay)}</select>
     <select class="board-labels">${labelOptionsHtml(board.labelMode)}</select>
     <label class="board-export-label" title="Include in export">
       <input type="checkbox" class="board-export" ${board.includeInExport ? 'checked' : ''}> Export
@@ -193,6 +222,7 @@ function renderBoardControls(board, container) {
   const scaleSelect = bar.querySelector('.board-scale');
   const positionSelect = bar.querySelector('.board-position');
   const chordSelect = bar.querySelector('.board-chord');
+  const overlaySelect = bar.querySelector('.board-overlay');
   const labelsSelect = bar.querySelector('.board-labels');
   const captionInput = bar.querySelector('.board-caption');
   const exportCheck = bar.querySelector('.board-export');
@@ -237,10 +267,17 @@ function renderBoardControls(board, container) {
   chordSelect.addEventListener('change', () => {
     const chordName = chordSelect.value;
     if (chordName) {
-      chords.applyChord(board, chordName); // clears scale + position internally
+      chords.applyChord(board, chordName);
+      board.overlay = ''; // clear overlay when picking a main chord
     } else {
       board.chord = '';
     }
+    render();
+    fireChange();
+  });
+
+  overlaySelect.addEventListener('change', () => {
+    board.overlay = overlaySelect.value;
     render();
     fireChange();
   });
@@ -264,6 +301,7 @@ function renderBoardControls(board, container) {
     board.muted.fill(false);
     board.scale = '';
     board.chord = '';
+    board.overlay = '';
     board.position = -1;
     render();
     fireChange();

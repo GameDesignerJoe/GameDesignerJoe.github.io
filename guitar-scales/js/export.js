@@ -1,4 +1,5 @@
 import * as state from './state.js';
+import * as chords from './chords.js';
 
 function showToast(msg) {
   const toast = document.getElementById('toast');
@@ -97,37 +98,73 @@ function renderBoardToCanvas(board, canvasWidth) {
     }
   }
 
-  // Note dots
+  // Compute overlay grid
+  const overlayGrid = board.overlay ? chords.computeOverlayGrid(board.overlay) : null;
+
+  // Note dots + overlay dots
   for (let s = 0; s < 6; s++) {
     for (let f = 0; f < state.FRET_COUNT; f++) {
-      if (!board.grid[s][f]) continue;
+      const isActive = board.grid[s][f];
+      const isOverlay = overlayGrid && overlayGrid[s][f];
+      if (!isActive && !isOverlay) continue;
 
       const x = f === 0 ? padding + openWidth / 2 : startX + (f - 0.5) * fretWidth;
       const y = startY + s * stringSpacing;
-      const isRoot = state.isRoot(s, f, board.key);
 
       ctx.globalAlpha = board.muted[s] ? 0.25 : 1;
-      ctx.fillStyle = isRoot ? '#e94560' : '#0f9b8e';
-      ctx.beginPath();
-      ctx.arc(x, y, 12, 0, Math.PI * 2);
-      ctx.fill();
 
-      const finger = board.fingers[s][f];
-      if (finger > 0) {
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(finger.toString(), x, y);
-      } else if (board.labelMode !== 'none') {
-        const label = board.labelMode === 'intervals'
-          ? state.intervalName(s, f, board.key)
-          : state.noteName(s, f);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 9px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(label, x, y);
+      if (isActive) {
+        const isRoot = state.isRoot(s, f, board.key);
+        ctx.fillStyle = isRoot ? '#e94560' : '#0f9b8e';
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Overlay ring on scale dots that match the chord
+        if (isOverlay) {
+          ctx.strokeStyle = '#ffd700';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(x, y, 14, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Label
+        const finger = board.fingers[s][f];
+        if (finger > 0) {
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(finger.toString(), x, y);
+        } else if (board.labelMode !== 'none') {
+          const label = board.labelMode === 'intervals'
+            ? state.intervalName(s, f, board.key)
+            : state.noteName(s, f);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, x, y);
+        }
+      } else if (isOverlay) {
+        // Overlay-only: hollow dot
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(x, y, 11, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (board.labelMode !== 'none') {
+          const label = board.labelMode === 'intervals'
+            ? state.intervalName(s, f, board.key)
+            : state.noteName(s, f);
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, x, y);
+        }
       }
       ctx.globalAlpha = 1;
     }

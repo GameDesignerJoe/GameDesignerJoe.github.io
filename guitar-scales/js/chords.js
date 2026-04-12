@@ -26,6 +26,19 @@ export function getVoicing(chordName) {
   return flatChords[chordName] || null;
 }
 
+// Compute an overlay grid for a chord voicing.
+// Returns a 6×13 boolean grid marking the chord's fret positions.
+export function computeOverlayGrid(chordName) {
+  const grid = Array.from({ length: 6 }, () => new Array(state.FRET_COUNT).fill(false));
+  const voicing = flatChords[chordName];
+  if (!voicing) return grid;
+  for (let s = 0; s < 6; s++) {
+    const fret = voicing[s];
+    if (fret >= 0) grid[s][fret] = true;
+  }
+  return grid;
+}
+
 // Apply a chord voicing to a board's grid.
 // Voicing is [e1, b, g, d, a, e6] where -1 = muted, 0+ = fret number.
 export function applyChord(board, chordName) {
