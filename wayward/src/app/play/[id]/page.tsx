@@ -2,18 +2,32 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Scenario, ChatMessage, Exchange, InputMode, Emotion } from "@/lib/types";
+import { Scenario, ChatMessage, Exchange, InputMode, Section } from "@/lib/types";
 import { getScenario } from "@/lib/scenarios";
 import { buildSystemPrompt, wrapPlayerInput, parseResponse, buildOpeningMessages } from "@/lib/ai";
-import { playTTS, stopAudio, toggleAudio, isPlaying, primeAudio } from "@/lib/audio";
-import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, NARRATION_STYLES, getNarrationStyle, setNarrationStyle, type NarrationStyle, getAudioDebugEnabled, setAudioDebugEnabled } from "@/lib/settings";
+import { playTTS, stopAudio, toggleAudio, primeAudio } from "@/lib/audio";
+import { RESPONSE_LENGTHS, getResponseLengthIndex, setResponseLengthIndex, getMaxTokens, getResponseLengthHint, getAudioDebugEnabled, setAudioDebugEnabled } from "@/lib/settings";
 import { logDeviceInfo } from "@/lib/audioDebug";
 import { AudioDebugOverlay } from "@/lib/AudioDebugOverlay";
+import { NarrativeRollout } from "@/lib/NarrativeRollout";
 
 type Phase = "loading" | "playing";
 
 function stripBracketTags(text: string): string {
   return text.replace(/\[([^\]]*)\]\s*/g, "").trim();
+}
+
+const SAY_VERBS = /\bI\s+(say|tell|ask|whisper|shout|yell|scream|call\s+out|reply|respond|answer|murmur|mutter|exclaim|announce|plead|beg|demand|insist|suggest|mention|add|continue)\b/i;
+
+function detectInputMode(text: string): InputMode {
+  // Quoted text → say
+  if (/^["'\u201C\u2018]/.test(text.trim()) || /["'\u201D\u2019]$/.test(text.trim())) return "say";
+  // Contains "I say/tell/ask/etc" → say
+  if (SAY_VERBS.test(text)) return "say";
+  // Starts with "I" or "my" → do (player action)
+  if (/^(I\b|my\b)/i.test(text.trim())) return "do";
+  // Otherwise → direct (scene instruction)
+  return "direct";
 }
 
 export default function PlayPage() {
@@ -26,15 +40,22 @@ export default function PlayPage() {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [inputOpen, setInputOpen] = useState(false);
-  const [inputMode, setInputMode] = useState<InputMode>("say");
   const [inputText, setInputText] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [audioPlaying, setAudioPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [lengthIdx, setLengthIdx] = useState(1);
-  const [narrationStyle, setNarrationStyleState] = useState<NarrationStyle>("voice");
   const [audioDebug, setAudioDebug] = useState(false);
+  const [credits, setCredits] = useState<{ used: number; limit: number; reset: string } | null>(null);
+
+  // Display sequence state
+  const [displayStep, setDisplayStep] = useState(-1);
+  const [stepComplete, setStepComplete] = useState(false);
+  const [allRevealed, setAllRevealed] = useState(false);
+  const [fading, setFading] = useState(false);
+
+  // Audio state — which dialogue section index is currently playing
+  const [audioPlayingIdx, setAudioPlayingIdx] = useState<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -70,11 +91,22 @@ export default function PlayPage() {
     setScenario(s);
     scenarioRef.current = s;
     setLengthIdx(getResponseLengthIndex());
-    setNarrationStyleState(getNarrationStyle());
     const debugOn = getAudioDebugEnabled();
     setAudioDebug(debugOn);
     if (debugOn) logDeviceInfo();
   }, [id, router]);
+
+  // Fetch ElevenLabs credits
+  async function fetchCredits() {
+    try {
+      const res = await fetch("/api/elevenlabs-usage");
+      if (!res.ok) return;
+      const data = await res.json();
+      const remaining = data.character_limit - data.character_count;
+      const resetDate = new Date(data.next_character_count_reset_unix * 1000).toLocaleDateString();
+      setCredits({ used: data.character_count, limit: data.character_limit, reset: resetDate });
+    } catch { /* ignore */ }
+  }
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -93,20 +125,52 @@ export default function PlayPage() {
     return () => clearTimeout(t);
   }, [error]);
 
-  // Send messages to AI and get response, injecting current style into system prompt
+  // Display sequence: advance step when current step completes
+  useEffect(() => {
+    if (!stepComplete) return;
+    const currentExchange = exchanges[exchanges.length - 1];
+    if (!currentExchange) return;
+    const sections = currentExchange.sections;
+
+    if (displayStep < sections.length - 1) {
+      // Brief pause between sections, then advance
+      const timer = setTimeout(() => {
+        setDisplayStep((prev) => prev + 1);
+        setStepComplete(false);
+        scrollToBottom();
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      // All sections revealed
+      setAllRevealed(true);
+    }
+  }, [stepComplete, displayStep, exchanges, scrollToBottom]);
+
+  // When a dialogue section is revealed, mark it complete immediately
+  // (dialogue appears all at once, no rollout)
+  useEffect(() => {
+    const currentExchange = exchanges[exchanges.length - 1];
+    if (!currentExchange || displayStep < 0 || stepComplete) return;
+    const section = currentExchange.sections[displayStep];
+    if (section && section.type === "dialogue") {
+      setStepComplete(true);
+      scrollToBottom();
+    }
+  }, [displayStep, exchanges, stepComplete, scrollToBottom]);
+
+  // Send messages to AI
   const sendToAI = useCallback(
     async (messages: ChatMessage[]): Promise<string | null> => {
-      // Replace system prompt with current narration style
       const s = scenarioRef.current;
-      const styled = [...messages];
-      if (s && styled.length > 0 && styled[0].role === "system") {
-        styled[0] = { role: "system", content: buildSystemPrompt(s, getNarrationStyle()) };
+      const updated = [...messages];
+      if (s && updated.length > 0 && updated[0].role === "system") {
+        updated[0] = { role: "system", content: buildSystemPrompt(s, getResponseLengthHint()) };
       }
       try {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: styled, max_tokens: getMaxTokens() }),
+          body: JSON.stringify({ messages: updated, max_tokens: getMaxTokens() }),
         });
         if (!res.ok) {
           if (res.status === 429) {
@@ -128,23 +192,47 @@ export default function PlayPage() {
     []
   );
 
-  // Play companion audio
-  const playCompanionAudio = useCallback(
-    async (text: string) => {
-      const s = scenarioRef.current;
-      if (!s || !text || !s.companion.voiceId) return;
-      setAudioPlaying(true);
-      try {
-        await playTTS(text, s.companion.voiceId, () => {
-          setAudioPlaying(false);
-        });
-      } catch (e) {
-        setAudioPlaying(false);
-        setError(e instanceof Error ? e.message : "Audio playback failed.");
-      }
-    },
-    []
-  );
+  // Start display sequence for a new exchange
+  // If there's existing content on screen, fade it out first
+  function startDisplaySequence(isFirst = false) {
+    stopAudio();
+    setAudioPlayingIdx(null);
+    if (!isFirst && exchanges.length > 0) {
+      setFading(true);
+      setTimeout(() => {
+        setFading(false);
+        setDisplayStep(0);
+        setStepComplete(false);
+        setAllRevealed(false);
+      }, 400);
+    } else {
+      setFading(false);
+      setDisplayStep(0);
+      setStepComplete(false);
+      setAllRevealed(false);
+    }
+  }
+
+  // Play dialogue audio on demand
+  async function handleDialoguePlay(text: string, idx: number) {
+    if (audioPlayingIdx === idx) {
+      const playing = toggleAudio();
+      if (!playing) setAudioPlayingIdx(null);
+      return;
+    }
+    stopAudio();
+    const s = scenarioRef.current;
+    if (!s || !text) return;
+    setAudioPlayingIdx(idx);
+    try {
+      await playTTS(text, s.companion.voiceId, () => {
+        setAudioPlayingIdx(null);
+      });
+    } catch (e) {
+      setAudioPlayingIdx(null);
+      setError(e instanceof Error ? e.message : "Audio playback failed.");
+    }
+  }
 
   // Begin session — generate opening
   useEffect(() => {
@@ -153,7 +241,7 @@ export default function PlayPage() {
     let cancelled = false;
 
     async function startSession() {
-      const msgs = buildOpeningMessages(scenario!);
+      const msgs = buildOpeningMessages(scenario!, getResponseLengthHint());
       setGenerating(true);
       const raw = await sendToAI(msgs);
       if (cancelled || !raw) {
@@ -170,42 +258,39 @@ export default function PlayPage() {
         {
           playerInput: null,
           playerMode: null,
-          narrator: parsed.narrator,
-          companion: parsed.companion,
+          sections: parsed.sections,
           emotion: parsed.emotion,
         },
       ]);
       setGenerating(false);
       setPhase("playing");
-      scrollToBottom();
-
-      if (parsed.companion) {
-        playCompanionAudio(parsed.companion);
-      }
+      startDisplaySequence(true);
     }
 
     startSession();
     return () => { cancelled = true; };
-  }, [scenario, phase, sendToAI, scrollToBottom, playCompanionAudio]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenario, phase, sendToAI]);
 
   // Handle player submission
   async function handleSubmit() {
     if (!inputText.trim() || generating) return;
 
     stopAudio();
-    setAudioPlaying(false);
+    setAudioPlayingIdx(null);
 
     const text = inputText.trim();
-    const mode = inputMode;
+    const mode = detectInputMode(text);
     setInputText("");
     setInputOpen(false);
     setGenerating(true);
 
-    const wrapped = wrapPlayerInput(text, mode);
+    const playerName = scenarioRef.current?.playerCharacter?.split(/[,.\n]/)[0]?.trim() || undefined;
+    const wrapped = wrapPlayerInput(text, mode, playerName);
     const userMsg: ChatMessage = { role: "user", content: wrapped };
     const newHistory = [...historyRef.current, userMsg];
 
-    // Trim context if too long — keep system prompt + companion anchor + recent exchanges
+    // Trim context if too long
     let trimmed = newHistory;
     if (trimmed.length > 40) {
       const system = trimmed[0];
@@ -228,17 +313,12 @@ export default function PlayPage() {
       {
         playerInput: text,
         playerMode: mode,
-        narrator: parsed.narrator,
-        companion: parsed.companion,
+        sections: parsed.sections,
         emotion: parsed.emotion,
       },
     ]);
     setGenerating(false);
-    scrollToBottom();
-
-    if (parsed.companion) {
-      playCompanionAudio(parsed.companion);
-    }
+    startDisplaySequence();
   }
 
   // Continue — nudge the AI without player input
@@ -246,12 +326,12 @@ export default function PlayPage() {
     if (generating) return;
 
     stopAudio();
-    setAudioPlaying(false);
+    setAudioPlayingIdx(null);
     setGenerating(true);
 
     const continueMsg: ChatMessage = {
       role: "user",
-      content: "[DIRECTION]: Continue the scene. Let the companion react or the narrator advance the atmosphere.",
+      content: "[DIRECTION]: Continue the scene. Let the companion react or advance the atmosphere.",
     };
     const newHistory = [...historyRef.current, continueMsg];
     const raw = await sendToAI(newHistory);
@@ -269,17 +349,12 @@ export default function PlayPage() {
       {
         playerInput: null,
         playerMode: null,
-        narrator: parsed.narrator,
-        companion: parsed.companion,
+        sections: parsed.sections,
         emotion: parsed.emotion,
       },
     ]);
     setGenerating(false);
-    scrollToBottom();
-
-    if (parsed.companion) {
-      playCompanionAudio(parsed.companion);
-    }
+    startDisplaySequence();
   }
 
   // Retry — regenerate last AI response
@@ -287,10 +362,9 @@ export default function PlayPage() {
     if (generating || exchanges.length === 0) return;
 
     stopAudio();
-    setAudioPlaying(false);
+    setAudioPlayingIdx(null);
     setGenerating(true);
 
-    // Remove last assistant message from history
     const trimmedHistory = historyRef.current.slice(0, -1);
     const raw = await sendToAI(trimmedHistory);
     if (!raw) {
@@ -306,49 +380,38 @@ export default function PlayPage() {
       const updated = [...prev];
       updated[updated.length - 1] = {
         ...updated[updated.length - 1],
-        narrator: parsed.narrator,
-        companion: parsed.companion,
+        sections: parsed.sections,
         emotion: parsed.emotion,
       };
       return updated;
     });
     setGenerating(false);
-    scrollToBottom();
-
-    if (parsed.companion) {
-      playCompanionAudio(parsed.companion);
-    }
+    startDisplaySequence();
   }
 
-  // Erase — remove last exchange
+  // Erase — remove last exchange, restore previous fully
   function handleErase() {
     if (exchanges.length <= 1) return;
 
     stopAudio();
-    setAudioPlaying(false);
+    setAudioPlayingIdx(null);
 
-    // Remove last exchange
     setExchanges((prev) => prev.slice(0, -1));
-
-    // Remove last user + assistant pair from history
     setHistory((prev) => {
-      // Find last assistant message and the user message before it
       const newHist = [...prev];
-      // Pop last assistant
       if (newHist.length > 0 && newHist[newHist.length - 1].role === "assistant") {
         newHist.pop();
       }
-      // Pop last user
       if (newHist.length > 0 && newHist[newHist.length - 1].role === "user") {
         newHist.pop();
       }
       return newHist;
     });
-  }
 
-  function handleToggleAudio() {
-    const playing = toggleAudio();
-    setAudioPlaying(playing);
+    // Show restored exchange fully — no animation
+    setAllRevealed(true);
+    setDisplayStep(999);
+    setStepComplete(true);
   }
 
   // Loading screen
@@ -382,8 +445,8 @@ export default function PlayPage() {
     );
   }
 
-  // Visible exchanges — show last two only
-  const visibleExchanges = exchanges.slice(-2);
+  // Current exchange to display
+  const currentExchange = exchanges[exchanges.length - 1];
 
   return (
     <div className="page" style={{ height: "100vh", overflow: "hidden" }}>
@@ -407,7 +470,11 @@ export default function PlayPage() {
         <div style={{ position: "relative" }}>
           <button
             className="btn btn-ghost btn-sm"
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => {
+              const next = !showSettings;
+              setShowSettings(next);
+              if (next) fetchCredits();
+            }}
             title="Settings"
           >
             ⚙
@@ -435,6 +502,19 @@ export default function PlayPage() {
                 zIndex: 20,
               }}
             >
+              {/* ElevenLabs credits */}
+              {credits && (() => {
+                const remaining = credits.limit - credits.used;
+                const pct = remaining / credits.limit;
+                const color = pct < 0.05 ? "var(--danger)" : pct < 0.25 ? "#ffb300" : "var(--text-secondary)";
+                return (
+                  <div style={{ fontSize: "0.7rem", color, marginBottom: 12, lineHeight: 1.4 }}>
+                    TTS Credits: {remaining.toLocaleString()} / {credits.limit.toLocaleString()}
+                    <br />
+                    <span style={{ color: "var(--text-muted)" }}>Resets {credits.reset}</span>
+                  </div>
+                );
+              })()}
               {/* Response length */}
               <label
                 style={{
@@ -458,35 +538,6 @@ export default function PlayPage() {
                     onClick={() => {
                       setLengthIdx(i);
                       setResponseLengthIndex(i);
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {/* Narration style */}
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.75rem",
-                  color: "var(--text-secondary)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  marginTop: 16,
-                  marginBottom: 8,
-                }}
-              >
-                Narration Style: {NARRATION_STYLES.find((s) => s.key === narrationStyle)?.label}
-              </label>
-              <div style={{ display: "flex", gap: 4 }}>
-                {NARRATION_STYLES.map((opt) => (
-                  <button
-                    key={opt.key}
-                    className={`btn btn-sm ${narrationStyle === opt.key ? "btn-accent" : "btn-surface"}`}
-                    style={{ flex: 1, padding: "6px 0", fontSize: "0.75rem" }}
-                    onClick={() => {
-                      setNarrationStyleState(opt.key);
-                      setNarrationStyle(opt.key);
                     }}
                   >
                     {opt.label}
@@ -562,22 +613,21 @@ export default function PlayPage() {
         </div>
       )}
 
-      {/* Narrative area — tap to stop audio */}
+      {/* Narrative area */}
       <div
         ref={scrollRef}
         className="scroll-area"
         style={{ flex: 1, padding: "20px 0" }}
-        onClick={() => {
-          if (isPlaying()) {
-            stopAudio();
-            setAudioPlaying(false);
-          }
-        }}
       >
-        {visibleExchanges.map((ex, i) => (
-          <div key={i} style={{ marginBottom: 24 }}>
+        {currentExchange && (
+          <div
+            style={{
+              opacity: fading ? 0 : 1,
+              transition: "opacity 0.4s ease-out",
+            }}
+          >
             {/* Player input */}
-            {ex.playerInput && (
+            {currentExchange.playerInput && (
               <div
                 style={{
                   marginBottom: 16,
@@ -586,9 +636,9 @@ export default function PlayPage() {
                 }}
               >
                 <span className="text-muted" style={{ fontSize: "0.75rem" }}>
-                  {ex.playerMode === "say"
+                  {currentExchange.playerMode === "say"
                     ? "💬 You say"
-                    : ex.playerMode === "do"
+                    : currentExchange.playerMode === "do"
                     ? "🏃 You do"
                     : "🎬 Direction"}
                 </span>
@@ -599,46 +649,78 @@ export default function PlayPage() {
                     marginTop: 4,
                   }}
                 >
-                  {ex.playerMode === "say" ? `"${ex.playerInput}"` : ex.playerInput}
+                  {currentExchange.playerMode === "say"
+                    ? `"${currentExchange.playerInput}"`
+                    : currentExchange.playerInput}
                 </p>
               </div>
             )}
 
-            {/* Narrator text */}
-            {ex.narrator && (
-              <div className="narrator-text" style={{ marginBottom: 16 }}>
-                {ex.narrator}
-              </div>
-            )}
+            {/* Sections with sequential reveal */}
+            {currentExchange.sections.map((section, idx) => {
+              if (idx > displayStep) return null;
 
-            {/* Companion text */}
-            {ex.companion && (
-              <div style={{ marginBottom: 8 }}>
-                <div className="companion-text">{stripBracketTags(ex.companion)}</div>
-                {/* Audio control — only on latest exchange */}
-                {i === visibleExchanges.length - 1 && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ marginTop: 8, fontSize: "0.8rem" }}
-                    onClick={handleToggleAudio}
+              const isActive = idx === displayStep && !stepComplete;
+
+              if (section.type === "narrative") {
+                if (isActive) {
+                  return (
+                    <NarrativeRollout
+                      key={idx}
+                      text={section.text}
+                      onComplete={() => setStepComplete(true)}
+                      className="section-text"
+                      style={{ marginBottom: 16 }}
+                    />
+                  );
+                }
+                return (
+                  <div key={idx} className="section-text" style={{ marginBottom: 16 }}>
+                    {section.text}
+                  </div>
+                );
+              }
+
+              if (section.type === "dialogue") {
+                const isNewlyRevealed = idx === displayStep;
+                return (
+                  <div
+                    key={idx}
+                    className={`section-text${isNewlyRevealed ? " dialogue-fade" : ""}`}
+                    style={{
+                      marginBottom: 16,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => handleDialoguePlay(section.text, idx)}
                   >
-                    {audioPlaying ? "⏸ Pause" : "▶ Play"} audio
-                  </button>
-                )}
-              </div>
-            )}
+                    <span
+                      style={{
+                        display: "inline",
+                        marginRight: 6,
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      {audioPlayingIdx === idx ? "⏸" : "▶"}
+                    </span>
+                    &ldquo;{stripBracketTags(section.text)}&rdquo;
+                  </div>
+                );
+              }
+
+              return null;
+            })}
           </div>
-        ))}
+        )}
 
         {generating && (
           <div className="loading-pulse" style={{ padding: "8px 0" }}>
-            <span className="narrator-text">...</span>
+            <span className="section-text">...</span>
           </div>
         )}
       </div>
 
       {/* Input panel (when open) */}
-      {inputOpen && (
+      {inputOpen && allRevealed && (
         <div
           style={{
             borderTop: "1px solid var(--border)",
@@ -646,28 +728,6 @@ export default function PlayPage() {
             background: "var(--bg)",
           }}
         >
-          {/* Mode selector */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            {(
-              [
-                { mode: "say" as InputMode, label: "💬 Say", desc: "Speak as your character" },
-                { mode: "do" as InputMode, label: "🏃 Do", desc: "Describe an action" },
-                { mode: "direct" as InputMode, label: "🎬 Direct", desc: "Narrator-level direction" },
-              ] as const
-            ).map(({ mode, label }) => (
-              <button
-                key={mode}
-                className={`btn btn-sm ${inputMode === mode ? "btn-accent" : "btn-surface"}`}
-                onClick={() => {
-                  setInputMode(mode);
-                  setTimeout(() => inputRef.current?.focus(), 10);
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
           <div style={{ display: "flex", gap: 8 }}>
             <textarea
               ref={inputRef}
@@ -679,13 +739,7 @@ export default function PlayPage() {
                   handleSubmit();
                 }
               }}
-              placeholder={
-                inputMode === "say"
-                  ? 'What do you say?'
-                  : inputMode === "do"
-                  ? "What do you do?"
-                  : "Direct the scene..."
-              }
+              placeholder={'Say, do, or direct the scene...'}
               rows={2}
               style={{ flex: 1, resize: "none" }}
               autoFocus
@@ -702,56 +756,57 @@ export default function PlayPage() {
         </div>
       )}
 
-      {/* Action bar */}
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          padding: "12px 0 16px",
-          borderTop: inputOpen ? "none" : "1px solid var(--border)",
-          background: "var(--bg)",
-          flexShrink: 0,
-        }}
-      >
-        <button
-          className={`btn btn-sm ${inputOpen ? "btn-accent" : "btn-surface"}`}
-          style={{ flex: 1 }}
-          onClick={() => {
-            setInputOpen(!inputOpen);
-            if (!inputOpen) {
-              setTimeout(() => inputRef.current?.focus(), 100);
-            }
+      {/* Action bar — only after display sequence completes */}
+      {allRevealed && !generating && (
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            padding: "12px 0 16px",
+            borderTop: inputOpen ? "none" : "1px solid var(--border)",
+            background: "var(--bg)",
+            flexShrink: 0,
           }}
-          disabled={generating}
         >
-          Take a Turn
-        </button>
-        <button
-          className="btn btn-surface btn-sm"
-          style={{ flex: 1 }}
-          onClick={handleContinue}
-          disabled={generating}
-        >
-          Continue
-        </button>
-        <button
-          className="btn btn-surface btn-sm"
-          style={{ flex: 1 }}
-          onClick={handleRetry}
-          disabled={generating || exchanges.length === 0}
-        >
-          Retry
-        </button>
-        <button
-          className="btn btn-surface btn-sm"
-          style={{ flex: 1 }}
-          onClick={handleErase}
-          disabled={generating || exchanges.length <= 1}
-        >
-          Erase
-        </button>
-      </div>
-
+          <button
+            className={`btn btn-sm ${inputOpen ? "btn-accent" : "btn-surface"}`}
+            style={{ flex: 1 }}
+            onClick={() => {
+              setInputOpen(!inputOpen);
+              if (!inputOpen) {
+                setTimeout(() => inputRef.current?.focus(), 100);
+              }
+            }}
+            disabled={generating}
+          >
+            Take a Turn
+          </button>
+          <button
+            className="btn btn-surface btn-sm"
+            style={{ flex: 1 }}
+            onClick={handleContinue}
+            disabled={generating}
+          >
+            Continue
+          </button>
+          <button
+            className="btn btn-surface btn-sm"
+            style={{ flex: 1 }}
+            onClick={handleRetry}
+            disabled={generating || exchanges.length === 0}
+          >
+            Retry
+          </button>
+          <button
+            className="btn btn-surface btn-sm"
+            style={{ flex: 1 }}
+            onClick={handleErase}
+            disabled={generating || exchanges.length <= 1}
+          >
+            Erase
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -26,9 +26,13 @@ export interface ChatMessage {
 
 export type Emotion = "neutral";
 
+export interface Section {
+  type: "narrative" | "dialogue";
+  text: string;
+}
+
 export interface ParsedResponse {
-  narrator: string | null;
-  companion: string | null;
+  sections: Section[];
   emotion: Emotion;
 }
 
@@ -37,8 +41,7 @@ export type InputMode = "say" | "do" | "direct";
 export interface Exchange {
   playerInput: string | null;
   playerMode: InputMode | null;
-  narrator: string | null;
-  companion: string | null;
+  sections: Section[];
   emotion: Emotion;
 }
 

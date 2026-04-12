@@ -19,6 +19,18 @@ export default function Home() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [audioDebug, setAudioDebug] = useState(false);
+  const [credits, setCredits] = useState<{ used: number; limit: number; reset: string } | null>(null);
+
+  async function fetchCredits() {
+    try {
+      const res = await fetch("/api/elevenlabs-usage");
+      if (!res.ok) return;
+      const data = await res.json();
+      const remaining = data.character_limit - data.character_count;
+      const resetDate = new Date(data.next_character_count_reset_unix * 1000).toLocaleDateString();
+      setCredits({ used: data.character_count, limit: data.character_limit, reset: resetDate });
+    } catch { /* ignore */ }
+  }
 
   useEffect(() => {
     setScenarios(getScenarios());
@@ -90,7 +102,11 @@ export default function Home() {
           <div style={{ position: "relative" }}>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => setShowSettings(!showSettings)}
+              onClick={() => {
+                const next = !showSettings;
+                setShowSettings(next);
+                if (next) fetchCredits();
+              }}
               title="Settings"
             >
               ⚙
@@ -114,6 +130,19 @@ export default function Home() {
                     zIndex: 20,
                   }}
                 >
+                  {/* ElevenLabs credits */}
+                  {credits && (() => {
+                    const remaining = credits.limit - credits.used;
+                    const pct = remaining / credits.limit;
+                    const color = pct < 0.05 ? "var(--danger)" : pct < 0.25 ? "#ffb300" : "var(--text-secondary)";
+                    return (
+                      <div style={{ fontSize: "0.7rem", color, marginBottom: 12, lineHeight: 1.4 }}>
+                        TTS Credits: {remaining.toLocaleString()} / {credits.limit.toLocaleString()}
+                        <br />
+                        <span style={{ color: "var(--text-muted)" }}>Resets {credits.reset}</span>
+                      </div>
+                    );
+                  })()}
                   {/* Cloud Sync */}
                   <label
                     style={{

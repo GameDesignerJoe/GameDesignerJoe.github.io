@@ -22,7 +22,7 @@ export default function VoicePickerPage() {
   const [voices, setVoices] = useState<NormalizedVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [gender, setGender] = useState<GenderFilter>("any");
+  const [gender, setGender] = useState<GenderFilter>("female");
   const [search, setSearch] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
