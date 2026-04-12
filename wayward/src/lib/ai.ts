@@ -60,6 +60,8 @@ Narrative blocks should also be short — 1-2 sentences, just enough to set a vi
 
 Favor dialogue over description. The companion should talk frequently across multiple blocks, not in one wall of text.
 
+PACING: Match the rhythm to the moment. During active conversation — arguments, flirting, heart-to-hearts, back-and-forth banter — you can stack multiple [DIALOGUE] blocks with little or no [NARRATIVE] between them, and individual lines can run a bit longer. Not every line of dialogue needs a narrative beat. When the scene is more physical or atmospheric, lean into [NARRATIVE]. Read the energy of the scene and adjust.
+
 Example:
 
 [NARRATIVE]${scenario.companion.name} lingers in the doorway, fingers tapping the frame.[/NARRATIVE]
