@@ -67,6 +67,11 @@ select:focus, .board-caption:focus {
   outline-offset: 1px;
 }
 
+select:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 button {
   background: var(--btn-bg);
   color: var(--text);

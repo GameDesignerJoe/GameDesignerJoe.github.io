@@ -43,6 +43,16 @@ function labelOptionsHtml(selected) {
   ).join('');
 }
 
+// Build <option> HTML for position selects
+function positionOptionsHtml(scaleName, rootSemitone, selected) {
+  let html = `<option value="-1"${selected === -1 ? ' selected' : ''}>All</option>`;
+  const positions = scales.computePositions(scaleName, rootSemitone);
+  for (let i = 0; i < positions.length; i++) {
+    html += `<option value="${i}"${i === selected ? ' selected' : ''}>Pos ${i + 1}</option>`;
+  }
+  return html;
+}
+
 // Render a single board's fretboard grid into a container element
 function renderGrid(board, container) {
   const wrapper = document.createElement('div');
@@ -90,6 +100,7 @@ function renderGrid(board, container) {
       cell.addEventListener('click', () => {
         state.toggle(board, s, f);
         board.scale = '';
+        board.position = -1;
         render();
         fireChange();
       });
@@ -118,10 +129,14 @@ function renderBoardControls(board, container) {
   const bar = document.createElement('div');
   bar.className = 'board-controls';
 
+  const hasScale = board.scale !== '';
   bar.innerHTML = `
     <input type="text" class="board-caption" placeholder="Title..." maxlength="100" value="${board.caption.replace(/"/g, '&quot;')}">
     <select class="board-key" title="Key">${keyOptionsHtml(board.key)}</select>
     <select class="board-scale" title="Scale">${scaleOptionsHtml(board.scale)}</select>
+    <select class="board-position" title="Position"${hasScale ? '' : ' disabled'}>
+      ${hasScale ? positionOptionsHtml(board.scale, board.key, board.position) : '<option value="-1">N/A</option>'}
+    </select>
     <select class="board-labels" title="Labels">${labelOptionsHtml(board.labelMode)}</select>
     <label class="board-export-label" title="Include in export">
       <input type="checkbox" class="board-export" ${board.includeInExport ? 'checked' : ''}> Export
@@ -133,6 +148,7 @@ function renderBoardControls(board, container) {
   // Wire up controls
   const keySelect = bar.querySelector('.board-key');
   const scaleSelect = bar.querySelector('.board-scale');
+  const positionSelect = bar.querySelector('.board-position');
   const labelsSelect = bar.querySelector('.board-labels');
   const captionInput = bar.querySelector('.board-caption');
   const exportCheck = bar.querySelector('.board-export');
@@ -142,7 +158,7 @@ function renderBoardControls(board, container) {
   keySelect.addEventListener('change', () => {
     const root = parseInt(keySelect.value);
     if (scaleSelect.value) {
-      scales.applyScale(board, scaleSelect.value, root);
+      scales.applyScale(board, scaleSelect.value, root, board.position);
     } else {
       board.key = root;
     }
@@ -154,9 +170,20 @@ function renderBoardControls(board, container) {
     const scaleName = scaleSelect.value;
     const root = parseInt(keySelect.value);
     if (scaleName) {
-      scales.applyScale(board, scaleName, root);
+      board.position = -1; // reset to All when switching scales
+      scales.applyScale(board, scaleName, root, -1);
     } else {
       board.scale = '';
+      board.position = -1;
+    }
+    render();
+    fireChange();
+  });
+
+  positionSelect.addEventListener('change', () => {
+    const pos = parseInt(positionSelect.value);
+    if (board.scale) {
+      scales.applyScale(board, board.scale, board.key, pos);
     }
     render();
     fireChange();
@@ -179,6 +206,7 @@ function renderBoardControls(board, container) {
   clearBtn.addEventListener('click', () => {
     state.clearGrid(board);
     board.scale = '';
+    board.position = -1;
     render();
     fireChange();
   });

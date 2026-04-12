@@ -61,6 +61,7 @@ export function pushToUrl() {
     u.searchParams.set(`b${i}`, encodeBoard(board));
     if (board.caption) u.searchParams.set(`t${i}`, encodeURIComponent(board.caption));
     if (board.labelMode !== 'none') u.searchParams.set(`l${i}`, board.labelMode);
+    if (board.position >= 0) u.searchParams.set(`p${i}`, board.position.toString());
   }
 
   history.replaceState(null, '', u);
@@ -80,6 +81,8 @@ export function readFromUrl() {
       if (title) board.caption = decodeURIComponent(title);
       const labelMode = u.searchParams.get(`l${i}`);
       if (labelMode) board.labelMode = labelMode;
+      const pos = u.searchParams.get(`p${i}`);
+      if (pos !== null) board.position = parseInt(pos);
       i++;
     }
     return true;

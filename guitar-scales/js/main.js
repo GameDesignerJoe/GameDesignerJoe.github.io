@@ -31,6 +31,16 @@ async function init() {
     if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth' });
   });
 
+  // New / Reset button
+  document.getElementById('btn-new').addEventListener('click', () => {
+    state.boards.length = 0;
+    const board = state.createBoard();
+    scales.applyScale(board, 'Major', 0);
+    fretboard.render();
+    // Strip URL params
+    history.replaceState(null, '', window.location.pathname);
+  });
+
   // Export dropdown toggle
   const dropdown = document.querySelector('.dropdown');
   document.getElementById('btn-export').addEventListener('click', (e) => {

@@ -19,6 +19,7 @@ export function createBoard() {
     grid: Array.from({ length: 6 }, () => new Array(FRET_COUNT).fill(false)),
     key: 0,
     scale: '',
+    position: -1, // -1 = all positions, 0+ = specific position index
     caption: '',
     labelMode: 'none',
     includeInExport: true,
