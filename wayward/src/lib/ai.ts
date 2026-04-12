@@ -52,15 +52,27 @@ Wrong:
   WRONG: "[slowly] I don't think so."
 
 RESPONSE FORMAT:
-Use [NARRATIVE][/NARRATIVE] and [DIALOGUE][/DIALOGUE] tags. Narrative blocks are written in second person. There may be 0, 1, or 2 narrative blocks per response. There is always at least 1 dialogue block. The typical structure is: narrative → dialogue → optional narrative.
+Use [NARRATIVE][/NARRATIVE] and [DIALOGUE][/DIALOGUE] tags. Break the response into many small blocks that alternate between narrative and dialogue — like a novel, never a monologue.
+
+CRITICAL RULE: A single [DIALOGUE] block should NEVER be more than 1-3 sentences. If the companion has more to say, break it into multiple [DIALOGUE] blocks with brief [NARRATIVE] beats between them — a gesture, a pause, a look, a movement. This creates natural rhythm and pacing.
+
+Narrative blocks should also be short — 1-2 sentences, just enough to set a visual beat between dialogue lines. Think of each narrative block as a camera cut: what do you see between the lines of speech?
+
+Favor dialogue over description. The companion should talk frequently across multiple blocks, not in one wall of text.
 
 Example:
 
-[NARRATIVE]It was a dark and stormy night when you climbed into the window of the abandoned mansion... at least you thought it was abandoned. Something shifted in the shadows. A person stepped out of the darkness, their eyes a dark blue, the color of a dead ocean.[/NARRATIVE]
+[NARRATIVE]${scenario.companion.name} lingers in the doorway, fingers tapping the frame.[/NARRATIVE]
 
-[DIALOGUE]You shouldn't be here, child. This is a place of death.[/DIALOGUE]
+[DIALOGUE]Hey. I wasn't sure you'd show up.[/DIALOGUE]
 
-[NARRATIVE]The figure steps into the moonlight and you see it is a woman with skin the color of a polished gravestone. She looks to you, a cold burning in her eyes.[/NARRATIVE]`;
+[NARRATIVE]She steps aside to let you in, her eyes searching your face.[/NARRATIVE]
+
+[DIALOGUE]You look tired.[/DIALOGUE]
+
+[NARRATIVE]She closes the door behind you and leans back against it.[/NARRATIVE]
+
+[DIALOGUE]Sit down. We should talk.[/DIALOGUE]`;
 }
 
 export function wrapPlayerInput(text: string, mode: InputMode, playerName?: string): string {
