@@ -73,6 +73,7 @@ export function createScenario(): Scenario {
     openingHook: "",
     playerCharacter: "",
     aiInstructions: "",
+    mode: "narrative",
     companion: {
       name: "",
       description: "",

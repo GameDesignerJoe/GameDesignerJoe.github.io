@@ -85,6 +85,24 @@ export default function EditorPage() {
         </div>
       </div>
 
+      {/* Mode toggle */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+        <button
+          className={`btn btn-sm ${(scenario.mode || "narrative") === "narrative" ? "btn-accent" : "btn-surface"}`}
+          style={{ flex: 1, padding: "8px 0", fontSize: "0.8rem" }}
+          onClick={() => update({ mode: "narrative" })}
+        >
+          Narrative
+        </button>
+        <button
+          className={`btn btn-sm ${scenario.mode === "dialogue" ? "btn-accent" : "btn-surface"}`}
+          style={{ flex: 1, padding: "8px 0", fontSize: "0.8rem" }}
+          onClick={() => update({ mode: "dialogue" })}
+        >
+          Dialogue
+        </button>
+      </div>
+
       <div className="tabs">
         <button
           className={`tab ${tab === "story" ? "tab-active" : ""}`}

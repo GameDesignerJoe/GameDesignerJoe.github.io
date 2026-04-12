@@ -5,6 +5,8 @@ export interface Companion {
   voiceName: string;
 }
 
+export type ScenarioMode = "narrative" | "dialogue";
+
 export interface Scenario {
   id: string;
   title: string;
@@ -15,6 +17,7 @@ export interface Scenario {
   playerCharacter: string;
   aiInstructions: string;
   companion: Companion;
+  mode: ScenarioMode;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,7 +30,7 @@ export interface ChatMessage {
 export type Emotion = "neutral";
 
 export interface Section {
-  type: "narrative" | "dialogue";
+  type: "narrative" | "dialogue" | "chunk";
   text: string;
 }
 
