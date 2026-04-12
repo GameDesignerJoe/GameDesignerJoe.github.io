@@ -431,20 +431,39 @@ button:active { transform: scale(0.97); }
   .top-bar, .toast, .add-board-btn,
   .board-controls select, .board-clear, .board-delete, .board-export-label { display: none !important; }
   .page-title-input { color: #000; font-size: 1.3rem; border: none; }
-  .board-card { border-color: #ccc; background: #fff; }
-  .board-caption { border: none; font-size: 1rem; color: #000; }
+  .app { padding: 0; }
+  .board-card {
+    border-color: #ccc;
+    background: #fff;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0.4rem;
+    padding: 0.3rem 0.5rem 0.4rem;
+  }
+  .board-caption { border: none; font-size: 0.85rem; color: #000; padding: 0.1rem 0; }
+  .board-controls { margin-bottom: 0; padding-bottom: 0.15rem; }
   .board-controls select { border-color: #ccc; color: #000; background: #fff; }
-  .fretboard { min-height: 160px; }
-  .fret-cell::before { background: #333; }
-  .note-dot { color: #fff; }
+  .fretboard { min-height: 0; }
+  .fret-cell { min-height: 22px; }
+  .fret-cell::before { background: none; border-top: 2px solid #333; height: 0; }
+  .note-dot {
+    width: 18px; height: 18px;
+    font-size: 0.5rem;
+    color: #fff;
+  }
   .note-dot.root { background: #c00; }
+  .string-labels { font-size: 0.7rem; }
   .string-labels, .fret-numbers { color: #333; }
+  .fret-numbers { font-size: 0.6rem; }
   .string-label .string-name.dimmed { opacity: 0.3; }
   .mute-x { color: #c00; }
   .fret-cell.string-muted::before { opacity: 0.15; }
   .fret-cell.string-muted .note-dot { opacity: 0.2; }
   .fret-cell { border-right-color: #999; }
   .fret-cell[data-fret="0"] { border-right-color: #333; }
+  .fretboard-wrapper { margin-top: 0.1rem; }
+  .page-title-input { font-size: 1.1rem; padding: 0.15rem; }
+  header { padding: 0.25rem 0 0; }
 }
 
 /* ── Responsive ── */
