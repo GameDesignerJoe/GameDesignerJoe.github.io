@@ -74,7 +74,7 @@ function renderBoardToCanvas(board, canvasWidth) {
 
     ctx.globalAlpha = isMuted ? 0.2 : 1;
     ctx.strokeStyle = '#c0a060';
-    ctx.lineWidth = 1.5 + (s * 0.4);
+    ctx.lineWidth = 2.5 + (s * 0.5);
     ctx.beginPath();
     ctx.moveTo(padding, y);
     ctx.lineTo(startX + 12 * fretWidth, y);
@@ -168,6 +168,27 @@ function renderBoardToCanvas(board, canvasWidth) {
       }
       ctx.globalAlpha = 1;
     }
+  }
+
+  // Sequence lines — drawn bold and on top
+  if (board.labelMode === 'sequence' && board.sequence.length >= 2) {
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < board.sequence.length - 1; i++) {
+      const from = board.sequence[i];
+      const to = board.sequence[i + 1];
+      const x1 = from.f === 0 ? padding + openWidth / 2 : startX + (from.f - 0.5) * fretWidth;
+      const y1 = startY + from.s * stringSpacing;
+      const x2 = to.f === 0 ? padding + openWidth / 2 : startX + (to.f - 0.5) * fretWidth;
+      const y2 = startY + to.s * stringSpacing;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   // Fret numbers

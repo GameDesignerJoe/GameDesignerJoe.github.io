@@ -27,6 +27,7 @@ export function createBoard() {
     chord: '',
     overlay: '', // chord name to overlay on top of scale
     position: -1, // -1 = all positions, 0+ = specific position index
+    sequence: [], // array of {s, f} in order clicked — for sequence mode
     caption: '',
     labelMode: 'none',
     includeInExport: true,

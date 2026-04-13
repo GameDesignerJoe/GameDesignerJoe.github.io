@@ -332,15 +332,16 @@ button:active { transform: scale(0.97); }
   position: absolute;
   left: 0; right: 0;
   top: 50%;
-  height: 2px;
+  height: 3px;
   background: var(--string-color);
   z-index: 0;
 }
 
 /* Thicker strings for lower strings */
-.fret-cell[data-string="3"]::before { height: 2.5px; }
-.fret-cell[data-string="4"]::before { height: 3px; }
-.fret-cell[data-string="5"]::before { height: 3.5px; }
+.fret-cell[data-string="2"]::before { height: 3.5px; }
+.fret-cell[data-string="3"]::before { height: 4px; }
+.fret-cell[data-string="4"]::before { height: 4.5px; }
+.fret-cell[data-string="5"]::before { height: 5px; }
 
 /* Fret inlays */
 .fret-cell.inlay::after {
@@ -379,6 +380,21 @@ button:active { transform: scale(0.97); }
 .note-dot.has-finger {
   font-size: clamp(0.65rem, 1vw, 1rem);
   font-weight: 800;
+}
+
+/* Sequence: active dot in the sequence path — green glow */
+.note-dot.seq-active {
+  box-shadow: 0 0 0 3px #22c55e, 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* Sequence SVG lines overlay — behind dots (z-index 0), dots are z-index 1 */
+.seq-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
 }
 
 /* Overlay: chord tone that overlaps with a scale note — gold ring */
@@ -458,7 +474,10 @@ button:active { transform: scale(0.97); }
   .board-controls select { border-color: #ccc; color: #000; background: #fff; }
   .fretboard { min-height: 0; }
   .fret-cell { min-height: 22px; }
-  .fret-cell::before { background: none; border-top: 2px solid #333; height: 0; }
+  .fret-cell::before { background: none; border-top: 3px solid #333; height: 0; }
+  .seq-lines { z-index: 0; }
+  .seq-lines line { stroke: #22c55e !important; }
+  .board-clear-seq { display: none !important; }
   .note-dot {
     width: 18px; height: 18px;
     font-size: 0.5rem;

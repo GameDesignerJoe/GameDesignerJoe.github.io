@@ -38,7 +38,7 @@ function scaleOptionsHtml(selected) {
 
 // Build <option> HTML for label mode selects
 function labelOptionsHtml(selected) {
-  const modes = [['none', 'None'], ['notes', 'Note Names'], ['intervals', 'Intervals']];
+  const modes = [['none', 'None'], ['notes', 'Note Names'], ['intervals', 'Intervals'], ['sequence', 'Sequence']];
   return modes.map(([val, label]) =>
     `<option value="${val}"${val === selected ? ' selected' : ''}>Labels: ${label}</option>`
   ).join('');
@@ -133,16 +133,23 @@ function renderGrid(board, container) {
 
       const isOverlay = overlayGrid && overlayGrid[s][f];
       const isActive = board.grid[s][f];
+      const isSequenceMode = board.labelMode === 'sequence';
+      const seqIndex = isSequenceMode ? board.sequence.findIndex(p => p.s === s && p.f === f) : -1;
+      const isInSequence = seqIndex >= 0;
 
       if (isActive) {
         const dot = document.createElement('div');
         dot.className = 'note-dot';
-        if (isOverlay) dot.classList.add('overlay-hit'); // scale + chord overlap
+        if (isOverlay) dot.classList.add('overlay-hit');
         if (state.isRoot(s, f, board.key)) dot.classList.add('root');
+        if (isInSequence) dot.classList.add('seq-active');
+
         const finger = board.fingers[s][f];
         if (finger > 0) {
           dot.textContent = finger;
           dot.classList.add('has-finger');
+        } else if (isSequenceMode) {
+          dot.textContent = state.intervalName(s, f, board.key);
         } else if (board.labelMode === 'notes') {
           dot.textContent = state.noteName(s, f);
         } else if (board.labelMode === 'intervals') {
@@ -150,17 +157,44 @@ function renderGrid(board, container) {
         }
         cell.appendChild(dot);
       } else if (isOverlay) {
-        // Overlay-only dot (chord tone not in the current scale/grid)
         const dot = document.createElement('div');
         dot.className = 'note-dot overlay-only';
         if (board.labelMode === 'notes') dot.textContent = state.noteName(s, f);
-        else if (board.labelMode === 'intervals') dot.textContent = state.intervalName(s, f, board.key);
+        else if (board.labelMode === 'intervals' || isSequenceMode) dot.textContent = state.intervalName(s, f, board.key);
         cell.appendChild(dot);
       }
 
       cell.addEventListener('click', (e) => {
+        if (isSequenceMode) {
+          // Shift-click in sequence mode: remove the dot entirely
+          if (e.shiftKey && board.grid[s][f]) {
+            board.grid[s][f] = false;
+            board.fingers[s][f] = 0;
+            // Remove all occurrences from sequence
+            board.sequence = board.sequence.filter(p => !(p.s === s && p.f === f));
+            render();
+            fireChange();
+            return;
+          }
+          // Sequence mode click logic
+          const existingIdx = board.sequence.findIndex(p => p.s === s && p.f === f);
+          if (existingIdx >= 0 && existingIdx === board.sequence.length - 1) {
+            // Clicking the last dot removes it from the sequence
+            board.sequence.pop();
+          } else if (existingIdx < 0) {
+            // Not in sequence — add the dot if needed, then add to sequence
+            if (!board.grid[s][f]) {
+              board.grid[s][f] = true;
+              if (board.muted[s]) board.muted[s] = false;
+            }
+            board.sequence.push({ s, f });
+          }
+          render();
+          fireChange();
+          return;
+        }
+
         if (e.shiftKey && board.grid[s][f]) {
-          // Shift-click on active dot: cycle finger 1→2→3→4→clear
           board.fingers[s][f] = board.fingers[s][f] >= 4 ? 0 : board.fingers[s][f] + 1;
           render();
           fireChange();
@@ -179,6 +213,53 @@ function renderGrid(board, container) {
     }
   }
   col.appendChild(fb);
+
+  // Sequence lines (SVG overlay)
+  // Filter sequence to only valid grid entries before drawing
+  if (board.labelMode === 'sequence') {
+    board.sequence = board.sequence.filter(p => board.grid[p.s][p.f]);
+  }
+  if (board.labelMode === 'sequence' && board.sequence.length >= 2) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('seq-lines');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    fb.style.position = 'relative';
+    fb.appendChild(svg);
+
+    // Use a double rAF to ensure layout is fully settled
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const fbRect = fb.getBoundingClientRect();
+      if (fbRect.width === 0 || fbRect.height === 0) return;
+      svg.setAttribute('viewBox', `0 0 ${fbRect.width} ${fbRect.height}`);
+
+      for (let i = 0; i < board.sequence.length - 1; i++) {
+        const from = board.sequence[i];
+        const to = board.sequence[i + 1];
+        const fromCell = fb.querySelector(`.fret-cell[data-string="${from.s}"][data-fret="${from.f}"]`);
+        const toCell = fb.querySelector(`.fret-cell[data-string="${to.s}"][data-fret="${to.f}"]`);
+        if (!fromCell || !toCell) continue;
+
+        const fromRect = fromCell.getBoundingClientRect();
+        const toRect = toCell.getBoundingClientRect();
+
+        const x1 = fromRect.left + fromRect.width / 2 - fbRect.left;
+        const y1 = fromRect.top + fromRect.height / 2 - fbRect.top;
+        const x2 = toRect.left + toRect.width / 2 - fbRect.left;
+        const y2 = toRect.top + toRect.height / 2 - fbRect.top;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', '#22c55e');
+        line.setAttribute('stroke-width', '5');
+        line.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(line);
+      }
+    }));
+  }
 
   // Fret numbers
   const fn = document.createElement('div');
@@ -214,6 +295,7 @@ function renderBoardControls(board, container) {
       <input type="checkbox" class="board-export" ${board.includeInExport ? 'checked' : ''}> Export
     </label>
     <button class="board-clear" title="Clear this board">Clear</button>
+    <button class="board-clear-seq" title="Clear sequence" style="${board.labelMode === 'sequence' ? '' : 'display:none'}">Clear Sequence</button>
     <button class="board-delete" title="Delete this board">&times;</button>
   `;
 
@@ -227,6 +309,7 @@ function renderBoardControls(board, container) {
   const captionInput = bar.querySelector('.board-caption');
   const exportCheck = bar.querySelector('.board-export');
   const clearBtn = bar.querySelector('.board-clear');
+  const clearSeqBtn = bar.querySelector('.board-clear-seq');
   const deleteBtn = bar.querySelector('.board-delete');
 
   keySelect.addEventListener('change', () => {
@@ -283,6 +366,10 @@ function renderBoardControls(board, container) {
   });
 
   labelsSelect.addEventListener('change', () => {
+    // Clear sequence when leaving sequence mode
+    if (board.labelMode === 'sequence' && labelsSelect.value !== 'sequence') {
+      board.sequence = [];
+    }
     board.labelMode = labelsSelect.value;
     render();
   });
@@ -296,12 +383,19 @@ function renderBoardControls(board, container) {
     board.includeInExport = exportCheck.checked;
   });
 
+  clearSeqBtn.addEventListener('click', () => {
+    board.sequence = [];
+    render();
+    fireChange();
+  });
+
   clearBtn.addEventListener('click', () => {
     state.clearGrid(board);
     board.muted.fill(false);
     board.scale = '';
     board.chord = '';
     board.overlay = '';
+    board.sequence = [];
     board.position = -1;
     render();
     fireChange();
