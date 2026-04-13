@@ -22,6 +22,7 @@ export function setPageTitle(t) { pageTitle = t; }
 export const settings = {
   useFlats: false,
   handedness: 'right',
+  theme: 'midnight',
 };
 
 export function setSetting(key, value) {

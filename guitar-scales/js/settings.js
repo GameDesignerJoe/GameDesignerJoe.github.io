@@ -1,4 +1,5 @@
 import * as state from './state.js';
+import * as themes from './themes.js';
 
 const STORAGE_KEY = 'guitar-scales-settings';
 
@@ -19,6 +20,8 @@ export function loadSettings() {
   } catch (e) {
     console.warn('Failed to load settings', e);
   }
+  // Apply theme right away so the UI matches saved preference
+  themes.applyTheme(state.settings.theme);
 }
 
 // Save settings to localStorage
@@ -51,8 +54,57 @@ export function initSettingsModal(onChange) {
     if (handednessGroup) {
       setSegmentedActive(handednessGroup, state.settings.handedness || 'right');
     }
+    // Update active state on theme cards
+    const currentTheme = state.settings.theme || 'midnight';
+    modal.querySelectorAll('.theme-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.theme === currentTheme);
+    });
     modal.hidden = false;
   }
+
+  // Build the Themes grid once
+  function buildThemesGrid() {
+    const grid = document.getElementById('themes-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (const [id, theme] of Object.entries(themes.THEMES)) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'theme-card';
+      card.dataset.theme = id;
+      const c = theme.colors;
+      // Inline styles on the card itself so previews always match the theme,
+      // regardless of the currently-applied theme.
+      card.style.background = c.bg;
+      card.style.borderColor = c['fret-wire'];
+      card.innerHTML = `
+        <div class="theme-preview" style="background:${c.surface}">
+          <div class="theme-swatches">
+            <span style="background:${c['root-color']}"></span>
+            <span style="background:${c['note-color']}"></span>
+            <span style="background:${c.accent}"></span>
+            <span style="background:${c['string-color']}"></span>
+          </div>
+        </div>
+        <div class="theme-meta">
+          <div class="theme-name" style="color:${c.text}">${theme.name}</div>
+          <div class="theme-desc" style="color:${c.muted}">${theme.description}</div>
+        </div>
+      `;
+      card.addEventListener('click', () => {
+        state.setSetting('theme', id);
+        themes.applyTheme(id);
+        saveSettings();
+        // Update active state immediately
+        modal.querySelectorAll('.theme-card').forEach(c => {
+          c.classList.toggle('active', c.dataset.theme === id);
+        });
+        if (onChange) onChange();
+      });
+      grid.appendChild(card);
+    }
+  }
+  buildThemesGrid();
 
   function closeModal() {
     modal.hidden = true;

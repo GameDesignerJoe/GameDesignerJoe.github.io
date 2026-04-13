@@ -1,5 +1,6 @@
 import * as state from './state.js';
 import * as chords from './chords.js';
+import * as themes from './themes.js';
 
 function showToast(msg) {
   const toast = document.getElementById('toast');
@@ -13,11 +14,29 @@ function showToast(msg) {
 }
 
 // Render a single board to canvas, return { canvas, height }
+// Convert a hex color to rgba with given alpha
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const v = h.length === 3
+    ? h.split('').map(c => c + c).join('')
+    : h;
+  const r = parseInt(v.slice(0, 2), 16);
+  const g = parseInt(v.slice(2, 4), 16);
+  const b = parseInt(v.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function getPalette() {
+  const t = themes.getTheme(state.settings.theme);
+  return t.colors;
+}
+
 function renderBoardToCanvas(board, canvasWidth) {
   const padding = 30;
   const lefty = state.isLefty();
   const upside = state.isUpsideDown();
   const hasOpen = board.fretLo === 0;
+  const pal = getPalette();
   const openWidth = hasOpen ? 40 : 0;
   const numberedFrets = hasOpen ? (board.fretHi - board.fretLo) : (board.fretHi - board.fretLo + 1);
   const fretWidth = (canvasWidth - padding * 2 - openWidth) / numberedFrets;
@@ -36,7 +55,7 @@ function renderBoardToCanvas(board, canvasWidth) {
 
   // Caption
   if (hasCaption) {
-    ctx.fillStyle = '#e0e0e0';
+    ctx.fillStyle = pal.text;
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -55,7 +74,7 @@ function renderBoardToCanvas(board, canvasWidth) {
     // Nut is the fret wire adjacent to the open area
     const isNut = hasOpen && ((!lefty && i === 0) || (lefty && i === numberedFrets));
     ctx.lineWidth = isNut ? 4 : 2;
-    ctx.strokeStyle = isNut ? '#ddd' : '#555';
+    ctx.strokeStyle = isNut ? pal['nut-color'] : pal['fret-wire'];
     ctx.beginPath();
     ctx.moveTo(x, startY);
     ctx.lineTo(x, startY + stringSpacing * 5);
@@ -65,7 +84,7 @@ function renderBoardToCanvas(board, canvasWidth) {
   // Inlay dots
   const singleInlays = [3, 5, 7, 9, 15, 17, 19, 21];
   const doubleInlays = [12, 24];
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = pal.inlay;
 
   // Helper to convert absolute fret to canvas X
   function fretX(fret) {
@@ -116,7 +135,7 @@ function renderBoardToCanvas(board, canvasWidth) {
     const isMuted = board.muted[s];
 
     ctx.globalAlpha = isMuted ? 0.2 : 1;
-    ctx.strokeStyle = '#c0a060';
+    ctx.strokeStyle = pal['string-color'];
     ctx.lineWidth = 2.5 + (s * 0.5);
     ctx.beginPath();
     ctx.moveTo(stringLeft, y);
@@ -128,14 +147,14 @@ function renderBoardToCanvas(board, canvasWidth) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (isMuted) {
-      ctx.fillStyle = 'rgba(136,136,170,0.35)';
+      ctx.fillStyle = hexToRgba(pal.muted, 0.35);
       ctx.font = 'bold 12px sans-serif';
       ctx.fillText(stringLabels[s], labelCenterX + letterXOffset, y);
-      ctx.fillStyle = '#e94560';
+      ctx.fillStyle = pal.accent;
       ctx.font = 'bold 11px sans-serif';
       ctx.fillText('X', labelCenterX + labelXOffset, y);
     } else {
-      ctx.fillStyle = '#8888aa';
+      ctx.fillStyle = pal.muted;
       ctx.font = 'bold 12px sans-serif';
       ctx.fillText(stringLabels[s], labelCenterX, y);
     }
@@ -158,7 +177,7 @@ function renderBoardToCanvas(board, canvasWidth) {
 
       if (isActive) {
         const isRoot = state.isRoot(s, f, board.key);
-        ctx.fillStyle = isRoot ? '#e94560' : '#0f9b8e';
+        ctx.fillStyle = isRoot ? pal['root-color'] : pal['note-color'];
         ctx.beginPath();
         ctx.arc(x, y, 12, 0, Math.PI * 2);
         ctx.fill();
@@ -175,7 +194,7 @@ function renderBoardToCanvas(board, canvasWidth) {
         // Label
         const finger = board.fingers[s][f];
         if (finger > 0) {
-          ctx.fillStyle = '#fff';
+          ctx.fillStyle = pal['dot-text'];
           ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -184,7 +203,7 @@ function renderBoardToCanvas(board, canvasWidth) {
           const label = board.labelMode === 'intervals'
             ? state.intervalName(s, f, board.key)
             : state.noteName(s, f);
-          ctx.fillStyle = '#fff';
+          ctx.fillStyle = pal['dot-text'];
           ctx.font = 'bold 9px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -235,7 +254,7 @@ function renderBoardToCanvas(board, canvasWidth) {
   }
 
   // Fret numbers
-  ctx.fillStyle = '#8888aa';
+  ctx.fillStyle = pal.muted;
   ctx.font = '11px sans-serif';
   ctx.textAlign = 'center';
   const firstNum = hasOpen ? 1 : board.fretLo;
@@ -263,15 +282,16 @@ function renderToCanvas() {
   canvas.width = canvasWidth;
   canvas.height = totalHeight;
   const ctx = canvas.getContext('2d');
+  const pal = getPalette();
 
   // Background
-  ctx.fillStyle = '#1a1a2e';
+  ctx.fillStyle = pal.bg;
   ctx.fillRect(0, 0, canvasWidth, totalHeight);
 
   // Page title
   let y = 0;
   if (hasPageTitle) {
-    ctx.fillStyle = '#e0e0e0';
+    ctx.fillStyle = pal.text;
     ctx.font = 'bold 20px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
