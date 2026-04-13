@@ -107,14 +107,14 @@ function renderBoardToCanvas(board, canvasWidth) {
     if (f < board.fretLo || f > board.fretHi) continue;
     const x = fretX(f);
     ctx.beginPath();
-    ctx.arc(x, startY + 2.5 * stringSpacing, 4, 0, Math.PI * 2);
+    ctx.arc(x, startY + 2.5 * stringSpacing, 8, 0, Math.PI * 2);
     ctx.fill();
   }
   for (const f of doubleInlays) {
     if (f < board.fretLo || f > board.fretHi) continue;
     const x = fretX(f);
-    ctx.beginPath(); ctx.arc(x, startY + 1.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x, startY + 3.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, startY + 1.5 * stringSpacing, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, startY + 3.5 * stringSpacing, 8, 0, Math.PI * 2); ctx.fill();
   }
 
   // Strings

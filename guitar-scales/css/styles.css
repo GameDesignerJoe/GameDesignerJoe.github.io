@@ -354,6 +354,7 @@ button:active { transform: scale(0.97); }
   left: 0; right: 0;
   top: 50%;
   height: 3px;
+  transform: translateY(-50%);
   background: var(--string-color);
   z-index: 0;
 }
@@ -368,13 +369,13 @@ button:active { transform: scale(0.97); }
 .fret-cell.inlay::after {
   content: '';
   position: absolute;
-  width: 8px; height: 8px;
+  width: 16px; height: 16px;
   border-radius: 50%;
   background: var(--inlay);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 0;
+  z-index: -1;
 }
 
 /* Note dot */

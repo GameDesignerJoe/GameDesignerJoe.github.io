@@ -131,9 +131,11 @@ function renderGrid(board, container) {
   if (visibleFrets <= 10) {
     wrapper.style.maxWidth = (visibleFrets * 80) + 'px';
   }
-  // Open fret gets narrow column, numbered frets get equal 1fr
-  // In lefty mode, the open column goes on the right instead of the left
-  const openCols = hasOpen ? (lefty ? ' 3%' : '3% ') : '';
+  // Open fret uses a fixed pixel width so the dot area doesn't shrink when
+  // there are few visible frets (proportional widths collapse on narrow boards).
+  // In lefty mode, the open column goes on the right instead of the left.
+  const openColWidth = '40px';
+  const openCols = hasOpen ? (lefty ? ` ${openColWidth}` : `${openColWidth} `) : '';
   const fretCols = hasOpen ? visibleFrets - 1 : visibleFrets;
   fb.style.gridTemplateColumns = lefty
     ? `repeat(${fretCols}, 1fr)${openCols}`
