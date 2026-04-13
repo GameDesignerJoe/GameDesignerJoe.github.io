@@ -3,17 +3,17 @@
     - [DONE] Flats Sharps toggle
     - [DONE] Left-Handed flip
     - [DONE] Color themes
-    - Instructions
-    - Archives
+    - [DONE] Instructions
+    - [DONE] Archives
     - [DONE] Feedback/Bugs
 
 - [DONE] Flats and sharps note names. Some of the notes are actually the same, but are the sharp or flat version. The teacher wants to have a toggle that displays either the flat or sharp option depending on the gottle. It changes all those notes that could go one way or the other. 
 - [DONE] Left-handed flip — Mirror the fretboard. Lefty students exist. (Includes Right-handed, Left-handed, and Upside-down Lefty.)
-- Instructions: A help or instruction page or option that explains what everything is and how it all works with included visuals.
+- [DONE] Instructions: A help or instruction page or option that explains what everything is and how it all works with included visuals. (Text-based Help tab shipped — visuals can come later if needed.)
 - [DONE] Bug: when you take away the 0 fret then some other frets and add the 0 fret back in, the circles that show the 0 fret are oval and squished. I would like them to stay circles and maintain their size. However, I do want them overall to be about half the size as the regular notes. 
 == Medium priority — quality of life:==
 - The position number isn't how the teach likes it. We need a way to set a default state or change it up. 1 is actually 4. The rest of the sequence is the same. We need to shift them down by four and look the rest around. Honestly, the teacher just needs to come over and sit down with me and we can do this part together.     
-- Archive: Save/load library — LocalStorage or simple JSON export so the teacher can build a collection of diagrams they use repeatedly across lessons, rather than rebuilding from URLs each time. A folder system for student. We talked about getting access to a google drive where the teacher could have student folders and add in different scales in them. However, that might be tricky to set up in a 'develop and walk away' dynamic that this is likely turning into. I dont want to always make sure I'm supporting this thing for him. If there's an easier way for that, that would be great. 
+- [DONE] Archive: Save/load library — LocalStorage or simple JSON export so the teacher can build a collection of diagrams they use repeatedly across lessons, rather than rebuilding from URLs each time. A folder system for student. We talked about getting access to a google drive where the teacher could have student folders and add in different scales in them. However, that might be tricky to set up in a 'develop and walk away' dynamic that this is likely turning into. I dont want to always make sure I'm supporting this thing for him. If there's an easier way for that, that would be great. (Shipped file-based Save/Load using native Windows Save As / Open dialogs via the File System Access API, with download/upload fallback for Firefox/Safari. Files use the .gscale extension. Teacher can organize with any folder structure — Students folder with per-student subfolders, etc.)
 - [DONE] Color themes as well. We put together a couple different color pallets that range from Light Mode, Black & White, White & Black, High Contrast, and one or two others to give some variety to what the thing can look like. (Shipped six themes: Midnight, Slate, Light, Sepia, High Contrast, Blueprint. Applied on-screen, in canvas exports, and in print.)
  
 

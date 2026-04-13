@@ -43,6 +43,8 @@
         <div class="modal-tabs">
           <button class="modal-tab active" data-tab="general">General</button>
           <button class="modal-tab" data-tab="themes">Themes</button>
+          <button class="modal-tab" data-tab="archive">Archive</button>
+          <button class="modal-tab" data-tab="help">Help</button>
           <button class="modal-tab" data-tab="feedback">Feedback</button>
         </div>
         <div class="modal-body">
@@ -76,6 +78,98 @@
           <div class="modal-panel" data-panel="themes">
             <p class="themes-intro">Pick a color theme. Your choice applies everywhere &mdash; on screen, in exports, and in print.</p>
             <div id="themes-grid" class="themes-grid"></div>
+          </div>
+          <div class="modal-panel" data-panel="archive">
+            <p class="archive-intro">Save the current page to a file on your computer, or load a previously saved page back in. Files use the <code>.gscale</code> extension and can be organized in folders however you like (e.g. a <strong>Students</strong> folder with a subfolder per student).</p>
+            <div class="archive-actions">
+              <button id="btn-archive-save" class="archive-btn">Save Page to File…</button>
+              <button id="btn-archive-load" class="archive-btn">Load Page from File…</button>
+            </div>
+            <div id="archive-status" class="archive-status" hidden></div>
+            <p class="archive-note">A <code>.gscale</code> file holds the entire page &mdash; every fretboard, its title, dots, fingerings, mutes, sequences, and the page title. Settings like theme and handedness stay on your browser and aren't included in the file.</p>
+          </div>
+          <div class="modal-panel" data-panel="help">
+            <div class="help-content">
+              <h3>Board Controls</h3>
+              <dl class="help-list">
+                <dt>Key</dt>
+                <dd>The root note (C, D, E, etc.). Root positions are highlighted in the accent color so students can see them at a glance.</dd>
+                <dt>Scale</dt>
+                <dd>Pick a scale and the board auto-fills with every note of that scale across all visible frets. Choose "Custom" to start from a blank board.</dd>
+                <dt>Position</dt>
+                <dd>Once a scale is picked, you can isolate one CAGED position (Pos 1 – Pos 5 for pentatonic, up to 7 for diatonic). Only the notes in that position's hand window are shown.</dd>
+                <dt>Chord</dt>
+                <dd>Drops a full chord voicing onto the board. Open chords, barre chords (6th- and 5th-string root at every fret), 7ths, sus, and power chords are included. Strings marked X auto-mute.</dd>
+                <dt>Overlay</dt>
+                <dd>Layers a chord <em>on top of</em> the current scale. Chord tones that also appear in the scale get a gold ring; chord tones that aren't in the scale show as hollow gold circles. Great for "here's the Am chord living inside this scale."</dd>
+                <dt>Labels</dt>
+                <dd>What appears on each dot: None, Note Names (C, D, E…), Intervals (R, b3, 5…), or Sequence mode.</dd>
+                <dt>Export (checkbox)</dt>
+                <dd>Controls whether this specific board is included when you export. Uncheck boards you don't want in the final PNG/PDF. If nothing is checked, all boards export.</dd>
+                <dt>Clear</dt>
+                <dd>Resets this board to an empty Custom state.</dd>
+                <dt>Clear Sequence</dt>
+                <dd>Only appears in Sequence label mode. Removes all sequence dots and the connecting line without touching the rest of the board.</dd>
+                <dt>Delete (×)</dt>
+                <dd>Removes the entire fretboard from the page. Only appears when you have more than one board.</dd>
+              </dl>
+
+              <h3>Clicking the Fretboard</h3>
+              <dl class="help-list">
+                <dt>Click a fret</dt>
+                <dd>Toggles a note dot on or off. Switches the board to Custom mode (so scale/chord filters don't overwrite your edit).</dd>
+                <dt>Shift + Click a dot</dt>
+                <dd>Cycles a finger number on it: 1 → 2 → 3 → 4 → clear. Great for marking exact fingering.</dd>
+                <dt>Click a string label (e, B, G, D, A, E)</dt>
+                <dd>Mutes that string — an X appears next to the letter and the string dims. Click again to unmute. Placing a dot on a muted string unmutes it automatically.</dd>
+                <dt>Sequence mode (Labels: Sequence)</dt>
+                <dd>Click dots in the order you want the student to play them. A green line draws between each. Click the last dot to remove it from the path. Shift + click any dot to delete it entirely.</dd>
+              </dl>
+
+              <h3>Frets</h3>
+              <dl class="help-list">
+                <dt>Remove a fret</dt>
+                <dd>Click the leftmost or rightmost fret number to remove that end. Fret 0 (open) can also be removed this way.</dd>
+                <dt>Add a fret</dt>
+                <dd>Click the dashed "+" button at either end of the fret numbers. The board supports up to 24 frets.</dd>
+              </dl>
+
+              <h3>Page &amp; Fretboards</h3>
+              <dl class="help-list">
+                <dt>Page Title</dt>
+                <dd>The big editable title at the top (e.g. "Chords for your song"). Appears on all exports and covers the whole page.</dd>
+                <dt>Board Title</dt>
+                <dd>The smaller title on each fretboard card (e.g. "A Minor Pentatonic — Position 1"). Each board has its own.</dd>
+                <dt>+ Add Fretboard</dt>
+                <dd>Adds a new empty fretboard below the current ones. Great for stacking multiple positions or chords on one handout.</dd>
+                <dt>New</dt>
+                <dd>Clears the whole page and resets to a single fresh C Major board. Also wipes the URL parameters so a reload stays fresh.</dd>
+              </dl>
+
+              <h3>Export</h3>
+              <dl class="help-list">
+                <dt>Copy Image</dt>
+                <dd>Puts a PNG of all checked boards onto your clipboard. Paste into an email, doc, or chat.</dd>
+                <dt>Download PNG</dt>
+                <dd>Saves the same image as a .png file.</dd>
+                <dt>Print / PDF</dt>
+                <dd>Opens the browser's print dialog. Choose "Save as PDF" as the destination to get a PDF file.</dd>
+                <dt>Share URL</dt>
+                <dd>Copies a URL that restores the full state of the page — every board, every dot, the page title, and the labels. Share it in a message or bookmark for later.</dd>
+              </dl>
+
+              <h3>Settings</h3>
+              <dl class="help-list">
+                <dt>Sharps / Flats</dt>
+                <dd>Switches how altered notes are displayed (C# vs Db). Applies everywhere globally.</dd>
+                <dt>Handedness</dt>
+                <dd><strong>Right-handed</strong> is the standard view. <strong>Left-handed</strong> mirrors the fretboard — nut on the right, strings in normal order. <strong>Upside-down Lefty</strong> is for lefties who play a right-handed guitar without restringing; nut is on the right and strings are flipped vertically.</dd>
+                <dt>Themes</dt>
+                <dd>Six color palettes: Midnight, Slate, Light, Sepia, High Contrast, Blueprint. Light and Sepia are print-friendly.</dd>
+                <dt>Feedback</dt>
+                <dd>Send bug reports, feature requests, or questions. Open your email app, open Gmail in a new tab, or copy the message to your clipboard.</dd>
+              </dl>
+            </div>
           </div>
           <div class="modal-panel" data-panel="feedback">
             <p class="feedback-intro">Send feedback, bug reports, or feature requests to <strong>GameDesignerJoe@gmail.com</strong>. Pick whichever option works &mdash; your default mail client, Gmail in a new tab, or copy to paste anywhere.</p>

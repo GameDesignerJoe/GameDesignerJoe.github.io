@@ -1,5 +1,6 @@
 import * as state from './state.js';
 import * as themes from './themes.js';
+import * as archive from './archive.js';
 
 const STORAGE_KEY = 'guitar-scales-settings';
 
@@ -161,6 +162,46 @@ export function initSettingsModal(onChange) {
         saveSettings();
         if (onChange) onChange();
       });
+    });
+  }
+
+  // Archive — Save/Load the whole page to/from a .gscale file
+  function showArchiveStatus(msg, isError = false) {
+    const status = document.getElementById('archive-status');
+    if (!status) return;
+    status.textContent = msg;
+    status.hidden = false;
+    status.classList.toggle('error', isError);
+    clearTimeout(showArchiveStatus._t);
+    showArchiveStatus._t = setTimeout(() => { status.hidden = true; }, 4000);
+  }
+
+  const archiveSaveBtn = document.getElementById('btn-archive-save');
+  if (archiveSaveBtn) {
+    archiveSaveBtn.addEventListener('click', async () => {
+      try {
+        const name = await archive.saveToFile();
+        if (name) {
+          closeModal();
+        }
+      } catch (e) {
+        showArchiveStatus(`Save failed: ${e.message || 'unknown error'}`, true);
+      }
+    });
+  }
+
+  const archiveLoadBtn = document.getElementById('btn-archive-load');
+  if (archiveLoadBtn) {
+    archiveLoadBtn.addEventListener('click', async () => {
+      try {
+        const name = await archive.loadFromFile();
+        if (name) {
+          if (onChange) onChange();
+          closeModal();
+        }
+      } catch (e) {
+        showArchiveStatus(`Load failed: ${e.message || 'invalid file'}`, true);
+      }
     });
   }
 
