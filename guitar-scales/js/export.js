@@ -15,6 +15,8 @@ function showToast(msg) {
 // Render a single board to canvas, return { canvas, height }
 function renderBoardToCanvas(board, canvasWidth) {
   const padding = 30;
+  const lefty = state.isLefty();
+  const upside = state.isUpsideDown();
   const hasOpen = board.fretLo === 0;
   const openWidth = hasOpen ? 40 : 0;
   const numberedFrets = hasOpen ? (board.fretHi - board.fretLo) : (board.fretHi - board.fretLo + 1);
@@ -41,14 +43,17 @@ function renderBoardToCanvas(board, canvasWidth) {
     ctx.fillText(board.caption, canvasWidth / 2, 10);
   }
 
-  const startX = padding + openWidth;
+  // For righty: numbered frets start at padding+openWidth (left)
+  // For lefty: numbered frets start at padding (left), open fret sits on the right
+  const startX = lefty ? padding : padding + openWidth;
+  const openX = lefty ? padding + numberedFrets * fretWidth + openWidth / 2 : padding + openWidth / 2;
   const startY = padding + captionHeight;
 
   // Fret wires
-  const fretStart = hasOpen ? 0 : board.fretLo;
   for (let i = 0; i <= numberedFrets; i++) {
     const x = startX + i * fretWidth;
-    const isNut = hasOpen && i === 0;
+    // Nut is the fret wire adjacent to the open area
+    const isNut = hasOpen && ((!lefty && i === 0) || (lefty && i === numberedFrets));
     ctx.lineWidth = isNut ? 4 : 2;
     ctx.strokeStyle = isNut ? '#ddd' : '#555';
     ctx.beginPath();
@@ -64,11 +69,19 @@ function renderBoardToCanvas(board, canvasWidth) {
 
   // Helper to convert absolute fret to canvas X
   function fretX(fret) {
-    if (hasOpen) {
-      if (fret === 0) return padding + openWidth / 2;
-      return startX + (fret - 0.5) * fretWidth;
+    if (hasOpen && fret === 0) return openX;
+    const numberedIdx = hasOpen ? (fret - 1) : (fret - board.fretLo);
+    if (lefty) {
+      return startX + (numberedFrets - 1 - numberedIdx + 0.5) * fretWidth;
     }
-    return startX + (fret - board.fretLo + 0.5) * fretWidth;
+    return startX + (numberedIdx + 0.5) * fretWidth;
+  }
+
+  // Helper to convert string index (0=high e, 5=low E) to canvas Y.
+  // Upside-down mode flips the visual row vertically.
+  function stringY(s) {
+    const row = upside ? (5 - s) : s;
+    return startY + row * stringSpacing;
   }
 
   for (const f of singleInlays) {
@@ -87,16 +100,27 @@ function renderBoardToCanvas(board, canvasWidth) {
 
   // Strings
   const stringLabels = ['e', 'B', 'G', 'D', 'A', 'E'];
+  // String extends across the full playable area (includes open column)
+  const stringLeft = lefty ? startX : (hasOpen ? padding : startX);
+  const stringRight = lefty
+    ? startX + numberedFrets * fretWidth + openWidth
+    : startX + numberedFrets * fretWidth;
+  // String labels sit on the left side for righty, right side for lefty.
+  // Keep labels inside the canvas: righty uses left margin, lefty uses right margin.
+  const labelCenterX = lefty ? (canvasWidth - padding + 12) : (padding - 12);
+  const labelXOffset = lefty ? 6 : -6; // offset for mute X relative to letter
+  const letterXOffset = lefty ? -6 : 6;
+
   for (let s = 0; s < 6; s++) {
-    const y = startY + s * stringSpacing;
+    const y = stringY(s);
     const isMuted = board.muted[s];
 
     ctx.globalAlpha = isMuted ? 0.2 : 1;
     ctx.strokeStyle = '#c0a060';
     ctx.lineWidth = 2.5 + (s * 0.5);
     ctx.beginPath();
-    ctx.moveTo(hasOpen ? padding : startX, y);
-    ctx.lineTo(startX + numberedFrets * fretWidth, y);
+    ctx.moveTo(stringLeft, y);
+    ctx.lineTo(stringRight, y);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
@@ -106,14 +130,14 @@ function renderBoardToCanvas(board, canvasWidth) {
     if (isMuted) {
       ctx.fillStyle = 'rgba(136,136,170,0.35)';
       ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(stringLabels[s], padding - 18, y);
+      ctx.fillText(stringLabels[s], labelCenterX + letterXOffset, y);
       ctx.fillStyle = '#e94560';
       ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('X', padding - 6, y);
+      ctx.fillText('X', labelCenterX + labelXOffset, y);
     } else {
       ctx.fillStyle = '#8888aa';
       ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(stringLabels[s], padding - 12, y);
+      ctx.fillText(stringLabels[s], labelCenterX, y);
     }
   }
 
@@ -128,7 +152,7 @@ function renderBoardToCanvas(board, canvasWidth) {
       if (!isActive && !isOverlay) continue;
 
       const x = fretX(f);
-      const y = startY + s * stringSpacing;
+      const y = stringY(s);
 
       ctx.globalAlpha = board.muted[s] ? 0.25 : 1;
 
@@ -199,9 +223,9 @@ function renderBoardToCanvas(board, canvasWidth) {
       const from = board.sequence[i];
       const to = board.sequence[i + 1];
       const x1 = fretX(from.f);
-      const y1 = startY + from.s * stringSpacing;
+      const y1 = stringY(from.s);
       const x2 = fretX(to.f);
-      const y2 = startY + to.s * stringSpacing;
+      const y2 = stringY(to.s);
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);

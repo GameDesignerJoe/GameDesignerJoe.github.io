@@ -2,7 +2,10 @@
 // E=4, A=9, D=2, G=7, B=11, E=4
 export const TUNING = [4, 11, 7, 2, 9, 4]; // high E to low E
 export const STRING_NAMES = ['e1', 'b', 'g', 'd', 'a', 'e6'];
-export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+export const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+export const NOTE_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+// Backwards-compatible alias (used by URL encoding/legacy code). Always points to sharps.
+export const NOTE_NAMES = NOTE_NAMES_SHARP;
 export const FRET_COUNT = 25; // 0 (open) through 24 — max possible frets
 
 // Interval names indexed by semitone distance from root
@@ -10,6 +13,33 @@ const INTERVAL_NAMES = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b
 
 export let pageTitle = '';
 export function setPageTitle(t) { pageTitle = t; }
+
+// Global settings
+// handedness: 'right' | 'left' | 'leftUpside'
+// 'left' = mirrored horizontally (lefty with restrung guitar)
+// 'leftUpside' = mirrored horizontally AND strings reversed vertically (lefty playing
+// a right-handed guitar without restringing it)
+export const settings = {
+  useFlats: false,
+  handedness: 'right',
+};
+
+export function setSetting(key, value) {
+  settings[key] = value;
+}
+
+// Convenience helpers
+export function isLefty() {
+  return settings.handedness === 'left' || settings.handedness === 'leftUpside';
+}
+export function isUpsideDown() {
+  return settings.handedness === 'leftUpside';
+}
+
+// Get the preferred note names array based on current settings
+export function getNoteNames() {
+  return settings.useFlats ? NOTE_NAMES_FLAT : NOTE_NAMES_SHARP;
+}
 
 let nextId = 0;
 
@@ -60,10 +90,10 @@ export function toggle(board, string, fret) {
   if (!board.grid[string][fret]) board.fingers[string][fret] = 0;
 }
 
-// Get the note name at a given string/fret position
+// Get the note name at a given string/fret position (respects flats/sharps setting)
 export function noteName(string, fret) {
   const semitone = (TUNING[string] + fret) % 12;
-  return NOTE_NAMES[semitone];
+  return getNoteNames()[semitone];
 }
 
 // Check if a fret position is a root note

@@ -86,15 +86,27 @@ function overlayOptionsHtml(selected) {
 function renderGrid(board, container) {
   const wrapper = document.createElement('div');
   wrapper.className = 'fretboard-wrapper';
+  const lefty = state.isLefty();
+  const upside = state.isUpsideDown();
+  if (lefty) wrapper.classList.add('lefty');
+  if (upside) wrapper.classList.add('upside');
+
+  // String label display order — reversed for upside-down mode
+  // Grid data stays s=0..5 (high e to low E); only the visual order changes.
+  const stringIndices = upside ? [5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5];
 
   // String labels (clickable to toggle mute)
   const sl = document.createElement('div');
   sl.className = 'string-labels';
-  for (let s = 0; s < 6; s++) {
+  for (const s of stringIndices) {
     const lbl = document.createElement('div');
     lbl.className = 'string-label' + (board.muted[s] ? ' muted' : '');
+    // In lefty mode, put X before the letter since labels are on the right side
+    const mutedHtml = lefty
+      ? `<span class="mute-x">X</span><span class="string-name dimmed">${STRING_LABELS[s]}</span>`
+      : `<span class="string-name dimmed">${STRING_LABELS[s]}</span><span class="mute-x">X</span>`;
     lbl.innerHTML = board.muted[s]
-      ? `<span class="string-name dimmed">${STRING_LABELS[s]}</span><span class="mute-x">X</span>`
+      ? mutedHtml
       : `<span class="string-name">${STRING_LABELS[s]}</span>`;
     lbl.title = board.muted[s] ? 'Click to unmute' : 'Click to mute';
     lbl.addEventListener('click', () => {
@@ -104,7 +116,6 @@ function renderGrid(board, container) {
     });
     sl.appendChild(lbl);
   }
-  wrapper.appendChild(sl);
 
   const col = document.createElement('div');
   col.className = 'fretboard-col';
@@ -121,15 +132,33 @@ function renderGrid(board, container) {
     wrapper.style.maxWidth = (visibleFrets * 80) + 'px';
   }
   // Open fret gets narrow column, numbered frets get equal 1fr
-  const openCols = hasOpen ? '3% ' : '';
+  // In lefty mode, the open column goes on the right instead of the left
+  const openCols = hasOpen ? (lefty ? ' 3%' : '3% ') : '';
   const fretCols = hasOpen ? visibleFrets - 1 : visibleFrets;
-  fb.style.gridTemplateColumns = `${openCols}repeat(${fretCols}, 1fr)`;
+  fb.style.gridTemplateColumns = lefty
+    ? `repeat(${fretCols}, 1fr)${openCols}`
+    : `${openCols}repeat(${fretCols}, 1fr)`;
 
   // Compute overlay grid if an overlay chord is set
   const overlayGrid = board.overlay ? chords.computeOverlayGrid(board.overlay) : null;
 
-  for (let s = 0; s < 6; s++) {
-    for (let f = board.fretLo; f <= board.fretHi; f++) {
+  // Build the fret iteration order: low-to-high for righty, high-to-low for lefty
+  const fretOrder = [];
+  if (lefty) {
+    // For lefty with open fret, open goes at the end (right side)
+    for (let f = board.fretHi; f > board.fretLo; f--) fretOrder.push(f);
+    for (let f = board.fretLo; f <= board.fretLo && hasOpen; f++) fretOrder.push(f);
+    if (!hasOpen) {
+      // re-build simple reverse
+      fretOrder.length = 0;
+      for (let f = board.fretHi; f >= board.fretLo; f--) fretOrder.push(f);
+    }
+  } else {
+    for (let f = board.fretLo; f <= board.fretHi; f++) fretOrder.push(f);
+  }
+
+  for (const s of stringIndices) {
+    for (const f of fretOrder) {
       const cell = document.createElement('div');
       cell.className = 'fret-cell';
       cell.dataset.string = s;
@@ -278,22 +307,39 @@ function renderGrid(board, container) {
   const fnRow = document.createElement('div');
   fnRow.className = 'fret-numbers-row';
 
-  // "+" on the left (only if fretLo > 0)
-  if (board.fretLo > 0) {
-    const addLeft = document.createElement('div');
-    addLeft.className = 'fret-add';
-    addLeft.textContent = '+';
-    addLeft.title = `Add fret ${board.fretLo - 1}`;
-    addLeft.addEventListener('click', () => { board.fretLo--; render(); fireChange(); });
-    fnRow.appendChild(addLeft);
-  }
+  // "+" button for the low end (adds fretLo - 1)
+  const makeAddLow = () => {
+    const btn = document.createElement('div');
+    btn.className = 'fret-add';
+    btn.textContent = '+';
+    btn.title = `Add fret ${board.fretLo - 1}`;
+    btn.addEventListener('click', () => { board.fretLo--; render(); fireChange(); });
+    return btn;
+  };
+  // "+" button for the high end (adds fretHi + 1)
+  const makeAddHigh = () => {
+    const btn = document.createElement('div');
+    btn.className = 'fret-add';
+    btn.textContent = '+';
+    btn.title = `Add fret ${board.fretHi + 1}`;
+    btn.addEventListener('click', () => { board.fretHi++; render(); fireChange(); });
+    return btn;
+  };
+
+  // Low-end "+" appears on the left for righty, right for lefty
+  if (board.fretLo > 0 && !lefty) fnRow.appendChild(makeAddLow());
+  if (board.fretHi < 24 && lefty) fnRow.appendChild(makeAddHigh());
 
   const fn = document.createElement('div');
   fn.className = 'fret-numbers';
   fn.style.gridTemplateColumns = fb.style.gridTemplateColumns;
 
-  const canRemove = board.fretHi > board.fretLo; // need at least 2 frets
-  for (let f = board.fretLo; f <= board.fretHi; f++) {
+  const canRemove = board.fretHi > board.fretLo;
+  const numberOrder = lefty
+    ? [...fretOrder] // same order as the grid cells
+    : [...fretOrder];
+
+  for (const f of numberOrder) {
     const isLoEnd = f === board.fretLo && canRemove;
     const isHiEnd = f === board.fretHi && canRemove;
     const num = document.createElement('div');
@@ -311,18 +357,20 @@ function renderGrid(board, container) {
   }
   fnRow.appendChild(fn);
 
-  // "+" on the right (only if fretHi < 24)
-  if (board.fretHi < 24) {
-    const addRight = document.createElement('div');
-    addRight.className = 'fret-add';
-    addRight.textContent = '+';
-    addRight.title = `Add fret ${board.fretHi + 1}`;
-    addRight.addEventListener('click', () => { board.fretHi++; render(); fireChange(); });
-    fnRow.appendChild(addRight);
-  }
+  // High-end "+" appears on the right for righty, left for lefty
+  if (board.fretHi < 24 && !lefty) fnRow.appendChild(makeAddHigh());
+  if (board.fretLo > 0 && lefty) fnRow.appendChild(makeAddLow());
 
   col.appendChild(fnRow);
-  wrapper.appendChild(col);
+
+  // Assemble wrapper: string labels on left (righty) or right (lefty)
+  if (lefty) {
+    wrapper.appendChild(col);
+    wrapper.appendChild(sl);
+  } else {
+    wrapper.appendChild(sl);
+    wrapper.appendChild(col);
+  }
   container.appendChild(wrapper);
 }
 

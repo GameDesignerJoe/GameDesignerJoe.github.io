@@ -110,6 +110,11 @@ button:active { transform: scale(0.97); }
 /* ── Export Dropdown ── */
 .dropdown {
   position: relative;
+  display: flex;
+}
+
+.dropdown > .dropdown-toggle {
+  height: 100%;
 }
 
 .dropdown-toggle::after {
@@ -326,6 +331,22 @@ button:active { transform: scale(0.97); }
   background: rgba(255,255,255,0.03);
 }
 
+/* Left-handed: fret wires move from right to left; nut is on the left side of fret 0 */
+.fretboard-wrapper.lefty .string-labels {
+  padding-right: 0;
+  padding-left: 0.5rem;
+}
+
+.fretboard-wrapper.lefty .fret-cell {
+  border-right: none;
+  border-left: 2px solid var(--fret-wire);
+}
+
+.fretboard-wrapper.lefty .fret-cell[data-fret="0"] {
+  border-left: 4px solid var(--nut-color);
+  border-right: none;
+}
+
 /* String line through each cell */
 .fret-cell::before {
   content: '';
@@ -472,6 +493,253 @@ button:active { transform: scale(0.97); }
   border-color: var(--accent);
 }
 
+/* ── Settings Modal ── */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal[hidden] { display: none; }
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.modal-content {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--fret-wire);
+  border-radius: 8px;
+  width: min(600px, 90vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--fret-wire);
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.5rem;
+  padding: 0 0.4rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.modal-close:hover { color: var(--text); }
+
+.modal-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid var(--fret-wire);
+}
+
+.modal-tab {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+}
+
+.modal-tab:hover { color: var(--text); background: transparent; }
+
+.modal-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.modal-panel { display: none; }
+.modal-panel.active { display: block; }
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 0.5rem 0;
+}
+
+.setting-label strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.setting-desc {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  max-width: 340px;
+}
+
+.setting-control {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Segmented toggle control */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--fret-wire);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.seg-btn {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.seg-btn + .seg-btn {
+  border-left: 1px solid var(--fret-wire);
+}
+
+.seg-btn:hover {
+  background: var(--btn-hover);
+  color: var(--text);
+}
+
+.seg-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.seg-btn.active:hover {
+  background: var(--accent);
+}
+
+/* Settings button in top bar */
+#btn-settings {
+  font-size: 1rem;
+  padding: 0.3rem 0.55rem;
+}
+
+/* Feedback form */
+.feedback-intro {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.feedback-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.feedback-field textarea,
+.feedback-field select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--fret-wire);
+  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  width: 100%;
+}
+
+.feedback-field textarea:focus,
+.feedback-field select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.feedback-send {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.feedback-send:hover {
+  filter: brightness(1.1);
+  background: var(--accent);
+}
+
+.feedback-send.secondary {
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--fret-wire);
+  font-weight: 500;
+}
+
+.feedback-send.secondary:hover {
+  background: var(--btn-hover);
+}
+
+.feedback-status {
+  font-size: 0.85rem;
+  color: var(--accent);
+  padding: 0.25rem 0;
+}
+
 /* ── Toast notification ── */
 .toast {
   position: fixed;
@@ -494,7 +762,7 @@ button:active { transform: scale(0.97); }
 /* ── Print styles ── */
 @media print {
   body { background: #fff; color: #000; padding: 0; }
-  .top-bar, .toast, .add-board-btn,
+  .top-bar, .toast, .add-board-btn, .modal,
   .board-controls select, .board-clear, .board-delete, .board-export-label { display: none !important; }
   .page-title-input { color: #000; font-size: 1.3rem; border: none; }
   .app { padding: 0; }

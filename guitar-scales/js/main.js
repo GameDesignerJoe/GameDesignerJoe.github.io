@@ -4,8 +4,12 @@ import * as chords from './chords.js';
 import * as fretboard from './fretboard.js';
 import * as url from './url.js';
 import * as exp from './export.js';
+import * as settings from './settings.js';
 
 async function init() {
+  // Load persisted settings first so everything else respects them
+  settings.loadSettings();
+
   await Promise.all([scales.loadScales(), chords.loadChords()]);
 
   // Load boards from URL, or create a default one
@@ -68,6 +72,11 @@ async function init() {
   document.getElementById('btn-png').addEventListener('click', closeAndRun(() => exp.downloadPng()));
   document.getElementById('btn-print').addEventListener('click', closeAndRun(() => exp.printPdf()));
   document.getElementById('btn-share').addEventListener('click', closeAndRun(() => exp.shareUrl()));
+
+  // Settings modal — re-render when any setting changes
+  settings.initSettingsModal(() => {
+    fretboard.render();
+  });
 }
 
 init();

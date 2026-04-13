@@ -23,6 +23,7 @@
           <button id="btn-share">Share URL</button>
         </div>
       </div>
+      <button id="btn-settings" title="Settings" aria-label="Settings">⚙</button>
     </div>
 
     <div id="boards-container"></div>
@@ -30,6 +31,74 @@
     <button id="btn-add-board" class="add-board-btn">+ Add Fretboard</button>
 
     <div id="toast" class="toast" hidden></div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button class="modal-close" data-close-modal aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-tabs">
+          <button class="modal-tab active" data-tab="general">General</button>
+          <button class="modal-tab" data-tab="feedback">Feedback</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-panel active" data-panel="general">
+            <div class="setting-row">
+              <div class="setting-label">
+                <strong>Note notation</strong>
+                <p class="setting-desc">Choose whether altered notes display as sharps (C#, F#) or flats (Db, Gb).</p>
+              </div>
+              <div class="setting-control">
+                <div class="segmented" data-setting="notation">
+                  <button type="button" class="seg-btn active" data-value="sharps">Sharps ♯</button>
+                  <button type="button" class="seg-btn" data-value="flats">Flats ♭</button>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">
+                <strong>Handedness</strong>
+                <p class="setting-desc">Mirror the fretboard for left-handed players. "Upside-down Lefty" is for lefties who play a right-handed guitar without restringing it &mdash; strings are reversed vertically.</p>
+              </div>
+              <div class="setting-control">
+                <div class="segmented" data-setting="handedness">
+                  <button type="button" class="seg-btn active" data-value="right">Right-handed</button>
+                  <button type="button" class="seg-btn" data-value="left">Left-handed</button>
+                  <button type="button" class="seg-btn" data-value="leftUpside">Upside-down Lefty</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-panel" data-panel="feedback">
+            <p class="feedback-intro">Send feedback, bug reports, or feature requests to <strong>GameDesignerJoe@gmail.com</strong>. Pick whichever option works &mdash; your default mail client, Gmail in a new tab, or copy to paste anywhere.</p>
+            <div class="feedback-form">
+              <label class="feedback-field">
+                <span class="feedback-label">Type</span>
+                <select id="feedback-type">
+                  <option value="Bug">Bug Report</option>
+                  <option value="Feature Request">Feature Request</option>
+                  <option value="Question">Question</option>
+                  <option value="Feedback">General Feedback</option>
+                </select>
+              </label>
+              <label class="feedback-field">
+                <span class="feedback-label">Message</span>
+                <textarea id="feedback-message" rows="6" placeholder="Describe the issue or idea..."></textarea>
+              </label>
+              <div class="feedback-actions">
+                <button id="btn-send-feedback" class="feedback-send">Open Email App</button>
+                <button id="btn-send-gmail" class="feedback-send secondary">Open in Gmail</button>
+                <button id="btn-copy-feedback" class="feedback-send secondary">Copy to Clipboard</button>
+              </div>
+              <div id="feedback-status" class="feedback-status" hidden></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>
