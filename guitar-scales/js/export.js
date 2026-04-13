@@ -15,8 +15,10 @@ function showToast(msg) {
 // Render a single board to canvas, return { canvas, height }
 function renderBoardToCanvas(board, canvasWidth) {
   const padding = 30;
-  const fretWidth = (canvasWidth - padding * 2 - 40) / 12; // 40 = openWidth
-  const openWidth = 40;
+  const hasOpen = board.fretLo === 0;
+  const openWidth = hasOpen ? 40 : 0;
+  const numberedFrets = hasOpen ? (board.fretHi - board.fretLo) : (board.fretHi - board.fretLo + 1);
+  const fretWidth = (canvasWidth - padding * 2 - openWidth) / numberedFrets;
   const stringSpacing = 36;
   const hasCaption = board.caption.length > 0;
   const captionHeight = hasCaption ? 36 : 0;
@@ -43,10 +45,12 @@ function renderBoardToCanvas(board, canvasWidth) {
   const startY = padding + captionHeight;
 
   // Fret wires
-  for (let f = 0; f <= 12; f++) {
-    const x = startX + f * fretWidth;
-    ctx.lineWidth = f === 0 ? 4 : 2;
-    ctx.strokeStyle = f === 0 ? '#ddd' : '#555';
+  const fretStart = hasOpen ? 0 : board.fretLo;
+  for (let i = 0; i <= numberedFrets; i++) {
+    const x = startX + i * fretWidth;
+    const isNut = hasOpen && i === 0;
+    ctx.lineWidth = isNut ? 4 : 2;
+    ctx.strokeStyle = isNut ? '#ddd' : '#555';
     ctx.beginPath();
     ctx.moveTo(x, startY);
     ctx.lineTo(x, startY + stringSpacing * 5);
@@ -54,17 +58,32 @@ function renderBoardToCanvas(board, canvasWidth) {
   }
 
   // Inlay dots
-  const inlayFrets = [3, 5, 7, 9];
+  const singleInlays = [3, 5, 7, 9, 15, 17, 19, 21];
+  const doubleInlays = [12, 24];
   ctx.fillStyle = '#ffffff';
-  for (const f of inlayFrets) {
-    const x = startX + (f - 0.5) * fretWidth;
+
+  // Helper to convert absolute fret to canvas X
+  function fretX(fret) {
+    if (hasOpen) {
+      if (fret === 0) return padding + openWidth / 2;
+      return startX + (fret - 0.5) * fretWidth;
+    }
+    return startX + (fret - board.fretLo + 0.5) * fretWidth;
+  }
+
+  for (const f of singleInlays) {
+    if (f < board.fretLo || f > board.fretHi) continue;
+    const x = fretX(f);
     ctx.beginPath();
     ctx.arc(x, startY + 2.5 * stringSpacing, 4, 0, Math.PI * 2);
     ctx.fill();
   }
-  const x12 = startX + 11.5 * fretWidth;
-  ctx.beginPath(); ctx.arc(x12, startY + 1.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(x12, startY + 3.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
+  for (const f of doubleInlays) {
+    if (f < board.fretLo || f > board.fretHi) continue;
+    const x = fretX(f);
+    ctx.beginPath(); ctx.arc(x, startY + 1.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, startY + 3.5 * stringSpacing, 4, 0, Math.PI * 2); ctx.fill();
+  }
 
   // Strings
   const stringLabels = ['e', 'B', 'G', 'D', 'A', 'E'];
@@ -76,8 +95,8 @@ function renderBoardToCanvas(board, canvasWidth) {
     ctx.strokeStyle = '#c0a060';
     ctx.lineWidth = 2.5 + (s * 0.5);
     ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(startX + 12 * fretWidth, y);
+    ctx.moveTo(hasOpen ? padding : startX, y);
+    ctx.lineTo(startX + numberedFrets * fretWidth, y);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
@@ -103,12 +122,12 @@ function renderBoardToCanvas(board, canvasWidth) {
 
   // Note dots + overlay dots
   for (let s = 0; s < 6; s++) {
-    for (let f = 0; f < state.FRET_COUNT; f++) {
+    for (let f = board.fretLo; f <= board.fretHi; f++) {
       const isActive = board.grid[s][f];
       const isOverlay = overlayGrid && overlayGrid[s][f];
       if (!isActive && !isOverlay) continue;
 
-      const x = f === 0 ? padding + openWidth / 2 : startX + (f - 0.5) * fretWidth;
+      const x = fretX(f);
       const y = startY + s * stringSpacing;
 
       ctx.globalAlpha = board.muted[s] ? 0.25 : 1;
@@ -179,9 +198,9 @@ function renderBoardToCanvas(board, canvasWidth) {
     for (let i = 0; i < board.sequence.length - 1; i++) {
       const from = board.sequence[i];
       const to = board.sequence[i + 1];
-      const x1 = from.f === 0 ? padding + openWidth / 2 : startX + (from.f - 0.5) * fretWidth;
+      const x1 = fretX(from.f);
       const y1 = startY + from.s * stringSpacing;
-      const x2 = to.f === 0 ? padding + openWidth / 2 : startX + (to.f - 0.5) * fretWidth;
+      const x2 = fretX(to.f);
       const y2 = startY + to.s * stringSpacing;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -195,8 +214,9 @@ function renderBoardToCanvas(board, canvasWidth) {
   ctx.fillStyle = '#8888aa';
   ctx.font = '11px sans-serif';
   ctx.textAlign = 'center';
-  for (let f = 1; f <= 12; f++) {
-    const x = startX + (f - 0.5) * fretWidth;
+  const firstNum = hasOpen ? 1 : board.fretLo;
+  for (let f = firstNum; f <= board.fretHi; f++) {
+    const x = fretX(f);
     ctx.fillText(f.toString(), x, startY + 5 * stringSpacing + 20);
   }
 

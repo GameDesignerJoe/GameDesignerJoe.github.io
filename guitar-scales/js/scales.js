@@ -39,7 +39,7 @@ export function computePositions(scaleName, rootSemitone) {
   // Build positions with 5-fret hand span: [startFret-1, startFret+3]
   return frets.map((startFret, i) => {
     const lo = Math.max(0, startFret - 1);
-    const hi = Math.min(12, startFret + 3);
+    const hi = Math.min(24, startFret + 3);
     return { index: i, startFret, lo, hi };
   });
 }
@@ -59,7 +59,7 @@ export function applyScale(board, scaleName, rootSemitone, positionIndex = -1) {
   const scaleNotes = new Set(intervals.map(i => (rootSemitone + i) % 12));
 
   // If a specific position, get the fret window
-  let lo = 0, hi = 12;
+  let lo = 0, hi = 24;
   if (positionIndex >= 0) {
     const positions = computePositions(scaleName, rootSemitone);
     if (positionIndex < positions.length) {

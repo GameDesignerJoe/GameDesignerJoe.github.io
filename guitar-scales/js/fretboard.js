@@ -3,7 +3,7 @@ import * as scales from './scales.js';
 import * as chords from './chords.js';
 
 const STRING_LABELS = ['e', 'B', 'G', 'D', 'A', 'E'];
-const INLAY_FRETS = [3, 5, 7, 9, 12];
+const INLAY_FRETS = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 const INLAY_STRING = 2;
 
 let onChangeCallback = null;
@@ -112,12 +112,24 @@ function renderGrid(board, container) {
   // Fretboard grid
   const fb = document.createElement('div');
   fb.className = 'fretboard';
+  const visibleFrets = board.fretHi - board.fretLo + 1;
+  const hasOpen = board.fretLo === 0;
+
+  // Cap the width so small fret counts don't stretch absurdly
+  // ~80px per fret feels right; scale up for more frets, no cap above 10
+  if (visibleFrets <= 10) {
+    wrapper.style.maxWidth = (visibleFrets * 80) + 'px';
+  }
+  // Open fret gets narrow column, numbered frets get equal 1fr
+  const openCols = hasOpen ? '3% ' : '';
+  const fretCols = hasOpen ? visibleFrets - 1 : visibleFrets;
+  fb.style.gridTemplateColumns = `${openCols}repeat(${fretCols}, 1fr)`;
 
   // Compute overlay grid if an overlay chord is set
   const overlayGrid = board.overlay ? chords.computeOverlayGrid(board.overlay) : null;
 
   for (let s = 0; s < 6; s++) {
-    for (let f = 0; f < state.FRET_COUNT; f++) {
+    for (let f = board.fretLo; f <= board.fretHi; f++) {
       const cell = document.createElement('div');
       cell.className = 'fret-cell';
       cell.dataset.string = s;
@@ -125,9 +137,10 @@ function renderGrid(board, container) {
 
       if (board.muted[s]) cell.classList.add('string-muted');
 
-      if (f === 12 && (s === 1 || s === 4)) {
+      const isDoubleDot = (f === 12 || f === 24);
+      if (isDoubleDot && (s === 1 || s === 4)) {
         cell.classList.add('inlay');
-      } else if (INLAY_FRETS.includes(f) && f !== 12 && s === INLAY_STRING) {
+      } else if (INLAY_FRETS.includes(f) && !isDoubleDot && s === INLAY_STRING) {
         cell.classList.add('inlay');
       }
 
@@ -261,16 +274,54 @@ function renderGrid(board, container) {
     }));
   }
 
-  // Fret numbers
+  // Fret numbers row with +/- controls
+  const fnRow = document.createElement('div');
+  fnRow.className = 'fret-numbers-row';
+
+  // "+" on the left (only if fretLo > 0)
+  if (board.fretLo > 0) {
+    const addLeft = document.createElement('div');
+    addLeft.className = 'fret-add';
+    addLeft.textContent = '+';
+    addLeft.title = `Add fret ${board.fretLo - 1}`;
+    addLeft.addEventListener('click', () => { board.fretLo--; render(); fireChange(); });
+    fnRow.appendChild(addLeft);
+  }
+
   const fn = document.createElement('div');
   fn.className = 'fret-numbers';
-  for (let f = 0; f < state.FRET_COUNT; f++) {
+  fn.style.gridTemplateColumns = fb.style.gridTemplateColumns;
+
+  const canRemove = board.fretHi > board.fretLo; // need at least 2 frets
+  for (let f = board.fretLo; f <= board.fretHi; f++) {
+    const isLoEnd = f === board.fretLo && canRemove;
+    const isHiEnd = f === board.fretHi && canRemove;
     const num = document.createElement('div');
-    num.className = 'fret-num';
-    num.textContent = f === 0 ? '' : f;
+    num.className = 'fret-num' + (isLoEnd || isHiEnd ? ' fret-removable' : '');
+    num.textContent = f === 0 ? '0' : f;
+
+    if (isLoEnd) {
+      num.title = `Remove fret ${f}`;
+      num.addEventListener('click', () => { board.fretLo++; render(); fireChange(); });
+    } else if (isHiEnd) {
+      num.title = `Remove fret ${f}`;
+      num.addEventListener('click', () => { board.fretHi--; render(); fireChange(); });
+    }
     fn.appendChild(num);
   }
-  col.appendChild(fn);
+  fnRow.appendChild(fn);
+
+  // "+" on the right (only if fretHi < 24)
+  if (board.fretHi < 24) {
+    const addRight = document.createElement('div');
+    addRight.className = 'fret-add';
+    addRight.textContent = '+';
+    addRight.title = `Add fret ${board.fretHi + 1}`;
+    addRight.addEventListener('click', () => { board.fretHi++; render(); fireChange(); });
+    fnRow.appendChild(addRight);
+  }
+
+  col.appendChild(fnRow);
   wrapper.appendChild(col);
   container.appendChild(wrapper);
 }

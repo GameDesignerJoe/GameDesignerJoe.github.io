@@ -3,7 +3,7 @@
 export const TUNING = [4, 11, 7, 2, 9, 4]; // high E to low E
 export const STRING_NAMES = ['e1', 'b', 'g', 'd', 'a', 'e6'];
 export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-export const FRET_COUNT = 13; // 0 (open) through 12
+export const FRET_COUNT = 25; // 0 (open) through 24 — max possible frets
 
 // Interval names indexed by semitone distance from root
 const INTERVAL_NAMES = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
@@ -27,6 +27,8 @@ export function createBoard() {
     chord: '',
     overlay: '', // chord name to overlay on top of scale
     position: -1, // -1 = all positions, 0+ = specific position index
+    fretLo: 0,   // first visible fret
+    fretHi: 12,  // last visible fret
     sequence: [], // array of {s, f} in order clicked — for sequence mode
     caption: '',
     labelMode: 'none',

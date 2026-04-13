@@ -301,7 +301,7 @@ button:active { transform: scale(0.97); }
 
 .fretboard {
   display: grid;
-  grid-template-columns: 3% repeat(12, 1fr);
+  /* grid-template-columns set dynamically in JS */
   grid-template-rows: repeat(6, 1fr);
   border: none;
   position: relative;
@@ -422,17 +422,54 @@ button:active { transform: scale(0.97); }
 }
 
 /* ── Fret numbers ── */
+.fret-numbers-row {
+  display: flex;
+  align-items: center;
+  padding-top: 0.25rem;
+  gap: 0.2rem;
+}
+
 .fret-numbers {
   display: grid;
-  grid-template-columns: 3% repeat(12, 1fr);
+  /* grid-template-columns set dynamically in JS */
+  flex: 1;
   color: var(--muted);
   font-size: 0.75rem;
   text-align: center;
-  padding-top: 0.25rem;
 }
 
 .fret-numbers .fret-num {
   text-align: center;
+}
+
+.fret-numbers .fret-removable {
+  cursor: pointer;
+}
+
+.fret-numbers .fret-removable:hover {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.fret-add {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  border: 1px dashed var(--fret-wire);
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.fret-add:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 /* ── Toast notification ── */
@@ -478,6 +515,8 @@ button:active { transform: scale(0.97); }
   .seq-lines { z-index: 0; }
   .seq-lines line { stroke: #22c55e !important; }
   .board-clear-seq { display: none !important; }
+  .fret-add { display: none !important; }
+  .fret-removable { color: #333 !important; font-weight: normal !important; cursor: default !important; }
   .note-dot {
     width: 18px; height: 18px;
     font-size: 0.5rem;
