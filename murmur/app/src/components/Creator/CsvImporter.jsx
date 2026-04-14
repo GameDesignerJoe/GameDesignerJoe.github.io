@@ -53,9 +53,12 @@ export default function CsvImporter({ onClose }) {
     parsedData.forEach(row => {
       const sceneId = row.scene_id?.trim()
       if (!sceneId) return
+      const script = row.narration_script?.trim() || ''
       const scene = {
         id: sceneId, title: row.title?.trim() || sceneId, emotion: row.emotion?.trim() || 'curious',
-        bgKey: 'a', bgImage: null, clips: [],
+        bgKey: 'a', bgImage: null,
+        script, scriptUpdatedAt: script ? Date.now() : null, audioGeneratedAt: null,
+        clips: [],
         secondsBeforeEnd: parseInt(row.seconds_before_end) || 5,
         defaultChoice: row.default_choice !== undefined && row.default_choice !== '' ? parseInt(row.default_choice) : 0,
         countdown: parseInt(row.countdown_seconds) || 10, choices: [],

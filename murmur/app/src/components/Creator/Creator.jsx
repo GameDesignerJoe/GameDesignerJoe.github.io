@@ -287,14 +287,11 @@ function TtsModal({ onClose }) {
   const [selectedVoice, setSelectedVoice] = useState('')
   const [filters, setFilters] = useState({ language: 'en', accent: '', gender: '', age: '', use_case: '' })
   const [generating, setGenerating] = useState(false)
-  const [csvData, setCsvData] = useState([])
-  const [dragging, setDragging] = useState(false)
   const [model, setModel] = useState('eleven_multilingual_v2')
   const [stability, setStability] = useState(0.5)
   const [similarity, setSimilarity] = useState(0.75)
   const [progress, setProgress] = useState({ current: 0, total: 0, scene: '', errors: 0 })
   const [error, setError] = useState('')
-  const fileRef = useRef(null)
 
   const models = [
     { id: 'eleven_v3', name: 'Eleven v3 — Most Expressive' },
@@ -386,25 +383,6 @@ function TtsModal({ onClose }) {
     ...libraryVoices.filter(lv => !personalVoices.some(pv => pv.voice_id === lv.voice_id)),
   ]
 
-  const parseCsv = async (file) => {
-    const Papa = (await import('papaparse')).default
-    const text = await file.text()
-    const { data } = Papa.parse(text, { header: true, skipEmptyLines: true })
-    setCsvData(data)
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    setDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file && file.name.endsWith('.csv')) parseCsv(file)
-  }
-
-  const handleFileInput = (e) => {
-    const file = e.target.files[0]
-    if (file) parseCsv(file)
-  }
-
   const previewVoice = async () => {
     if (!selectedVoice) return
     const voice = allVoices.find(v => v.voice_id === selectedVoice)
@@ -413,44 +391,118 @@ function TtsModal({ onClose }) {
     }
   }
 
+  // Scan story scenes for TTS status
+  const story = useStore.getState().creator.story
+  const updateScene = useStore.getState().updateScene
+  const scenes = story ? Object.values(story.scenes) : []
+  const scenesWithScript = scenes.filter(s => s.script?.trim())
+  const scenesNeedingAudio = scenesWithScript.filter(s =>
+    s.clips.length === 0 || (s.scriptUpdatedAt && (!s.audioGeneratedAt || s.scriptUpdatedAt > s.audioGeneratedAt))
+  )
+  const scenesUpToDate = scenesWithScript.filter(s =>
+    s.clips.length > 0 && s.audioGeneratedAt && (!s.scriptUpdatedAt || s.audioGeneratedAt >= s.scriptUpdatedAt)
+  )
+
   const generateAudio = async () => {
-    if (!apiKey || !selectedVoice || csvData.length === 0) {
-      setError('Need API key, voice, and CSV data')
+    const toGenerate = scenesNeedingAudio
+    if (!apiKey || !selectedVoice || toGenerate.length === 0) {
+      setError('Need API key, voice, and scenes with scripts')
       return
     }
     setGenerating(true)
     setError('')
     let completed = 0
     let errors = 0
-    const total = csvData.filter(r => r.narration_script?.trim()).length
+    const total = toGenerate.length
     setProgress({ current: 0, total, scene: '', errors: 0 })
 
-    for (const row of csvData) {
-      const script = row.narration_script?.trim()
-      if (!script) continue
-      const sceneId = row.scene_id?.trim() || `scene_${completed}`
-      setProgress({ current: completed, total, scene: sceneId, errors })
-      try {
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}`, {
-          method: 'POST',
-          headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: script,
-            model_id: model,
-            voice_settings: { stability, similarity_boost: similarity }
+    // Concurrency-limited queue (Creator plan = 5 concurrent)
+    const CONCURRENCY = 5
+    const RETRY_DELAYS = [2000, 5000, 10000] // exponential backoff
+    const queue = [...toGenerate]
+    const active = new Set()
+
+    console.group(`%c[Murmur TTS] Starting generation: ${total} scenes`, 'color: #c9a96e; font-weight: bold')
+    console.log(`Voice: ${selectedVoice} | Model: ${model} | Stability: ${stability} | Similarity: ${similarity}`)
+    console.log(`Concurrency limit: ${CONCURRENCY}`)
+
+    const processScene = async (scene) => {
+      const sceneId = scene.id
+      for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`  [${sceneId}] Retry ${attempt}/${RETRY_DELAYS.length} after ${RETRY_DELAYS[attempt - 1]}ms`)
+            await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt - 1]))
+          }
+          console.log(`  [${sceneId}] Sending "${scene.title}" (${scene.script.length} chars)...`)
+
+          const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}`, {
+            method: 'POST',
+            headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: scene.script,
+              model_id: model,
+              voice_settings: { stability, similarity_boost: similarity }
+            })
           })
-        })
-        if (!res.ok) { errors++; continue }
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${sceneId}-a.mp3`
-        a.click()
-        URL.revokeObjectURL(url)
-        completed++
-      } catch { errors++ }
+
+          const concurrent = res.headers.get('current-concurrent-requests')
+          const maxConcurrent = res.headers.get('maximum-concurrent-requests')
+          if (concurrent) console.log(`  [${sceneId}] Concurrency: ${concurrent}/${maxConcurrent}`)
+
+          if (res.status === 429) {
+            const body = await res.json().catch(() => ({}))
+            console.warn(`  [${sceneId}] Rate limited (429): ${body.detail?.message || res.statusText}`)
+            if (attempt < RETRY_DELAYS.length) continue
+            throw new Error(`Rate limited after ${attempt + 1} attempts`)
+          }
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}))
+            throw new Error(`${res.status}: ${body.detail?.message || res.statusText}`)
+          }
+
+          // Success — create blob URL and assign to scene
+          const blob = await res.blob()
+          const clipUrl = URL.createObjectURL(blob)
+          console.log(`  [${sceneId}] ✓ Audio received (${(blob.size / 1024).toFixed(0)} KB) → assigned to scene`)
+
+          // Auto-assign audio to the scene
+          updateScene(sceneId, 'clips', [clipUrl])
+          updateScene(sceneId, 'audioGeneratedAt', Date.now())
+
+          completed++
+          setProgress({ current: completed, total, scene: '', errors })
+          return // success, exit retry loop
+
+        } catch (err) {
+          if (attempt >= RETRY_DELAYS.length) {
+            console.error(`  [${sceneId}] ✗ FAILED: ${err.message}`)
+            errors++
+            setProgress({ current: completed, total, scene: sceneId, errors })
+          }
+        }
+      }
     }
+
+    // Process queue with concurrency limit
+    const processQueue = async () => {
+      while (queue.length > 0 || active.size > 0) {
+        while (queue.length > 0 && active.size < CONCURRENCY) {
+          const scene = queue.shift()
+          setProgress(p => ({ ...p, scene: scene.id }))
+          const promise = processScene(scene).finally(() => active.delete(promise))
+          active.add(promise)
+        }
+        if (active.size > 0) await Promise.race(active)
+      }
+    }
+
+    await processQueue()
+
+    console.log(`%c[Murmur TTS] Done: ${completed} generated, ${errors} failed`, completed === total ? 'color: #4ade80' : 'color: #f97758')
+    console.groupEnd()
+
     setProgress({ current: completed, total, scene: '', errors })
     setGenerating(false)
   }
@@ -587,40 +639,47 @@ function TtsModal({ onClose }) {
           </div>
         )}
 
-        {/* Narration Source — drag & drop */}
+        {/* Scene Audio Status */}
         <div style={sectionGap}>
           <label style={labelStyle}>Narration Source</label>
-          <div
-            onDragOver={e => { e.preventDefault(); setDragging(true) }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => fileRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragging ? 'var(--gold)' : 'var(--s3)'}`,
-              borderRadius: '16px', padding: '36px 24px', textAlign: 'center', cursor: 'pointer',
-              background: dragging ? 'var(--gold10)' : 'transparent', transition: 'all 0.2s',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--mute)', display: 'block', marginBottom: '10px' }}>upload</span>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: 'var(--sub)' }}>
-              Drop CSV or <span style={{ color: 'var(--gold)', textDecoration: 'underline', textUnderlineOffset: '3px' }}>click to browse</span>
-            </span>
-            <input ref={fileRef} type="file" accept=".csv" onChange={handleFileInput} style={{ display: 'none' }} />
-          </div>
-
-          {/* CSV loaded banner */}
-          {csvData.length > 0 && (
+          {!story || scenesWithScript.length === 0 ? (
             <div style={{
-              marginTop: '14px', display: 'flex', alignItems: 'center', gap: '10px',
-              background: 'var(--s2)', borderRadius: '12px', padding: '14px 16px',
-              borderLeft: '3px solid #4ade80',
+              borderRadius: '16px', padding: '36px 24px', textAlign: 'center',
+              border: '2px dashed var(--s3)', background: 'transparent',
             }}>
-              <span style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#07070f', fontVariationSettings: "'FILL' 1" }}>check</span>
+              <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--mute)', display: 'block', marginBottom: '10px' }}>warning</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: 'var(--sub)' }}>
+                No scenes with narration scripts found.<br />Import a CSV with a <span style={{ color: 'var(--gold)' }}>narration_script</span> column first.
               </span>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: 'var(--text)' }}>
-                {csvData.filter(r => r.narration_script?.trim()).length} scenes with narration scripts found
-              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Needs audio */}
+              {scenesNeedingAudio.length > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  background: 'var(--s2)', borderRadius: '12px', padding: '14px 16px',
+                  borderLeft: '3px solid var(--gold)',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--gold)' }}>mic</span>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: 'var(--text)', flex: 1 }}>
+                    <strong>{scenesNeedingAudio.length}</strong> scene{scenesNeedingAudio.length !== 1 ? 's' : ''} need{scenesNeedingAudio.length === 1 ? 's' : ''} audio
+                  </span>
+                </div>
+              )}
+              {/* Up to date */}
+              {scenesUpToDate.length > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  background: 'var(--s2)', borderRadius: '12px', padding: '14px 16px',
+                  borderLeft: '3px solid #4ade80',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#4ade80', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: 'var(--text)', flex: 1 }}>
+                    <strong>{scenesUpToDate.length}</strong> scene{scenesUpToDate.length !== 1 ? 's' : ''} up to date
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -697,7 +756,7 @@ function TtsModal({ onClose }) {
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
-          {generating ? `Generating... ${pct}%` : 'Generate All Audio'}
+          {generating ? `Generating... ${pct}%` : `Generate Audio (${scenesNeedingAudio.length} scene${scenesNeedingAudio.length !== 1 ? 's' : ''})`}
         </button>
       </div>
     </div>

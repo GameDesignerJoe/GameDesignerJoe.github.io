@@ -151,7 +151,9 @@ export const useStore = create((set, get) => ({
   updateScene: (sceneId, key, value) => set(s => {
     const story = { ...s.creator.story }
     story.scenes = { ...story.scenes }
-    story.scenes[sceneId] = { ...story.scenes[sceneId], [key]: value }
+    const updated = { ...story.scenes[sceneId], [key]: value }
+    if (key === 'script') updated.scriptUpdatedAt = Date.now()
+    story.scenes[sceneId] = updated
     return { creator: { ...s.creator, story } }
   }),
 
@@ -167,6 +169,7 @@ export const useStore = create((set, get) => ({
     const id = 'scene_' + Date.now()
     story.scenes[id] = {
       id, title: 'New Scene', emotion: 'curious', bgKey: 'a', bgImage: null,
+      script: '', scriptUpdatedAt: null, audioGeneratedAt: null,
       clips: [], secondsBeforeEnd: 5, defaultChoice: 0, countdown: 10, choices: []
     }
     const positions = { ...s.creator.positions }
