@@ -2,6 +2,7 @@ import { useStore } from '../../store'
 import NodeGraph from './NodeGraph'
 import EditPanel from './EditPanel'
 import CsvImporter from './CsvImporter'
+import { saveAudioBlob, loadStoryAudio } from '../../engine/AudioStore'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 export default function Creator() {
@@ -13,9 +14,31 @@ export default function Creator() {
   const launchStory = useStore(s => s.launchStory)
   const addScene = useStore(s => s.addScene)
   const selectNode = useStore(s => s.selectNode)
+  const updateScene = useStore(s => s.updateScene)
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [showTtsModal, setShowTtsModal] = useState(false)
   const [panelWidth, setPanelWidth] = useState(360)
+  const [audioRestored, setAudioRestored] = useState(null)
+
+  // Restore audio from IndexedDB when story loads in creator
+  useEffect(() => {
+    if (view !== 'creator' || !creator.story) return
+    const storyId = creator.story.id
+    if (audioRestored === storyId) return // already restored for this story
+    loadStoryAudio(storyId).then(blobs => {
+      const sceneIds = Object.keys(blobs)
+      if (sceneIds.length === 0) return
+      console.log(`[Murmur] Restoring ${sceneIds.length} audio clips from IndexedDB for "${storyId}"`)
+      sceneIds.forEach(sceneId => {
+        const scene = creator.story.scenes[sceneId]
+        if (scene && (scene.clips.length === 0 || scene.clips.every(c => c.startsWith('blob:')))) {
+          const clipUrl = URL.createObjectURL(blobs[sceneId])
+          updateScene(sceneId, 'clips', [clipUrl])
+        }
+      })
+      setAudioRestored(storyId)
+    }).catch(err => console.warn('[Murmur] Failed to restore audio:', err.message))
+  }, [view, creator.story?.id])
 
   if (view !== 'creator') return null
 
@@ -409,6 +432,18 @@ function TtsModal({ onClose }) {
       setError('Need API key, voice, and scenes with scripts')
       return
     }
+
+    // Pick save folder — one prompt, then everything is automatic
+    let audioDir = null
+    if (window.showDirectoryPicker) {
+      try {
+        audioDir = await window.showDirectoryPicker({ mode: 'readwrite' })
+      } catch (err) {
+        if (err.name === 'AbortError') return // user cancelled — don't spend tokens
+        console.warn('[Murmur TTS] Folder picker failed, saving to IndexedDB only:', err.message)
+      }
+    }
+
     setGenerating(true)
     setError('')
     let completed = 0
@@ -462,10 +497,23 @@ function TtsModal({ onClose }) {
             throw new Error(`${res.status}: ${body.detail?.message || res.statusText}`)
           }
 
-          // Success — create blob URL and assign to scene
           const blob = await res.blob()
           const clipUrl = URL.createObjectURL(blob)
-          console.log(`  [${sceneId}] ✓ Audio received (${(blob.size / 1024).toFixed(0)} KB) → assigned to scene`)
+          console.log(`  [${sceneId}] ✓ Audio received (${(blob.size / 1024).toFixed(0)} KB)`)
+
+          // Save to IndexedDB (persistence across refreshes)
+          await saveAudioBlob(story.id, sceneId, blob)
+
+          // Write to the folder the user picked
+          if (audioDir) {
+            try {
+              const fh = await audioDir.getFileHandle(`${sceneId}-a.mp3`, { create: true })
+              const w = await fh.createWritable()
+              await w.write(blob)
+              await w.close()
+              console.log(`  [${sceneId}] → saved: ${sceneId}-a.mp3`)
+            } catch (e) { console.warn(`  [${sceneId}] Disk write failed: ${e.message}`) }
+          }
 
           // Auto-assign audio to the scene
           updateScene(sceneId, 'clips', [clipUrl])
@@ -473,7 +521,7 @@ function TtsModal({ onClose }) {
 
           completed++
           setProgress({ current: completed, total, scene: '', errors })
-          return // success, exit retry loop
+          return
 
         } catch (err) {
           if (attempt >= RETRY_DELAYS.length) {
@@ -746,18 +794,23 @@ function TtsModal({ onClose }) {
         {/* Generate button */}
         <button
           onClick={generateAudio}
-          disabled={generating}
+          disabled={generating || scenesNeedingAudio.length === 0}
           style={{
-            width: '100%', padding: '16px', borderRadius: '16px', border: 'none', cursor: generating ? 'default' : 'pointer',
-            background: generating ? 'var(--s3)' : 'var(--gold)', color: generating ? 'var(--sub)' : 'var(--bg)',
+            width: '100%', padding: '16px', borderRadius: '16px', border: 'none',
+            cursor: (generating || scenesNeedingAudio.length === 0) ? 'default' : 'pointer',
+            background: (generating || scenesNeedingAudio.length === 0) ? 'var(--s3)' : 'var(--gold)',
+            color: (generating || scenesNeedingAudio.length === 0) ? 'var(--sub)' : 'var(--bg)',
             fontFamily: "'DM Sans', sans-serif", fontSize: '15px', fontWeight: 600, letterSpacing: '0.03em',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            transition: 'all 0.2s', opacity: generating ? 0.6 : 1,
+            transition: 'all 0.2s', opacity: (generating || scenesNeedingAudio.length === 0) ? 0.6 : 1,
           }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
-          {generating ? `Generating... ${pct}%` : `Generate Audio (${scenesNeedingAudio.length} scene${scenesNeedingAudio.length !== 1 ? 's' : ''})`}
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+            {scenesNeedingAudio.length === 0 ? 'check_circle' : 'download'}
+          </span>
+          {generating ? `Generating... ${pct}%` : scenesNeedingAudio.length === 0 ? 'No new lines to generate' : `Generate Audio (${scenesNeedingAudio.length} scene${scenesNeedingAudio.length !== 1 ? 's' : ''})`}
         </button>
+
       </div>
     </div>
   )

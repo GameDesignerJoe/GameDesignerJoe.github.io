@@ -1,6 +1,30 @@
 import { create } from 'zustand'
 import { SmartShuffle } from '../engine/SmartShuffle'
 
+// ── Persistence helpers ──
+const STORIES_KEY = 'murmur_stories'
+
+function loadStories() {
+  try {
+    const saved = localStorage.getItem(STORIES_KEY)
+    if (saved) return JSON.parse(saved)
+  } catch { /* corrupt data, fall through */ }
+  return null
+}
+
+function saveStories(stories) {
+  try {
+    // Strip blob URLs from clips before saving (they won't survive refresh anyway)
+    const clean = JSON.parse(JSON.stringify(stories, (key, val) => {
+      if (key === 'clips' && Array.isArray(val)) return val.filter(c => !c.startsWith('blob:'))
+      return val
+    }))
+    localStorage.setItem(STORIES_KEY, JSON.stringify(clean))
+  } catch (e) {
+    console.warn('[Murmur] Failed to save stories:', e.message)
+  }
+}
+
 // Demo stories — same as prototype
 const DEMO_STORIES = [
   {
@@ -81,9 +105,13 @@ export const useStore = create((set, get) => ({
   view: 'library', // library | detail | player | creator
   setView: (view) => set({ view }),
 
-  // Stories
-  stories: DEMO_STORIES,
-  addStory: (story) => set(s => ({ stories: [...s.stories, story] })),
+  // Stories (persisted to localStorage)
+  stories: loadStories() || DEMO_STORIES,
+  addStory: (story) => set(s => {
+    const stories = [...s.stories, story]
+    saveStories(stories)
+    return { stories }
+  }),
 
   // Active story index (tracks which card is visible in library scroll)
   activeStoryIndex: 0,
@@ -144,6 +172,15 @@ export const useStore = create((set, get) => ({
     set({ creator: { story: JSON.parse(JSON.stringify(story)), selectedNodeId: null, positions } })
   },
 
+  // Sync creator's story back to the stories array + persist
+  saveCreatorStory: () => set(s => {
+    if (!s.creator.story) return {}
+    const edited = JSON.parse(JSON.stringify(s.creator.story))
+    const stories = s.stories.map(st => st.id === edited.id ? edited : st)
+    saveStories(stories)
+    return { stories }
+  }),
+
   selectNode: (id) => set(s => ({
     creator: { ...s.creator, selectedNodeId: id }
   })),
@@ -154,7 +191,11 @@ export const useStore = create((set, get) => ({
     const updated = { ...story.scenes[sceneId], [key]: value }
     if (key === 'script') updated.scriptUpdatedAt = Date.now()
     story.scenes[sceneId] = updated
-    return { creator: { ...s.creator, story } }
+    // Auto-save to stories array + localStorage
+    const editedStory = { ...story }
+    const stories = s.stories.map(st => st.id === editedStory.id ? JSON.parse(JSON.stringify(editedStory)) : st)
+    saveStories(stories)
+    return { creator: { ...s.creator, story }, stories }
   }),
 
   updateNodePosition: (id, x, y) => set(s => ({
@@ -174,7 +215,9 @@ export const useStore = create((set, get) => ({
     }
     const positions = { ...s.creator.positions }
     positions[id] = { x: 60, y: 60 }
-    return { creator: { ...s.creator, story, positions, selectedNodeId: id } }
+    const stories = s.stories.map(st => st.id === story.id ? JSON.parse(JSON.stringify(story)) : st)
+    saveStories(stories)
+    return { creator: { ...s.creator, story, positions, selectedNodeId: id }, stories }
   }),
 
   deleteScene: (id) => set(s => {
@@ -185,12 +228,16 @@ export const useStore = create((set, get) => ({
     })
     const positions = { ...s.creator.positions }
     delete positions[id]
-    return { creator: { ...s.creator, story, positions, selectedNodeId: null } }
+    const stories = s.stories.map(st => st.id === story.id ? JSON.parse(JSON.stringify(story)) : st)
+    saveStories(stories)
+    return { creator: { ...s.creator, story, positions, selectedNodeId: null }, stories }
   }),
 
   setStartScene: (id) => set(s => {
     const story = { ...s.creator.story, startScene: id }
-    return { creator: { ...s.creator, story } }
+    const stories = s.stories.map(st => st.id === story.id ? JSON.parse(JSON.stringify(story)) : st)
+    saveStories(stories)
+    return { creator: { ...s.creator, story }, stories }
   }),
 
   // Save / Load helpers
