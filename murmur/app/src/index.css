@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:opsz,wght@9..40,200;9..40,300;9..40,400;9..40,500&display=swap');
+
+@import "tailwindcss";
+
+/* ── Design Tokens ── */
+:root {
+  --bg:     #07070f;
+  --s1:     #0f0f1c;
+  --s2:     #181828;
+  --s3:     #222236;
+  --text:   #f0ede6;
+  --sub:    #928faa;
+  --mute:   #706c8a;
+  --gold:   #c9a96e;
+  --gold10: rgba(201, 169, 110, 0.10);
+  --gold25: rgba(201, 169, 110, 0.25);
+  --silk:   cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --r:      20px;
+  --rl:     32px;
+  --rxl:    48px;
+}
+
+/* ── Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar Hiding ── */
+.hide-scrollbar { scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Typography Utilities ── */
+.font-display {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+/* ── Waveform Animation ── */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+
+/* ── Emotion Glow Classes ── */
+.em-curious   { border-color: rgba(100,160,255,0.55) !important; box-shadow: 0 0 32px rgba(100,160,255,0.18) !important; }
+.em-afraid    { border-color: rgba(255,75,75,0.55) !important;   box-shadow: 0 0 32px rgba(255,75,75,0.18) !important; }
+.em-happy     { border-color: rgba(201,169,110,0.65) !important; box-shadow: 0 0 32px rgba(201,169,110,0.22) !important; }
+.em-sad       { border-color: rgba(140,100,210,0.55) !important; box-shadow: 0 0 32px rgba(140,100,210,0.18) !important; }
+.em-determined{ border-color: rgba(255,255,255,0.45) !important; box-shadow: 0 0 32px rgba(255,255,255,0.12) !important; }
+
+/* ── Creator Form Inputs ── */
+.cr-input {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--s3);
+  border-radius: 10px;
+  padding: 10px 13px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  appearance: none;
+}
+.cr-input:focus { border-color: var(--gold); }
+
+.cr-choice-input {
+  width: 100%;
+  background: var(--s3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  outline: none;
+  appearance: none;
+}
+.cr-choice-input:focus { border-color: var(--gold); }
+
+.cr-btn-action {
+  background: var(--s2);
+  border: 1px solid var(--s3);
+  border-radius: 999px;
+  color: var(--sub);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 9px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.cr-btn-action:hover { color: var(--text); border-color: var(--sub); }

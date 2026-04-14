@@ -3,7 +3,16 @@
     "allow": [
       "Bash(find /c/Users/GameD/GameDesignerJoe.github.io/wayward -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx -o -name *.json -o -name .env* \\\\\\))",
       "WebFetch(domain:console.groq.com)",
-      "WebFetch(domain:www.guitarmasterclass.net)"
+      "WebFetch(domain:www.guitarmasterclass.net)",
+      "Bash(npm create:*)",
+      "Bash(npm view:*)",
+      "Bash(rm -rf node_modules package-lock.json)",
+      "Bash(npm cache:*)",
+      "Bash(rm -f src/App.css src/index.css src/App.jsx src/main.jsx)",
+      "Bash(rm -rf src/assets)",
+      "Bash(ls src/)",
+      "Bash(ls public/)",
+      "Bash(npx vite:*)"
     ]
   }
 }
