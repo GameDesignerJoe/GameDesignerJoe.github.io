@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Murmur Creator | Story Editor</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#46445c",
+                        "on-primary-fixed-variant": "#5a4312",
+                        "on-primary-fixed": "#261900",
+                        "surface-container": "#1e1e2c",
+                        "surface": "#12121f",
+                        "inverse-primary": "#745a27",
+                        "on-tertiary-fixed-variant": "#8c1520",
+                        "error": "#ffb4ab",
+                        "on-primary-container": "#543d0c",
+                        "on-surface-variant": "#d0c5b5",
+                        "background": "#12121f",
+                        "on-tertiary-fixed": "#410006",
+                        "on-background": "#e3e0f4",
+                        "tertiary-fixed-dim": "#ffb3b0",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#68000f",
+                        "outline-variant": "#4d463a",
+                        "tertiary-container": "#ff8c89",
+                        "surface-variant": "#343342",
+                        "inverse-on-surface": "#2f2f3d",
+                        "on-secondary": "#302e44",
+                        "outline": "#998f81",
+                        "inverse-surface": "#e3e0f4",
+                        "surface-container-high": "#292937",
+                        "surface-container-low": "#1a1a28",
+                        "surface-dim": "#12121f",
+                        "primary": "#e6c487",
+                        "on-secondary-fixed": "#1a192e",
+                        "on-error": "#690005",
+                        "tertiary": "#ffb6b3",
+                        "secondary-container": "#46445c",
+                        "surface-container-highest": "#343342",
+                        "surface-bright": "#383847",
+                        "on-tertiary-container": "#840d1b",
+                        "on-surface": "#e3e0f4",
+                        "secondary-fixed-dim": "#c7c3e0",
+                        "primary-container": "#c9a96e",
+                        "primary-fixed-dim": "#e4c285",
+                        "on-secondary-container": "#b6b2ce",
+                        "on-primary": "#412d00",
+                        "surface-container-lowest": "#0d0d1a",
+                        "surface-tint": "#e4c285",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#ffdea4",
+                        "secondary-fixed": "#e3dffd",
+                        "tertiary-fixed": "#ffdad8",
+                        "secondary": "#c7c3e0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Noto Serif"],
+                        "body": ["Noto Serif"],
+                        "label": ["Noto Serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #07070f; font-family: 'Noto Serif', serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .grid-bg { background-image: radial-gradient(#181828 1px, transparent 1px); background-size: 24px 24px; }
+        .node-selected { border-color: #c9a96e; box-shadow: 0 0 15px rgba(201, 169, 110, 0.3); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #222236; border-radius: 10px; }
+    </style>
+</head>
+<body class="text-on-surface overflow-hidden">
+<!-- TOP HEADER BAR -->
+<header class="flex justify-between items-center px-6 h-14 w-full z-50 bg-[#07070f] border-b border-[#222236] fixed top-0 left-0 shadow-2xl">
+<div class="flex items-center gap-6">
+<div class="text-xl font-bold text-[#c9a96e] uppercase tracking-widest italic">
+                ‹ Murmur
+            </div>
+<div class="h-4 w-px bg-[#222236]"></div>
+<div class="flex items-center gap-2">
+<span class="text-on-surface-variant text-sm tracking-tight font-medium">Whispers in the Void</span>
+<span class="material-symbols-outlined text-[#706c8a] text-sm">expand_more</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-[#0f0f1c] border border-[#222236] rounded-md px-3 py-1 gap-4 text-xs font-medium">
+<button class="flex items-center gap-1 hover:text-[#c9a96e] transition-colors"><span class="material-symbols-outlined text-sm">add</span>Scene</button>
+<button class="flex items-center gap-1 hover:text-[#c9a96e] transition-colors">Import JSON</button>
+<button class="flex items-center gap-1 hover:text-[#c9a96e] transition-colors">Import CSV</button>
+<button class="flex items-center gap-1 hover:text-[#c9a96e] transition-colors"><span class="material-symbols-outlined text-sm">volume_up</span>TTS</button>
+</div>
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined text-[#928faa] hover:text-[#f0ede6]">play_arrow</button>
+<button class="material-symbols-outlined text-[#928faa] hover:text-[#f0ede6]">save</button>
+<button class="material-symbols-outlined text-[#928faa] hover:text-[#f0ede6]">history</button>
+<button class="bg-[#c9a96e] text-[#412d00] px-4 py-1 rounded-full text-sm font-bold uppercase tracking-wider hover:opacity-90 transition-opacity">
+                    Export
+                </button>
+</div>
+</div>
+</header>
+<!-- MAIN WRAPPER -->
+<main class="flex h-screen pt-14">
+<!-- LEFT SIDEBAR -->
+<aside class="flex flex-col h-full fixed left-0 top-0 pt-14 w-[260px] bg-[#0f0f1c] border-r border-[#222236] z-40">
+<div class="p-4 flex items-center justify-between border-b border-[#222236]">
+<h2 class="text-[#c9a96e] font-black text-xs uppercase tracking-widest">Scenes</h2>
+<button class="material-symbols-outlined text-sm hover:text-primary">add_circle</button>
+</div>
+<nav class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+<!-- Selected Scene -->
+<div class="bg-[#222236] text-[#c9a96e] border-l-4 border-[#c9a96e] p-3 rounded-r flex flex-col gap-1 transition-all">
+<div class="flex justify-between items-center">
+<span class="font-bold text-sm">The Arrival ★</span>
+<span class="material-symbols-outlined text-xs">more_vert</span>
+</div>
+<div class="text-[10px] text-[#928faa] font-serif italic">curious · 2 clips · -6s · 5s cd</div>
+</div>
+<!-- Other Scenes -->
+<div class="hover:bg-[#181828] text-[#706c8a] p-3 rounded flex flex-col gap-1 transition-all cursor-pointer group">
+<div class="flex justify-between items-center group-hover:text-[#928faa]">
+<span class="text-sm">The Crossroads</span>
+<span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100">drag_indicator</span>
+</div>
+<div class="text-[10px] text-[#706c8a]">ominous · 1 clip · 12s</div>
+</div>
+<div class="hover:bg-[#181828] text-[#706c8a] p-3 rounded flex flex-col gap-1 transition-all cursor-pointer group">
+<div class="flex justify-between items-center group-hover:text-[#928faa]">
+<span class="text-sm">First Encounter</span>
+<span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100">drag_indicator</span>
+</div>
+<div class="text-[10px] text-[#706c8a]">tense · 3 clips · 45s</div>
+</div>
+<div class="hover:bg-[#181828] text-[#706c8a] p-3 rounded flex flex-col gap-1 transition-all cursor-pointer group">
+<div class="flex justify-between items-center group-hover:text-[#928faa]">
+<span class="text-sm">Ancient Portal</span>
+<span class="material-symbols-outlined text-xs opacity-0 group-hover:opacity-100">drag_indicator</span>
+</div>
+<div class="text-[10px] text-[#706c8a]">mystic · 1 clip · 8s</div>
+</div>
+</nav>
+<div class="p-4 border-t border-[#222236] space-y-3">
+<button class="flex items-center gap-3 text-xs text-[#706c8a] hover:text-[#c9a96e] transition-colors">
+<span class="material-symbols-outlined text-base">help_outline</span> Help &amp; Shortcuts
+                </button>
+<button class="flex items-center gap-3 text-xs text-[#706c8a] hover:text-[#c9a96e] transition-colors w-full">
+<span class="material-symbols-outlined text-base">terminal</span> Console (2)
+                    <span class="ml-auto w-2 h-2 rounded-full bg-error animate-pulse"></span>
+</button>
+</div>
+</aside>
+<!-- CENTER NODE GRAPH AREA -->
+<section class="flex-1 ml-[260px] mr-[360px] relative grid-bg overflow-hidden h-full">
+<!-- Node Canvas (Visual Representation) -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none">
+<!-- SVG Connections -->
+<path d="M400 300 C 500 300, 500 450, 600 450" fill="none" stroke="#222236" stroke-width="2"></path>
+<path d="M400 300 C 500 300, 500 150, 600 150" fill="none" stroke="#c9a96e" stroke-dasharray="4" stroke-width="2"></path>
+<path d="M200 300 L 300 300" fill="none" stroke="rgba(100,200,120,0.3)" stroke-width="2"></path>
+</svg>
+<!-- Draggable Nodes (Simulated) -->
+<!-- Start Node -->
+<div class="absolute left-10 top-[280px] w-32 h-16 bg-[rgba(100,200,120,0.1)] border border-[rgba(100,200,120,0.5)] rounded p-2 flex flex-col justify-center items-center">
+<span class="text-[10px] uppercase font-bold text-[rgba(100,200,120,1)] tracking-widest">Entry Point</span>
+<span class="text-xs text-on-surface">Start Game</span>
+</div>
+<!-- Selected Node: Arrival -->
+<div class="absolute left-[300px] top-[240px] w-56 bg-[#0f0f1c] border-2 border-[#c9a96e] rounded-lg p-3 node-selected z-10">
+<div class="flex justify-between items-start mb-2">
+<div class="flex flex-col">
+<span class="text-[10px] text-[#c9a96e] uppercase tracking-tighter font-bold">Selected Scene</span>
+<h3 class="text-sm font-bold">The Arrival</h3>
+</div>
+<span class="material-symbols-outlined text-primary text-lg">psychology</span>
+</div>
+<div class="flex gap-1 mb-3">
+<span class="bg-[#222236] text-[9px] px-2 py-0.5 rounded text-[#928faa]">2 Clips</span>
+<span class="bg-[#222236] text-[9px] px-2 py-0.5 rounded text-[#928faa]">Interactive</span>
+</div>
+<div class="space-y-1">
+<div class="w-full h-1 bg-[#181828] rounded overflow-hidden">
+<div class="w-2/3 h-full bg-[#c9a96e]"></div>
+</div>
+<div class="flex justify-between text-[8px] text-[#706c8a]">
+<span>Option: "Knock"</span>
+<span>Option: "Wait"</span>
+</div>
+</div>
+</div>
+<!-- Branch Node 1 -->
+<div class="absolute left-[600px] top-[100px] w-48 bg-[#181828] border border-[#222236] rounded p-3 opacity-80">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs font-medium">The Crossroads</span>
+<span class="material-symbols-outlined text-sm text-error">warning</span>
+</div>
+<div class="text-[10px] text-[#706c8a]">1 Clip · Choice Node</div>
+</div>
+<!-- Branch Node 2 -->
+<div class="absolute left-[600px] top-[400px] w-48 bg-[#181828] border border-[#222236] rounded p-3 opacity-80">
+<div class="flex justify-between items-center mb-1">
+<span class="text-xs font-medium">Ancient Portal</span>
+<span class="material-symbols-outlined text-sm text-primary">auto_awesome</span>
+</div>
+<div class="text-[10px] text-[#706c8a]">1 Clip · Ambience</div>
+</div>
+<!-- Zoom/Pan Controls -->
+<div class="absolute bottom-6 right-6 flex flex-col bg-[#0f0f1c] border border-[#222236] rounded-md overflow-hidden">
+<button class="p-2 hover:bg-[#222236] border-b border-[#222236] material-symbols-outlined text-sm">add</button>
+<button class="p-2 hover:bg-[#222236] border-b border-[#222236] material-symbols-outlined text-sm">remove</button>
+<button class="p-2 hover:bg-[#222236] material-symbols-outlined text-sm">filter_center_focus</button>
+</div>
+</section>
+<!-- RIGHT INSPECTOR PANEL -->
+<aside class="w-[360px] h-full fixed right-0 top-0 pt-14 bg-[#0f0f1c] border-l border-[#222236] z-40 flex flex-col">
+<div class="p-4 flex items-center justify-between border-b border-[#222236] bg-[#07070f]">
+<h2 class="text-[#f0ede6] font-bold text-sm tracking-tight">EDIT SCENE</h2>
+<button class="material-symbols-outlined text-[#706c8a] hover:text-on-surface">close</button>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+<!-- Scene Settings -->
+<section class="space-y-4">
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-[#706c8a] tracking-wider">Scene Title</label>
+<input class="w-full bg-[#07070f] border border-[#222236] rounded p-2 text-sm text-[#f0ede6] focus:border-[#c9a96e] outline-none" type="text" value="The Arrival"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-[#706c8a] tracking-wider">Emotion</label>
+<div class="relative">
+<select class="w-full bg-[#07070f] border border-[#222236] rounded p-2 text-sm text-[#f0ede6] appearance-none focus:border-[#c9a96e] outline-none">
+<option>Curious</option>
+<option>Ominous</option>
+<option>Tense</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2 text-sm pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-[#706c8a] tracking-wider">Wait Time</label>
+<input class="w-full bg-[#07070f] border border-[#222236] rounded p-2 text-sm text-[#f0ede6] focus:border-[#c9a96e] outline-none" type="number" value="5"/>
+</div>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] uppercase font-bold text-[#706c8a] tracking-wider">Background Asset (URL)</label>
+<div class="flex gap-2">
+<input class="flex-1 bg-[#07070f] border border-[#222236] rounded p-2 text-xs text-[#928faa] outline-none" type="text" value="image-6745.jpg"/>
+<button class="bg-[#222236] px-3 rounded material-symbols-outlined text-sm">folder_open</button>
+</div>
+<div class="mt-2 w-full h-24 bg-[#07070f] border border-[#222236] rounded overflow-hidden">
+<img class="w-full h-full object-cover opacity-50 grayscale hover:grayscale-0 transition-all cursor-zoom-in" data-alt="misty forest at dawn with dark silhouettes of pine trees and cinematic atmospheric haze" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO3sTKwGc3S-nX-vy2J5AdSykgfNnX5A9IKn_5YHZ1mjgQxddn3pdc-XvxUmtq0DXuN927O4WnKm3hGNquPT8sYs0k6XVJh4vW70a7uVPdHDvlFdUU2zH0TjeT81T1OnMuLaJjaU1RiIJwOTggvZfjD7waIlfgghxiIdMYRHCYfK7wqvhucgYWSn75R9k3mCOX8dSn4YPinL77Ge5__GYlbj1CIB0w1rI2mXIzWJoR1TayvhGAtnbix5NsQsYZi1u3o3vkff2ABg"/>
+</div>
+</div>
+</section>
+<div class="h-px bg-[#222236]"></div>
+<!-- Audio Clips -->
+<section class="space-y-3">
+<div class="flex justify-between items-center">
+<label class="text-[10px] uppercase font-bold text-[#706c8a] tracking-wider">Audio Clips</label>
+<button class="text-[10px] text-[#c9a96e] hover:underline">+ Add Clip</button>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-3 p-2 bg-[#07070f] border border-[#222236] rounded group">
+<button class="material-symbols-outlined text-[#c9a96e] text-sm">play_circle</button>
+<div class="flex-1">
+<p class="text-[11px] font-medium leading-none mb-1">intro_narration_v2.mp3</p>
+<div class="w-full h-1 bg-[#181828] rounded"></div>
+</div>
+<span class="text-[9px] text-[#706c8a]">0:12</span>
+<button class="material-symbols-outlined text-[#706c8a] text-sm opacity-0 group-hover:opacity-100">close</button>
+</div>
+<div class="flex items-center gap-3 p-2 bg-[#07070f] border border-[#222236] rounded group">
+<button class="material-symbols-outlined text-[#c9a96e] text-sm">play_circle</button>
+<div class="flex-1">
+<p class="text-[11px] font-medium leading-none mb-1">footsteps_gravel.wav</p>
+<div class="w-full h-1 bg-[#181828] rounded"></div>
+</div>
+<span class="text-[9px] text-[#706c8a]">0:04</span>
+<button class="material-symbols-outlined text-[#706c8a] text-sm opacity-0 group-hover:opacity-100">close</button>
+</div>
+</div>
+</section>
+<div class="h-px bg-[#222236]"></div>
+<!-- Choices -->
+<section class="space-y-3 pb-24">
+<div class="flex justify-between items-center">
+<label class="text-[10px] uppercase font-bold text-[#706c8a] tracking-wider">Choices &amp; Routing</label>
+<button class="text-[10px] text-[#c9a96e] hover:underline">+ New Choice</button>
+</div>
+<div class="bg-[#181828] border border-[#222236] rounded p-3 space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-xs font-bold text-on-surface">"Knock on the heavy door"</span>
+<span class="text-[10px] text-[#928faa]">Target: The Crossroads</span>
+</div>
+<div class="flex gap-1">
+<span class="text-[9px] border border-[#c9a96e]/30 text-[#c9a96e] px-2 py-0.5 rounded">Action</span>
+<span class="text-[9px] border border-[#222236] text-[#706c8a] px-2 py-0.5 rounded">+2 Curiosity</span>
+</div>
+</div>
+<div class="bg-[#181828] border border-[#222236] rounded p-3 space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-xs font-bold text-on-surface">"Wait in the shadows"</span>
+<span class="text-[10px] text-[#928faa]">Target: First Encounter</span>
+</div>
+<div class="flex gap-1">
+<span class="text-[9px] border border-[#c9a96e]/30 text-[#c9a96e] px-2 py-0.5 rounded">Stealth</span>
+<span class="text-[9px] border border-[#222236] text-[#706c8a] px-2 py-0.5 rounded">+1 Caution</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Inspector Actions -->
+<div class="p-4 bg-[#07070f] border-t border-[#222236] absolute bottom-0 w-full space-y-2">
+<button class="w-full bg-[rgba(100,200,120,0.1)] border border-[rgba(100,200,120,0.3)] text-[rgba(100,200,120,1)] py-2 rounded text-xs font-bold hover:bg-[rgba(100,200,120,0.2)] transition-all">
+                    SET AS START SCENE
+                </button>
+<button class="w-full bg-[rgba(255,107,107,0.05)] border border-[rgba(255,107,107,0.2)] text-[#ff6b6b] py-2 rounded text-xs font-bold hover:bg-[rgba(255,107,107,0.1)] transition-all">
+                    DELETE SCENE
+                </button>
+</div>
+</aside>
+</main>
+<!-- FLOATING STATUS BAR (Optional Visual Detail) -->
+<footer class="fixed bottom-0 left-0 w-full h-6 bg-[#07070f] border-t border-[#222236] px-4 flex items-center justify-between text-[10px] text-[#706c8a] z-50">
+<div class="flex gap-4">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Connected</span>
+<span>Project: "Murmur_Draft_01"</span>
+<span>Autosave: 2m ago</span>
+</div>
+<div class="flex gap-4">
+<span>Total Clips: 14</span>
+<span>Graph Nodes: 7</span>
+<span>Zoom: 100%</span>
+</div>
+</footer>
+</body></html>

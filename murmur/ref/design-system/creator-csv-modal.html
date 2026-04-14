@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Murmur Creator - Import CSV</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&amp;family=EB+Garamond:ital,wght@1,400;1,500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "outline": "#998f81",
+                        "on-tertiary-container": "#840d1b",
+                        "on-primary-fixed": "#261900",
+                        "surface-dim": "#12121f",
+                        "on-primary": "#412d00",
+                        "inverse-surface": "#e3e0f4",
+                        "surface-variant": "#343342",
+                        "surface-tint": "#e4c285",
+                        "on-secondary-fixed": "#1a192e",
+                        "on-background": "#e3e0f4",
+                        "tertiary": "#ffb6b3",
+                        "on-tertiary": "#68000f",
+                        "inverse-on-surface": "#2f2f3d",
+                        "surface-container-lowest": "#0d0d1a",
+                        "secondary-container": "#46445c",
+                        "secondary": "#c7c3e0",
+                        "primary-container": "#c9a96e",
+                        "on-surface-variant": "#d0c5b5",
+                        "surface-container-high": "#292937",
+                        "on-primary-fixed-variant": "#5a4312",
+                        "on-error": "#690005",
+                        "on-secondary-container": "#b6b2ce",
+                        "on-tertiary-fixed-variant": "#8c1520",
+                        "on-error-container": "#ffdad6",
+                        "surface-bright": "#383847",
+                        "primary-fixed-dim": "#e4c285",
+                        "on-primary-container": "#543d0c",
+                        "on-tertiary-fixed": "#410006",
+                        "surface-container-low": "#1a1a28",
+                        "outline-variant": "#4d463a",
+                        "tertiary-fixed-dim": "#ffb3b0",
+                        "inverse-primary": "#745a27",
+                        "secondary-fixed": "#e3dffd",
+                        "tertiary-container": "#ff8c89",
+                        "primary-fixed": "#ffdea4",
+                        "on-surface": "#e3e0f4",
+                        "secondary-fixed-dim": "#c7c3e0",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#343342",
+                        "surface-container": "#1e1e2c",
+                        "primary": "#e6c487",
+                        "on-secondary": "#302e44",
+                        "background": "#12121f",
+                        "surface": "#12121f",
+                        "tertiary-fixed": "#ffdad8",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed-variant": "#46445c"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Noto Serif"],
+                        "body": ["Noto Serif"],
+                        "label": ["Noto Serif"],
+                        "eb-garamond": ["EB Garamond"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .canvas-grid {
+            background-image: radial-gradient(#222236 1px, transparent 1px);
+            background-size: 32px 32px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body overflow-hidden">
+<!-- TopNavBar -->
+<header class="bg-[#07070f] dark:bg-[#07070f] text-[#c9a96e] font-serif font-medium docked full-width top-0 border-b border-[#222236] shadow-lg flex justify-between items-center w-full px-6 h-16 z-10">
+<div class="text-xl font-bold tracking-tight text-[#c9a96e]">Murmur Creator</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-[#928faa] hover:text-[#f0ede6] hover:bg-[#181828] transition-colors cursor-pointer active:opacity-80" href="#">Dashboard</a>
+<a class="text-[#c9a96e] border-b-2 border-[#c9a96e] pb-1 cursor-pointer active:opacity-80" href="#">Stories</a>
+<a class="text-[#928faa] hover:text-[#f0ede6] hover:bg-[#181828] transition-colors cursor-pointer active:opacity-80" href="#">Library</a>
+<a class="text-[#928faa] hover:text-[#f0ede6] hover:bg-[#181828] transition-colors cursor-pointer active:opacity-80" href="#">Analytics</a>
+</nav>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#928faa] cursor-pointer" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-[#928faa] cursor-pointer" data-icon="settings">settings</span>
+<button class="bg-[#c9a96e] text-[#07070f] px-4 py-1.5 rounded-full text-sm font-bold">New Story</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-[#222236]">
+<img alt="User profile" data-alt="Close up portrait of a professional man with neutral expression and soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDleRN-b0C0Kk2sQXAI1os6QOmIJhDDxSfrRl0O_xStABFRPxyQjWHWM48aYC3GrsjjYqmfCO-hGZWkkZXLPYwshzAO510tlYxP-b_JKRXV3VlZY2G27GWOlVKtzmoE-O8sa97aLcw-YDds_PAaIYRL0_OVXc7eXEL4hxK9hEsBS6WtcGKAMLFxkVLDJby7OnPKr6kXka0t0TjzgrsETvyWNXtoBQpU_-Xmbhxx6ufsAjYT84p6IeBpkLeANeXWTPsaLc54wLXA2A"/>
+</div>
+</div>
+</header>
+<div class="flex h-[calc(100vh-64px)] w-full overflow-hidden relative">
+<!-- SideNavBar -->
+<aside class="bg-[#0f0f1c] dark:bg-[#0f0f1c] text-[#c9a96e] font-serif text-sm docked left-0 h-full w-64 border-r border-[#222236] flat no shadows flex flex-col h-screen sticky top-0">
+<div class="p-6 border-b border-[#222236]">
+<div class="flex items-center gap-3 mb-1">
+<div class="w-6 h-6 bg-[#222236] rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]" data-icon="auto_stories">auto_stories</span>
+</div>
+<span class="text-lg font-bold text-[#f0ede6]">Current Story</span>
+</div>
+<p class="text-[#706c8a] text-xs">Draft v1.0</p>
+</div>
+<nav class="flex-1 py-4 overflow-y-auto">
+<div class="px-2 space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 bg-[#222236] text-[#c9a96e] font-bold border-l-4 border-[#c9a96e] transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span> Editor
+                    </a>
+<a class="flex items-center gap-3 px-4 py-2 text-[#706c8a] hover:bg-[#181828] hover:text-[#f0ede6] transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="account_tree">account_tree</span> Nodes
+                    </a>
+<a class="flex items-center gap-3 px-4 py-2 text-[#706c8a] hover:bg-[#181828] hover:text-[#f0ede6] transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="mic">mic</span> Audio
+                    </a>
+<a class="flex items-center gap-3 px-4 py-2 text-[#706c8a] hover:bg-[#181828] hover:text-[#f0ede6] transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span> Variables
+                    </a>
+<a class="flex items-center gap-3 px-4 py-2 text-[#706c8a] hover:bg-[#181828] hover:text-[#f0ede6] transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="ios_share">ios_share</span> Export
+                    </a>
+</div>
+<div class="mt-8 px-4">
+<button class="w-full py-2 bg-[#c9a96e] text-[#07070f] rounded font-bold transition hover:opacity-90">Import CSV</button>
+</div>
+</nav>
+<div class="p-4 border-t border-[#222236] space-y-2">
+<a class="flex items-center gap-3 px-4 py-2 text-[#706c8a] hover:text-[#f0ede6] transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="help_outline">help_outline</span> Help
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-[#706c8a] hover:text-[#f0ede6] transition-all duration-150" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="chat_bubble_outline">chat_bubble_outline</span> Feedback
+                </a>
+</div>
+</aside>
+<!-- Editor Canvas Background -->
+<main class="flex-1 relative canvas-grid overflow-hidden">
+<!-- Mock Node 1 -->
+<div class="absolute top-20 left-20 w-64 bg-[#181828] border-l-4 border-emerald-500/50 rounded-lg shadow-2xl p-4">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] uppercase tracking-widest text-[#706c8a]">Start Node</span>
+<span class="material-symbols-outlined text-emerald-400 text-sm" data-icon="play_arrow">play_arrow</span>
+</div>
+<h3 class="font-serif text-[#f0ede6] mb-2">Introduction</h3>
+<p class="text-xs text-[#928faa] leading-relaxed">"Welcome to the whispers of the forest..."</p>
+</div>
+<!-- Mock Node 2 -->
+<div class="absolute top-48 left-[400px] w-64 bg-[#181828] border-l-4 border-[#222236] rounded-lg shadow-2xl p-4 opacity-50">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] uppercase tracking-widest text-[#706c8a]">Scene 02</span>
+</div>
+<h3 class="font-serif text-[#f0ede6] mb-2">The Old Path</h3>
+<p class="text-xs text-[#928faa] leading-relaxed">The trees begin to tighten their grip...</p>
+</div>
+<!-- SVG Connector Lines (Simplified) -->
+<svg class="absolute inset-0 pointer-events-none w-full h-full">
+<path d="M 284 100 L 400 220" fill="none" stroke="#222236" stroke-width="2"></path>
+</svg>
+</main>
+<!-- MODAL OVERLAY -->
+<div class="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[10px] bg-[#07070f]/85 px-4">
+<!-- Modal Container -->
+<div class="w-full max-w-[520px] bg-[#0f0f1c] rounded-[16px] border border-[#222236] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+<!-- Header -->
+<div class="flex justify-between items-center p-6 border-b border-[#222236]">
+<h2 class="font-eb-garamond italic text-[24px] text-[#f0ede6]">Import CSV</h2>
+<button class="text-[#706c8a] hover:text-[#f0ede6] transition-colors">
+<span class="material-symbols-outlined text-[24px]" data-icon="close">close</span>
+</button>
+</div>
+<!-- Form Body -->
+<div class="p-8 space-y-8">
+<!-- Field 1: Story Title -->
+<div class="space-y-2">
+<label class="block text-[13px] uppercase tracking-[0.1em] text-secondary">Story Title</label>
+<input class="w-full bg-[#181828] border-[#222236] rounded-[10px] text-[#f0ede6] placeholder:text-[#706c8a] px-4 py-3 focus:border-[#c9a96e] focus:ring-1 focus:ring-[#c9a96e] outline-none transition-all" placeholder="e.g. Whispers of the Deep Forest" type="text"/>
+</div>
+<!-- Field 2: CSV Upload -->
+<div class="space-y-4">
+<div class="space-y-1">
+<label class="block text-[13px] uppercase tracking-[0.1em] text-secondary">CSV File</label>
+<p class="text-[13px] text-[#928faa] leading-relaxed">
+                                Expected columns: scene_id, title, narration_script, choice_1_text, choice_1_target, choice_2_text, choice_2_target, emotion, is_start, default_choice, seconds_before_end, countdown_seconds, notes
+                            </p>
+</div>
+<!-- Upload Area -->
+<div class="border-2 border-dashed border-[#222236] rounded-[12px] p-10 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-[#181828] transition-all group">
+<div class="w-12 h-12 rounded-full bg-[#181828] group-hover:bg-[#222236] flex items-center justify-center transition-all">
+<span class="material-symbols-outlined text-[#c9a96e]" data-icon="upload_file">upload_file</span>
+</div>
+<p class="text-[#928faa] text-sm">Drop CSV file here or click to browse</p>
+</div>
+</div>
+<!-- Status Area -->
+<div class="bg-[#181828] border border-[#222236] rounded-[10px] px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-500 text-[20px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[#f0ede6] text-sm font-medium">23 scenes loaded</span>
+</div>
+<button class="text-[#706c8a] hover:text-error text-xs uppercase tracking-widest font-bold">Clear</button>
+</div>
+</div>
+<!-- Footer Action -->
+<div class="px-8 pb-8">
+<button class="w-full bg-[#c9a96e] text-[#07070f] font-bold py-4 rounded-full text-[13px] uppercase tracking-[0.2em] hover:opacity-90 active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(201,169,110,0.2)]">
+                        Import &amp; Load into Editor
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

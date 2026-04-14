@@ -32,6 +32,8 @@ export default function Background({ scene, bgs, instant }) {
 
   return (
     <>
+      {/* Base color */}
+      <div className="absolute inset-0" style={{ background: '#07070f' }} />
       <div
         className="absolute inset-0 bg-cover bg-center transition-opacity duration-[1100ms]"
         style={{ ...bgA, opacity: slot === 'a' ? 1 : 0, transitionTimingFunction: 'var(--silk)' }}
@@ -40,11 +42,11 @@ export default function Background({ scene, bgs, instant }) {
         className="absolute inset-0 bg-cover bg-center transition-opacity duration-[1100ms]"
         style={{ ...bgB, opacity: slot === 'b' ? 1 : 0, transitionTimingFunction: 'var(--silk)' }}
       />
-      {/* Vignette */}
+      {/* Radial vignette */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to bottom, rgba(7,7,15,0.5) 0%, rgba(7,7,15,0.1) 35%, rgba(7,7,15,0.4) 65%, rgba(7,7,15,0.92) 100%)',
+          background: 'radial-gradient(circle, transparent 20%, rgba(7,7,15,0.95) 100%)',
         }}
       />
     </>

@@ -11,3 +11,6 @@ nas-vite/node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# MCP config (contains API keys)
+.mcp.json

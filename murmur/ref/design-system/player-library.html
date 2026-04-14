@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Murmur | Story Library</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..800;1,400..800&amp;family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;family=Public+Sans:ital,wght@0,100..900;1,100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-primary": "#755b28",
+                    "surface-tint": "#e4c285",
+                    "outline": "#737392",
+                    "on-surface-variant": "#a9a8ca",
+                    "on-background": "#e5e3ff",
+                    "on-secondary-fixed-variant": "#5b5972",
+                    "surface-container-lowest": "#000000",
+                    "secondary-container": "#3b3950",
+                    "primary": "#e4c285",
+                    "surface-container-low": "#121223",
+                    "on-secondary-container": "#c0bcd9",
+                    "surface-bright": "#292945",
+                    "error-container": "#85230a",
+                    "on-primary": "#533d0b",
+                    "on-primary-fixed-variant": "#6f5623",
+                    "surface-container-highest": "#23233e",
+                    "surface-container-high": "#1d1d34",
+                    "on-secondary-fixed": "#3f3d54",
+                    "primary-dim": "#d5b478",
+                    "background": "#07070f",
+                    "on-error-container": "#ff9b82",
+                    "surface-variant": "#23233e",
+                    "on-error": "#450900",
+                    "tertiary-dim": "#efb18a",
+                    "secondary-dim": "#b9b6d2",
+                    "surface-container": "#17182c",
+                    "on-primary-fixed": "#503a08",
+                    "on-tertiary": "#6e4223",
+                    "on-tertiary-fixed": "#4d260a",
+                    "secondary-fixed": "#e3dffd",
+                    "primary-fixed-dim": "#f0cd8f",
+                    "error": "#f97758",
+                    "tertiary": "#ffd1b6",
+                    "inverse-surface": "#fcf8ff",
+                    "tertiary-container": "#ffbe97",
+                    "surface": "#07070f",
+                    "outline-variant": "#454562",
+                    "error-dim": "#c44f34",
+                    "on-tertiary-container": "#64391b",
+                    "primary-fixed": "#fedb9b",
+                    "primary-container": "#674f1d",
+                    "secondary": "#c7c3e0",
+                    "inverse-on-surface": "#545363",
+                    "surface-dim": "#07070f",
+                    "on-tertiary-fixed-variant": "#6f4224",
+                    "tertiary-fixed-dim": "#efb18a",
+                    "secondary-fixed-dim": "#d5d1ee",
+                    "on-secondary": "#3f3e55",
+                    "on-primary-container": "#ffdfa7",
+                    "tertiary-fixed": "#ffbe97",
+                    "on-surface": "#e5e3ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader", "serif"],
+                    "body": ["Public Sans", "sans-serif"],
+                    "label": ["Public Sans", "sans-serif"],
+                    "serif-premium": ["EB Garamond", "serif"],
+                    "sans-clean": ["DM Sans", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .snap-y-container {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            height: 100dvh;
+        }
+        .snap-section {
+            scroll-snap-align: start;
+            height: 100dvh;
+            position: relative;
+        }
+        .cinematic-vignette {
+            background: linear-gradient(to top, #07070f 5%, rgba(7, 7, 15, 0.4) 40%, transparent 100%);
+        }
+        .ken-burns {
+            transform: scale(1.1);
+        }
+        .tap-highlight-transparent {
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom scrollbar hide */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30 no-scrollbar">
+<!-- Top Navigation Anchor (Shared Component) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 py-4 w-full backdrop-blur-sm bg-black/10">
+<div class="font-['EB_Garamond'] italic text-[#c9a96e] text-2xl font-serif italic text-[#c9a96e] tracking-wide">Murmur</div>
+<button class="bg-white/5 border border-white/10 backdrop-blur-md text-[#c9a96e] font-sans-clean px-5 py-2 rounded-full text-sm uppercase tracking-widest hover:bg-white/10 transition-all duration-300">
+            Create
+        </button>
+</header>
+<!-- Side Navigation / Scroll Dots -->
+<div class="fixed right-6 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-4">
+<div class="w-1.5 h-6 bg-[#c9a96e] rounded-full transition-all duration-500"></div>
+<div class="w-1.5 h-1.5 bg-white/30 rounded-full hover:bg-white/60 transition-all cursor-pointer"></div>
+<div class="w-1.5 h-1.5 bg-white/30 rounded-full hover:bg-white/60 transition-all cursor-pointer"></div>
+<div class="w-1.5 h-1.5 bg-white/30 rounded-full hover:bg-white/60 transition-all cursor-pointer"></div>
+</div>
+<!-- Main Content: Vertical Snap Scroll Feed -->
+<main class="snap-y-container no-scrollbar">
+<!-- Story Card 1 -->
+<section class="snap-section overflow-hidden">
+<div class="absolute inset-0 z-0 ken-burns">
+<img alt="" class="w-full h-full object-cover grayscale-[20%] contrast-[110%] brightness-[0.7]" data-alt="Moody cinematic shot of a Victorian mansion shrouded in thick fog at night, dim yellow light in one window, gothic atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIouIGyi3PTOtdoyYf0jKyrJg-9_IHJtMoqz2IeqifR4AoN5wJZumRt56YzwwYiuomu6WdDz3wkqlqpt4PAD3FV0IXrBTIEdmrM-Vijs5oFHxtG6_SwV8tSkpVYGUaf8Om1yT-zaOC4I6svwelrdv5MCQxFNWjECeYhWhNyHirYH4ulwbN_116pYZtCJIg3sMKcx8tvCO5JufSqbKh4dzdXcWZgKNB1bAnOwTWmiceYEQiRyA5r-pH0LFZp1nvdZIIU4tyXPM43dc"/>
+</div>
+<div class="absolute inset-0 z-10 cinematic-vignette"></div>
+<div class="absolute inset-x-0 bottom-0 z-20 px-8 pb-32 flex flex-col items-center md:items-start max-w-4xl mx-auto md:mx-0 md:ml-12 lg:ml-20">
+<div class="flex gap-3 mb-4">
+<span class="px-3 py-1 bg-[#c9a96e]/10 border border-[#c9a96e]/30 rounded-full text-[#c9a96e] text-[10px] font-sans-clean tracking-[0.2em] uppercase">Gothic</span>
+<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/70 text-[10px] font-sans-clean tracking-[0.2em] uppercase">Mystery</span>
+</div>
+<h1 class="font-serif-premium italic text-5xl md:text-7xl text-[#f0ede6] leading-tight mb-4 tracking-tight">The Hollow Echo</h1>
+<p class="text-[#928faa] font-sans-clean text-lg md:text-xl max-w-lg mb-8 text-center md:text-left leading-relaxed">A forgotten inheritance leads to a silence that speaks in voices not your own.</p>
+<div class="flex items-center gap-6 mt-4 opacity-60">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">headphones</span>
+<span class="text-[11px] font-sans-clean uppercase tracking-widest">42 Mins</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">auto_stories</span>
+<span class="text-[11px] font-sans-clean uppercase tracking-widest">12 Chapters</span>
+</div>
+</div>
+</div>
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 animate-pulse opacity-40">
+<span class="text-[10px] font-sans-clean uppercase tracking-[0.3em] text-white">— Scroll to Explore</span>
+<span class="material-symbols-outlined text-lg">keyboard_double_arrow_down</span>
+</div>
+</section>
+<!-- Story Card 2 -->
+<section class="snap-section overflow-hidden">
+<div class="absolute inset-0 z-0 ken-burns">
+<img alt="" class="w-full h-full object-cover contrast-[105%] brightness-[0.6]" data-alt="Dreamy surrealist landscape with a giant clock melting over a lonely desert tree, deep navy and amber lighting, cinematic film grain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaUjEEtsNKzqiVhCKTBfk4eXdQ_xWMmiCr5w_PXDrH4DkG74F9KKXKikzCAuEfaulon7lGXf3y4e78abdThjaltwxPFAwVZYDXWdznMhjwcmVrm3N0T9wa-PXfwdbJrbeQT8qCS_niltrfIGhzEeghBMhIOi-Q5N6br7N46-ncHeDhQ5YCB9BoVQRJrh78Wefz3c19QdXnAiRkz778pyWLHZbYfypfMWrtkcmW_dp6qoV3y5L_jpZomzq8VBKntKiCIpHcwc7C0Fk"/>
+</div>
+<div class="absolute inset-0 z-10 cinematic-vignette"></div>
+<div class="absolute inset-x-0 bottom-0 z-20 px-8 pb-32 flex flex-col items-center md:items-start max-w-4xl mx-auto md:mx-0 md:ml-12 lg:ml-20">
+<div class="flex gap-3 mb-4">
+<span class="px-3 py-1 bg-[#c9a96e]/10 border border-[#c9a96e]/30 rounded-full text-[#c9a96e] text-[10px] font-sans-clean tracking-[0.2em] uppercase">Noir</span>
+<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/70 text-[10px] font-sans-clean tracking-[0.2em] uppercase">Scifi</span>
+</div>
+<h1 class="font-serif-premium italic text-5xl md:text-7xl text-[#f0ede6] leading-tight mb-4 tracking-tight">Cinders of Time</h1>
+<p class="text-[#928faa] font-sans-clean text-lg md:text-xl max-w-lg mb-8 text-center md:text-left leading-relaxed">In a city where memories are currency, one man has a debt he can't forget.</p>
+<div class="flex items-center gap-6 mt-4 opacity-60">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">headphones</span>
+<span class="text-[11px] font-sans-clean uppercase tracking-widest">1h 15m</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">auto_stories</span>
+<span class="text-[11px] font-sans-clean uppercase tracking-widest">8 Chapters</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Story Card 3 -->
+<section class="snap-section overflow-hidden">
+<div class="absolute inset-0 z-0 ken-burns">
+<img alt="" class="w-full h-full object-cover contrast-[115%] brightness-[0.6]" data-alt="Dark stormy ocean with massive waves crashing against jagged black cliffs, moody moonlight breaking through clouds, dramatic perspective" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC94U_r0ABI78flk-qbSazljaatYNa01g5Oc6om-Nc3a3cH9rvSiVmKdSLwJBRXckjFfsZqr3VjJgfZChsJ749nXJ3FNI75bs1G-YDhG4fC-NAiMrrLqJfiZIZXa1TQNAvqmdLg3SKRa4sUiHhUox4gZZ7kxgx34ydFESj_nQOip_lw_3edsEcQKa_PTBmpHbbMbyGB61m5UeBm-V6Jit9-_Yu6O4iuWSsDTNawlAZPAVzPQLQU2lf7kGFc3yFsHaIc5W7tRYW7oL8"/>
+</div>
+<div class="absolute inset-0 z-10 cinematic-vignette"></div>
+<div class="absolute inset-x-0 bottom-0 z-20 px-8 pb-32 flex flex-col items-center md:items-start max-w-4xl mx-auto md:mx-0 md:ml-12 lg:ml-20">
+<div class="flex gap-3 mb-4">
+<span class="px-3 py-1 bg-[#c9a96e]/10 border border-[#c9a96e]/30 rounded-full text-[#c9a96e] text-[10px] font-sans-clean tracking-[0.2em] uppercase">Thriller</span>
+<span class="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/70 text-[10px] font-sans-clean tracking-[0.2em] uppercase">Supernatural</span>
+</div>
+<h1 class="font-serif-premium italic text-5xl md:text-7xl text-[#f0ede6] leading-tight mb-4 tracking-tight">Whispers of the Deep</h1>
+<p class="text-[#928faa] font-sans-clean text-lg md:text-xl max-w-lg mb-8 text-center md:text-left leading-relaxed">The lighthouse wasn't built to guide ships. It was built to keep things in.</p>
+<div class="flex items-center gap-6 mt-4 opacity-60">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">headphones</span>
+<span class="text-[11px] font-sans-clean uppercase tracking-widest">58 Mins</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">auto_stories</span>
+<span class="text-[11px] font-sans-clean uppercase tracking-widest">15 Chapters</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Anchor (Shared Component) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-12 bg-gradient-to-t from-[#07070f] to-transparent tap-highlight-transparent">
+<a class="flex flex-col items-center justify-center text-white/40 hover:text-[#c9a96e]/80" href="#">
+<span class="material-symbols-outlined text-2xl">home</span>
+<span class="font-['DM_Sans'] text-[10px] uppercase tracking-widest mt-1">home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#c9a96e] scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-['DM_Sans'] text-[10px] uppercase tracking-widest mt-1">library</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/40 hover:text-[#c9a96e]/80" href="#">
+<span class="material-symbols-outlined text-2xl">library_music</span>
+<span class="font-['DM_Sans'] text-[10px] uppercase tracking-widest mt-1">saved</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/40 hover:text-[#c9a96e]/80" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+<span class="font-['DM_Sans'] text-[10px] uppercase tracking-widest mt-1">profile</span>
+</a>
+</nav>
+</body></html>

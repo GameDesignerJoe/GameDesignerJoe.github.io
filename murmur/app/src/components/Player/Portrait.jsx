@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react'
 import Waveform from './Waveform'
 
+const emotionGlows = {
+  curious:    { border: '#7ba8ff', ring: 'rgba(123,168,255,0.4)' },
+  afraid:     { border: '#ff4b4b', ring: 'rgba(255,75,75,0.4)' },
+  happy:      { border: '#c9a96e', ring: 'rgba(201,169,110,0.4)' },
+  sad:        { border: '#8c64d2', ring: 'rgba(140,100,210,0.4)' },
+  determined: { border: 'rgba(255,255,255,0.6)', ring: 'rgba(255,255,255,0.3)' },
+}
+
 export default function Portrait({ scene, narrator, isPlaying }) {
   const [pop, setPop] = useState(false)
 
@@ -13,30 +21,46 @@ export default function Portrait({ scene, narrator, isPlaying }) {
   if (!scene) return null
 
   const portraitSrc = narrator?.portraits?.[scene.emotion] || null
+  const glow = emotionGlows[scene.emotion] || emotionGlows.curious
 
   return (
-    <div className="absolute top-1/2 left-1/2 z-20 flex flex-col items-center gap-[14px]" style={{ transform: 'translate(-50%, -58%)' }}>
-      <div
-        className={`w-28 h-28 rounded-full flex items-center justify-center text-[54px] overflow-hidden transition-all duration-500 em-${scene.emotion}`}
-        style={{
-          background: 'var(--s2)',
-          border: '2px solid rgba(255,255,255,0.08)',
-          transitionTimingFunction: pop ? 'var(--spring)' : 'var(--silk)',
-          transform: pop ? 'scale(1.08)' : 'scale(1)',
-        }}
-      >
-        {portraitSrc ? (
-          <img src={portraitSrc} alt="" className="w-full h-full object-cover" />
-        ) : (
-          narrator?.emoji || '🎭'
-        )}
+    <>
+      {/* Portrait container — matches Stitch structure */}
+      <div className="relative group">
+        {/* Outer glow ring */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            border: `2px solid ${glow.border}30`,
+            boxShadow: `0 0 20px 2px ${glow.ring}`,
+          }}
+        />
+        {/* Portrait circle */}
+        <div
+          className="w-[112px] h-[112px] rounded-full overflow-hidden relative transition-transform duration-500"
+          style={{
+            border: `2px solid ${glow.border}`,
+            transitionTimingFunction: pop ? 'var(--spring)' : 'var(--silk)',
+            transform: pop ? 'scale(1.08)' : 'scale(1)',
+          }}
+        >
+          {portraitSrc ? (
+            <img src={portraitSrc} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[54px]" style={{ background: '#17182c' }}>
+              {narrator?.emoji || '🎭'}
+            </div>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-[10px]">
-        <Waveform visible={isPlaying} />
-        <span className="text-[11px] tracking-[0.12em] uppercase" style={{ color: 'var(--sub)' }}>
+
+      {/* Emotion metadata */}
+      <div className="mt-6 flex flex-col items-center space-y-3">
+        <span className="font-classic text-[11px] tracking-[0.3em] font-bold text-[#a9a8ca] uppercase">
           {scene.emotion}
         </span>
+        <Waveform visible={isPlaying} />
       </div>
-    </div>
+    </>
   )
 }

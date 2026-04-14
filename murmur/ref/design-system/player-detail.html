@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Lighthouse Keeper's Daughter - Murmur</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@1,6..72,200..800&amp;family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#5b5972",
+                        "on-tertiary-fixed": "#4d260a",
+                        "error-container": "#85230a",
+                        "surface-container-highest": "#23233e",
+                        "secondary": "#c7c3e0",
+                        "tertiary-fixed": "#ffbe97",
+                        "primary-fixed-dim": "#f0cd8f",
+                        "outline": "#737392",
+                        "on-secondary": "#3f3e55",
+                        "tertiary": "#ffd1b6",
+                        "secondary-dim": "#b9b6d2",
+                        "error-dim": "#c44f34",
+                        "inverse-primary": "#755b28",
+                        "on-surface": "#e5e3ff",
+                        "secondary-fixed-dim": "#d5d1ee",
+                        "surface-container-high": "#1d1d34",
+                        "tertiary-dim": "#efb18a",
+                        "surface-bright": "#292945",
+                        "error": "#f97758",
+                        "on-secondary-container": "#c0bcd9",
+                        "on-tertiary-container": "#64391b",
+                        "surface-container-low": "#121223",
+                        "on-error-container": "#ff9b82",
+                        "tertiary-container": "#ffbe97",
+                        "surface-dim": "#0d0d1a",
+                        "on-primary-fixed": "#503a08",
+                        "primary-fixed": "#fedb9b",
+                        "primary": "#e4c285",
+                        "secondary-container": "#3b3950",
+                        "surface": "#0d0d1a",
+                        "primary-container": "#674f1d",
+                        "on-primary": "#533d0b",
+                        "on-tertiary": "#6e4223",
+                        "tertiary-fixed-dim": "#efb18a",
+                        "on-primary-fixed-variant": "#6f5623",
+                        "surface-container-lowest": "#000000",
+                        "secondary-fixed": "#e3dffd",
+                        "primary-dim": "#d5b478",
+                        "inverse-surface": "#fcf8ff",
+                        "on-tertiary-fixed-variant": "#6f4224",
+                        "surface-variant": "#23233e",
+                        "surface-container": "#17182c",
+                        "on-error": "#450900",
+                        "on-background": "#e5e3ff",
+                        "on-surface-variant": "#a9a8ca",
+                        "on-primary-container": "#ffdfa7",
+                        "background": "#0d0d1a",
+                        "surface-tint": "#e4c285",
+                        "inverse-on-surface": "#545363",
+                        "outline-variant": "#454562",
+                        "on-secondary-fixed": "#3f3d54"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Newsreader", "serif"],
+                        "body": ["Public Sans", "sans-serif"],
+                        "label": ["Public Sans", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0d0d1a; /* Matches surface-dim / #07070f vibe */
+            color: #e5e3ff;
+            font-family: 'Public Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .serif-italic {
+            font-family: 'Newsreader', serif;
+            font-style: italic;
+        }
+        .hero-vignette {
+            background: linear-gradient(to bottom, rgba(13, 13, 26, 0) 0%, rgba(13, 13, 26, 0.4) 60%, rgba(13, 13, 26, 1) 100%);
+        }
+        .text-gold {
+            color: #c9a96e;
+        }
+        .bg-gold {
+            background-color: #c9a96e;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-dim min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation Bar (Shared Component Anchor) -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center px-4 h-16 bg-transparent text-[#c9a96e] font-serif italic text-lg">
+<div class="flex items-center gap-2 cursor-pointer hover:bg-white/10 transition-colors duration-300 p-2 rounded-lg active:scale-95">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+<span class="tracking-tight">Murmur</span>
+</div>
+</header>
+<main class="relative">
+<!-- Hero Section (52% VH) -->
+<section class="relative h-[459px] w-full overflow-hidden">
+<img alt="" class="absolute inset-0 w-full h-full object-cover" data-alt="Moody cinematic shot of a stone lighthouse on a jagged cliff at night, thick fog, dim lantern light glowing, deep blues and blacks" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3Cqrli03rW9jsN1nC2-j_7h2I9emIYaRKQFfU4hSZnLiPDhX62sbeJqk4cBXI1QYS2Y3eOtlZCjsMKtDHf79AUVYalSfyYgwRJusNYjI9_MQFyGxOn7x-j1ytWw6gz3vBxB57AdBoqtJDQTa6Z0vzTrnQGxRfQtuE-aKMJDpUssaRro89748Xx2aLxyr03cf4zd52Vgp3nuxkldZQ2xTZXfCc2rM3FpMUWsoXqVv7-LEJfR2N2UCjqHbMBQYemnCe9bBMVTn53AQ"/>
+<!-- Deep Vignette Melt -->
+<div class="absolute inset-0 hero-vignette"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-surface-dim/40 via-transparent to-surface-dim/40"></div>
+</section>
+<!-- Content Area (Scrollable) -->
+<article class="relative z-10 px-6 -mt-12 pb-32 max-w-2xl mx-auto">
+<!-- Genre Pills -->
+<div class="flex gap-3 mb-6">
+<span class="px-3 py-1 rounded-full border border-primary/30 text-[10px] tracking-[0.15em] uppercase font-semibold text-gold bg-primary-container/10 backdrop-blur-md">Gothic</span>
+<span class="px-3 py-1 rounded-full border border-primary/30 text-[10px] tracking-[0.15em] uppercase font-semibold text-gold bg-primary-container/10 backdrop-blur-md">Mystery</span>
+</div>
+<!-- Title & Tagline -->
+<div class="space-y-2 mb-8">
+<h1 class="text-4xl md:text-5xl serif-italic font-light leading-tight text-on-surface">
+                    The Lighthouse Keeper's Daughter
+                </h1>
+<p class="text-gold serif-italic text-lg opacity-90">
+                    "Some secrets are worth keeping."
+                </p>
+</div>
+<!-- Metadata Row -->
+<div class="grid grid-cols-3 gap-4 py-8 mb-8 border-y border-outline-variant/30">
+<div class="flex flex-col gap-1">
+<span class="text-[9px] tracking-[0.2em] font-bold text-gold/60 uppercase">Duration</span>
+<span class="serif-italic text-xl text-on-surface">12 MIN</span>
+</div>
+<div class="flex flex-col gap-1 border-x border-outline-variant/20 px-4">
+<span class="text-[9px] tracking-[0.2em] font-bold text-gold/60 uppercase">Paths</span>
+<span class="serif-italic text-xl text-on-surface">4</span>
+</div>
+<div class="flex flex-col gap-1 text-right">
+<span class="text-[9px] tracking-[0.2em] font-bold text-gold/60 uppercase">Voice</span>
+<span class="serif-italic text-xl text-on-surface">Eleanor</span>
+</div>
+</div>
+<!-- Description -->
+<div class="prose prose-invert max-w-none mb-12">
+<p class="text-on-surface-variant leading-relaxed font-light text-lg tracking-wide">
+                    The Blackwood Reach lighthouse has stood silent for a century, its lantern extinguished by a storm that claimed more than just the light. You arrive as the estranged granddaughter of its last keeper, carrying only a silver key and a memory of a lullaby.
+                </p>
+<p class="text-on-surface-variant leading-relaxed font-light text-lg tracking-wide mt-4">
+                    As the tide recedes, the stones begin to whisper. Will you follow the echoes into the spiral staircase of the past, or let the waves wash away the truth of what your family left behind in the salt and spray?
+                </p>
+</div>
+<!-- CTA -->
+<div class="flex justify-center pt-4">
+<button class="w-[85%] md:w-[60%] bg-gold text-on-primary-fixed py-5 px-8 rounded-full font-semibold tracking-wide flex items-center justify-center gap-3 shadow-2xl shadow-primary/20 hover:brightness-110 active:scale-[0.98] transition-all duration-300 group">
+<span class="text-sm font-bold uppercase tracking-widest">Begin Your Journey</span>
+<span class="material-symbols-outlined transition-transform group-hover:translate-x-1" data-icon="arrow_right_alt">arrow_right_alt</span>
+</button>
+</div>
+</article>
+</main>
+<!-- Aesthetic Decorative Elements -->
+<div class="fixed bottom-0 left-0 w-full h-32 bg-gradient-to-t from-surface-dim to-transparent pointer-events-none z-0"></div>
+<!-- Subtle Grain Overlay (Simulated via SVG filter for cinematic feel) -->
+<div class="fixed inset-0 pointer-events-none opacity-[0.03] z-[100]">
+<svg viewbox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<filter id="noise">
+<feturbulence basefrequency="0.65" numoctaves="3" stitchtiles="stitch" type="fractalNoise"></feturbulence>
+</filter>
+<rect filter="url(#noise)" height="100%" width="100%"></rect>
+</svg>
+</div>
+</body></html>

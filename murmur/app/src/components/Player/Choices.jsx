@@ -13,11 +13,9 @@ function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled })
 
   useEffect(() => {
     if (!isDefault || !countdown || disabled) return
-
     const totalMs = countdown * 1000
     let elapsed = 0
     const interval = 80
-
     intervalRef.current = setInterval(() => {
       elapsed += interval
       const pct = Math.max(0, 1 - elapsed / totalMs)
@@ -28,10 +26,7 @@ function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled })
         onPick()
       }
     }, interval)
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [isDefault, countdown, disabled])
 
   const handleClick = () => {
@@ -39,61 +34,68 @@ function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled })
     onPick()
   }
 
+  const baseStyle = {
+    width: '100%',
+    padding: '20px 24px',
+    borderRadius: '12px',
+    textAlign: 'left',
+    cursor: 'pointer',
+    position: 'relative',
+    overflow: 'hidden',
+    transition: 'opacity 0.5s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)',
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(22px)',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+  }
+
+  if (isDefault) {
+    return (
+      <button
+        onClick={handleClick}
+        style={{
+          ...baseStyle,
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid #c9a96e',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '2px' }}>
+          <p style={{ fontFamily: "'EB Garamond', serif", fontStyle: 'italic', fontSize: '18px', color: '#ffffff', margin: 0 }}>
+            {choice.text}
+          </p>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#c9a96e', fontWeight: 700, marginLeft: '12px', flexShrink: 0 }}>
+            {countdownLeft}s
+          </span>
+        </div>
+        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '9px', color: 'rgba(201,169,110,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '4px 0 0 0' }}>
+          Auto-selecting if no choice
+        </p>
+        {/* Gold countdown bar */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          height: '3px',
+          background: '#c9a96e',
+          width: `${barPct}%`,
+          transition: 'width 0.08s linear',
+        }} />
+      </button>
+    )
+  }
+
   return (
     <button
-      className="w-full mb-[10px] text-left cursor-pointer relative overflow-hidden transition-all duration-500"
-      style={{
-        padding: '17px 22px',
-        background: isDefault ? 'rgba(7,7,15,0.6)' : 'rgba(7,7,15,0.52)',
-        backdropFilter: 'blur(22px)',
-        WebkitBackdropFilter: 'blur(22px)',
-        border: `1px solid ${isDefault ? 'rgba(201,169,110,0.28)' : 'rgba(255,255,255,0.075)'}`,
-        borderRadius: 'var(--rl)',
-        color: 'var(--text)',
-        fontFamily: "'Cormorant Garamond', serif",
-        fontStyle: 'italic',
-        fontSize: '19px',
-        fontWeight: 400,
-        lineHeight: 1.3,
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(22px)',
-        transitionTimingFunction: 'var(--silk)',
-      }}
       onClick={handleClick}
+      style={{
+        ...baseStyle,
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}
     >
-      <span className="block">{choice.text}</span>
-      {isDefault && (
-        <>
-          <div className="flex items-center justify-between mt-[7px]">
-            <span
-              className="text-[10px] tracking-[0.12em] uppercase"
-              style={{ fontFamily: "'DM Sans', sans-serif", fontStyle: 'normal', color: 'var(--gold)', opacity: 0.7 }}
-            >
-              Auto-selecting if no choice
-            </span>
-            <span
-              className="text-[10px] tracking-[0.08em] min-w-5 text-right"
-              style={{ fontFamily: "'DM Sans', sans-serif", fontStyle: 'normal', color: 'var(--gold)', opacity: 0.6 }}
-            >
-              {countdownLeft}s
-            </span>
-          </div>
-          <div
-            className="absolute bottom-0 left-0 right-0"
-            style={{ height: 2, background: 'rgba(201,169,110,0.1)', borderRadius: '0 0 var(--rl) var(--rl)' }}
-          >
-            <div
-              style={{
-                height: '100%',
-                width: `${barPct}%`,
-                background: 'var(--gold)',
-                borderRadius: 'inherit',
-                transition: 'width 0.08s linear',
-              }}
-            />
-          </div>
-        </>
-      )}
+      <p style={{ fontFamily: "'EB Garamond', serif", fontStyle: 'italic', fontSize: '18px', color: '#f0ede6', margin: 0 }}>
+        {choice.text}
+      </p>
     </button>
   )
 }
@@ -122,39 +124,52 @@ export default function Choices({ scene, onChoose, revealed }) {
   const isEnd = !hasChoices
 
   return (
-    <div
-      className="absolute bottom-0 left-0 right-0 z-20"
-      style={{ padding: '20px 20px max(32px, env(safe-area-inset-bottom))' }}
-    >
+    <section style={{
+      width: '100%',
+      maxWidth: '448px',
+      paddingLeft: '24px',
+      paddingRight: '24px',
+      paddingBottom: '32px',
+    }}>
       {/* Prompt */}
-      <div
-        className="text-[10px] tracking-[0.15em] uppercase text-center mb-[13px] transition-all duration-450"
-        style={{
-          color: 'var(--mute)',
-          opacity: promptVisible ? 1 : 0,
-          transform: promptVisible ? 'translateY(0)' : 'translateY(8px)',
-          transitionTimingFunction: 'var(--silk)',
-        }}
-      >
-        {isEnd ? 'Your story ends here.' : 'What will you do?'}
+      <div style={{
+        textAlign: 'center',
+        marginBottom: '24px',
+        opacity: promptVisible ? 0.6 : 0,
+        transform: promptVisible ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'opacity 0.45s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94)',
+      }}>
+        <span style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontSize: '11px',
+          letterSpacing: '0.2em',
+          fontWeight: 600,
+          color: '#a9a8ca',
+          textTransform: 'uppercase',
+        }}>
+          {isEnd ? 'Your story ends here.' : 'What will you do?'}
+        </span>
       </div>
 
-      {isEnd ? (
-        <EndButton onReturn={handlePick} />
-      ) : (
-        scene.choices.map((choice, i) => (
-          <ChoiceButton
-            key={`${scene.id}-${i}`}
-            choice={choice}
-            index={i}
-            isDefault={scene.defaultChoice != null && i === scene.defaultChoice}
-            countdown={scene.defaultChoice != null && i === scene.defaultChoice ? scene.countdown : 0}
-            onPick={() => handlePick(choice.target)}
-            disabled={chosen}
-          />
-        ))
-      )}
-    </div>
+      {/* Buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {isEnd ? (
+          <EndButton onReturn={handlePick} />
+        ) : (
+          scene.choices.map((choice, i) => (
+            <ChoiceButton
+              key={`${scene.id}-${i}`}
+              choice={choice}
+              index={i}
+              isDefault={scene.defaultChoice != null && i === scene.defaultChoice}
+              countdown={scene.defaultChoice != null && i === scene.defaultChoice ? scene.countdown : 0}
+              onPick={() => handlePick(choice.target)}
+              disabled={chosen}
+            />
+          ))
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -167,24 +182,25 @@ function EndButton({ onReturn }) {
 
   return (
     <button
-      className="w-full text-center cursor-pointer transition-all duration-500"
+      onClick={() => onReturn(null)}
       style={{
-        padding: '17px 22px',
-        background: 'rgba(7,7,15,0.52)',
-        backdropFilter: 'blur(22px)',
-        border: '1px solid rgba(255,255,255,0.075)',
-        borderRadius: 'var(--rl)',
-        color: 'var(--text)',
-        fontFamily: "'Cormorant Garamond', serif",
-        fontStyle: 'italic',
-        fontSize: '19px',
+        width: '100%',
+        padding: '20px 24px',
+        borderRadius: '12px',
+        textAlign: 'center',
+        cursor: 'pointer',
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(22px)',
-        transitionTimingFunction: 'var(--silk)',
+        transition: 'opacity 0.5s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)',
       }}
-      onClick={() => onReturn(null)}
     >
-      Return to the library…
+      <p style={{ fontFamily: "'EB Garamond', serif", fontStyle: 'italic', fontSize: '18px', color: '#f0ede6', margin: 0 }}>
+        Return to the library…
+      </p>
     </button>
   )
 }

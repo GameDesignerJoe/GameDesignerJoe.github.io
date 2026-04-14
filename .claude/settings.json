@@ -12,7 +12,11 @@
       "Bash(rm -rf src/assets)",
       "Bash(ls src/)",
       "Bash(ls public/)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "WebFetch(domain:stitch.withgoogle.com)",
+      "Bash(curl -s -L \"https://stitch.withgoogle.com\")",
+      "Bash(npm search:*)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/google-labs-code/stitch-sdk/main/README.md\")"
     ]
   }
 }
