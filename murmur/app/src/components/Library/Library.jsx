@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
+import { resolveAssetPath } from '../../engine/assetPath'
 
 function StoryCard({ story, index, totalStories }) {
   const selectStory = useStore(s => s.selectStory)
@@ -28,7 +29,7 @@ function StoryCard({ story, index, totalStories }) {
         style={{ position: 'absolute', inset: 0, zIndex: 0, transform: 'scale(1.1)' }}
       >
         {story.coverImage ? (
-          <img alt="" src={story.coverImage} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(20%) contrast(110%) brightness(0.7)' }} />
+          <img alt="" src={resolveAssetPath(story.coverImage)} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(20%) contrast(110%) brightness(0.7)' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', background: story.bg, filter: 'brightness(0.7)' }} />
         )}

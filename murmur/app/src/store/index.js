@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { SmartShuffle } from '../engine/SmartShuffle'
 import { loadStoryAudio } from '../engine/AudioStore'
+import { loadStoryImages } from '../engine/ImageStore'
 
 // ── Persistence helpers ──
 const STORIES_KEY = 'murmur_stories'
@@ -13,11 +14,25 @@ function loadStories() {
   return null
 }
 
+// Image fields that may hold a blob: URL during a session but must be stripped
+// before localStorage serialization (blobs don't survive refresh).
+const IMAGE_FIELDS = new Set(['coverImage', 'defaultBgImage', 'bgImage'])
+
 function saveStories(stories) {
   try {
-    // Strip blob URLs from clips before saving (they won't survive refresh anyway)
     const clean = JSON.parse(JSON.stringify(stories, (key, val) => {
+      // Strip blob URLs from audio clip arrays
       if (key === 'clips' && Array.isArray(val)) return val.filter(c => !c.startsWith('blob:'))
+      // Strip blob URLs from image fields (they're re-created from IndexedDB on load)
+      if (IMAGE_FIELDS.has(key) && typeof val === 'string' && val.startsWith('blob:')) return null
+      // Strip blob URLs from narrator.portraits[emotion]
+      if (key === 'portraits' && val && typeof val === 'object') {
+        const out = {}
+        for (const [k, v] of Object.entries(val)) {
+          out[k] = (typeof v === 'string' && v.startsWith('blob:')) ? null : v
+        }
+        return out
+      }
       return val
     }))
     localStorage.setItem(STORIES_KEY, JSON.stringify(clean))
@@ -177,6 +192,23 @@ export const useStore = create((set, get) => ({
       console.warn('[Murmur] Failed to restore audio on launch:', e.message)
     }
 
+    // Restore generated images from IndexedDB (cover, default-bg, etc.) for rendering
+    try {
+      const imgBlobs = await loadStoryImages(story.id)
+      if (Object.keys(imgBlobs).length > 0) {
+        const patched = { ...story }
+        if (imgBlobs['cover'] && !patched.coverImage) {
+          patched.coverImage = URL.createObjectURL(imgBlobs['cover'])
+        }
+        if (imgBlobs['default-bg'] && !patched.defaultBgImage) {
+          patched.defaultBgImage = URL.createObjectURL(imgBlobs['default-bg'])
+        }
+        story = patched
+      }
+    } catch (e) {
+      console.warn('[Murmur] Failed to restore images on launch:', e.message)
+    }
+
     const shufflers = {}
     Object.values(story.scenes).forEach(sc => {
       shufflers[sc.id] = new SmartShuffle(sc.clips)
@@ -317,6 +349,30 @@ export const useStore = create((set, get) => ({
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }
   }),
+  // Hydrate image fields on a story from fresh blob URLs (called on app boot
+  // to restore images from IndexedDB so Library/Detail show covers without
+  // having to enter the editor first). Only fills in MISSING fields — won't
+  // overwrite a path the user explicitly set.
+  hydrateImagesForStory: (storyId, patch) => set(s => {
+    const stories = s.stories.map(st => {
+      if (st.id !== storyId) return st
+      const next = { ...st }
+      if (patch.coverImage && !next.coverImage) next.coverImage = patch.coverImage
+      if (patch.defaultBgImage && !next.defaultBgImage) next.defaultBgImage = patch.defaultBgImage
+      return next
+    })
+    // If the editor has this story open, sync it too
+    let creator = s.creator
+    if (s.creator.story?.id === storyId) {
+      const updated = stories.find(x => x.id === storyId)
+      if (updated) creator = { ...s.creator, story: updated }
+    }
+    // NOTE: we do NOT call saveStories here — blob URLs would be stripped and
+    // we'd lose them on next boot. The persistence of these images is done
+    // by IndexedDB + re-running this hydration on load.
+    return { stories, creator }
+  }),
+
   // Update any field on story.narrator (name, emoji, …)
   updateNarratorField: (key, value) => set(s => {
     if (!s.creator.story) return {}

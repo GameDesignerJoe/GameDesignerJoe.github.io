@@ -1,3 +1,5 @@
+import { resolveAssetPath } from './assetPath'
+
 function ramp(audioEl, fromVol, toVol, durationMs) {
   return new Promise(resolve => {
     audioEl.volume = fromVol
@@ -48,8 +50,8 @@ class AudioEngine {
     // Duck ambient
     this._duckAmbient()
 
-    // Load and play new clip
-    this.narrator.src = clipSrc
+    // Load and play new clip (resolve relative paths through /stories/)
+    this.narrator.src = resolveAssetPath(clipSrc)
     this.narrator.volume = 0
 
     const endHandler = () => {

@@ -1,8 +1,9 @@
 import { useRef, useEffect, useState } from 'react'
+import { resolveAssetPath } from '../../engine/assetPath'
 
 function applyBg(style, gradient, imageUrl) {
   if (imageUrl) {
-    return { ...style, backgroundImage: `url(${imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    return { ...style, backgroundImage: `url(${resolveAssetPath(imageUrl)})`, backgroundSize: 'cover', backgroundPosition: 'center' }
   }
   return { ...style, background: gradient }
 }

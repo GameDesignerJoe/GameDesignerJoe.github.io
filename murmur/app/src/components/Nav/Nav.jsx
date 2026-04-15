@@ -189,6 +189,12 @@ function SettingsPanel({ onClose }) {
           {tab === 'main' ? (
             <>
               <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '12px' }}>
+                API Keys
+              </div>
+              <ApiKeyRow label="Google AI Studio" storageKey="google_ai_api_key" placeholder="For Imagen image generation…" hint={<>Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: '#c9a96e' }}>aistudio.google.com/apikey</a></>} />
+              <ApiKeyRow label="ElevenLabs" storageKey="elevenlabs_api_key" placeholder="For TTS narration…" hint="Used by the TTS modal in the editor." />
+
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginTop: '28px', marginBottom: '12px' }}>
                 Your Stories
               </div>
               {visibleStories.map(st => (
@@ -269,6 +275,57 @@ function NavItem({ icon, label, active, onClick }) {
       }}>
         {label}
       </span>
+    </div>
+  )
+}
+
+function ApiKeyRow({ label, storageKey, placeholder, hint }) {
+  const [value, setValue] = useState(() => {
+    try { return localStorage.getItem(storageKey) || '' } catch { return '' }
+  })
+  const [revealed, setRevealed] = useState(false)
+
+  const onChange = (v) => {
+    setValue(v)
+    try {
+      if (v) localStorage.setItem(storageKey, v)
+      else localStorage.removeItem(storageKey)
+    } catch {}
+  }
+
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: '#e5e3ff', marginBottom: '6px' }}>{label}</div>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={revealed ? 'text' : 'password'}
+          value={value}
+          placeholder={placeholder}
+          onChange={e => onChange(e.target.value)}
+          style={{
+            width: '100%', padding: '10px 36px 10px 12px',
+            background: '#0f0f1c', border: '1px solid #222236', borderRadius: '8px',
+            color: '#e5e3ff', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={() => setRevealed(r => !r)}
+          title={revealed ? 'Hide' : 'Show'}
+          style={{
+            position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: '#928faa',
+            display: 'flex', alignItems: 'center',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{revealed ? 'visibility_off' : 'visibility'}</span>
+        </button>
+      </div>
+      {hint && (
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#706c8a', marginTop: '4px' }}>
+          {hint}
+        </div>
+      )}
     </div>
   )
 }

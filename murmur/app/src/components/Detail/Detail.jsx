@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../../store'
 import ResumeModal from '../Player/ResumeModal'
+import { resolveAssetPath } from '../../engine/assetPath'
 
 export default function Detail() {
   const view = useStore(s => s.view)
@@ -52,7 +53,7 @@ export default function Detail() {
           {/* Hero — Stitch: h-[459px] */}
           <section className="relative w-full overflow-hidden" style={{ height: '459px' }}>
             {story.coverImage ? (
-              <img alt="" className="absolute inset-0 w-full h-full object-cover" src={story.coverImage} />
+              <img alt="" className="absolute inset-0 w-full h-full object-cover" src={resolveAssetPath(story.coverImage)} />
             ) : (
               <div className="absolute inset-0 w-full h-full" style={{ background: story.bg }} />
             )}

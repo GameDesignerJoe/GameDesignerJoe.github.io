@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Waveform from './Waveform'
+import { resolveAssetPath } from '../../engine/assetPath'
 
 const emotionGlows = {
   curious:    { border: '#7ba8ff', ring: 'rgba(123,168,255,0.4)' },
@@ -45,7 +46,7 @@ export default function Portrait({ scene, narrator, isPlaying }) {
           }}
         >
           {portraitSrc ? (
-            <img src={portraitSrc} alt="" className="w-full h-full object-cover" />
+            <img src={resolveAssetPath(portraitSrc)} alt="" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-[54px]" style={{ background: '#17182c' }}>
               {narrator?.emoji || '🎭'}

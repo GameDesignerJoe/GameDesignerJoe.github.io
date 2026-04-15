@@ -2,7 +2,11 @@ import { useStore } from '../../store'
 import NodeGraph from './NodeGraph'
 import EditPanel from './EditPanel'
 import CsvImporter from './CsvImporter'
+import ImageStudioModal from './ImageStudioModal'
 import { saveAudioBlob, loadStoryAudio } from '../../engine/AudioStore'
+import { loadStoryImages } from '../../engine/ImageStore'
+import { getProjectFolder, setProjectFolder, clearProjectFolder, ensurePermission } from '../../engine/ProjectFolderStore'
+import { resolveAssetPath } from '../../engine/assetPath'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 // Build a descriptive audio filename: "{story-title}-{narrator-name}-{sceneId}-a.mp3"
@@ -14,6 +18,32 @@ function audioFilename(story, sceneId) {
   const storyPart = slugify(story.title) || slugify(story.id) || 'story'
   const narratorPart = slugify(story.narrator?.name) || 'narrator'
   return `${storyPart}-${narratorPart}-${sceneId}-a.mp3`
+}
+
+// Build a filename for a generated image slot. Imagen returns PNG so we keep .png.
+// Slots: "cover", "default-bg", "scene/{sceneId}", "portrait/{emotion}"
+function imageFilename(story, slot) {
+  const storyPart = slugify(story.title) || slugify(story.id) || 'story'
+  if (slot === 'cover') return `${storyPart}-cover.png`
+  if (slot === 'default-bg') return `${storyPart}-default-bg.png`
+  if (slot.startsWith('scene/')) return `${storyPart}-scene-${slot.slice(6)}.png`
+  if (slot.startsWith('portrait/')) return `${storyPart}-portrait-${slot.slice(9)}.png`
+  return `${storyPart}-${slot}.png`
+}
+
+// Timestamp used for the skip-if-unchanged check on image slots during saveToProject.
+function generatedAtForSlot(story, slot) {
+  if (slot === 'cover') return story.coverImageGeneratedAt || 0
+  if (slot === 'default-bg') return story.defaultBgImageGeneratedAt || 0
+  if (slot.startsWith('scene/')) {
+    const sid = slot.slice(6)
+    return story.scenes?.[sid]?.bgImageGeneratedAt || 0
+  }
+  if (slot.startsWith('portrait/')) {
+    const em = slot.slice(9)
+    return story.narrator?.portraitsGeneratedAt?.[em] || 0
+  }
+  return 0
 }
 
 export default function Creator() {
@@ -28,9 +58,11 @@ export default function Creator() {
   const selectNode = useStore(s => s.selectNode)
   const updateScene = useStore(s => s.updateScene)
   const deleteScene = useStore(s => s.deleteScene)
+  const updateStoryField = useStore(s => s.updateStoryField)
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [showTtsModal, setShowTtsModal] = useState(false)
   const [showStorySettings, setShowStorySettings] = useState(false)
+  const [imageStudioTarget, setImageStudioTarget] = useState(null) // { slot, storyId } | null
 
   // The dropdown should keep displaying the currently-edited story even if it's hidden
   // and the toggle is off — otherwise the user would get stuck unable to see which
@@ -75,6 +107,7 @@ export default function Creator() {
   }, [])
   const [panelWidth, setPanelWidth] = useState(360)
   const [audioRestored, setAudioRestored] = useState(null)
+  const [imagesRestored, setImagesRestored] = useState(null)
 
   // Restore audio from IndexedDB when story loads in creator
   useEffect(() => {
@@ -96,6 +129,26 @@ export default function Creator() {
     }).catch(err => console.warn('[Murmur] Failed to restore audio:', err.message))
   }, [view, creator.story?.id])
 
+  // Restore generated images from IndexedDB when a story loads in the creator.
+  // Blob URLs in localStorage are stripped on save, so we re-create them here.
+  useEffect(() => {
+    if (view !== 'creator' || !creator.story) return
+    const storyId = creator.story.id
+    if (imagesRestored === storyId) return
+    loadStoryImages(storyId).then(blobs => {
+      const slots = Object.keys(blobs)
+      if (slots.length === 0) { setImagesRestored(storyId); return }
+      console.log(`[Murmur] Restoring ${slots.length} image(s) from IndexedDB for "${storyId}"`)
+      if (blobs['cover'] && !creator.story.coverImage) {
+        updateStoryField('coverImage', URL.createObjectURL(blobs['cover']))
+      }
+      if (blobs['default-bg'] && !creator.story.defaultBgImage) {
+        updateStoryField('defaultBgImage', URL.createObjectURL(blobs['default-bg']))
+      }
+      setImagesRestored(storyId)
+    }).catch(err => console.warn('[Murmur] Failed to restore images:', err.message))
+  }, [view, creator.story?.id])
+
   if (view !== 'creator') return null
 
   const { story, selectedNodeId } = creator
@@ -103,22 +156,33 @@ export default function Creator() {
   const saveToProject = async () => {
     if (!story) return
     try {
-      // Pick a parent folder (e.g. public/stories/)
-      const pickedDir = await window.showDirectoryPicker({ mode: 'readwrite' })
+      // Prefer a previously-chosen folder for this story (stored in IndexedDB).
+      // On first use, prompt for a folder and remember it.
+      let storyDir = null
+      const stored = await getProjectFolder(story.id)
+      if (stored) {
+        const ok = await ensurePermission(stored)
+        if (ok) storyDir = stored
+        else console.warn('[Murmur] Permission denied on stored project folder — falling back to picker')
+      }
 
-      // If the user picked the story folder itself (common mistake), use it directly.
-      // Otherwise, create/get a subfolder named {story.id} inside the picked folder.
-      let storyDir
-      if (pickedDir.name === story.id) {
-        storyDir = pickedDir
-        console.log(`[Murmur] Picked folder is named "${story.id}" — saving directly into it (no nesting)`)
-      } else {
-        storyDir = await pickedDir.getDirectoryHandle(story.id, { create: true })
+      if (!storyDir) {
+        const pickedDir = await window.showDirectoryPicker({ mode: 'readwrite' })
+        // If the user picked the story folder itself (common mistake), use it directly.
+        // Otherwise, create/get a subfolder named {story.id} inside the picked folder.
+        if (pickedDir.name === story.id) {
+          storyDir = pickedDir
+          console.log(`[Murmur] Picked folder is named "${story.id}" — saving directly into it (no nesting)`)
+        } else {
+          storyDir = await pickedDir.getDirectoryHandle(story.id, { create: true })
+        }
+        // Remember for next time so we don't ask again.
+        await setProjectFolder(story.id, storyDir)
       }
 
       // 1. Write story JSON
       const clean = JSON.parse(JSON.stringify(story, (key, val) => {
-        // Replace blob URLs with local file paths for portability
+        // Replace blob URLs in audio clip arrays with local file paths
         if (key === 'clips' && Array.isArray(val)) {
           return val.map((c) => {
             if (!c.startsWith('blob:')) return c
@@ -126,6 +190,13 @@ export default function Creator() {
             const sid = owner?.id || 'clip'
             return `${story.id}/audio/${audioFilename(story, sid)}`
           })
+        }
+        // Replace blob URLs in image fields with relative image paths
+        if (key === 'coverImage' && typeof val === 'string' && val.startsWith('blob:')) {
+          return `${story.id}/images/${imageFilename(story, 'cover')}`
+        }
+        if (key === 'defaultBgImage' && typeof val === 'string' && val.startsWith('blob:')) {
+          return `${story.id}/images/${imageFilename(story, 'default-bg')}`
         }
         return val
       }))
@@ -174,10 +245,48 @@ export default function Creator() {
         console.log(`[Murmur] Audio: ${written} written, ${skipped} skipped (up to date) in ${story.id}/audio/`)
       }
 
+      // 3. Write generated images from IndexedDB — skip-if-unchanged like audio
+      const imageBlobs = await loadStoryImages(story.id)
+      const imageSlots = Object.keys(imageBlobs)
+      console.log(`[Murmur] Images: ${imageSlots.length} slot(s) in IndexedDB:`, imageSlots)
+      if (imageSlots.length > 0) {
+        const imagesDir = await storyDir.getDirectoryHandle('images', { create: true })
+        let iwritten = 0, iskipped = 0
+        for (const slot of imageSlots) {
+          const generatedAt = generatedAtForSlot(story, slot)
+          const filename = imageFilename(story, slot)
+          let shouldWrite = true
+          let existingMtime = 0
+          try {
+            const existingHandle = await imagesDir.getFileHandle(filename)
+            const existingFile = await existingHandle.getFile()
+            existingMtime = existingFile.lastModified
+            if (existingFile.lastModified >= generatedAt && generatedAt > 0) {
+              shouldWrite = false
+              iskipped++
+              console.log(`[Murmur]   ${slot} → ${filename}: SKIP (disk ${new Date(existingMtime).toISOString()} >= generated ${new Date(generatedAt).toISOString()})`)
+            }
+          } catch {
+            // File doesn't exist — will create below
+          }
+          if (shouldWrite) {
+            const fh = await imagesDir.getFileHandle(filename, { create: true })
+            const w = await fh.createWritable()
+            await w.write(imageBlobs[slot])
+            await w.close()
+            iwritten++
+            console.log(`[Murmur]   ${slot} → ${filename}: WRITTEN (${(imageBlobs[slot].size / 1024).toFixed(0)} KB)`)
+          }
+        }
+        console.log(`[Murmur] Images total: ${iwritten} written, ${iskipped} skipped in ${story.id}/images/`)
+      }
+
       console.log(`%c[Murmur] Project saved: ${story.id}/`, 'color: #4ade80; font-weight: bold')
     } catch (err) {
-      if (err.name === 'AbortError') return // user cancelled picker
+      if (err?.name === 'AbortError') return // user cancelled picker
       console.error('[Murmur] Save failed:', err)
+      // Surface the failure to the user so they don't think the app is broken
+      try { alert(`Save failed: ${err?.message || err}\n\nSee the console for details.`) } catch {}
     }
   }
 
@@ -375,7 +484,8 @@ export default function Creator() {
 
       {showCsvModal && <CsvImporter onClose={() => setShowCsvModal(false)} />}
       {showTtsModal && <TtsModal onClose={() => setShowTtsModal(false)} />}
-      {showStorySettings && <StorySettingsModal onClose={() => setShowStorySettings(false)} />}
+      {showStorySettings && <StorySettingsModal onClose={() => setShowStorySettings(false)} onOpenImageStudio={(slot) => setImageStudioTarget({ slot, storyId: story?.id })} />}
+      {imageStudioTarget && <ImageStudioModal target={imageStudioTarget} onClose={() => setImageStudioTarget(null)} />}
     </div>
   )
 }
@@ -1106,7 +1216,45 @@ function FilterChip({ label, value, options, onChange }) {
 
 const STORY_EMOTIONS = ['curious', 'happy', 'sad', 'afraid', 'determined']
 
-function StorySettingsModal({ onClose }) {
+function StorySettingsModal({ onClose, onOpenImageStudio }) {
+  // — Project folder state (loaded from IndexedDB, refreshed on change)
+  const storyIdForFolder = useStore(s => s.creator.story?.id) || null
+  const [folderHandle, setFolderHandle] = useState(null)
+  const [folderStatus, setFolderStatus] = useState('idle') // 'idle' | 'loading' | 'ready'
+
+  useEffect(() => {
+    let cancelled = false
+    if (!storyIdForFolder) return
+    setFolderStatus('loading')
+    getProjectFolder(storyIdForFolder).then(h => {
+      if (cancelled) return
+      setFolderHandle(h || null)
+      setFolderStatus('ready')
+    }).catch(() => { if (!cancelled) setFolderStatus('ready') })
+    return () => { cancelled = true }
+  }, [storyIdForFolder])
+
+  const chooseFolder = async () => {
+    if (!storyIdForFolder) return
+    try {
+      const picked = await window.showDirectoryPicker({ mode: 'readwrite' })
+      // Auto-handle the common mistake: if the user picked a folder already named
+      // the story id, use it directly (prevents nesting).
+      const target = (picked.name === storyIdForFolder)
+        ? picked
+        : await picked.getDirectoryHandle(storyIdForFolder, { create: true })
+      await setProjectFolder(storyIdForFolder, target)
+      setFolderHandle(target)
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('[Murmur] Folder pick failed:', e)
+    }
+  }
+
+  const clearFolder = async () => {
+    if (!storyIdForFolder) return
+    await clearProjectFolder(storyIdForFolder)
+    setFolderHandle(null)
+  }
   const story = useStore(s => s.creator.story)
   const updateStoryField = useStore(s => s.updateStoryField)
   const updateNarratorPortrait = useStore(s => s.updateNarratorPortrait)
@@ -1126,7 +1274,7 @@ function StorySettingsModal({ onClose }) {
     <div className="fixed inset-0 z-[200] flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} />
       <div
-        className="relative w-full max-w-[560px] rounded-2xl"
+        className="relative w-full max-w-[640px] rounded-2xl"
         style={{ background: '#12121f', border: '1px solid #222236', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
         onClick={e => e.stopPropagation()}
       >
@@ -1140,6 +1288,58 @@ function StorySettingsModal({ onClose }) {
 
         {/* Body */}
         <div style={{ padding: '20px 24px 24px', overflowY: 'auto' }}>
+          {/* Project folder — where Save to Project writes JSON + audio + images */}
+          <StorySettingsField
+            label="Project Folder"
+            hint={folderHandle
+              ? "Assets save here automatically. Save Story writes the JSON + any pending audio."
+              : "Choose the folder for this story once. Subsequent saves go there automatically — no more picker."}
+          >
+            {folderHandle ? (
+              <div className="flex items-center justify-between" style={{
+                padding: '10px 14px', background: 'var(--s2)', border: '1px solid var(--s3)', borderRadius: '10px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--gold)' }}>folder</span>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {folderHandle.name || '(folder)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                  <button
+                    onClick={chooseFolder}
+                    style={{ background: 'none', border: 'none', color: 'var(--sub)', fontSize: '12px', cursor: 'pointer', padding: '4px 8px' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--sub)'}
+                  >Change</button>
+                  <button
+                    onClick={clearFolder}
+                    style={{ background: 'none', border: 'none', color: 'var(--sub)', fontSize: '12px', cursor: 'pointer', padding: '4px 8px' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--sub)'}
+                  >Forget</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={chooseFolder}
+                disabled={folderStatus === 'loading'}
+                style={{
+                  width: '100%', padding: '12px',
+                  background: 'transparent', border: '1px dashed var(--s3)', borderRadius: '10px',
+                  color: 'var(--sub)', fontFamily: "'DM Sans', sans-serif", fontSize: '13px',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--s3)'; e.currentTarget.style.color = 'var(--sub)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>folder_open</span>
+                Choose Project Folder…
+              </button>
+            )}
+          </StorySettingsField>
+
           {/* Title */}
           <StorySettingsField label="Title">
             <input
@@ -1159,8 +1359,20 @@ function StorySettingsModal({ onClose }) {
             />
           </StorySettingsField>
 
-          {/* Default background */}
-          <StorySettingsField label="Default Background Image" hint="URL applied to all scenes unless a scene sets its own.">
+          {/* Cover image — rendered on Library card and Detail hero */}
+          <StorySettingsField label="Cover Image" hint="Displayed on the library card and detail hero. Click ✨ to generate with AI.">
+            <ImageInputWithGenerate
+              value={story.coverImage || ''}
+              placeholder="https://… or path/to/cover.jpg"
+              onChange={url => updateStoryField('coverImage', url || null)}
+              onGenerate={onOpenImageStudio ? () => onOpenImageStudio('cover') : null}
+              aspectRatio="16/9"
+              targetPath={`${story.id}/images/${imageFilename(story, 'cover')}`}
+            />
+          </StorySettingsField>
+
+          {/* Default scene background */}
+          <StorySettingsField label="Default Scene Background Image" hint="Applied to every scene unless the scene sets its own.">
             <input
               className="cr-input"
               value={story.defaultBgImage || ''}
@@ -1261,6 +1473,101 @@ function StorySettingsField({ label, hint, children }) {
         </div>
       )}
       {children}
+    </div>
+  )
+}
+
+// Text input + inline ✨ sparkle button that opens the Image Studio for this slot.
+// - If value is a blob: URL, we show the expected on-disk target path in the input (if provided).
+// - If value resolves to an image (blob: or path), we show a centered thumbnail preview above.
+// - Click the thumbnail to enlarge in a lightbox.
+// - aspectRatio uses CSS aspect-ratio notation ('16/9', '3/4', etc.)
+function ImageInputWithGenerate({ value, placeholder, onChange, onGenerate, aspectRatio = '16/9', targetPath = '', thumbMaxWidth = 360 }) {
+  const isBlob = typeof value === 'string' && value.startsWith('blob:')
+  const display = isBlob ? (targetPath || '') : (value || '')
+  const hasImage = typeof value === 'string' && value.length > 0
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+
+  return (
+    <div>
+      {hasImage && (
+        <div
+          onClick={() => setLightboxOpen(true)}
+          title="Click to enlarge"
+          style={{
+            marginBottom: '10px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: '1px solid var(--s3)',
+            background: 'var(--s2)',
+            maxWidth: `${thumbMaxWidth}px`,
+            aspectRatio,
+            cursor: 'zoom-in',
+            transition: 'border-color 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--s3)'}
+        >
+          <img
+            src={resolveAssetPath(value)}
+            alt="Preview"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={e => { e.currentTarget.style.display = 'none' }}
+          />
+        </div>
+      )}
+      {lightboxOpen && hasImage && (
+        <div
+          onClick={() => setLightboxOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '40px', cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={resolveAssetPath(value)}
+            alt="Full-size preview"
+            style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 80px)', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+          />
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <input
+          className="cr-input"
+          value={display}
+          placeholder={placeholder}
+          readOnly={isBlob}
+          onChange={e => onChange(e.target.value.trim())}
+          style={{ flex: 1, color: 'var(--text)' }}
+        />
+        {onGenerate && (
+          <button
+            onClick={onGenerate}
+            title="Generate with AI"
+            style={{
+              flexShrink: 0,
+              width: '42px',
+              background: 'transparent',
+              border: '1px solid var(--gold)',
+              borderRadius: '12px',
+              color: 'var(--gold)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--gold)'; e.currentTarget.style.color = 'var(--bg)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--gold)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_awesome</span>
+          </button>
+        )}
+      </div>
     </div>
   )
 }

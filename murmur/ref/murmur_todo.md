@@ -1,10 +1,13 @@
 Murmur Todo
-- There is no place to set the narrator name for stories. We should add a field for that in the Story Settings section.
-- rename the existing audio files to the correct name and then let's update the ones on git and make sure all the paths to the existing audio lines work well. 
-- The player placed dot on the scrub bar, doesn't update after it's been placed. Even when it goes to the next audio scene, the scrub dot still sits in the same place. 
-- We should have a text field in the editor for each node that shows the narration text from the csv file if there is any. I can image the node itself only gives a few worlds "In a dark forest I came..." but in the editor there's a field where you can see all the text. It'll be a lot, so we should have the option to collapse/expand it. I'd also expect to be able to edit it here as well incase the audio isn't correct from the initial text. 
-- Editor: Does the save or history button actualy do anything? I don't think it does, so we should remove them. 
-
+- Even though I have a cover image selected in the settings for the black door, I don't see it on the main page. 
+- When I click save project, I get thrown out of the app and the console says this:
+Error while trying to use the following icon from the Manifest: http://localhost:5173/art/nas_192x192.png (Download error or resource isn't a valid image)
+- Is there a way for us to handle images that are already in the folders that we want to pick from for the cover image? I've added an image from the generated AI and put it in the right folder, but I don't have a way to hook it up in the settings. 
+- Can you center the cover image in the settings window.
+- In the Story Settings for the picked cover image, I'm going to want to click on it and see a larger version of it as well. 
+- I've set the default image path for the scenes to be the same as the cover/title (the-black-door/images/the-black-door-cover.png) and it's not showing up in the scenes either. 
+- Need a change image option at the root of the story settings I'ts odd to hit the AI button to do that. 
+ 
 Quality of Life features:
 - Need a search in the scene editor that highlights nodes and scene information where words exist. 
 - Do another audio pass, but push it to have more emotion in it with the [brackets]
@@ -15,9 +18,10 @@ Quality of Life features:
 
 
 Important,longer tail work:
-- Figure out how to generate images for the background.
 - Figure out how to generate character portraits that can be consistent and bring across emotion.
 - Need to get the nodes to look/connected better like they do in the Stitch example.
 - Need to figure out how to get background audio into it, ideally using Elevenlabs audio
+- See if you can get a Claude API directly in here to help you create a story from the ground up and then generate the notes for it without having to go into Claude Chat.
+- I'm going to have to spend some time figuring out what makes a good audio CYOA and come up with a ruleset to help claude make better stories. 
 
 

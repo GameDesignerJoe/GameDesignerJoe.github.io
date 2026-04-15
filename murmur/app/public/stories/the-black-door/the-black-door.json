@@ -544,11 +544,13 @@
       "choices": []
     }
   },
-  "updatedAt": 1776239042667,
+  "updatedAt": 1776247650509,
   "defaults": {
     "secondsBeforeEnd": 10,
     "countdown": 10
   },
   "hidden": false,
-  "defaultBgImage": "https://images.stockcake.com/public/8/4/9/8493c6d1-5e47-468a-aecc-9436513d44a7_medium/mysterious-forest-door-stockcake.jpg"
+  "defaultBgImage": "the-black-door/images/the-black-door-cover.png",
+  "coverImage": "the-black-door/images/the-black-door-cover.png",
+  "coverImageGeneratedAt": 1776243980420
 }
