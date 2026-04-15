@@ -12,7 +12,7 @@
     "d": "linear-gradient(160deg,#050505,#080808)"
   },
   "narrator": {
-    "name": "Narrator",
+    "name": "Gregory",
     "emoji": "🎭"
   },
   "duration": "~19 min",
@@ -24,12 +24,12 @@
       "title": "The Black Door",
       "emotion": "curious",
       "bgKey": "a",
-      "bgImage": "https://images.stockcake.com/public/8/4/9/8493c6d1-5e47-468a-aecc-9436513d44a7_medium/mysterious-forest-door-stockcake.jpg",
+      "bgImage": null,
       "script": "I am a rational man. I have crossed glaciers in the north of Greenland, descended into lava tubes in Iceland still warm from their last eruption, mapped cave systems in Borneo that had never felt the pressure of human footfall. I record what I find. I report it. I move on. This is what I tell myself now, in the moments when I am still myself. It was a Tuesday in October when I found it — three miles from the marked trail, down a slope of loose shale that no recreational hiker would navigate by accident. A door. Black. Perhaps eight feet tall, and proportioned in a way that suggested — though I cannot explain the mechanism of this suggestion — that it had not been built for human bodies. Three recessed cavities in its face. Circular. Approximately twenty-two centimeters in diameter. I did not touch it. I am certain I did not touch it. I marked the coordinates in my GPS device, looked at the door for what I believed to be three minutes, and I walked back to the trail. My GPS log would later show I had stood there for four hours and eleven minutes.",
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217228133,
       "clips": [
-        "the-black-door/audio/discovery-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-discovery-a.mp3"
       ],
       "secondsBeforeEnd": 11,
       "defaultChoice": 0,
@@ -55,7 +55,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217218604,
       "clips": [
-        "the-black-door/audio/first_touch-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-first_touch-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -77,7 +77,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217217427,
       "clips": [
-        "the-black-door/audio/return_home-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-return_home-a.mp3"
       ],
       "secondsBeforeEnd": 10,
       "defaultChoice": 0,
@@ -103,7 +103,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217212116,
       "clips": [
-        "the-black-door/audio/confession_attempt-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-confession_attempt-a.mp3"
       ],
       "secondsBeforeEnd": 4,
       "defaultChoice": 0,
@@ -125,7 +125,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217213404,
       "clips": [
-        "the-black-door/audio/the_hiding-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_hiding-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -147,7 +147,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217232679,
       "clips": [
-        "the-black-door/audio/first_dream-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-first_dream-a.mp3"
       ],
       "secondsBeforeEnd": 6,
       "defaultChoice": 0,
@@ -173,7 +173,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217230284,
       "clips": [
-        "the-black-door/audio/waking_resistance-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-waking_resistance-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -195,7 +195,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217235714,
       "clips": [
-        "the-black-door/audio/deep_dream-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-deep_dream-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -217,7 +217,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217242242,
       "clips": [
-        "the-black-door/audio/the_seeing-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_seeing-a.mp3"
       ],
       "secondsBeforeEnd": 7,
       "defaultChoice": 0,
@@ -243,7 +243,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217251276,
       "clips": [
-        "the-black-door/audio/the_avoidance-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_avoidance-a.mp3"
       ],
       "secondsBeforeEnd": 6,
       "defaultChoice": 0,
@@ -265,7 +265,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217262929,
       "clips": [
-        "the-black-door/audio/the_recognition-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_recognition-a.mp3"
       ],
       "secondsBeforeEnd": 6,
       "defaultChoice": 0,
@@ -287,7 +287,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217257161,
       "clips": [
-        "the-black-door/audio/the_invitation-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_invitation-a.mp3"
       ],
       "secondsBeforeEnd": 6,
       "defaultChoice": 0,
@@ -313,7 +313,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217258159,
       "clips": [
-        "the-black-door/audio/the_truth_attempt-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_truth_attempt-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -335,7 +335,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217265666,
       "clips": [
-        "the-black-door/audio/the_journey-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_journey-a.mp3"
       ],
       "secondsBeforeEnd": 7,
       "defaultChoice": 0,
@@ -361,7 +361,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217268016,
       "clips": [
-        "the-black-door/audio/the_turning-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_turning-a.mp3"
       ],
       "secondsBeforeEnd": 4,
       "defaultChoice": 0,
@@ -383,7 +383,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217279179,
       "clips": [
-        "the-black-door/audio/the_arrival-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_arrival-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -405,7 +405,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217278646,
       "clips": [
-        "the-black-door/audio/the_violence-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_violence-a.mp3"
       ],
       "secondsBeforeEnd": 6,
       "defaultChoice": 1,
@@ -431,7 +431,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217283020,
       "clips": [
-        "the-black-door/audio/the_fighting-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_fighting-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -453,7 +453,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217292477,
       "clips": [
-        "the-black-door/audio/the_last-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_last-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -475,7 +475,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217290834,
       "clips": [
-        "the-black-door/audio/the_awakening-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_awakening-a.mp3"
       ],
       "secondsBeforeEnd": 5,
       "defaultChoice": 0,
@@ -497,7 +497,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217303154,
       "clips": [
-        "the-black-door/audio/the_realization-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_realization-a.mp3"
       ],
       "secondsBeforeEnd": 6,
       "defaultChoice": 0,
@@ -519,7 +519,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217300361,
       "clips": [
-        "the-black-door/audio/the_final_act-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_final_act-a.mp3"
       ],
       "secondsBeforeEnd": 0,
       "defaultChoice": null,
@@ -536,7 +536,7 @@
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217311181,
       "clips": [
-        "the-black-door/audio/the_opening-a.mp3"
+        "the-black-door/audio/the-black-door-gregory-the_opening-a.mp3"
       ],
       "secondsBeforeEnd": 0,
       "defaultChoice": null,
@@ -544,5 +544,11 @@
       "choices": []
     }
   },
-  "updatedAt": 1776232945964
+  "updatedAt": 1776239042667,
+  "defaults": {
+    "secondsBeforeEnd": 10,
+    "countdown": 10
+  },
+  "hidden": false,
+  "defaultBgImage": "https://images.stockcake.com/public/8/4/9/8493c6d1-5e47-468a-aecc-9436513d44a7_medium/mysterious-forest-door-stockcake.jpg"
 }
