@@ -1,6 +1,111 @@
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 
 const EMOTIONS = ['curious', 'happy', 'sad', 'afraid', 'determined']
+
+/** Extract a readable filename from a clip source (blob URL or path) */
+function clipDisplayName(src, sceneId) {
+  if (src.startsWith('blob:')) return `${sceneId}-a.mp3`
+  const parts = src.split('/')
+  return parts[parts.length - 1]
+}
+
+function formatTime(s) {
+  if (!s || !isFinite(s)) return '0:00'
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+function ClipRow({ src, sceneId, onRemove }) {
+  const [playing, setPlaying] = useState(false)
+  const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const audioRef = useRef(null)
+
+  useEffect(() => {
+    const audio = new Audio()
+    audio.preload = 'metadata'
+    audio.src = src
+    audioRef.current = audio
+
+    const onMeta = () => setDuration(audio.duration)
+    const onTime = () => setCurrentTime(audio.currentTime)
+    const onEnd = () => { setPlaying(false); setCurrentTime(0) }
+
+    audio.addEventListener('loadedmetadata', onMeta)
+    audio.addEventListener('timeupdate', onTime)
+    audio.addEventListener('ended', onEnd)
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', onMeta)
+      audio.removeEventListener('timeupdate', onTime)
+      audio.removeEventListener('ended', onEnd)
+      audio.pause()
+      audio.src = ''
+    }
+  }, [src])
+
+  const toggle = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (playing) { audio.pause(); setPlaying(false) }
+    else { audio.play().catch(() => {}); setPlaying(true) }
+  }
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+  const name = clipDisplayName(src, sceneId)
+
+  return (
+    <div className="rounded-[10px] px-3 py-[10px]" style={{ background: 'var(--s2)' }}>
+      <div className="flex items-center gap-3">
+        {/* Play / Pause button */}
+        <button
+          onClick={toggle}
+          className="flex-shrink-0 flex items-center justify-center cursor-pointer"
+          style={{
+            width: 28, height: 28, borderRadius: '50%', border: 'none',
+            background: 'none', color: 'var(--gold)', padding: 0,
+          }}
+        >
+          {playing ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="2" width="4" height="12" rx="1" />
+              <rect x="9" y="2" width="4" height="12" rx="1" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4 2.5v11l10-5.5z" />
+            </svg>
+          )}
+        </button>
+
+        {/* Filename */}
+        <span className="flex-1 text-[14px] truncate" style={{ color: 'var(--text)' }}>{name}</span>
+
+        {/* Duration */}
+        <span className="text-[13px] flex-shrink-0 tabular-nums" style={{ color: 'var(--sub)' }}>
+          {formatTime(duration)}
+        </span>
+
+        {/* Remove */}
+        <span
+          className="cursor-pointer text-[16px] transition-colors hover:text-red-400 flex-shrink-0"
+          style={{ color: 'var(--sub)' }}
+          onClick={onRemove}
+        >×</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-2 h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--s3)' }}>
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${progress}%`, background: 'var(--gold)', transition: 'width 0.15s linear' }}
+        />
+      </div>
+    </div>
+  )
+}
 
 export default function EditPanel() {
   const creator = useStore(s => s.creator)
@@ -130,10 +235,7 @@ export default function EditPanel() {
         <Field label={<>Audio Clips <span className="text-[13px] normal-case tracking-normal" style={{ color: 'var(--sub)' }}>(smart shuffle)</span></>}>
           <div className="flex flex-col gap-2 mt-2">
             {scene.clips.map((c, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-[10px] px-3 py-[10px]" style={{ background: 'var(--s2)' }}>
-                <span className="flex-1 text-[14px] truncate" style={{ color: 'var(--text)' }}>{c}</span>
-                <span className="cursor-pointer text-[18px] transition-colors hover:text-red-400 flex-shrink-0" style={{ color: 'var(--sub)' }} onClick={() => removeClip(i)}>×</span>
-              </div>
+              <ClipRow key={`${selectedNodeId}-${i}`} src={c} sceneId={selectedNodeId} onRemove={() => removeClip(i)} />
             ))}
           </div>
           <input className="cr-input mt-2" placeholder="path/to/clip.mp3" onKeyDown={handleClipAdd} />

@@ -28,8 +28,9 @@ class AudioEngine {
     this._timeHandler = null
   }
 
-  async playScene(scene, clipSrc, { onRevealChoices, onNarrationEnd }) {
+  async playScene(scene, clipSrc, { onRevealChoices, onNarrationEnd, onPlayStarted }) {
     this.choicesRevealed = false
+    this._tailFading = false
     this._onReveal = onRevealChoices
     this._onEnd = onNarrationEnd
 
@@ -58,19 +59,29 @@ class AudioEngine {
     }
     this.narrator.addEventListener('ended', endHandler)
 
-    // Timeupdate for choice reveal
+    // Timeupdate for choice reveal + tail fade
+    const TAIL_FADE_SECS = 1.5
     this._timeHandler = () => {
-      if (this.choicesRevealed) return
       const remaining = this.narrator.duration - this.narrator.currentTime
-      if (remaining <= (scene.secondsBeforeEnd || 0) && scene.secondsBeforeEnd > 0) {
+      if (!isFinite(remaining)) return
+
+      // Choice reveal
+      if (!this.choicesRevealed && remaining <= (scene.secondsBeforeEnd || 0) && scene.secondsBeforeEnd > 0) {
         this.choicesRevealed = true
         if (this._onReveal) this._onReveal()
+      }
+
+      // Gentle fade-out near the end so the clip doesn't cut off abruptly
+      if (!this._tailFading && remaining <= TAIL_FADE_SECS && remaining > 0) {
+        this._tailFading = true
+        ramp(this.narrator, this.narrator.volume, 0, remaining * 1000)
       }
     }
     this.narrator.addEventListener('timeupdate', this._timeHandler)
 
     try {
       await this.narrator.play()
+      if (onPlayStarted) onPlayStarted()
       await ramp(this.narrator, 0, 1, 400)
     } catch {
       // Autoplay blocked — trigger end immediately

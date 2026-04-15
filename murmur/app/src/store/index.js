@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { SmartShuffle } from '../engine/SmartShuffle'
+import { loadStoryAudio } from '../engine/AudioStore'
 
 // ── Persistence helpers ──
 const STORIES_KEY = 'murmur_stories'
@@ -138,7 +139,25 @@ export const useStore = create((set, get) => ({
     returnTo: 'library', // where to go when closing the player
   },
 
-  launchStory: (story, sceneId, history = []) => {
+  launchStory: async (story, sceneId, history = []) => {
+    // Restore audio from IndexedDB for any scenes with missing clips
+    try {
+      const blobs = await loadStoryAudio(story.id)
+      const blobIds = Object.keys(blobs)
+      if (blobIds.length > 0) {
+        const scenes = { ...story.scenes }
+        blobIds.forEach(sid => {
+          const scene = scenes[sid]
+          if (scene && (scene.clips.length === 0 || scene.clips.every(c => c.startsWith('blob:')))) {
+            scenes[sid] = { ...scene, clips: [URL.createObjectURL(blobs[sid])] }
+          }
+        })
+        story = { ...story, scenes }
+      }
+    } catch (e) {
+      console.warn('[Murmur] Failed to restore audio on launch:', e.message)
+    }
+
     const shufflers = {}
     Object.values(story.scenes).forEach(sc => {
       shufflers[sc.id] = new SmartShuffle(sc.clips)

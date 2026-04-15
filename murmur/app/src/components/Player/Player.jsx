@@ -16,6 +16,7 @@ export default function Player() {
   const [instant, setInstant] = useState(true)
   const ambientStarted = useRef(false)
   const fallbackTimer = useRef(null)
+  const queuedChoice = useRef(null)
 
   const { story, sceneId, history, shufflers } = player
 
@@ -26,6 +27,7 @@ export default function Player() {
 
     setChoicesRevealed(false)
     setIsPlaying(true)
+    queuedChoice.current = null
 
     if (!ambientStarted.current && story.ambient?.default) {
       audioEngine.startAmbient(story.ambient.default)
@@ -47,6 +49,10 @@ export default function Player() {
     }, 3000)
 
     audioEngine.playScene(scene, clipSrc, {
+      onPlayStarted: () => {
+        // Audio loaded and is playing — cancel the load-failure fallback
+        if (fallbackTimer.current) { clearTimeout(fallbackTimer.current); fallbackTimer.current = null }
+      },
       onRevealChoices: () => {
         if (fallbackTimer.current) clearTimeout(fallbackTimer.current)
         setChoicesRevealed(true)
@@ -54,7 +60,21 @@ export default function Player() {
       onNarrationEnd: () => {
         if (fallbackTimer.current) clearTimeout(fallbackTimer.current)
         setIsPlaying(false)
-        // Always reveal choices when narration ends (or fails to load)
+
+        // If the player already picked a choice, transition seamlessly now
+        if (queuedChoice.current) {
+          const target = queuedChoice.current
+          queuedChoice.current = null
+          setFlashOn(true)
+          setTimeout(() => {
+            setFlashOn(false)
+            setInstant(false)
+            goToScene(target)
+          }, 240)
+          return
+        }
+
+        // No choice queued — reveal choices for user input
         setChoicesRevealed(true)
       },
     })
@@ -72,6 +92,14 @@ export default function Player() {
       closePlayer()
       return
     }
+
+    // If narration is still playing, queue the choice for seamless transition
+    if (audioEngine.isPlaying) {
+      queuedChoice.current = targetId
+      return
+    }
+
+    // Narration already finished — transition immediately
     setFlashOn(true)
     setTimeout(() => {
       setFlashOn(false)

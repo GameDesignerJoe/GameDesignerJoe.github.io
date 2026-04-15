@@ -1,10 +1,21 @@
 Murmur Todo
-- With the Eleven labs TTS Work. There's a specific workflow I would like us to try and hit that involves me doing as little as possible in the pipeline. 
-    1. I give the program a csv file similar to the one I wrote for the balck door. This file is used to make the actual node connections and all that. 
-    2. I got to the TTS button.
-    3. I pick a narrator for the story. 
-    4. I pick the model type that I want
-    5. I pick the stability and similarity
-    6. Then I hit the button to generate audio lines for this story. 
-    
-    Note how I'm not uploading a csv file of the lines that I want. Murmur is handling this. It looks at all the lines for the story that need audio for them. It has timestamps for both the last time the text was changed and the last time the audio was added. If the text lines are newer then the audio lines, we know the audio needs to be updated. Murmur creates the csv file that matches whatever format ElevenLabs needs to generate the audio (I don't do that). It sends that csv to Elevenlabs, gets back a zip file. It can open up that file (ideally) and automatically add thos files to the right nodes. So again, from a user perspective, they aren't dealing with the csvs or hooking files up, the program is.
+- Get scrollbar to work in the editor scene again.
+- Settings on the main screen needs a delete story opiton.
+- Stories should be sorted by most recent created/edited first.
+- The Scene sidebar needs to be expandable as well. 
+- May want to add a clean minimal audio track bar that shows how long is left and allows the user to skip ahead. 
+- When the user selects the play screen while music is playing, we should pause the story. 
+- Start scene button doesn't work in the Scene Editor.
+
+Quality of Life features:
+- make the default name for TTS audio files so they have a prefix of  [story name] - [narrator] as for them so we understand what story they are a part of and who is doing the speaking. 
+- Need a search in the scene editor that highlights nodes and scene information where words exist. 
+- Do another audio pass, but push it to have more emotion in it with the [brackets]
+- When I exit out of the story, it should take me back to the detail page of that story, not to the top of the page. 
+
+Important,longer tail work:
+- Figure out how to generate images for the background.
+- Figure out how to generate character portraits that can be consistent and bring across emotion.
+- Need to get the nodes to look/connected better like they do in the Stitch example.
+- Need to figure out how to get background audio into it, ideally using Elevenlabs audio
+

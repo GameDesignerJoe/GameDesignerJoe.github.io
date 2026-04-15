@@ -130,6 +130,10 @@ export default function Choices({ scene, onChoose, revealed }) {
       paddingLeft: '24px',
       paddingRight: '24px',
       paddingBottom: '32px',
+      opacity: chosen ? 0 : 1,
+      transform: chosen ? 'translateY(16px)' : 'translateY(0)',
+      transition: 'opacity 0.5s ease, transform 0.5s ease',
+      pointerEvents: chosen ? 'none' : 'auto',
     }}>
       {/* Prompt */}
       <div style={{
