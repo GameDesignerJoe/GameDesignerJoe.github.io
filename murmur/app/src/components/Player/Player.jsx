@@ -217,8 +217,9 @@ export default function Player() {
           )}
         </div>
 
-        {/* Scrub bar — above choices */}
-        <ScrubBar scene={scene} isPlaying={isPlaying} paused={paused} />
+        {/* Scrub bar — above choices. key={scene.id} forces a clean remount per scene so
+            stale duration/currentTime state from the previous clip doesn't linger. */}
+        <ScrubBar key={scene.id} scene={scene} isPlaying={isPlaying} paused={paused} />
 
         {/* Bottom: Choices */}
         <Choices scene={scene} onChoose={handleChoose} revealed={choicesRevealed} />
@@ -288,6 +289,8 @@ function ScrubBar({ scene, isPlaying, paused }) {
   const revealPct = (duration > 0 && scene.secondsBeforeEnd > 0)
     ? Math.max(0, Math.min(100, ((duration - scene.secondsBeforeEnd) / duration) * 100))
     : null
+  // Once the playhead reaches (or passes) the choice-reveal point, fade the dot out.
+  const revealReached = duration > 0 && scene.secondsBeforeEnd > 0 && currentTime >= (duration - scene.secondsBeforeEnd)
 
   // Hide entirely if we don't have a meaningful duration (autoplay blocked, etc.)
   const visible = duration > 0
@@ -329,7 +332,7 @@ function ScrubBar({ scene, isPlaying, paused }) {
           position: 'absolute', left: 0, width: `${pct}%`, height: '2px',
           background: '#c9a96e', borderRadius: '9999px',
         }} />
-        {/* Choice-reveal marker dot */}
+        {/* Choice-reveal marker dot — fades out once the playhead passes it */}
         {revealPct !== null && (
           <div
             title="Choices appear here"
@@ -339,10 +342,15 @@ function ScrubBar({ scene, isPlaying, paused }) {
               background: 'rgba(201,169,110,0.7)',
               transform: 'translateX(-50%)',
               boxShadow: '0 0 0 2px rgba(7,7,15,0.9)',
+              opacity: revealReached ? 0 : 1,
+              transition: 'opacity 1s ease',
+              pointerEvents: revealReached ? 'none' : 'auto',
             }}
           />
         )}
-        {/* Playhead thumb */}
+        {/* Playhead thumb — no CSS transition; position is updated per-frame by the
+            rAF loop, so the thumb tracks the fill bar exactly. A transition here
+            conflicts with the per-frame state updates and makes the thumb appear stuck. */}
         <div
           style={{
             position: 'absolute', left: `${pct}%`,
@@ -350,7 +358,6 @@ function ScrubBar({ scene, isPlaying, paused }) {
             background: '#c9a96e',
             transform: 'translateX(-50%)',
             boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-            transition: dragging ? 'none' : 'left 0.1s linear',
           }}
         />
       </div>

@@ -317,6 +317,15 @@ export const useStore = create((set, get) => ({
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }
   }),
+  // Update any field on story.narrator (name, emoji, …)
+  updateNarratorField: (key, value) => set(s => {
+    if (!s.creator.story) return {}
+    const narrator = { ...s.creator.story.narrator, [key]: value }
+    const story = { ...s.creator.story, narrator, updatedAt: Date.now() }
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
+    saveStories(stories)
+    return { creator: { ...s.creator, story }, stories }
+  }),
 
   // Save / Load helpers
   getSave: (storyId) => {

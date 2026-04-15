@@ -266,13 +266,11 @@ export default function Creator() {
             <HeaderTextBtn icon="volume_up" label="TTS" onClick={() => setShowTtsModal(true)} />
           </div>
 
-          {/* Icon buttons: Play, Save, History, Settings */}
+          {/* Icon buttons: Play, Settings */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <HeaderIconBtn icon="play_arrow" title="Play story" onClick={() => {
               if (story) launchStory(story, story.startScene)
             }} />
-            <HeaderIconBtn icon="save" title="Save (auto)" />
-            <HeaderIconBtn icon="history" title="History" />
             <HeaderIconBtn icon="tune" title="Story settings" onClick={() => setShowStorySettings(true)} />
           </div>
 
@@ -1112,6 +1110,7 @@ function StorySettingsModal({ onClose }) {
   const story = useStore(s => s.creator.story)
   const updateStoryField = useStore(s => s.updateStoryField)
   const updateNarratorPortrait = useStore(s => s.updateNarratorPortrait)
+  const updateNarratorField = useStore(s => s.updateNarratorField)
   const showHidden = useStore(s => s.showHiddenStories)
 
   if (!story) return null
@@ -1147,6 +1146,16 @@ function StorySettingsModal({ onClose }) {
               className="cr-input"
               value={story.title || ''}
               onChange={e => updateStoryField('title', e.target.value)}
+            />
+          </StorySettingsField>
+
+          {/* Narrator name */}
+          <StorySettingsField label="Narrator Name" hint="Used in audio filenames and display.">
+            <input
+              className="cr-input"
+              value={story.narrator?.name || ''}
+              placeholder="e.g. Eleanor"
+              onChange={e => updateNarratorField('name', e.target.value)}
             />
           </StorySettingsField>
 

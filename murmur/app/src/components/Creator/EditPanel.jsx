@@ -171,6 +171,9 @@ export default function EditPanel() {
           <input className="cr-input" value={scene.title} onChange={e => updateScene(selectedNodeId, 'title', e.target.value)} />
         </Field>
 
+        {/* Narration script (collapsible) */}
+        <ScriptField scene={scene} onChange={val => updateScene(selectedNodeId, 'script', val)} />
+
         {/* Emotion */}
         <Field label="Emotion / Portrait State">
           <select className="cr-input" value={scene.emotion} onChange={e => updateScene(selectedNodeId, 'emotion', e.target.value)}>
@@ -322,6 +325,60 @@ function Field({ label, children }) {
         {label}
       </label>
       {children}
+    </div>
+  )
+}
+
+function ScriptField({ scene, onChange }) {
+  const [expanded, setExpanded] = useState(false)
+  const script = scene.script || ''
+  const charCount = script.length
+  const preview = script.trim().slice(0, 60) + (script.length > 60 ? '…' : '')
+
+  return (
+    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--s2)' }}>
+      <div
+        className="flex justify-between items-center cursor-pointer"
+        onClick={() => setExpanded(e => !e)}
+        style={{ marginBottom: expanded ? '12px' : 0 }}
+      >
+        <label className="block text-[13px] tracking-[0.1em] uppercase" style={{ color: 'var(--sub)', cursor: 'pointer' }}>
+          Narration Script {charCount > 0 && <span className="normal-case tracking-normal" style={{ color: 'var(--sub)' }}>({charCount} chars)</span>}
+        </label>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--sub)', transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+          expand_more
+        </span>
+      </div>
+
+      {!expanded && script && (
+        <div className="text-[13px]" style={{ color: 'var(--sub)', fontStyle: 'italic', lineHeight: 1.5 }}>
+          "{preview}"
+        </div>
+      )}
+
+      {expanded && (
+        <>
+          <div className="text-[13px] mb-2" style={{ color: 'var(--sub)', lineHeight: 1.5 }}>
+            Full narration text (e.g. imported from CSV). Editable — regenerate audio if you change it.
+          </div>
+          <textarea
+            className="cr-input"
+            value={script}
+            placeholder="Enter narration text…"
+            onChange={e => onChange(e.target.value)}
+            style={{
+              width: '100%',
+              minHeight: '160px',
+              maxHeight: '400px',
+              resize: 'vertical',
+              fontFamily: "'Public Sans', sans-serif",
+              fontSize: '14px',
+              lineHeight: 1.6,
+              padding: '12px',
+            }}
+          />
+        </>
+      )}
     </div>
   )
 }
