@@ -190,10 +190,11 @@ export default function NodeGraph() {
   }
 
   // Fit/center all nodes in view
-  const fitToView = () => {
+  const fitToView = useCallback(() => {
     const el = canvasRef.current
     if (!el) return
-    const allPos = Object.values(positions)
+    const currentPositions = useStore.getState().creator.positions
+    const allPos = Object.values(currentPositions)
     if (allPos.length === 0) return
 
     const NW = 185, NH = 118
@@ -208,6 +209,7 @@ export default function NodeGraph() {
     const contentW = maxX - minX
     const contentH = maxY - minY
     const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
     const padding = 60
 
     const scaleX = (rect.width - padding * 2) / contentW
@@ -223,7 +225,15 @@ export default function NodeGraph() {
     panRef.current = { x: newPanX, y: newPanY }
     setZoom(newZ)
     setPan({ x: newPanX, y: newPanY })
-  }
+  }, [])
+
+  // Center view on initial load / when switching stories
+  useEffect(() => {
+    if (!story) return
+    // Defer to next frame so canvas layout is settled
+    const id = requestAnimationFrame(() => fitToView())
+    return () => cancelAnimationFrame(id)
+  }, [story?.id, fitToView])
 
   return (
     <div

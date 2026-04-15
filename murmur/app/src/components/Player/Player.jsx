@@ -217,6 +217,9 @@ export default function Player() {
           )}
         </div>
 
+        {/* Scrub bar — above choices */}
+        <ScrubBar scene={scene} isPlaying={isPlaying} paused={paused} />
+
         {/* Bottom: Choices */}
         <Choices scene={scene} onChoose={handleChoose} revealed={choicesRevealed} />
       </main>
@@ -231,5 +234,137 @@ export default function Player() {
         }}
       />
     </div>
+  )
+}
+
+function fmt(t) {
+  if (!isFinite(t) || t < 0) return '0:00'
+  const m = Math.floor(t / 60)
+  const s = Math.floor(t % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function ScrubBar({ scene, isPlaying, paused }) {
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [hoverX, setHoverX] = useState(null)
+  const trackRef = useRef(null)
+
+  // Poll the audio engine while playing (timeupdate events are a bit irregular; rAF is smoother)
+  useEffect(() => {
+    let raf
+    const tick = () => {
+      setCurrentTime(audioEngine.currentTime || 0)
+      const d = audioEngine.duration
+      setDuration(isFinite(d) ? d : 0)
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const seekToClientX = (clientX) => {
+    const el = trackRef.current
+    if (!el || !duration) return
+    const rect = el.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    audioEngine.seek(pct * duration)
+  }
+
+  useEffect(() => {
+    if (!dragging) return
+    const onMove = (e) => seekToClientX(e.clientX)
+    const onUp = () => setDragging(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragging, duration])
+
+  const pct = duration > 0 ? (currentTime / duration) * 100 : 0
+  const revealPct = (duration > 0 && scene.secondsBeforeEnd > 0)
+    ? Math.max(0, Math.min(100, ((duration - scene.secondsBeforeEnd) / duration) * 100))
+    : null
+
+  // Hide entirely if we don't have a meaningful duration (autoplay blocked, etc.)
+  const visible = duration > 0
+
+  return (
+    <section
+      style={{
+        width: '100%', maxWidth: '448px',
+        padding: '0 28px 12px',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.4s ease',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
+    >
+      <div
+        ref={trackRef}
+        onMouseDown={e => { setDragging(true); seekToClientX(e.clientX) }}
+        onMouseMove={e => {
+          if (!trackRef.current) return
+          const rect = trackRef.current.getBoundingClientRect()
+          setHoverX(Math.max(0, Math.min(rect.width, e.clientX - rect.left)))
+        }}
+        onMouseLeave={() => setHoverX(null)}
+        style={{
+          position: 'relative',
+          height: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+        }}
+      >
+        {/* Track (background line) */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, height: '2px',
+          background: 'rgba(255,255,255,0.15)', borderRadius: '9999px',
+        }} />
+        {/* Fill (played portion) */}
+        <div style={{
+          position: 'absolute', left: 0, width: `${pct}%`, height: '2px',
+          background: '#c9a96e', borderRadius: '9999px',
+        }} />
+        {/* Choice-reveal marker dot */}
+        {revealPct !== null && (
+          <div
+            title="Choices appear here"
+            style={{
+              position: 'absolute', left: `${revealPct}%`,
+              width: '6px', height: '6px', borderRadius: '50%',
+              background: 'rgba(201,169,110,0.7)',
+              transform: 'translateX(-50%)',
+              boxShadow: '0 0 0 2px rgba(7,7,15,0.9)',
+            }}
+          />
+        )}
+        {/* Playhead thumb */}
+        <div
+          style={{
+            position: 'absolute', left: `${pct}%`,
+            width: '10px', height: '10px', borderRadius: '50%',
+            background: '#c9a96e',
+            transform: 'translateX(-50%)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            transition: dragging ? 'none' : 'left 0.1s linear',
+          }}
+        />
+      </div>
+      {/* Time readout */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between',
+        marginTop: '6px',
+        fontFamily: "'DM Sans', sans-serif", fontSize: '10px',
+        letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)',
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        <span>{fmt(currentTime)}</span>
+        <span>-{fmt(Math.max(0, duration - currentTime))}</span>
+      </div>
+    </section>
   )
 }

@@ -5,6 +5,17 @@ import CsvImporter from './CsvImporter'
 import { saveAudioBlob, loadStoryAudio } from '../../engine/AudioStore'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
+// Build a descriptive audio filename: "{story-title}-{narrator-name}-{sceneId}-a.mp3"
+// Example: "the-black-door-eleanor-the_arrival-a.mp3"
+function slugify(s) {
+  return (s || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+function audioFilename(story, sceneId) {
+  const storyPart = slugify(story.title) || slugify(story.id) || 'story'
+  const narratorPart = slugify(story.narrator?.name) || 'narrator'
+  return `${storyPart}-${narratorPart}-${sceneId}-a.mp3`
+}
+
 export default function Creator() {
   const view = useStore(s => s.view)
   const setView = useStore(s => s.setView)
@@ -16,6 +27,7 @@ export default function Creator() {
   const addScene = useStore(s => s.addScene)
   const selectNode = useStore(s => s.selectNode)
   const updateScene = useStore(s => s.updateScene)
+  const deleteScene = useStore(s => s.deleteScene)
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [showTtsModal, setShowTtsModal] = useState(false)
   const [showStorySettings, setShowStorySettings] = useState(false)
@@ -27,6 +39,26 @@ export default function Creator() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sceneSidebarWidth, setSceneSidebarWidth] = useState(250)
   const sceneDragging = useRef(false)
+
+  // Delete key removes the selected node (when focus isn't in an input/textarea)
+  useEffect(() => {
+    if (view !== 'creator') return
+    const handleKey = (e) => {
+      if (e.key !== 'Delete') return
+      const { selectedNodeId: sel, story: st } = useStore.getState().creator
+      if (!sel || !st) return
+      const tag = document.activeElement?.tagName
+      const editable = document.activeElement?.isContentEditable
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || editable) return
+      const scene = st.scenes[sel]
+      if (!scene) return
+      if (confirm(`Delete scene "${scene.title}"?`)) {
+        deleteScene(sel)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [view, deleteScene])
 
   useEffect(() => {
     const handleMove = (e) => {
@@ -88,9 +120,12 @@ export default function Creator() {
       const clean = JSON.parse(JSON.stringify(story, (key, val) => {
         // Replace blob URLs with local file paths for portability
         if (key === 'clips' && Array.isArray(val)) {
-          return val.map((c, i) => c.startsWith('blob:')
-            ? `${story.id}/audio/${Object.values(story.scenes).find(s => s.clips?.includes(c))?.id || 'clip'}-a.mp3`
-            : c)
+          return val.map((c) => {
+            if (!c.startsWith('blob:')) return c
+            const owner = Object.values(story.scenes).find(s => s.clips?.includes(c))
+            const sid = owner?.id || 'clip'
+            return `${story.id}/audio/${audioFilename(story, sid)}`
+          })
         }
         return val
       }))
@@ -112,11 +147,12 @@ export default function Creator() {
         for (const sceneId of audioIds) {
           const scene = story.scenes[sceneId]
           const generatedAt = scene?.audioGeneratedAt || 0
+          const filename = audioFilename(story, sceneId)
 
           // Check if an up-to-date file already exists on disk
           let shouldWrite = true
           try {
-            const existingHandle = await audioDir.getFileHandle(`${sceneId}-a.mp3`)
+            const existingHandle = await audioDir.getFileHandle(filename)
             const existingFile = await existingHandle.getFile()
             // File on disk is newer (or same age) as the generated audio — skip
             if (existingFile.lastModified >= generatedAt) {
@@ -128,7 +164,7 @@ export default function Creator() {
           }
 
           if (shouldWrite) {
-            const fh = await audioDir.getFileHandle(`${sceneId}-a.mp3`, { create: true })
+            const fh = await audioDir.getFileHandle(filename, { create: true })
             const w = await fh.createWritable()
             await w.write(blobs[sceneId])
             await w.close()
@@ -627,11 +663,12 @@ function TtsModal({ onClose }) {
           // Write to the folder the user picked
           if (audioDir) {
             try {
-              const fh = await audioDir.getFileHandle(`${sceneId}-a.mp3`, { create: true })
+              const filename = audioFilename(story, sceneId)
+              const fh = await audioDir.getFileHandle(filename, { create: true })
               const w = await fh.createWritable()
               await w.write(blob)
               await w.close()
-              console.log(`  [${sceneId}] → saved: ${sceneId}-a.mp3`)
+              console.log(`  [${sceneId}] → saved: ${filename}`)
             } catch (e) { console.warn(`  [${sceneId}] Disk write failed: ${e.message}`) }
           }
 

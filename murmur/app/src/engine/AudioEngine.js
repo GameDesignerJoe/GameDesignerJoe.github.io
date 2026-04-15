@@ -172,6 +172,19 @@ class AudioEngine {
     }
   }
 
+  seek(seconds) {
+    if (!isFinite(seconds)) return
+    const d = this.narrator.duration
+    if (!isFinite(d) || d === 0) return
+    this.narrator.currentTime = Math.max(0, Math.min(d, seconds))
+    // Reset the tail-fade flag and restore narrator volume, since seeking
+    // may move us out of (or back into) the tail-fade region
+    this._tailFading = false
+    this.narrator.volume = 1
+    // If the user seeks past the choice-reveal threshold, don't miss it
+    // (timeupdate will pick it up on the next fire)
+  }
+
   get isPlaying() {
     return !this.narrator.paused
   }

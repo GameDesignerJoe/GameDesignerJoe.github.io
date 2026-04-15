@@ -1,18 +1,16 @@
 Murmur Todo
-- Player: May want to add a clean minimal audio track bar that shows how long is left and allows the user to skip ahead. We could give a little blip/dot on the bar towards the end that shows where the button options will show up.
-- Editor: Always start in editor with the 'center' view as the default
-- Editor: When clicking on a node in the editor and then hitting the delete key, it should delete the node. 
-- make the default name for TTS audio files so they have a prefix of  [story name] - [narrator] as for them so we understand what story they are a part of and who is doing the speaking. 
+- There is no place to set the narrator name for stories. We should add a field for that in the Story Settings section.
+- rename the existing audio files to the correct name and then let's update the ones on git and make sure all the paths to the existing audio lines work well. 
+- The player placed dot on the scrub bar, doesn't update after it's been placed. Even when it goes to the next audio scene, the scrub dot still sits in the same place. 
+- We should have a text field in the editor for each node that shows the narration text from the csv file if there is any. I can image the node itself only gives a few worlds "In a dark forest I came..." but in the editor there's a field where you can see all the text. It'll be a lot, so we should have the option to collapse/expand it. I'd also expect to be able to edit it here as well incase the audio isn't correct from the initial text. 
+- Editor: Does the save or history button actualy do anything? I don't think it does, so we should remove them. 
 
 Quality of Life features:
 - Need a search in the scene editor that highlights nodes and scene information where words exist. 
 - Do another audio pass, but push it to have more emotion in it with the [brackets]
 - When I exit out of the story, it should take me back to the detail page of that story, not to the top of the page. 
-- I feel like we need a story level editor window that sets a couple things:
-    - Portrait Images for Narrator(since it's one narrator through the whole thing).
-    - Choice Timing for buttons (since it'll likely be the same for all of them.). Even if we just have a repository for images at the root level and then here we give them dropdowns to pick the one they want. Having to paste in th esame image 35 times is going to drive me crazy. 
-- We should have a text field in the editor that shows the text from the csv file if there is any. 
-- Editor: Does the save or history button actualy do anything?
+
+
 
 
 
