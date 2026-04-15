@@ -1,0 +1,501 @@
+{
+  "id": "the-black-door",
+  "title": "The Black Door",
+  "tagline": "",
+  "description": "",
+  "tags": [],
+  "bg": "linear-gradient(160deg,#0a0a0a 0%,#1a1208 100%)",
+  "bgs": {
+    "a": "linear-gradient(160deg,#0a0a0a,#1a1208)",
+    "b": "linear-gradient(160deg,#080808,#100c04)",
+    "c": "linear-gradient(160deg,#0d0405,#1a0808)",
+    "d": "linear-gradient(160deg,#050505,#080808)"
+  },
+  "narrator": {
+    "name": "Narrator",
+    "emoji": "🎭"
+  },
+  "duration": "~19 min",
+  "paths": 1,
+  "startScene": "discovery",
+  "scenes": {
+    "discovery": {
+      "id": "discovery",
+      "title": "The Black Door",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I am a rational man. I have crossed glaciers in the north of Greenland, descended into lava tubes in Iceland still warm from their last eruption, mapped cave systems in Borneo that had never felt the pressure of human footfall. I record what I find. I report it. I move on. This is what I tell myself now, in the moments when I am still myself. It was a Tuesday in October when I found it — three miles from the marked trail, down a slope of loose shale that no recreational hiker would navigate by accident. A door. Black. Perhaps eight feet tall, and proportioned in a way that suggested — though I cannot explain the mechanism of this suggestion — that it had not been built for human bodies. Three recessed cavities in its face. Circular. Approximately twenty-two centimeters in diameter. I did not touch it. I am certain I did not touch it. I marked the coordinates in my GPS device, looked at the door for what I believed to be three minutes, and I walked back to the trail. My GPS log would later show I had stood there for four hours and eleven minutes.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Mark the coordinates and leave immediately…",
+          "target": "return_home"
+        },
+        {
+          "text": "Reach out and touch the surface of the door…",
+          "target": "first_touch"
+        }
+      ]
+    },
+    "first_touch": {
+      "id": "first_touch",
+      "title": "Contact",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The surface was cold in a way that stone is not cold — in a way that suggested the cold was not a property of the material but of something pressing outward from within. Under my fingertips I felt — I do not have the correct word. A vibration is not right. A recognition is closer. As though the door had been waiting and had, in the precise moment of contact, simply noted my arrival in the way that a very old and patient thing notes the arrival of something that does not yet understand what it is for. I removed my hand. I walked back to the trail. My GPS log would show I had stood there for four hours and eleven minutes.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "Continue back to the trail…",
+          "target": "return_home"
+        }
+      ]
+    },
+    "return_home": {
+      "id": "return_home",
+      "title": "The Normal World",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The drive home took six hours. I played the radio loudly. I sang along to songs I did not know. My wife made dinner — pasta, I think, or something resembling it in shape and temperature — and I ate at the table and spoke words I have no memory of speaking. She said I seemed tired. She was right. She was, I understand now, entirely right about that, and about nothing else for quite some time. I thought: I will report it. I am a thorough man. I document. I considered whom I might call — the park service, a geology department, a colleague with vague ties to anthropological findings. I picked up my phone three times. I set it down three times. The coordinates stayed in the device, in a folder I told myself I would open in the morning.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "Tell her what you found…",
+          "target": "confession_attempt"
+        },
+        {
+          "text": "Say nothing. Put the phone down…",
+          "target": "the_hiding"
+        }
+      ]
+    },
+    "confession_attempt": {
+      "id": "confession_attempt",
+      "title": "The Words Won't Come",
+      "emotion": "sad",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I sat across from her at the kitchen table after dinner, her book open in her lap, the lamp making the room look like something worth preserving. I opened my mouth to tell her everything. I had rehearsed a sentence — simple, declarative, beginning with the word I and ending with the word door. The sentence did not come. What came instead was a long and peculiar silence during which she looked at me with the particular patience of a woman who has been waiting for her husband to say something real for quite some time. Then I asked if we were out of coffee. She said we were not. I went to bed.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 4,
+      "defaultChoice": 0,
+      "countdown": 3,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "the_hiding"
+        }
+      ]
+    },
+    "the_hiding": {
+      "id": "the_hiding",
+      "title": "Hidden",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I deleted the GPS coordinates. This is what I told myself I had done. I had not done this. They remained in the device, in a folder I had created and labeled with a string of numbers that meant nothing, that were not coordinates, that I would have no reason to open again. I returned to work. I filed my reports. I attended a faculty meeting. I shook hands and laughed at appropriate moments and once — in the men's room of the building where I had worked for eleven years — I stood at the sink for twenty minutes watching the water run, and could not account for the time when I finally looked up. I told myself this was stress. I told myself this in the specific and unconvincing way that an intelligent man tells himself something he has already decided not to believe.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "Into the first night…",
+          "target": "first_dream"
+        }
+      ]
+    },
+    "first_dream": {
+      "id": "first_dream",
+      "title": "The First Night",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The door was in the dream exactly as I had found it. This is not remarkable — explorers dream of their discoveries. What was remarkable was the sound. In the field there had been no sound. In the dream there was a sound, low and beneath frequency, less heard than felt in the plates of the face and the deep architecture of the chest. And within that sound — I hesitate. I have a doctorate. I do not believe in voices. Within that sound there was something shaped like a name. It was not my name. It was older than my name. It was what I would have been called if something other than my parents had gotten to me first. I woke at three in the morning with my fists closed.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "Get up. Sit with the lights on…",
+          "target": "waking_resistance"
+        },
+        {
+          "text": "Let it continue. Listen for the name…",
+          "target": "deep_dream"
+        }
+      ]
+    },
+    "waking_resistance": {
+      "id": "waking_resistance",
+      "title": "Three in the Morning",
+      "emotion": "sad",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I sat in the kitchen with every light burning until nearly five. I drank coffee I didn't taste. I read the news on my phone and understood none of it. I was aware that I was doing these things, and that they were sensible things to do, and that they were not working. My wife appeared in the doorway at some point and asked if I was alright. I said the word yes. She came and sat with me, and we didn't speak, and somewhere between four and five I fell asleep in the chair. The door was there. Waiting. Patient in the way that geology is patient. In the way that stone waits for the thing pressing against it from the other side.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "Let go…",
+          "target": "deep_dream"
+        }
+      ]
+    },
+    "deep_dream": {
+      "id": "deep_dream",
+      "title": "The Name",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I learned the name. I will not write it here. I am not certain this language possesses letters of the correct shape for it, but that is not the reason I will not write it. The reason is that writing it would fix it in place — make it a solid thing — and I am not yet ready for it to be solid. The dreams came every night after that. I began to recognize the geography around the door: shale, lichen, a particular crooked pine that grew sideways from the slope above it. I began to understand that I was not dreaming the door so much as returning to it. My sleep had become a commute. I stopped mentioning this to my wife. I stopped mentioning most things.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "Into the days that followed…",
+          "target": "the_seeing"
+        }
+      ]
+    },
+    "the_seeing": {
+      "id": "the_seeing",
+      "title": "What I See Now",
+      "emotion": "determined",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "It began with shadows. In crowds — the grocery store, faculty meetings, the street outside my office — I began to see people differently. Not differently as in metaphorically. The eyes are not a metaphorical organ. I saw the musculature beneath the skin first, then the bone beneath that, and then the bone alone, in full and specific detail. And then — I require you to sit with this — I found that I could evaluate the bone. The shape of it. The particular curvature of the orbital ridge and the jaw. I did not know what I was evaluating for. I knew, with absolute and sourceless certainty, whether it would fit. I did not ask fit into what. That was the part of me that already knew and was choosing, in those early days, not to say so.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Avoid people. Work from home. Draw the curtains…",
+          "target": "the_avoidance"
+        },
+        {
+          "text": "Go out. Look…",
+          "target": "the_recognition"
+        }
+      ]
+    },
+    "the_avoidance": {
+      "id": "the_avoidance",
+      "title": "Quarantine",
+      "emotion": "sad",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I stopped going in to the university. I ordered groceries delivered to the door. I covered the bathroom mirrors, which helped less than I'd hoped, because the problem was not my own reflection but rather what my hands were doing while I slept — I found evidence of this, in the mornings, objects moved, pages turned in books I had not read. The door came to me every night without fail. My wife knocked on the study door with increasing frequency. When my brother called I watched the phone ring and did not answer it. But I found, in the quarantine, that absence does not quiet a specific kind of hunger. I began to think about them. Not with love — love was still present, but it had been moved to the back of the room. I thought about them with the cold and particular focus of assessment.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "Go out. Look…",
+          "target": "the_recognition"
+        }
+      ]
+    },
+    "the_recognition": {
+      "id": "the_recognition",
+      "title": "The Ones That Will Work",
+      "emotion": "determined",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "My brother came to the house uninvited on a Wednesday. He stood in the kitchen doorway wearing the expression people wear when they are preparing to say the words I'm worried about you, and before he formed a single syllable I saw it. The orbital ridge. The zygomatic arch. The overall structure of the calvarium — undamaged, viable, correct. The word that arrived in my mind was not medical. It was the older word. The one from the dream. I gripped the counter. I manufactured a smile. I said: I've been sleeping poorly. He stayed an hour. That night, in the chair across from me, my wife turned a page of her book and the lamp caught her profile, and I understood that both of them had been placed in my life with a specificity I was only now equipped to recognize. I sat with this knowledge for eleven days. Then I made the calls.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "Make the calls…",
+          "target": "the_invitation"
+        }
+      ]
+    },
+    "the_invitation": {
+      "id": "the_invitation",
+      "title": "The Backpacking Trip",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I suggested it on a Sunday. A reset — I used that word, which I had never used in my life, a word that felt both foreign and entirely correct in my mouth, the way a phrase sounds correct when someone else has written it for you. A long weekend. Old trail we'd done years ago, the three of us, before the children we never had and the work that had crowded in. My brother said yes immediately, because he has always been that kind of person. My wife looked at me for a moment that lasted longer than moments usually last, and then she said yes too. I think she believed it would help me. I think she was trying, with the blunt instrument of a camping trip, to save my life. I try to hold onto that.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "Tell them the truth before you go…",
+          "target": "the_truth_attempt"
+        },
+        {
+          "text": "Say nothing. Start packing…",
+          "target": "the_journey"
+        }
+      ]
+    },
+    "the_truth_attempt": {
+      "id": "the_truth_attempt",
+      "title": "What I Almost Said",
+      "emotion": "sad",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I sat them both at the kitchen table the evening before we left, and I had decided — with whatever remained of my deciding — that I would tell them everything. The door. The coordinates. The dreams. What I saw when I looked at their faces in the lamplight. I would tell them and something would change and whatever changed would be better than this. I opened my mouth. I heard myself say: I just want you to know how much I love you both. My brother laughed the laugh he's had since he was nine years old. My wife's eyes went bright and strange in a way that had nothing to do with sentiment and everything to do with relief that I was, apparently, still reachable. We had dinner. We went to bed. We left at seven the next morning.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "Into the hills…",
+          "target": "the_journey"
+        }
+      ]
+    },
+    "the_journey": {
+      "id": "the_journey",
+      "title": "Into the Hills",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The drive took four hours. My wife navigated from her phone. My brother slept in the back and snored in the way he has snored since childhood — three short, one long — and the familiarity of it was, for the first time in months, something I could actually feel rather than simply identify. The trail was as I remembered: marked posts, numbered signs, the ordinary infrastructure of a place designed to be visited and left without consequence. Three miles out I left the trail. I said I wanted to show them something. I said the word trust. They followed me down the shale, past the crooked pine, and then the slope opened and there it was — exactly as I had left it, exactly as I had dreamed it, patient as only a thing can be that has never needed to be otherwise.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Stop. Tell them to go back…",
+          "target": "the_turning"
+        },
+        {
+          "text": "Step forward into the open space before it…",
+          "target": "the_arrival"
+        }
+      ]
+    },
+    "the_turning": {
+      "id": "the_turning",
+      "title": "The Body Refuses",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I formed the word stop in my mouth. I am confident of this. I am confident the word was assembled correctly — consonant, vowel, the necessary air from the lungs — and that under different circumstances it would have functioned as words generally function. My legs did not stop. They continued forward with the even and unhurried pace of someone walking toward something they have been walking toward for a very long time. After a moment I heard my brother's footsteps and my wife's footsteps continue behind me. And I understood that we were not walking toward the door so much as flowing toward it, the way water moves — without preference, without deliberation, by the simple logic of gradient.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 4,
+      "defaultChoice": 0,
+      "countdown": 3,
+      "choices": [
+        {
+          "text": "Forward…",
+          "target": "the_arrival"
+        }
+      ]
+    },
+    "the_arrival": {
+      "id": "the_arrival",
+      "title": "All Three",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "We stood before it. The sound began immediately — that subsonic pressure, the thing shaped like a name — and I saw my brother go still in the way people go still when they hear something they cannot place and cannot dismiss. My wife raised one hand, very slowly, and the gesture was not hers. It belonged to something that was using her the way a hand uses a glove. I looked at her face. I looked at my brother's face. I looked at the three cavities in the door, empty, waiting with the patience of designed things waiting to be used. And then — with the specific clarity that I have come to understand arrives only at the end of things — we all looked at each other. And we all understood. There was a moment, very brief, in which we were still ourselves. We used it to look at each other. I want that noted.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "…",
+          "target": "the_violence"
+        }
+      ]
+    },
+    "the_violence": {
+      "id": "the_violence",
+      "title": "What Happened on the Slope",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I will not describe it in full. Partly because language does not have the correct shapes for it. Partly because there was a moment — perhaps the last truly human moment I experienced — in which I watched the whole of it from somewhere slightly above and behind my own body, as though I had been permitted, finally, to step back from the machinery of myself and observe. We were not violent people. My brother coached youth soccer on Tuesday evenings. My wife sang in a community chorus. What moved through us on that slope was not hatred — I want to be absolutely clear about this — it was something more orderly than hatred. It was necessity. It was the satisfaction of a designed thing doing the work it was designed for.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 1,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "Fight it. Use whatever remains of yourself…",
+          "target": "the_fighting"
+        },
+        {
+          "text": "Let go of the wheel…",
+          "target": "the_last"
+        }
+      ]
+    },
+    "the_fighting": {
+      "id": "the_fighting",
+      "title": "The Last Resistance",
+      "emotion": "afraid",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I pushed back. I do not know the correct anatomical language for what I pushed against — it was not located in any particular region of me but was distributed throughout, the way cold is distributed through a body of water. I felt myself push against it. I felt the pushing register as nothing. A man pushing against the current of a river that has been flowing for longer than men have had names. A man arguing with the directional logic of his own blood. I was very clear-eyed about the futility of it. I think the thing that was using me permitted me this clarity as a kind of courtesy. My hands continued their work. They were, I regret to say, very thorough.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "The last of it…",
+          "target": "the_last"
+        }
+      ]
+    },
+    "the_last": {
+      "id": "the_last",
+      "title": "The Survivor",
+      "emotion": "sad",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "I was the last. This is not a boast. This is not even a fact that belongs to me — it was arranged, as everything was arranged, with a specificity that I was only beginning to fully appreciate. I sat on the shale for a time I did not measure. The door waited. Around me the mountain was completely and magnificently indifferent, and the sky was the particular blue of late afternoon in October, and somewhere above a bird called once and then did not call again. I was grateful for the bird. Then I stood. I carried what I had to carry. I placed the first into its slot. The door made a sound like a very old lock turning in a house where no one has lived for a very long time. Then the second. The door began to emanate — not light exactly, but the systematic absence of darkness, which is not the same thing.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "…",
+          "target": "the_awakening"
+        }
+      ]
+    },
+    "the_awakening": {
+      "id": "the_awakening",
+      "title": "Something Stirs",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "From behind the door came movement. I cannot give you the scale of it accurately because the scale of it was wrong — larger than the space behind the door ought to contain, operating at a rhythm that did not correspond to any animal I have studied or imagined. It was not rushing the door. It was not urgent. It had the deliberateness of something that has been waiting long enough that urgency has simply become irrelevant — a category error, like asking stone whether it is in a hurry. I stood before two filled slots and one that was not. I felt, for the first time since October, completely calm. I understood that the calm was not mine. I understood that it was the final instruction.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 4,
+      "choices": [
+        {
+          "text": "…",
+          "target": "the_realization"
+        }
+      ]
+    },
+    "the_realization": {
+      "id": "the_realization",
+      "title": "From the Beginning",
+      "emotion": "determined",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The calm was the last lesson, and in it I understood the complete architecture of everything that had happened to me. The door had not found me. I had not been chosen in any meaningful sense of that word — I had been used, which is a different and more honest thing. The dreams had not been a haunting. They had been a rehearsal. And here is what I will ask you to sit with, because I have had to sit with it, in the only way I have left to sit with things: I brought two people with me. Exactly two. The door has three slots. I am an educated man. I understand numbers. I understood numbers on the day I made the phone calls. I understood numbers when I packed the bags. I understood numbers for the entire four-hour drive. At no point did I bring a third person. At no point, in all the weeks of planning, did I ask myself why.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 5,
+      "choices": [
+        {
+          "text": "…",
+          "target": "the_final_act"
+        }
+      ]
+    },
+    "the_final_act": {
+      "id": "the_final_act",
+      "title": "The Third Slot",
+      "emotion": "determined",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The calm held through all of it. I was grateful for this — genuinely, in the residual part of me that was still capable of gratitude — because the alternative would have made the geometry impossible. I will not tell you that it was painless. I will tell you that it was brief. I will tell you that in the final moment, in the narrowing dark at the edges of the last thing I would ever see, I had one thought that was entirely and completely my own — not placed there, not arranged, not part of any older design. I thought of my wife singing in the kitchen on Sunday mornings. Something small. Something ordinary and irreplaceable and hers. I held it for as long as I had left to hold anything. Then I completed the arrangement.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 0,
+      "defaultChoice": null,
+      "countdown": 0,
+      "choices": []
+    },
+    "the_opening": {
+      "id": "the_opening",
+      "title": "What Came Through",
+      "emotion": "sad",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "The door opened slowly. Not dramatically — slowly, with the weight of a thing that has been closed for longer than recorded time and sees no reason to hurry now that it is finally, correctly, geometrically opened. From the darkness behind it came the thing that had been waiting. I will not describe it. I am not capable of describing it in any language assembled for human use. I will tell you that it moved in a way that suggested its relationship to space was optional. I will tell you that as it passed through the frame it seemed to recognize the mountain — the shale, the crooked pine, the specific blue of the October sky — in the way that one recognizes a place visited once in deep childhood, with a vague and massive and unhurried pleasure. The sky held. The bird did not call again. The door stood open behind it, and the darkness behind the door was complete, and from the darkness there was no sound at all.",
+      "scriptUpdatedAt": 1776202320569,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 0,
+      "defaultChoice": null,
+      "countdown": 0,
+      "choices": []
+    }
+  }
+}

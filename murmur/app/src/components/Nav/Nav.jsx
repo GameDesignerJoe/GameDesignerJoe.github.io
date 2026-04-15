@@ -4,7 +4,6 @@ export default function Nav() {
   const view = useStore(s => s.view)
   const setView = useStore(s => s.setView)
   const setCreatorStory = useStore(s => s.setCreatorStory)
-  const addStory = useStore(s => s.addStory)
 
   if (view === 'player' || view === 'creator') return null
 
@@ -69,7 +68,6 @@ export default function Nav() {
         },
       },
     }
-    addStory(newStory)
     setCreatorStory(newStory)
     setView('creator')
   }

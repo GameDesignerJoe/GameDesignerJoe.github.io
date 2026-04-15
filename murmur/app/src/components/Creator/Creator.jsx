@@ -44,16 +44,52 @@ export default function Creator() {
 
   const { story, selectedNodeId } = creator
 
-  const exportStory = () => {
+  const saveToProject = async () => {
     if (!story) return
-    const clean = JSON.parse(JSON.stringify(story))
-    delete clean._pos
-    const blob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = clean.id + '.json'
-    a.click()
-    URL.revokeObjectURL(a.href)
+    try {
+      // Pick a parent folder (e.g. public/stories/)
+      const parentDir = await window.showDirectoryPicker({ mode: 'readwrite' })
+
+      // Create story folder inside it
+      const storyDir = await parentDir.getDirectoryHandle(story.id, { create: true })
+
+      // 1. Write story JSON
+      const clean = JSON.parse(JSON.stringify(story, (key, val) => {
+        // Replace blob URLs with local file paths for portability
+        if (key === 'clips' && Array.isArray(val)) {
+          return val.map((c, i) => c.startsWith('blob:')
+            ? `${story.id}/audio/${Object.values(story.scenes).find(s => s.clips?.includes(c))?.id || 'clip'}-a.mp3`
+            : c)
+        }
+        return val
+      }))
+      delete clean._pos
+      const jsonBlob = new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' })
+      const jsonHandle = await storyDir.getFileHandle(`${story.id}.json`, { create: true })
+      const jsonWriter = await jsonHandle.createWritable()
+      await jsonWriter.write(jsonBlob)
+      await jsonWriter.close()
+      console.log(`[Murmur] Saved ${story.id}.json`)
+
+      // 2. Write all audio from IndexedDB
+      const blobs = await loadStoryAudio(story.id)
+      const audioIds = Object.keys(blobs)
+      if (audioIds.length > 0) {
+        const audioDir = await storyDir.getDirectoryHandle('audio', { create: true })
+        for (const sceneId of audioIds) {
+          const fh = await audioDir.getFileHandle(`${sceneId}-a.mp3`, { create: true })
+          const w = await fh.createWritable()
+          await w.write(blobs[sceneId])
+          await w.close()
+        }
+        console.log(`[Murmur] Saved ${audioIds.length} audio files to ${story.id}/audio/`)
+      }
+
+      console.log(`%c[Murmur] Project saved: ${story.id}/`, 'color: #4ade80; font-weight: bold')
+    } catch (err) {
+      if (err.name === 'AbortError') return // user cancelled picker
+      console.error('[Murmur] Save failed:', err)
+    }
   }
 
   const importJson = () => {
@@ -150,9 +186,9 @@ export default function Creator() {
             <HeaderIconBtn icon="history" title="History" />
           </div>
 
-          {/* Export gold button */}
+          {/* Save to Project */}
           <button
-            onClick={exportStory}
+            onClick={saveToProject}
             style={{
               background: '#c9a96e', color: '#412d00',
               padding: '6px 20px', borderRadius: '9999px', border: 'none',
@@ -160,11 +196,13 @@ export default function Creator() {
               letterSpacing: '0.08em', cursor: 'pointer',
               fontFamily: "'DM Sans', sans-serif",
               transition: 'opacity 0.2s',
+              display: 'flex', alignItems: 'center', gap: '6px',
             }}
             onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
           >
-            Export
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>save</span>
+            Save to Project
           </button>
         </div>
       </header>

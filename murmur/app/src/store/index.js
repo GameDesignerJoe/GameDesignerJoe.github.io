@@ -25,6 +25,14 @@ function saveStories(stories) {
   }
 }
 
+/** Upsert a story into the stories array (add if new, replace if exists) */
+function upsertStory(stories, edited) {
+  const exists = stories.some(st => st.id === edited.id)
+  return exists
+    ? stories.map(st => st.id === edited.id ? edited : st)
+    : [...stories, edited]
+}
+
 // Demo stories — same as prototype
 const DEMO_STORIES = [
   {
@@ -127,6 +135,7 @@ export const useStore = create((set, get) => ({
     sceneId: null,
     history: [],
     shufflers: {},
+    returnTo: 'library', // where to go when closing the player
   },
 
   launchStory: (story, sceneId, history = []) => {
@@ -134,9 +143,11 @@ export const useStore = create((set, get) => ({
     Object.values(story.scenes).forEach(sc => {
       shufflers[sc.id] = new SmartShuffle(sc.clips)
     })
+    // Remember which view launched the player so X goes back there
+    const returnTo = get().view === 'creator' ? 'creator' : 'library'
     set({
       view: 'player',
-      player: { story, sceneId, history: [...history], shufflers },
+      player: { story, sceneId, history: [...history], shufflers, returnTo },
     })
   },
 
@@ -154,7 +165,10 @@ export const useStore = create((set, get) => ({
     return { player: newPlayer }
   }),
 
-  closePlayer: () => set({ view: 'library', player: { story: null, sceneId: null, history: [], shufflers: {} } }),
+  closePlayer: () => set(s => ({
+    view: s.player.returnTo || 'library',
+    player: { story: null, sceneId: null, history: [], shufflers: {}, returnTo: 'library' },
+  })),
 
   // Creator state
   creator: {
@@ -176,7 +190,7 @@ export const useStore = create((set, get) => ({
   saveCreatorStory: () => set(s => {
     if (!s.creator.story) return {}
     const edited = JSON.parse(JSON.stringify(s.creator.story))
-    const stories = s.stories.map(st => st.id === edited.id ? edited : st)
+    const stories = upsertStory(s.stories, edited)
     saveStories(stories)
     return { stories }
   }),
@@ -193,7 +207,7 @@ export const useStore = create((set, get) => ({
     story.scenes[sceneId] = updated
     // Auto-save to stories array + localStorage
     const editedStory = { ...story }
-    const stories = s.stories.map(st => st.id === editedStory.id ? JSON.parse(JSON.stringify(editedStory)) : st)
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(editedStory)))
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }
   }),
@@ -215,7 +229,7 @@ export const useStore = create((set, get) => ({
     }
     const positions = { ...s.creator.positions }
     positions[id] = { x: 60, y: 60 }
-    const stories = s.stories.map(st => st.id === story.id ? JSON.parse(JSON.stringify(story)) : st)
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story, positions, selectedNodeId: id }, stories }
   }),
@@ -228,14 +242,14 @@ export const useStore = create((set, get) => ({
     })
     const positions = { ...s.creator.positions }
     delete positions[id]
-    const stories = s.stories.map(st => st.id === story.id ? JSON.parse(JSON.stringify(story)) : st)
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story, positions, selectedNodeId: null }, stories }
   }),
 
   setStartScene: (id) => set(s => {
     const story = { ...s.creator.story, startScene: id }
-    const stories = s.stories.map(st => st.id === story.id ? JSON.parse(JSON.stringify(story)) : st)
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }
   }),
