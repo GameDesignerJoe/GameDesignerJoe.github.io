@@ -108,8 +108,9 @@ function StoryCard({ story, index, totalStories }) {
 }
 
 export default function Library() {
-  const stories = useStore(s => s.stories)
+  const rawStories = useStore(s => s.stories)
   const view = useStore(s => s.view)
+  const stories = [...rawStories].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
   const scrollRef = useRef(null)
   const activeIndex = useStore(s => s.activeStoryIndex)
   const setActiveIndex = useStore(s => s.setActiveStoryIndex)

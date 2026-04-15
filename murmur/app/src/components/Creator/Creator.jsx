@@ -17,6 +17,7 @@ export default function Creator() {
   const updateScene = useStore(s => s.updateScene)
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [showTtsModal, setShowTtsModal] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [panelWidth, setPanelWidth] = useState(360)
   const [audioRestored, setAudioRestored] = useState(null)
 
@@ -48,10 +49,17 @@ export default function Creator() {
     if (!story) return
     try {
       // Pick a parent folder (e.g. public/stories/)
-      const parentDir = await window.showDirectoryPicker({ mode: 'readwrite' })
+      const pickedDir = await window.showDirectoryPicker({ mode: 'readwrite' })
 
-      // Create story folder inside it
-      const storyDir = await parentDir.getDirectoryHandle(story.id, { create: true })
+      // If the user picked the story folder itself (common mistake), use it directly.
+      // Otherwise, create/get a subfolder named {story.id} inside the picked folder.
+      let storyDir
+      if (pickedDir.name === story.id) {
+        storyDir = pickedDir
+        console.log(`[Murmur] Picked folder is named "${story.id}" — saving directly into it (no nesting)`)
+      } else {
+        storyDir = await pickedDir.getDirectoryHandle(story.id, { create: true })
+      }
 
       // 1. Write story JSON
       const clean = JSON.parse(JSON.stringify(story, (key, val) => {
@@ -71,18 +79,40 @@ export default function Creator() {
       await jsonWriter.close()
       console.log(`[Murmur] Saved ${story.id}.json`)
 
-      // 2. Write all audio from IndexedDB
+      // 2. Write audio from IndexedDB — only scenes whose audio is newer than the file on disk
       const blobs = await loadStoryAudio(story.id)
       const audioIds = Object.keys(blobs)
       if (audioIds.length > 0) {
         const audioDir = await storyDir.getDirectoryHandle('audio', { create: true })
+        let written = 0
+        let skipped = 0
         for (const sceneId of audioIds) {
-          const fh = await audioDir.getFileHandle(`${sceneId}-a.mp3`, { create: true })
-          const w = await fh.createWritable()
-          await w.write(blobs[sceneId])
-          await w.close()
+          const scene = story.scenes[sceneId]
+          const generatedAt = scene?.audioGeneratedAt || 0
+
+          // Check if an up-to-date file already exists on disk
+          let shouldWrite = true
+          try {
+            const existingHandle = await audioDir.getFileHandle(`${sceneId}-a.mp3`)
+            const existingFile = await existingHandle.getFile()
+            // File on disk is newer (or same age) as the generated audio — skip
+            if (existingFile.lastModified >= generatedAt) {
+              shouldWrite = false
+              skipped++
+            }
+          } catch {
+            // File doesn't exist yet — will create it below
+          }
+
+          if (shouldWrite) {
+            const fh = await audioDir.getFileHandle(`${sceneId}-a.mp3`, { create: true })
+            const w = await fh.createWritable()
+            await w.write(blobs[sceneId])
+            await w.close()
+            written++
+          }
         }
-        console.log(`[Murmur] Saved ${audioIds.length} audio files to ${story.id}/audio/`)
+        console.log(`[Murmur] Audio: ${written} written, ${skipped} skipped (up to date) in ${story.id}/audio/`)
       }
 
       console.log(`%c[Murmur] Project saved: ${story.id}/`, 'color: #4ade80; font-weight: bold')
@@ -210,44 +240,59 @@ export default function Creator() {
       {/* Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-[250px] flex flex-col flex-shrink-0 relative z-10" style={{ borderRight: '1px solid var(--s3)' }}>
+        <div
+          className="flex flex-col flex-shrink-0 overflow-hidden relative z-10"
+          style={{ width: sidebarOpen ? 250 : 40, borderRight: '1px solid var(--s3)', transition: 'width 0.2s ease' }}
+        >
+          {/* Header with collapse toggle */}
           <div
-            className="flex justify-between items-center flex-shrink-0"
-            style={{ padding: '14px 18px 10px', fontSize: '13px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sub)' }}
+            className="flex items-center flex-shrink-0"
+            style={{ padding: sidebarOpen ? '14px 18px 10px' : '14px 8px 10px', fontSize: '13px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sub)', justifyContent: sidebarOpen ? 'space-between' : 'center' }}
           >
-            <span>Scenes</span>
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer text-[16px]"
-              style={{ background: 'var(--s2)', border: '1px solid var(--s3)', color: 'var(--sub)' }}
-              onClick={addScene}
-            >
-              +
+            {sidebarOpen && <span>Scenes</span>}
+            <div className="flex items-center gap-2">
+              {sidebarOpen && (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer text-[16px]"
+                  style={{ background: 'var(--s2)', border: '1px solid var(--s3)', color: 'var(--sub)' }}
+                  onClick={addScene}
+                >+</div>
+              )}
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
+                style={{ background: 'var(--s2)', border: '1px solid var(--s3)', color: 'var(--sub)' }}
+                onClick={() => setSidebarOpen(o => !o)}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{sidebarOpen ? 'chevron_left' : 'chevron_right'}</span>
+              </div>
             </div>
           </div>
-          <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--s3) transparent' }}>
-            {story && Object.values(story.scenes).map(sc => (
-              <div
-                key={sc.id}
-                className="cursor-pointer transition-colors"
-                style={{
-                  padding: '13px 18px',
-                  borderBottom: '1px solid var(--s2)',
-                  background: selectedNodeId === sc.id ? 'var(--gold10)' : 'transparent',
-                  borderLeft: selectedNodeId === sc.id ? '3px solid var(--gold)' : 'none',
-                }}
-                onClick={() => selectNode(sc.id)}
-                onMouseEnter={e => e.currentTarget.style.background = selectedNodeId === sc.id ? 'var(--gold10)' : 'var(--s1)'}
-                onMouseLeave={e => e.currentTarget.style.background = selectedNodeId === sc.id ? 'var(--gold10)' : 'transparent'}
-              >
-                <div className="text-[15px] font-medium" style={{ color: 'var(--text)', marginBottom: 3 }}>
-                  {sc.title}{sc.id === story.startScene ? ' ★' : ''}
+          {sidebarOpen && (
+            <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--s3) transparent' }}>
+              {story && Object.values(story.scenes).map(sc => (
+                <div
+                  key={sc.id}
+                  className="cursor-pointer transition-colors"
+                  style={{
+                    padding: '13px 18px',
+                    borderBottom: '1px solid var(--s2)',
+                    background: selectedNodeId === sc.id ? 'var(--gold10)' : 'transparent',
+                    borderLeft: selectedNodeId === sc.id ? '3px solid var(--gold)' : 'none',
+                  }}
+                  onClick={() => selectNode(sc.id)}
+                  onMouseEnter={e => e.currentTarget.style.background = selectedNodeId === sc.id ? 'var(--gold10)' : 'var(--s1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = selectedNodeId === sc.id ? 'var(--gold10)' : 'transparent'}
+                >
+                  <div className="text-[15px] font-medium" style={{ color: 'var(--text)', marginBottom: 3 }}>
+                    {sc.title}{sc.id === story.startScene ? ' ★' : ''}
+                  </div>
+                  <div className="text-[12px]" style={{ color: 'var(--sub)' }}>
+                    {sc.emotion} · {sc.clips.length} clip{sc.clips.length !== 1 ? 's' : ''} · -{sc.secondsBeforeEnd || 0}s · {sc.countdown || 0}s cd
+                  </div>
                 </div>
-                <div className="text-[12px]" style={{ color: 'var(--sub)' }}>
-                  {sc.emotion} · {sc.clips.length} clip{sc.clips.length !== 1 ? 's' : ''} · -{sc.secondsBeforeEnd || 0}s · {sc.countdown || 0}s cd
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <NodeGraph />

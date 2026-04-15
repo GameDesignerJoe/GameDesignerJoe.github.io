@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useStore } from '../../store'
 
 export default function Nav() {
   const view = useStore(s => s.view)
   const setView = useStore(s => s.setView)
   const setCreatorStory = useStore(s => s.setCreatorStory)
+  const [showSettings, setShowSettings] = useState(false)
 
   if (view === 'player' || view === 'creator') return null
 
@@ -63,8 +65,8 @@ export default function Nav() {
       scenes: {
         start: {
           id: 'start', title: 'Opening Scene', emotion: 'curious',
-          bgKey: 'a', bgImage: null, clips: [],
-          secondsBeforeEnd: 5, defaultChoice: null, countdown: 0, choices: [],
+          bgKey: 'a', bgImage: null, script: '', scriptUpdatedAt: null, audioGeneratedAt: null,
+          clips: [], secondsBeforeEnd: 5, defaultChoice: null, countdown: 0, choices: [],
         },
       },
     }
@@ -108,9 +110,67 @@ export default function Nav() {
         <NavItem icon="explore" label="Library" active onClick={() => setView('library')} />
         <NavItem icon="edit_note" label="Edit" onClick={handleEdit} />
         <NavItem icon="add_circle" label="Create" onClick={handleCreate} />
-        <NavItem icon="settings" label="Settings" onClick={() => {}} />
+        <NavItem icon="settings" label="Settings" onClick={() => setShowSettings(true)} />
       </nav>
+
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </>
+  )
+}
+
+function SettingsPanel({ onClose }) {
+  const stories = useStore(s => s.stories)
+  const deleteStory = useStore(s => s.deleteStory)
+  const activeIndex = useStore(s => s.activeStoryIndex)
+
+  const handleDelete = (storyId, title) => {
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
+    deleteStory(storyId)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} />
+      <div
+        className="relative w-full max-w-[440px] rounded-t-2xl"
+        style={{ background: '#12121f', border: '1px solid #222236', borderBottom: 'none', maxHeight: '70vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center flex-shrink-0" style={{ padding: '20px 24px 16px', borderBottom: '1px solid #222236' }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#928faa', fontWeight: 600 }}>
+            Settings
+          </span>
+          <span className="material-symbols-outlined cursor-pointer" style={{ fontSize: '20px', color: '#928faa' }} onClick={onClose}>close</span>
+        </div>
+
+        {/* Stories list with delete */}
+        <div style={{ padding: '16px 24px 24px', overflowY: 'auto' }}>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '12px' }}>
+            Your Stories
+          </div>
+          {stories.map(st => (
+            <div
+              key={st.id}
+              className="flex justify-between items-center"
+              style={{ padding: '12px 0', borderBottom: '1px solid rgba(34,34,54,0.5)' }}
+            >
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>{st.title}</span>
+              <span
+                className="material-symbols-outlined cursor-pointer"
+                style={{ fontSize: '18px', color: '#928faa', transition: 'color 0.2s' }}
+                onClick={() => handleDelete(st.id, st.title)}
+                onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
+                onMouseLeave={e => e.currentTarget.style.color = '#928faa'}
+              >
+                delete
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }
 

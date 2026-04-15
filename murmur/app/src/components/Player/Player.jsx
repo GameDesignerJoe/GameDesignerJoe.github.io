@@ -11,6 +11,7 @@ export default function Player() {
   const goToScene = useStore(s => s.goToScene)
   const closePlayer = useStore(s => s.closePlayer)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [choicesRevealed, setChoicesRevealed] = useState(false)
   const [flashOn, setFlashOn] = useState(false)
   const [instant, setInstant] = useState(true)
@@ -27,6 +28,7 @@ export default function Player() {
 
     setChoicesRevealed(false)
     setIsPlaying(true)
+    setPaused(false)
     queuedChoice.current = null
 
     if (!ambientStarted.current && story.ambient?.default) {
@@ -108,6 +110,17 @@ export default function Player() {
     }, 240)
   }, [goToScene, closePlayer])
 
+  const handleTogglePause = useCallback(() => {
+    if (!isPlaying) return
+    if (paused) {
+      audioEngine.resume()
+      setPaused(false)
+    } else {
+      audioEngine.pause()
+      setPaused(true)
+    }
+  }, [isPlaying, paused])
+
   const handleClose = () => {
     if (fallbackTimer.current) clearTimeout(fallbackTimer.current)
     audioEngine.stop()
@@ -181,9 +194,22 @@ export default function Player() {
           </div>
         </header>
 
-        {/* Center: Character & Mood */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '48px' }}>
-          <Portrait scene={scene} narrator={story.narrator} isPlaying={isPlaying} />
+        {/* Center: Character & Mood — tap to pause/resume */}
+        <div
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '48px', cursor: isPlaying ? 'pointer' : 'default', position: 'relative' }}
+          onClick={handleTogglePause}
+        >
+          <Portrait scene={scene} narrator={story.narrator} isPlaying={isPlaying && !paused} />
+          {/* Pause indicator */}
+          {paused && (
+            <div style={{
+              position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              display: 'flex', gap: '8px', opacity: 0.6,
+            }}>
+              <div style={{ width: 8, height: 36, borderRadius: 2, background: '#c9a96e' }} />
+              <div style={{ width: 8, height: 36, borderRadius: 2, background: '#c9a96e' }} />
+            </div>
+          )}
         </div>
 
         {/* Bottom: Choices */}

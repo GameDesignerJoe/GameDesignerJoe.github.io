@@ -117,8 +117,15 @@ export const useStore = create((set, get) => ({
   // Stories (persisted to localStorage)
   stories: loadStories() || DEMO_STORIES,
   addStory: (story) => set(s => {
-    const stories = [...s.stories, story]
+    const stamped = { ...story, updatedAt: Date.now() }
+    const stories = [...s.stories, stamped]
     saveStories(stories)
+    return { stories }
+  }),
+  deleteStory: (storyId) => set(s => {
+    const stories = s.stories.filter(st => st.id !== storyId)
+    saveStories(stories)
+    localStorage.removeItem('murmur_' + storyId)
     return { stories }
   }),
 
@@ -209,6 +216,7 @@ export const useStore = create((set, get) => ({
   saveCreatorStory: () => set(s => {
     if (!s.creator.story) return {}
     const edited = JSON.parse(JSON.stringify(s.creator.story))
+    edited.updatedAt = Date.now()
     const stories = upsertStory(s.stories, edited)
     saveStories(stories)
     return { stories }
@@ -225,8 +233,8 @@ export const useStore = create((set, get) => ({
     if (key === 'script') updated.scriptUpdatedAt = Date.now()
     story.scenes[sceneId] = updated
     // Auto-save to stories array + localStorage
-    const editedStory = { ...story }
-    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(editedStory)))
+    story.updatedAt = Date.now()
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }
   }),
@@ -267,7 +275,8 @@ export const useStore = create((set, get) => ({
   }),
 
   setStartScene: (id) => set(s => {
-    const story = { ...s.creator.story, startScene: id }
+    if (!s.creator.story) return {}
+    const story = { ...s.creator.story, startScene: id, updatedAt: Date.now() }
     const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }

@@ -1,0 +1,196 @@
+{
+  "id": "lighthouse",
+  "title": "The Lighthouse Keeper's Daughter",
+  "tagline": "Some secrets are worth keeping.",
+  "description": "On a fog-blanketed coast, you've arrived at your late father's lighthouse. His journals speak of a forbidden love, a hidden room, and a warning never to light the lamp on moonless nights. Tonight, the moon will not rise.",
+  "tags": [
+    "mystery",
+    "romance",
+    "gothic"
+  ],
+  "bg": "linear-gradient(160deg,#0c1a2a 0%,#193558 40%,#27607e 70%,#09121b 100%)",
+  "bgs": {
+    "a": "linear-gradient(160deg,#0c1a2a,#193558)",
+    "b": "linear-gradient(160deg,#0a1520,#192d3e)",
+    "c": "linear-gradient(160deg,#18061a,#3a1240)",
+    "d": "linear-gradient(160deg,#07090e,#101825)"
+  },
+  "coverImage": "/stories/lighthouse/images/cover.jpg",
+  "narrator": {
+    "name": "Eleanor",
+    "emoji": "🕯️",
+    "portraits": {
+      "curious": "/stories/lighthouse/images/portraits/curious.jpg",
+      "afraid": "/stories/lighthouse/images/portraits/curious.jpg",
+      "happy": "/stories/lighthouse/images/portraits/curious.jpg",
+      "sad": "/stories/lighthouse/images/portraits/curious.jpg",
+      "determined": "/stories/lighthouse/images/portraits/curious.jpg"
+    }
+  },
+  "duration": "~12 min",
+  "paths": 4,
+  "startScene": "start",
+  "scenes": {
+    "start": {
+      "id": "start",
+      "title": "The Arrival",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/start-a.mp3",
+        "lighthouse/start-b.mp3"
+      ],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 0,
+      "countdown": 10,
+      "choices": [
+        {
+          "text": "Enter through the heavy iron door…",
+          "target": "hall"
+        },
+        {
+          "text": "Circle to the keeper's cottage…",
+          "target": "cottage"
+        }
+      ]
+    },
+    "hall": {
+      "id": "hall",
+      "title": "The Front Hall",
+      "emotion": "afraid",
+      "bgKey": "b",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/hall.mp3"
+      ],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 10,
+      "choices": [
+        {
+          "text": "Climb the spiral stair…",
+          "target": "lamp"
+        },
+        {
+          "text": "Search the roll-top desk…",
+          "target": "study"
+        },
+        {
+          "text": "Step back outside and listen…",
+          "target": "shore"
+        }
+      ]
+    },
+    "cottage": {
+      "id": "cottage",
+      "title": "The Keeper's Cottage",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/cottage.mp3"
+      ],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 10,
+      "choices": [
+        {
+          "text": "Open the old journal on the table…",
+          "target": "study"
+        },
+        {
+          "text": "Follow the stone path to the shore…",
+          "target": "shore"
+        }
+      ]
+    },
+    "lamp": {
+      "id": "lamp",
+      "title": "The Lamp Room",
+      "emotion": "afraid",
+      "bgKey": "c",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/lamp-a.mp3",
+        "lighthouse/lamp-b.mp3"
+      ],
+      "secondsBeforeEnd": 6,
+      "defaultChoice": 1,
+      "countdown": 10,
+      "choices": [
+        {
+          "text": "Reach for the brass ignition lever…",
+          "target": "end"
+        },
+        {
+          "text": "Leave it dark and descend…",
+          "target": "end"
+        }
+      ]
+    },
+    "study": {
+      "id": "study",
+      "title": "The Study",
+      "emotion": "sad",
+      "bgKey": "b",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/study.mp3"
+      ],
+      "secondsBeforeEnd": 5,
+      "defaultChoice": 0,
+      "countdown": 10,
+      "choices": [
+        {
+          "text": "Feed the letter to the fireplace…",
+          "target": "end"
+        },
+        {
+          "text": "Keep it and climb to the lamp room…",
+          "target": "lamp"
+        }
+      ]
+    },
+    "shore": {
+      "id": "shore",
+      "title": "The Shore",
+      "emotion": "determined",
+      "bgKey": "c",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/shore-a.mp3",
+        "lighthouse/shore-b.mp3",
+        "lighthouse/shore-c.mp3"
+      ],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 10,
+      "choices": [
+        {
+          "text": "Call out across the water…",
+          "target": "end"
+        },
+        {
+          "text": "Wade in toward the lights…",
+          "target": "end"
+        }
+      ]
+    },
+    "end": {
+      "id": "end",
+      "title": "Before Dawn",
+      "emotion": "sad",
+      "bgKey": "d",
+      "bgImage": null,
+      "clips": [
+        "lighthouse/end.mp3"
+      ],
+      "secondsBeforeEnd": 0,
+      "defaultChoice": null,
+      "countdown": 0,
+      "choices": []
+    }
+  },
+  "updatedAt": 1776232861994
+}

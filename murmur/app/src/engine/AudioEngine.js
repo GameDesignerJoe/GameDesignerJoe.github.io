@@ -160,6 +160,18 @@ class AudioEngine {
     }
   }
 
+  pause() {
+    if (!this.narrator.paused) {
+      this.narrator.pause()
+    }
+  }
+
+  resume() {
+    if (this.narrator.paused && this.narrator.src) {
+      this.narrator.play().catch(() => {})
+    }
+  }
+
   get isPlaying() {
     return !this.narrator.paused
   }
