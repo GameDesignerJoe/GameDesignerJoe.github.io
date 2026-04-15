@@ -2,21 +2,23 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
 import { saveImageBlob } from '../../engine/ImageStore'
 import { generateImages, ASPECT_RATIOS, DEFAULT_ASPECT_FOR_SLOT } from '../../engine/ImageGen'
-import { getProjectFolder, ensurePermission } from '../../engine/ProjectFolderStore'
+import { getProjectFolder, ensurePermission, findFreeFilename } from '../../engine/ProjectFolderStore'
 
 const API_KEY_LS = 'google_ai_api_key'
 
-// Match the helper in Creator.jsx — kept in sync manually.
+// Match the helpers in Creator.jsx — kept in sync manually.
 function slugify(s) {
   return (s || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 }
-function imageFilenameForSlot(story, slot) {
+// Base filename (no extension / version suffix) for a slot. findFreeFilename
+// adds "-02", "-03", etc. when a match is already on disk.
+function imageBaseNameForSlot(story, slot) {
   const storyPart = slugify(story?.title) || slugify(story?.id) || 'story'
-  if (slot === 'cover') return `${storyPart}-cover.png`
-  if (slot === 'default-bg') return `${storyPart}-default-bg.png`
-  if (slot.startsWith('scene/')) return `${storyPart}-scene-${slot.slice(6)}.png`
-  if (slot.startsWith('portrait/')) return `${storyPart}-portrait-${slot.slice(9)}.png`
-  return `${storyPart}-${slot}.png`
+  if (slot === 'cover') return `${storyPart}-cover`
+  if (slot === 'default-bg') return `${storyPart}-default-bg`
+  if (slot.startsWith('scene/')) return `${storyPart}-scene-${slot.slice(6)}`
+  if (slot.startsWith('portrait/')) return `${storyPart}-portrait-${slot.slice(9)}`
+  return `${storyPart}-${slot}`
 }
 
 /**
@@ -28,7 +30,24 @@ function imageFilenameForSlot(story, slot) {
  */
 export default function ImageStudioModal({ target, onClose }) {
   const updateStoryField = useStore(s => s.updateStoryField)
+  const updateScene = useStore(s => s.updateScene)
   const story = useStore(s => s.creator.story)
+
+  // Apply an image (URL or path) to whichever slot the modal is targeting.
+  const applyToSlot = (slot, value) => {
+    if (slot === 'cover') {
+      updateStoryField('coverImage', value)
+      updateStoryField('coverImageGeneratedAt', Date.now())
+    } else if (slot === 'default-bg') {
+      updateStoryField('defaultBgImage', value)
+      updateStoryField('defaultBgImageGeneratedAt', Date.now())
+    } else if (slot.startsWith('scene/')) {
+      const sceneId = slot.slice(6)
+      updateScene(sceneId, 'bgImage', value)
+      updateScene(sceneId, 'bgImageGeneratedAt', Date.now())
+    }
+    // portrait/{emotion} would go here in a future phase
+  }
 
   const slotRoot = target?.slot?.split('/')[0] || 'cover'
   const defaultAspect = DEFAULT_ASPECT_FOR_SLOT[slotRoot] || '1:1'
@@ -124,13 +143,13 @@ export default function ImageStudioModal({ target, onClose }) {
 
       // 2. Update the story object so the editor / library / detail render it
       const persistentUrl = URL.createObjectURL(blob)
-      if (target.slot === 'cover') {
-        updateStoryField('coverImage', persistentUrl)
-        updateStoryField('coverImageGeneratedAt', Date.now())
-      }
+      applyToSlot(target.slot, persistentUrl)
 
-      // 3. If a project folder is set, write the PNG to disk automatically
-      //    (so the user never has to remember to Save to Project for images).
+      // 3. If a project folder is set, write the PNG to disk automatically with
+      //    a versioned filename (never overwriting earlier images — the user
+      //    keeps a history on disk). On success, switch the in-memory field
+      //    to the saved path so the JSON stays consistent and the file is the
+      //    source of truth going forward.
       try {
         const handle = await getProjectFolder(target.storyId)
         if (!handle) {
@@ -143,12 +162,16 @@ export default function ImageStudioModal({ target, onClose }) {
             console.warn('[Murmur] Auto-save skipped — folder permission denied.')
           } else {
             const imagesDir = await handle.getDirectoryHandle('images', { create: true })
-            const filename = imageFilenameForSlot(story, target.slot)
+            const baseName = imageBaseNameForSlot(story, target.slot)
+            const filename = await findFreeFilename(imagesDir, baseName, 'png')
             const fh = await imagesDir.getFileHandle(filename, { create: true })
             const w = await fh.createWritable()
             await w.write(blob)
             await w.close()
             console.log(`%c[Murmur] Image auto-saved to disk: ${handle.name}/images/${filename} (${(blob.size / 1024).toFixed(0)} KB)`, 'color: #4ade80')
+            // Switch to path so next session uses the file directly (and subsequent
+            // saves don't produce duplicate copies of the same image).
+            applyToSlot(target.slot, `${target.storyId}/images/${filename}`)
           }
         }
       } catch (diskErr) {

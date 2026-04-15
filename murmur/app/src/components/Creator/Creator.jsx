@@ -3,9 +3,10 @@ import NodeGraph from './NodeGraph'
 import EditPanel from './EditPanel'
 import CsvImporter from './CsvImporter'
 import ImageStudioModal from './ImageStudioModal'
+import ImageInputWithGenerate from './ImageInputWithGenerate'
 import { saveAudioBlob, loadStoryAudio } from '../../engine/AudioStore'
 import { loadStoryImages } from '../../engine/ImageStore'
-import { getProjectFolder, setProjectFolder, clearProjectFolder, ensurePermission } from '../../engine/ProjectFolderStore'
+import { getProjectFolder, setProjectFolder, clearProjectFolder, ensurePermission, findFreeFilename } from '../../engine/ProjectFolderStore'
 import { resolveAssetPath } from '../../engine/assetPath'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
@@ -23,27 +24,34 @@ function audioFilename(story, sceneId) {
 // Build a filename for a generated image slot. Imagen returns PNG so we keep .png.
 // Slots: "cover", "default-bg", "scene/{sceneId}", "portrait/{emotion}"
 function imageFilename(story, slot) {
-  const storyPart = slugify(story.title) || slugify(story.id) || 'story'
-  if (slot === 'cover') return `${storyPart}-cover.png`
-  if (slot === 'default-bg') return `${storyPart}-default-bg.png`
-  if (slot.startsWith('scene/')) return `${storyPart}-scene-${slot.slice(6)}.png`
-  if (slot.startsWith('portrait/')) return `${storyPart}-portrait-${slot.slice(9)}.png`
-  return `${storyPart}-${slot}.png`
+  return `${imageBaseName(story, slot)}.png`
 }
 
-// Timestamp used for the skip-if-unchanged check on image slots during saveToProject.
-function generatedAtForSlot(story, slot) {
-  if (slot === 'cover') return story.coverImageGeneratedAt || 0
-  if (slot === 'default-bg') return story.defaultBgImageGeneratedAt || 0
+// Base filename (no extension) — pairs with findFreeFilename for versioned saves.
+function imageBaseName(story, slot) {
+  const storyPart = slugify(story.title) || slugify(story.id) || 'story'
+  if (slot === 'cover') return `${storyPart}-cover`
+  if (slot === 'default-bg') return `${storyPart}-default-bg`
+  if (slot.startsWith('scene/')) return `${storyPart}-scene-${slot.slice(6)}`
+  if (slot.startsWith('portrait/')) return `${storyPart}-portrait-${slot.slice(9)}`
+  return `${storyPart}-${slot}`
+}
+
+// Read the currently-set field value for an image slot on a story.
+// Used to decide whether a slot was already persisted to disk (path) vs still
+// needs to be written from IndexedDB (blob: URL or null).
+function currentValueForSlot(story, slot) {
+  if (slot === 'cover') return story.coverImage
+  if (slot === 'default-bg') return story.defaultBgImage
   if (slot.startsWith('scene/')) {
     const sid = slot.slice(6)
-    return story.scenes?.[sid]?.bgImageGeneratedAt || 0
+    return story.scenes?.[sid]?.bgImage
   }
   if (slot.startsWith('portrait/')) {
     const em = slot.slice(9)
-    return story.narrator?.portraitsGeneratedAt?.[em] || 0
+    return story.narrator?.portraits?.[em]
   }
-  return 0
+  return null
 }
 
 export default function Creator() {
@@ -180,7 +188,49 @@ export default function Creator() {
         await setProjectFolder(story.id, storyDir)
       }
 
-      // 1. Write story JSON
+      // 1. Write any pending image blobs (those the story still references as
+      //    blob: URLs) to disk with versioned filenames. Collects the final
+      //    paths so we can bake them into the JSON below. Slots whose story
+      //    field is already a path (set by auto-save) are treated as already
+      //    on disk — we skip them.
+      const imageBlobs = await loadStoryImages(story.id)
+      const imageSlots = Object.keys(imageBlobs)
+      const imagePathBySlot = {} // slot -> "storyId/images/filename"
+      if (imageSlots.length > 0) {
+        const imagesDir = await storyDir.getDirectoryHandle('images', { create: true })
+        for (const slot of imageSlots) {
+          const currentFieldValue = currentValueForSlot(story, slot)
+          if (typeof currentFieldValue === 'string' && !currentFieldValue.startsWith('blob:') && currentFieldValue.length > 0) {
+            // Already a path — auto-save wrote this earlier, nothing to do.
+            console.log(`[Murmur]   ${slot}: already persisted at "${currentFieldValue}" (skip)`)
+            continue
+          }
+          const baseName = imageBaseName(story, slot)
+          const filename = await findFreeFilename(imagesDir, baseName, 'png')
+          const fh = await imagesDir.getFileHandle(filename, { create: true })
+          const w = await fh.createWritable()
+          await w.write(imageBlobs[slot])
+          await w.close()
+          const newPath = `${story.id}/images/${filename}`
+          imagePathBySlot[slot] = newPath
+          console.log(`[Murmur]   ${slot} → ${filename}: WRITTEN (${(imageBlobs[slot].size / 1024).toFixed(0)} KB)`)
+        }
+      }
+
+      // Build a fast scene-id → blob URL map for the JSON replacer (so we can
+      // tell which scene owns a particular bgImage blob URL during serialization).
+      const scenePathByBlob = {}
+      for (const slot of Object.keys(imagePathBySlot)) {
+        if (slot.startsWith('scene/')) {
+          const sceneId = slot.slice(6)
+          const blobUrl = story.scenes?.[sceneId]?.bgImage
+          if (typeof blobUrl === 'string' && blobUrl.startsWith('blob:')) {
+            scenePathByBlob[blobUrl] = imagePathBySlot[slot]
+          }
+        }
+      }
+
+      // 2. Write story JSON — with blob URLs rewritten to the just-written paths
       const clean = JSON.parse(JSON.stringify(story, (key, val) => {
         // Replace blob URLs in audio clip arrays with local file paths
         if (key === 'clips' && Array.isArray(val)) {
@@ -191,12 +241,15 @@ export default function Creator() {
             return `${story.id}/audio/${audioFilename(story, sid)}`
           })
         }
-        // Replace blob URLs in image fields with relative image paths
+        // Replace blob URLs in image fields with the versioned path we just wrote
         if (key === 'coverImage' && typeof val === 'string' && val.startsWith('blob:')) {
-          return `${story.id}/images/${imageFilename(story, 'cover')}`
+          return imagePathBySlot['cover'] || val
         }
         if (key === 'defaultBgImage' && typeof val === 'string' && val.startsWith('blob:')) {
-          return `${story.id}/images/${imageFilename(story, 'default-bg')}`
+          return imagePathBySlot['default-bg'] || val
+        }
+        if (key === 'bgImage' && typeof val === 'string' && val.startsWith('blob:')) {
+          return scenePathByBlob[val] || val
         }
         return val
       }))
@@ -207,6 +260,18 @@ export default function Creator() {
       await jsonWriter.write(jsonBlob)
       await jsonWriter.close()
       console.log(`[Murmur] Saved ${story.id}.json`)
+
+      // After JSON is written, sync the in-memory fields to the new paths too,
+      // so the editor state reflects what's on disk (and the next save doesn't
+      // re-write the same blob to another versioned file).
+      if (imagePathBySlot['cover']) updateStoryField('coverImage', imagePathBySlot['cover'])
+      if (imagePathBySlot['default-bg']) updateStoryField('defaultBgImage', imagePathBySlot['default-bg'])
+      for (const slot of Object.keys(imagePathBySlot)) {
+        if (slot.startsWith('scene/')) {
+          const sceneId = slot.slice(6)
+          updateScene(sceneId, 'bgImage', imagePathBySlot[slot])
+        }
+      }
 
       // 2. Write audio from IndexedDB — only scenes whose audio is newer than the file on disk
       const blobs = await loadStoryAudio(story.id)
@@ -245,41 +310,8 @@ export default function Creator() {
         console.log(`[Murmur] Audio: ${written} written, ${skipped} skipped (up to date) in ${story.id}/audio/`)
       }
 
-      // 3. Write generated images from IndexedDB — skip-if-unchanged like audio
-      const imageBlobs = await loadStoryImages(story.id)
-      const imageSlots = Object.keys(imageBlobs)
-      console.log(`[Murmur] Images: ${imageSlots.length} slot(s) in IndexedDB:`, imageSlots)
-      if (imageSlots.length > 0) {
-        const imagesDir = await storyDir.getDirectoryHandle('images', { create: true })
-        let iwritten = 0, iskipped = 0
-        for (const slot of imageSlots) {
-          const generatedAt = generatedAtForSlot(story, slot)
-          const filename = imageFilename(story, slot)
-          let shouldWrite = true
-          let existingMtime = 0
-          try {
-            const existingHandle = await imagesDir.getFileHandle(filename)
-            const existingFile = await existingHandle.getFile()
-            existingMtime = existingFile.lastModified
-            if (existingFile.lastModified >= generatedAt && generatedAt > 0) {
-              shouldWrite = false
-              iskipped++
-              console.log(`[Murmur]   ${slot} → ${filename}: SKIP (disk ${new Date(existingMtime).toISOString()} >= generated ${new Date(generatedAt).toISOString()})`)
-            }
-          } catch {
-            // File doesn't exist — will create below
-          }
-          if (shouldWrite) {
-            const fh = await imagesDir.getFileHandle(filename, { create: true })
-            const w = await fh.createWritable()
-            await w.write(imageBlobs[slot])
-            await w.close()
-            iwritten++
-            console.log(`[Murmur]   ${slot} → ${filename}: WRITTEN (${(imageBlobs[slot].size / 1024).toFixed(0)} KB)`)
-          }
-        }
-        console.log(`[Murmur] Images total: ${iwritten} written, ${iskipped} skipped in ${story.id}/images/`)
-      }
+      // (Images were written in step 1 — before the JSON — so the versioned
+      // paths could be baked into the JSON output.)
 
       console.log(`%c[Murmur] Project saved: ${story.id}/`, 'color: #4ade80; font-weight: bold')
     } catch (err) {
@@ -477,7 +509,7 @@ export default function Creator() {
         <NodeGraph />
         {selectedNodeId && (
           <ResizablePanel width={panelWidth} onResize={setPanelWidth}>
-            <EditPanel />
+            <EditPanel onOpenImageStudio={(slot) => setImageStudioTarget({ slot, storyId: story?.id })} />
           </ResizablePanel>
         )}
       </div>
@@ -1372,12 +1404,14 @@ function StorySettingsModal({ onClose, onOpenImageStudio }) {
           </StorySettingsField>
 
           {/* Default scene background */}
-          <StorySettingsField label="Default Scene Background Image" hint="Applied to every scene unless the scene sets its own.">
-            <input
-              className="cr-input"
+          <StorySettingsField label="Default Scene Background Image" hint="Applied to every scene unless the scene sets its own. Click ✨ to generate with AI.">
+            <ImageInputWithGenerate
               value={story.defaultBgImage || ''}
               placeholder="https://… or path/to/background.jpg"
-              onChange={e => updateStoryField('defaultBgImage', e.target.value.trim() || null)}
+              onChange={url => updateStoryField('defaultBgImage', url || null)}
+              onGenerate={onOpenImageStudio ? () => onOpenImageStudio('default-bg') : null}
+              aspectRatio="16/9"
+              targetPath={`${story.id}/images/${imageFilename(story, 'default-bg')}`}
             />
           </StorySettingsField>
 
@@ -1477,97 +1511,4 @@ function StorySettingsField({ label, hint, children }) {
   )
 }
 
-// Text input + inline ✨ sparkle button that opens the Image Studio for this slot.
-// - If value is a blob: URL, we show the expected on-disk target path in the input (if provided).
-// - If value resolves to an image (blob: or path), we show a centered thumbnail preview above.
-// - Click the thumbnail to enlarge in a lightbox.
-// - aspectRatio uses CSS aspect-ratio notation ('16/9', '3/4', etc.)
-function ImageInputWithGenerate({ value, placeholder, onChange, onGenerate, aspectRatio = '16/9', targetPath = '', thumbMaxWidth = 360 }) {
-  const isBlob = typeof value === 'string' && value.startsWith('blob:')
-  const display = isBlob ? (targetPath || '') : (value || '')
-  const hasImage = typeof value === 'string' && value.length > 0
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-
-  return (
-    <div>
-      {hasImage && (
-        <div
-          onClick={() => setLightboxOpen(true)}
-          title="Click to enlarge"
-          style={{
-            marginBottom: '10px',
-            marginLeft: 'auto',
-            marginRight: 'auto',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            border: '1px solid var(--s3)',
-            background: 'var(--s2)',
-            maxWidth: `${thumbMaxWidth}px`,
-            aspectRatio,
-            cursor: 'zoom-in',
-            transition: 'border-color 0.2s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--gold)'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--s3)'}
-        >
-          <img
-            src={resolveAssetPath(value)}
-            alt="Preview"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { e.currentTarget.style.display = 'none' }}
-          />
-        </div>
-      )}
-      {lightboxOpen && hasImage && (
-        <div
-          onClick={() => setLightboxOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 300,
-            background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '40px', cursor: 'zoom-out',
-          }}
-        >
-          <img
-            src={resolveAssetPath(value)}
-            alt="Full-size preview"
-            style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 80px)', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
-          />
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <input
-          className="cr-input"
-          value={display}
-          placeholder={placeholder}
-          readOnly={isBlob}
-          onChange={e => onChange(e.target.value.trim())}
-          style={{ flex: 1, color: 'var(--text)' }}
-        />
-        {onGenerate && (
-          <button
-            onClick={onGenerate}
-            title="Generate with AI"
-            style={{
-              flexShrink: 0,
-              width: '42px',
-              background: 'transparent',
-              border: '1px solid var(--gold)',
-              borderRadius: '12px',
-              color: 'var(--gold)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--gold)'; e.currentTarget.style.color = 'var(--bg)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--gold)' }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_awesome</span>
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
+// (ImageInputWithGenerate moved to ./ImageInputWithGenerate.jsx so EditPanel can share it.)

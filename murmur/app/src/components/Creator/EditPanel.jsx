@@ -1,7 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
+import ImageInputWithGenerate from './ImageInputWithGenerate'
 
 const EMOTIONS = ['curious', 'happy', 'sad', 'afraid', 'determined']
+
+// Match the helpers in Creator.jsx — kept in sync for the targetPath display.
+function slugify(s) {
+  return (s || '').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+function sceneBgFilename(story, sceneId) {
+  const storyPart = slugify(story?.title) || slugify(story?.id) || 'story'
+  return `${storyPart}-scene-${sceneId}.png`
+}
 
 /** Extract a readable filename from a clip source (blob URL or path) */
 function clipDisplayName(src, sceneId) {
@@ -107,7 +117,7 @@ function ClipRow({ src, sceneId, onRemove }) {
   )
 }
 
-export default function EditPanel() {
+export default function EditPanel({ onOpenImageStudio }) {
   const creator = useStore(s => s.creator)
   const updateScene = useStore(s => s.updateScene)
   const setStartScene = useStore(s => s.setStartScene)
@@ -184,14 +194,18 @@ export default function EditPanel() {
         {/* Background */}
         <Field label="Background">
           <div className="text-[13px] mb-2" style={{ color: 'var(--sub)', lineHeight: 1.5 }}>
-            Image or GIF URL (overrides gradient). GIFs loop automatically.
+            Per-scene image (overrides the story's Default Scene Background). Click ✨ to generate with AI. GIFs loop automatically.
           </div>
-          <input
-            className="cr-input mb-3"
-            value={scene.bgImage || ''}
-            placeholder="https://… or path/to/scene.gif"
-            onChange={e => updateScene(selectedNodeId, 'bgImage', e.target.value.trim() || null)}
-          />
+          <div className="mb-3">
+            <ImageInputWithGenerate
+              value={scene.bgImage || ''}
+              placeholder="https://… or path/to/scene.gif"
+              onChange={url => updateScene(selectedNodeId, 'bgImage', url || null)}
+              onGenerate={onOpenImageStudio ? () => onOpenImageStudio(`scene/${selectedNodeId}`) : null}
+              aspectRatio="16/9"
+              targetPath={`${story.id}/images/${sceneBgFilename(story, selectedNodeId)}`}
+            />
+          </div>
           <div className="text-[13px] mb-2" style={{ color: 'var(--sub)' }}>Gradient fallback slot</div>
           <select className="cr-input" value={scene.bgKey} onChange={e => updateScene(selectedNodeId, 'bgKey', e.target.value)}>
             {Object.keys(story.bgs || {}).map(k => <option key={k} value={k}>{k}</option>)}

@@ -192,7 +192,7 @@ export const useStore = create((set, get) => ({
       console.warn('[Murmur] Failed to restore audio on launch:', e.message)
     }
 
-    // Restore generated images from IndexedDB (cover, default-bg, etc.) for rendering
+    // Restore generated images from IndexedDB (cover, default-bg, per-scene bg) for rendering
     try {
       const imgBlobs = await loadStoryImages(story.id)
       if (Object.keys(imgBlobs).length > 0) {
@@ -203,6 +203,19 @@ export const useStore = create((set, get) => ({
         if (imgBlobs['default-bg'] && !patched.defaultBgImage) {
           patched.defaultBgImage = URL.createObjectURL(imgBlobs['default-bg'])
         }
+        // Per-scene backgrounds
+        let scenesTouched = false
+        const newScenes = { ...patched.scenes }
+        for (const [slot, blob] of Object.entries(imgBlobs)) {
+          if (!slot.startsWith('scene/')) continue
+          const sceneId = slot.slice(6)
+          const sc = newScenes[sceneId]
+          if (sc && !sc.bgImage) {
+            newScenes[sceneId] = { ...sc, bgImage: URL.createObjectURL(blob) }
+            scenesTouched = true
+          }
+        }
+        if (scenesTouched) patched.scenes = newScenes
         story = patched
       }
     } catch (e) {
@@ -353,12 +366,27 @@ export const useStore = create((set, get) => ({
   // to restore images from IndexedDB so Library/Detail show covers without
   // having to enter the editor first). Only fills in MISSING fields — won't
   // overwrite a path the user explicitly set.
+  //
+  // patch shape:
+  //   { coverImage?: blobUrl, defaultBgImage?: blobUrl, scenes?: { sceneId: blobUrl } }
   hydrateImagesForStory: (storyId, patch) => set(s => {
     const stories = s.stories.map(st => {
       if (st.id !== storyId) return st
       const next = { ...st }
       if (patch.coverImage && !next.coverImage) next.coverImage = patch.coverImage
       if (patch.defaultBgImage && !next.defaultBgImage) next.defaultBgImage = patch.defaultBgImage
+      if (patch.scenes && next.scenes) {
+        const newScenes = { ...next.scenes }
+        let touched = false
+        for (const [sceneId, blobUrl] of Object.entries(patch.scenes)) {
+          const sc = newScenes[sceneId]
+          if (sc && !sc.bgImage) {
+            newScenes[sceneId] = { ...sc, bgImage: blobUrl }
+            touched = true
+          }
+        }
+        if (touched) next.scenes = newScenes
+      }
       return next
     })
     // If the editor has this story open, sync it too

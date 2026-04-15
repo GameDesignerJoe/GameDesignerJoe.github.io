@@ -53,6 +53,39 @@ export async function clearProjectFolder(storyId) {
 }
 
 /**
+ * Find the first unused filename in a directory, using a sequence like:
+ *   baseName.ext, baseName-02.ext, baseName-03.ext, …
+ *
+ * Lets us save generated images without overwriting earlier versions — so
+ * the user keeps a history on disk and can revert to an older image later.
+ *
+ * @param {FileSystemDirectoryHandle} dirHandle
+ * @param {string} baseName - filename without extension, e.g. "the-black-door-cover"
+ * @param {string} ext - extension without dot, e.g. "png"
+ * @returns {Promise<string>} the free filename, e.g. "the-black-door-cover-02.png"
+ */
+export async function findFreeFilename(dirHandle, baseName, ext) {
+  // Try the unsuffixed name first
+  const bare = `${baseName}.${ext}`
+  try {
+    await dirHandle.getFileHandle(bare)
+    // exists — fall through to numbered search
+  } catch {
+    return bare
+  }
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${baseName}-${String(i).padStart(2, '0')}.${ext}`
+    try {
+      await dirHandle.getFileHandle(candidate)
+      // exists — try next
+    } catch {
+      return candidate
+    }
+  }
+  throw new Error(`No free filename found for ${baseName}.${ext} (tried up to 999)`)
+}
+
+/**
  * Ensure we have readwrite permission on the stored handle. Must be called
  * from within a user gesture (e.g. click handler) or the browser will throw
  * SecurityError on requestPermission. Returns true if permission granted,

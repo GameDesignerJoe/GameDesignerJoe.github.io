@@ -23,11 +23,17 @@ export default function App() {
         try {
           const blobs = await loadStoryImages(st.id)
           if (!blobs || Object.keys(blobs).length === 0) continue
-          const patch = {}
+          const patch = { scenes: {} }
           if (blobs['cover']) patch.coverImage = URL.createObjectURL(blobs['cover'])
           if (blobs['default-bg']) patch.defaultBgImage = URL.createObjectURL(blobs['default-bg'])
-          if (Object.keys(patch).length > 0) {
-            console.log(`[Murmur] Restored ${Object.keys(patch).length} image(s) for "${st.id}"`)
+          for (const [slot, blob] of Object.entries(blobs)) {
+            if (!slot.startsWith('scene/')) continue
+            const sceneId = slot.slice(6)
+            patch.scenes[sceneId] = URL.createObjectURL(blob)
+          }
+          const restoredCount = (patch.coverImage ? 1 : 0) + (patch.defaultBgImage ? 1 : 0) + Object.keys(patch.scenes).length
+          if (restoredCount > 0) {
+            console.log(`[Murmur] Restored ${restoredCount} image(s) for "${st.id}"`)
             hydrateImagesForStory(st.id, patch)
           }
         } catch (e) {
