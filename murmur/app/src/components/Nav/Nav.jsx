@@ -34,10 +34,15 @@ export default function Nav() {
   }
 
   const handleEdit = () => {
-    // Read current state at click time to avoid stale closures
-    const { activeStoryIndex, stories } = useStore.getState()
-    const idx = Math.max(0, Math.min(activeStoryIndex, stories.length - 1))
-    const storyToEdit = stories[idx]
+    // Read current state at click time to avoid stale closures.
+    // Library filters hidden stories and sorts by updatedAt — mirror that here so
+    // the active index points to the same story the user is currently viewing.
+    const { activeStoryIndex, stories, showHiddenStories } = useStore.getState()
+    const visible = stories
+      .filter(s => showHiddenStories || !s.hidden)
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    const idx = Math.max(0, Math.min(activeStoryIndex, visible.length - 1))
+    const storyToEdit = visible[idx]
     if (storyToEdit) setCreatorStory(storyToEdit)
     setView('creator')
   }
@@ -121,13 +126,18 @@ export default function Nav() {
 function SettingsPanel({ onClose }) {
   const stories = useStore(s => s.stories)
   const deleteStory = useStore(s => s.deleteStory)
-  const activeIndex = useStore(s => s.activeStoryIndex)
+  const showHidden = useStore(s => s.showHiddenStories)
+  const setShowHidden = useStore(s => s.setShowHiddenStories)
+  const [tab, setTab] = useState('main') // 'main' | 'hidden'
 
   const handleDelete = (storyId, title) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return
     deleteStory(storyId)
     onClose()
   }
+
+  // Filter stories for the main tab — hidden stories only appear if the toggle is on
+  const visibleStories = showHidden ? stories : stories.filter(s => !s.hidden)
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end justify-center" onClick={onClose}>
@@ -139,35 +149,97 @@ function SettingsPanel({ onClose }) {
       >
         {/* Header */}
         <div className="flex justify-between items-center flex-shrink-0" style={{ padding: '20px 24px 16px', borderBottom: '1px solid #222236' }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#928faa', fontWeight: 600 }}>
-            Settings
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.15em',
+                textTransform: 'uppercase', fontWeight: 600, cursor: 'pointer',
+                color: tab === 'main' ? '#c9a96e' : '#928faa',
+              }}
+              onClick={() => setTab('main')}
+            >
+              Settings
+            </span>
+            {/* Invisible hidden-tab button — right of "Settings" */}
+            <span
+              onClick={() => setTab('hidden')}
+              style={{
+                display: 'inline-block', width: '32px', height: '20px',
+                cursor: 'pointer', background: 'transparent', border: 'none',
+              }}
+              aria-label=""
+            />
+            {/* Show the hidden tab label only after it's been activated */}
+            {tab === 'hidden' && (
+              <span
+                style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.15em',
+                  textTransform: 'uppercase', fontWeight: 600, color: '#c9a96e',
+                }}
+              >
+                Hidden
+              </span>
+            )}
+          </div>
           <span className="material-symbols-outlined cursor-pointer" style={{ fontSize: '20px', color: '#928faa' }} onClick={onClose}>close</span>
         </div>
 
-        {/* Stories list with delete */}
+        {/* Body */}
         <div style={{ padding: '16px 24px 24px', overflowY: 'auto' }}>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '12px' }}>
-            Your Stories
-          </div>
-          {stories.map(st => (
-            <div
-              key={st.id}
-              className="flex justify-between items-center"
-              style={{ padding: '12px 0', borderBottom: '1px solid rgba(34,34,54,0.5)' }}
-            >
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>{st.title}</span>
-              <span
-                className="material-symbols-outlined cursor-pointer"
-                style={{ fontSize: '18px', color: '#928faa', transition: 'color 0.2s' }}
-                onClick={() => handleDelete(st.id, st.title)}
-                onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
-                onMouseLeave={e => e.currentTarget.style.color = '#928faa'}
+          {tab === 'main' ? (
+            <>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '12px' }}>
+                Your Stories
+              </div>
+              {visibleStories.map(st => (
+                <div
+                  key={st.id}
+                  className="flex justify-between items-center"
+                  style={{ padding: '12px 0', borderBottom: '1px solid rgba(34,34,54,0.5)' }}
+                >
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>{st.title}</span>
+                  <span
+                    className="material-symbols-outlined cursor-pointer"
+                    title="Delete"
+                    style={{ fontSize: '18px', color: '#928faa', transition: 'color 0.2s' }}
+                    onClick={() => handleDelete(st.id, st.title)}
+                    onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#928faa'}
+                  >
+                    delete
+                  </span>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '16px' }}>
+                Hidden Stories
+              </div>
+              <div
+                className="flex justify-between items-center"
+                style={{ padding: '14px 16px', background: '#1a1a28', borderRadius: '10px', border: '1px solid #222236' }}
               >
-                delete
-              </span>
-            </div>
-          ))}
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>
+                  Show Hidden Stories
+                </span>
+                <span
+                  onClick={() => setShowHidden(!showHidden)}
+                  style={{
+                    width: '44px', height: '24px', borderRadius: '9999px',
+                    background: showHidden ? '#c9a96e' : '#2a2a3e',
+                    position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: '2px', left: showHidden ? '22px' : '2px',
+                    width: '20px', height: '20px', borderRadius: '50%',
+                    background: '#fff', transition: 'left 0.2s',
+                  }} />
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

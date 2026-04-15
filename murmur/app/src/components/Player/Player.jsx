@@ -132,9 +132,14 @@ export default function Player() {
   const scene = story.scenes[sceneId]
   if (!scene) return null
 
+  // Fall back to the story-wide default background image if this scene doesn't set its own
+  const effectiveScene = scene.bgImage
+    ? scene
+    : { ...scene, bgImage: story.defaultBgImage || null }
+
   return (
     <div className="fixed inset-0 overflow-hidden z-10" style={{ background: '#07070f', color: '#f0ede6', fontFamily: "'Public Sans', sans-serif" }}>
-      <Background scene={scene} bgs={story.bgs} instant={instant} />
+      <Background scene={effectiveScene} bgs={story.bgs} instant={instant} />
 
       <main className="relative z-10 h-screen flex flex-col justify-between items-center" style={{ paddingTop: '32px', paddingBottom: '32px' }}>
 

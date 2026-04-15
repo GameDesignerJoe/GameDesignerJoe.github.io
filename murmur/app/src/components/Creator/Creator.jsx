@@ -9,7 +9,8 @@ export default function Creator() {
   const view = useStore(s => s.view)
   const setView = useStore(s => s.setView)
   const creator = useStore(s => s.creator)
-  const stories = useStore(s => s.stories)
+  const allStories = useStore(s => s.stories)
+  const showHiddenStories = useStore(s => s.showHiddenStories)
   const setCreatorStory = useStore(s => s.setCreatorStory)
   const launchStory = useStore(s => s.launchStory)
   const addScene = useStore(s => s.addScene)
@@ -17,7 +18,29 @@ export default function Creator() {
   const updateScene = useStore(s => s.updateScene)
   const [showCsvModal, setShowCsvModal] = useState(false)
   const [showTtsModal, setShowTtsModal] = useState(false)
+  const [showStorySettings, setShowStorySettings] = useState(false)
+
+  // The dropdown should keep displaying the currently-edited story even if it's hidden
+  // and the toggle is off — otherwise the user would get stuck unable to see which
+  // story they're editing. We still exclude other hidden stories from the list.
+  const stories = allStories.filter(s => showHiddenStories || !s.hidden || s.id === creator.story?.id)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sceneSidebarWidth, setSceneSidebarWidth] = useState(250)
+  const sceneDragging = useRef(false)
+
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!sceneDragging.current) return
+      setSceneSidebarWidth(Math.max(180, Math.min(500, e.clientX)))
+    }
+    const handleUp = () => { sceneDragging.current = false; document.body.style.cursor = '' }
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [])
   const [panelWidth, setPanelWidth] = useState(360)
   const [audioRestored, setAudioRestored] = useState(null)
 
@@ -207,13 +230,14 @@ export default function Creator() {
             <HeaderTextBtn icon="volume_up" label="TTS" onClick={() => setShowTtsModal(true)} />
           </div>
 
-          {/* Icon buttons: Play, Save, History */}
+          {/* Icon buttons: Play, Save, History, Settings */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <HeaderIconBtn icon="play_arrow" title="Play story" onClick={() => {
               if (story) launchStory(story, story.startScene)
             }} />
             <HeaderIconBtn icon="save" title="Save (auto)" />
             <HeaderIconBtn icon="history" title="History" />
+            <HeaderIconBtn icon="tune" title="Story settings" onClick={() => setShowStorySettings(true)} />
           </div>
 
           {/* Save to Project */}
@@ -242,8 +266,20 @@ export default function Creator() {
         {/* Sidebar */}
         <div
           className="flex flex-col flex-shrink-0 overflow-hidden relative z-10"
-          style={{ width: sidebarOpen ? 250 : 40, borderRight: '1px solid var(--s3)', transition: 'width 0.2s ease' }}
+          style={{
+            width: sidebarOpen ? sceneSidebarWidth : 40,
+            borderRight: '1px solid var(--s3)',
+            transition: sceneDragging.current ? 'none' : 'width 0.2s ease',
+          }}
         >
+          {/* Drag handle (only when open) */}
+          {sidebarOpen && (
+            <div
+              className="absolute top-0 bottom-0 w-[5px] cursor-col-resize z-20 hover:bg-[rgba(201,169,110,0.2)] transition-colors"
+              style={{ right: 0 }}
+              onMouseDown={() => { sceneDragging.current = true; document.body.style.cursor = 'col-resize' }}
+            />
+          )}
           {/* Header with collapse toggle */}
           <div
             className="flex items-center flex-shrink-0"
@@ -305,6 +341,7 @@ export default function Creator() {
 
       {showCsvModal && <CsvImporter onClose={() => setShowCsvModal(false)} />}
       {showTtsModal && <TtsModal onClose={() => setShowTtsModal(false)} />}
+      {showStorySettings && <StorySettingsModal onClose={() => setShowStorySettings(false)} />}
     </div>
   )
 }
@@ -1028,6 +1065,156 @@ function FilterChip({ label, value, options, onChange }) {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+const STORY_EMOTIONS = ['curious', 'happy', 'sad', 'afraid', 'determined']
+
+function StorySettingsModal({ onClose }) {
+  const story = useStore(s => s.creator.story)
+  const updateStoryField = useStore(s => s.updateStoryField)
+  const updateNarratorPortrait = useStore(s => s.updateNarratorPortrait)
+  const showHidden = useStore(s => s.showHiddenStories)
+
+  if (!story) return null
+
+  const defaults = story.defaults || { secondsBeforeEnd: 5, countdown: 10 }
+  const portraits = story.narrator?.portraits || {}
+
+  const updateDefault = (key, value) => {
+    updateStoryField('defaults', { ...defaults, [key]: value })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} />
+      <div
+        className="relative w-full max-w-[560px] rounded-2xl"
+        style={{ background: '#12121f', border: '1px solid #222236', maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center flex-shrink-0" style={{ padding: '20px 24px 16px', borderBottom: '1px solid #222236' }}>
+          <span style={{ fontFamily: "'EB Garamond', serif", fontStyle: 'italic', fontSize: '22px', color: '#f0ede6' }}>
+            Story Settings
+          </span>
+          <span className="material-symbols-outlined cursor-pointer" style={{ fontSize: '22px', color: '#928faa' }} onClick={onClose}>close</span>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '20px 24px 24px', overflowY: 'auto' }}>
+          {/* Title */}
+          <StorySettingsField label="Title">
+            <input
+              className="cr-input"
+              value={story.title || ''}
+              onChange={e => updateStoryField('title', e.target.value)}
+            />
+          </StorySettingsField>
+
+          {/* Default background */}
+          <StorySettingsField label="Default Background Image" hint="URL applied to all scenes unless a scene sets its own.">
+            <input
+              className="cr-input"
+              value={story.defaultBgImage || ''}
+              placeholder="https://… or path/to/background.jpg"
+              onChange={e => updateStoryField('defaultBgImage', e.target.value.trim() || null)}
+            />
+          </StorySettingsField>
+
+          {/* Narrator portraits */}
+          <StorySettingsField label="Narrator Portraits" hint="Per-emotion image URLs. Used across the whole story.">
+            {STORY_EMOTIONS.map(em => (
+              <div key={em} className="mb-2">
+                <div className="text-[13px] mb-1 capitalize" style={{ color: 'var(--text)' }}>{em}</div>
+                <input
+                  className="cr-input"
+                  value={portraits[em] || ''}
+                  placeholder={`portrait-${em}.png`}
+                  onChange={e => updateNarratorPortrait(em, e.target.value.trim())}
+                />
+              </div>
+            ))}
+          </StorySettingsField>
+
+          {/* Default scene timing */}
+          <StorySettingsField label="Default Scene Timing" hint="Used when creating new scenes. Existing scenes keep their own values.">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <div className="text-[13px] mb-1" style={{ color: 'var(--sub)' }}>Reveal (s before end)</div>
+                <input
+                  className="cr-input"
+                  type="number"
+                  min="0"
+                  value={defaults.secondsBeforeEnd ?? 5}
+                  onChange={e => updateDefault('secondsBeforeEnd', Number(e.target.value))}
+                />
+              </div>
+              <div className="flex-1">
+                <div className="text-[13px] mb-1" style={{ color: 'var(--sub)' }}>Player countdown (s)</div>
+                <input
+                  className="cr-input"
+                  type="number"
+                  min="0"
+                  value={defaults.countdown ?? 10}
+                  onChange={e => updateDefault('countdown', Number(e.target.value))}
+                />
+              </div>
+            </div>
+          </StorySettingsField>
+
+          {/* Hidden toggle — only visible when the global "Show Hidden Stories" is on */}
+          {showHidden && (
+            <StorySettingsField label="Visibility">
+              <div
+                className="flex justify-between items-center"
+                style={{ padding: '14px 16px', background: 'var(--s2)', borderRadius: '10px', border: '1px solid var(--s3)' }}
+              >
+                <div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: 'var(--text)' }}>
+                    Hidden Story
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '12px', color: 'var(--sub)', marginTop: 2 }}>
+                    Hidden stories only appear while "Show Hidden Stories" is enabled.
+                  </div>
+                </div>
+                <span
+                  onClick={() => updateStoryField('hidden', !story.hidden)}
+                  style={{
+                    width: '44px', height: '24px', borderRadius: '9999px',
+                    background: story.hidden ? '#c9a96e' : '#2a2a3e',
+                    position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: '2px', left: story.hidden ? '22px' : '2px',
+                    width: '20px', height: '20px', borderRadius: '50%',
+                    background: '#fff', transition: 'left 0.2s',
+                  }} />
+                </span>
+              </div>
+            </StorySettingsField>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StorySettingsField({ label, hint, children }) {
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <label className="block text-[13px] tracking-[0.1em] uppercase mb-2" style={{ color: 'var(--sub)' }}>
+        {label}
+      </label>
+      {hint && (
+        <div className="text-[13px] mb-2" style={{ color: 'var(--sub)', lineHeight: 1.5 }}>
+          {hint}
+        </div>
+      )}
+      {children}
     </div>
   )
 }

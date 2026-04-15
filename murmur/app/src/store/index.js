@@ -128,6 +128,18 @@ export const useStore = create((set, get) => ({
     localStorage.removeItem('murmur_' + storyId)
     return { stories }
   }),
+  setStoryHidden: (storyId, hidden) => set(s => {
+    const stories = s.stories.map(st => st.id === storyId ? { ...st, hidden: !!hidden } : st)
+    saveStories(stories)
+    return { stories }
+  }),
+
+  // Hidden-stories toggle (persisted to localStorage)
+  showHiddenStories: (() => { try { return localStorage.getItem('murmur_show_hidden') === '1' } catch { return false } })(),
+  setShowHiddenStories: (v) => {
+    try { localStorage.setItem('murmur_show_hidden', v ? '1' : '0') } catch {}
+    set({ showHiddenStories: !!v })
+  },
 
   // Active story index (tracks which card is visible in library scroll)
   activeStoryIndex: 0,
@@ -249,10 +261,15 @@ export const useStore = create((set, get) => ({
   addScene: () => set(s => {
     const story = JSON.parse(JSON.stringify(s.creator.story))
     const id = 'scene_' + Date.now()
+    const d = story.defaults || {}
     story.scenes[id] = {
       id, title: 'New Scene', emotion: 'curious', bgKey: 'a', bgImage: null,
       script: '', scriptUpdatedAt: null, audioGeneratedAt: null,
-      clips: [], secondsBeforeEnd: 5, defaultChoice: 0, countdown: 10, choices: []
+      clips: [],
+      secondsBeforeEnd: d.secondsBeforeEnd ?? 5,
+      defaultChoice: 0,
+      countdown: d.countdown ?? 10,
+      choices: []
     }
     const positions = { ...s.creator.positions }
     positions[id] = { x: 60, y: 60 }
@@ -277,6 +294,25 @@ export const useStore = create((set, get) => ({
   setStartScene: (id) => set(s => {
     if (!s.creator.story) return {}
     const story = { ...s.creator.story, startScene: id, updatedAt: Date.now() }
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
+    saveStories(stories)
+    return { creator: { ...s.creator, story }, stories }
+  }),
+
+  // Generic story-level updater (title, defaultBgImage, defaults, hidden, narrator, …)
+  updateStoryField: (key, value) => set(s => {
+    if (!s.creator.story) return {}
+    const story = { ...s.creator.story, [key]: value, updatedAt: Date.now() }
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
+    saveStories(stories)
+    return { creator: { ...s.creator, story }, stories }
+  }),
+  // Nested portrait updater for story.narrator.portraits[emotion]
+  updateNarratorPortrait: (emotion, url) => set(s => {
+    if (!s.creator.story) return {}
+    const narrator = { ...s.creator.story.narrator }
+    narrator.portraits = { ...(narrator.portraits || {}), [emotion]: url || null }
+    const story = { ...s.creator.story, narrator, updatedAt: Date.now() }
     const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story }, stories }

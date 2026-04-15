@@ -153,15 +153,8 @@ export default function EditPanel() {
     updateScene(selectedNodeId, 'choices', choices)
   }
 
-  const updatePortrait = (emotion, url) => {
-    const st = JSON.parse(JSON.stringify(story))
-    if (!st.narrator.portraits) st.narrator.portraits = {}
-    st.narrator.portraits[emotion] = url || null
-    useStore.setState(s => ({ creator: { ...s.creator, story: st } }))
-  }
-
   return (
-    <div className="flex flex-col overflow-hidden w-full">
+    <div className="flex flex-col overflow-hidden w-full h-full">
       {/* Header */}
       <div
         className="flex justify-between items-center flex-shrink-0"
@@ -241,24 +234,6 @@ export default function EditPanel() {
           <input className="cr-input mt-2" placeholder="path/to/clip.mp3" onKeyDown={handleClipAdd} />
         </Field>
 
-        {/* Portrait images */}
-        <Field label={<>Portrait Images <span className="text-[13px] normal-case tracking-normal" style={{ color: 'var(--sub)' }}>(per-emotion PNGs)</span></>}>
-          <div className="text-[13px] mb-3" style={{ color: 'var(--sub)', lineHeight: 1.5 }}>
-            Set a URL for each emotion state. Leave blank for emoji placeholder.
-          </div>
-          {EMOTIONS.map(em => (
-            <div key={em} className="mb-2">
-              <div className="text-[13px] mb-1 capitalize" style={{ color: 'var(--text)' }}>{em}</div>
-              <input
-                className="cr-input"
-                value={(story.narrator.portraits || {})[em] || ''}
-                placeholder={`portrait-${em}.png`}
-                onChange={e => updatePortrait(em, e.target.value.trim())}
-              />
-            </div>
-          ))}
-        </Field>
-
         {/* Choices */}
         <Field label="Choices">
           <div className="text-[13px] mb-2" style={{ color: 'var(--sub)' }}>★ = default (auto-fires when countdown ends)</div>
@@ -325,7 +300,7 @@ export default function EditPanel() {
             }}
             onClick={() => setStartScene(selectedNodeId)}
           >
-            {story.startScene === selectedNodeId ? '★ Start Scene' : 'Set as Start Scene'}
+            {story.startScene === selectedNodeId ? '★ First Scene' : 'Set as First Scene'}
           </button>
           <button
             className="w-full p-3 rounded-xl text-center text-[14px] cursor-pointer transition-all hover:border-[var(--sub)] hover:text-[var(--text)]"
