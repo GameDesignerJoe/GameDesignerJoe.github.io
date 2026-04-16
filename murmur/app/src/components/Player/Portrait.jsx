@@ -34,6 +34,16 @@ export default function Portrait({ scene, narrator, isPlaying }) {
     return () => clearTimeout(t)
   }, [scene?.emotion])
 
+  // Pause/resume video in sync with audio
+  useEffect(() => {
+    const vid = videoRef.current
+    if (!vid) return
+    if (isPlaying) {
+      vid.play().catch(() => {})
+    } else {
+      vid.pause()
+    }
+  }, [isPlaying])
 
   // Spawn ripple rings at random intervals (0.4–1.2s) for an organic, speech-like feel.
   const [ripples, setRipples] = useState([])

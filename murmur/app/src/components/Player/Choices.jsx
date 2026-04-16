@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
-function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled }) {
+function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled, paused }) {
   const [visible, setVisible] = useState(false)
   const [countdownLeft, setCountdownLeft] = useState(countdown)
   const [barPct, setBarPct] = useState(100)
   const intervalRef = useRef(null)
+  const elapsedRef = useRef(0)
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 100 + index * 85)
@@ -12,22 +13,24 @@ function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled })
   }, [index])
 
   useEffect(() => {
-    if (!isDefault || !countdown || disabled) return
+    if (!isDefault || !countdown || disabled || paused) {
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+      return
+    }
     const totalMs = countdown * 1000
-    let elapsed = 0
     const interval = 80
     intervalRef.current = setInterval(() => {
-      elapsed += interval
-      const pct = Math.max(0, 1 - elapsed / totalMs)
+      elapsedRef.current += interval
+      const pct = Math.max(0, 1 - elapsedRef.current / totalMs)
       setBarPct(pct * 100)
-      setCountdownLeft(Math.ceil(Math.max(0, totalMs - elapsed) / 1000))
-      if (elapsed >= totalMs) {
+      setCountdownLeft(Math.ceil(Math.max(0, totalMs - elapsedRef.current) / 1000))
+      if (elapsedRef.current >= totalMs) {
         clearInterval(intervalRef.current)
         onPick()
       }
     }, interval)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [isDefault, countdown, disabled])
+  }, [isDefault, countdown, disabled, paused])
 
   const handleClick = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -100,7 +103,7 @@ function ChoiceButton({ choice, index, isDefault, countdown, onPick, disabled })
   )
 }
 
-export default function Choices({ scene, onChoose, revealed }) {
+export default function Choices({ scene, onChoose, revealed, paused }) {
   const [chosen, setChosen] = useState(false)
   const [promptVisible, setPromptVisible] = useState(false)
 
@@ -169,6 +172,7 @@ export default function Choices({ scene, onChoose, revealed }) {
               countdown={scene.defaultChoice != null && i === scene.defaultChoice ? scene.countdown : 0}
               onPick={() => handlePick(choice.target)}
               disabled={chosen}
+              paused={paused}
             />
           ))
         )}

@@ -222,7 +222,7 @@ export default function Player() {
         <ScrubBar key={scene.id} scene={scene} isPlaying={isPlaying} paused={paused} />
 
         {/* Bottom: Choices */}
-        <Choices scene={scene} onChoose={handleChoose} revealed={choicesRevealed} />
+        <Choices scene={scene} onChoose={handleChoose} revealed={choicesRevealed} paused={paused} />
       </main>
 
       {/* Flash overlay */}
