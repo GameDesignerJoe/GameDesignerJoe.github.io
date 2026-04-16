@@ -133,13 +133,61 @@ export const useStore = create((set, get) => ({
   stories: loadStories() || DEMO_STORIES,
 
   // Merge stories fetched from the stories manifest (public/stories/manifest.json).
-  // Only adds stories whose ID isn't already in the array — localStorage wins for
-  // stories the user has edited locally. Called once on App boot.
+  // - Stories NOT in localStorage are added wholesale (new discovery).
+  // - Stories ALREADY in localStorage get their story-level metadata refreshed
+  //   from the disk JSON (narrator, portraits, scenes' emotions, coverImage, etc.)
+  //   so that changes made to the JSON via scripts or Save-to-Project are picked up
+  //   even if the user already has the story in localStorage.
   mergeManifestStories: (fetched) => set(s => {
-    const existing = new Set(s.stories.map(st => st.id))
-    const added = fetched.filter(st => !existing.has(st.id))
-    if (added.length === 0) return {}
-    const stories = [...s.stories, ...added]
+    const byId = Object.fromEntries(s.stories.map(st => [st.id, st]))
+    let changed = false
+
+    for (const disk of fetched) {
+      const local = byId[disk.id]
+      if (!local) {
+        // Brand-new story — add it
+        byId[disk.id] = disk
+        changed = true
+      } else {
+        // Existing story — refresh key fields from the disk version.
+        // This keeps localStorage edits for fields the user is actively changing
+        // (like scene scripts) while picking up narrator, portraits, emotions,
+        // cover/bg image paths, etc.
+        const merged = { ...local }
+
+        // Story-level fields: always take disk if present
+        if (disk.narrator) merged.narrator = { ...local.narrator, ...disk.narrator }
+        if (disk.coverImage) merged.coverImage = disk.coverImage
+        if (disk.defaultBgImage) merged.defaultBgImage = disk.defaultBgImage
+        if (disk.title) merged.title = disk.title
+        if (disk.tagline) merged.tagline = disk.tagline
+        if (disk.description) merged.description = disk.description
+        if (disk.tags) merged.tags = disk.tags
+        if (disk.startScene) merged.startScene = disk.startScene
+        if (disk.duration) merged.duration = disk.duration
+        if (disk.paths) merged.paths = disk.paths
+
+        // Per-scene: refresh emotion + bgImage from disk
+        if (disk.scenes && merged.scenes) {
+          const newScenes = { ...merged.scenes }
+          for (const [sid, diskScene] of Object.entries(disk.scenes)) {
+            if (newScenes[sid]) {
+              newScenes[sid] = { ...newScenes[sid], emotion: diskScene.emotion }
+              if (diskScene.bgImage) newScenes[sid].bgImage = diskScene.bgImage
+            } else {
+              newScenes[sid] = diskScene // new scene from disk
+            }
+          }
+          merged.scenes = newScenes
+        }
+
+        byId[disk.id] = merged
+        changed = true
+      }
+    }
+
+    if (!changed) return {}
+    const stories = Object.values(byId)
     saveStories(stories)
     return { stories }
   }),
@@ -329,7 +377,7 @@ export const useStore = create((set, get) => ({
     const id = 'scene_' + Date.now()
     const d = story.defaults || {}
     story.scenes[id] = {
-      id, title: 'New Scene', emotion: 'curious', bgKey: 'a', bgImage: null,
+      id, title: 'New Scene', emotion: 'default', bgKey: 'a', bgImage: null,
       script: '', scriptUpdatedAt: null, audioGeneratedAt: null,
       clips: [],
       secondsBeforeEnd: d.secondsBeforeEnd ?? 5,

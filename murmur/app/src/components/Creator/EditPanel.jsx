@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import ImageInputWithGenerate from './ImageInputWithGenerate'
 
-const EMOTIONS = ['curious', 'happy', 'sad', 'afraid', 'determined']
+const EMOTIONS = ['default', 'curious', 'happy', 'sad', 'afraid', 'determined', 'unsettled', 'dissociated', 'hollow', 'controlled']
 
 // Match the helpers in Creator.jsx — kept in sync for the targetPath display.
 function slugify(s) {

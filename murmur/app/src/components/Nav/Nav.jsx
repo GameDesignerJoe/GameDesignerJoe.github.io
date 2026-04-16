@@ -70,7 +70,7 @@ export default function Nav() {
       startScene: 'start',
       scenes: {
         start: {
-          id: 'start', title: 'Opening Scene', emotion: 'curious',
+          id: 'start', title: 'Opening Scene', emotion: 'default',
           bgKey: 'a', bgImage: null, script: '', scriptUpdatedAt: null, audioGeneratedAt: null,
           clips: [], secondsBeforeEnd: 5, defaultChoice: null, countdown: 0, choices: [],
         },

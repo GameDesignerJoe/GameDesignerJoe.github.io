@@ -1246,7 +1246,7 @@ function FilterChip({ label, value, options, onChange }) {
   )
 }
 
-const STORY_EMOTIONS = ['curious', 'happy', 'sad', 'afraid', 'determined']
+const STORY_EMOTIONS = ['default', 'curious', 'happy', 'sad', 'afraid', 'determined', 'unsettled', 'dissociated', 'hollow', 'controlled']
 
 function StorySettingsModal({ onClose, onOpenImageStudio }) {
   // — Project folder state (loaded from IndexedDB, refreshed on change)
@@ -1319,7 +1319,7 @@ function StorySettingsModal({ onClose, onOpenImageStudio }) {
         </div>
 
         {/* Body */}
-        <div style={{ padding: '20px 24px 24px', overflowY: 'auto' }}>
+        <div className="hide-scrollbar" style={{ padding: '20px 24px 24px', overflowY: 'auto' }}>
           {/* Project folder — where Save to Project writes JSON + audio + images */}
           <StorySettingsField
             label="Project Folder"
