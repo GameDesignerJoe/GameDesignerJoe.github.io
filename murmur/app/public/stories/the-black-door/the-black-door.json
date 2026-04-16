@@ -72,7 +72,7 @@
       "title": "The Normal World",
       "emotion": "curious",
       "bgKey": "a",
-      "bgImage": null,
+      "bgImage": "the-black-door/images/the-black-door-scene-return_home.png",
       "script": "The drive home took six hours. I played the radio loudly. I sang along to songs I did not know. My wife made dinner — pasta, I think, or something resembling it in shape and temperature — and I ate at the table and spoke words I have no memory of speaking. She said I seemed tired. She was right. She was, I understand now, entirely right about that, and about nothing else for quite some time. I thought: I will report it. I am a thorough man. I document. I considered whom I might call — the park service, a geology department, a colleague with vague ties to anthropological findings. I picked up my phone three times. I set it down three times. The coordinates stayed in the device, in a folder I told myself I would open in the morning.",
       "scriptUpdatedAt": 1776202320569,
       "audioGeneratedAt": 1776217217427,
@@ -91,7 +91,8 @@
           "text": "Say nothing. Put the phone down…",
           "target": "the_hiding"
         }
-      ]
+      ],
+      "bgImageGeneratedAt": 1776272018515
     },
     "confession_attempt": {
       "id": "confession_attempt",
@@ -542,15 +543,30 @@
       "defaultChoice": null,
       "countdown": 0,
       "choices": []
+    },
+    "scene_1776316854901": {
+      "id": "scene_1776316854901",
+      "title": "New Scene",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "Test",
+      "scriptUpdatedAt": 1776316864845,
+      "audioGeneratedAt": null,
+      "clips": [],
+      "secondsBeforeEnd": 10,
+      "defaultChoice": 0,
+      "countdown": 10,
+      "choices": []
     }
   },
-  "updatedAt": 1776247650509,
+  "updatedAt": 1776321892929,
   "defaults": {
     "secondsBeforeEnd": 10,
     "countdown": 10
   },
   "hidden": false,
-  "defaultBgImage": "the-black-door/images/the-black-door-cover.png",
-  "coverImage": "the-black-door/images/the-black-door-cover.png",
-  "coverImageGeneratedAt": 1776243980420
+  "defaultBgImage": "the-black-door/images/the-black-door-cover-06.png",
+  "coverImage": "the-black-door/images/the-black-door-cover-06.png",
+  "coverImageGeneratedAt": 1776321877097
 }
