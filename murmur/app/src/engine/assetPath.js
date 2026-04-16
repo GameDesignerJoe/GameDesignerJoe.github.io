@@ -21,6 +21,10 @@ export function resolveAssetPath(p) {
   if (p.startsWith('blob:')) return p
   if (p.startsWith('http://') || p.startsWith('https://')) return p
   if (p.startsWith('data:')) return p
+  // Demo stories use absolute paths like "/stories/lighthouse/images/cover.jpg".
+  // On the live site these need to become "/murmur/stories/..." to match the
+  // deployment base. Rewrite them so they go through the same BASE prefix.
+  if (p.startsWith('/stories/')) return BASE + p.slice(1) // strip leading "/" → "stories/..."
   if (p.startsWith('/')) return p
   return BASE + 'stories/' + p
 }
