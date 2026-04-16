@@ -10,13 +10,36 @@ import { loadStoryImages } from './engine/ImageStore'
 export default function App() {
   const view = useStore(s => s.view)
 
-  // On boot, restore image blobs from IndexedDB into the stories array so
-  // Library and Detail can render covers without having to enter the editor
-  // first. Blob URLs are stripped from localStorage on save, so we rebuild
-  // them from the persisted blobs on each load.
+  // On boot:
+  // 1. Fetch the stories manifest to discover user-created stories (e.g. the-black-door)
+  //    that aren't in DEMO_STORIES. Only adds stories not already in localStorage.
+  // 2. Restore image blobs from IndexedDB for all stories.
   useEffect(() => {
     let cancelled = false
     const bootstrap = async () => {
+      // 1. Load stories from the manifest (stories saved to public/stories/ via Save to Project)
+      try {
+        const base = import.meta.env.BASE_URL || '/'
+        const manifestRes = await fetch(`${base}stories/manifest.json`)
+        if (manifestRes.ok) {
+          const ids = await manifestRes.json()
+          const fetched = []
+          for (const id of ids) {
+            try {
+              const res = await fetch(`${base}stories/${id}/${id}.json`)
+              if (res.ok) fetched.push(await res.json())
+            } catch { /* skip unloadable stories */ }
+          }
+          if (fetched.length > 0 && !cancelled) {
+            useStore.getState().mergeManifestStories(fetched)
+            console.log(`[Murmur] Manifest: merged ${fetched.length} stories from disk`)
+          }
+        }
+      } catch (e) {
+        console.warn('[Murmur] Failed to load stories manifest:', e?.message || e)
+      }
+
+      // 2. Restore image blobs from IndexedDB
       const { stories, hydrateImagesForStory } = useStore.getState()
       for (const st of stories) {
         if (cancelled) return

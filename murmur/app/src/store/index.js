@@ -131,6 +131,19 @@ export const useStore = create((set, get) => ({
 
   // Stories (persisted to localStorage)
   stories: loadStories() || DEMO_STORIES,
+
+  // Merge stories fetched from the stories manifest (public/stories/manifest.json).
+  // Only adds stories whose ID isn't already in the array — localStorage wins for
+  // stories the user has edited locally. Called once on App boot.
+  mergeManifestStories: (fetched) => set(s => {
+    const existing = new Set(s.stories.map(st => st.id))
+    const added = fetched.filter(st => !existing.has(st.id))
+    if (added.length === 0) return {}
+    const stories = [...s.stories, ...added]
+    saveStories(stories)
+    return { stories }
+  }),
+
   addStory: (story) => set(s => {
     const stamped = { ...story, updatedAt: Date.now() }
     const stories = [...s.stories, stamped]
