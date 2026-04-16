@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { resolveAssetPath } from '../../engine/assetPath'
 
+const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.ogg']
+function isVideo(src) {
+  if (!src) return false
+  const lower = src.split('?')[0].toLowerCase()
+  return VIDEO_EXTS.some(ext => lower.endsWith(ext))
+}
+
 const emotionGlows = {
   default:      { border: '#928faa', ring: 'rgba(146,143,170,0.4)' },
   curious:      { border: '#7ba8ff', ring: 'rgba(123,168,255,0.4)' },
@@ -16,6 +23,10 @@ const emotionGlows = {
 
 export default function Portrait({ scene, narrator, isPlaying }) {
   const [pop, setPop] = useState(false)
+  const videoRef = useRef(null)
+
+  const portraitSrc = narrator?.portraits?.[scene?.emotion] || narrator?.portraits?.default || null
+  const glow = emotionGlows[scene?.emotion] || emotionGlows.default
 
   useEffect(() => {
     setPop(true)
@@ -23,10 +34,6 @@ export default function Portrait({ scene, narrator, isPlaying }) {
     return () => clearTimeout(t)
   }, [scene?.emotion])
 
-  if (!scene) return null
-
-  const portraitSrc = narrator?.portraits?.[scene.emotion] || narrator?.portraits?.default || null
-  const glow = emotionGlows[scene.emotion] || emotionGlows.default
 
   // Spawn ripple rings at random intervals (0.4–1.2s) for an organic, speech-like feel.
   const [ripples, setRipples] = useState([])
@@ -46,6 +53,8 @@ export default function Portrait({ scene, narrator, isPlaying }) {
     spawn()
     return () => clearTimeout(timer)
   }, [isPlaying, scene?.id])
+
+  if (!scene) return null
 
   return (
     <div className="relative group flex items-center justify-center">
@@ -76,7 +85,16 @@ export default function Portrait({ scene, narrator, isPlaying }) {
         }}
       >
         {portraitSrc ? (
-          <img src={resolveAssetPath(portraitSrc)} alt="" className="w-full h-full object-cover" />
+          isVideo(portraitSrc)
+            ? <video
+                ref={videoRef}
+                src={resolveAssetPath(portraitSrc)}
+                className="w-full h-full object-cover"
+                autoPlay loop muted playsInline
+                onLoadedData={(e) => { e.target.currentTime = 0.5 }}
+                onSeeked={(e) => { if (e.target.currentTime < 0.5) e.target.currentTime = 0.5 }}
+              />
+            : <img src={resolveAssetPath(portraitSrc)} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[54px]" style={{ background: '#17182c' }}>
             {narrator?.emoji || '🎭'}
