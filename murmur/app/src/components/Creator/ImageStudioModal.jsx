@@ -145,11 +145,10 @@ export default function ImageStudioModal({ target, onClose }) {
       const persistentUrl = URL.createObjectURL(blob)
       applyToSlot(target.slot, persistentUrl)
 
-      // 3. If a project folder is set, write the PNG to disk automatically with
-      //    a versioned filename (never overwriting earlier images — the user
-      //    keeps a history on disk). On success, switch the in-memory field
-      //    to the saved path so the JSON stays consistent and the file is the
-      //    source of truth going forward.
+      // 3. If a project folder is set, save the image to disk.
+      //    - If the blob is a local File that already exists in the images
+      //      folder, just reference it — no copy needed.
+      //    - Otherwise write a versioned copy so the user keeps a history.
       try {
         const handle = await getProjectFolder(target.storyId)
         if (!handle) {
@@ -162,16 +161,34 @@ export default function ImageStudioModal({ target, onClose }) {
             console.warn('[Murmur] Auto-save skipped — folder permission denied.')
           } else {
             const imagesDir = await handle.getDirectoryHandle('images', { create: true })
-            const baseName = imageBaseNameForSlot(story, target.slot)
-            const filename = await findFreeFilename(imagesDir, baseName, 'png')
-            const fh = await imagesDir.getFileHandle(filename, { create: true })
-            const w = await fh.createWritable()
-            await w.write(blob)
-            await w.close()
-            console.log(`%c[Murmur] Image auto-saved to disk: ${handle.name}/images/${filename} (${(blob.size / 1024).toFixed(0)} KB)`, 'color: #4ade80')
-            // Switch to path so next session uses the file directly (and subsequent
-            // saves don't produce duplicate copies of the same image).
-            applyToSlot(target.slot, `${target.storyId}/images/${filename}`)
+
+            // Check if this is a local file that already lives in the images folder
+            let existingName = null
+            if (blob instanceof File && blob.name) {
+              try {
+                const existing = await imagesDir.getFileHandle(blob.name)
+                const existingFile = await existing.getFile()
+                if (existingFile.size === blob.size) {
+                  existingName = blob.name
+                }
+              } catch {
+                // Not found — will write a new copy below
+              }
+            }
+
+            if (existingName) {
+              console.log(`%c[Murmur] Image already in project folder: ${handle.name}/images/${existingName} — reusing`, 'color: #4ade80')
+              applyToSlot(target.slot, `${target.storyId}/images/${existingName}`)
+            } else {
+              const baseName = imageBaseNameForSlot(story, target.slot)
+              const filename = await findFreeFilename(imagesDir, baseName, 'png')
+              const fh = await imagesDir.getFileHandle(filename, { create: true })
+              const w = await fh.createWritable()
+              await w.write(blob)
+              await w.close()
+              console.log(`%c[Murmur] Image auto-saved to disk: ${handle.name}/images/${filename} (${(blob.size / 1024).toFixed(0)} KB)`, 'color: #4ade80')
+              applyToSlot(target.slot, `${target.storyId}/images/${filename}`)
+            }
           }
         }
       } catch (diskErr) {

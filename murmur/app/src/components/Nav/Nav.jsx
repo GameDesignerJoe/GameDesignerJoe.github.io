@@ -211,16 +211,18 @@ function SettingsPanel({ onClose }) {
                   style={{ padding: '12px 0', borderBottom: '1px solid rgba(34,34,54,0.5)' }}
                 >
                   <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>{st.title}</span>
-                  <span
-                    className="material-symbols-outlined cursor-pointer"
-                    title="Delete"
-                    style={{ fontSize: '18px', color: '#928faa', transition: 'color 0.2s' }}
-                    onClick={() => handleDelete(st.id, st.title)}
-                    onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#928faa'}
-                  >
-                    delete
-                  </span>
+                  {creatorMode && (
+                    <span
+                      className="material-symbols-outlined cursor-pointer"
+                      title="Delete"
+                      style={{ fontSize: '18px', color: '#928faa', transition: 'color 0.2s' }}
+                      onClick={() => handleDelete(st.id, st.title)}
+                      onMouseEnter={e => e.currentTarget.style.color = '#ff6b6b'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#928faa'}
+                    >
+                      delete
+                    </span>
+                  )}
                 </div>
               ))}
             </>

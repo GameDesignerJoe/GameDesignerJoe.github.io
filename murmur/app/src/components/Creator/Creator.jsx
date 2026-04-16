@@ -1381,6 +1381,28 @@ function StorySettingsModal({ onClose, onOpenImageStudio }) {
             />
           </StorySettingsField>
 
+          {/* Tagline — italic subtitle on library card and detail page */}
+          <StorySettingsField label="Tagline" hint="Short italic subtitle shown on the library card and detail page.">
+            <input
+              className="cr-input"
+              value={story.tagline || ''}
+              placeholder="e.g. Some secrets are worth keeping."
+              onChange={e => updateStoryField('tagline', e.target.value)}
+            />
+          </StorySettingsField>
+
+          {/* Description — shown on the detail page */}
+          <StorySettingsField label="Description" hint="Shown on the story detail page before the player starts.">
+            <textarea
+              className="cr-input"
+              rows={3}
+              value={story.description || ''}
+              placeholder="A short description of your story…"
+              onChange={e => updateStoryField('description', e.target.value)}
+              style={{ resize: 'vertical' }}
+            />
+          </StorySettingsField>
+
           {/* Narrator name */}
           <StorySettingsField label="Narrator Name" hint="Used in audio filenames and display.">
             <input

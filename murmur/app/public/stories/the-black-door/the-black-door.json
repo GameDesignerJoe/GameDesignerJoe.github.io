@@ -2,7 +2,7 @@
   "id": "the-black-door",
   "title": "The Black Door",
   "tagline": "",
-  "description": "",
+  "description": "I am a rational man. I have the credentials to prove it, the publications, the tenure. I document what I find and I move on.\nI found something six weeks ago that I have not reported. I have not moved on.\nI dream about it every night. And something has changed in the way I see people — the ones I pass on the street, the ones I work alongside, the ones I love. I see them differently now. I am trying very hard not to think about what that means.\nI need you to come with me. Back to the mountain. There's something I have to show you.\nI think you'll understand when you see it.",
   "tags": [],
   "bg": "linear-gradient(160deg,#0a0a0a 0%,#1a1208 100%)",
   "bgs": {
@@ -572,13 +572,14 @@
       "choices": []
     }
   },
-  "updatedAt": 1776329339872,
+  "updatedAt": 1776331601504,
   "defaults": {
     "secondsBeforeEnd": 10,
     "countdown": 10
   },
   "hidden": false,
-  "defaultBgImage": "the-black-door/images/the-black-door-cover-06.png",
-  "coverImage": "the-black-door/images/the-black-door-cover-06.png",
-  "coverImageGeneratedAt": 1776321877097
+  "defaultBgImage": "the-black-door/images/the-black-door-default-bg.png",
+  "coverImage": "the-black-door/images/the-black-door-cover-08.png",
+  "coverImageGeneratedAt": 1776331244892,
+  "defaultBgImageGeneratedAt": 1776331254402
 }
