@@ -1,7 +1,7 @@
 {
   "id": "the-black-door",
   "title": "The Black Door",
-  "tagline": "",
+  "tagline": "It was never a choice",
   "description": "I am a rational man. I have the credentials to prove it, the publications, the tenure. I document what I find and I move on.\nI found something six weeks ago that I have not reported. I have not moved on.\nI dream about it every night. And something has changed in the way I see people — the ones I pass on the street, the ones I work alongside, the ones I love. I see them differently now. I am trying very hard not to think about what that means.\nI need you to come with me. Back to the mountain. There's something I have to show you.\nI think you'll understand when you see it.",
   "tags": [],
   "bg": "linear-gradient(160deg,#0a0a0a 0%,#1a1208 100%)",
@@ -572,7 +572,7 @@
       "choices": []
     }
   },
-  "updatedAt": 1776331601504,
+  "updatedAt": 1776332397558,
   "defaults": {
     "secondsBeforeEnd": 10,
     "countdown": 10
