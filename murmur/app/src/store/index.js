@@ -156,6 +156,14 @@ export const useStore = create((set, get) => ({
     set({ showHiddenStories: !!v })
   },
 
+  // Creator mode — gates the editor, API keys, and other authoring features.
+  // Hidden behind the same invisible settings tab as Show Hidden Stories.
+  creatorMode: (() => { try { return localStorage.getItem('murmur_creator_mode') === '1' } catch { return false } })(),
+  setCreatorMode: (v) => {
+    try { localStorage.setItem('murmur_creator_mode', v ? '1' : '0') } catch {}
+    set({ creatorMode: !!v })
+  },
+
   // Active story index (tracks which card is visible in library scroll)
   activeStoryIndex: 0,
   setActiveStoryIndex: (idx) => set({ activeStoryIndex: idx }),

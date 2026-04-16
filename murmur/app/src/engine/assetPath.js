@@ -4,14 +4,17 @@
  * Accepts any of:
  *   - `blob:...`           (in-memory blob URL — returned as-is)
  *   - `http://` / `https://` (absolute remote URL — as-is)
- *   - `/absolute/path`     (absolute, e.g. `/stories/lighthouse/images/cover.jpg` — as-is)
- *   - `relative/path`      (bare — prefixed with `/stories/` for convenience)
+ *   - `/absolute/path`     (absolute — as-is; NOTE: demo stories use this form,
+ *                           e.g. `/stories/lighthouse/images/cover.jpg`)
+ *   - `relative/path`      (bare — prefixed with BASE + `stories/`)
  *
- * Rationale: `saveToProject` writes JSON clip/image paths like
- * `the-black-door/images/cover.png` (no leading slash). When rendered
- * directly as `<img src>` these resolve to `/the-black-door/…` which 404s.
- * This helper bridges that convention by prepending `/stories/` to bare paths.
+ * BASE is Vite's `import.meta.env.BASE_URL`:
+ *   - Dev:  `/`       → `/stories/the-black-door/…`
+ *   - Prod: `/murmur/` → `/murmur/stories/the-black-door/…`
  */
+
+const BASE = import.meta.env.BASE_URL || '/'
+
 export function resolveAssetPath(p) {
   if (!p) return p
   if (typeof p !== 'string') return p
@@ -19,5 +22,5 @@ export function resolveAssetPath(p) {
   if (p.startsWith('http://') || p.startsWith('https://')) return p
   if (p.startsWith('data:')) return p
   if (p.startsWith('/')) return p
-  return '/stories/' + p
+  return BASE + 'stories/' + p
 }

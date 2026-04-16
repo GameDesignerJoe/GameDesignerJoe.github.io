@@ -5,6 +5,7 @@ export default function Nav() {
   const view = useStore(s => s.view)
   const setView = useStore(s => s.setView)
   const setCreatorStory = useStore(s => s.setCreatorStory)
+  const creatorMode = useStore(s => s.creatorMode)
   const [showSettings, setShowSettings] = useState(false)
 
   if (view === 'player' || view === 'creator') return null
@@ -113,8 +114,8 @@ export default function Nav() {
         WebkitTapHighlightColor: 'transparent',
       }}>
         <NavItem icon="explore" label="Library" active onClick={() => setView('library')} />
-        <NavItem icon="edit_note" label="Edit" onClick={handleEdit} />
-        <NavItem icon="add_circle" label="Create" onClick={handleCreate} />
+        {creatorMode && <NavItem icon="edit_note" label="Edit" onClick={handleEdit} />}
+        {creatorMode && <NavItem icon="add_circle" label="Create" onClick={handleCreate} />}
         <NavItem icon="settings" label="Settings" onClick={() => setShowSettings(true)} />
       </nav>
 
@@ -128,6 +129,8 @@ function SettingsPanel({ onClose }) {
   const deleteStory = useStore(s => s.deleteStory)
   const showHidden = useStore(s => s.showHiddenStories)
   const setShowHidden = useStore(s => s.setShowHiddenStories)
+  const creatorMode = useStore(s => s.creatorMode)
+  const setCreatorMode = useStore(s => s.setCreatorMode)
   const [tab, setTab] = useState('main') // 'main' | 'hidden'
 
   const handleDelete = (storyId, title) => {
@@ -188,13 +191,17 @@ function SettingsPanel({ onClose }) {
         <div style={{ padding: '16px 24px 24px', overflowY: 'auto' }}>
           {tab === 'main' ? (
             <>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '12px' }}>
-                API Keys
-              </div>
-              <ApiKeyRow label="Google AI Studio" storageKey="google_ai_api_key" placeholder="For Imagen image generation…" hint={<>Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: '#c9a96e' }}>aistudio.google.com/apikey</a></>} />
-              <ApiKeyRow label="ElevenLabs" storageKey="elevenlabs_api_key" placeholder="For TTS narration…" hint="Used by the TTS modal in the editor." />
+              {creatorMode && (
+                <>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '12px' }}>
+                    API Keys
+                  </div>
+                  <ApiKeyRow label="Google AI Studio" storageKey="google_ai_api_key" placeholder="For Imagen image generation…" hint={<>Get one at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: '#c9a96e' }}>aistudio.google.com/apikey</a></>} />
+                  <ApiKeyRow label="ElevenLabs" storageKey="elevenlabs_api_key" placeholder="For TTS narration…" hint="Used by the TTS modal in the editor." />
+                </>
+              )}
 
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginTop: '28px', marginBottom: '12px' }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginTop: creatorMode ? '28px' : '0', marginBottom: '12px' }}>
                 Your Stories
               </div>
               {visibleStories.map(st => (
@@ -219,31 +226,21 @@ function SettingsPanel({ onClose }) {
             </>
           ) : (
             <>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#928faa', marginBottom: '16px' }}>
-                Hidden Stories
-              </div>
-              <div
-                className="flex justify-between items-center"
-                style={{ padding: '14px 16px', background: '#1a1a28', borderRadius: '10px', border: '1px solid #222236' }}
-              >
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>
-                  Show Hidden Stories
-                </span>
-                <span
-                  onClick={() => setShowHidden(!showHidden)}
-                  style={{
-                    width: '44px', height: '24px', borderRadius: '9999px',
-                    background: showHidden ? '#c9a96e' : '#2a2a3e',
-                    position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
-                  }}
-                >
-                  <span style={{
-                    position: 'absolute', top: '2px', left: showHidden ? '22px' : '2px',
-                    width: '20px', height: '20px', borderRadius: '50%',
-                    background: '#fff', transition: 'left 0.2s',
-                  }} />
-                </span>
-              </div>
+              {/* Creator Mode toggle */}
+              <ToggleRow
+                label="Enable Creator Mode"
+                hint="Unlocks the editor, TTS, AI image generation, and project save."
+                value={creatorMode}
+                onChange={() => setCreatorMode(!creatorMode)}
+              />
+
+              {/* Show Hidden Stories toggle */}
+              <ToggleRow
+                label="Show Hidden Stories"
+                value={showHidden}
+                onChange={() => setShowHidden(!showHidden)}
+                style={{ marginTop: '14px' }}
+              />
             </>
           )}
         </div>
@@ -326,6 +323,34 @@ function ApiKeyRow({ label, storageKey, placeholder, hint }) {
           {hint}
         </div>
       )}
+    </div>
+  )
+}
+
+function ToggleRow({ label, hint, value, onChange, style }) {
+  return (
+    <div
+      className="flex justify-between items-center"
+      style={{ padding: '14px 16px', background: '#1a1a28', borderRadius: '10px', border: '1px solid #222236', ...style }}
+    >
+      <div>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#e5e3ff' }}>{label}</span>
+        {hint && <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '11px', color: '#706c8a', marginTop: '4px' }}>{hint}</div>}
+      </div>
+      <span
+        onClick={onChange}
+        style={{
+          width: '44px', height: '24px', borderRadius: '9999px', flexShrink: 0,
+          background: value ? '#c9a96e' : '#2a2a3e',
+          position: 'relative', cursor: 'pointer', transition: 'background 0.2s',
+        }}
+      >
+        <span style={{
+          position: 'absolute', top: '2px', left: value ? '22px' : '2px',
+          width: '20px', height: '20px', borderRadius: '50%',
+          background: '#fff', transition: 'left 0.2s',
+        }} />
+      </span>
     </div>
   )
 }

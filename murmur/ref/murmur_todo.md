@@ -1,5 +1,5 @@
 Murmur Todo
-
+- When I go and make a new line that needs TTS, it doesn't remember my narrator settings from before. I would like if we could remember who the narrartor was from before soI don't have to reember and track it down. So we lock in who the narrator was. Also, it asks me to pick a location to save it to. If possible, I would liketo have this also be remembered because I think I might click the wrong thing. 
  
 Quality of Life features:
 - Need a search in the scene editor that highlights nodes and scene information where words exist. 
