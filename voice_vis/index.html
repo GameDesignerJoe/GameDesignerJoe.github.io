@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kin Signal — Voice-Reactive Lattice</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    color: #d4c4a8;
+  }
+  canvas {
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 310px;
+    background: rgba(10, 8, 5, 0.92);
+    border: 1px solid rgba(212, 196, 168, 0.25);
+    border-radius: 4px;
+    padding: 16px;
+    z-index: 10;
+    transition: transform 0.3s ease;
+    backdrop-filter: blur(8px);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+  .panel.collapsed {
+    transform: translateX(calc(100% + 20px));
+  }
+  .toggle {
+    position: fixed;
+    top: 20px;
+    right: 350px;
+    padding: 8px 14px;
+    background: rgba(10, 8, 5, 0.92);
+    border: 1px solid rgba(212, 196, 168, 0.25);
+    color: #d4c4a8;
+    cursor: pointer;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    z-index: 11;
+    transition: right 0.3s ease;
+  }
+  .panel.collapsed ~ .toggle { right: 20px; }
+
+  .panel h3 {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #8a7e68;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 10px;
+    background: rgba(212, 196, 168, 0.1);
+    border: 1px solid rgba(212, 196, 168, 0.5);
+    color: #d4c4a8;
+    cursor: pointer;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    transition: background 0.2s;
+    border-radius: 3px;
+  }
+  .btn:hover { background: rgba(212, 196, 168, 0.2); }
+  .btn.active {
+    background: rgba(100, 200, 120, 0.15);
+    border-color: rgba(100, 200, 120, 0.5);
+    color: #a8d4b0;
+  }
+
+  .source-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .source-row .btn { margin-bottom: 0; font-size: 10px; padding: 8px 4px; }
+
+  .file-label {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: rgba(212, 196, 168, 0.05);
+    border: 1px dashed rgba(212, 196, 168, 0.4);
+    color: #8a7e68;
+    cursor: pointer;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 6px;
+    border-radius: 3px;
+  }
+  .file-label:hover { background: rgba(212, 196, 168, 0.1); color: #d4c4a8; }
+  #fileInput { display: none; }
+
+  .playback-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .playback-row .btn { flex: 1; margin-bottom: 0; font-size: 10px; padding: 6px; }
+
+  .slider-row { margin-bottom: 10px; }
+  .slider-row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #d4c4a8;
+    margin-bottom: 4px;
+  }
+  .slider-row .value {
+    color: #8a7e68;
+    font-variant-numeric: tabular-nums;
+  }
+  .slider-row input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .slider-row input[type=range]::-webkit-slider-runnable-track {
+    background: rgba(212, 196, 168, 0.2);
+    height: 2px;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    background: #d4c4a8;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    margin-top: -6px;
+  }
+  .slider-row input[type=range]::-moz-range-track {
+    background: rgba(212, 196, 168, 0.2);
+    height: 2px;
+  }
+  .slider-row input[type=range]::-moz-range-thumb {
+    background: #d4c4a8;
+    height: 14px;
+    width: 14px;
+    border-radius: 50%;
+    border: none;
+  }
+
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #d4c4a8;
+    cursor: pointer;
+    user-select: none;
+  }
+  .check-row input[type=checkbox] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 1px solid rgba(212, 196, 168, 0.5);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    border-radius: 2px;
+  }
+  .check-row input[type=checkbox]:checked {
+    background: rgba(212, 196, 168, 0.8);
+  }
+  .check-row input[type=checkbox]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: -2px;
+    left: 2px;
+    color: #000;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  .section-divider {
+    height: 1px;
+    background: rgba(212, 196, 168, 0.15);
+    margin: 14px 0;
+  }
+
+  .color-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .color-swatch {
+    flex: 1;
+    height: 22px;
+    border: 1px solid rgba(212, 196, 168, 0.2);
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .color-swatch.active { border-color: #fff; border-width: 2px; }
+
+  .dual-color-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .dual-color-row .slot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .dual-color-row .slot label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #8a7e68;
+  }
+  .dual-color-row input[type=color] {
+    width: 100%;
+    height: 36px;
+    border: 1px solid rgba(212, 196, 168, 0.3);
+    background: transparent;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+  .gradient-preview {
+    height: 10px;
+    width: 100%;
+    border-radius: 2px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(212, 196, 168, 0.2);
+  }
+
+  .status {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #8a7e68;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <button class="toggle" id="toggle">Hide Panel</button>
+
+  <div class="panel" id="panel">
+    <h3>Audio Source</h3>
+    <div class="source-row">
+      <button class="btn" id="micBtn">Microphone</button>
+      <button class="btn" id="stopBtn">Stop</button>
+    </div>
+    <label class="file-label" for="fileInput" id="fileLabel">Drop MP3 or click to load</label>
+    <input type="file" id="fileInput" accept="audio/*">
+    <div class="playback-row" id="playbackRow" style="display:none;">
+      <button class="btn" id="playBtn">Play</button>
+      <button class="btn" id="pauseBtn">Pause</button>
+    </div>
+    <div class="status" id="status">No source</div>
+
+    <div class="section-divider"></div>
+
+    <h3>Geometry</h3>
+    <div class="slider-row">
+      <label>Symmetry <span class="value" id="symmetryVal">8</span></label>
+      <input type="range" id="symmetry" min="3" max="16" value="8" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Spoke Count <span class="value" id="spokesVal">16</span></label>
+      <input type="range" id="spokes" min="0" max="96" value="16" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Ring Count <span class="value" id="ringsVal">5</span></label>
+      <input type="range" id="rings" min="0" max="10" value="5" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Base Radius <span class="value" id="radiusVal">40</span>%</label>
+      <input type="range" id="radius" min="15" max="60" value="40" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Line Thickness <span class="value" id="thicknessVal">1.5</span></label>
+      <input type="range" id="thickness" min="0.5" max="5" value="1.5" step="0.1">
+    </div>
+    <div class="slider-row">
+      <label>Detail / Density <span class="value" id="detailVal">120</span></label>
+      <input type="range" id="detail" min="40" max="300" value="120" step="10">
+    </div>
+    <div class="slider-row">
+      <label>Spoke Shape <span class="value" id="spokeShapeVal">0.00</span></label>
+      <input type="range" id="spokeShape" min="-1" max="1" value="0" step="0.05">
+    </div>
+
+    <div class="section-divider"></div>
+
+    <h3>Reactivity</h3>
+    <div class="slider-row">
+      <label>Voice Sensitivity <span class="value" id="sensitivityVal">1.5</span></label>
+      <input type="range" id="sensitivity" min="0.2" max="4" value="1.5" step="0.1">
+    </div>
+    <div class="slider-row">
+      <label>Warp Amount <span class="value" id="warpVal">0.6</span></label>
+      <input type="range" id="warp" min="0" max="2" value="0.6" step="0.05">
+    </div>
+    <div class="slider-row">
+      <label>Asymmetry <span class="value" id="asymmetryVal">0.3</span></label>
+      <input type="range" id="asymmetry" min="0" max="1" value="0.3" step="0.05">
+    </div>
+    <div class="slider-row">
+      <label>Rotation Speed <span class="value" id="rotationVal">0.05</span></label>
+      <input type="range" id="rotation" min="-0.5" max="0.5" value="0.05" step="0.01">
+    </div>
+    <div class="slider-row">
+      <label>Bass Fracture <span class="value" id="fractureVal">1.0</span></label>
+      <input type="range" id="fracture" min="0" max="3" value="1.0" step="0.1">
+    </div>
+    <div class="slider-row">
+      <label>Ambient Shimmer <span class="value" id="shimmerVal">0.3</span></label>
+      <input type="range" id="shimmer" min="0" max="1" value="0.3" step="0.05">
+    </div>
+
+    <div class="section-divider"></div>
+
+    <h3>Visibility</h3>
+    <label class="check-row">
+      <input type="checkbox" id="hideCore">
+      Hide Center Core
+    </label>
+    <label class="check-row">
+      <input type="checkbox" id="hideNodes">
+      Hide Spoke Endpoints
+    </label>
+    <label class="check-row">
+      <input type="checkbox" id="gatedVisibility">
+      Invisible Until Audio
+    </label>
+    <div class="slider-row">
+      <label>Audio Threshold <span class="value" id="thresholdVal">0.05</span></label>
+      <input type="range" id="threshold" min="0.01" max="0.3" value="0.05" step="0.01">
+    </div>
+    <div class="slider-row">
+      <label>Fade Softness <span class="value" id="fadeSoftnessVal">0.3</span></label>
+      <input type="range" id="fadeSoftness" min="0" max="1" value="0.3" step="0.02">
+    </div>
+
+    <div class="section-divider"></div>
+
+    <h3>Appearance</h3>
+    <div class="slider-row">
+      <label>Glow Intensity <span class="value" id="glowVal">20</span></label>
+      <input type="range" id="glow" min="0" max="60" value="20" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Background Fade <span class="value" id="fadeVal">0.15</span></label>
+      <input type="range" id="fade" min="0.02" max="0.5" value="0.15" step="0.01">
+    </div>
+
+    <div class="section-divider"></div>
+
+    <h3>Color</h3>
+    <div class="dual-color-row">
+      <div class="slot">
+        <label>Color A</label>
+        <input type="color" id="colorA" value="#d4c4a8">
+      </div>
+      <div class="slot">
+        <label>Color B</label>
+        <input type="color" id="colorB" value="#e68282">
+      </div>
+    </div>
+    <div class="gradient-preview" id="gradientPreview"></div>
+    <label class="check-row">
+      <input type="checkbox" id="cycleEnabled" checked>
+      Cycle Between Colors
+    </label>
+    <div class="slider-row">
+      <label>Cycle Speed <span class="value" id="cycleSpeedVal">0.15</span></label>
+      <input type="range" id="cycleSpeed" min="0.01" max="2" value="0.15" step="0.01">
+    </div>
+    <div class="slider-row">
+      <label>Radial Spread <span class="value" id="radialSpreadVal">0.5</span></label>
+      <input type="range" id="radialSpread" min="0" max="2" value="0.5" step="0.05">
+    </div>
+
+    <h3 style="margin-top:12px;">Quick Presets</h3>
+    <div class="color-row">
+      <div class="color-swatch" data-a="#d4c4a8" data-b="#e68282" style="background:linear-gradient(90deg,#d4c4a8,#e68282)"></div>
+      <div class="color-swatch" data-a="#d4c4a8" data-b="#e6b46e" style="background:linear-gradient(90deg,#d4c4a8,#e6b46e)"></div>
+      <div class="color-swatch" data-a="#e6b46e" data-b="#e68282" style="background:linear-gradient(90deg,#e6b46e,#e68282)"></div>
+      <div class="color-swatch" data-a="#b4dcff" data-b="#96e6aa" style="background:linear-gradient(90deg,#b4dcff,#96e6aa)"></div>
+      <div class="color-swatch" data-a="#fff0c8" data-b="#e6b46e" style="background:linear-gradient(90deg,#fff0c8,#e6b46e)"></div>
+      <div class="color-swatch" data-a="#d4c4a8" data-b="#d4c4a8" style="background:#d4c4a8"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const state = {
+    symmetry: 8, spokes: 16, rings: 5, radius: 40, thickness: 1.5, detail: 120,
+    spokeShape: 0,
+    sensitivity: 1.5, warp: 0.6, asymmetry: 0.3, rotation: 0.05, fracture: 1.0, shimmer: 0.3,
+    threshold: 0.05,
+    fadeSoftness: 0.3,
+    glow: 20, fade: 0.15,
+    colorA: [212, 196, 168],
+    colorB: [230, 130, 130],
+    cycleEnabled: true,
+    cycleSpeed: 0.15,
+    radialSpread: 0.5,
+    hideCore: false,
+    hideNodes: false,
+    gatedVisibility: false
+  };
+
+  const sliders = ['symmetry','spokes','rings','radius','thickness','detail','spokeShape','sensitivity','warp','asymmetry','rotation','fracture','shimmer','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread'];
+  sliders.forEach(key => {
+    const el = document.getElementById(key);
+    const valEl = document.getElementById(key + 'Val');
+    const update = () => {
+      const v = parseFloat(el.value);
+      state[key] = v;
+      valEl.textContent = Number.isInteger(v) ? v : v.toFixed(2);
+    };
+    el.addEventListener('input', update);
+    update();
+  });
+
+  document.getElementById('hideCore').addEventListener('change', e => state.hideCore = e.target.checked);
+  document.getElementById('hideNodes').addEventListener('change', e => state.hideNodes = e.target.checked);
+  document.getElementById('gatedVisibility').addEventListener('change', e => state.gatedVisibility = e.target.checked);
+  document.getElementById('cycleEnabled').addEventListener('change', e => state.cycleEnabled = e.target.checked);
+
+  // Color helpers
+  function hexToRgb(hex) {
+    return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+  }
+  function rgbToHex(rgb) {
+    return '#' + rgb.map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
+  }
+  function lerpColor(a, b, t) {
+    return [a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t, a[2] + (b[2]-a[2])*t];
+  }
+
+  const colorAInput = document.getElementById('colorA');
+  const colorBInput = document.getElementById('colorB');
+  const gradPreview = document.getElementById('gradientPreview');
+
+  function updateGradientPreview() {
+    gradPreview.style.background = `linear-gradient(90deg, ${rgbToHex(state.colorA)}, ${rgbToHex(state.colorB)})`;
+  }
+  colorAInput.addEventListener('input', e => {
+    state.colorA = hexToRgb(e.target.value);
+    updateGradientPreview();
+  });
+  colorBInput.addEventListener('input', e => {
+    state.colorB = hexToRgb(e.target.value);
+    updateGradientPreview();
+  });
+  updateGradientPreview();
+
+  // Preset swatches (dual-color)
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      const a = sw.dataset.a;
+      const b = sw.dataset.b;
+      state.colorA = hexToRgb(a);
+      state.colorB = hexToRgb(b);
+      colorAInput.value = a;
+      colorBInput.value = b;
+      updateGradientPreview();
+    });
+  });
+
+  const panel = document.getElementById('panel');
+  const toggleBtn = document.getElementById('toggle');
+  toggleBtn.addEventListener('click', () => {
+    panel.classList.toggle('collapsed');
+    toggleBtn.textContent = panel.classList.contains('collapsed') ? 'Show Panel' : 'Hide Panel';
+  });
+
+  // --- Audio ---
+  let audioCtx = null, analyser = null, dataArray = null;
+  let currentSource = null, micStream = null, audioElement = null;
+  let audioMode = 'none';
+
+  const statusEl = document.getElementById('status');
+  const micBtn = document.getElementById('micBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const fileInput = document.getElementById('fileInput');
+  const fileLabel = document.getElementById('fileLabel');
+  const playbackRow = document.getElementById('playbackRow');
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.6;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function stopCurrent() {
+    if (currentSource) { try { currentSource.disconnect(); } catch (e) {} currentSource = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (audioElement) { audioElement.pause(); audioElement.src = ''; audioElement = null; }
+    audioMode = 'none';
+    micBtn.classList.remove('active');
+    playbackRow.style.display = 'none';
+    fileLabel.textContent = 'Drop MP3 or click to load';
+    statusEl.textContent = 'No source';
+  }
+
+  micBtn.addEventListener('click', async () => {
+    stopCurrent();
+    try {
+      ensureAudioCtx();
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const src = audioCtx.createMediaStreamSource(micStream);
+      src.connect(analyser);
+      currentSource = src;
+      audioMode = 'mic';
+      micBtn.classList.add('active');
+      statusEl.textContent = 'Mic active';
+    } catch (e) {
+      statusEl.textContent = 'Mic denied';
+      console.error(e);
+    }
+  });
+
+  stopBtn.addEventListener('click', stopCurrent);
+
+  function loadFile(file) {
+    stopCurrent();
+    ensureAudioCtx();
+    audioElement = new Audio();
+    audioElement.src = URL.createObjectURL(file);
+    audioElement.crossOrigin = 'anonymous';
+    const src = audioCtx.createMediaElementSource(audioElement);
+    src.connect(analyser);
+    analyser.connect(audioCtx.destination);
+    currentSource = src;
+    audioMode = 'file';
+    fileLabel.textContent = file.name.length > 32 ? file.name.slice(0,29) + '...' : file.name;
+    playbackRow.style.display = 'flex';
+    statusEl.textContent = 'File loaded';
+    audioElement.play().then(() => {
+      statusEl.textContent = 'Playing';
+    }).catch(() => {
+      statusEl.textContent = 'Ready — press Play';
+    });
+  }
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  fileLabel.addEventListener('dragover', e => {
+    e.preventDefault();
+    fileLabel.style.background = 'rgba(212,196,168,0.15)';
+  });
+  fileLabel.addEventListener('dragleave', () => { fileLabel.style.background = ''; });
+  fileLabel.addEventListener('drop', e => {
+    e.preventDefault();
+    fileLabel.style.background = '';
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+
+  playBtn.addEventListener('click', () => {
+    if (audioElement) { audioElement.play(); statusEl.textContent = 'Playing'; }
+  });
+  pauseBtn.addEventListener('click', () => {
+    if (audioElement) { audioElement.pause(); statusEl.textContent = 'Paused'; }
+  });
+
+  // --- Audio analysis ---
+  function getAudioFeatures() {
+    if (!analyser || audioMode === 'none') {
+      return { amp: 0, bass: 0, spectrum: new Array(32).fill(0), hasAudio: false };
+    }
+    analyser.getByteFrequencyData(dataArray);
+    const n = dataArray.length;
+    const bassEnd = Math.floor(n * 0.08);
+    let bass = 0, total = 0;
+    for (let i = 0; i < bassEnd; i++) bass += dataArray[i];
+    for (let i = 0; i < n; i++) total += dataArray[i];
+    bass /= (bassEnd * 255);
+    const amp = total / (n * 255);
+    const spectrum = new Array(32);
+    const binSize = Math.floor(n / 32);
+    for (let i = 0; i < 32; i++) {
+      let s = 0;
+      for (let j = 0; j < binSize; j++) s += dataArray[i * binSize + j];
+      spectrum[i] = s / (binSize * 255);
+    }
+    return { amp, bass, spectrum, hasAudio: true };
+  }
+
+  // Ambient noise phases
+  const noisePhases = [];
+  for (let i = 0; i < 32; i++) {
+    noisePhases.push({
+      freq: 0.3 + Math.random() * 1.2,
+      phase: Math.random() * Math.PI * 2,
+      amp: 0.3 + Math.random() * 0.7
+    });
+  }
+  function getAmbientSpectrum(t) {
+    const arr = new Array(32);
+    for (let i = 0; i < 32; i++) {
+      const p = noisePhases[i];
+      const v = (Math.sin(t * p.freq + p.phase) * 0.5 + 0.5) * p.amp;
+      const breath = (Math.sin(t * 0.2 + i * 0.3) * 0.5 + 0.5);
+      arr[i] = v * breath * 0.6;
+    }
+    return arr;
+  }
+
+  // Color sampling function — returns [r,g,b] for a given (ring index, angle, time)
+  // cycleMix: 0 -> colorA, 1 -> colorB
+  function sampleColor(ringT, angleT, time) {
+    // Base oscillation over time (0 to 1)
+    let cycleMix = 0.5;
+    if (state.cycleEnabled) {
+      cycleMix = (Math.sin(time * state.cycleSpeed * 2) * 0.5 + 0.5);
+    }
+    // Radial spread: mix shifts across the geometry's radius so inner and outer
+    // read different colors at the same moment. angleT is 0-1 around the circle.
+    const spread = state.radialSpread;
+    // Combine ring position and a slight angle variation
+    const positional = ringT * spread + Math.sin(angleT * Math.PI * 2 + time * 0.3) * spread * 0.3;
+    // Wrap and blend with the time cycle
+    let finalMix = cycleMix + positional;
+    // Triangle wave wrap so it stays in 0-1 with smooth reversal
+    finalMix = finalMix % 2;
+    if (finalMix < 0) finalMix += 2;
+    if (finalMix > 1) finalMix = 2 - finalMix;
+    return lerpColor(state.colorA, state.colorB, finalMix);
+  }
+
+  function rgbStr(c, alpha) {
+    return `rgba(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])}, ${alpha})`;
+  }
+
+  // --- Render ---
+  let rotationPhase = 0;
+  let bassHitDecay = 0;
+  let lastBass = 0;
+  let time = 0;
+  let visibleAlpha = 0;
+
+  function render() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cx = w / 2;
+    const cy = h / 2;
+    const baseR = Math.min(w, h) * (state.radius / 100);
+
+    ctx.fillStyle = `rgba(0, 0, 0, ${state.fade})`;
+    ctx.fillRect(0, 0, w, h);
+
+    const feat = getAudioFeatures();
+    const liveAmp = feat.amp * state.sensitivity;
+    const liveBass = feat.bass * state.sensitivity;
+
+    const ambient = getAmbientSpectrum(time);
+    const shimmerGain = state.shimmer;
+    const combinedSpectrum = new Array(32);
+    for (let i = 0; i < 32; i++) {
+      combinedSpectrum[i] = ambient[i] * shimmerGain + (feat.spectrum[i] || 0) * state.sensitivity;
+    }
+
+    const ambientAmp = ambient.reduce((a,b) => a+b, 0) / ambient.length * shimmerGain;
+    const amp = liveAmp + ambientAmp * 0.5;
+    const bass = liveBass;
+
+    const bassDelta = bass - lastBass;
+    if (bassDelta > 0.08) {
+      bassHitDecay = Math.min(1, bassHitDecay + bassDelta * state.fracture * 2);
+    }
+    bassHitDecay *= 0.92;
+    lastBass = bass;
+
+    rotationPhase += state.rotation * 0.01;
+    time += 0.016;
+
+    if (state.gatedVisibility) {
+      const targetAlpha = liveAmp > state.threshold ? 1 : 0;
+      // fadeSoftness 0 => instant (ease factor 1.0), fadeSoftness 1 => very soft (ease factor ~0.01)
+      const easeFactor = Math.max(0.01, 1 - state.fadeSoftness * 0.985);
+      visibleAlpha += (targetAlpha - visibleAlpha) * easeFactor;
+    } else {
+      visibleAlpha += (1 - visibleAlpha) * 0.1;
+    }
+
+    if (visibleAlpha < 0.01) {
+      requestAnimationFrame(render);
+      return;
+    }
+
+    ctx.globalAlpha = visibleAlpha;
+
+    const sym = Math.floor(state.symmetry);
+    const rings = Math.floor(state.rings);
+    const spokeCount = Math.floor(state.spokes);
+    const detail = Math.floor(state.detail);
+
+    // Glow color: midpoint of A and B for a neutral glow
+    const midColor = lerpColor(state.colorA, state.colorB, 0.5);
+    ctx.shadowBlur = state.glow;
+    ctx.shadowColor = rgbStr(midColor, 0.8);
+
+    // Rings
+    for (let r = 0; r < rings; r++) {
+      const ringRatio = (r + 1) / Math.max(rings, 1);
+      const ringR = baseR * ringRatio;
+
+      const bandIdx = Math.floor((r / Math.max(rings,1)) * combinedSpectrum.length);
+      const bandEnergy = combinedSpectrum[bandIdx] || 0;
+
+      // Sample color for this ring (use angle=0 as representative)
+      const ringColor = sampleColor(ringRatio, 0, time);
+
+      ctx.beginPath();
+      for (let i = 0; i <= detail; i++) {
+        const t = i / detail;
+        const baseAngle = t * Math.PI * 2;
+
+        const specIdx = Math.floor(t * combinedSpectrum.length * sym) % combinedSpectrum.length;
+        const specVal = combinedSpectrum[specIdx] || 0;
+
+        const asymFactor = 1 + state.asymmetry * Math.sin(baseAngle + time * 0.5) * (amp + 0.3);
+        const symWarp = Math.sin(baseAngle * sym + time * 0.3) * 0.15;
+        const audioWarp = specVal * state.warp * 0.8;
+        const bassKick = bassHitDecay * Math.sin(baseAngle * sym * 0.5 + time) * 0.5;
+
+        const radiusOffset = (symWarp + audioWarp + bassKick) * baseR * 0.3 * asymFactor;
+        const finalR = ringR + radiusOffset;
+
+        const angle = baseAngle + rotationPhase + (r % 2 === 0 ? 0 : rotationPhase * 0.3);
+        const x = cx + Math.cos(angle) * finalR;
+        const y = cy + Math.sin(angle) * finalR;
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      const alpha = 0.4 + bandEnergy * 0.6 + bassHitDecay * 0.3;
+      ctx.strokeStyle = rgbStr(ringColor, Math.min(1, alpha));
+      ctx.lineWidth = state.thickness * (1 + bandEnergy * 0.5);
+      ctx.stroke();
+    }
+
+    // Spokes — each spoke samples its own color based on angular position
+    for (let s = 0; s < spokeCount; s++) {
+      const angleT = s / spokeCount;
+      const angle = angleT * Math.PI * 2 + rotationPhase;
+      const specIdx = s % combinedSpectrum.length;
+      const specVal = combinedSpectrum[specIdx] || 0;
+
+      const asymKick = state.asymmetry * Math.sin(angle + time) * amp;
+      const spokeLen = baseR * (1 + specVal * state.warp * 0.5 + asymKick + bassHitDecay * 0.3);
+
+      const innerR = state.hideCore ? 0 : baseR * 0.15;
+      const x1 = cx + Math.cos(angle) * innerR;
+      const y1 = cy + Math.sin(angle) * innerR;
+      const x2 = cx + Math.cos(angle) * spokeLen;
+      const y2 = cy + Math.sin(angle) * spokeLen;
+
+      const spokeColor = sampleColor(0.7, angleT, time);
+
+      // Shape: negative -> jagged zigzag, 0 -> straight, positive -> curved arc
+      const shape = state.spokeShape;
+      ctx.strokeStyle = rgbStr(spokeColor, 0.25 + specVal * 0.5);
+      ctx.lineWidth = state.thickness * 0.6;
+
+      if (Math.abs(shape) < 0.02) {
+        // Straight line
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      } else if (shape > 0) {
+        // Curved: quadratic bezier, control point offset perpendicular to spoke
+        // Curve direction alternates per spoke so adjacent spokes bend opposite ways (reads as organic flow)
+        const sideDir = (s % 2 === 0) ? 1 : -1;
+        // Perpendicular unit vector (rotate spoke direction 90deg)
+        const perpX = -Math.sin(angle) * sideDir;
+        const perpY = Math.cos(angle) * sideDir;
+        const bendAmount = shape * baseR * 0.4 * (1 + specVal * 0.5);
+        const midX = (x1 + x2) * 0.5 + perpX * bendAmount;
+        const midY = (y1 + y2) * 0.5 + perpY * bendAmount;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo(midX, midY, x2, y2);
+        ctx.stroke();
+      } else {
+        // Jagged zigzag: polyline with alternating perpendicular offsets along the spoke
+        const jagAmount = Math.abs(shape); // 0..1
+        const segments = 6; // number of zig segments
+        const perpX = -Math.sin(angle);
+        const perpY = Math.cos(angle);
+        const jagMagnitude = jagAmount * baseR * 0.12 * (1 + specVal * 1.5 + bassHitDecay * 0.5);
+        // Per-spoke phase offset based on time+specVal makes it jitter with audio
+        const jitterPhase = time * 3 + s * 0.7 + specVal * 2;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        for (let k = 1; k <= segments; k++) {
+          const t = k / segments;
+          const lineX = x1 + (x2 - x1) * t;
+          const lineY = y1 + (y2 - y1) * t;
+          // Don't jag the first and last points — keeps spoke anchored
+          const taper = Math.sin(t * Math.PI); // 0 at ends, 1 in middle
+          const jagSign = (k % 2 === 0) ? 1 : -1;
+          const jitter = Math.sin(jitterPhase + k) * 0.3;
+          const offset = (jagSign + jitter) * jagMagnitude * taper;
+          ctx.lineTo(lineX + perpX * offset, lineY + perpY * offset);
+        }
+        ctx.stroke();
+      }
+
+      if (!state.hideNodes) {
+        const nodeSize = 2 + specVal * 6 + bassHitDecay * 3;
+        ctx.beginPath();
+        ctx.arc(x2, y2, nodeSize, 0, Math.PI * 2);
+        ctx.fillStyle = rgbStr(spokeColor, 0.4 + specVal * 0.6);
+        ctx.fill();
+      }
+    }
+
+    // Central core
+    if (!state.hideCore) {
+      const coreColor = sampleColor(0, 0, time);
+      const coreR = baseR * 0.08 * (1 + amp * 2 + bassHitDecay);
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+      grad.addColorStop(0, rgbStr(coreColor, 0.6 + bassHitDecay * 0.4));
+      grad.addColorStop(1, rgbStr(coreColor, 0));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(render);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
