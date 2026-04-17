@@ -52,9 +52,24 @@
     text-transform: uppercase;
     border-radius: 4px;
     z-index: 11;
-    transition: right 0.3s ease;
+    transition: right 0.3s ease, opacity 0.3s ease;
   }
-  .panel.collapsed ~ .toggle { right: 20px; }
+  .toggle.at-corner {
+    right: 20px;
+  }
+  .toggle.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  /* Invisible hot-zone in the top-right corner */
+  .hover-zone {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 180px;
+    height: 100px;
+    z-index: 9;
+  }
 
   .panel h3 {
     font-size: 11px;
@@ -269,6 +284,7 @@
   <canvas id="canvas"></canvas>
 
   <button class="toggle" id="toggle">Hide Panel</button>
+  <div class="hover-zone"></div>
 
   <div class="panel" id="panel">
     <h3>Audio Source</h3>
@@ -512,10 +528,40 @@
 
   const panel = document.getElementById('panel');
   const toggleBtn = document.getElementById('toggle');
+  const hoverZone = document.querySelector('.hover-zone');
+
+  function collapsePanel() {
+    panel.classList.add('collapsed');
+    toggleBtn.textContent = 'Show Panel';
+    toggleBtn.classList.add('at-corner');
+    toggleBtn.classList.add('hidden');
+  }
+  function expandPanel() {
+    panel.classList.remove('collapsed');
+    toggleBtn.textContent = 'Hide Panel';
+    toggleBtn.classList.remove('at-corner');
+    toggleBtn.classList.remove('hidden');
+  }
   toggleBtn.addEventListener('click', () => {
-    panel.classList.toggle('collapsed');
-    toggleBtn.textContent = panel.classList.contains('collapsed') ? 'Show Panel' : 'Hide Panel';
+    if (panel.classList.contains('collapsed')) expandPanel();
+    else collapsePanel();
   });
+
+  // Hover-to-reveal: only active when panel is collapsed
+  function showBtn() {
+    if (panel.classList.contains('collapsed')) {
+      toggleBtn.classList.remove('hidden');
+    }
+  }
+  function hideBtn() {
+    if (panel.classList.contains('collapsed')) {
+      toggleBtn.classList.add('hidden');
+    }
+  }
+  hoverZone.addEventListener('mouseenter', showBtn);
+  hoverZone.addEventListener('mouseleave', hideBtn);
+  toggleBtn.addEventListener('mouseenter', showBtn);
+  toggleBtn.addEventListener('mouseleave', hideBtn);
 
   // --- Audio ---
   let audioCtx = null, analyser = null, dataArray = null;
