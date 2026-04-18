@@ -34,6 +34,12 @@
     backdrop-filter: blur(8px);
     max-height: calc(100vh - 40px);
     overflow-y: auto;
+    /* Hide scrollbar visually, keep scroll functional */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  .panel::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
   }
   .panel.collapsed {
     transform: translateX(calc(100% + 20px));
@@ -107,6 +113,48 @@
     margin-bottom: 8px;
   }
   .source-row .btn { margin-bottom: 0; font-size: 10px; padding: 8px 4px; }
+
+  .device-select {
+    width: 100%;
+    padding: 8px;
+    background: rgba(212, 196, 168, 0.05);
+    border: 1px solid rgba(212, 196, 168, 0.3);
+    color: #d4c4a8;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 3px;
+    margin-bottom: 6px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .device-select option {
+    background: #1a1612;
+    color: #d4c4a8;
+  }
+  .text-input {
+    width: 100%;
+    padding: 8px;
+    background: rgba(212, 196, 168, 0.05);
+    border: 1px solid rgba(212, 196, 168, 0.3);
+    color: #d4c4a8;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    border-radius: 3px;
+    margin-bottom: 6px;
+    font-family: inherit;
+    outline: none;
+  }
+  .text-input:focus {
+    border-color: rgba(212, 196, 168, 0.6);
+    background: rgba(212, 196, 168, 0.1);
+  }
+  .text-input::placeholder {
+    color: rgba(212, 196, 168, 0.4);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
 
   .file-label {
     display: block;
@@ -220,6 +268,106 @@
     margin: 14px 0;
   }
 
+  /* Collapsible sections */
+  .section {
+    margin-bottom: 12px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 8px 10px;
+    background: rgba(212, 196, 168, 0.06);
+    border: 1px solid rgba(212, 196, 168, 0.15);
+    border-radius: 3px;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .section-header:hover {
+    background: rgba(212, 196, 168, 0.12);
+  }
+  .section-header h3 {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #d4c4a8;
+    font-weight: 500;
+  }
+  .section-chevron {
+    color: rgba(212, 196, 168, 0.6);
+    font-size: 10px;
+    transition: transform 0.2s ease;
+    display: inline-block;
+  }
+  .section.collapsed .section-chevron {
+    transform: rotate(-90deg);
+  }
+  .section-body {
+    padding: 12px 4px 4px 4px;
+    overflow: hidden;
+    transition: max-height 0.25s ease, padding 0.2s ease, opacity 0.15s ease;
+    max-height: 3000px; /* large enough for any section when open */
+    opacity: 1;
+  }
+  .section.collapsed .section-body {
+    max-height: 0;
+    padding: 0 4px;
+    opacity: 0;
+  }
+
+  /* Tooltip system — JS places a single floating element, so no clipping issues */
+  .info {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    line-height: 11px;
+    text-align: center;
+    border-radius: 50%;
+    background: rgba(212, 196, 168, 0.15);
+    color: rgba(212, 196, 168, 0.7);
+    font-size: 9px;
+    cursor: help;
+    margin-left: 6px;
+    font-style: italic;
+  }
+  .info:hover {
+    background: rgba(212, 196, 168, 0.35);
+    color: #d4c4a8;
+  }
+  #tooltip {
+    position: fixed;
+    background: rgba(20, 16, 10, 0.98);
+    border: 1px solid rgba(212, 196, 168, 0.4);
+    color: #d4c4a8;
+    padding: 8px 10px;
+    font-size: 10px;
+    font-style: normal;
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+    text-transform: none;
+    white-space: normal;
+    width: 200px;
+    border-radius: 3px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    z-index: 30;
+    text-align: left;
+  }
+  #tooltip.visible {
+    opacity: 1;
+  }
+
+  /* Action buttons row */
+  .action-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .action-row .btn { margin-bottom: 0; font-size: 10px; padding: 8px 4px; }
+
   .color-row {
     display: flex;
     gap: 6px;
@@ -282,155 +430,322 @@
 </head>
 <body>
   <canvas id="canvas"></canvas>
+  <div id="tooltip"></div>
 
   <button class="toggle" id="toggle">Hide Panel</button>
   <div class="hover-zone"></div>
 
   <div class="panel" id="panel">
-    <h3>Audio Source</h3>
-    <div class="source-row">
-      <button class="btn" id="micBtn">Microphone</button>
-      <button class="btn" id="stopBtn">Stop</button>
-    </div>
-    <label class="file-label" for="fileInput" id="fileLabel">Drop MP3 or click to load</label>
-    <input type="file" id="fileInput" accept="audio/*">
-    <div class="playback-row" id="playbackRow" style="display:none;">
-      <button class="btn" id="playBtn">Play</button>
-      <button class="btn" id="pauseBtn">Pause</button>
-    </div>
-    <div class="status" id="status">No source</div>
-
-    <div class="section-divider"></div>
-
-    <h3>Geometry</h3>
-    <div class="slider-row">
-      <label>Symmetry <span class="value" id="symmetryVal">8</span></label>
-      <input type="range" id="symmetry" min="3" max="16" value="8" step="1">
-    </div>
-    <div class="slider-row">
-      <label>Spoke Count <span class="value" id="spokesVal">16</span></label>
-      <input type="range" id="spokes" min="0" max="96" value="16" step="1">
-    </div>
-    <div class="slider-row">
-      <label>Ring Count <span class="value" id="ringsVal">5</span></label>
-      <input type="range" id="rings" min="0" max="10" value="5" step="1">
-    </div>
-    <div class="slider-row">
-      <label>Base Radius <span class="value" id="radiusVal">40</span>%</label>
-      <input type="range" id="radius" min="15" max="60" value="40" step="1">
-    </div>
-    <div class="slider-row">
-      <label>Line Thickness <span class="value" id="thicknessVal">1.5</span></label>
-      <input type="range" id="thickness" min="0.5" max="5" value="1.5" step="0.1">
-    </div>
-    <div class="slider-row">
-      <label>Detail / Density <span class="value" id="detailVal">120</span></label>
-      <input type="range" id="detail" min="40" max="300" value="120" step="10">
-    </div>
-    <div class="slider-row">
-      <label>Spoke Shape <span class="value" id="spokeShapeVal">0.00</span></label>
-      <input type="range" id="spokeShape" min="-1" max="1" value="0" step="0.05">
-    </div>
-
-    <div class="section-divider"></div>
-
-    <h3>Reactivity</h3>
-    <div class="slider-row">
-      <label>Voice Sensitivity <span class="value" id="sensitivityVal">1.5</span></label>
-      <input type="range" id="sensitivity" min="0.2" max="4" value="1.5" step="0.1">
-    </div>
-    <div class="slider-row">
-      <label>Warp Amount <span class="value" id="warpVal">0.6</span></label>
-      <input type="range" id="warp" min="0" max="2" value="0.6" step="0.05">
-    </div>
-    <div class="slider-row">
-      <label>Asymmetry <span class="value" id="asymmetryVal">0.3</span></label>
-      <input type="range" id="asymmetry" min="0" max="1" value="0.3" step="0.05">
-    </div>
-    <div class="slider-row">
-      <label>Rotation Speed <span class="value" id="rotationVal">0.05</span></label>
-      <input type="range" id="rotation" min="-0.5" max="0.5" value="0.05" step="0.01">
-    </div>
-    <div class="slider-row">
-      <label>Bass Fracture <span class="value" id="fractureVal">1.0</span></label>
-      <input type="range" id="fracture" min="0" max="3" value="1.0" step="0.1">
-    </div>
-    <div class="slider-row">
-      <label>Ambient Shimmer <span class="value" id="shimmerVal">0.3</span></label>
-      <input type="range" id="shimmer" min="0" max="1" value="0.3" step="0.05">
-    </div>
-
-    <div class="section-divider"></div>
-
-    <h3>Visibility</h3>
-    <label class="check-row">
-      <input type="checkbox" id="hideCore">
-      Hide Center Core
-    </label>
-    <label class="check-row">
-      <input type="checkbox" id="hideNodes">
-      Hide Spoke Endpoints
-    </label>
-    <label class="check-row">
-      <input type="checkbox" id="gatedVisibility">
-      Invisible Until Audio
-    </label>
-    <div class="slider-row">
-      <label>Audio Threshold <span class="value" id="thresholdVal">0.05</span></label>
-      <input type="range" id="threshold" min="0.01" max="0.3" value="0.05" step="0.01">
-    </div>
-    <div class="slider-row">
-      <label>Fade Softness <span class="value" id="fadeSoftnessVal">0.3</span></label>
-      <input type="range" id="fadeSoftness" min="0" max="1" value="0.3" step="0.02">
-    </div>
-
-    <div class="section-divider"></div>
-
-    <h3>Appearance</h3>
-    <div class="slider-row">
-      <label>Glow Intensity <span class="value" id="glowVal">20</span></label>
-      <input type="range" id="glow" min="0" max="60" value="20" step="1">
-    </div>
-    <div class="slider-row">
-      <label>Background Fade <span class="value" id="fadeVal">0.15</span></label>
-      <input type="range" id="fade" min="0.02" max="0.5" value="0.15" step="0.01">
-    </div>
-
-    <div class="section-divider"></div>
-
-    <h3>Color</h3>
-    <div class="dual-color-row">
-      <div class="slot">
-        <label>Color A</label>
-        <input type="color" id="colorA" value="#d4c4a8">
-      </div>
-      <div class="slot">
-        <label>Color B</label>
-        <input type="color" id="colorB" value="#e68282">
+    <div class="section" data-section="audio">
+      <div class="section-header"><h3>Audio Source</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="source-row">
+          <button class="btn" id="micBtn">Microphone</button>
+          <button class="btn" id="sysBtn">System Audio</button>
+          <button class="btn" id="stopBtn">Stop</button>
+        </div>
+        <label class="file-label" for="fileInput" id="fileLabel">Drop MP3 or click to load</label>
+        <input type="file" id="fileInput" accept="audio/*">
+        <div class="playback-row" id="playbackRow" style="display:none;">
+          <button class="btn" id="playBtn">Play</button>
+          <button class="btn" id="pauseBtn">Pause</button>
+        </div>
+        <div class="status" id="status">No source</div>
       </div>
     </div>
-    <div class="gradient-preview" id="gradientPreview"></div>
-    <label class="check-row">
-      <input type="checkbox" id="cycleEnabled" checked>
-      Cycle Between Colors
-    </label>
-    <div class="slider-row">
-      <label>Cycle Speed <span class="value" id="cycleSpeedVal">0.15</span></label>
-      <input type="range" id="cycleSpeed" min="0.01" max="2" value="0.15" step="0.01">
-    </div>
-    <div class="slider-row">
-      <label>Radial Spread <span class="value" id="radialSpreadVal">0.5</span></label>
-      <input type="range" id="radialSpread" min="0" max="2" value="0.5" step="0.05">
+
+    <div class="section" data-section="presets">
+      <div class="section-header"><h3>Presets</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <input type="text" id="presetName" class="text-input" placeholder="Preset name...">
+        <div class="action-row">
+          <button class="btn" id="savePresetBtn">Save</button>
+          <button class="btn" id="deletePresetBtn">Delete</button>
+        </div>
+        <select id="presetList" class="device-select">
+          <option value="">Select a preset...</option>
+        </select>
+        <div class="action-row">
+          <button class="btn" id="copyPresetBtn" title="Copy current settings as JSON to clipboard">Copy JSON</button>
+          <button class="btn" id="pastePresetBtn" title="Load settings from JSON on clipboard">Paste JSON</button>
+        </div>
+        <div class="status" id="presetStatus"></div>
+      </div>
     </div>
 
-    <h3 style="margin-top:12px;">Quick Presets</h3>
-    <div class="color-row">
-      <div class="color-swatch" data-a="#d4c4a8" data-b="#e68282" style="background:linear-gradient(90deg,#d4c4a8,#e68282)"></div>
-      <div class="color-swatch" data-a="#d4c4a8" data-b="#e6b46e" style="background:linear-gradient(90deg,#d4c4a8,#e6b46e)"></div>
-      <div class="color-swatch" data-a="#e6b46e" data-b="#e68282" style="background:linear-gradient(90deg,#e6b46e,#e68282)"></div>
-      <div class="color-swatch" data-a="#b4dcff" data-b="#96e6aa" style="background:linear-gradient(90deg,#b4dcff,#96e6aa)"></div>
-      <div class="color-swatch" data-a="#fff0c8" data-b="#e6b46e" style="background:linear-gradient(90deg,#fff0c8,#e6b46e)"></div>
-      <div class="color-swatch" data-a="#d4c4a8" data-b="#d4c4a8" style="background:#d4c4a8"></div>
+    <div class="section" data-section="actions">
+      <div class="section-header"><h3>Actions</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="action-row">
+          <button class="btn" id="randomBtn" title="Randomize all parameters once">Randomize</button>
+          <button class="btn" id="demoBtn" title="Continuous evolution — parameters smoothly drift to new targets">Demo Mode</button>
+          <button class="btn" id="snapshotBtn" title="Save current frame as PNG">Snapshot</button>
+        </div>
+        <div class="slider-row" id="demoSpeedRow" style="display:none;">
+          <label>Demo Interval<span class="info" data-tip="Seconds between new random targets. Shorter = more restless. Longer = slow meditative drift.">?</span> <span class="value" id="demoIntervalVal">10</span>s</label>
+          <input type="range" id="demoInterval" min="2" max="30" value="10" step="1">
+        </div>
+        <label class="check-row" id="demoLockRow" style="display:none;">
+          <input type="checkbox" id="demoLockColors">
+          Lock Colors During Demo<span class="info" data-tip="Keep Color A/B fixed while geometry and reactivity drift.">?</span>
+        </label>
+        <label class="check-row" id="demoLockGeoRow" style="display:none;">
+          <input type="checkbox" id="demoLockGeometry">
+          Lock Geometry During Demo<span class="info" data-tip="Keep shape/symmetry fixed while colors and reactivity drift.">?</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section" data-section="reactivity">
+      <div class="section-header"><h3>Reactivity</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="slider-row">
+          <label>Voice Sensitivity<span class="info" data-tip="Master gain on audio input. Increase if mic is quiet or the lattice feels unresponsive.">?</span> <span class="value" id="sensitivityVal">1.5</span></label>
+          <input type="range" id="sensitivity" min="0.2" max="4" value="1.5" step="0.1">
+        </div>
+        <div class="slider-row">
+          <label>Auto-Gain<span class="info" data-tip="Automatically boosts quiet audio for consistent response. 0 = off. Higher = more aggressive boost.">?</span> <span class="value" id="autoGainVal">0.30</span></label>
+          <input type="range" id="autoGain" min="0" max="1" value="0.30" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Attack<span class="info" data-tip="How fast the lattice reacts to hits. Low = snappy. High = smooth but sluggish.">?</span> <span class="value" id="attackVal">0.05</span></label>
+          <input type="range" id="attack" min="0.01" max="0.5" value="0.05" step="0.01">
+        </div>
+        <div class="slider-row">
+          <label>Release<span class="info" data-tip="How quickly the lattice settles after audio stops. High values give long trailing ring-out.">?</span> <span class="value" id="releaseVal">0.15</span></label>
+          <input type="range" id="release" min="0.02" max="0.8" value="0.15" step="0.01">
+        </div>
+        <div class="slider-row">
+          <label>Warp Amount<span class="info" data-tip="How aggressively audio deforms the ring geometry. 0 = rigid, 2 = violent.">?</span> <span class="value" id="warpVal">0.6</span></label>
+          <input type="range" id="warp" min="0" max="2" value="0.6" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Asymmetry<span class="info" data-tip="Lopsided warping. 0 = perfectly mirrored. 1 = one side spikes dramatically.">?</span> <span class="value" id="asymmetryVal">0.3</span></label>
+          <input type="range" id="asymmetry" min="0" max="1" value="0.3" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Bass Fracture<span class="info" data-tip="Violent scatter-out on bass hits. Higher = more dramatic punches.">?</span> <span class="value" id="fractureVal">1.0</span></label>
+          <input type="range" id="fracture" min="0" max="3" value="1.0" step="0.1">
+        </div>
+        <div class="slider-row">
+          <label>Ambient Shimmer<span class="info" data-tip="Synthetic idle motion. 0 = silent without audio. Higher keeps lattice alive in silence.">?</span> <span class="value" id="shimmerVal">0.3</span></label>
+          <input type="range" id="shimmer" min="0" max="1" value="0.3" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Rotation Speed<span class="info" data-tip="Background rotation. Negative reverses direction.">?</span> <span class="value" id="rotationVal">0.05</span></label>
+          <input type="range" id="rotation" min="-0.5" max="0.5" value="0.05" step="0.01">
+        </div>
+        <div class="slider-row">
+          <label>Wave Mode<span class="info" data-tip="0 = direct audio spikes. Higher = audio hits become traveling waves that ripple around the ring.">?</span> <span class="value" id="waveModeVal">0.00</span></label>
+          <input type="range" id="waveMode" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>Wave Damping<span class="info" data-tip="How quickly waves fade. Low = long ringing oscillations. High = quick settles.">?</span> <span class="value" id="waveDampingVal">0.15</span></label>
+          <input type="range" id="waveDamping" min="0.02" max="0.5" value="0.15" step="0.01">
+        </div>
+      </div>
+    </div>
+
+    <div class="section" data-section="geometry">
+      <div class="section-header"><h3>Geometry</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="slider-row">
+          <label>Base Radius<span class="info" data-tip="Overall size of the lattice as a percentage of screen.">?</span> <span class="value" id="radiusVal">40</span>%</label>
+          <input type="range" id="radius" min="15" max="60" value="40" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Symmetry<span class="info" data-tip="Number of radial arms (petals) the geometry mirrors across.">?</span> <span class="value" id="symmetryVal">8</span></label>
+          <input type="range" id="symmetry" min="3" max="16" value="8" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Ring Count<span class="info" data-tip="Concentric warping rings. Each ring responds to a different frequency band.">?</span> <span class="value" id="ringsVal">5</span></label>
+          <input type="range" id="rings" min="0" max="10" value="5" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Ring Thickness<span class="info" data-tip="Stroke weight of the concentric rings.">?</span> <span class="value" id="thicknessVal">1.5</span></label>
+          <input type="range" id="thickness" min="0.5" max="5" value="1.5" step="0.1">
+        </div>
+        <div class="slider-row">
+          <label>Detail<span class="info" data-tip="Curve smoothness of the rings. Lower = more angular/crystalline.">?</span> <span class="value" id="detailVal">120</span></label>
+          <input type="range" id="detail" min="40" max="300" value="120" step="10">
+        </div>
+        <div class="slider-row">
+          <label>Center Shape<span class="info" data-tip="Shape of the central core. Circle is a soft glow; polygons give more structure.">?</span></label>
+          <select id="centerShape" class="device-select">
+            <option value="circle">Circle (default glow)</option>
+            <option value="triangle">Triangle</option>
+            <option value="square">Square</option>
+            <option value="pentagon">Pentagon</option>
+            <option value="hexagon">Hexagon</option>
+            <option value="octagon">Octagon</option>
+            <option value="star">Star</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" data-section="spokes">
+      <div class="section-header"><h3>Spokes &amp; Dots</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="slider-row">
+          <label>Spoke Count<span class="info" data-tip="Total number of radial lines shining from the center. Independent of symmetry.">?</span> <span class="value" id="spokesVal">16</span></label>
+          <input type="range" id="spokes" min="0" max="96" value="16" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Spoke Thickness<span class="info" data-tip="Stroke weight of the radial spokes.">?</span> <span class="value" id="spokeThicknessVal">1.0</span></label>
+          <input type="range" id="spokeThickness" min="0.3" max="6" value="1.0" step="0.1">
+        </div>
+        <div class="slider-row">
+          <label>Spoke Shape<span class="info" data-tip="Middle = straight. Positive = curved arcs. Negative = audio-reactive jagged zigzags.">?</span> <span class="value" id="spokeShapeVal">0.00</span></label>
+          <input type="range" id="spokeShape" min="-1" max="1" value="0" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Dots Per Spoke<span class="info" data-tip="Number of dots traveling along each spoke. 0 for none.">?</span> <span class="value" id="dotCountVal">0</span></label>
+          <input type="range" id="dotCount" min="0" max="12" value="0" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Dot Speed<span class="info" data-tip="How fast dots travel. Negative reverses direction.">?</span> <span class="value" id="dotSpeedVal">0.30</span></label>
+          <input type="range" id="dotSpeed" min="-1" max="1" value="0.30" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Dot Size<span class="info" data-tip="Base size of dots. Audio amplifies this.">?</span> <span class="value" id="dotSizeVal">3.0</span></label>
+          <input type="range" id="dotSize" min="1" max="12" value="3.0" step="0.2">
+        </div>
+      </div>
+    </div>
+
+    <div class="section" data-section="color">
+      <div class="section-header"><h3>Color</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="dual-color-row">
+          <div class="slot">
+            <label>Color A</label>
+            <input type="color" id="colorA" value="#d4c4a8">
+          </div>
+          <div class="slot">
+            <label>Color B</label>
+            <input type="color" id="colorB" value="#e68282">
+          </div>
+        </div>
+        <div class="gradient-preview" id="gradientPreview"></div>
+        <label class="check-row">
+          <input type="checkbox" id="cycleEnabled" checked>
+          Cycle Between Colors<span class="info" data-tip="Lattice pulses between Color A and B over time.">?</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="rainbowMode">
+          Rainbow Mode<span class="info" data-tip="Override Color A/B and cycle continuously through the full color spectrum. Cycle Speed controls rotation rate.">?</span>
+        </label>
+        <div class="slider-row">
+          <label>Cycle Speed<span class="info" data-tip="How fast the A-to-B pulse happens.">?</span> <span class="value" id="cycleSpeedVal">0.15</span></label>
+          <input type="range" id="cycleSpeed" min="0.01" max="2" value="0.15" step="0.01">
+        </div>
+        <div class="slider-row">
+          <label>Radial Spread<span class="info" data-tip="How much the gradient stretches across the lattice.">?</span> <span class="value" id="radialSpreadVal">0.5</span></label>
+          <input type="range" id="radialSpread" min="0" max="2" value="0.5" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Color Chase<span class="info" data-tip="Rotates the gradient around each ring for chasing/spiraling effect.">?</span> <span class="value" id="colorChaseVal">0.00</span></label>
+          <input type="range" id="colorChase" min="-2" max="2" value="0" step="0.05">
+        </div>
+        <h3 style="margin-top:12px; font-size:10px; color:#8a7e68; letter-spacing:0.2em;">Quick Presets</h3>
+        <div class="color-row">
+          <div class="color-swatch" data-a="#ff006e" data-b="#00f5ff" style="background:linear-gradient(90deg,#ff006e,#00f5ff)" title="Neon Club"></div>
+          <div class="color-swatch" data-a="#8b00ff" data-b="#ff4500" style="background:linear-gradient(90deg,#8b00ff,#ff4500)" title="Rave"></div>
+          <div class="color-swatch" data-a="#ff0040" data-b="#ffd700" style="background:linear-gradient(90deg,#ff0040,#ffd700)" title="Comic Pop"></div>
+          <div class="color-swatch" data-a="#00ff41" data-b="#00b4ff" style="background:linear-gradient(90deg,#00ff41,#00b4ff)" title="Cyber"></div>
+          <div class="color-swatch" data-a="#ff1493" data-b="#9d00ff" style="background:linear-gradient(90deg,#ff1493,#9d00ff)" title="Synthwave"></div>
+          <div class="color-swatch" data-a="#ff3030" data-b="#ffffff" style="background:linear-gradient(90deg,#ff3030,#ffffff)" title="Rock"></div>
+        </div>
+        <div class="color-row">
+          <div class="color-swatch" data-a="#ffa500" data-b="#ff00ff" style="background:linear-gradient(90deg,#ffa500,#ff00ff)" title="Sunset Disco"></div>
+          <div class="color-swatch" data-a="#00ffff" data-b="#ff00cc" style="background:linear-gradient(90deg,#00ffff,#ff00cc)" title="Vaporwave"></div>
+          <div class="color-swatch" data-a="#fff200" data-b="#000000" style="background:linear-gradient(90deg,#fff200,#000000)" title="Hazard"></div>
+          <div class="color-swatch" data-a="#00ff00" data-b="#ff0000" style="background:linear-gradient(90deg,#00ff00,#ff0000)" title="Arcade"></div>
+          <div class="color-swatch" data-a="#d4c4a8" data-b="#8b2020" style="background:linear-gradient(90deg,#d4c4a8,#8b2020)" title="Kin Broadcast"></div>
+          <div class="color-swatch" data-a="#d4c4a8" data-b="#d4c4a8" style="background:#d4c4a8" title="Solid Amber"></div>
+        </div>
+        <button class="btn" id="colorRandomBtn" style="margin-top:6px;">Randomize Colors</button>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-section="appearance">
+      <div class="section-header"><h3>Appearance</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="slider-row">
+          <label>Glow Intensity<span class="info" data-tip="Bloom/luminosity around strokes.">?</span> <span class="value" id="glowVal">20</span></label>
+          <input type="range" id="glow" min="0" max="60" value="20" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Background Fade<span class="info" data-tip="Motion blur / trail length. Lower = longer ghost trails.">?</span> <span class="value" id="fadeVal">0.15</span></label>
+          <input type="range" id="fade" min="0.02" max="0.5" value="0.15" step="0.01">
+        </div>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-section="overlays">
+      <div class="section-header"><h3>Overlays</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="slider-row">
+          <label>Film Grain<span class="info" data-tip="Animated noise over the whole screen.">?</span> <span class="value" id="grainVal">0.00</span></label>
+          <input type="range" id="grain" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>Scanlines<span class="info" data-tip="Horizontal CRT-style scan lines across the whole screen.">?</span> <span class="value" id="scanlinesVal">0.00</span></label>
+          <input type="range" id="scanlines" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>Scanline Density<span class="info" data-tip="Line thickness. Low = chunky CRT, high = fine LCD.">?</span> <span class="value" id="scanDensityVal">3</span></label>
+          <input type="range" id="scanDensity" min="1" max="10" value="3" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Chromatic Shift<span class="info" data-tip="RGB channel separation across the whole screen.">?</span> <span class="value" id="chromaticVal">0.00</span></label>
+          <input type="range" id="chromatic" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>Bloom<span class="info" data-tip="Bright areas bleed into surrounding dark. Sells phosphor glow.">?</span> <span class="value" id="bloomVal">0.00</span></label>
+          <input type="range" id="bloom" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>CRT Curvature<span class="info" data-tip="Barrel-distorts the whole image into a tube-screen shape.">?</span> <span class="value" id="curvatureVal">0.00</span></label>
+          <input type="range" id="curvature" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>Signal Noise<span class="info" data-tip="Rolling static bands for VHS/broken-transmission feel.">?</span> <span class="value" id="signalNoiseVal">0.00</span></label>
+          <input type="range" id="signalNoise" min="0" max="1" value="0" step="0.02">
+        </div>
+        <div class="slider-row">
+          <label>Vignette<span class="info" data-tip="Darkens screen edges to frame the lattice.">?</span> <span class="value" id="vignetteVal">0.00</span></label>
+          <input type="range" id="vignette" min="0" max="1" value="0" step="0.02">
+        </div>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-section="visibility">
+      <div class="section-header"><h3>Visibility</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <label class="check-row">
+          <input type="checkbox" id="hideCore">
+          Hide Center Core<span class="info" data-tip="Removes the central shape entirely.">?</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="hideNodes">
+          Hide Spoke Endpoints<span class="info" data-tip="Removes dots at the tip of each spoke.">?</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="gatedVisibility">
+          Invisible Until Audio<span class="info" data-tip="Lattice hides when below threshold. Great for dramatic materialization.">?</span>
+        </label>
+        <div class="slider-row">
+          <label>Audio Threshold<span class="info" data-tip="Audio level that triggers visibility when gated.">?</span> <span class="value" id="thresholdVal">0.05</span></label>
+          <input type="range" id="threshold" min="0.01" max="0.3" value="0.05" step="0.01">
+        </div>
+        <div class="slider-row">
+          <label>Fade Softness<span class="info" data-tip="How gradually the lattice fades when gated. 0 = snap, 1 = slow dissolve.">?</span> <span class="value" id="fadeSoftnessVal">0.3</span></label>
+          <input type="range" id="fadeSoftness" min="0" max="1" value="0.3" step="0.02">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -451,9 +766,13 @@
   window.addEventListener('resize', resize);
 
   const state = {
-    symmetry: 8, spokes: 16, rings: 5, radius: 40, thickness: 1.5, detail: 120,
+    symmetry: 8, spokes: 16, rings: 5, radius: 40, thickness: 1.5, spokeThickness: 1.0, detail: 120,
     spokeShape: 0,
+    centerShape: 'circle',
+    dotCount: 0, dotSpeed: 0.3, dotSize: 3.0,
     sensitivity: 1.5, warp: 0.6, asymmetry: 0.3, rotation: 0.05, fracture: 1.0, shimmer: 0.3,
+    waveMode: 0, waveDamping: 0.15,
+    attack: 0.05, release: 0.15, autoGain: 0.30,
     threshold: 0.05,
     fadeSoftness: 0.3,
     glow: 20, fade: 0.15,
@@ -462,12 +781,38 @@
     cycleEnabled: true,
     cycleSpeed: 0.15,
     radialSpread: 0.5,
+    colorChase: 0,
+    rainbowMode: false,
+    rainbowPhase: 0,
     hideCore: false,
     hideNodes: false,
-    gatedVisibility: false
+    gatedVisibility: false,
+    // Overlay fields
+    grain: 0,
+    scanlines: 0,
+    scanDensity: 3,
+    chromatic: 0,
+    bloom: 0,
+    curvature: 0,
+    signalNoise: 0,
+    vignette: 0
   };
 
-  const sliders = ['symmetry','spokes','rings','radius','thickness','detail','spokeShape','sensitivity','warp','asymmetry','rotation','fracture','shimmer','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread'];
+  const sliders = ['symmetry','spokes','rings','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize','sensitivity','attack','release','autoGain','warp','asymmetry','rotation','fracture','shimmer','waveMode','waveDamping','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread','colorChase','grain','scanlines','scanDensity','chromatic','bloom','curvature','signalNoise','vignette','demoInterval'];
+
+  // Demo mode state (not part of persisted preset state)
+  const demo = {
+    active: false,
+    interval: 10,        // seconds to reach each target
+    lockColors: false,
+    lockGeometry: false,
+    target: null,        // target values we're interpolating toward
+    elapsed: 0           // seconds since current target was set
+  };
+  // Demo mode takes full creative control — geometry, reactivity, colors, and overlays.
+  // Overlay ranges are deliberately modest so demo output stays clean rather than blown out.
+  // Each overlay has a 60% chance of drifting to 0 (off) and a 40% chance of being mildly active,
+  // so demo produces occasional textures rather than constant haze.
   sliders.forEach(key => {
     const el = document.getElementById(key);
     const valEl = document.getElementById(key + 'Val');
@@ -484,6 +829,391 @@
   document.getElementById('hideNodes').addEventListener('change', e => state.hideNodes = e.target.checked);
   document.getElementById('gatedVisibility').addEventListener('change', e => state.gatedVisibility = e.target.checked);
   document.getElementById('cycleEnabled').addEventListener('change', e => state.cycleEnabled = e.target.checked);
+  document.getElementById('rainbowMode').addEventListener('change', e => state.rainbowMode = e.target.checked);
+  document.getElementById('centerShape').addEventListener('change', e => state.centerShape = e.target.value);
+  document.getElementById('demoLockColors').addEventListener('change', e => demo.lockColors = e.target.checked);
+  document.getElementById('demoLockGeometry').addEventListener('change', e => demo.lockGeometry = e.target.checked);
+  document.getElementById('demoInterval').addEventListener('input', e => demo.interval = parseFloat(e.target.value));
+
+  // Randomize — picks aesthetically coherent parameter combinations
+  function randomRange(min, max) { return min + Math.random() * (max - min); }
+  function randomInt(min, max) { return Math.floor(randomRange(min, max + 1)); }
+  function randomHue() {
+    // Generate pleasant-looking colors: not too desaturated, not too dark
+    const h = Math.random() * 360;
+    const s = 40 + Math.random() * 50;
+    const l = 45 + Math.random() * 30;
+    return hslToRgb(h, s, l);
+  }
+  function hslToRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r, g, b;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+
+  function applyStateToUI() {
+    sliders.forEach(key => {
+      const el = document.getElementById(key);
+      if (el && state[key] !== undefined) {
+        el.value = state[key];
+        const valEl = document.getElementById(key + 'Val');
+        if (valEl) valEl.textContent = Number.isInteger(state[key]) ? state[key] : Number(state[key]).toFixed(2);
+      }
+    });
+    document.getElementById('hideCore').checked = state.hideCore;
+    document.getElementById('hideNodes').checked = state.hideNodes;
+    document.getElementById('gatedVisibility').checked = state.gatedVisibility;
+    document.getElementById('cycleEnabled').checked = state.cycleEnabled;
+    document.getElementById('rainbowMode').checked = state.rainbowMode;
+    document.getElementById('centerShape').value = state.centerShape;
+    document.getElementById('colorA').value = rgbToHex(state.colorA);
+    document.getElementById('colorB').value = rgbToHex(state.colorB);
+    updateGradientPreview();
+  }
+
+  // --- Demo mode ---
+  // Parameters that safely interpolate (numeric, continuous)
+  const DEMO_PARAMS_GEOMETRY = ['symmetry','spokes','rings','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize'];
+  const DEMO_PARAMS_REACTIVITY = ['warp','asymmetry','rotation','fracture','shimmer','glow','fade','cycleSpeed','radialSpread','colorChase','waveMode','waveDamping'];
+  // Overlays: demo drifts these toward gentle/showcase values rather than shuffling them chaotically
+  const DEMO_PARAMS_OVERLAYS = ['grain','scanlines','chromatic','bloom','curvature','signalNoise','vignette'];
+  // Parameter ranges for randomization — tuned for sustainable, visually-pleasing demo output
+  const DEMO_RANGES = {
+    symmetry: [3, 12], spokes: [0, 32], rings: [2, 8], radius: [25, 45],
+    thickness: [0.8, 2.5], spokeThickness: [0.5, 2.5], detail: [80, 200], spokeShape: [-0.7, 0.7],
+    dotCount: [0, 6], dotSpeed: [-0.6, 0.6], dotSize: [2, 6],
+    warp: [0.2, 1.2], asymmetry: [0, 0.5], rotation: [-0.2, 0.2], fracture: [0.3, 1.5],
+    shimmer: [0.1, 0.5], glow: [10, 35], fade: [0.1, 0.3],
+    cycleSpeed: [0.05, 0.6], radialSpread: [0.2, 1.2], colorChase: [-1, 1],
+    waveMode: [0, 0.5], waveDamping: [0.08, 0.3],
+    // Overlay ranges — deliberately modest so demo never blows out
+    grain: [0, 0.25],
+    scanlines: [0, 0.3],
+    chromatic: [0, 0.25],       // was the main culprit at 0.8; capped at 0.25 in demo
+    bloom: [0, 0.3],
+    curvature: [0, 0.3],
+    signalNoise: [0, 0.15],
+    vignette: [0, 0.4]
+  };
+
+  function pickNewDemoTarget() {
+    const target = {};
+    if (!demo.lockGeometry) {
+      DEMO_PARAMS_GEOMETRY.forEach(k => {
+        const [min, max] = DEMO_RANGES[k];
+        target[k] = randomRange(min, max);
+      });
+      const shapes = ['circle','triangle','square','pentagon','hexagon','octagon','star'];
+      state.centerShape = shapes[randomInt(0, shapes.length - 1)];
+      document.getElementById('centerShape').value = state.centerShape;
+    }
+    DEMO_PARAMS_REACTIVITY.forEach(k => {
+      const [min, max] = DEMO_RANGES[k];
+      target[k] = randomRange(min, max);
+    });
+    // Overlays: most targets are 0 (off). Demo picks a small subset to activate mildly.
+    // This produces occasional texture rather than always-on haze.
+    DEMO_PARAMS_OVERLAYS.forEach(k => {
+      // 60% chance the overlay drifts toward 0 (off); 40% chance it gets a modest value
+      if (Math.random() < 0.6) {
+        target[k] = 0;
+      } else {
+        const [min, max] = DEMO_RANGES[k];
+        target[k] = randomRange(min, max);
+      }
+    });
+    if (!demo.lockColors) {
+      const hueA = Math.random() * 360;
+      const hueB = (hueA + 90 + Math.random() * 180) % 360;
+      target.colorA = hslToRgb(hueA, 70 + Math.random() * 25, 50 + Math.random() * 15);
+      target.colorB = hslToRgb(hueB, 70 + Math.random() * 25, 50 + Math.random() * 15);
+    }
+    demo.target = target;
+    demo.elapsed = 0;
+  }
+
+  function advanceDemo(dtSec) {
+    if (!demo.active || !demo.target) return;
+    demo.elapsed += dtSec;
+    // Ease factor per frame, calibrated so we arrive at target in ~demo.interval seconds
+    // Use an exponential approach — fast at first, slow near the target — feels organic
+    const approachRate = dtSec / Math.max(0.2, demo.interval);
+    const ease = 1 - Math.pow(0.01, approachRate); // reaches ~99% in demo.interval seconds
+
+    Object.keys(demo.target).forEach(k => {
+      if (k === 'colorA' || k === 'colorB') {
+        const cur = state[k];
+        const tgt = demo.target[k];
+        state[k] = [
+          cur[0] + (tgt[0] - cur[0]) * ease,
+          cur[1] + (tgt[1] - cur[1]) * ease,
+          cur[2] + (tgt[2] - cur[2]) * ease
+        ];
+      } else if (typeof demo.target[k] === 'number') {
+        state[k] = state[k] + (demo.target[k] - state[k]) * ease;
+      }
+    });
+
+    // When we've reached the target (or time expired), pick a new one
+    if (demo.elapsed >= demo.interval) {
+      pickNewDemoTarget();
+    }
+
+    // Reflect current state back into UI sliders so user can see the drift
+    applyStateToUI();
+  }
+
+  function toggleDemoMode() {
+    demo.active = !demo.active;
+    const demoBtn = document.getElementById('demoBtn');
+    const rows = [
+      document.getElementById('demoSpeedRow'),
+      document.getElementById('demoLockRow'),
+      document.getElementById('demoLockGeoRow')
+    ];
+    if (demo.active) {
+      demoBtn.classList.add('active');
+      demoBtn.textContent = 'Stop Demo';
+      rows.forEach(r => r.style.display = '');
+      pickNewDemoTarget();
+    } else {
+      demoBtn.classList.remove('active');
+      demoBtn.textContent = 'Demo Mode';
+      rows.forEach(r => r.style.display = 'none');
+      demo.target = null;
+    }
+  }
+
+  document.getElementById('demoBtn').addEventListener('click', toggleDemoMode);
+
+  document.getElementById('randomBtn').addEventListener('click', () => {
+    state.symmetry = randomInt(3, 16);
+    state.spokes = randomInt(0, 48);
+    state.rings = randomInt(2, 10);
+    state.radius = randomInt(25, 55);
+    state.thickness = randomRange(0.8, 3);
+    state.spokeThickness = randomRange(0.5, 3);
+    state.detail = randomInt(60, 240);
+    state.spokeShape = randomRange(-0.8, 0.8);
+    const shapes = ['circle','triangle','square','pentagon','hexagon','octagon','star','none'];
+    state.centerShape = shapes[randomInt(0, shapes.length - 1)];
+    state.dotCount = Math.random() < 0.4 ? randomInt(1, 8) : 0;
+    state.dotSpeed = randomRange(-0.8, 0.8);
+    state.dotSize = randomRange(2, 8);
+    state.warp = randomRange(0.2, 1.5);
+    state.asymmetry = randomRange(0, 0.6);
+    state.rotation = randomRange(-0.3, 0.3);
+    state.fracture = randomRange(0.3, 2);
+    state.shimmer = randomRange(0.1, 0.6);
+    state.glow = randomInt(5, 45);
+    state.fade = randomRange(0.05, 0.35);
+    state.colorA = randomHue();
+    state.colorB = randomHue();
+    state.cycleSpeed = randomRange(0.05, 0.8);
+    state.radialSpread = randomRange(0.2, 1.4);
+    state.colorChase = randomRange(-1.2, 1.2);
+    applyStateToUI();
+  });
+
+  document.getElementById('snapshotBtn').addEventListener('click', () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    // Download as PNG
+    const link = document.createElement('a');
+    link.download = `kin-lattice-${timestamp}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    // Also copy to clipboard
+    if (canvas.toBlob && navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          flashSnapshotStatus('Saved + copied to clipboard');
+        } catch (e) {
+          // Clipboard write blocked (common on file:// URLs or some browsers)
+          flashSnapshotStatus('Saved (clipboard unavailable)');
+        }
+      }, 'image/png');
+    } else {
+      flashSnapshotStatus('Saved (clipboard not supported)');
+    }
+  });
+
+  // Small transient status bubble for snapshot feedback
+  let snapshotStatusTimer = null;
+  function flashSnapshotStatus(msg) {
+    let el = document.getElementById('snapshotStatusFloat');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'snapshotStatusFloat';
+      el.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 18px;background:rgba(10,8,5,0.95);border:1px solid rgba(212,196,168,0.4);color:#d4c4a8;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;border-radius:3px;z-index:100;opacity:0;transition:opacity 0.2s ease;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(snapshotStatusTimer);
+    snapshotStatusTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+  }
+
+  // Color-only randomizer — now triggers rainbow mode for full-spectrum cycling
+  document.getElementById('colorRandomBtn').addEventListener('click', () => {
+    // Pick a fresh starting hue so each click produces a different phase of the rainbow
+    state.rainbowPhase = Math.random() * 360;
+    state.rainbowMode = true;
+    document.getElementById('rainbowMode').checked = true;
+
+    // Also pick new A/B colors so that if the user later turns Rainbow off, they get fresh colors
+    const hueA = Math.random() * 360;
+    const hueB = (hueA + 90 + Math.random() * 180) % 360;
+    state.colorA = hslToRgb(hueA, 70 + Math.random() * 25, 50 + Math.random() * 15);
+    state.colorB = hslToRgb(hueB, 70 + Math.random() * 25, 50 + Math.random() * 15);
+    document.getElementById('colorA').value = rgbToHex(state.colorA);
+    document.getElementById('colorB').value = rgbToHex(state.colorB);
+    updateGradientPreview();
+  });
+
+  // --- Preset system (localStorage) ---
+  const PRESET_KEY = 'kin_lattice_presets_v1';
+  const presetName = document.getElementById('presetName');
+  const presetList = document.getElementById('presetList');
+  const presetStatus = document.getElementById('presetStatus');
+
+  function getPresets() {
+    try {
+      return JSON.parse(localStorage.getItem(PRESET_KEY) || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+  function savePresets(obj) {
+    try {
+      localStorage.setItem(PRESET_KEY, JSON.stringify(obj));
+    } catch (e) {
+      console.error('Preset save failed:', e);
+    }
+  }
+  function refreshPresetList() {
+    const presets = getPresets();
+    const names = Object.keys(presets).sort();
+    presetList.innerHTML = '<option value="">Select a preset...</option>';
+    names.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      presetList.appendChild(opt);
+    });
+  }
+  function serializeState() {
+    // Deep copy so saved state doesn't share references
+    return JSON.parse(JSON.stringify(state));
+  }
+  function loadStateObject(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    // Merge loaded values into current state, preserving any missing keys
+    Object.keys(state).forEach(k => {
+      if (obj[k] !== undefined) state[k] = obj[k];
+    });
+    applyStateToUI();
+    return true;
+  }
+  function flashStatus(msg, isError) {
+    presetStatus.textContent = msg;
+    presetStatus.style.color = isError ? '#e68282' : '#8a7e68';
+    clearTimeout(flashStatus._t);
+    flashStatus._t = setTimeout(() => { presetStatus.textContent = ''; }, 3000);
+  }
+
+  document.getElementById('savePresetBtn').addEventListener('click', () => {
+    const name = presetName.value.trim();
+    if (!name) {
+      flashStatus('Enter a name first', true);
+      return;
+    }
+    const presets = getPresets();
+    presets[name] = serializeState();
+    savePresets(presets);
+    refreshPresetList();
+    presetList.value = name;
+    flashStatus(`Saved "${name}"`);
+  });
+
+  document.getElementById('deletePresetBtn').addEventListener('click', () => {
+    const name = presetList.value || presetName.value.trim();
+    if (!name) {
+      flashStatus('Select a preset to delete', true);
+      return;
+    }
+    const presets = getPresets();
+    if (!(name in presets)) {
+      flashStatus('Preset not found', true);
+      return;
+    }
+    delete presets[name];
+    savePresets(presets);
+    refreshPresetList();
+    presetName.value = '';
+    flashStatus(`Deleted "${name}"`);
+  });
+
+  presetList.addEventListener('change', () => {
+    const name = presetList.value;
+    if (!name) return;
+    const presets = getPresets();
+    if (presets[name]) {
+      loadStateObject(presets[name]);
+      presetName.value = name;
+      flashStatus(`Loaded "${name}"`);
+    }
+  });
+
+  document.getElementById('copyPresetBtn').addEventListener('click', async () => {
+    const json = JSON.stringify(serializeState(), null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      flashStatus('Copied to clipboard');
+    } catch (e) {
+      // Fallback: show prompt for manual copy
+      window.prompt('Copy this JSON:', json);
+    }
+  });
+
+  document.getElementById('pastePresetBtn').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed = JSON.parse(text);
+      if (loadStateObject(parsed)) {
+        flashStatus('Loaded from clipboard');
+      } else {
+        flashStatus('Invalid preset format', true);
+      }
+    } catch (e) {
+      // Fallback: prompt for paste
+      const text = window.prompt('Paste preset JSON:');
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          if (loadStateObject(parsed)) flashStatus('Loaded from clipboard');
+          else flashStatus('Invalid preset format', true);
+        } catch (err) {
+          flashStatus('Invalid JSON', true);
+        }
+      }
+    }
+  });
+
+  refreshPresetList();
 
   // Color helpers
   function hexToRgb(hex) {
@@ -505,10 +1235,14 @@
   }
   colorAInput.addEventListener('input', e => {
     state.colorA = hexToRgb(e.target.value);
+    state.rainbowMode = false;
+    document.getElementById('rainbowMode').checked = false;
     updateGradientPreview();
   });
   colorBInput.addEventListener('input', e => {
     state.colorB = hexToRgb(e.target.value);
+    state.rainbowMode = false;
+    document.getElementById('rainbowMode').checked = false;
     updateGradientPreview();
   });
   updateGradientPreview();
@@ -520,6 +1254,8 @@
       const b = sw.dataset.b;
       state.colorA = hexToRgb(a);
       state.colorB = hexToRgb(b);
+      state.rainbowMode = false;
+      document.getElementById('rainbowMode').checked = false;
       colorAInput.value = a;
       colorBInput.value = b;
       updateGradientPreview();
@@ -529,6 +1265,51 @@
   const panel = document.getElementById('panel');
   const toggleBtn = document.getElementById('toggle');
   const hoverZone = document.querySelector('.hover-zone');
+
+  // --- Floating tooltip system ---
+  const tooltipEl = document.getElementById('tooltip');
+  function showTooltip(el) {
+    const tip = el.getAttribute('data-tip');
+    if (!tip) return;
+    tooltipEl.textContent = tip;
+    tooltipEl.classList.add('visible');
+    // Position: prefer left of the ? icon, but flip to right or clamp if offscreen
+    const rect = el.getBoundingClientRect();
+    const tipRect = tooltipEl.getBoundingClientRect();
+    const margin = 10;
+    // Try left of the icon first
+    let x = rect.left - tipRect.width - 8;
+    // If it would clip off the left edge, put it to the right of the icon instead
+    if (x < margin) {
+      x = rect.right + 8;
+    }
+    // If that also clips, clamp to the screen edge
+    if (x + tipRect.width > window.innerWidth - margin) {
+      x = window.innerWidth - tipRect.width - margin;
+    }
+    // Vertically center on the icon
+    let y = rect.top + rect.height / 2 - tipRect.height / 2;
+    if (y < margin) y = margin;
+    if (y + tipRect.height > window.innerHeight - margin) {
+      y = window.innerHeight - tipRect.height - margin;
+    }
+    tooltipEl.style.left = x + 'px';
+    tooltipEl.style.top = y + 'px';
+  }
+  function hideTooltip() {
+    tooltipEl.classList.remove('visible');
+  }
+  // Delegate: any .info element triggers the tooltip
+  document.addEventListener('mouseover', e => {
+    if (e.target.classList && e.target.classList.contains('info')) {
+      showTooltip(e.target);
+    }
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.classList && e.target.classList.contains('info')) {
+      hideTooltip();
+    }
+  });
 
   function collapsePanel() {
     panel.classList.add('collapsed');
@@ -563,13 +1344,76 @@
   toggleBtn.addEventListener('mouseenter', showBtn);
   toggleBtn.addEventListener('mouseleave', hideBtn);
 
+  // --- Collapsible sections ---
+  const SECTION_STATE_KEY = 'kin_lattice_sections_v1';
+  function loadSectionState() {
+    try {
+      return JSON.parse(localStorage.getItem(SECTION_STATE_KEY) || '{}');
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveSectionState(stateObj) {
+    try {
+      localStorage.setItem(SECTION_STATE_KEY, JSON.stringify(stateObj));
+    } catch (e) {}
+  }
+  const sectionState = loadSectionState();
+  document.querySelectorAll('.section').forEach(section => {
+    const name = section.getAttribute('data-section');
+    if (name && sectionState[name] !== undefined) {
+      if (sectionState[name]) section.classList.add('collapsed');
+      else section.classList.remove('collapsed');
+    }
+    const header = section.querySelector('.section-header');
+    if (header) {
+      header.addEventListener('click', () => {
+        section.classList.toggle('collapsed');
+        const current = loadSectionState();
+        current[name] = section.classList.contains('collapsed');
+        saveSectionState(current);
+      });
+    }
+  });
+
+  // Mobile/touch: tap the hot-zone to reveal the button.
+  // It stays visible until user taps elsewhere or taps the button to open panel.
+  let touchRevealed = false;
+  hoverZone.addEventListener('touchstart', (e) => {
+    if (panel.classList.contains('collapsed')) {
+      e.preventDefault();
+      toggleBtn.classList.remove('hidden');
+      touchRevealed = true;
+    }
+  }, { passive: false });
+
+  // Tap anywhere outside the button/hot-zone dismisses the revealed button
+  document.addEventListener('touchstart', (e) => {
+    if (!touchRevealed) return;
+    const target = e.target;
+    if (target === toggleBtn || hoverZone.contains(target) || toggleBtn.contains(target)) return;
+    if (panel.contains(target)) return; // panel is open or being interacted with
+    if (panel.classList.contains('collapsed')) {
+      toggleBtn.classList.add('hidden');
+      touchRevealed = false;
+    }
+  });
+
   // --- Audio ---
-  let audioCtx = null, analyser = null, dataArray = null;
-  let currentSource = null, micStream = null, audioElement = null;
-  let audioMode = 'none';
+  // Supports multiple simultaneous sources: mic + system audio + file
+  // Each source has its own node connected into a shared merger -> analyser chain
+  let audioCtx = null, analyser = null, dataArray = null, merger = null;
+
+  // Source state — each tracks its stream and audio node
+  const sources = {
+    mic:    { stream: null, node: null, active: false },
+    system: { stream: null, node: null, active: false },
+    file:   { element: null, node: null, active: false }
+  };
 
   const statusEl = document.getElementById('status');
   const micBtn = document.getElementById('micBtn');
+  const sysBtn = document.getElementById('sysBtn');
   const stopBtn = document.getElementById('stopBtn');
   const fileInput = document.getElementById('fileInput');
   const fileLabel = document.getElementById('fileLabel');
@@ -581,62 +1425,141 @@
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.6;
+      // Higher FFT for better frequency resolution — especially helps distinguish vocal formants
+      analyser.fftSize = 2048;
+      // Low smoothing here; we apply custom attack/release smoothing ourselves
+      analyser.smoothingTimeConstant = 0.2;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
+      merger = audioCtx.createGain();
+      merger.gain.value = 1.0;
+      merger.connect(analyser);
     }
     if (audioCtx.state === 'suspended') audioCtx.resume();
   }
 
-  function stopCurrent() {
-    if (currentSource) { try { currentSource.disconnect(); } catch (e) {} currentSource = null; }
-    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-    if (audioElement) { audioElement.pause(); audioElement.src = ''; audioElement = null; }
-    audioMode = 'none';
-    micBtn.classList.remove('active');
-    playbackRow.style.display = 'none';
-    fileLabel.textContent = 'Drop MP3 or click to load';
-    statusEl.textContent = 'No source';
+  function updateStatus() {
+    const active = [];
+    if (sources.mic.active) active.push('Mic');
+    if (sources.system.active) active.push('System');
+    if (sources.file.active) active.push('File');
+    statusEl.textContent = active.length ? active.join(' + ') + ' active' : 'No source';
   }
 
-  micBtn.addEventListener('click', async () => {
-    stopCurrent();
+  function stopMic() {
+    if (sources.mic.node) { try { sources.mic.node.disconnect(); } catch (e) {} }
+    if (sources.mic.stream) sources.mic.stream.getTracks().forEach(t => t.stop());
+    sources.mic.node = null;
+    sources.mic.stream = null;
+    sources.mic.active = false;
+    micBtn.classList.remove('active');
+  }
+
+  function stopSystem() {
+    if (sources.system.node) { try { sources.system.node.disconnect(); } catch (e) {} }
+    if (sources.system.stream) sources.system.stream.getTracks().forEach(t => t.stop());
+    sources.system.node = null;
+    sources.system.stream = null;
+    sources.system.active = false;
+    sysBtn.classList.remove('active');
+  }
+
+  function stopFile() {
+    if (sources.file.node) { try { sources.file.node.disconnect(); } catch (e) {} }
+    if (sources.file.element) { sources.file.element.pause(); sources.file.element.src = ''; }
+    sources.file.node = null;
+    sources.file.element = null;
+    sources.file.active = false;
+    playbackRow.style.display = 'none';
+    fileLabel.textContent = 'Drop MP3 or click to load';
+  }
+
+  function stopAll() {
+    stopMic();
+    stopSystem();
+    stopFile();
+    updateStatus();
+  }
+
+  async function startMic() {
     try {
       ensureAudioCtx();
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const src = audioCtx.createMediaStreamSource(micStream);
-      src.connect(analyser);
-      currentSource = src;
-      audioMode = 'mic';
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const node = audioCtx.createMediaStreamSource(stream);
+      node.connect(merger);
+      sources.mic.stream = stream;
+      sources.mic.node = node;
+      sources.mic.active = true;
       micBtn.classList.add('active');
-      statusEl.textContent = 'Mic active';
+      updateStatus();
     } catch (e) {
       statusEl.textContent = 'Mic denied';
       console.error(e);
     }
+  }
+
+  async function startSystem() {
+    try {
+      ensureAudioCtx();
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true, // required by spec; we discard
+        audio: true
+      });
+      stream.getVideoTracks().forEach(t => t.stop());
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        statusEl.textContent = 'No audio shared — check "Share audio"';
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      const audioOnlyStream = new MediaStream(audioTracks);
+      const node = audioCtx.createMediaStreamSource(audioOnlyStream);
+      node.connect(merger);
+      sources.system.stream = audioOnlyStream;
+      sources.system.node = node;
+      sources.system.active = true;
+      sysBtn.classList.add('active');
+      updateStatus();
+    } catch (e) {
+      if (e.name !== 'NotAllowedError') {
+        statusEl.textContent = 'System audio unavailable';
+      } else {
+        updateStatus();
+      }
+      console.error(e);
+    }
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (sources.mic.active) stopMic();
+    else startMic();
+    updateStatus();
   });
 
-  stopBtn.addEventListener('click', stopCurrent);
+  sysBtn.addEventListener('click', () => {
+    if (sources.system.active) stopSystem();
+    else startSystem();
+    updateStatus();
+  });
+
+  stopBtn.addEventListener('click', stopAll);
 
   function loadFile(file) {
-    stopCurrent();
+    stopFile();
     ensureAudioCtx();
-    audioElement = new Audio();
-    audioElement.src = URL.createObjectURL(file);
-    audioElement.crossOrigin = 'anonymous';
-    const src = audioCtx.createMediaElementSource(audioElement);
-    src.connect(analyser);
-    analyser.connect(audioCtx.destination);
-    currentSource = src;
-    audioMode = 'file';
+    const element = new Audio();
+    element.src = URL.createObjectURL(file);
+    element.crossOrigin = 'anonymous';
+    const node = audioCtx.createMediaElementSource(element);
+    node.connect(merger);
+    // Also route to speakers so user can hear playback
+    node.connect(audioCtx.destination);
+    sources.file.element = element;
+    sources.file.node = node;
+    sources.file.active = true;
     fileLabel.textContent = file.name.length > 32 ? file.name.slice(0,29) + '...' : file.name;
     playbackRow.style.display = 'flex';
-    statusEl.textContent = 'File loaded';
-    audioElement.play().then(() => {
-      statusEl.textContent = 'Playing';
-    }).catch(() => {
-      statusEl.textContent = 'Ready — press Play';
-    });
+    element.play().catch(() => {});
+    updateStatus();
   }
 
   fileInput.addEventListener('change', e => {
@@ -655,33 +1578,192 @@
   });
 
   playBtn.addEventListener('click', () => {
-    if (audioElement) { audioElement.play(); statusEl.textContent = 'Playing'; }
+    if (sources.file.element) sources.file.element.play();
   });
   pauseBtn.addEventListener('click', () => {
-    if (audioElement) { audioElement.pause(); statusEl.textContent = 'Paused'; }
+    if (sources.file.element) sources.file.element.pause();
   });
 
-  // --- Audio analysis ---
-  function getAudioFeatures() {
-    if (!analyser || audioMode === 'none') {
-      return { amp: 0, bass: 0, spectrum: new Array(32).fill(0), hasAudio: false };
+  // --- Audio feature extraction ---
+  // Persistent smoothing state — previous values per bin for attack/release
+  const smoothedSpectrum = new Float32Array(32);
+  let smoothedAmp = 0;
+  let smoothedBass = 0;
+  // Auto-gain state: tracks recent peak so we can normalize against it
+  let autoGainPeak = 0.1;
+
+  // Pre-compute log-scale frequency bin boundaries.
+  // With fftSize=2048, frequencyBinCount=1024, nyquist=~22kHz, bin width ~21.5Hz.
+  // We map 32 output bands distributed logarithmically from ~50Hz to ~14kHz.
+  const N_BANDS = 32;
+  const logBinBounds = [];
+  {
+    const sampleRate = 48000; // assumption; actual will be read from audioCtx when available
+    const fMin = 50;
+    const fMax = 14000;
+    for (let i = 0; i <= N_BANDS; i++) {
+      const t = i / N_BANDS;
+      // Exponential curve: each bin covers ~proportional ratio of frequency
+      const freq = fMin * Math.pow(fMax / fMin, t);
+      logBinBounds.push(freq);
     }
+  }
+
+  function getAudioFeatures() {
+    const anyActive = sources.mic.active || sources.system.active || sources.file.active;
+    if (!analyser || !anyActive) {
+      // When no audio source, exponentially decay smoothed values back to 0
+      for (let i = 0; i < N_BANDS; i++) smoothedSpectrum[i] *= 0.9;
+      smoothedAmp *= 0.9;
+      smoothedBass *= 0.9;
+      return { amp: smoothedAmp, bass: smoothedBass, spectrum: Array.from(smoothedSpectrum), hasAudio: false };
+    }
+
     analyser.getByteFrequencyData(dataArray);
     const n = dataArray.length;
-    const bassEnd = Math.floor(n * 0.08);
-    let bass = 0, total = 0;
-    for (let i = 0; i < bassEnd; i++) bass += dataArray[i];
-    for (let i = 0; i < n; i++) total += dataArray[i];
-    bass /= (bassEnd * 255);
-    const amp = total / (n * 255);
-    const spectrum = new Array(32);
-    const binSize = Math.floor(n / 32);
-    for (let i = 0; i < 32; i++) {
-      let s = 0;
-      for (let j = 0; j < binSize; j++) s += dataArray[i * binSize + j];
-      spectrum[i] = s / (binSize * 255);
+    const sampleRate = audioCtx.sampleRate || 48000;
+    const binHz = sampleRate / analyser.fftSize;
+
+    // Downsample raw FFT bins into N_BANDS log-spaced bands
+    const rawSpectrum = new Float32Array(N_BANDS);
+    for (let b = 0; b < N_BANDS; b++) {
+      const fLo = logBinBounds[b];
+      const fHi = logBinBounds[b + 1];
+      const iLo = Math.max(0, Math.floor(fLo / binHz));
+      const iHi = Math.min(n - 1, Math.ceil(fHi / binHz));
+      // Average the FFT bins within this log band
+      let sum = 0;
+      let count = 0;
+      for (let i = iLo; i <= iHi; i++) {
+        sum += dataArray[i];
+        count++;
+      }
+      rawSpectrum[b] = count > 0 ? (sum / count) / 255 : 0;
     }
-    return { amp, bass, spectrum, hasAudio: true };
+
+    // Overall amplitude and bass (use raw log-spectrum for consistent scale)
+    let rawAmp = 0;
+    for (let i = 0; i < N_BANDS; i++) rawAmp += rawSpectrum[i];
+    rawAmp /= N_BANDS;
+    // Bass = first ~6 log bands (roughly 50Hz-250Hz)
+    let rawBass = 0;
+    for (let i = 0; i < 6; i++) rawBass += rawSpectrum[i];
+    rawBass /= 6;
+
+    // --- Auto-gain ---
+    // Track recent peak with slow decay; boost signal proportional to autoGain setting
+    autoGainPeak = Math.max(autoGainPeak * 0.995, rawAmp);
+    // Noise floor: if recent peak is below this, don't amplify — keeps silence silent
+    const NOISE_FLOOR = 0.02;
+    let gain = 1;
+    if (state.autoGain > 0 && autoGainPeak > NOISE_FLOOR) {
+      // Target amplitude of 0.5 when auto-gain is 1.0; less aggressive at lower settings
+      const targetAmp = 0.5 * state.autoGain;
+      gain = targetAmp / autoGainPeak;
+      // Smooth gain ramp — avoid abrupt volume changes
+      gain = Math.min(gain, 1 + state.autoGain * 8);
+      gain = Math.max(gain, 1);
+    }
+
+    // Apply gain to raw values
+    const gainedSpectrum = new Float32Array(N_BANDS);
+    for (let i = 0; i < N_BANDS; i++) {
+      gainedSpectrum[i] = Math.min(1, rawSpectrum[i] * gain);
+    }
+    const gainedAmp = Math.min(1, rawAmp * gain);
+    const gainedBass = Math.min(1, rawBass * gain);
+
+    // --- Attack/Release smoothing ---
+    // Faster rise when incoming is higher than current; slower fall when lower
+    const attackCoef = Math.min(1, state.attack > 0 ? 1 - Math.exp(-1 / (state.attack * 60)) : 1);
+    const releaseCoef = Math.min(1, state.release > 0 ? 1 - Math.exp(-1 / (state.release * 60)) : 1);
+
+    for (let i = 0; i < N_BANDS; i++) {
+      const target = gainedSpectrum[i];
+      const coef = target > smoothedSpectrum[i] ? attackCoef : releaseCoef;
+      smoothedSpectrum[i] += (target - smoothedSpectrum[i]) * coef;
+    }
+    const ampCoef = gainedAmp > smoothedAmp ? attackCoef : releaseCoef;
+    smoothedAmp += (gainedAmp - smoothedAmp) * ampCoef;
+    const bassCoef = gainedBass > smoothedBass ? attackCoef : releaseCoef;
+    smoothedBass += (gainedBass - smoothedBass) * bassCoef;
+
+    return {
+      amp: smoothedAmp,
+      bass: smoothedBass,
+      spectrum: Array.from(smoothedSpectrum),
+      hasAudio: true
+    };
+  }
+
+  // Ring wave buffers: per-ring arrays of displacement and velocity for wave propagation
+  // Sized generously; we use the first N entries where N = detail points around the ring
+  const WAVE_POINTS = 360; // angular resolution for wave simulation
+  const waveBuffers = [];
+  for (let r = 0; r < 12; r++) {
+    waveBuffers.push({
+      pos: new Float32Array(WAVE_POINTS),
+      vel: new Float32Array(WAVE_POINTS)
+    });
+  }
+
+  function updateWaveBuffers(spectrum) {
+    const mode = state.waveMode;
+    if (mode < 0.01) return;
+
+    const damping = 1 - state.waveDamping * 0.5;
+    const tension = 0.3;
+    // Hard caps on wave amplitude — prevents runaway feedback when damping is low
+    // and audio injection is sustained
+    const MAX_POS = 1.2;
+    const MAX_VEL = 0.3;
+
+    for (let r = 0; r < waveBuffers.length; r++) {
+      const buf = waveBuffers[r];
+      const bandIdx = Math.floor((r / waveBuffers.length) * spectrum.length);
+      // Inject energy at multiple angular points. Scale down with injection count
+      // so higher waveMode doesn't compound with more injection points.
+      const injectionPoints = 6;
+      // Base injection strength — small enough that with low damping (long ring-out)
+      // the wave doesn't run away from sustained audio
+      const injectStrength = 0.04 * mode;
+      for (let p = 0; p < injectionPoints; p++) {
+        const ang = Math.floor((p / injectionPoints) * WAVE_POINTS);
+        const specIdx = (bandIdx + p * 3) % spectrum.length;
+        const energy = spectrum[specIdx] || 0;
+        if (energy > 0.05) {
+          buf.vel[ang] += energy * injectStrength;
+        }
+      }
+
+      // Propagate: neighbor-averaged wave equation
+      const newVel = buf.vel;
+      for (let i = 0; i < WAVE_POINTS; i++) {
+        const prev = buf.pos[(i - 1 + WAVE_POINTS) % WAVE_POINTS];
+        const next = buf.pos[(i + 1) % WAVE_POINTS];
+        const force = (prev + next) * 0.5 - buf.pos[i];
+        newVel[i] += force * tension;
+        newVel[i] *= damping;
+        // Clamp velocity to prevent compounding
+        if (newVel[i] > MAX_VEL) newVel[i] = MAX_VEL;
+        else if (newVel[i] < -MAX_VEL) newVel[i] = -MAX_VEL;
+      }
+      for (let i = 0; i < WAVE_POINTS; i++) {
+        buf.pos[i] += newVel[i];
+        // Clamp position
+        if (buf.pos[i] > MAX_POS) buf.pos[i] = MAX_POS;
+        else if (buf.pos[i] < -MAX_POS) buf.pos[i] = -MAX_POS;
+      }
+    }
+  }
+
+  function sampleWave(ringIdx, angleT) {
+    const buf = waveBuffers[ringIdx % waveBuffers.length];
+    const idxF = angleT * WAVE_POINTS;
+    const i0 = Math.floor(idxF) % WAVE_POINTS;
+    const i1 = (i0 + 1) % WAVE_POINTS;
+    const frac = idxF - Math.floor(idxF);
+    return buf.pos[i0] * (1 - frac) + buf.pos[i1] * frac;
   }
 
   // Ambient noise phases
@@ -707,19 +1789,25 @@
   // Color sampling function — returns [r,g,b] for a given (ring index, angle, time)
   // cycleMix: 0 -> colorA, 1 -> colorB
   function sampleColor(ringT, angleT, time) {
-    // Base oscillation over time (0 to 1)
+    // Rainbow mode: cycle through full hue wheel instead of A-to-B blend
+    if (state.rainbowMode) {
+      // Hue rotates over time, modulated by cycleSpeed
+      const chaseOffset = time * state.colorChase;
+      // Radial spread separates hues across rings and angles
+      const positional = ringT * state.radialSpread * 180 + (angleT + chaseOffset) * 360 * state.radialSpread * 0.3;
+      const hue = (state.rainbowPhase + time * state.cycleSpeed * 60 + positional) % 360;
+      return hslToRgb(hue < 0 ? hue + 360 : hue, 85, 55);
+    }
+
+    // Default: A-to-B blend
     let cycleMix = 0.5;
     if (state.cycleEnabled) {
       cycleMix = (Math.sin(time * state.cycleSpeed * 2) * 0.5 + 0.5);
     }
-    // Radial spread: mix shifts across the geometry's radius so inner and outer
-    // read different colors at the same moment. angleT is 0-1 around the circle.
     const spread = state.radialSpread;
-    // Combine ring position and a slight angle variation
-    const positional = ringT * spread + Math.sin(angleT * Math.PI * 2 + time * 0.3) * spread * 0.3;
-    // Wrap and blend with the time cycle
+    const chaseOffset = time * state.colorChase;
+    const positional = ringT * spread + Math.sin((angleT + chaseOffset) * Math.PI * 2 + time * 0.3) * spread * 0.3;
     let finalMix = cycleMix + positional;
-    // Triangle wave wrap so it stays in 0-1 with smooth reversal
     finalMix = finalMix % 2;
     if (finalMix < 0) finalMix += 2;
     if (finalMix > 1) finalMix = 2 - finalMix;
@@ -736,6 +1824,7 @@
   let lastBass = 0;
   let time = 0;
   let visibleAlpha = 0;
+  let dotPhase = 0;
 
   function render() {
     const w = window.innerWidth;
@@ -762,6 +1851,9 @@
     const amp = liveAmp + ambientAmp * 0.5;
     const bass = liveBass;
 
+    // Update wave buffers with current audio spectrum (no-op if waveMode is 0)
+    updateWaveBuffers(combinedSpectrum);
+
     const bassDelta = bass - lastBass;
     if (bassDelta > 0.08) {
       bassHitDecay = Math.min(1, bassHitDecay + bassDelta * state.fracture * 2);
@@ -770,7 +1862,9 @@
     lastBass = bass;
 
     rotationPhase += state.rotation * 0.01;
+    dotPhase += state.dotSpeed * 0.012;
     time += 0.016;
+    advanceDemo(0.016);
 
     if (state.gatedVisibility) {
       const targetAlpha = liveAmp > state.threshold ? 1 : 0;
@@ -782,6 +1876,7 @@
     }
 
     if (visibleAlpha < 0.01) {
+      applyOverlays();
       requestAnimationFrame(render);
       return;
     }
@@ -822,7 +1917,18 @@
         const audioWarp = specVal * state.warp * 0.8;
         const bassKick = bassHitDecay * Math.sin(baseAngle * sym * 0.5 + time) * 0.5;
 
-        const radiusOffset = (symWarp + audioWarp + bassKick) * baseR * 0.3 * asymFactor;
+        // Wave contribution — gentler multiplier than before (was causing off-screen excursions)
+        // Wave pos is clamped to [-1.2, 1.2]; multiplier caps at ~1.4 even at full warp
+        const waveVal = state.waveMode > 0.01 ? sampleWave(r, t) * (0.3 + state.warp * 0.55) : 0;
+
+        const directWarp = (symWarp + audioWarp + bassKick) * (1 - state.waveMode * 0.7);
+
+        // Compute offset, then hard-clamp so no parameter combination can push off-screen
+        // Max displacement = 60% of base radius in either direction
+        let radiusOffset = (directWarp + waveVal) * baseR * 0.3 * asymFactor;
+        const maxOffset = baseR * 0.6;
+        if (radiusOffset > maxOffset) radiusOffset = maxOffset;
+        else if (radiusOffset < -maxOffset) radiusOffset = -maxOffset;
         const finalR = ringR + radiusOffset;
 
         const angle = baseAngle + rotationPhase + (r % 2 === 0 ? 0 : rotationPhase * 0.3);
@@ -832,6 +1938,7 @@
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
+      ctx.closePath();
 
       const alpha = 0.4 + bandEnergy * 0.6 + bassHitDecay * 0.3;
       ctx.strokeStyle = rgbStr(ringColor, Math.min(1, alpha));
@@ -860,7 +1967,7 @@
       // Shape: negative -> jagged zigzag, 0 -> straight, positive -> curved arc
       const shape = state.spokeShape;
       ctx.strokeStyle = rgbStr(spokeColor, 0.25 + specVal * 0.5);
-      ctx.lineWidth = state.thickness * 0.6;
+      ctx.lineWidth = state.spokeThickness;
 
       if (Math.abs(shape) < 0.02) {
         // Straight line
@@ -914,25 +2021,297 @@
         ctx.fillStyle = rgbStr(spokeColor, 0.4 + specVal * 0.6);
         ctx.fill();
       }
+
+      // Traveling dots along this spoke
+      if (state.dotCount > 0) {
+        const dotCount = Math.floor(state.dotCount);
+        const innerR = state.hideCore ? 0 : baseR * 0.15;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        for (let d = 0; d < dotCount; d++) {
+          // Each dot is evenly spaced along the spoke, plus global phase offset
+          let dotT = (d / dotCount + dotPhase) % 1;
+          if (dotT < 0) dotT += 1;
+          // Optional audio swelling: dot scales up when its spoke is active
+          const dotRadius = state.dotSize * (0.7 + specVal * 1.5 + bassHitDecay * 0.5);
+          const dx_pos = x1 + dx * dotT;
+          const dy_pos = y1 + dy * dotT;
+          ctx.beginPath();
+          ctx.arc(dx_pos, dy_pos, dotRadius, 0, Math.PI * 2);
+          ctx.fillStyle = rgbStr(spokeColor, 0.6 + specVal * 0.4);
+          ctx.fill();
+        }
+      }
     }
 
-    // Central core
-    if (!state.hideCore) {
+    // Central core — variable shape
+    if (!state.hideCore && state.centerShape !== 'none') {
       const coreColor = sampleColor(0, 0, time);
-      const coreR = baseR * 0.08 * (1 + amp * 2 + bassHitDecay);
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
-      grad.addColorStop(0, rgbStr(coreColor, 0.6 + bassHitDecay * 0.4));
-      grad.addColorStop(1, rgbStr(coreColor, 0));
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
-      ctx.fill();
+      const coreR = baseR * 0.1 * (1 + amp * 2 + bassHitDecay);
+      const coreAlpha = 0.6 + bassHitDecay * 0.4;
+
+      if (state.centerShape === 'circle') {
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+        grad.addColorStop(0, rgbStr(coreColor, coreAlpha));
+        grad.addColorStop(1, rgbStr(coreColor, 0));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Polygon shapes: triangle, square, pentagon, hexagon, octagon, star
+        const shapeMap = {
+          triangle: 3, square: 4, pentagon: 5, hexagon: 6, octagon: 8, star: 5
+        };
+        const sides = shapeMap[state.centerShape] || 6;
+        const isStar = state.centerShape === 'star';
+        const points = isStar ? sides * 2 : sides;
+        // Slowly rotate the core shape so it doesn't feel static
+        const coreRot = time * 0.3;
+
+        ctx.beginPath();
+        for (let i = 0; i <= points; i++) {
+          const t = i / points;
+          const angle = t * Math.PI * 2 + coreRot - Math.PI / 2;
+          // For stars, alternate between outer and inner radius
+          const r = isStar ? (i % 2 === 0 ? coreR : coreR * 0.45) : coreR;
+          const x = cx + Math.cos(angle) * r;
+          const y = cy + Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        // Fill with a soft radial gradient for that core-glow look
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+        grad.addColorStop(0, rgbStr(coreColor, coreAlpha));
+        grad.addColorStop(0.7, rgbStr(coreColor, coreAlpha * 0.4));
+        grad.addColorStop(1, rgbStr(coreColor, 0));
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // Outline stroke for definition
+        ctx.strokeStyle = rgbStr(coreColor, coreAlpha * 0.9);
+        ctx.lineWidth = state.thickness * 0.8;
+        ctx.stroke();
+      }
     }
 
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
+    applyOverlays();
     requestAnimationFrame(render);
   }
+
+  // Offscreen canvas used for effects that need to sample the rendered image
+  const offscreen = document.createElement('canvas');
+  const offscreenCtx = offscreen.getContext('2d');
+
+  // Precompute film grain noise tile
+  const grainTile = document.createElement('canvas');
+  grainTile.width = 256;
+  grainTile.height = 256;
+  const grainCtx = grainTile.getContext('2d');
+  function regenerateGrain() {
+    const imgData = grainCtx.createImageData(256, 256);
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      const v = Math.random() * 255;
+      imgData.data[i] = v;
+      imgData.data[i + 1] = v;
+      imgData.data[i + 2] = v;
+      imgData.data[i + 3] = 255;
+    }
+    grainCtx.putImageData(imgData, 0, 0);
+  }
+  regenerateGrain();
+  let grainFrameCounter = 0;
+
+  // Signal noise state — occasional rolling band
+  let signalBandY = -1;      // current y position (-1 = inactive)
+  let signalBandHeight = 0;
+  let signalNextTrigger = 0; // time until next band
+  let overlayTime = 0;
+
+  function applyOverlays() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    overlayTime += 0.016;
+
+    // Sync offscreen canvas size to main canvas
+    if (offscreen.width !== canvas.width || offscreen.height !== canvas.height) {
+      offscreen.width = canvas.width;
+      offscreen.height = canvas.height;
+    }
+
+    // ---------------------------------------------------------------
+    // BLOOM — bright areas bleed outward. Draws a blurred copy additively.
+    // ---------------------------------------------------------------
+    if (state.bloom > 0.01) {
+      offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
+      offscreenCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+      offscreenCtx.filter = `blur(${12 + state.bloom * 20}px)`;
+      offscreenCtx.drawImage(canvas, 0, 0);
+      offscreenCtx.filter = 'none';
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = state.bloom * 0.9;
+      ctx.drawImage(offscreen, 0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+
+    // ---------------------------------------------------------------
+    // CHROMATIC ABERRATION — subtle spatial shift only, no brightness boost.
+    // Takes a low-alpha copy and offsets it. source-over with tint keeps things tame.
+    // ---------------------------------------------------------------
+    if (state.chromatic > 0.01) {
+      offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
+      offscreenCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+      offscreenCtx.drawImage(canvas, 0, 0);
+
+      const offset = state.chromatic * 8;
+      // Use 'lighter' but with very low alpha so it acts as a color shift rather than doubling brightness
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = state.chromatic * 0.18;
+      ctx.drawImage(offscreen, offset, 0, w, h);
+      ctx.drawImage(offscreen, -offset, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
+
+    // ---------------------------------------------------------------
+    // CRT CURVATURE — barrel-distort the image
+    // Snapshot, clear, redraw in slices with radial displacement
+    // ---------------------------------------------------------------
+    if (state.curvature > 0.01) {
+      offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
+      offscreenCtx.clearRect(0, 0, offscreen.width, offscreen.height);
+      offscreenCtx.drawImage(canvas, 0, 0);
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const maxDist = Math.sqrt(cx * cx + cy * cy);
+      const strength = state.curvature;
+      // Draw in horizontal slices, each with a scale based on distance from center
+      const sliceCount = 40;
+      const sliceH = h / sliceCount;
+      for (let i = 0; i < sliceCount; i++) {
+        const sy = i * sliceH;
+        const dy = (sy + sliceH / 2) - cy;
+        const distRatio = Math.abs(dy) / (h / 2);
+        // Horizontal pinch: rows far from center get narrower
+        const scaleX = 1 - distRatio * distRatio * strength * 0.25;
+        const offsetX = (w - w * scaleX) / 2;
+        // Vertical offset: curve the top/bottom inward slightly
+        const vertCurve = distRatio * distRatio * strength * 20 * Math.sign(dy);
+        ctx.drawImage(
+          offscreen,
+          0, sy * (canvas.height / h), canvas.width, sliceH * (canvas.height / h),
+          offsetX, sy - vertCurve, w * scaleX, sliceH + 1
+        );
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // SCANLINES — cover the entire screen, including black areas
+    // Uses source-over with partial alpha so black regions become slightly grey bands
+    // ---------------------------------------------------------------
+    if (state.scanlines > 0.01) {
+      const intensity = state.scanlines;
+      const lineHeight = Math.max(1, Math.round(state.scanDensity));
+      const gap = Math.max(1, Math.round(state.scanDensity));
+      // Dark bands on even lines
+      ctx.fillStyle = `rgba(0, 0, 0, ${intensity * 0.55})`;
+      for (let y = 0; y < h; y += lineHeight + gap) {
+        ctx.fillRect(0, y, w, lineHeight);
+      }
+      // Subtle bright bands on odd lines — makes the scan pattern feel luminous, not just dark
+      ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.03})`;
+      for (let y = lineHeight; y < h; y += lineHeight + gap) {
+        ctx.fillRect(0, y, w, gap);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // FILM GRAIN — full-screen animated noise
+    // Blend 'screen' lightens dark areas slightly, 'overlay' keeps midtones
+    // Use 'source-over' with low alpha for a flat grain that works on black too
+    // ---------------------------------------------------------------
+    if (state.grain > 0.01) {
+      grainFrameCounter++;
+      if (grainFrameCounter % 2 === 0) regenerateGrain();
+      const pattern = ctx.createPattern(grainTile, 'repeat');
+      if (pattern) {
+        ctx.globalAlpha = state.grain * 0.25;
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // SIGNAL NOISE — occasional rolling static bands
+    // ---------------------------------------------------------------
+    if (state.signalNoise > 0.01) {
+      // Trigger new bands probabilistically, scaled by intensity
+      if (signalBandY < 0 && Math.random() < state.signalNoise * 0.015) {
+        signalBandY = -50;
+        signalBandHeight = 8 + Math.random() * (40 + state.signalNoise * 80);
+      }
+      // Animate active band
+      if (signalBandY >= -50) {
+        signalBandY += 4 + state.signalNoise * 12;
+        if (signalBandY > h) {
+          signalBandY = -1; // reset
+        } else {
+          // Draw horizontal static band
+          const bandAlpha = state.signalNoise * 0.6;
+          // Base darker band
+          ctx.fillStyle = `rgba(0, 0, 0, ${bandAlpha * 0.5})`;
+          ctx.fillRect(0, signalBandY, w, signalBandHeight);
+          // Sprinkle static dots within the band
+          ctx.fillStyle = `rgba(255, 255, 255, ${bandAlpha * 0.9})`;
+          const dotCount = Math.floor(w * signalBandHeight * 0.003);
+          for (let i = 0; i < dotCount; i++) {
+            const dx = Math.random() * w;
+            const dy = signalBandY + Math.random() * signalBandHeight;
+            ctx.fillRect(dx, dy, 1 + Math.random() * 2, 1);
+          }
+          // Tear above/below with thin lines
+          ctx.fillStyle = `rgba(255, 255, 255, ${bandAlpha * 0.3})`;
+          ctx.fillRect(0, signalBandY - 1, w, 1);
+          ctx.fillRect(0, signalBandY + signalBandHeight, w, 1);
+        }
+      }
+      // Continuous low-level noise sprinkle across whole screen (heavier at high values)
+      if (state.signalNoise > 0.3) {
+        const sprinkleCount = Math.floor(state.signalNoise * 50);
+        ctx.fillStyle = `rgba(255, 255, 255, ${state.signalNoise * 0.4})`;
+        for (let i = 0; i < sprinkleCount; i++) {
+          const dx = Math.random() * w;
+          const dy = Math.random() * h;
+          ctx.fillRect(dx, dy, 1, 1);
+        }
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // VIGNETTE
+    // ---------------------------------------------------------------
+    if (state.vignette > 0.01) {
+      const grad = ctx.createRadialGradient(w/2, h/2, Math.min(w, h) * 0.3, w/2, h/2, Math.max(w, h) * 0.75);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, `rgba(0,0,0,${state.vignette * 0.9})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
+
+  // Kick off the render loop
   render();
 })();
 </script>
