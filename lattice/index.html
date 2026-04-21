@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Voice Reactive Lattice</title>
+<title>Lattice — Voice-Reactive Visualizer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -615,6 +615,68 @@
       </div>
     </div>
 
+    <div class="section" data-section="centerpiece">
+      <div class="section-header"><h3>Centerpiece</h3><span class="section-chevron">▾</span></div>
+      <div class="section-body">
+        <div class="slider-row">
+          <label>Shape<span class="info" data-tip="The visual primitive the centerpiece draws. None disables it entirely.">?</span></label>
+          <select id="cpShape" class="device-select">
+            <option value="none">None</option>
+            <option value="triangle">Triangle</option>
+            <option value="square">Square</option>
+            <option value="hexagon">Hexagon</option>
+            <option value="star">Star</option>
+            <option value="circle">Circle</option>
+            <option value="dot">Dot</option>
+            <option value="line">Line</option>
+          </select>
+        </div>
+        <div class="slider-row">
+          <label>Motion<span class="info" data-tip="How the shapes move. Orbit circles around center. Bounce flies in all directions. Spiral traces outward. Cascade spawns and expands rhythmically. Dance splits, rotates, recombines.">?</span></label>
+          <select id="cpMotion" class="device-select">
+            <option value="orbit">Orbit</option>
+            <option value="bounce">Drift</option>
+            <option value="spiral">Spiral</option>
+            <option value="cascade">Cascade</option>
+            <option value="dance">Dance</option>
+            <option value="warp">Warp Speed</option>
+          </select>
+        </div>
+        <div class="slider-row">
+          <label>Count<span class="info" data-tip="Number of shape instances active at once. Higher counts create dense overlapping effects.">?</span> <span class="value" id="cpCountVal">8</span></label>
+          <input type="range" id="cpCount" min="1" max="80" value="8" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Speed<span class="info" data-tip="How fast shapes move along their paths.">?</span> <span class="value" id="cpSpeedVal">1.00</span></label>
+          <input type="range" id="cpSpeed" min="0" max="3" value="1.0" step="0.05">
+        </div>
+        <div class="slider-row">
+          <label>Size<span class="info" data-tip="Base size of each shape.">?</span> <span class="value" id="cpSizeVal">30</span></label>
+          <input type="range" id="cpSize" min="5" max="120" value="30" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Reactivity<span class="info" data-tip="How much audio affects shape motion, size, and behavior. 0 = static choreography. 1 = deeply reactive.">?</span> <span class="value" id="cpReactVal">0.50</span></label>
+          <input type="range" id="cpReact" min="0" max="1" value="0.5" step="0.05">
+        </div>
+        <label class="check-row">
+          <input type="checkbox" id="cpInvert">
+          Invert Motion<span class="info" data-tip="Reverses the direction of every motion. Shapes flow from edges toward center instead of outward.">?</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="cpCycleShape">
+          Cycle Shapes<span class="info" data-tip="Rotate through all shapes on the cycle timer.">?</span>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" id="cpCycleMotion">
+          Cycle Motions<span class="info" data-tip="Rotate through all motion types on the cycle timer.">?</span>
+        </label>
+        <div class="slider-row">
+          <label>Cycle Duration<span class="info" data-tip="Seconds between shape/motion swaps when cycling is active.">?</span> <span class="value" id="cpCycleDurationVal">15</span>s</label>
+          <input type="range" id="cpCycleDuration" min="3" max="60" value="15" step="1">
+        </div>
+      </div>
+    </div>
+
     <div class="section" data-section="color">
       <div class="section-header"><h3>Color</h3><span class="section-chevron">▾</span></div>
       <div class="section-body">
@@ -663,7 +725,7 @@
           <div class="color-swatch" data-a="#00ffff" data-b="#ff00cc" style="background:linear-gradient(90deg,#00ffff,#ff00cc)" title="Vaporwave"></div>
           <div class="color-swatch" data-a="#fff200" data-b="#000000" style="background:linear-gradient(90deg,#fff200,#000000)" title="Hazard"></div>
           <div class="color-swatch" data-a="#00ff00" data-b="#ff0000" style="background:linear-gradient(90deg,#00ff00,#ff0000)" title="Arcade"></div>
-          <div class="color-swatch" data-a="#d4c4a8" data-b="#8b2020" style="background:linear-gradient(90deg,#d4c4a8,#8b2020)" title="Kin Broadcast"></div>
+          <div class="color-swatch" data-a="#d4c4a8" data-b="#8b2020" style="background:linear-gradient(90deg,#d4c4a8,#8b2020)" title="Broadcast"></div>
           <div class="color-swatch" data-a="#d4c4a8" data-b="#d4c4a8" style="background:#d4c4a8" title="Solid Amber"></div>
         </div>
         <button class="btn" id="colorRandomBtn" style="margin-top:6px;">Randomize Colors</button>
@@ -787,6 +849,17 @@
     hideCore: false,
     hideNodes: false,
     gatedVisibility: false,
+    // Centerpiece
+    cpShape: 'none',
+    cpMotion: 'orbit',
+    cpCount: 8,
+    cpSpeed: 1.0,
+    cpSize: 30,
+    cpReact: 0.5,
+    cpCycleShape: false,
+    cpCycleMotion: false,
+    cpCycleDuration: 15,
+    cpInvert: false,
     // Overlay fields
     grain: 0,
     scanlines: 0,
@@ -798,7 +871,7 @@
     vignette: 0
   };
 
-  const sliders = ['symmetry','spokes','rings','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize','sensitivity','attack','release','autoGain','warp','asymmetry','rotation','fracture','shimmer','waveMode','waveDamping','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread','colorChase','grain','scanlines','scanDensity','chromatic','bloom','curvature','signalNoise','vignette','demoInterval'];
+  const sliders = ['symmetry','spokes','rings','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize','sensitivity','attack','release','autoGain','warp','asymmetry','rotation','fracture','shimmer','waveMode','waveDamping','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread','colorChase','cpCount','cpSpeed','cpSize','cpReact','cpCycleDuration','grain','scanlines','scanDensity','chromatic','bloom','curvature','signalNoise','vignette','demoInterval'];
 
   // Demo mode state (not part of persisted preset state)
   const demo = {
@@ -831,6 +904,15 @@
   document.getElementById('cycleEnabled').addEventListener('change', e => state.cycleEnabled = e.target.checked);
   document.getElementById('rainbowMode').addEventListener('change', e => state.rainbowMode = e.target.checked);
   document.getElementById('centerShape').addEventListener('change', e => state.centerShape = e.target.value);
+  document.getElementById('cpShape').addEventListener('change', e => { state.cpShape = e.target.value; resetCenterpiece(); });
+  document.getElementById('cpMotion').addEventListener('change', e => { state.cpMotion = e.target.value; resetCenterpiece(); });
+  document.getElementById('cpCount').addEventListener('input', () => resetCenterpiece());
+  document.getElementById('cpCycleShape').addEventListener('change', e => state.cpCycleShape = e.target.checked);
+  document.getElementById('cpCycleMotion').addEventListener('change', e => state.cpCycleMotion = e.target.checked);
+  document.getElementById('cpInvert').addEventListener('change', e => {
+    state.cpInvert = e.target.checked;
+    resetCenterpiece();
+  });
   document.getElementById('demoLockColors').addEventListener('change', e => demo.lockColors = e.target.checked);
   document.getElementById('demoLockGeometry').addEventListener('change', e => demo.lockGeometry = e.target.checked);
   document.getElementById('demoInterval').addEventListener('input', e => demo.interval = parseFloat(e.target.value));
@@ -875,6 +957,11 @@
     document.getElementById('cycleEnabled').checked = state.cycleEnabled;
     document.getElementById('rainbowMode').checked = state.rainbowMode;
     document.getElementById('centerShape').value = state.centerShape;
+    document.getElementById('cpShape').value = state.cpShape;
+    document.getElementById('cpMotion').value = state.cpMotion;
+    document.getElementById('cpCycleShape').checked = state.cpCycleShape;
+    document.getElementById('cpCycleMotion').checked = state.cpCycleMotion;
+    document.getElementById('cpInvert').checked = state.cpInvert;
     document.getElementById('colorA').value = rgbToHex(state.colorA);
     document.getElementById('colorB').value = rgbToHex(state.colorB);
     updateGradientPreview();
@@ -1028,7 +1115,7 @@
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     // Download as PNG
     const link = document.createElement('a');
-    link.download = `kin-lattice-${timestamp}.png`;
+    link.download = `lattice-${timestamp}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
 
@@ -1819,6 +1906,455 @@
   }
 
   // --- Render ---
+  // --- Centerpiece system ---
+  // A particle system where each particle has position, velocity, age, and motion-specific state.
+  // Shape drawing and motion update are decoupled: any shape can be drawn at any particle position.
+  let cpParticles = [];
+  let cpShapeAtInit = state.cpShape;
+  let cpMotionAtInit = state.cpMotion;
+  let cpCycleTimer = 0;
+  let cpShapeIndex = 0;
+  let cpMotionIndex = 0;
+  const CP_SHAPES = ['triangle','square','hexagon','star','circle','dot','line'];
+  const CP_MOTIONS = ['orbit','bounce','spiral','cascade','dance','warp'];
+
+  // Flock state for Dance motion — the entire group moves in a shared direction that
+  // shifts on audio events (beats). Position is tracked as a center-of-mass offset
+  // that all particles follow, with individual wobble variations.
+  const flock = {
+    dirX: 1,           // current unit direction vector
+    dirY: 0,
+    targetDirX: 1,     // where the flock is currently heading toward
+    targetDirY: 0,
+    speed: 0,          // forward speed scalar
+    lastBassLevel: 0,  // to detect rising edges for direction changes
+    timeSinceChange: 0
+  };
+
+  function resetCenterpiece() {
+    cpParticles = [];
+    const count = Math.floor(state.cpCount);
+    for (let i = 0; i < count; i++) {
+      cpParticles.push(createCpParticle(i, count));
+    }
+    cpShapeAtInit = state.cpShape;
+    cpMotionAtInit = state.cpMotion;
+  }
+
+  function createCpParticle(i, total) {
+    const t = i / Math.max(1, total);
+    const motion = state.cpMotion;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxR = Math.min(w, h) * 0.45;
+    const maxDim = Math.max(w, h);
+
+    const p = {
+      x: cx,
+      y: cy,
+      vx: 0,
+      vy: 0,
+      age: 0,
+      life: 4 + Math.random() * 6,
+      phase: t * Math.PI * 2,
+      radiusOffset: Math.random() * 0.3,
+      speedMul: 0.8 + Math.random() * 0.4,
+      sizeMul: 0.6 + Math.random() * 0.8,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.04,
+      // Orbit lanes: quantize particles into 3 concentric orbits at 25%, 55%, 85% of maxR
+      // Produces distinct "planetary" rings rather than a spiral blur
+      orbitLane: i % 3,
+      orbitPhaseOffset: Math.random() * Math.PI * 2,
+      // Each lane has a slight ellipticity variation so orbits aren't all perfect circles
+      ellipseRatio: 0.85 + Math.random() * 0.3,
+      ellipseAngle: Math.random() * Math.PI * 2,
+      spiralTurn: t * 2
+    };
+
+    if (motion === 'bounce') {
+      const ang = Math.random() * Math.PI * 2;
+      const speed = 80 + Math.random() * 120;
+      if (state.cpInvert) {
+        const side = Math.floor(Math.random() * 4);
+        if (side === 0) { p.x = -50; p.y = Math.random() * h; }
+        else if (side === 1) { p.x = w + 50; p.y = Math.random() * h; }
+        else if (side === 2) { p.x = Math.random() * w; p.y = -50; }
+        else { p.x = Math.random() * w; p.y = h + 50; }
+        const dx = cx - p.x;
+        const dy = cy - p.y;
+        const len = Math.hypot(dx, dy);
+        p.vx = (dx / len) * speed;
+        p.vy = (dy / len) * speed;
+      } else {
+        p.x = cx;
+        p.y = cy;
+        p.vx = Math.cos(ang) * speed;
+        p.vy = Math.sin(ang) * speed;
+      }
+    } else if (motion === 'cascade') {
+      p.age = t * p.life;
+      if (state.cpInvert) {
+        // Inverted cascade: spawn at random point on a screen-edge ring, move inward
+        // Each particle picks its own starting angle + starting edge position
+        p.angle = Math.random() * Math.PI * 2;
+        p.startRadius = maxDim * 0.7;
+      } else {
+        p.angle = Math.random() * Math.PI * 2;
+      }
+    } else if (motion === 'dance') {
+      p.x = cx + (Math.random() - 0.5) * w * 0.8;
+      p.y = cy + (Math.random() - 0.5) * h * 0.8;
+      p.wobblePhase = Math.random() * Math.PI * 2;
+      p.wobbleSpeed = 0.8 + Math.random() * 1.2;
+    } else if (motion === 'warp') {
+      // Warp: each particle has a fixed direction angle. Position tracks along that ray.
+      // Life is recycled: particle spawns near-center, streaks outward to screen edge, respawns.
+      p.angle = Math.random() * Math.PI * 2;
+      p.warpProgress = Math.random(); // start at random point along the streak cycle
+      p.warpSpeed = 0.3 + Math.random() * 0.7;
+      // Track previous position for streak drawing
+      p.prevX = cx;
+      p.prevY = cy;
+    }
+    return p;
+  }
+
+  // Helper: draw a shape centered at (x,y) with given size, rotation, and color/alpha.
+  function drawCpShape(shape, x, y, size, rotation, color, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.strokeStyle = rgbStr(color, alpha);
+    ctx.fillStyle = rgbStr(color, alpha * 0.3);
+    ctx.lineWidth = 1.5;
+
+    switch (shape) {
+      case 'triangle': {
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+          const px = Math.cos(a) * size;
+          const py = Math.sin(a) * size;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        break;
+      }
+      case 'square': {
+        ctx.strokeRect(-size, -size, size * 2, size * 2);
+        break;
+      }
+      case 'hexagon':
+      case 'circle': {
+        const sides = shape === 'circle' ? 32 : 6;
+        ctx.beginPath();
+        for (let i = 0; i <= sides; i++) {
+          const a = (i / sides) * Math.PI * 2;
+          const px = Math.cos(a) * size;
+          const py = Math.sin(a) * size;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        break;
+      }
+      case 'star': {
+        ctx.beginPath();
+        for (let i = 0; i <= 10; i++) {
+          const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+          const r = i % 2 === 0 ? size : size * 0.45;
+          const px = Math.cos(a) * r;
+          const py = Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        break;
+      }
+      case 'dot': {
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.max(1, size * 0.3), 0, Math.PI * 2);
+        ctx.fillStyle = rgbStr(color, alpha);
+        ctx.fill();
+        break;
+      }
+      case 'line': {
+        ctx.beginPath();
+        ctx.moveTo(-size, 0);
+        ctx.lineTo(size, 0);
+        ctx.stroke();
+        break;
+      }
+    }
+    ctx.restore();
+  }
+
+  function updateCenterpiece(dt, amp, bass, time) {
+    if (state.cpShape === 'none') return;
+
+    // Reinit if count or motion changed while paused in none-state
+    if (cpParticles.length !== Math.floor(state.cpCount)) {
+      resetCenterpiece();
+    }
+
+    // Cycle shape/motion
+    if (state.cpCycleShape || state.cpCycleMotion) {
+      cpCycleTimer += dt;
+      if (cpCycleTimer >= state.cpCycleDuration) {
+        cpCycleTimer = 0;
+        if (state.cpCycleShape) {
+          cpShapeIndex = (cpShapeIndex + 1) % CP_SHAPES.length;
+          state.cpShape = CP_SHAPES[cpShapeIndex];
+          document.getElementById('cpShape').value = state.cpShape;
+        }
+        if (state.cpCycleMotion) {
+          cpMotionIndex = (cpMotionIndex + 1) % CP_MOTIONS.length;
+          state.cpMotion = CP_MOTIONS[cpMotionIndex];
+          document.getElementById('cpMotion').value = state.cpMotion;
+          resetCenterpiece(); // motion change requires new particle init
+        }
+      }
+    }
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxR = Math.min(w, h) * 0.45;
+    const maxDim = Math.max(w, h);
+    const react = state.cpReact;
+    const speedBase = state.cpSpeed * (1 + amp * react * 1.5);
+    const invert = state.cpInvert ? -1 : 1;
+
+    // --- Flock direction update (Dance motion) ---
+    // Detect bass rising edge for direction changes
+    if (state.cpMotion === 'dance') {
+      flock.timeSinceChange += dt;
+      const bassDelta = bass - flock.lastBassLevel;
+      // Trigger a direction change on strong bass hits, with a minimum interval to avoid jitter
+      if (bassDelta > 0.08 * (1.2 - react * 0.7) && flock.timeSinceChange > 1.2) {
+        const newAngle = Math.random() * Math.PI * 2;
+        flock.targetDirX = Math.cos(newAngle);
+        flock.targetDirY = Math.sin(newAngle);
+        flock.timeSinceChange = 0;
+      }
+      flock.lastBassLevel = bass;
+      // Also periodic changes every ~6 seconds even without strong bass, so it never feels stuck
+      if (flock.timeSinceChange > 6) {
+        const newAngle = Math.random() * Math.PI * 2;
+        flock.targetDirX = Math.cos(newAngle);
+        flock.targetDirY = Math.sin(newAngle);
+        flock.timeSinceChange = 0;
+      }
+      // Smoothly ease direction toward target
+      flock.dirX += (flock.targetDirX - flock.dirX) * 0.04;
+      flock.dirY += (flock.targetDirY - flock.dirY) * 0.04;
+      // Speed pulses with amplitude
+      flock.speed = 60 + amp * react * 150;
+    }
+
+    for (let i = 0; i < cpParticles.length; i++) {
+      const p = cpParticles[i];
+      p.age += dt;
+      p.rotation += p.rotSpeed * speedBase;
+
+      switch (state.cpMotion) {
+        case 'orbit': {
+          // Three concentric lanes at 25%, 55%, 85% of maxR — distinct planetary rings
+          const laneRadii = [maxR * 0.25, maxR * 0.55, maxR * 0.9];
+          const laneR = laneRadii[p.orbitLane];
+          // Each lane has slightly different rotation speed (outer = slower, like real orbits)
+          const laneSpeedMul = [1.2, 0.9, 0.7][p.orbitLane];
+          const orbitSpeed = 0.5 * speedBase * p.speedMul * laneSpeedMul * invert;
+          p.phase += orbitSpeed * dt;
+          const r = laneR * (1 + amp * react * 0.15 + bass * react * 0.15);
+          // Apply ellipse: rotate frame by ellipseAngle, scale Y by ellipseRatio
+          const cosE = Math.cos(p.ellipseAngle);
+          const sinE = Math.sin(p.ellipseAngle);
+          const ex = Math.cos(p.phase + p.orbitPhaseOffset) * r;
+          const ey = Math.sin(p.phase + p.orbitPhaseOffset) * r * p.ellipseRatio;
+          p.x = cx + ex * cosE - ey * sinE;
+          p.y = cy + ex * sinE + ey * cosE;
+          break;
+        }
+        case 'bounce': {
+          p.x += p.vx * dt * speedBase;
+          p.y += p.vy * dt * speedBase;
+          p.vx += (Math.random() - 0.5) * amp * react * 80 * dt;
+          p.vy += (Math.random() - 0.5) * amp * react * 80 * dt;
+          const offScreen = p.x < -200 || p.x > w + 200 || p.y < -200 || p.y > h + 200;
+          const reachedCenter = state.cpInvert && Math.hypot(p.x - cx, p.y - cy) < 30;
+          if (offScreen || reachedCenter) {
+            const ang = Math.random() * Math.PI * 2;
+            const speed = 80 + Math.random() * 120;
+            if (state.cpInvert) {
+              const side = Math.floor(Math.random() * 4);
+              if (side === 0) { p.x = -50; p.y = Math.random() * h; }
+              else if (side === 1) { p.x = w + 50; p.y = Math.random() * h; }
+              else if (side === 2) { p.x = Math.random() * w; p.y = -50; }
+              else { p.x = Math.random() * w; p.y = h + 50; }
+              const dx = cx - p.x;
+              const dy = cy - p.y;
+              const len = Math.hypot(dx, dy);
+              p.vx = (dx / len) * speed;
+              p.vy = (dy / len) * speed;
+            } else {
+              p.x = cx;
+              p.y = cy;
+              p.vx = Math.cos(ang) * speed;
+              p.vy = Math.sin(ang) * speed;
+            }
+          }
+          break;
+        }
+        case 'spiral': {
+          const spiralSpeed = 0.6 * speedBase * p.speedMul * invert;
+          p.phase += spiralSpeed * dt;
+          p.spiralTurn += dt * 0.15 * speedBase * invert;
+          let cyclePos = (p.spiralTurn + p.radiusOffset * 2) % 4;
+          if (cyclePos < 0) cyclePos += 4;
+          const r = (cyclePos / 4) * (maxDim * 0.7) * (1 + amp * react * 0.2);
+          const spiralAngle = p.phase + p.spiralTurn * 3;
+          p.x = cx + Math.cos(spiralAngle) * r;
+          p.y = cy + Math.sin(spiralAngle) * r;
+          break;
+        }
+        case 'cascade': {
+          const lifeRatio = p.age / p.life;
+          if (lifeRatio >= 1) {
+            p.age = 0;
+            p.angle = Math.random() * Math.PI * 2;
+            p.life = 3 + Math.random() * 4;
+          }
+          const maxDist = maxDim * 0.7;
+          if (state.cpInvert) {
+            // Inverted: each particle has its own start radius on the outer ring
+            // (varied slightly per particle so they don't all start from the same circle)
+            const startR = maxDist * (0.8 + p.radiusOffset * 0.3);
+            const dist = (1 - lifeRatio) * startR * speedBase * (1 + bass * react * 0.3);
+            p.x = cx + Math.cos(p.angle) * dist;
+            p.y = cy + Math.sin(p.angle) * dist;
+          } else {
+            const dist = lifeRatio * maxDist * speedBase * (1 + bass * react * 0.5);
+            p.x = cx + Math.cos(p.angle) * dist;
+            p.y = cy + Math.sin(p.angle) * dist;
+          }
+          break;
+        }
+        case 'dance': {
+          const directionSpeed = flock.speed * speedBase * p.speedMul;
+          p.x += flock.dirX * directionSpeed * dt * invert;
+          p.y += flock.dirY * directionSpeed * dt * invert;
+          p.wobblePhase = (p.wobblePhase || 0) + p.wobbleSpeed * dt * (1 + amp * react);
+          const perpX = -flock.dirY;
+          const perpY = flock.dirX;
+          const wobbleAmount = Math.sin(p.wobblePhase) * 25 * (1 + amp * react);
+          p.x += perpX * wobbleAmount * dt * speedBase;
+          p.y += perpY * wobbleAmount * dt * speedBase;
+          if (p.x < -100) p.x = w + 100;
+          else if (p.x > w + 100) p.x = -100;
+          if (p.y < -100) p.y = h + 100;
+          else if (p.y > h + 100) p.y = -100;
+          break;
+        }
+        case 'warp': {
+          // Each particle has a fixed angular direction. Progress 0-1 traces from near-center
+          // out to past the screen edge. Size/streak length grow with progress.
+          // When inverted, particles stream inward toward center.
+          const warpVelocity = p.warpSpeed * speedBase * (1 + amp * react * 1.5) * 0.6;
+          p.prevX = p.x;
+          p.prevY = p.y;
+          p.warpProgress += warpVelocity * dt * (state.cpInvert ? -1 : 1);
+
+          // Reset when past the edge (or at center if inverted)
+          if (!state.cpInvert && p.warpProgress > 1.1) {
+            p.warpProgress = 0;
+            p.angle = Math.random() * Math.PI * 2; // new direction each cycle
+            p.warpSpeed = 0.3 + Math.random() * 0.7;
+          } else if (state.cpInvert && p.warpProgress < -0.1) {
+            p.warpProgress = 1;
+            p.angle = Math.random() * Math.PI * 2;
+            p.warpSpeed = 0.3 + Math.random() * 0.7;
+          }
+
+          // Ease into motion from center — squared curve so particles accelerate outward
+          const easedProgress = p.warpProgress * p.warpProgress;
+          const r = easedProgress * maxDim * 0.75;
+          p.x = cx + Math.cos(p.angle) * r;
+          p.y = cy + Math.sin(p.angle) * r;
+          break;
+        }
+      }
+    }
+  }
+
+  function drawCenterpiece(amp, bass, time) {
+    if (state.cpShape === 'none') return;
+    const baseSize = state.cpSize;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    for (let i = 0; i < cpParticles.length; i++) {
+      const p = cpParticles[i];
+      const audioSize = baseSize * p.sizeMul * (1 + amp * state.cpReact * 0.6);
+
+      // Alpha depends on motion — some motions fade particles
+      let alpha = 0.8;
+      if (state.cpMotion === 'cascade') {
+        const lifeRatio = p.age / p.life;
+        alpha = Math.max(0, 1 - lifeRatio) * 0.9;
+      } else if (state.cpMotion === 'warp') {
+        // Warp particles fade in from center, brighten near edge
+        const progress = Math.abs(p.warpProgress);
+        alpha = Math.min(1, progress * 1.5) * 0.95;
+      }
+
+      const distFromCenter = Math.hypot(p.x - cx, p.y - cy);
+      const normDist = Math.min(1, distFromCenter / 300);
+      const angleFromCenter = Math.atan2(p.y - cy, p.x - cx);
+      const angleT = (angleFromCenter + Math.PI) / (Math.PI * 2);
+      const color = sampleColor(normDist, angleT, time);
+
+      if (state.cpMotion === 'warp') {
+        // Special warp rendering: orient shape toward center and draw a trailing streak
+        // Streak length grows with radial distance — simulating motion blur of fast travel
+        const streakLength = Math.min(200, distFromCenter * 0.6);
+        const rotation = Math.atan2(p.y - cy, p.x - cx); // pointing outward from center
+
+        // Draw the streak line first, underneath the shape
+        ctx.save();
+        ctx.strokeStyle = rgbStr(color, alpha * 0.5);
+        ctx.lineWidth = Math.max(1, audioSize * 0.15);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        // Streak goes from particle position inward toward center
+        const backX = p.x - Math.cos(rotation) * streakLength;
+        const backY = p.y - Math.sin(rotation) * streakLength;
+        ctx.moveTo(backX, backY);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.restore();
+
+        // Then draw the shape itself at the leading edge, rotated to face outward
+        drawCpShape(state.cpShape, p.x, p.y, audioSize, rotation, color, alpha);
+      } else {
+        drawCpShape(state.cpShape, p.x, p.y, audioSize, p.rotation, color, alpha);
+      }
+    }
+  }
+
+  // Initialize on load
+  resetCenterpiece();
+
   let rotationPhase = 0;
   let bassHitDecay = 0;
   let lastBass = 0;
@@ -2098,6 +2634,8 @@
 
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
+    updateCenterpiece(0.016, amp, bass, time);
+    drawCenterpiece(amp, bass, time);
     applyOverlays();
     requestAnimationFrame(render);
   }
