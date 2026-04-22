@@ -1,0 +1,1149 @@
+{
+  "id": "take-it-out",
+  "title": "Take It Out",
+  "tagline": "",
+  "description": "",
+  "tags": [],
+  "bg": "linear-gradient(160deg,#0c1a2a 0%,#193558 40%,#27607e 70%,#09121b 100%)",
+  "bgs": {
+    "a": "linear-gradient(160deg,#0c1a2a,#193558)",
+    "b": "linear-gradient(160deg,#0a1520,#192d3e)",
+    "c": "linear-gradient(160deg,#18061a,#3a1240)",
+    "d": "linear-gradient(160deg,#07090e,#101825)"
+  },
+  "coverImage": null,
+  "defaultBgImage": null,
+  "narrator": {
+    "name": "Narrator",
+    "emoji": "🎭",
+    "portraits": {}
+  },
+  "ambient": null,
+  "duration": "",
+  "paths": 1,
+  "startScene": "scene_01",
+  "scenes": {
+    "scene_01": {
+      "id": "scene_01",
+      "title": "Scene 1",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_02"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_02": {
+      "id": "scene_02",
+      "title": "Scene 2",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_03"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_03": {
+      "id": "scene_03",
+      "title": "Scene 3",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_04"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_04": {
+      "id": "scene_04",
+      "title": "Scene 4",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_05"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_05": {
+      "id": "scene_05",
+      "title": "Scene 5",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_06"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_06": {
+      "id": "scene_06",
+      "title": "Scene 6",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_07"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_07": {
+      "id": "scene_07",
+      "title": "Scene 7",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_08"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_08": {
+      "id": "scene_08",
+      "title": "Scene 8",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_09"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_09": {
+      "id": "scene_09",
+      "title": "Scene 9",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_10"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_10": {
+      "id": "scene_10",
+      "title": "Scene 10",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_11"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_11": {
+      "id": "scene_11",
+      "title": "Scene 11",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_12"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_12": {
+      "id": "scene_12",
+      "title": "Scene 12",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_13"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_13": {
+      "id": "scene_13",
+      "title": "Scene 13",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_14"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_14": {
+      "id": "scene_14",
+      "title": "Scene 14",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_15"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_15": {
+      "id": "scene_15",
+      "title": "Scene 15",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_16"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_16": {
+      "id": "scene_16",
+      "title": "Scene 16",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_17"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_17": {
+      "id": "scene_17",
+      "title": "Scene 17",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_18"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_18": {
+      "id": "scene_18",
+      "title": "Scene 18",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_19"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_19": {
+      "id": "scene_19",
+      "title": "Scene 19",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_20"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_20": {
+      "id": "scene_20",
+      "title": "Scene 20",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_21"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_21": {
+      "id": "scene_21",
+      "title": "Scene 21",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_22"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_22": {
+      "id": "scene_22",
+      "title": "Scene 22",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_23"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_23": {
+      "id": "scene_23",
+      "title": "Scene 23",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_24"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_24": {
+      "id": "scene_24",
+      "title": "Scene 24",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_25"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_25": {
+      "id": "scene_25",
+      "title": "Scene 25",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_26"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_26": {
+      "id": "scene_26",
+      "title": "Scene 26",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_27"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_27": {
+      "id": "scene_27",
+      "title": "Scene 27",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_28"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_28": {
+      "id": "scene_28",
+      "title": "Scene 28",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_29"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_29": {
+      "id": "scene_29",
+      "title": "Scene 29",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_30"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_30": {
+      "id": "scene_30",
+      "title": "Scene 30",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_31"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_31": {
+      "id": "scene_31",
+      "title": "Scene 31",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_32"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_32": {
+      "id": "scene_32",
+      "title": "Scene 32",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_33"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_33": {
+      "id": "scene_33",
+      "title": "Scene 33",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_34"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_34": {
+      "id": "scene_34",
+      "title": "Scene 34",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_35"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_35": {
+      "id": "scene_35",
+      "title": "Scene 35",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_36"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_36": {
+      "id": "scene_36",
+      "title": "Scene 36",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_37"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_37": {
+      "id": "scene_37",
+      "title": "Scene 37",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_38"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_38": {
+      "id": "scene_38",
+      "title": "Scene 38",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_39"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_39": {
+      "id": "scene_39",
+      "title": "Scene 39",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_40"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_40": {
+      "id": "scene_40",
+      "title": "Scene 40",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_41"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_41": {
+      "id": "scene_41",
+      "title": "Scene 41",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_42"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_42": {
+      "id": "scene_42",
+      "title": "Scene 42",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_43"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_43": {
+      "id": "scene_43",
+      "title": "Scene 43",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_44"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_44": {
+      "id": "scene_44",
+      "title": "Scene 44",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_45"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_45": {
+      "id": "scene_45",
+      "title": "Scene 45",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_46"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_46": {
+      "id": "scene_46",
+      "title": "Scene 46",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_47"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_47": {
+      "id": "scene_47",
+      "title": "Scene 47",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_48"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_48": {
+      "id": "scene_48",
+      "title": "Scene 48",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_49"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_49": {
+      "id": "scene_49",
+      "title": "Scene 49",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_50"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_50": {
+      "id": "scene_50",
+      "title": "Scene 50",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_51"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_51": {
+      "id": "scene_51",
+      "title": "Scene 51",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_52"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_52": {
+      "id": "scene_52",
+      "title": "Scene 52",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_53"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_53": {
+      "id": "scene_53",
+      "title": "Scene 53",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_54"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_54": {
+      "id": "scene_54",
+      "title": "Scene 54",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_55"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_55": {
+      "id": "scene_55",
+      "title": "Scene 55",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_56"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_56": {
+      "id": "scene_56",
+      "title": "Scene 56",
+      "emotion": "curious",
+      "bgKey": "d",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_57"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_57": {
+      "id": "scene_57",
+      "title": "Scene 57",
+      "emotion": "curious",
+      "bgKey": "a",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_58"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_58": {
+      "id": "scene_58",
+      "title": "Scene 58",
+      "emotion": "curious",
+      "bgKey": "b",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": 0,
+      "countdown": 6,
+      "choices": [
+        {
+          "text": "Continue…",
+          "target": "scene_59"
+        }
+      ],
+      "ambient": null
+    },
+    "scene_59": {
+      "id": "scene_59",
+      "title": "Scene 59",
+      "emotion": "curious",
+      "bgKey": "c",
+      "bgImage": null,
+      "script": "",
+      "clips": [],
+      "secondsBeforeEnd": 7,
+      "defaultChoice": null,
+      "countdown": 0,
+      "choices": [],
+      "ambient": null
+    }
+  },
+  "defaults": {
+    "secondsBeforeEnd": 7,
+    "countdown": 6
+  },
+  "hidden": true,
+  "updatedAt": 1776837352129
+}
