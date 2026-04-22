@@ -480,7 +480,9 @@ export default function Creator() {
           </div>
           {sidebarOpen && (
             <div className="overflow-y-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--s3) transparent' }}>
-              {story && Object.values(story.scenes).map(sc => (
+              {story && Object.values(story.scenes).slice().sort((a, b) =>
+                (a.title || a.id).localeCompare(b.title || b.id, undefined, { numeric: true, sensitivity: 'base' })
+              ).map(sc => (
                 <div
                   key={sc.id}
                   className="cursor-pointer transition-colors"

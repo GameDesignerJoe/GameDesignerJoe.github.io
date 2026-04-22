@@ -3,6 +3,11 @@ import { SmartShuffle } from '../engine/SmartShuffle'
 import { loadStoryAudio } from '../engine/AudioStore'
 import { loadStoryImages } from '../engine/ImageStore'
 
+// Reserved choice.target value that means "exit the player and return to the
+// library (or creator, if launched from there)". Chosen with leading/trailing
+// underscores so it can't collide with a user-authored scene ID.
+export const END_STORY = '__end__'
+
 // ── Persistence helpers ──
 const STORIES_KEY = 'murmur_stories'
 
@@ -240,6 +245,9 @@ export const useStore = create((set, get) => ({
     history: [],
     shufflers: {},
     returnTo: 'library', // where to go when closing the player
+    // Bumps on every goToScene so self-loops re-trigger the Player's scene
+    // effect (its sceneId dep wouldn't change otherwise).
+    playTick: 0,
   },
 
   launchStory: async (story, sceneId, history = []) => {
@@ -299,14 +307,14 @@ export const useStore = create((set, get) => ({
     const returnTo = get().view === 'creator' ? 'creator' : 'library'
     set({
       view: 'player',
-      player: { story, sceneId, history: [...history], shufflers, returnTo },
+      player: { story, sceneId, history: [...history], shufflers, returnTo, playTick: 0 },
     })
   },
 
   goToScene: (sceneId) => set(s => {
     const history = [...s.player.history]
     if (!history.includes(sceneId)) history.push(sceneId)
-    const newPlayer = { ...s.player, sceneId, history }
+    const newPlayer = { ...s.player, sceneId, history, playTick: (s.player.playTick || 0) + 1 }
     // Save to localStorage
     if (s.player.story) {
       localStorage.setItem(
@@ -319,7 +327,7 @@ export const useStore = create((set, get) => ({
 
   closePlayer: () => set(s => ({
     view: s.player.returnTo || 'library',
-    player: { story: null, sceneId: null, history: [], shufflers: {}, returnTo: 'library' },
+    player: { story: null, sceneId: null, history: [], shufflers: {}, returnTo: 'library', playTick: 0 },
   })),
 
   // Creator state
@@ -390,6 +398,45 @@ export const useStore = create((set, get) => ({
     const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
     saveStories(stories)
     return { creator: { ...s.creator, story, positions, selectedNodeId: id }, stories }
+  }),
+
+  // Chain a new scene off the given one: creates a scene, links it via a single
+  // "Continue…" choice, and drops it below the parent in the graph. If the
+  // parent was an end node (no choices), also restores sensible default-choice /
+  // countdown / reveal timing so the auto-advance works.
+  addSceneAfter: (fromId) => set(s => {
+    const story = JSON.parse(JSON.stringify(s.creator.story))
+    const from = story.scenes[fromId]
+    if (!from) return s
+    const newId = 'scene_' + Date.now()
+    const d = story.defaults || {}
+    story.scenes[newId] = {
+      id: newId, title: 'New Scene', emotion: 'default', bgKey: 'a', bgImage: null,
+      script: '', scriptUpdatedAt: null, audioGeneratedAt: null,
+      clips: [],
+      secondsBeforeEnd: d.secondsBeforeEnd ?? 5,
+      defaultChoice: 0,
+      countdown: d.countdown ?? 10,
+      choices: []
+    }
+    if (from.choices.length === 0) {
+      from.defaultChoice = 0
+      if (!from.countdown) from.countdown = d.countdown ?? 10
+      if (!from.secondsBeforeEnd) from.secondsBeforeEnd = d.secondsBeforeEnd ?? 5
+    }
+    from.choices.push({ text: 'Continue…', target: newId })
+
+    const positions = { ...s.creator.positions }
+    const fromPos = positions[fromId]
+    const NH = 118
+    positions[newId] = fromPos
+      ? { x: fromPos.x, y: fromPos.y + NH + 60 }
+      : { x: 60, y: 60 }
+
+    story.updatedAt = Date.now()
+    const stories = upsertStory(s.stories, JSON.parse(JSON.stringify(story)))
+    saveStories(stories)
+    return { creator: { ...s.creator, story, positions, selectedNodeId: newId }, stories }
   }),
 
   deleteScene: (id) => set(s => {

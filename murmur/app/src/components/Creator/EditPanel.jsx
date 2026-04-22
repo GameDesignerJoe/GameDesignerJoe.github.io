@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { useStore } from '../../store'
+import { useStore, END_STORY } from '../../store'
 import ImageInputWithGenerate from './ImageInputWithGenerate'
+import { listAudioFiles } from '../../engine/ProjectFolderStore'
+import { resolveAssetPath } from '../../engine/assetPath'
 
 const EMOTIONS = ['default', 'curious', 'happy', 'sad', 'afraid', 'determined', 'unsettled', 'dissociated', 'hollow', 'controlled']
 
@@ -31,12 +33,14 @@ function ClipRow({ src, sceneId, onRemove }) {
   const [playing, setPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
+  const [dragging, setDragging] = useState(false)
   const audioRef = useRef(null)
+  const trackRef = useRef(null)
 
   useEffect(() => {
     const audio = new Audio()
     audio.preload = 'metadata'
-    audio.src = src
+    audio.src = resolveAssetPath(src)
     audioRef.current = audio
 
     const onMeta = () => setDuration(audio.duration)
@@ -62,6 +66,29 @@ function ClipRow({ src, sceneId, onRemove }) {
     if (playing) { audio.pause(); setPlaying(false) }
     else { audio.play().catch(() => {}); setPlaying(true) }
   }
+
+  const seekToClientX = (clientX) => {
+    const el = trackRef.current
+    const audio = audioRef.current
+    if (!el || !audio || !duration) return
+    const rect = el.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    const t = pct * duration
+    audio.currentTime = t
+    setCurrentTime(t)
+  }
+
+  useEffect(() => {
+    if (!dragging) return
+    const onMove = (e) => seekToClientX(e.clientX)
+    const onUp = () => setDragging(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragging, duration])
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const name = clipDisplayName(src, sceneId)
@@ -106,12 +133,22 @@ function ClipRow({ src, sceneId, onRemove }) {
         >×</span>
       </div>
 
-      {/* Progress bar */}
-      <div className="mt-2 h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--s3)' }}>
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${progress}%`, background: 'var(--gold)', transition: 'width 0.15s linear' }}
-        />
+      {/* Progress bar — click or drag to seek */}
+      <div
+        ref={trackRef}
+        onMouseDown={e => { setDragging(true); seekToClientX(e.clientX) }}
+        className="mt-2 py-[6px] cursor-pointer"
+      >
+        <div className="h-[3px] rounded-full overflow-hidden" style={{ background: 'var(--s3)' }}>
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${progress}%`,
+              background: 'var(--gold)',
+              transition: dragging ? 'none' : 'width 0.15s linear',
+            }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -123,14 +160,34 @@ export default function EditPanel({ onOpenImageStudio }) {
   const setStartScene = useStore(s => s.setStartScene)
   const deleteScene = useStore(s => s.deleteScene)
   const selectNode = useStore(s => s.selectNode)
+  const launchStory = useStore(s => s.launchStory)
 
   const { story, selectedNodeId } = creator
-  if (!story || !selectedNodeId) return null
+  const storyId = story?.id
 
+  // Audio files discovered in the project folder's audio/ subdirectory.
+  // null = no folder linked / no permission (fall back to text input).
+  const [audioFiles, setAudioFiles] = useState(null)
+  useEffect(() => {
+    if (!storyId) return
+    let cancelled = false
+    listAudioFiles(storyId).then(files => {
+      if (!cancelled) setAudioFiles(files)
+    })
+    return () => { cancelled = true }
+  }, [storyId])
+
+  if (!story || !selectedNodeId) return null
   const scene = story.scenes[selectedNodeId]
   if (!scene) return null
 
-  const otherScenes = Object.keys(story.scenes).filter(k => k !== selectedNodeId)
+  // Natural sort by title (fallback to id) so "Scene 2" < "Scene 10" in dropdowns.
+  const allSceneIds = Object.keys(story.scenes).sort((a, b) => {
+    const la = story.scenes[a]?.title || a
+    const lb = story.scenes[b]?.title || b
+    return la.localeCompare(lb, undefined, { numeric: true, sensitivity: 'base' })
+  })
+  const otherScenes = allSceneIds.filter(k => k !== selectedNodeId)
 
   const handleClipAdd = (e) => {
     if (e.key !== 'Enter') return
@@ -138,6 +195,11 @@ export default function EditPanel({ onOpenImageStudio }) {
     if (!val) return
     updateScene(selectedNodeId, 'clips', [...scene.clips, val])
     e.target.value = ''
+  }
+
+  const handleClipPick = (filename) => {
+    if (!filename) return
+    updateScene(selectedNodeId, 'clips', [...scene.clips, `${story.id}/audio/${filename}`])
   }
 
   const removeClip = (i) => {
@@ -248,7 +310,18 @@ export default function EditPanel({ onOpenImageStudio }) {
               <ClipRow key={`${selectedNodeId}-${i}`} src={c} sceneId={selectedNodeId} onRemove={() => removeClip(i)} />
             ))}
           </div>
-          <input className="cr-input mt-2" placeholder="path/to/clip.mp3" onKeyDown={handleClipAdd} />
+          {audioFiles && audioFiles.length > 0 ? (
+            <select
+              className="cr-input mt-2"
+              value=""
+              onChange={e => handleClipPick(e.target.value)}
+            >
+              <option value="">+ Add audio clip from {storyId}/audio/…</option>
+              {audioFiles.map(fn => <option key={fn} value={fn}>{fn}</option>)}
+            </select>
+          ) : (
+            <input className="cr-input mt-2" placeholder="path/to/clip.mp3" onKeyDown={handleClipAdd} />
+          )}
         </Field>
 
         {/* Choices */}
@@ -275,8 +348,11 @@ export default function EditPanel({ onOpenImageStudio }) {
                   value={ch.target}
                   onChange={e => updateChoice(i, 'target', e.target.value)}
                 >
-                  {otherScenes.map(oid => (
-                    <option key={oid} value={oid}>{story.scenes[oid]?.title || oid}</option>
+                  <option value={END_STORY}>⏹ End Story (Return to Library)</option>
+                  {allSceneIds.map(oid => (
+                    <option key={oid} value={oid}>
+                      {oid === selectedNodeId ? '↻ ' : ''}{story.scenes[oid]?.title || oid}{oid === selectedNodeId ? ' (loop)' : ''}
+                    </option>
                   ))}
                 </select>
                 <div className="flex items-center justify-between mt-1">
@@ -308,6 +384,13 @@ export default function EditPanel({ onOpenImageStudio }) {
 
         {/* Actions */}
         <div className="flex flex-col gap-3" style={{ padding: '16px 20px' }}>
+          <button
+            className="w-full p-3 rounded-xl text-center text-[14px] cursor-pointer transition-all hover:border-[var(--sub)] hover:text-[var(--text)]"
+            style={{ color: 'var(--gold)', background: 'var(--s2)', border: '1px solid rgba(201,169,110,0.25)' }}
+            onClick={() => launchStory(story, selectedNodeId)}
+          >
+            ▶ Play from Here
+          </button>
           <button
             className="w-full p-3 rounded-xl text-center text-[14px] cursor-pointer transition-all hover:border-[var(--sub)] hover:text-[var(--text)]"
             style={{

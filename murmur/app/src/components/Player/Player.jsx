@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useStore } from '../../store'
+import { useStore, END_STORY } from '../../store'
 import audioEngine from '../../engine/AudioEngine'
 import Background from './Background'
 import Portrait from './Portrait'
@@ -19,7 +19,7 @@ export default function Player() {
   const fallbackTimer = useRef(null)
   const queuedChoice = useRef(null)
 
-  const { story, sceneId, history, shufflers } = player
+  const { story, sceneId, history, shufflers, playTick } = player
 
   useEffect(() => {
     if (view !== 'player' || !story || !sceneId) return
@@ -71,7 +71,13 @@ export default function Player() {
           setTimeout(() => {
             setFlashOn(false)
             setInstant(false)
-            goToScene(target)
+            if (target === END_STORY) {
+              audioEngine.stop()
+              ambientStarted.current = false
+              closePlayer()
+            } else {
+              goToScene(target)
+            }
           }, 240)
           return
         }
@@ -84,7 +90,7 @@ export default function Player() {
     return () => {
       if (fallbackTimer.current) clearTimeout(fallbackTimer.current)
     }
-  }, [view, sceneId, story?.id])
+  }, [view, sceneId, story?.id, playTick])
 
   const handleChoose = useCallback((targetId) => {
     if (fallbackTimer.current) clearTimeout(fallbackTimer.current)
@@ -106,7 +112,13 @@ export default function Player() {
     setTimeout(() => {
       setFlashOn(false)
       setInstant(false)
-      goToScene(targetId)
+      if (targetId === END_STORY) {
+        audioEngine.stop()
+        ambientStarted.current = false
+        closePlayer()
+      } else {
+        goToScene(targetId)
+      }
     }, 240)
   }, [goToScene, closePlayer])
 

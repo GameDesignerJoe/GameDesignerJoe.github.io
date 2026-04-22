@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { useStore } from '../../store'
+import { useStore, END_STORY } from '../../store'
 
 const MIN_ZOOM = 0.3
 const MAX_ZOOM = 2.0
@@ -9,6 +9,7 @@ export default function NodeGraph() {
   const creator = useStore(s => s.creator)
   const selectNode = useStore(s => s.selectNode)
   const updateNodePosition = useStore(s => s.updateNodePosition)
+  const addSceneAfter = useStore(s => s.addSceneAfter)
   const svgRef = useRef(null)
   const canvasRef = useRef(null)
   const innerRef = useRef(null)
@@ -265,6 +266,7 @@ export default function NodeGraph() {
               updateNodePosition(sc.id, x, y)
               drawEdges()
             }}
+            onAddAfter={() => addSceneAfter(sc.id)}
             zoomRef={zoomRef}
           />
         ))}
@@ -307,7 +309,7 @@ function ZoomBtn({ onClick, label }) {
   )
 }
 
-function SceneNode({ scene, story, pos, isSelected, isStart, onSelect, onDrag, zoomRef }) {
+function SceneNode({ scene, story, pos, isSelected, isStart, onSelect, onDrag, onAddAfter, zoomRef }) {
   const nodeRef = useRef(null)
   const dragState = useRef({ down: false, moved: false, sx: 0, sy: 0, ox: 0, oy: 0 })
 
@@ -386,24 +388,48 @@ function SceneNode({ scene, story, pos, isSelected, isStart, onSelect, onDrag, z
           🔊 {scene.clips.length} clip{scene.clips.length !== 1 ? 's' : ''}
         </div>
         <div className="flex flex-col gap-1">
-          {scene.choices.map((c, i) => (
-            <div
-              key={i}
-              className="text-[10px] rounded-[6px] px-2 py-[3px] truncate"
-              style={{
-                color: 'var(--gold)',
-                background: 'var(--gold10)',
-                border: i === scene.defaultChoice ? '1px solid rgba(201,169,110,0.35)' : 'none',
-              }}
-            >
-              {i === scene.defaultChoice ? '★ ' : ''}{c.text.slice(0, 28)}{c.text.length > 28 ? '…' : ''}
-            </div>
-          ))}
+          {scene.choices.map((c, i) => {
+            const isEnd = c.target === END_STORY
+            return (
+              <div
+                key={i}
+                className="text-[10px] rounded-[6px] px-2 py-[3px] truncate"
+                style={{
+                  color: 'var(--gold)',
+                  background: 'var(--gold10)',
+                  border: i === scene.defaultChoice ? '1px solid rgba(201,169,110,0.35)' : 'none',
+                }}
+              >
+                {i === scene.defaultChoice ? '★ ' : ''}{isEnd ? '⏹ ' : ''}{c.text.slice(0, 28)}{c.text.length > 28 ? '…' : ''}
+              </div>
+            )
+          })}
           {scene.choices.length === 0 && (
             <div className="text-[10px] italic" style={{ color: 'var(--mute)' }}>End node</div>
           )}
         </div>
       </div>
+
+      {/* Chain-new-scene button — only on end nodes. Sits on the right outline. */}
+      {scene.choices.length === 0 && onAddAfter && (
+        <button
+          className="absolute flex items-center justify-center cursor-pointer transition-all"
+          style={{
+            right: -11, top: '50%', transform: 'translateY(-50%)',
+            width: 22, height: 22, borderRadius: '50%',
+            background: 'var(--bg)',
+            border: '1px solid var(--gold)',
+            color: 'var(--gold)',
+            fontSize: 15, lineHeight: 1, padding: 0,
+            zIndex: 2,
+          }}
+          title="Add new scene connected from here"
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onAddAfter() }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--gold)'; e.currentTarget.style.color = 'var(--bg)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg)'; e.currentTarget.style.color = 'var(--gold)' }}
+        >+</button>
+      )}
     </div>
   )
 }

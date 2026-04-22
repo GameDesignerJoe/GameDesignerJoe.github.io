@@ -86,6 +86,49 @@ export async function findFreeFilename(dirHandle, baseName, ext) {
 }
 
 /**
+ * List audio files in the story's Project Folder `audio/` subfolder.
+ *
+ * Returns:
+ *   - null  — no folder linked, permission not granted, or enumeration failed
+ *             (caller should fall back to the free-text path input)
+ *   - []    — folder linked but no audio files yet
+ *   - string[] — sorted list of filenames (e.g. "take-it-out-01.mp3")
+ *
+ * Uses queryPermission only (never requestPermission) so it can run on mount
+ * without a user gesture. Relies on permission already being granted during
+ * the initial Save to Project flow.
+ */
+export async function listAudioFiles(storyId) {
+  const handle = await getProjectFolder(storyId)
+  if (!handle) return null
+  try {
+    const perm = await handle.queryPermission({ mode: 'readwrite' })
+    if (perm !== 'granted') return null
+  } catch {
+    return null
+  }
+  let audioDir
+  try {
+    audioDir = await handle.getDirectoryHandle('audio')
+  } catch {
+    return []
+  }
+  const exts = ['.mp3', '.wav', '.m4a', '.ogg', '.flac']
+  const files = []
+  try {
+    for await (const entry of audioDir.values()) {
+      if (entry.kind !== 'file') continue
+      const lower = entry.name.toLowerCase()
+      if (exts.some(e => lower.endsWith(e))) files.push(entry.name)
+    }
+  } catch {
+    return null
+  }
+  files.sort()
+  return files
+}
+
+/**
  * Ensure we have readwrite permission on the stored handle. Must be called
  * from within a user gesture (e.g. click handler) or the browser will throw
  * SecurityError on requestPermission. Returns true if permission granted,
