@@ -442,6 +442,6 @@ No noteworthy perf concerns for MVP. The tree is 26 nodes, the audio is a single
 Served as a subpath of the portfolio repo at `https://gamedesignerjoe.github.io/meetMorse/`.
 
 - `vite.config.ts` sets `base: '/meetMorse/'` so built assets reference the correct paths.
-- `npm run build` produces `dist/`. GitHub Pages serves whatever files are committed at `meetMorse/`, so a deploy flow needs to land the built `index.html` and `assets/` at that path on the main branch.
-- The exact deploy mechanism (commit `dist/` contents directly, use a deploy script, or a GitHub Action) is not prescribed here — pick what fits when ready to ship. Local development via `npm run dev` is unaffected.
+- `npm run deploy` runs `vite build`, copies `dist/index.html` to `meetMorse/index.html` (the file GH Pages serves), replaces `meetMorse/assets/`, and removes `dist/`. Then commit `index.html`, `assets/`, `index.src.html`, and `scripts/` and push. The deploy logic lives in `scripts/deploy.cjs`.
+- Because the source Vite entry (`index.html`) and the deployed `index.html` live at the same path under flat-layout, the source is kept as `index.src.html` (committed). `predev` and `prebuild` npm scripts copy the template back to `index.html` before Vite reads it, so local `npm run dev` keeps working after a deploy.
 - No env variables needed. No custom domain config at MVP.

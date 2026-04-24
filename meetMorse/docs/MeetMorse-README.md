@@ -58,11 +58,14 @@ Open `http://localhost:5173` on desktop, or — to test the real thing — conne
 For deployment to GitHub Pages:
 
 ```bash
-npm run build
-# deploy the contents of dist/ into meetMorse/ on the main branch
+npm run deploy
+# then:
+git add meetMorse/index.html meetMorse/assets meetMorse/index.src.html meetMorse/scripts
+git commit -m "deploy meetMorse"
+git push
 ```
 
-GitHub Pages serves `https://gamedesignerjoe.github.io/meetMorse/` from the `meetMorse/` folder of the main branch. The deploy flow (commit `dist/` output directly, use a script, or a GitHub Action) is TBD — pick what fits when ready to ship.
+`npm run deploy` runs the Vite build, copies `dist/index.html` over `meetMorse/index.html` (the file GH Pages serves at `/meetMorse/`), replaces `meetMorse/assets/`, and removes `dist/`. It restores the source `index.html` from the committed `index.src.html` template before building, so local `npm run dev` keeps working between deploys.
 
 ---
 

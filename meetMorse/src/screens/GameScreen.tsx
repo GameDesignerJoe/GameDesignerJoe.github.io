@@ -14,7 +14,7 @@ export function GameScreen() {
   }, [resetTape]);
 
   return (
-    <div className="flex h-full w-full flex-col items-center gap-4 px-4 pt-3 pb-2">
+    <div className="flex h-full w-full flex-col items-center gap-3 px-4 pt-3 pb-2">
       <div className="flex w-full max-w-[28rem] items-center justify-between">
         <button
           type="button"
@@ -38,9 +38,10 @@ export function GameScreen() {
       </div>
 
       <PaperTape />
-      <MorseTree />
 
-      <div className="flex-1" />
+      <div className="flex min-h-0 w-full max-w-[28rem] flex-1 items-stretch justify-center">
+        <MorseTree />
+      </div>
 
       <TelegraphKey />
     </div>
