@@ -160,12 +160,23 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 - Result screen shows WPM headline, time, errors, and current best. Animated "★ New High Score ★" badge when the run beats the saved best.
 - High score persisted in localStorage at `meetmorse:scores`. Mode card shows `Best: X WPM` when a score exists.
 
-### 6. Listening
-- A word from the word list is played as Morse audio at 12 WPM. The target word is shown up top as underscores (one `_` per letter); each underscore reveals the actual letter only after the user successfully spells that position.
-- The tree does NOT dim non-target letters (that would reveal the answer). All 26 nodes stay normal-bright; the user's input lights up the on-path glow as usual.
+### 6. Listening — two variants
+
+Both variants share the same playback engine, replay button, blanked underscores in the word display, and "no tree dim" rule (dimming non-target letters would reveal the answer). They differ in difficulty.
+
+#### 6a. Listen · Letters (easier)
+- Plays a single random letter at a time. User transcribes it, advances to the next letter.
+- Each "round" of 26 letters works through all letters in random order before reshuffling.
+- Streak: consecutive error-free letters. Best persisted at `meetmorse:scores.listenLettersStreak`.
+
+#### 6b. Listen · Words (harder)
+- Plays a full word from the word list. User must transcribe the whole thing.
+- Streak: consecutive error-free words (any path-divergence or wrong-letter commit during a word resets it). Best persisted at `meetmorse:scores.listeningStreak`.
+
+Both variants:
 - A `↻ REPLAY` button under the word display re-plays the audio anytime.
-- Streak (correct words in a row, no mistakes within a word) shown at the top with the all-time best. Streak resets to 0 if the user makes any path-divergence or wrong-letter commit during a word; a clean run increments it.
-- Best streak persisted under `meetmorse:scores.listeningStreak` and displayed on the mode card.
+- Streak shown at the top with the all-time best for that variant.
+- Display target as underscores (`_`) until the user successfully spells each position.
 
 ### 7. Memory
 - The tree is hidden (or shown as dim outline only, no labels).

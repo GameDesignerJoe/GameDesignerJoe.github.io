@@ -4,6 +4,7 @@ import { guidedWord } from './guidedWord.js';
 import { timedWpm } from './timedWpm.js';
 import { practice } from './practice.js';
 import { listening } from './listening.js';
+import { listenLetters } from './listenLetters.js';
 
 // Placeholders for the modes we haven't built yet. They appear on the modes
 // screen as disabled cards; tapping them does nothing.
@@ -20,6 +21,7 @@ export const MODES = {
   alphabet,
   guidedWord,
   timedWpm,
+  listenLetters,
   listening,
   drill: placeholder('drill', 'Drill', 'Cluster of similar-letter words for repetition learning — coming soon.'),
   memory: placeholder('memory', 'Memory', 'No tree, no safety net — coming soon.'),
@@ -31,6 +33,7 @@ export const MODE_ORDER = [
   'alphabet',
   'guidedWord',
   'timedWpm',
+  'listenLetters',
   'listening',
   'drill',
   'memory',

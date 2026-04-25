@@ -1,13 +1,12 @@
 import { state } from '../state.js';
-import { replayCurrentWord } from '../modes/listening.js';
+import { getMode } from '../modes/index.js';
+import { replayCurrentWord } from '../modes/listenShared.js';
 
-let statusEl = null;
 let streakEl = null;
 let bestEl = null;
 let replayBtn = null;
 
 export function initListeningUI() {
-  statusEl = document.getElementById('listening-status');
   streakEl = document.querySelector('#listening-status .listening-streak-current strong');
   bestEl = document.querySelector('#listening-status .listening-streak-best strong');
   replayBtn = document.getElementById('replay-button');
@@ -19,5 +18,8 @@ export function initListeningUI() {
 
 export function renderListeningStatus() {
   if (streakEl) streakEl.textContent = String(state.listeningStreakCurrent || 0);
-  if (bestEl) bestEl.textContent = String(state.scores.listeningStreak || 0);
+  const mode = getMode(state.mode);
+  const scoreKey = mode.scoreKey || 'listeningStreak';
+  const best = state.scores[scoreKey] || 0;
+  if (bestEl) bestEl.textContent = String(best);
 }

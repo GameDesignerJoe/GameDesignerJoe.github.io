@@ -64,6 +64,10 @@ function scoreForMode(id) {
     const best = state.scores.listeningStreak || 0;
     if (best > 0) return `Best streak: ${best}`;
   }
+  if (id === 'listenLetters') {
+    const best = state.scores.listenLettersStreak || 0;
+    if (best > 0) return `Best streak: ${best}`;
+  }
   // Future: memoryWpmBest
   return null;
 }

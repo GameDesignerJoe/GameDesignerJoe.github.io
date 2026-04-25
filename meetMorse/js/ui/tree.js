@@ -221,3 +221,45 @@ export function renderTree() {
     refs.label.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
   }
 }
+
+const FEEDBACK_RISE_MS = 1100;
+const FEEDBACK_OFFSET_START = -4;
+const FEEDBACK_OFFSET_END = -16;
+
+// Drop a transient SVG text label at the given node, animating it up and
+// fading it out. Used to show "TOO FAST" / "TOO SLOW" near the wrong
+// node on a path-divergence error. Caller decides whether to invoke.
+export function showTimingFeedback(text, code) {
+  const tree = document.querySelector('#tree-container svg');
+  if (!tree) return;
+  const node = TREE_NODES.find((n) => n.code === code);
+  if (!node) return;
+
+  const txt = el('text', {
+    x: node.x,
+    y: node.y + FEEDBACK_OFFSET_START,
+    'text-anchor': 'middle',
+    'font-size': 4,
+    class: 'timing-feedback',
+  });
+  txt.textContent = text;
+  tree.appendChild(txt);
+
+  const startY = node.y + FEEDBACK_OFFSET_START;
+  const endY = node.y + FEEDBACK_OFFSET_END;
+  const t0 = performance.now();
+  function tick() {
+    const elapsed = performance.now() - t0;
+    const t = Math.min(elapsed / FEEDBACK_RISE_MS, 1);
+    // ease-out quadratic
+    const eased = 1 - (1 - t) * (1 - t);
+    txt.setAttribute('y', startY + (endY - startY) * eased);
+    txt.setAttribute('opacity', 1 - eased);
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      txt.remove();
+    }
+  }
+  requestAnimationFrame(tick);
+}

@@ -42,7 +42,9 @@ meetMorse/
 │   │   ├── alphabet.js            # walk A–Z
 │   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
 │   │   ├── timedWpm.js            # 10-word scored run with live timer (M4)
-│   │   ├── listening.js           # plays Morse audio; user transcribes (M5)
+│   │   ├── listenShared.js        # factory + replay helper (M5)
+│   │   ├── listening.js           # Listen · Words (factory invocation)
+│   │   ├── listenLetters.js       # Listen · Letters (factory invocation)
 │   │   └── (drill, memory — placeholders)
 │   ├── lib/
 │   │   ├── storage.js             # localStorage wrapper + DEFAULT_SETTINGS + DEFAULT_SCORES

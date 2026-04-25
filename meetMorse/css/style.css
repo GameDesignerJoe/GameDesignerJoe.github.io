@@ -972,6 +972,21 @@ button {
   opacity: 0.08;
 }
 
+/* Floating "TOO FAST" / "TOO SLOW" near the wrong node on a timing slip.
+   Sized in viewBox units (3.4) so it scales with the tree. */
+.timing-feedback {
+  fill: #ef4444;
+  font-family: var(--serif);
+  font-size: 3.4px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+}
+
 .tree-antenna-rect {
   fill: url(#brass-fill);
   stroke: var(--brass-dark);

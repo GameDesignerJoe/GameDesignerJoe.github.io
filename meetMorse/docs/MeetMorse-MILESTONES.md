@@ -83,17 +83,25 @@ This is the hardest milestone. Get the feel right before moving on. Tune the `DO
 
 ---
 
-## M5 — Listening Mode ✅ Built
+## M5 — Listening Mode ✅ Built (now two variants + timing feedback)
 
 - `audioEngine.playCode(code, ditMs)` and `playWord(word, ditMs)` — Web Audio scheduled dits/dahs at 12 WPM (ditMs = 100). Each note is its own oscillator + gain, scheduled with `osc.start(when)`/`stop(when + duration)` against `ctx.currentTime` so timing is sub-ms precise. Engine tracks scheduled notes so `stopTone()` can cancel an in-flight sequence (e.g., on BACK or replay).
-- `js/modes/listening.js` — picks word from shuffled `ALL_WORDS`, sets `state.currentWord`, plays audio after a brief lead-in. Same prefix-validation as guidedWord.
-- New mode flag `targetIsSecret`: tree.js skips its non-target dim, and wordDisplay.js renders un-completed letters as `_` instead of dim ghosts. Without this listening would reveal the answer (either via tree highlight or word display).
-- New mode flag `showReplay`: toggles a `↻ REPLAY` button below the word display. Calls `replayCurrentWord()` which re-runs `playWord` on the current target.
-- New mode flag `showListeningStatus`: toggles a streak / best status row above the word display.
-- Streak counts only error-free word completions. Any path-divergence or wrong-letter commit during a word sets `state.listeningWordHasError = true`; on word complete, hasError → streak reset to 0; clean run → streak++ and update `state.scores.listeningStreak` if beaten.
-- Score persisted under `meetmorse:scores.listeningStreak`. Modes screen card shows `Best streak: N`.
+- `js/modes/listenShared.js` — `makeListeningMode(config)` factory that produces a fully-formed mode object given `{ id, name, description, getPool, scoreKey }`. Both listening variants use it.
+  - `js/modes/listening.js` (Listen · Words) — pool from `ALL_WORDS`, score key `listeningStreak`.
+  - `js/modes/listenLetters.js` (Listen · Letters) — pool from A–Z, score key `listenLettersStreak`. The easier "ear-warm-up" variant.
+- New mode flag `targetIsSecret`: tree.js skips its non-target dim, and wordDisplay.js renders un-completed letters as `_` instead of dim ghosts. Without this, listening would reveal the answer (either via tree highlight or word display).
+- New mode flag `showReplay`: toggles a `↻ REPLAY` button below the word display. Calls `replayCurrentWord()` from `listenShared.js` which re-runs `playWord` on the current target.
+- New mode flag `showListeningStatus`: toggles a streak / best status row above the word display. The "best" reads from the active mode's `scoreKey`.
+- Streak counts only error-free completions. Any path-divergence or wrong-letter commit during a target sets `state.listeningWordHasError = true`; on completion, hasError → streak reset to 0; clean run → streak++ and update the right score key if beaten.
+- Modes screen card shows `Best streak: N` for both variants when their respective best > 0.
 
-**Exit criteria met.**
+### Timing feedback (added in this milestone)
+
+Floating "TOO FAST" / "TOO SLOW" text near the wrongly-pressed node on a path-divergence error, only when the press duration is within 80 ms of the threshold (i.e., it actually looks like a timing slip rather than a deliberate wrong tap).
+
+- `tree.js → showTimingFeedback(text, code)` builds a transient SVG text element at the node's position, drives a rAF-based rise + fade over 1.1 s, then removes itself. Rendered inside the same SVG so it scales with the tree.
+- `input.js → inferTimingFeedback(symbol, durationMs)` works in any mode that has a target — practice (`state.practiceTarget`) or anything with `state.currentWord` (alphabet, guided word, listening, etc.). Returns `'TOO FAST'`, `'TOO SLOW'`, or `null` when the press isn't borderline.
+- Fires only in modes that show the tree, so practice (no tree) doesn't get an empty-air popup.
 
 ---
 

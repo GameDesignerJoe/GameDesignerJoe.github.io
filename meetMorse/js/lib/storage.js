@@ -19,7 +19,8 @@ export const DEFAULT_SETTINGS = {
 
 export const DEFAULT_SCORES = {
   timedWpmBest: 0,           // M4
-  listeningStreak: 0,        // M5
+  listenLettersStreak: 0,    // M5 letters variant
+  listeningStreak: 0,        // M5 words variant
   memoryWpmBest: 0,          // M6
 };
 
