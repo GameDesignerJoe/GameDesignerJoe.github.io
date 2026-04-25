@@ -12,10 +12,10 @@ export const LETTER_TO_CODE = Object.fromEntries(
   Object.entries(CODE_TO_LETTER).map(([code, letter]) => [letter, code]),
 );
 
-const VIEW_WIDTH = 100;
-const VIEW_HEIGHT = 140;
-const Y_BY_LEVEL = [15, 40, 65, 95, 125];
-const STEP_BY_LEVEL = [22, 11, 5.5, 2.75];
+const VIEW_WIDTH = 140;
+const VIEW_HEIGHT = 110;
+const Y_BY_LEVEL = [10, 30, 53, 78, 100];
+const STEP_BY_LEVEL = [32, 16, 8, 4];
 
 function positionForCode(code) {
   let x = VIEW_WIDTH / 2;

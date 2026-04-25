@@ -2,6 +2,24 @@ import { state } from '../state.js';
 import { renderTape } from '../ui/tape.js';
 
 const MAX_TAPE_LENGTH = 40;
+const IDLE_CLEAR_MS = 5000;
+
+let idleTimer = null;
+
+function cancelIdleClear() {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
+function scheduleIdleClear() {
+  cancelIdleClear();
+  idleTimer = setTimeout(() => {
+    state.tape = [];
+    renderTape();
+  }, IDLE_CLEAR_MS);
+}
 
 export const freePlay = {
   id: 'freePlay',
@@ -16,23 +34,24 @@ export const freePlay = {
   enter() {
     state.tape = [];
     state.currentCode = '';
+    cancelIdleClear();
     renderTape();
   },
 
   exit() {
-    // nothing to clean up
+    cancelIdleClear();
   },
 
-  // free play has no path-divergence check; every prefix is fine
+  // Active input cancels the pending clear so the tape doesn't wipe mid-word.
   onSymbol() {
+    cancelIdleClear();
     return true;
   },
 
-  // every valid letter goes on the tape; the input layer already flashes
-  // committed/error visuals for us
   onLetterCommit(letter) {
     state.tape = [...state.tape, letter].slice(-MAX_TAPE_LENGTH);
     renderTape();
+    scheduleIdleClear();
     return true;
   },
 };

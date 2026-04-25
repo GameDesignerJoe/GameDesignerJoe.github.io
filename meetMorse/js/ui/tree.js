@@ -4,18 +4,21 @@ import {
   TREE_EDGES,
   TREE_NODES,
   TREE_VIEWBOX,
+  LETTER_TO_CODE,
 } from '../data/morseTree.js';
+import { getMode } from '../modes/index.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const DOT_RADIUS = 2.2;
-const DASH_WIDTH = 6;
-const DASH_HEIGHT = 2.8;
-const LABEL_BASELINE_OFFSET = 7.2;
-const LABEL_PLATE_W = 4.2;
-const LABEL_PLATE_H = 4.4;
+const DOT_RADIUS = 2.6;
+const DASH_WIDTH = 7;
+const DASH_HEIGHT = 3.2;
+const LABEL_BASELINE_OFFSET = 7;
+const LABEL_PLATE_W = 5.2;
+const LABEL_PLATE_H = 5.2;
+const LABEL_FONT_SIZE = 4;
 
 const edgeRefs = new Map(); // 'from->to' -> <line>
-const nodeRefs = new Map(); // code -> { node, label }
+const nodeRefs = new Map(); // code -> { node, plate, label }
 
 function el(name, attrs = {}) {
   const node = document.createElementNS(SVG_NS, name);
@@ -33,21 +36,12 @@ export function initTree() {
 
   const svg = el('svg', {
     viewBox: TREE_VIEWBOX,
-    preserveAspectRatio: 'xMidYMid meet',
+    preserveAspectRatio: 'xMidYMin meet',
     class: 'tree-svg',
   });
 
-  // <defs> — glow filter + brass gradients. Easiest as innerHTML markup;
-  // the browser parses it under the SVG namespace.
   const defs = el('defs');
   defs.innerHTML = `
-    <filter id="tree-glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="0.9" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
     <linearGradient id="brass-fill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#e6c180" />
       <stop offset="55%" stop-color="#b08d57" />
@@ -61,7 +55,7 @@ export function initTree() {
   `;
   svg.appendChild(defs);
 
-  // edges first so they sit behind nodes & label plates
+  // edges first so they sit behind nodes & plates
   for (const { from, to } of TREE_EDGES) {
     const a = nodeByCode(from);
     const b = nodeByCode(to);
@@ -74,18 +68,18 @@ export function initTree() {
     edgeRefs.set(`${from}->${to}`, line);
   }
 
-  // antenna at root (decorative)
+  // antenna decoration
   const antG = el('g');
   antG.appendChild(el('rect', {
-    x: ANTENNA.x - 3, y: ANTENNA.y - 4, width: 6, height: 6, rx: 0.6,
+    x: ANTENNA.x - 3.5, y: ANTENNA.y - 4.5, width: 7, height: 7, rx: 0.7,
     class: 'tree-antenna-rect',
   }));
   antG.appendChild(el('line', {
-    x1: ANTENNA.x, y1: ANTENNA.y - 4, x2: ANTENNA.x, y2: ANTENNA.y - 8.5,
+    x1: ANTENNA.x, y1: ANTENNA.y - 4.5, x2: ANTENNA.x, y2: ANTENNA.y - 9,
     class: 'tree-antenna-line',
   }));
   antG.appendChild(el('circle', {
-    cx: ANTENNA.x, cy: ANTENNA.y - 9.2, r: 0.9,
+    cx: ANTENNA.x, cy: ANTENNA.y - 9.8, r: 1.1,
     class: 'tree-antenna-bulb',
   }));
   svg.appendChild(antG);
@@ -104,35 +98,37 @@ export function initTree() {
         y: node.y - DASH_HEIGHT / 2,
         width: DASH_WIDTH,
         height: DASH_HEIGHT,
-        rx: 0.8,
+        rx: 1,
         class: 'tree-node',
       });
     }
     svg.appendChild(shapeEl);
 
-    // engraved label plate + text on top so they mask the edge below
     const labelY = node.y + LABEL_BASELINE_OFFSET;
-    svg.appendChild(el('rect', {
+    const plate = el('rect', {
       x: node.x - LABEL_PLATE_W / 2,
-      y: labelY - LABEL_PLATE_H + 0.6,
+      y: labelY - LABEL_PLATE_H + 0.8,
       width: LABEL_PLATE_W,
       height: LABEL_PLATE_H,
-      rx: 0.6,
+      rx: 0.7,
       class: 'tree-label-plate',
-    }));
+    });
+    svg.appendChild(plate);
+
     const text = el('text', {
-      x: node.x, y: labelY,
+      x: node.x,
+      y: labelY,
+      'font-size': LABEL_FONT_SIZE,
       class: 'tree-label-text',
     });
     text.textContent = node.letter;
     svg.appendChild(text);
 
-    nodeRefs.set(node.code, { node: shapeEl, label: text });
+    nodeRefs.set(node.code, { node: shapeEl, plate, label: text });
   }
 
   container.appendChild(svg);
 
-  // brass corner brackets (HTML, not SVG)
   for (const corner of ['tl', 'tr', 'bl', 'br']) {
     const div = document.createElement('div');
     div.className = `corner-bracket ${corner}`;
@@ -142,13 +138,26 @@ export function initTree() {
   renderTree();
 }
 
+// Codes that should remain visible in focus mode: every code on the path
+// from antenna to each letter of the current word.
+function computeFocusCodes() {
+  const mode = getMode(state.mode);
+  if (!mode.focusOnTargetWord || !state.currentWord) return null;
+  const codes = new Set(['']);
+  for (const letter of state.currentWord) {
+    const code = LETTER_TO_CODE[letter];
+    if (!code) continue;
+    for (let i = 1; i <= code.length; i++) codes.add(code.slice(0, i));
+  }
+  return codes;
+}
+
 export function renderTree() {
   const { currentCode, errorCode, committedCode, hintTarget } = state;
   const pathCodes = new Set(['']);
   for (let i = 1; i <= currentCode.length; i++) {
     pathCodes.add(currentCode.slice(0, i));
   }
-  // codes along the hint trail (root → hintTarget). Empty when no hint.
   const hintCodes = new Set();
   if (hintTarget) {
     hintCodes.add('');
@@ -156,13 +165,18 @@ export function renderTree() {
       hintCodes.add(hintTarget.slice(0, i));
     }
   }
+  const focusCodes = computeFocusCodes();
 
   for (const [key, line] of edgeRefs) {
     const [from, to] = key.split('->');
     const onPath = pathCodes.has(from) && pathCodes.has(to);
     const onHint = hintCodes.has(from) && hintCodes.has(to);
-    line.classList.toggle('on-path', onPath);
-    line.classList.toggle('hint', onHint && !onPath);
+    const dimmed = focusCodes
+      ? !(focusCodes.has(from) && focusCodes.has(to))
+      : false;
+    line.classList.toggle('on-path', onPath && !dimmed);
+    line.classList.toggle('hint', onHint && !onPath && !dimmed);
+    line.classList.toggle('dimmed', dimmed);
   }
 
   for (const [code, refs] of nodeRefs) {
@@ -171,13 +185,17 @@ export function renderTree() {
     const isError = code === errorCode;
     const isCommitted = code === committedCode;
     const isHint = hintCodes.has(code);
+    const dimmed = focusCodes ? !focusCodes.has(code) : false;
 
-    refs.node.classList.toggle('on-path', onPath && !isCurrent && !isError && !isCommitted);
-    refs.node.classList.toggle('current', isCurrent && !isError && !isCommitted);
+    refs.node.classList.toggle('on-path', onPath && !isCurrent && !isError && !isCommitted && !dimmed);
+    refs.node.classList.toggle('current', isCurrent && !isError && !isCommitted && !dimmed);
     refs.node.classList.toggle('error', isError);
     refs.node.classList.toggle('committed', isCommitted);
-    refs.node.classList.toggle('hint', isHint && !onPath && !isError && !isCommitted);
+    refs.node.classList.toggle('hint', isHint && !onPath && !isError && !isCommitted && !dimmed);
+    refs.node.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
 
-    refs.label.classList.toggle('on-path', onPath || isHint);
+    refs.plate.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
+    refs.label.classList.toggle('on-path', (onPath || isHint) && !dimmed);
+    refs.label.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
   }
 }
