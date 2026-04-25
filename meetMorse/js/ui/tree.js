@@ -36,7 +36,7 @@ export function initTree() {
 
   const svg = el('svg', {
     viewBox: TREE_VIEWBOX,
-    preserveAspectRatio: 'xMidYMin meet',
+    preserveAspectRatio: 'xMidYMid meet',
     class: 'tree-svg',
   });
 

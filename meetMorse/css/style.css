@@ -337,9 +337,10 @@ button {
 /* === tree container === */
 .tree-container {
   position: relative;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   max-width: 28rem;
-  aspect-ratio: 14 / 11;
   border-radius: 6px;
   background: radial-gradient(ellipse at center, var(--brass-dark) 0%, #2a1d0d 60%, #1a1208 100%);
   box-shadow:
@@ -490,7 +491,6 @@ button {
 
 /* === telegraph key === */
 .key-area {
-  margin-top: auto;          /* pin to bottom of the game screen */
   display: flex;
   flex-direction: column;
   align-items: center;
