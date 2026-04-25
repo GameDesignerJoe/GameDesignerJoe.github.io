@@ -113,7 +113,13 @@ export function initSpeedGrid() {
   startBtnEl?.addEventListener('click', () => {
     const mode = getMode(state.mode);
     if (mode.id !== 'speed') return;
-    mode.onStart?.();
+    if (state.speedAwaitingStart) {
+      mode.onStart?.();
+    } else if (state.speedPaused) {
+      mode.onResume?.();
+    } else {
+      mode.onPause?.();
+    }
   });
 
   renderSpeedStatus();
@@ -174,9 +180,16 @@ export function renderSpeedTrack() {
 
 export function renderSpeedReady() {
   const awaiting = !!state.speedAwaitingStart;
-  if (startBtnEl) startBtnEl.classList.toggle('hidden', !awaiting);
-  if (countdownEl) countdownEl.classList.toggle('hidden', awaiting);
-  if (gridEl) gridEl.classList.toggle('inactive', awaiting);
+  const paused = !!state.speedPaused;
+
+  if (startBtnEl) {
+    if (awaiting) startBtnEl.textContent = 'START';
+    else if (paused) startBtnEl.textContent = 'RESUME';
+    else startBtnEl.textContent = 'PAUSE';
+    startBtnEl.classList.remove('hidden');
+  }
+  if (countdownEl) countdownEl.classList.toggle('hidden', awaiting || paused);
+  if (gridEl) gridEl.classList.toggle('inactive', awaiting || paused);
 }
 
 export function resetSpeedGrid() {

@@ -58,8 +58,10 @@ export const state = {
   speedTierIndex: 0,
   speedStageIndex: 0,
   speedStreak: 0,
+  speedConsecutiveErrors: 0,    // 3 in a row → drop a stage
   speedAwaitingTap: false,
   speedAwaitingStart: false,
+  speedPaused: false,
 
   // user settings + scores — replaced by load* on boot in main.js
   settings: { ...DEFAULT_SETTINGS },

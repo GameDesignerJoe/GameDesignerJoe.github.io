@@ -123,13 +123,13 @@ class AudioEngine {
     await this._waitUntil(cursor);
   }
 
-  _scheduleNote(when, durationSec) {
+  _scheduleNote(when, durationSec, freq = DEFAULT_FREQ) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.value = DEFAULT_FREQ;
+    osc.frequency.value = freq;
     gain.gain.setValueAtTime(0, when);
     gain.gain.linearRampToValueAtTime(PEAK_GAIN, when + RAMP_SECONDS);
     gain.gain.setValueAtTime(PEAK_GAIN, when + durationSec - RAMP_SECONDS);
@@ -143,6 +143,22 @@ class AudioEngine {
       const idx = this.scheduledNotes.indexOf(entry);
       if (idx !== -1) this.scheduledNotes.splice(idx, 1);
     };
+  }
+
+  // Short descending two-tone "no" sound for wrong answers. Doesn't
+  // wait — fires and forgets so it can play on top of next-letter
+  // scheduling without blocking.
+  async playFailTone() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      try { await this.ctx.resume(); } catch (_) { /* noop */ }
+    }
+    this.stopTone();
+    const t0 = this.ctx.currentTime + 0.02;
+    this._scheduleNote(t0, 0.10, 380);
+    this._scheduleNote(t0 + 0.14, 0.18, 240);
   }
 
   _waitUntil(audioCtxTime) {

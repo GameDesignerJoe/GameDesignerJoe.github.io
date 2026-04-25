@@ -20,6 +20,7 @@ import {
 const PLAY_LEAD_MS = 200;
 const NEXT_DELAY_MS = 700;
 const FEEDBACK_MS = 600;
+const ERRORS_TO_DEMOTE = 3;
 
 let pool = [];
 let pendingTimer = null;
@@ -42,6 +43,7 @@ function pickNext() {
 }
 
 async function startNewLetter() {
+  if (state.speedPaused) return;
   state.currentWord = pickNext();
   state.completedLetters = 0;
   state.speedAwaitingTap = false;
@@ -51,19 +53,17 @@ async function startNewLetter() {
   audioEngine.init();
 
   await new Promise((r) => setTimeout(r, PLAY_LEAD_MS));
-  if (state.mode !== 'speed' || !state.currentWord) return;
+  if (state.mode !== 'speed' || !state.currentWord || state.speedPaused) return;
 
   const stage = SPEED_STAGES[state.speedStageIndex];
   await audioEngine.playWord(state.currentWord, stage.ditMs);
 
-  if (state.mode !== 'speed' || !state.currentWord) return;
+  if (state.mode !== 'speed' || !state.currentWord || state.speedPaused) return;
 
   state.speedAwaitingTap = true;
   startSpeedCountdown(RESPONSE_WINDOW_MS, onTimeout);
 }
 
-// Move to the next sub-stage. Returns true if we crossed into a new tier
-// (so callers can refill the pool, etc.).
 function advanceProgress() {
   let crossedTier = false;
   if (state.speedStageIndex < SPEED_STAGES.length - 1) {
@@ -73,9 +73,7 @@ function advanceProgress() {
     state.speedStageIndex = 0;
     crossedTier = true;
   }
-  // else: mastered everything; stay put.
 
-  // Persist best (current is always >= best by construction)
   const tier = state.speedTierIndex;
   const stage = state.speedStageIndex;
   const oldTier = state.scores.speedBestTier || 0;
@@ -88,17 +86,35 @@ function advanceProgress() {
   return crossedTier;
 }
 
+// Reset streak, count the error, and demote a stage on every 3rd
+// consecutive miss. Demotion stays within the current tier — we never
+// drop the user back into a tier they cleared.
+function registerError() {
+  state.speedStreak = 0;
+  state.speedConsecutiveErrors = (state.speedConsecutiveErrors || 0) + 1;
+  if (state.speedConsecutiveErrors >= ERRORS_TO_DEMOTE) {
+    state.speedConsecutiveErrors = 0;
+    if (state.speedStageIndex > 0) {
+      state.speedStageIndex -= 1;
+    }
+    // At stage 0 we just absorb the errors and keep going.
+  }
+}
+
 function onTimeout() {
   if (state.mode !== 'speed' || !state.currentWord) return;
   state.speedAwaitingTap = false;
   flashSpeedLetter(state.currentWord, 'correct'); // reveal answer
-  state.speedStreak = 0;
+  audioEngine.playFailTone();
+  registerError();
   renderSpeedStatus();
+  renderSpeedTrack();
   pendingTimer = setTimeout(startNewLetter, NEXT_DELAY_MS + FEEDBACK_MS / 2);
 }
 
 function onCorrect(letter) {
   flashSpeedLetter(letter, 'correct');
+  state.speedConsecutiveErrors = 0;
   state.speedStreak += 1;
   if (state.speedStreak >= STREAK_TO_ADVANCE) {
     const crossedTier = advanceProgress();
@@ -107,14 +123,28 @@ function onCorrect(letter) {
   }
   renderSpeedStatus();
   renderSpeedTrack();
-  pendingTimer = setTimeout(startNewLetter, NEXT_DELAY_MS);
+
+  // Replay the just-heard code at the same WPM as positive reinforcement.
+  // playWord is async; we schedule the next letter to start AFTER both
+  // the feedback flash and the replay finish, otherwise audio overlaps.
+  const stage = SPEED_STAGES[state.speedStageIndex];
+  pendingTimer = setTimeout(async () => {
+    pendingTimer = null;
+    if (state.mode !== 'speed' || state.speedPaused) return;
+    await audioEngine.playWord(letter, stage.ditMs);
+    if (state.mode === 'speed' && !state.speedPaused) {
+      startNewLetter();
+    }
+  }, FEEDBACK_MS / 2);
 }
 
 function onWrong(letter, target) {
   flashSpeedLetter(letter, 'wrong');
   if (target) flashSpeedLetter(target, 'correct');
-  state.speedStreak = 0;
+  audioEngine.playFailTone();
+  registerError();
   renderSpeedStatus();
+  renderSpeedTrack();
   pendingTimer = setTimeout(startNewLetter, NEXT_DELAY_MS + FEEDBACK_MS);
 }
 
@@ -135,12 +165,13 @@ export const speed = {
   scoreKey: 'speedBestTier',
 
   enter() {
-    // Resume from saved progress
     state.speedTierIndex = state.scores.speedBestTier || 0;
     state.speedStageIndex = state.scores.speedBestStage || 0;
     state.speedStreak = 0;
+    state.speedConsecutiveErrors = 0;
     state.speedAwaitingTap = false;
     state.speedAwaitingStart = true;
+    state.speedPaused = false;
     state.currentWord = null;
     pool = [];
     clearPending();
@@ -158,11 +189,31 @@ export const speed = {
     state.currentWord = null;
     state.speedAwaitingTap = false;
     state.speedAwaitingStart = false;
+    state.speedPaused = false;
   },
 
   onStart() {
     if (!state.speedAwaitingStart) return;
     state.speedAwaitingStart = false;
+    state.speedPaused = false;
+    renderSpeedReady();
+    startNewLetter();
+  },
+
+  onPause() {
+    if (state.speedAwaitingStart || state.speedPaused) return;
+    state.speedPaused = true;
+    state.speedAwaitingTap = false;
+    clearPending();
+    stopSpeedCountdown();
+    audioEngine.stopTone();
+    resetSpeedGrid();
+    renderSpeedReady();
+  },
+
+  onResume() {
+    if (!state.speedPaused) return;
+    state.speedPaused = false;
     renderSpeedReady();
     startNewLetter();
   },
