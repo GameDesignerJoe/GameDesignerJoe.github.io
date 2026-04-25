@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { audioEngine } from './engines/audioEngine.js';
 import { vibrate, HAPTIC_DOT_MS, HAPTIC_DASH_MS } from './engines/hapticsEngine.js';
-import { detectSymbol, AUTO_COMMIT_DELAY_MS } from './engines/inputEngine.js';
+import { detectSymbol } from './engines/inputEngine.js';
 import { CODE_TO_LETTER } from './data/morseTree.js';
 import { getMode } from './modes/index.js';
 import { renderTree } from './ui/tree.js';
@@ -19,7 +19,7 @@ function clearAutoCommit() {
 
 function scheduleAutoCommit() {
   clearAutoCommit();
-  state.autoCommitTimer = setTimeout(commitLetter, AUTO_COMMIT_DELAY_MS);
+  state.autoCommitTimer = setTimeout(commitLetter, state.settings.autoCommitDelayMs);
 }
 
 function flashError(code) {
@@ -58,7 +58,7 @@ export function pressUp() {
     : 0;
   state.pressStartMs = null;
   const symbol = detectSymbol(duration);
-  vibrate(symbol === '.' ? HAPTIC_DOT_MS : HAPTIC_DASH_MS);
+  vibrate(symbol === '.' ? HAPTIC_DOT_MS : HAPTIC_DASH_MS, state.settings.hapticsOn);
   state.currentCode = state.currentCode + symbol;
   state.pressing = false;
 

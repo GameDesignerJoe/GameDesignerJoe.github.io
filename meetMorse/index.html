@@ -13,6 +13,12 @@
   <body>
     <main id="app">
       <section id="home-screen" class="screen">
+        <button
+          id="settings-gear"
+          class="settings-gear"
+          type="button"
+          aria-label="Settings"
+        >⚙</button>
         <div class="nameplate">
           <h1 class="nameplate-text">MEET MORSE</h1>
         </div>
@@ -29,6 +35,15 @@
           <span class="header-spacer"></span>
         </div>
         <div id="modes-grid" class="modes-grid"></div>
+      </section>
+
+      <section id="settings-screen" class="screen hidden">
+        <div class="game-header">
+          <button id="settings-back-button" class="back-button" type="button">← BACK</button>
+          <span class="mode-label">SETTINGS</span>
+          <span class="header-spacer"></span>
+        </div>
+        <div id="settings-list" class="settings-list"></div>
       </section>
 
       <section id="game-screen" class="screen hidden">

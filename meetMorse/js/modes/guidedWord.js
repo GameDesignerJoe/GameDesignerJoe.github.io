@@ -4,9 +4,6 @@ import { ALL_WORDS, shuffled } from '../data/words.js';
 import { renderTree } from '../ui/tree.js';
 import { renderWord } from '../ui/wordDisplay.js';
 
-// Hints currently disabled — flip to true to re-enable the amber trail.
-const HINT_ENABLED = false;
-const HINT_DELAY_MS = 3000;
 const NEXT_WORD_DELAY_MS = 700;
 
 let pool = [];
@@ -32,14 +29,14 @@ function clearActiveHint() {
 
 function scheduleHint() {
   clearHintTimer();
-  if (!HINT_ENABLED) return;
+  if (!state.settings.hintsOn) return;
   if (!state.currentWord) return;
   const target = state.currentWord[state.completedLetters];
   if (!target) return;
   state.hintTimer = setTimeout(() => {
     state.hintTarget = LETTER_TO_CODE[target] || null;
     renderTree();
-  }, HINT_DELAY_MS);
+  }, state.settings.hintDelayMs);
 }
 
 function startNewWord() {

@@ -25,6 +25,7 @@ meetMorse/
 │   ├── main.js                    # bootstrap
 │   ├── state.js                   # shared mutable state object
 │   ├── input.js                   # state-mutating actions
+│   ├── settings.js                # updateSetting + applyAllSettings (M3)
 │   ├── data/
 │   │   ├── morseTree.js           # code↔letter map, tree nodes/edges
 │   │   └── words.js               # word list, tiered (M2)
@@ -32,15 +33,24 @@ meetMorse/
 │   │   ├── audioEngine.js         # Web Audio tone generation
 │   │   ├── hapticsEngine.js       # Vibration wrapper
 │   │   └── inputEngine.js         # press-duration → dot/dash, constants
+│   ├── lib/
+│   │   └── storage.js             # localStorage wrapper + DEFAULT_SETTINGS (M3)
+│   ├── modes/
+│   │   ├── index.js               # registry + MODE_ORDER
+│   │   ├── freePlay.js            # default; idle 5s clears tape
+│   │   ├── alphabet.js            # walk A–Z
+│   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
+│   │   └── (drill, timedWpm, listening, memory — placeholders)
 │   └── ui/
 │       ├── tree.js                # builds + updates SVG tree
 │       ├── tape.js                # paper tape strip
 │       ├── key.js                 # telegraph key event wiring
+│       ├── wordDisplay.js         # target word at top of game screen
+│       ├── modes.js               # modes screen card grid
+│       ├── settings.js            # settings screen builder (M3)
 │       └── views.js               # show/hide screens
 └── index.html                     # single entry; sections shown/hidden
 ```
-
-Empty subdirectories (`js/modes/`, `js/lib/` per future milestones) are added when their first file lands. No need to scaffold empty folders.
 
 ---
 

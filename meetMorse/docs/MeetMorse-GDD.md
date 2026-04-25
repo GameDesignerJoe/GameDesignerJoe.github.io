@@ -134,34 +134,30 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 - A word from the word list appears up top (dim).
 - User taps it out letter-by-letter. Each correct letter brightens.
 - **Error handling:** If the user diverges from the target letter's path (e.g., target is "A" = `.-` and they input `.`, `.`), the tree flashes red at the wrong node, the current letter input resets to the antenna, and they try that letter again. The word does NOT reset.
-- **Hints:** Designed as an idle-triggered amber trail from the antenna to the target letter. Currently disabled at the code level (gated by an `HINT_ENABLED` flag) — re-enable when settings land in M3.
+- **Tree focus:** every letter in the current word is highlighted with a brighter brass label, and every other letter is dimmed heavily — the user's eye goes straight to where they need to aim. This dim-non-target behavior applies in any mode that sets a target word (Alphabet, Drill, etc.).
+- **Hints:** idle-triggered amber trail from the antenna to the next target letter. Default OFF; toggle in Settings (`hintsOn`). Delay configurable in Settings (2 / 3 / 5 / 8 s).
 - On word complete, next word appears. No timer. Endless.
 
-### 4. Focused Word
-- Same flow as Guided Word, but the tree dims every node/edge that isn't on a path to one of the letters in the current target word.
-- Reduces visual noise — the user's eye goes straight to the letters they need.
-- Useful as a stepping stone between Alphabet (one letter at a time) and full Guided Word (all 26 letters always visible).
-
-### 5. Drill (reinforcement)
+### 4. Drill (reinforcement)
 - Picks a curated cluster of words that share many letters, so the same codes get hit many times in close succession.
 - Goal: spaced-repetition reinforcement of letters that haven't stuck yet.
 - Cluster selection is algorithmic (e.g., "all 3-letter words containing M, E, A, N" or "words heavy in level-4 letters Q/Z/J/Y").
 - Could later be extended to track which letters the user trips on most and bias the drill toward them.
 - See MILESTONES §M-Drill for build plan.
 
-### 6. Timed WPM
+### 5. Timed WPM
 - Same flow as Guided Word, but with a timer.
 - Score is **Words Per Minute** using the standard Morse convention: 1 word = 5 characters; WPM = (characters typed / 5) / (minutes elapsed).
 - A fixed challenge length: complete 10 words, see your WPM. Result screen shows WPM and whether it's a new high score.
 - High score persisted in localStorage.
 
-### 7. Listening
+### 6. Listening
 - A word from the word list is played as Morse audio (no visual on the tree — just tones at 12 WPM).
 - User types what they hear. Tree lights up as they go. The target word is shown up top but blanked (underscores or dimmed blocks) until they attempt it.
 - **Replay button** available.
 - Score tracked: correct words / total, streak of correct in a row.
 
-### 8. Memory
+### 7. Memory
 - The tree is hidden (or shown as dim outline only, no labels).
 - Same flow as Guided Word. The user must remember the codes.
 - For users who've graduated from the tree.
@@ -170,17 +166,26 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 
 ## Settings
 
-Accessible via a gear icon from Home. All settings persist in localStorage.
+Accessible via a brass gear icon in the top-right of Home. All settings persist in localStorage under `meetmorse:settings`.
 
-- **Sound** — on / off. Default: on. When off, no input tones and no listening playback (listening mode shows a warning if muted).
-- **Hints** — on / off. Default: on.
+Built (M3):
+
+- **Sound** — on / off. Default: on. When off, the audio engine short-circuits all tone calls.
+- **Haptics** — on / off. Default: on. No-op on iOS regardless.
+- **Hints** — on / off. Default: off. When on, an amber trail from the antenna to the next target letter appears after the configured idle delay.
 - **Hint delay** — 2s / 3s / 5s / 8s. Default: 3s.
-- **Letter commit** — forgiving (auto-timeout) / strict (longer pause). Default: forgiving.
-- **Auto-commit delay** — 400ms / 600ms / 900ms (forgiving mode only). Default: 600ms.
-- **Include numbers** — on / off. Default: off. When on, the tree extends to show 0–9 and the word list includes words with digits (for future expansion).
-- **Include punctuation** — on / off. Default: off. Same behavior as numbers.
-- **Reset high scores** — confirm dialog.
-- **About / Credits** — small footer with thanks to the reference tool (Nux Gadgets).
+- **Auto-commit delay** — 400ms / 600ms / 900ms. Default: 600ms.
+- **About / Credits** — small footer thanking Nux Gadgets for the inspiration.
+
+Locked placeholders (functional toggles, but no content yet):
+
+- **Include numbers** — locked. Tree extension + digit words TBD.
+- **Include punctuation** — locked. Same.
+
+Deferred (called out in the original spec, parking for now):
+
+- **Letter commit mode** (forgiving vs strict) — strict mode's "ignore double tap" behavior needs more design before implementing. Forgiving is the only mode currently.
+- **Reset high scores** — no scores yet (M4 ships timed WPM scoring).
 
 ---
 

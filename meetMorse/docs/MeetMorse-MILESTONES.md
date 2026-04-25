@@ -54,16 +54,19 @@ This is the hardest milestone. Get the feel right before moving on. Tune the `DO
 
 ---
 
-## M3 — Settings
+## M3 — Settings ✅ Built
 
-**Goal:** Settings live before adding more modes, so new modes can respect them from the start.
+- `js/lib/storage.js` — `loadSettings`, `saveSettings`, `DEFAULT_SETTINGS`. localStorage key: `meetmorse:settings`. Stored values merge over defaults so adding new keys later doesn't break older saves.
+- `js/settings.js` — `updateSetting(key, value)` mutates state, persists, applies side-effects. `applyAllSettings()` runs once on boot.
+- `js/ui/settings.js` — declarative ROWS array drives the screen build. Toggle, segmented, and locked placeholder rows render from one descriptor pattern.
+- Settings screen is a top-level view (`home` / `modes` / `settings` / `game`), reached via a brass gear in the home screen's top-right corner.
+- `state.settings.soundOn` flips audio engine enabled at the source. `hapticsOn`, `autoCommitDelayMs`, `hintsOn`, `hintDelayMs` are read at the call site (input.js, guidedWord.js) so changes apply on the next keystroke.
+- Numbers / punctuation render as locked rows with 🔒 — keys exist on `state.settings` but no behavior wired up yet.
 
-- Build `<SettingsPanel />` (slide-in or modal).
-- Wire up: sound, hints, hint delay, letter commit mode, auto-commit delay, haptics, reset scores.
-- Persist to localStorage via `lib/storage.ts`.
-- Lock numbers/punctuation toggles behind visual lock icons (functional but no content yet — the setting exists, nothing unlocks yet).
+**Deferred from the original spec:**
 
-**Exit criteria:** All settings work and persist across app reloads. Toggling "Sound off" silences the tones immediately.
+- Letter commit mode (forgiving / strict) — strict mode's "ignore double tap" needs more design before implementing. Forgiving is the only mode now.
+- Reset high scores — no scores yet (M4 brings timed WPM scoring).
 
 ---
 

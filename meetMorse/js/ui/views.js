@@ -7,6 +7,7 @@ import { renderWord } from './wordDisplay.js';
 const SCREEN_IDS = {
   home: 'home-screen',
   modes: 'modes-screen',
+  settings: 'settings-screen',
   game: 'game-screen',
 };
 
