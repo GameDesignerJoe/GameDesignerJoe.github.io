@@ -134,15 +134,14 @@ The previous floating "TOO FAST" / "TOO SLOW" text is replaced by color-coded no
 
 ---
 
-## M6 — Memory Mode
+## M6 — Memory Mode ✅ Built
 
-**Goal:** Tree-hidden endgame.
+Same 10-word scored run as Timed WPM, but the tree is hidden. The user has to recall codes from memory; for users who've graduated from the tree.
 
-- Add `hidden` prop behavior to `<MorseTree />` (render as dim silhouette without labels, or fully hide — playtest both).
-- Implement `memory` mode controller: reuses guided/timed logic but with tree hidden.
-- Separate high score.
-
-**Exit criteria:** Fully playable without the tree. This mode should feel earned.
+- Refactored `js/modes/timedWpm.js` into `js/modes/timedShared.js` — `makeTimedMode({ id, name, description, showTree, scoreKey })` factory. Both Timed WPM and Memory are factory invocations now.
+- `js/modes/memory.js` — `showTree: false`, `scoreKey: 'memoryWpmBest'`. Same 10-word challenge, same prefix-validation, same results screen.
+- Score persisted under `meetmorse:scores.memoryWpmBest`, separate from `timedWpmBest`. Modes screen card shows `Best: N WPM` when set.
+- Mode order on the modes screen: free play → practice → alphabet → guided word → timed WPM → listen (letters/words) → echo (letters/words) → speed → **memory** → drill (placeholder). Memory is the last "real" mode before drill ships.
 
 ---
 

@@ -76,8 +76,9 @@ function onCorrect(letter) {
   ) {
     state.speedStageIndex += 1;
     state.speedStreak = 0;
-    if (state.speedStageIndex > (state.scores.speedHighStage || 0)) {
-      state.scores.speedHighStage = state.speedStageIndex;
+    const newWpm = SPEED_STAGES[state.speedStageIndex].wpm;
+    if (newWpm > (state.scores.speedBestWpm || 0)) {
+      state.scores.speedBestWpm = newWpm;
       saveScores(state.scores);
     }
   }
@@ -107,7 +108,7 @@ export const speed = {
   hideKey: true,
   scored: true,
   available: true,
-  scoreKey: 'speedHighStage',
+  scoreKey: 'speedBestWpm',
 
   enter() {
     pool = [];

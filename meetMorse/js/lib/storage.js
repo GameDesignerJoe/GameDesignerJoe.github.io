@@ -23,9 +23,13 @@ export const DEFAULT_SCORES = {
   listenWordsStreak: 0,            // M5 tap-tree words
   echoLettersStreak: 0,            // M5 reproduce letters
   echoWordsStreak: 0,              // M5 reproduce words
-  speedHighStage: 0,               // M5b speed mode — index of the highest stage reached
+  speedBestWpm: 0,                 // M5b — highest WPM stage cleared
   memoryWpmBest: 0,                // M6
 };
+
+// Old speed stage indices. Used only for migration from pre-WPM-score
+// builds; kept here so the migration is self-contained.
+const LEGACY_SPEED_STAGE_WPMS = [8, 10, 12, 15, 18, 22, 25];
 
 export function loadSettings() {
   try {
@@ -69,6 +73,18 @@ export function loadScores() {
       // at 0 (will be filled in by ...DEFAULT_SCORES merge below).
       stored.echoLettersStreak = stored.listenLettersStreak;
       delete stored.listenLettersStreak;
+    }
+
+    // Speed-mode migration: stage indices weren't stable across stage
+    // list changes, so we now store the actual best WPM. Convert any
+    // saved speedHighStage (using the old 7-stage WPM ladder) to a WPM.
+    if ('speedHighStage' in stored) {
+      const idx = stored.speedHighStage;
+      const wpm = LEGACY_SPEED_STAGE_WPMS[idx] || 0;
+      if (wpm > (stored.speedBestWpm || 0)) {
+        stored.speedBestWpm = wpm;
+      }
+      delete stored.speedHighStage;
     }
 
     return { ...DEFAULT_SCORES, ...stored };

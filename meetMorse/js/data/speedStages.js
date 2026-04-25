@@ -1,6 +1,8 @@
-// PARIS convention: ditMs = 1200 / wpm. Stages climb from "comfortable
-// beginner" to "proficient listener" speed (25 WPM).
+// PARIS convention: ditMs = 1200 / wpm. Stages climb from "barely audio"
+// to "proficient listener" speed (25 WPM).
 export const SPEED_STAGES = [
+  { wpm: 4,  ditMs: 300 },
+  { wpm: 6,  ditMs: 200 },
   { wpm: 8,  ditMs: 150 },
   { wpm: 10, ditMs: 120 },
   { wpm: 12, ditMs: 100 },

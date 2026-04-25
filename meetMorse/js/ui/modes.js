@@ -67,9 +67,13 @@ function scoreForMode(id) {
     const best = state.scores.timedWpmBest || 0;
     if (best > 0) return `Best: ${formatWpm(best)} WPM`;
   }
+  if (id === 'memory') {
+    const best = state.scores.memoryWpmBest || 0;
+    if (best > 0) return `Best: ${formatWpm(best)} WPM`;
+  }
   if (id === 'speed') {
-    const idx = state.scores.speedHighStage || 0;
-    if (idx > 0) return `Best stage: ${idx + 1}`;
+    const wpm = state.scores.speedBestWpm || 0;
+    if (wpm > 0) return `Best: ${wpm} WPM`;
   }
   const streakKey = STREAK_KEYS[id];
   if (streakKey) {

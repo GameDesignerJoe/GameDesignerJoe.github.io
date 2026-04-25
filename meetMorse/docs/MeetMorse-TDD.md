@@ -42,7 +42,9 @@ meetMorse/
 │   │   ├── practice.js            # dot/dash calibration drill
 │   │   ├── alphabet.js            # walk A–Z
 │   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
+│   │   ├── timedShared.js         # makeTimedMode factory (Timed WPM + Memory)
 │   │   ├── timedWpm.js            # 10-word scored run with live timer (M4)
+│   │   ├── memory.js              # 10-word scored run with tree hidden (M6)
 │   │   ├── echoShared.js          # factory + replay helper for Echo (key-typed)
 │   │   ├── echoLetters.js         # Echo · Letters
 │   │   ├── echoWords.js           # Echo · Words

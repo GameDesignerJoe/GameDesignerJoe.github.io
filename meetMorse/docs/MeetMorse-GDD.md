@@ -188,7 +188,7 @@ All four modes share:
 - Underscore (`_`) placeholders in the word display that fill in only after the user correctly identifies/reproduces each position.
 - A live streak / best status row above the word display.
 
-### 8. Speed
+### 8. Speed (recognition trainer)
 
 Pure speed-recognition trainer. The goal is to get the user comfortable identifying letters at the cadence of a real Morse transmission.
 
@@ -196,9 +196,9 @@ Pure speed-recognition trainer. The goal is to get the user comfortable identify
 - Below the audio status row, an alphabet grid (A–Z in alphabetical order) shows every letter as a tappable button. The user taps the one they think they heard before the countdown bar drains.
 - After each tap the correct letter briefly glows green; a wrong tap also flashes the chosen button red so the user can see both their guess and the answer.
 - **5 correct in a row** advances to the next stage. Wrong taps and timeouts reset the streak to 0 — but you never *lose* a stage.
-- 7 stages: **8 / 10 / 12 / 15 / 18 / 22 / 25 WPM**.
+- 9 stages from "barely audio" to proficient: **4 / 6 / 8 / 10 / 12 / 15 / 18 / 22 / 25 WPM**.
 - Response window: **4 s** after the audio finishes (fixed across stages).
-- Persistent best stage at `meetmorse:scores.speedHighStage`. Mode card shows `Best stage: N` once you've cleared stage 1.
+- Persistent best WPM at `meetmorse:scores.speedBestWpm`. Mode card shows `Best: N WPM` once you've cleared at least one stage.
 
 ### Error coloring
 
@@ -209,10 +209,13 @@ When the user makes an input error in any mode that has a target, the wrongly-pr
 
 The blue/red distinction tells the user *why* the press was wrong — they pressed in the right direction but on the wrong side of the threshold.
 
-### 7. Memory
-- The tree is hidden (or shown as dim outline only, no labels).
-- Same flow as Guided Word. The user must remember the codes.
-- For users who've graduated from the tree.
+### 9. Memory
+- Same 10-word scored run as Timed WPM, but the tree is **hidden**. No silhouette either — the user has to recall every code from memory.
+- Word display still shown (so the user knows what word they're spelling). Telegraph key stays visible.
+- Same prefix-validation flow as Timed: wrong dot/dash flashes red on the (now-invisible) node and clears the buffer; auto-commit looks up the resolved code.
+- Errors counted, time tracked. After 10 words, the results screen shows WPM, time, errors, and your previous best.
+- Best persisted under `meetmorse:scores.memoryWpmBest` (separate from `timedWpmBest`).
+- The "endgame" mode for users who've graduated from the tree.
 
 ---
 

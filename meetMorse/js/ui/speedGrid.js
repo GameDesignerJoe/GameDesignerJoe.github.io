@@ -101,7 +101,8 @@ export function renderSpeedStatus() {
     streakEl.textContent = `${state.speedStreak} / ${STREAK_TO_ADVANCE}`;
   }
   if (bestEl) {
-    bestEl.textContent = String((state.scores.speedHighStage || 0) + 1);
+    const bestWpm = state.scores.speedBestWpm || 0;
+    bestEl.textContent = bestWpm > 0 ? `${bestWpm} WPM` : '—';
   }
 }
 
