@@ -105,6 +105,45 @@ This is the hardest milestone. Get the feel right before moving on. Tune the `DO
 
 ---
 
+## M-Drill — Reinforcement Mode
+
+**Goal:** Repetition-based learning. The user practices clusters of words that share letters so the same codes get hammered until they stick.
+
+Conceptually this is "spaced repetition" applied to letter recognition rather than full SRS. The user picks Drill from the modes screen and gets a sequence of words selected from a cluster, not the full mixed-shuffle pool.
+
+### What to build
+
+- **Cluster definitions** in `js/data/drillClusters.js`. Each cluster is `{ id, name, description, words: [...] }`. Hand-curated to start. Examples:
+  - "ETIA Starter" — words built from only E, T, I, A, N, M (the simplest codes): IT, AT, AN, IN, AM, ME, ON, NO, NET, MAT, etc.
+  - "Stubborn Letters" — words heavy in Q, Z, J, Y, X (the level-4 letters most users miss): JAZZ, QUIZ, FUZZY, JAZZY, ZEBRA, etc.
+  - "Vowel Drill" — A, E, I, O, U pairs: SEA, OUR, EAT, ICE, etc.
+- **Mode controller** in `js/modes/drill.js`. Reuses guidedWord-style prefix-validation; word picker reads from the active cluster's word list (shuffled).
+- **Cluster picker UI**. When the user taps Drill from the modes screen, show a sub-screen listing the available clusters as cards. Tap one → enter game with that cluster active.
+- **Optional, M-Drill+1**: track per-letter error rates from any guided/drill session in localStorage. Bias future drill word selection toward letters with high error rates.
+
+### Exit criteria
+
+A user who's tripping on Q can pick "Stubborn Letters", get a word stream that hammers Q ten times in two minutes, and feel the difference next time Q comes up in Guided Word.
+
+---
+
+## M-Alphabet — Alphabet Mode
+
+**Goal:** Walk a brand-new user through every letter A–Z, one at a time. The "training wheels" mode.
+
+### What to build
+
+- `js/modes/alphabet.js` — single-letter target, A through Z, advances on correct commit, loops at Z. Reuses the guidedWord prefix-validation pattern.
+- Slot the card on the modes screen between Free Play and Guided Word.
+
+### Exit criteria
+
+A user who has never used the app can tap Alphabet and successfully tap out every letter once, end-to-end, in one sitting.
+
+**Status:** Built (lives at `js/modes/alphabet.js`).
+
+---
+
 ## M7 — Polish
 
 **Goal:** Take it from working to good.
@@ -149,6 +188,8 @@ For Claude Code building this with Joe reviewing and directing:
 - M4 → half a day
 - M5 → 1 day
 - M6 → half a day
+- M-Alphabet → done (built alongside M2)
+- M-Drill → 1 day for hand-curated clusters; +1 day if we add error-rate tracking
 - M7 → ongoing
 
 Total: roughly a week of focused work to a shareable MVP. M1 is where to spend the time.

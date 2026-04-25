@@ -121,27 +121,47 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 - No target word, no timer, no scoring.
 - User taps out letters; the tree lights up; committed letters scroll across the paper tape up top.
 - Teaches the tree. The entry point for all users.
+- After 5 seconds of inactivity, the paper tape clears itself.
 
-### 2. Guided Word
+### 2. Alphabet
+- Walks the user through every letter from A to Z, one at a time.
+- Single letter shown up top. User taps the code; on commit, advances to the next letter.
+- Path-divergence error handling identical to Guided Word.
+- After Z, loops back to A. Endless.
+- The "intro" mode for total beginners — narrower scope than Guided Word, easier to track progress.
+
+### 3. Guided Word
 - A word from the word list appears up top (dim).
 - User taps it out letter-by-letter. Each correct letter brightens.
 - **Error handling:** If the user diverges from the target letter's path (e.g., target is "A" = `.-` and they input `.`, `.`), the tree flashes red at the wrong node, the current letter input resets to the antenna, and they try that letter again. The word does NOT reset.
-- **Hints:** If the user is idle for **3 seconds** on a letter, the tree lights an amber trail from the antenna to the target letter. Hint stays lit until the user resumes input. Can be disabled in settings.
+- **Hints:** Designed as an idle-triggered amber trail from the antenna to the target letter. Currently disabled at the code level (gated by an `HINT_ENABLED` flag) — re-enable when settings land in M3.
 - On word complete, next word appears. No timer. Endless.
 
-### 3. Timed WPM
+### 4. Focused Word
+- Same flow as Guided Word, but the tree dims every node/edge that isn't on a path to one of the letters in the current target word.
+- Reduces visual noise — the user's eye goes straight to the letters they need.
+- Useful as a stepping stone between Alphabet (one letter at a time) and full Guided Word (all 26 letters always visible).
+
+### 5. Drill (reinforcement)
+- Picks a curated cluster of words that share many letters, so the same codes get hit many times in close succession.
+- Goal: spaced-repetition reinforcement of letters that haven't stuck yet.
+- Cluster selection is algorithmic (e.g., "all 3-letter words containing M, E, A, N" or "words heavy in level-4 letters Q/Z/J/Y").
+- Could later be extended to track which letters the user trips on most and bias the drill toward them.
+- See MILESTONES §M-Drill for build plan.
+
+### 6. Timed WPM
 - Same flow as Guided Word, but with a timer.
 - Score is **Words Per Minute** using the standard Morse convention: 1 word = 5 characters; WPM = (characters typed / 5) / (minutes elapsed).
 - A fixed challenge length: complete 10 words, see your WPM. Result screen shows WPM and whether it's a new high score.
 - High score persisted in localStorage.
 
-### 4. Listening
+### 7. Listening
 - A word from the word list is played as Morse audio (no visual on the tree — just tones at 12 WPM).
 - User types what they hear. Tree lights up as they go. The target word is shown up top but blanked (underscores or dimmed blocks) until they attempt it.
 - **Replay button** available.
 - Score tracked: correct words / total, streak of correct in a row.
 
-### 5. Memory
+### 8. Memory
 - The tree is hidden (or shown as dim outline only, no labels).
 - Same flow as Guided Word. The user must remember the codes.
 - For users who've graduated from the tree.

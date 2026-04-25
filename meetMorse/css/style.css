@@ -22,6 +22,18 @@
 
   --serif: 'Cormorant Garamond', Georgia, serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Width every game-screen element caps at. Bumps up at tablet and
+     desktop sizes so the tree, paper tape, etc. all grow together. */
+  --content-max-width: 28rem;
+}
+
+@media (min-width: 720px) {
+  :root { --content-max-width: 38rem; }
+}
+
+@media (min-width: 1024px) {
+  :root { --content-max-width: 46rem; }
 }
 
 /* === base reset === */
@@ -160,7 +172,7 @@ button {
 
 .game-header {
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--content-max-width);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -197,7 +209,7 @@ button {
 
 .modes-grid {
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--content-max-width);
   flex: 1;
   min-height: 0;
   display: flex;
@@ -261,7 +273,7 @@ button {
 /* === word display === */
 .word-display {
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--content-max-width);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,7 +301,7 @@ button {
 /* === paper tape === */
 .paper-tape {
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--content-max-width);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -337,10 +349,12 @@ button {
 /* === tree container === */
 .tree-container {
   position: relative;
-  flex: 1;
-  min-height: 0;
   width: 100%;
-  max-width: 28rem;
+  max-width: var(--content-max-width);
+  /* Match the SVG viewBox aspect (160:110) so the brass border doesn't
+     stretch past the actual tree art. With margin-top:auto removed from
+     the key area, leftover space goes naturally below the key. */
+  aspect-ratio: 16 / 11;
   border-radius: 6px;
   background: radial-gradient(ellipse at center, var(--brass-dark) 0%, #2a1d0d 60%, #1a1208 100%);
   box-shadow:

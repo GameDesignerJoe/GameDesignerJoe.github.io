@@ -1,4 +1,5 @@
 import { freePlay } from './freePlay.js';
+import { alphabet } from './alphabet.js';
 import { guidedWord } from './guidedWord.js';
 import { focusedWord } from './focusedWord.js';
 
@@ -13,14 +14,25 @@ const placeholder = (id, name, description) => ({
 
 export const MODES = {
   freePlay,
+  alphabet,
   guidedWord,
   focusedWord,
+  drill: placeholder('drill', 'Drill', 'Cluster of similar-letter words for repetition learning — coming soon.'),
   timedWpm: placeholder('timedWpm', 'Timed WPM', 'Race the clock — coming soon.'),
   listening: placeholder('listening', 'Listening', 'Decode by ear — coming soon.'),
   memory: placeholder('memory', 'Memory', 'No tree, no safety net — coming soon.'),
 };
 
-export const MODE_ORDER = ['freePlay', 'guidedWord', 'focusedWord', 'timedWpm', 'listening', 'memory'];
+export const MODE_ORDER = [
+  'freePlay',
+  'alphabet',
+  'guidedWord',
+  'focusedWord',
+  'drill',
+  'timedWpm',
+  'listening',
+  'memory',
+];
 
 export function getMode(id) {
   return MODES[id] || MODES.freePlay;
