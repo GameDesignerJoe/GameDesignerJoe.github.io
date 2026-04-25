@@ -18,7 +18,7 @@ const LABEL_PLATE_H = 6;
 const LABEL_FONT_SIZE = 4.5;
 
 const edgeRefs = new Map(); // 'from->to' -> <line>
-const nodeRefs = new Map(); // code -> { node, plate, label }
+const nodeRefs = new Map(); // code -> { group, node, plate, label }
 
 function el(name, attrs = {}) {
   const node = document.createElementNS(SVG_NS, name);
@@ -84,9 +84,13 @@ export function initTree() {
   }));
   svg.appendChild(antG);
 
-  // letter nodes
+  // letter nodes — each wrapped in a <g> so the whole node + label is
+  // one clickable surface (tappable mode) and shares hover state.
   for (const node of TREE_NODES) {
     if (node.shape === 'antenna') continue;
+    const group = el('g', { class: 'tree-node-group' });
+    group.dataset.code = node.code;
+
     let shapeEl;
     if (node.shape === 'dot') {
       shapeEl = el('circle', {
@@ -102,7 +106,7 @@ export function initTree() {
         class: 'tree-node',
       });
     }
-    svg.appendChild(shapeEl);
+    group.appendChild(shapeEl);
 
     const labelY = node.y + LABEL_BASELINE_OFFSET;
     const plate = el('rect', {
@@ -113,7 +117,7 @@ export function initTree() {
       rx: 0.7,
       class: 'tree-label-plate',
     });
-    svg.appendChild(plate);
+    group.appendChild(plate);
 
     const text = el('text', {
       x: node.x,
@@ -122,9 +126,18 @@ export function initTree() {
       class: 'tree-label-text',
     });
     text.textContent = node.letter;
-    svg.appendChild(text);
+    group.appendChild(text);
 
-    nodeRefs.set(node.code, { node: shapeEl, plate, label: text });
+    // pointerup: only fires for tap-tree modes. Other modes ignore it.
+    group.addEventListener('pointerup', (e) => {
+      const mode = getMode(state.mode);
+      if (!mode.tappableTree) return;
+      e.stopPropagation();
+      mode.onTreeTap?.(node.letter, node.code);
+    });
+
+    svg.appendChild(group);
+    nodeRefs.set(node.code, { group, node: shapeEl, plate, label: text });
   }
 
   container.appendChild(svg);
@@ -155,13 +168,13 @@ function computeFocusCodes() {
   return codes;
 }
 
-// Codes of the actual letter nodes that the user needs to hit in this
-// session — every letter of state.currentWord. Used to brighten the
-// label text on the tree so the target letters are easy to find.
-// Returns null in Free Play (no currentWord) so the target class never
-// applies there.
+// Codes of the actual letter nodes that the user needs to hit. Used to
+// brighten target labels in modes where the user can see the target
+// (alphabet, guided word). Suppressed when targetIsSecret — listen-mode
+// labels stay anonymous so the user has to identify by ear.
 function computeTargetCodes() {
   if (!state.currentWord) return null;
+  if (getMode(state.mode).targetIsSecret) return null;
   const codes = new Set();
   for (const letter of state.currentWord) {
     const code = LETTER_TO_CODE[letter];
@@ -171,7 +184,7 @@ function computeTargetCodes() {
 }
 
 export function renderTree() {
-  const { currentCode, errorCode, committedCode, hintTarget } = state;
+  const { currentCode, errorCode, errorKind, committedCode, hintTarget } = state;
   const pathCodes = new Set(['']);
   for (let i = 1; i <= currentCode.length; i++) {
     pathCodes.add(currentCode.slice(0, i));
@@ -205,61 +218,20 @@ export function renderTree() {
     const isCommitted = code === committedCode;
     const isHint = hintCodes.has(code);
     const dimmed = focusCodes ? !focusCodes.has(code) : false;
+    const isTarget = targetCodes ? targetCodes.has(code) : false;
 
     refs.node.classList.toggle('on-path', onPath && !isCurrent && !isError && !isCommitted && !dimmed);
     refs.node.classList.toggle('current', isCurrent && !isError && !isCommitted && !dimmed);
     refs.node.classList.toggle('error', isError);
+    refs.node.classList.toggle('too-fast', isError && errorKind === 'fast');
+    refs.node.classList.toggle('too-slow', isError && errorKind === 'slow');
     refs.node.classList.toggle('committed', isCommitted);
     refs.node.classList.toggle('hint', isHint && !onPath && !isError && !isCommitted && !dimmed);
     refs.node.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
-
-    const isTarget = targetCodes ? targetCodes.has(code) : false;
 
     refs.plate.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
     refs.label.classList.toggle('on-path', (onPath || isHint) && !dimmed);
     refs.label.classList.toggle('target', isTarget && !dimmed && !isError && !isCommitted);
     refs.label.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
   }
-}
-
-const FEEDBACK_RISE_MS = 1100;
-const FEEDBACK_OFFSET_START = -4;
-const FEEDBACK_OFFSET_END = -16;
-
-// Drop a transient SVG text label at the given node, animating it up and
-// fading it out. Used to show "TOO FAST" / "TOO SLOW" near the wrong
-// node on a path-divergence error. Caller decides whether to invoke.
-export function showTimingFeedback(text, code) {
-  const tree = document.querySelector('#tree-container svg');
-  if (!tree) return;
-  const node = TREE_NODES.find((n) => n.code === code);
-  if (!node) return;
-
-  const txt = el('text', {
-    x: node.x,
-    y: node.y + FEEDBACK_OFFSET_START,
-    'text-anchor': 'middle',
-    'font-size': 4,
-    class: 'timing-feedback',
-  });
-  txt.textContent = text;
-  tree.appendChild(txt);
-
-  const startY = node.y + FEEDBACK_OFFSET_START;
-  const endY = node.y + FEEDBACK_OFFSET_END;
-  const t0 = performance.now();
-  function tick() {
-    const elapsed = performance.now() - t0;
-    const t = Math.min(elapsed / FEEDBACK_RISE_MS, 1);
-    // ease-out quadratic
-    const eased = 1 - (1 - t) * (1 - t);
-    txt.setAttribute('y', startY + (endY - startY) * eased);
-    txt.setAttribute('opacity', 1 - eased);
-    if (t < 1) {
-      requestAnimationFrame(tick);
-    } else {
-      txt.remove();
-    }
-  }
-  requestAnimationFrame(tick);
 }

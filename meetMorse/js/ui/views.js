@@ -44,9 +44,11 @@ function applyModeLayout() {
   document.getElementById('paper-tape')?.classList.toggle('hidden', !mode.showPaperTape);
   document.getElementById('timed-status')?.classList.toggle('hidden', !mode.showTimer);
   document.getElementById('tree-container')?.classList.toggle('hidden', !mode.showTree);
+  document.getElementById('tree-container')?.classList.toggle('tappable', !!mode.tappableTree);
   document.getElementById('practice-content')?.classList.toggle('hidden', !mode.showPractice);
   document.getElementById('replay-button')?.classList.toggle('hidden', !mode.showReplay);
   document.getElementById('listening-status')?.classList.toggle('hidden', !mode.showListeningStatus);
+  document.querySelector('#game-screen .key-area')?.classList.toggle('hidden', !!mode.hideKey);
   const label = document.querySelector('#game-screen .mode-label');
   if (label) label.textContent = mode.name.toUpperCase();
 }

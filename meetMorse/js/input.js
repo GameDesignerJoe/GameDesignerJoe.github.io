@@ -4,18 +4,19 @@ import { vibrate, HAPTIC_DOT_MS, HAPTIC_DASH_MS } from './engines/hapticsEngine.
 import { detectSymbol } from './engines/inputEngine.js';
 import { CODE_TO_LETTER, LETTER_TO_CODE } from './data/morseTree.js';
 import { getMode } from './modes/index.js';
-import { renderTree, showTimingFeedback } from './ui/tree.js';
+import { renderTree } from './ui/tree.js';
 import { renderTape } from './ui/tape.js';
 import { renderKey } from './ui/key.js';
 import { renderDebug } from './ui/debug.js';
+import { flashError, flashCommitted } from './lib/flash.js';
 
 // "Borderline" margin: how close to the threshold the press must be for
-// us to call a divergence a timing slip rather than the user just
-// tapping the wrong thing. Beyond ~80 ms past the line, they probably
-// meant the symbol they got.
+// us to call a divergence a timing slip (red→fast, blue→slow) rather
+// than a clearly-intended wrong tap. Beyond ~80 ms past the line, the
+// user probably meant the symbol they got — flash plain red.
 const TIMING_FEEDBACK_MARGIN_MS = 80;
 
-function inferTimingFeedback(symbol, durationMs) {
+function inferTimingDirection(symbol, durationMs) {
   let expected = null;
   if (state.practiceTarget) {
     expected = state.practiceTarget;
@@ -24,9 +25,6 @@ function inferTimingFeedback(symbol, durationMs) {
     if (!targetLetter) return null;
     const targetCode = LETTER_TO_CODE[targetLetter];
     if (!targetCode) return null;
-    // The press just appended `symbol` to currentCode, so it's at
-    // index (currentCode.length - 1) of the buffer. The expected
-    // symbol at that position is the matching index of the target.
     const idx = state.currentCode.length - 1;
     if (idx < 0 || idx >= targetCode.length) return null;
     expected = targetCode[idx];
@@ -34,12 +32,11 @@ function inferTimingFeedback(symbol, durationMs) {
   if (!expected || symbol === expected) return null;
   const threshold = state.settings.dotDashThresholdMs;
   if (Math.abs(durationMs - threshold) > TIMING_FEEDBACK_MARGIN_MS) return null;
-  if (expected === '-' && symbol === '.') return 'TOO FAST';
-  if (expected === '.' && symbol === '-') return 'TOO SLOW';
+  if (expected === '-' && symbol === '.') return 'fast';
+  if (expected === '.' && symbol === '-') return 'slow';
   return null;
 }
 
-const FLASH_MS = 400;
 const RECENT_PRESSES_LIMIT = 8;
 
 function clearAutoCommit() {
@@ -52,24 +49,6 @@ function clearAutoCommit() {
 function scheduleAutoCommit() {
   clearAutoCommit();
   state.autoCommitTimer = setTimeout(commitLetter, state.settings.autoCommitDelayMs);
-}
-
-function flashError(code) {
-  if (state.errorTimer) clearTimeout(state.errorTimer);
-  state.errorCode = code;
-  state.errorTimer = setTimeout(() => {
-    state.errorCode = null;
-    renderTree();
-  }, FLASH_MS);
-}
-
-function flashCommitted(code) {
-  if (state.committedTimer) clearTimeout(state.committedTimer);
-  state.committedCode = code;
-  state.committedTimer = setTimeout(() => {
-    state.committedCode = null;
-    renderTree();
-  }, FLASH_MS);
 }
 
 function recordPress(durationMs, symbol) {
@@ -120,14 +99,10 @@ export function pressUp(timestampMs) {
   // modes; raw-symbol check in practice mode).
   const ok = mode.onSymbol(symbol);
   if (ok === false) {
-    flashError(state.currentCode);
-    const timingMessage = inferTimingFeedback(symbol, duration);
-    if (timingMessage && mode.showTree !== false) {
-      showTimingFeedback(timingMessage, state.currentCode);
-    }
+    const direction = inferTimingDirection(symbol, duration);
+    flashError(state.currentCode, direction || 'wrong');
     state.currentCode = '';
     renderKey();
-    renderTree();
     renderTape();
     renderDebug();
     return;
@@ -146,9 +121,8 @@ export function commitLetter() {
   if (!code) return;
   const letter = CODE_TO_LETTER[code];
   if (!letter) {
-    flashError(code);
+    flashError(code, 'wrong');
     state.currentCode = '';
-    renderTree();
     renderTape();
     return;
   }
@@ -156,10 +130,9 @@ export function commitLetter() {
   if (accepted !== false) {
     flashCommitted(code);
   } else {
-    flashError(code);
+    flashError(code, 'wrong');
   }
   state.currentCode = '';
-  renderTree();
   renderTape();
 }
 
@@ -168,6 +141,7 @@ export function resetTape() {
   state.currentCode = '';
   state.tape = [];
   state.errorCode = null;
+  state.errorKind = null;
   state.committedCode = null;
   renderTree();
   renderTape();

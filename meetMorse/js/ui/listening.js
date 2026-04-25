@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { getMode } from '../modes/index.js';
-import { replayCurrentWord } from '../modes/listenShared.js';
+import { replayCurrentWord } from '../modes/echoShared.js';
 
 let streakEl = null;
 let bestEl = null;

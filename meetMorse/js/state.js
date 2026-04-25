@@ -26,6 +26,7 @@ export const state = {
 
   // tree visual flashes
   errorCode: null,        // briefly set on invalid commit / path divergence
+  errorKind: null,        // 'wrong' | 'fast' | 'slow' — colors the error flash
   committedCode: null,    // briefly set right after a valid commit
   hintTarget: null,       // code of letter to hint toward (renders amber trail)
 

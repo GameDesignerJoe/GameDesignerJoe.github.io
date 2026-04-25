@@ -160,23 +160,42 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 - Result screen shows WPM headline, time, errors, and current best. Animated "★ New High Score ★" badge when the run beats the saved best.
 - High score persisted in localStorage at `meetmorse:scores`. Mode card shows `Best: X WPM` when a score exists.
 
-### 6. Listening — two variants
+### 6. Listen (recognition) and 7. Echo (reproduction)
 
-Both variants share the same playback engine, replay button, blanked underscores in the word display, and "no tree dim" rule (dimming non-target letters would reveal the answer). They differ in difficulty.
+Two families of audio modes. **Listen** plays a sound and asks the user to identify it by tapping the tree — pure ear-recognition with no key. **Echo** plays a sound and asks the user to reproduce its code on the telegraph key — recognition + production. Both come in `Letters` and `Words` flavors.
 
-#### 6a. Listen · Letters (easier)
-- Plays a single random letter at a time. User transcribes it, advances to the next letter.
-- Each "round" of 26 letters works through all letters in random order before reshuffling.
-- Streak: consecutive error-free letters. Best persisted at `meetmorse:scores.listenLettersStreak`.
+#### 6a. Listen · Letters
+- Plays a single random letter. User taps the matching node on the tree.
+- No telegraph key. The tree's nodes are clickable; tapping the right one advances, tapping the wrong one flashes that node red and resets the per-target error state for streak purposes.
+- The tree does NOT highlight target letters (would defeat the test).
+- Streak: consecutive error-free letters. Best at `meetmorse:scores.listenLettersStreak`.
 
-#### 6b. Listen · Words (harder)
-- Plays a full word from the word list. User must transcribe the whole thing.
-- Streak: consecutive error-free words (any path-divergence or wrong-letter commit during a word resets it). Best persisted at `meetmorse:scores.listeningStreak`.
+#### 6b. Listen · Words
+- Plays a full word. User taps the matching letters in order. Replay re-plays the whole word.
+- One wrong tap during a word resets that word's streak contribution; clean run increments. Best at `meetmorse:scores.listenWordsStreak`.
 
-Both variants:
-- A `↻ REPLAY` button under the word display re-plays the audio anytime.
-- Streak shown at the top with the all-time best for that variant.
-- Display target as underscores (`_`) until the user successfully spells each position.
+#### 7a. Echo · Letters (formerly the old "Listen · Letters")
+- Plays a single random letter. User reproduces the morse on the telegraph key.
+- Same prefix-validation flow as Guided Word — wrong dot/dash flashes red and clears the buffer; the user can retry.
+- Streak persists as `echoLettersStreak` (migrated from `listenLettersStreak` if you played the older build).
+
+#### 7b. Echo · Words (formerly the old "Listening")
+- Plays a full word. User reproduces the whole thing on the key.
+- Streak persists as `echoWordsStreak` (migrated from `listeningStreak`).
+
+All four modes share:
+- `↻ REPLAY` button to re-hear the audio anytime.
+- Underscore (`_`) placeholders in the word display that fill in only after the user correctly identifies/reproduces each position.
+- A live streak / best status row above the word display.
+
+### Error coloring
+
+When the user makes an input error in any mode that has a target, the wrongly-pressed node flashes:
+- **Red** — wrong tap or generic timing miss
+- **Red (timing-classified as "too fast")** — pressed a dot when a dash was expected, and the press duration was within 80 ms of the threshold
+- **Blue** — pressed a dash when a dot was expected, and the press duration was within 80 ms of the threshold
+
+The blue/red distinction tells the user *why* the press was wrong — they pressed in the right direction but on the wrong side of the threshold.
 
 ### 7. Memory
 - The tree is hidden (or shown as dim outline only, no labels).

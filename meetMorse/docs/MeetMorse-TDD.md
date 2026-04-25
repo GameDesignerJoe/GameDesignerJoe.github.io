@@ -42,13 +42,17 @@ meetMorse/
 │   │   ├── alphabet.js            # walk A–Z
 │   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
 │   │   ├── timedWpm.js            # 10-word scored run with live timer (M4)
-│   │   ├── listenShared.js        # factory + replay helper (M5)
-│   │   ├── listening.js           # Listen · Words (factory invocation)
-│   │   ├── listenLetters.js       # Listen · Letters (factory invocation)
+│   │   ├── echoShared.js          # factory + replay helper for Echo (key-typed)
+│   │   ├── echoLetters.js         # Echo · Letters
+│   │   ├── echoWords.js           # Echo · Words
+│   │   ├── tapShared.js           # factory for Listen (tap-the-tree)
+│   │   ├── listenLetters.js       # Listen · Letters
+│   │   ├── listenWords.js         # Listen · Words
 │   │   └── (drill, memory — placeholders)
 │   ├── lib/
 │   │   ├── storage.js             # localStorage wrapper + DEFAULT_SETTINGS + DEFAULT_SCORES
-│   │   └── timing.js              # calculateWpm, formatWpm, formatElapsed (M4)
+│   │   ├── timing.js              # calculateWpm, formatWpm, formatElapsed (M4)
+│   │   └── flash.js               # flashError(code, kind) / flashCommitted(code)
 │   └── ui/
 │       ├── tree.js                # builds + updates SVG tree
 │       ├── tape.js                # paper tape strip

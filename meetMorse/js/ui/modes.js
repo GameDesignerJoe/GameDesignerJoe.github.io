@@ -55,19 +55,22 @@ export function renderModesScreen() {
   }
 }
 
+const STREAK_KEYS = {
+  listenLetters: 'listenLettersStreak',
+  listenWords: 'listenWordsStreak',
+  echoLetters: 'echoLettersStreak',
+  echoWords: 'echoWordsStreak',
+};
+
 function scoreForMode(id) {
   if (id === 'timedWpm') {
     const best = state.scores.timedWpmBest || 0;
     if (best > 0) return `Best: ${formatWpm(best)} WPM`;
   }
-  if (id === 'listening') {
-    const best = state.scores.listeningStreak || 0;
+  const streakKey = STREAK_KEYS[id];
+  if (streakKey) {
+    const best = state.scores[streakKey] || 0;
     if (best > 0) return `Best streak: ${best}`;
   }
-  if (id === 'listenLetters') {
-    const best = state.scores.listenLettersStreak || 0;
-    if (best > 0) return `Best streak: ${best}`;
-  }
-  // Future: memoryWpmBest
   return null;
 }

@@ -10,16 +10,17 @@ export const PLAY_DIT_MS = 100;        // 12 WPM
 const NEXT_DELAY_MS = 800;
 const PLAY_LEAD_MS = 250;
 
-// Replay the current target. Works for both letter and word modes since
-// audioEngine.playWord handles both (a 1-char "word" is a single letter).
+// Replay the current target. Used by the replay button in echo and tap
+// listen modes alike, since both keep the target in state.currentWord.
 export function replayCurrentWord() {
   if (!state.currentWord) return;
   audioEngine.playWord(state.currentWord, PLAY_DIT_MS);
 }
 
-// Factory for any "listen, then transcribe" mode. Differences between
-// letter and word variants live in config (pool source + score key).
-export function makeListeningMode(config) {
+// Factory for "hear, then reproduce on the telegraph key" modes (Echo).
+// The user types the morse for what they heard. Differences between
+// letter and word variants live in config.
+export function makeEchoMode(config) {
   let pool = [];
   let pendingTimer = null;
 
@@ -43,6 +44,7 @@ export function makeListeningMode(config) {
     renderWord();
     renderTree();
     renderListeningStatus();
+    audioEngine.init();
     await new Promise((r) => setTimeout(r, PLAY_LEAD_MS));
     if (state.mode === config.id && state.currentWord) {
       audioEngine.playWord(state.currentWord, PLAY_DIT_MS);

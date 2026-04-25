@@ -922,6 +922,17 @@ button {
   animation: node-error-flash 320ms ease-out;
 }
 
+/* Pressed too fast: pressed dot when dash was expected. Same red as a
+   generic mistake — distinguishable by context. */
+.tree-node.error.too-fast {
+  fill: var(--node-error);
+}
+
+/* Pressed too slow: held a dash when a dot was expected. Blue. */
+.tree-node.error.too-slow {
+  fill: #4a90e2;
+}
+
 .tree-node.committed {
   fill: var(--node-committed);
   stroke-width: 0.7;
@@ -972,20 +983,30 @@ button {
   opacity: 0.08;
 }
 
-/* Floating "TOO FAST" / "TOO SLOW" near the wrong node on a timing slip.
-   Sized in viewBox units (3.4) so it scales with the tree. */
-.timing-feedback {
-  fill: #ef4444;
-  font-family: var(--serif);
-  font-size: 3.4px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  pointer-events: none;
-  paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.7);
-  stroke-width: 0.4;
-  stroke-linejoin: round;
+/* Tappable mode (Listen · Letters / Listen · Words): each node group
+   becomes a clickable surface. Hover/active states give an affordance. */
+#tree-container.tappable .tree-svg {
+  touch-action: manipulation;
 }
+
+#tree-container.tappable .tree-node-group {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  #tree-container.tappable .tree-node-group:hover .tree-node {
+    fill: var(--node-on-path);
+    stroke-width: 0.6;
+  }
+  #tree-container.tappable .tree-node-group:hover .tree-label-text {
+    fill: var(--label-text-on-path);
+  }
+}
+
+#tree-container.tappable .tree-node-group:active .tree-node {
+  fill: var(--node-current);
+}
+
 
 .tree-antenna-rect {
   fill: url(#brass-fill);

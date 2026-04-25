@@ -18,10 +18,12 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const DEFAULT_SCORES = {
-  timedWpmBest: 0,           // M4
-  listenLettersStreak: 0,    // M5 letters variant
-  listeningStreak: 0,        // M5 words variant
-  memoryWpmBest: 0,          // M6
+  timedWpmBest: 0,                 // M4
+  listenLettersStreak: 0,          // M5 tap-tree letters
+  listenWordsStreak: 0,            // M5 tap-tree words
+  echoLettersStreak: 0,            // M5 reproduce letters
+  echoWordsStreak: 0,              // M5 reproduce words
+  memoryWpmBest: 0,                // M6
 };
 
 export function loadSettings() {
@@ -29,7 +31,6 @@ export function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const stored = JSON.parse(raw);
-    // Merge stored over defaults so new keys added later get sane values
     return { ...DEFAULT_SETTINGS, ...stored };
   } catch (_) {
     return { ...DEFAULT_SETTINGS };
@@ -49,6 +50,26 @@ export function loadScores() {
     const raw = localStorage.getItem(SCORES_KEY);
     if (!raw) return { ...DEFAULT_SCORES };
     const stored = JSON.parse(raw);
+
+    // Pre-listen-split migration. The original "Listen" modes required
+    // the user to reproduce the audio on the key — what we now call
+    // Echo. Their saved bests carry over to the Echo variants so users
+    // don't see their high scores vanish; the new tap-tree Listen
+    // modes start fresh.
+    if ('listeningStreak' in stored) {
+      if (stored.echoWordsStreak == null) {
+        stored.echoWordsStreak = stored.listeningStreak;
+      }
+      delete stored.listeningStreak;
+    }
+    if ('listenLettersStreak' in stored && stored.echoLettersStreak == null) {
+      // Old listenLettersStreak was the echo-letters score. Move it to
+      // echoLettersStreak; the new tap-tree listenLettersStreak starts
+      // at 0 (will be filled in by ...DEFAULT_SCORES merge below).
+      stored.echoLettersStreak = stored.listenLettersStreak;
+      delete stored.listenLettersStreak;
+    }
+
     return { ...DEFAULT_SCORES, ...stored };
   } catch (_) {
     return { ...DEFAULT_SCORES };

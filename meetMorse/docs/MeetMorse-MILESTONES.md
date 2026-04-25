@@ -83,25 +83,54 @@ This is the hardest milestone. Get the feel right before moving on. Tune the `DO
 
 ---
 
-## M5 — Listening Mode ✅ Built (now two variants + timing feedback)
+## M5 — Listen + Echo (audio modes) ✅ Built
 
+Two families of audio modes share most plumbing:
+
+- **Listen** (recognition): plays a sound, user identifies it by tapping the matching tree node. No telegraph key.
+- **Echo** (reproduction): plays a sound, user reproduces its code on the telegraph key. Same key-typed flow as Guided Word.
+
+Each family has Letters and Words variants → 4 modes total.
+
+### Audio engine
 - `audioEngine.playCode(code, ditMs)` and `playWord(word, ditMs)` — Web Audio scheduled dits/dahs at 12 WPM (ditMs = 100). Each note is its own oscillator + gain, scheduled with `osc.start(when)`/`stop(when + duration)` against `ctx.currentTime` so timing is sub-ms precise. Engine tracks scheduled notes so `stopTone()` can cancel an in-flight sequence (e.g., on BACK or replay).
-- `js/modes/listenShared.js` — `makeListeningMode(config)` factory that produces a fully-formed mode object given `{ id, name, description, getPool, scoreKey }`. Both listening variants use it.
-  - `js/modes/listening.js` (Listen · Words) — pool from `ALL_WORDS`, score key `listeningStreak`.
-  - `js/modes/listenLetters.js` (Listen · Letters) — pool from A–Z, score key `listenLettersStreak`. The easier "ear-warm-up" variant.
-- New mode flag `targetIsSecret`: tree.js skips its non-target dim, and wordDisplay.js renders un-completed letters as `_` instead of dim ghosts. Without this, listening would reveal the answer (either via tree highlight or word display).
-- New mode flag `showReplay`: toggles a `↻ REPLAY` button below the word display. Calls `replayCurrentWord()` from `listenShared.js` which re-runs `playWord` on the current target.
-- New mode flag `showListeningStatus`: toggles a streak / best status row above the word display. The "best" reads from the active mode's `scoreKey`.
-- Streak counts only error-free completions. Any path-divergence or wrong-letter commit during a target sets `state.listeningWordHasError = true`; on completion, hasError → streak reset to 0; clean run → streak++ and update the right score key if beaten.
-- Modes screen card shows `Best streak: N` for both variants when their respective best > 0.
 
-### Timing feedback (added in this milestone)
+### Mode factories
+- `js/modes/echoShared.js` — `makeEchoMode(config)` for the reproduce-with-key variants. Same prefix-validation pattern as guidedWord.
+  - `js/modes/echoLetters.js` — pool A–Z. Score key `echoLettersStreak`.
+  - `js/modes/echoWords.js` — pool from `ALL_WORDS`. Score key `echoWordsStreak`.
+- `js/modes/tapShared.js` — `makeTapMode(config)` for the tap-the-tree Listen variants. New mode flags `hideKey: true` and `tappableTree: true`. `onTreeTap(letter, code)` is the per-tap callback.
+  - `js/modes/listenLetters.js` — pool A–Z. Score key `listenLettersStreak`.
+  - `js/modes/listenWords.js` — pool from `ALL_WORDS`. Score key `listenWordsStreak`.
 
-Floating "TOO FAST" / "TOO SLOW" text near the wrongly-pressed node on a path-divergence error, only when the press duration is within 80 ms of the threshold (i.e., it actually looks like a timing slip rather than a deliberate wrong tap).
+### Shared mechanics
 
-- `tree.js → showTimingFeedback(text, code)` builds a transient SVG text element at the node's position, drives a rAF-based rise + fade over 1.1 s, then removes itself. Rendered inside the same SVG so it scales with the tree.
-- `input.js → inferTimingFeedback(symbol, durationMs)` works in any mode that has a target — practice (`state.practiceTarget`) or anything with `state.currentWord` (alphabet, guided word, listening, etc.). Returns `'TOO FAST'`, `'TOO SLOW'`, or `null` when the press isn't borderline.
-- Fires only in modes that show the tree, so practice (no tree) doesn't get an empty-air popup.
+- Mode flag `targetIsSecret`: tree.js skips its non-target dim AND its target-letter highlight (both would reveal the answer). wordDisplay.js renders un-completed letters as `_`.
+- Mode flag `showReplay`: toggles a `↻ REPLAY` button below the word display. Calls `replayCurrentWord()` (in `echoShared.js`, used by both families since both keep the target in `state.currentWord`).
+- Mode flag `showListeningStatus`: toggles a streak / best status row. The "best" reads from the active mode's `scoreKey`.
+- Streak counts only error-free completions in all four modes.
+
+### Tappable tree
+
+- Each tree node is wrapped in a `<g class="tree-node-group">` with a `pointerup` listener. The listener dispatches to `mode.onTreeTap(letter, code)` only when the active mode has `tappableTree: true`.
+- `tree-container` gets a `.tappable` class via `views.js#applyModeLayout` when the mode opts in. CSS gives the group a pointer cursor, hover glow on desktop, and `touch-action: manipulation` to keep taps instant on mobile.
+- `key-area` is hidden via `mode.hideKey`. Default is to show the key (back-compat).
+
+### Score key migration
+
+- `listeningStreak` → `echoWordsStreak` on first load after the upgrade
+- `listenLettersStreak` → `echoLettersStreak`
+- New `listenLettersStreak` / `listenWordsStreak` start at 0
+
+### Error coloring
+
+The previous floating "TOO FAST" / "TOO SLOW" text is replaced by color-coded node flashes:
+
+- `state.errorKind` field now holds `'wrong'` / `'fast'` / `'slow'`
+- `flashError(code, kind)` (extracted to `js/lib/flash.js`) sets both `errorCode` and `errorKind`
+- tree.js applies `.too-fast` / `.too-slow` modifier classes
+- CSS: `.too-slow` is blue (`#4a90e2`); `.too-fast` and default `.error` are red
+- `inferTimingDirection` in `input.js` returns `'fast'` / `'slow'` / `null` based on whether the wrong press was borderline (within 80 ms of threshold) and which direction it crossed
 
 ---
 
