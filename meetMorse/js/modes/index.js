@@ -1,6 +1,7 @@
 import { freePlay } from './freePlay.js';
 import { alphabet } from './alphabet.js';
 import { guidedWord } from './guidedWord.js';
+import { timedWpm } from './timedWpm.js';
 
 // Placeholders for the modes we haven't built yet. They appear on the modes
 // screen as disabled cards; tapping them does nothing.
@@ -15,8 +16,8 @@ export const MODES = {
   freePlay,
   alphabet,
   guidedWord,
+  timedWpm,
   drill: placeholder('drill', 'Drill', 'Cluster of similar-letter words for repetition learning — coming soon.'),
-  timedWpm: placeholder('timedWpm', 'Timed WPM', 'Race the clock — coming soon.'),
   listening: placeholder('listening', 'Listening', 'Decode by ear — coming soon.'),
   memory: placeholder('memory', 'Memory', 'No tree, no safety net — coming soon.'),
 };
@@ -25,8 +26,8 @@ export const MODE_ORDER = [
   'freePlay',
   'alphabet',
   'guidedWord',
-  'drill',
   'timedWpm',
+  'drill',
   'listening',
   'memory',
 ];

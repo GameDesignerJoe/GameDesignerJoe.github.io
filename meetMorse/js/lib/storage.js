@@ -1,7 +1,9 @@
-// Persisted user settings. localStorage is wrapped in try/catch so a
-// quota error or private-mode restriction silently falls back to defaults.
+// Persisted user settings + scores. localStorage is wrapped in try/catch
+// so a quota error or private-mode restriction silently falls back to
+// defaults.
 
-const KEY = 'meetmorse:settings';
+const SETTINGS_KEY = 'meetmorse:settings';
+const SCORES_KEY = 'meetmorse:scores';
 
 export const DEFAULT_SETTINGS = {
   soundOn: true,
@@ -13,9 +15,15 @@ export const DEFAULT_SETTINGS = {
   punctuationUnlocked: false,
 };
 
+export const DEFAULT_SCORES = {
+  timedWpmBest: 0,           // M4
+  listeningStreak: 0,        // M5
+  memoryWpmBest: 0,          // M6
+};
+
 export function loadSettings() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const stored = JSON.parse(raw);
     // Merge stored over defaults so new keys added later get sane values
@@ -27,8 +35,27 @@ export function loadSettings() {
 
 export function saveSettings(settings) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(settings));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch (_) {
     // ignore (quota, private mode, etc.)
+  }
+}
+
+export function loadScores() {
+  try {
+    const raw = localStorage.getItem(SCORES_KEY);
+    if (!raw) return { ...DEFAULT_SCORES };
+    const stored = JSON.parse(raw);
+    return { ...DEFAULT_SCORES, ...stored };
+  } catch (_) {
+    return { ...DEFAULT_SCORES };
+  }
+}
+
+export function saveScores(scores) {
+  try {
+    localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
+  } catch (_) {
+    // ignore
   }
 }

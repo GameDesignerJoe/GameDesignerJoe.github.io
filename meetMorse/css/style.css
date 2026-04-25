@@ -298,6 +298,16 @@ button {
   color: rgba(201, 166, 114, 0.78);
 }
 
+.mode-card-score {
+  margin-top: 0.25rem;
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--brass-bright);
+  text-shadow: 0 0 6px rgba(255, 209, 122, 0.35);
+}
+
 /* === settings screen === */
 #settings-screen {
   align-items: center;
@@ -399,6 +409,104 @@ button {
   text-align: center;
   padding: 1rem 0.5rem 0;
   line-height: 1.5;
+}
+
+/* === timed status row === */
+.timed-status {
+  width: 100%;
+  max-width: var(--content-max-width);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
+  border: 1px solid rgba(176, 141, 87, 0.3);
+  border-radius: 0.125rem;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.timed-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--brass-bright);
+}
+
+.timed-progress {
+  font-style: italic;
+  font-size: 0.95rem;
+  color: rgba(201, 166, 114, 0.82);
+}
+
+/* === results screen === */
+#results-screen {
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.results-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: var(--content-max-width);
+}
+
+.results-headline {
+  font-family: var(--serif);
+  font-size: 4.5rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--brass-bright);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.results-new-high {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1rem;
+  letter-spacing: 0.3em;
+  color: #fff1c2;
+  text-shadow: 0 0 12px rgba(255, 209, 122, 0.7);
+  animation: results-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes results-shimmer {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+.results-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: center;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+  color: var(--brass);
+  margin-top: 0.5rem;
+}
+
+.results-stats strong {
+  color: var(--brass-bright);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.25rem;
+}
+
+.results-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
 
 /* === word display === */

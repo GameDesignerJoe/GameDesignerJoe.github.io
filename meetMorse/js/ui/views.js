@@ -3,12 +3,14 @@ import { getMode } from '../modes/index.js';
 import { renderTree } from './tree.js';
 import { renderTape } from './tape.js';
 import { renderWord } from './wordDisplay.js';
+import { renderTimerStatus } from './timer.js';
 
 const SCREEN_IDS = {
   home: 'home-screen',
   modes: 'modes-screen',
   settings: 'settings-screen',
   game: 'game-screen',
+  results: 'results-screen',
 };
 
 export function setView(view) {
@@ -29,7 +31,8 @@ export function renderView() {
   if (state.view === 'game') applyModeLayout();
 }
 
-// Toggles word-display vs paper-tape visibility based on the active mode.
+// Toggles word-display, paper-tape, and timer-status visibility based
+// on the active mode's flags.
 function applyModeLayout() {
   const mode = getMode(state.mode);
   document
@@ -38,6 +41,9 @@ function applyModeLayout() {
   document
     .getElementById('paper-tape')
     ?.classList.toggle('hidden', !mode.showPaperTape);
+  document
+    .getElementById('timed-status')
+    ?.classList.toggle('hidden', !mode.showTimer);
   const label = document.querySelector('#game-screen .mode-label');
   if (label) label.textContent = mode.name.toUpperCase();
 }
@@ -65,4 +71,5 @@ export function startMode(modeId, fromView = 'home') {
   renderTree();
   renderTape();
   renderWord();
+  renderTimerStatus();
 }

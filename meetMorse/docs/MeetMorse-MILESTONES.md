@@ -70,16 +70,16 @@ This is the hardest milestone. Get the feel right before moving on. Tune the `DO
 
 ---
 
-## M4 — Timed WPM Mode
+## M4 — Timed WPM Mode ✅ Built
 
-**Goal:** First scored mode.
+- `js/modes/timedWpm.js` — 10-word challenge. Timer starts on the first symbol press, runs at 250 ms ticks via setInterval, and stops on finish/exit. Word picker uses the same shuffled-`ALL_WORDS` pool as guidedWord.
+- WPM = `(charactersTyped / 5) / minutes`. Helpers in `js/lib/timing.js`: `calculateWpm`, `formatWpm` (1 decimal under 20, integer at 20+), `formatElapsed` (`m:ss`).
+- Live status row above the word display (`#timed-status`) shows current clock + `word N of 10`. Visibility driven by a `mode.showTimer` flag — stays hidden in every other mode.
+- New top-level view: `results`. The screen shows WPM headline, an animated "★ New High Score ★" badge when applicable, and Time / Errors / Best stats. Buttons: PLAY AGAIN (restarts the same mode, preserves `gameBackTarget`) and back-to-modes.
+- Scoring persisted via `loadScores` / `saveScores` in `js/lib/storage.js` (key `meetmorse:scores`, separate from settings). `state.scores.timedWpmBest` is the canonical high. Beats are detected before saving, so the new-high badge fires exactly once.
+- Mode card on the modes screen shows `Best: X WPM` when a score exists. `renderModesScreen()` is called whenever the user lands on the modes view so a fresh PB shows up immediately.
 
-- Implement `timedWpm` mode controller: timer starts on first input, 10-word challenge, ends with a results screen.
-- Build `<ResultsScreen />` showing WPM, time, errors, new-high-score indicator.
-- Save high scores to localStorage.
-- Show best WPM on the Timed mode card in the mode selector.
-
-**Exit criteria:** User can run a full timed challenge, see their WPM, and see their score persisted on return.
+**Exit criteria met:** A user can run a full timed challenge, see their WPM, and see their best persist across reloads.
 
 ---
 

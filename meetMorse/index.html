@@ -53,6 +53,11 @@
           <span class="header-spacer"></span>
         </div>
 
+        <div id="timed-status" class="timed-status hidden">
+          <span class="timed-clock">0:00</span>
+          <span class="timed-progress">word 1 of 10</span>
+        </div>
+
         <div id="word-display" class="word-display hidden"></div>
 
         <div id="paper-tape" class="paper-tape">
@@ -72,6 +77,18 @@
             <span class="key-label">TAP · HOLD</span>
           </button>
           <div class="key-base"></div>
+        </div>
+      </section>
+
+      <section id="results-screen" class="screen hidden">
+        <div class="results-content">
+          <div id="results-new-high" class="results-new-high hidden">★ New High Score ★</div>
+          <div id="results-headline" class="results-headline">0 WPM</div>
+          <div id="results-stats" class="results-stats"></div>
+          <div class="results-actions">
+            <button id="results-again-button" class="play-button" type="button">PLAY AGAIN</button>
+            <button id="results-back-button" class="modes-link" type="button">back to modes</button>
+          </div>
         </div>
       </section>
     </main>

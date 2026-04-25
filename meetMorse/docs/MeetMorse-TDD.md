@@ -40,12 +40,18 @@ meetMorse/
 │   │   ├── freePlay.js            # default; idle 5s clears tape
 │   │   ├── alphabet.js            # walk A–Z
 │   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
-│   │   └── (drill, timedWpm, listening, memory — placeholders)
+│   │   ├── timedWpm.js            # 10-word scored run with live timer (M4)
+│   │   └── (drill, listening, memory — placeholders)
+│   ├── lib/
+│   │   ├── storage.js             # localStorage wrapper + DEFAULT_SETTINGS + DEFAULT_SCORES
+│   │   └── timing.js              # calculateWpm, formatWpm, formatElapsed (M4)
 │   └── ui/
 │       ├── tree.js                # builds + updates SVG tree
 │       ├── tape.js                # paper tape strip
 │       ├── key.js                 # telegraph key event wiring
 │       ├── wordDisplay.js         # target word at top of game screen
+│       ├── timer.js               # live timed-mode status row (M4)
+│       ├── results.js             # post-run results screen (M4)
 │       ├── modes.js               # modes screen card grid
 │       ├── settings.js            # settings screen builder (M3)
 │       └── views.js               # show/hide screens
@@ -281,18 +287,36 @@ In guided modes, an idle timer resets every time `currentCode` changes (or the p
 
 ---
 
-## Timing / WPM Calculation (M4)
+## Timing / WPM Calculation (M4) ✅
+
+`js/lib/timing.js`:
 
 ```js
-// js/lib/timing.js
 export function calculateWpm(charactersTyped, elapsedMs) {
+  if (elapsedMs <= 0) return 0;
   const minutes = elapsedMs / 60000;
-  const standardWords = charactersTyped / 5;
-  return Math.round(standardWords / minutes);
+  return charactersTyped / 5 / minutes;
+}
+
+export function formatWpm(wpm) {
+  if (!isFinite(wpm) || wpm <= 0) return '0';
+  if (wpm < 20) return wpm.toFixed(1);
+  return Math.round(wpm).toString();
+}
+
+export function formatElapsed(ms) {
+  // m:ss
 }
 ```
 
-Standard Morse WPM convention (PARIS = 5 characters). Displayed with one decimal if < 20, integer if ≥ 20.
+Standard Morse WPM convention (PARIS = 5 characters). Displayed with one decimal if < 20, integer if ≥ 20. `charactersTyped` is summed at word completion (not per symbol) so retries don't inflate the count.
+
+## Scoring & Results (M4)
+
+- `state.scores` is the in-memory mirror of `meetmorse:scores` localStorage. Loaded on boot.
+- After timed mode completes the 10th word, `finish()` saves `state.scores.timedWpmBest = wpm` if it beats the previous best, then writes `state.lastResult = { wpm, elapsedMs, errors, isNewHighScore }` and calls `setView('results')`.
+- The results screen reads `state.lastResult` to render the headline + stats. PLAY AGAIN calls `startMode(state.mode, state.gameBackTarget)` so the same scored mode restarts cleanly.
+- Future scored modes (M5 listening streak, M6 memory WPM) follow the same pattern: separate score key in `DEFAULT_SCORES`, write on finish, render in `state.lastResult`.
 
 ---
 

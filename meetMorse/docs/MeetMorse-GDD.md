@@ -148,8 +148,11 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 ### 5. Timed WPM
 - Same flow as Guided Word, but with a timer.
 - Score is **Words Per Minute** using the standard Morse convention: 1 word = 5 characters; WPM = (characters typed / 5) / (minutes elapsed).
-- A fixed challenge length: complete 10 words, see your WPM. Result screen shows WPM and whether it's a new high score.
-- High score persisted in localStorage.
+- A fixed challenge length: complete 10 words. Live clock + `word N of 10` shown above the word display.
+- Timer starts on the user's first symbol press (not on entering the screen), so settling-in time doesn't count against you.
+- Errors (path divergence + wrong-letter commits) are tallied and shown on the results screen.
+- Result screen shows WPM headline, time, errors, and current best. Animated "★ New High Score ★" badge when the run beats the saved best.
+- High score persisted in localStorage at `meetmorse:scores`. Mode card shows `Best: X WPM` when a score exists.
 
 ### 6. Listening
 - A word from the word list is played as Morse audio (no visual on the tree — just tones at 12 WPM).
