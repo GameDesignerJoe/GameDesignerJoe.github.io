@@ -551,7 +551,7 @@
       <div class="section-body">
         <div class="slider-row">
           <label>Base Radius<span class="info" data-tip="Overall size of the lattice as a percentage of screen.">?</span> <span class="value" id="radiusVal">40</span>%</label>
-          <input type="range" id="radius" min="15" max="60" value="40" step="1">
+          <input type="range" id="radius" min="15" max="120" value="40" step="1">
         </div>
         <div class="slider-row">
           <label>Symmetry<span class="info" data-tip="Number of radial arms (petals) the geometry mirrors across.">?</span> <span class="value" id="symmetryVal">8</span></label>
@@ -560,6 +560,10 @@
         <div class="slider-row">
           <label>Ring Count<span class="info" data-tip="Concentric warping rings. Each ring responds to a different frequency band.">?</span> <span class="value" id="ringsVal">5</span></label>
           <input type="range" id="rings" min="0" max="10" value="5" step="1">
+        </div>
+        <div class="slider-row">
+          <label>Ring Spacing<span class="info" data-tip="Distance between concentric rings. 1 is the natural default. Higher values spread rings apart and are auto-capped so the outermost ring stays on-screen.">?</span> <span class="value" id="ringSpacingVal">1.00</span></label>
+          <input type="range" id="ringSpacing" min="0.2" max="3" value="1" step="0.05">
         </div>
         <div class="slider-row">
           <label>Ring Thickness<span class="info" data-tip="Stroke weight of the concentric rings.">?</span> <span class="value" id="thicknessVal">1.5</span></label>
@@ -788,10 +792,6 @@
       <div class="section-header"><h3>Visibility</h3><span class="section-chevron">▾</span></div>
       <div class="section-body">
         <label class="check-row">
-          <input type="checkbox" id="hideCore">
-          Hide Center Core<span class="info" data-tip="Removes the central shape entirely.">?</span>
-        </label>
-        <label class="check-row">
           <input type="checkbox" id="hideNodes">
           Hide Spoke Endpoints<span class="info" data-tip="Removes dots at the tip of each spoke.">?</span>
         </label>
@@ -828,7 +828,7 @@
   window.addEventListener('resize', resize);
 
   const state = {
-    symmetry: 8, spokes: 16, rings: 5, radius: 40, thickness: 1.5, spokeThickness: 1.0, detail: 120,
+    symmetry: 8, spokes: 16, rings: 5, ringSpacing: 1.0, radius: 40, thickness: 1.5, spokeThickness: 1.0, detail: 120,
     spokeShape: 0,
     centerShape: 'circle',
     dotCount: 0, dotSpeed: 0.3, dotSize: 3.0,
@@ -846,7 +846,6 @@
     colorChase: 0,
     rainbowMode: false,
     rainbowPhase: 0,
-    hideCore: false,
     hideNodes: false,
     gatedVisibility: false,
     // Centerpiece
@@ -871,7 +870,7 @@
     vignette: 0
   };
 
-  const sliders = ['symmetry','spokes','rings','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize','sensitivity','attack','release','autoGain','warp','asymmetry','rotation','fracture','shimmer','waveMode','waveDamping','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread','colorChase','cpCount','cpSpeed','cpSize','cpReact','cpCycleDuration','grain','scanlines','scanDensity','chromatic','bloom','curvature','signalNoise','vignette','demoInterval'];
+  const sliders = ['symmetry','spokes','rings','ringSpacing','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize','sensitivity','attack','release','autoGain','warp','asymmetry','rotation','fracture','shimmer','waveMode','waveDamping','threshold','fadeSoftness','glow','fade','cycleSpeed','radialSpread','colorChase','cpCount','cpSpeed','cpSize','cpReact','cpCycleDuration','grain','scanlines','scanDensity','chromatic','bloom','curvature','signalNoise','vignette','demoInterval'];
 
   // Demo mode state (not part of persisted preset state)
   const demo = {
@@ -898,7 +897,6 @@
     update();
   });
 
-  document.getElementById('hideCore').addEventListener('change', e => state.hideCore = e.target.checked);
   document.getElementById('hideNodes').addEventListener('change', e => state.hideNodes = e.target.checked);
   document.getElementById('gatedVisibility').addEventListener('change', e => state.gatedVisibility = e.target.checked);
   document.getElementById('cycleEnabled').addEventListener('change', e => state.cycleEnabled = e.target.checked);
@@ -951,7 +949,6 @@
         if (valEl) valEl.textContent = Number.isInteger(state[key]) ? state[key] : Number(state[key]).toFixed(2);
       }
     });
-    document.getElementById('hideCore').checked = state.hideCore;
     document.getElementById('hideNodes').checked = state.hideNodes;
     document.getElementById('gatedVisibility').checked = state.gatedVisibility;
     document.getElementById('cycleEnabled').checked = state.cycleEnabled;
@@ -969,13 +966,13 @@
 
   // --- Demo mode ---
   // Parameters that safely interpolate (numeric, continuous)
-  const DEMO_PARAMS_GEOMETRY = ['symmetry','spokes','rings','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize'];
+  const DEMO_PARAMS_GEOMETRY = ['symmetry','spokes','rings','ringSpacing','radius','thickness','spokeThickness','detail','spokeShape','dotCount','dotSpeed','dotSize'];
   const DEMO_PARAMS_REACTIVITY = ['warp','asymmetry','rotation','fracture','shimmer','glow','fade','cycleSpeed','radialSpread','colorChase','waveMode','waveDamping'];
   // Overlays: demo drifts these toward gentle/showcase values rather than shuffling them chaotically
   const DEMO_PARAMS_OVERLAYS = ['grain','scanlines','chromatic','bloom','curvature','signalNoise','vignette'];
   // Parameter ranges for randomization — tuned for sustainable, visually-pleasing demo output
   const DEMO_RANGES = {
-    symmetry: [3, 12], spokes: [0, 32], rings: [2, 8], radius: [25, 45],
+    symmetry: [3, 12], spokes: [0, 32], rings: [2, 8], ringSpacing: [0.6, 1.6], radius: [25, 45],
     thickness: [0.8, 2.5], spokeThickness: [0.5, 2.5], detail: [80, 200], spokeShape: [-0.7, 0.7],
     dotCount: [0, 6], dotSpeed: [-0.6, 0.6], dotSize: [2, 6],
     warp: [0.2, 1.2], asymmetry: [0, 0.5], rotation: [-0.2, 0.2], fracture: [0.3, 1.5],
@@ -1171,11 +1168,54 @@
     updateGradientPreview();
   });
 
+  // Snapshot of state at startup — used as the fallback for any keys missing
+  // from a loaded preset, so loading is a full replace rather than a merge.
+  const DEFAULT_STATE = JSON.parse(JSON.stringify(state));
+
   // --- Preset system (localStorage) ---
   const PRESET_KEY = 'kin_lattice_presets_v1';
   const presetName = document.getElementById('presetName');
   const presetList = document.getElementById('presetList');
   const presetStatus = document.getElementById('presetStatus');
+
+  const BUILTIN_PRESETS = {
+    'Dancing Rainbow Fish': {
+      symmetry: 8, spokes: 0, rings: 0, ringSpacing: 1, radius: 34, thickness: 1.5, spokeThickness: 1, detail: 120,
+      spokeShape: 0, centerShape: 'none',
+      dotCount: 0, dotSpeed: 0.3, dotSize: 3,
+      sensitivity: 3.2, warp: 0, asymmetry: 0, rotation: 0.05, fracture: 0, shimmer: 0.85,
+      waveMode: 0, waveDamping: 0.15,
+      attack: 0.01, release: 0.02, autoGain: 0.75,
+      threshold: 0.05, fadeSoftness: 0.3,
+      glow: 7, fade: 0.15,
+      colorA: [212, 196, 168], colorB: [230, 130, 130],
+      cycleEnabled: false, cycleSpeed: 0.05, radialSpread: 2, colorChase: -2,
+      rainbowMode: true, rainbowPhase: 0,
+      hideNodes: false, gatedVisibility: false,
+      cpShape: 'dot', cpMotion: 'dance', cpCount: 80, cpSpeed: 1.25, cpSize: 8, cpReact: 0.6,
+      cpCycleShape: false, cpCycleMotion: false, cpCycleDuration: 15, cpInvert: false,
+      grain: 0, scanlines: 0, scanDensity: 1, chromatic: 0, bloom: 0, curvature: 0, signalNoise: 0, vignette: 0,
+      demoInterval: 10
+    },
+    'Hyber Drive': {
+      symmetry: 8, spokes: 0, rings: 0, ringSpacing: 1, radius: 34, thickness: 1.5, spokeThickness: 1, detail: 120,
+      spokeShape: 0, centerShape: 'none',
+      dotCount: 0, dotSpeed: 0.3, dotSize: 3,
+      sensitivity: 3.2, warp: 0, asymmetry: 0, rotation: 0.05, fracture: 0, shimmer: 0.85,
+      waveMode: 0, waveDamping: 0.15,
+      attack: 0.01, release: 0.02, autoGain: 0.75,
+      threshold: 0.05, fadeSoftness: 0.3,
+      glow: 7, fade: 0.15,
+      colorA: [247, 247, 247], colorB: [99, 147, 242],
+      cycleEnabled: true, cycleSpeed: 0.05, radialSpread: 2, colorChase: -2,
+      rainbowMode: false, rainbowPhase: 0,
+      hideNodes: false, gatedVisibility: false,
+      cpShape: 'line', cpMotion: 'warp', cpCount: 79, cpSpeed: 0.45, cpSize: 21, cpReact: 0.1,
+      cpCycleShape: false, cpCycleMotion: false, cpCycleDuration: 15, cpInvert: false,
+      grain: 0, scanlines: 0, scanDensity: 1, chromatic: 0, bloom: 0, curvature: 0, signalNoise: 0, vignette: 0,
+      demoInterval: 10
+    }
+  };
 
   function getPresets() {
     try {
@@ -1193,14 +1233,31 @@
   }
   function refreshPresetList() {
     const presets = getPresets();
-    const names = Object.keys(presets).sort();
+    const userNames = Object.keys(presets).sort();
+    const builtinNames = Object.keys(BUILTIN_PRESETS).filter(n => !(n in presets)).sort();
     presetList.innerHTML = '<option value="">Select a preset...</option>';
-    names.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      presetList.appendChild(opt);
-    });
+    if (builtinNames.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'Built-in';
+      builtinNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        grp.appendChild(opt);
+      });
+      presetList.appendChild(grp);
+    }
+    if (userNames.length) {
+      const grp = document.createElement('optgroup');
+      grp.label = 'Saved';
+      userNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        grp.appendChild(opt);
+      });
+      presetList.appendChild(grp);
+    }
   }
   function serializeState() {
     // Deep copy so saved state doesn't share references
@@ -1208,11 +1265,15 @@
   }
   function loadStateObject(obj) {
     if (!obj || typeof obj !== 'object') return false;
-    // Merge loaded values into current state, preserving any missing keys
-    Object.keys(state).forEach(k => {
-      if (obj[k] !== undefined) state[k] = obj[k];
+    // Full replace: every known key is set from the preset, falling back to
+    // defaults for anything missing. Prevents leftover state (e.g. an active
+    // centerpiece) from bleeding through when loading older or partial presets.
+    Object.keys(DEFAULT_STATE).forEach(k => {
+      const v = obj[k] !== undefined ? obj[k] : DEFAULT_STATE[k];
+      state[k] = Array.isArray(v) ? v.slice() : v;
     });
     applyStateToUI();
+    resetCenterpiece();
     return true;
   }
   function flashStatus(msg, isError) {
@@ -1258,8 +1319,9 @@
     const name = presetList.value;
     if (!name) return;
     const presets = getPresets();
-    if (presets[name]) {
-      loadStateObject(presets[name]);
+    const data = presets[name] || BUILTIN_PRESETS[name];
+    if (data) {
+      loadStateObject(data);
       presetName.value = name;
       flashStatus(`Loaded "${name}"`);
     }
@@ -1918,6 +1980,22 @@
   const CP_SHAPES = ['triangle','square','hexagon','star','circle','dot','line'];
   const CP_MOTIONS = ['orbit','bounce','spiral','cascade','dance','warp'];
 
+  // Orbit motion: solar-system-style concentric lanes. Particles are distributed
+  // by weighted CDF so inner rings hold few particles and outer rings hold many.
+  const ORBIT_LANES = 12;
+  function pickOrbitLane(i, total) {
+    // Weight lane k as (k+1) — linear growth outward. With 12 lanes, sum is 78.
+    // Map particle i to a quantile and find the lane whose cumulative weight covers it.
+    const sumW = ORBIT_LANES * (ORBIT_LANES + 1) / 2;
+    const q = (i + 0.5) / Math.max(1, total);
+    let cum = 0;
+    for (let k = 0; k < ORBIT_LANES; k++) {
+      cum += (k + 1) / sumW;
+      if (q <= cum) return k;
+    }
+    return ORBIT_LANES - 1;
+  }
+
   // Flock state for Dance motion — the entire group moves in a shared direction that
   // shifts on audio events (beats). Position is tracked as a center-of-mass offset
   // that all particles follow, with individual wobble variations.
@@ -1964,9 +2042,8 @@
       sizeMul: 0.6 + Math.random() * 0.8,
       rotation: Math.random() * Math.PI * 2,
       rotSpeed: (Math.random() - 0.5) * 0.04,
-      // Orbit lanes: quantize particles into 3 concentric orbits at 25%, 55%, 85% of maxR
-      // Produces distinct "planetary" rings rather than a spiral blur
-      orbitLane: i % 3,
+      // Orbit lanes: 12 concentric rings, weighted so outer lanes hold more particles
+      orbitLane: pickOrbitLane(i, total),
       orbitPhaseOffset: Math.random() * Math.PI * 2,
       // Each lane has a slight ellipticity variation so orbits aren't all perfect circles
       ellipseRatio: 0.85 + Math.random() * 0.3,
@@ -2167,11 +2244,11 @@
 
       switch (state.cpMotion) {
         case 'orbit': {
-          // Three concentric lanes at 25%, 55%, 85% of maxR — distinct planetary rings
-          const laneRadii = [maxR * 0.25, maxR * 0.55, maxR * 0.9];
-          const laneR = laneRadii[p.orbitLane];
-          // Each lane has slightly different rotation speed (outer = slower, like real orbits)
-          const laneSpeedMul = [1.2, 0.9, 0.7][p.orbitLane];
+          // 12 concentric lanes spanning ~12% to ~95% of maxR. Outer lanes rotate slower,
+          // mimicking Kepler's third law (period grows with radius).
+          const t = p.orbitLane / (ORBIT_LANES - 1);
+          const laneR = maxR * (0.12 + t * 0.83);
+          const laneSpeedMul = 1.3 - t * 0.8;
           const orbitSpeed = 0.5 * speedBase * p.speedMul * laneSpeedMul * invert;
           p.phase += orbitSpeed * dt;
           const r = laneR * (1 + amp * react * 0.15 + bass * react * 0.15);
@@ -2429,10 +2506,21 @@
     ctx.shadowBlur = state.glow;
     ctx.shadowColor = rgbStr(midColor, 0.8);
 
+    // Ring placement model:
+    //   - With a center shape, the innermost ring sits one spacing-step out from center
+    //     so the core has room (matches the original (r+1)/N spacing at ringSpacing=1).
+    //   - With centerShape='none', ring 0 collapses to the origin and acts as an
+    //     audio-reactive "origin ring", with subsequent rings stepping outward.
+    //   - Spacing scales with the user slider. No screen clamp — Base Radius and
+    //     Ring Spacing together can push rings off-screen on purpose.
+    const useOriginRing = state.centerShape === 'none';
+    const spacing = (baseR / Math.max(rings, 1)) * state.ringSpacing;
+    const ringInnerOffset = useOriginRing ? 0 : spacing;
+
     // Rings
     for (let r = 0; r < rings; r++) {
       const ringRatio = (r + 1) / Math.max(rings, 1);
-      const ringR = baseR * ringRatio;
+      const ringR = ringInnerOffset + r * spacing;
 
       const bandIdx = Math.floor((r / Math.max(rings,1)) * combinedSpectrum.length);
       const bandEnergy = combinedSpectrum[bandIdx] || 0;
@@ -2492,7 +2580,9 @@
       const asymKick = state.asymmetry * Math.sin(angle + time) * amp;
       const spokeLen = baseR * (1 + specVal * state.warp * 0.5 + asymKick + bassHitDecay * 0.3);
 
-      const innerR = state.hideCore ? 0 : baseR * 0.15;
+      // When there's no center core, spokes anchor at the exact center so the
+      // lattice fills the inner area instead of leaving a hole.
+      const innerR = state.centerShape === 'none' ? 0 : baseR * 0.15;
       const x1 = cx + Math.cos(angle) * innerR;
       const y1 = cy + Math.sin(angle) * innerR;
       const x2 = cx + Math.cos(angle) * spokeLen;
@@ -2561,7 +2651,7 @@
       // Traveling dots along this spoke
       if (state.dotCount > 0) {
         const dotCount = Math.floor(state.dotCount);
-        const innerR = state.hideCore ? 0 : baseR * 0.15;
+        const innerR = state.centerShape === 'none' ? 0 : baseR * 0.15;
         const dx = x2 - x1;
         const dy = y2 - y1;
         for (let d = 0; d < dotCount; d++) {
@@ -2581,7 +2671,7 @@
     }
 
     // Central core — variable shape
-    if (!state.hideCore && state.centerShape !== 'none') {
+    if (state.centerShape !== 'none') {
       const coreColor = sampleColor(0, 0, time);
       const coreR = baseR * 0.1 * (1 + amp * 2 + bassHitDecay);
       const coreAlpha = 0.6 + bassHitDecay * 0.4;
