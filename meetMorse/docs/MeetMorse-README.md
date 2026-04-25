@@ -31,41 +31,37 @@ If something in one of these contradicts another, the more-recent conversation w
 
 ## Stack
 
-- React 18 + TypeScript
-- Vite
-- Tailwind CSS
-- Zustand
+- Vanilla ES modules — no build step, no bundler
+- Plain HTML + CSS (CSS custom properties for theme tokens)
 - Web Audio API (built-in, no keys)
 - Vibration API (built-in, no-ops on iOS)
 - localStorage for persistence
 - GitHub Pages for deployment (served as a subpath of the portfolio repo)
 
-No backend. No API keys. No third-party services.
+No backend. No API keys. No third-party libraries. No npm dependencies. Edit a file, save, refresh — that's the dev loop.
 
 ---
 
 ## Getting Started
 
+The app is static: any HTTP server works. From the repo root:
+
 ```bash
-git clone <repo>
-cd meet-morse
-npm install
-npm run dev
+python -m http.server 8000
+# open http://localhost:8000/meetMorse/
 ```
 
-Open `http://localhost:5173` on desktop, or — to test the real thing — connect your phone to the same network and visit `http://<your-lan-ip>:5173`.
+For phone testing on the same LAN, find your machine's IP and visit `http://<lan-ip>:8000/meetMorse/`.
 
 For deployment to GitHub Pages:
 
 ```bash
-npm run deploy
-# then:
-git add meetMorse/index.html meetMorse/assets meetMorse/index.src.html meetMorse/scripts
-git commit -m "deploy meetMorse"
+git add meetMorse/
+git commit -m "update meetMorse"
 git push
 ```
 
-`npm run deploy` runs the Vite build, copies `dist/index.html` over `meetMorse/index.html` (the file GH Pages serves at `/meetMorse/`), replaces `meetMorse/assets/`, and removes `dist/`. It restores the source `index.html` from the committed `index.src.html` template before building, so local `npm run dev` keeps working between deploys.
+GitHub Pages serves `https://gamedesignerjoe.github.io/meetMorse/` directly from the source files on the `main` branch — no build step, push = deploy.
 
 ---
 
@@ -73,36 +69,34 @@ git push
 
 ### Code Style
 
-- TypeScript strict mode on.
-- Functional components only.
-- Named exports for components; default export only for pages/screens.
-- Zustand stores export a hook (`useInputStore`) and selectors; avoid subscribing to whole stores when a slice will do.
-- Keep components under ~150 lines; split when they grow.
+- ES modules (`import` / `export`), no CommonJS.
+- Single shared mutable `state` object (`js/state.js`); modules mutate it directly. No diffing layer — UI modules expose `render*()` functions that read state and update DOM, called explicitly after state changes.
+- Keep modules small and single-purpose; split when they grow past ~150 lines.
+- No build step, ever. If a feature seems to need one, push back first.
 
 ### File Layout
 
-See the TDD for the full directory structure. Summary:
+See the TDD for full detail. Summary:
 
-- `components/` — reusable UI pieces
-- `screens/` — top-level page-equivalents (Home, Game, Results)
-- `modes/` — mode-specific behavior controllers
-- `engines/` — audio, haptics, input logic (no React)
-- `stores/` — Zustand state
-- `data/` — static data (tree, words)
-- `lib/` — pure utility functions
+- `index.html` — single entry, sections shown/hidden via the `hidden` class
+- `css/style.css` — all styling; theme tokens as CSS custom properties on `:root`
+- `js/main.js` — bootstrap
+- `js/state.js` — shared mutable state object
+- `js/input.js` — state-mutating actions (`pressDown`, `pressUp`, `commitLetter`, `resetTape`)
+- `js/data/` — static data (Morse tree, words)
+- `js/engines/` — audio, haptics, input timing — DOM-free
+- `js/ui/` — DOM building + render functions (tree, tape, key, views)
 
 ### Styling
 
-- Tailwind utility classes for everything routine.
-- Custom theme tokens (wood, brass, board-navy, dot-green, dash-amber, error-red) defined in `tailwind.config.ts`.
-- SVG for the tree and the key. No icon libraries needed.
-- Animations via Tailwind's `transition-*` utilities and keyframes defined in the config.
+- Plain CSS. Theme tokens (`--wood`, `--brass`, etc.) on `:root`.
+- SVG for the tree and the key. No icon libraries.
+- Animations via CSS `transition` and `@keyframes`. Web Animations API for anything custom.
 
 ### Naming
 
-- Components: PascalCase (`TelegraphKey.tsx`).
-- Hooks: camelCase starting with `use` (`useMorseInput`).
-- Stores: `useXStore` pattern.
+- Module file names: camelCase (`morseTree.js`, `audioEngine.js`).
+- Functions: camelCase. Render functions: `render*` (e.g. `renderTree`, `renderTape`).
 - Constants: SCREAMING_SNAKE (`DOT_DASH_THRESHOLD_MS`).
 - Morse code strings use `.` and `-` literally (no unicode dots).
 
@@ -114,7 +108,7 @@ Pulled out of the TDD for visibility — these are the things that'll bite you i
 
 1. **Initialize `AudioContext` from a user gesture.** On iOS Safari, creating an `AudioContext` outside of a user gesture handler results in a silent (or suspended) context. Lazy-init in the first `pointerdown` on the telegraph key.
 
-2. **Use pointer events, not touch/mouse.** `onPointerDown`/`onPointerUp` give unified behavior. Also handle `onPointerCancel` and `onPointerLeave` as releases.
+2. **Use pointer events, not touch/mouse.** `pointerdown` / `pointerup` give unified behavior. Also handle `pointercancel` and `pointerleave` as releases.
 
 3. **Call `setPointerCapture` on press.** Fingers drift during a held dash; pointer capture ensures the release fires on the right element.
 

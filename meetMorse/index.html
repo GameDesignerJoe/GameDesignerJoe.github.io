@@ -2,13 +2,50 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
+    />
     <meta name="theme-color" content="#3a241a" />
     <title>Meet Morse</title>
-    <script type="module" crossorigin src="/meetMorse/assets/index-BdbNXnX_.js"></script>
-    <link rel="stylesheet" crossorigin href="/meetMorse/assets/index-DMxDZQpn.css">
+    <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <main id="app">
+      <section id="home-screen" class="screen">
+        <div class="nameplate">
+          <h1 class="nameplate-text">MEET MORSE</h1>
+        </div>
+        <button id="play-button" class="play-button" type="button">PLAY</button>
+      </section>
+
+      <section id="game-screen" class="screen hidden">
+        <div class="game-header">
+          <button id="back-button" class="back-button" type="button">← BACK</button>
+          <span class="mode-label">FREE PLAY</span>
+          <span class="header-spacer"></span>
+        </div>
+
+        <div id="paper-tape" class="paper-tape">
+          <span class="tape-letters empty">start tapping…</span>
+          <span class="tape-current">·—</span>
+        </div>
+
+        <div id="tree-container" class="tree-container"></div>
+
+        <div class="key-area">
+          <button
+            id="telegraph-key"
+            class="telegraph-key"
+            type="button"
+            aria-label="Telegraph key"
+          >
+            <span class="key-label">TAP · HOLD</span>
+          </button>
+          <div class="key-base"></div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>

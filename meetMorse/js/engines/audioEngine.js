@@ -1,24 +1,25 @@
+// Web Audio tone generator. Lazy-inits AudioContext on first user
+// gesture so iOS Safari accepts it. 600 Hz sine, 5 ms attack/decay.
 const DEFAULT_FREQ = 600;
 const RAMP_SECONDS = 0.005;
 const PEAK_GAIN = 0.3;
 
 class AudioEngine {
-  private ctx: AudioContext | null = null;
-  private oscillator: OscillatorNode | null = null;
-  private gain: GainNode | null = null;
-  private enabled = true;
+  constructor() {
+    this.ctx = null;
+    this.oscillator = null;
+    this.gain = null;
+    this.enabled = true;
+  }
 
   init() {
     if (this.ctx) return;
-    const Ctor =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
+    const Ctor = window.AudioContext || window.webkitAudioContext;
     if (!Ctor) return;
     this.ctx = new Ctor();
   }
 
-  setEnabled(on: boolean) {
+  setEnabled(on) {
     this.enabled = on;
     if (!on) this.stopTone();
   }
