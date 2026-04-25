@@ -762,21 +762,30 @@ button {
 
 .speed-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.5rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
   flex: 1;
-  align-content: center;
+  align-content: start;
   padding: 0.25rem;
+  transition: opacity 200ms;
+}
+
+.speed-grid.inactive {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+#speed-start-button {
+  align-self: center;
+  margin: 0.25rem 0;
 }
 
 .speed-letter {
-  width: 100%;
-  aspect-ratio: 1;
-  font-family: var(--serif);
-  font-size: 1.4rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--brass-bright);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
   background: linear-gradient(180deg, #6b4a22 0%, #4a2f15 100%);
   border: 1px solid rgba(176, 141, 87, 0.45);
   border-radius: 0.25rem;
@@ -787,6 +796,22 @@ button {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: transform 80ms, background 120ms, border-color 120ms, color 120ms;
+}
+
+.speed-letter-char {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--brass-bright);
+}
+
+.speed-letter-code {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  color: rgba(201, 166, 114, 0.85);
+  font-variant-numeric: tabular-nums;
 }
 
 .speed-letter:hover,
@@ -802,15 +827,21 @@ button {
 .speed-letter.correct {
   background: linear-gradient(180deg, #6ee7b7 0%, #4ca97a 100%);
   border-color: var(--node-committed);
-  color: #1a2c20;
   animation: speed-flash-pulse 320ms ease-out;
+}
+.speed-letter.correct .speed-letter-char,
+.speed-letter.correct .speed-letter-code {
+  color: #1a2c20;
 }
 
 .speed-letter.wrong {
   background: linear-gradient(180deg, #ef4444 0%, #a02828 100%);
   border-color: var(--node-error);
-  color: #fff;
   animation: speed-flash-pulse 320ms ease-out;
+}
+.speed-letter.wrong .speed-letter-char,
+.speed-letter.wrong .speed-letter-code {
+  color: #fff;
 }
 
 @keyframes speed-flash-pulse {

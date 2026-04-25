@@ -58,6 +58,7 @@ export const state = {
   speedStageIndex: 0,
   speedStreak: 0,
   speedAwaitingTap: false,
+  speedAwaitingStart: false,
 
   // user settings + scores — replaced by load* on boot in main.js
   settings: { ...DEFAULT_SETTINGS },

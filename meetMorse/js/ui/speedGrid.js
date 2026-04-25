@@ -1,14 +1,22 @@
 import { state } from '../state.js';
 import { getMode } from '../modes/index.js';
+import { LETTER_TO_CODE } from '../data/morseTree.js';
 import { SPEED_STAGES, STREAK_TO_ADVANCE } from '../data/speedStages.js';
 
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+// Two-column layout: left column starts with `.` (E, I, A, S, ...), right
+// starts with `-` (T, N, M, D, ...). Within each column letters climb in
+// complexity — length first, then binary order on the symbols. Easiest
+// stuff (E, T) at top; deepest level-4 letters (J, Q) at the bottom.
+const DOT_COLUMN = ['E', 'I', 'A', 'S', 'U', 'R', 'W', 'H', 'V', 'F', 'L', 'P', 'J'];
+const DASH_COLUMN = ['T', 'N', 'M', 'D', 'K', 'G', 'O', 'B', 'X', 'C', 'Y', 'Z', 'Q'];
 
 let gridEl = null;
 let stageEl = null;
 let streakEl = null;
 let bestEl = null;
+let countdownEl = null;
 let countdownFillEl = null;
+let startBtnEl = null;
 
 const buttons = new Map();
 
@@ -18,34 +26,69 @@ let countdownStart = null;
 let countdownDuration = 0;
 let countdownCb = null;
 
-let flashTimers = new Map(); // letter → timeoutId, so re-tapping during a flash resets cleanly
+let flashTimers = new Map();
+
+// Replace ASCII dot/dash with prettier middle-dot + en-dash for the labels.
+function formatCode(code) {
+  return code.replace(/\./g, '·').replace(/-/g, '−');
+}
+
+function buildLetterCell(letter) {
+  const btn = document.createElement('button');
+  btn.className = 'speed-letter';
+  btn.type = 'button';
+  btn.dataset.letter = letter;
+
+  const charEl = document.createElement('span');
+  charEl.className = 'speed-letter-char';
+  charEl.textContent = letter;
+
+  const codeEl = document.createElement('span');
+  codeEl.className = 'speed-letter-code';
+  codeEl.textContent = formatCode(LETTER_TO_CODE[letter] || '');
+
+  btn.appendChild(charEl);
+  btn.appendChild(codeEl);
+
+  btn.addEventListener('click', () => {
+    const mode = getMode(state.mode);
+    if (mode.id !== 'speed') return;
+    mode.onLetterTap?.(letter);
+  });
+  return btn;
+}
 
 export function initSpeedGrid() {
   gridEl = document.getElementById('speed-grid');
   stageEl = document.querySelector('#speed-status .speed-stage');
   streakEl = document.querySelector('#speed-status .speed-streak strong');
   bestEl = document.querySelector('#speed-status .speed-best strong');
+  countdownEl = document.getElementById('speed-countdown');
   countdownFillEl = document.getElementById('speed-countdown-fill');
+  startBtnEl = document.getElementById('speed-start-button');
 
-  if (!gridEl) return;
-  gridEl.innerHTML = '';
-  buttons.clear();
-  for (const letter of ALPHABET) {
-    const btn = document.createElement('button');
-    btn.className = 'speed-letter';
-    btn.type = 'button';
-    btn.textContent = letter;
-    btn.dataset.letter = letter;
-    btn.addEventListener('click', () => {
-      const mode = getMode(state.mode);
-      if (mode.id !== 'speed') return;
-      mode.onLetterTap?.(letter);
-    });
-    gridEl.appendChild(btn);
-    buttons.set(letter, btn);
+  if (gridEl) {
+    gridEl.innerHTML = '';
+    buttons.clear();
+    // Interleave row-by-row so CSS grid (1fr 1fr) places dot column on
+    // the left, dash column on the right.
+    for (let i = 0; i < DOT_COLUMN.length; i++) {
+      for (const letter of [DOT_COLUMN[i], DASH_COLUMN[i]]) {
+        const btn = buildLetterCell(letter);
+        gridEl.appendChild(btn);
+        buttons.set(letter, btn);
+      }
+    }
   }
 
+  startBtnEl?.addEventListener('click', () => {
+    const mode = getMode(state.mode);
+    if (mode.id !== 'speed') return;
+    mode.onStart?.();
+  });
+
   renderSpeedStatus();
+  renderSpeedReady();
 }
 
 export function renderSpeedStatus() {
@@ -62,7 +105,15 @@ export function renderSpeedStatus() {
   }
 }
 
-// Reset every letter button to its idle state. Called between letters.
+// Toggles between the Start button (pre-game) and the countdown bar
+// (mid-game) based on state.speedAwaitingStart.
+export function renderSpeedReady() {
+  const awaiting = !!state.speedAwaitingStart;
+  if (startBtnEl) startBtnEl.classList.toggle('hidden', !awaiting);
+  if (countdownEl) countdownEl.classList.toggle('hidden', awaiting);
+  if (gridEl) gridEl.classList.toggle('inactive', awaiting);
+}
+
 export function resetSpeedGrid() {
   for (const [letter, timer] of flashTimers) {
     clearTimeout(timer);
@@ -72,7 +123,6 @@ export function resetSpeedGrid() {
   flashTimers.clear();
 }
 
-// Briefly highlight a single letter as correct or wrong.
 export function flashSpeedLetter(letter, kind) {
   const btn = buttons.get(letter);
   if (!btn) return;
@@ -88,8 +138,6 @@ export function flashSpeedLetter(letter, kind) {
   );
 }
 
-// Drain the countdown bar from 100% to 0% over durationMs. When it
-// reaches 0, callback fires (timeout). Cancelable via stopSpeedCountdown.
 export function startSpeedCountdown(durationMs, callback) {
   stopSpeedCountdown();
   countdownStart = performance.now();

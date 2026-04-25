@@ -8,6 +8,7 @@ import {
 } from '../data/speedStages.js';
 import {
   renderSpeedStatus,
+  renderSpeedReady,
   resetSpeedGrid,
   flashSpeedLetter,
   startSpeedCountdown,
@@ -113,9 +114,13 @@ export const speed = {
     state.speedStageIndex = 0;
     state.speedStreak = 0;
     state.speedAwaitingTap = false;
+    state.speedAwaitingStart = true;       // wait for explicit Start tap
     state.currentWord = null;
     clearPending();
-    startNewLetter();
+    resetSpeedGrid();
+    renderSpeedStatus();
+    renderSpeedReady();
+    audioEngine.init();                    // prep audio context inside the gesture
   },
 
   exit() {
@@ -124,6 +129,15 @@ export const speed = {
     audioEngine.stopTone();
     state.currentWord = null;
     state.speedAwaitingTap = false;
+    state.speedAwaitingStart = false;
+  },
+
+  // Called by speedGrid.js when the user taps the Start button.
+  onStart() {
+    if (!state.speedAwaitingStart) return;
+    state.speedAwaitingStart = false;
+    renderSpeedReady();
+    startNewLetter();
   },
 
   // Called by speedGrid.js when the user taps a letter button.
