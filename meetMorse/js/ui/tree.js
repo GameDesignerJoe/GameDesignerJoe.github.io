@@ -9,13 +9,13 @@ import {
 import { getMode } from '../modes/index.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const DOT_RADIUS = 2.6;
-const DASH_WIDTH = 7;
-const DASH_HEIGHT = 3.2;
-const LABEL_BASELINE_OFFSET = 7;
-const LABEL_PLATE_W = 5.2;
-const LABEL_PLATE_H = 5.2;
-const LABEL_FONT_SIZE = 4;
+const DOT_RADIUS = 2.8;
+const DASH_WIDTH = 8;
+const DASH_HEIGHT = 3.6;
+const LABEL_BASELINE_OFFSET = 8;
+const LABEL_PLATE_W = 6;
+const LABEL_PLATE_H = 6;
+const LABEL_FONT_SIZE = 4.5;
 
 const edgeRefs = new Map(); // 'from->to' -> <line>
 const nodeRefs = new Map(); // code -> { node, plate, label }
