@@ -54,6 +54,11 @@ export const state = {
   listeningStreakCurrent: 0,
   listeningWordHasError: false,
 
+  // speed mode (M5b)
+  speedStageIndex: 0,
+  speedStreak: 0,
+  speedAwaitingTap: false,
+
   // user settings + scores — replaced by load* on boot in main.js
   settings: { ...DEFAULT_SETTINGS },
   scores: { ...DEFAULT_SCORES },

@@ -67,6 +67,10 @@ function scoreForMode(id) {
     const best = state.scores.timedWpmBest || 0;
     if (best > 0) return `Best: ${formatWpm(best)} WPM`;
   }
+  if (id === 'speed') {
+    const idx = state.scores.speedHighStage || 0;
+    if (idx > 0) return `Best stage: ${idx + 1}`;
+  }
   const streakKey = STREAK_KEYS[id];
   if (streakKey) {
     const best = state.scores[streakKey] || 0;

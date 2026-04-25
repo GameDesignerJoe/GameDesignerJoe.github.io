@@ -23,6 +23,7 @@ export const DEFAULT_SCORES = {
   listenWordsStreak: 0,            // M5 tap-tree words
   echoLettersStreak: 0,            // M5 reproduce letters
   echoWordsStreak: 0,              // M5 reproduce words
+  speedHighStage: 0,               // M5b speed mode — index of the highest stage reached
   memoryWpmBest: 0,                // M6
 };
 

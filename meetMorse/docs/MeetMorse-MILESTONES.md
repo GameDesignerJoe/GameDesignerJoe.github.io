@@ -161,6 +161,19 @@ Standalone mode for tuning dot/dash press feel. No tree, no word, just a single 
 - `dotDashThresholdMs` settings entry (120 / 150 / 200 / 250 ms). `detectSymbol(durationMs, thresholdMs)` is now parameterized; `inputEngine.js` no longer hard-codes the threshold.
 - `debugTiming` settings toggle. When on, a small panel below the key lists the last 6 presses with duration + margin from threshold + a green/amber/red color tier based on classification confidence.
 
+## M-Speed — Speed-recognition trainer ✅ Built
+
+Pure ear-training drill. The user listens to letters played at progressively faster speeds and taps the matching letter from an alphabet grid (no tree, no key, no replay). 5 correct in a row → next stage; wrong/timeout → streak resets but stage is preserved.
+
+- `js/data/speedStages.js` — 7-stage WPM ramp (8/10/12/15/18/22/25 WPM) + `STREAK_TO_ADVANCE = 5` + fixed `RESPONSE_WINDOW_MS = 4000`.
+- `js/modes/speed.js` — picks letters from a shuffled-alphabet pool, plays via `audioEngine.playWord(letter, ditMs)` at the current stage's `ditMs`, then arms a countdown via `startSpeedCountdown(...)`. `onLetterTap(letter)` resolves the round.
+- `js/ui/speedGrid.js` — owns three things:
+  - The alphabet grid (built once on init, 26 buttons, dispatches to mode.onLetterTap).
+  - The status row (`STAGE n · X WPM` + `streak n / 5` + `best n`).
+  - The countdown bar (rAF-driven width drain from 100% to 0% over RESPONSE_WINDOW_MS; native setTimeout fires the timeout callback).
+- New mode flags `showSpeedContent` (toggles the speed UI block) and re-uses `hideKey: true`. The whole game-screen layout falls out from existing flag toggles in views.js.
+- Score persisted under `meetmorse:scores.speedHighStage` (0-indexed; 1-indexed for display). Modes screen card shows `Best stage: N` once N > 0.
+
 ## M-Drill — Reinforcement Mode
 
 **Goal:** Repetition-based learning. The user practices clusters of words that share letters so the same codes get hammered until they stick.

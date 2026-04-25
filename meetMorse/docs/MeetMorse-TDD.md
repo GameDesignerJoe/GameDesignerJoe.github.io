@@ -28,7 +28,8 @@ meetMorse/
 │   ├── settings.js                # updateSetting + applyAllSettings (M3)
 │   ├── data/
 │   │   ├── morseTree.js           # code↔letter map, tree nodes/edges
-│   │   └── words.js               # word list, tiered (M2)
+│   │   ├── words.js               # word list, tiered (M2)
+│   │   └── speedStages.js         # WPM ladder for Speed mode
 │   ├── engines/
 │   │   ├── audioEngine.js         # Web Audio tone generation
 │   │   ├── hapticsEngine.js       # Vibration wrapper
@@ -48,6 +49,7 @@ meetMorse/
 │   │   ├── tapShared.js           # factory for Listen (tap-the-tree)
 │   │   ├── listenLetters.js       # Listen · Letters
 │   │   ├── listenWords.js         # Listen · Words
+│   │   ├── speed.js               # Speed (alphabet grid + WPM stages)
 │   │   └── (drill, memory — placeholders)
 │   ├── lib/
 │   │   ├── storage.js             # localStorage wrapper + DEFAULT_SETTINGS + DEFAULT_SCORES
@@ -63,6 +65,7 @@ meetMorse/
 │       ├── practice.js            # practice prompt + visualizer
 │       ├── debug.js               # debug timing overlay
 │       ├── listening.js           # listening status row + replay button (M5)
+│       ├── speedGrid.js           # speed mode alphabet grid + countdown
 │       ├── modes.js               # modes screen card grid
 │       ├── settings.js            # settings screen builder (M3)
 │       └── views.js               # show/hide screens

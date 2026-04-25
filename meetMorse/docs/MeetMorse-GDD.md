@@ -188,6 +188,18 @@ All four modes share:
 - Underscore (`_`) placeholders in the word display that fill in only after the user correctly identifies/reproduces each position.
 - A live streak / best status row above the word display.
 
+### 8. Speed
+
+Pure speed-recognition trainer. The goal is to get the user comfortable identifying letters at the cadence of a real Morse transmission.
+
+- A single random letter plays once at the current stage's WPM. **No replay.** No tree.
+- Below the audio status row, an alphabet grid (A–Z in alphabetical order) shows every letter as a tappable button. The user taps the one they think they heard before the countdown bar drains.
+- After each tap the correct letter briefly glows green; a wrong tap also flashes the chosen button red so the user can see both their guess and the answer.
+- **5 correct in a row** advances to the next stage. Wrong taps and timeouts reset the streak to 0 — but you never *lose* a stage.
+- 7 stages: **8 / 10 / 12 / 15 / 18 / 22 / 25 WPM**.
+- Response window: **4 s** after the audio finishes (fixed across stages).
+- Persistent best stage at `meetmorse:scores.speedHighStage`. Mode card shows `Best stage: N` once you've cleared stage 1.
+
 ### Error coloring
 
 When the user makes an input error in any mode that has a target, the wrongly-pressed node flashes:

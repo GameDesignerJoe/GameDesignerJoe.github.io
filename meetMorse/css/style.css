@@ -697,6 +697,127 @@ button {
   color: rgba(201, 166, 114, 0.78);
 }
 
+/* === speed mode === */
+.speed-content {
+  width: 100%;
+  max-width: var(--content-max-width);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.speed-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  color: var(--brass);
+  border: 1px solid rgba(176, 141, 87, 0.3);
+  border-radius: 0.125rem;
+  background: rgba(0, 0, 0, 0.18);
+  font-style: italic;
+}
+
+.speed-status .speed-stage {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--brass-bright);
+  letter-spacing: 0.18em;
+}
+
+.speed-status strong {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--brass-bright);
+  font-variant-numeric: tabular-nums;
+  margin: 0 0.25em;
+}
+
+.speed-countdown {
+  width: 100%;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  border: 1px solid rgba(176, 141, 87, 0.25);
+}
+
+.speed-countdown-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--brass) 0%, var(--brass-bright) 100%);
+  transition: none;
+}
+
+.speed-countdown-fill.active {
+  /* width is driven by rAF in speedGrid.js, no CSS transition */
+}
+
+.speed-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  flex: 1;
+  align-content: center;
+  padding: 0.25rem;
+}
+
+.speed-letter {
+  width: 100%;
+  aspect-ratio: 1;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--brass-bright);
+  background: linear-gradient(180deg, #6b4a22 0%, #4a2f15 100%);
+  border: 1px solid rgba(176, 141, 87, 0.45);
+  border-radius: 0.25rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 170, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 80ms, background 120ms, border-color 120ms, color 120ms;
+}
+
+.speed-letter:hover,
+.speed-letter:focus {
+  border-color: var(--brass);
+  outline: none;
+}
+
+.speed-letter:active {
+  transform: translateY(2px);
+}
+
+.speed-letter.correct {
+  background: linear-gradient(180deg, #6ee7b7 0%, #4ca97a 100%);
+  border-color: var(--node-committed);
+  color: #1a2c20;
+  animation: speed-flash-pulse 320ms ease-out;
+}
+
+.speed-letter.wrong {
+  background: linear-gradient(180deg, #ef4444 0%, #a02828 100%);
+  border-color: var(--node-error);
+  color: #fff;
+  animation: speed-flash-pulse 320ms ease-out;
+}
+
+@keyframes speed-flash-pulse {
+  0%   { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
 /* === debug panel === */
 .debug-panel {
   width: 100%;

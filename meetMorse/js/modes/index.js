@@ -7,6 +7,7 @@ import { listenLetters } from './listenLetters.js';
 import { listenWords } from './listenWords.js';
 import { echoLetters } from './echoLetters.js';
 import { echoWords } from './echoWords.js';
+import { speed } from './speed.js';
 
 const placeholder = (id, name, description) => ({
   id, name, description,
@@ -25,6 +26,7 @@ export const MODES = {
   listenWords,
   echoLetters,
   echoWords,
+  speed,
   drill: placeholder('drill', 'Drill', 'Cluster of similar-letter words for repetition learning — coming soon.'),
   memory: placeholder('memory', 'Memory', 'No tree, no safety net — coming soon.'),
 };
@@ -39,6 +41,7 @@ export const MODE_ORDER = [
   'listenWords',
   'echoLetters',
   'echoWords',
+  'speed',
   'drill',
   'memory',
 ];

@@ -11,6 +11,7 @@ import { initTimerStatus } from './ui/timer.js';
 import { initResultsScreen } from './ui/results.js';
 import { initPracticeUI } from './ui/practice.js';
 import { initListeningUI } from './ui/listening.js';
+import { initSpeedGrid } from './ui/speedGrid.js';
 import { initDebug } from './ui/debug.js';
 import { renderView, setView, startMode } from './ui/views.js';
 
@@ -29,6 +30,7 @@ initTimerStatus();
 initResultsScreen();
 initPracticeUI();
 initListeningUI();
+initSpeedGrid();
 initDebug();
 renderView();
 

@@ -7,6 +7,7 @@ import { renderTimerStatus } from './timer.js';
 import { renderPractice } from './practice.js';
 import { renderDebug } from './debug.js';
 import { renderListeningStatus } from './listening.js';
+import { renderSpeedStatus } from './speedGrid.js';
 
 const SCREEN_IDS = {
   home: 'home-screen',
@@ -48,6 +49,7 @@ function applyModeLayout() {
   document.getElementById('practice-content')?.classList.toggle('hidden', !mode.showPractice);
   document.getElementById('replay-button')?.classList.toggle('hidden', !mode.showReplay);
   document.getElementById('listening-status')?.classList.toggle('hidden', !mode.showListeningStatus);
+  document.getElementById('speed-content')?.classList.toggle('hidden', !mode.showSpeedContent);
   document.querySelector('#game-screen .key-area')?.classList.toggle('hidden', !!mode.hideKey);
   const label = document.querySelector('#game-screen .mode-label');
   if (label) label.textContent = mode.name.toUpperCase();
@@ -73,5 +75,6 @@ export function startMode(modeId, fromView = 'home') {
   renderTimerStatus();
   renderPractice();
   renderListeningStatus();
+  renderSpeedStatus();
   renderDebug();
 }
