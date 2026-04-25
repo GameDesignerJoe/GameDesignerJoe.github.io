@@ -143,15 +143,26 @@ export function initTree() {
 }
 
 export function renderTree() {
-  const { currentCode, errorCode, committedCode } = state;
+  const { currentCode, errorCode, committedCode, hintTarget } = state;
   const pathCodes = new Set(['']);
   for (let i = 1; i <= currentCode.length; i++) {
     pathCodes.add(currentCode.slice(0, i));
   }
+  // codes along the hint trail (root → hintTarget). Empty when no hint.
+  const hintCodes = new Set();
+  if (hintTarget) {
+    hintCodes.add('');
+    for (let i = 1; i <= hintTarget.length; i++) {
+      hintCodes.add(hintTarget.slice(0, i));
+    }
+  }
 
   for (const [key, line] of edgeRefs) {
     const [from, to] = key.split('->');
-    line.classList.toggle('on-path', pathCodes.has(from) && pathCodes.has(to));
+    const onPath = pathCodes.has(from) && pathCodes.has(to);
+    const onHint = hintCodes.has(from) && hintCodes.has(to);
+    line.classList.toggle('on-path', onPath);
+    line.classList.toggle('hint', onHint && !onPath);
   }
 
   for (const [code, refs] of nodeRefs) {
@@ -159,12 +170,14 @@ export function renderTree() {
     const isCurrent = currentCode !== '' && code === currentCode;
     const isError = code === errorCode;
     const isCommitted = code === committedCode;
+    const isHint = hintCodes.has(code);
 
     refs.node.classList.toggle('on-path', onPath && !isCurrent && !isError && !isCommitted);
     refs.node.classList.toggle('current', isCurrent && !isError && !isCommitted);
     refs.node.classList.toggle('error', isError);
     refs.node.classList.toggle('committed', isCommitted);
+    refs.node.classList.toggle('hint', isHint && !onPath && !isError && !isCommitted);
 
-    refs.label.classList.toggle('on-path', onPath);
+    refs.label.classList.toggle('on-path', onPath || isHint);
   }
 }

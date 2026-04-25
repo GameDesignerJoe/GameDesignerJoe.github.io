@@ -17,6 +17,18 @@
           <h1 class="nameplate-text">MEET MORSE</h1>
         </div>
         <button id="play-button" class="play-button" type="button">PLAY</button>
+        <button id="modes-button" class="modes-link" type="button">
+          choose a mode →
+        </button>
+      </section>
+
+      <section id="modes-screen" class="screen hidden">
+        <div class="game-header">
+          <button id="modes-back-button" class="back-button" type="button">← BACK</button>
+          <span class="mode-label">MODES</span>
+          <span class="header-spacer"></span>
+        </div>
+        <div id="modes-grid" class="modes-grid"></div>
       </section>
 
       <section id="game-screen" class="screen hidden">
@@ -25,6 +37,8 @@
           <span class="mode-label">FREE PLAY</span>
           <span class="header-spacer"></span>
         </div>
+
+        <div id="word-display" class="word-display hidden"></div>
 
         <div id="paper-tape" class="paper-tape">
           <span class="tape-letters empty">start tapping…</span>

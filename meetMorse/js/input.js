@@ -3,11 +3,11 @@ import { audioEngine } from './engines/audioEngine.js';
 import { vibrate, HAPTIC_DOT_MS, HAPTIC_DASH_MS } from './engines/hapticsEngine.js';
 import { detectSymbol, AUTO_COMMIT_DELAY_MS } from './engines/inputEngine.js';
 import { CODE_TO_LETTER } from './data/morseTree.js';
+import { getMode } from './modes/index.js';
 import { renderTree } from './ui/tree.js';
 import { renderTape } from './ui/tape.js';
 import { renderKey } from './ui/key.js';
 
-const MAX_TAPE_LENGTH = 40;
 const FLASH_MS = 400;
 
 function clearAutoCommit() {
@@ -20,6 +20,24 @@ function clearAutoCommit() {
 function scheduleAutoCommit() {
   clearAutoCommit();
   state.autoCommitTimer = setTimeout(commitLetter, AUTO_COMMIT_DELAY_MS);
+}
+
+function flashError(code) {
+  if (state.errorTimer) clearTimeout(state.errorTimer);
+  state.errorCode = code;
+  state.errorTimer = setTimeout(() => {
+    state.errorCode = null;
+    renderTree();
+  }, FLASH_MS);
+}
+
+function flashCommitted(code) {
+  if (state.committedTimer) clearTimeout(state.committedTimer);
+  state.committedCode = code;
+  state.committedTimer = setTimeout(() => {
+    state.committedCode = null;
+    renderTree();
+  }, FLASH_MS);
 }
 
 export function pressDown() {
@@ -43,6 +61,18 @@ export function pressUp() {
   vibrate(symbol === '.' ? HAPTIC_DOT_MS : HAPTIC_DASH_MS);
   state.currentCode = state.currentCode + symbol;
   state.pressing = false;
+
+  // Mode gets a chance to reject the prefix (path-divergence in guided mode).
+  const ok = getMode(state.mode).onSymbol(symbol);
+  if (ok === false) {
+    flashError(state.currentCode);
+    state.currentCode = '';
+    renderKey();
+    renderTree();
+    renderTape();
+    return;
+  }
+
   scheduleAutoCommit();
   renderKey();
   renderTree();
@@ -54,24 +84,23 @@ export function commitLetter() {
   const code = state.currentCode;
   if (!code) return;
   const letter = CODE_TO_LETTER[code];
-  if (letter) {
-    state.tape = [...state.tape, letter].slice(-MAX_TAPE_LENGTH);
+  if (!letter) {
+    flashError(code);
     state.currentCode = '';
-    state.committedCode = code;
-    if (state.committedTimer) clearTimeout(state.committedTimer);
-    state.committedTimer = setTimeout(() => {
-      state.committedCode = null;
-      renderTree();
-    }, FLASH_MS);
-  } else {
-    state.currentCode = '';
-    state.errorCode = code;
-    if (state.errorTimer) clearTimeout(state.errorTimer);
-    state.errorTimer = setTimeout(() => {
-      state.errorCode = null;
-      renderTree();
-    }, FLASH_MS);
+    renderTree();
+    renderTape();
+    return;
   }
+  // Mode decides whether the letter is acceptable. Returning false means
+  // the letter resolved validly but doesn't fit the mode's expectation
+  // (e.g. wrong letter for the target word).
+  const accepted = getMode(state.mode).onLetterCommit(letter, code);
+  if (accepted !== false) {
+    flashCommitted(code);
+  } else {
+    flashError(code);
+  }
+  state.currentCode = '';
   renderTree();
   renderTape();
 }
