@@ -152,6 +152,21 @@ function computeFocusCodes() {
   return codes;
 }
 
+// Codes of the actual letter nodes that the user needs to hit in this
+// session — every letter of state.currentWord. Used to brighten the
+// label text on the tree so the target letters are easy to find.
+// Returns null in Free Play (no currentWord) so the target class never
+// applies there.
+function computeTargetCodes() {
+  if (!state.currentWord) return null;
+  const codes = new Set();
+  for (const letter of state.currentWord) {
+    const code = LETTER_TO_CODE[letter];
+    if (code) codes.add(code);
+  }
+  return codes;
+}
+
 export function renderTree() {
   const { currentCode, errorCode, committedCode, hintTarget } = state;
   const pathCodes = new Set(['']);
@@ -166,6 +181,7 @@ export function renderTree() {
     }
   }
   const focusCodes = computeFocusCodes();
+  const targetCodes = computeTargetCodes();
 
   for (const [key, line] of edgeRefs) {
     const [from, to] = key.split('->');
@@ -194,8 +210,11 @@ export function renderTree() {
     refs.node.classList.toggle('hint', isHint && !onPath && !isError && !isCommitted && !dimmed);
     refs.node.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
 
+    const isTarget = targetCodes ? targetCodes.has(code) : false;
+
     refs.plate.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
     refs.label.classList.toggle('on-path', (onPath || isHint) && !dimmed);
+    refs.label.classList.toggle('target', isTarget && !dimmed && !isError && !isCommitted);
     refs.label.classList.toggle('dimmed', dimmed && !isError && !isCommitted);
   }
 }

@@ -474,7 +474,8 @@ button {
   transition: fill 120ms, opacity 220ms;
 }
 
-.tree-label-text.on-path {
+.tree-label-text.on-path,
+.tree-label-text.target {
   fill: var(--label-text-on-path);
 }
 
