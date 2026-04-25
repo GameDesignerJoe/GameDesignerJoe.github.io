@@ -108,6 +108,21 @@ This is the hardest milestone. Get the feel right before moving on. Tune the `DO
 
 ---
 
+## M-Practice — Calibration / Timing Drill ✅ Built
+
+Standalone mode for tuning dot/dash press feel. No tree, no word, just a single "DOT" or "DASH" prompt that cycles, plus a live visualizer bar that fills during the press and shows the threshold line.
+
+- `js/modes/practice.js` — picks dot/dash prompts (with mild anti-repeat bias). Uses raw `onPressDown` / `onPressUp` mode hooks to drive the visualizer; `onSymbol` checks the classified symbol against the prompt.
+- `js/ui/practice.js` — fill bar + threshold marker + target zone, all DOM updates. Bar fills via `requestAnimationFrame` during press; locks at the final width on release.
+- Threshold marker is positioned from `state.settings.dotDashThresholdMs` so the visualizer always matches the actual classification boundary.
+- Streak counter resets on miss.
+
+**Companion infra (also in this milestone):**
+
+- `event.timeStamp`-based press timing in `js/input.js` and `js/ui/key.js`. Previously we used `performance.now()` inside the handler, which got inflated by main-thread work between press events (e.g., the just-finished commit's render). Using the browser's dispatch timestamp makes the measurement independent of how busy the renderer is.
+- `dotDashThresholdMs` settings entry (120 / 150 / 200 / 250 ms). `detectSymbol(durationMs, thresholdMs)` is now parameterized; `inputEngine.js` no longer hard-codes the threshold.
+- `debugTiming` settings toggle. When on, a small panel below the key lists the last 6 presses with duration + margin from threshold + a green/amber/red color tier based on classification confidence.
+
 ## M-Drill — Reinforcement Mode
 
 **Goal:** Repetition-based learning. The user practices clusters of words that share letters so the same codes get hammered until they stick.

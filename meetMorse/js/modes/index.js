@@ -2,6 +2,7 @@ import { freePlay } from './freePlay.js';
 import { alphabet } from './alphabet.js';
 import { guidedWord } from './guidedWord.js';
 import { timedWpm } from './timedWpm.js';
+import { practice } from './practice.js';
 
 // Placeholders for the modes we haven't built yet. They appear on the modes
 // screen as disabled cards; tapping them does nothing.
@@ -14,6 +15,7 @@ const placeholder = (id, name, description) => ({
 
 export const MODES = {
   freePlay,
+  practice,
   alphabet,
   guidedWord,
   timedWpm,
@@ -24,6 +26,7 @@ export const MODES = {
 
 export const MODE_ORDER = [
   'freePlay',
+  'practice',
   'alphabet',
   'guidedWord',
   'timedWpm',

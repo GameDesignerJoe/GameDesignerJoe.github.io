@@ -7,11 +7,13 @@ const SCORES_KEY = 'meetmorse:scores';
 
 export const DEFAULT_SETTINGS = {
   soundOn: true,
-  hintsOn: false,            // M2 turned hints off by default; flip in settings
-  hintDelayMs: 3000,         // 2000 / 3000 / 5000 / 8000
-  autoCommitDelayMs: 600,    // 400 / 600 / 900
+  hintsOn: false,                // M2 turned hints off by default; flip in settings
+  hintDelayMs: 3000,             // 2000 / 3000 / 5000 / 8000
+  autoCommitDelayMs: 600,        // 400 / 600 / 900
+  dotDashThresholdMs: 150,       // 120 / 150 / 200 / 250 — boundary between dot and dash
   hapticsOn: true,
-  numbersUnlocked: false,    // tree extension + word content TBD
+  debugTiming: false,            // shows recent press durations below the key
+  numbersUnlocked: false,        // tree extension + word content TBD
   punctuationUnlocked: false,
 };
 

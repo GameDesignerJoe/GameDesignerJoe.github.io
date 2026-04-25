@@ -40,6 +40,15 @@ export const state = {
   // last finished timed run, consumed by results screen
   lastResult: null,          // { wpm, elapsedMs, errors, isNewHighScore }
 
+  // recent press history for the debug overlay
+  // each entry: { durationMs, symbol, thresholdMs }
+  recentPresses: [],
+
+  // practice mode
+  practiceTarget: null,      // '.' or '-'
+  practiceStreak: 0,
+  practiceLastResult: null,  // 'success' | 'fail' | null
+
   // user settings + scores — replaced by load* on boot in main.js
   settings: { ...DEFAULT_SETTINGS },
   scores: { ...DEFAULT_SCORES },

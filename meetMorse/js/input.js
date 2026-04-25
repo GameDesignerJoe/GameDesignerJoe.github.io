@@ -7,8 +7,10 @@ import { getMode } from './modes/index.js';
 import { renderTree } from './ui/tree.js';
 import { renderTape } from './ui/tape.js';
 import { renderKey } from './ui/key.js';
+import { renderDebug } from './ui/debug.js';
 
 const FLASH_MS = 400;
+const RECENT_PRESSES_LIMIT = 8;
 
 function clearAutoCommit() {
   if (state.autoCommitTimer) {
@@ -40,36 +42,60 @@ function flashCommitted(code) {
   }, FLASH_MS);
 }
 
-export function pressDown() {
+function recordPress(durationMs, symbol) {
+  state.recentPresses.unshift({
+    durationMs,
+    symbol,
+    thresholdMs: state.settings.dotDashThresholdMs,
+  });
+  if (state.recentPresses.length > RECENT_PRESSES_LIMIT) {
+    state.recentPresses.length = RECENT_PRESSES_LIMIT;
+  }
+}
+
+// timestampMs comes from event.timeStamp so it reflects the dispatch
+// time, not when this handler started running. That matters because a
+// busy main thread (e.g. the just-finished commit's render work) can
+// delay the *handler* for tens of ms, but event.timeStamp is set by
+// the browser when the event was actually generated.
+export function pressDown(timestampMs) {
   if (state.pressing) return;
+  const ts = typeof timestampMs === 'number' ? timestampMs : performance.now();
   clearAutoCommit();
   audioEngine.init();
   audioEngine.startTone();
-  state.pressStartMs = performance.now();
+  state.pressStartMs = ts;
   state.pressing = true;
+  getMode(state.mode).onPressDown?.(ts);
   renderKey();
 }
 
-export function pressUp() {
+export function pressUp(timestampMs) {
   if (!state.pressing) return;
+  const ts = typeof timestampMs === 'number' ? timestampMs : performance.now();
   audioEngine.stopTone();
-  const duration = state.pressStartMs != null
-    ? performance.now() - state.pressStartMs
-    : 0;
+  const duration = state.pressStartMs != null ? ts - state.pressStartMs : 0;
   state.pressStartMs = null;
-  const symbol = detectSymbol(duration);
+  const symbol = detectSymbol(duration, state.settings.dotDashThresholdMs);
   vibrate(symbol === '.' ? HAPTIC_DOT_MS : HAPTIC_DASH_MS, state.settings.hapticsOn);
+
+  recordPress(duration, symbol);
   state.currentCode = state.currentCode + symbol;
   state.pressing = false;
 
-  // Mode gets a chance to reject the prefix (path-divergence in guided mode).
-  const ok = getMode(state.mode).onSymbol(symbol);
+  const mode = getMode(state.mode);
+  mode.onPressUp?.(ts, duration, symbol);
+
+  // Mode gets a chance to reject the prefix (path-divergence in guided
+  // modes; raw-symbol check in practice mode).
+  const ok = mode.onSymbol(symbol);
   if (ok === false) {
     flashError(state.currentCode);
     state.currentCode = '';
     renderKey();
     renderTree();
     renderTape();
+    renderDebug();
     return;
   }
 
@@ -77,6 +103,7 @@ export function pressUp() {
   renderKey();
   renderTree();
   renderTape();
+  renderDebug();
 }
 
 export function commitLetter() {
@@ -91,9 +118,6 @@ export function commitLetter() {
     renderTape();
     return;
   }
-  // Mode decides whether the letter is acceptable. Returning false means
-  // the letter resolved validly but doesn't fit the mode's expectation
-  // (e.g. wrong letter for the target word).
   const accepted = getMode(state.mode).onLetterCommit(letter, code);
   if (accepted !== false) {
     flashCommitted(code);

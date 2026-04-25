@@ -12,24 +12,24 @@ export function initKey() {
     if (typeof keyEl.setPointerCapture === 'function') {
       try { keyEl.setPointerCapture(e.pointerId); } catch (_) { /* noop */ }
     }
-    pressDown();
+    pressDown(e.timeStamp);
   });
-  keyEl.addEventListener('pointerup', () => pressUp());
-  keyEl.addEventListener('pointercancel', () => pressUp());
-  keyEl.addEventListener('pointerleave', () => pressUp());
-  keyEl.addEventListener('contextmenu', (e) => e.preventDefault());
+  keyEl.addEventListener('pointerup',     (e) => pressUp(e.timeStamp));
+  keyEl.addEventListener('pointercancel', (e) => pressUp(e.timeStamp));
+  keyEl.addEventListener('pointerleave',  (e) => pressUp(e.timeStamp));
+  keyEl.addEventListener('contextmenu',   (e) => e.preventDefault());
 
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || e.repeat || spaceHeld) return;
     spaceHeld = true;
     e.preventDefault();
-    pressDown();
+    pressDown(e.timeStamp);
   });
   window.addEventListener('keyup', (e) => {
     if (e.code !== 'Space') return;
     spaceHeld = false;
     e.preventDefault();
-    pressUp();
+    pressUp(e.timeStamp);
   });
 
   renderKey();

@@ -38,6 +38,22 @@ const ROWS = [
     ],
   },
   {
+    type: 'segmented', key: 'dotDashThresholdMs',
+    label: 'Dot / Dash Threshold',
+    help: 'Press shorter than this is a dot; longer is a dash. Try Practice to find your sweet spot.',
+    options: [
+      { value: 120, label: '120ms' },
+      { value: 150, label: '150ms' },
+      { value: 200, label: '200ms' },
+      { value: 250, label: '250ms' },
+    ],
+  },
+  {
+    type: 'toggle', key: 'debugTiming',
+    label: 'Debug Timing',
+    help: 'Show recent press durations below the key.',
+  },
+  {
     type: 'locked', key: 'numbersUnlocked',
     label: 'Include Numbers',
     help: 'Tree extension + word content not built yet.',

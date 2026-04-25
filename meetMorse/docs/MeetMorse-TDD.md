@@ -38,6 +38,7 @@ meetMorse/
 │   ├── modes/
 │   │   ├── index.js               # registry + MODE_ORDER
 │   │   ├── freePlay.js            # default; idle 5s clears tape
+│   │   ├── practice.js            # dot/dash calibration drill
 │   │   ├── alphabet.js            # walk A–Z
 │   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
 │   │   ├── timedWpm.js            # 10-word scored run with live timer (M4)
@@ -52,6 +53,8 @@ meetMorse/
 │       ├── wordDisplay.js         # target word at top of game screen
 │       ├── timer.js               # live timed-mode status row (M4)
 │       ├── results.js             # post-run results screen (M4)
+│       ├── practice.js            # practice prompt + visualizer
+│       ├── debug.js               # debug timing overlay
 │       ├── modes.js               # modes screen card grid
 │       ├── settings.js            # settings screen builder (M3)
 │       └── views.js               # show/hide screens
@@ -154,13 +157,17 @@ State-mutating actions (`pressDown`, `pressUp`, `commitLetter`, `resetTape`) liv
 
 ```js
 // js/engines/inputEngine.js
-export const DOT_DASH_THRESHOLD_MS = 150;
+export const DEFAULT_DOT_DASH_THRESHOLD_MS = 150;
 export const AUTO_COMMIT_DELAY_MS = 600;
 
-export function detectSymbol(durationMs) {
-  return durationMs < DOT_DASH_THRESHOLD_MS ? '.' : '-';
+export function detectSymbol(durationMs, thresholdMs = DEFAULT_DOT_DASH_THRESHOLD_MS) {
+  return durationMs < thresholdMs ? '.' : '-';
 }
 ```
+
+The actual threshold is `state.settings.dotDashThresholdMs`. `input.js` reads it on every press, so a settings change applies on the next keystroke.
+
+**Critical: timing must come from `event.timeStamp`, not `performance.now()` inside the handler.** The browser sets `event.timeStamp` at dispatch time. `performance.now()` inside the handler is "when this handler started running" — and a busy main thread (a heavy render right after the previous commit) can delay handler execution by tens of ms. Using event timestamps makes press-duration measurement independent of render load. `pressDown(e.timeStamp)` and `pressUp(e.timeStamp)` are the public entry points.
 
 The engine itself is just constants + pure utilities. The press lifecycle is in `js/input.js`:
 

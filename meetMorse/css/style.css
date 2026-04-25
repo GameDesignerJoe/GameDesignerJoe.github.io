@@ -509,6 +509,170 @@ button {
   margin-top: 1.25rem;
 }
 
+/* === practice mode === */
+.practice-content {
+  width: 100%;
+  max-width: var(--content-max-width);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 1rem 0.25rem;
+}
+
+.practice-prompt {
+  font-family: var(--serif);
+  font-size: 5rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--brass-bright);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+  line-height: 1;
+}
+
+.practice-visualizer {
+  position: relative;
+  width: 100%;
+  height: 3.25rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1a1208 0%, #0e0904 100%);
+  border: 1px solid var(--brass-dim);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(255, 220, 170, 0.08);
+}
+
+.visualizer-target-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(245, 176, 65, 0.22);
+}
+
+.visualizer-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  background: linear-gradient(90deg, #b08d57 0%, var(--brass-bright) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 190, 0.35);
+}
+
+.visualizer-fill.active {
+  /* During press: width is set by rAF in practice.js, no CSS transition. */
+}
+
+.visualizer-fill.settled {
+  transition: opacity 240ms ease-out;
+}
+
+.visualizer-threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--brass-bright);
+  box-shadow: 0 0 6px rgba(255, 209, 122, 0.7);
+}
+
+.practice-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-family: var(--serif);
+  letter-spacing: 0.15em;
+  color: var(--brass);
+}
+
+.practice-result {
+  font-size: 2rem;
+  line-height: 1;
+  min-width: 1.5rem;
+  text-align: left;
+  color: rgba(0, 0, 0, 0);   /* default invisible */
+  transition: color 120ms;
+}
+
+.practice-result.success {
+  color: #6ee7b7;
+  text-shadow: 0 0 10px rgba(110, 231, 183, 0.6);
+}
+
+.practice-result.fail {
+  color: #ef4444;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
+}
+
+.practice-streak {
+  font-style: italic;
+  font-size: 0.95rem;
+  color: rgba(201, 166, 114, 0.78);
+}
+
+/* === debug panel === */
+.debug-panel {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(176, 141, 87, 0.3);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--brass);
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.15em;
+  color: rgba(201, 166, 114, 0.65);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.debug-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.debug-item {
+  display: grid;
+  grid-template-columns: 3rem 4rem auto;
+  gap: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.debug-item .debug-symbol {
+  letter-spacing: 0.1em;
+}
+
+.debug-item.debug-clear {
+  color: #6ee7b7;
+}
+
+.debug-item.debug-mild {
+  color: #f5b041;
+}
+
+.debug-item.debug-borderline {
+  color: #ef4444;
+}
+
+.debug-item .debug-margin {
+  color: rgba(201, 166, 114, 0.6);
+}
+
 /* === word display === */
 .word-display {
   width: 100%;

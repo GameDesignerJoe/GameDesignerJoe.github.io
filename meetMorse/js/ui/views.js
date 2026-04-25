@@ -4,6 +4,8 @@ import { renderTree } from './tree.js';
 import { renderTape } from './tape.js';
 import { renderWord } from './wordDisplay.js';
 import { renderTimerStatus } from './timer.js';
+import { renderPractice } from './practice.js';
+import { renderDebug } from './debug.js';
 
 const SCREEN_IDS = {
   home: 'home-screen',
@@ -29,47 +31,41 @@ export function renderView() {
     if (el) el.classList.toggle('hidden', state.view !== name);
   }
   if (state.view === 'game') applyModeLayout();
+  renderDebug();
 }
 
-// Toggles word-display, paper-tape, and timer-status visibility based
-// on the active mode's flags.
+// Toggles word-display, paper-tape, timer-status, tree, and practice
+// content based on the active mode's flags. Each section is independent
+// so a mode can mix and match what shows.
 function applyModeLayout() {
   const mode = getMode(state.mode);
-  document
-    .getElementById('word-display')
-    ?.classList.toggle('hidden', !mode.showWord);
-  document
-    .getElementById('paper-tape')
-    ?.classList.toggle('hidden', !mode.showPaperTape);
-  document
-    .getElementById('timed-status')
-    ?.classList.toggle('hidden', !mode.showTimer);
+  document.getElementById('word-display')?.classList.toggle('hidden', !mode.showWord);
+  document.getElementById('paper-tape')?.classList.toggle('hidden', !mode.showPaperTape);
+  document.getElementById('timed-status')?.classList.toggle('hidden', !mode.showTimer);
+  document.getElementById('tree-container')?.classList.toggle('hidden', !mode.showTree);
+  document.getElementById('practice-content')?.classList.toggle('hidden', !mode.showPractice);
   const label = document.querySelector('#game-screen .mode-label');
   if (label) label.textContent = mode.name.toUpperCase();
 }
 
-// Enter the game screen with a specific mode active. fromView is where
-// the BACK button should send the user.
 export function startMode(modeId, fromView = 'home') {
   state.mode = modeId;
   state.gameBackTarget = fromView;
   state.view = 'game';
   state.prevView = fromView;
 
-  // reset shared input state so a previous session doesn't bleed in
   state.currentCode = '';
   state.errorCode = null;
   state.committedCode = null;
 
   renderView();
 
-  // mode-specific setup runs AFTER the layout is applied so its renders
-  // hit visible elements
   getMode(modeId).enter();
 
-  // make sure all view-dependent UI is in sync after enter()
   renderTree();
   renderTape();
   renderWord();
   renderTimerStatus();
+  renderPractice();
+  renderDebug();
 }

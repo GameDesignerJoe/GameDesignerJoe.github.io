@@ -123,6 +123,12 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 - Teaches the tree. The entry point for all users.
 - After 5 seconds of inactivity, the paper tape clears itself.
 
+### 1b. Practice (calibration)
+- No tree, no word, no scoring. Just a single huge "DOT" or "DASH" prompt.
+- A horizontal visualizer below the prompt fills as the user holds the key. A vertical bar marks the dot/dash threshold (live-tied to the user's `dotDashThresholdMs` setting). Target zone (left of threshold for DOT, right for DASH) is highlighted in amber.
+- Press release classifies dot vs. dash and reports ✓ or ✗ next to a streak counter.
+- Designed as a calibration tool: tap a few rounds, watch where your natural press lands relative to the threshold marker, adjust the threshold in Settings if your dots are flirting with dash territory.
+
 ### 2. Alphabet
 - Walks the user through every letter from A to Z, one at a time.
 - Single letter shown up top. User taps the code; on commit, advances to the next letter.
@@ -171,13 +177,15 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 
 Accessible via a brass gear icon in the top-right of Home. All settings persist in localStorage under `meetmorse:settings`.
 
-Built (M3):
+Built (M3 / M4 polish):
 
 - **Sound** — on / off. Default: on. When off, the audio engine short-circuits all tone calls.
 - **Haptics** — on / off. Default: on. No-op on iOS regardless.
 - **Hints** — on / off. Default: off. When on, an amber trail from the antenna to the next target letter appears after the configured idle delay.
 - **Hint delay** — 2s / 3s / 5s / 8s. Default: 3s.
 - **Auto-commit delay** — 400ms / 600ms / 900ms. Default: 600ms.
+- **Dot / Dash threshold** — 120ms / 150ms / 200ms / 250ms. Default: 150ms (standard Morse). Press shorter than this is a dot; longer is a dash. Use Practice mode to find your sweet spot.
+- **Debug Timing** — on / off. Default: off. When on, a small panel below the key lists the last 6 presses with duration and how far each was from the threshold. Color-coded: green for clearly classified, amber for mild margin, red for borderline.
 - **About / Credits** — small footer thanking Nux Gadgets for the inspiration.
 
 Locked placeholders (functional toggles, but no content yet):

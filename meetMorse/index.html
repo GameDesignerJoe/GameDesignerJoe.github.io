@@ -65,6 +65,19 @@
           <span class="tape-current">·—</span>
         </div>
 
+        <div id="practice-content" class="practice-content hidden">
+          <div id="practice-prompt" class="practice-prompt"></div>
+          <div id="practice-visualizer" class="practice-visualizer">
+            <div class="visualizer-target-zone"></div>
+            <div class="visualizer-fill"></div>
+            <div class="visualizer-threshold"></div>
+          </div>
+          <div class="practice-meta">
+            <span id="practice-result" class="practice-result"></span>
+            <span id="practice-streak" class="practice-streak">streak 0</span>
+          </div>
+        </div>
+
         <div id="tree-container" class="tree-container"></div>
 
         <div class="key-area">
@@ -77,6 +90,14 @@
             <span class="key-label">TAP · HOLD</span>
           </button>
           <div class="key-base"></div>
+        </div>
+
+        <div id="debug-panel" class="debug-panel hidden">
+          <div class="debug-header">
+            <span>recent presses</span>
+            <span class="debug-threshold-note" id="debug-threshold-note"></span>
+          </div>
+          <div id="debug-list" class="debug-list"></div>
         </div>
       </section>
 
