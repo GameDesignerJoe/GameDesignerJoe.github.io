@@ -42,7 +42,8 @@ meetMorse/
 │   │   ├── alphabet.js            # walk A–Z
 │   │   ├── guidedWord.js          # target word from words.js + dim non-target letters
 │   │   ├── timedWpm.js            # 10-word scored run with live timer (M4)
-│   │   └── (drill, listening, memory — placeholders)
+│   │   ├── listening.js           # plays Morse audio; user transcribes (M5)
+│   │   └── (drill, memory — placeholders)
 │   ├── lib/
 │   │   ├── storage.js             # localStorage wrapper + DEFAULT_SETTINGS + DEFAULT_SCORES
 │   │   └── timing.js              # calculateWpm, formatWpm, formatElapsed (M4)
@@ -55,6 +56,7 @@ meetMorse/
 │       ├── results.js             # post-run results screen (M4)
 │       ├── practice.js            # practice prompt + visualizer
 │       ├── debug.js               # debug timing overlay
+│       ├── listening.js           # listening status row + replay button (M5)
 │       ├── modes.js               # modes screen card grid
 │       ├── settings.js            # settings screen builder (M3)
 │       └── views.js               # show/hide screens

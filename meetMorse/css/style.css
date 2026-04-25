@@ -136,6 +136,24 @@ button {
     0 8px 24px rgba(0, 0, 0, 0.5);
   padding: 1.25rem 2.5rem;
   border-radius: 0.125rem;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+}
+
+.nameplate:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 220, 170, 0.25),
+    0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+.nameplate:focus-visible {
+  outline: 2px solid var(--brass-bright);
+  outline-offset: 4px;
 }
 
 .nameplate-text {
@@ -172,6 +190,13 @@ button {
     inset 0 1px 0 rgba(255, 230, 190, 0.3),
     inset 0 -1px 2px rgba(0, 0, 0, 0.45),
     0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Smaller play-button used as the "CHOOSE A MODE" home-screen action. */
+.play-button-secondary {
+  font-size: 1.05rem;
+  letter-spacing: 0.22em;
+  padding: 0.6rem 1.5rem;
 }
 
 .modes-link {
@@ -409,6 +434,63 @@ button {
   text-align: center;
   padding: 1rem 0.5rem 0;
   line-height: 1.5;
+}
+
+/* === listening status row === */
+.listening-status {
+  width: 100%;
+  max-width: var(--content-max-width);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  font-family: var(--serif);
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  border: 1px solid rgba(176, 141, 87, 0.3);
+  border-radius: 0.125rem;
+  background: rgba(0, 0, 0, 0.18);
+  font-style: italic;
+  color: rgba(201, 166, 114, 0.78);
+}
+
+.listening-status strong {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--brass-bright);
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.4em;
+}
+
+/* === replay button (listening mode) === */
+.replay-button {
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.22em;
+  color: var(--brass-bright);
+  background: linear-gradient(180deg, rgba(176, 141, 87, 0.25) 0%, rgba(176, 141, 87, 0.1) 100%);
+  border: 1px solid var(--brass);
+  padding: 0.45rem 1.5rem;
+  border-radius: 0.25rem;
+  align-self: center;
+  transition: transform 80ms ease-out, background 120ms;
+}
+
+.replay-button:hover,
+.replay-button:focus {
+  background: linear-gradient(180deg, rgba(176, 141, 87, 0.4) 0%, rgba(176, 141, 87, 0.18) 100%);
+  outline: none;
+}
+
+.replay-button:active {
+  transform: translateY(1px);
+}
+
+/* Word-display blanks for listening — show underscore as a slim mark */
+.word-letter.hidden-letter {
+  opacity: 0.55;
+  letter-spacing: 0;
+  color: var(--brass-dim);
 }
 
 /* === timed status row === */

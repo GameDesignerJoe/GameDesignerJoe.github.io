@@ -6,6 +6,7 @@ import { renderWord } from './wordDisplay.js';
 import { renderTimerStatus } from './timer.js';
 import { renderPractice } from './practice.js';
 import { renderDebug } from './debug.js';
+import { renderListeningStatus } from './listening.js';
 
 const SCREEN_IDS = {
   home: 'home-screen',
@@ -44,6 +45,8 @@ function applyModeLayout() {
   document.getElementById('timed-status')?.classList.toggle('hidden', !mode.showTimer);
   document.getElementById('tree-container')?.classList.toggle('hidden', !mode.showTree);
   document.getElementById('practice-content')?.classList.toggle('hidden', !mode.showPractice);
+  document.getElementById('replay-button')?.classList.toggle('hidden', !mode.showReplay);
+  document.getElementById('listening-status')?.classList.toggle('hidden', !mode.showListeningStatus);
   const label = document.querySelector('#game-screen .mode-label');
   if (label) label.textContent = mode.name.toUpperCase();
 }
@@ -67,5 +70,6 @@ export function startMode(modeId, fromView = 'home') {
   renderWord();
   renderTimerStatus();
   renderPractice();
+  renderListeningStatus();
   renderDebug();
 }

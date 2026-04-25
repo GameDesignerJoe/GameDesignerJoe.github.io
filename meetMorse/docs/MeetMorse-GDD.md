@@ -161,10 +161,11 @@ All modes are available from start. **Free Play is the default**. A "Modes" butt
 - High score persisted in localStorage at `meetmorse:scores`. Mode card shows `Best: X WPM` when a score exists.
 
 ### 6. Listening
-- A word from the word list is played as Morse audio (no visual on the tree — just tones at 12 WPM).
-- User types what they hear. Tree lights up as they go. The target word is shown up top but blanked (underscores or dimmed blocks) until they attempt it.
-- **Replay button** available.
-- Score tracked: correct words / total, streak of correct in a row.
+- A word from the word list is played as Morse audio at 12 WPM. The target word is shown up top as underscores (one `_` per letter); each underscore reveals the actual letter only after the user successfully spells that position.
+- The tree does NOT dim non-target letters (that would reveal the answer). All 26 nodes stay normal-bright; the user's input lights up the on-path glow as usual.
+- A `↻ REPLAY` button under the word display re-plays the audio anytime.
+- Streak (correct words in a row, no mistakes within a word) shown at the top with the all-time best. Streak resets to 0 if the user makes any path-divergence or wrong-letter commit during a word; a clean run increments it.
+- Best streak persisted under `meetmorse:scores.listeningStreak` and displayed on the mode card.
 
 ### 7. Memory
 - The tree is hidden (or shown as dim outline only, no labels).

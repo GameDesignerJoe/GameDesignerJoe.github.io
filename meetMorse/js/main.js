@@ -10,6 +10,7 @@ import { initSettingsScreen, renderSettingsScreen } from './ui/settings.js';
 import { initTimerStatus } from './ui/timer.js';
 import { initResultsScreen } from './ui/results.js';
 import { initPracticeUI } from './ui/practice.js';
+import { initListeningUI } from './ui/listening.js';
 import { initDebug } from './ui/debug.js';
 import { renderView, setView, startMode } from './ui/views.js';
 
@@ -27,10 +28,11 @@ initSettingsScreen();
 initTimerStatus();
 initResultsScreen();
 initPracticeUI();
+initListeningUI();
 initDebug();
 renderView();
 
-document.getElementById('play-button')?.addEventListener('click', () => {
+document.getElementById('play-nameplate')?.addEventListener('click', () => {
   startMode('freePlay', 'home');
 });
 document.getElementById('modes-button')?.addEventListener('click', () => {

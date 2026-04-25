@@ -60,6 +60,10 @@ function scoreForMode(id) {
     const best = state.scores.timedWpmBest || 0;
     if (best > 0) return `Best: ${formatWpm(best)} WPM`;
   }
-  // Future: listeningStreak / memoryWpmBest
+  if (id === 'listening') {
+    const best = state.scores.listeningStreak || 0;
+    if (best > 0) return `Best streak: ${best}`;
+  }
+  // Future: memoryWpmBest
   return null;
 }

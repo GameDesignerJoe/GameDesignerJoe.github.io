@@ -19,13 +19,10 @@
           type="button"
           aria-label="Settings"
         >⚙</button>
-        <div class="nameplate">
+        <button id="play-nameplate" class="nameplate" type="button" aria-label="Play (free play)">
           <h1 class="nameplate-text">MEET MORSE</h1>
-        </div>
-        <button id="play-button" class="play-button" type="button">PLAY</button>
-        <button id="modes-button" class="modes-link" type="button">
-          choose a mode →
         </button>
+        <button id="modes-button" class="play-button play-button-secondary" type="button">CHOOSE A MODE</button>
       </section>
 
       <section id="modes-screen" class="screen hidden">
@@ -58,7 +55,16 @@
           <span class="timed-progress">word 1 of 10</span>
         </div>
 
+        <div id="listening-status" class="listening-status hidden">
+          <span class="listening-streak-current">streak <strong>0</strong></span>
+          <span class="listening-streak-best">best <strong>0</strong></span>
+        </div>
+
         <div id="word-display" class="word-display hidden"></div>
+
+        <button id="replay-button" class="replay-button hidden" type="button">
+          ↻&nbsp;&nbsp;REPLAY
+        </button>
 
         <div id="paper-tape" class="paper-tape">
           <span class="tape-letters empty">start tapping…</span>

@@ -6,6 +6,7 @@ import {
   TREE_VIEWBOX,
   LETTER_TO_CODE,
 } from '../data/morseTree.js';
+import { getMode } from '../modes/index.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DOT_RADIUS = 2.8;
@@ -140,9 +141,11 @@ export function initTree() {
 // Codes that should remain visible whenever there's a target word: every
 // code on the path from antenna to each letter the user needs to spell.
 // Non-target nodes/edges/labels get dimmed. Free Play has no currentWord
-// so this returns null and nothing dims.
+// so this returns null and nothing dims. Modes with targetIsSecret
+// (listening) also opt out — dimming would reveal the answer.
 function computeFocusCodes() {
   if (!state.currentWord) return null;
+  if (getMode(state.mode).targetIsSecret) return null;
   const codes = new Set(['']);
   for (const letter of state.currentWord) {
     const code = LETTER_TO_CODE[letter];

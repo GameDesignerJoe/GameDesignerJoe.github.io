@@ -49,6 +49,10 @@ export const state = {
   practiceStreak: 0,
   practiceLastResult: null,  // 'success' | 'fail' | null
 
+  // listening mode
+  listeningStreakCurrent: 0,
+  listeningWordHasError: false,
+
   // user settings + scores — replaced by load* on boot in main.js
   settings: { ...DEFAULT_SETTINGS },
   scores: { ...DEFAULT_SCORES },
