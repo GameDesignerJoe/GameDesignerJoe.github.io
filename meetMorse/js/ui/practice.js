@@ -108,3 +108,16 @@ export function stopVisualizer(durationMs) {
   fillEl.classList.remove('active');
   fillEl.classList.add('settled');
 }
+
+// Wipe the bar back to empty — called between prompts (after success)
+// and after a failed retry, so each new attempt starts fresh.
+export function resetVisualizer() {
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+  visStartMs = null;
+  if (!fillEl) return;
+  fillEl.style.width = '0%';
+  fillEl.classList.remove('active', 'settled');
+}

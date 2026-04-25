@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { renderPractice, startVisualizer, stopVisualizer } from '../ui/practice.js';
+import { renderPractice, startVisualizer, stopVisualizer, resetVisualizer } from '../ui/practice.js';
 
 const NEXT_PROMPT_DELAY_MS = 550;
 const RETRY_DELAY_MS = 750;
@@ -23,6 +23,7 @@ function pickNextPrompt() {
   state.practiceTarget = next;
   state.practiceLastResult = null;
   state.currentCode = '';
+  resetVisualizer();
   renderPractice();
 }
 
@@ -80,6 +81,7 @@ export const practice = {
       renderPractice();
       pendingTimer = setTimeout(() => {
         state.practiceLastResult = null;
+        resetVisualizer();
         renderPractice();
       }, RETRY_DELAY_MS);
     }
