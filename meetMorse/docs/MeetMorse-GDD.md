@@ -188,17 +188,31 @@ All four modes share:
 - Underscore (`_`) placeholders in the word display that fill in only after the user correctly identifies/reproduces each position.
 - A live streak / best status row above the word display.
 
-### 8. Speed (recognition trainer)
+### 8. Speed (tiered recognition trainer)
 
-Pure speed-recognition trainer. The goal is to get the user comfortable identifying letters at the cadence of a real Morse transmission.
+The "meaty" mode. Trains real-world Morse listening, building from a handful of easy letters at slow speeds all the way to the full 26 at proficient cadence. Two-axis progression: **letter tiers × WPM stages**.
 
-- A single random letter plays once at the current stage's WPM. **No replay.** No tree.
-- Below the audio status row, an alphabet grid (A–Z in alphabetical order) shows every letter as a tappable button. The user taps the one they think they heard before the countdown bar drains.
-- After each tap the correct letter briefly glows green; a wrong tap also flashes the chosen button red so the user can see both their guess and the answer.
-- **5 correct in a row** advances to the next stage. Wrong taps and timeouts reset the streak to 0 — but you never *lose* a stage.
-- 9 stages from "barely audio" to proficient: **4 / 6 / 8 / 10 / 12 / 15 / 18 / 22 / 25 WPM**.
-- Response window: **4 s** after the audio finishes (fixed across stages).
-- Persistent best WPM at `meetmorse:scores.speedBestWpm`. Mode card shows `Best: N WPM` once you've cleared at least one stage.
+#### Tiers (groups of 4 letters by code complexity)
+1. **E T I A** (1–2 symbols)
+2. **N M S U** (2–3 symbols)
+3. **R W D K** (3 symbols)
+4. **G O H V** (3–4 symbols)
+5. **F L P J** (4 symbols, dot-side)
+6. **B X C Y** (4 symbols, dash-side)
+7. **Z Q** (2 hardest, less-common)
+
+#### Stages (WPM ladder, repeats per tier)
+9 stages: **4 / 6 / 8 / 10 / 12 / 15 / 18 / 22 / 25 WPM**.
+
+#### Flow
+
+- A single random letter from the **active tier** plays once at the current stage's WPM. No replay.
+- All 26 letters are visible in the same 2-column grid (with their codes shown). Letters outside the active tier are dimmed so the user's eye lands on the candidates without us hiding the rest.
+- 5 correct in a row → next WPM stage in the same tier. After the 9th stage in a tier, the user advances to the next tier's stage 1.
+- Wrong tap or timeout resets the streak to 0 — but you never lose a tier or stage. Progress is monotonically up.
+- A vertical **progress track** above the grid shows all 7 tiers × 9 stages as cells. Cleared cells display ★ in brass; the current cell pulses with ◆.
+- Progress persists. Re-entering the mode resumes at your saved tier/stage; the Start button re-prompts before audio plays again.
+- Persistent best at `meetmorse:scores.speedBestTier` + `speedBestStage`. Mode card shows `Best: T3 · 12 WPM`.
 
 ### Error coloring
 

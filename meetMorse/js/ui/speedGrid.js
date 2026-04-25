@@ -2,11 +2,11 @@ import { state } from '../state.js';
 import { getMode } from '../modes/index.js';
 import { LETTER_TO_CODE } from '../data/morseTree.js';
 import { SPEED_STAGES, STREAK_TO_ADVANCE } from '../data/speedStages.js';
+import { SPEED_TIERS, activeLettersForTier } from '../data/speedTiers.js';
 
-// Two-column layout: left column starts with `.` (E, I, A, S, ...), right
-// starts with `-` (T, N, M, D, ...). Within each column letters climb in
-// complexity — length first, then binary order on the symbols. Easiest
-// stuff (E, T) at top; deepest level-4 letters (J, Q) at the bottom.
+// Two-column letter grid. Left col = codes starting with `.`, right col
+// = codes starting with `-`. Within each column letters climb in
+// length and binary order.
 const DOT_COLUMN = ['E', 'I', 'A', 'S', 'U', 'R', 'W', 'H', 'V', 'F', 'L', 'P', 'J'];
 const DASH_COLUMN = ['T', 'N', 'M', 'D', 'K', 'G', 'O', 'B', 'X', 'C', 'Y', 'Z', 'Q'];
 
@@ -17,6 +17,7 @@ let bestEl = null;
 let countdownEl = null;
 let countdownFillEl = null;
 let startBtnEl = null;
+let trackEl = null;
 
 const buttons = new Map();
 
@@ -28,7 +29,6 @@ let countdownCb = null;
 
 let flashTimers = new Map();
 
-// Replace ASCII dot/dash with prettier middle-dot + en-dash for the labels.
 function formatCode(code) {
   return code.replace(/\./g, '·').replace(/-/g, '−');
 }
@@ -58,6 +58,34 @@ function buildLetterCell(letter) {
   return btn;
 }
 
+function buildTrack() {
+  if (!trackEl) return;
+  trackEl.innerHTML = '';
+  for (let tIdx = 0; tIdx < SPEED_TIERS.length; tIdx++) {
+    const tier = SPEED_TIERS[tIdx];
+    const row = document.createElement('div');
+    row.className = 'speed-track-row';
+    row.dataset.tier = String(tIdx);
+
+    const label = document.createElement('span');
+    label.className = 'speed-track-label';
+    label.textContent = tier.letters.join(' ');
+    row.appendChild(label);
+
+    const cells = document.createElement('div');
+    cells.className = 'speed-track-cells';
+    for (let sIdx = 0; sIdx < SPEED_STAGES.length; sIdx++) {
+      const cell = document.createElement('span');
+      cell.className = 'speed-track-cell';
+      cell.dataset.tier = String(tIdx);
+      cell.dataset.stage = String(sIdx);
+      cells.appendChild(cell);
+    }
+    row.appendChild(cells);
+    trackEl.appendChild(row);
+  }
+}
+
 export function initSpeedGrid() {
   gridEl = document.getElementById('speed-grid');
   stageEl = document.querySelector('#speed-status .speed-stage');
@@ -66,12 +94,11 @@ export function initSpeedGrid() {
   countdownEl = document.getElementById('speed-countdown');
   countdownFillEl = document.getElementById('speed-countdown-fill');
   startBtnEl = document.getElementById('speed-start-button');
+  trackEl = document.getElementById('speed-track');
 
   if (gridEl) {
     gridEl.innerHTML = '';
     buttons.clear();
-    // Interleave row-by-row so CSS grid (1fr 1fr) places dot column on
-    // the left, dash column on the right.
     for (let i = 0; i < DOT_COLUMN.length; i++) {
       for (const letter of [DOT_COLUMN[i], DASH_COLUMN[i]]) {
         const btn = buildLetterCell(letter);
@@ -81,6 +108,8 @@ export function initSpeedGrid() {
     }
   }
 
+  buildTrack();
+
   startBtnEl?.addEventListener('click', () => {
     const mode = getMode(state.mode);
     if (mode.id !== 'speed') return;
@@ -88,26 +117,61 @@ export function initSpeedGrid() {
   });
 
   renderSpeedStatus();
+  renderSpeedTrack();
   renderSpeedReady();
 }
 
 export function renderSpeedStatus() {
   if (state.mode !== 'speed') return;
+  const tier = SPEED_TIERS[state.speedTierIndex] || SPEED_TIERS[0];
   const stage = SPEED_STAGES[state.speedStageIndex] || SPEED_STAGES[0];
   if (stageEl) {
-    stageEl.textContent = `STAGE ${state.speedStageIndex + 1} · ${stage.wpm} WPM`;
+    const tierLabel = tier.letters.join(' ');
+    stageEl.textContent = `T${state.speedTierIndex + 1} · ${tierLabel} · ${stage.wpm} WPM`;
   }
   if (streakEl) {
     streakEl.textContent = `${state.speedStreak} / ${STREAK_TO_ADVANCE}`;
   }
   if (bestEl) {
-    const bestWpm = state.scores.speedBestWpm || 0;
-    bestEl.textContent = bestWpm > 0 ? `${bestWpm} WPM` : '—';
+    const bestT = state.scores.speedBestTier || 0;
+    const bestS = state.scores.speedBestStage || 0;
+    if (bestT === 0 && bestS === 0) {
+      bestEl.textContent = '—';
+    } else {
+      const wpm = SPEED_STAGES[bestS]?.wpm || 0;
+      bestEl.textContent = `T${bestT + 1} · ${wpm} WPM`;
+    }
+  }
+
+  // Dim letters outside the active tier so the eye lands on the
+  // candidates. Tier letters keep full brightness.
+  const active = activeLettersForTier(state.speedTierIndex);
+  for (const [letter, btn] of buttons) {
+    btn.classList.toggle('off-tier', !active.has(letter));
   }
 }
 
-// Toggles between the Start button (pre-game) and the countdown bar
-// (mid-game) based on state.speedAwaitingStart.
+export function renderSpeedTrack() {
+  if (!trackEl) return;
+  const curTier = state.speedTierIndex;
+  const curStage = state.speedStageIndex;
+
+  for (const row of trackEl.querySelectorAll('.speed-track-row')) {
+    const tIdx = Number(row.dataset.tier);
+    row.classList.toggle('active', tIdx === curTier);
+    row.classList.toggle('locked', tIdx > curTier);
+  }
+  for (const cell of trackEl.querySelectorAll('.speed-track-cell')) {
+    const tIdx = Number(cell.dataset.tier);
+    const sIdx = Number(cell.dataset.stage);
+    const completed =
+      tIdx < curTier || (tIdx === curTier && sIdx < curStage);
+    const current = tIdx === curTier && sIdx === curStage;
+    cell.classList.toggle('completed', completed);
+    cell.classList.toggle('current', current);
+  }
+}
+
 export function renderSpeedReady() {
   const awaiting = !!state.speedAwaitingStart;
   if (startBtnEl) startBtnEl.classList.toggle('hidden', !awaiting);

@@ -6,16 +6,17 @@ import {
   STREAK_TO_ADVANCE,
   RESPONSE_WINDOW_MS,
 } from '../data/speedStages.js';
+import { SPEED_TIERS } from '../data/speedTiers.js';
 import {
   renderSpeedStatus,
   renderSpeedReady,
+  renderSpeedTrack,
   resetSpeedGrid,
   flashSpeedLetter,
   startSpeedCountdown,
   stopSpeedCountdown,
 } from '../ui/speedGrid.js';
 
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const PLAY_LEAD_MS = 200;
 const NEXT_DELAY_MS = 700;
 const FEEDBACK_MS = 600;
@@ -30,10 +31,13 @@ function clearPending() {
   }
 }
 
+function refillPool() {
+  const tier = SPEED_TIERS[state.speedTierIndex];
+  pool = [...tier.letters].sort(() => Math.random() - 0.5);
+}
+
 function pickNext() {
-  if (pool.length === 0) {
-    pool = [...ALPHABET].sort(() => Math.random() - 0.5);
-  }
+  if (pool.length === 0) refillPool();
   return pool.shift();
 }
 
@@ -43,6 +47,7 @@ async function startNewLetter() {
   state.speedAwaitingTap = false;
   resetSpeedGrid();
   renderSpeedStatus();
+  renderSpeedTrack();
   audioEngine.init();
 
   await new Promise((r) => setTimeout(r, PLAY_LEAD_MS));
@@ -51,17 +56,42 @@ async function startNewLetter() {
   const stage = SPEED_STAGES[state.speedStageIndex];
   await audioEngine.playWord(state.currentWord, stage.ditMs);
 
-  // Bail if user navigated away during playback
   if (state.mode !== 'speed' || !state.currentWord) return;
 
   state.speedAwaitingTap = true;
   startSpeedCountdown(RESPONSE_WINDOW_MS, onTimeout);
 }
 
+// Move to the next sub-stage. Returns true if we crossed into a new tier
+// (so callers can refill the pool, etc.).
+function advanceProgress() {
+  let crossedTier = false;
+  if (state.speedStageIndex < SPEED_STAGES.length - 1) {
+    state.speedStageIndex += 1;
+  } else if (state.speedTierIndex < SPEED_TIERS.length - 1) {
+    state.speedTierIndex += 1;
+    state.speedStageIndex = 0;
+    crossedTier = true;
+  }
+  // else: mastered everything; stay put.
+
+  // Persist best (current is always >= best by construction)
+  const tier = state.speedTierIndex;
+  const stage = state.speedStageIndex;
+  const oldTier = state.scores.speedBestTier || 0;
+  const oldStage = state.scores.speedBestStage || 0;
+  if (tier > oldTier || (tier === oldTier && stage > oldStage)) {
+    state.scores.speedBestTier = tier;
+    state.scores.speedBestStage = stage;
+    saveScores(state.scores);
+  }
+  return crossedTier;
+}
+
 function onTimeout() {
   if (state.mode !== 'speed' || !state.currentWord) return;
   state.speedAwaitingTap = false;
-  flashSpeedLetter(state.currentWord, 'correct'); // reveal what it was
+  flashSpeedLetter(state.currentWord, 'correct'); // reveal answer
   state.speedStreak = 0;
   renderSpeedStatus();
   pendingTimer = setTimeout(startNewLetter, NEXT_DELAY_MS + FEEDBACK_MS / 2);
@@ -70,19 +100,13 @@ function onTimeout() {
 function onCorrect(letter) {
   flashSpeedLetter(letter, 'correct');
   state.speedStreak += 1;
-  if (
-    state.speedStreak >= STREAK_TO_ADVANCE &&
-    state.speedStageIndex < SPEED_STAGES.length - 1
-  ) {
-    state.speedStageIndex += 1;
+  if (state.speedStreak >= STREAK_TO_ADVANCE) {
+    const crossedTier = advanceProgress();
     state.speedStreak = 0;
-    const newWpm = SPEED_STAGES[state.speedStageIndex].wpm;
-    if (newWpm > (state.scores.speedBestWpm || 0)) {
-      state.scores.speedBestWpm = newWpm;
-      saveScores(state.scores);
-    }
+    if (crossedTier) refillPool();
   }
   renderSpeedStatus();
+  renderSpeedTrack();
   pendingTimer = setTimeout(startNewLetter, NEXT_DELAY_MS);
 }
 
@@ -97,7 +121,7 @@ function onWrong(letter, target) {
 export const speed = {
   id: 'speed',
   name: 'Speed',
-  description: 'Identify letters at progressively faster speeds. 5 right to advance.',
+  description: 'Tiered ear-training: hear a letter at progressively faster WPM. 5 right to advance a stage; clear all 9 stages to unlock the next tier.',
   showTree: false,
   showWord: false,
   showPaperTape: false,
@@ -108,20 +132,23 @@ export const speed = {
   hideKey: true,
   scored: true,
   available: true,
-  scoreKey: 'speedBestWpm',
+  scoreKey: 'speedBestTier',
 
   enter() {
-    pool = [];
-    state.speedStageIndex = 0;
+    // Resume from saved progress
+    state.speedTierIndex = state.scores.speedBestTier || 0;
+    state.speedStageIndex = state.scores.speedBestStage || 0;
     state.speedStreak = 0;
     state.speedAwaitingTap = false;
-    state.speedAwaitingStart = true;       // wait for explicit Start tap
+    state.speedAwaitingStart = true;
     state.currentWord = null;
+    pool = [];
     clearPending();
     resetSpeedGrid();
     renderSpeedStatus();
+    renderSpeedTrack();
     renderSpeedReady();
-    audioEngine.init();                    // prep audio context inside the gesture
+    audioEngine.init();
   },
 
   exit() {
@@ -133,7 +160,6 @@ export const speed = {
     state.speedAwaitingStart = false;
   },
 
-  // Called by speedGrid.js when the user taps the Start button.
   onStart() {
     if (!state.speedAwaitingStart) return;
     state.speedAwaitingStart = false;
@@ -141,7 +167,6 @@ export const speed = {
     startNewLetter();
   },
 
-  // Called by speedGrid.js when the user taps a letter button.
   onLetterTap(letter) {
     if (!state.speedAwaitingTap) return;
     state.speedAwaitingTap = false;
@@ -155,7 +180,6 @@ export const speed = {
     }
   },
 
-  // Required interface — speed mode never goes through key input.
   onSymbol() { return false; },
   onLetterCommit() { return false; },
 };

@@ -775,6 +775,108 @@ button {
   pointer-events: none;
 }
 
+/* === speed track (tier × stage progress) === */
+.speed-track {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  max-width: var(--content-max-width);
+  padding: 0.5rem 0.4rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(176, 141, 87, 0.25);
+  border-radius: 0.25rem;
+}
+
+.speed-track-row {
+  display: grid;
+  grid-template-columns: 5.25rem 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0.25rem;
+}
+
+.speed-track-row.locked .speed-track-label {
+  opacity: 0.35;
+}
+
+.speed-track-row.active {
+  background: rgba(176, 141, 87, 0.08);
+  border-radius: 3px;
+}
+
+.speed-track-row.active .speed-track-label {
+  color: var(--brass-bright);
+}
+
+.speed-track-label {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--brass);
+}
+
+.speed-track-cells {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 0.2rem;
+}
+
+.speed-track-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  position: relative;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(176, 141, 87, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: rgba(176, 141, 87, 0.4);
+  transition: background 160ms, border-color 160ms, color 160ms, transform 160ms;
+}
+
+.speed-track-cell.completed {
+  background: linear-gradient(180deg, var(--brass-bright) 0%, var(--brass) 100%);
+  border-color: var(--brass-bright);
+  color: var(--brass-dark);
+  box-shadow: 0 0 4px rgba(255, 209, 122, 0.45);
+}
+.speed-track-cell.completed::before {
+  content: '★';
+  font-size: 0.7rem;
+}
+
+.speed-track-cell.current {
+  background: rgba(255, 220, 170, 0.18);
+  border-color: var(--brass-bright);
+  color: var(--brass-bright);
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(255, 209, 122, 0.55);
+  animation: speed-track-current-pulse 1.4s ease-in-out infinite;
+}
+.speed-track-cell.current::before {
+  content: '◆';
+  font-size: 0.65rem;
+}
+
+@keyframes speed-track-current-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 209, 122, 0.55); }
+  50%      { box-shadow: 0 0 14px rgba(255, 209, 122, 0.85); }
+}
+
+/* === dim letters that aren't part of the active tier === */
+.speed-letter.off-tier {
+  opacity: 0.35;
+}
+.speed-letter.off-tier .speed-letter-char,
+.speed-letter.off-tier .speed-letter-code {
+  color: var(--brass-dim);
+}
+
 #speed-start-button {
   align-self: center;
   margin: 0.25rem 0;

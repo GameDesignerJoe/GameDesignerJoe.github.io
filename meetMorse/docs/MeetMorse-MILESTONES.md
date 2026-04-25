@@ -160,7 +160,19 @@ Standalone mode for tuning dot/dash press feel. No tree, no word, just a single 
 - `dotDashThresholdMs` settings entry (120 / 150 / 200 / 250 ms). `detectSymbol(durationMs, thresholdMs)` is now parameterized; `inputEngine.js` no longer hard-codes the threshold.
 - `debugTiming` settings toggle. When on, a small panel below the key lists the last 6 presses with duration + margin from threshold + a green/amber/red color tier based on classification confidence.
 
-## M-Speed — Speed-recognition trainer ✅ Built
+## M-Speed — Speed-recognition trainer ✅ Built (now tiered)
+
+**Most recent update**: split letter complexity from WPM speed into independent axes. Tiers introduce groups of 4 letters from easiest to hardest; each tier runs through the full 9-stage WPM ladder before unlocking the next. Cleared the lot = mastered. Designed as the longest-tail "meaty" mode.
+
+- `js/data/speedTiers.js` — 7 tiers (E T I A → N M S U → R W D K → G O H V → F L P J → B X C Y → Z Q).
+- `js/modes/speed.js` — picks letters from the **active tier**, audio at the active stage's WPM. Resumes from `state.scores.speedBestTier`/`speedBestStage` on enter. Advance order: stage++ within tier, then tier++ when stage 9 clears.
+- `js/ui/speedGrid.js → renderSpeedTrack()` builds 7 rows × 9 cells. Completed = filled brass with ★, current = pulsing ring with ◆, locked tiers have dim labels and empty cells. Off-tier letters in the alphabet grid are dimmed via `.speed-letter.off-tier`.
+- Score migration: legacy `speedHighStage` and `speedBestWpm` are dropped on load — the new mode practices subsets of letters, so old "all 26" WPM scores don't translate.
+- Modes screen card shows `Best: T3 · 12 WPM`.
+
+---
+
+## M-Speed (original notes — superseded)
 
 Pure ear-training drill. The user listens to letters played at progressively faster speeds and taps the matching letter from an alphabet grid (no tree, no key, no replay). 5 correct in a row → next stage; wrong/timeout → streak resets but stage is preserved.
 

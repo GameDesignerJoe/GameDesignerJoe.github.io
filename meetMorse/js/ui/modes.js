@@ -72,8 +72,16 @@ function scoreForMode(id) {
     if (best > 0) return `Best: ${formatWpm(best)} WPM`;
   }
   if (id === 'speed') {
-    const wpm = state.scores.speedBestWpm || 0;
-    if (wpm > 0) return `Best: ${wpm} WPM`;
+    const tier = state.scores.speedBestTier || 0;
+    const stage = state.scores.speedBestStage || 0;
+    if (tier > 0 || stage > 0) {
+      // Lazy-import via dynamic require would be circular; just inline
+      // the WPM ladder lookup by importing at the top of this file when
+      // we need it. For now use a small switch on the known stage list.
+      const STAGE_WPMS = [4, 6, 8, 10, 12, 15, 18, 22, 25];
+      const wpm = STAGE_WPMS[stage] || STAGE_WPMS[STAGE_WPMS.length - 1];
+      return `Best: T${tier + 1} · ${wpm} WPM`;
+    }
   }
   const streakKey = STREAK_KEYS[id];
   if (streakKey) {

@@ -54,7 +54,8 @@ export const state = {
   listeningStreakCurrent: 0,
   listeningWordHasError: false,
 
-  // speed mode (M5b)
+  // speed mode (M5c — tiered letter groups × WPM stages)
+  speedTierIndex: 0,
   speedStageIndex: 0,
   speedStreak: 0,
   speedAwaitingTap: false,

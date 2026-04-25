@@ -29,7 +29,8 @@ meetMorse/
 │   ├── data/
 │   │   ├── morseTree.js           # code↔letter map, tree nodes/edges
 │   │   ├── words.js               # word list, tiered (M2)
-│   │   └── speedStages.js         # WPM ladder for Speed mode
+│   │   ├── speedStages.js         # WPM ladder for Speed mode
+│   │   └── speedTiers.js          # letter tier groups for Speed mode
 │   ├── engines/
 │   │   ├── audioEngine.js         # Web Audio tone generation
 │   │   ├── hapticsEngine.js       # Vibration wrapper

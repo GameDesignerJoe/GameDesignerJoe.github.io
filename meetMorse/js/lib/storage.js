@@ -23,13 +23,10 @@ export const DEFAULT_SCORES = {
   listenWordsStreak: 0,            // M5 tap-tree words
   echoLettersStreak: 0,            // M5 reproduce letters
   echoWordsStreak: 0,              // M5 reproduce words
-  speedBestWpm: 0,                 // M5b — highest WPM stage cleared
+  speedBestTier: 0,                // M5c — highest tier reached (0–6)
+  speedBestStage: 0,               // M5c — highest stage within that tier (0–8)
   memoryWpmBest: 0,                // M6
 };
-
-// Old speed stage indices. Used only for migration from pre-WPM-score
-// builds; kept here so the migration is self-contained.
-const LEGACY_SPEED_STAGE_WPMS = [8, 10, 12, 15, 18, 22, 25];
 
 export function loadSettings() {
   try {
@@ -75,17 +72,14 @@ export function loadScores() {
       delete stored.listenLettersStreak;
     }
 
-    // Speed-mode migration: stage indices weren't stable across stage
-    // list changes, so we now store the actual best WPM. Convert any
-    // saved speedHighStage (using the old 7-stage WPM ladder) to a WPM.
-    if ('speedHighStage' in stored) {
-      const idx = stored.speedHighStage;
-      const wpm = LEGACY_SPEED_STAGE_WPMS[idx] || 0;
-      if (wpm > (stored.speedBestWpm || 0)) {
-        stored.speedBestWpm = wpm;
-      }
-      delete stored.speedHighStage;
-    }
+    // Speed mode was redesigned around tiered letter groups. Old
+    // speedHighStage (index) and speedBestWpm (raw WPM, full alphabet)
+    // don't translate cleanly — the new mode practices subsets of
+    // letters, so a 12 WPM score on the old "all 26" mode isn't the
+    // same achievement as 12 WPM on tier 1's four easy letters. Reset
+    // and let users earn new bests in the new system.
+    delete stored.speedHighStage;
+    delete stored.speedBestWpm;
 
     return { ...DEFAULT_SCORES, ...stored };
   } catch (_) {
