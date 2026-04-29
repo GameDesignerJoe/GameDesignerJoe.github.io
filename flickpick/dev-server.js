@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
+import { put, list } from '@vercel/blob';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3000;
@@ -150,6 +151,76 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: err.message }));
     }
     return;
+  }
+
+  // Cloud sync (Vercel Blob)
+  if (req.url === '/api/sync' || req.url.startsWith('/api/sync?')) {
+    const blobKey = (code) => `flickpick-sync/${code.trim().toLowerCase()}.json`;
+    const isValidCode = (code) => typeof code === 'string' && /^[a-z0-9_\-]{2,40}$/i.test(code.trim());
+
+    if (req.method === 'PUT') {
+      let body = '';
+      for await (const chunk of req) body += chunk;
+      try {
+        const { code, state } = JSON.parse(body);
+        if (!isValidCode(code)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid sync code' }));
+          return;
+        }
+        if (!state || typeof state !== 'object') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing state' }));
+          return;
+        }
+        const content = JSON.stringify({ state, updatedAt: new Date().toISOString() });
+        await put(blobKey(code), content, {
+          access: 'public',
+          contentType: 'application/json',
+          addRandomSuffix: false,
+          allowOverwrite: true,
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (err) {
+        console.error('Sync PUT error:', err.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to write to cloud storage' }));
+      }
+      return;
+    }
+
+    if (req.method === 'GET') {
+      const params = new URL(req.url, `http://localhost:${PORT}`).searchParams;
+      const code = params.get('code');
+      if (!isValidCode(code)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid sync code' }));
+        return;
+      }
+      try {
+        const { blobs } = await list({ prefix: blobKey(code) });
+        if (!blobs.length) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ state: null }));
+          return;
+        }
+        const blobRes = await fetch(blobs[0].url);
+        if (!blobRes.ok) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ state: null }));
+          return;
+        }
+        const data = await blobRes.json();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ state: data.state ?? null, updatedAt: data.updatedAt ?? null }));
+      } catch (err) {
+        console.error('Sync GET error:', err.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to read from cloud storage' }));
+      }
+      return;
+    }
   }
 
   // Serve static files

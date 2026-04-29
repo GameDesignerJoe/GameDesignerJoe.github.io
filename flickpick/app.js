@@ -81,6 +81,7 @@ function parseClaudeJSON(raw) {
 
 // ─── UI STATE (non-persisted) ────────────────────────────────────────────────
 let currentFeatured = null;
+let currentMultiSearch = null; // array of titles when in multi-search mode, else null
 let shownIds = new Set();
 const GRID_SIZE = 4;
 const POOL_BUFFER = 8; // keep this many items buffered ahead of current page
@@ -815,13 +816,7 @@ function importData(e) {
       }
       State.importData(imported);
       showToast(`Imported ${Object.keys(imported.seen || {}).length} seen, ${Object.keys(imported.want || {}).length} watchlist items`);
-      // Refresh current page
-      const activePage = document.querySelector('.page.active');
-      if (activePage) {
-        if (activePage.id === 'page-seen') renderSeenList();
-        else if (activePage.id === 'page-watchlist') renderWatchlist();
-        else initDiscoverCarousels();
-      }
+      refreshCurrentPage();
     } catch(err) {
       showToast('Failed to read backup file');
     }
@@ -829,6 +824,94 @@ function importData(e) {
   reader.readAsText(file);
   e.target.value = '';
   document.getElementById('settings-menu').classList.remove('open');
+}
+
+function refreshCurrentPage() {
+  const activePage = document.querySelector('.page.active');
+  if (!activePage) return;
+  if (activePage.id === 'page-seen') renderSeenList();
+  else if (activePage.id === 'page-watchlist') renderWatchlist();
+  else initDiscoverCarousels();
+}
+
+// ─── CLOUD SYNC (Vercel Blob) ───────────────────────────────────────────────
+const SYNC_CODE_KEY = 'flickpick_sync_code';
+
+function setSyncStatus(msg, kind) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.remove('success', 'error');
+  if (kind) el.classList.add(kind);
+}
+
+function readSyncCode() {
+  const input = document.getElementById('sync-code-input');
+  const raw = (input && input.value || '').trim().toLowerCase();
+  if (!raw) {
+    setSyncStatus('Enter a sync code first', 'error');
+    return null;
+  }
+  if (!/^[a-z0-9_\-]{2,40}$/.test(raw)) {
+    setSyncStatus('Code: 2–40 letters, numbers, _ or -', 'error');
+    return null;
+  }
+  localStorage.setItem(SYNC_CODE_KEY, raw);
+  return raw;
+}
+
+async function cloudUpload() {
+  const code = readSyncCode();
+  if (!code) return;
+  setSyncStatus('Uploading…');
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, state }),
+    });
+    if (res.ok) {
+      const total = Object.keys(state.seen).length + Object.keys(state.want).length + Object.keys(state.nope).length;
+      setSyncStatus(`Uploaded ${total} items ✓`, 'success');
+    } else {
+      setSyncStatus('Upload failed', 'error');
+    }
+  } catch {
+    setSyncStatus('Upload failed', 'error');
+  }
+}
+
+async function cloudDownload() {
+  const code = readSyncCode();
+  if (!code) return;
+  setSyncStatus('Downloading…');
+  try {
+    const res = await fetch(`/api/sync?code=${encodeURIComponent(code)}`);
+    if (!res.ok) {
+      setSyncStatus('Download failed', 'error');
+      return;
+    }
+    const data = await res.json();
+    if (!data.state) {
+      setSyncStatus('No data found for that code', 'error');
+      return;
+    }
+    State.importData(data.state);
+    refreshCurrentPage();
+    const total = Object.keys(data.state.seen || {}).length
+                + Object.keys(data.state.want || {}).length
+                + Object.keys(data.state.nope || {}).length;
+    setSyncStatus(`Merged ${total} items ✓`, 'success');
+  } catch {
+    setSyncStatus('Download failed', 'error');
+  }
+}
+
+function initSyncCodeInput() {
+  const input = document.getElementById('sync-code-input');
+  if (!input) return;
+  const saved = localStorage.getItem(SYNC_CODE_KEY);
+  if (saved) input.value = saved;
 }
 
 function updateWantCount() {
@@ -849,6 +932,7 @@ State.load();
 updateWantCount();
 updateSeenCount();
 initDiscoverCarousels();
+initSyncCodeInput();
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function showPage(page) {
@@ -869,6 +953,7 @@ function resetDiscover() {
   document.getElementById('discover-carousels').style.display = '';
   viewHistory.length = 0;
   currentFeatured = null;
+  currentMultiSearch = null;
   initDiscoverCarousels();
 }
 
@@ -885,8 +970,11 @@ function searchForShow(title) {
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) {
-    // Close settings menu on outside click
-    document.getElementById('settings-menu').classList.remove('open');
+    // Close settings menu on outside click — but ignore clicks inside the menu
+    // itself (e.g. the sync code input field, divider, hint text).
+    if (!e.target.closest('#settings-menu')) {
+      document.getElementById('settings-menu').classList.remove('open');
+    }
     return;
   }
 
@@ -914,6 +1002,12 @@ document.addEventListener('click', (e) => {
       break;
     case 'import-click':
       document.getElementById('import-file').click();
+      break;
+    case 'cloud-upload':
+      cloudUpload();
+      break;
+    case 'cloud-download':
+      cloudDownload();
       break;
 
     // ─── SEARCH ──────────────────────────────────────────────────────
@@ -1166,10 +1260,112 @@ Put the recommendation reason in "blurb".` + getExclusionList();
   return filterResults(normalizeItems(result.similar));
 }
 
+// ─── MULTI-TITLE SEARCH ──────────────────────────────────────────────────────
+async function fetchClaudeMultiSimilar(titles, count = 4) {
+  const exclusion = getExclusionList() + getShownExclusion();
+  const titleList = titles.map(t => `"${t}"`).join(', ');
+  const prompt = `You are a film and TV expert for Flickpick.
+
+The user listed these titles as reference points: ${titleList}.
+
+Recommend ${count} shows or movies that share the COMMON themes, tone, pacing, and sensibilities of ALL of those titles together — not similar to just one. Find the through-line between them and surface titles that scratch that same itch.${exclusion}
+
+Return ONLY a JSON object with exactly this structure, no markdown:
+{
+  "similar": [
+    {
+      "id": "unique-slug",
+      "title": "Title",
+      "type": "TV Show" or "Movie",
+      "year": "2022",
+      "genres": "Comedy, Drama",
+      "description": "1-2 sentence factual synopsis of what this show/movie is about.",
+      "blurb": "1 sentence about why a fan of those reference titles would enjoy this.",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return exactly ${count} titles. Real, well-known titles only. Lowercase hyphenated ids. Dig deep — surface lesser-known gems alongside the obvious picks. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".`;
+
+  const res = await fetch("/api/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: count <= 4 ? 1500 : 2800,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  const data = await res.json();
+  const result = parseClaudeJSON(data.content[0].text);
+  return filterResults(normalizeItems(result.similar || []));
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderMultiSearchHeader(titles) {
+  const list = titles.map(t => `<span class="multi-search-title">${escapeHtml(t)}</span>`).join('<span class="multi-search-sep">,</span> ');
+  document.getElementById('featured-card').innerHTML = `
+    <div class="multi-search-header">
+      <div class="multi-search-label">Searched for shows like</div>
+      <div class="multi-search-titles">${list}</div>
+    </div>
+  `;
+}
+
+async function doMultiSearch(titles) {
+  currentFeatured = null;
+  currentMultiSearch = titles;
+
+  document.getElementById('featured-section').style.display = 'none';
+  document.getElementById('error-state').style.display = 'none';
+  document.getElementById('discover-carousels').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('search-btn').disabled = true;
+  viewHistory.length = 0;
+  updateBackButton();
+
+  try {
+    shownIds = new Set();
+    suggestionPool = [];
+    suggestionPageIdx = 0;
+    poolFetching = false;
+
+    renderMultiSearchHeader(titles);
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('featured-section').style.display = 'block';
+
+    const grid = document.getElementById('similar-grid');
+    grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
+
+    const similar = await fetchClaudeMultiSimilar(titles, GRID_SIZE);
+    renderSimilar(similar || []);
+  } catch (e) {
+    console.error('Multi-search error:', e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-state').style.display = 'block';
+  }
+
+  document.getElementById('search-btn').disabled = false;
+}
+
 // ─── SEARCH ──────────────────────────────────────────────────────────────────
 async function doSearch() {
   const query = document.getElementById('search-input').value.trim();
   if (!query) return;
+
+  // Multi-title search: comma-separated input → recommendations that thread
+  // the common DNA of all listed titles.
+  const titles = query.split(',').map(s => s.trim()).filter(Boolean);
+  if (titles.length >= 2) {
+    return doMultiSearch(titles);
+  }
+
+  currentMultiSearch = null;
 
   document.getElementById('featured-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
@@ -1243,6 +1439,7 @@ Return the single best match for the user's search. Use the real, well-known tit
 function renderFeatured(item) {
   registerItem(item);
   currentFeatured = item;
+  currentMultiSearch = null;
   const seenActive = state.seen[item.id] ? 'active' : '';
   const wantActive = state.want[item.id] ? 'active' : '';
   const nopeActive = state.nope[item.id] ? 'active' : '';
@@ -1347,8 +1544,8 @@ function updateSimilarArrows() {
   const nextBtn = document.getElementById('similar-next');
   if (!prevBtn || !nextBtn) return;
   prevBtn.disabled = suggestionPageIdx <= 0;
-  // Next is always available when we have a featured item (infinite scrolling)
-  nextBtn.disabled = !currentFeatured;
+  // Next is always available when we have a featured item OR a multi-search active
+  nextBtn.disabled = !currentFeatured && !currentMultiSearch;
 }
 
 function similarNext() {
@@ -1392,18 +1589,25 @@ function similarPrev() {
 
 async function fillSuggestionPool() {
   const buffer = suggestionPool.length - (suggestionPageIdx * GRID_SIZE);
-  if (buffer >= POOL_BUFFER || poolFetching || !currentFeatured) return;
+  if (buffer >= POOL_BUFFER || poolFetching) return;
+  if (!currentFeatured && !currentMultiSearch) return;
   poolFetching = true;
   updateSimilarArrows();
 
   try {
     const needed = POOL_BUFFER - buffer;
+    let newItems = null;
 
-    // Try TMDB first — returns up to 20 items in one call
-    let newItems = await fetchTmdbRecommendations(currentFeatured, needed);
+    if (currentMultiSearch) {
+      // Multi-title pagination: refill via Claude with shared-DNA prompt + exclusions
+      newItems = await fetchClaudeMultiSimilar(currentMultiSearch, Math.min(needed, 8));
+    } else {
+      // Single-title: try TMDB first — returns up to 20 items in one call
+      newItems = await fetchTmdbRecommendations(currentFeatured, needed);
+    }
 
-    if (!newItems || newItems.length === 0) {
-      // Fallback: Claude batch
+    if (currentFeatured && (!newItems || newItems.length === 0)) {
+      // Fallback: Claude batch (single-title path only)
       const batchSize = Math.min(needed, 8);
       const exclusion = getExclusionList() + getShownExclusion();
       const prompt = `You are a film and TV expert for Flickpick.
@@ -1470,7 +1674,7 @@ Return exactly ${batchSize} similar titles. Real, well-known titles only. Lowerc
   // Keep filling if still below buffer target — use setTimeout to avoid
   // synchronous recursion which can cause double-fetches
   const remainingBuffer = suggestionPool.length - (suggestionPageIdx * GRID_SIZE);
-  if (remainingBuffer < POOL_BUFFER && currentFeatured) {
+  if (remainingBuffer < POOL_BUFFER && (currentFeatured || currentMultiSearch)) {
     setTimeout(() => fillSuggestionPool(), 0);
   }
 }
