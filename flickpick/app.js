@@ -863,6 +863,7 @@ function readSyncCode() {
 async function readErrorMessage(res, fallback) {
   try {
     const data = await res.json();
+    if (data.diagnostic) console.error('Sync diagnostic:', data.diagnostic);
     return data.error || data.details || fallback;
   } catch {
     return fallback;
