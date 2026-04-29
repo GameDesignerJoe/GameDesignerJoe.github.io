@@ -158,6 +158,12 @@ const server = createServer(async (req, res) => {
     const blobKey = (code) => `flickpick-sync/${code.trim().toLowerCase()}.json`;
     const isValidCode = (code) => typeof code === 'string' && /^[a-z0-9_\-]{2,40}$/i.test(code.trim());
 
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Server missing BLOB_READ_WRITE_TOKEN env var' }));
+      return;
+    }
+
     if (req.method === 'PUT') {
       let body = '';
       for await (const chunk of req) body += chunk;
@@ -183,9 +189,9 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
       } catch (err) {
-        console.error('Sync PUT error:', err.message);
+        console.error('Sync PUT error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to write to cloud storage' }));
+        res.end(JSON.stringify({ error: `Cloud write failed: ${err.message || 'unknown'}` }));
       }
       return;
     }
@@ -215,9 +221,9 @@ const server = createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ state: data.state ?? null, updatedAt: data.updatedAt ?? null }));
       } catch (err) {
-        console.error('Sync GET error:', err.message);
+        console.error('Sync GET error:', err);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to read from cloud storage' }));
+        res.end(JSON.stringify({ error: `Cloud read failed: ${err.message || 'unknown'}` }));
       }
       return;
     }

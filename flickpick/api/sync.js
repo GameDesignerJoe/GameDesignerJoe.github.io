@@ -7,6 +7,10 @@ function isValidCode(code) {
 }
 
 export default async function handler(req, res) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(500).json({ error: 'Server missing BLOB_READ_WRITE_TOKEN env var' });
+  }
+
   if (req.method === 'PUT') {
     const { code, state } = req.body || {};
     if (!isValidCode(code)) return res.status(400).json({ error: 'Invalid sync code' });
@@ -22,8 +26,8 @@ export default async function handler(req, res) {
       });
       return res.status(200).json({ ok: true });
     } catch (err) {
-      console.error('Sync PUT error:', err.message);
-      return res.status(500).json({ error: 'Failed to write to cloud storage' });
+      console.error('Sync PUT error:', err);
+      return res.status(500).json({ error: `Cloud write failed: ${err.message || 'unknown'}` });
     }
   }
 
@@ -39,8 +43,8 @@ export default async function handler(req, res) {
       const data = await blobRes.json();
       return res.status(200).json({ state: data.state ?? null, updatedAt: data.updatedAt ?? null });
     } catch (err) {
-      console.error('Sync GET error:', err.message);
-      return res.status(500).json({ error: 'Failed to read from cloud storage' });
+      console.error('Sync GET error:', err);
+      return res.status(500).json({ error: `Cloud read failed: ${err.message || 'unknown'}` });
     }
   }
 

@@ -860,6 +860,15 @@ function readSyncCode() {
   return raw;
 }
 
+async function readErrorMessage(res, fallback) {
+  try {
+    const data = await res.json();
+    return data.error || data.details || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 async function cloudUpload() {
   const code = readSyncCode();
   if (!code) return;
@@ -874,10 +883,13 @@ async function cloudUpload() {
       const total = Object.keys(state.seen).length + Object.keys(state.want).length + Object.keys(state.nope).length;
       setSyncStatus(`Uploaded ${total} items ✓`, 'success');
     } else {
-      setSyncStatus('Upload failed', 'error');
+      const msg = await readErrorMessage(res, `Upload failed (${res.status})`);
+      console.error('Cloud upload failed:', res.status, msg);
+      setSyncStatus(msg, 'error');
     }
-  } catch {
-    setSyncStatus('Upload failed', 'error');
+  } catch (err) {
+    console.error('Cloud upload network error:', err);
+    setSyncStatus('Upload failed (network)', 'error');
   }
 }
 
@@ -888,7 +900,9 @@ async function cloudDownload() {
   try {
     const res = await fetch(`/api/sync?code=${encodeURIComponent(code)}`);
     if (!res.ok) {
-      setSyncStatus('Download failed', 'error');
+      const msg = await readErrorMessage(res, `Download failed (${res.status})`);
+      console.error('Cloud download failed:', res.status, msg);
+      setSyncStatus(msg, 'error');
       return;
     }
     const data = await res.json();
@@ -902,8 +916,9 @@ async function cloudDownload() {
                 + Object.keys(data.state.want || {}).length
                 + Object.keys(data.state.nope || {}).length;
     setSyncStatus(`Merged ${total} items ✓`, 'success');
-  } catch {
-    setSyncStatus('Download failed', 'error');
+  } catch (err) {
+    console.error('Cloud download network error:', err);
+    setSyncStatus('Download failed (network)', 'error');
   }
 }
 
