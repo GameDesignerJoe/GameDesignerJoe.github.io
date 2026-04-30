@@ -934,7 +934,13 @@ function initSyncCodeInput() {
   const input = document.getElementById('sync-code-input');
   if (!input) return;
   const saved = localStorage.getItem(SYNC_CODE_KEY);
-  if (saved) input.value = saved;
+  if (saved) {
+    input.value = saved;
+    // Auto-sync on page load so other devices' changes show up without a click.
+    // Slight delay so initial render finishes first; failures are silent (status
+    // line just shows the error if the user opens the menu).
+    setTimeout(() => cloudSync(), 600);
+  }
 }
 
 function updateWantCount() {

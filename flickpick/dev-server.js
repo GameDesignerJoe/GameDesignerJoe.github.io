@@ -193,8 +193,9 @@ const server = createServer(async (req, res) => {
           contentType: 'application/json',
           addRandomSuffix: false,
           allowOverwrite: true,
+          cacheControlMaxAge: 0,
         });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, max-age=0' });
         res.end(JSON.stringify({ ok: true }));
       } catch (err) {
         console.error('Sync PUT error:', err);
@@ -214,19 +215,21 @@ const server = createServer(async (req, res) => {
       }
       try {
         const { blobs } = await list({ prefix: blobKey(code) });
+        const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, max-age=0' };
         if (!blobs.length) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, headers);
           res.end(JSON.stringify({ state: null }));
           return;
         }
-        const blobRes = await fetch(blobs[0].url);
+        const freshUrl = `${blobs[0].url}${blobs[0].url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+        const blobRes = await fetch(freshUrl, { cache: 'no-store' });
         if (!blobRes.ok) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.writeHead(200, headers);
           res.end(JSON.stringify({ state: null }));
           return;
         }
         const data = await blobRes.json();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, headers);
         res.end(JSON.stringify({ state: data.state ?? null, updatedAt: data.updatedAt ?? null }));
       } catch (err) {
         console.error('Sync GET error:', err);
