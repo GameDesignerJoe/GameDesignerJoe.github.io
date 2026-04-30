@@ -1,7 +1,10 @@
 == FlickPick ToDo ==
 In Priority Order
 
+- I'm seeing a number of log errors in the console for 'blocked.other' I assume this is us making too many calls?
 - Need to have a solve for when you search for a show and it has multiple releases "Daredevil" for example. How do we elegantly show all the options of the one they searched for?
+
+- Allow for abstract searches to function: "Shows about spies"
 
 - Perhaps we should start pulling in a rating of how good the show is rated (like rotten tomatoe score or something)from somewhere that is displayed with the title of the show. The title is aligned left. The rating is aligned right, in paraens () with a simple percentrage.
 
@@ -27,4 +30,4 @@ In Priority Order
     - I'd want to have Claude, ChatGPT, Gemini, Grok. 
     - The cleaner we can make this the better. 
 
-- It takes so damn long to get results from the Based On What You Loved. Too damn long. We need creative solutions to solve this one. 
+- It takes so damn long to get results from the Based On What You Loved. Too damn long. We need creative solutions to solve this one. Look at switching to Hakiu to speed things up. 

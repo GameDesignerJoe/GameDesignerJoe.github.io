@@ -8,8 +8,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing or invalid id/type parameter' });
   }
 
+  const kind = req.query.kind === 'similar' ? 'similar' : 'recommendations';
+
   try {
-    const tmdbUrl = `https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${process.env.TMDB_API_KEY}&language=en-US&page=1`;
+    const tmdbUrl = `https://api.themoviedb.org/3/${type}/${id}/${kind}?api_key=${process.env.TMDB_API_KEY}&language=en-US&page=1`;
     const tmdbRes = await fetch(tmdbUrl);
     const data = await tmdbRes.json();
     return res.status(200).json(data);

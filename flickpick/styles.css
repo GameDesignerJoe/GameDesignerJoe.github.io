@@ -765,6 +765,36 @@
     margin: 0;
   }
 
+  /* SEARCH CHOOSER (disambiguation, bucketed by user state) */
+  .search-chooser-section {
+    max-width: 1200px;
+    margin: 0 auto 40px;
+    padding: 0 24px;
+  }
+  .search-chooser-heading {
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    opacity: 0.7;
+  }
+  .chooser-bucket {
+    margin-bottom: 32px;
+  }
+  .chooser-bucket-empty {
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+  }
+  @media (max-width: 600px) {
+    .search-chooser-section { padding: 0 16px; }
+  }
+
   /* RATING BUTTONS */
   .rating-btns {
     display: flex;

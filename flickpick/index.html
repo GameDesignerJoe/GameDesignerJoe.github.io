@@ -84,6 +84,55 @@
 
   <div class="error-state" id="error-state">Something went wrong. Try again.</div>
 
+  <div class="search-chooser-section" id="search-chooser-section" style="display:none">
+    <div class="search-chooser-heading">Matches for &ldquo;<span id="search-chooser-query"></span>&rdquo;</div>
+
+    <div class="carousel-section chooser-bucket" id="chooser-bucket-want" style="display:none">
+      <div class="carousel-header">
+        <div class="carousel-label">From Your Watchlist</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" data-action="chooser-prev" data-bucket="want" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" data-action="chooser-next" data-bucket="want" disabled>&rsaquo;</button>
+        </div>
+      </div>
+      <div class="similar-grid" id="chooser-grid-want"></div>
+    </div>
+
+    <div class="carousel-section chooser-bucket" id="chooser-bucket-new" style="display:none">
+      <div class="carousel-header">
+        <div class="carousel-label">New Finds</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" data-action="chooser-prev" data-bucket="new" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" data-action="chooser-next" data-bucket="new" disabled>&rsaquo;</button>
+        </div>
+      </div>
+      <div class="similar-grid" id="chooser-grid-new"></div>
+      <div class="chooser-bucket-empty" id="chooser-empty-new" style="display:none">No new picks &mdash; try a more specific search.</div>
+    </div>
+
+    <div class="carousel-section chooser-bucket" id="chooser-bucket-seen" style="display:none">
+      <div class="carousel-header">
+        <div class="carousel-label">From Your Seen</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" data-action="chooser-prev" data-bucket="seen" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" data-action="chooser-next" data-bucket="seen" disabled>&rsaquo;</button>
+        </div>
+      </div>
+      <div class="similar-grid" id="chooser-grid-seen"></div>
+    </div>
+
+    <div class="carousel-section chooser-bucket" id="chooser-bucket-nope" style="display:none">
+      <div class="carousel-header">
+        <div class="carousel-label">From Your Nope</div>
+        <div class="carousel-nav">
+          <button class="carousel-arrow" data-action="chooser-prev" data-bucket="nope" disabled>&lsaquo;</button>
+          <button class="carousel-arrow" data-action="chooser-next" data-bucket="nope" disabled>&rsaquo;</button>
+        </div>
+      </div>
+      <div class="similar-grid" id="chooser-grid-nope"></div>
+    </div>
+  </div>
+
   <div class="featured-section" id="featured-section">
     <button class="back-btn" id="back-btn" style="display:none" data-action="go-back">&larr; Back</button>
     <div class="featured-card" id="featured-card"></div>

@@ -85,10 +85,32 @@ let currentMultiSearch = null; // array of titles when in multi-search mode, els
 let shownIds = new Set();
 const GRID_SIZE = 4;
 const POOL_BUFFER = 8; // keep this many items buffered ahead of current page
-const viewHistory = []; // stack of { featured, suggestionPool, suggestionPageIdx, shownIds }
+const viewHistory = []; // stack of { featured, suggestionPool, suggestionPageIdx, shownIds } or { chooser: snapshot of chooserState }
 let suggestionPool = [];     // flat array of suggestion items (grows as user pages)
 let suggestionPageIdx = 0;
 let poolFetching = false;
+
+// ─── CHOOSER STATE (search disambiguation, bucketed by user state) ──────────
+const CHOOSER_PAGE_SIZE = 4;
+const CHOOSER_INITIAL_COUNT = 12;
+const CHOOSER_LOAD_MORE_COUNT = 12;
+const CHOOSER_NEW_TARGET = 8;     // keep filling NEW FINDS until it has this many
+const CHOOSER_MAX_FETCHES = 4;    // cap on lazy-load Claude calls per search
+const CHOOSER_BUCKETS = ['want', 'new', 'seen', 'nope'];
+const CHOOSER_BUCKET_LABELS = {
+  want: 'From Your Watchlist',
+  new: 'New Finds',
+  seen: 'From Your Seen',
+  nope: 'From Your Nope',
+};
+let chooserState = {
+  query: '',
+  pool: [],
+  pages: { want: 0, new: 0, seen: 0, nope: 0 },
+  fetching: false,
+  exhausted: false,
+  fetchCount: 0,
+};
 
 // ─── TMDB CACHE ─────────────────────────────────────────────────────────────
 const posterCache = {};
@@ -474,11 +496,16 @@ const CAROUSEL_PAGE = 4;
 const CAROUSEL_PAGE_MOBILE = 3;
 const carouselState = { watchlist: { page: 0 }, loved: { page: 0, items: [] } };
 let lovedRecsCache = null;
-let lovedPool = [];               // all fetched recommendations (paginated display)
-let lovedInFlight = 0;            // number of API calls currently in progress
+let lovedPool = [];               // visible pool of recommendations
+let lovedTmdbQueue = [];          // overflow from TMDB seed — drained into pool on demand (instant, no API)
+let lovedInFlight = 0;            // number of Claude calls currently in progress
 let lovedAllFetchedIds = new Set(); // tracks all fetched IDs to avoid dupes
-const LOVED_MAX_CONCURRENT = 3;   // max simultaneous API calls
-const LOVED_TARGET_POOL = 12;     // keep this many available items in the pool
+let lovedConsecutiveFails = 0;    // null returns in a row — Claude is running out of fresh ideas
+const LOVED_MAX_CONCURRENT = 3;   // max simultaneous Claude calls
+const LOVED_TARGET_POOL = 20;     // keep this many available items in the pool
+const LOVED_MAX_CONSECUTIVE_FAILS = 5; // give up the Claude pump after this many duplicate/null returns in a row
+const LOVED_TMDB_QUERY_COUNT = 12;     // max loved items to query TMDB recommendations for
+const LOVED_TMDB_RECS_PER_ITEM = 20;   // TMDB returns up to ~20 recs per loved item
 
 function getCarouselPageSize() {
   return window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
@@ -637,11 +664,84 @@ Real titles only. Description must be factual, not a recommendation.${excludeStr
   }
 }
 
-// Pump: keeps up to LOVED_MAX_CONCURRENT requests in flight to maintain pool size
+// Round-robin merge candidates from each loved item's recommendations so the
+// carousel doesn't get dominated by recs from a single show.
+function _roundRobinMergeRecs(perItemRecs) {
+  const seen = new Set();
+  const merged = [];
+  let added = true;
+  for (let idx = 0; added; idx++) {
+    added = false;
+    for (const recs of perItemRecs) {
+      if (!recs || idx >= recs.length) continue;
+      const item = recs[idx];
+      if (seen.has(item.id) || State.isKnown(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+      added = true;
+    }
+  }
+  return merged;
+}
+
+// Seed the loved pool from BOTH TMDB /recommendations (collaborative-filtered)
+// and TMDB /similar (genre/keyword-based). Different signals → broader pool.
+// Fast (~1-2s), no Claude tokens.
+async function seedLovedPoolFromTmdb() {
+  const lovedItems = Object.values(state.seen)
+    .filter(i => i.rating === 'loved')
+    .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
+    .slice(0, LOVED_TMDB_QUERY_COUNT);
+  if (lovedItems.length === 0) return [];
+
+  const recCalls = lovedItems.map(item =>
+    fetchTmdbRecommendations(item, LOVED_TMDB_RECS_PER_ITEM, 'recommendations').catch(() => null)
+  );
+  const simCalls = lovedItems.map(item =>
+    fetchTmdbRecommendations(item, LOVED_TMDB_RECS_PER_ITEM, 'similar').catch(() => null)
+  );
+  const perItemRecs = await Promise.all([...recCalls, ...simCalls]);
+  return _roundRobinMergeRecs(perItemRecs);
+}
+
+// Drain ALL TMDB queue items into the visible pool, replacing loading
+// placeholders in-place. Cheap — no API calls. The pool grows as deep as the
+// queue allows so the user can paginate freely; the Claude pump only fires
+// when the pool drops below LOVED_TARGET_POOL after tagging.
+function drainTmdbQueueIntoPool() {
+  while (lovedTmdbQueue.length > 0) {
+    const next = lovedTmdbQueue.shift();
+    if (!next || !next.id) continue;
+    if (State.isKnown(next.id) || lovedAllFetchedIds.has(next.id)) continue;
+    lovedAllFetchedIds.add(next.id);
+    lovedPool.push(next);
+    const track = document.getElementById('loved-car-track');
+    const ph = track && track.querySelector('.carousel-item-loading');
+    if (ph) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderCarouselItem(next, true);
+      ph.replaceWith(tmp.firstElementChild);
+      loadCarouselPoster(next);
+      loadTrailerBtnFor(next.id, next.title, next.year);
+    }
+  }
+}
+
+// Pump: drains TMDB queue first (instant), then falls back to Claude calls (slow)
+// only if more items are still needed.
 function lovedPump() {
+  drainTmdbQueueIntoPool();
+  updateLovedNav();
+
   const available = getAvailableLovedItems();
   const needed = LOVED_TARGET_POOL - available.length - lovedInFlight;
   if (needed <= 0) return;
+  if (lovedConsecutiveFails >= LOVED_MAX_CONSECUTIVE_FAILS) {
+    // Claude keeps proposing items already in the user's library — stop pumping
+    // and clean up any remaining placeholder cards so the carousel doesn't spin forever.
+    cleanLovedPlaceholders();
+    return;
+  }
 
   const toFire = Math.min(needed, LOVED_MAX_CONCURRENT - lovedInFlight);
   for (let i = 0; i < toFire; i++) {
@@ -649,6 +749,7 @@ function lovedPump() {
     fetchOneLovedRec().then(item => {
       lovedInFlight--;
       if (item) {
+        lovedConsecutiveFails = 0;
         lovedPool.push(item);
         // If current page has a placeholder, replace the first one with this item
         const track = document.getElementById('loved-car-track');
@@ -660,11 +761,22 @@ function lovedPump() {
           loadCarouselPoster(item);
           loadTrailerBtnFor(item.id, item.title, item.year);
         }
+      } else {
+        lovedConsecutiveFails++;
       }
       updateLovedNav();
       // Keep pumping if we still need more
       lovedPump();
     });
+  }
+}
+
+function cleanLovedPlaceholders() {
+  const track = document.getElementById('loved-car-track');
+  if (!track) return;
+  track.querySelectorAll('.carousel-item-loading').forEach(ph => ph.remove());
+  if (track.children.length === 0) {
+    track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);font-size:13px">No more fresh recommendations &mdash; rate more shows in your Seen list to get new picks here.</div>`;
   }
 }
 
@@ -697,18 +809,33 @@ async function renderLovedCarousel() {
   // Reset for new loved list
   lovedRecsCache = { key: lovedKey };
   lovedPool = [];
+  lovedTmdbQueue = [];
   lovedAllFetchedIds = new Set();
   lovedInFlight = 0;
+  lovedConsecutiveFails = 0;
   carouselState.loved.page = 0;
 
-  // Show loading placeholders then start the pump
+  // Show loading placeholders while we seed
   const track = document.getElementById('loved-car-track');
   const cols = getCarouselPageSize();
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   const placeholder = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
   track.innerHTML = Array(cols).fill(placeholder).join('');
   updateLovedNav();
-  lovedPump();
+
+  // Seed from TMDB first (fast, no Claude tokens). Stale-result guard: if the
+  // user toggles a loved heart while we're seeding, abandon this seed.
+  const seedKey = lovedKey;
+  seedLovedPoolFromTmdb().then(seeded => {
+    if (!lovedRecsCache || lovedRecsCache.key !== seedKey) return;
+    lovedTmdbQueue = seeded;
+    lovedPump();
+  }).catch(err => {
+    if (!lovedRecsCache || lovedRecsCache.key !== seedKey) return;
+    console.warn('TMDB loved seed failed:', err && err.message);
+    // Even on TMDB failure, fall through to Claude
+    lovedPump();
+  });
 }
 
 function displayLovedCarousel() {
@@ -978,12 +1105,14 @@ function resetDiscover() {
   document.querySelector('.nav-btn').classList.add('active');
   document.getElementById('search-input').value = '';
   document.getElementById('featured-section').style.display = 'none';
+  document.getElementById('search-chooser-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
   document.getElementById('loading').style.display = 'none';
   document.getElementById('discover-carousels').style.display = '';
   viewHistory.length = 0;
   currentFeatured = null;
   currentMultiSearch = null;
+  resetChooserState();
   initDiscoverCarousels();
 }
 
@@ -1040,6 +1169,12 @@ document.addEventListener('click', (e) => {
     // ─── SEARCH ──────────────────────────────────────────────────────
     case 'do-search':
       doSearch();
+      break;
+    case 'chooser-prev':
+      chooserPrev(el.dataset.bucket);
+      break;
+    case 'chooser-next':
+      chooserNext(el.dataset.bucket);
       break;
 
     // ─── CAROUSELS ───────────────────────────────────────────────────
@@ -1225,13 +1360,13 @@ function tmdbResultToItem(tmdbItem) {
   };
 }
 
-async function fetchTmdbRecommendations(item, count = 4) {
+async function fetchTmdbRecommendations(item, count = 4, kind = 'recommendations') {
   await fetchPoster(item.title, item.year);
   const info = getTmdbInfo(item.title, item.year);
   if (!info) return null;
 
   try {
-    const res = await fetch(`/api/tmdb-recommendations?id=${info.tmdbId}&type=${info.mediaType}`);
+    const res = await fetch(`/api/tmdb-recommendations?id=${info.tmdbId}&type=${info.mediaType}&kind=${kind}`);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data.results || data.results.length === 0) return null;
@@ -1243,7 +1378,7 @@ async function fetchTmdbRecommendations(item, count = 4) {
     const filtered = filterResults(items).filter(i => !shownIds.has(i.id));
     return filtered.length > 0 ? filtered.slice(0, count) : null;
   } catch (err) {
-    console.warn('TMDB recommendations failed:', err.message);
+    console.warn(`TMDB ${kind} failed:`, err.message);
     return null;
   }
 }
@@ -1397,9 +1532,12 @@ async function doSearch() {
   document.getElementById('featured-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
   document.getElementById('discover-carousels').style.display = 'none';
+  document.getElementById('search-chooser-section').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('search-btn').disabled = true;
   viewHistory.length = 0;
+  currentFeatured = null;
+  resetChooserState();
   updateBackButton();
 
   try {
@@ -1409,57 +1547,355 @@ The user searched for: "${query}"
 
 Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
 {
-  "id": "unique-slug-no-spaces",
-  "title": "Exact title",
-  "type": "TV Show" or "Movie",
-  "year": "2023",
-  "genres": "Drama, Thriller",
-  "description": "2-3 sentence description of what this show/movie is about.",
-  "emoji": "single relevant emoji"
+  "candidates": [
+    {
+      "id": "unique-slug-no-spaces",
+      "title": "Exact title",
+      "type": "TV Show" or "Movie",
+      "year": "2015",
+      "genres": "Action, Drama",
+      "description": "2-3 sentence description of what this show/movie is about.",
+      "blurb": "One short phrase distinguishing THIS version from siblings (e.g. 'Charlie Cox Netflix series', 'Ben Affleck 2003 movie').",
+      "emoji": "single relevant emoji"
+    }
+  ]
 }
 
-Return the single best match for the user's search. Use the real, well-known title. The "id" field must be lowercase with hyphens only.`;
+Return up to 6 candidates ordered by relevance/popularity (most well-known first). Each candidate must be a DISTINCT WORK (different productions — not different seasons of the same show).
+
+- If the query unambiguously refers to one work (e.g. "Severance"), return 1 candidate.
+- If multiple distinct works share the title (e.g. "Daredevil" → 2003 movie, 2015 Netflix series, 2025 Born Again, 1989 TV movie), return all major versions.
+- If the query is fuzzy/descriptive (e.g. "that show with the bear chef" or "shows like the Diplomat"), return up to ${CHOOSER_INITIAL_COUNT} best matches.
+
+Use real, well-known titles. The "id" must be lowercase with hyphens only. The "blurb" should be ≤6 words and help the user pick the right version.`;
 
     const res = await fetch("/api/recommend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 400,
+        max_tokens: 2500,
         messages: [{ role: "user", content: prompt }]
       })
     });
 
     const data = await res.json();
-    const mainItem = normalizeItem(parseClaudeJSON(data.content[0].text));
-
-    shownIds = new Set();
-    suggestionPool = [];
-    suggestionPageIdx = 0;
-    poolFetching = false;
-    renderFeatured(mainItem);
+    const parsed = parseClaudeJSON(data.content[0].text);
+    const rawCandidates = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+    const candidates = rawCandidates.slice(0, CHOOSER_INITIAL_COUNT).map(normalizeItem);
 
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('featured-section').style.display = 'block';
 
-    // Show placeholder cards while TMDB similar items load
-    const grid = document.getElementById('similar-grid');
-    grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
+    if (candidates.length === 0) {
+      document.getElementById('error-state').style.display = 'block';
+    } else if (candidates.length === 1) {
+      // Unambiguous match — render featured directly (today's UX).
+      shownIds = new Set();
+      suggestionPool = [];
+      suggestionPageIdx = 0;
+      poolFetching = false;
+      renderFeatured(candidates[0]);
+      document.getElementById('featured-section').style.display = 'block';
 
-    // Fetch similar items from TMDB, fall back to Claude
-    let similar = await fetchTmdbRecommendations(mainItem, GRID_SIZE);
-    if (!similar) {
-      similar = await fetchClaudeSimilar(mainItem.title, mainItem.type, mainItem.year, GRID_SIZE);
+      const grid = document.getElementById('similar-grid');
+      grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
+
+      let similar = await fetchTmdbRecommendations(candidates[0], GRID_SIZE);
+      if (!similar) {
+        similar = await fetchClaudeSimilar(candidates[0].title, candidates[0].type, candidates[0].year, GRID_SIZE);
+      }
+      renderSimilar(similar || []);
+    } else {
+      // Ambiguous / fuzzy — show the bucketed chooser.
+      candidates.forEach(registerItem);
+      chooserState.query = query;
+      chooserState.pool = candidates;
+      chooserState.pages = { want: 0, new: 0, seen: 0, nope: 0 };
+      chooserState.fetching = false;
+      chooserState.exhausted = false;
+      chooserState.fetchCount = 0;
+      // Push a chooser entry so the back button returns here from any picked item.
+      viewHistory.push(snapshotChooserState());
+      updateBackButton();
+      renderChooser();
+      maybeLoadMoreChooserCandidates();
     }
-    renderSimilar(similar || []);
 
   } catch(e) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('error-state').style.display = 'block';
-    document.getElementById('search-btn').disabled = false;
   }
 
   document.getElementById('search-btn').disabled = false;
+}
+
+// ─── SEARCH CHOOSER (disambiguation, bucketed by user state) ────────────────
+function bucketizeChooserPool(pool) {
+  const buckets = { want: [], new: [], seen: [], nope: [] };
+  for (const item of pool) {
+    const id = item.id;
+    if (state.want[id]) buckets.want.push(item);
+    else if (state.seen[id]) buckets.seen.push(item);
+    else if (state.nope[id]) buckets.nope.push(item);
+    else buckets.new.push(item);
+  }
+  return buckets;
+}
+
+function clampChooserPages(buckets) {
+  for (const name of CHOOSER_BUCKETS) {
+    const total = buckets[name].length;
+    const maxPage = Math.max(0, Math.ceil(total / CHOOSER_PAGE_SIZE) - 1);
+    if (chooserState.pages[name] > maxPage) chooserState.pages[name] = maxPage;
+    if (chooserState.pages[name] < 0) chooserState.pages[name] = 0;
+  }
+}
+
+function renderChooserBucket(name, items) {
+  const section = document.getElementById(`chooser-bucket-${name}`);
+  const grid = document.getElementById(`chooser-grid-${name}`);
+  if (!section || !grid) return;
+
+  const empty = document.getElementById(`chooser-empty-${name}`);
+  const isNew = name === 'new';
+
+  if (items.length === 0) {
+    if (isNew && chooserState.pool.length > 0) {
+      section.style.display = '';
+      if (chooserState.fetching) {
+        // Mid-lazy-load: show placeholders so user sees "more coming"
+        grid.style.display = '';
+        grid.innerHTML = Array(CHOOSER_PAGE_SIZE).fill(renderPlaceholderCard()).join('');
+        if (empty) empty.style.display = 'none';
+      } else {
+        // No more incoming: show the empty hint
+        grid.innerHTML = '';
+        grid.style.display = 'none';
+        if (empty) empty.style.display = '';
+      }
+    } else {
+      section.style.display = 'none';
+    }
+    updateChooserArrows(name, 0);
+    return;
+  }
+
+  section.style.display = '';
+  grid.style.display = '';
+  if (empty) empty.style.display = 'none';
+
+  const page = chooserState.pages[name] || 0;
+  const start = page * CHOOSER_PAGE_SIZE;
+  const slice = items.slice(start, start + CHOOSER_PAGE_SIZE);
+  let html = slice.map(renderSingleCard).join('');
+  if (isNew && chooserState.fetching && slice.length < CHOOSER_PAGE_SIZE) {
+    const pad = CHOOSER_PAGE_SIZE - slice.length;
+    html += Array(pad).fill(renderPlaceholderCard()).join('');
+  }
+  grid.innerHTML = html;
+  slice.forEach(item => {
+    loadPosterFor(item.id, item.title, item.year);
+    loadTrailerBtnFor(item.id, item.title, item.year);
+  });
+
+  updateChooserArrows(name, items.length);
+}
+
+function updateChooserArrows(name, totalItems) {
+  const section = document.getElementById(`chooser-bucket-${name}`);
+  if (!section) return;
+  const prev = section.querySelector(`[data-action="chooser-prev"][data-bucket="${name}"]`);
+  const next = section.querySelector(`[data-action="chooser-next"][data-bucket="${name}"]`);
+  const page = chooserState.pages[name] || 0;
+  const lastPage = Math.max(0, Math.ceil(totalItems / CHOOSER_PAGE_SIZE) - 1);
+  if (prev) prev.disabled = page <= 0;
+  if (next) {
+    // Allow Next on the last page of NEW if we can still lazy-load more.
+    const canFetchMore = name === 'new' && !chooserState.exhausted && !chooserState.fetching;
+    next.disabled = page >= lastPage && !canFetchMore;
+  }
+}
+
+function renderChooser() {
+  document.getElementById('search-chooser-query').textContent = chooserState.query;
+  const buckets = bucketizeChooserPool(chooserState.pool);
+  clampChooserPages(buckets);
+  for (const name of CHOOSER_BUCKETS) {
+    renderChooserBucket(name, buckets[name]);
+  }
+  document.getElementById('search-chooser-section').style.display = 'block';
+  document.getElementById('featured-section').style.display = 'none';
+}
+
+// Re-render chooser after a Seen/Want/Nope toggle changes which bucket an item belongs in.
+function rebucketChooser() {
+  renderChooser();
+  maybeLoadMoreChooserCandidates();
+}
+
+function chooserPrev(name) {
+  if (chooserState.pages[name] > 0) chooserState.pages[name]--;
+  const buckets = bucketizeChooserPool(chooserState.pool);
+  renderChooserBucket(name, buckets[name]);
+}
+
+function chooserNext(name) {
+  const buckets = bucketizeChooserPool(chooserState.pool);
+  const total = buckets[name].length;
+  const lastPage = Math.max(0, Math.ceil(total / CHOOSER_PAGE_SIZE) - 1);
+
+  if (chooserState.pages[name] < lastPage) {
+    chooserState.pages[name]++;
+    renderChooserBucket(name, buckets[name]);
+  } else if (name === 'new' && !chooserState.exhausted && !chooserState.fetching) {
+    // Show placeholders, then fetch and re-render when ready.
+    const grid = document.getElementById('chooser-grid-new');
+    if (grid) grid.innerHTML = Array(CHOOSER_PAGE_SIZE).fill(renderPlaceholderCard()).join('');
+    loadMoreChooserCandidates().then(() => {
+      const fresh = bucketizeChooserPool(chooserState.pool);
+      const newLast = Math.max(0, Math.ceil(fresh.new.length / CHOOSER_PAGE_SIZE) - 1);
+      if (chooserState.pages.new < newLast) chooserState.pages.new++;
+      renderChooserBucket('new', fresh.new);
+    });
+  }
+}
+
+// Fire-and-forget: kicks off lazy-load if the NEW bucket is below target.
+function maybeLoadMoreChooserCandidates() {
+  if (chooserState.exhausted || chooserState.fetching) return;
+  const buckets = bucketizeChooserPool(chooserState.pool);
+  if (buckets.new.length < CHOOSER_NEW_TARGET) {
+    loadMoreChooserCandidates();
+  }
+}
+
+// Build a list of items to exclude from Claude's next response: everything
+// already in the chooser pool, plus everything the user has already classified
+// (seen/want/nope). This makes lazy-load results land in NEW FINDS rather than
+// re-surfacing items the user has already processed.
+function buildChooserExclusion() {
+  const items = [
+    ...chooserState.pool,
+    ...Object.values(state.seen),
+    ...Object.values(state.want),
+    ...Object.values(state.nope),
+  ];
+  const seen = new Set();
+  const out = [];
+  for (const i of items) {
+    if (i && i.id && i.title && !seen.has(i.id)) {
+      seen.add(i.id);
+      out.push(i);
+    }
+  }
+  return out;
+}
+
+async function loadMoreChooserCandidates() {
+  if (chooserState.exhausted || chooserState.fetching || !chooserState.query) return;
+  if (chooserState.fetchCount >= CHOOSER_MAX_FETCHES) {
+    chooserState.exhausted = true;
+    renderChooser();
+    return;
+  }
+
+  chooserState.fetching = true;
+  chooserState.fetchCount++;
+  // Re-render so arrows / loading affordances update.
+  renderChooser();
+
+  try {
+    const exclude = buildChooserExclusion();
+    const excludeText = exclude.map(i => `- ${i.title}${i.year ? ` (${i.year})` : ''}`).join('\n');
+
+    const prompt = `You are a film and TV expert assistant for a streaming recommendation app called Flickpick.
+
+The user searched for: "${chooserState.query}"
+
+Already-shown OR already-classified by the user (do NOT return any of these — they're already in the result set or the user has already marked them seen / watchlisted / noped):
+${excludeText}
+
+Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
+{
+  "candidates": [
+    {
+      "id": "unique-slug-no-spaces",
+      "title": "Exact title",
+      "type": "TV Show" or "Movie",
+      "year": "2015",
+      "genres": "Action, Drama",
+      "description": "2-3 sentence description.",
+      "blurb": "One short distinguishing phrase (≤6 words).",
+      "emoji": "single relevant emoji"
+    }
+  ]
+}
+
+Return up to ${CHOOSER_LOAD_MORE_COUNT} ADDITIONAL candidates that match the search but are NOT in the excluded list above. Real, well-known titles only. Ordered by relevance/popularity. Dig deeper — include lesser-known but still legitimate matches. The "id" must be lowercase with hyphens only. If you genuinely cannot think of further matches, return an empty candidates array.`;
+
+    const res = await fetch('/api/recommend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    const parsed = parseClaudeJSON(data.content[0].text);
+    const fresh = (Array.isArray(parsed?.candidates) ? parsed.candidates : []).map(normalizeItem);
+    const existingIds = new Set(chooserState.pool.map(i => i.id));
+    const additions = fresh.filter(i => !existingIds.has(i.id));
+    additions.forEach(registerItem);
+    chooserState.pool = chooserState.pool.concat(additions);
+    if (additions.length === 0) chooserState.exhausted = true;
+  } catch (err) {
+    console.warn('Chooser load-more failed:', err.message);
+    chooserState.exhausted = true;
+  } finally {
+    chooserState.fetching = false;
+  }
+
+  renderChooser();
+
+  // Recurse: keep fetching until NEW FINDS reaches target or we're capped/exhausted.
+  if (!chooserState.exhausted && chooserState.fetchCount < CHOOSER_MAX_FETCHES) {
+    const buckets = bucketizeChooserPool(chooserState.pool);
+    if (buckets.new.length < CHOOSER_NEW_TARGET) {
+      loadMoreChooserCandidates();
+    }
+  }
+}
+
+function resetChooserState() {
+  chooserState.query = '';
+  chooserState.pool = [];
+  chooserState.pages = { want: 0, new: 0, seen: 0, nope: 0 };
+  chooserState.fetching = false;
+  chooserState.exhausted = false;
+  chooserState.fetchCount = 0;
+}
+
+function snapshotChooserState() {
+  return {
+    chooser: true,
+    query: chooserState.query,
+    pool: [...chooserState.pool],
+    pages: { ...chooserState.pages },
+    exhausted: chooserState.exhausted,
+    fetchCount: chooserState.fetchCount,
+  };
+}
+
+function restoreChooserState(snap) {
+  chooserState.query = snap.query;
+  chooserState.pool = [...snap.pool];
+  chooserState.pages = { ...snap.pages };
+  chooserState.fetching = false;
+  chooserState.exhausted = !!snap.exhausted;
+  chooserState.fetchCount = snap.fetchCount || 0;
+  chooserState.pool.forEach(registerItem);
 }
 
 // ─── RENDER FEATURED ─────────────────────────────────────────────────────────
@@ -1467,6 +1903,9 @@ function renderFeatured(item) {
   registerItem(item);
   currentFeatured = item;
   currentMultiSearch = null;
+  // Hide the chooser whenever we land on a featured card (e.g., user picked a candidate).
+  const chooserSection = document.getElementById('search-chooser-section');
+  if (chooserSection) chooserSection.style.display = 'none';
   const seenActive = state.seen[item.id] ? 'active' : '';
   const wantActive = state.want[item.id] ? 'active' : '';
   const nopeActive = state.nope[item.id] ? 'active' : '';
@@ -1730,6 +2169,20 @@ function goBack() {
   if (viewHistory.length === 0) return;
   const prev = viewHistory.pop();
 
+  if (prev.chooser) {
+    currentFeatured = null;
+    suggestionPool = [];
+    suggestionPageIdx = 0;
+    shownIds = new Set();
+    poolFetching = false;
+    restoreChooserState(prev);
+    document.getElementById('featured-section').style.display = 'none';
+    renderChooser();
+    updateBackButton();
+    window.scrollTo({ top: 60, behavior: 'smooth' });
+    return;
+  }
+
   currentFeatured = prev.featured;
   suggestionPool = prev.suggestionPool || [];
   suggestionPageIdx = prev.suggestionPageIdx || 0;
@@ -1862,8 +2315,9 @@ function toggleSeen(id, btn) {
   if (!item) return;
   const isMini = btn.classList.contains('mini-btn');
   const nid = normalizeId(item.title, item.year);
+  const wasSet = !!state.seen[nid];
 
-  if (state.seen[nid]) {
+  if (wasSet) {
     State.removeSeen(nid);
     btn.classList.remove('active');
     btn.textContent = isMini ? 'Seen' : 'Mark Seen';
@@ -1873,12 +2327,15 @@ function toggleSeen(id, btn) {
     btn.classList.add('active');
     btn.textContent = isMini ? 'Seen' : '✓ Seen';
     showToast(`Marked "${item.title}" as seen`);
-    if (isMini) {
-      const card = btn.closest('.similar-card');
-      if (card) { replaceCard(card); return; }
-      const carCard = btn.closest('.carousel-item');
-      if (carCard) { replaceLovedCard(carCard); return; }
-    }
+  }
+
+  if (!isMini) return;
+  if (btn.closest('.chooser-bucket')) { rebucketChooser(); return; }
+  if (!wasSet) {
+    const card = btn.closest('.similar-card');
+    if (card) { replaceCard(card); return; }
+    const carCard = btn.closest('.carousel-item');
+    if (carCard) { replaceLovedCard(carCard); return; }
   }
 }
 
@@ -1888,8 +2345,9 @@ function toggleNope(id, btn) {
   if (!item) return;
   const isMini = btn.classList.contains('mini-btn');
   const nid = normalizeId(item.title, item.year);
+  const wasSet = !!state.nope[nid];
 
-  if (state.nope[nid]) {
+  if (wasSet) {
     State.removeNope(nid);
     btn.classList.remove('active');
     btn.textContent = isMini ? 'Nope' : 'Nope';
@@ -1899,12 +2357,15 @@ function toggleNope(id, btn) {
     btn.classList.add('active');
     btn.textContent = isMini ? '✕' : '✕ Noped';
     showToast(`"${item.title}" noped`);
-    if (isMini) {
-      const card = btn.closest('.similar-card');
-      if (card) { replaceCard(card); return; }
-      const carCard = btn.closest('.carousel-item');
-      if (carCard) { replaceLovedCard(carCard); return; }
-    }
+  }
+
+  if (!isMini) return;
+  if (btn.closest('.chooser-bucket')) { rebucketChooser(); return; }
+  if (!wasSet) {
+    const card = btn.closest('.similar-card');
+    if (card) { replaceCard(card); return; }
+    const carCard = btn.closest('.carousel-item');
+    if (carCard) { replaceLovedCard(carCard); return; }
   }
 }
 
@@ -1914,8 +2375,9 @@ function toggleWant(id, btn) {
   if (!item) return;
   const isMini = btn.classList.contains('mini-btn');
   const nid = normalizeId(item.title, item.year);
+  const wasSet = !!state.want[nid];
 
-  if (state.want[nid]) {
+  if (wasSet) {
     State.removeWant(nid);
     btn.classList.remove('active');
     btn.textContent = isMini ? 'Want' : '+ Watchlist';
@@ -1925,12 +2387,15 @@ function toggleWant(id, btn) {
     btn.classList.add('active');
     btn.textContent = isMini ? '★' : '★ Saved';
     showToast(`Added "${item.title}" to watchlist`);
-    if (isMini) {
-      const card = btn.closest('.similar-card');
-      if (card) { replaceCard(card); return; }
-      const carCard = btn.closest('.carousel-item');
-      if (carCard) { replaceLovedCard(carCard); return; }
-    }
+  }
+
+  if (!isMini) return;
+  if (btn.closest('.chooser-bucket')) { rebucketChooser(); return; }
+  if (!wasSet) {
+    const card = btn.closest('.similar-card');
+    if (card) { replaceCard(card); return; }
+    const carCard = btn.closest('.carousel-item');
+    if (carCard) { replaceLovedCard(carCard); return; }
   }
 }
 

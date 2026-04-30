@@ -72,7 +72,9 @@
       "Bash(curl -s \"https://api.elevenlabs.io/v1/shared-voices?page_size=5\")",
       "Bash(curl -s \"https://api.elevenlabs.io/v1/shared-voices?page_size=5&page=0\")",
       "WebFetch(domain:www.webfuse.com)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(node --check app.js)",
+      "Bash(node --check api/tmdb-recommendations.js)"
     ]
   }
 }
