@@ -144,15 +144,38 @@ const State = {
     return state.seen[id].rating;
   },
 
-  // ─── IMPORT ─────────────────────────────────────────────────────────────
+  // ─── IMPORT (smart merge: newest-wins across all lists) ─────────────────
+  // For each show ID seen anywhere (local or remote, in any of seen/want/nope),
+  // pick the version with the newest addedAt timestamp and place it in the
+  // list that version came from. This guarantees:
+  //   - a show only appears in ONE list after merge (no cross-list duplicates)
+  //   - the most recent rating / addedAt wins (not just "remote always wins")
+  //   - nope items (which lack addedAt) are treated as oldest, so seen/want
+  //     usually win over a stale nope
   importData(imported) {
-    if (imported.seen) Object.assign(state.seen, imported.seen);
-    if (imported.want) Object.assign(state.want, imported.want);
-    if (imported.nope) Object.assign(state.nope, imported.nope);
-    // Deduplicate after import
-    state.seen = _deduplicateCollection(state.seen);
-    state.want = _deduplicateCollection(state.want);
-    state.nope = _deduplicateCollection(state.nope);
+    if (!imported) return;
+    const lists = ['seen', 'want', 'nope'];
+    const allIds = new Set();
+    for (const list of lists) {
+      for (const id in (state[list] || {})) allIds.add(id);
+      for (const id in (imported[list] || {})) allIds.add(id);
+    }
+
+    const merged = { seen: {}, want: {}, nope: {} };
+    for (const id of allIds) {
+      const candidates = [];
+      for (const list of lists) {
+        if (state[list] && state[list][id]) candidates.push({ list, item: state[list][id] });
+        if (imported[list] && imported[list][id]) candidates.push({ list, item: imported[list][id] });
+      }
+      candidates.sort((a, b) => (b.item.addedAt || 0) - (a.item.addedAt || 0));
+      const winner = candidates[0];
+      merged[winner.list][id] = { ...winner.item, id };
+    }
+
+    state.seen = _deduplicateCollection(merged.seen);
+    state.want = _deduplicateCollection(merged.want);
+    state.nope = _deduplicateCollection(merged.nope);
     for (const id in state.seen) {
       if (state.seen[id].rating === undefined) state.seen[id].rating = null;
     }

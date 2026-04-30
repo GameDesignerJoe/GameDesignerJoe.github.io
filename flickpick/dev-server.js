@@ -153,6 +153,14 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Version info — mirrors /api/version.js. Locally there's no Vercel SHA,
+  // so we report dev/dev so the footer shows "Flickpick v1.1.1 · (development)".
+  if (req.method === 'GET' && req.url.startsWith('/api/version')) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ sha: null, env: 'development' }));
+    return;
+  }
+
   // Cloud sync (Vercel Blob)
   if (req.url === '/api/sync' || req.url.startsWith('/api/sync?')) {
     const blobKey = (code) => `flickpick-sync/${code.trim().toLowerCase()}.json`;

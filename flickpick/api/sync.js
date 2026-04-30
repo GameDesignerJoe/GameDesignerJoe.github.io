@@ -8,20 +8,7 @@ function isValidCode(code) {
 
 export default async function handler(req, res) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    // Diagnostic: list env var keys the function CAN see, so we can spot a
-    // typo'd key or scope issue. Values are NOT returned — only key names.
-    const visibleKeys = Object.keys(process.env)
-      .filter(k => /BLOB|TOKEN|VERCEL_ENV|TMDB|ANTHROPIC|STREAM/i.test(k))
-      .sort();
-    return res.status(500).json({
-      error: 'Server missing BLOB_READ_WRITE_TOKEN env var',
-      diagnostic: {
-        visibleEnvKeys: visibleKeys,
-        nodeVersion: process.version,
-        vercelEnv: process.env.VERCEL_ENV || null,
-        vercelRegion: process.env.VERCEL_REGION || null,
-      },
-    });
+    return res.status(500).json({ error: 'Server missing BLOB_READ_WRITE_TOKEN env var' });
   }
 
   if (req.method === 'PUT') {

@@ -863,7 +863,6 @@ function readSyncCode() {
 async function readErrorMessage(res, fallback) {
   try {
     const data = await res.json();
-    if (data.diagnostic) console.error('Sync diagnostic:', data.diagnostic);
     return data.error || data.details || fallback;
   } catch {
     return fallback;
@@ -923,6 +922,22 @@ async function cloudDownload() {
   }
 }
 
+async function initVersionFooter() {
+  const el = document.getElementById('settings-version');
+  if (!el) return;
+  const baseText = el.textContent;
+  try {
+    const res = await fetch('/api/version');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.sha) {
+      el.textContent = `${baseText} · ${data.sha}${data.env && data.env !== 'production' ? ` (${data.env})` : ''}`;
+    }
+  } catch {
+    // Offline / dev server without endpoint — leave the base text alone.
+  }
+}
+
 function initSyncCodeInput() {
   const input = document.getElementById('sync-code-input');
   if (!input) return;
@@ -949,6 +964,7 @@ updateWantCount();
 updateSeenCount();
 initDiscoverCarousels();
 initSyncCodeInput();
+initVersionFooter();
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function showPage(page) {
