@@ -869,56 +869,48 @@ async function readErrorMessage(res, fallback) {
   }
 }
 
-async function cloudUpload() {
+// Two-way sync: pull cloud state, smart-merge into local, push merged result
+// back up. Works the same regardless of which device clicks first — the cloud
+// always ends up with the union of all devices' data.
+async function cloudSync() {
   const code = readSyncCode();
   if (!code) return;
-  setSyncStatus('Uploading…');
+  setSyncStatus('Syncing…');
   try {
-    const res = await fetch('/api/sync', {
+    // 1. Pull remote and merge into local
+    const getRes = await fetch(`/api/sync?code=${encodeURIComponent(code)}`);
+    if (!getRes.ok) {
+      const msg = await readErrorMessage(getRes, `Sync failed (${getRes.status})`);
+      console.error('Sync read failed:', getRes.status, msg);
+      setSyncStatus(msg, 'error');
+      return;
+    }
+    const data = await getRes.json();
+    if (data.state) {
+      State.importData(data.state);
+      refreshCurrentPage();
+    }
+
+    // 2. Push merged local state back up
+    const putRes = await fetch('/api/sync', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, state }),
     });
-    if (res.ok) {
-      const total = Object.keys(state.seen).length + Object.keys(state.want).length + Object.keys(state.nope).length;
-      setSyncStatus(`Uploaded ${total} items ✓`, 'success');
-    } else {
-      const msg = await readErrorMessage(res, `Upload failed (${res.status})`);
-      console.error('Cloud upload failed:', res.status, msg);
+    if (!putRes.ok) {
+      const msg = await readErrorMessage(putRes, `Sync failed (${putRes.status})`);
+      console.error('Sync write failed:', putRes.status, msg);
       setSyncStatus(msg, 'error');
+      return;
     }
-  } catch (err) {
-    console.error('Cloud upload network error:', err);
-    setSyncStatus('Upload failed (network)', 'error');
-  }
-}
 
-async function cloudDownload() {
-  const code = readSyncCode();
-  if (!code) return;
-  setSyncStatus('Downloading…');
-  try {
-    const res = await fetch(`/api/sync?code=${encodeURIComponent(code)}`);
-    if (!res.ok) {
-      const msg = await readErrorMessage(res, `Download failed (${res.status})`);
-      console.error('Cloud download failed:', res.status, msg);
-      setSyncStatus(msg, 'error');
-      return;
-    }
-    const data = await res.json();
-    if (!data.state) {
-      setSyncStatus('No data found for that code', 'error');
-      return;
-    }
-    State.importData(data.state);
-    refreshCurrentPage();
-    const total = Object.keys(data.state.seen || {}).length
-                + Object.keys(data.state.want || {}).length
-                + Object.keys(data.state.nope || {}).length;
-    setSyncStatus(`Merged ${total} items ✓`, 'success');
+    const total = Object.keys(state.seen).length
+                + Object.keys(state.want).length
+                + Object.keys(state.nope).length;
+    setSyncStatus(`Synced ${total} items ✓`, 'success');
   } catch (err) {
-    console.error('Cloud download network error:', err);
-    setSyncStatus('Download failed (network)', 'error');
+    console.error('Sync network error:', err);
+    setSyncStatus('Sync failed (network)', 'error');
   }
 }
 
@@ -1035,11 +1027,8 @@ document.addEventListener('click', (e) => {
     case 'import-click':
       document.getElementById('import-file').click();
       break;
-    case 'cloud-upload':
-      cloudUpload();
-      break;
-    case 'cloud-download':
-      cloudDownload();
+    case 'cloud-sync':
+      cloudSync();
       break;
 
     // ─── SEARCH ──────────────────────────────────────────────────────
