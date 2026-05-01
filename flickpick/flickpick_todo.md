@@ -1,12 +1,7 @@
 == FlickPick ToDo ==
 In Priority Order
 
-- I'm seeing a number of log errors in the console for 'blocked.other' I assume this is us making too many calls?
-- Need to have a solve for when you search for a show and it has multiple releases "Daredevil" for example. How do we elegantly show all the options of the one they searched for?
-
-- Allow for abstract searches to function: "Shows about spies"
-
-- Perhaps we should start pulling in a rating of how good the show is rated (like rotten tomatoe score or something)from somewhere that is displayed with the title of the show. The title is aligned left. The rating is aligned right, in paraens () with a simple percentrage.
+- I searched for "Spy Movies" and it came up with The Americans from my watch list, but not Mission Impossible, Copenhagen Test, Pine Gap, Jackal, Berlin Station, Red Sparrow, The Asset... the list goes on. What's happening here where a pile of spy movies aren't being pulled forward into the "In your watch list" 
 
 - On the watch list have a button next to Remove that's "Currently Watching". Then we can have a list on the main page of 'Currently Watching'. We can have a sort feature as well for shows currently watching. This gets us a new type (Seen, Want, Nope) without having to add it to the buttons
 

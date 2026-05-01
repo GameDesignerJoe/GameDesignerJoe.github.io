@@ -115,6 +115,10 @@ let chooserState = {
 // ─── TMDB CACHE ─────────────────────────────────────────────────────────────
 const posterCache = {};
 const tmdbIdCache = {};
+const ratingCache = {}; // cacheKey -> { rating: 0-100 int, voteCount: int } | null
+
+// Vote-count threshold below which we hide the rating (low confidence).
+const RATING_MIN_VOTES = 10;
 
 async function fetchPoster(title, year) {
   const cacheKey = `${title}::${year || ''}`;
@@ -136,6 +140,14 @@ async function fetchPoster(title, year) {
         tmdbIdCache[cacheKey] = { tmdbId: match.id, mediaType: match.media_type };
       }
 
+      // Cache rating (0–100 int) + vote_count, alongside the poster.
+      if (typeof match.vote_average === 'number' && ratingCache[cacheKey] === undefined) {
+        const rating = Math.round(match.vote_average * 10);
+        const voteCount = match.vote_count || 0;
+        ratingCache[cacheKey] = { rating, voteCount };
+        persistRatingToState(title, year, rating, voteCount);
+      }
+
       if (match.poster_path) {
         const url = `https://image.tmdb.org/t/p/w342${match.poster_path}`;
         posterCache[cacheKey] = url;
@@ -151,12 +163,87 @@ async function fetchPoster(title, year) {
   }
 }
 
+// ─── RATING ──────────────────────────────────────────────────────────────────
+// Rating data is read out of TMDB responses we already fetch (search,
+// recommendations, similar). Returns { rating, voteCount } or null.
+function getCachedRating(title, year) {
+  return ratingCache[`${title}::${year || ''}`] || null;
+}
+
+// Persist the rating onto any saved state item that matches title+year.
+// Lets "By Rating" sort work after a page reload without re-fetching every poster.
+function persistRatingToState(title, year, rating, voteCount) {
+  const id = normalizeId(title, year);
+  let dirty = false;
+  for (const list of ['seen', 'want', 'nope']) {
+    const item = state[list][id];
+    if (item && (item.tmdbRating !== rating || item.tmdbVoteCount !== voteCount)) {
+      item.tmdbRating = rating;
+      item.tmdbVoteCount = voteCount;
+      dirty = true;
+    }
+  }
+  if (dirty) State._persist();
+}
+
+// Sort key for "By Rating": prefer the persisted state value (instant on
+// reload), fall back to the in-memory cache, fall back to -1 (sentinel sorts
+// items without ratings to the bottom).
+function getItemTmdbRating(item) {
+  if (typeof item.tmdbRating === 'number'
+      && (item.tmdbVoteCount || 0) >= RATING_MIN_VOTES
+      && item.tmdbRating > 0) {
+    return item.tmdbRating;
+  }
+  const entry = getCachedRating(item.title, item.year);
+  return shouldShowRating(entry) ? entry.rating : -1;
+}
+
+// Rendering helpers — kept here so all surfaces format ratings the same way.
+function ratingTier(rating) {
+  if (rating >= 80) return 'high';
+  if (rating >= 60) return 'mid';
+  return 'low';
+}
+
+function shouldShowRating(entry) {
+  return !!(entry && entry.rating > 0 && entry.voteCount >= RATING_MIN_VOTES);
+}
+
+function renderRatingHTML(entry, { withParens = false } = {}) {
+  if (!shouldShowRating(entry)) return '';
+  const text = withParens ? `(${entry.rating}%)` : `${entry.rating}%`;
+  return `<span class="rating rating--${ratingTier(entry.rating)}">${text}</span>`;
+}
+
+// Async loader — populates DOM elements with `data-rating-id="${itemId}"`.
+// Mirrors loadPosterFor's lifecycle. The card render leaves an empty slot;
+// once TMDB resolves, we fill it. If the item never gets a TMDB hit (or its
+// vote count is too low), the slot stays empty — no broken UI.
+function loadRatingFor(itemId, title, year, { withParens = false } = {}) {
+  fetchPoster(title, year).then(() => {
+    const entry = getCachedRating(title, year);
+    if (!shouldShowRating(entry)) return;
+    const el = document.querySelector(`[data-rating-id="${itemId}"]`);
+    if (!el) return;
+    el.classList.add(`rating--${ratingTier(entry.rating)}`);
+    el.textContent = withParens ? `(${entry.rating}%)` : `${entry.rating}%`;
+  });
+}
+
 function getTmdbInfo(title, year) {
   return tmdbIdCache[`${title}::${year || ''}`] || null;
 }
 
 function loadPosterFor(itemId, title, year) {
   fetchPoster(title, year).then(url => {
+    // Fill rating slot — fetchPoster has populated ratingCache as a side effect.
+    // Featured card uses parens; smaller cards use plain "87%".
+    const ratingEl = document.querySelector(`[data-rating-id="${itemId}"]`);
+    if (ratingEl) {
+      const withParens = ratingEl.classList.contains('rating--featured') || ratingEl.classList.contains('rating--titled');
+      loadRatingFor(itemId, title, year, { withParens });
+    }
     if (!url) return;
     const el = document.querySelector(`[data-poster-id="${itemId}"]`);
     if (!el) return;
@@ -538,12 +625,22 @@ function renderCarouselItem(item, showActions) {
       </div>`;
   }
 
+  // Rating sits inline after the title in parens "(87%)". Filled async by
+  // loadRatingFor; if no rating ever arrives, the empty span collapses (display:none).
+  const cachedRating = getCachedRating(item.title, item.year);
+  const initialRatingHtml = shouldShowRating(cachedRating)
+    ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="${item.id}">(${cachedRating.rating}%)</span>`
+    : `<span class="rating rating--titled" data-rating-id="${item.id}"></span>`;
+
   return `
     <div class="carousel-item" data-action="load-item-direct" data-id="${item.id}">
       <div class="carousel-item-placeholder" data-car-poster="${item.id || item.title}">
         ${emoji}
       </div>
-      <div class="carousel-item-title" title="${safeTitle}">${item.title}</div>
+      <div class="carousel-item-title" title="${safeTitle}">
+        <span class="carousel-item-name">${item.title}</span>
+        ${initialRatingHtml}
+      </div>
       ${actionsHtml}
     </div>`;
 }
@@ -563,6 +660,9 @@ function retryPosterLoad(img, title, year, retries) {
 
 function loadCarouselPoster(item, selector) {
   fetchPoster(item.title, item.year).then(url => {
+    // Fill rating slot now that fetchPoster has populated ratingCache as a side effect.
+    // Carousel uses parens "(87%)" inline with title.
+    if (item.id) loadRatingFor(item.id, item.title, item.year, { withParens: true });
     if (!url) return;
     const el = document.querySelector(`[data-car-poster="${item.id || item.title}"]`);
     if (!el) return;
@@ -1341,13 +1441,19 @@ function tmdbResultToItem(tmdbItem) {
   const description = sentences ? sentences.slice(0, 2).join('').trim() : raw;
   const mediaType = isMovie ? 'movie' : 'tv';
 
-  // Pre-cache TMDB ID and poster so subsequent lookups are instant
+  // Pre-cache TMDB ID, poster, and rating so subsequent lookups are instant
   const cacheKey = `${title}::${year}`;
   if (tmdbItem.id && !tmdbIdCache[cacheKey]) {
     tmdbIdCache[cacheKey] = { tmdbId: tmdbItem.id, mediaType };
   }
   if (tmdbItem.poster_path && !posterCache[cacheKey]) {
     posterCache[cacheKey] = `https://image.tmdb.org/t/p/w342${tmdbItem.poster_path}`;
+  }
+  if (typeof tmdbItem.vote_average === 'number' && ratingCache[cacheKey] === undefined) {
+    const rating = Math.round(tmdbItem.vote_average * 10);
+    const voteCount = tmdbItem.vote_count || 0;
+    ratingCache[cacheKey] = { rating, voteCount };
+    persistRatingToState(title, year, rating, voteCount);
   }
 
   return {
@@ -1911,6 +2017,13 @@ function renderFeatured(item) {
   const nopeActive = state.nope[item.id] ? 'active' : '';
   const emoji = item.emoji || genreEmoji(item.genres);
 
+  // Featured rating slot — included in the meta row, async-filled by loadPosterFor
+  // (the rating--featured class signals parens "(87%)" formatting).
+  const cachedRating = getCachedRating(item.title, item.year);
+  const initialRatingHtml = shouldShowRating(cachedRating)
+    ? `<span class="rating rating--featured rating--${ratingTier(cachedRating.rating)}" data-rating-id="${item.id}">(${cachedRating.rating}%)</span>`
+    : `<span class="rating rating--featured" data-rating-id="${item.id}"></span>`;
+
   document.getElementById('featured-card').innerHTML = `
     <div class="featured-poster-placeholder" data-poster-id="${item.id}">
       <span class="poster-emoji">${emoji}</span>
@@ -1921,6 +2034,7 @@ function renderFeatured(item) {
       <div class="featured-meta">
         <span>${item.year}</span>
         <span>${item.genres}</span>
+        ${initialRatingHtml}
       </div>
       <div class="featured-desc">${item.description}</div>
       <div class="featured-actions">
@@ -1949,13 +2063,23 @@ function renderSingleCard(item) {
   const emoji = item.emoji || genreEmoji(item.genres);
   const subtitle = item.blurb || item.description;
 
+  // Rating slot — flex-aligned right next to the title. The "rating--titled"
+  // class signals to loadPosterFor that this surface uses parens "(87%)".
+  const cachedRating = getCachedRating(item.title, item.year);
+  const initialRatingHtml = shouldShowRating(cachedRating)
+    ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="${item.id}">(${cachedRating.rating}%)</span>`
+    : `<span class="rating rating--titled" data-rating-id="${item.id}"></span>`;
+
   return `
     <div class="similar-card swapping-in" data-card-id="${item.id}">
       <div class="similar-poster-placeholder" data-poster-id="${item.id}" data-action="load-item" data-id="${item.id}">
         ${emoji}
       </div>
       <div class="similar-body" data-action="load-item" data-id="${item.id}">
-        <div class="similar-title">${item.title}</div>
+        <div class="similar-title-row">
+          <span class="similar-title">${item.title}</span>
+          ${initialRatingHtml}
+        </div>
         <div class="similar-subtitle">${subtitle}</div>
       </div>
       <div class="similar-trailer" data-trailer-id="${item.id}" style="display:none">
@@ -2407,6 +2531,12 @@ function renderWatchlistCard(item) {
   const emoji = item.emoji || genreEmoji(item.genres);
   const cardId = `wl-${item.id}`;
   registerItem(item);
+
+  const cachedRating = getCachedRating(item.title, item.year);
+  const initialRatingHtml = shouldShowRating(cachedRating)
+    ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="wlrate-${item.id}">(${cachedRating.rating}%)</span>`
+    : `<span class="rating rating--titled" data-rating-id="wlrate-${item.id}"></span>`;
+
   return `
     <div class="watchlist-card" id="${cardId}">
       <div class="watchlist-poster-placeholder clickable-title" data-wl-poster="${item.id}" data-action="load-item-direct" data-id="${item.id}">
@@ -2414,7 +2544,10 @@ function renderWatchlistCard(item) {
       </div>
       <div class="watchlist-info">
         <div class="watchlist-header">
-          <div class="watchlist-title clickable-title" data-action="load-item-direct" data-id="${item.id}">${item.title}</div>
+          <div class="watchlist-title-row">
+            <span class="watchlist-title clickable-title" data-action="load-item-direct" data-id="${item.id}">${item.title}</span>
+            ${initialRatingHtml}
+          </div>
           <div class="watchlist-type">${item.type}</div>
         </div>
         <div class="watchlist-meta">${item.year} · ${item.genres}</div>
@@ -2428,8 +2561,10 @@ function renderWatchlistCard(item) {
 }
 
 function loadWatchlistExtras(item) {
-  // Load poster
+  // Load poster + rating (rating slot uses unique wlrate- prefix to avoid colliding
+  // with the same item rendered elsewhere on the page).
   fetchPoster(item.title, item.year).then(url => {
+    loadRatingFor(`wlrate-${item.id}`, item.title, item.year, { withParens: true });
     if (!url) return;
     const el = document.querySelector(`[data-wl-poster="${item.id}"]`);
     if (!el) return;
@@ -2565,6 +2700,7 @@ function getFilteredWatchlist() {
     case 'title-az': items.sort((a, b) => a.title.localeCompare(b.title)); break;
     case 'title-za': items.sort((a, b) => b.title.localeCompare(a.title)); break;
     case 'type': items.sort((a, b) => (a.type || '').localeCompare(b.type || '') || a.title.localeCompare(b.title)); break;
+    case 'rating': items.sort((a, b) => getItemTmdbRating(b) - getItemTmdbRating(a) || a.title.localeCompare(b.title)); break;
   }
   return items;
 }
@@ -2630,6 +2766,12 @@ function renderSeenCard(item) {
   const cardId = `seen-${item.id}`;
   const r = item.rating;
   registerItem(item);
+
+  const cachedRating = getCachedRating(item.title, item.year);
+  const initialRatingHtml = shouldShowRating(cachedRating)
+    ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="seenrate-${item.id}">(${cachedRating.rating}%)</span>`
+    : `<span class="rating rating--titled" data-rating-id="seenrate-${item.id}"></span>`;
+
   return `
     <div class="watchlist-card" id="${cardId}">
       <div class="watchlist-poster-placeholder clickable-title" data-seen-poster="${item.id}" data-action="load-item-direct" data-id="${item.id}">
@@ -2637,7 +2779,10 @@ function renderSeenCard(item) {
       </div>
       <div class="watchlist-info">
         <div class="watchlist-header">
-          <div class="watchlist-title clickable-title" data-action="load-item-direct" data-id="${item.id}">${item.title}</div>
+          <div class="watchlist-title-row">
+            <span class="watchlist-title clickable-title" data-action="load-item-direct" data-id="${item.id}">${item.title}</span>
+            ${initialRatingHtml}
+          </div>
           <div class="watchlist-type">${item.type}</div>
         </div>
         <div class="watchlist-meta">${item.year} · ${item.genres}</div>
@@ -2658,6 +2803,7 @@ function renderSeenCard(item) {
 
 function loadSeenExtras(item) {
   fetchPoster(item.title, item.year).then(url => {
+    loadRatingFor(`seenrate-${item.id}`, item.title, item.year, { withParens: true });
     if (!url) return;
     const el = document.querySelector(`[data-seen-poster="${item.id}"]`);
     if (!el) return;
@@ -2714,7 +2860,8 @@ function getFilteredSeenList() {
     case 'title-az': items.sort((a, b) => a.title.localeCompare(b.title)); break;
     case 'title-za': items.sort((a, b) => b.title.localeCompare(a.title)); break;
     case 'type': items.sort((a, b) => (a.type || '').localeCompare(b.type || '') || a.title.localeCompare(b.title)); break;
-    case 'rating': items.sort((a, b) => (RATING_ORDER[a.rating] ?? 99) - (RATING_ORDER[b.rating] ?? 99) || a.title.localeCompare(b.title)); break;
+    case 'rating': items.sort((a, b) => getItemTmdbRating(b) - getItemTmdbRating(a) || a.title.localeCompare(b.title)); break;
+    case 'my-rating': items.sort((a, b) => (RATING_ORDER[a.rating] ?? 99) - (RATING_ORDER[b.rating] ?? 99) || a.title.localeCompare(b.title)); break;
   }
   return items;
 }
