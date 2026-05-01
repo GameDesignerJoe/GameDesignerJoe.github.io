@@ -92,7 +92,7 @@ let poolFetching = false;
 
 // ─── CHOOSER STATE (search disambiguation, bucketed by user state) ──────────
 const CHOOSER_PAGE_SIZE = 4;
-const CHOOSER_INITIAL_COUNT = 12;
+const CHOOSER_INITIAL_COUNT = 18;     // wider so library matches + new finds both fit
 const CHOOSER_LOAD_MORE_COUNT = 12;
 const CHOOSER_NEW_TARGET = 8;     // keep filling NEW FINDS until it has this many
 const CHOOSER_MAX_FETCHES = 4;    // cap on lazy-load Claude calls per search
@@ -1647,10 +1647,15 @@ async function doSearch() {
   updateBackButton();
 
   try {
+    const libraryContext = buildLibraryContextForSearch();
+    const librarySection = libraryContext
+      ? `\nThe user already has these titles in their lists. **Identify any that genuinely match the search and include them in your candidates list FIRST**, before adding fresh suggestions. Use the exact title and year as written here so it can be matched back to the user's records.\n\n${libraryContext}\n`
+      : '';
+
     const prompt = `You are a film and TV expert assistant for a streaming recommendation app called Flickpick.
 
 The user searched for: "${query}"
-
+${librarySection}
 Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
 {
   "candidates": [
@@ -1667,11 +1672,13 @@ Return ONLY a JSON object (no markdown, no explanation) with this exact structur
   ]
 }
 
-Return up to 6 candidates ordered by relevance/popularity (most well-known first). Each candidate must be a DISTINCT WORK (different productions — not different seasons of the same show).
+Return up to ${CHOOSER_INITIAL_COUNT} candidates. Order matters: list any matching items from the user's lists FIRST (sorted by relevance to the query), then fresh recommendations to fill the rest of the slots.
+
+Each candidate must be a DISTINCT WORK (different productions — not different seasons of the same show).
 
 - If the query unambiguously refers to one work (e.g. "Severance"), return 1 candidate.
 - If multiple distinct works share the title (e.g. "Daredevil" → 2003 movie, 2015 Netflix series, 2025 Born Again, 1989 TV movie), return all major versions.
-- If the query is fuzzy/descriptive (e.g. "that show with the bear chef" or "shows like the Diplomat"), return up to ${CHOOSER_INITIAL_COUNT} best matches.
+- If the query is fuzzy/descriptive or thematic (e.g. "Spy Movies", "that show with the bear chef", "shows like the Diplomat"), surface every relevant item from the user's lists you can find AND fresh suggestions, up to ${CHOOSER_INITIAL_COUNT} total.
 
 Use real, well-known titles. The "id" must be lowercase with hyphens only. The "blurb" should be ≤6 words and help the user pick the right version.`;
 
@@ -1680,7 +1687,7 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2500,
+        max_tokens: 3500,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -1757,6 +1764,10 @@ function clampChooserPages(buckets) {
   }
 }
 
+// Carousel-style loading placeholder so chooser cards match the discover-page
+// look (smaller cards with poster + Title (rating) + mini action row).
+const CHOOSER_LOADING_CARD = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
+
 function renderChooserBucket(name, items) {
   const section = document.getElementById(`chooser-bucket-${name}`);
   const grid = document.getElementById(`chooser-grid-${name}`);
@@ -1771,7 +1782,7 @@ function renderChooserBucket(name, items) {
       if (chooserState.fetching) {
         // Mid-lazy-load: show placeholders so user sees "more coming"
         grid.style.display = '';
-        grid.innerHTML = Array(CHOOSER_PAGE_SIZE).fill(renderPlaceholderCard()).join('');
+        grid.innerHTML = Array(CHOOSER_PAGE_SIZE).fill(CHOOSER_LOADING_CARD).join('');
         if (empty) empty.style.display = 'none';
       } else {
         // No more incoming: show the empty hint
@@ -1793,14 +1804,16 @@ function renderChooserBucket(name, items) {
   const page = chooserState.pages[name] || 0;
   const start = page * CHOOSER_PAGE_SIZE;
   const slice = items.slice(start, start + CHOOSER_PAGE_SIZE);
-  let html = slice.map(renderSingleCard).join('');
+  // Carousel-item style cards matching the discover-page "Based On What You
+  // Love" row: poster + Title (rating) + mini Trailer/Seen/Want/Nope row.
+  let html = slice.map(item => renderCarouselItem(item, true)).join('');
   if (isNew && chooserState.fetching && slice.length < CHOOSER_PAGE_SIZE) {
     const pad = CHOOSER_PAGE_SIZE - slice.length;
-    html += Array(pad).fill(renderPlaceholderCard()).join('');
+    html += Array(pad).fill(CHOOSER_LOADING_CARD).join('');
   }
   grid.innerHTML = html;
   slice.forEach(item => {
-    loadPosterFor(item.id, item.title, item.year);
+    loadCarouselPoster(item);
     loadTrailerBtnFor(item.id, item.title, item.year);
   });
 
@@ -1856,7 +1869,7 @@ function chooserNext(name) {
   } else if (name === 'new' && !chooserState.exhausted && !chooserState.fetching) {
     // Show placeholders, then fetch and re-render when ready.
     const grid = document.getElementById('chooser-grid-new');
-    if (grid) grid.innerHTML = Array(CHOOSER_PAGE_SIZE).fill(renderPlaceholderCard()).join('');
+    if (grid) grid.innerHTML = Array(CHOOSER_PAGE_SIZE).fill(CHOOSER_LOADING_CARD).join('');
     loadMoreChooserCandidates().then(() => {
       const fresh = bucketizeChooserPool(chooserState.pool);
       const newLast = Math.max(0, Math.ceil(fresh.new.length / CHOOSER_PAGE_SIZE) - 1);
@@ -1895,6 +1908,35 @@ function buildChooserExclusion() {
     }
   }
   return out;
+}
+
+// Build a compact library context for the FIRST search prompt so Claude can
+// identify items already on the user's lists that match the query (e.g.
+// "Spy Movies" → surface their saved Pine Gap, Mission Impossible, etc.).
+// Sorted by addedAt desc and capped to keep prompt size bounded.
+const LIBRARY_CONTEXT_MAX = 300;
+function buildLibraryContextForSearch() {
+  const labelled = [];
+  for (const i of Object.values(state.want)) labelled.push({ item: i, list: 'WATCHLIST' });
+  for (const i of Object.values(state.seen)) labelled.push({ item: i, list: 'SEEN' });
+  for (const i of Object.values(state.nope)) labelled.push({ item: i, list: 'NOPED' });
+
+  // Most recent first — when capped, recently-added items survive (more relevant).
+  labelled.sort((a, b) => (b.item.addedAt || 0) - (a.item.addedAt || 0));
+  const capped = labelled.slice(0, LIBRARY_CONTEXT_MAX);
+
+  const buckets = { WATCHLIST: [], SEEN: [], NOPED: [] };
+  for (const { item, list } of capped) {
+    if (item && item.title) {
+      buckets[list].push(`- ${item.title}${item.year ? ` (${item.year})` : ''}`);
+    }
+  }
+
+  const sections = [];
+  if (buckets.WATCHLIST.length) sections.push(`WATCHLIST (saved for later):\n${buckets.WATCHLIST.join('\n')}`);
+  if (buckets.SEEN.length) sections.push(`SEEN:\n${buckets.SEEN.join('\n')}`);
+  if (buckets.NOPED.length) sections.push(`NOPED (rejected):\n${buckets.NOPED.join('\n')}`);
+  return sections.join('\n\n');
 }
 
 async function loadMoreChooserCandidates() {

@@ -1,8 +1,6 @@
 == FlickPick ToDo ==
 In Priority Order
 
-- I searched for "Spy Movies" and it came up with The Americans from my watch list, but not Mission Impossible, Copenhagen Test, Pine Gap, Jackal, Berlin Station, Red Sparrow, The Asset... the list goes on. What's happening here where a pile of spy movies aren't being pulled forward into the "In your watch list" 
-
 - On the watch list have a button next to Remove that's "Currently Watching". Then we can have a list on the main page of 'Currently Watching'. We can have a sort feature as well for shows currently watching. This gets us a new type (Seen, Want, Nope) without having to add it to the buttons
 
 - We could add another section on the main page for 'BASED ON YOUR WATCHLIST' That looks over the watch list shows and generates other possible shows that you could watch. 
