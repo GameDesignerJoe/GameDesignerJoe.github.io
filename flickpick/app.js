@@ -581,18 +581,56 @@ function filterResults(items) {
 // ─── DISCOVER CAROUSELS ─────────────────────────────────────────────────────
 const CAROUSEL_PAGE = 4;
 const CAROUSEL_PAGE_MOBILE = 3;
-const carouselState = { watchlist: { page: 0 }, loved: { page: 0, items: [] } };
-let lovedRecsCache = null;
-let lovedPool = [];               // visible pool of recommendations
-let lovedTmdbQueue = [];          // overflow from TMDB seed — drained into pool on demand (instant, no API)
-let lovedInFlight = 0;            // number of Claude calls currently in progress
-let lovedAllFetchedIds = new Set(); // tracks all fetched IDs to avoid dupes
-let lovedConsecutiveFails = 0;    // null returns in a row — Claude is running out of fresh ideas
-const LOVED_MAX_CONCURRENT = 3;   // max simultaneous Claude calls
-const LOVED_TARGET_POOL = 20;     // keep this many available items in the pool
-const LOVED_MAX_CONSECUTIVE_FAILS = 5; // give up the Claude pump after this many duplicate/null returns in a row
-const LOVED_TMDB_QUERY_COUNT = 12;     // max loved items to query TMDB recommendations for
-const LOVED_TMDB_RECS_PER_ITEM = 20;   // TMDB returns up to ~20 recs per loved item
+const carouselState = {
+  watchlist: { page: 0 },
+  loved: { page: 0, items: [] },
+  'wl-recs': { page: 0, items: [] },
+};
+
+// Recommendation-carousel constants — shared across all instances.
+const RECS_MAX_CONCURRENT = 3;          // max simultaneous Claude calls
+const RECS_TARGET_POOL = 20;            // keep this many available items in the pool
+const RECS_MAX_CONSECUTIVE_FAILS = 5;   // give up the Claude pump after this many null returns in a row
+const RECS_TMDB_QUERY_COUNT = 12;       // max seed items to query TMDB recs for
+const RECS_TMDB_RECS_PER_ITEM = 20;     // TMDB returns up to this many recs per seed item
+
+// Each entry drives one TMDB-seeded / Claude-fallback recommendation row on
+// the discover page. Add a new key here + a matching <div class="carousel-section">
+// in index.html and you've got a new "Based On Your X" row.
+const recsCarousels = {
+  loved: {
+    label: 'Based On What You Love',
+    sectionId: 'loved-carousel',
+    trackId: 'loved-car-track',
+    prevId: 'loved-car-prev',
+    nextId: 'loved-car-next',
+    getSeedItems: () => Object.values(state.seen).filter(i => i.rating === 'loved'),
+    claudeContextLabel: 'loved',
+    emptyHTML: `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
+      <div style="font-size:1.5rem;margin-bottom:8px">❤️</div>
+      <div>Rate shows in your <strong>Seen</strong> list with ❤️ to get personalized recommendations here.</div>
+    </div>`,
+    exhaustedMessage: 'No more fresh recommendations — rate more shows in your Seen list to get new picks here.',
+    state: { cache: null, pool: [], tmdbQueue: [], inFlight: 0, allFetchedIds: new Set(), consecutiveFails: 0 },
+  },
+  'wl-recs': {
+    label: 'Based On Your Watchlist',
+    sectionId: 'wl-recs-carousel',
+    trackId: 'wl-recs-car-track',
+    prevId: 'wl-recs-car-prev',
+    nextId: 'wl-recs-car-next',
+    getSeedItems: () => Object.values(state.want),
+    claudeContextLabel: 'wants to watch',
+    emptyHTML: `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
+      <div style="font-size:1.5rem;margin-bottom:8px">★</div>
+      <div>Add shows to your <strong>Watchlist</strong> to get recommendations here.</div>
+    </div>`,
+    exhaustedMessage: 'No more fresh recommendations — add more shows to your Watchlist for new picks here.',
+    state: { cache: null, pool: [], tmdbQueue: [], inFlight: 0, allFetchedIds: new Set(), consecutiveFails: 0 },
+  },
+};
+
+function _recs(key) { return recsCarousels[key]; }
 
 function getCarouselPageSize() {
   return window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
@@ -716,23 +754,27 @@ function renderWatchlistCarousel() {
 }
 
 // Fetch a single recommendation — fast (~1s) since Claude only generates one item
-async function fetchOneLovedRec() {
-  const lovedItems = Object.values(state.seen).filter(i => i.rating === 'loved');
-  if (lovedItems.length === 0) return null;
+// One Claude call asking for ONE recommendation given the carousel's seed
+// items. Excludes everything in the user's library + already-fetched items so
+// we don't loop forever proposing the same titles.
+async function fetchOneRec(key) {
+  const cfg = _recs(key);
+  const seedItems = cfg.getSeedItems();
+  if (seedItems.length === 0) return null;
 
-  const titles = lovedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
+  const titles = seedItems.map(i => `"${i.title}" (${i.type}, ${i.year})`).join(', ');
 
   const excludeTitles = new Set();
   for (const item of Object.values(state.seen)) excludeTitles.add(item.title);
   for (const item of Object.values(state.want)) excludeTitles.add(item.title);
   for (const item of Object.values(state.nope)) excludeTitles.add(item.title);
-  for (const item of lovedPool) excludeTitles.add(item.title);
+  for (const item of cfg.state.pool) excludeTitles.add(item.title);
 
   const excludeStr = excludeTitles.size > 0
     ? `\nDo NOT include any of these titles:\n${[...excludeTitles].map(t => `- ${t}`).join('\n')}`
     : '';
 
-  const prompt = `You are a film and TV expert. The user loved: ${titles}
+  const prompt = `You are a film and TV expert. The user ${cfg.claudeContextLabel}: ${titles}
 Recommend ONE show they'd enjoy. Return ONLY valid JSON, no markdown:
 {"title":"Title","type":"TV Show or Movie","year":"2022","genres":"Comedy, Drama","emoji":"🎭","description":"Factual one-sentence synopsis.","blurb":"Why they'd enjoy this."}
 Real titles only. Description must be factual, not a recommendation.${excludeStr}`;
@@ -753,18 +795,18 @@ Real titles only. Description must be factual, not a recommendation.${excludeStr
     const item = normalizeItem(parseClaudeJSON(data.content[0].text));
 
     // Dedupe — discard if we already have it
-    if (lovedAllFetchedIds.has(item.id) || State.isKnown(item.id)) {
+    if (cfg.state.allFetchedIds.has(item.id) || State.isKnown(item.id)) {
       return null;
     }
-    lovedAllFetchedIds.add(item.id);
+    cfg.state.allFetchedIds.add(item.id);
     return item;
   } catch(e) {
-    console.error('Loved rec fetch error:', e);
+    console.error(`${key} rec fetch error:`, e);
     return null;
   }
 }
 
-// Round-robin merge candidates from each loved item's recommendations so the
+// Round-robin merge candidates from each seed item's recommendations so the
 // carousel doesn't get dominated by recs from a single show.
 function _roundRobinMergeRecs(perItemRecs) {
   const seen = new Set();
@@ -784,21 +826,22 @@ function _roundRobinMergeRecs(perItemRecs) {
   return merged;
 }
 
-// Seed the loved pool from BOTH TMDB /recommendations (collaborative-filtered)
+// Seed the carousel pool from BOTH TMDB /recommendations (collaborative-filtered)
 // and TMDB /similar (genre/keyword-based). Different signals → broader pool.
 // Fast (~1-2s), no Claude tokens.
-async function seedLovedPoolFromTmdb() {
-  const lovedItems = Object.values(state.seen)
-    .filter(i => i.rating === 'loved')
+async function seedRecsFromTmdb(key) {
+  const cfg = _recs(key);
+  const seedItems = cfg.getSeedItems()
+    .slice() // don't mutate caller's array
     .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
-    .slice(0, LOVED_TMDB_QUERY_COUNT);
-  if (lovedItems.length === 0) return [];
+    .slice(0, RECS_TMDB_QUERY_COUNT);
+  if (seedItems.length === 0) return [];
 
-  const recCalls = lovedItems.map(item =>
-    fetchTmdbRecommendations(item, LOVED_TMDB_RECS_PER_ITEM, 'recommendations').catch(() => null)
+  const recCalls = seedItems.map(item =>
+    fetchTmdbRecommendations(item, RECS_TMDB_RECS_PER_ITEM, 'recommendations').catch(() => null)
   );
-  const simCalls = lovedItems.map(item =>
-    fetchTmdbRecommendations(item, LOVED_TMDB_RECS_PER_ITEM, 'similar').catch(() => null)
+  const simCalls = seedItems.map(item =>
+    fetchTmdbRecommendations(item, RECS_TMDB_RECS_PER_ITEM, 'similar').catch(() => null)
   );
   const perItemRecs = await Promise.all([...recCalls, ...simCalls]);
   return _roundRobinMergeRecs(perItemRecs);
@@ -807,15 +850,16 @@ async function seedLovedPoolFromTmdb() {
 // Drain ALL TMDB queue items into the visible pool, replacing loading
 // placeholders in-place. Cheap — no API calls. The pool grows as deep as the
 // queue allows so the user can paginate freely; the Claude pump only fires
-// when the pool drops below LOVED_TARGET_POOL after tagging.
-function drainTmdbQueueIntoPool() {
-  while (lovedTmdbQueue.length > 0) {
-    const next = lovedTmdbQueue.shift();
+// when the pool drops below RECS_TARGET_POOL after tagging.
+function drainRecsQueueIntoPool(key) {
+  const cfg = _recs(key);
+  const track = document.getElementById(cfg.trackId);
+  while (cfg.state.tmdbQueue.length > 0) {
+    const next = cfg.state.tmdbQueue.shift();
     if (!next || !next.id) continue;
-    if (State.isKnown(next.id) || lovedAllFetchedIds.has(next.id)) continue;
-    lovedAllFetchedIds.add(next.id);
-    lovedPool.push(next);
-    const track = document.getElementById('loved-car-track');
+    if (State.isKnown(next.id) || cfg.state.allFetchedIds.has(next.id)) continue;
+    cfg.state.allFetchedIds.add(next.id);
+    cfg.state.pool.push(next);
     const ph = track && track.querySelector('.carousel-item-loading');
     if (ph) {
       const tmp = document.createElement('div');
@@ -829,30 +873,30 @@ function drainTmdbQueueIntoPool() {
 
 // Pump: drains TMDB queue first (instant), then falls back to Claude calls (slow)
 // only if more items are still needed.
-function lovedPump() {
-  drainTmdbQueueIntoPool();
-  updateLovedNav();
+function recsPump(key) {
+  const cfg = _recs(key);
+  drainRecsQueueIntoPool(key);
+  updateRecsNav(key);
 
-  const available = getAvailableLovedItems();
-  const needed = LOVED_TARGET_POOL - available.length - lovedInFlight;
+  const available = getAvailableRecsItems(key);
+  const needed = RECS_TARGET_POOL - available.length - cfg.state.inFlight;
   if (needed <= 0) return;
-  if (lovedConsecutiveFails >= LOVED_MAX_CONSECUTIVE_FAILS) {
+  if (cfg.state.consecutiveFails >= RECS_MAX_CONSECUTIVE_FAILS) {
     // Claude keeps proposing items already in the user's library — stop pumping
     // and clean up any remaining placeholder cards so the carousel doesn't spin forever.
-    cleanLovedPlaceholders();
+    cleanRecsPlaceholders(key);
     return;
   }
 
-  const toFire = Math.min(needed, LOVED_MAX_CONCURRENT - lovedInFlight);
+  const toFire = Math.min(needed, RECS_MAX_CONCURRENT - cfg.state.inFlight);
   for (let i = 0; i < toFire; i++) {
-    lovedInFlight++;
-    fetchOneLovedRec().then(item => {
-      lovedInFlight--;
+    cfg.state.inFlight++;
+    fetchOneRec(key).then(item => {
+      cfg.state.inFlight--;
       if (item) {
-        lovedConsecutiveFails = 0;
-        lovedPool.push(item);
-        // If current page has a placeholder, replace the first one with this item
-        const track = document.getElementById('loved-car-track');
+        cfg.state.consecutiveFails = 0;
+        cfg.state.pool.push(item);
+        const track = document.getElementById(cfg.trackId);
         const ph = track && track.querySelector('.carousel-item-loading');
         if (ph) {
           const tmp = document.createElement('div');
@@ -862,105 +906,105 @@ function lovedPump() {
           loadTrailerBtnFor(item.id, item.title, item.year);
         }
       } else {
-        lovedConsecutiveFails++;
+        cfg.state.consecutiveFails++;
       }
-      updateLovedNav();
-      // Keep pumping if we still need more
-      lovedPump();
+      updateRecsNav(key);
+      recsPump(key);
     });
   }
 }
 
-function cleanLovedPlaceholders() {
-  const track = document.getElementById('loved-car-track');
+function cleanRecsPlaceholders(key) {
+  const cfg = _recs(key);
+  const track = document.getElementById(cfg.trackId);
   if (!track) return;
   track.querySelectorAll('.carousel-item-loading').forEach(ph => ph.remove());
   if (track.children.length === 0) {
-    track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);font-size:13px">No more fresh recommendations &mdash; rate more shows in your Seen list to get new picks here.</div>`;
+    track.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);font-size:13px">${cfg.exhaustedMessage}</div>`;
   }
 }
 
-function getAvailableLovedItems() {
-  return lovedPool.filter(i => !State.isKnown(i.id));
+function getAvailableRecsItems(key) {
+  return _recs(key).state.pool.filter(i => !State.isKnown(i.id));
 }
 
-async function renderLovedCarousel() {
-  const lovedItems = Object.values(state.seen).filter(i => i.rating === 'loved');
-  const section = document.getElementById('loved-carousel');
-  if (lovedItems.length === 0) {
+async function renderRecsCarousel(key) {
+  const cfg = _recs(key);
+  const seedItems = cfg.getSeedItems();
+  const section = document.getElementById(cfg.sectionId);
+  if (!section) return;
+
+  if (seedItems.length === 0) {
     section.style.display = '';
-    document.getElementById('loved-car-track').innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px 16px;color:var(--text-muted)">
-      <div style="font-size:1.5rem;margin-bottom:8px">❤️</div>
-      <div>Rate shows in your <strong>Seen</strong> list with ❤️ to get personalized recommendations here.</div>
-    </div>`;
-    updateLovedNav();
+    document.getElementById(cfg.trackId).innerHTML = cfg.emptyHTML;
+    updateRecsNav(key);
     return;
   }
   section.style.display = '';
 
-  // If loved list unchanged and we have pool items, just re-render
-  const lovedKey = lovedItems.map(i => i.id).sort().join(',');
-  if (lovedRecsCache && lovedRecsCache.key === lovedKey && lovedPool.length > 0) {
-    displayLovedCarousel();
-    lovedPump(); // top up pool in background
+  // If seed list unchanged and we already have pool items, just re-render
+  const seedKey = seedItems.map(i => i.id).sort().join(',');
+  if (cfg.state.cache && cfg.state.cache.key === seedKey && cfg.state.pool.length > 0) {
+    displayRecsCarousel(key);
+    recsPump(key);
     return;
   }
 
-  // Reset for new loved list
-  lovedRecsCache = { key: lovedKey };
-  lovedPool = [];
-  lovedTmdbQueue = [];
-  lovedAllFetchedIds = new Set();
-  lovedInFlight = 0;
-  lovedConsecutiveFails = 0;
-  carouselState.loved.page = 0;
+  // Reset for new seed list
+  cfg.state.cache = { key: seedKey };
+  cfg.state.pool = [];
+  cfg.state.tmdbQueue = [];
+  cfg.state.allFetchedIds = new Set();
+  cfg.state.inFlight = 0;
+  cfg.state.consecutiveFails = 0;
+  carouselState[key].page = 0;
 
   // Show loading placeholders while we seed
-  const track = document.getElementById('loved-car-track');
+  const track = document.getElementById(cfg.trackId);
   const cols = getCarouselPageSize();
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   const placeholder = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
   track.innerHTML = Array(cols).fill(placeholder).join('');
-  updateLovedNav();
+  updateRecsNav(key);
 
   // Seed from TMDB first (fast, no Claude tokens). Stale-result guard: if the
-  // user toggles a loved heart while we're seeding, abandon this seed.
-  const seedKey = lovedKey;
-  seedLovedPoolFromTmdb().then(seeded => {
-    if (!lovedRecsCache || lovedRecsCache.key !== seedKey) return;
-    lovedTmdbQueue = seeded;
-    lovedPump();
+  // user toggles a seed item while we're seeding, abandon this seed.
+  const startKey = seedKey;
+  seedRecsFromTmdb(key).then(seeded => {
+    if (!cfg.state.cache || cfg.state.cache.key !== startKey) return;
+    cfg.state.tmdbQueue = seeded;
+    recsPump(key);
   }).catch(err => {
-    if (!lovedRecsCache || lovedRecsCache.key !== seedKey) return;
-    console.warn('TMDB loved seed failed:', err && err.message);
-    // Even on TMDB failure, fall through to Claude
-    lovedPump();
+    if (!cfg.state.cache || cfg.state.cache.key !== startKey) return;
+    console.warn(`TMDB ${key} seed failed:`, err && err.message);
+    recsPump(key);
   });
 }
 
-function displayLovedCarousel() {
-  const available = getAvailableLovedItems();
+function displayRecsCarousel(key) {
+  const cfg = _recs(key);
+  const available = getAvailableRecsItems(key);
   const cols = getCarouselPageSize();
-  const track = document.getElementById('loved-car-track');
+  const track = document.getElementById(cfg.trackId);
+  if (!track) return;
   track.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
 
-  const s = carouselState.loved;
+  const s = carouselState[key];
   const start = s.page * cols;
   const batch = available.slice(start, start + cols);
 
   const placeholder = `<div class="carousel-item carousel-item-loading"><div class="carousel-item-placeholder"><div class="loading-spinner" style="width:24px;height:24px;margin:0 auto"></div></div><div class="carousel-item-title" style="color:var(--text-muted)">Loading...</div></div>`;
 
-  const hasLoved = Object.values(state.seen).some(i => i.rating === 'loved');
+  const hasSeed = cfg.getSeedItems().length > 0;
   let html = '';
   for (let i = 0; i < cols; i++) {
     if (batch[i]) {
       html += renderCarouselItem(batch[i], true);
-    } else if (lovedInFlight > 0 || hasLoved) {
+    } else if (cfg.state.inFlight > 0 || hasSeed) {
       html += placeholder;
     }
   }
-  // Edge case: nothing loaded yet and nothing in flight and pump exhausted
-  if (!html && available.length === 0 && lovedInFlight === 0 && !hasLoved && lovedPool.length > 0) {
+  if (!html && available.length === 0 && cfg.state.inFlight === 0 && !hasSeed && cfg.state.pool.length > 0) {
     html = `<div style="grid-column:1/-1;text-align:center;padding:24px 16px;color:var(--text-muted)">No more recommendations available.</div>`;
   }
 
@@ -969,45 +1013,57 @@ function displayLovedCarousel() {
     loadCarouselPoster(item);
     loadTrailerBtnFor(item.id, item.title, item.year);
   });
-  updateLovedNav();
+  updateRecsNav(key);
 }
 
-function updateLovedNav() {
-  const available = getAvailableLovedItems();
+function updateRecsNav(key) {
+  const cfg = _recs(key);
+  const available = getAvailableRecsItems(key);
   const cols = getCarouselPageSize();
-  const s = carouselState.loved;
-  const prevBtn = document.getElementById('loved-car-prev');
-  const nextBtn = document.getElementById('loved-car-next');
+  const s = carouselState[key];
+  const prevBtn = document.getElementById(cfg.prevId);
+  const nextBtn = document.getElementById(cfg.nextId);
   if (prevBtn) prevBtn.disabled = s.page === 0;
   if (nextBtn) nextBtn.disabled = (s.page + 1) * cols >= available.length;
 }
 
-function replaceLovedCard(cardEl) {
-  // Item was already added to seen/want/nope by the toggle function.
-  // It's filtered out of getAvailableLovedItems() automatically.
-  // Pump first so lovedInFlight is incremented before rendering placeholders.
-  lovedPump();
-  displayLovedCarousel();
+// Triggered when the user toggles Seen/Want/Nope on a recs-carousel card.
+// The item already moved into state.* so getAvailableRecsItems filters it out.
+// Pump tops up; redisplay shows the next item.
+function replaceRecsCard(key) {
+  recsPump(key);
+  displayRecsCarousel(key);
+}
+
+// Resolve which recs carousel a card belongs to (looks up by track ID ancestor).
+// Returns the key or null if it isn't in any recs carousel.
+function findRecsKeyForCard(cardEl) {
+  for (const [key, cfg] of Object.entries(recsCarousels)) {
+    if (cardEl.closest(`#${cfg.trackId}`)) return key;
+  }
+  return null;
 }
 
 function carouselPrev(type) {
   carouselState[type].page = Math.max(0, carouselState[type].page - 1);
   if (type === 'watchlist') renderWatchlistCarousel();
-  else displayLovedCarousel();
+  else if (recsCarousels[type]) displayRecsCarousel(type);
 }
 
 function carouselNext(type) {
   carouselState[type].page++;
   if (type === 'watchlist') renderWatchlistCarousel();
-  else {
-    displayLovedCarousel();
-    lovedPump(); // fetch more as user pages forward
+  else if (recsCarousels[type]) {
+    displayRecsCarousel(type);
+    recsPump(type); // top up pool as user pages forward
   }
 }
 
 function initDiscoverCarousels() {
   renderWatchlistCarousel();
-  renderLovedCarousel();
+  for (const key of Object.keys(recsCarousels)) {
+    renderRecsCarousel(key);
+  }
 }
 
 
@@ -2501,7 +2557,11 @@ function toggleSeen(id, btn) {
     const card = btn.closest('.similar-card');
     if (card) { replaceCard(card); return; }
     const carCard = btn.closest('.carousel-item');
-    if (carCard) { replaceLovedCard(carCard); return; }
+    if (carCard) {
+      const recsKey = findRecsKeyForCard(carCard);
+      if (recsKey) replaceRecsCard(recsKey);
+      return;
+    }
   }
 }
 
@@ -2531,7 +2591,11 @@ function toggleNope(id, btn) {
     const card = btn.closest('.similar-card');
     if (card) { replaceCard(card); return; }
     const carCard = btn.closest('.carousel-item');
-    if (carCard) { replaceLovedCard(carCard); return; }
+    if (carCard) {
+      const recsKey = findRecsKeyForCard(carCard);
+      if (recsKey) replaceRecsCard(recsKey);
+      return;
+    }
   }
 }
 
@@ -2561,7 +2625,11 @@ function toggleWant(id, btn) {
     const card = btn.closest('.similar-card');
     if (card) { replaceCard(card); return; }
     const carCard = btn.closest('.carousel-item');
-    if (carCard) { replaceLovedCard(carCard); return; }
+    if (carCard) {
+      const recsKey = findRecsKeyForCard(carCard);
+      if (recsKey) replaceRecsCard(recsKey);
+      return;
+    }
   }
 }
 

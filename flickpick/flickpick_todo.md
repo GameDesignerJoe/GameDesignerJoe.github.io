@@ -1,9 +1,9 @@
 == FlickPick ToDo ==
 In Priority Order
 
-- On the watch list have a button next to Remove that's "Currently Watching". Then we can have a list on the main page of 'Currently Watching'. We can have a sort feature as well for shows currently watching. This gets us a new type (Seen, Want, Nope) without having to add it to the buttons
-
 - We could add another section on the main page for 'BASED ON YOUR WATCHLIST' That looks over the watch list shows and generates other possible shows that you could watch. 
+
+- On the watch list have a button next to Remove that's "Currently Watching". Then we can have a list on the main page of 'Currently Watching'. We can have a sort feature as well for shows currently watching. This gets us a new type (Seen, Want, Nope) without having to add it to the buttons
 
 - We're going to need to make the settings section it's own full page. There's a number of features I'm looking at bringing on line and it just as a little modal isn't going to work. My expectation is that when I click the gear, it'll become the new main page and I'll be able to scroll through the various options we're going to be adding in. 
 
@@ -22,5 +22,3 @@ In Priority Order
     - Might want to explore the idea of a 'no api' version. Where in the settings the user can add an API for AI and it'll use that. Otherwise it just uses some default apis tha we already have TMDB and STREAM_AVAILABLE. This way, I'm not paying for the feature if others use it, they are. 
     - I'd want to have Claude, ChatGPT, Gemini, Grok. 
     - The cleaner we can make this the better. 
-
-- It takes so damn long to get results from the Based On What You Loved. Too damn long. We need creative solutions to solve this one. Look at switching to Hakiu to speed things up. 
