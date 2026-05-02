@@ -1061,8 +1061,12 @@ function renderCarouselItem(item, showActions) {
     ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="${item.id}">(${cachedRating.rating}%)</span>`
     : `<span class="rating rating--titled" data-rating-id="${item.id}"></span>`;
 
+  const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+
   return `
     <div class="carousel-item" data-action="load-item-direct" data-id="${item.id}">
+      ${watchingBadge}
       <div class="carousel-item-placeholder" data-car-poster="${item.id || item.title}">
         ${emoji}
       </div>
@@ -1829,6 +1833,9 @@ document.addEventListener('click', (e) => {
       break;
     case 'toggle-nope':
       toggleNope(id, el);
+      break;
+    case 'toggle-watching':
+      toggleWatching(id, el);
       break;
 
     // ─── RATING ──────────────────────────────────────────────────────
@@ -2715,7 +2722,11 @@ function renderFeatured(item) {
     ? `<span class="rating rating--featured rating--${ratingTier(cachedRating.rating)}" data-rating-id="${item.id}">(${cachedRating.rating}%)</span>`
     : `<span class="rating rating--featured" data-rating-id="${item.id}"></span>`;
 
+  const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+
   document.getElementById('featured-card').innerHTML = `
+    ${watchingBadge}
     <div class="featured-poster-placeholder" data-poster-id="${item.id}">
       <span class="poster-emoji">${emoji}</span>
     </div>
@@ -2761,8 +2772,12 @@ function renderSingleCard(item) {
     ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="${item.id}">(${cachedRating.rating}%)</span>`
     : `<span class="rating rating--titled" data-rating-id="${item.id}"></span>`;
 
+  const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+
   return `
     <div class="similar-card swapping-in" data-card-id="${item.id}">
+      ${watchingBadge}
       <div class="similar-poster-placeholder" data-poster-id="${item.id}" data-action="load-item" data-id="${item.id}">
         ${emoji}
       </div>
@@ -3229,6 +3244,48 @@ function toggleWant(id, btn) {
   }
 }
 
+// ─── TOGGLE WATCHING (only on items already in want) ────────────────────────
+// Flips a "currently watching" flag on a watchlist item. Inserts/removes the
+// 👀 badge in every currently-rendered card for this item, and updates the
+// in-card toggle button.
+function toggleWatching(id, btn) {
+  const isOn = State.toggleWatching(id);
+  if (isOn === null) return;
+  if (btn) btn.classList.toggle('active', isOn);
+  syncWatchingBadge(id, isOn);
+  if (typeof debouncedRenderWatchlistCarousel === 'function') {
+    debouncedRenderWatchlistCarousel();
+  }
+}
+
+// Insert/remove the 👀 badge across every visible card representing this item.
+// Cards we add badges to: .watchlist-card (id=wl-${id}), .carousel-item /
+// .similar-card with data-id=id, and the featured-card if it's currently the
+// shown item.
+function syncWatchingBadge(id, isOn) {
+  const cards = [];
+  const wlCard = document.getElementById(`wl-${id}`);
+  if (wlCard) cards.push(wlCard);
+  document.querySelectorAll(`.carousel-item[data-id="${id}"], .similar-card[data-card-id="${id}"]`).forEach(c => cards.push(c));
+  if (currentFeatured && currentFeatured.id === id) {
+    const fc = document.getElementById('featured-card');
+    if (fc) cards.push(fc);
+  }
+
+  for (const card of cards) {
+    const existing = card.querySelector(`.watching-badge[data-watching-badge="${id}"]`);
+    if (isOn && !existing) {
+      const badge = document.createElement('div');
+      badge.className = 'watching-badge';
+      badge.setAttribute('data-watching-badge', id);
+      badge.textContent = '👀';
+      card.insertBefore(badge, card.firstChild);
+    } else if (!isOn && existing) {
+      existing.remove();
+    }
+  }
+}
+
 // ─── WATCHLIST PAGE ───────────────────────────────────────────────────────────
 const WATCHLIST_PAGE_SIZE = 10;
 let watchlistShown = 0;
@@ -3243,8 +3300,13 @@ function renderWatchlistCard(item) {
     ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="wlrate-${item.id}">(${cachedRating.rating}%)</span>`
     : `<span class="rating rating--titled" data-rating-id="wlrate-${item.id}"></span>`;
 
+  const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
+  const watchingBtnActive = isWatching ? ' active' : '';
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+
   return `
     <div class="watchlist-card" id="${cardId}">
+      ${watchingBadge}
       <div class="watchlist-poster-placeholder clickable-title" data-wl-poster="${item.id}" data-action="load-item-direct" data-id="${item.id}">
         ${emoji}
       </div>
@@ -3260,6 +3322,7 @@ function renderWatchlistCard(item) {
         <div class="watchlist-desc">${item.description || ''}</div>
         <div class="watchlist-extras" data-wl-extras="${item.id}"></div>
         <div class="watchlist-actions">
+          <button class="btn-watching${watchingBtnActive}" data-action="toggle-watching" data-id="${item.id}" title="Currently watching">👀 Watching</button>
           <button class="btn-remove" data-action="remove-want" data-id="${item.id}">Remove</button>
         </div>
       </div>
@@ -3418,6 +3481,15 @@ function getFilteredWatchlist() {
     case 'title-za': items.sort((a, b) => b.title.localeCompare(a.title)); break;
     case 'type': items.sort((a, b) => (a.type || '').localeCompare(b.type || '') || a.title.localeCompare(b.title)); break;
     case 'rating': items.sort((a, b) => getItemTmdbRating(b) - getItemTmdbRating(a) || a.title.localeCompare(b.title)); break;
+    case 'watching':
+      // Currently-watching items at the top, then newest-first within each group
+      items.sort((a, b) => {
+        const aw = a.watching ? 1 : 0;
+        const bw = b.watching ? 1 : 0;
+        if (aw !== bw) return bw - aw;
+        return (b.addedAt || 0) - (a.addedAt || 0);
+      });
+      break;
   }
   return items;
 }

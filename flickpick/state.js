@@ -132,6 +132,15 @@ const State = {
     return item;
   },
 
+  // Toggle the "currently watching" flag on a watchlist item. No-op if the
+  // item isn't in want. Returns the new flag value (true/false), or null.
+  toggleWatching(id) {
+    if (!state.want[id]) return null;
+    state.want[id].watching = !state.want[id].watching;
+    this._persist();
+    return !!state.want[id].watching;
+  },
+
   // ─── NOPE ───────────────────────────────────────────────────────────────
   addNope(item) {
     const clean = itemForState(item);
