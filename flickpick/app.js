@@ -110,6 +110,10 @@ let chooserState = {
   fetching: false,
   exhausted: false,
   fetchCount: 0,
+  // When true (set for TMDB-first results), items in state.seen/state.nope are
+  // shown in NEW FINDS instead of being dropped. The user explicitly searched
+  // for these titles, so suppressing them would lose what they asked for.
+  includeClassified: false,
 };
 
 // ─── TMDB CACHE ─────────────────────────────────────────────────────────────
@@ -295,6 +299,59 @@ function loadRatingFor(itemId, title, year, { withParens = false } = {}) {
 
 function getTmdbInfo(title, year) {
   return tmdbIdCache[`${title}::${year || ''}`] || null;
+}
+
+// TMDB-first search: hit /search/multi and return only TMDB results whose
+// titles literally match the user's query (article-stripping, punctuation
+// normalization, and "query: subtitle" handling). For "The Avengers" this
+// returns the actual Avengers films + sequels; for "Mission Impossible" it
+// returns "Mission: Impossible" (colon stripped); for "spy shows" it returns
+// nothing because no titles literally match — Claude takes over.
+function _normalizeQueryString(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')   // strip punctuation
+    .replace(/\s+/g, ' ')           // collapse whitespace
+    .trim()
+    .replace(/^(the|a|an)\s+/, ''); // drop leading article
+}
+
+async function fetchTmdbExactHits(query) {
+  const qRaw = (query || '').toLowerCase().trim();
+  if (!qRaw) return [];
+  const qNorm = _normalizeQueryString(qRaw);
+  if (!qNorm) return [];
+
+  try {
+    const res = await fetch(`/api/tmdb?query=${encodeURIComponent(query)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) return [];
+
+    const exact = data.results.filter(r => {
+      if (r.media_type !== 'movie' && r.media_type !== 'tv') return false;
+      if (!r.overview && !r.poster_path) return false;
+      const tRaw = ((r.title || r.name || '')).toLowerCase().trim();
+      if (!tRaw) return false;
+      const tNorm = _normalizeQueryString(tRaw);
+      if (!tNorm) return false;
+      // Exact title match (after normalization).
+      if (tNorm === qNorm) return true;
+      // Or the query is the full prefix of a subtitled title — covers
+      // "The Avengers" matching "The Avengers: Age of Ultron".
+      if (tNorm.startsWith(qNorm + ' ')) return true;
+      return false;
+    });
+
+    if (exact.length === 0) return [];
+
+    // Highest popularity first; cap so we never overwhelm the chooser.
+    exact.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    return exact.slice(0, CHOOSER_INITIAL_COUNT).map(tmdbResultToItem);
+  } catch (err) {
+    console.warn('TMDB exact search failed:', err.message);
+    return [];
+  }
 }
 
 function loadPosterFor(itemId, title, year) {
@@ -2106,6 +2163,59 @@ async function doSearch() {
   updateBackButton();
 
   try {
+    // ─── TMDB-first ────────────────────────────────────────────────────────
+    // For exact-title queries ("The Avengers", "The Fall Guy", "Daredevil")
+    // TMDB returns the literal matches instantly. Skip Claude entirely when
+    // we have a clear TMDB hit — Claude (especially Haiku) tends to drift
+    // toward thematic recs even when the user typed a literal title.
+    const tmdbHits = await fetchTmdbExactHits(query);
+
+    if (tmdbHits.length > 0) {
+      document.getElementById('loading').style.display = 'none';
+
+      if (tmdbHits.length === 1) {
+        // Single clear TMDB match: featured card directly.
+        const item = tmdbHits[0];
+        shownIds = new Set();
+        suggestionPool = [];
+        suggestionPageIdx = 0;
+        poolFetching = false;
+        renderFeatured(item);
+        document.getElementById('featured-section').style.display = 'block';
+
+        const grid = document.getElementById('similar-grid');
+        grid.innerHTML = Array(GRID_SIZE).fill(renderPlaceholderCard()).join('');
+
+        let similar = await fetchTmdbRecommendations(item, GRID_SIZE);
+        if (!similar) {
+          similar = await fetchClaudeSimilar(item.title, item.type, item.year, GRID_SIZE);
+        }
+        renderSimilar(similar || []);
+        document.getElementById('search-btn').disabled = false;
+        return;
+      }
+
+      // Multiple TMDB hits → chooser. Set includeClassified so items already
+      // on the user's seen/nope lists still surface (the user explicitly typed
+      // the title — suppressing them would hide what they asked for).
+      tmdbHits.forEach(registerItem);
+      chooserState.query = query;
+      chooserState.pool = tmdbHits;
+      chooserState.pages = { new: 0, want: 0 };
+      chooserState.fetching = false;
+      chooserState.exhausted = false;
+      chooserState.fetchCount = 0;
+      chooserState.includeClassified = true;
+      viewHistory.push(snapshotChooserState());
+      updateBackButton();
+      renderChooser();
+      document.getElementById('search-btn').disabled = false;
+      return;
+    }
+
+    // ─── Claude fallback ──────────────────────────────────────────────────
+    // No TMDB title match — query is fuzzy ("spy shows") or descriptive
+    // ("that show with the bear chef"). Hand off to Claude for thematic.
     const libraryContext = buildLibraryContextForSearch();
     const librarySection = libraryContext
       ? `\nThe user already has these titles in their lists. **Identify any that genuinely match the search and include them in your candidates list FIRST**, before adding fresh suggestions. Use the exact title and year as written here so it can be matched back to the user's records.\n\n${libraryContext}\n`
@@ -2253,7 +2363,14 @@ function bucketizeChooserPool(pool) {
   const buckets = { new: [], want: [] };
   for (const item of pool) {
     const list = findItemInState(item);
-    if (list === 'seen' || list === 'nope') continue; // already-classified items don't surface in chooser
+    if (list === 'seen' || list === 'nope') {
+      // Drop classified items — UNLESS this is a TMDB-first result set, where
+      // the user explicitly asked for these titles. In that case fall through
+      // to NEW FINDS so they surface (with active Seen/Noped indicator).
+      if (!chooserState.includeClassified) continue;
+      buckets.new.push(item);
+      continue;
+    }
     if (list === 'want') buckets.want.push(item);
     else if (passesFilters(item)) buckets.new.push(item);
   }
@@ -2541,6 +2658,7 @@ function resetChooserState() {
   chooserState.exhausted = false;
   chooserState.fetchCount = 0;
   chooserState.bucketSnapshot = null;
+  chooserState.includeClassified = false;
 }
 
 // Capture the current bucket layout (which item IDs are in which bucket) so
@@ -2557,6 +2675,7 @@ function snapshotChooserState() {
     pages: { ...chooserState.pages },
     exhausted: chooserState.exhausted,
     fetchCount: chooserState.fetchCount,
+    includeClassified: chooserState.includeClassified,
     bucketSnapshot: {
       new: buckets.new.map(i => i.id),
       want: buckets.want.map(i => i.id),
@@ -2572,6 +2691,7 @@ function restoreChooserState(snap) {
   chooserState.exhausted = !!snap.exhausted;
   chooserState.fetchCount = snap.fetchCount || 0;
   chooserState.bucketSnapshot = snap.bucketSnapshot || null;
+  chooserState.includeClassified = !!snap.includeClassified;
   chooserState.pool.forEach(registerItem);
 }
 
