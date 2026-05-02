@@ -1,6 +1,14 @@
 == FlickPick ToDo ==
 In Priority Order
 
+- Need a slider filter in settings that only shows shows that are above a given percentage. 
+
+- Need more space at the bottom of the screen on mobile. Buttons are in the curve of the phone glass. 
+
+- We are displaying four shows on mobile when we should on labor three. See screen shot. It's causing the buttons to squeeze too much.
+
+- The eye emoji needs to shrink based off the size of the picture. When the picture is smaller on mobile the emoji is too big.
+
 - While it's searching, and it says the text "Searching for Matches" or something, we should have it display half a dozen phrases that it cycles through every few seconds. Most of them like, "Checking the projection booth" "Heading to Blockbuster" "Stay tuned..." etc. 
 
 - I'm also getting really tired of seeing the same four shows show up over and over again in the 'Based on what you love' because I haven't picked if I want to Watch or Nope them. I wish there was some where the app could realized, "hey, this dude has not selected Persons of Interest even though it's been the first hit for the last 5 times we've given him suggestions. Maybe he's just not that interested in it right now. Let's put it in the back of the list for a bit and get some fresh choices in here."

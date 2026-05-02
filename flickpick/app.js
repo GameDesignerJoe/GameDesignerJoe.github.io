@@ -806,15 +806,25 @@ function passesSyncFilters(item) {
   return true;
 }
 
-// Async filter checks (providers, trailer). Reads from item-level persisted
-// data first (sync, instant on reload), falls back to in-memory extras cache,
-// and finally returns true ("innocent until proven guilty") if we have no
-// data yet — kickAsyncFilterCheck removes those items once the data lands.
+// Async filter checks (providers, trailer, rating). Reads from item-level
+// persisted data first (sync, instant on reload), falls back to in-memory
+// extras cache, and finally returns true ("innocent until proven guilty") if
+// we have no data yet — kickAsyncFilterCheck removes those items once data
+// lands.
 function passesAsyncFilters(item) {
   const s = _settings();
-  if (!s.hideNoProviders && !s.hideNoTrailer && !(s.onlyMyProviders && s.myProviders.length)) {
-    return true;
+  const ratingActive = s.minRating > 0;
+  const otherActive = s.hideNoProviders || s.hideNoTrailer || (s.onlyMyProviders && s.myProviders.length);
+  if (!ratingActive && !otherActive) return true;
+
+  // Rating gate (discovery filter — saved-list filters don't apply this).
+  if (ratingActive) {
+    const r = getItemTmdbRating(item);
+    // -1 sentinel means we have no rating yet — innocent until proven guilty.
+    if (r >= 0 && r < s.minRating) return false;
   }
+
+  if (!otherActive) return true;
 
   const providers = getItemProviders(item);
   const hasTrailer = getItemHasTrailer(item);
@@ -837,7 +847,7 @@ function passesFilters(item) {
 // extras fetch to enable the second-pass check.
 function anyAsyncFilterActive() {
   const s = _settings();
-  return s.hideNoProviders || s.hideNoTrailer || (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0);
+  return s.hideNoProviders || s.hideNoTrailer || s.minRating > 0 || (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0);
 }
 
 // Watchlist-only filter: only the "can I actually watch this right now?"
@@ -919,18 +929,28 @@ const debouncedRenderChooser = _debounce(() => {
   }
 }, 300);
 
-// Lazy-then-hide: when an async filter is on, kick the TMDB extras fetch for
-// each rendered candidate. Once it resolves, re-evaluate the filter; if the
-// item now fails, surfaceCallback re-renders the surface to drop it.
-// Already-cached items resolve synchronously (no second render needed).
+// Lazy-then-hide: when an async filter is on, kick the data fetches for each
+// rendered candidate. Once they resolve, re-evaluate the filter; if the item
+// now fails, surfaceCallback re-renders the surface to drop it.
+// Already-cached items resolve synchronously.
 function kickAsyncFilterCheck(item, surfaceCallback) {
   if (!anyAsyncFilterActive()) return;
   const cacheKey = `${item.title}::${item.year || ''}`;
-  // If extras were already cached when we first ran passesAsyncFilters, the
-  // item already either passed or got filtered before reaching here. No need
-  // to re-fetch.
-  if (tmdbExtrasCache[cacheKey]) return;
-  fetchTmdbExtras(item.title, item.year).then(() => {
+  const s = _settings();
+  const needsExtras = (s.hideNoProviders || s.hideNoTrailer || (s.onlyMyProviders && s.myProviders.length))
+                      && !tmdbExtrasCache[cacheKey];
+  const needsRating = s.minRating > 0
+                      && getItemTmdbRating(item) < 0
+                      && ratingCache[cacheKey] === undefined;
+
+  if (!needsExtras && !needsRating) return;
+
+  const tasks = [];
+  if (needsExtras) tasks.push(fetchTmdbExtras(item.title, item.year));
+  // fetchPoster populates ratingCache as a side-effect; cheap if cached.
+  if (needsRating) tasks.push(fetchPoster(item.title, item.year));
+
+  Promise.all(tasks).then(() => {
     if (!passesAsyncFilters(item) && typeof surfaceCallback === 'function') {
       surfaceCallback();
     }
@@ -1020,7 +1040,7 @@ const recsCarousels = {
 function _recs(key) { return recsCarousels[key]; }
 
 function getCarouselPageSize() {
-  return window.innerWidth <= 600 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
+  return window.innerWidth <= 768 ? CAROUSEL_PAGE_MOBILE : CAROUSEL_PAGE;
 }
 
 function renderCarouselItem(item, showActions) {
@@ -1677,6 +1697,12 @@ function renderSettingsPage() {
     if (el) el.checked = !!s[key];
   }
 
+  const ratingEl = document.getElementById('setting-min-rating');
+  const ratingValEl = document.getElementById('setting-min-rating-value');
+  const minR = s.minRating || 0;
+  if (ratingEl) ratingEl.value = String(minR);
+  if (ratingValEl) ratingValEl.textContent = minR === 0 ? 'No filter' : `${minR}% or higher`;
+
   // Provider chip grid.
   const grid = document.getElementById('provider-grid');
   if (grid) {
@@ -1697,6 +1723,15 @@ function handleToggleSetting(key, checked) {
 function handleSetAgeLimit(value) {
   const n = value === '' ? null : parseInt(value, 10);
   State.updateSettings({ ageLimit: isNaN(n) ? null : n });
+  refreshDiscoverFilters();
+}
+
+function handleSetMinRating(value) {
+  const n = parseInt(value, 10) || 0;
+  // Update the visible label as the user drags, before committing on change.
+  const lbl = document.getElementById('setting-min-rating-value');
+  if (lbl) lbl.textContent = n === 0 ? 'No filter' : `${n}% or higher`;
+  State.updateSettings({ minRating: n });
   refreshDiscoverFilters();
 }
 
@@ -1903,7 +1938,20 @@ document.addEventListener('change', (e) => {
     handleToggleSetting(el.dataset.key, el.checked);
   } else if (action === 'set-age-limit') {
     handleSetAgeLimit(el.value);
+  } else if (action === 'set-min-rating') {
+    handleSetMinRating(el.value);
   }
+});
+
+// Range slider: live-update the label as the user drags, before commit.
+// Only the visible value updates here — the full filter re-run happens on
+// 'change' (above) so we don't thrash on every pixel of slider movement.
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-action="set-min-rating"]');
+  if (!el) return;
+  const n = parseInt(el.value, 10) || 0;
+  const lbl = document.getElementById('setting-min-rating-value');
+  if (lbl) lbl.textContent = n === 0 ? 'No filter' : `${n}% or higher`;
 });
 
 // ─── TOAST ───────────────────────────────────────────────────────────────────

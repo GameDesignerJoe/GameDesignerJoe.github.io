@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Flickpick</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
@@ -192,6 +192,14 @@
           <option value="50">Last 50 years</option>
         </select>
       </label>
+
+      <div class="settings-row settings-slider-row">
+        <div class="settings-slider-header">
+          <span>Minimum rating</span>
+          <span class="settings-slider-value" id="setting-min-rating-value">No filter</span>
+        </div>
+        <input type="range" class="settings-slider" id="setting-min-rating" data-action="set-min-rating" min="0" max="95" step="5" value="0">
+      </div>
 
       <label class="settings-row settings-toggle">
         <span>English only</span>

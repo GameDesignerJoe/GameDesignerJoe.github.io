@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   hideNoTrailer: false,
   onlyMyProviders: false,    // ignored unless myProviders.length > 0
   myProviders: [],           // TMDB provider names: ['Netflix', 'Disney Plus', ...]
+  minRating: 0,              // 0-100; hide discovery items below this %, 0 = no filter
   updatedAt: 0,              // ms timestamp for cloud-sync merge (newest wins)
 };
 
