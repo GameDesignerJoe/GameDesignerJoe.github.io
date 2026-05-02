@@ -1668,12 +1668,68 @@ function updateSeenCount() {
   el.classList.toggle('visible', count > 0);
 }
 
+// ─── LOADING-STATE FLAVOR PHRASES ─────────────────────────────────────────────
+// Cycle through these in the search loading state so the wait feels playful
+// instead of stale. Cinema/video-store themed.
+const LOADING_PHRASES = [
+  'Checking the projection booth…',
+  'Heading to Blockbuster…',
+  'Browsing the new releases…',
+  'Buttering the popcorn…',
+  'Asking the usher…',
+  'Cueing the trailers…',
+  'Dimming the lights…',
+  'Rewinding the VHS…',
+  'Consulting the critics…',
+  'Counting rotten tomatoes…',
+  'Finding the perfect seat…',
+  'Stay tuned…',
+];
+let _loadingPhraseTimer = null;
+
+function startLoadingPhraseCycle() {
+  const el = document.querySelector('#loading .loading-text');
+  if (!el) return;
+  // Random starting phrase so successive searches don't always begin the same.
+  let idx = Math.floor(Math.random() * LOADING_PHRASES.length);
+  el.textContent = LOADING_PHRASES[idx];
+  if (_loadingPhraseTimer) clearInterval(_loadingPhraseTimer);
+  _loadingPhraseTimer = setInterval(() => {
+    idx = (idx + 1) % LOADING_PHRASES.length;
+    el.textContent = LOADING_PHRASES[idx];
+  }, 2200);
+}
+
+function stopLoadingPhraseCycle() {
+  if (_loadingPhraseTimer) {
+    clearInterval(_loadingPhraseTimer);
+    _loadingPhraseTimer = null;
+  }
+}
+
+// Watch #loading's display style — cycle when shown, stop when hidden.
+// Avoids touching every show/hide call site (there are ~10 of them).
+function initLoadingPhraseCycler() {
+  const loadingEl = document.getElementById('loading');
+  if (!loadingEl) return;
+  const update = () => {
+    const visible = loadingEl.style.display && loadingEl.style.display !== 'none';
+    if (visible) {
+      if (!_loadingPhraseTimer) startLoadingPhraseCycle();
+    } else {
+      stopLoadingPhraseCycle();
+    }
+  };
+  new MutationObserver(update).observe(loadingEl, { attributes: true, attributeFilter: ['style'] });
+}
+
 State.load();
 updateWantCount();
 updateSeenCount();
 initDiscoverCarousels();
 initSyncCodeInput();
 initVersionFooter();
+initLoadingPhraseCycler();
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function showPage(page) {
