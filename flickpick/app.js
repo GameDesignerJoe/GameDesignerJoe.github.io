@@ -110,10 +110,6 @@ let chooserState = {
   fetching: false,
   exhausted: false,
   fetchCount: 0,
-  // When true (set for TMDB-first results), items in state.seen/state.nope are
-  // shown in NEW FINDS instead of being dropped. The user explicitly searched
-  // for these titles, so suppressing them would lose what they asked for.
-  includeClassified: false,
 };
 
 // ─── TMDB CACHE ─────────────────────────────────────────────────────────────
@@ -2204,9 +2200,9 @@ async function doSearch() {
         return;
       }
 
-      // Multiple TMDB hits → chooser. Set includeClassified so items already
-      // on the user's seen/nope lists still surface (the user explicitly typed
-      // the title — suppressing them would hide what they asked for).
+      // Multiple TMDB hits → chooser. Items already on the user's
+      // seen/nope lists are dropped (they're not "new finds"); items in
+      // their watchlist are routed to the Watchlist bucket.
       tmdbHits.forEach(registerItem);
       chooserState.query = query;
       chooserState.pool = tmdbHits;
@@ -2214,7 +2210,6 @@ async function doSearch() {
       chooserState.fetching = false;
       chooserState.exhausted = false;
       chooserState.fetchCount = 0;
-      chooserState.includeClassified = true;
       viewHistory.push(snapshotChooserState());
       updateBackButton();
       renderChooser();
@@ -2332,10 +2327,21 @@ function findItemInState(item) {
   if (state.seen[id]) return 'seen';
   if (state.nope[id]) return 'nope';
 
+  // Try the canonical id we'd compute from this item's title+year. Catches
+  // items saved with slightly different id-normalization than what Claude /
+  // TMDB returned this time.
+  const renormId = normalizeId(item.title, item.year);
+  if (renormId !== id) {
+    if (state.want[renormId]) return 'want';
+    if (state.seen[renormId]) return 'seen';
+    if (state.nope[renormId]) return 'nope';
+  }
+
   const t = (item.title || '').toLowerCase().trim();
   const y = String(item.year || '');
-  if (!t || !y) return null;
+  if (!t) return null;
 
+  // Fallback 1: exact title+year match.
   for (const list of ['want', 'seen', 'nope']) {
     for (const sid in state[list]) {
       const s = state[list][sid];
@@ -2344,6 +2350,21 @@ function findItemInState(item) {
       }
     }
   }
+
+  // Fallback 2: title-only match — only when at least one side is missing
+  // a year. Don't collapse distinct works that share a title (e.g. the 2003
+  // and 2015 "Daredevil") when both years are present and differ.
+  if (t) {
+    for (const list of ['want', 'seen', 'nope']) {
+      for (const sid in state[list]) {
+        const s = state[list][sid];
+        const sTitle = (s.title || '').toLowerCase().trim();
+        const sYear = String(s.year || '');
+        if (sTitle === t && (!y || !sYear)) return list;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -2361,9 +2382,13 @@ function bucketizeChooserPool(pool) {
         const item = idToItem[id];
         if (!item) continue;
         const list = findItemInState(item);
-        if (list === 'seen' || list === 'nope') continue; // drop — already classified
+        // Always-current routing: classified items dropped, watchlist items
+        // route to want bucket, everything else to new — regardless of which
+        // bucket they were in when the snapshot was taken. The snapshot only
+        // dictates ORDERING / PRESENCE in the pool, not classification.
+        if (list === 'seen' || list === 'nope') continue;
         if (list === 'want') buckets.want.push(item);
-        else buckets[bucketName].push(item);
+        else buckets.new.push(item);
       }
     }
     return buckets;
@@ -2372,14 +2397,10 @@ function bucketizeChooserPool(pool) {
   const buckets = { new: [], want: [] };
   for (const item of pool) {
     const list = findItemInState(item);
-    if (list === 'seen' || list === 'nope') {
-      // Drop classified items — UNLESS this is a TMDB-first result set, where
-      // the user explicitly asked for these titles. In that case fall through
-      // to NEW FINDS so they surface (with active Seen/Noped indicator).
-      if (!chooserState.includeClassified) continue;
-      buckets.new.push(item);
-      continue;
-    }
+    // NEW FINDS is strictly unclassified items only. Seen/Noped items get
+    // dropped from search results entirely (they're already on the user's
+    // lists; they can find them on the Seen page).
+    if (list === 'seen' || list === 'nope') continue;
     if (list === 'want') buckets.want.push(item);
     else if (passesFilters(item)) buckets.new.push(item);
   }
@@ -2667,7 +2688,6 @@ function resetChooserState() {
   chooserState.exhausted = false;
   chooserState.fetchCount = 0;
   chooserState.bucketSnapshot = null;
-  chooserState.includeClassified = false;
 }
 
 // Capture the current bucket layout (which item IDs are in which bucket) so
@@ -2684,7 +2704,6 @@ function snapshotChooserState() {
     pages: { ...chooserState.pages },
     exhausted: chooserState.exhausted,
     fetchCount: chooserState.fetchCount,
-    includeClassified: chooserState.includeClassified,
     bucketSnapshot: {
       new: buckets.new.map(i => i.id),
       want: buckets.want.map(i => i.id),
@@ -2700,7 +2719,6 @@ function restoreChooserState(snap) {
   chooserState.exhausted = !!snap.exhausted;
   chooserState.fetchCount = snap.fetchCount || 0;
   chooserState.bucketSnapshot = snap.bucketSnapshot || null;
-  chooserState.includeClassified = !!snap.includeClassified;
   chooserState.pool.forEach(registerItem);
 }
 

@@ -1,9 +1,7 @@
 == FlickPick ToDo ==
 In Priority Order
 
-- On the watch list have a button next to Remove that's "Currently Watching". Then we can have a list on the main page of 'Currently Watching'. We can have a sort feature as well for shows currently watching. This gets us a new type (Seen, Want, Nope) without having to add it to the buttons
-
-- I think the New Finds is showing items that I already have in my watch list or seen list. We shouldn't be doing that. New Finds should be shows that aren't in the Seen, Watchlist, or Nope categories. 
+- While it's searching, and it says the text "Searching for Matches" or something, we should have it display half a dozen phrases that it cycles through every few seconds. Most of them like, "Checking the projection booth" "Heading to Blockbuster" "Stay tuned..." etc. 
 
 - I'm also getting really tired of seeing the same four shows show up over and over again in the 'Based on what you love' because I haven't picked if I want to Watch or Nope them. I wish there was some where the app could realized, "hey, this dude has not selected Persons of Interest even though it's been the first hit for the last 5 times we've given him suggestions. Maybe he's just not that interested in it right now. Let's put it in the back of the list for a bit and get some fresh choices in here."
 
