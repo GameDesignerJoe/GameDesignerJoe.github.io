@@ -3,10 +3,22 @@
 // All writes go through the `State` object which handles normalization,
 // deduplication, persistence, and change notification.
 
+// User filter / preference defaults. New keys here are merged in on load.
+const DEFAULT_SETTINGS = {
+  ageLimit: null,            // years from current year, or null = no limit
+  englishOnly: false,
+  hideNoProviders: false,
+  hideNoTrailer: false,
+  onlyMyProviders: false,    // ignored unless myProviders.length > 0
+  myProviders: [],           // TMDB provider names: ['Netflix', 'Disney Plus', ...]
+  updatedAt: 0,              // ms timestamp for cloud-sync merge (newest wins)
+};
+
 let state = {
   seen: {},   // id -> item (with rating, addedAt)
   want: {},   // id -> item (with addedAt)
   nope: {},   // id -> item
+  settings: { ...DEFAULT_SETTINGS },
 };
 
 // ─── ITEM STORE ─────────────────────────────────────────────────────────────
@@ -75,6 +87,7 @@ const State = {
         state.seen = _deduplicateCollection(parsed.seen || {});
         state.want = _deduplicateCollection(parsed.want || {});
         state.nope = _deduplicateCollection(parsed.nope || {});
+        state.settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
         for (const id in state.seen) {
           if (state.seen[id].rating === undefined) state.seen[id].rating = null;
         }
@@ -179,7 +192,25 @@ const State = {
     for (const id in state.seen) {
       if (state.seen[id].rating === undefined) state.seen[id].rating = null;
     }
+
+    // Settings merge: newest updatedAt wins. Keep local if remote is older or
+    // missing entirely (so an old client without settings doesn't wipe local).
+    const localStamp = (state.settings && state.settings.updatedAt) || 0;
+    const remoteStamp = (imported.settings && imported.settings.updatedAt) || 0;
+    if (imported.settings && remoteStamp > localStamp) {
+      state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
+    } else if (!state.settings) {
+      state.settings = { ...DEFAULT_SETTINGS };
+    }
+
     this._persist();
+  },
+
+  // ─── SETTINGS ───────────────────────────────────────────────────────────
+  updateSettings(partial) {
+    state.settings = { ...DEFAULT_SETTINGS, ...state.settings, ...partial, updatedAt: Date.now() };
+    this._persist();
+    return state.settings;
   },
 
   // ─── READ HELPERS ───────────────────────────────────────────────────────

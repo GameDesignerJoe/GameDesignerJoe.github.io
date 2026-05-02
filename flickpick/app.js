@@ -96,17 +96,17 @@ const CHOOSER_INITIAL_COUNT = 18;     // wider so library matches + new finds bo
 const CHOOSER_LOAD_MORE_COUNT = 12;
 const CHOOSER_NEW_TARGET = 8;     // keep filling NEW FINDS until it has this many
 const CHOOSER_MAX_FETCHES = 4;    // cap on lazy-load Claude calls per search
-const CHOOSER_BUCKETS = ['want', 'new', 'seen', 'nope'];
+// Order matters — buckets render top-to-bottom in this order. NEW first so the
+// user sees fresh discovery before their pre-saved watchlist.
+const CHOOSER_BUCKETS = ['new', 'want'];
 const CHOOSER_BUCKET_LABELS = {
-  want: 'From Your Watchlist',
   new: 'New Finds',
-  seen: 'From Your Seen',
-  nope: 'From Your Nope',
+  want: 'From Your Watchlist',
 };
 let chooserState = {
   query: '',
   pool: [],
-  pages: { want: 0, new: 0, seen: 0, nope: 0 },
+  pages: { new: 0, want: 0 },
   fetching: false,
   exhausted: false,
   fetchCount: 0,
@@ -148,6 +148,12 @@ async function fetchPoster(title, year) {
         persistRatingToState(title, year, rating, voteCount);
       }
 
+      // Capture original language so saved items pick it up the first time
+      // they render through fetchPoster — used by the English-only filter.
+      if (match.original_language) {
+        persistLanguageToState(title, year, match.original_language);
+      }
+
       if (match.poster_path) {
         const url = `https://image.tmdb.org/t/p/w342${match.poster_path}`;
         posterCache[cacheKey] = url;
@@ -184,6 +190,62 @@ function persistRatingToState(title, year, rating, voteCount) {
     }
   }
   if (dirty) State._persist();
+}
+
+// Persist the original_language onto any saved state item that matches title+year.
+function persistLanguageToState(title, year, language) {
+  const id = normalizeId(title, year);
+  let dirty = false;
+  for (const list of ['seen', 'want', 'nope']) {
+    const item = state[list][id];
+    if (item && item.language !== language) {
+      item.language = language;
+      dirty = true;
+    }
+  }
+  if (dirty) State._persist();
+}
+
+// Persist provider list + trailer-availability flag onto saved state items
+// so subsequent filter checks are synchronous. Survives reloads and rides on
+// cloud sync, eliminating the slow "lazy-then-hide" wave on every page load.
+function persistExtrasToState(title, year, providers, trailerKey) {
+  const id = normalizeId(title, year);
+  const providerNames = (providers || []).map(p => p.name).filter(Boolean);
+  const hasTrailer = !!trailerKey;
+  let dirty = false;
+  for (const list of ['seen', 'want', 'nope']) {
+    const item = state[list][id];
+    if (!item) continue;
+    const existing = item.providers || [];
+    const sameLen = existing.length === providerNames.length;
+    const sameSet = sameLen && existing.every(p => providerNames.includes(p));
+    if (!sameSet || item.hasTrailer !== hasTrailer) {
+      item.providers = providerNames;
+      item.hasTrailer = hasTrailer;
+      dirty = true;
+    }
+  }
+  if (dirty) State._persist();
+}
+
+// Filter-time accessors. Return null when we genuinely don't know the answer
+// (so callers default to "innocent until proven guilty"). Prefer item-level
+// persisted data → in-memory extras cache → null.
+function getItemProviders(item) {
+  if (Array.isArray(item.providers)) return item.providers;
+  const cacheKey = `${item.title}::${item.year || ''}`;
+  const extras = tmdbExtrasCache[cacheKey];
+  if (!extras) return null;
+  return (extras.providers || []).map(p => p.name).filter(Boolean);
+}
+
+function getItemHasTrailer(item) {
+  if (typeof item.hasTrailer === 'boolean') return item.hasTrailer;
+  const cacheKey = `${item.title}::${item.year || ''}`;
+  const extras = tmdbExtrasCache[cacheKey];
+  if (!extras) return null;
+  return !!extras.trailerKey;
 }
 
 // Sort key for "By Rating": prefer the persisted state value (instant on
@@ -277,6 +339,66 @@ function loadTrailerBtnFor(itemId, title, year) {
 // ─── TMDB EXTRAS (TRAILERS + PROVIDERS) ─────────────────────────────────────
 const tmdbExtrasCache = {};
 
+// localStorage persistence for tmdbExtrasCache (mirrors streamingCache).
+// 7-day TTL is plenty for provider/trailer data, which changes slowly.
+const TMDB_EXTRAS_CACHE_KEY = 'flickpick_tmdb_extras_cache';
+const TMDB_EXTRAS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+
+(function loadTmdbExtrasCache() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(TMDB_EXTRAS_CACHE_KEY) || '{}');
+    const now = Date.now();
+    for (const key in stored) {
+      const entry = stored[key];
+      if (entry && entry.data && now - entry.ts < TMDB_EXTRAS_CACHE_TTL) {
+        tmdbExtrasCache[key] = entry.data;
+      }
+    }
+  } catch (e) {}
+})();
+
+let _saveTmdbExtrasTimer = null;
+function saveTmdbExtrasCache() {
+  // Coalesce writes — many entries can arrive in quick succession.
+  if (_saveTmdbExtrasTimer) return;
+  _saveTmdbExtrasTimer = setTimeout(() => {
+    _saveTmdbExtrasTimer = null;
+    try {
+      const wrapped = {};
+      const ts = Date.now();
+      for (const key in tmdbExtrasCache) {
+        wrapped[key] = { data: tmdbExtrasCache[key], ts };
+      }
+      localStorage.setItem(TMDB_EXTRAS_CACHE_KEY, JSON.stringify(wrapped));
+    } catch (e) {}
+  }, 500);
+}
+
+// Throttle for TMDB extras requests — caps at 4 concurrent so we don't pummel
+// the dev server / TMDB rate limits when the watchlist page loads ~65 rows.
+function makeThrottle(maxConcurrent) {
+  let active = 0;
+  const queue = [];
+  function tryRun() {
+    while (active < maxConcurrent && queue.length > 0) {
+      const { fn, resolve, reject } = queue.shift();
+      active++;
+      Promise.resolve().then(fn).then(resolve, reject).finally(() => {
+        active--;
+        tryRun();
+      });
+    }
+  }
+  return function throttle(fn) {
+    return new Promise((resolve, reject) => {
+      queue.push({ fn, resolve, reject });
+      tryRun();
+    });
+  };
+}
+const _tmdbExtrasThrottle = makeThrottle(4);
+const _streamingThrottle = makeThrottle(2);
+
 async function fetchTmdbExtras(title, year) {
   const cacheKey = `${title}::${year || ''}`;
   if (tmdbExtrasCache[cacheKey]) return tmdbExtrasCache[cacheKey];
@@ -286,42 +408,46 @@ async function fetchTmdbExtras(title, year) {
   const info = getTmdbInfo(title, year);
   if (!info) return { trailerKey: null, providers: [], watchLink: null };
 
-  try {
-    const res = await fetch(`/api/tmdb-details?id=${info.tmdbId}&type=${info.mediaType}`);
-    const data = await res.json();
+  return _tmdbExtrasThrottle(async () => {
+    // Re-check cache inside throttle — another waiter may have populated it.
+    if (tmdbExtrasCache[cacheKey]) return tmdbExtrasCache[cacheKey];
+    try {
+      const res = await fetch(`/api/tmdb-details?id=${info.tmdbId}&type=${info.mediaType}`);
+      const data = await res.json();
 
-    // Find best trailer — prefer official trailers
-    let trailerKey = null;
-    if (data.videos && data.videos.results) {
-      const trailer = data.videos.results.find(v =>
-        v.type === 'Trailer' && v.site === 'YouTube'
-      ) || data.videos.results.find(v => v.site === 'YouTube');
-      if (trailer) trailerKey = trailer.key;
-    }
+      let trailerKey = null;
+      if (data.videos && data.videos.results) {
+        const trailer = data.videos.results.find(v =>
+          v.type === 'Trailer' && v.site === 'YouTube'
+        ) || data.videos.results.find(v => v.site === 'YouTube');
+        if (trailer) trailerKey = trailer.key;
+      }
 
-    // Get US streaming providers (flatrate = subscription services)
-    let providers = [];
-    let watchLink = null;
-    if (data['watch/providers'] && data['watch/providers'].results) {
-      const us = data['watch/providers'].results.US;
-      if (us) {
-        watchLink = us.link || null;
-        if (us.flatrate) {
-          providers = us.flatrate.map(p => ({
-            name: p.provider_name,
-            logo: `https://image.tmdb.org/t/p/w45${p.logo_path}`
-          }));
+      let providers = [];
+      let watchLink = null;
+      if (data['watch/providers'] && data['watch/providers'].results) {
+        const us = data['watch/providers'].results.US;
+        if (us) {
+          watchLink = us.link || null;
+          if (us.flatrate) {
+            providers = us.flatrate.map(p => ({
+              name: p.provider_name,
+              logo: `https://image.tmdb.org/t/p/w45${p.logo_path}`
+            }));
+          }
         }
       }
-    }
 
-    const result = { trailerKey, providers, watchLink };
-    tmdbExtrasCache[cacheKey] = result;
-    return result;
-  } catch (err) {
-    console.warn('TMDB extras fetch failed:', err.message);
-    return { trailerKey: null, providers: [], watchLink: null };
-  }
+      const result = { trailerKey, providers, watchLink };
+      tmdbExtrasCache[cacheKey] = result;
+      saveTmdbExtrasCache();
+      persistExtrasToState(title, year, providers, trailerKey);
+      return result;
+    } catch (err) {
+      console.warn('TMDB extras fetch failed:', err.message);
+      return { trailerKey: null, providers: [], watchLink: null };
+    }
+  });
 }
 
 // ─── STREAMING AVAILABILITY (DIRECT LINKS) ──────────────────────────────────
@@ -381,44 +507,49 @@ async function fetchStreamingLinks(title, year) {
   const info = getTmdbInfo(title, year);
   if (!info) return null;
 
-  try {
-    const res = await fetch(`/api/streaming?tmdbId=${info.tmdbId}&type=${info.mediaType}`);
-    if (!res.ok) return null;
-    const data = await res.json();
+  return _streamingThrottle(async () => {
+    // Re-check cache inside throttle — another waiter may have populated it.
+    if (streamingCache[cacheKey] && streamingCache[cacheKey].data !== undefined) {
+      return streamingCache[cacheKey].data;
+    }
+    try {
+      const res = await fetch(`/api/streaming?tmdbId=${info.tmdbId}&type=${info.mediaType}`);
+      if (!res.ok) return null;
+      const data = await res.json();
 
-    const options = data.streamingOptions?.us || [];
-    if (options.length === 0) {
-      streamingCache[cacheKey] = { data: null, ts: Date.now() };
+      const options = data.streamingOptions?.us || [];
+      if (options.length === 0) {
+        streamingCache[cacheKey] = { data: null, ts: Date.now() };
+        saveStreamingCache();
+        return null;
+      }
+
+      const typePriority = { subscription: 0, free: 1, addon: 2, rent: 3, buy: 4 };
+      const byService = {};
+      for (const opt of options) {
+        const sid = opt.service.id;
+        if (!byService[sid] || (typePriority[opt.type] || 99) < (typePriority[byService[sid].type] || 99)) {
+          byService[sid] = opt;
+        }
+      }
+
+      const result = Object.values(byService).map(opt => ({
+        serviceId: opt.service.id,
+        serviceName: opt.service.name,
+        type: opt.type,
+        link: opt.link,
+        logoUrl: opt.service.imageSet?.darkThemeImage || null
+      }));
+
+      streamingCache[cacheKey] = { data: result, ts: Date.now() };
       saveStreamingCache();
+      incrementStreamingBudget();
+      return result;
+    } catch (err) {
+      console.warn('Streaming Availability fetch failed:', err.message);
       return null;
     }
-
-    // Deduplicate by service, preferring subscription > free > addon > rent > buy
-    const typePriority = { subscription: 0, free: 1, addon: 2, rent: 3, buy: 4 };
-    const byService = {};
-    for (const opt of options) {
-      const sid = opt.service.id;
-      if (!byService[sid] || (typePriority[opt.type] || 99) < (typePriority[byService[sid].type] || 99)) {
-        byService[sid] = opt;
-      }
-    }
-
-    const result = Object.values(byService).map(opt => ({
-      serviceId: opt.service.id,
-      serviceName: opt.service.name,
-      type: opt.type,
-      link: opt.link,
-      logoUrl: opt.service.imageSet?.darkThemeImage || null
-    }));
-
-    streamingCache[cacheKey] = { data: result, ts: Date.now() };
-    saveStreamingCache();
-    incrementStreamingBudget();
-    return result;
-  } catch (err) {
-    console.warn('Streaming Availability fetch failed:', err.message);
-    return null;
-  }
+  });
 }
 
 // ─── PROVIDER RENDERING ─────────────────────────────────────────────────────
@@ -578,6 +709,209 @@ function filterResults(items) {
   return State.filterOutKnown(items);
 }
 
+// ─── USER FILTER SETTINGS ───────────────────────────────────────────────────
+// Curated list of TMDB provider names. The strings here MUST match TMDB's
+// `provider_name` exactly so the matching filter compares like-for-like.
+const CURATED_PROVIDERS = [
+  'Netflix',
+  'Hulu',
+  'Disney Plus',
+  'HBO Max',
+  'Max',
+  'Amazon Prime Video',
+  'Apple TV Plus',
+  'Paramount Plus',
+  'Peacock',
+  'Showtime',
+  'Starz',
+  'Crunchyroll',
+];
+
+function _settings() { return state.settings || {}; }
+
+// Synchronous filter checks (year, language) — data already on the item, no
+// network needed.
+function passesSyncFilters(item) {
+  const s = _settings();
+
+  if (s.ageLimit && item.year) {
+    const yr = parseInt(item.year, 10);
+    if (!isNaN(yr)) {
+      const cutoff = new Date().getFullYear() - s.ageLimit + 1;
+      if (yr < cutoff) return false;
+    }
+  }
+
+  if (s.englishOnly) {
+    const lang = (item.language || '').toLowerCase();
+    if (lang && lang !== 'en') return false;
+    // If language is missing, give the benefit of the doubt — passes the sync
+    // gate. The async pass won't recheck (language is sync-only), so unknown-
+    // language items stay visible. Acceptable trade-off.
+  }
+
+  return true;
+}
+
+// Async filter checks (providers, trailer). Reads from item-level persisted
+// data first (sync, instant on reload), falls back to in-memory extras cache,
+// and finally returns true ("innocent until proven guilty") if we have no
+// data yet — kickAsyncFilterCheck removes those items once the data lands.
+function passesAsyncFilters(item) {
+  const s = _settings();
+  if (!s.hideNoProviders && !s.hideNoTrailer && !(s.onlyMyProviders && s.myProviders.length)) {
+    return true;
+  }
+
+  const providers = getItemProviders(item);
+  const hasTrailer = getItemHasTrailer(item);
+  if (providers === null || hasTrailer === null) return true; // unknown — innocent
+
+  if (s.hideNoTrailer && !hasTrailer) return false;
+  if (s.hideNoProviders && providers.length === 0) return false;
+  if (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0) {
+    const have = new Set(providers);
+    if (!s.myProviders.some(name => have.has(name))) return false;
+  }
+  return true;
+}
+
+function passesFilters(item) {
+  return passesSyncFilters(item) && passesAsyncFilters(item);
+}
+
+// True if any async filter is enabled; when this is true we should kick the
+// extras fetch to enable the second-pass check.
+function anyAsyncFilterActive() {
+  const s = _settings();
+  return s.hideNoProviders || s.hideNoTrailer || (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0);
+}
+
+// Watchlist-only filter: only the "can I actually watch this right now?"
+// settings — provider availability and provider-match. Age, language, and
+// trailer filters are discovery-time only; they shouldn't hide items the user
+// has deliberately saved.
+function passesWatchlistFilters(item) {
+  const s = _settings();
+  const wantsProviderCheck = s.hideNoProviders || (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0);
+  if (!wantsProviderCheck) return true;
+  const providers = getItemProviders(item);
+  if (providers === null) return true; // unknown — innocent until proven guilty
+  if (s.hideNoProviders && providers.length === 0) return false;
+  if (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0) {
+    const have = new Set(providers);
+    if (!s.myProviders.some(name => have.has(name))) return false;
+  }
+  return true;
+}
+
+function anyWatchlistFilterActive() {
+  const s = _settings();
+  return s.hideNoProviders || (s.onlyMyProviders && s.myProviders && s.myProviders.length > 0);
+}
+
+// Lazy-then-hide kick scoped to watchlist surfaces — only fires when a
+// watchlist-relevant filter is active.
+function kickWatchlistFilterCheck(item, surfaceCallback) {
+  if (!anyWatchlistFilterActive()) return;
+  const cacheKey = `${item.title}::${item.year || ''}`;
+  if (tmdbExtrasCache[cacheKey]) return;
+  fetchTmdbExtras(item.title, item.year).then(() => {
+    if (!passesWatchlistFilters(item) && typeof surfaceCallback === 'function') {
+      surfaceCallback();
+    }
+  });
+}
+
+// Debounce wrappers — when many extras resolve in quick succession (typical
+// on first watchlist load), we'd otherwise re-render the whole list once per
+// resolution and the user sees aggressive flicker. Coalesce to one render
+// per ~300ms.
+function _debounce(fn, ms) {
+  let timer = null;
+  return function debounced() {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn(); }, ms);
+  };
+}
+const debouncedFilterWatchlist = _debounce(() => {
+  // Only re-render if the watchlist page is actually visible.
+  if (document.getElementById('page-watchlist')?.classList.contains('active')) {
+    filterWatchlist();
+  }
+}, 300);
+const debouncedRenderWatchlistCarousel = _debounce(() => {
+  const section = document.getElementById('watchlist-carousel');
+  if (section && section.style.display !== 'none') {
+    renderWatchlistCarousel();
+  }
+}, 300);
+
+// Per-recs-carousel debouncer (each key keeps its own timer).
+const _recsDebouncers = {};
+function debouncedDisplayRecsCarousel(key) {
+  if (!_recsDebouncers[key]) {
+    _recsDebouncers[key] = _debounce(() => displayRecsCarousel(key), 300);
+  }
+  _recsDebouncers[key]();
+}
+const debouncedDisplaySuggestionPage = _debounce(() => {
+  if (currentFeatured && document.getElementById('featured-section')?.style.display !== 'none') {
+    displaySuggestionPage(suggestionPageIdx || 0);
+  }
+}, 300);
+const debouncedRenderChooser = _debounce(() => {
+  if (document.getElementById('search-chooser-section')?.style.display !== 'none') {
+    renderChooser();
+  }
+}, 300);
+
+// Lazy-then-hide: when an async filter is on, kick the TMDB extras fetch for
+// each rendered candidate. Once it resolves, re-evaluate the filter; if the
+// item now fails, surfaceCallback re-renders the surface to drop it.
+// Already-cached items resolve synchronously (no second render needed).
+function kickAsyncFilterCheck(item, surfaceCallback) {
+  if (!anyAsyncFilterActive()) return;
+  const cacheKey = `${item.title}::${item.year || ''}`;
+  // If extras were already cached when we first ran passesAsyncFilters, the
+  // item already either passed or got filtered before reaching here. No need
+  // to re-fetch.
+  if (tmdbExtrasCache[cacheKey]) return;
+  fetchTmdbExtras(item.title, item.year).then(() => {
+    if (!passesAsyncFilters(item) && typeof surfaceCallback === 'function') {
+      surfaceCallback();
+    }
+  });
+}
+
+// Re-render visible discovery surfaces in place — used when filters change so
+// pools get re-evaluated against the new settings without re-fetching.
+function refreshDiscoverFilters() {
+  // Recs carousels (discover page)
+  for (const key of Object.keys(recsCarousels)) {
+    if (document.getElementById(_recs(key).sectionId)?.style.display !== 'none') {
+      displayRecsCarousel(key);
+    }
+  }
+  // Watchlist carousel (discover page) — provider filters apply here too.
+  const wlSection = document.getElementById('watchlist-carousel');
+  if (wlSection && wlSection.style.display !== 'none') {
+    renderWatchlistCarousel();
+  }
+  // Similar grid (a featured card is showing)
+  if (currentFeatured && document.getElementById('featured-section')?.style.display !== 'none') {
+    displaySuggestionPage(suggestionPageIdx || 0);
+  }
+  // Chooser (a search is open)
+  if (document.getElementById('search-chooser-section')?.style.display !== 'none') {
+    renderChooser();
+  }
+  // Watchlist page (full list view) — only re-render if it's the active page.
+  if (document.getElementById('page-watchlist')?.classList.contains('active')) {
+    filterWatchlist();
+  }
+}
+
 // ─── DISCOVER CAROUSELS ─────────────────────────────────────────────────────
 const CAROUSEL_PAGE = 4;
 const CAROUSEL_PAGE_MOBILE = 3;
@@ -726,31 +1060,47 @@ function shuffleArray(arr) {
 }
 
 function renderWatchlistCarousel() {
-  const items = Object.values(state.want);
+  const allItems = Object.values(state.want);
   const section = document.getElementById('watchlist-carousel');
-  if (items.length === 0) { section.style.display = 'none'; return; }
+  if (allItems.length === 0) { section.style.display = 'none'; return; }
   section.style.display = '';
 
-  // Shuffle once on first render, or re-shuffle only when watchlist changes
+  // Re-shuffle when the watchlist changes. The shuffle stays stable across
+  // re-renders so paging back and forth doesn't reorder cards under the user.
   const wantKey = Object.keys(state.want).sort().join(',');
   if (!carouselState.watchlist.shuffled || carouselState.watchlist.wantKey !== wantKey) {
-    carouselState.watchlist.shuffled = shuffleArray(items);
+    carouselState.watchlist.shuffled = shuffleArray(allItems);
     carouselState.watchlist.wantKey = wantKey;
-    carouselState.watchlist.page = 0; // reset page when list changes
+    carouselState.watchlist.page = 0;
   }
-  const shuffled = carouselState.watchlist.shuffled;
+
+  // Apply provider filters at display time so changes to settings update the
+  // carousel without invalidating the underlying shuffle order.
+  const visible = carouselState.watchlist.shuffled.filter(passesWatchlistFilters);
+  if (visible.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
 
   const pageSize = getCarouselPageSize();
   const s = carouselState.watchlist;
+  // Clamp page in case the visible count shrank (filter just turned on).
+  const lastPage = Math.max(0, Math.ceil(visible.length / pageSize) - 1);
+  if (s.page > lastPage) s.page = lastPage;
   const start = s.page * pageSize;
-  const batch = shuffled.slice(start, start + pageSize);
+  const batch = visible.slice(start, start + pageSize);
   const track = document.getElementById('wl-car-track');
   track.style.gridTemplateColumns = `repeat(${pageSize}, 1fr)`;
   track.innerHTML = batch.map(item => renderCarouselItem(item)).join('');
-  batch.forEach(item => loadCarouselPoster(item));
+  batch.forEach(item => {
+    loadCarouselPoster(item);
+    // Lazy-then-hide: when extras resolve, if the item now fails the filter,
+    // schedule a debounced carousel re-render so multiple resolutions coalesce.
+    kickWatchlistFilterCheck(item, debouncedRenderWatchlistCarousel);
+  });
 
   document.getElementById('wl-car-prev').disabled = s.page === 0;
-  document.getElementById('wl-car-next').disabled = start + pageSize >= shuffled.length;
+  document.getElementById('wl-car-next').disabled = start + pageSize >= visible.length;
 }
 
 // Fetch a single recommendation — fast (~1s) since Claude only generates one item
@@ -925,7 +1275,7 @@ function cleanRecsPlaceholders(key) {
 }
 
 function getAvailableRecsItems(key) {
-  return _recs(key).state.pool.filter(i => !State.isKnown(i.id));
+  return _recs(key).state.pool.filter(i => !State.isKnown(i.id) && passesFilters(i));
 }
 
 async function renderRecsCarousel(key) {
@@ -1012,6 +1362,7 @@ function displayRecsCarousel(key) {
   batch.forEach(item => {
     loadCarouselPoster(item);
     loadTrailerBtnFor(item.id, item.title, item.year);
+    kickAsyncFilterCheck(item, () => debouncedDisplayRecsCarousel(key));
   });
   updateRecsNav(key);
 }
@@ -1081,7 +1432,6 @@ function exportData() {
   a.download = `flickpick-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  document.getElementById('settings-menu').classList.remove('open');
   showToast('Data exported!');
 }
 
@@ -1106,7 +1456,6 @@ function importData(e) {
   };
   reader.readAsText(file);
   e.target.value = '';
-  document.getElementById('settings-menu').classList.remove('open');
 }
 
 function refreshCurrentPage() {
@@ -1253,6 +1602,54 @@ function showPage(page) {
   document.getElementById('page-' + page).classList.add('active');
   if (page === 'watchlist') renderWatchlist();
   if (page === 'seen') renderSeenList();
+  if (page === 'settings') renderSettingsPage();
+}
+
+// ─── SETTINGS PAGE ─────────────────────────────────────────────────────────
+function renderSettingsPage() {
+  const s = state.settings || {};
+
+  // Filter controls — sync values from state.
+  const ageEl = document.getElementById('setting-age-limit');
+  if (ageEl) ageEl.value = s.ageLimit == null ? '' : String(s.ageLimit);
+
+  for (const key of ['englishOnly', 'hideNoProviders', 'hideNoTrailer', 'onlyMyProviders']) {
+    const el = document.querySelector(`[data-action="toggle-setting"][data-key="${key}"]`);
+    if (el) el.checked = !!s[key];
+  }
+
+  // Provider chip grid.
+  const grid = document.getElementById('provider-grid');
+  if (grid) {
+    const selected = new Set(s.myProviders || []);
+    grid.innerHTML = CURATED_PROVIDERS.map(name => {
+      const cls = selected.has(name) ? 'provider-chip selected' : 'provider-chip';
+      const safe = name.replace(/"/g, '&quot;');
+      return `<div class="${cls}" data-action="toggle-provider" data-provider="${safe}">${name}</div>`;
+    }).join('');
+  }
+}
+
+function handleToggleSetting(key, checked) {
+  State.updateSettings({ [key]: !!checked });
+  refreshDiscoverFilters();
+}
+
+function handleSetAgeLimit(value) {
+  const n = value === '' ? null : parseInt(value, 10);
+  State.updateSettings({ ageLimit: isNaN(n) ? null : n });
+  refreshDiscoverFilters();
+}
+
+function handleToggleProvider(name) {
+  const current = new Set(state.settings?.myProviders || []);
+  if (current.has(name)) current.delete(name);
+  else current.add(name);
+  State.updateSettings({ myProviders: [...current] });
+  // Re-render the grid in place to flip the .selected class without a full
+  // page repaint.
+  renderSettingsPage();
+  refreshDiscoverFilters();
 }
 
 function resetDiscover() {
@@ -1284,14 +1681,7 @@ function searchForShow(title) {
 // ─── CENTRAL EVENT DELEGATION ─────────────────────────────────────────────────
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
-  if (!el) {
-    // Close settings menu on outside click — but ignore clicks inside the menu
-    // itself (e.g. the sync code input field, divider, hint text).
-    if (!e.target.closest('#settings-menu')) {
-      document.getElementById('settings-menu').classList.remove('open');
-    }
-    return;
-  }
+  if (!el) return;
 
   const action = el.dataset.action;
   const id = el.dataset.id;
@@ -1306,10 +1696,6 @@ document.addEventListener('click', (e) => {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
       break;
-    case 'toggle-settings':
-      e.stopPropagation();
-      document.getElementById('settings-menu').classList.toggle('open');
-      break;
 
     // ─── SETTINGS ────────────────────────────────────────────────────
     case 'export-data':
@@ -1320,6 +1706,9 @@ document.addEventListener('click', (e) => {
       break;
     case 'cloud-sync':
       cloudSync();
+      break;
+    case 'toggle-provider':
+      handleToggleProvider(el.dataset.provider);
       break;
 
     // ─── SEARCH ──────────────────────────────────────────────────────
@@ -1442,6 +1831,19 @@ document.getElementById('seen-sort').addEventListener('change', filterSeenList);
 document.getElementById('watchlist-search').addEventListener('input', filterWatchlist);
 document.getElementById('watchlist-sort').addEventListener('change', filterWatchlist);
 
+// Settings page: delegate change events for the filter toggles and age-limit
+// select. Buttons + provider chips already handled via the click switch.
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  if (action === 'toggle-setting') {
+    handleToggleSetting(el.dataset.key, el.checked);
+  } else if (action === 'set-age-limit') {
+    handleSetAgeLimit(el.value);
+  }
+});
+
 // ─── TOAST ───────────────────────────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
@@ -1518,7 +1920,8 @@ function tmdbResultToItem(tmdbItem) {
     type: isMovie ? 'Movie' : 'TV Show',
     year,
     genres,
-    description
+    description,
+    language: tmdbItem.original_language || null,
   };
 }
 
@@ -1742,7 +2145,9 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        // Haiku: 3-5x faster than Sonnet for the chooser flow with minimal
+        // quality drop given the bucketing UX (user picks the right one).
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 3500,
         messages: [{ role: "user", content: prompt }]
       })
@@ -1779,7 +2184,7 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
       candidates.forEach(registerItem);
       chooserState.query = query;
       chooserState.pool = candidates;
-      chooserState.pages = { want: 0, new: 0, seen: 0, nope: 0 };
+      chooserState.pages = { new: 0, want: 0 };
       chooserState.fetching = false;
       chooserState.exhausted = false;
       chooserState.fetchCount = 0;
@@ -1799,14 +2204,58 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
 }
 
 // ─── SEARCH CHOOSER (disambiguation, bucketed by user state) ────────────────
+// Robust state lookup: exact id first, then title+year fallback so items saved
+// long ago (with slightly different id normalization) still match. Returns the
+// list name ('want' / 'seen' / 'nope') the item is in, or null.
+function findItemInState(item) {
+  const id = item.id;
+  if (state.want[id]) return 'want';
+  if (state.seen[id]) return 'seen';
+  if (state.nope[id]) return 'nope';
+
+  const t = (item.title || '').toLowerCase().trim();
+  const y = String(item.year || '');
+  if (!t || !y) return null;
+
+  for (const list of ['want', 'seen', 'nope']) {
+    for (const sid in state[list]) {
+      const s = state[list][sid];
+      if ((s.title || '').toLowerCase().trim() === t && String(s.year || '') === y) {
+        return list;
+      }
+    }
+  }
+  return null;
+}
+
 function bucketizeChooserPool(pool) {
-  const buckets = { want: [], new: [], seen: [], nope: [] };
+  // Restored chooser: use the bucket layout captured when the user last saw
+  // this view. Items that have since moved into the user's lists get re-routed,
+  // but NEW items aren't re-filtered against current async-filter cache state.
+  if (chooserState.bucketSnapshot) {
+    const idToItem = {};
+    for (const item of pool) idToItem[item.id] = item;
+    const buckets = { new: [], want: [] };
+    for (const bucketName of CHOOSER_BUCKETS) {
+      const ids = chooserState.bucketSnapshot[bucketName] || [];
+      for (const id of ids) {
+        const item = idToItem[id];
+        if (!item) continue;
+        const list = findItemInState(item);
+        if (list === 'seen' || list === 'nope') continue; // drop — already classified
+        if (list === 'want') buckets.want.push(item);
+        else buckets[bucketName].push(item);
+      }
+    }
+    return buckets;
+  }
+
+  const buckets = { new: [], want: [] };
   for (const item of pool) {
-    const id = item.id;
-    if (state.want[id]) buckets.want.push(item);
-    else if (state.seen[id]) buckets.seen.push(item);
-    else if (state.nope[id]) buckets.nope.push(item);
-    else buckets.new.push(item);
+    const list = findItemInState(item);
+    if (list === 'seen' || list === 'nope') continue; // already-classified items don't surface in chooser
+    if (list === 'want') buckets.want.push(item);
+    else if (passesFilters(item)) buckets.new.push(item);
   }
   return buckets;
 }
@@ -1871,6 +2320,9 @@ function renderChooserBucket(name, items) {
   slice.forEach(item => {
     loadCarouselPoster(item);
     loadTrailerBtnFor(item.id, item.title, item.year);
+    // Only the NEW bucket gets the lazy-then-hide async filter check; user-list
+    // buckets always show their matches regardless of filter settings.
+    if (isNew) kickAsyncFilterCheck(item, debouncedRenderChooser);
   });
 
   updateChooserArrows(name, items.length);
@@ -1969,8 +2421,10 @@ function buildChooserExclusion() {
 // Build a compact library context for the FIRST search prompt so Claude can
 // identify items already on the user's lists that match the query (e.g.
 // "Spy Movies" → surface their saved Pine Gap, Mission Impossible, etc.).
-// Sorted by addedAt desc and capped to keep prompt size bounded.
-const LIBRARY_CONTEXT_MAX = 300;
+// Sorted by addedAt desc and capped to keep prompt size bounded — 100 most
+// recent is plenty for relevance-driven matching, and keeps prompt small
+// enough that Haiku can chew through it quickly.
+const LIBRARY_CONTEXT_MAX = 100;
 function buildLibraryContextForSearch() {
   const labelled = [];
   for (const i of Object.values(state.want)) labelled.push({ item: i, list: 'WATCHLIST' });
@@ -2041,7 +2495,8 @@ Return up to ${CHOOSER_LOAD_MORE_COUNT} ADDITIONAL candidates that match the sea
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        // Haiku for chooser lazy-load — same trade-off as the initial call.
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2500,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -2053,6 +2508,12 @@ Return up to ${CHOOSER_LOAD_MORE_COUNT} ADDITIONAL candidates that match the sea
     const additions = fresh.filter(i => !existingIds.has(i.id));
     additions.forEach(registerItem);
     chooserState.pool = chooserState.pool.concat(additions);
+    // If we're on a restored chooser (bucketSnapshot active), append new items
+    // to the NEW snapshot so they actually surface — otherwise bucketize would
+    // route by snapshot only and skip them.
+    if (chooserState.bucketSnapshot) {
+      for (const item of additions) chooserState.bucketSnapshot.new.push(item.id);
+    }
     if (additions.length === 0) chooserState.exhausted = true;
   } catch (err) {
     console.warn('Chooser load-more failed:', err.message);
@@ -2075,13 +2536,20 @@ Return up to ${CHOOSER_LOAD_MORE_COUNT} ADDITIONAL candidates that match the sea
 function resetChooserState() {
   chooserState.query = '';
   chooserState.pool = [];
-  chooserState.pages = { want: 0, new: 0, seen: 0, nope: 0 };
+  chooserState.pages = { new: 0, want: 0 };
   chooserState.fetching = false;
   chooserState.exhausted = false;
   chooserState.fetchCount = 0;
+  chooserState.bucketSnapshot = null;
 }
 
+// Capture the current bucket layout (which item IDs are in which bucket) so
+// back-navigation restores exactly what the user was seeing. Without this,
+// async filter checks that resolve while the user is on the featured page can
+// retroactively wipe items from the chooser pool, leaving an empty NEW bucket
+// when they hit Back.
 function snapshotChooserState() {
+  const buckets = bucketizeChooserPool(chooserState.pool);
   return {
     chooser: true,
     query: chooserState.query,
@@ -2089,6 +2557,10 @@ function snapshotChooserState() {
     pages: { ...chooserState.pages },
     exhausted: chooserState.exhausted,
     fetchCount: chooserState.fetchCount,
+    bucketSnapshot: {
+      new: buckets.new.map(i => i.id),
+      want: buckets.want.map(i => i.id),
+    },
   };
 }
 
@@ -2099,6 +2571,7 @@ function restoreChooserState(snap) {
   chooserState.fetching = false;
   chooserState.exhausted = !!snap.exhausted;
   chooserState.fetchCount = snap.fetchCount || 0;
+  chooserState.bucketSnapshot = snap.bucketSnapshot || null;
   chooserState.pool.forEach(registerItem);
 }
 
@@ -2212,10 +2685,12 @@ function renderSimilar(items) {
 
 // ─── SUGGESTION POOL & PAGINATION ───────────────────────────────────────────
 function displaySuggestionPage(idx) {
+  // Apply user filters before paginating so each page is up to GRID_SIZE
+  // PASSING items, not gaps.
+  const filtered = suggestionPool.filter(passesFilters);
   const start = idx * GRID_SIZE;
-  const items = suggestionPool.slice(start, start + GRID_SIZE);
+  const items = filtered.slice(start, start + GRID_SIZE);
   const grid = document.getElementById('similar-grid');
-  // Pad with loading placeholders if we have fewer than GRID_SIZE items
   const placeholders = items.length < GRID_SIZE
     ? Array(GRID_SIZE - items.length).fill(renderPlaceholderCard()).join('')
     : '';
@@ -2223,6 +2698,7 @@ function displaySuggestionPage(idx) {
   items.forEach(item => {
     loadPosterFor(item.id, item.title, item.year);
     loadTrailerBtnFor(item.id, item.title, item.year);
+    kickAsyncFilterCheck(item, debouncedDisplaySuggestionPage);
   });
   updateSimilarArrows();
 }
@@ -2694,6 +3170,13 @@ function loadWatchlistExtras(item) {
     fetchTmdbExtras(item.title, item.year),
     fetchStreamingLinks(item.title, item.year)
   ]).then(([{ trailerKey, providers, watchLink }, streamingLinks]) => {
+    // After provider data lands, re-check the watchlist filter; if this item
+    // now fails (no providers / not on user's services), schedule a debounced
+    // re-render so we coalesce many simultaneous resolutions into one paint.
+    if (anyWatchlistFilterActive() && !passesWatchlistFilters(item)) {
+      debouncedFilterWatchlist();
+      return;
+    }
     const extrasEl = document.querySelector(`[data-wl-extras="${item.id}"]`);
     if (!extrasEl) return;
     if (!trailerKey && providers.length === 0 && !streamingLinks) return;
@@ -2792,6 +3275,10 @@ function getFilteredWatchlist() {
   const query = (document.getElementById('watchlist-search').value || '').trim().toLowerCase();
   const sortBy = document.getElementById('watchlist-sort').value;
   let items = Object.values(state.want);
+
+  // Apply provider filters — "what can I actually watch right now?".
+  // Honors Hide-no-providers and Only-my-providers from the settings page.
+  items = items.filter(passesWatchlistFilters);
 
   // Filter by search query — search title, genres, type, year (not description to avoid matching recommendation blurbs)
   if (query) {

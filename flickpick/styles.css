@@ -892,6 +892,107 @@
     text-transform: uppercase;
   }
 
+  /* SETTINGS PAGE */
+  .settings-page-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 32px;
+  }
+
+  .settings-section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .settings-section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+  .settings-section-card .settings-row { margin-top: 12px; }
+  .settings-section-card .settings-row.settings-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 0;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .settings-section-card .settings-row.settings-toggle:first-of-type { border-top: none; }
+  .settings-section-card .settings-row.settings-toggle:hover { color: var(--accent2); }
+  .settings-section-card .settings-row.settings-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .settings-select {
+    padding: 6px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+  }
+  .settings-select:focus { border-color: var(--accent); }
+  .settings-select option { background: var(--surface2); color: var(--text); }
+
+  .provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .provider-chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .provider-chip:hover {
+    border-color: var(--accent2);
+    color: var(--text);
+  }
+  .provider-chip.selected {
+    background: rgba(232, 197, 71, 0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .settings-page-inner .settings-version {
+    padding: 24px 0 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  @media (max-width: 600px) {
+    .settings-page-inner { padding: 32px 16px; }
+    .settings-section-card { padding: 16px 18px; }
+    .provider-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
   /* WANT PAGE */
   .want-page-inner {
     max-width: 960px;

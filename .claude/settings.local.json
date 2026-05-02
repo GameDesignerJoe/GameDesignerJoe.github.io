@@ -74,7 +74,12 @@
       "WebFetch(domain:www.webfuse.com)",
       "Bash(npm run:*)",
       "Bash(node --check app.js)",
-      "Bash(node --check api/tmdb-recommendations.js)"
+      "Bash(node --check api/tmdb-recommendations.js)",
+      "Bash(node --check state.js)",
+      "Bash(curl -s -o /dev/null -w \"index: %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -s http://localhost:3000/app.js)",
+      "Bash(taskkill //F //IM node.exe)"
     ]
   }
 }
