@@ -1610,16 +1610,18 @@ async function cloudSync() {
 async function initVersionFooter() {
   const el = document.getElementById('settings-version');
   if (!el) return;
-  const baseText = el.textContent;
   try {
     const res = await fetch('/api/version');
     if (!res.ok) return;
     const data = await res.json();
-    if (data.sha) {
-      el.textContent = `${baseText} · ${data.sha}${data.env && data.env !== 'production' ? ` (${data.env})` : ''}`;
-    }
+    const parts = ['Flickpick'];
+    if (data.version) parts.push(`v${data.version}`);
+    if (data.sha) parts.push(`· ${data.sha}`);
+    let text = parts.join(' ');
+    if (data.env && data.env !== 'production') text += ` (${data.env})`;
+    el.textContent = text;
   } catch {
-    // Offline / dev server without endpoint — leave the base text alone.
+    // Offline / dev server without endpoint — leave "Flickpick" alone.
   }
 }
 
