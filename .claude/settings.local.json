@@ -86,7 +86,8 @@
       "Bash(node --check flickpick/api/recommend.js)",
       "Bash(node --check flickpick/dev-server.js)",
       "Bash(node --check flickpick/providers/anthropic.js)",
-      "Bash(node --check flickpick/providers/openai.js)"
+      "Bash(node --check flickpick/providers/openai.js)",
+      "Bash(node --input-type=module -e ' *)"
     ]
   }
 }

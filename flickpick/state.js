@@ -67,8 +67,25 @@ function getStoredItem(id) {
 }
 
 // ─── NORMALIZATION ──────────────────────────────────────────────────────────
+// Canonical id used as the dedupe key across local state and cloud-sync. We
+// strip a trailing year suffix from the title BEFORE normalizing if it
+// matches the `year` field — some sources return "Atomic Blonde (2017)" as
+// the title while others return "Atomic Blonde" with year=2017. Without
+// this strip, those produce different ids ("atomic-blonde-2017-2017" vs
+// "atomic-blonde-2017") and silently coexist as duplicates after sync.
+// _deduplicateCollection re-runs this normalizer on load, so existing
+// duplicates collapse the next time the app reads from localStorage.
 function normalizeId(title, year) {
-  const base = (title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  let cleanTitle = title || '';
+  if (year) {
+    const y = String(year).replace(/[^0-9]/g, '');
+    if (y) {
+      cleanTitle = cleanTitle
+        .replace(new RegExp(`\\s*\\(${y}\\)\\s*$`), '')   // "Atomic Blonde (2017)"
+        .replace(new RegExp(`\\s+${y}\\s*$`), '');        // "Atomic Blonde 2017"
+    }
+  }
+  const base = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return year ? `${base}-${year}` : base;
 }
 
