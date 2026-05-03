@@ -1014,6 +1014,68 @@
     padding: 20px 24px;
     margin-bottom: 20px;
   }
+
+  /* Total-count indicator next to a section title (e.g. "LIBRARY (233)"). */
+  .settings-section-count {
+    color: var(--muted);
+    font-size: 0.75em;
+    margin-left: 4px;
+  }
+
+  /* Library stats grid — three tiles side-by-side; each is a clickable
+     link to its corresponding library page. Nope is the only entry to the
+     Nope page; Seen/Watchlist also exist as nav buttons but the tiles
+     here give counts at-a-glance plus a one-click route. */
+  .library-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .stat-tile {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .stat-tile .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+  .stat-tile .stat-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .stat-tile.stat-tile-link {
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .stat-tile.stat-tile-link:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .stat-tile.stat-tile-link:hover .stat-label,
+  .stat-tile.stat-tile-link:hover .stat-link-arrow { color: var(--accent); }
+  .stat-link-arrow {
+    margin-left: 4px;
+    color: var(--muted);
+    transition: color 0.15s, transform 0.15s;
+    display: inline-block;
+  }
+  .stat-tile.stat-tile-link:hover .stat-link-arrow { transform: translateX(2px); }
+  @media (max-width: 480px) {
+    .library-stats { gap: 8px; }
+    .stat-tile { padding: 12px 6px; }
+    .stat-tile .stat-value { font-size: 24px; }
+    .stat-tile .stat-label { font-size: 10px; letter-spacing: 1px; }
+  }
   .settings-section-title {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 22px;

@@ -1855,11 +1855,27 @@ function showPage(page) {
   if (page === 'watchlist') renderWatchlist();
   if (page === 'seen') renderSeenList();
   if (page === 'settings') renderSettingsPage();
+  if (page === 'nope') renderNopeList();
 }
 
 // ─── SETTINGS PAGE ─────────────────────────────────────────────────────────
 function renderSettingsPage() {
   const s = state.settings || {};
+
+  // Library stats — counts for Seen / Watchlist / Nope plus a combined
+  // total next to the section heading. All three tiles are clickable and
+  // route to their respective library pages.
+  const seenCount = Object.keys(state.seen).length;
+  const wantCount = Object.keys(state.want).length;
+  const nopeCount = Object.keys(state.nope).length;
+  const seenCountEl = document.getElementById('stat-seen-count');
+  const wantCountEl = document.getElementById('stat-want-count');
+  const nopeCountEl = document.getElementById('stat-nope-count');
+  const libTotalEl = document.getElementById('stat-library-total');
+  if (seenCountEl) seenCountEl.textContent = seenCount;
+  if (wantCountEl) wantCountEl.textContent = wantCount;
+  if (nopeCountEl) nopeCountEl.textContent = nopeCount;
+  if (libTotalEl) libTotalEl.textContent = `(${seenCount + wantCount + nopeCount})`;
 
   // Filter controls — sync values from state.
   const ageEl = document.getElementById('setting-age-limit');
@@ -2134,7 +2150,17 @@ document.addEventListener('click', (e) => {
     case 'show-page':
       showPage(el.dataset.page);
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
+      if (el.classList.contains('nav-btn')) {
+        el.classList.add('active');
+      } else {
+        // Internal link (e.g. a Library stats tile) — highlight the
+        // matching nav button so the user has a normal sense of where
+        // they are. Nope has no nav button of its own, so it falls back
+        // to keeping the gear active (it's a sub-page of Settings).
+        const targetPage = el.dataset.page === 'nope' ? 'settings' : el.dataset.page;
+        const navBtn = document.querySelector(`.nav-btn[data-page="${targetPage}"]`);
+        if (navBtn) navBtn.classList.add('active');
+      }
       break;
 
     // ─── SETTINGS ────────────────────────────────────────────────────
@@ -2235,6 +2261,17 @@ document.addEventListener('click', (e) => {
       removeFromSeen(id);
       break;
 
+    // ─── NOPE PAGE ACTIONS ───────────────────────────────────────────
+    case 'nope-mark-seen':
+      moveNopeToSeen(id);
+      break;
+    case 'nope-mark-want':
+      moveNopeToWant(id);
+      break;
+    case 'nope-remove':
+      removeFromNope(id);
+      break;
+
     // ─── TRAILERS ────────────────────────────────────────────────────
     case 'open-trailer':
       openTrailerModal(el.dataset.key);
@@ -2261,6 +2298,9 @@ document.addEventListener('click', (e) => {
     case 'load-more-seen':
       loadMoreSeen();
       break;
+    case 'load-more-nope':
+      loadMoreNope();
+      break;
 
     // ─── SEARCH TITLE ────────────────────────────────────────────────
     case 'search-title':
@@ -2278,6 +2318,8 @@ document.getElementById('seen-search').addEventListener('input', filterSeenList)
 document.getElementById('seen-sort').addEventListener('change', filterSeenList);
 document.getElementById('watchlist-search').addEventListener('input', filterWatchlist);
 document.getElementById('watchlist-sort').addEventListener('change', filterWatchlist);
+document.getElementById('nope-search').addEventListener('input', filterNopeList);
+document.getElementById('nope-sort').addEventListener('change', filterNopeList);
 
 // Settings page: delegate change events for the filter toggles and age-limit
 // select. Buttons + provider chips already handled via the click switch.
@@ -4300,6 +4342,232 @@ function loadMoreSeen() {
   } else if (loadMoreBtn) {
     loadMoreBtn.textContent = `Load More (${items.length - seenShown} remaining)`;
   }
+}
+
+// ─── NOPE PAGE ───────────────────────────────────────────────────────────────
+// Mirrors Seen — same paginated grid, same card layout — but the action row
+// has three move-buttons (Seen / Watchlist / Remove from Nope) instead of
+// rating buttons. The Nope page is the only place the user can see and
+// manage their Nope'd items; entry is via the Library stats tile in Settings.
+const NOPE_PAGE_SIZE = 10;
+let nopeShown = 0;
+
+function renderNopeCard(item) {
+  const emoji = item.emoji || genreEmoji(item.genres);
+  const cardId = `nope-${item.id}`;
+  registerItem(item);
+
+  const cachedRating = getCachedRating(item.title, item.year);
+  const initialRatingHtml = shouldShowRating(cachedRating)
+    ? `<span class="rating rating--titled rating--${ratingTier(cachedRating.rating)}" data-rating-id="noperate-${item.id}">(${cachedRating.rating}%)</span>`
+    : `<span class="rating rating--titled" data-rating-id="noperate-${item.id}"></span>`;
+
+  return `
+    <div class="watchlist-card" id="${cardId}">
+      <div class="watchlist-poster-placeholder clickable-title" data-nope-poster="${item.id}" data-action="load-item-direct" data-id="${item.id}">
+        ${emoji}
+      </div>
+      <div class="watchlist-info">
+        <div class="watchlist-header">
+          <div class="watchlist-title-row">
+            <span class="watchlist-title clickable-title" data-action="load-item-direct" data-id="${item.id}">${item.title}</span>
+            ${initialRatingHtml}
+          </div>
+          <div class="watchlist-type">${item.type}</div>
+        </div>
+        <div class="watchlist-meta">${item.year} · ${item.genres}</div>
+        <div class="watchlist-desc">${item.description || ''}</div>
+        <div class="watchlist-extras" data-nope-extras="${item.id}"></div>
+        <div class="watchlist-actions nope-actions">
+          <button class="btn-watching" data-action="nope-mark-seen" data-id="${item.id}" title="Move to Seen">Mark Seen</button>
+          <button class="btn-watching" data-action="nope-mark-want" data-id="${item.id}" title="Move to Watchlist">+ Watchlist</button>
+          <button class="btn-remove" data-action="nope-remove" data-id="${item.id}" title="Remove from Nope (will be eligible for recommendations again)">Remove from Nope</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function loadNopeExtras(item) {
+  fetchPoster(item.title, item.year).then(url => {
+    loadRatingFor(`noperate-${item.id}`, item.title, item.year, { withParens: true });
+    if (!url) return;
+    const el = document.querySelector(`[data-nope-poster="${item.id}"]`);
+    if (!el) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = item.title;
+    img.className = 'watchlist-poster clickable-title';
+    img.setAttribute('data-action', 'load-item-direct');
+    img.setAttribute('data-id', item.id);
+    img.style.cursor = 'pointer';
+    retryPosterLoad(img, item.title, item.year, 2);
+    img.onload = () => { if (el.parentNode) el.replaceWith(img); };
+  });
+
+  Promise.all([
+    fetchTmdbExtras(item.title, item.year),
+    fetchStreamingLinks(item.title, item.year)
+  ]).then(([{ trailerKey, providers, watchLink }, streamingLinks]) => {
+    const extrasEl = document.querySelector(`[data-nope-extras="${item.id}"]`);
+    if (!extrasEl) return;
+    if (!trailerKey && providers.length === 0 && !streamingLinks) return;
+
+    let html = '';
+    if (trailerKey) {
+      html += `<button class="mini-trailer-btn" data-action="open-trailer" data-key="${trailerKey}">&#9654; Trailer</button>`;
+    }
+    if (providers.length > 0 || streamingLinks) {
+      html += renderProviders(providers, watchLink, streamingLinks);
+    }
+    extrasEl.innerHTML = html;
+  });
+}
+
+function getFilteredNopeList() {
+  const query = (document.getElementById('nope-search')?.value || '').trim().toLowerCase();
+  const sortBy = document.getElementById('nope-sort')?.value || 'newest';
+  let items = Object.values(state.nope);
+
+  if (query) {
+    items = items.filter(item =>
+      item.title.toLowerCase().includes(query) ||
+      (item.genres || '').toLowerCase().includes(query) ||
+      (item.type || '').toLowerCase().includes(query) ||
+      (item.year || '').toLowerCase().includes(query)
+    );
+  }
+
+  switch (sortBy) {
+    case 'newest':   items.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)); break;
+    case 'oldest':   items.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0)); break;
+    case 'title-az': items.sort((a, b) => a.title.localeCompare(b.title)); break;
+    case 'title-za': items.sort((a, b) => b.title.localeCompare(a.title)); break;
+    case 'type':     items.sort((a, b) => (a.type || '').localeCompare(b.type || '') || a.title.localeCompare(b.title)); break;
+    case 'rating':   items.sort((a, b) => getItemTmdbRating(b) - getItemTmdbRating(a) || a.title.localeCompare(b.title)); break;
+  }
+  return items;
+}
+
+function renderNopeList() {
+  const allItems = Object.values(state.nope);
+  const sub = document.getElementById('nope-subheading');
+  const container = document.getElementById('nope-list-container');
+  const controls = document.getElementById('nope-controls');
+
+  sub.textContent = allItems.length === 0
+    ? 'Nothing noped yet'
+    : `${allItems.length} title${allItems.length === 1 ? '' : 's'} noped`;
+
+  if (allItems.length === 0) {
+    controls.style.display = 'none';
+    container.innerHTML = `
+      <div class="want-empty">
+        <div class="want-empty-icon">✕</div>
+        <div class="want-empty-text">Shows you've tapped <strong>Nope</strong> on will appear here. They're hidden from recommendations until you remove them from this list.</div>
+      </div>`;
+    nopeShown = 0;
+    return;
+  }
+
+  controls.style.display = 'flex';
+  document.getElementById('nope-search').value = '';
+  document.getElementById('nope-sort').value = 'newest';
+
+  const items = getFilteredNopeList();
+  nopeShown = 0;
+  const batch = items.slice(0, NOPE_PAGE_SIZE);
+  nopeShown = batch.length;
+
+  let html = `<div class="watchlist-grid" id="nope-grid">`;
+  html += batch.map(item => renderNopeCard(item)).join('');
+  html += `</div>`;
+
+  if (items.length > nopeShown) {
+    html += `<button class="btn-load-more" id="nope-load-more" data-action="load-more-nope">Load More (${items.length - nopeShown} remaining)</button>`;
+  }
+
+  container.innerHTML = html;
+  batch.forEach(item => loadNopeExtras(item));
+}
+
+function filterNopeList() {
+  const items = getFilteredNopeList();
+  const container = document.getElementById('nope-list-container');
+
+  if (items.length === 0) {
+    const query = document.getElementById('nope-search').value.trim();
+    container.innerHTML = `
+      <div class="want-empty">
+        <div class="want-empty-icon">🔍</div>
+        <div class="want-empty-text">No matches for "${query}"</div>
+      </div>`;
+    return;
+  }
+
+  nopeShown = 0;
+  const batch = items.slice(0, NOPE_PAGE_SIZE);
+  nopeShown = batch.length;
+
+  let html = `<div class="watchlist-grid" id="nope-grid">`;
+  html += batch.map(item => renderNopeCard(item)).join('');
+  html += `</div>`;
+
+  if (items.length > nopeShown) {
+    html += `<button class="btn-load-more" id="nope-load-more" data-action="load-more-nope">Load More (${items.length - nopeShown} remaining)</button>`;
+  }
+
+  container.innerHTML = html;
+  batch.forEach(item => loadNopeExtras(item));
+}
+
+function loadMoreNope() {
+  const items = getFilteredNopeList();
+  const grid = document.getElementById('nope-grid');
+  if (!grid) return;
+
+  const batch = items.slice(nopeShown, nopeShown + NOPE_PAGE_SIZE);
+  nopeShown += batch.length;
+
+  batch.forEach(item => {
+    grid.insertAdjacentHTML('beforeend', renderNopeCard(item));
+    loadNopeExtras(item);
+  });
+
+  const loadMoreBtn = document.getElementById('nope-load-more');
+  if (nopeShown >= items.length) {
+    if (loadMoreBtn) loadMoreBtn.remove();
+  } else if (loadMoreBtn) {
+    loadMoreBtn.textContent = `Load More (${items.length - nopeShown} remaining)`;
+  }
+}
+
+// Move handlers — Nope items get migrated to Seen / Want, or removed
+// outright (which makes them eligible for recommendations again). Each
+// transition triggers a list re-render so the card disappears in place.
+function moveNopeToSeen(id) {
+  const item = state.nope[id];
+  if (!item) return;
+  State.removeNope(id);
+  State.addSeen(item);
+  showToast(`Moved "${item.title}" to Seen`);
+  renderNopeList();
+}
+
+function moveNopeToWant(id) {
+  const item = state.nope[id];
+  if (!item) return;
+  State.removeNope(id);
+  State.addWant(item);
+  showToast(`Moved "${item.title}" to Watchlist`);
+  renderNopeList();
+}
+
+function removeFromNope(id) {
+  const item = state.nope[id];
+  if (!item) return;
+  State.removeNope(id);
+  showToast(`Removed "${item.title}" from Nope`);
+  renderNopeList();
 }
 
 function setRating(id, rating, btn) {

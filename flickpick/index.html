@@ -148,6 +148,26 @@
   </div>
 </div>
 
+<!-- NOPE PAGE — only reachable via the Library stats tile in Settings. -->
+<div class="page" id="page-nope">
+  <div class="want-page-inner">
+    <div class="page-heading">NOPED</div>
+    <div class="page-subheading" id="nope-subheading">Loading…</div>
+    <div class="watchlist-controls" id="nope-controls" style="display:none">
+      <input class="watchlist-search" type="text" id="nope-search" placeholder="Search your noped list…">
+      <select class="watchlist-sort" id="nope-sort">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="title-az">Title A–Z</option>
+        <option value="title-za">Title Z–A</option>
+        <option value="type">By Type</option>
+        <option value="rating">By Rating</option>
+      </select>
+    </div>
+    <div id="nope-list-container"></div>
+  </div>
+</div>
+
 <!-- WATCHLIST PAGE -->
 <div class="page" id="page-watchlist">
   <div class="want-page-inner">
@@ -173,6 +193,24 @@
 <div class="page" id="page-settings">
   <div class="settings-page-inner">
     <div class="page-heading">SETTINGS</div>
+
+    <div class="settings-section-card">
+      <div class="settings-section-title">Library <span class="settings-section-count" id="stat-library-total"></span></div>
+      <div class="library-stats">
+        <div class="stat-tile stat-tile-link" data-action="show-page" data-page="seen" title="View your seen list">
+          <div class="stat-value" id="stat-seen-count">0</div>
+          <div class="stat-label">Seen <span class="stat-link-arrow">&rsaquo;</span></div>
+        </div>
+        <div class="stat-tile stat-tile-link" data-action="show-page" data-page="watchlist" title="View your watchlist">
+          <div class="stat-value" id="stat-want-count">0</div>
+          <div class="stat-label">Watchlist <span class="stat-link-arrow">&rsaquo;</span></div>
+        </div>
+        <div class="stat-tile stat-tile-link" data-action="show-page" data-page="nope" title="View shows you've noped">
+          <div class="stat-value" id="stat-nope-count">0</div>
+          <div class="stat-label">Noped <span class="stat-link-arrow">&rsaquo;</span></div>
+        </div>
+      </div>
+    </div>
 
     <div class="settings-section-card">
       <div class="settings-section-title">Cloud Sync</div>
