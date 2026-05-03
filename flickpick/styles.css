@@ -273,6 +273,24 @@
     color: var(--muted);
     font-style: italic;
   }
+  /* Security disclosure variant — slightly more prominent than a plain hint
+     so a skeptical reader notices it, but still subordinate to the main UI. */
+  .settings-hint.settings-hint-security {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-style: normal;
+    color: var(--text);
+  }
+  .settings-hint.settings-hint-security a { color: var(--accent); }
+  .settings-hint.settings-hint-security code {
+    background: var(--surface2);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+  }
   .settings-divider {
     height: 1px;
     background: var(--border);

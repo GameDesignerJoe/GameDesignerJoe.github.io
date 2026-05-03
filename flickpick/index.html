@@ -214,7 +214,8 @@
       </div>
       <div class="settings-status" id="ai-key-status"></div>
       <div class="settings-hint" id="ai-provider-help-hint">Get a key from <span id="ai-provider-help-link"><a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></span>. The key stays only on this device — it is <strong>not</strong> included in cloud sync. You'll need to enter it on each device. If you suspect a key was exposed, revoke it at that provider's console.</div>
-      <div class="settings-hint" id="ai-provider-custom-hint" style="display:none">Plug in any <strong>OpenAI-compatible</strong> <code>/chat/completions</code> endpoint — DeepSeek, Mistral, Together, OpenRouter, Groq, or a local model server (Ollama / LM Studio / vLLM). Base URL + Model ID + API key sync to your devices via cloud sync; the API key stays local-only. Both fast and smart tiers use the model you specify.</div>
+      <div class="settings-hint" id="ai-provider-custom-hint" style="display:none">Plug in any <strong>OpenAI-compatible</strong> <code>/chat/completions</code> endpoint — DeepSeek, Mistral, Together, OpenRouter, Groq, or a local model server (Ollama / LM Studio / vLLM). Base URL + Model ID sync across your devices; the API key stays local-only. Both fast and smart tiers use the model you specify.</div>
+      <div class="settings-hint settings-hint-security">🔒 <strong>How your key is handled.</strong> It's stored only in this browser's localStorage — never in our cloud sync, never persisted on the server. On each AI call it's forwarded once through <code>/api/recommend</code> to the provider you picked, used for that single upstream request, then discarded. The proxy has no logging of request bodies and no env-var fallback, so a leaked key can only come from this device.</div>
     </div>
 
     <div class="settings-section-card">
