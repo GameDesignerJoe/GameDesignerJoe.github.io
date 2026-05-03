@@ -7,3 +7,5 @@ In Priority Order
 - Need to have it evaluate its own code and look for ways to clean it up, speed things up, refactor it in a way that makes it more effiecent. 
 
 - I'm also getting really tired of seeing the same four shows show up over and over again in the 'Based on what you love' because I haven't picked if I want to Watch or Nope them. I wish there was some where the app could realized, "hey, this dude has not selected Persons of Interest even though it's been the first hit for the last 5 times we've given him suggestions. Maybe he's just not that interested in it right now. Let's put it in the back of the list for a bit and get some fresh choices in here."
+
+- Consider the rename of ShowALike

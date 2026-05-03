@@ -87,7 +87,13 @@
       "Bash(node --check flickpick/dev-server.js)",
       "Bash(node --check flickpick/providers/anthropic.js)",
       "Bash(node --check flickpick/providers/openai.js)",
-      "Bash(node --input-type=module -e ' *)"
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8765/trigsense/index.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8765/trigsense/trigsense.jsx)",
+      "Bash(py --version)",
+      "Bash(python -m http.server 8765 --directory .)",
+      "Bash(curl -s -o /dev/null -w \"index.html: %{http_code}\\\\n\" http://localhost:8765/trigsense/index.html)",
+      "Bash(curl -s -o /dev/null -w \"trigsense.jsx: %{http_code}\\\\n\" http://localhost:8765/trigsense/trigsense.jsx)"
     ]
   }
 }
