@@ -195,8 +195,16 @@
           <option value="openai">ChatGPT (OpenAI)</option>
           <option value="google">Gemini (Google)</option>
           <option value="xai">Grok (xAI)</option>
+          <option value="custom">Custom (OpenAI-compatible)</option>
         </select>
       </label>
+
+      <div class="settings-row settings-custom-row" id="setting-custom-baseurl-row" style="display:none">
+        <input type="text" id="setting-custom-baseurl" class="settings-input" placeholder="https://api.example.com/v1" data-action="set-custom-baseurl" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="settings-row settings-custom-row" id="setting-custom-model-row" style="display:none">
+        <input type="text" id="setting-custom-model" class="settings-input" placeholder="model-id (e.g. deepseek-chat)" data-action="set-custom-model" autocomplete="off" spellcheck="false">
+      </div>
 
       <div class="settings-row settings-key-row">
         <input type="password" id="setting-ai-key" class="settings-input" placeholder="sk-ant-..." data-action="set-ai-key" autocomplete="off" spellcheck="false">
@@ -205,7 +213,8 @@
         <button class="settings-btn" data-action="clear-ai-key" title="Remove key">&times;</button>
       </div>
       <div class="settings-status" id="ai-key-status"></div>
-      <div class="settings-hint">Get a key from <span id="ai-provider-help-link"><a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></span>. The key stays only on this device — it is <strong>not</strong> included in cloud sync. You'll need to enter it on each device. If you suspect a key was exposed, revoke it at that provider's console.</div>
+      <div class="settings-hint" id="ai-provider-help-hint">Get a key from <span id="ai-provider-help-link"><a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></span>. The key stays only on this device — it is <strong>not</strong> included in cloud sync. You'll need to enter it on each device. If you suspect a key was exposed, revoke it at that provider's console.</div>
+      <div class="settings-hint" id="ai-provider-custom-hint" style="display:none">Plug in any <strong>OpenAI-compatible</strong> <code>/chat/completions</code> endpoint — DeepSeek, Mistral, Together, OpenRouter, Groq, or a local model server (Ollama / LM Studio / vLLM). Base URL + Model ID + API key sync to your devices via cloud sync; the API key stays local-only. Both fast and smart tiers use the model you specify.</div>
     </div>
 
     <div class="settings-section-card">

@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { provider, apiKey, messages, tier, max_tokens } = req.body || {};
+  const { provider, apiKey, messages, tier, max_tokens, custom } = req.body || {};
 
   if (!apiKey || typeof apiKey !== 'string') {
     return res.status(400).json({ error: 'Missing API key. Add one in Settings → AI Provider.' });
@@ -29,6 +29,7 @@ export default async function handler(req, res) {
       messages,
       tier: tier || 'fast',
       max_tokens,
+      custom, // only consumed by the 'custom' adapter; ignored by others
     });
     return res.status(200).json(response);
   } catch (err) {

@@ -1305,6 +1305,19 @@
     background: var(--surface2);
   }
 
+  /* Brief border-color flash after navigating from the discover-page
+     watchlist carousel to a specific card — helps the user see "this is
+     the show you clicked" without an expanding box-shadow that reads as
+     a jarring pop. */
+  @keyframes wl-card-flash {
+    0%   { border-color: var(--border); }
+    25%  { border-color: var(--accent); }
+    100% { border-color: var(--border); }
+  }
+  .watchlist-card.highlight-flash {
+    animation: wl-card-flash 1.8s ease-out;
+  }
+
   .watchlist-poster {
     width: 100%;
     height: 100%;

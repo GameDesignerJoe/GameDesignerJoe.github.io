@@ -21,7 +21,7 @@ const server = createServer(async (req, res) => {
     for await (const chunk of req) body += chunk;
 
     try {
-      const { provider, apiKey, messages, tier, max_tokens } = JSON.parse(body);
+      const { provider, apiKey, messages, tier, max_tokens, custom } = JSON.parse(body);
 
       if (!apiKey || typeof apiKey !== 'string') {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -44,6 +44,7 @@ const server = createServer(async (req, res) => {
         messages,
         tier: tier || 'fast',
         max_tokens,
+        custom, // only consumed by the 'custom' adapter
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

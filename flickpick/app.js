@@ -156,10 +156,14 @@ async function callAI({ messages, tier, max_tokens }) {
   const provider = state.settings?.aiProvider || 'anthropic';
   const apiKey = ApiKeys.get(provider);
   if (!apiKey) throw new NoAiKeyError();
+  const body = { provider, apiKey, messages, tier: tier || 'fast', max_tokens };
+  // Custom provider needs the user-supplied base URL + model. These aren't
+  // secrets; they live in state.settings (synced via cloud sync).
+  if (provider === 'custom') body.custom = state.settings?.customAi || {};
   const res = await fetch('/api/recommend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, apiKey, messages, tier: tier || 'fast', max_tokens }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -1054,6 +1058,7 @@ const carouselState = {
 const RECS_MAX_CONCURRENT = 3;          // max simultaneous Claude calls
 const RECS_TARGET_POOL = 20;            // keep this many available items in the pool
 const RECS_MAX_CONSECUTIVE_FAILS = 5;   // give up the Claude pump after this many null returns in a row
+const RECS_MAX_TOTAL_FETCHES = 30;      // hard cap on Claude calls per seed cycle — defense against passesFilters-induced runaways
 const RECS_TMDB_QUERY_COUNT = 12;       // max seed items to query TMDB recs for
 const RECS_TMDB_RECS_PER_ITEM = 20;     // TMDB returns up to this many recs per seed item
 
@@ -1074,7 +1079,7 @@ const recsCarousels = {
       <div>Rate shows in your <strong>Seen</strong> list with ❤️ to get personalized recommendations here.</div>
     </div>`,
     exhaustedMessage: 'No more fresh recommendations — rate more shows in your Seen list to get new picks here.',
-    state: { cache: null, pool: [], tmdbQueue: [], inFlight: 0, allFetchedIds: new Set(), consecutiveFails: 0 },
+    state: { cache: null, pool: [], tmdbQueue: [], inFlight: 0, allFetchedIds: new Set(), consecutiveFails: 0, totalFetches: 0 },
   },
   'wl-recs': {
     label: 'Based On Your Watchlist',
@@ -1089,7 +1094,7 @@ const recsCarousels = {
       <div>Add shows to your <strong>Watchlist</strong> to get recommendations here.</div>
     </div>`,
     exhaustedMessage: 'No more fresh recommendations — add more shows to your Watchlist for new picks here.',
-    state: { cache: null, pool: [], tmdbQueue: [], inFlight: 0, allFetchedIds: new Set(), consecutiveFails: 0 },
+    state: { cache: null, pool: [], tmdbQueue: [], inFlight: 0, allFetchedIds: new Set(), consecutiveFails: 0, totalFetches: 0 },
   },
 };
 
@@ -1369,10 +1374,23 @@ function maybeHideStuntedRecsSection(key) {
   }
 }
 
+// True if the discover page is the currently-active route. Used as a kill
+// switch for background fill loops so navigating to Watchlist / Seen /
+// Settings stops burning Claude calls.
+function isDiscoverActive() {
+  return document.getElementById('page-discover')?.classList.contains('active');
+}
+
 function recsPump(key) {
   const cfg = _recs(key);
   drainRecsQueueIntoPool(key);
   updateRecsNav(key);
+
+  // KILL SWITCH 1: user navigated away from Discover. The carousels are
+  // hidden behind another page; no point firing more Claude calls. They'll
+  // resume naturally next time renderRecsCarousel runs (e.g., user comes
+  // back to Discover and the seed list re-evaluates).
+  if (!isDiscoverActive()) return;
 
   const available = getAvailableRecsItems(key);
   const needed = RECS_TARGET_POOL - available.length - cfg.state.inFlight;
@@ -1381,6 +1399,16 @@ function recsPump(key) {
   // No AI key → can't backfill via Claude. If TMDB seeds drained and we
   // didn't reach the visible threshold, hide the section.
   if (!hasAiKey()) {
+    cleanRecsPlaceholders(key);
+    maybeHideStuntedRecsSection(key);
+    return;
+  }
+
+  // KILL SWITCH 2: hit the per-seed total-fetch cap. Distinct from the
+  // consecutive-fails cap below because items that pass dedupe but fail
+  // user filters reset consecutiveFails to 0, which can let the loop
+  // run indefinitely if filters reject most candidates.
+  if (cfg.state.totalFetches >= RECS_MAX_TOTAL_FETCHES) {
     cleanRecsPlaceholders(key);
     maybeHideStuntedRecsSection(key);
     return;
@@ -1397,9 +1425,14 @@ function recsPump(key) {
   const toFire = Math.min(needed, RECS_MAX_CONCURRENT - cfg.state.inFlight);
   for (let i = 0; i < toFire; i++) {
     cfg.state.inFlight++;
+    cfg.state.totalFetches++;
     fetchOneRec(key).then(item => {
       cfg.state.inFlight--;
-      if (item) {
+      // Treat "fetched but filter-rejected" as a fail so consecutiveFails
+      // can reach the cap. Otherwise restrictive filter settings (e.g.
+      // hideNoProviders, minRating) would let the loop run indefinitely.
+      const accepted = item && passesFilters(item);
+      if (accepted) {
         cfg.state.consecutiveFails = 0;
         cfg.state.pool.push(item);
         const track = document.getElementById(cfg.trackId);
@@ -1412,6 +1445,10 @@ function recsPump(key) {
           loadTrailerBtnFor(item.id, item.title, item.year);
         }
       } else {
+        // Still push filter-rejected items into the pool so future fetches
+        // exclude them via the prompt's exclusion list — but don't reset
+        // the failure counter.
+        if (item) cfg.state.pool.push(item);
         cfg.state.consecutiveFails++;
       }
       updateRecsNav(key);
@@ -1463,6 +1500,7 @@ async function renderRecsCarousel(key) {
   cfg.state.allFetchedIds = new Set();
   cfg.state.inFlight = 0;
   cfg.state.consecutiveFails = 0;
+  cfg.state.totalFetches = 0;
   carouselState[key].page = 0;
 
   // Show loading placeholders while we seed
@@ -1868,8 +1906,32 @@ function renderSettingsPage() {
     aiKeyEl.placeholder = meta.placeholder;
     aiKeyEl.type = 'password'; // always re-mask on (re-)render
   }
+
+  // Custom-provider extras: only visible when 'custom' is the active provider.
+  const isCustom = provider === 'custom';
+  const customBaseRow = document.getElementById('setting-custom-baseurl-row');
+  const customModelRow = document.getElementById('setting-custom-model-row');
+  if (customBaseRow) customBaseRow.style.display = isCustom ? '' : 'none';
+  if (customModelRow) customModelRow.style.display = isCustom ? '' : 'none';
+  if (isCustom) {
+    const customBaseEl = document.getElementById('setting-custom-baseurl');
+    const customModelEl = document.getElementById('setting-custom-model');
+    const ca = s.customAi || {};
+    if (customBaseEl) customBaseEl.value = ca.baseUrl || '';
+    if (customModelEl) customModelEl.value = ca.model || '';
+  }
+
   const helpLinkEl = document.getElementById('ai-provider-help-link');
-  if (helpLinkEl) {
+  const helpHintEl = document.getElementById('ai-provider-help-hint');
+  if (helpHintEl) {
+    // Custom mode has a fundamentally different hint (no fixed console URL).
+    helpHintEl.style.display = isCustom ? 'none' : '';
+  }
+  const customHintEl = document.getElementById('ai-provider-custom-hint');
+  if (customHintEl) {
+    customHintEl.style.display = isCustom ? '' : 'none';
+  }
+  if (helpLinkEl && !isCustom) {
     helpLinkEl.innerHTML = `<a href="${meta.consoleUrl}" target="_blank" rel="noopener">${meta.consoleLabel}</a>`;
   }
   const aiStatusEl = document.getElementById('ai-key-status');
@@ -1886,15 +1948,19 @@ const AI_PROVIDER_LABELS = {
   openai: 'ChatGPT (OpenAI)',
   google: 'Gemini (Google)',
   xai: 'Grok (xAI)',
+  custom: 'Custom (OpenAI-compatible)',
 };
 
 // Per-provider metadata for the Settings UI: what the key looks like (used
-// as input placeholder) and where the user goes to get one.
+// as input placeholder) and where the user goes to get one. The 'custom'
+// entry has no fixed console URL — the hint text changes shape entirely
+// when the user selects it (see renderSettingsPage).
 const AI_PROVIDER_META = {
   anthropic: { placeholder: 'sk-ant-...', consoleUrl: 'https://console.anthropic.com/', consoleLabel: 'console.anthropic.com' },
   openai:    { placeholder: 'sk-...',     consoleUrl: 'https://platform.openai.com/api-keys', consoleLabel: 'platform.openai.com' },
   google:    { placeholder: 'AIza...',    consoleUrl: 'https://aistudio.google.com/app/apikey', consoleLabel: 'aistudio.google.com' },
   xai:       { placeholder: 'xai-...',    consoleUrl: 'https://console.x.ai/', consoleLabel: 'console.x.ai' },
+  custom:    { placeholder: 'API key for your custom endpoint' },
 };
 
 function handleToggleSetting(key, checked) {
@@ -1946,6 +2012,18 @@ function handleSetAiKey(value) {
   // Re-init carousels so any sections that were hidden under no-key get a
   // chance to populate now that AI fallback is available.
   if (typeof initDiscoverCarousels === 'function') initDiscoverCarousels();
+}
+
+function handleSetCustomBaseUrl(value) {
+  const customAi = { ...(state.settings?.customAi || {}), baseUrl: (value || '').trim() };
+  State.updateSettings({ customAi });
+  refreshDiscoverFilters();
+}
+
+function handleSetCustomModel(value) {
+  const customAi = { ...(state.settings?.customAi || {}), model: (value || '').trim() };
+  State.updateSettings({ customAi });
+  refreshDiscoverFilters();
 }
 
 // Updates only the option text on the AI provider <select> — used after a
@@ -2119,14 +2197,10 @@ document.addEventListener('click', (e) => {
     case 'load-item-direct': {
       const item = getStoredItem(id);
       if (item) {
-        // If from watchlist carousel, go to watchlist page
+        // Watchlist carousel → land on that item in the watchlist list.
+        // Other carousels → load the featured detail page.
         if (el.closest('#wl-car-track')) {
-          showPage('watchlist');
-          document.getElementById('watchlist-nav-btn').classList.add('active');
-          setTimeout(() => {
-            const card = document.getElementById('wl-' + item.id);
-            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 100);
+          navigateToWatchlistItem(item.id);
         } else {
           loadItemDirect(item);
         }
@@ -2223,6 +2297,10 @@ document.addEventListener('change', (e) => {
     // Listening to `change` (commit on blur / Enter), not `input`, so we
     // don't write to localStorage on every keystroke.
     handleSetAiKey(el.value);
+  } else if (action === 'set-custom-baseurl') {
+    handleSetCustomBaseUrl(el.value);
+  } else if (action === 'set-custom-model') {
+    handleSetCustomModel(el.value);
   }
 });
 
@@ -3773,6 +3851,11 @@ function loadWatchlistExtras(item) {
   });
 }
 
+// When set, the next renderWatchlist will include enough pages to make
+// this item's card present in the DOM. Used by the watchlist carousel's
+// click handler so the post-render scrollIntoView actually finds the card.
+let pendingScrollToWatchlistId = null;
+
 function renderWatchlist() {
   const items = Object.values(state.want).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   const sub = document.getElementById('watchlist-subheading');
@@ -3800,9 +3883,19 @@ function renderWatchlist() {
   document.getElementById('watchlist-search').value = '';
   document.getElementById('watchlist-sort').value = 'newest';
 
-  // Show first batch
+  // First batch size — normally WATCHLIST_PAGE_SIZE, but if we have a pending
+  // scroll target, expand to include that item so it actually exists in the DOM.
+  let initialCount = WATCHLIST_PAGE_SIZE;
+  if (pendingScrollToWatchlistId) {
+    const idx = items.findIndex(i => i.id === pendingScrollToWatchlistId);
+    if (idx >= 0 && idx + 1 > initialCount) {
+      // Round up to the nearest page so Load More math stays clean.
+      initialCount = Math.ceil((idx + 1) / WATCHLIST_PAGE_SIZE) * WATCHLIST_PAGE_SIZE;
+    }
+  }
+
   watchlistShown = 0;
-  const batch = items.slice(0, WATCHLIST_PAGE_SIZE);
+  const batch = items.slice(0, initialCount);
   watchlistShown = batch.length;
 
   let html = `<div class="watchlist-grid" id="watchlist-grid">`;
@@ -3817,6 +3910,69 @@ function renderWatchlist() {
 
   // Async load posters + extras for visible cards
   batch.forEach(item => loadWatchlistExtras(item));
+}
+
+// Navigate to the watchlist page and center the viewport on a specific
+// item's card. Used when the user clicks an item in the discover-page
+// "From Your Watchlist" carousel — they expect to land on that show in
+// their saved list, not just the top of the watchlist.
+//
+// Tricky bit: the watchlist renders cards immediately but their posters,
+// trailer buttons, and provider icons stream in over the next 1-2s, each
+// causing layout shift in the cards ABOVE the target. So a single
+// scrollIntoView at click time aims at a moving target — by the time it
+// settles, the actual card has drifted further down. We chase it until
+// the position stabilizes (or 2.4s, whichever first).
+function navigateToWatchlistItem(id) {
+  pendingScrollToWatchlistId = id;
+  showPage('watchlist');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const navBtn = document.getElementById('watchlist-nav-btn');
+  if (navBtn) navBtn.classList.add('active');
+
+  setTimeout(() => {
+    const card = document.getElementById('wl-' + id);
+    if (!card) { pendingScrollToWatchlistId = null; return; }
+
+    // Initial smooth scroll for the user-perceived "we got there" feel.
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('highlight-flash');
+
+    // Chase loop: re-scroll using 'auto' (instant) whenever the card's
+    // offsetTop changes from the prior tick. Stop when it's stable for 2
+    // ticks or after 12 ticks (~2.4s), whichever first. Abort if the user
+    // takes over scrolling — wheel / touchmove signals manual control.
+    let lastTop = card.offsetTop;
+    let stable = 0;
+    let ticks = 0;
+    let aborted = false;
+    const onUserScroll = () => { aborted = true; };
+    window.addEventListener('wheel', onUserScroll, { passive: true, once: true });
+    window.addEventListener('touchmove', onUserScroll, { passive: true, once: true });
+
+    const interval = setInterval(() => {
+      ticks++;
+      if (aborted) { cleanup(); return; }
+      const currentTop = card.offsetTop;
+      if (currentTop === lastTop) {
+        stable++;
+      } else {
+        stable = 0;
+        lastTop = currentTop;
+        card.scrollIntoView({ behavior: 'auto', block: 'center' });
+      }
+      if (stable >= 2 || ticks >= 12) cleanup();
+    }, 200);
+
+    function cleanup() {
+      clearInterval(interval);
+      window.removeEventListener('wheel', onUserScroll);
+      window.removeEventListener('touchmove', onUserScroll);
+      pendingScrollToWatchlistId = null;
+      // Let the flash linger a bit after we stop chasing.
+      setTimeout(() => card.classList.remove('highlight-flash'), 600);
+    }
+  }, 60);
 }
 
 function loadMoreWatchlist() {
