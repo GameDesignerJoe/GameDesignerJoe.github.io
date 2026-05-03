@@ -7,40 +7,50 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import Anthropic from '@anthropic-ai/sdk';
 import { put, list } from '@vercel/blob';
+import { PROVIDERS } from './providers/registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3000;
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
-
 const server = createServer(async (req, res) => {
-  // Handle API proxy
+  // SECURITY: see api/recommend.js. The body contains a user's API key.
+  // Do not log it. Destructure only the fields we need.
   if (req.method === 'POST' && req.url === '/api/recommend') {
     let body = '';
     for await (const chunk of req) body += chunk;
 
     try {
-      const { messages, model, max_tokens } = JSON.parse(body);
+      const { provider, apiKey, messages, tier, max_tokens } = JSON.parse(body);
 
+      if (!apiKey || typeof apiKey !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Missing API key. Add one in Settings → AI Provider.' }));
+        return;
+      }
+      const adapter = provider && PROVIDERS[provider];
+      if (!adapter) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Unknown provider: ${provider || '(none)'}` }));
+        return;
+      }
       if (!messages || !Array.isArray(messages)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Invalid request' }));
         return;
       }
 
-      const response = await client.messages.create({
-        model: model || 'claude-sonnet-4-20250514',
-        max_tokens: max_tokens || 1024,
+      const response = await adapter.call(apiKey, {
         messages,
+        tier: tier || 'fast',
+        max_tokens,
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(response));
     } catch (err) {
-      console.error('API error:', err.message);
-      res.writeHead(err.status || 500, { 'Content-Type': 'application/json' });
+      console.error(`API error:`, err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: err.message }));
     }
     return;

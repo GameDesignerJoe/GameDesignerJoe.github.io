@@ -1,6 +1,8 @@
 == FlickPick ToDo ==
 In Priority Order
 
+- When I click a show that is displayed on the main page that is in my watch list, I expect to be taken to that show in the watch list page. Right now, it just takes me to the watch list. 
+
 - Need to get out from the Claude API and use a cheaper one that you have control over. It's currently connected to my company account and so they pay for each search. Makes it difficult to share.
     - The thing I don't like is having to set up my API keys at each device. That's annoying. So maybe I hold off for now... or just swtich to my personal Gemini or Grok api key. This could also be a problem for a later day. 
     - Might want to explore the idea of a 'no ai api' version. Where in the settings the user can add an API for AI and it'll use that. Otherwise it just uses some default apis tha we already have TMDB and STREAM_AVAILABLE. This way, I'm not paying for the feature if others use it, they are. 

@@ -89,6 +89,15 @@ const viewHistory = []; // stack of { featured, suggestionPool, suggestionPageId
 let suggestionPool = [];     // flat array of suggestion items (grows as user pages)
 let suggestionPageIdx = 0;
 let poolFetching = false;
+let poolExhausted = false;   // true once a fill cycle adds zero new items — stops the recursive setTimeout
+
+function resetSuggestionPool() {
+  shownIds = new Set();
+  suggestionPool = [];
+  suggestionPageIdx = 0;
+  poolFetching = false;
+  poolExhausted = false;
+}
 
 // ─── CHOOSER STATE (search disambiguation, bucketed by user state) ──────────
 const CHOOSER_PAGE_SIZE = 4;
@@ -111,6 +120,53 @@ let chooserState = {
   exhausted: false,
   fetchCount: 0,
 };
+
+// ─── AI CLIENT (BYOK) ────────────────────────────────────────────────────────
+// Single wrapper for every AI call site. Reads the user's API key from the
+// dedicated localStorage slot (NEVER state.settings, so cloud-sync can't
+// carry it). Throws NoAiKeyError if no key — callers decide whether to fall
+// back to TMDB-only or surface a CTA.
+class NoAiKeyError extends Error {
+  constructor() { super('NO_AI_KEY'); this.code = 'NO_AI_KEY'; }
+}
+
+function hasAiKey() {
+  const provider = state.settings?.aiProvider || 'anthropic';
+  return !!ApiKeys.get(provider);
+}
+
+// Show the "you need an API key" empty state. Hides loading/error/featured
+// and chooser sections so it's the only visible affordance after a search.
+function showAiKeyCta() {
+  const ids = ['loading', 'error-state', 'featured-section', 'search-chooser-section'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+  const cta = document.getElementById('ai-cta-state');
+  if (cta) cta.style.display = 'block';
+}
+
+function hideAiKeyCta() {
+  const cta = document.getElementById('ai-cta-state');
+  if (cta) cta.style.display = 'none';
+}
+
+async function callAI({ messages, tier, max_tokens }) {
+  const provider = state.settings?.aiProvider || 'anthropic';
+  const apiKey = ApiKeys.get(provider);
+  if (!apiKey) throw new NoAiKeyError();
+  const res = await fetch('/api/recommend', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, apiKey, messages, tier: tier || 'fast', max_tokens }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`AI call failed (${res.status}): ${text || res.statusText}`);
+  }
+  return res.json();
+}
 
 // ─── TMDB CACHE ─────────────────────────────────────────────────────────────
 const posterCache = {};
@@ -1185,6 +1241,10 @@ function renderWatchlistCarousel() {
 // items. Excludes everything in the user's library + already-fetched items so
 // we don't loop forever proposing the same titles.
 async function fetchOneRec(key) {
+  // Early-out: with no key, every call would throw NoAiKeyError. Skip the
+  // wasted prompt-build and let callers handle the null naturally.
+  if (!hasAiKey()) return null;
+
   const cfg = _recs(key);
   const seedItems = cfg.getSeedItems();
   if (seedItems.length === 0) return null;
@@ -1207,17 +1267,11 @@ Recommend ONE show they'd enjoy. Return ONLY valid JSON, no markdown:
 Real titles only. Description must be factual, not a recommendation.${excludeStr}`;
 
   try {
-    const res = await fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 250,
-        messages: [{ role: "user", content: prompt }]
-      })
+    const data = await callAI({
+      tier: 'fast',
+      max_tokens: 250,
+      messages: [{ role: "user", content: prompt }],
     });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    const data = await res.json();
     if (!data.content || !data.content[0]) throw new Error('Bad response');
     const item = normalizeItem(parseClaudeJSON(data.content[0].text));
 
@@ -1228,6 +1282,7 @@ Real titles only. Description must be factual, not a recommendation.${excludeStr
     cfg.state.allFetchedIds.add(item.id);
     return item;
   } catch(e) {
+    if (e.code === 'NO_AI_KEY') return null;
     console.error(`${key} rec fetch error:`, e);
     return null;
   }
@@ -1300,6 +1355,20 @@ function drainRecsQueueIntoPool(key) {
 
 // Pump: drains TMDB queue first (instant), then falls back to Claude calls (slow)
 // only if more items are still needed.
+// Hide the carousel section entirely when it can't be filled to a usable
+// count. Without an AI key, TMDB-only seeds are all we get; if there aren't
+// enough to look like a carousel, hide the row instead of showing a stunted
+// 1-2 item display or an "exhausted" message.
+const RECS_MIN_VISIBLE = 3;
+function maybeHideStuntedRecsSection(key) {
+  const cfg = _recs(key);
+  const available = getAvailableRecsItems(key);
+  if (available.length < RECS_MIN_VISIBLE) {
+    const section = document.getElementById(cfg.sectionId);
+    if (section) section.style.display = 'none';
+  }
+}
+
 function recsPump(key) {
   const cfg = _recs(key);
   drainRecsQueueIntoPool(key);
@@ -1308,10 +1377,20 @@ function recsPump(key) {
   const available = getAvailableRecsItems(key);
   const needed = RECS_TARGET_POOL - available.length - cfg.state.inFlight;
   if (needed <= 0) return;
+
+  // No AI key → can't backfill via Claude. If TMDB seeds drained and we
+  // didn't reach the visible threshold, hide the section.
+  if (!hasAiKey()) {
+    cleanRecsPlaceholders(key);
+    maybeHideStuntedRecsSection(key);
+    return;
+  }
+
   if (cfg.state.consecutiveFails >= RECS_MAX_CONSECUTIVE_FAILS) {
     // Claude keeps proposing items already in the user's library — stop pumping
     // and clean up any remaining placeholder cards so the carousel doesn't spin forever.
     cleanRecsPlaceholders(key);
+    maybeHideStuntedRecsSection(key);
     return;
   }
 
@@ -1769,7 +1848,54 @@ function renderSettingsPage() {
       return `<div class="${cls}" data-action="toggle-provider" data-provider="${safe}">${name}</div>`;
     }).join('');
   }
+
+  // AI Provider section.
+  const aiProviderEl = document.getElementById('setting-ai-provider');
+  const provider = s.aiProvider || 'anthropic';
+  if (aiProviderEl) {
+    // Mark options that already have a key configured with a ✓ so the user
+    // can tell at a glance which providers are wired up.
+    for (const opt of aiProviderEl.options) {
+      const base = AI_PROVIDER_LABELS[opt.value] || opt.value;
+      opt.textContent = ApiKeys.get(opt.value) ? `${base} ✓` : base;
+    }
+    aiProviderEl.value = provider;
+  }
+  const aiKeyEl = document.getElementById('setting-ai-key');
+  const meta = AI_PROVIDER_META[provider] || AI_PROVIDER_META.anthropic;
+  if (aiKeyEl) {
+    aiKeyEl.value = ApiKeys.get(provider);
+    aiKeyEl.placeholder = meta.placeholder;
+    aiKeyEl.type = 'password'; // always re-mask on (re-)render
+  }
+  const helpLinkEl = document.getElementById('ai-provider-help-link');
+  if (helpLinkEl) {
+    helpLinkEl.innerHTML = `<a href="${meta.consoleUrl}" target="_blank" rel="noopener">${meta.consoleLabel}</a>`;
+  }
+  const aiStatusEl = document.getElementById('ai-key-status');
+  if (aiStatusEl) {
+    aiStatusEl.textContent = '';
+    aiStatusEl.classList.remove('success', 'error');
+  }
 }
+
+// Display labels for the AI provider dropdown — kept here so renderSettings
+// can suffix a ✓ when the corresponding key slot is populated.
+const AI_PROVIDER_LABELS = {
+  anthropic: 'Claude (Anthropic)',
+  openai: 'ChatGPT (OpenAI)',
+  google: 'Gemini (Google)',
+  xai: 'Grok (xAI)',
+};
+
+// Per-provider metadata for the Settings UI: what the key looks like (used
+// as input placeholder) and where the user goes to get one.
+const AI_PROVIDER_META = {
+  anthropic: { placeholder: 'sk-ant-...', consoleUrl: 'https://console.anthropic.com/', consoleLabel: 'console.anthropic.com' },
+  openai:    { placeholder: 'sk-...',     consoleUrl: 'https://platform.openai.com/api-keys', consoleLabel: 'platform.openai.com' },
+  google:    { placeholder: 'AIza...',    consoleUrl: 'https://aistudio.google.com/app/apikey', consoleLabel: 'aistudio.google.com' },
+  xai:       { placeholder: 'xai-...',    consoleUrl: 'https://console.x.ai/', consoleLabel: 'console.x.ai' },
+};
 
 function handleToggleSetting(key, checked) {
   State.updateSettings({ [key]: !!checked });
@@ -1802,6 +1928,91 @@ function handleToggleProvider(name) {
   refreshDiscoverFilters();
 }
 
+// ─── AI PROVIDER HANDLERS ──────────────────────────────────────────────────
+function handleSetAiProvider(value) {
+  State.updateSettings({ aiProvider: value });
+  // Re-populate the key input from the new provider's slot.
+  renderSettingsPage();
+  refreshDiscoverFilters();
+}
+
+function handleSetAiKey(value) {
+  const provider = state.settings?.aiProvider || 'anthropic';
+  ApiKeys.set(provider, value);
+  refreshAiProviderDropdownLabels();
+  // Re-render visible discover surfaces so adding/removing a key re-evaluates
+  // carousel visibility and "AI features available" gates.
+  refreshDiscoverFilters();
+  // Re-init carousels so any sections that were hidden under no-key get a
+  // chance to populate now that AI fallback is available.
+  if (typeof initDiscoverCarousels === 'function') initDiscoverCarousels();
+}
+
+// Updates only the option text on the AI provider <select> — used after a
+// key is added/removed so the ✓ marker reflects current state without a
+// full Settings re-render (which would clobber the in-flight input value).
+function refreshAiProviderDropdownLabels() {
+  const el = document.getElementById('setting-ai-provider');
+  if (!el) return;
+  for (const opt of el.options) {
+    const base = AI_PROVIDER_LABELS[opt.value] || opt.value;
+    opt.textContent = ApiKeys.get(opt.value) ? `${base} ✓` : base;
+  }
+}
+
+function handleToggleKeyVisibility() {
+  const el = document.getElementById('setting-ai-key');
+  if (!el) return;
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function handleClearAiKey() {
+  const provider = state.settings?.aiProvider || 'anthropic';
+  ApiKeys.clear(provider);
+  const inputEl = document.getElementById('setting-ai-key');
+  if (inputEl) inputEl.value = '';
+  const statusEl = document.getElementById('ai-key-status');
+  if (statusEl) {
+    statusEl.textContent = 'Key removed.';
+    statusEl.classList.remove('success', 'error');
+  }
+  refreshAiProviderDropdownLabels();
+  refreshDiscoverFilters();
+}
+
+async function handleTestAiKey() {
+  const statusEl = document.getElementById('ai-key-status');
+  if (!statusEl) return;
+  statusEl.classList.remove('success', 'error');
+
+  // Commit whatever's in the input first, in case the user clicked Test
+  // before the input's change event fired (e.g., paste then immediately click).
+  const inputEl = document.getElementById('setting-ai-key');
+  if (inputEl && inputEl.value !== ApiKeys.get(state.settings?.aiProvider || 'anthropic')) {
+    handleSetAiKey(inputEl.value);
+  }
+
+  if (!hasAiKey()) {
+    statusEl.textContent = 'Enter a key first.';
+    statusEl.classList.add('error');
+    return;
+  }
+  statusEl.textContent = 'Testing…';
+  try {
+    const data = await callAI({
+      tier: 'fast',
+      max_tokens: 10,
+      messages: [{ role: 'user', content: 'Reply with just OK.' }],
+    });
+    const text = data?.content?.[0]?.text || '';
+    statusEl.textContent = text ? `✓ Connected. (${text.trim().slice(0, 30)})` : '✓ Connected.';
+    statusEl.classList.add('success');
+  } catch (e) {
+    statusEl.textContent = `✗ ${e.message || 'Failed to reach AI provider.'}`;
+    statusEl.classList.add('error');
+  }
+}
+
 function resetDiscover() {
   showPage('discover');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1811,6 +2022,7 @@ function resetDiscover() {
   document.getElementById('search-chooser-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
   document.getElementById('loading').style.display = 'none';
+  hideAiKeyCta();
   document.getElementById('discover-carousels').style.display = '';
   viewHistory.length = 0;
   currentFeatured = null;
@@ -1859,6 +2071,15 @@ document.addEventListener('click', (e) => {
       break;
     case 'toggle-provider':
       handleToggleProvider(el.dataset.provider);
+      break;
+    case 'toggle-key-visibility':
+      handleToggleKeyVisibility();
+      break;
+    case 'test-ai-key':
+      handleTestAiKey();
+      break;
+    case 'clear-ai-key':
+      handleClearAiKey();
       break;
 
     // ─── SEARCH ──────────────────────────────────────────────────────
@@ -1996,6 +2217,12 @@ document.addEventListener('change', (e) => {
     handleSetAgeLimit(el.value);
   } else if (action === 'set-min-rating') {
     handleSetMinRating(el.value);
+  } else if (action === 'set-ai-provider') {
+    handleSetAiProvider(el.value);
+  } else if (action === 'set-ai-key') {
+    // Listening to `change` (commit on blur / Enter), not `input`, so we
+    // don't write to localStorage on every keystroke.
+    handleSetAiKey(el.value);
   }
 });
 
@@ -2115,6 +2342,11 @@ async function fetchTmdbRecommendations(item, count = 4, kind = 'recommendations
 }
 
 async function fetchClaudeSimilar(title, type, year, count = 4) {
+  // Soft-AI: callers always try fetchTmdbRecommendations first and only call
+  // this if TMDB returned null. Without a key, return null so the caller
+  // continues with whatever TMDB produced (or an empty grid).
+  if (!hasAiKey()) return null;
+
   const prompt = `You are a film and TV expert for Flickpick.
 
 The user just selected: "${title}" (${type}, ${year})
@@ -2139,18 +2371,18 @@ Return exactly ${count} similar titles. Real, well-known titles only. Lowercase 
 IMPORTANT: "description" must be a factual synopsis — NOT a recommendation.
 Put the recommendation reason in "blurb".` + getExclusionList();
 
-  const res = await fetch("/api/recommend", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+  try {
+    const data = await callAI({
+      tier: 'smart',
       max_tokens: count <= 4 ? 1000 : 2500,
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-  const data = await res.json();
-  const result = parseClaudeJSON(data.content[0].text);
-  return filterResults(normalizeItems(result.similar));
+      messages: [{ role: "user", content: prompt }],
+    });
+    const result = parseClaudeJSON(data.content[0].text);
+    return filterResults(normalizeItems(result.similar));
+  } catch (e) {
+    if (e.code === 'NO_AI_KEY') return null;
+    throw e;
+  }
 }
 
 // ─── MULTI-TITLE SEARCH ──────────────────────────────────────────────────────
@@ -2181,16 +2413,14 @@ Return ONLY a JSON object with exactly this structure, no markdown:
 
 Return exactly ${count} titles. Real, well-known titles only. Lowercase hyphenated ids. Dig deep — surface lesser-known gems alongside the obvious picks. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".`;
 
-  const res = await fetch("/api/recommend", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: count <= 4 ? 1500 : 2800,
-      messages: [{ role: "user", content: prompt }]
-    })
+  // Hard-AI surface — no TMDB substitute for "common DNA across multiple
+  // titles." If no key, propagate NoAiKeyError so the search caller can show
+  // the CTA empty state.
+  const data = await callAI({
+    tier: 'smart',
+    max_tokens: count <= 4 ? 1500 : 2800,
+    messages: [{ role: "user", content: prompt }],
   });
-  const data = await res.json();
   const result = parseClaudeJSON(data.content[0].text);
   return filterResults(normalizeItems(result.similar || []));
 }
@@ -2215,6 +2445,7 @@ async function doMultiSearch(titles) {
 
   document.getElementById('featured-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
+  hideAiKeyCta();
   document.getElementById('discover-carousels').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('search-btn').disabled = true;
@@ -2222,10 +2453,7 @@ async function doMultiSearch(titles) {
   updateBackButton();
 
   try {
-    shownIds = new Set();
-    suggestionPool = [];
-    suggestionPageIdx = 0;
-    poolFetching = false;
+    resetSuggestionPool();
 
     renderMultiSearchHeader(titles);
 
@@ -2238,9 +2466,13 @@ async function doMultiSearch(titles) {
     const similar = await fetchClaudeMultiSimilar(titles, GRID_SIZE);
     renderSimilar(similar || []);
   } catch (e) {
-    console.error('Multi-search error:', e);
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('error-state').style.display = 'block';
+    if (e.code === 'NO_AI_KEY') {
+      showAiKeyCta();
+    } else {
+      console.error('Multi-search error:', e);
+      document.getElementById('error-state').style.display = 'block';
+    }
   }
 
   document.getElementById('search-btn').disabled = false;
@@ -2262,6 +2494,7 @@ async function doSearch() {
 
   document.getElementById('featured-section').style.display = 'none';
   document.getElementById('error-state').style.display = 'none';
+  hideAiKeyCta();
   document.getElementById('discover-carousels').style.display = 'none';
   document.getElementById('search-chooser-section').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
@@ -2285,10 +2518,7 @@ async function doSearch() {
       if (tmdbHits.length === 1) {
         // Single clear TMDB match: featured card directly.
         const item = tmdbHits[0];
-        shownIds = new Set();
-        suggestionPool = [];
-        suggestionPageIdx = 0;
-        poolFetching = false;
+        resetSuggestionPool();
         renderFeatured(item);
         document.getElementById('featured-section').style.display = 'block';
 
@@ -2359,19 +2589,17 @@ Each candidate must be a DISTINCT WORK (different productions — not different 
 
 Use real, well-known titles. The "id" must be lowercase with hyphens only. The "blurb" should be ≤6 words and help the user pick the right version.`;
 
-    const res = await fetch("/api/recommend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        // Haiku: 3-5x faster than Sonnet for the chooser flow with minimal
-        // quality drop given the bucketing UX (user picks the right one).
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 3500,
-        messages: [{ role: "user", content: prompt }]
-      })
+    // Hard-AI fallback: TMDB-first already handled exact matches above. If
+    // we're here, the query is fuzzy/thematic — Claude is the only path.
+    // NoAiKeyError propagates to the outer catch which shows the CTA.
+    const data = await callAI({
+      // Fast tier: speed > polish for the bucketed chooser UX. Each provider
+      // maps 'fast' to its cheap/quick model (Haiku, gpt-4o-mini, etc.).
+      tier: 'fast',
+      max_tokens: 3500,
+      messages: [{ role: "user", content: prompt }],
     });
 
-    const data = await res.json();
     const parsed = parseClaudeJSON(data.content[0].text);
     const rawCandidates = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
     const candidates = rawCandidates.slice(0, CHOOSER_INITIAL_COUNT).map(normalizeItem);
@@ -2382,10 +2610,7 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
       document.getElementById('error-state').style.display = 'block';
     } else if (candidates.length === 1) {
       // Unambiguous match — render featured directly (today's UX).
-      shownIds = new Set();
-      suggestionPool = [];
-      suggestionPageIdx = 0;
-      poolFetching = false;
+      resetSuggestionPool();
       renderFeatured(candidates[0]);
       document.getElementById('featured-section').style.display = 'block';
 
@@ -2415,7 +2640,12 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
 
   } catch(e) {
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('error-state').style.display = 'block';
+    if (e.code === 'NO_AI_KEY') {
+      showAiKeyCta();
+    } else {
+      console.error('Search error:', e);
+      document.getElementById('error-state').style.display = 'block';
+    }
   }
 
   document.getElementById('search-btn').disabled = false;
@@ -2702,6 +2932,13 @@ function buildLibraryContextForSearch() {
 
 async function loadMoreChooserCandidates() {
   if (chooserState.exhausted || chooserState.fetching || !chooserState.query) return;
+  // Without an AI key we have no way to load more candidates beyond what
+  // TMDB-first surfaced. Mark exhausted so pagination affordances disable.
+  if (!hasAiKey()) {
+    chooserState.exhausted = true;
+    renderChooser();
+    return;
+  }
   if (chooserState.fetchCount >= CHOOSER_MAX_FETCHES) {
     chooserState.exhausted = true;
     renderChooser();
@@ -2742,17 +2979,13 @@ Return ONLY a JSON object (no markdown, no explanation) with this exact structur
 
 Return up to ${CHOOSER_LOAD_MORE_COUNT} ADDITIONAL candidates that match the search but are NOT in the excluded list above. Real, well-known titles only. Ordered by relevance/popularity. Dig deeper — include lesser-known but still legitimate matches. The "id" must be lowercase with hyphens only. If you genuinely cannot think of further matches, return an empty candidates array.`;
 
-    const res = await fetch('/api/recommend', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // Haiku for chooser lazy-load — same trade-off as the initial call.
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    // Haiku for chooser lazy-load — same trade-off as the initial call.
+    // No key → mark exhausted so pagination naturally stops.
+    const data = await callAI({
+      tier: 'fast',
+      max_tokens: 2500,
+      messages: [{ role: 'user', content: prompt }],
     });
-    const data = await res.json();
     const parsed = parseClaudeJSON(data.content[0].text);
     const fresh = (Array.isArray(parsed?.candidates) ? parsed.candidates : []).map(normalizeItem);
     const existingIds = new Set(chooserState.pool.map(i => i.id));
@@ -2950,8 +3183,28 @@ function displaySuggestionPage(idx) {
   const start = idx * GRID_SIZE;
   const items = filtered.slice(start, start + GRID_SIZE);
   const grid = document.getElementById('similar-grid');
-  const placeholders = items.length < GRID_SIZE
-    ? Array(GRID_SIZE - items.length).fill(renderPlaceholderCard()).join('')
+
+  // Spinning placeholders are only honest while we expect more items to land
+  // (pool is mid-fetch or hasn't been declared exhausted yet). Once the pool
+  // is settled and short, leave the gap empty rather than spin forever.
+  const expectingMore = poolFetching || !poolExhausted;
+  const gap = Math.max(0, GRID_SIZE - items.length);
+
+  // Filter-starved state: pool has items but the user's filters dropped them
+  // all. Don't keep spinning forever — surface what's happening.
+  const filterStarved = !expectingMore && suggestionPool.length > 0 && items.length === 0;
+  if (filterStarved) {
+    grid.innerHTML = `
+      <div class="grid-empty-state">
+        Your filters hid every recommendation TMDB returned for this show.
+        <button class="grid-empty-cta" data-action="show-page" data-page="settings">Adjust filters</button>
+      </div>`;
+    updateSimilarArrows();
+    return;
+  }
+
+  const placeholders = expectingMore && gap > 0
+    ? Array(gap).fill(renderPlaceholderCard()).join('')
     : '';
   grid.innerHTML = items.map(item => renderSingleCard(item)).join('') + placeholders;
   items.forEach(item => {
@@ -3013,6 +3266,7 @@ function similarPrev() {
 async function fillSuggestionPool() {
   const buffer = suggestionPool.length - (suggestionPageIdx * GRID_SIZE);
   if (buffer >= POOL_BUFFER || poolFetching) return;
+  if (poolExhausted) return; // earlier cycle added nothing new — don't loop
   if (!currentFeatured && !currentMultiSearch) return;
   poolFetching = true;
   updateSimilarArrows();
@@ -3022,15 +3276,23 @@ async function fillSuggestionPool() {
     let newItems = null;
 
     if (currentMultiSearch) {
-      // Multi-title pagination: refill via Claude with shared-DNA prompt + exclusions
-      newItems = await fetchClaudeMultiSimilar(currentMultiSearch, Math.min(needed, 8));
+      // Multi-title pagination: refill via Claude with shared-DNA prompt.
+      // No TMDB fallback exists for "common DNA across multiple titles" so
+      // a NoAiKeyError here means we're out of new items.
+      try {
+        newItems = await fetchClaudeMultiSimilar(currentMultiSearch, Math.min(needed, 8));
+      } catch (e) {
+        if (e.code === 'NO_AI_KEY') { newItems = []; }
+        else throw e;
+      }
     } else {
       // Single-title: try TMDB first — returns up to 20 items in one call
       newItems = await fetchTmdbRecommendations(currentFeatured, needed);
     }
 
-    if (currentFeatured && (!newItems || newItems.length === 0)) {
-      // Fallback: Claude batch (single-title path only)
+    if (currentFeatured && (!newItems || newItems.length === 0) && hasAiKey()) {
+      // Fallback: Claude batch (single-title path only). Skip when no key —
+      // pagination just stops with whatever TMDB delivered.
       const batchSize = Math.min(needed, 8);
       const exclusion = getExclusionList() + getShownExclusion();
       const prompt = `You are a film and TV expert for Flickpick.
@@ -3057,26 +3319,28 @@ Return ONLY a JSON object with exactly this structure, no markdown:
 
 Return exactly ${batchSize} similar titles. Real, well-known titles only. Lowercase hyphenated ids. Dig deep — suggest lesser-known gems, not just the obvious picks. IMPORTANT: "description" must be a factual synopsis — NOT a recommendation. Put the recommendation reason in "blurb".`;
 
-      const res = await fetch("/api/recommend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+      try {
+        const data = await callAI({
+          tier: 'smart',
           max_tokens: batchSize <= 4 ? 1200 : 2500,
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-      const data = await res.json();
-      const result = parseClaudeJSON(data.content[0].text);
-      newItems = filterResults(normalizeItems(result.similar));
+          messages: [{ role: "user", content: prompt }],
+        });
+        const result = parseClaudeJSON(data.content[0].text);
+        newItems = filterResults(normalizeItems(result.similar));
+      } catch (e) {
+        if (e.code !== 'NO_AI_KEY') throw e;
+        newItems = [];
+      }
     }
 
+    let addedCount = 0;
     if (newItems) {
       const poolIds = new Set(suggestionPool.map(i => i.id));
       const deduped = newItems.filter(i => !poolIds.has(i.id) && !shownIds.has(i.id));
       deduped.forEach(item => shownIds.add(item.id));
       const prevLen = suggestionPool.length;
       suggestionPool.push(...deduped);
+      addedCount = deduped.length;
 
       // Re-render current page if it had placeholder gaps that can now be filled
       if (deduped.length > 0) {
@@ -3087,17 +3351,36 @@ Return exactly ${batchSize} similar titles. Real, well-known titles only. Lowerc
         }
       }
     }
+
+    // No-progress guard: if this fill cycle added zero new items, mark the
+    // pool exhausted so the setTimeout recursion below stops. Without this,
+    // a finite TMDB rec set + no Claude fallback (no-key state) loops
+    // forever hammering the same endpoint.
+    if (addedCount === 0) poolExhausted = true;
+
+    // Filter-starved guard: if the pool is full BUT no items pass user
+    // filters, fetching more won't help — the user's filters are too tight.
+    // Mark exhausted so the UI can surface the "adjust filters" empty state
+    // instead of spinning forever.
+    const passingCount = suggestionPool.filter(passesFilters).length;
+    if (passingCount === 0 && suggestionPool.length >= POOL_BUFFER) {
+      poolExhausted = true;
+    }
   } catch(e) {
     console.error('Pool fill error:', e);
+    poolExhausted = true; // don't retry-loop on errors either
   }
 
   poolFetching = false;
+  // If we just exhausted the pool, repaint so any remaining spinning
+  // placeholders get replaced with empty cells. Otherwise they spin forever.
+  if (poolExhausted) displaySuggestionPage(suggestionPageIdx);
   updateSimilarArrows();
 
   // Keep filling if still below buffer target — use setTimeout to avoid
   // synchronous recursion which can cause double-fetches
   const remainingBuffer = suggestionPool.length - (suggestionPageIdx * GRID_SIZE);
-  if (remainingBuffer < POOL_BUFFER && (currentFeatured || currentMultiSearch)) {
+  if (!poolExhausted && remainingBuffer < POOL_BUFFER && (currentFeatured || currentMultiSearch)) {
     setTimeout(() => fillSuggestionPool(), 0);
   }
 }
@@ -3128,10 +3411,7 @@ function goBack() {
 
   if (prev.chooser) {
     currentFeatured = null;
-    suggestionPool = [];
-    suggestionPageIdx = 0;
-    shownIds = new Set();
-    poolFetching = false;
+    resetSuggestionPool();
     restoreChooserState(prev);
     document.getElementById('featured-section').style.display = 'none';
     renderChooser();
@@ -3209,10 +3489,7 @@ async function loadItemDirect(item) {
       similar = await fetchClaudeSimilar(item.title, item.type, item.year, GRID_SIZE);
     }
 
-    shownIds = new Set();
-    suggestionPool = [];
-    suggestionPageIdx = 0;
-    poolFetching = false;
+    resetSuggestionPool();
     renderSimilar(similar);
   } catch(e) {
     console.error('Load item error:', e);
@@ -3255,10 +3532,7 @@ async function loadItem(itemId) {
       similar = await fetchClaudeSimilar(foundItem.title, foundItem.type, foundItem.year, GRID_SIZE);
     }
 
-    shownIds = new Set();
-    suggestionPool = [];
-    suggestionPageIdx = 0;
-    poolFetching = false;
+    resetSuggestionPool();
     renderSimilar(similar);
   } catch(e) {
     console.error('Load similar error:', e);

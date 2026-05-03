@@ -12,7 +12,32 @@ const DEFAULT_SETTINGS = {
   onlyMyProviders: false,    // ignored unless myProviders.length > 0
   myProviders: [],           // TMDB provider names: ['Netflix', 'Disney Plus', ...]
   minRating: 0,              // 0-100; hide discovery items below this %, 0 = no filter
+  aiProvider: 'anthropic',   // 'anthropic' | 'openai' | 'google' | 'xai' (only anthropic active for now)
   updatedAt: 0,              // ms timestamp for cloud-sync merge (newest wins)
+};
+
+// API keys live OUTSIDE state.settings, in their own localStorage slot. This
+// guarantees the cloud-sync payload (which serializes `state` only) never
+// carries a key. Anyone who guesses a sync code can't ever read someone
+// else's key. See plan §Security for the threat model.
+const API_KEYS_LS_KEY = 'flickpick_api_keys_v1';
+
+const ApiKeys = {
+  get(provider) {
+    try {
+      const blob = JSON.parse(localStorage.getItem(API_KEYS_LS_KEY) || '{}') || {};
+      return blob[provider] || '';
+    } catch { return ''; }
+  },
+  set(provider, key) {
+    let blob = {};
+    try { blob = JSON.parse(localStorage.getItem(API_KEYS_LS_KEY) || '{}') || {}; } catch {}
+    const trimmed = (key || '').trim();
+    if (trimmed) blob[provider] = trimmed;
+    else delete blob[provider];
+    localStorage.setItem(API_KEYS_LS_KEY, JSON.stringify(blob));
+  },
+  clear(provider) { this.set(provider, ''); },
 };
 
 let state = {
@@ -205,10 +230,13 @@ const State = {
 
     // Settings merge: newest updatedAt wins. Keep local if remote is older or
     // missing entirely (so an old client without settings doesn't wipe local).
+    // Defensively strip apiKeys / apiKey from any imported settings — those
+    // never belong in cloud-sync (they live in their own localStorage slot).
     const localStamp = (state.settings && state.settings.updatedAt) || 0;
     const remoteStamp = (imported.settings && imported.settings.updatedAt) || 0;
     if (imported.settings && remoteStamp > localStamp) {
-      state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
+      const { apiKeys: _drop1, apiKey: _drop2, ...safe } = imported.settings;
+      state.settings = { ...DEFAULT_SETTINGS, ...safe };
     } else if (!state.settings) {
       state.settings = { ...DEFAULT_SETTINGS };
     }

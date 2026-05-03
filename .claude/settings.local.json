@@ -79,7 +79,14 @@
       "Bash(curl -s -o /dev/null -w \"index: %{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(curl -s http://localhost:3000/)",
       "Bash(curl -s http://localhost:3000/app.js)",
-      "Bash(taskkill //F //IM node.exe)"
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(node --check flickpick/app.js)",
+      "Bash(grep -c 'poolFetching = false;$' flickpick/app.js)",
+      "Bash(node --check flickpick/state.js)",
+      "Bash(node --check flickpick/api/recommend.js)",
+      "Bash(node --check flickpick/dev-server.js)",
+      "Bash(node --check flickpick/providers/anthropic.js)",
+      "Bash(node --check flickpick/providers/openai.js)"
     ]
   }
 }

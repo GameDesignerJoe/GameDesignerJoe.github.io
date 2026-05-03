@@ -79,6 +79,13 @@
 
   <div class="error-state" id="error-state">Something went wrong. Try again.</div>
 
+  <div class="ai-cta-state" id="ai-cta-state" style="display:none">
+    <div class="ai-cta-icon">✨</div>
+    <div class="ai-cta-title">Smart search needs an AI key</div>
+    <div class="ai-cta-body">Add an API key in Settings to enable fuzzy queries like <em>"spy shows"</em> or comma-separated multi-title searches.</div>
+    <button class="ai-cta-btn" data-action="show-page" data-page="settings">Open Settings</button>
+  </div>
+
   <div class="search-chooser-section" id="search-chooser-section" style="display:none">
     <div class="search-chooser-heading">Matches for &ldquo;<span id="search-chooser-query"></span>&rdquo;</div>
 
@@ -175,6 +182,30 @@
       </div>
       <div class="settings-status" id="sync-status"></div>
       <div class="settings-hint">Anyone who knows your code can read your lists. Pick something hard to guess if that matters.</div>
+    </div>
+
+    <div class="settings-section-card">
+      <div class="settings-section-title">AI Provider</div>
+      <div class="settings-hint">Powers smart search ("spy shows"), multi-title matches, and "Based On What You Love / Watchlist" carousels. Without a key, the app falls back to TMDB-only data — exact-title search and similar-shows still work.</div>
+
+      <label class="settings-row settings-toggle">
+        <span>Provider</span>
+        <select class="settings-select" id="setting-ai-provider" data-action="set-ai-provider">
+          <option value="anthropic">Claude (Anthropic)</option>
+          <option value="openai">ChatGPT (OpenAI)</option>
+          <option value="google">Gemini (Google)</option>
+          <option value="xai">Grok (xAI)</option>
+        </select>
+      </label>
+
+      <div class="settings-row settings-key-row">
+        <input type="password" id="setting-ai-key" class="settings-input" placeholder="sk-ant-..." data-action="set-ai-key" autocomplete="off" spellcheck="false">
+        <button class="settings-btn" data-action="toggle-key-visibility" title="Show/hide key">&#128065;</button>
+        <button class="settings-btn settings-btn-primary" data-action="test-ai-key">Test</button>
+        <button class="settings-btn" data-action="clear-ai-key" title="Remove key">&times;</button>
+      </div>
+      <div class="settings-status" id="ai-key-status"></div>
+      <div class="settings-hint">Get a key from <span id="ai-provider-help-link"><a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a></span>. The key stays only on this device — it is <strong>not</strong> included in cloud sync. You'll need to enter it on each device. If you suspect a key was exposed, revoke it at that provider's console.</div>
     </div>
 
     <div class="settings-section-card">

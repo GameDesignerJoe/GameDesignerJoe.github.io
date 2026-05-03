@@ -179,6 +179,93 @@
   }
   .settings-status.success { color: var(--seen); }
   .settings-status.error { color: var(--danger); }
+
+  /* AI key entry row — input grows, action buttons hug right. */
+  .settings-key-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    align-items: stretch;
+  }
+  .settings-key-row .settings-input { flex: 1; min-width: 0; }
+  .settings-key-row .settings-btn {
+    flex: 0 0 auto;
+    min-width: 40px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* AI key empty state — shown after a fuzzy search when no key is set. */
+  .ai-cta-state {
+    max-width: 520px;
+    margin: 60px auto;
+    padding: 32px 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-align: center;
+  }
+  .ai-cta-icon { font-size: 32px; margin-bottom: 12px; }
+  .ai-cta-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1.5px;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .ai-cta-body {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+  .ai-cta-body em { color: var(--text); font-style: normal; font-weight: 500; }
+  .ai-cta-btn {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: #1a1a25;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .ai-cta-btn:hover { filter: brightness(1.1); }
+
+  /* "All recs filtered out" empty state inside .similar-grid. The grid is
+     itself a 4-column layout; this fills the row with one centered card. */
+  .grid-empty-state {
+    grid-column: 1 / -1;
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .grid-empty-cta {
+    display: inline-block;
+    margin-top: 12px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .grid-empty-cta:hover { filter: brightness(1.15); }
   .settings-hint {
     margin-top: 10px;
     font-size: 11px;
