@@ -1,4 +1,4 @@
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -72,30 +72,234 @@ const IDS = [
 ];
 
 const QS = [
+  // ── Identity 1: sin²(x) + cos²(x) = 1 ─────────────────────────────────────
   { id: "q1a", iid: 1, q: "Which formula is always true for any angle?",
     opts: ["sin²(x) + cos²(x) = 1", "sin(x) + cos(x) = 1", "sin²(x) − cos²(x) = 1", "sin(x) = cos(x)"],
     ans: 0, exp: "The squares always add to 1 — it comes from the circle's radius being 1." },
   { id: "q1b", iid: 1, q: "sin²(x) + cos²(x) = ?",
-    opts: ["1", "0", "2", "it changes with the angle"],
-    ans: 0, exp: "Always exactly 1. Every angle, no exceptions. This never changes." },
+    opts: ["it depends on the angle", "0", "1", "2"],
+    ans: 2, exp: "Always exactly 1. Every angle, no exceptions." },
+  { id: "q1c", iid: 1, q: "If sin(x) = 0.6, what is cos²(x)?",
+    opts: ["0.36", "0.64", "0.6", "0.4"],
+    ans: 1, exp: "cos²(x) = 1 − sin²(x) = 1 − 0.36 = 0.64." },
+  { id: "q1d", iid: 1, q: "If cos(x) = 0.8 and x is in Quadrant I, what is sin(x)?",
+    opts: ["0.4", "0.36", "0.6", "0.64"],
+    ans: 2, exp: "sin²(x) = 1 − 0.64 = 0.36, so sin(x) = ±0.6. In Q1, sin is positive — so 0.6." },
+  { id: "q1e", iid: 1, q: "Which expression equals 1 for every angle?",
+    opts: ["sin(x) · cos(x)", "sin(x) + cos(x)", "sin²(x) − cos²(x)", "sin²(x) + cos²(x)"],
+    ans: 3, exp: "Only the sum of the squares is the constant identity." },
+  { id: "q1f", iid: 1, q: "1 − cos²(x) simplifies to:",
+    opts: ["sin²(x)", "cos²(x)", "1 − sin²(x)", "tan²(x)"],
+    ans: 0, exp: "Rearranging the identity: sin²(x) = 1 − cos²(x)." },
+  { id: "q1g", iid: 1, q: "1 − sin²(x) simplifies to:",
+    opts: ["1", "tan²(x)", "sin(x)·cos(x)", "cos²(x)"],
+    ans: 3, exp: "Rearranging the identity: cos²(x) = 1 − sin²(x)." },
+  { id: "q1h", iid: 1, q: "If sin(x) = 0, what is cos²(x)?",
+    opts: ["0", "0.5", "1", "undefined"],
+    ans: 2, exp: "0² + cos²(x) = 1, so cos²(x) = 1." },
+  { id: "q1i", iid: 1, q: "If cos²(x) = 0.25, what is sin²(x)?",
+    opts: ["0.5", "0.75", "0.25", "1.25"],
+    ans: 1, exp: "sin² = 1 − cos² = 1 − 0.25 = 0.75." },
+  { id: "q1j", iid: 1, q: "sin²(45°) + cos²(45°) = ?",
+    opts: ["√2", "0.5", "1", "2"],
+    ans: 2, exp: "Always 1 — even at 45° where sin = cos = √2/2 ≈ 0.707, the squares add to 1." },
+  { id: "q1k", iid: 1, q: "If sin(x) = −0.5, what is cos²(x)?",
+    opts: ["−0.75", "0.25", "0.5", "0.75"],
+    ans: 3, exp: "cos² = 1 − (−0.5)² = 1 − 0.25 = 0.75. The sign of sin doesn't matter when squared." },
+  { id: "q1l", iid: 1, q: "Why does this identity work? Because the unit circle has:",
+    opts: ["a center at the origin", "an angle of 360°", "a radius of 1", "a circumference of 2π"],
+    ans: 2, exp: "Radius 1 means x² + y² = 1, and on the circle (x, y) = (cos, sin)." },
+  { id: "q1m", iid: 1, q: "Which is NOT always true?",
+    opts: ["sin²(x) + cos²(x) = 1", "sin(0) = 0", "sin(x) + cos(x) = 1", "cos(0) = 1"],
+    ans: 2, exp: "sin + cos = 1 only at certain angles — not always. The squared version is always true." },
+  { id: "q1n", iid: 1, q: "If sin²(x) = 0.49, what is cos²(x)?",
+    opts: ["0.49", "0.51", "0.7", "0.3"],
+    ans: 1, exp: "1 − 0.49 = 0.51." },
+  { id: "q1o", iid: 1, q: "The identity sin² + cos² = 1 is also called the:",
+    opts: ["Quadratic identity", "Pythagorean identity", "Linear identity", "Reciprocal identity"],
+    ans: 1, exp: "It's the unit circle's version of the Pythagorean theorem (a² + b² = c²)." },
+  { id: "q1p", iid: 1, q: "If cos(x) = 0, what is sin²(x)?",
+    opts: ["0", "0.5", "1", "undefined"],
+    ans: 2, exp: "sin² + 0 = 1, so sin² = 1 (and sin = ±1)." },
+
+  // ── Identity 2: tan(x) = sin(x) / cos(x) ──────────────────────────────────
   { id: "q2a", iid: 2, q: "tan(x) is equal to:",
-    opts: ["sin(x) / cos(x)", "cos(x) / sin(x)", "sin(x) × cos(x)", "1 / cos(x)"],
-    ans: 0, exp: "Tangent = sin ÷ cos. Height over width." },
+    opts: ["sin(x) × cos(x)", "cos(x) / sin(x)", "1 / cos(x)", "sin(x) / cos(x)"],
+    ans: 3, exp: "Tangent = sin ÷ cos. Height over width." },
   { id: "q2b", iid: 2, q: "If sin(x) = 0.5 and cos(x) = 0.87, then tan(x) ≈",
-    opts: ["0.57", "1.74", "0.44", "0.13"],
-    ans: 0, exp: "0.5 ÷ 0.87 ≈ 0.57" },
+    opts: ["0.13", "0.57", "1.74", "0.44"],
+    ans: 1, exp: "0.5 ÷ 0.87 ≈ 0.57." },
+  { id: "q2c", iid: 2, q: "tan(0°) = ?",
+    opts: ["0", "1", "undefined", "−1"],
+    ans: 0, exp: "tan(0°) = sin(0°) / cos(0°) = 0 / 1 = 0." },
+  { id: "q2d", iid: 2, q: "tan(45°) = ?",
+    opts: ["0", "0.5", "1", "√2"],
+    ans: 2, exp: "At 45°, sin = cos, so their ratio is exactly 1." },
+  { id: "q2e", iid: 2, q: "tan(90°) is:",
+    opts: ["1", "0", "infinite", "undefined"],
+    ans: 3, exp: "cos(90°) = 0, so we'd be dividing by zero. Tangent is undefined at 90°." },
+  { id: "q2f", iid: 2, q: "If sin(x) = 0.4 and cos(x) = 0.9, tan(x) ≈",
+    opts: ["0.36", "0.44", "2.25", "1.3"],
+    ans: 1, exp: "0.4 ÷ 0.9 ≈ 0.44." },
+  { id: "q2g", iid: 2, q: "If sin(x) = −0.6 and cos(x) = 0.8, tan(x) =",
+    opts: ["−0.75", "0.75", "−1.33", "0.48"],
+    ans: 0, exp: "(−0.6) ÷ 0.8 = −0.75. The sign comes from the numerator." },
+  { id: "q2h", iid: 2, q: "Tangent is undefined wherever:",
+    opts: ["sin = 0", "cos = 0", "sin = cos", "the angle is negative"],
+    ans: 1, exp: "Dividing by zero is undefined, and tan = sin/cos." },
+  { id: "q2i", iid: 2, q: "tan(x) is positive in which quadrants?",
+    opts: ["Q1 only", "Q1 and Q2", "Q1 and Q3", "all four"],
+    ans: 2, exp: "In Q1 both sin and cos are positive. In Q3 both are negative — and negative/negative is positive." },
+  { id: "q2j", iid: 2, q: "Geometrically, tan(x) on the unit circle is the:",
+    opts: ["radius of the circle", "x-coordinate", "slope of the line from origin to the point", "angle in radians"],
+    ans: 2, exp: "Slope = rise / run = y / x = sin / cos = tan." },
+  { id: "q2k", iid: 2, q: "If tan(x) = 1, the angle could be:",
+    opts: ["0°", "30°", "45°", "60°"],
+    ans: 2, exp: "tan(45°) = 1, since sin = cos there." },
+  { id: "q2l", iid: 2, q: "If you know sin and cos, you find tan by:",
+    opts: ["adding them", "subtracting cos from sin", "multiplying them", "dividing sin by cos"],
+    ans: 3, exp: "tan = sin / cos. Always." },
+  { id: "q2m", iid: 2, q: "If tan(x) is very large (like 10), then:",
+    opts: ["sin is much bigger than cos", "cos is much bigger than sin", "they are about equal", "both are negative"],
+    ans: 0, exp: "Big tan = sin/cos is big, meaning sin >> cos — the point is near the top of the circle." },
+  { id: "q2n", iid: 2, q: "tan(180°) = ?",
+    opts: ["0", "−1", "1", "undefined"],
+    ans: 0, exp: "sin(180°) = 0, cos(180°) = −1, so tan = 0 / −1 = 0." },
+
+  // ── Identity 3: Unit Circle Basics (cos = x, sin = y) ─────────────────────
   { id: "q3a", iid: 3, q: "On the unit circle, sin(x) represents the:",
-    opts: ["y-coordinate", "x-coordinate", "radius", "the angle in degrees"],
-    ans: 0, exp: "Sin = height = y-coordinate. Cos = width = x-coordinate. Always." },
+    opts: ["radius", "x-coordinate", "y-coordinate", "angle in degrees"],
+    ans: 2, exp: "Sin = height = y-coordinate. Cos = width = x-coordinate." },
   { id: "q3b", iid: 3, q: "A point on the circle is at (−0.7, 0.71). What is cos(x)?",
-    opts: ["−0.7", "0.71", "0.7", "−0.71"],
-    ans: 0, exp: "Cos is always the x-coordinate — the left/right value." },
+    opts: ["0.71", "−0.71", "−0.7", "0.7"],
+    ans: 2, exp: "Cos is always the x-coordinate — the left/right value." },
+  { id: "q3c", iid: 3, q: "On the unit circle, cos(x) represents the:",
+    opts: ["x-coordinate", "y-coordinate", "radius", "diameter"],
+    ans: 0, exp: "Cos = horizontal position." },
+  { id: "q3d", iid: 3, q: "The unit circle has radius:",
+    opts: ["π", "1", "2", "0"],
+    ans: 1, exp: "Hence the name 'unit' — radius 1." },
+  { id: "q3e", iid: 3, q: "At angle 0°, the point on the unit circle is at:",
+    opts: ["(0, 1)", "(−1, 0)", "(0, 0)", "(1, 0)"],
+    ans: 3, exp: "Starting position: rightmost point. cos(0)=1, sin(0)=0." },
+  { id: "q3f", iid: 3, q: "At angle 90°, the point is at:",
+    opts: ["(0, 1)", "(1, 0)", "(0, −1)", "(−1, 0)"],
+    ans: 0, exp: "A quarter turn counter-clockwise puts you at the top. cos(90°)=0, sin(90°)=1." },
+  { id: "q3g", iid: 3, q: "At angle 180°, the point is at:",
+    opts: ["(0, 1)", "(0, −1)", "(−1, 0)", "(1, 0)"],
+    ans: 2, exp: "Half turn — you're at the leftmost point." },
+  { id: "q3h", iid: 3, q: "At angle 270°, the point is at:",
+    opts: ["(−1, 0)", "(0, −1)", "(1, 0)", "(0, 1)"],
+    ans: 1, exp: "Three quarters around — bottom of the circle." },
+  { id: "q3i", iid: 3, q: "In Quadrant II (top-left), sin and cos are:",
+    opts: ["both positive", "both negative", "sin positive, cos negative", "sin negative, cos positive"],
+    ans: 2, exp: "Top half = sin positive. Left half = cos negative." },
+  { id: "q3j", iid: 3, q: "In Quadrant III (bottom-left), sin and cos are:",
+    opts: ["both negative", "both positive", "sin negative, cos positive", "sin positive, cos negative"],
+    ans: 0, exp: "Below center = sin negative. Left of center = cos negative." },
+  { id: "q3k", iid: 3, q: "In Quadrant IV (bottom-right):",
+    opts: ["sin negative, cos positive", "both negative", "sin positive, cos negative", "both positive"],
+    ans: 0, exp: "Below center = sin negative. Right of center = cos positive." },
+  { id: "q3l", iid: 3, q: "Negative angles go:",
+    opts: ["counter-clockwise", "off the circle", "clockwise", "stay in place"],
+    ans: 2, exp: "Positive angles go counter-clockwise; negative angles go clockwise." },
+  { id: "q3m", iid: 3, q: "At 45°, sin and cos are both approximately:",
+    opts: ["0.5", "1", "0.707", "0.866"],
+    ans: 2, exp: "At 45°, sin = cos = √2/2 ≈ 0.707." },
+  { id: "q3n", iid: 3, q: "After a full 360° rotation, the point returns to:",
+    opts: ["(0, 0)", "(1, 0)", "(0, 1)", "(−1, 0)"],
+    ans: 1, exp: "One complete loop ends where it started — at (1, 0)." },
+  { id: "q3o", iid: 3, q: "If a point is at (0.866, 0.5) on the unit circle, the angle is:",
+    opts: ["60°", "30°", "45°", "90°"],
+    ans: 1, exp: "30°: cos(30°) = √3/2 ≈ 0.866, sin(30°) = 0.5." },
+
+  // ── Identity 4: sin(x+y) = sin(x)cos(y) + sin(y)cos(x) ────────────────────
   { id: "q4a", iid: 4, q: "sin(x + y) equals:",
-    opts: ["sin(x)cos(y) + sin(y)cos(x)", "sin(x)sin(y) + cos(x)cos(y)", "sin(x)cos(y) − sin(y)cos(x)", "cos(x)cos(y) − sin(x)sin(y)"],
-    ans: 0, exp: "Cross pattern: sin×cos + sin×cos, with x and y swapped between terms." },
+    opts: ["cos(x)cos(y) − sin(x)sin(y)", "sin(x)cos(y) + sin(y)cos(x)", "sin(x)sin(y) + cos(x)cos(y)", "sin(x)cos(y) − sin(y)cos(x)"],
+    ans: 1, exp: "Cross pattern: sin × cos + sin × cos, with x and y swapped between the two terms." },
+  { id: "q4b", iid: 4, q: "The sin addition formula has how many terms on the right side?",
+    opts: ["1", "2", "3", "4"],
+    ans: 1, exp: "Two terms: sin(x)cos(y) and sin(y)cos(x), connected with a +." },
+  { id: "q4c", iid: 4, q: "The sign between the two terms in sin(x+y) is:",
+    opts: ["−", "+", "×", "÷"],
+    ans: 1, exp: "Always +. The minus sign belongs to cos addition." },
+  { id: "q4d", iid: 4, q: "sin(30° + 60°) = sin(90°) = ?",
+    opts: ["0", "0.5", "0.866", "1"],
+    ans: 3, exp: "sin(90°) = 1, the maximum value." },
+  { id: "q4e", iid: 4, q: "To find sin(75°) using addition, you could split it as:",
+    opts: ["75 = 100 − 25", "75 = 30 + 45", "75 = 60 + 25", "75 = 70 + 5"],
+    ans: 1, exp: "30° and 45° are angles you have memorized. 25° isn't standard." },
+  { id: "q4f", iid: 4, q: "sin(A + B) = sin(A)cos(B) + ___",
+    opts: ["sin(B)cos(A)", "cos(A)cos(B)", "sin(A)sin(B)", "cos(A)sin(B) − sin(B)cos(A)"],
+    ans: 0, exp: "Mirror the first term — swap A and B." },
+  { id: "q4g", iid: 4, q: "Each term in sin(x+y) contains one sin and one ___",
+    opts: ["sin", "tan", "cos", "sec"],
+    ans: 2, exp: "Both terms are sin × cos. They differ only in which angle goes inside which function." },
+  { id: "q4h", iid: 4, q: "sin(0 + x) using the formula gives:",
+    opts: ["sin(x)", "cos(x)", "0", "1"],
+    ans: 0, exp: "sin(0)cos(x) + sin(x)cos(0) = 0·cos(x) + sin(x)·1 = sin(x). It checks out." },
+  { id: "q4i", iid: 4, q: "sin(45° + 45°) = sin(90°) =",
+    opts: ["1", "√2", "0", "0.5"],
+    ans: 0, exp: "sin(90°) = 1." },
+  { id: "q4j", iid: 4, q: "If x = y, then sin(x + y) = sin(2x). Using the formula, this equals:",
+    opts: ["sin²(x)", "2 sin(x) cos(x)", "cos²(x) − sin²(x)", "2 cos²(x)"],
+    ans: 1, exp: "sin(x)cos(x) + sin(x)cos(x) = 2 sin(x) cos(x). This is the double-angle formula for sin." },
+  { id: "q4k", iid: 4, q: "Why use the sin addition formula?",
+    opts: ["to find sin of a single angle", "to find sin of a sum of two known angles", "to convert sin to cos", "to compute tan"],
+    ans: 1, exp: "It expands sin(sum) into expressions involving the individual angles you already know." },
+  { id: "q4l", iid: 4, q: "The pattern sin(x)cos(y) + cos(x)sin(y) collapses to:",
+    opts: ["cos(x + y)", "sin(x − y)", "sin(x + y)", "1"],
+    ans: 2, exp: "Recognize the right side of sin addition — it equals sin(x+y)." },
+  { id: "q4m", iid: 4, q: "If y = 90°, the formula gives sin(x + 90°) =",
+    opts: ["cos(x)", "−cos(x)", "−sin(x)", "sin(x)"],
+    ans: 0, exp: "sin(x)·0 + 1·cos(x) = cos(x). So sin(x + 90°) = cos(x)." },
+  { id: "q4n", iid: 4, q: "sin(x + y) − sin(y + x) =",
+    opts: ["2 sin(x+y)", "0", "sin(0)", "sin(x − y)"],
+    ans: 1, exp: "Addition is symmetric — sin(x+y) and sin(y+x) are the same value, so their difference is 0." },
+
+  // ── Identity 5: cos(x+y) = cos(x)cos(y) − sin(x)sin(y) ────────────────────
   { id: "q5a", iid: 5, q: "cos(x + y) equals:",
-    opts: ["cos(x)cos(y) − sin(x)sin(y)", "cos(x)cos(y) + sin(x)sin(y)", "sin(x)cos(y) + sin(y)cos(x)", "sin(x)sin(y) − cos(x)cos(y)"],
-    ans: 0, exp: "Cos×cos minus sin×sin. The minus sign is the key detail to remember." },
+    opts: ["cos(x)cos(y) + sin(x)sin(y)", "sin(x)cos(y) + sin(y)cos(x)", "cos(x)cos(y) − sin(x)sin(y)", "sin(x)sin(y) − cos(x)cos(y)"],
+    ans: 2, exp: "Cos × cos minus sin × sin. The minus sign is the key detail." },
+  { id: "q5b", iid: 5, q: "The KEY difference between sin addition and cos addition is:",
+    opts: ["the order of terms", "the sign between terms", "the number of terms", "the angles used"],
+    ans: 1, exp: "Sin uses +, cos uses −. That sign is what you have to remember." },
+  { id: "q5c", iid: 5, q: "The sign between the two terms in cos(x+y) is:",
+    opts: ["+", "−", "×", "÷"],
+    ans: 1, exp: "Minus. That's the difference from sin addition." },
+  { id: "q5d", iid: 5, q: "cos(60° + 30°) = cos(90°) =",
+    opts: ["1", "0.5", "0", "−1"],
+    ans: 2, exp: "cos(90°) = 0. The point is at the top of the circle, so its x-coordinate is 0." },
+  { id: "q5e", iid: 5, q: "cos(0 + x) using the formula:",
+    opts: ["sin(x)", "1", "cos(x)", "0"],
+    ans: 2, exp: "cos(0)cos(x) − sin(0)sin(x) = 1·cos(x) − 0 = cos(x). It checks out." },
+  { id: "q5f", iid: 5, q: "cos(45° + 45°) = cos(90°) =",
+    opts: ["√2", "0", "1", "0.5"],
+    ans: 1, exp: "cos(90°) = 0." },
+  { id: "q5g", iid: 5, q: "Each term in cos(x+y) contains:",
+    opts: ["one sin and one cos", "two sins", "two cosines OR two sines (same function)", "always a sin and a tan"],
+    ans: 2, exp: "First term is cos × cos. Second term is sin × sin. Same function in each term — unlike sin addition." },
+  { id: "q5h", iid: 5, q: "If x = y, then cos(x + y) = cos(2x). Using the formula:",
+    opts: ["2 cos(x) sin(x)", "cos²(x) − sin²(x)", "cos²(x) + sin²(x)", "2 cos²(x)"],
+    ans: 1, exp: "cos²(x) − sin²(x). This is the double-angle formula for cos." },
+  { id: "q5i", iid: 5, q: "To compute cos(105°) using addition, split it as:",
+    opts: ["100° + 5°", "60° + 45°", "90° + 15°", "50° + 55°"],
+    ans: 1, exp: "60° and 45° are standard reference angles you can compute exactly." },
+  { id: "q5j", iid: 5, q: "The pattern cos(x)cos(y) − sin(x)sin(y) collapses to:",
+    opts: ["sin(x+y)", "cos(x−y)", "cos(x+y)", "sin(x)cos(y)"],
+    ans: 2, exp: "It's the right side of cos addition, read backwards." },
+  { id: "q5k", iid: 5, q: "If y = 90°, then cos(x + 90°) =",
+    opts: ["sin(x)", "−sin(x)", "cos(x)", "0"],
+    ans: 1, exp: "cos(x)·0 − sin(x)·1 = −sin(x)." },
+  { id: "q5l", iid: 5, q: "Which is the cos addition formula?",
+    opts: ["cos·cos + sin·sin", "sin·cos + cos·sin", "cos·cos − sin·sin", "cos·sin − sin·cos"],
+    ans: 2, exp: "cos × cos minus sin × sin. Same function pairs, with a minus." },
+  { id: "q5m", iid: 5, q: "Given cos(x+y) = cos(x)cos(y) − sin(x)sin(y), what's cos(x − y)?",
+    opts: ["cos(x)cos(y) + sin(x)sin(y)", "cos(x)cos(y) − sin(x)sin(y)", "sin(x)cos(y) − cos(x)sin(y)", "cos(x) − cos(y)"],
+    ans: 0, exp: "Replacing y with −y flips the sign on sin(y), turning the minus into a plus. So cos(x−y) = cos(x)cos(y) + sin(x)sin(y)." },
+  { id: "q5n", iid: 5, q: "When you remember cos addition, the trick is:",
+    opts: ["it has 4 terms", "the same-function pair has a minus sign", "it's identical to sin addition", "it always equals 1"],
+    ans: 1, exp: "Same-function products (cos·cos, sin·sin) are subtracted. That's the cos pattern." },
 ];
 
 const SCENARIOS = [
@@ -199,6 +403,11 @@ const defP = () => ({
   speedBests: [],
   ids: Object.fromEntries(IDS.map((i) => [i.id, { seen: 0, correct: 0, streak: 0, mastered: false }])),
   finder: {},
+  lab: {
+    missile: { attempts: 0, bestAccuracy: 0 },
+    noise: { attempts: 0, bestAccuracy: 0 },
+    bridge: { attempts: 0, bestAccuracy: 0 },
+  },
   _started: false,
 });
 
@@ -722,8 +931,24 @@ function PracticeMode({ progress, onUpdate }) {
   const [showFormulaModal, setShowFormulaModal] = useState(false);
 
   const ident = IDS.find((i) => i.id === iid);
-  const availQs = QS.filter((q) => q.iid === iid);
-  const q = availQs[qIdx % Math.max(availQs.length, 1)];
+  const availQs = useMemo(() => {
+    const arr = QS.filter((item) => item.iid === iid);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, [iid]);
+  const baseQ = availQs[qIdx % Math.max(availQs.length, 1)];
+  const q = useMemo(() => {
+    if (!baseQ) return null;
+    const order = baseQ.opts.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    return { ...baseQ, opts: order.map((i) => baseQ.opts[i]), ans: order.indexOf(baseQ.ans) };
+  }, [baseQ?.id]);
   const blank = ident?.blanks[blankIdx % (ident?.blanks.length || 1)];
 
   const reset = () => {
@@ -1035,6 +1260,503 @@ function FormulaFinder({ progress, onUpdate }) {
   );
 }
 
+// ─── LAB ──────────────────────────────────────────────────────────────────────
+const LAB_GAMES = [
+  {
+    key: "missile", title: "Missile Command", iid: 3,
+    desc: "Set sin/cos components to launch the missile to the target.",
+    unlock: () => true,
+    unlockHint: "Get one correct on Unit Circle Basics in Practice to unlock.",
+  },
+  {
+    key: "noise", title: "Noise Cancelling", iid: 1,
+    desc: "Build the cancelling sin wave that silences the noise.",
+    unlock: () => true,
+    unlockHint: "Get one correct on The Foundation in Practice to unlock.",
+  },
+  {
+    key: "bridge", title: "Bridge Builder", iid: 4,
+    desc: "Use the addition formulas to balance the cable forces.",
+    unlock: () => true,
+    unlockHint: "Get one correct on Sin Addition AND Cos Addition in Practice to unlock.",
+  },
+];
+
+function Lab({ progress, onUpdate }) {
+  const [game, setGame] = useState(null);
+
+  if (game === "missile") return <MissileCommand progress={progress} onUpdate={onUpdate} onBack={() => setGame(null)} />;
+  if (game === "noise") return <NoiseCancelling progress={progress} onUpdate={onUpdate} onBack={() => setGame(null)} />;
+  if (game === "bridge") return <BridgeBuilder progress={progress} onUpdate={onUpdate} onBack={() => setGame(null)} />;
+
+  return (
+    <div style={{ padding: "24px 16px", fontFamily: F }}>
+      <div style={{ fontSize: 30, fontFamily: FD, color: C.text, fontWeight: 800, lineHeight: 1.15, marginBottom: 6 }}>Lab</div>
+      <div style={{ fontSize: 13, color: C.muted, marginBottom: 22 }}>Apply the math. Wrong inputs make wrong things happen — that's the point.</div>
+
+      {LAB_GAMES.map((g) => {
+        const ident = IDS.find((i) => i.id === g.iid);
+        const unlocked = g.unlock(progress);
+        const labP = (progress.lab || {})[g.key] || { attempts: 0, bestAccuracy: 0 };
+        return (
+          <div key={g.key}
+            onClick={() => unlocked && setGame(g.key)}
+            style={{ background: C.surface, borderRadius: 16, padding: "16px 18px", marginBottom: 12, border: `1px solid ${unlocked ? ident.color + "55" : C.border}`, cursor: unlocked ? "pointer" : "default", opacity: unlocked ? 1 : 0.55 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{g.title}</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: ident.color, background: `${ident.color}22`, padding: "3px 8px", borderRadius: 999, letterSpacing: "0.06em", textTransform: "uppercase" }}>{ident.name}</div>
+              {!unlocked && <span style={{ marginLeft: "auto", fontSize: 14 }}>🔒</span>}
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, marginBottom: unlocked && labP.attempts > 0 ? 10 : 0 }}>
+              {unlocked ? g.desc : g.unlockHint}
+            </div>
+            {unlocked && labP.attempts > 0 && (
+              <div style={{ display: "flex", gap: 16, fontSize: 12, color: C.muted }}>
+                <span>Attempts: <b style={{ color: C.text }}>{labP.attempts}</b></span>
+                <span>Best: <b style={{ color: C.gold }}>{Math.round(labP.bestAccuracy)}%</b></span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LabHeader({ title, onBack }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: C.muted, fontSize: 22, cursor: "pointer", padding: "4px 8px" }}>←</button>
+      <div style={{ fontSize: 18, fontFamily: FD, fontWeight: 800, color: C.text }}>{title}</div>
+    </div>
+  );
+}
+
+function recordLab(onUpdate, key, accuracy) {
+  onUpdate((p) => {
+    const prev = (p.lab || {})[key] || { attempts: 0, bestAccuracy: 0 };
+    return { ...p, lab: { ...(p.lab || {}), [key]: { attempts: prev.attempts + 1, bestAccuracy: Math.max(prev.bestAccuracy, accuracy) } } };
+  });
+}
+
+// ─── GAME 1: MISSILE COMMAND ──────────────────────────────────────────────────
+function MissileCommand({ progress, onUpdate, onBack }) {
+  const POWER = 100;
+  const GRAVITY = 50;
+  const SCENE_W = 500, SCENE_H = 250;
+  const PX_PER_UNIT = 1.6;
+  const CANNON_X = 40, GROUND_Y = SCENE_H - 30;
+
+  const [theta, setTheta] = useState(45);
+  const [targetX, setTargetX] = useState(300);
+  const [hVelInput, setHVelInput] = useState("");
+  const [vVelInput, setVVelInput] = useState("");
+  const [fired, setFired] = useState(false);
+  const [t, setT] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+  const [result, setResult] = useState(null);
+  const rafRef = useRef(null);
+
+  const correctH = POWER * Math.cos((theta * Math.PI) / 180);
+  const correctV = POWER * Math.sin((theta * Math.PI) / 180);
+
+  const newChallenge = useCallback(() => {
+    setTheta(20 + Math.floor(Math.random() * 60));
+    setTargetX(180 + Math.floor(Math.random() * 220));
+    setHVelInput(""); setVVelInput("");
+    setFired(false); setT(0); setShowHint(false); setResult(null);
+  }, []);
+
+  const fire = () => {
+    const h = parseFloat(hVelInput);
+    const v = parseFloat(vVelInput);
+    if (isNaN(h) || isNaN(v)) return;
+    setFired(true);
+    setT(0);
+    const flightT = (2 * v) / GRAVITY;
+    const landingX = h * flightT;
+    const targetUnits = (targetX - CANNON_X) / PX_PER_UNIT;
+    const errPct = Math.abs((landingX - targetUnits) / targetUnits) * 100;
+    const accuracy = Math.max(0, 100 - errPct);
+    setResult({ landingX, targetUnits, errPct, accuracy, h, v });
+    recordLab(onUpdate, "missile", accuracy);
+
+    const start = performance.now();
+    const duration = Math.max(800, Math.min(1800, flightT * 600));
+    const tick = (now) => {
+      const elapsed = (now - start) / duration;
+      if (elapsed >= 1) { setT(flightT); return; }
+      setT(elapsed * flightT);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => () => rafRef.current && cancelAnimationFrame(rafRef.current), []);
+
+  const arcPoints = [];
+  const stepsForArc = 40;
+  if (fired && result) {
+    const flightT = (2 * result.v) / GRAVITY;
+    for (let i = 0; i <= stepsForArc; i++) {
+      const tt = (i / stepsForArc) * flightT;
+      const x = CANNON_X + result.h * tt * PX_PER_UNIT;
+      const y = GROUND_Y - (result.v * tt - 0.5 * GRAVITY * tt * tt) * PX_PER_UNIT;
+      arcPoints.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+  }
+  const missileX = fired && result ? CANNON_X + result.h * t * PX_PER_UNIT : CANNON_X;
+  const missileY = fired && result ? GROUND_Y - (result.v * t - 0.5 * GRAVITY * t * t) * PX_PER_UNIT : GROUND_Y;
+
+  const verdict = result ? (result.accuracy > 95 ? { msg: "Bullseye! The math works.", color: C.mint } : result.accuracy > 85 ? { msg: "Close — that's a solid hit.", color: C.mint } : result.accuracy > 60 ? { msg: "Off by a fair amount. Check your cos and sin.", color: C.gold } : { msg: "Way off. Recheck which goes with cos and which with sin.", color: C.coral }) : null;
+
+  return (
+    <div style={{ padding: "20px 16px", fontFamily: F }}>
+      <LabHeader title="Missile Command" onBack={onBack} />
+
+      <div style={{ background: C.surface, borderRadius: 14, padding: 12, marginBottom: 14, border: `1px solid ${C.border}` }}>
+        <svg viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} style={{ width: "100%", display: "block" }}>
+          <rect x="0" y="0" width={SCENE_W} height={GROUND_Y} fill="#16152a" />
+          <rect x="0" y={GROUND_Y} width={SCENE_W} height={SCENE_H - GROUND_Y} fill="#2a2847" />
+          {/* cannon */}
+          <circle cx={CANNON_X} cy={GROUND_Y} r="10" fill={C.gold} />
+          <line x1={CANNON_X} y1={GROUND_Y} x2={CANNON_X + 22 * Math.cos((theta * Math.PI) / 180)} y2={GROUND_Y - 22 * Math.sin((theta * Math.PI) / 180)} stroke={C.gold} strokeWidth="5" strokeLinecap="round" />
+          {/* target */}
+          <circle cx={targetX} cy={GROUND_Y} r="14" fill="none" stroke={C.coral} strokeWidth="2" />
+          <circle cx={targetX} cy={GROUND_Y} r="9" fill="none" stroke={C.coral} strokeWidth="2" />
+          <circle cx={targetX} cy={GROUND_Y} r="3" fill={C.coral} />
+          {/* arc */}
+          {fired && arcPoints.length > 0 && (
+            <polyline points={arcPoints.join(" ")} fill="none" stroke={C.gold} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.5" />
+          )}
+          {/* missile */}
+          {fired && (
+            <circle cx={missileX} cy={missileY} r="5" fill={C.gold} filter="url(#missGlow)" />
+          )}
+          <defs>
+            <filter id="missGlow"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          </defs>
+        </svg>
+      </div>
+
+      <div style={{ background: C.surface, borderRadius: 14, padding: "14px 16px", marginBottom: 14, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7 }}>
+          <div style={{ marginBottom: 6 }}>Launch angle: <b style={{ color: C.gold }}>θ = {theta}°</b> &nbsp;·&nbsp; Power: <b>{POWER}</b></div>
+          <div style={{ fontFamily: "monospace", fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
+            Horizontal vel = {POWER} × cos({theta}°) ={" "}
+            <input type="number" step="0.01" inputMode="decimal" value={hVelInput} onChange={(e) => setHVelInput(e.target.value)} disabled={fired}
+              style={{ width: 70, padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${C.border}`, background: C.bg, color: C.text, fontFamily: "monospace", fontSize: 13 }} />
+            <br />
+            Vertical vel &nbsp;= {POWER} × sin({theta}°) ={" "}
+            <input type="number" step="0.01" inputMode="decimal" value={vVelInput} onChange={(e) => setVVelInput(e.target.value)} disabled={fired}
+              style={{ width: 70, padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${C.border}`, background: C.bg, color: C.text, fontFamily: "monospace", fontSize: 13 }} />
+          </div>
+          {showHint && (
+            <div style={{ marginTop: 10, fontSize: 12, color: C.gold, opacity: 0.85, fontFamily: "monospace" }}>
+              cos({theta}°) ≈ {Math.cos((theta * Math.PI) / 180).toFixed(3)} &nbsp; sin({theta}°) ≈ {Math.sin((theta * Math.PI) / 180).toFixed(3)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!fired && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowHint(true)} disabled={showHint}
+            style={{ flex: 1, padding: 13, borderRadius: 12, border: `1.5px solid ${C.gold}`, background: "transparent", color: C.gold, fontWeight: 700, fontSize: 13, cursor: showHint ? "default" : "pointer", fontFamily: F, opacity: showHint ? 0.5 : 1 }}>
+            Hint
+          </button>
+          <button onClick={fire} disabled={!hVelInput || !vVelInput}
+            style={{ flex: 2, padding: 13, borderRadius: 12, border: "none", background: hVelInput && vVelInput ? C.gold : C.border, color: hVelInput && vVelInput ? "#0d0c1a" : C.muted, fontWeight: 800, fontSize: 14, cursor: hVelInput && vVelInput ? "pointer" : "default", fontFamily: F }}>
+            Test — Fire!
+          </button>
+        </div>
+      )}
+
+      {result && (
+        <div style={{ marginTop: 14 }}>
+          <div style={{ background: `${verdict.color}18`, borderRadius: 13, padding: "14px 16px", marginBottom: 10, border: `1px solid ${verdict.color}44` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: verdict.color, marginBottom: 6 }}>{verdict.msg}</div>
+            <div style={{ fontSize: 12, color: C.text, fontFamily: "monospace", lineHeight: 1.7 }}>
+              Your h = {result.h.toFixed(2)} &nbsp; correct h = <span style={{ color: C.mint }}>{correctH.toFixed(2)}</span><br />
+              Your v = {result.v.toFixed(2)} &nbsp; correct v = <span style={{ color: C.mint }}>{correctV.toFixed(2)}</span><br />
+              Accuracy: <b style={{ color: C.gold }}>{result.accuracy.toFixed(0)}%</b>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setFired(false); setT(0); setResult(null); setHVelInput(""); setVVelInput(""); setShowHint(false); }}
+              style={{ flex: 1, padding: 13, borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: F }}>
+              Retry Same
+            </button>
+            <button onClick={newChallenge}
+              style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
+              New Challenge
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── GAME 2: NOISE CANCELLING ─────────────────────────────────────────────────
+function NoiseCancelling({ progress, onUpdate, onBack }) {
+  const [seed, setSeed] = useState(0);
+  const noise = useMemo(() => {
+    const _ = seed;
+    return { amp: +(0.4 + Math.random() * 0.4).toFixed(2), freq: 1 + Math.floor(Math.random() * 3) };
+  }, [seed]);
+
+  const [ampInput, setAmpInput] = useState("");
+  const [freqInput, setFreqInput] = useState("");
+  const [phaseInput, setPhaseInput] = useState("");
+  const [submitted, setSubmitted] = useState(null);
+
+  const userAmp = parseFloat(ampInput) || 0;
+  const userFreq = parseFloat(freqInput) || 0;
+  const userPhase = parseFloat(phaseInput) || 0;
+
+  const W = 320, H = 60, SAMPLES = 200, X_RANGE = 4 * Math.PI;
+  const buildPath = (fn) => {
+    const pts = [];
+    for (let i = 0; i <= SAMPLES; i++) {
+      const x = (i / SAMPLES) * X_RANGE;
+      const y = fn(x);
+      const sx = (i / SAMPLES) * W;
+      const sy = H / 2 - y * (H / 2 - 4);
+      pts.push(`${sx.toFixed(1)},${sy.toFixed(1)}`);
+    }
+    return pts.join(" ");
+  };
+
+  const noiseFn = (x) => noise.amp * Math.sin(noise.freq * x);
+  const userFn = (x) => userAmp * Math.sin(userFreq * x + userPhase * Math.PI);
+  const sumFn = (x) => noiseFn(x) + userFn(x);
+
+  const submit = () => {
+    let sumSq = 0, noiseSq = 0;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const x = (i / SAMPLES) * X_RANGE;
+      sumSq += sumFn(x) ** 2;
+      noiseSq += noiseFn(x) ** 2;
+    }
+    const rmsResult = Math.sqrt(sumSq / SAMPLES);
+    const rmsNoise = Math.sqrt(noiseSq / SAMPLES);
+    const cancelled = Math.max(0, 1 - rmsResult / rmsNoise) * 100;
+    const accuracy = cancelled;
+    setSubmitted({ cancelled, accuracy });
+    recordLab(onUpdate, "noise", accuracy);
+  };
+
+  const newProblem = () => {
+    setSeed((s) => s + 1);
+    setAmpInput(""); setFreqInput(""); setPhaseInput(""); setSubmitted(null);
+  };
+
+  const verdict = submitted ? (submitted.cancelled > 95 ? { msg: "Perfect cancellation — silence achieved.", color: C.mint } : submitted.cancelled > 70 ? { msg: "Almost — you can still hear a faint hum. Check your phase shift.", color: C.gold } : { msg: "Still loud. Check the amplitude and phase.", color: C.coral }) : null;
+
+  const Wave = ({ fn, color, label }) => (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+        <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke={C.border} strokeWidth="0.5" />
+        <polyline points={buildPath(fn)} fill="none" stroke={color} strokeWidth="1.5" />
+      </svg>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "20px 16px", fontFamily: F }}>
+      <LabHeader title="Noise Cancelling" onBack={onBack} />
+
+      <Wave fn={noiseFn} color={C.coral} label={`Incoming noise — amp ${noise.amp}, freq ${noise.freq}`} />
+      <Wave fn={userFn} color={C.teal} label="Your cancelling wave" />
+      <Wave fn={sumFn} color={C.gold} label="What you hear (sum)" />
+
+      <div style={{ background: C.surface, borderRadius: 14, padding: "14px 16px", marginBottom: 12, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65, marginBottom: 12 }}>
+          To cancel a wave, your wave needs the same amplitude and frequency — but shifted by exactly π (half a cycle). That makes sin(x) become −sin(x), which adds to zero.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          {[
+            { label: "Amplitude", val: ampInput, set: setAmpInput, hint: "" },
+            { label: "Frequency", val: freqInput, set: setFreqInput, hint: "" },
+            { label: "Phase × π", val: phaseInput, set: setPhaseInput, hint: "" },
+          ].map((f) => (
+            <div key={f.label}>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 3 }}>{f.label}</div>
+              <input type="number" step="0.01" inputMode="decimal" value={f.val} onChange={(e) => f.set(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1.5px solid ${C.border}`, background: C.bg, color: C.text, fontFamily: "monospace", fontSize: 13, outline: "none" }} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={submit} disabled={!ampInput || !freqInput || !phaseInput}
+        style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", background: ampInput && freqInput && phaseInput ? C.gold : C.border, color: ampInput && freqInput && phaseInput ? "#0d0c1a" : C.muted, fontWeight: 800, fontSize: 15, cursor: ampInput && freqInput && phaseInput ? "pointer" : "default", fontFamily: F, marginBottom: 12 }}>
+        Submit
+      </button>
+
+      {submitted && (
+        <>
+          <div style={{ background: `${verdict.color}18`, borderRadius: 13, padding: "14px 16px", marginBottom: 12, border: `1px solid ${verdict.color}44` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: verdict.color, marginBottom: 6 }}>{verdict.msg}</div>
+            <div style={{ fontSize: 13, color: C.text }}>Cancelled: <b style={{ color: C.gold }}>{submitted.cancelled.toFixed(0)}%</b></div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, fontFamily: "monospace", lineHeight: 1.7 }}>
+              Noise: {noise.amp} × sin({noise.freq}·x)<br />
+              Your wave: {userAmp} × sin({userFreq}·x + {userPhase}π)<br />
+              Perfect: amp={noise.amp}, freq={noise.freq}, phase=1
+            </div>
+          </div>
+          <button onClick={newProblem}
+            style={{ width: "100%", padding: 13, borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: F }}>
+            New Problem
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── GAME 3: BRIDGE BUILDER ───────────────────────────────────────────────────
+function BridgeBuilder({ progress, onUpdate, onBack }) {
+  const [seed, setSeed] = useState(0);
+  const challenge = useMemo(() => {
+    const _ = seed;
+    const x = 15 + Math.floor(Math.random() * 30);
+    const y = 15 + Math.floor(Math.random() * 30);
+    return { x, y };
+  }, [seed]);
+
+  const x = challenge.x, y = challenge.y;
+  const cosX = Math.cos((x * Math.PI) / 180);
+  const cosY = Math.cos((y * Math.PI) / 180);
+  const sinX = Math.sin((x * Math.PI) / 180);
+  const sinY = Math.sin((y * Math.PI) / 180);
+  const correctCosSum = cosX * cosY - sinX * sinY;
+  const correctSinSum = sinX * cosY + sinY * cosX;
+
+  const [inputs, setInputs] = useState({ cosX: "", cosY: "", sinX: "", sinY: "", finalCos: "", finalSin: "" });
+  const [tested, setTested] = useState(null);
+
+  const setField = (k) => (e) => setInputs((s) => ({ ...s, [k]: e.target.value }));
+  const valid = Object.values(inputs).every((v) => v !== "" && !isNaN(parseFloat(v)));
+
+  const TOL = 0.02;
+  const test = () => {
+    const checks = {
+      cosX: Math.abs(parseFloat(inputs.cosX) - cosX) < TOL,
+      cosY: Math.abs(parseFloat(inputs.cosY) - cosY) < TOL,
+      sinX: Math.abs(parseFloat(inputs.sinX) - sinX) < TOL,
+      sinY: Math.abs(parseFloat(inputs.sinY) - sinY) < TOL,
+      finalCos: Math.abs(parseFloat(inputs.finalCos) - correctCosSum) < TOL,
+      finalSin: Math.abs(parseFloat(inputs.finalSin) - correctSinSum) < TOL,
+    };
+    const componentScore = ["cosX", "cosY", "sinX", "sinY"].filter((k) => checks[k]).length / 4;
+    const finalScore = (checks.finalCos ? 1 : 0) * 0.5 + (checks.finalSin ? 1 : 0) * 0.5;
+    const accuracy = (componentScore * 0.4 + finalScore * 0.6) * 100;
+
+    const finalCosVal = parseFloat(inputs.finalCos);
+    const finalSinVal = parseFloat(inputs.finalSin);
+    const sagCos = Math.abs(finalCosVal - correctCosSum);
+    const sagSin = Math.abs(finalSinVal - correctSinSum);
+    const sag = Math.min(40, (sagCos + sagSin) * 60);
+
+    setTested({ checks, accuracy, sag, finalCosVal, finalSinVal });
+    recordLab(onUpdate, "bridge", accuracy);
+  };
+
+  const newProblem = () => {
+    setSeed((s) => s + 1);
+    setInputs({ cosX: "", cosY: "", sinX: "", sinY: "", finalCos: "", finalSin: "" });
+    setTested(null);
+  };
+
+  const verdict = tested ? (tested.accuracy > 95 ? { msg: "Structure is sound. Great engineering.", color: C.mint } : tested.accuracy > 75 ? { msg: "Cable holds, but with stress. Recheck a multiplication.", color: C.gold } : { msg: "The cable is bearing the wrong load — recheck the formula.", color: C.coral }) : null;
+
+  const sag = tested ? tested.sag : 0;
+  const deckColor = tested ? (tested.accuracy > 95 ? C.mint : tested.accuracy > 75 ? C.gold : C.coral) : C.muted;
+
+  const inputBox = (k, w = 60) => (
+    <input type="number" step="0.01" inputMode="decimal" value={inputs[k]} onChange={setField(k)} disabled={!!tested}
+      style={{ width: w, padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${tested ? (tested.checks[k] ? C.mint : C.coral) : C.border}`, background: C.bg, color: tested ? (tested.checks[k] ? C.mint : C.coral) : C.text, fontFamily: "monospace", fontSize: 13 }} />
+  );
+
+  return (
+    <div style={{ padding: "20px 16px", fontFamily: F }}>
+      <LabHeader title="Bridge Builder" onBack={onBack} />
+
+      <div style={{ background: C.surface, borderRadius: 14, padding: 12, marginBottom: 14, border: `1px solid ${C.border}` }}>
+        <svg viewBox="0 0 500 200" style={{ width: "100%", display: "block" }}>
+          {/* sky */}
+          <rect x="0" y="0" width="500" height="160" fill="#16152a" />
+          <rect x="0" y="160" width="500" height="40" fill="#2a2847" />
+          {/* towers */}
+          <rect x="60" y="40" width="14" height="120" fill={C.muted} />
+          <rect x="426" y="40" width="14" height="120" fill={C.muted} />
+          {/* deck */}
+          <line x1="74" y1={120 + sag} x2="426" y2={120 + sag} stroke={deckColor} strokeWidth="6" />
+          {/* cable (left to mid bottom of deck to right) */}
+          <path d={`M67,40 Q250,${85 + sag * 1.5} 433,40`} fill="none" stroke={C.gold} strokeWidth="2.5" />
+          {/* force arrows on cable mid */}
+          <g transform="translate(250 85)">
+            <line x1="0" y1="0" x2={Math.cos((x * Math.PI) / 180) * 50} y2={-Math.sin((x * Math.PI) / 180) * 50} stroke={C.teal} strokeWidth="2.5" markerEnd="url(#arrTeal)" />
+            <line x1="0" y1="0" x2={Math.cos((y * Math.PI) / 180) * 50} y2={-Math.sin((y * Math.PI) / 180) * 50} stroke={C.purple} strokeWidth="2.5" markerEnd="url(#arrPurp)" />
+          </g>
+          <defs>
+            <marker id="arrTeal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill={C.teal} /></marker>
+            <marker id="arrPurp" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill={C.purple} /></marker>
+          </defs>
+        </svg>
+      </div>
+
+      <div style={{ background: C.surface, borderRadius: 14, padding: "14px 16px", marginBottom: 12, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+          Force 1 angle: <b style={{ color: C.teal }}>x = {x}°</b> &nbsp; Force 2 angle: <b style={{ color: C.purple }}>y = {y}°</b> &nbsp; Combined: <b>{x + y}°</b>
+        </div>
+        <div style={{ fontFamily: "monospace", fontSize: 12, color: C.text, lineHeight: 1.9 }}>
+          <div style={{ color: C.coral, fontWeight: 700, marginBottom: 4 }}>cos(x+y) = cos(x)cos(y) − sin(x)sin(y)</div>
+          <div>= {inputBox("cosX")} × {inputBox("cosY")} − {inputBox("sinX")} × {inputBox("sinY")}</div>
+          <div>= {inputBox("finalCos", 80)}</div>
+          <div style={{ color: C.purple, fontWeight: 700, marginTop: 12, marginBottom: 4 }}>sin(x+y) = sin(x)cos(y) + sin(y)cos(x)</div>
+          <div>= {inputBox("sinX")} × {inputBox("cosY")} + {inputBox("sinY")} × {inputBox("cosX")}</div>
+          <div>= {inputBox("finalSin", 80)}</div>
+        </div>
+        <div style={{ fontSize: 10, color: C.muted, marginTop: 8, fontStyle: "italic" }}>(The four component fields share values across both formulas.)</div>
+      </div>
+
+      {!tested && (
+        <button onClick={test} disabled={!valid}
+          style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", background: valid ? C.gold : C.border, color: valid ? "#0d0c1a" : C.muted, fontWeight: 800, fontSize: 15, cursor: valid ? "pointer" : "default", fontFamily: F }}>
+          Test the Bridge
+        </button>
+      )}
+
+      {tested && (
+        <>
+          <div style={{ background: `${verdict.color}18`, borderRadius: 13, padding: "14px 16px", marginBottom: 12, border: `1px solid ${verdict.color}44` }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: verdict.color, marginBottom: 6 }}>{verdict.msg}</div>
+            <div style={{ fontSize: 12, color: C.text, fontFamily: "monospace", lineHeight: 1.7 }}>
+              Correct cos(x+y) = {correctCosSum.toFixed(3)}<br />
+              Correct sin(x+y) = {correctSinSum.toFixed(3)}<br />
+              Accuracy: <b style={{ color: C.gold }}>{tested.accuracy.toFixed(0)}%</b>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setInputs({ cosX: "", cosY: "", sinX: "", sinY: "", finalCos: "", finalSin: "" }); setTested(null); }}
+              style={{ flex: 1, padding: 13, borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: F }}>
+              Retry Same
+            </button>
+            <button onClick={newProblem}
+              style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
+              New Problem
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── PARENT VIEW ──────────────────────────────────────────────────────────────
 function ParentView({ progress, onClose }) {
   const totalC = Object.values(progress.ids).reduce((s, v) => s + v.correct, 0);
@@ -1112,6 +1834,39 @@ function ParentView({ progress, onClose }) {
                 <div style={{ fontSize: 22, fontWeight: 800, color: C.gold }}>{fAcc}%</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Accuracy</div>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {(() => {
+        const lab = progress.lab || {};
+        const games = [
+          { key: "missile", title: "Missile Command" },
+          { key: "noise", title: "Noise Cancelling" },
+          { key: "bridge", title: "Bridge Builder" },
+        ];
+        const tried = games.filter((g) => (lab[g.key]?.attempts || 0) > 0);
+        if (tried.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 6 }}>Lab</div>
+            <div style={{ fontSize: 11, color: C.muted, marginBottom: 10, opacity: 0.8 }}>She's applying the math, not just recalling it.</div>
+            <div style={{ background: C.surface, borderRadius: 13, padding: 14, border: `1px solid ${C.border}` }}>
+              {games.map((g, i) => {
+                const r = lab[g.key] || { attempts: 0, bestAccuracy: 0 };
+                const last = i === games.length - 1;
+                return (
+                  <div key={g.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: last ? "none" : `1px solid ${C.border}`, fontSize: 13 }}>
+                    <span style={{ color: r.attempts > 0 ? C.text : C.muted, fontWeight: 600 }}>{g.title}</span>
+                    <span style={{ color: C.muted, fontSize: 12 }}>
+                      {r.attempts > 0 ? (
+                        <>{r.attempts} {r.attempts === 1 ? "attempt" : "attempts"} &nbsp; · &nbsp; <b style={{ color: C.gold }}>{Math.round(r.bestAccuracy)}%</b> best</>
+                      ) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -1204,13 +1959,14 @@ function App() {
         {screen === "explore" && <ExploreMode progress={progress} onUpdate={updateProgress} />}
         {screen === "finder" && <FormulaFinder progress={progress} onUpdate={updateProgress} />}
         {screen === "practice" && <PracticeMode progress={progress} onUpdate={updateProgress} />}
+        {screen === "lab" && <Lab progress={progress} onUpdate={updateProgress} />}
         {screen === "parent" && <ParentView progress={progress} onClose={() => setScreen("home")} />}
       </div>
 
       {/* Bottom nav */}
       {screen !== "parent" && (
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 12px" }}>
-          {[{ k: "home", icon: "⌂", l: "Home" }, { k: "explore", icon: "◎", l: "Explore" }, { k: "finder", icon: "⊕", l: "Finder" }, { k: "practice", icon: "◈", l: "Practice" }].map((n) => (
+          {[{ k: "home", icon: "⌂", l: "Home" }, { k: "explore", icon: "◎", l: "Explore" }, { k: "finder", icon: "⊕", l: "Finder" }, { k: "practice", icon: "◈", l: "Practice" }, { k: "lab", icon: "⚗", l: "Lab" }].map((n) => (
             <button key={n.k} onClick={() => setScreen(n.k)}
               style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "6px 0", fontFamily: F }}>
               <div style={{ fontSize: 22, marginBottom: 2, opacity: screen === n.k ? 1 : 0.4 }}>{n.icon}</div>
