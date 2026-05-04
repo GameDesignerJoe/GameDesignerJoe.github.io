@@ -25,6 +25,7 @@ const IDS = [
     id: 1, name: "The Foundation", color: C.gold,
     formula: "sin²(x) + cos²(x) = 1",
     blurb: "Sin is height, cos is width. On a circle with radius 1, those two always balance — their squares add up to exactly 1.",
+    hook: "Height squared plus width squared — always one. The circle never lies.",
     blanks: [
       { t: "sin²(x) + ___ = 1", a: "cos²(x)", h: "The width squared — the x-direction" },
       { t: "___ + cos²(x) = 1", a: "sin²(x)", h: "The height squared — the y-direction" },
@@ -34,6 +35,7 @@ const IDS = [
     id: 2, name: "Tangent", color: C.mint,
     formula: "tan(x) = sin(x) / cos(x)",
     blurb: "Tangent is height divided by width — sin over cos. It's the slope of the line from the center to the point.",
+    hook: "Tangent is sin on top, cos on bottom. Height over width.",
     blanks: [
       { t: "tan(x) = ___ / cos(x)", a: "sin(x)", h: "The top — height = y-coordinate" },
       { t: "tan(x) = sin(x) / ___", a: "cos(x)", h: "The bottom — width = x-coordinate" },
@@ -43,6 +45,7 @@ const IDS = [
     id: 3, name: "Unit Circle Basics", color: C.teal,
     formula: "cos = x-coordinate  ·  sin = y-coordinate",
     blurb: "Every point on the unit circle sits at exactly (cos θ, sin θ). Negative angles just go clockwise instead of counterclockwise.",
+    hook: "X is cos, Y is sin. Right is positive, up is positive.",
     blanks: [
       { t: "x-coordinate = ___", a: "cos(x)", h: "Left-right on the circle" },
       { t: "y-coordinate = ___", a: "sin(x)", h: "Up-down on the circle" },
@@ -52,6 +55,7 @@ const IDS = [
     id: 4, name: "Sin Addition", color: C.purple,
     formula: "sin(x+y) = sin(x)cos(y) + sin(y)cos(x)",
     blurb: "Adding angles for sin: it crosses — sin×cos plus sin×cos — with x and y swapped between the two terms.",
+    hook: "Cross pattern — sin×cos, plus sin×cos. Swap the letters between the two terms.",
     blanks: [
       { t: "sin(x+y) = sin(x)cos(y) + ___", a: "sin(y)cos(x)", h: "Mirror the first term — swap x and y" },
     ],
@@ -60,6 +64,7 @@ const IDS = [
     id: 5, name: "Cos Addition", color: C.coral,
     formula: "cos(x+y) = cos(x)cos(y) − sin(x)sin(y)",
     blurb: "Cosine addition: cos×cos minus sin×sin. That minus sign is the key detail that sets it apart from sin addition.",
+    hook: "Same-same minus different-different. Cos×cos minus sin×sin.",
     blanks: [
       { t: "cos(x+y) = ___ − sin(x)sin(y)", a: "cos(x)cos(y)", h: "Cos times cos — same function, both angles" },
     ],
@@ -93,6 +98,88 @@ const QS = [
     ans: 0, exp: "Cos×cos minus sin×sin. The minus sign is the key detail to remember." },
 ];
 
+const SCENARIOS = [
+  {
+    id: "s1a", iid: 1,
+    scenario: "You know that cos(x) = 0.6 for some angle x, and you need to find sin(x). You don't have a calculator that shows sin directly.",
+    why: "When you know one of sin or cos and need the other, sin²+cos²=1 is your tool. Plug in what you know, solve for what you don't.",
+    wrong_reasons: {
+      2: "Tangent would help if you already knew both sin and cos — here you're missing one of them.",
+      4: "The addition formula involves two separate angles. You only have one angle here.",
+      5: "Same issue — cos addition needs two angles, not one.",
+    },
+  },
+  {
+    id: "s1b", iid: 1,
+    scenario: "You're simplifying a long expression and you notice it contains both sin²(x) and cos²(x) added together. You want to make it shorter.",
+    why: "Anytime you spot sin² and cos² being added, you can replace the whole thing with 1. That's the whole point of this identity.",
+    wrong_reasons: {
+      2: "Tangent = sin/cos is useful for division, not for simplifying a sum.",
+      4: "The addition formula expands things — you're trying to simplify, not expand.",
+    },
+  },
+  {
+    id: "s2a", iid: 2,
+    scenario: "A problem gives you sin(x) = 0.5 and cos(x) = 0.87 and asks for tan(x). You've never memorized what tan looks like on the unit circle.",
+    why: "tan = sin/cos. When you have both sin and cos already, tangent is just the division. You don't need the unit circle at all.",
+    wrong_reasons: {
+      1: "sin²+cos²=1 helps you find a missing value — you already have both values here.",
+      4: "Addition formulas involve combining two angles. This is just one angle.",
+    },
+  },
+  {
+    id: "s2b", iid: 2,
+    scenario: "You need to simplify the expression sin(x) / cos(x) to a single trig function.",
+    why: "sin divided by cos is exactly the definition of tangent. One substitution and you're done.",
+    wrong_reasons: {
+      1: "The Pythagorean identity doesn't help with division — it's about squares and sums.",
+    },
+  },
+  {
+    id: "s3a", iid: 3,
+    scenario: "You're looking at an angle of 150° on a circle and need to figure out whether sin and cos are positive or negative at that point — without a calculator.",
+    why: "150° puts you in Quadrant II (between 90° and 180°). In QII, the x-coordinate (cos) is negative and the y-coordinate (sin) is positive. No formula needed — just quadrant knowledge.",
+    wrong_reasons: {
+      1: "sin²+cos²=1 tells you about magnitude, not sign. For signs, you need quadrant knowledge.",
+      4: "You're not adding two angles here — you just need to read the quadrant.",
+    },
+  },
+  {
+    id: "s4a", iid: 4,
+    scenario: "You need to find the exact value of sin(75°). Your formula sheet only has values for 30°, 45°, and 60°. You notice that 75° = 45° + 30°.",
+    why: "When you need the sin of a sum of two angles you DO know, the sin addition formula breaks it into parts you can calculate.",
+    wrong_reasons: {
+      1: "sin²+cos²=1 doesn't help you find values at specific angles.",
+      5: "You need sin of the sum, not cos of the sum. Different formula.",
+    },
+  },
+  {
+    id: "s4b", iid: 4,
+    scenario: "You see the expression sin(x)cos(y) + cos(x)sin(y) and need to write it as a single trig function.",
+    why: "That pattern — sin×cos + cos×sin with swapped variables — is exactly the right side of the sin addition formula. You can collapse it to sin(x+y).",
+    wrong_reasons: {
+      5: "Cos addition would give you cos×cos minus sin×sin — that's a different pattern.",
+    },
+  },
+  {
+    id: "s5a", iid: 5,
+    scenario: "You need the exact value of cos(105°). You recognize that 105° = 60° + 45°, and you know the values for both those angles.",
+    why: "Cos of a sum of two known angles — that's exactly what the cos addition formula is for. Break it into cos(60°)cos(45°) − sin(60°)sin(45°).",
+    wrong_reasons: {
+      4: "Sin addition would give you the sin of 105°, not the cos.",
+      1: "The Pythagorean identity doesn't help find values at specific angles.",
+    },
+  },
+  {
+    id: "s5b", iid: 5,
+    scenario: "You see cos(x)cos(y) − sin(x)sin(y) in an expression and need to compress it into one term.",
+    why: "That's the right side of the cos addition formula, read backwards. It collapses cleanly to cos(x+y).",
+    wrong_reasons: {
+      4: "Sin addition produces sin×cos + sin×cos — the signs and functions are different.",
+    },
+  },
+];
+
 const PRAISE = [
   "You've got this! 🌟", "Yes — exactly right.", "That one's yours now. ✓",
   "Your brain is making connections.", "Nailed it.", "Perfect. Keep going.",
@@ -111,6 +198,7 @@ const defP = () => ({
   exploreRounds: 0,
   speedBests: [],
   ids: Object.fromEntries(IDS.map((i) => [i.id, { seen: 0, correct: 0, streak: 0, mastered: false }])),
+  finder: {},
   _started: false,
 });
 
@@ -119,7 +207,10 @@ const saveP = (p) => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch (_) {}
 };
 const loadP = () => {
-  try { const r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r); } catch (_) {}
+  try {
+    const r = localStorage.getItem(STORAGE_KEY);
+    if (r) return { ...defP(), ...JSON.parse(r) };
+  } catch (_) {}
   return null;
 };
 
@@ -129,18 +220,19 @@ const isUnlocked = (p, id) => {
 };
 
 // ─── UNIT CIRCLE ──────────────────────────────────────────────────────────────
-function UnitCircle({ angle, onChange, mode = "free", targetAngle = null, challengeKey, onMatch }) {
+function UnitCircle({ angle, onChange, mode = "free" }) {
   const svgRef = useRef(null);
   const dragging = useRef(false);
-  const didMatch = useRef(false);
-
-  useEffect(() => { didMatch.current = false; }, [challengeKey]);
+  const [unit, setUnit] = useState("deg");
 
   const R = 110, CX = 150, CY = 150;
   const px = CX + R * Math.cos(angle);
   const py = CY - R * Math.sin(angle);
   const sinV = +Math.sin(angle).toFixed(3);
   const cosV = +Math.cos(angle).toFixed(3);
+  const wholeMode = mode === "free";
+  const sinDisp = wholeMode ? Math.round(Math.sin(angle) * 100) : sinV;
+  const cosDisp = wholeMode ? Math.round(Math.cos(angle) * 100) : cosV;
 
   const getAngle = useCallback((e) => {
     const s = svgRef.current;
@@ -151,37 +243,34 @@ function UnitCircle({ angle, onChange, mode = "free", targetAngle = null, challe
     return Math.atan2(-y, x);
   }, [angle]);
 
+  const snap = (a) => mode === "free" ? Math.round((a * 180) / Math.PI) * Math.PI / 180 : a;
+
   const onDown = (e) => {
     dragging.current = true;
-    didMatch.current = false;
     e.currentTarget.setPointerCapture(e.pointerId);
-    onChange(getAngle(e));
+    onChange(snap(getAngle(e)));
   };
   const onMove = (e) => {
     if (!dragging.current) return;
-    const a = getAngle(e);
-    onChange(a);
-    if ((mode === "find" || mode === "speed") && targetAngle != null && !didMatch.current) {
-      const ds = Math.abs(Math.sin(a) - Math.sin(targetAngle));
-      const dc = Math.abs(Math.cos(a) - Math.cos(targetAngle));
-      if (ds < 0.1 && dc < 0.1) {
-        didMatch.current = true;
-        onMatch?.();
-      }
-    }
+    onChange(snap(getAngle(e)));
   };
   const onUp = () => { dragging.current = false; };
 
   const deg = Math.round(((angle * 180) / Math.PI + 360) % 360);
-
-  let tX = null, tY = null;
-  if (targetAngle != null) {
-    tX = CX + R * Math.cos(targetAngle);
-    tY = CY - R * Math.sin(targetAngle);
-  }
+  const radNorm = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const angleStr = unit === "deg" ? `${deg}°` : radNorm.toFixed(2);
 
   return (
     <div>
+      <div style={{ position: "relative", maxWidth: 320, margin: "0 auto" }}>
+        <div style={{ position: "absolute", top: 0, right: 4, display: "flex", gap: 4, zIndex: 2 }}>
+          {[{ k: "deg", l: "DEG" }, { k: "rad", l: "RAD" }].map((u) => (
+            <button key={u.k} onClick={() => setUnit(u.k)}
+              style={{ padding: "3px 9px", borderRadius: 999, border: `1px solid ${unit === u.k ? C.gold : C.border}`, background: unit === u.k ? `${C.gold}20` : "transparent", color: unit === u.k ? C.gold : C.muted, fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: F, letterSpacing: "0.06em" }}>
+              {u.l}
+            </button>
+          ))}
+        </div>
       <svg
         ref={svgRef}
         viewBox="0 0 300 300"
@@ -200,8 +289,19 @@ function UnitCircle({ angle, onChange, mode = "free", targetAngle = null, challe
             <feGaussianBlur stdDeviation="2.5" result="blur" />
             <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          <clipPath id="circleClip">
+            <circle cx={CX} cy={CY} r={R} />
+          </clipPath>
         </defs>
         <circle cx={CX} cy={CY} r={125} fill="url(#bgGlow)" />
+
+        {/* Quadrant tints */}
+        <g clipPath="url(#circleClip)" opacity="0.09">
+          <path d={`M${CX},${CY} L${CX + R},${CY} A${R},${R} 0 0 0 ${CX},${CY - R} Z`} fill={C.gold} />
+          <path d={`M${CX},${CY} L${CX},${CY - R} A${R},${R} 0 0 0 ${CX - R},${CY} Z`} fill={C.teal} />
+          <path d={`M${CX},${CY} L${CX - R},${CY} A${R},${R} 0 0 0 ${CX},${CY + R} Z`} fill={C.coral} />
+          <path d={`M${CX},${CY} L${CX},${CY + R} A${R},${R} 0 0 0 ${CX + R},${CY} Z`} fill={C.purple} />
+        </g>
 
         {/* Axes */}
         <line x1="18" y1="150" x2="282" y2="150" stroke={C.border} strokeWidth="1.5" />
@@ -209,6 +309,24 @@ function UnitCircle({ angle, onChange, mode = "free", targetAngle = null, challe
 
         {/* Circle */}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#302c55" strokeWidth="2" />
+
+        {/* Quadrant labels */}
+        {[
+          { angle: 45, num: "I", color: C.gold, signs: "sin + / cos +" },
+          { angle: 135, num: "II", color: C.teal, signs: "sin + / cos −" },
+          { angle: 225, num: "III", color: C.coral, signs: "sin − / cos −" },
+          { angle: 315, num: "IV", color: C.purple, signs: "sin − / cos +" },
+        ].map(({ angle, num, color, signs }) => {
+          const a = (angle * Math.PI) / 180;
+          const x = CX + 60 * Math.cos(a);
+          const y = CY - 60 * Math.sin(a);
+          return (
+            <g key={num} style={{ pointerEvents: "none" }}>
+              <text x={x} y={y - 5} textAnchor="middle" dominantBaseline="middle" fill={color} fontSize="13" fontFamily={FD} fontWeight="800" opacity="0.4">{num}</text>
+              <text x={x} y={y + 9} textAnchor="middle" dominantBaseline="middle" fill={color} fontSize="7" fontFamily={F} fontWeight="600" opacity="0.55">{signs}</text>
+            </g>
+          );
+        })}
 
         {/* 30° tick marks */}
         {Array.from({ length: 12 }, (_, i) => {
@@ -219,20 +337,27 @@ function UnitCircle({ angle, onChange, mode = "free", targetAngle = null, challe
             stroke="#3a3660" strokeWidth="1.5" />;
         })}
 
-        {/* Axis labels */}
-        {[{ d: 0, l: "0°", dx: 14, dy: 0 }, { d: 90, l: "90°", dx: 0, dy: -14 }, { d: 180, l: "180°", dx: -18, dy: 0 }, { d: 270, l: "270°", dx: 0, dy: 14 }].map(({ d, l, dx, dy }) => {
+        {/* Anchor points: cardinal angle + coordinates */}
+        {[
+          { d: 0, deg: "0°", rad: "0", coord: "(1, 0)", dx: 22, dy: 0 },
+          { d: 90, deg: "90°", rad: "π/2", coord: "(0, 1)", dx: 0, dy: -16 },
+          { d: 180, deg: "180°", rad: "π", coord: "(−1, 0)", dx: -26, dy: 0 },
+          { d: 270, deg: "270°", rad: "3π/2", coord: "(0, −1)", dx: 0, dy: 16 },
+        ].map(({ d, deg: degL, rad: radL, coord, dx, dy }) => {
           const a = (d * Math.PI) / 180;
-          return <text key={d} x={CX + (R + 18) * Math.cos(a) + dx} y={CY - (R + 18) * Math.sin(a) + dy}
-            textAnchor="middle" dominantBaseline="middle" fill={C.dimmed} fontSize="9" fontFamily={F}>{l}</text>;
+          const dotX = CX + R * Math.cos(a);
+          const dotY = CY - R * Math.sin(a);
+          const aLabel = unit === "deg" ? degL : radL;
+          return (
+            <g key={d} style={{ pointerEvents: "none" }}>
+              <circle cx={dotX} cy={dotY} r={2.5} fill={C.muted} />
+              <text x={dotX + dx} y={dotY + dy - 5} textAnchor="middle" dominantBaseline="middle"
+                fill={C.text} fontSize="8.5" fontFamily={F} fontWeight="700" opacity="0.85">{aLabel}</text>
+              <text x={dotX + dx} y={dotY + dy + 5} textAnchor="middle" dominantBaseline="middle"
+                fill={C.muted} fontSize="7.5" fontFamily={F} fontWeight="600">{coord}</text>
+            </g>
+          );
         })}
-
-        {/* Target zone */}
-        {tX != null && (
-          <>
-            <circle cx={tX} cy={tY} r={16} fill="#ffd16614" stroke={C.gold} strokeWidth="2" strokeDasharray="4 2" filter="url(#glow)" />
-            <circle cx={tX} cy={tY} r={5} fill={C.gold} opacity="0.8" />
-          </>
-        )}
 
         {/* Cos line */}
         <line x1={CX} y1={CY} x2={px} y2={CY} stroke={C.teal} strokeWidth="3" strokeLinecap="round" opacity="0.85" />
@@ -249,24 +374,42 @@ function UnitCircle({ angle, onChange, mode = "free", targetAngle = null, challe
         <circle cx={px} cy={py} r={5} fill={C.gold} />
 
         {/* Inline labels */}
-        <text x={(CX + px) / 2} y={CY - 9} textAnchor="middle" fill={C.teal} fontSize="9.5" fontFamily={F} fontWeight="700">cos={cosV}</text>
+        <text x={(CX + px) / 2} y={CY - 9} textAnchor="middle" fill={C.teal} fontSize="9.5" fontFamily={F} fontWeight="700">cos={cosDisp}</text>
         {Math.abs(sinV) > 0.08 && (
           <text
             x={cosV >= 0 ? px + 12 : px - 12}
             y={(CY + py) / 2}
             textAnchor={cosV >= 0 ? "start" : "end"}
             dominantBaseline="middle"
-            fill={C.mint} fontSize="9.5" fontFamily={F} fontWeight="700">sin={sinV}</text>
+            fill={C.mint} fontSize="9.5" fontFamily={F} fontWeight="700">sin={sinDisp}</text>
         )}
       </svg>
+      </div>
 
       <div style={{ display: "flex", justifyContent: "center", gap: 18, marginTop: 10, fontFamily: F, fontSize: 13 }}>
-        <span style={{ color: C.teal, fontWeight: 700 }}>cos = {cosV}</span>
+        <span style={{ color: C.teal, fontWeight: 700 }}>cos = {cosDisp}</span>
         <span style={{ color: C.muted }}>·</span>
-        <span style={{ color: C.mint, fontWeight: 700 }}>sin = {sinV}</span>
+        <span style={{ color: C.mint, fontWeight: 700 }}>sin = {sinDisp}</span>
         <span style={{ color: C.muted }}>·</span>
-        <span style={{ color: C.gold, fontWeight: 700 }}>{deg}°</span>
+        <span style={{ color: C.gold, fontWeight: 700 }}>{angleStr}</span>
       </div>
+      {wholeMode && (
+        <div style={{ textAlign: "center", marginTop: 4, fontFamily: F, fontSize: 10, color: C.muted, opacity: 0.75 }}>
+          shown out of 100 (radius = 100)
+        </div>
+      )}
+
+      {(() => {
+        const q = deg < 90 ? { num: "I", color: C.gold, msg: "sin and cos are both positive" }
+          : deg < 180 ? { num: "II", color: C.teal, msg: "sin is positive, cos is negative" }
+          : deg < 270 ? { num: "III", color: C.coral, msg: "sin and cos are both negative" }
+          : { num: "IV", color: C.purple, msg: "sin is negative, cos is positive" };
+        return (
+          <div style={{ textAlign: "center", marginTop: 8, fontFamily: F, fontSize: 12, color: q.color, fontWeight: 600 }}>
+            Quadrant {q.num} — {q.msg}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -276,10 +419,12 @@ function HomeScreen({ progress, onNav }) {
   const totalCorrect = Object.values(progress.ids).reduce((s, v) => s + v.correct, 0);
   const mastered = Object.values(progress.ids).filter((v) => v.mastered).length;
 
+  const finderTried = Object.keys(progress.finder || {}).length > 0;
   const suggestion = (() => {
     if (progress.sessions <= 1) return { mode: "explore", label: "Start with the unit circle →", sub: "Build your intuition first — no pressure" };
     if (totalCorrect < 3) return { mode: "explore", label: "Keep exploring →", sub: "Drag the circle, see sin and cos in action" };
     if (progress.ids[1].correct < 3) return { mode: "practice", label: "Try your first identity →", sub: "sin²(x) + cos²(x) = 1" };
+    if (progress.sessions > 2 && totalCorrect >= 5 && !finderTried) return { mode: "finder", label: "Try Formula Finder →", sub: "Pick the right tool for the problem" };
     return { mode: "practice", label: "Continue practicing →", sub: `${mastered}/5 identities solid` };
   })();
 
@@ -315,7 +460,7 @@ function HomeScreen({ progress, onNav }) {
 
       {/* Mode buttons */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-        {[{ k: "explore", icon: "◎", l: "Explore", sub: "Interactive unit circle" }, { k: "practice", icon: "◈", l: "Practice", sub: "Quizzes & fill-in-the-blank" }].map((m) => (
+        {[{ k: "explore", icon: "◎", l: "Explore", sub: "Interactive unit circle" }, { k: "finder", icon: "⊕", l: "Finder", sub: "Pick the right formula" }, { k: "practice", icon: "◈", l: "Practice", sub: "Quizzes & fill-in-the-blank" }].map((m) => (
           <div key={m.k} style={{ background: C.surface, borderRadius: 14, padding: "16px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", border: `1px solid ${C.border}` }}
             onClick={() => onNav(m.k)}>
             <div style={{ fontSize: 24, color: C.gold }}>{m.icon}</div>
@@ -358,11 +503,11 @@ function HomeScreen({ progress, onNav }) {
 // ─── EXPLORE MODE ─────────────────────────────────────────────────────────────
 function ExploreMode({ progress, onUpdate }) {
   const [sub, setSub] = useState("free");
-  const [angle, setAngle] = useState(0.5);
+  const [angle, setAngle] = useState(Math.PI / 6);
   const [challenge, setChallenge] = useState(null);
-  const [challengeKey, setChallengeKey] = useState(0);
   const [matched, setMatched] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [tryAgain, setTryAgain] = useState("");
 
   // Speed round
   const [speedIdx, setSpeedIdx] = useState(0);
@@ -377,9 +522,9 @@ function ExploreMode({ progress, onUpdate }) {
     const type = Math.random() > 0.5 ? "sin" : "cos";
     const val = type === "sin" ? +Math.sin(targetA).toFixed(2) : +Math.cos(targetA).toFixed(2);
     setChallenge({ type, val, targetAngle: targetA });
-    setChallengeKey((k) => k + 1);
     setMatched(false);
     setFeedback("");
+    setTryAgain("");
   }, []);
 
   const startFind = useCallback(() => {
@@ -423,6 +568,42 @@ function ExploreMode({ progress, onUpdate }) {
     }
   }, [sub, genChallenge, onUpdate]);
 
+  const submitGuess = useCallback(() => {
+    if (!challenge) return;
+    const userVal = challenge.type === "sin" ? Math.sin(angle) : Math.cos(angle);
+    const absDiff = Math.abs(userVal - challenge.val);
+    if (absDiff < 0.05) {
+      setTryAgain("");
+      handleMatch();
+      return;
+    }
+    const targetPos = challenge.val > 0.05;
+    const targetNeg = challenge.val < -0.05;
+    const userPos = userVal > 0.05;
+    const userNeg = userVal < -0.05;
+    const signMismatch = (targetPos && userNeg) || (targetNeg && userPos);
+
+    let hint;
+    if (signMismatch) {
+      if (challenge.type === "sin") {
+        hint = targetPos
+          ? "Sin is the height of the point above the center. A positive sin lives in the top half — Quadrants I and II. Where is your point sitting?"
+          : "Sin is the height. A negative sin means the point sits below the center — the bottom half (Quadrants III and IV). Where is yours?";
+      } else {
+        hint = targetPos
+          ? "Cos is how far right or left the point is. A positive cos lives in the right half — Quadrants I and IV. Which side are you on?"
+          : "Cos is how far right or left the point is. A negative cos lives in the left half — Quadrants II and III. Which side are you on?";
+      }
+    } else if (absDiff > 0.3) {
+      hint = challenge.type === "sin"
+        ? "Right half of the circle. Now think about how extreme: sin near ±1 sits near the very top or bottom; sin near 0 sits out by the sides. How extreme is your target?"
+        : "Right side of the circle. Now think about how extreme: cos near ±1 sits at the far right or far left; cos near 0 sits up at the top or down at the bottom. How extreme is your target?";
+    } else {
+      hint = "You're in the right neighborhood — just a small adjustment along the circle.";
+    }
+    setTryAgain(hint);
+  }, [challenge, angle, handleMatch]);
+
   return (
     <div style={{ padding: "20px 16px", fontFamily: F }}>
       {/* Sub tabs */}
@@ -465,9 +646,6 @@ function ExploreMode({ progress, onUpdate }) {
           angle={angle}
           onChange={setAngle}
           mode={sub === "free" ? "free" : "find"}
-          targetAngle={sub !== "free" && challenge && !matched ? challenge.targetAngle : null}
-          challengeKey={challengeKey}
-          onMatch={handleMatch}
         />
       </div>
 
@@ -476,7 +654,7 @@ function ExploreMode({ progress, onUpdate }) {
         <div style={{ background: C.surface, borderRadius: 14, padding: "16px", border: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 13, color: C.gold, fontWeight: 700, marginBottom: 8 }}>How to read this circle</div>
           <div style={{ fontSize: 13, color: C.text, lineHeight: 1.65 }}>
-            Drag the point around. The <span style={{ color: C.teal, fontWeight: 700 }}>teal line</span> is cos — how far left or right. The <span style={{ color: C.mint, fontWeight: 700 }}>green line</span> is sin — how far up or down. Try finding where sin = 0, where cos = −1, and where they're equal.
+            Drag the point around. The <span style={{ color: C.teal, fontWeight: 700 }}>teal line</span> is cos — how far left or right. The <span style={{ color: C.mint, fontWeight: 700 }}>green line</span> is sin — how far up or down. The numbers show distance out of 100 (so the circle has radius 100). Try finding where sin = 0, where cos = −100, and where they're equal.
           </div>
         </div>
       )}
@@ -487,9 +665,17 @@ function ExploreMode({ progress, onUpdate }) {
         </button>
       )}
 
-      {sub === "find" && !matched && challenge && (
-        <div style={{ background: C.surface, borderRadius: 14, padding: "12px 16px", border: `1px solid ${C.border}`, fontSize: 13, color: C.muted }}>
-          Drag until the numbers match. You'll feel a glow when you land it. ✦
+      {(sub === "find" || sub === "speed") && !matched && !speedDone && challenge && (
+        <div>
+          {tryAgain && (
+            <div style={{ background: `${C.coral}15`, borderRadius: 12, padding: "11px 14px", marginBottom: 10, border: `1px solid ${C.coral}44`, fontSize: 13, color: C.coral, fontWeight: 600 }}>
+              {tryAgain}
+            </div>
+          )}
+          <button onClick={submitGuess}
+            style={{ width: "100%", padding: 14, borderRadius: 14, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: F }}>
+            Submit my guess
+          </button>
         </div>
       )}
 
@@ -532,6 +718,8 @@ function PracticeMode({ progress, onUpdate }) {
   const [showHint, setShowHint] = useState(false);
   const [blankIdx, setBlankIdx] = useState(0);
   const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [studying, setStudying] = useState(true);
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
 
   const ident = IDS.find((i) => i.id === iid);
   const availQs = QS.filter((q) => q.iid === iid);
@@ -593,7 +781,7 @@ function PracticeMode({ progress, onUpdate }) {
           return (
             <button key={id.id}
               disabled={locked}
-              onClick={() => { setIid(id.id); reset(); setQIdx(0); setBlankIdx(0); }}
+              onClick={() => { setIid(id.id); reset(); setQIdx(0); setBlankIdx(0); setStudying(true); }}
               style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 8, border: `1.5px solid ${iid === id.id ? id.color : C.border}`, background: iid === id.id ? `${id.color}22` : C.surface, color: iid === id.id ? id.color : C.muted, fontSize: 11, fontWeight: 700, cursor: locked ? "default" : "pointer", fontFamily: F, opacity: locked ? 0.35 : 1 }}>
               {id.id}. {id.name.split(" ")[0]}
             </button>
@@ -601,17 +789,40 @@ function PracticeMode({ progress, onUpdate }) {
         })}
       </div>
 
-      {/* Identity blurb */}
-      {ident && (
-        <div style={{ background: `${ident.color}10`, borderRadius: 12, padding: "13px 15px", marginBottom: 18, border: `1px solid ${ident.color}2a` }}>
-          <div style={{ fontSize: 13, color: ident.color, fontWeight: 800, marginBottom: 3 }}>{ident.name}</div>
-          <div style={{ fontSize: 12, color: C.text, fontFamily: "monospace", letterSpacing: "-0.02em", marginBottom: 7 }}>{ident.formula}</div>
-          <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, opacity: 0.8 }}>{ident.blurb}</div>
+      {/* Study mode: blurb + memory hook + ready button */}
+      {studying && ident && (
+        <div>
+          <div style={{ background: `${ident.color}10`, borderRadius: 12, padding: "16px 16px", marginBottom: 12, border: `1px solid ${ident.color}2a` }}>
+            <div style={{ fontSize: 11, color: ident.color, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 6 }}>Study</div>
+            <div style={{ fontSize: 14, color: ident.color, fontWeight: 800, marginBottom: 6 }}>{ident.name}</div>
+            <div style={{ fontSize: 13, color: C.text, fontFamily: "monospace", letterSpacing: "-0.02em", marginBottom: 10 }}>{ident.formula}</div>
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.65, opacity: 0.88 }}>{ident.blurb}</div>
+          </div>
+          {ident.hook && (
+            <div style={{ background: `${C.gold}10`, borderRadius: 12, padding: "13px 16px", marginBottom: 14, border: `1px dashed ${C.gold}55` }}>
+              <div style={{ fontSize: 10, color: C.gold, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6, opacity: 0.85 }}>Say this out loud:</div>
+              <div style={{ fontSize: 14, color: C.gold, fontStyle: "italic", lineHeight: 1.55, opacity: 0.85, fontWeight: 600 }}>"{ident.hook}"</div>
+            </div>
+          )}
+          <button onClick={() => { reset(); setStudying(false); }}
+            style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: F }}>
+            I'm ready — quiz me
+          </button>
+        </div>
+      )}
+
+      {/* Quiz mode: review-formula link */}
+      {!studying && ident && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button onClick={() => setShowFormulaModal(true)}
+            style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", fontFamily: F, textDecoration: "underline", padding: "4px 2px" }}>
+            Review formula
+          </button>
         </div>
       )}
 
       {/* RECOGNIZE */}
-      {tab === "recognize" && q && (
+      {!studying && tab === "recognize" && q && (
         <div>
           <div style={{ fontSize: 15, color: C.text, fontWeight: 700, marginBottom: 14, lineHeight: 1.55 }}>{q.q}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
@@ -648,7 +859,7 @@ function PracticeMode({ progress, onUpdate }) {
       )}
 
       {/* RECALL */}
-      {tab === "recall" && blank && (
+      {!studying && tab === "recall" && blank && (
         <div>
           <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Fill in the blank</div>
           <div style={{ fontSize: 19, fontWeight: 800, color: C.text, marginBottom: 16, fontFamily: "monospace", letterSpacing: "-0.02em", lineHeight: 1.4 }}>{blank.t}</div>
@@ -701,6 +912,124 @@ function PracticeMode({ progress, onUpdate }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Formula review modal */}
+      {showFormulaModal && ident && (
+        <div onClick={() => setShowFormulaModal(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(13,12,26,0.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 1000 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: C.surface, borderRadius: 16, padding: "20px 20px 18px", maxWidth: 360, width: "100%", border: `1.5px solid ${ident.color}`, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+            <div style={{ fontSize: 11, color: ident.color, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 6, fontFamily: F }}>Review</div>
+            <div style={{ fontSize: 15, color: ident.color, fontWeight: 800, marginBottom: 8, fontFamily: F }}>{ident.name}</div>
+            <div style={{ fontSize: 14, color: C.text, fontFamily: "monospace", letterSpacing: "-0.02em", marginBottom: 12 }}>{ident.formula}</div>
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.65, opacity: 0.88, marginBottom: 16, fontFamily: F }}>{ident.blurb}</div>
+            <button onClick={() => setShowFormulaModal(false)}
+              style={{ width: "100%", padding: 12, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── FORMULA FINDER ───────────────────────────────────────────────────────────
+function FormulaFinder({ progress, onUpdate }) {
+  const available = SCENARIOS.filter((s) => isUnlocked(progress, s.iid));
+  const [idx, setIdx] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState("");
+
+  const scenario = available.length > 0 ? available[idx % available.length] : null;
+
+  const submit = (chosenIid) => {
+    if (submitted || !scenario) return;
+    setSelected(chosenIid);
+    setSubmitted(true);
+    const correct = chosenIid === scenario.iid;
+    setFeedbackMsg(correct ? rand(PRAISE) : rand(NEAR));
+    onUpdate((p) => {
+      const prev = (p.finder || {})[scenario.id] || { seen: 0, correct: 0 };
+      return { ...p, finder: { ...(p.finder || {}), [scenario.id]: { seen: prev.seen + 1, correct: prev.correct + (correct ? 1 : 0) } } };
+    });
+  };
+
+  const next = () => {
+    setSelected(null);
+    setSubmitted(false);
+    setFeedbackMsg("");
+    setIdx((i) => i + 1);
+  };
+
+  if (!scenario) {
+    return (
+      <div style={{ padding: "28px 20px", fontFamily: F, textAlign: "center" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 10 }}>Finder unlocks soon</div>
+        <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+          Get a few correct answers in Practice to unlock scenario problems here.
+        </div>
+      </div>
+    );
+  }
+
+  const correctIdent = IDS.find((i) => i.id === scenario.iid);
+  const wrongReason = !submitted || selected === null || selected === scenario.iid
+    ? null
+    : (scenario.wrong_reasons || {})[selected];
+
+  return (
+    <div style={{ padding: "20px 16px", fontFamily: F }}>
+      <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Pick the right tool</div>
+
+      <div style={{ background: C.surface, borderRadius: 14, padding: "16px 18px", marginBottom: 16, border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.65 }}>{scenario.scenario}</div>
+      </div>
+
+      <div style={{ fontSize: 12, color: C.muted, fontWeight: 600, marginBottom: 8 }}>Which formula fits?</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+        {IDS.map((id) => {
+          const isCorrect = id.id === scenario.iid;
+          const isChosen = id.id === selected;
+          let bg = C.surface, border = C.border, col = C.text;
+          if (submitted && isCorrect) { bg = `${C.mint}20`; border = C.mint; col = C.mint; }
+          else if (submitted && isChosen && !isCorrect) { bg = `${C.coral}20`; border = C.coral; col = C.coral; }
+          return (
+            <button key={id.id}
+              onClick={() => submit(id.id)}
+              disabled={submitted}
+              style={{ padding: "13px 16px", borderRadius: 13, border: `2px solid ${border}`, background: bg, color: col, fontSize: 14, fontWeight: 700, cursor: submitted ? "default" : "pointer", fontFamily: F, textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{id.id}. {id.name}</span>
+              {submitted && isCorrect && <span>✓</span>}
+              {submitted && isChosen && !isCorrect && <span>✗</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {submitted && (
+        <div style={{ background: selected === scenario.iid ? `${C.mint}18` : `${C.coral}15`, borderRadius: 13, padding: "14px 16px", marginBottom: 14, border: `1px solid ${selected === scenario.iid ? C.mint : C.coral}44` }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: selected === scenario.iid ? C.mint : C.coral, marginBottom: 8 }}>{feedbackMsg}</div>
+          {wrongReason && (
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, marginBottom: 10, opacity: 0.9 }}>
+              <span style={{ color: C.coral, fontWeight: 700 }}>Why not {IDS.find((i) => i.id === selected)?.name}: </span>{wrongReason}
+            </div>
+          )}
+          {correctIdent && (
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+              <span style={{ color: correctIdent.color, fontWeight: 700 }}>{correctIdent.name}: </span>{scenario.why}
+            </div>
+          )}
+        </div>
+      )}
+
+      {submitted && (
+        <button onClick={next}
+          style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 15, cursor: "pointer", fontFamily: F }}>
+          Next →
+        </button>
       )}
     </div>
   );
@@ -760,6 +1089,33 @@ function ParentView({ progress, onClose }) {
           );
         })}
       </div>
+
+      {(() => {
+        const fEntries = Object.values(progress.finder || {});
+        if (fEntries.length === 0) return null;
+        const fSeen = fEntries.reduce((s, e) => s + (e.seen || 0), 0);
+        const fCorrect = fEntries.reduce((s, e) => s + (e.correct || 0), 0);
+        const fAcc = fSeen > 0 ? Math.round((fCorrect / fSeen) * 100) : 0;
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12 }}>Formula Finder</div>
+            <div style={{ background: C.surface, borderRadius: 13, padding: 14, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-around", textAlign: "center" }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{fEntries.length}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Scenarios tried</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.mint }}>{fCorrect}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Correct</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.gold }}>{fAcc}%</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Accuracy</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {progress.speedBests.length > 0 && (
         <div style={{ marginBottom: 20 }}>
@@ -846,6 +1202,7 @@ function App() {
       <div style={{ paddingBottom: 80 }}>
         {screen === "home" && <HomeScreen progress={progress} onNav={setScreen} />}
         {screen === "explore" && <ExploreMode progress={progress} onUpdate={updateProgress} />}
+        {screen === "finder" && <FormulaFinder progress={progress} onUpdate={updateProgress} />}
         {screen === "practice" && <PracticeMode progress={progress} onUpdate={updateProgress} />}
         {screen === "parent" && <ParentView progress={progress} onClose={() => setScreen("home")} />}
       </div>
@@ -853,7 +1210,7 @@ function App() {
       {/* Bottom nav */}
       {screen !== "parent" && (
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 12px" }}>
-          {[{ k: "home", icon: "⌂", l: "Home" }, { k: "explore", icon: "◎", l: "Explore" }, { k: "practice", icon: "◈", l: "Practice" }].map((n) => (
+          {[{ k: "home", icon: "⌂", l: "Home" }, { k: "explore", icon: "◎", l: "Explore" }, { k: "finder", icon: "⊕", l: "Finder" }, { k: "practice", icon: "◈", l: "Practice" }].map((n) => (
             <button key={n.k} onClick={() => setScreen(n.k)}
               style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "6px 0", fontFamily: F }}>
               <div style={{ fontSize: 22, marginBottom: 2, opacity: screen === n.k ? 1 : 0.4 }}>{n.icon}</div>
