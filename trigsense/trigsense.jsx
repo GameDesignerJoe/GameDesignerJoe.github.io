@@ -303,14 +303,16 @@ const QS = [
 ];
 
 const SCENARIOS = [
+  // ── Identity 1: Pythagorean identity ─────────────────────────────────────
   {
     id: "s1a", iid: 1,
     scenario: "You know that cos(x) = 0.6 for some angle x, and you need to find sin(x). You don't have a calculator that shows sin directly.",
     why: "When you know one of sin or cos and need the other, sin²+cos²=1 is your tool. Plug in what you know, solve for what you don't.",
     wrong_reasons: {
       2: "Tangent would help if you already knew both sin and cos — here you're missing one of them.",
+      3: "Knowing the quadrant doesn't give you the cos value — you need a relationship between sin and cos.",
       4: "The addition formula involves two separate angles. You only have one angle here.",
-      5: "Same issue — cos addition needs two angles, not one.",
+      5: "Cos addition also needs two angles. You only have one angle and one value.",
     },
   },
   {
@@ -319,16 +321,41 @@ const SCENARIOS = [
     why: "Anytime you spot sin² and cos² being added, you can replace the whole thing with 1. That's the whole point of this identity.",
     wrong_reasons: {
       2: "Tangent = sin/cos is useful for division, not for simplifying a sum.",
+      3: "Quadrant facts don't help with algebraic simplification.",
       4: "The addition formula expands things — you're trying to simplify, not expand.",
     },
   },
+  {
+    id: "s1c", iid: 1,
+    scenario: "Mid-proof, you need to swap sin²(x) for an equivalent expression involving cos(x). You're looking for a substitution rule.",
+    why: "From sin²+cos²=1, you can rearrange to sin²(x) = 1 − cos²(x). That's the substitution.",
+    wrong_reasons: {
+      2: "Tangent involves the ratio sin/cos — it doesn't give you a substitution for sin² alone.",
+      4: "The addition formula expands sin of a sum into terms — it doesn't replace sin².",
+      5: "Same — cos addition expands, doesn't substitute.",
+    },
+  },
+  {
+    id: "s1d", iid: 1,
+    scenario: "Given sin(x) = 0.8, you need to find cos²(x) without finding the angle x first.",
+    why: "cos²(x) = 1 − sin²(x) = 1 − 0.64 = 0.36. The Pythagorean identity gives it in one step.",
+    wrong_reasons: {
+      2: "Tangent doesn't relate sin² and cos² directly — it's a ratio.",
+      3: "You don't need a quadrant — squared values are positive regardless.",
+      4: "Addition formula needs two angles; you have one.",
+    },
+  },
+
+  // ── Identity 2: Tangent ──────────────────────────────────────────────────
   {
     id: "s2a", iid: 2,
     scenario: "A problem gives you sin(x) = 0.5 and cos(x) = 0.87 and asks for tan(x). You've never memorized what tan looks like on the unit circle.",
     why: "tan = sin/cos. When you have both sin and cos already, tangent is just the division. You don't need the unit circle at all.",
     wrong_reasons: {
       1: "sin²+cos²=1 helps you find a missing value — you already have both values here.",
+      3: "Unit circle facts give you sin and cos. You already have those.",
       4: "Addition formulas involve combining two angles. This is just one angle.",
+      5: "Same — cos addition also needs two angles.",
     },
   },
   {
@@ -337,23 +364,86 @@ const SCENARIOS = [
     why: "sin divided by cos is exactly the definition of tangent. One substitution and you're done.",
     wrong_reasons: {
       1: "The Pythagorean identity doesn't help with division — it's about squares and sums.",
+      4: "Addition formulas would give you a sum of products, not a single function.",
+      5: "Same — addition formulas expand, they don't compress sin/cos into one function.",
     },
   },
+  {
+    id: "s2c", iid: 2,
+    scenario: "You're calculating the slope of a hill that rises by some height over a horizontal run. You're given the height and the run as components.",
+    why: "Slope = rise/run = sin/cos = tan(x). Tangent is literally the slope of a line at angle x.",
+    wrong_reasons: {
+      1: "Sin²+cos²=1 gives you the magnitude of the radius, not the slope.",
+      3: "Knowing the quadrant tells you the sign, but not the slope value.",
+      4: "Slope is a single-angle property, not a sum of angles.",
+    },
+  },
+  {
+    id: "s2d", iid: 2,
+    scenario: "You're checking whether a trig expression is defined at an angle where cos(x) = 0. The expression has sin in the numerator and cos in the denominator.",
+    why: "That expression IS tan(x). When cos(x) = 0, tan(x) is undefined — division by zero. Recognizing the pattern as tangent tells you instantly when it blows up.",
+    wrong_reasons: {
+      1: "Pythagorean identity doesn't tell you when an expression is undefined.",
+      3: "Knowing where cos = 0 (90°, 270°) helps locate the issue, but the actual concept tested is the tan definition.",
+      4: "Addition formulas don't have this 'undefined' issue at single angles.",
+    },
+  },
+
+  // ── Identity 3: Unit Circle Basics ───────────────────────────────────────
   {
     id: "s3a", iid: 3,
     scenario: "You're looking at an angle of 150° on a circle and need to figure out whether sin and cos are positive or negative at that point — without a calculator.",
     why: "150° puts you in Quadrant II (between 90° and 180°). In QII, the x-coordinate (cos) is negative and the y-coordinate (sin) is positive. No formula needed — just quadrant knowledge.",
     wrong_reasons: {
       1: "sin²+cos²=1 tells you about magnitude, not sign. For signs, you need quadrant knowledge.",
+      2: "Tangent gives you a ratio, not the individual signs of sin and cos.",
       4: "You're not adding two angles here — you just need to read the quadrant.",
+      5: "Same — cos addition is about combining angles, not locating a single angle.",
     },
   },
+  {
+    id: "s3b", iid: 3,
+    scenario: "You're given the angle 240° and asked to determine the sign of sin and cos at that angle.",
+    why: "240° is in Quadrant III. The unit circle tells you that in QIII, both x and y are negative — so both sin and cos are negative at 240°.",
+    wrong_reasons: {
+      1: "Pythagorean identity tells you sin² + cos² = 1 — magnitudes only, not signs.",
+      2: "Tangent will be positive in QIII (negative/negative), but the question is about sin and cos individually.",
+      4: "240° is a single angle, not a sum that needs the addition formula.",
+      5: "Same — no sum of angles to combine.",
+    },
+  },
+  {
+    id: "s3c", iid: 3,
+    scenario: "A point on the unit circle is at coordinates (0.5, −0.866). You want to identify roughly which angle it corresponds to.",
+    why: "On the unit circle, the point's coordinates ARE (cos x, sin x). So cos = 0.5, sin = −0.866 — that's the 60° reference angle in Quadrant IV (positive x, negative y), making the angle 300°.",
+    wrong_reasons: {
+      1: "Pythagorean identity confirms the point is on the unit circle (squares add to 1), but doesn't give you the angle.",
+      2: "Tangent gives you a slope, not which angle on the circle.",
+      4: "Addition formulas help you compute sin/cos values from sums of angles. Here you already HAVE the values — you need to recognize the angle.",
+      5: "Same — cos addition expands cos of a sum, not the reverse.",
+    },
+  },
+  {
+    id: "s3d", iid: 3,
+    scenario: "You need to model a periodic motion that smoothly oscillates between +1 and −1 over time. You want to pick the right trig function as your starting point.",
+    why: "Sin gives the y-coordinate on the unit circle as the angle changes. As angle increases, sin smoothly oscillates between +1 and −1. That's why sin (and cos) describe vertical/horizontal oscillation.",
+    wrong_reasons: {
+      1: "sin² + cos² = 1 is always 1 — it doesn't oscillate.",
+      2: "Tangent oscillates but goes to infinity at 90° and 270° — not bounded between +1 and −1.",
+      4: "Sin addition is a formula, not a function shape — but it builds on sin's oscillation.",
+      5: "Same — cos addition is a formula, the oscillation comes from cos itself.",
+    },
+  },
+
+  // ── Identity 4: Sin addition ─────────────────────────────────────────────
   {
     id: "s4a", iid: 4,
     scenario: "You need to find the exact value of sin(75°). Your formula sheet only has values for 30°, 45°, and 60°. You notice that 75° = 45° + 30°.",
     why: "When you need the sin of a sum of two angles you DO know, the sin addition formula breaks it into parts you can calculate.",
     wrong_reasons: {
       1: "sin²+cos²=1 doesn't help you find values at specific angles.",
+      2: "Tangent gives you a ratio, not a value of sin.",
+      3: "Unit circle quadrant facts tell you the sign, not the magnitude.",
       5: "You need sin of the sum, not cos of the sum. Different formula.",
     },
   },
@@ -362,16 +452,45 @@ const SCENARIOS = [
     scenario: "You see the expression sin(x)cos(y) + cos(x)sin(y) and need to write it as a single trig function.",
     why: "That pattern — sin×cos + cos×sin with swapped variables — is exactly the right side of the sin addition formula. You can collapse it to sin(x+y).",
     wrong_reasons: {
-      5: "Cos addition would give you cos×cos minus sin×sin — that's a different pattern.",
+      1: "Pythagorean identity doesn't compress this kind of cross-pattern.",
+      2: "Tangent is sin/cos, not a sum of products.",
+      3: "Unit circle knowledge identifies positions, not algebraic patterns.",
+      5: "Cos addition would give you cos×cos minus sin×sin — that's a different pattern with a minus sign.",
     },
   },
+  {
+    id: "s4c", iid: 4,
+    scenario: "You're computing sin(120°). You realize 120° = 90° + 30°, and you have both sin(90°) and sin(30°) memorized.",
+    why: "Sin addition lets you compute sin of a sum from two known angles. Here: sin(90°)cos(30°) + sin(30°)cos(90°) = 1·(√3/2) + 0.5·0 = √3/2.",
+    wrong_reasons: {
+      1: "Pythagorean identity won't tell you sin at a specific angle.",
+      2: "Tangent doesn't help compute sin directly.",
+      3: "Unit circle quadrant facts give the sign of sin(120°) but not the exact value.",
+      5: "You want sin(120°), not cos(120°) — different formula.",
+    },
+  },
+  {
+    id: "s4d", iid: 4,
+    scenario: "Given a buried expression sin(α)cos(β) + cos(α)sin(β), you want to simplify it.",
+    why: "Recognize the right-hand side of sin addition. That whole expression is just sin(α + β) — one step compression.",
+    wrong_reasons: {
+      1: "Pythagorean is about squares and sums equaling 1 — doesn't apply.",
+      2: "Tangent is a ratio, not this cross pattern.",
+      3: "Quadrant knowledge doesn't simplify algebraic patterns.",
+      5: "Cos addition produces cos·cos − sin·sin. Different signs and functions.",
+    },
+  },
+
+  // ── Identity 5: Cos addition ─────────────────────────────────────────────
   {
     id: "s5a", iid: 5,
     scenario: "You need the exact value of cos(105°). You recognize that 105° = 60° + 45°, and you know the values for both those angles.",
     why: "Cos of a sum of two known angles — that's exactly what the cos addition formula is for. Break it into cos(60°)cos(45°) − sin(60°)sin(45°).",
     wrong_reasons: {
-      4: "Sin addition would give you the sin of 105°, not the cos.",
       1: "The Pythagorean identity doesn't help find values at specific angles.",
+      2: "Tangent is a ratio. You want a value of cos.",
+      3: "Quadrant facts give the sign, not the magnitude.",
+      4: "Sin addition would give you the sin of 105°, not the cos.",
     },
   },
   {
@@ -379,7 +498,32 @@ const SCENARIOS = [
     scenario: "You see cos(x)cos(y) − sin(x)sin(y) in an expression and need to compress it into one term.",
     why: "That's the right side of the cos addition formula, read backwards. It collapses cleanly to cos(x+y).",
     wrong_reasons: {
-      4: "Sin addition produces sin×cos + sin×cos — the signs and functions are different.",
+      1: "Pythagorean identity is about a single-angle sum of squares.",
+      2: "Tangent is a ratio, not this difference of products.",
+      3: "Unit circle facts don't simplify algebra.",
+      4: "Sin addition produces sin·cos + sin·cos — different functions, plus sign.",
+    },
+  },
+  {
+    id: "s5c", iid: 5,
+    scenario: "You're asked for cos(75°). You spot that 75° = 30° + 45° and you have values for both 30° and 45° memorized.",
+    why: "Cos addition handles cos of a sum directly: cos(30°)cos(45°) − sin(30°)sin(45°). Plug in your known values.",
+    wrong_reasons: {
+      1: "Pythagorean doesn't compute values at specific angles.",
+      2: "Tangent gives ratios, not cos values.",
+      3: "Quadrant knowledge gives sign info only.",
+      4: "Sin addition gives sin(75°), not cos(75°).",
+    },
+  },
+  {
+    id: "s5d", iid: 5,
+    scenario: "You're proving cos(2x) is equivalent to cos²(x) − sin²(x). You need to start from a formula that handles cos of a sum.",
+    why: "cos(2x) = cos(x + x). Apply the cos addition formula: cos(x)cos(x) − sin(x)sin(x) = cos²(x) − sin²(x). This is the double-angle identity for cos, derived from cos addition.",
+    wrong_reasons: {
+      1: "Pythagorean identity is sin² + cos² = 1 — useful, but it doesn't EXPAND cos(2x).",
+      2: "Tangent gives ratios — not the right tool to expand cos of a sum.",
+      3: "Unit circle knowledge doesn't algebraically expand cos(2x).",
+      4: "Sin addition would give you sin(2x) = 2 sin(x) cos(x), not cos(2x).",
     },
   },
 ];
@@ -1162,7 +1306,14 @@ function PracticeMode({ progress, onUpdate }) {
 
 // ─── FORMULA FINDER ───────────────────────────────────────────────────────────
 function FormulaFinder({ progress, onUpdate }) {
-  const available = SCENARIOS.filter((s) => isUnlocked(progress, s.iid));
+  const available = useMemo(() => {
+    const arr = SCENARIOS.filter((s) => isUnlocked(progress, s.iid));
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }, []);
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState(null);
   const [submitted, setSubmitted] = useState(false);
@@ -1339,6 +1490,23 @@ function recordLab(onUpdate, key, accuracy) {
   });
 }
 
+function AnswerReveal({ children }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ marginTop: 32, textAlign: "center" }}>
+      <button onClick={() => setShow((s) => !s)}
+        style={{ background: "none", border: "none", color: C.muted, fontSize: 10, cursor: "pointer", fontFamily: F, opacity: 0.35, textDecoration: "underline", padding: "4px", letterSpacing: "0.05em" }}>
+        {show ? "hide answers" : "reveal answers"}
+      </button>
+      {show && (
+        <div style={{ background: C.surfaceAlt, borderRadius: 10, padding: "10px 14px", marginTop: 6, border: `1px dashed ${C.border}`, fontSize: 12, color: C.muted, fontFamily: "monospace", lineHeight: 1.8, textAlign: "left" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── GAME 1: MISSILE COMMAND ──────────────────────────────────────────────────
 function MissileCommand({ progress, onUpdate, onBack }) {
   const POWER = 100;
@@ -1347,8 +1515,14 @@ function MissileCommand({ progress, onUpdate, onBack }) {
   const PX_PER_UNIT = 1.6;
   const CANNON_X = 40, GROUND_Y = SCENE_H - 30;
 
+  // Target's distance from cannon (in meters) for a given launch angle, derived from physics
+  // so a correct cos/sin computation lands the missile exactly on the target.
+  // landingX = (P² · sin(2θ)) / G
+  const landingForAngle = (deg) => (POWER * POWER * Math.sin((2 * deg * Math.PI) / 180)) / GRAVITY;
+  const targetXForAngle = (deg) => CANNON_X + landingForAngle(deg) * PX_PER_UNIT;
+
   const [theta, setTheta] = useState(45);
-  const [targetX, setTargetX] = useState(300);
+  const [targetX, setTargetX] = useState(targetXForAngle(45));
   const [hVelInput, setHVelInput] = useState("");
   const [vVelInput, setVVelInput] = useState("");
   const [fired, setFired] = useState(false);
@@ -1361,8 +1535,9 @@ function MissileCommand({ progress, onUpdate, onBack }) {
   const correctV = POWER * Math.sin((theta * Math.PI) / 180);
 
   const newChallenge = useCallback(() => {
-    setTheta(20 + Math.floor(Math.random() * 60));
-    setTargetX(180 + Math.floor(Math.random() * 220));
+    const newTheta = 25 + Math.floor(Math.random() * 50); // 25–75°, keeps targets in 100–200m range
+    setTheta(newTheta);
+    setTargetX(targetXForAngle(newTheta));
     setHVelInput(""); setVVelInput("");
     setFired(false); setT(0); setShowHint(false); setResult(null);
   }, []);
@@ -1418,6 +1593,31 @@ function MissileCommand({ progress, onUpdate, onBack }) {
         <svg viewBox={`0 0 ${SCENE_W} ${SCENE_H}`} style={{ width: "100%", display: "block" }}>
           <rect x="0" y="0" width={SCENE_W} height={GROUND_Y} fill="#16152a" />
           <rect x="0" y={GROUND_Y} width={SCENE_W} height={SCENE_H - GROUND_Y} fill="#2a2847" />
+
+          {/* Height scale (left side) */}
+          {[0, 25, 50, 75, 100].map((h) => {
+            const yPx = GROUND_Y - h * PX_PER_UNIT;
+            return (
+              <g key={`h${h}`}>
+                <line x1={CANNON_X - 6} y1={yPx} x2={CANNON_X - 2} y2={yPx} stroke={C.muted} strokeWidth="1" opacity="0.6" />
+                {h > 0 && <text x={CANNON_X - 9} y={yPx + 3} textAnchor="end" fill={C.muted} fontSize="7" fontFamily={F} opacity="0.7">{h} m</text>}
+              </g>
+            );
+          })}
+
+          {/* Distance scale (along ground) */}
+          {[0, 50, 100, 150, 200, 250, 300].map((d) => {
+            const xPx = CANNON_X + d * PX_PER_UNIT;
+            if (xPx > SCENE_W - 5) return null;
+            return (
+              <g key={`d${d}`}>
+                <line x1={xPx} y1={GROUND_Y} x2={xPx} y2={GROUND_Y + 4} stroke={C.muted} strokeWidth="1" opacity="0.7" />
+                <text x={xPx} y={GROUND_Y + 13} textAnchor="middle" fill={C.muted} fontSize="7" fontFamily={F} opacity="0.7">{d}</text>
+              </g>
+            );
+          })}
+          <text x={SCENE_W - 6} y={GROUND_Y + 21} textAnchor="end" fill={C.muted} fontSize="7" fontFamily={F} opacity="0.7" fontStyle="italic">distance (m)</text>
+
           {/* cannon */}
           <circle cx={CANNON_X} cy={GROUND_Y} r="10" fill={C.gold} />
           <line x1={CANNON_X} y1={GROUND_Y} x2={CANNON_X + 22 * Math.cos((theta * Math.PI) / 180)} y2={GROUND_Y - 22 * Math.sin((theta * Math.PI) / 180)} stroke={C.gold} strokeWidth="5" strokeLinecap="round" />
@@ -1425,6 +1625,14 @@ function MissileCommand({ progress, onUpdate, onBack }) {
           <circle cx={targetX} cy={GROUND_Y} r="14" fill="none" stroke={C.coral} strokeWidth="2" />
           <circle cx={targetX} cy={GROUND_Y} r="9" fill="none" stroke={C.coral} strokeWidth="2" />
           <circle cx={targetX} cy={GROUND_Y} r="3" fill={C.coral} />
+
+          {/* Target distance label */}
+          <text x={targetX} y={GROUND_Y - 22} textAnchor="middle" fill={C.coral} fontSize="10" fontFamily={F} fontWeight="700">
+            {((targetX - CANNON_X) / PX_PER_UNIT).toFixed(0)} m away
+          </text>
+          {/* dotted line from cannon to target along ground */}
+          <line x1={CANNON_X} y1={GROUND_Y - 1} x2={targetX} y2={GROUND_Y - 1} stroke={C.coral} strokeWidth="0.8" strokeDasharray="2 3" opacity="0.4" />
+
           {/* arc */}
           {fired && arcPoints.length > 0 && (
             <polyline points={arcPoints.join(" ")} fill="none" stroke={C.gold} strokeWidth="1.5" strokeDasharray="3 3" opacity="0.5" />
@@ -1484,16 +1692,28 @@ function MissileCommand({ progress, onUpdate, onBack }) {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setFired(false); setT(0); setResult(null); setHVelInput(""); setVVelInput(""); setShowHint(false); }}
-              style={{ flex: 1, padding: 13, borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: F }}>
-              Retry Same
+              style={{ flex: result.accuracy > 95 ? 1 : 2, padding: 13, borderRadius: 12, border: result.accuracy > 95 ? `1.5px solid ${C.border}` : "none", background: result.accuracy > 95 ? C.surface : C.gold, color: result.accuracy > 95 ? C.text : "#0d0c1a", fontWeight: result.accuracy > 95 ? 700 : 800, fontSize: result.accuracy > 95 ? 13 : 14, cursor: "pointer", fontFamily: F }}>
+              {result.accuracy > 95 ? "Retry Same" : "Try Again"}
             </button>
-            <button onClick={newChallenge}
-              style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
-              New Challenge
-            </button>
+            {result.accuracy > 95 && (
+              <button onClick={newChallenge}
+                style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
+                New Challenge
+              </button>
+            )}
           </div>
+          {result.accuracy <= 95 && (
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, textAlign: "center", fontStyle: "italic" }}>
+              Land closer to the target to unlock a new challenge.
+            </div>
+          )}
         </div>
       )}
+
+      <AnswerReveal>
+        Horizontal vel = {POWER} × cos({theta}°) = {correctH.toFixed(2)}<br />
+        Vertical vel &nbsp;= {POWER} × sin({theta}°) = {correctV.toFixed(2)}
+      </AnswerReveal>
     </div>
   );
 }
@@ -1516,12 +1736,14 @@ function NoiseCancelling({ progress, onUpdate, onBack }) {
   const userPhase = parseFloat(phaseInput) || 0;
 
   const W = 320, H = 60, SAMPLES = 200, X_RANGE = 4 * Math.PI;
+  const PAD_L = 18, PAD_B = 10;
   const buildPath = (fn) => {
     const pts = [];
+    const plotW = W - PAD_L;
     for (let i = 0; i <= SAMPLES; i++) {
       const x = (i / SAMPLES) * X_RANGE;
       const y = fn(x);
-      const sx = (i / SAMPLES) * W;
+      const sx = PAD_L + (i / SAMPLES) * plotW;
       const sy = H / 2 - y * (H / 2 - 4);
       pts.push(`${sx.toFixed(1)},${sy.toFixed(1)}`);
     }
@@ -1554,11 +1776,31 @@ function NoiseCancelling({ progress, onUpdate, onBack }) {
 
   const verdict = submitted ? (submitted.cancelled > 95 ? { msg: "Perfect cancellation — silence achieved.", color: C.mint } : submitted.cancelled > 70 ? { msg: "Almost — you can still hear a faint hum. Check your phase shift.", color: C.gold } : { msg: "Still loud. Check the amplitude and phase.", color: C.coral }) : null;
 
-  const Wave = ({ fn, color, label }) => (
+  const Wave = ({ fn, color, label, showXAxis = false }) => (
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
-        <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke={C.border} strokeWidth="0.5" />
+      <svg viewBox={`0 0 ${W} ${H + (showXAxis ? PAD_B : 0)}`} style={{ width: "100%", display: "block", background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+        {/* y-axis amplitude markers */}
+        {[1, 0, -1].map((amp) => {
+          const y = H / 2 - amp * (H / 2 - 4);
+          return (
+            <g key={amp}>
+              <line x1={PAD_L} y1={y} x2={W} y2={y} stroke={C.border} strokeWidth="0.4" opacity={amp === 0 ? 0.7 : 0.3} />
+              <text x={PAD_L - 3} y={y + 2.5} textAnchor="end" fill={C.muted} fontSize="6" fontFamily={F} opacity="0.7">{amp > 0 ? "+1" : amp === 0 ? "0" : "−1"}</text>
+            </g>
+          );
+        })}
+        {/* x-axis time markers (only on bottom wave) */}
+        {showXAxis && [0, 1, 2, 3, 4].map((p) => {
+          const sx = PAD_L + (p / 4) * (W - PAD_L);
+          return (
+            <g key={p}>
+              <line x1={sx} y1={H - 2} x2={sx} y2={H + 1} stroke={C.muted} strokeWidth="0.5" opacity="0.7" />
+              <text x={sx} y={H + 7} textAnchor="middle" fill={C.muted} fontSize="6" fontFamily={F} opacity="0.7">{p === 0 ? "0" : `${p}π`}</text>
+            </g>
+          );
+        })}
+        {showXAxis && <text x={W - 2} y={H + 7} textAnchor="end" fill={C.muted} fontSize="6" fontFamily={F} opacity="0.7" fontStyle="italic">time →</text>}
         <polyline points={buildPath(fn)} fill="none" stroke={color} strokeWidth="1.5" />
       </svg>
     </div>
@@ -1570,7 +1812,7 @@ function NoiseCancelling({ progress, onUpdate, onBack }) {
 
       <Wave fn={noiseFn} color={C.coral} label={`Incoming noise — amp ${noise.amp}, freq ${noise.freq}`} />
       <Wave fn={userFn} color={C.teal} label="Your cancelling wave" />
-      <Wave fn={sumFn} color={C.gold} label="What you hear (sum)" />
+      <Wave fn={sumFn} color={C.gold} label="What you hear (sum) — flat means silent" showXAxis />
 
       <div style={{ background: C.surface, borderRadius: 14, padding: "14px 16px", marginBottom: 12, border: `1px solid ${C.border}` }}>
         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65, marginBottom: 12 }}>
@@ -1607,12 +1849,24 @@ function NoiseCancelling({ progress, onUpdate, onBack }) {
               Perfect: amp={noise.amp}, freq={noise.freq}, phase=1
             </div>
           </div>
-          <button onClick={newProblem}
-            style={{ width: "100%", padding: 13, borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: F }}>
-            New Problem
-          </button>
+          {submitted.cancelled > 95 ? (
+            <button onClick={newProblem}
+              style={{ width: "100%", padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
+              New Problem
+            </button>
+          ) : (
+            <div style={{ fontSize: 11, color: C.muted, textAlign: "center", fontStyle: "italic", marginTop: 4 }}>
+              Adjust your inputs and submit again. New problem unlocks once the result is silent.
+            </div>
+          )}
         </>
       )}
+
+      <AnswerReveal>
+        Amplitude = {noise.amp}<br />
+        Frequency = {noise.freq}<br />
+        Phase × π = 1 &nbsp;(half a cycle shift)
+      </AnswerReveal>
     </div>
   );
 }
@@ -1676,8 +1930,8 @@ function BridgeBuilder({ progress, onUpdate, onBack }) {
   const sag = tested ? tested.sag : 0;
   const deckColor = tested ? (tested.accuracy > 95 ? C.mint : tested.accuracy > 75 ? C.gold : C.coral) : C.muted;
 
-  const inputBox = (k, w = 60) => (
-    <input type="number" step="0.01" inputMode="decimal" value={inputs[k]} onChange={setField(k)} disabled={!!tested}
+  const inputBox = (k, ph, w = 70) => (
+    <input type="number" step="0.01" inputMode="decimal" value={inputs[k]} onChange={setField(k)} disabled={!!tested} placeholder={ph}
       style={{ width: w, padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${tested ? (tested.checks[k] ? C.mint : C.coral) : C.border}`, background: C.bg, color: tested ? (tested.checks[k] ? C.mint : C.coral) : C.text, fontFamily: "monospace", fontSize: 13 }} />
   );
 
@@ -1686,25 +1940,66 @@ function BridgeBuilder({ progress, onUpdate, onBack }) {
       <LabHeader title="Bridge Builder" onBack={onBack} />
 
       <div style={{ background: C.surface, borderRadius: 14, padding: 12, marginBottom: 14, border: `1px solid ${C.border}` }}>
-        <svg viewBox="0 0 500 200" style={{ width: "100%", display: "block" }}>
+        <svg viewBox="0 0 500 220" style={{ width: "100%", display: "block" }}>
           {/* sky */}
           <rect x="0" y="0" width="500" height="160" fill="#16152a" />
-          <rect x="0" y="160" width="500" height="40" fill="#2a2847" />
+          <rect x="0" y="160" width="500" height="60" fill="#2a2847" />
           {/* towers */}
           <rect x="60" y="40" width="14" height="120" fill={C.muted} />
           <rect x="426" y="40" width="14" height="120" fill={C.muted} />
           {/* deck */}
           <line x1="74" y1={120 + sag} x2="426" y2={120 + sag} stroke={deckColor} strokeWidth="6" />
-          {/* cable (left to mid bottom of deck to right) */}
+          {/* cable */}
           <path d={`M67,40 Q250,${85 + sag * 1.5} 433,40`} fill="none" stroke={C.gold} strokeWidth="2.5" />
-          {/* force arrows on cable mid */}
+
+          {/* Force diagram: protractor-style reference arc + force arrows */}
           <g transform="translate(250 85)">
+            {/* Reference protractor arc (faint quarter-circle, 0° to 180° upper half) */}
+            <path d="M -55 0 A 55 55 0 0 1 55 0" fill="none" stroke={C.muted} strokeWidth="0.6" opacity="0.35" />
+            {/* Tick marks at 0°, 30°, 60°, 90°, 120°, 150°, 180° */}
+            {[0, 30, 60, 90, 120, 150, 180].map((deg) => {
+              const a = (deg * Math.PI) / 180;
+              const x1 = Math.cos(a) * 55, y1 = -Math.sin(a) * 55;
+              const x2 = Math.cos(a) * 60, y2 = -Math.sin(a) * 60;
+              const lx = Math.cos(a) * 67, ly = -Math.sin(a) * 67 + 2;
+              return (
+                <g key={deg}>
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={C.muted} strokeWidth="0.7" opacity="0.5" />
+                  <text x={lx} y={ly} textAnchor="middle" fill={C.muted} fontSize="6.5" fontFamily={F} opacity="0.6">{deg}°</text>
+                </g>
+              );
+            })}
+            {/* horizontal reference (the "ground" of the angle measurement) */}
+            <line x1="-55" y1="0" x2="55" y2="0" stroke={C.muted} strokeWidth="0.5" opacity="0.4" strokeDasharray="2 2" />
+            {/* origin marker */}
+            <circle cx="0" cy="0" r="2" fill={C.muted} />
+
+            {/* Force 1 arrow */}
             <line x1="0" y1="0" x2={Math.cos((x * Math.PI) / 180) * 50} y2={-Math.sin((x * Math.PI) / 180) * 50} stroke={C.teal} strokeWidth="2.5" markerEnd="url(#arrTeal)" />
+            <text x={Math.cos((x * Math.PI) / 180) * 38 + 6} y={-Math.sin((x * Math.PI) / 180) * 38 - 4} fill={C.teal} fontSize="9" fontFamily={F} fontWeight="700">{x}°</text>
+
+            {/* Force 2 arrow */}
             <line x1="0" y1="0" x2={Math.cos((y * Math.PI) / 180) * 50} y2={-Math.sin((y * Math.PI) / 180) * 50} stroke={C.purple} strokeWidth="2.5" markerEnd="url(#arrPurp)" />
+            <text x={Math.cos((y * Math.PI) / 180) * 38 - 14} y={-Math.sin((y * Math.PI) / 180) * 38 + 8} fill={C.purple} fontSize="9" fontFamily={F} fontWeight="700">{y}°</text>
+
+            {/* Resultant force (combined x+y) — only shown after test, computed from user's final answers */}
+            {tested && !isNaN(tested.finalCosVal) && !isNaN(tested.finalSinVal) && (
+              <>
+                <line x1="0" y1="0" x2={tested.finalCosVal * 70} y2={-tested.finalSinVal * 70} stroke={C.gold} strokeWidth="2" markerEnd="url(#arrGold)" strokeDasharray="3 2" opacity="0.85" />
+                <text x={tested.finalCosVal * 80} y={-tested.finalSinVal * 80 - 4} textAnchor="middle" fill={C.gold} fontSize="8" fontFamily={F} fontWeight="700" opacity="0.9">your resultant</text>
+              </>
+            )}
           </g>
+
+          {/* Caption explaining the reference */}
+          <text x="250" y="200" textAnchor="middle" fill={C.muted} fontSize="9" fontFamily={F} fontStyle="italic" opacity="0.7">
+            Two forces meet at the cable midpoint. Find the combined direction.
+          </text>
+
           <defs>
             <marker id="arrTeal" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill={C.teal} /></marker>
             <marker id="arrPurp" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill={C.purple} /></marker>
+            <marker id="arrGold" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill={C.gold} /></marker>
           </defs>
         </svg>
       </div>
@@ -1713,15 +2008,17 @@ function BridgeBuilder({ progress, onUpdate, onBack }) {
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
           Force 1 angle: <b style={{ color: C.teal }}>x = {x}°</b> &nbsp; Force 2 angle: <b style={{ color: C.purple }}>y = {y}°</b> &nbsp; Combined: <b>{x + y}°</b>
         </div>
-        <div style={{ fontFamily: "monospace", fontSize: 12, color: C.text, lineHeight: 1.9 }}>
-          <div style={{ color: C.coral, fontWeight: 700, marginBottom: 4 }}>cos(x+y) = cos(x)cos(y) − sin(x)sin(y)</div>
-          <div>= {inputBox("cosX")} × {inputBox("cosY")} − {inputBox("sinX")} × {inputBox("sinY")}</div>
-          <div>= {inputBox("finalCos", 80)}</div>
-          <div style={{ color: C.purple, fontWeight: 700, marginTop: 12, marginBottom: 4 }}>sin(x+y) = sin(x)cos(y) + sin(y)cos(x)</div>
-          <div>= {inputBox("sinX")} × {inputBox("cosY")} + {inputBox("sinY")} × {inputBox("cosX")}</div>
-          <div>= {inputBox("finalSin", 80)}</div>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 12, lineHeight: 1.55 }}>
+          Each blank shows what to compute (e.g. <span style={{ fontFamily: "monospace", color: C.text }}>cos({x}°)</span>). Type the decimal value. The four component fields share values across both formulas — fill once, see twice.
         </div>
-        <div style={{ fontSize: 10, color: C.muted, marginTop: 8, fontStyle: "italic" }}>(The four component fields share values across both formulas.)</div>
+        <div style={{ fontFamily: "monospace", fontSize: 12, color: C.text, lineHeight: 2.1 }}>
+          <div style={{ color: C.coral, fontWeight: 700, marginBottom: 4 }}>cos(x+y) = cos(x)cos(y) − sin(x)sin(y)</div>
+          <div>= {inputBox("cosX", `cos(${x}°)`)} × {inputBox("cosY", `cos(${y}°)`)} − {inputBox("sinX", `sin(${x}°)`)} × {inputBox("sinY", `sin(${y}°)`)}</div>
+          <div>= {inputBox("finalCos", "cos(x+y)", 90)}</div>
+          <div style={{ color: C.purple, fontWeight: 700, marginTop: 14, marginBottom: 4 }}>sin(x+y) = sin(x)cos(y) + sin(y)cos(x)</div>
+          <div>= {inputBox("sinX", `sin(${x}°)`)} × {inputBox("cosY", `cos(${y}°)`)} + {inputBox("sinY", `sin(${y}°)`)} × {inputBox("cosX", `cos(${x}°)`)}</div>
+          <div>= {inputBox("finalSin", "sin(x+y)", 90)}</div>
+        </div>
       </div>
 
       {!tested && (
@@ -1743,16 +2040,30 @@ function BridgeBuilder({ progress, onUpdate, onBack }) {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setInputs({ cosX: "", cosY: "", sinX: "", sinY: "", finalCos: "", finalSin: "" }); setTested(null); }}
-              style={{ flex: 1, padding: 13, borderRadius: 12, border: `1.5px solid ${C.border}`, background: C.surface, color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: F }}>
-              Retry Same
+              style={{ flex: tested.accuracy > 95 ? 1 : 2, padding: 13, borderRadius: 12, border: tested.accuracy > 95 ? `1.5px solid ${C.border}` : "none", background: tested.accuracy > 95 ? C.surface : C.gold, color: tested.accuracy > 95 ? C.text : "#0d0c1a", fontWeight: tested.accuracy > 95 ? 700 : 800, fontSize: tested.accuracy > 95 ? 13 : 14, cursor: "pointer", fontFamily: F }}>
+              {tested.accuracy > 95 ? "Retry Same" : "Try Again"}
             </button>
-            <button onClick={newProblem}
-              style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
-              New Problem
-            </button>
+            {tested.accuracy > 95 && (
+              <button onClick={newProblem}
+                style={{ flex: 1, padding: 13, borderRadius: 12, border: "none", background: C.gold, color: "#0d0c1a", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: F }}>
+                New Problem
+              </button>
+            )}
           </div>
+          {tested.accuracy <= 95 && (
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, textAlign: "center", fontStyle: "italic" }}>
+              Get closer to a sound bridge to unlock a new problem.
+            </div>
+          )}
         </>
       )}
+
+      <AnswerReveal>
+        cos({x}°) = {cosX.toFixed(3)} &nbsp; cos({y}°) = {cosY.toFixed(3)}<br />
+        sin({x}°) = {sinX.toFixed(3)} &nbsp; sin({y}°) = {sinY.toFixed(3)}<br />
+        cos(x+y) = {correctCosSum.toFixed(3)}<br />
+        sin(x+y) = {correctSinSum.toFixed(3)}
+      </AnswerReveal>
     </div>
   );
 }
@@ -1892,6 +2203,18 @@ function ParentView({ progress, onClose }) {
         <div style={{ fontSize: 12, color: C.gold, fontWeight: 700, marginBottom: 6 }}>For you, parent 💛</div>
         <div style={{ fontSize: 13, color: C.text, lineHeight: 1.7 }}>{encouragement}</div>
       </div>
+
+      <div style={{ marginTop: 36, textAlign: "center" }}>
+        <button onClick={() => {
+          if (window.confirm("Reset ALL progress?\n\nThis erases quiz history, finder progress, lab scores, and speed round records. Cannot be undone.")) {
+            try { localStorage.removeItem("trigsense_v1"); } catch (_) {}
+            window.location.reload();
+          }
+        }}
+          style={{ background: "none", border: `1px solid ${C.coral}55`, color: C.coral, fontSize: 11, cursor: "pointer", fontFamily: F, padding: "6px 14px", borderRadius: 999, opacity: 0.7, fontWeight: 600, letterSpacing: "0.05em" }}>
+          Reset all data
+        </button>
+      </div>
     </div>
   );
 }
@@ -1933,7 +2256,7 @@ function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, maxWidth: 480, margin: "0 auto", position: "relative" }}>
+    <div style={{ minHeight: "100vh", background: C.bg, maxWidth: 720, margin: "0 auto", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Sora:wght@700;800&display=swap');
         * { box-sizing: border-box; }
@@ -1965,7 +2288,7 @@ function App() {
 
       {/* Bottom nav */}
       {screen !== "parent" && (
-        <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 12px" }}>
+        <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 720, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", padding: "10px 0 12px" }}>
           {[{ k: "home", icon: "⌂", l: "Home" }, { k: "explore", icon: "◎", l: "Explore" }, { k: "finder", icon: "⊕", l: "Finder" }, { k: "practice", icon: "◈", l: "Practice" }, { k: "lab", icon: "⚗", l: "Lab" }].map((n) => (
             <button key={n.k} onClick={() => setScreen(n.k)}
               style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "6px 0", fontFamily: F }}>
