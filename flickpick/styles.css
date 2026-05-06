@@ -680,6 +680,106 @@
     color: #ff4444;
   }
 
+  /* Rating modal — appears when a watchlist item is marked Seen */
+  .rating-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rating-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+  }
+
+  .rating-modal-content {
+    position: relative;
+    width: 90vw;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 24px 20px;
+    text-align: center;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .rating-modal-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+
+  .rating-modal-emojis {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .rating-modal-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    padding: 14px 16px;
+    font-size: 28px;
+    transition: all 0.2s;
+    line-height: 1;
+  }
+  .rating-modal-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    background: rgba(232, 197, 71, 0.08);
+  }
+
+  .rating-modal-cancel {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 8px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .rating-modal-cancel:hover {
+    border-color: var(--text);
+    color: var(--text);
+  }
+
+  /* Slim Mark-Seen button on watchlist cards. Visually matches
+     .btn-watching but tinted green so it reads as "I've seen this". */
+  .btn-mark-seen {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 12px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-mark-seen:hover {
+    border-color: var(--seen);
+    color: var(--seen);
+    background: rgba(74, 222, 128, 0.08);
+  }
+
   .featured-actions {
     display: flex;
     gap: 10px;

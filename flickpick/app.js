@@ -2261,6 +2261,17 @@ document.addEventListener('click', (e) => {
       removeFromSeen(id);
       break;
 
+    // ─── WATCHLIST → SEEN (with rating prompt) ───────────────────────
+    case 'watchlist-mark-seen':
+      markWatchlistSeen(id);
+      break;
+    case 'rating-modal-pick':
+      pickRatingFromModal(id, el.dataset.rating);
+      break;
+    case 'rating-modal-close':
+      closeRatingModal();
+      break;
+
     // ─── NOPE PAGE ACTIONS ───────────────────────────────────────────
     case 'nope-mark-seen':
       moveNopeToSeen(id);
@@ -3841,6 +3852,7 @@ function renderWatchlistCard(item) {
         <div class="watchlist-extras" data-wl-extras="${item.id}"></div>
         <div class="watchlist-actions">
           <button class="btn-watching${watchingBtnActive}" data-action="toggle-watching" data-id="${item.id}" title="Currently watching">👀 Watching</button>
+          <button class="btn-mark-seen" data-action="watchlist-mark-seen" data-id="${item.id}" title="Mark as seen">✓ Seen</button>
           <button class="btn-remove" data-action="remove-want" data-id="${item.id}">Remove</button>
         </div>
       </div>
@@ -4048,6 +4060,73 @@ function removeFromWant(id) {
   document.getElementById('watchlist-subheading').textContent =
     remaining === 0 ? 'Nothing saved yet' : `${remaining} title${remaining === 1 ? '' : 's'} saved`;
   if (remaining === 0) setTimeout(() => renderWatchlist(), 350);
+}
+
+// Move a watchlist item into Seen, then prompt for a rating. Triggered by
+// the ✓ Seen button on each watchlist card.
+function markWatchlistSeen(id) {
+  const item = state.want[id] || getStoredItem(id);
+  if (!item) return;
+  State.addSeen(item);
+  State.removeWant(id);
+  const seenId = normalizeId(item.title, item.year);
+
+  const el = document.getElementById('wl-' + id);
+  if (el) {
+    el.style.transition = 'all 0.3s';
+    el.style.opacity = '0';
+    el.style.transform = 'scale(0.95)';
+    setTimeout(() => el.remove(), 300);
+  }
+  const remaining = Object.keys(state.want).length;
+  const sub = document.getElementById('watchlist-subheading');
+  if (sub) {
+    sub.textContent = remaining === 0
+      ? 'Nothing saved yet'
+      : `${remaining} title${remaining === 1 ? '' : 's'} saved`;
+  }
+  if (remaining === 0) setTimeout(() => renderWatchlist(), 350);
+
+  openRatingModal(seenId, item.title);
+}
+
+// ─── RATING MODAL ────────────────────────────────────────────────────────────
+function _ratingModalEscHandler(e) {
+  if (e.key === 'Escape') closeRatingModal();
+}
+
+function openRatingModal(id, title) {
+  closeRatingModal();
+  const safeTitle = String(title).replace(/"/g, '&quot;');
+  const modal = document.createElement('div');
+  modal.id = 'rating-modal';
+  modal.className = 'rating-modal';
+  modal.innerHTML = `
+    <div class="rating-modal-backdrop" data-action="rating-modal-close"></div>
+    <div class="rating-modal-content">
+      <div class="rating-modal-title">Rate "${safeTitle}"?</div>
+      <div class="rating-modal-emojis">
+        <button class="rating-modal-btn" data-action="rating-modal-pick" data-id="${id}" data-rating="loved" title="Loved">❤️</button>
+        <button class="rating-modal-btn" data-action="rating-modal-pick" data-id="${id}" data-rating="liked" title="Liked">👍</button>
+        <button class="rating-modal-btn" data-action="rating-modal-pick" data-id="${id}" data-rating="meh" title="Meh">😐</button>
+        <button class="rating-modal-btn" data-action="rating-modal-pick" data-id="${id}" data-rating="disliked" title="Disliked">👎</button>
+      </div>
+      <button class="rating-modal-cancel" data-action="rating-modal-close">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  document.addEventListener('keydown', _ratingModalEscHandler);
+}
+
+function closeRatingModal() {
+  const modal = document.getElementById('rating-modal');
+  if (modal) modal.remove();
+  document.removeEventListener('keydown', _ratingModalEscHandler);
+}
+
+function pickRatingFromModal(id, rating) {
+  if (id && rating) State.setRating(id, rating);
+  closeRatingModal();
 }
 
 function getFilteredWatchlist() {
