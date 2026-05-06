@@ -763,6 +763,395 @@ function closeTrailerModal() {
   document.removeEventListener('keydown', _trailerEscHandler);
 }
 
+// ─── TRAILER MODE ───────────────────────────────────────────────────────────
+// Auto-plays YouTube trailers from the user's lists. Uses the YT IFrame API
+// so we get ENDED / error events for auto-advance. Errors and embed-disabled
+// videos skip silently to the next item.
+const trailerMode = {
+  queue: [],            // upcoming items, each with .trailerKey resolved
+  history: [],          // last ~30 played, used to avoid re-queueing
+  current: null,        // currently-playing item (with .trailerKey)
+  player: null,         // YT.Player instance
+  playerReady: false,
+  watchdogTimer: null,
+  apiLoadPromise: null, // memoized YT API loader
+  active: false,
+  failedKeys: new Set(),
+  consecutiveErrors: 0, // shutdown after 5 in a row
+  firstPlayDone: false  // tracks whether mobile-autoplay unlock has been resolved
+};
+const TM_QUEUE_TARGET = 12;
+const TM_REFILL_THRESHOLD = 3;
+const TM_WATCHDOG_MS = 6000;
+const TM_MAX_CONSECUTIVE_ERRORS = 5;
+
+function loadYouTubeAPI() {
+  if (trailerMode.apiLoadPromise) return trailerMode.apiLoadPromise;
+  trailerMode.apiLoadPromise = new Promise((resolve, reject) => {
+    if (window.YT && window.YT.Player) return resolve(window.YT);
+    const prevHook = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof prevHook === 'function') { try { prevHook(); } catch (e) {} }
+      resolve(window.YT);
+    };
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    tag.onerror = () => reject(new Error('Failed to load YouTube IFrame API'));
+    document.head.appendChild(tag);
+  });
+  return trailerMode.apiLoadPromise;
+}
+
+// Pull all candidate items from the three sources into a single shuffled list.
+// Skips items that are already seen / noped / queued / played, and items we
+// already know have no trailer (hasTrailer === false from prior fetches).
+function buildTrailerQueue(targetSize = TM_QUEUE_TARGET) {
+  const sources = [
+    Object.values(state.want),
+    (recsCarousels.loved && recsCarousels.loved.state.pool) || [],
+    (recsCarousels['wl-recs'] && recsCarousels['wl-recs'].state.pool) || []
+  ];
+  const inUse = new Set();
+  for (const it of trailerMode.queue) inUse.add(it.id);
+  for (const it of trailerMode.history) if (it) inUse.add(it.id);
+  if (trailerMode.current) inUse.add(trailerMode.current.id);
+
+  const seen = new Set();
+  const candidates = [];
+  for (const arr of sources) {
+    for (const item of arr) {
+      if (!item || !item.id) continue;
+      if (seen.has(item.id) || inUse.has(item.id)) continue;
+      if (state.seen[item.id] || state.nope[item.id]) continue;
+      if (item.hasTrailer === false) continue;
+      seen.add(item.id);
+      candidates.push(item);
+    }
+  }
+
+  // Fisher–Yates shuffle, then trim
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  return candidates.slice(0, targetSize);
+}
+
+// Resolve trailer keys for a batch of items. Returns a promise that resolves
+// when AT LEAST ONE item has a key (so the user starts faster). Items
+// continue resolving in the background; null-keyed items are dropped.
+function resolveTrailerKeys(items) {
+  return new Promise((resolve) => {
+    if (items.length === 0) { resolve([]); return; }
+    const resolved = [];
+    let firstResolveFired = false;
+    let pending = items.length;
+    items.forEach(item => {
+      fetchTmdbExtras(item.title, item.year).then(({ trailerKey }) => {
+        pending--;
+        if (trailerKey && !trailerMode.failedKeys.has(trailerKey)) {
+          resolved.push({ ...item, trailerKey });
+          if (!firstResolveFired) {
+            firstResolveFired = true;
+            // Yield a tick so a couple more can land for a fuller queue
+            setTimeout(() => resolve(resolved.slice()), 250);
+          }
+        }
+        if (pending === 0 && !firstResolveFired) resolve(resolved);
+      }).catch(() => {
+        pending--;
+        if (pending === 0 && !firstResolveFired) resolve(resolved);
+      });
+    });
+  });
+}
+
+function tmHasAnyCandidates() {
+  return Object.keys(state.want).length > 0
+    || ((recsCarousels.loved && recsCarousels.loved.state.pool && recsCarousels.loved.state.pool.length) > 0)
+    || ((recsCarousels['wl-recs'] && recsCarousels['wl-recs'].state.pool && recsCarousels['wl-recs'].state.pool.length) > 0);
+}
+
+// Show or hide the whole trailer-mode-section based on whether there's
+// anything to play. Called after discover renders.
+function updateTrailerModeVisibility() {
+  const sec = document.getElementById('trailer-mode-section');
+  if (!sec) return;
+  sec.style.display = tmHasAnyCandidates() ? 'block' : 'none';
+}
+
+async function startTrailerMode() {
+  const idleMsg = document.getElementById('tm-idle-msg');
+  if (idleMsg) idleMsg.textContent = 'Loading trailers…';
+
+  const candidates = buildTrailerQueue();
+  if (candidates.length === 0) {
+    if (idleMsg) idleMsg.textContent = 'Add shows to your Watchlist or rate some loved to use trailer mode.';
+    return;
+  }
+
+  let resolved = [];
+  try {
+    resolved = await resolveTrailerKeys(candidates);
+  } catch (e) {
+    console.error('Trailer key resolution failed:', e);
+  }
+
+  if (resolved.length === 0) {
+    if (idleMsg) idleMsg.textContent = 'Couldn’t find playable trailers right now. Try again later.';
+    return;
+  }
+
+  trailerMode.queue = resolved;
+  trailerMode.history = [];
+  trailerMode.failedKeys = new Set();
+  trailerMode.consecutiveErrors = 0;
+  trailerMode.firstPlayDone = false;
+  trailerMode.active = true;
+
+  document.getElementById('tm-idle').style.display = 'none';
+  document.getElementById('tm-active').style.display = 'block';
+  if (idleMsg) idleMsg.textContent = '';
+
+  const first = trailerMode.queue.shift();
+  trailerMode.current = first;
+  renderNowPlayingCard(first);
+  renderUpNextCard(trailerMode.queue[0] || null);
+
+  try {
+    await initTrailerPlayer(first.trailerKey);
+  } catch (e) {
+    console.error('Trailer player init failed:', e);
+    closeTrailerMode();
+    if (idleMsg) idleMsg.textContent = 'Couldn’t start the player. Check your network and try again.';
+  }
+}
+
+function initTrailerPlayer(firstKey) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      await loadYouTubeAPI();
+    } catch (e) {
+      reject(e);
+      return;
+    }
+    try {
+      trailerMode.player = new YT.Player('trailer-mode-iframe-host', {
+        height: '100%',
+        width: '100%',
+        videoId: firstKey,
+        playerVars: { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: () => {
+            trailerMode.playerReady = true;
+            armWatchdog();
+            resolve();
+          },
+          onStateChange: handlePlayerStateChange,
+          onError: handlePlayerError
+        }
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+function handlePlayerStateChange(e) {
+  if (!window.YT) return;
+  if (e.data === YT.PlayerState.PLAYING) {
+    clearWatchdog();
+    trailerMode.consecutiveErrors = 0;
+    trailerMode.firstPlayDone = true;
+    const overlay = document.getElementById('tm-unmute-overlay');
+    if (overlay && trailerMode.player && !trailerMode.player.isMuted()) overlay.style.display = 'none';
+  } else if (e.data === YT.PlayerState.ENDED) {
+    advanceQueue('ended');
+  }
+}
+
+function handlePlayerError(_e) {
+  if (trailerMode.current && trailerMode.current.trailerKey) {
+    trailerMode.failedKeys.add(trailerMode.current.trailerKey);
+  }
+  trailerMode.consecutiveErrors++;
+  if (trailerMode.consecutiveErrors >= TM_MAX_CONSECUTIVE_ERRORS) {
+    closeTrailerMode();
+    showToast('Couldn’t load trailers from your lists right now.');
+    return;
+  }
+  advanceQueue('error');
+}
+
+function armWatchdog() {
+  clearWatchdog();
+  trailerMode.watchdogTimer = setTimeout(() => {
+    // If the very first video never started, try a muted-fallback before skipping.
+    // Subsequent stuck videos are silent skips.
+    if (!trailerMode.firstPlayDone && trailerMode.player && trailerMode.player.mute) {
+      try {
+        trailerMode.player.mute();
+        trailerMode.player.playVideo();
+        const overlay = document.getElementById('tm-unmute-overlay');
+        if (overlay) overlay.style.display = 'block';
+        trailerMode.firstPlayDone = true; // don't loop the fallback
+        // Re-arm with a shorter timeout in case mute also fails
+        trailerMode.watchdogTimer = setTimeout(() => advanceQueue('watchdog'), 4000);
+        return;
+      } catch (_e) {}
+    }
+    if (trailerMode.current && trailerMode.current.trailerKey) {
+      trailerMode.failedKeys.add(trailerMode.current.trailerKey);
+    }
+    trailerMode.consecutiveErrors++;
+    if (trailerMode.consecutiveErrors >= TM_MAX_CONSECUTIVE_ERRORS) {
+      closeTrailerMode();
+      return;
+    }
+    advanceQueue('watchdog');
+  }, TM_WATCHDOG_MS);
+}
+
+function clearWatchdog() {
+  if (trailerMode.watchdogTimer) {
+    clearTimeout(trailerMode.watchdogTimer);
+    trailerMode.watchdogTimer = null;
+  }
+}
+
+function advanceQueue(_reason) {
+  if (!trailerMode.active) return;
+  clearWatchdog();
+  if (trailerMode.current) {
+    trailerMode.history.push(trailerMode.current);
+    if (trailerMode.history.length > 30) trailerMode.history.shift();
+  }
+  if (trailerMode.queue.length < TM_REFILL_THRESHOLD) refillQueueAsync();
+
+  const next = trailerMode.queue.shift();
+  if (!next) {
+    closeTrailerMode();
+    const idleMsg = document.getElementById('tm-idle-msg');
+    if (idleMsg) idleMsg.textContent = 'You’ve cleared the queue! Add more shows or come back later.';
+    return;
+  }
+  trailerMode.current = next;
+  renderNowPlayingCard(next);
+  renderUpNextCard(trailerMode.queue[0] || null);
+  if (trailerMode.player && trailerMode.playerReady) {
+    try {
+      trailerMode.player.loadVideoById(next.trailerKey);
+      armWatchdog();
+    } catch (e) {
+      console.error('loadVideoById failed:', e);
+      handlePlayerError(e);
+    }
+  }
+}
+
+function refillQueueAsync() {
+  const candidates = buildTrailerQueue(8);
+  if (candidates.length === 0) return;
+  resolveTrailerKeys(candidates).then(resolved => {
+    // Avoid duplicating ids that may have landed in the queue meanwhile
+    const inQueue = new Set(trailerMode.queue.map(i => i.id));
+    for (const item of resolved) {
+      if (!inQueue.has(item.id)) trailerMode.queue.push(item);
+    }
+  }).catch(() => {});
+}
+
+function renderNowPlayingCard(item) {
+  const el = document.getElementById('tm-now-playing');
+  if (!el || !item) return;
+  el.innerHTML = `
+    <div class="tm-card-poster-placeholder" data-tm-poster="${item.id}">${item.emoji || genreEmoji(item.genres || '')}</div>
+    <div class="tm-card-info">
+      <div class="tm-card-caption">Now Playing</div>
+      <div class="tm-card-title">${item.title}</div>
+      <div class="tm-card-meta">${item.year || ''}${item.type ? ' · ' + item.type : ''}</div>
+    </div>
+  `;
+  fetchPoster(item.title, item.year).then(url => {
+    if (!url) return;
+    const slot = document.querySelector(`[data-tm-poster="${item.id}"]`);
+    if (!slot) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = item.title;
+    img.className = 'tm-card-poster';
+    img.onload = () => { if (slot.parentNode) slot.replaceWith(img); };
+  });
+}
+
+function renderUpNextCard(item) {
+  const el = document.getElementById('tm-up-next');
+  if (!el) return;
+  if (!item) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="tm-card-poster-placeholder" data-tm-up-poster="${item.id}">${item.emoji || genreEmoji(item.genres || '')}</div>
+    <div class="tm-card-info">
+      <div class="tm-card-caption">Up Next</div>
+      <div class="tm-card-title">${item.title}</div>
+      <div class="tm-card-meta">${item.year || ''}${item.type ? ' · ' + item.type : ''}</div>
+    </div>
+  `;
+  fetchPoster(item.title, item.year).then(url => {
+    if (!url) return;
+    const slot = document.querySelector(`[data-tm-up-poster="${item.id}"]`);
+    if (!slot) return;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = item.title;
+    img.className = 'tm-card-poster';
+    img.onload = () => { if (slot.parentNode) slot.replaceWith(img); };
+  });
+}
+
+function tmUnmute() {
+  if (trailerMode.player && trailerMode.player.unMute) {
+    try { trailerMode.player.unMute(); } catch (_e) {}
+  }
+  const overlay = document.getElementById('tm-unmute-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function closeTrailerMode() {
+  clearWatchdog();
+  if (trailerMode.player && trailerMode.player.destroy) {
+    try { trailerMode.player.destroy(); } catch (_e) {}
+  }
+  // Restore the host div so a fresh YT.Player can take it next time.
+  const wrap = document.querySelector('.tm-player-wrap');
+  if (wrap && !document.getElementById('trailer-mode-iframe-host')) {
+    const host = document.createElement('div');
+    host.id = 'trailer-mode-iframe-host';
+    wrap.insertBefore(host, wrap.firstChild);
+  }
+  trailerMode.player = null;
+  trailerMode.playerReady = false;
+  trailerMode.current = null;
+  trailerMode.queue = [];
+  trailerMode.history = [];
+  trailerMode.failedKeys = new Set();
+  trailerMode.consecutiveErrors = 0;
+  trailerMode.active = false;
+
+  const active = document.getElementById('tm-active');
+  const idle = document.getElementById('tm-idle');
+  const overlay = document.getElementById('tm-unmute-overlay');
+  if (active) active.style.display = 'none';
+  if (idle) idle.style.display = 'flex';
+  if (overlay) overlay.style.display = 'none';
+}
+
+// Pause when the tab is hidden; resume requires manual action.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && trailerMode.active && trailerMode.player && trailerMode.player.pauseVideo) {
+    try { trailerMode.player.pauseVideo(); } catch (_e) {}
+  }
+});
+
 function playTrailer(title, year, btn) {
   if (btn) btn.textContent = '⏳';
   fetchTmdbExtras(title, year).then(({ trailerKey }) => {
@@ -1609,6 +1998,14 @@ function initDiscoverCarousels() {
   for (const key of Object.keys(recsCarousels)) {
     renderRecsCarousel(key);
   }
+  // Poll for ~12s while pools fill in the background, then stop. The check
+  // is cheap and only toggles a single style.display.
+  let polls = 0;
+  const tick = () => {
+    updateTrailerModeVisibility();
+    if (++polls < 24) setTimeout(tick, 500);
+  };
+  setTimeout(tick, 500);
 }
 
 
@@ -1847,15 +2244,18 @@ initDiscoverCarousels();
 initSyncCodeInput();
 initVersionFooter();
 initLoadingPhraseCycler();
+updateTrailerModeVisibility();
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 function showPage(page) {
+  if (page !== 'discover' && trailerMode.active) closeTrailerMode();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   if (page === 'watchlist') renderWatchlist();
   if (page === 'seen') renderSeenList();
   if (page === 'settings') renderSettingsPage();
   if (page === 'nope') renderNopeList();
+  if (page === 'discover') updateTrailerModeVisibility();
 }
 
 // ─── SETTINGS PAGE ─────────────────────────────────────────────────────────
@@ -2298,6 +2698,32 @@ document.addEventListener('click', (e) => {
       }
       break;
     }
+
+    // ─── TRAILER MODE ────────────────────────────────────────────────
+    case 'tm-play':
+      startTrailerMode();
+      break;
+    case 'tm-close':
+      closeTrailerMode();
+      break;
+    case 'tm-skip':
+      advanceQueue('skip');
+      break;
+    case 'tm-seen':
+      if (trailerMode.current) State.addSeen(trailerMode.current);
+      advanceQueue('seen');
+      break;
+    case 'tm-want':
+      if (trailerMode.current) State.addWant(trailerMode.current);
+      advanceQueue('want');
+      break;
+    case 'tm-nope':
+      if (trailerMode.current) State.addNope(trailerMode.current);
+      advanceQueue('nope');
+      break;
+    case 'tm-unmute':
+      tmUnmute();
+      break;
 
     // ─── LOAD MORE ───────────────────────────────────────────────────
     case 'load-more-watchlist':

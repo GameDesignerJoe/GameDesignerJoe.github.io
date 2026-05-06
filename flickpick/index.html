@@ -72,6 +72,33 @@
     </div>
   </div>
 
+  <div class="trailer-mode-section" id="trailer-mode-section" style="display:none">
+    <div class="tm-header">
+      <div class="tm-label">Trailer Mode</div>
+      <div class="tm-sub">Auto-plays trailers from your lists. Use Skip for next.</div>
+    </div>
+    <div class="tm-idle" id="tm-idle">
+      <div class="tm-idle-poster">🎬</div>
+      <button class="tm-play-btn" data-action="tm-play">&#9654; Start Trailer Mode</button>
+      <div class="tm-idle-msg" id="tm-idle-msg"></div>
+    </div>
+    <div class="tm-active" id="tm-active" style="display:none">
+      <div class="tm-player-wrap">
+        <div id="trailer-mode-iframe-host"></div>
+        <div class="tm-unmute-overlay" id="tm-unmute-overlay" style="display:none" data-action="tm-unmute">Tap to unmute</div>
+      </div>
+      <div class="tm-now-playing" id="tm-now-playing"></div>
+      <div class="tm-actions">
+        <button class="mini-btn mini-seen" data-action="tm-seen">Seen</button>
+        <button class="mini-btn mini-want" data-action="tm-want">Want</button>
+        <button class="mini-btn mini-nope" data-action="tm-nope">Nope</button>
+        <button class="mini-btn tm-skip"   data-action="tm-skip">Skip &#9654;</button>
+      </div>
+      <div class="tm-up-next" id="tm-up-next"></div>
+      <button class="tm-close" data-action="tm-close">Exit Trailer Mode</button>
+    </div>
+  </div>
+
   <div class="loading-state" id="loading">
     <div class="loading-spinner"></div>
     <div class="loading-text">Finding matches…</div>
