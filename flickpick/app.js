@@ -1541,7 +1541,7 @@ function renderCarouselItem(item, showActions) {
     : `<span class="rating rating--titled" data-rating-id="${item.id}"></span>`;
 
   const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
-  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">🍿</div>` : '';
 
   return `
     <div class="carousel-item" data-action="load-item-direct" data-id="${item.id}">
@@ -2033,7 +2033,7 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `flickpick-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `wanna-watch-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Data exported!');
@@ -2157,14 +2157,14 @@ async function initVersionFooter() {
     const res = await fetch('/api/version');
     if (!res.ok) return;
     const data = await res.json();
-    const parts = ['Flickpick'];
+    const parts = ['Wanna Watch'];
     if (data.version) parts.push(`v${data.version}`);
     if (data.sha) parts.push(`· ${data.sha}`);
     let text = parts.join(' ');
     if (data.env && data.env !== 'production') text += ` (${data.env})`;
     el.textContent = text;
   } catch {
-    // Offline / dev server without endpoint — leave "Flickpick" alone.
+    // Offline / dev server without endpoint — leave "Wanna Watch" alone.
   }
 }
 
@@ -3653,7 +3653,7 @@ function renderFeatured(item) {
     : `<span class="rating rating--featured" data-rating-id="${item.id}"></span>`;
 
   const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
-  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">🍿</div>` : '';
 
   document.getElementById('featured-card').innerHTML = `
     ${watchingBadge}
@@ -3703,7 +3703,7 @@ function renderSingleCard(item) {
     : `<span class="rating rating--titled" data-rating-id="${item.id}"></span>`;
 
   const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
-  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">🍿</div>` : '';
 
   return `
     <div class="similar-card swapping-in" data-card-id="${item.id}">
@@ -4218,7 +4218,7 @@ function toggleWant(id, btn) {
 
 // ─── TOGGLE WATCHING (only on items already in want) ────────────────────────
 // Flips a "currently watching" flag on a watchlist item. Inserts/removes the
-// 👀 badge in every currently-rendered card for this item, and updates the
+// 🍿 badge in every currently-rendered card for this item, and updates the
 // in-card toggle button.
 function toggleWatching(id, btn) {
   const isOn = State.toggleWatching(id);
@@ -4230,7 +4230,7 @@ function toggleWatching(id, btn) {
   }
 }
 
-// Insert/remove the 👀 badge across every visible card representing this item.
+// Insert/remove the 🍿 badge across every visible card representing this item.
 // Cards we add badges to: .watchlist-card (id=wl-${id}), .carousel-item /
 // .similar-card with data-id=id, and the featured-card if it's currently the
 // shown item.
@@ -4250,7 +4250,7 @@ function syncWatchingBadge(id, isOn) {
       const badge = document.createElement('div');
       badge.className = 'watching-badge';
       badge.setAttribute('data-watching-badge', id);
-      badge.textContent = '👀';
+      badge.textContent = '🍿';
       card.insertBefore(badge, card.firstChild);
     } else if (!isOn && existing) {
       existing.remove();
@@ -4274,7 +4274,7 @@ function renderWatchlistCard(item) {
 
   const isWatching = !!(state.want[item.id] && state.want[item.id].watching);
   const watchingBtnActive = isWatching ? ' active' : '';
-  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">👀</div>` : '';
+  const watchingBadge = isWatching ? `<div class="watching-badge" data-watching-badge="${item.id}">🍿</div>` : '';
 
   return `
     <div class="watchlist-card" id="${cardId}">
@@ -4294,7 +4294,7 @@ function renderWatchlistCard(item) {
         <div class="watchlist-desc">${item.description || ''}</div>
         <div class="watchlist-extras" data-wl-extras="${item.id}"></div>
         <div class="watchlist-actions">
-          <button class="btn-watching${watchingBtnActive}" data-action="toggle-watching" data-id="${item.id}" title="Currently watching">👀 Watching</button>
+          <button class="btn-watching${watchingBtnActive}" data-action="toggle-watching" data-id="${item.id}" title="Currently watching">🍿 Watching</button>
           <button class="btn-mark-seen" data-action="watchlist-mark-seen" data-id="${item.id}" title="Mark as seen">✓ Seen</button>
           <button class="btn-remove" data-action="remove-want" data-id="${item.id}">Remove</button>
         </div>
