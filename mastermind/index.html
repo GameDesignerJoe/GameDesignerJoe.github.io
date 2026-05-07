@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mastermind</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100%;
+    background: #0e0d0a;
+    color: #d8ceb8;
+    font-family: 'Courier Prime', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 12px 24px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    letter-spacing: .3em;
+    color: #c9a84c;
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: .35em;
+    color: #7a6a40;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .game {
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Board ── */
+  .board { display: flex; flex-direction: column; gap: 4px; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 26px repeat(4, 1fr) 48px;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .row-num {
+    font-size: 12px;
+    color: #5a5040;
+    text-align: right;
+    padding-right: 4px;
+    font-weight: 700;
+  }
+  .row.active .row-num { color: #c9a84c; }
+
+  /* ── Pegs ── */
+  .peg {
+    height: 52px;
+    border-radius: 3px;
+    border: 1px solid #2e2a1e;
+    background: #191610;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: default;
+    transition: border-color .1s, background .1s;
+    user-select: none;
+  }
+  .peg.active { cursor: pointer; border-color: #3a3420; }
+  .peg.active:hover { border-color: #7a6a30; background: #201d12; }
+
+  .peg .sym  { font-size: 1.8rem; line-height: 1; }
+  .peg .lbl  { font-size: 10px; letter-spacing: .12em; font-weight: 700; text-transform: uppercase; }
+  .peg .plus { font-size: 1.2rem; color: #5a5030; line-height: 1; }
+
+  /* ── Feedback 2×2 ── */
+  .fb {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 4px;
+    padding: 6px;
+    width: 48px;
+    height: 52px;
+  }
+  .fp { border-radius: 50%; width: 100%; aspect-ratio: 1; }
+  .fp.exact { background: #c9a84c; box-shadow: 0 0 6px #c9a84c66; }
+  .fp.miss  { background: transparent; border: 2px solid #7a7060; }
+  .fp.none  { background: #252218; border: 1px solid #302c1e; }
+
+  /* ── Divider ── */
+  .div { border: none; border-top: 1px solid #2a2618; }
+
+  /* ── Secret reveal ── */
+  .secret-row {
+    display: grid;
+    grid-template-columns: 26px repeat(4, 1fr) 48px;
+    gap: 4px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity .5s;
+  }
+  .secret-row.visible { opacity: 1; }
+  .secret-lbl {
+    font-size: 9px;
+    color: #8a7a40;
+    text-align: right;
+    padding-right: 4px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+
+  /* ── Status ── */
+  .status-bar {
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #8a7a50;
+    padding: 4px 0;
+    min-height: 24px;
+  }
+  .status-bar.win  { color: #c9a84c; font-weight: 700; }
+  .status-bar.lose { color: #cc2936; font-weight: 700; }
+
+  /* ── Controls ── */
+  .controls { display: flex; gap: 6px; }
+  .btn {
+    padding: 12px 10px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 0;
+    transition: all .1s;
+    background: transparent;
+  }
+  .btn-clear {
+    border: 1px solid #3a3828;
+    color: #8a7a50;
+    flex: 0 0 auto;
+    padding: 12px 18px;
+  }
+  .btn-clear:hover { border-color: #8b0000; color: #cc2936; }
+  .btn-submit {
+    flex: 1;
+    border: 1px solid #c9a84c;
+    color: #c9a84c;
+    background: #1a1508;
+  }
+  .btn-submit:hover:not(:disabled) { background: #c9a84c; color: #000; }
+  .btn-submit:disabled { border-color: #2e2c1e; color: #3a3420; background: transparent; cursor: not-allowed; }
+  .btn-new {
+    flex: 1;
+    border: 1px solid #c9a84c;
+    color: #c9a84c;
+  }
+  .btn-new:hover { background: #c9a84c; color: #000; }
+
+  /* ── High score ── */
+  .scores {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #121008;
+    border: 1px solid #2a2618;
+  }
+  .score-item { text-align: center; }
+  .score-label { font-size: 10px; letter-spacing: .25em; color: #7a6a40; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .score-value { font-size: 22px; color: #c9a84c; font-weight: 700; font-family: 'Playfair Display', serif; line-height: 1; }
+  .score-value.unset { color: #3a3420; font-size: 16px; }
+  .score-div { width: 1px; height: 36px; background: #2a2618; }
+  .key {
+    background: #121008;
+    border: 1px solid #2a2618;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .key-title {
+    font-size: 11px;
+    letter-spacing: .28em;
+    color: #8a7a50;
+    text-transform: uppercase;
+  }
+  .key-row { display: flex; align-items: center; gap: 12px; }
+  .kp { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .kp.exact { background: #c9a84c; box-shadow: 0 0 5px #c9a84c55; }
+  .kp.miss  { background: transparent; border: 2px solid #7a7060; }
+  .kp.none  { background: #252218; border: 1px solid #302c1e; }
+  .key-text { font-size: 13px; color: #a89870; line-height: 1.4; }
+  .key-text strong { color: #d8ceb8; }
+  .key-warn {
+    font-size: 12px;
+    color: #8a7a50;
+    font-style: italic;
+    border-top: 1px solid #2a2618;
+    padding-top: 8px;
+    line-height: 1.55;
+  }
+</style>
+</head>
+<body>
+
+<h1>Mastermind</h1>
+<p class="subtitle">crack the code</p>
+
+<div class="game">
+  <div class="board" id="board"></div>
+  <hr class="div">
+  <div class="secret-row" id="secret-row">
+    <div class="secret-lbl">The<br>Code</div>
+    <div class="peg" id="s0"></div>
+    <div class="peg" id="s1"></div>
+    <div class="peg" id="s2"></div>
+    <div class="peg" id="s3"></div>
+    <div></div>
+  </div>
+  <div class="status-bar" id="status"></div>
+  <div class="controls" id="controls">
+    <button class="btn btn-clear" id="btn-clear">Clear</button>
+    <button class="btn btn-submit" id="btn-submit" disabled>Submit</button>
+  </div>
+  <div class="scores">
+    <div class="score-item">
+      <span class="score-label">Best Score</span>
+      <span class="score-value" id="best-score">—</span>
+    </div>
+    <div class="score-div"></div>
+    <div class="score-item">
+      <span class="score-label">Games Played</span>
+      <span class="score-value" id="games-played">0</span>
+    </div>
+    <div class="score-div"></div>
+    <div class="score-item">
+      <span class="score-label">Last Game</span>
+      <span class="score-value" id="last-score">—</span>
+    </div>
+  </div>
+  <hr class="div">
+  <div class="key">
+    <div class="key-title">Reading your results</div>
+    <div class="key-row"><div class="kp exact"></div><div class="key-text"><strong>Gold</strong> — right colour, right position</div></div>
+    <div class="key-row"><div class="kp miss"></div><div class="key-text"><strong>Hollow</strong> — right colour, wrong position</div></div>
+    <div class="key-row"><div class="kp none"></div><div class="key-text"><strong>Dark</strong> — colour not in the code at all</div></div>
+    <div class="key-warn">Pegs are counts only — they don't tell you which slot is correct.</div>
+  </div>
+</div>
+
+<script>
+const COLORS = [
+  { sym:"◆", lbl:"GOLD",     fg:"#c9a84c", bg:"#2e2200" },
+  { sym:"✦", lbl:"RED",      fg:"#e04848", bg:"#2a0000" },
+  { sym:"♥", lbl:"LAVENDER", fg:"#b090e0", bg:"#1e1035" },
+  { sym:"◉", lbl:"GREEN",    fg:"#52B788", bg:"#002218" },
+  { sym:"▲", lbl:"BLUE",     fg:"#4895EF", bg:"#001830" },
+  { sym:"⚡", lbl:"ORANGE",   fg:"#E08A50", bg:"#2a1400" },
+];
+
+const MAX = 10, LEN = 4;
+let secret, current, guesses, gameOver;
+
+// ── Audio ─────────────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playClick(colorIdx) {
+  try {
+    const ctx  = getAudio();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    // Each colour gets a slightly different pitch so cycling feels tactile
+    const pitches = [880, 740, 660, 1000, 820, 660];
+    const freq = pitches[colorIdx] || 800;
+    osc.type      = "sine";
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, ctx.currentTime + 0.06);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.08);
+  } catch(e) {}
+}
+
+function playSubmit() {
+  try {
+    const ctx  = getAudio();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.2);
+  } catch(e) {}
+}
+
+function playWin() {
+  try {
+    const ctx = getAudio();
+    [523, 659, 784, 1047].forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const t = ctx.currentTime + i * 0.1;
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      osc.start(t);
+      osc.stop(t + 0.25);
+    });
+  } catch(e) {}
+}
+
+// ── High score ────────────────────────────────────────────────
+function loadStats() {
+  try {
+    return JSON.parse(localStorage.getItem("mm_stats") || "{}");
+  } catch(e) { return {}; }
+}
+
+function saveStats(s) {
+  try { localStorage.setItem("mm_stats", JSON.stringify(s)); } catch(e) {}
+}
+
+function updateStats(won, guessCount) {
+  const s = loadStats();
+  s.played = (s.played || 0) + 1;
+  if (won) {
+    s.last = guessCount;
+    if (!s.best || guessCount < s.best) s.best = guessCount;
+  } else {
+    s.last = null; // lost
+  }
+  saveStats(s);
+  renderStats(s);
+}
+
+function renderStats(s) {
+  if (!s) s = loadStats();
+  const best  = document.getElementById("best-score");
+  const plays = document.getElementById("games-played");
+  const last  = document.getElementById("last-score");
+  if (best) {
+    best.textContent  = s.best  ? s.best  : "—";
+    best.className    = "score-value" + (s.best  ? "" : " unset");
+  }
+  if (plays) plays.textContent = s.played || 0;
+  if (last) {
+    last.textContent  = s.last  ? s.last  : (s.played ? "✕" : "—");
+    last.className    = "score-value" + (s.last  ? "" : " unset");
+    if (s.last && s.best && s.last === s.best) last.style.color = "#c9a84c";
+    else if (last) last.style.color = "";
+  }
+}
+
+function newGame() {
+  secret   = Array.from({length: LEN}, () => Math.floor(Math.random() * COLORS.length));
+  current  = [-1, -1, -1, -1];
+  guesses  = [];
+  gameOver = false;
+  render();
+}
+
+function check(guess, code) {
+  let exact = 0;
+  const cc = [...code], gc = [...guess];
+  for (let i = 0; i < LEN; i++)
+    if (gc[i] === cc[i]) { exact++; cc[i] = gc[i] = -1; }
+  let miss = 0;
+  for (let i = 0; i < LEN; i++) {
+    if (gc[i] === -1) continue;
+    const x = cc.indexOf(gc[i]);
+    if (x !== -1) { miss++; cc[x] = -1; }
+  }
+  return { exact, miss };
+}
+
+function paint(el, idx) {
+  if (idx === -1) {
+    el.style.background   = "#191610";
+    el.style.borderColor  = "#2e2a1e";
+    el.innerHTML = `<span class="plus">+</span>`;
+  } else {
+    const c = COLORS[idx];
+    el.style.background  = c.bg;
+    el.style.borderColor = c.fg + "99";
+    el.innerHTML = `<span class="sym" style="color:${c.fg}">${c.sym}</span>`;
+  }
+}
+
+function fbHtml(fb) {
+  const p = [];
+  for (let i = 0; i < fb.exact; i++) p.push("exact");
+  for (let i = 0; i < fb.miss;  i++) p.push("miss");
+  while (p.length < 4) p.push("none");
+  return p.map(t => `<div class="fp ${t}"></div>`).join("");
+}
+
+function render() {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  const active = guesses.length;
+
+  for (let r = 0; r < MAX; r++) {
+    const row = document.createElement("div");
+    row.className = "row" + (r === active && !gameOver ? " active" : "");
+
+    const num = document.createElement("div");
+    num.className = "row-num";
+    num.textContent = MAX - r;
+    row.appendChild(num);
+
+    if (r < guesses.length) {
+      // Past guess
+      const g = guesses[r];
+      for (let i = 0; i < LEN; i++) {
+        const p = document.createElement("div");
+        p.className = "peg";
+        paint(p, g.guess[i]);
+        row.appendChild(p);
+      }
+      const fb = document.createElement("div");
+      fb.className = "fb";
+      fb.innerHTML = fbHtml(g.feedback);
+      row.appendChild(fb);
+
+    } else if (r === active && !gameOver) {
+      // Active — cycling pegs
+      for (let i = 0; i < LEN; i++) {
+        const p = document.createElement("div");
+        p.className = "peg active";
+        paint(p, current[i]);
+        const idx = i;
+        p.onclick = () => {
+          current[idx] = (current[idx] + 1) % COLORS.length;
+          playClick(current[idx]);
+          paint(p, current[idx]);
+          setSubmit();
+        };
+        row.appendChild(p);
+      }
+      const fb = document.createElement("div");
+      fb.className = "fb";
+      fb.innerHTML = `<div class="fp none"></div>`.repeat(4);
+      row.appendChild(fb);
+
+    } else {
+      // Future — dimmed placeholders
+      for (let i = 0; i < LEN; i++) {
+        const p = document.createElement("div");
+        p.className = "peg";
+        p.style.opacity = ".45";
+        row.appendChild(p);
+      }
+      const fb = document.createElement("div");
+      fb.className = "fb";
+      fb.style.opacity = ".3";
+      fb.innerHTML = `<div class="fp none"></div>`.repeat(4);
+      row.appendChild(fb);
+    }
+
+    board.appendChild(row);
+  }
+
+  // Secret reveal
+  const sr = document.getElementById("secret-row");
+  if (gameOver) {
+    sr.classList.add("visible");
+    for (let i = 0; i < LEN; i++) paint(document.getElementById("s" + i), secret[i]);
+  } else {
+    sr.classList.remove("visible");
+  }
+
+  // Status text
+  const st = document.getElementById("status");
+  if      (gameOver === "won")  { st.className = "status-bar win";  st.textContent = `Cracked in ${guesses.length} guess${guesses.length === 1 ? "" : "es"}.`; }
+  else if (gameOver === "lost") { st.className = "status-bar lose"; st.textContent = "Code unbroken. See the answer above."; }
+  else                          { st.className = "status-bar";      st.textContent = `${MAX - guesses.length} of ${MAX} guesses remaining`; }
+
+  // Controls
+  const ctrl = document.getElementById("controls");
+  if (gameOver) {
+    ctrl.innerHTML = `<button class="btn btn-new" onclick="newGame()">New Game</button>`;
+  } else {
+    ctrl.innerHTML = `
+      <button class="btn btn-clear" id="btn-clear">Clear</button>
+      <button class="btn btn-submit" id="btn-submit" disabled>Submit</button>`;
+    document.getElementById("btn-clear").onclick = () => { current = [-1,-1,-1,-1]; render(); };
+    document.getElementById("btn-submit").onclick = submit;
+    setSubmit();
+  }
+}
+
+function setSubmit() {
+  const b = document.getElementById("btn-submit");
+  if (b) b.disabled = current.some(c => c === -1);
+}
+
+function submit() {
+  if (current.some(c => c === -1) || gameOver) return;
+  const fb = check(current, secret);
+  guesses.push({ guess: [...current], feedback: fb });
+  playSubmit();
+  if (fb.exact === LEN) {
+    gameOver = "won";
+    playWin();
+    updateStats(true, guesses.length);
+  } else if (guesses.length >= MAX) {
+    gameOver = "lost";
+    updateStats(false, 0);
+  }
+  current = [-1,-1,-1,-1];
+  render();
+}
+
+newGame();
+renderStats();
+</script>
+</body>
+</html>
