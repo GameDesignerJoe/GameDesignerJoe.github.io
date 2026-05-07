@@ -873,11 +873,24 @@ function tmHasAnyCandidates() {
 }
 
 // Show or hide the whole trailer-mode-section based on whether there's
-// anything to play. Called after discover renders.
+// anything to play. Called after discover renders. Also respects the
+// discover-page sub-state — if the carousels are hidden (because the user
+// drilled into a featured card), the trailer section hides too.
 function updateTrailerModeVisibility() {
   const sec = document.getElementById('trailer-mode-section');
   if (!sec) return;
-  sec.style.display = tmHasAnyCandidates() ? 'block' : 'none';
+  const carousels = document.getElementById('discover-carousels');
+  const carouselsHidden = carousels && carousels.style.display === 'none';
+  sec.style.display = (!carouselsHidden && tmHasAnyCandidates()) ? 'block' : 'none';
+}
+
+// Force-hide the section AND stop any active playback. Call alongside
+// document.getElementById('discover-carousels').style.display = 'none' so
+// audio doesn't keep playing under a featured card.
+function hideTrailerModeSection() {
+  const sec = document.getElementById('trailer-mode-section');
+  if (sec) sec.style.display = 'none';
+  if (trailerMode.active) closeTrailerMode();
 }
 
 async function startTrailerMode() {
@@ -2523,6 +2536,7 @@ function resetDiscover() {
   currentMultiSearch = null;
   resetChooserState();
   initDiscoverCarousels();
+  updateTrailerModeVisibility();
 }
 
 // ─── SEARCH FOR SHOW (from Seen/Watchlist) ──────────────────────────────────
@@ -3004,6 +3018,7 @@ async function doMultiSearch(titles) {
   document.getElementById('error-state').style.display = 'none';
   hideAiKeyCta();
   document.getElementById('discover-carousels').style.display = 'none';
+  hideTrailerModeSection();
   document.getElementById('loading').style.display = 'block';
   document.getElementById('search-btn').disabled = true;
   viewHistory.length = 0;
@@ -3053,6 +3068,7 @@ async function doSearch() {
   document.getElementById('error-state').style.display = 'none';
   hideAiKeyCta();
   document.getElementById('discover-carousels').style.display = 'none';
+  hideTrailerModeSection();
   document.getElementById('search-chooser-section').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('search-btn').disabled = true;
@@ -4018,6 +4034,7 @@ async function loadItemDirect(item) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('.nav-btn').classList.add('active');
   document.getElementById('discover-carousels').style.display = 'none';
+  hideTrailerModeSection();
 
   // Save history if we have a current item
   if (currentFeatured) {

@@ -103,7 +103,8 @@
       "Bash(curl -s http://localhost:8765/trigsense/trigsense.jsx)",
       "Bash(node -e \"const fs=require\\('fs'\\); const src=fs.readFileSync\\('trigsense/trigsense.jsx','utf8'\\); console.log\\('lines:',src.split\\(String.fromCharCode\\(10\\)\\).length\\); console.log\\('targetAngle refs:', \\(src.match\\(/targetAngle/g\\)||[]\\).length\\); console.log\\('challengeKey refs:', \\(src.match\\(/challengeKey/g\\)||[]\\).length\\); console.log\\('didMatch refs:', \\(src.match\\(/didMatch/g\\)||[]\\).length\\); console.log\\('submitGuess refs:', \\(src.match\\(/submitGuess/g\\)||[]\\).length\\); console.log\\('tryAgain refs:', \\(src.match\\(/tryAgain/g\\)||[]\\).length\\);\")",
       "Bash(node -e \"const fs=require\\('fs'\\); const src=fs.readFileSync\\('trigsense/trigsense.jsx','utf8'\\); const sc=src.match\\(/id: \\\\\"s\\\\d/g\\)||[]; console.log\\('scenarios:', sc.length\\); const byId = {1:0,2:0,3:0,4:0,5:0}; src.match\\(/iid: \\\\d/g\\).forEach\\(m=>{}\\); const sm=src.match\\(/id: \\\\\"s\\\\d[a-z]\\\\\", iid: \\(\\\\d\\)/g\\)||[]; sm.forEach\\(m=>{const d=m.match\\(/iid: \\(\\\\d\\)/\\)[1]; byId[d]=\\(byId[d]||0\\)+1;}\\); console.log\\('by iid:', byId\\); console.log\\('lines:', src.split\\(String.fromCharCode\\(10\\)\\).length\\);\")",
-      "Read(//c/c/Users/GameD/GameDesignerJoe.github.io/**)"
+      "Read(//c/c/Users/GameD/GameDesignerJoe.github.io/**)",
+      "Bash(node --check c:/Users/GameD/GameDesignerJoe.github.io/flickpick/app.js)"
     ]
   }
 }
