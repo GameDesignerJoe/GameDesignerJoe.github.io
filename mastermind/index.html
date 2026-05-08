@@ -17,11 +17,11 @@
   --bg:      #060908;
   --bg1:     #0b0e0a;
   --bg2:     #101510;
-  --border:  #1e2c1e;
-  --border2: #283828;
-  --text:    #b8ccb0;
-  --text2:   #6a8a60;
-  --text3:   #3a5030;
+  --border:  #36492e;
+  --border2: #4a6242;
+  --text:    #c5d6bc;
+  --text2:   #94b58a;
+  --text3:   #6a8260;
   --clip-lg: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 13px 100%, 0 calc(100% - 13px));
   --clip-sm: polygon(0 0, calc(100% - 8px)  0, 100% 8px,  100% 100%, 8px  100%, 0 calc(100% - 8px));
   --clip-card: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
@@ -33,7 +33,20 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Share Tech Mono', monospace;
-  min-height: 100%;
+  height: 100%;
+  width: 100%;
+}
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+}
+#scale-wrap {
+  position: relative;
+  z-index: 1;
+  transform-origin: top center;
+  transition: transform .12s ease-out;
 }
 
 /* ── Circuit board background ── */
@@ -99,13 +112,13 @@ h1 {
 /* ── Panel base (chamfered) ── */
 .panel {
   clip-path: var(--clip-lg);
-  filter: drop-shadow(0 0 1px #1e2c1e) drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  filter: drop-shadow(0 0 1px var(--border)) drop-shadow(0 2px 4px rgba(0,0,0,.6));
   background: var(--bg1);
   padding: 10px 13px;
 }
 .panel-sm {
   clip-path: var(--clip-sm);
-  filter: drop-shadow(0 0 1px #1e2c1e);
+  filter: drop-shadow(0 0 1px var(--border));
   background: var(--bg1);
   padding: 8px 11px;
 }
@@ -141,20 +154,85 @@ h1 {
 .card {
   width: 86px; min-width: 86px; height: 88px;
   clip-path: var(--clip-card);
-  filter: drop-shadow(0 0 1px #283828);
-  background: var(--bg2);
+  --glow: #5a7050;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--glow) 45%, transparent));
+  background:
+    linear-gradient(165deg,
+      color-mix(in srgb, var(--glow) 32%, var(--bg2)) 0%,
+      color-mix(in srgb, var(--glow) 10%, var(--bg2)) 100%);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 4px; cursor: pointer; position: relative;
-  transition: filter .12s, transform .1s;
+  transition: filter .15s, transform .1s, background .15s;
   user-select: none; padding: 7px 5px;
 }
-.card:hover { transform: translateY(-2px); filter: drop-shadow(0 0 3px #3a4a3a); }
-.card.sel { transform: translateY(-5px); }
+.card.recon      { --glow: #c9a84c; }
+.card.exploit    { --glow: #4aa8ef; }
+.card.deepaccess { --glow: #3af090; }
+.card:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--glow) 75%, transparent));
+}
+.card.sel {
+  transform: translateY(-5px);
+  filter: drop-shadow(0 0 9px var(--glow));
+}
 .card-cat { font-size: 8px; letter-spacing: .15em; text-transform: uppercase; position: absolute; top: 5px; left: 0; right: 0; text-align: center; }
-.card-sym { font-size: 1.6rem; line-height: 1; margin-top: 7px; }
+.card-sym {
+  font-size: 1.6rem; line-height: 1; margin-top: 7px;
+  text-shadow: 0 0 6px currentColor;
+  animation: card-glitch 7s infinite;
+}
 .card-name { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: center; line-height: 1.2; }
 .card-cost { font-size: 8px; position: absolute; bottom: 4px; right: 5px; color: var(--red); font-weight: 700; }
+
+.card::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -9px;
+  height: 9px;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--glow) 15%, transparent) 30%,
+    color-mix(in srgb, var(--glow) 47%, transparent) 50%,
+    color-mix(in srgb, var(--glow) 15%, transparent) 70%,
+    transparent 100%);
+  animation: card-scan 9s infinite linear;
+  z-index: 0;
+}
+.card > * { position: relative; z-index: 1; }
+
+@keyframes card-scan {
+  0%, 73% { transform: translateY(0); opacity: 0; }
+  74%     { transform: translateY(0); opacity: 1; }
+  98%     { transform: translateY(97px); opacity: 1; }
+  99%,100%{ transform: translateY(97px); opacity: 0; }
+}
+
+.hand .card:nth-child(1)::after { animation-delay: 0.4s; }
+.hand .card:nth-child(2)::after { animation-delay: 5.7s; }
+.hand .card:nth-child(3)::after { animation-delay: 2.1s; }
+.hand .card:nth-child(4)::after { animation-delay: 7.3s; }
+.hand .card:nth-child(5)::after { animation-delay: 3.6s; }
+.hand .card:nth-child(6)::after { animation-delay: 1.2s; }
+.hand .card:nth-child(7)::after { animation-delay: 4.5s; }
+.hand .card:nth-child(8)::after { animation-delay: 6.8s; }
+
+@keyframes card-glitch {
+  0%, 92%, 100% { text-shadow: 0 0 6px currentColor; transform: translateX(0); }
+  93% { text-shadow: -1px 0 #ff3a3a, 1px 0 #00e5ff; transform: translateX(-1px); }
+  94% { text-shadow:  1px 0 #ff3a3a, -1px 0 #00e5ff; transform: translateX(1px); }
+  95% { text-shadow: 0 0 6px currentColor; transform: translateX(0); }
+}
+.hand .card:nth-child(1) .card-sym { animation-delay: 0s; }
+.hand .card:nth-child(2) .card-sym { animation-delay: 1.4s; }
+.hand .card:nth-child(3) .card-sym { animation-delay: 2.8s; }
+.hand .card:nth-child(4) .card-sym { animation-delay: 4.2s; }
+.hand .card:nth-child(5) .card-sym { animation-delay: 5.6s; }
+.hand .card:nth-child(6) .card-sym { animation-delay: 0.7s; }
+.hand .card:nth-child(7) .card-sym { animation-delay: 2.1s; }
+.hand .card:nth-child(8) .card-sym { animation-delay: 3.5s; }
 
 /* ── Desc bar ── */
 .card-desc-bar {
@@ -228,31 +306,31 @@ h1 {
 
 /* ── Board ── */
 .board { display: flex; flex-direction: column; gap: 4px; }
-.row { display: grid; grid-template-columns: 24px repeat(4,1fr) 46px; gap: 4px; align-items: center; }
+.row { display: grid; grid-template-columns: 38px repeat(4,1fr) 46px; gap: 4px; align-items: center; }
 .row-n { font-size: 13px; color: var(--text3); text-align: right; padding-right: 4px; font-weight: 700; }
 .row.active .row-n { color: var(--amber); text-shadow: 0 0 6px #c9a84c55; }
 
 .peg {
   height: 52px; border-radius: 1px;
-  border: 1px solid #171f15; background: #0c1009;
+  border: 1px solid #2c3a2c; background: #0c1009;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.9rem; cursor: default;
   transition: border-color .1s, background .1s, box-shadow .1s;
   user-select: none; position: relative;
 }
-.peg.tap { cursor: pointer; border-color: #22301e; }
+.peg.tap { cursor: pointer; border-color: #44603a; }
 .peg.tap:hover { border-color: var(--amber2); background: #111609; box-shadow: inset 0 0 8px rgba(0,0,0,.4); }
-.peg .plus { color: #1e2a1c; font-size: 1.1rem; }
+.peg .plus { color: #44603a; font-size: 1.1rem; }
 .peg .lk { position: absolute; top: 2px; right: 3px; font-size: 9px; color: var(--amber2); }
 
 .fb { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; padding: 5px; width: 46px; height: 52px; }
 .fp { border-radius: 50%; width: 100%; aspect-ratio: 1; }
 .fp.exact { background: var(--amber); box-shadow: 0 0 6px #c9a84c88; }
-.fp.miss  { background: transparent; border: 2px solid #6a6050; }
-.fp.none  { background: #161e12; border: 1px solid #1e2a1a; }
+.fp.miss  { background: transparent; border: 2px solid #8a806a; }
+.fp.none  { background: #1c281a; border: 1px solid #34442e; }
 
 /* ── Secret ── */
-.secret-row { display: grid; grid-template-columns: 24px repeat(4,1fr) 46px; gap: 4px; align-items: center; opacity: 0; transition: opacity .5s; }
+.secret-row { display: grid; grid-template-columns: 38px repeat(4,1fr) 46px; gap: 4px; align-items: center; opacity: 0; transition: opacity .5s; }
 .secret-row.show { opacity: 1; }
 .secret-lbl { font-size: 9px; color: var(--amber2); text-align: right; padding-right: 4px; text-transform: uppercase; letter-spacing: .06em; line-height: 1.5; }
 
@@ -309,18 +387,46 @@ h1 {
 }
 
 /* Mute toggle */
-.mute-row { display: flex; align-items: center; justify-content: space-between; }
-.mute-lbl { font-size: 14px; color: var(--text); }
+.mute-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mute-lbl { font-size: 14px; color: var(--text); flex: 0 0 auto; }
+.audio-ctrl { display: flex; align-items: center; gap: 10px; }
 .mute-pill {
-  padding: 8px 18px; font-family: 'Share Tech Mono', monospace;
-  font-size: 13px; letter-spacing: .15em; text-transform: uppercase;
+  padding: 7px 14px; font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; letter-spacing: .15em; text-transform: uppercase;
   cursor: pointer; clip-path: var(--clip-sm);
-  border: 1px solid; transition: all .12s;
+  border: 1px solid; transition: all .12s; background: transparent;
+  min-width: 56px;
 }
-.mute-pill.on  { border-color: var(--neon); color: var(--neon); background: transparent; }
+.mute-pill.on  { border-color: var(--neon); color: var(--neon); }
 .mute-pill.on:hover  { background: var(--neon); color: #000; }
-.mute-pill.off { border-color: var(--red); color: var(--red); background: transparent; }
+.mute-pill.off { border-color: var(--red); color: var(--red); }
 .mute-pill.off:hover { background: var(--red); color: #000; }
+
+.vol-slider {
+  -webkit-appearance: none; appearance: none;
+  width: 100px; height: 5px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  outline: none; cursor: pointer;
+  border-radius: 1px;
+}
+.vol-slider:disabled { opacity: .35; cursor: not-allowed; }
+.vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 10px; height: 16px;
+  background: var(--neon);
+  cursor: pointer;
+  border-radius: 1px;
+  box-shadow: 0 0 6px #3af09099;
+}
+.vol-slider::-moz-range-thumb {
+  width: 10px; height: 16px;
+  background: var(--neon);
+  cursor: pointer;
+  border: none;
+  border-radius: 1px;
+  box-shadow: 0 0 6px #3af09099;
+}
 
 /* Settings scores */
 .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -344,8 +450,8 @@ h1 {
 .key-row-s { display: flex; align-items: center; gap: 12px; }
 .kp { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 .kp.exact { background: var(--amber); box-shadow: 0 0 5px #c9a84c55; }
-.kp.miss  { background: transparent; border: 2px solid #6a6050; }
-.kp.none  { background: #161e12; border: 1px solid #1e2a1a; }
+.kp.miss  { background: transparent; border: 2px solid #8a806a; }
+.kp.none  { background: #1c281a; border: 1px solid #34442e; }
 .key-txt { font-size: 14px; color: var(--text2); }
 .key-txt strong { color: var(--text); }
 .key-warn { font-size: 13px; color: var(--text3); font-style: italic; border-top: 1px solid var(--border); padding-top: 8px; line-height: 1.55; margin-top: 2px; }
@@ -359,6 +465,72 @@ h1 {
 .recon      { color: var(--amber); }
 .exploit    { color: var(--blue); }
 .deepaccess { color: var(--neon); }
+
+/* ═══════════════════════════════════
+   LOCKDOWN
+═══════════════════════════════════ */
+body.lockdown #scale-wrap,
+body.lockdown #cbg {
+  filter: grayscale(0.95) brightness(0.45) contrast(1.1) sepia(0.2);
+  transition: filter .8s ease-in;
+}
+
+#lockdown-fx {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1.5rem;
+  background:
+    radial-gradient(ellipse at center, rgba(140,0,0,.35) 0%, rgba(50,0,0,.7) 80%),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.2) 3px, rgba(0,0,0,.2) 4px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s;
+}
+body.lockdown #lockdown-fx { opacity: 1; pointer-events: auto; }
+
+.lockdown-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(3.2rem, 14vw, 6.5rem);
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  color: #ff3a3a;
+  text-shadow: 0 0 30px #ff3a3a, 0 0 80px #ff003c, 0 0 140px #ff003c;
+  text-transform: uppercase;
+  text-align: center;
+  padding-left: 0.28em;
+}
+body.lockdown .lockdown-text { animation: lockdown-slam .85s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes lockdown-slam {
+  0%   { transform: scale(3); opacity: 0; filter: blur(28px); letter-spacing: 1.2em; }
+  35%  { transform: scale(1.12); opacity: 1; filter: blur(0); letter-spacing: 0.28em; }
+  60%  { transform: scale(0.97); }
+  80%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+.lockdown-cta {
+  padding: 14px 32px;
+  background: transparent;
+  border: 1px solid #ff3a3a;
+  color: #ff3a3a;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: var(--clip-sm);
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+body.lockdown .lockdown-cta { animation: lockdown-fade .9s ease-out .7s both; }
+.lockdown-cta:hover {
+  background: #ff3a3a; color: #000;
+  box-shadow: 0 0 25px rgba(255,58,58,.55);
+}
+@keyframes lockdown-fade {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 </style>
 </head>
@@ -402,13 +574,15 @@ h1 {
   <rect width="100%" height="100%" fill="url(#circ)"/>
 </svg>
 
+<div id="scale-wrap">
+
 <!-- ═══════════════ MAIN VIEW ═══════════════ -->
 <div id="v-main">
 <div class="game">
 
   <div class="game-hdr">
     <h1>BREACH</h1>
-    <p class="sub">crack the ice · five cycles</p>
+    <p class="sub">CRACK THE CODE BEFORE LOCKDOWN</p>
     <button class="gear-btn" id="gear-btn">⚙</button>
   </div>
 
@@ -460,7 +634,17 @@ h1 {
     <div class="setting-sec-title">// Audio</div>
     <div class="mute-row">
       <span class="mute-lbl">Sound Effects</span>
-      <button class="mute-pill on" id="mute-pill" onclick="toggleMute()">ON</button>
+      <div class="audio-ctrl">
+        <input type="range" min="0" max="100" value="50" class="vol-slider" id="sfx-slider">
+        <button class="mute-pill on" id="sfx-pill" onclick="toggleSfx()">ON</button>
+      </div>
+    </div>
+    <div class="mute-row">
+      <span class="mute-lbl">Background Music</span>
+      <div class="audio-ctrl">
+        <input type="range" min="0" max="100" value="25" class="vol-slider" id="bgm-slider">
+        <button class="mute-pill on" id="bgm-pill" onclick="toggleBgm()">ON</button>
+      </div>
     </div>
   </div>
 
@@ -500,6 +684,15 @@ h1 {
 </div>
 </div>
 
+</div><!-- /#scale-wrap -->
+
+<div id="lockdown-fx" aria-hidden="true">
+  <div class="lockdown-text">LOCKDOWN</div>
+  <button class="lockdown-cta" onclick="newGame()">// Try Another Source</button>
+</div>
+
+<audio id="bgm-audio" src="audio/Chrome%20Avenue.mp3" loop preload="auto"></audio>
+
 <script>
 // ══════════════════════════════════════════════
 // KEYS
@@ -537,11 +730,18 @@ const DECK_SRC = ['mole','mole','ghost','ghost','ping','probe','buffer','root','
 // STATE
 // ══════════════════════════════════════════════
 let G = {};
-let muted = localStorage.getItem('breach_mute') === '1';
+let sfxMuted = localStorage.getItem('breach_mute') === '1';
+let bgmMuted = localStorage.getItem('breach_bgm_mute') === '1';
+let sfxVol   = parseFloat(localStorage.getItem('breach_sfx_vol') ?? '0.5');
+let bgmVol   = parseFloat(localStorage.getItem('breach_bgm_vol') ?? '0.25');
+if(!Number.isFinite(sfxVol)) sfxVol=0.5;
+if(!Number.isFinite(bgmVol)) bgmVol=0.25;
 
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function toRoman(n){const m=[['X',10],['IX',9],['V',5],['IV',4],['I',1]];let s='';for(const [c,v] of m){while(n>=v){s+=c;n-=v;}}return s;}
 
 function newGame(){
+  document.body.classList.remove('lockdown');
   G={
     secret:    Array.from({length:4},()=>Math.floor(Math.random()*K.length)),
     deck:      shuffle([...DECK_SRC]),
@@ -550,6 +750,7 @@ function newGame(){
     maxRows:   5,
     cur:       [-1,-1,-1,-1],
     locked:    [false,false,false,false],
+    rooted:    [null,null,null,null],   // persistent ROOT locks: colour idx or null
     phase:     '',
     selCard:   null,
     probeSlot: null,
@@ -562,8 +763,8 @@ function newGame(){
 }
 
 function startTurn(){
-  G.cur      = [-1,-1,-1,-1];
-  G.locked   = [false,false,false,false];
+  G.cur      = G.rooted.map(c=>c==null?-1:c);
+  G.locked   = G.rooted.map(c=>c!=null);
   G.selCard  = null;
   G.probeSlot= null;
   if(G.deck.length>0) G.hand.push(G.deck.pop());
@@ -598,15 +799,26 @@ function checkGuess(g,c){
 let _ac=null;
 function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;}
 function tone(freq,dur=.08,vol=.12,type='sine'){
-  if(muted) return;
+  if(sfxMuted) return;
   try{const ctx=getAC(),o=ctx.createOscillator(),g=ctx.createGain();
     o.connect(g);g.connect(ctx.destination);o.type=type;
     o.frequency.setValueAtTime(freq,ctx.currentTime);
     o.frequency.exponentialRampToValueAtTime(freq*.5,ctx.currentTime+dur);
-    g.gain.setValueAtTime(vol,ctx.currentTime);
+    g.gain.setValueAtTime(vol*sfxVol*2,ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
     o.start();o.stop(ctx.currentTime+dur);}catch(e){}
 }
+
+const bgmEl=document.getElementById('bgm-audio');
+if(bgmEl){ bgmEl.volume = bgmMuted ? 0 : bgmVol; }
+function tryPlayBgm(){
+  if(!bgmEl||bgmMuted) return;
+  bgmEl.play().catch(()=>{});
+}
+// Browsers gate autoplay until user gesture — kick off on first interaction.
+['click','keydown','touchstart'].forEach(ev=>{
+  window.addEventListener(ev, tryPlayBgm, { once:true, capture:true });
+});
 const PITCH=[880,740,660,1000,820,600];
 function sndKey(ci){tone(PITCH[ci]||800,.07,.12);}
 function sndDeploy(){tone(600,.1,.11,'square');}
@@ -621,22 +833,44 @@ function showSettings(){
   document.getElementById('v-main').style.display='none';
   document.getElementById('v-settings').style.display='flex';
   renderSettingsStats();
-  renderMutePill();
+  renderAudioControls();
+  fitToViewport();
 }
 function hideSettings(){
   document.getElementById('v-settings').style.display='none';
   document.getElementById('v-main').style.display='flex';
+  fitToViewport();
 }
-function toggleMute(){
-  muted=!muted;
-  localStorage.setItem('breach_mute', muted?'1':'0');
-  renderMutePill();
+function toggleSfx(){
+  sfxMuted=!sfxMuted;
+  localStorage.setItem('breach_mute', sfxMuted?'1':'0');
+  renderAudioControls();
 }
-function renderMutePill(){
-  const p=document.getElementById('mute-pill');
-  if(!p) return;
-  if(muted){ p.textContent='OFF'; p.className='mute-pill off'; }
-  else     { p.textContent='ON';  p.className='mute-pill on';  }
+function toggleBgm(){
+  bgmMuted=!bgmMuted;
+  localStorage.setItem('breach_bgm_mute', bgmMuted?'1':'0');
+  if(bgmEl){
+    bgmEl.volume = bgmMuted ? 0 : bgmVol;
+    if(bgmMuted) bgmEl.pause(); else tryPlayBgm();
+  }
+  renderAudioControls();
+}
+function setSfxVol(v){
+  sfxVol=v;
+  localStorage.setItem('breach_sfx_vol', String(v));
+}
+function setBgmVol(v){
+  bgmVol=v;
+  localStorage.setItem('breach_bgm_vol', String(v));
+  if(bgmEl && !bgmMuted) bgmEl.volume = v;
+}
+function renderAudioControls(){
+  const sp=document.getElementById('sfx-pill'), bp=document.getElementById('bgm-pill');
+  const ss=document.getElementById('sfx-slider'), bs=document.getElementById('bgm-slider');
+  if(sp){ sp.textContent=sfxMuted?'OFF':'ON'; sp.className='mute-pill '+(sfxMuted?'off':'on'); }
+  if(bp){ bp.textContent=bgmMuted?'OFF':'ON'; bp.className='mute-pill '+(bgmMuted?'off':'on'); }
+  if(ss){ ss.value=Math.round(sfxVol*100); ss.disabled=sfxMuted; }
+  if(bs){ bs.value=Math.round(bgmVol*100); bs.disabled=bgmMuted; }
 }
 function wipeScores(){
   saveSt({});
@@ -670,7 +904,7 @@ function renderStats(s){
 // ══════════════════════════════════════════════
 function paintPeg(el,ci,locked=false){
   if(ci===-1){
-    el.style.background='#0c1009';el.style.borderColor='#171f15';
+    el.style.background='#0c1009';el.style.borderColor='#2c3a2c';
     el.innerHTML='<span class="plus">+</span>';
   }else{
     const c=K[ci];
@@ -695,10 +929,8 @@ function renderHand(){
   el.innerHTML='';
   G.hand.forEach((cid,hi)=>{
     const def=DEFS[cid], sel=G.selCard===hi;
-    const cc=catColor(def.catCls);
     const d=document.createElement('div');
-    d.className='card'+(sel?' sel':'');
-    if(sel) d.style.filter=`drop-shadow(0 0 6px ${cc}66)`;
+    d.className='card '+def.catCls+(sel?' sel':'');
     d.innerHTML=`
       <div class="card-cat ${def.catCls}">${def.cat}</div>
       <div class="card-sym ${def.catCls}">${def.sym}</div>
@@ -828,8 +1060,11 @@ function resolveCard(cid){
   else if(cid==='root'){
     const avail=[0,1,2,3].filter(p=>!G.locked[p]);
     if(!avail.length){ addIntel('☉','ROOT — All positions already confirmed.'); return; }
-    const p=avail[Math.floor(Math.random()*avail.length)];
-    G.cur[p]=G.secret[p]; G.locked[p]=true;
+    const last=G.rows.length?G.rows[G.rows.length-1].guess:null;
+    const fresh=last?avail.filter(p=>!last.includes(G.secret[p])):[];
+    const pool=fresh.length?fresh:avail;
+    const p=pool[Math.floor(Math.random()*pool.length)];
+    G.cur[p]=G.secret[p]; G.locked[p]=true; G.rooted[p]=G.secret[p];
     const c=K[G.secret[p]];
     addIntel('☉', `ROOT — Decrypted: <span style="color:${c.fg}">Slot ${p+1}: ${c.sym} ${c.name}</span>`);
   }
@@ -855,7 +1090,7 @@ function renderBoard(){
     const row=document.createElement('div');
     row.className='row'+(isActive?' active':'');
     const num=document.createElement('div');
-    num.className='row-n'; num.textContent=G.maxRows-r;
+    num.className='row-n'; num.textContent=toRoman(r+1);
     row.appendChild(num);
     if(isPast){
       const g=G.rows[r];
@@ -896,7 +1131,8 @@ function renderPhase(){
   } else if(G.over==='lost'){
     ph.className='phase';ph.textContent='';
     st.className='status lose';st.textContent='// Connection Terminated — Traced';
-    ct.innerHTML=`<button class="btn btn-new" onclick="newGame()">New Breach</button>`;
+    ct.innerHTML='';
+    document.body.classList.add('lockdown');
   } else {
     const rem=G.maxRows-G.rows.length;
     st.className='status';st.textContent=`${rem} cycle${rem===1?'':'s'} remaining`;
@@ -934,15 +1170,34 @@ function doSubmit(){
   else startTurn();
 }
 
-function renderAll(){renderHand();renderBoard();renderPhase();updateDescBar();}
+function renderAll(){renderHand();renderBoard();renderPhase();updateDescBar();fitToViewport();}
+
+// ══════════════════════════════════════════════
+// VIEWPORT SCALING
+// ══════════════════════════════════════════════
+function fitToViewport(){
+  const wrap=document.getElementById('scale-wrap');
+  if(!wrap) return;
+  const w=wrap.offsetWidth, h=wrap.offsetHeight;
+  if(!w||!h) return;
+  const vw=window.innerWidth, vh=window.innerHeight;
+  const scale=Math.min(vw/w, vh/h, 2.4);
+  wrap.style.transform=`scale(${scale})`;
+}
+window.addEventListener('resize', fitToViewport);
+window.addEventListener('orientationchange', fitToViewport);
 
 // ══════════════════════════════════════════════
 // BOOT
 // ══════════════════════════════════════════════
 document.getElementById('gear-btn').onclick=showSettings;
 document.getElementById('back-btn').onclick=hideSettings;
+document.getElementById('sfx-slider').addEventListener('input', e=>setSfxVol(e.target.value/100));
+document.getElementById('bgm-slider').addEventListener('input', e=>setBgmVol(e.target.value/100));
+renderAudioControls();
 newGame();
 renderStats();
+fitToViewport();
 </script>
 </body>
 </html>
