@@ -152,7 +152,7 @@ h1 {
 
 /* ── Cards ── */
 .card {
-  width: 86px; min-width: 86px; height: 88px;
+  width: 86px; min-width: 86px; height: 160px;
   clip-path: var(--clip-card);
   --glow: #5a7050;
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--glow) 45%, transparent));
@@ -206,8 +206,8 @@ h1 {
 @keyframes card-scan {
   0%, 73% { transform: translateY(0); opacity: 0; }
   74%     { transform: translateY(0); opacity: 1; }
-  98%     { transform: translateY(97px); opacity: 1; }
-  99%,100%{ transform: translateY(97px); opacity: 0; }
+  98%     { transform: translateY(169px); opacity: 1; }
+  99%,100%{ transform: translateY(169px); opacity: 0; }
 }
 
 .hand .card:nth-child(1)::after { animation-delay: 0.4s; }
@@ -237,18 +237,54 @@ h1 {
 /* ── Desc bar ── */
 .card-desc-bar {
   flex: 1;
+  position: relative;
   clip-path: var(--clip-sm);
   filter: drop-shadow(0 0 1px var(--border));
   background: var(--bg);
   padding: 9px 12px;
-  min-height: 92px;
+  height: 160px;
   display: flex;
   flex-direction: column;
   transition: filter .15s;
 }
+.card-desc-bar::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -9px;
+  height: 9px;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--neon) 6%, transparent) 30%,
+    color-mix(in srgb, var(--neon) 14%, transparent) 50%,
+    color-mix(in srgb, var(--neon) 6%, transparent) 70%,
+    transparent 100%);
+  animation: desc-scan 72s infinite linear;
+  z-index: 0;
+}
+.card-desc-bar > * { position: relative; z-index: 1; }
+
+@keyframes desc-scan {
+  0%, 92% { transform: translateY(0); opacity: 0; }
+  93%     { transform: translateY(0); opacity: 1; }
+  99%     { transform: translateY(169px); opacity: 1; }
+  100%    { transform: translateY(169px); opacity: 0; }
+}
+
 .cdb-name { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .cdb-cat  { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; }
 .cdb-text { font-size: 13px; color: var(--text2); line-height: 1.5; flex: 1; margin-top: 3px; }
+.cdb-placeholder { animation: desc-flicker 5s infinite; }
+
+@keyframes desc-flicker {
+  0%, 90%, 100% { opacity: 1; }
+  91% { opacity: .35; }
+  92% { opacity: 1; }
+  93% { opacity: .55; }
+  94% { opacity: 1; }
+  96% { opacity: .7; }
+  97% { opacity: 1; }
+}
 .cdb-deploy {
   margin-top: 7px; padding: 8px; font-family: 'Share Tech Mono', monospace;
   font-size: 13px; letter-spacing: .2em; text-transform: uppercase;
@@ -594,7 +630,7 @@ body.lockdown .lockdown-cta { animation: lockdown-fade .9s ease-out .7s both; }
     <div class="hand-row">
       <div class="hand" id="hand"></div>
       <div class="card-desc-bar" id="desc-bar">
-        <div class="cdb-text" style="color:var(--text3);font-style:italic">Select a program to view and deploy.</div>
+        <div class="cdb-text cdb-placeholder" style="color:var(--text3);font-style:italic">Select a program to view and deploy.</div>
       </div>
     </div>
   </div>
@@ -1004,7 +1040,7 @@ function renderHand(){
 function clearDescBar(){
   const b=document.getElementById('desc-bar');
   b.style.filter='drop-shadow(0 0 1px var(--border))';
-  b.innerHTML='<div class="cdb-text" style="color:var(--text3);font-style:italic">Select a program to view and deploy.</div>';
+  b.innerHTML='<div class="cdb-text cdb-placeholder" style="color:var(--text3);font-style:italic">Select a program to view and deploy.</div>';
 }
 
 function updateDescBar(){
