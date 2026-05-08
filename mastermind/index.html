@@ -3,547 +3,944 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mastermind</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<title>BREACH</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --amber:   #c9a84c;
+  --amber2:  #7a5c20;
+  --neon:    #3af090;
+  --neon2:   #1a7a44;
+  --cyan:    #00e5ff;
+  --red:     #ff3a3a;
+  --blue:    #4aa8ef;
+  --bg:      #060908;
+  --bg1:     #0b0e0a;
+  --bg2:     #101510;
+  --border:  #1e2c1e;
+  --border2: #283828;
+  --text:    #b8ccb0;
+  --text2:   #6a8a60;
+  --text3:   #3a5030;
+  --clip-lg: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 13px 100%, 0 calc(100% - 13px));
+  --clip-sm: polygon(0 0, calc(100% - 8px)  0, 100% 8px,  100% 100%, 8px  100%, 0 calc(100% - 8px));
+  --clip-card: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+}
 
-  html, body {
-    min-height: 100%;
-    background: #0e0d0a;
-    color: #d8ceb8;
-    font-family: 'Courier Prime', monospace;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 14px 12px 24px;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: 2rem;
-    letter-spacing: .3em;
-    color: #c9a84c;
-    text-transform: uppercase;
-    line-height: 1;
-    margin-bottom: 3px;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100%;
+}
 
-  .subtitle {
-    font-size: 11px;
-    letter-spacing: .35em;
-    color: #7a6a40;
-    text-transform: uppercase;
-    margin-bottom: 14px;
-  }
+/* ── Circuit board background ── */
+#cbg {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0; opacity: .07;
+}
 
-  .game {
-    width: 100%;
-    max-width: 440px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+/* ── Scanlines ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 999;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.07) 3px, rgba(0,0,0,.07) 4px);
+}
 
-  /* ── Board ── */
-  .board { display: flex; flex-direction: column; gap: 4px; }
+/* ── Layout ── */
+#v-main, #v-settings {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 11px 32px;
+}
 
-  .row {
-    display: grid;
-    grid-template-columns: 26px repeat(4, 1fr) 48px;
-    gap: 4px;
-    align-items: center;
-  }
+.game { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 7px; }
 
-  .row-num {
-    font-size: 12px;
-    color: #5a5040;
-    text-align: right;
-    padding-right: 4px;
-    font-weight: 700;
-  }
-  .row.active .row-num { color: #c9a84c; }
+/* ── Header ── */
+.game-hdr {
+  position: relative;
+  text-align: center;
+  padding-bottom: 2px;
+}
 
-  /* ── Pegs ── */
-  .peg {
-    height: 52px;
-    border-radius: 3px;
-    border: 1px solid #2e2a1e;
-    background: #191610;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    cursor: default;
-    transition: border-color .1s, background .1s;
-    user-select: none;
-  }
-  .peg.active { cursor: pointer; border-color: #3a3420; }
-  .peg.active:hover { border-color: #7a6a30; background: #201d12; }
+h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.6rem; font-weight: 900;
+  letter-spacing: .28em; color: var(--amber);
+  text-transform: uppercase; line-height: 1;
+  text-shadow: 0 0 18px #c9a84c88, 0 0 50px #c9a84c33;
+  animation: title-glitch 8s infinite;
+}
 
-  .peg .sym  { font-size: 1.8rem; line-height: 1; }
-  .peg .lbl  { font-size: 10px; letter-spacing: .12em; font-weight: 700; text-transform: uppercase; }
-  .peg .plus { font-size: 1.2rem; color: #5a5030; line-height: 1; }
+@keyframes title-glitch {
+  0%,89%,100% { text-shadow: 0 0 18px #c9a84c88, 0 0 50px #c9a84c33; letter-spacing:.28em; }
+  90%  { text-shadow: -3px 0 #ff003caa, 3px 0 #00fff9aa; letter-spacing:.26em; }
+  91%  { text-shadow: 3px 0 #ff003caa, -3px 0 #00fff9aa; letter-spacing:.30em; }
+  92%  { text-shadow: 0 0 18px #c9a84c88, 0 0 50px #c9a84c33; letter-spacing:.28em; }
+}
 
-  /* ── Feedback 2×2 ── */
-  .fb {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 4px;
-    padding: 6px;
-    width: 48px;
-    height: 52px;
-  }
-  .fp { border-radius: 50%; width: 100%; aspect-ratio: 1; }
-  .fp.exact { background: #c9a84c; box-shadow: 0 0 6px #c9a84c66; }
-  .fp.miss  { background: transparent; border: 2px solid #7a7060; }
-  .fp.none  { background: #252218; border: 1px solid #302c1e; }
+.sub {
+  font-size: 12px; letter-spacing: .32em;
+  color: var(--text3); text-transform: uppercase;
+  margin-top: 3px;
+}
 
-  /* ── Divider ── */
-  .div { border: none; border-top: 1px solid #2a2618; }
+.gear-btn {
+  position: absolute; right: 0; top: 6px;
+  background: none; border: none; cursor: pointer;
+  color: var(--amber2); font-size: 22px;
+  transition: color .15s, text-shadow .15s;
+  padding: 2px 4px;
+}
+.gear-btn:hover { color: var(--amber); text-shadow: 0 0 10px var(--amber); }
 
-  /* ── Secret reveal ── */
-  .secret-row {
-    display: grid;
-    grid-template-columns: 26px repeat(4, 1fr) 48px;
-    gap: 4px;
-    align-items: center;
-    opacity: 0;
-    transition: opacity .5s;
-  }
-  .secret-row.visible { opacity: 1; }
-  .secret-lbl {
-    font-size: 9px;
-    color: #8a7a40;
-    text-align: right;
-    padding-right: 4px;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    line-height: 1.4;
-  }
+/* ── Panel base (chamfered) ── */
+.panel {
+  clip-path: var(--clip-lg);
+  filter: drop-shadow(0 0 1px #1e2c1e) drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  background: var(--bg1);
+  padding: 10px 13px;
+}
+.panel-sm {
+  clip-path: var(--clip-sm);
+  filter: drop-shadow(0 0 1px #1e2c1e);
+  background: var(--bg1);
+  padding: 8px 11px;
+}
 
-  /* ── Status ── */
-  .status-bar {
-    text-align: center;
-    font-size: 13px;
-    letter-spacing: .18em;
-    text-transform: uppercase;
-    color: #8a7a50;
-    padding: 4px 0;
-    min-height: 24px;
-  }
-  .status-bar.win  { color: #c9a84c; font-weight: 700; }
-  .status-bar.lose { color: #cc2936; font-weight: 700; }
+/* ── Scores ── */
+.scores {
+  display: flex; align-items: center; justify-content: space-between;
+  clip-path: var(--clip-lg);
+  background: var(--bg1);
+  padding: 8px 14px;
+  filter: drop-shadow(0 0 1px var(--border2));
+}
+.sc-item { text-align: center; }
+.sc-lbl { font-size: 11px; letter-spacing: .2em; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 3px; }
+.sc-val { font-size: 22px; color: var(--amber); display: block; line-height: 1; font-family: 'Orbitron', sans-serif; }
+.sc-val.dim { color: var(--text3); font-size: 15px; font-family: 'Share Tech Mono', monospace; }
+.sc-rule { width: 1px; height: 28px; background: var(--border); }
 
-  /* ── Controls ── */
-  .controls { display: flex; gap: 6px; }
-  .btn {
-    padding: 12px 10px;
-    font-family: 'Courier Prime', monospace;
-    font-size: 13px;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: 0;
-    transition: all .1s;
-    background: transparent;
-  }
-  .btn-clear {
-    border: 1px solid #3a3828;
-    color: #8a7a50;
-    flex: 0 0 auto;
-    padding: 12px 18px;
-  }
-  .btn-clear:hover { border-color: #8b0000; color: #cc2936; }
-  .btn-submit {
-    flex: 1;
-    border: 1px solid #c9a84c;
-    color: #c9a84c;
-    background: #1a1508;
-  }
-  .btn-submit:hover:not(:disabled) { background: #c9a84c; color: #000; }
-  .btn-submit:disabled { border-color: #2e2c1e; color: #3a3420; background: transparent; cursor: not-allowed; }
-  .btn-new {
-    flex: 1;
-    border: 1px solid #c9a84c;
-    color: #c9a84c;
-  }
-  .btn-new:hover { background: #c9a84c; color: #000; }
+/* ── Programs / Hand ── */
+.programs-wrap {
+  clip-path: var(--clip-lg);
+  filter: drop-shadow(0 0 1px var(--border2));
+  background: var(--bg1);
+  padding: 11px 12px 10px;
+}
+.prog-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+.prog-lbl { font-size: 12px; letter-spacing: .22em; color: var(--text3); text-transform: uppercase; }
+.queue-lbl { font-size: 12px; color: var(--text3); }
+.hand-row { display: flex; gap: 10px; align-items: stretch; }
+.hand { display: flex; flex-direction: row; gap: 8px; flex: 0 0 auto; align-items: flex-start; }
 
-  /* ── High score ── */
-  .scores {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 14px;
-    background: #121008;
-    border: 1px solid #2a2618;
-  }
-  .score-item { text-align: center; }
-  .score-label { font-size: 10px; letter-spacing: .25em; color: #7a6a40; text-transform: uppercase; display: block; margin-bottom: 3px; }
-  .score-value { font-size: 22px; color: #c9a84c; font-weight: 700; font-family: 'Playfair Display', serif; line-height: 1; }
-  .score-value.unset { color: #3a3420; font-size: 16px; }
-  .score-div { width: 1px; height: 36px; background: #2a2618; }
-  .key {
-    background: #121008;
-    border: 1px solid #2a2618;
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .key-title {
-    font-size: 11px;
-    letter-spacing: .28em;
-    color: #8a7a50;
-    text-transform: uppercase;
-  }
-  .key-row { display: flex; align-items: center; gap: 12px; }
-  .kp { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-  .kp.exact { background: #c9a84c; box-shadow: 0 0 5px #c9a84c55; }
-  .kp.miss  { background: transparent; border: 2px solid #7a7060; }
-  .kp.none  { background: #252218; border: 1px solid #302c1e; }
-  .key-text { font-size: 13px; color: #a89870; line-height: 1.4; }
-  .key-text strong { color: #d8ceb8; }
-  .key-warn {
-    font-size: 12px;
-    color: #8a7a50;
-    font-style: italic;
-    border-top: 1px solid #2a2618;
-    padding-top: 8px;
-    line-height: 1.55;
-  }
+/* ── Cards ── */
+.card {
+  width: 86px; min-width: 86px; height: 88px;
+  clip-path: var(--clip-card);
+  filter: drop-shadow(0 0 1px #283828);
+  background: var(--bg2);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px; cursor: pointer; position: relative;
+  transition: filter .12s, transform .1s;
+  user-select: none; padding: 7px 5px;
+}
+.card:hover { transform: translateY(-2px); filter: drop-shadow(0 0 3px #3a4a3a); }
+.card.sel { transform: translateY(-5px); }
+.card-cat { font-size: 8px; letter-spacing: .15em; text-transform: uppercase; position: absolute; top: 5px; left: 0; right: 0; text-align: center; }
+.card-sym { font-size: 1.6rem; line-height: 1; margin-top: 7px; }
+.card-name { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: center; line-height: 1.2; }
+.card-cost { font-size: 8px; position: absolute; bottom: 4px; right: 5px; color: var(--red); font-weight: 700; }
+
+/* ── Desc bar ── */
+.card-desc-bar {
+  flex: 1;
+  clip-path: var(--clip-sm);
+  filter: drop-shadow(0 0 1px var(--border));
+  background: var(--bg);
+  padding: 9px 12px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  transition: filter .15s;
+}
+.cdb-name { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.cdb-cat  { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; }
+.cdb-text { font-size: 13px; color: var(--text2); line-height: 1.5; flex: 1; margin-top: 3px; }
+.cdb-deploy {
+  margin-top: 7px; padding: 8px; font-family: 'Share Tech Mono', monospace;
+  font-size: 13px; letter-spacing: .2em; text-transform: uppercase;
+  cursor: pointer; background: transparent; width: 100%;
+  clip-path: var(--clip-sm);
+  transition: all .1s;
+}
+.cdb-deploy:hover:not(:disabled) { color: #000 !important; }
+.cdb-deploy:disabled { opacity: .3; cursor: not-allowed; }
+.pick-row { display: flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+.pos-btn {
+  flex: 1; min-width: 38px; padding: 10px;
+  background: var(--bg1); border: 1px solid var(--amber2);
+  color: var(--amber); font-family: 'Share Tech Mono', monospace;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+  clip-path: var(--clip-sm); transition: all .1s;
+}
+.pos-btn:hover { background: var(--amber); color: #000; }
+.col-btn {
+  width: 46px; height: 46px;
+  clip-path: var(--clip-sm);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; transition: transform .1s, filter .1s;
+}
+.col-btn:hover { transform: scale(1.1); filter: brightness(1.3); }
+
+/* ── Intel panel ── */
+.intel-wrap {
+  clip-path: var(--clip-lg);
+  filter: drop-shadow(0 0 1px var(--border2));
+  background: var(--bg1);
+}
+.intel-title {
+  font-size: 12px; letter-spacing: .28em; color: var(--neon);
+  text-transform: uppercase; padding: 7px 13px;
+  border-bottom: 1px solid var(--border);
+  text-shadow: 0 0 8px #3af09055;
+}
+.intel-entries { padding: 7px 13px; display: flex; flex-direction: column; gap: 6px; min-height: 30px; }
+.intel-empty { font-size: 12px; color: var(--text3); font-style: italic; }
+.intel-entry { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.45; }
+.intel-sym { font-size: .95rem; flex-shrink: 0; margin-top: 1px; }
+.intel-body { color: var(--text2); }
+.intel-body strong { color: var(--text); }
+
+/* ── Phase banner ── */
+.phase {
+  text-align: center; font-size: 12px; letter-spacing: .22em;
+  color: var(--text3); text-transform: uppercase;
+  padding: 2px 0; min-height: 18px;
+}
+.phase.active { color: var(--amber); text-shadow: 0 0 8px #c9a84c55; }
+.phase.probe  { color: var(--neon);  text-shadow: 0 0 8px #3af09055; }
+
+/* ── Board ── */
+.board { display: flex; flex-direction: column; gap: 4px; }
+.row { display: grid; grid-template-columns: 24px repeat(4,1fr) 46px; gap: 4px; align-items: center; }
+.row-n { font-size: 13px; color: var(--text3); text-align: right; padding-right: 4px; font-weight: 700; }
+.row.active .row-n { color: var(--amber); text-shadow: 0 0 6px #c9a84c55; }
+
+.peg {
+  height: 52px; border-radius: 1px;
+  border: 1px solid #171f15; background: #0c1009;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.9rem; cursor: default;
+  transition: border-color .1s, background .1s, box-shadow .1s;
+  user-select: none; position: relative;
+}
+.peg.tap { cursor: pointer; border-color: #22301e; }
+.peg.tap:hover { border-color: var(--amber2); background: #111609; box-shadow: inset 0 0 8px rgba(0,0,0,.4); }
+.peg .plus { color: #1e2a1c; font-size: 1.1rem; }
+.peg .lk { position: absolute; top: 2px; right: 3px; font-size: 9px; color: var(--amber2); }
+
+.fb { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; padding: 5px; width: 46px; height: 52px; }
+.fp { border-radius: 50%; width: 100%; aspect-ratio: 1; }
+.fp.exact { background: var(--amber); box-shadow: 0 0 6px #c9a84c88; }
+.fp.miss  { background: transparent; border: 2px solid #6a6050; }
+.fp.none  { background: #161e12; border: 1px solid #1e2a1a; }
+
+/* ── Secret ── */
+.secret-row { display: grid; grid-template-columns: 24px repeat(4,1fr) 46px; gap: 4px; align-items: center; opacity: 0; transition: opacity .5s; }
+.secret-row.show { opacity: 1; }
+.secret-lbl { font-size: 9px; color: var(--amber2); text-align: right; padding-right: 4px; text-transform: uppercase; letter-spacing: .06em; line-height: 1.5; }
+
+/* ── Status ── */
+.status { text-align: center; font-size: 14px; letter-spacing: .18em; text-transform: uppercase; color: var(--text2); padding: 2px 0; min-height: 22px; }
+.status.win  { color: var(--neon); font-weight: 700; text-shadow: 0 0 12px #3af09077; }
+.status.lose { color: var(--red); font-weight: 700; text-shadow: 0 0 12px #ff3a3a55; }
+
+/* ── Controls ── */
+.ctrls { display: flex; gap: 6px; }
+.btn { padding: 12px 10px; font-family: 'Share Tech Mono', monospace; font-size: 13px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; transition: all .1s; background: transparent; clip-path: var(--clip-sm); }
+.btn-x { border: 1px solid var(--border2); color: var(--text2); flex: 0 0 auto; padding: 12px 16px; }
+.btn-x:hover { border-color: var(--red); color: var(--red); }
+.btn-sub { flex: 1; border: 1px solid var(--amber); color: var(--amber); background: #141208; }
+.btn-sub:hover:not(:disabled) { background: var(--amber); color: #000; }
+.btn-sub:disabled { border-color: var(--border2); color: var(--text3); background: transparent; cursor: not-allowed; }
+.btn-new { flex: 1; border: 1px solid var(--neon); color: var(--neon); }
+.btn-new:hover { background: var(--neon); color: #000; }
+
+/* ── Divider ── */
+.rule { border: none; border-top: 1px solid var(--border); }
+
+/* ═══════════════════════════════════
+   SETTINGS
+═══════════════════════════════════ */
+.settings-hdr {
+  display: flex; align-items: center; gap: 16px;
+  padding-bottom: 4px;
+}
+.back-btn {
+  background: none; border: 1px solid var(--border2);
+  color: var(--text2); font-family: 'Share Tech Mono', monospace;
+  font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+  cursor: pointer; padding: 8px 14px;
+  clip-path: var(--clip-sm); transition: all .1s;
+}
+.back-btn:hover { border-color: var(--neon); color: var(--neon); }
+.settings-heading {
+  font-size: 13px; letter-spacing: .3em; color: var(--neon);
+  text-transform: uppercase; text-shadow: 0 0 8px #3af09055;
+}
+
+.setting-section {
+  clip-path: var(--clip-lg);
+  filter: drop-shadow(0 0 1px var(--border2));
+  background: var(--bg1);
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.setting-sec-title {
+  font-size: 12px; letter-spacing: .28em; color: var(--neon);
+  text-transform: uppercase; text-shadow: 0 0 6px #3af09044;
+  margin-bottom: 2px;
+}
+
+/* Mute toggle */
+.mute-row { display: flex; align-items: center; justify-content: space-between; }
+.mute-lbl { font-size: 14px; color: var(--text); }
+.mute-pill {
+  padding: 8px 18px; font-family: 'Share Tech Mono', monospace;
+  font-size: 13px; letter-spacing: .15em; text-transform: uppercase;
+  cursor: pointer; clip-path: var(--clip-sm);
+  border: 1px solid; transition: all .12s;
+}
+.mute-pill.on  { border-color: var(--neon); color: var(--neon); background: transparent; }
+.mute-pill.on:hover  { background: var(--neon); color: #000; }
+.mute-pill.off { border-color: var(--red); color: var(--red); background: transparent; }
+.mute-pill.off:hover { background: var(--red); color: #000; }
+
+/* Settings scores */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.stat-box {
+  clip-path: var(--clip-sm); background: var(--bg2);
+  padding: 8px 10px; text-align: center;
+}
+.stat-box-lbl { font-size: 10px; letter-spacing: .2em; color: var(--text3); text-transform: uppercase; display: block; margin-bottom: 4px; }
+.stat-box-val { font-size: 22px; color: var(--amber); font-family: 'Orbitron', sans-serif; display: block; line-height: 1; }
+.stat-box-val.dim { color: var(--text3); font-size: 15px; font-family: 'Share Tech Mono', monospace; }
+.wipe-btn {
+  padding: 9px; font-family: 'Share Tech Mono', monospace;
+  font-size: 12px; letter-spacing: .2em; text-transform: uppercase;
+  cursor: pointer; background: transparent;
+  border: 1px solid var(--border2); color: var(--text3);
+  clip-path: var(--clip-sm); width: 100%; transition: all .12s;
+}
+.wipe-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* Signal key */
+.key-row-s { display: flex; align-items: center; gap: 12px; }
+.kp { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.kp.exact { background: var(--amber); box-shadow: 0 0 5px #c9a84c55; }
+.kp.miss  { background: transparent; border: 2px solid #6a6050; }
+.kp.none  { background: #161e12; border: 1px solid #1e2a1a; }
+.key-txt { font-size: 14px; color: var(--text2); }
+.key-txt strong { color: var(--text); }
+.key-warn { font-size: 13px; color: var(--text3); font-style: italic; border-top: 1px solid var(--border); padding-top: 8px; line-height: 1.55; margin-top: 2px; }
+
+/* Program ref */
+.prog-ref { display: flex; flex-direction: column; gap: 8px; }
+.prog-ref-item { font-size: 13px; color: var(--text2); line-height: 1.4; }
+.prog-ref-item span { font-weight: 700; font-size: 13px; }
+
+/* Category colours */
+.recon      { color: var(--amber); }
+.exploit    { color: var(--blue); }
+.deepaccess { color: var(--neon); }
+
 </style>
 </head>
 <body>
 
-<h1>Mastermind</h1>
-<p class="subtitle">crack the code</p>
+<!-- Circuit board SVG background -->
+<svg id="cbg" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="circ" x="0" y="0" width="200" height="150" patternUnits="userSpaceOnUse">
+      <g stroke="#3af090" fill="none" stroke-width="0.9">
+        <polyline points="0,22 48,22 48,0"/>
+        <circle cx="48" cy="22" r="2.5" fill="#3af090"/>
+        <polyline points="85,0 85,38 130,38"/>
+        <circle cx="85" cy="38" r="2" fill="#3af090"/>
+        <circle cx="130" cy="38" r="1.5" fill="#3af090"/>
+        <polyline points="200,68 158,68 158,95 200,95"/>
+        <circle cx="158" cy="68" r="2" fill="#3af090"/>
+        <circle cx="158" cy="95" r="2" fill="#3af090"/>
+        <polyline points="0,112 32,112 32,150"/>
+        <circle cx="32" cy="112" r="2" fill="#3af090"/>
+        <polyline points="68,150 68,122 115,122 115,102 155,102"/>
+        <circle cx="68"  cy="122" r="2"   fill="#3af090"/>
+        <circle cx="115" cy="122" r="2"   fill="#3af090"/>
+        <circle cx="115" cy="102" r="2"   fill="#3af090"/>
+        <polyline points="0,78 42,78 42,58 74,58"/>
+        <circle cx="42" cy="78" r="2" fill="#3af090"/>
+        <circle cx="42" cy="58" r="2" fill="#3af090"/>
+        <polyline points="162,0 162,48 200,48"/>
+        <circle cx="162" cy="48" r="2.5" fill="#3af090"/>
+        <polyline points="92,150 92,128 136,128 136,150"/>
+        <circle cx="92"  cy="128" r="2" fill="#3af090"/>
+        <circle cx="136" cy="128" r="2" fill="#3af090"/>
+        <polyline points="0,48 18,48 18,0"/>
+        <circle cx="18" cy="48" r="1.5" fill="#3af090"/>
+        <polyline points="108,0 108,18 140,18 140,0"/>
+        <circle cx="108" cy="18" r="1.5" fill="#3af090"/>
+        <circle cx="140" cy="18" r="1.5" fill="#3af090"/>
+      </g>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#circ)"/>
+</svg>
 
+<!-- ═══════════════ MAIN VIEW ═══════════════ -->
+<div id="v-main">
 <div class="game">
+
+  <div class="game-hdr">
+    <h1>BREACH</h1>
+    <p class="sub">crack the ice · five cycles</p>
+    <button class="gear-btn" id="gear-btn">⚙</button>
+  </div>
+
+  <div class="programs-wrap">
+    <div class="prog-top">
+      <span class="prog-lbl">Loaded Programs</span>
+      <span class="queue-lbl" id="queue-lbl"></span>
+    </div>
+    <div class="hand-row">
+      <div class="hand" id="hand"></div>
+      <div class="card-desc-bar" id="desc-bar">
+        <div class="cdb-text" style="color:var(--text3);font-style:italic">Select a program to view and deploy.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="intel-wrap">
+    <div class="intel-title">// Intel Gathered</div>
+    <div class="intel-entries" id="intel"><span class="intel-empty">No data yet.</span></div>
+  </div>
+
+  <div class="phase" id="phase"></div>
   <div class="board" id="board"></div>
-  <hr class="div">
+
   <div class="secret-row" id="secret-row">
-    <div class="secret-lbl">The<br>Code</div>
-    <div class="peg" id="s0"></div>
-    <div class="peg" id="s1"></div>
-    <div class="peg" id="s2"></div>
-    <div class="peg" id="s3"></div>
+    <div class="secret-lbl">Target<br>Hash</div>
+    <div class="peg" id="s0"></div><div class="peg" id="s1"></div>
+    <div class="peg" id="s2"></div><div class="peg" id="s3"></div>
     <div></div>
   </div>
-  <div class="status-bar" id="status"></div>
-  <div class="controls" id="controls">
-    <button class="btn btn-clear" id="btn-clear">Clear</button>
-    <button class="btn btn-submit" id="btn-submit" disabled>Submit</button>
+
+  <div class="status" id="status"></div>
+  <div class="ctrls" id="ctrls"></div>
+
+</div>
+</div>
+
+<!-- ═══════════════ SETTINGS VIEW ═══════════════ -->
+<div id="v-settings" style="display:none">
+<div class="game">
+
+  <div class="settings-hdr">
+    <button class="back-btn" id="back-btn">← Back</button>
+    <span class="settings-heading">// Settings</span>
   </div>
-  <div class="scores">
-    <div class="score-item">
-      <span class="score-label">Best Score</span>
-      <span class="score-value" id="best-score">—</span>
-    </div>
-    <div class="score-div"></div>
-    <div class="score-item">
-      <span class="score-label">Games Played</span>
-      <span class="score-value" id="games-played">0</span>
-    </div>
-    <div class="score-div"></div>
-    <div class="score-item">
-      <span class="score-label">Last Game</span>
-      <span class="score-value" id="last-score">—</span>
+
+  <!-- Audio -->
+  <div class="setting-section">
+    <div class="setting-sec-title">// Audio</div>
+    <div class="mute-row">
+      <span class="mute-lbl">Sound Effects</span>
+      <button class="mute-pill on" id="mute-pill" onclick="toggleMute()">ON</button>
     </div>
   </div>
-  <hr class="div">
-  <div class="key">
-    <div class="key-title">Reading your results</div>
-    <div class="key-row"><div class="kp exact"></div><div class="key-text"><strong>Gold</strong> — right colour, right position</div></div>
-    <div class="key-row"><div class="kp miss"></div><div class="key-text"><strong>Hollow</strong> — right colour, wrong position</div></div>
-    <div class="key-row"><div class="kp none"></div><div class="key-text"><strong>Dark</strong> — colour not in the code at all</div></div>
-    <div class="key-warn">Pegs are counts only — they don't tell you which slot is correct.</div>
+
+  <!-- Record -->
+  <div class="setting-section">
+    <div class="setting-sec-title">// Record</div>
+    <div class="stats-grid">
+      <div class="stat-box"><span class="stat-box-lbl">Fastest</span><span class="stat-box-val dim" id="st-best">—</span></div>
+      <div class="stat-box"><span class="stat-box-lbl">Runs</span><span class="stat-box-val dim" id="st-runs">0</span></div>
+      <div class="stat-box"><span class="stat-box-lbl">Last Run</span><span class="stat-box-val dim" id="st-last">—</span></div>
+    </div>
+    <button class="wipe-btn" onclick="wipeScores()">Wipe Record</button>
   </div>
+
+  <!-- Signal Key -->
+  <div class="setting-section">
+    <div class="setting-sec-title">// Signal Interpretation</div>
+    <div class="key-row-s"><div class="kp exact"></div><div class="key-txt"><strong>Locked</strong> — correct key, correct position</div></div>
+    <div class="key-row-s"><div class="kp miss"></div><div class="key-txt"><strong>Displaced</strong> — correct key, wrong position</div></div>
+    <div class="key-row-s"><div class="kp none"></div><div class="key-txt"><strong>Null</strong> — key not present in hash</div></div>
+    <div class="key-warn">Signals are counts only — they do not identify which slot triggered.</div>
+  </div>
+
+  <!-- Program Reference -->
+  <div class="setting-section">
+    <div class="setting-sec-title">// Program Reference</div>
+    <div class="prog-ref">
+      <div class="prog-ref-item"><span class="recon">MOLE</span> — Leaks one colour confirmed present in the hash</div>
+      <div class="prog-ref-item"><span class="recon">GHOST</span> — Reveals one colour definitively absent from the hash</div>
+      <div class="prog-ref-item"><span class="recon">PING</span> — Scans for repeated keys in the hash structure</div>
+      <div class="prog-ref-item"><span class="recon">PROBE</span> — Pick any slot + any key — confirms if correct there</div>
+      <div class="prog-ref-item"><span class="exploit">BUFFER</span> — Extends intrusion window by one cycle</div>
+      <div class="prog-ref-item"><span class="deepaccess">ROOT</span> — Decrypts one confirmed key+position pair</div>
+    </div>
+  </div>
+
+</div>
 </div>
 
 <script>
-const COLORS = [
-  { sym:"◆", lbl:"GOLD",     fg:"#c9a84c", bg:"#2e2200" },
-  { sym:"✦", lbl:"RED",      fg:"#e04848", bg:"#2a0000" },
-  { sym:"♥", lbl:"LAVENDER", fg:"#b090e0", bg:"#1e1035" },
-  { sym:"◉", lbl:"GREEN",    fg:"#52B788", bg:"#002218" },
-  { sym:"▲", lbl:"BLUE",     fg:"#4895EF", bg:"#001830" },
-  { sym:"⚡", lbl:"ORANGE",   fg:"#E08A50", bg:"#2a1400" },
+// ══════════════════════════════════════════════
+// KEYS
+// ══════════════════════════════════════════════
+const K = [
+  { sym:"◈", fg:"#c9a84c", bg:"#2e2200", name:"AMBER"   },
+  { sym:"⊗", fg:"#e04848", bg:"#280000", name:"CRIMSON"  },
+  { sym:"⬡", fg:"#b090e0", bg:"#1a0e30", name:"VIOLET"   },
+  { sym:"⊕", fg:"#52c888", bg:"#001e10", name:"JADE"     },
+  { sym:"▲", fg:"#4aa8ef", bg:"#001428", name:"COBALT"   },
+  { sym:"⚡", fg:"#e09050", bg:"#261200", name:"COPPER"   },
 ];
 
-const MAX = 10, LEN = 4;
-let secret, current, guesses, gameOver;
+// ══════════════════════════════════════════════
+// CARD DEFS
+// ══════════════════════════════════════════════
+const DEFS = {
+  mole:   { id:'mole',   name:'MOLE',   cat:'RECON',       catCls:'recon',      sym:'◎',
+            desc:'Leaks one colour confirmed present somewhere in the target hash.',           cost:null },
+  ghost:  { id:'ghost',  name:'GHOST',  cat:'RECON',       catCls:'recon',      sym:'◌',
+            desc:'Traces a dead signal. Reveals one colour absent from the hash entirely.',    cost:null },
+  ping:   { id:'ping',   name:'PING',   cat:'RECON',       catCls:'recon',      sym:'⊙',
+            desc:'Scans hash structure. Tells you if any key appears more than once.',         cost:null },
+  probe:  { id:'probe',  name:'PROBE',  cat:'RECON',       catCls:'recon',      sym:'✦',
+            desc:'Pick any slot, then any key — confirms if that key belongs at that position. Works any round.', cost:null },
+  buffer: { id:'buffer', name:'BUFFER', cat:'EXPLOIT',     catCls:'exploit',    sym:'+',
+            desc:'Buffer overflow. Adds one additional cycle to your intrusion window.',       cost:null },
+  root:   { id:'root',   name:'ROOT',   cat:'DEEP ACCESS', catCls:'deepaccess', sym:'☉',
+            desc:'Root access achieved. Decrypts one confirmed key+position pair. No cost.',   cost:null },
+};
 
-// ── Audio ─────────────────────────────────────────────────────
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audioCtx = null;
+const DECK_SRC = ['mole','mole','ghost','ghost','ping','probe','buffer','root','root'];
 
-function getAudio() {
-  if (!audioCtx) audioCtx = new AudioCtx();
-  return audioCtx;
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let G = {};
+let muted = localStorage.getItem('breach_mute') === '1';
+
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+function newGame(){
+  G={
+    secret:    Array.from({length:4},()=>Math.floor(Math.random()*K.length)),
+    deck:      shuffle([...DECK_SRC]),
+    hand:      [],
+    rows:      [],
+    maxRows:   5,
+    cur:       [-1,-1,-1,-1],
+    locked:    [false,false,false,false],
+    phase:     '',
+    selCard:   null,
+    probeSlot: null,
+    eliminated:[],   // colour indices ghosted out of the pool
+    over:      false,
+  };
+  G.hand.push(G.deck.pop());
+  document.getElementById('intel').innerHTML='<span class="intel-empty">No data yet.</span>';
+  startTurn();
 }
 
-function playClick(colorIdx) {
-  try {
-    const ctx  = getAudio();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    // Each colour gets a slightly different pitch so cycling feels tactile
-    const pitches = [880, 740, 660, 1000, 820, 660];
-    const freq = pitches[colorIdx] || 800;
-    osc.type      = "sine";
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, ctx.currentTime + 0.06);
-    gain.gain.setValueAtTime(0.18, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.08);
-  } catch(e) {}
+function startTurn(){
+  G.cur      = [-1,-1,-1,-1];
+  G.locked   = [false,false,false,false];
+  G.selCard  = null;
+  G.probeSlot= null;
+  if(G.deck.length>0) G.hand.push(G.deck.pop());
+  G.phase = 'play-card';
+  clearDescBar();
+  renderAll();
 }
 
-function playSubmit() {
-  try {
-    const ctx  = getAudio();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(440, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.2);
-  } catch(e) {}
+// ══════════════════════════════════════════════
+// COLOUR CYCLING (respects eliminated pool)
+// ══════════════════════════════════════════════
+function nextColour(current){
+  const avail = K.map((_,i)=>i).filter(i=>!G.eliminated.includes(i));
+  if(!avail.length) return current;
+  if(current===-1) return avail[0];
+  const pos = avail.indexOf(current);
+  // if current colour was eliminated, jump to first available
+  if(pos===-1) return avail[0];
+  return avail[(pos+1) % avail.length];
+}
+function checkGuess(g,c){
+  let exact=0; const cc=[...c],gc=[...g];
+  for(let i=0;i<4;i++) if(gc[i]===cc[i]){exact++;cc[i]=gc[i]=-1;}
+  let miss=0;
+  for(let i=0;i<4;i++){if(gc[i]===-1)continue;const x=cc.indexOf(gc[i]);if(x!==-1){miss++;cc[x]=-1;}}
+  return{exact,miss};
 }
 
-function playWin() {
-  try {
-    const ctx = getAudio();
-    [523, 659, 784, 1047].forEach((freq, i) => {
-      const osc  = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      const t = ctx.currentTime + i * 0.1;
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, t);
-      gain.gain.setValueAtTime(0.15, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      osc.start(t);
-      osc.stop(t + 0.25);
-    });
-  } catch(e) {}
+// ══════════════════════════════════════════════
+// AUDIO
+// ══════════════════════════════════════════════
+let _ac=null;
+function getAC(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;}
+function tone(freq,dur=.08,vol=.12,type='sine'){
+  if(muted) return;
+  try{const ctx=getAC(),o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);o.type=type;
+    o.frequency.setValueAtTime(freq,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq*.5,ctx.currentTime+dur);
+    g.gain.setValueAtTime(vol,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
+    o.start();o.stop(ctx.currentTime+dur);}catch(e){}
+}
+const PITCH=[880,740,660,1000,820,600];
+function sndKey(ci){tone(PITCH[ci]||800,.07,.12);}
+function sndDeploy(){tone(600,.1,.11,'square');}
+function sndSubmit(){tone(330,.15,.1,'triangle');}
+function sndWin(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.22,.12),i*90));}
+function sndLose(){[330,277,220].forEach((f,i)=>setTimeout(()=>tone(f,.25,.1,'sawtooth'),i*120));}
+
+// ══════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════
+function showSettings(){
+  document.getElementById('v-main').style.display='none';
+  document.getElementById('v-settings').style.display='flex';
+  renderSettingsStats();
+  renderMutePill();
+}
+function hideSettings(){
+  document.getElementById('v-settings').style.display='none';
+  document.getElementById('v-main').style.display='flex';
+}
+function toggleMute(){
+  muted=!muted;
+  localStorage.setItem('breach_mute', muted?'1':'0');
+  renderMutePill();
+}
+function renderMutePill(){
+  const p=document.getElementById('mute-pill');
+  if(!p) return;
+  if(muted){ p.textContent='OFF'; p.className='mute-pill off'; }
+  else     { p.textContent='ON';  p.className='mute-pill on';  }
+}
+function wipeScores(){
+  saveSt({});
+  renderStats(); renderSettingsStats();
+}
+function renderSettingsStats(){
+  const s=loadSt();
+  const b=document.getElementById('st-best'),r=document.getElementById('st-runs'),l=document.getElementById('st-last');
+  if(b){b.textContent=s.best||'—';b.className='stat-box-val'+(s.best?'':' dim');}
+  if(r){r.textContent=s.runs||0;r.className='stat-box-val'+(s.runs?'':' dim');}
+  if(l){l.textContent=s.last>0?s.last:(s.runs?'✕':'—');l.className='stat-box-val'+(s.last>0?'':' dim');}
 }
 
-// ── High score ────────────────────────────────────────────────
-function loadStats() {
-  try {
-    return JSON.parse(localStorage.getItem("mm_stats") || "{}");
-  } catch(e) { return {}; }
+// ══════════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════════
+function loadSt(){try{return JSON.parse(localStorage.getItem('breach2')||'{}')}catch(e){return{}}}
+function saveSt(s){try{localStorage.setItem('breach2',JSON.stringify(s))}catch(e){}}
+function recWin(n){const s=loadSt();s.runs=(s.runs||0)+1;s.last=n;if(!s.best||n<s.best)s.best=n;saveSt(s);renderStats(s);}
+function recLoss(){const s=loadSt();s.runs=(s.runs||0)+1;s.last=0;saveSt(s);renderStats(s);}
+function renderStats(s){
+  s=s||loadSt();
+  const b=document.getElementById('sc-best'),r=document.getElementById('sc-runs'),l=document.getElementById('sc-last');
+  if(b){b.textContent=s.best||'—';b.className='sc-val'+(s.best?'':' dim');}
+  if(r){r.textContent=s.runs||0;r.className='sc-val'+(s.runs?'':' dim');}
+  if(l){l.textContent=s.last>0?s.last:(s.runs?'✕':'—');l.className='sc-val'+(s.last>0?'':' dim');}
 }
 
-function saveStats(s) {
-  try { localStorage.setItem("mm_stats", JSON.stringify(s)); } catch(e) {}
-}
-
-function updateStats(won, guessCount) {
-  const s = loadStats();
-  s.played = (s.played || 0) + 1;
-  if (won) {
-    s.last = guessCount;
-    if (!s.best || guessCount < s.best) s.best = guessCount;
-  } else {
-    s.last = null; // lost
+// ══════════════════════════════════════════════
+// PAINT
+// ══════════════════════════════════════════════
+function paintPeg(el,ci,locked=false){
+  if(ci===-1){
+    el.style.background='#0c1009';el.style.borderColor='#171f15';
+    el.innerHTML='<span class="plus">+</span>';
+  }else{
+    const c=K[ci];
+    el.style.background=c.bg;el.style.borderColor=c.fg+'99';
+    el.innerHTML=`<span style="color:${c.fg};font-size:1.9rem;line-height:1">${c.sym}</span>${locked?'<span class="lk">⚿</span>':''}`;
   }
-  saveStats(s);
-  renderStats(s);
 }
-
-function renderStats(s) {
-  if (!s) s = loadStats();
-  const best  = document.getElementById("best-score");
-  const plays = document.getElementById("games-played");
-  const last  = document.getElementById("last-score");
-  if (best) {
-    best.textContent  = s.best  ? s.best  : "—";
-    best.className    = "score-value" + (s.best  ? "" : " unset");
-  }
-  if (plays) plays.textContent = s.played || 0;
-  if (last) {
-    last.textContent  = s.last  ? s.last  : (s.played ? "✕" : "—");
-    last.className    = "score-value" + (s.last  ? "" : " unset");
-    if (s.last && s.best && s.last === s.best) last.style.color = "#c9a84c";
-    else if (last) last.style.color = "";
-  }
+function fbHtml(fb){
+  const p=[];
+  for(let i=0;i<fb.exact;i++) p.push('exact');
+  for(let i=0;i<fb.miss;i++) p.push('miss');
+  while(p.length<4) p.push('none');
+  return p.map(t=>`<div class="fp ${t}"></div>`).join('');
 }
+function catColor(cls){ return cls==='recon'?'var(--amber)':cls==='exploit'?'var(--blue)':'var(--neon)'; }
 
-function newGame() {
-  secret   = Array.from({length: LEN}, () => Math.floor(Math.random() * COLORS.length));
-  current  = [-1, -1, -1, -1];
-  guesses  = [];
-  gameOver = false;
-  render();
-}
-
-function check(guess, code) {
-  let exact = 0;
-  const cc = [...code], gc = [...guess];
-  for (let i = 0; i < LEN; i++)
-    if (gc[i] === cc[i]) { exact++; cc[i] = gc[i] = -1; }
-  let miss = 0;
-  for (let i = 0; i < LEN; i++) {
-    if (gc[i] === -1) continue;
-    const x = cc.indexOf(gc[i]);
-    if (x !== -1) { miss++; cc[x] = -1; }
-  }
-  return { exact, miss };
-}
-
-function paint(el, idx) {
-  if (idx === -1) {
-    el.style.background   = "#191610";
-    el.style.borderColor  = "#2e2a1e";
-    el.innerHTML = `<span class="plus">+</span>`;
-  } else {
-    const c = COLORS[idx];
-    el.style.background  = c.bg;
-    el.style.borderColor = c.fg + "99";
-    el.innerHTML = `<span class="sym" style="color:${c.fg}">${c.sym}</span>`;
-  }
-}
-
-function fbHtml(fb) {
-  const p = [];
-  for (let i = 0; i < fb.exact; i++) p.push("exact");
-  for (let i = 0; i < fb.miss;  i++) p.push("miss");
-  while (p.length < 4) p.push("none");
-  return p.map(t => `<div class="fp ${t}"></div>`).join("");
-}
-
-function render() {
-  const board = document.getElementById("board");
-  board.innerHTML = "";
-  const active = guesses.length;
-
-  for (let r = 0; r < MAX; r++) {
-    const row = document.createElement("div");
-    row.className = "row" + (r === active && !gameOver ? " active" : "");
-
-    const num = document.createElement("div");
-    num.className = "row-num";
-    num.textContent = MAX - r;
-    row.appendChild(num);
-
-    if (r < guesses.length) {
-      // Past guess
-      const g = guesses[r];
-      for (let i = 0; i < LEN; i++) {
-        const p = document.createElement("div");
-        p.className = "peg";
-        paint(p, g.guess[i]);
-        row.appendChild(p);
-      }
-      const fb = document.createElement("div");
-      fb.className = "fb";
-      fb.innerHTML = fbHtml(g.feedback);
-      row.appendChild(fb);
-
-    } else if (r === active && !gameOver) {
-      // Active — cycling pegs
-      for (let i = 0; i < LEN; i++) {
-        const p = document.createElement("div");
-        p.className = "peg active";
-        paint(p, current[i]);
-        const idx = i;
-        p.onclick = () => {
-          current[idx] = (current[idx] + 1) % COLORS.length;
-          playClick(current[idx]);
-          paint(p, current[idx]);
-          setSubmit();
-        };
-        row.appendChild(p);
-      }
-      const fb = document.createElement("div");
-      fb.className = "fb";
-      fb.innerHTML = `<div class="fp none"></div>`.repeat(4);
-      row.appendChild(fb);
-
-    } else {
-      // Future — dimmed placeholders
-      for (let i = 0; i < LEN; i++) {
-        const p = document.createElement("div");
-        p.className = "peg";
-        p.style.opacity = ".45";
-        row.appendChild(p);
-      }
-      const fb = document.createElement("div");
-      fb.className = "fb";
-      fb.style.opacity = ".3";
-      fb.innerHTML = `<div class="fp none"></div>`.repeat(4);
-      row.appendChild(fb);
+// ══════════════════════════════════════════════
+// HAND
+// ══════════════════════════════════════════════
+function renderHand(){
+  const el=document.getElementById('hand');
+  el.innerHTML='';
+  G.hand.forEach((cid,hi)=>{
+    const def=DEFS[cid], sel=G.selCard===hi;
+    const cc=catColor(def.catCls);
+    const d=document.createElement('div');
+    d.className='card'+(sel?' sel':'');
+    if(sel) d.style.filter=`drop-shadow(0 0 6px ${cc}66)`;
+    d.innerHTML=`
+      <div class="card-cat ${def.catCls}">${def.cat}</div>
+      <div class="card-sym ${def.catCls}">${def.sym}</div>
+      <div class="card-name ${def.catCls}">${def.name}</div>
+      ${def.cost?`<div class="card-cost">${def.cost}</div>`:''}`;
+    if(G.phase==='play-card'||G.phase==='probe-slot'||G.phase==='probe-colour'){
+      d.onclick=()=>{ G.selCard=G.selCard===hi?null:hi; renderHand(); updateDescBar(); };
     }
+    el.appendChild(d);
+  });
+  document.getElementById('queue-lbl').textContent=G.deck.length+' in queue';
+}
 
+// ══════════════════════════════════════════════
+// DESC BAR
+// ══════════════════════════════════════════════
+function clearDescBar(){
+  const b=document.getElementById('desc-bar');
+  b.style.filter='drop-shadow(0 0 1px var(--border))';
+  b.innerHTML='<div class="cdb-text" style="color:var(--text3);font-style:italic">Select a program to view and deploy.</div>';
+}
+
+function updateDescBar(){
+  const b=document.getElementById('desc-bar');
+  if(G.selCard===null||G.phase==='guess'||G.phase==='done'){clearDescBar();return;}
+
+  // Probe step UIs
+  if(G.phase==='probe-slot'){
+    b.style.filter='drop-shadow(0 0 4px #3af09055)';
+    b.innerHTML=`
+      <div class="cdb-name recon">PROBE — Select a Slot</div>
+      <div class="cdb-text">Which position do you want to test?</div>
+      <div class="pick-row">
+        ${[0,1,2,3].map(i=>`<button class="pos-btn" onclick="probePickSlot(${i})">${i+1}</button>`).join('')}
+      </div>`;
+    return;
+  }
+  if(G.phase==='probe-colour'){
+    b.style.filter='drop-shadow(0 0 4px #3af09055)';
+    b.innerHTML=`
+      <div class="cdb-name recon">PROBE — Slot ${G.probeSlot+1} · Select a Key</div>
+      <div class="cdb-text">Which key do you suspect belongs here?</div>
+      <div class="pick-row">
+        ${K.map((c,i)=>{
+          const elim = G.eliminated.includes(i);
+          return `<button class="col-btn" style="background:${c.bg};border:2px solid ${c.fg};${elim?'opacity:.2;cursor:not-allowed;':''}" ${elim?'disabled':''} onclick="probePickColour(${i})"><span style="color:${c.fg}">${c.sym}</span></button>`;
+        }).join('')}
+      </div>`;
+    return;
+  }
+
+  const def=DEFS[G.hand[G.selCard]];
+  const cc=catColor(def.catCls);
+  const lbl=def.id==='probe'?'ACTIVATE PROBE':'DEPLOY';
+  b.style.filter=`drop-shadow(0 0 3px ${cc}44)`;
+  b.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div class="cdb-name ${def.catCls}">${def.name}</div>
+      <div class="cdb-cat ${def.catCls}">${def.cat}</div>
+    </div>
+    <div class="cdb-text">${def.desc}</div>
+    <button class="cdb-deploy ${def.catCls}" style="border:1px solid ${cc};color:${cc}"
+      id="deploy-btn" ${G.phase!=='play-card'?'disabled':''}>${lbl}</button>`;
+  const btn=document.getElementById('deploy-btn');
+  if(btn) btn.onclick=doDeploy;
+}
+
+// ══════════════════════════════════════════════
+// DEPLOY
+// ══════════════════════════════════════════════
+function doDeploy(){
+  if(G.selCard===null||G.phase!=='play-card') return;
+  const hi=G.selCard, cid=G.hand[hi];
+  sndDeploy();
+  if(cid==='probe'){
+    G.phase='probe-slot'; G.probeSlot=null;
+    updateDescBar(); renderPhase(); return;
+  }
+  G.hand.splice(hi,1); G.selCard=null;
+  resolveCard(cid);
+  clearDescBar(); G.phase='guess';
+  renderAll();
+}
+
+function probePickSlot(idx){
+  G.probeSlot=idx; G.phase='probe-colour';
+  updateDescBar(); renderPhase();
+}
+
+function probePickColour(ci){
+  const hi=G.hand.indexOf('probe');
+  if(hi!==-1) G.hand.splice(hi,1);
+  G.selCard=null;
+  const ok=G.secret[G.probeSlot]===ci;
+  const c=K[ci];
+  addIntel('✦',
+    `PROBE — Slot ${G.probeSlot+1} / <span style="color:${c.fg}">${c.sym} ${c.name}</span> — `+
+    (ok?`<strong style="color:var(--neon)">CONFIRMED ✓</strong>`:`<strong style="color:var(--red)">REJECTED ✗</strong>`)
+  );
+  sndDeploy();
+  G.probeSlot=null; G.phase='guess';
+  clearDescBar(); renderAll();
+}
+
+// ══════════════════════════════════════════════
+// RESOLVE CARD
+// ══════════════════════════════════════════════
+function resolveCard(cid){
+  if(cid==='mole'){
+    const ci=G.secret[Math.floor(Math.random()*4)]; const c=K[ci];
+    addIntel(c.sym, `MOLE — <strong style="color:${c.fg}">${c.name}</strong> is present in the target hash.`);
+  }
+  else if(cid==='ghost'){
+    const absent=K.map((_,i)=>i).filter(i=>!G.secret.includes(i));
+    const ci=absent[Math.floor(Math.random()*absent.length)]; const c=K[ci];
+    if(!G.eliminated.includes(ci)) G.eliminated.push(ci);
+    addIntel('◌', `GHOST — <strong style="color:${c.fg}">${c.name}</strong> <span style="color:${c.fg}">${c.sym}</span> is <strong>NOT</strong> in the hash. Key removed from pool.`);
+  }
+  else if(cid==='ping'){
+    const rep=new Set(G.secret).size<G.secret.length;
+    addIntel('≡', rep?`PING — Hash contains <strong>repeated keys</strong>.`:`PING — Hash has <strong>no repeated keys</strong>. All four are unique.`);
+  }
+  else if(cid==='buffer'){
+    G.maxRows++;
+    addIntel('+', `BUFFER — Window extended. <strong>${G.maxRows-G.rows.length} cycles remaining.</strong>`);
+  }
+  else if(cid==='root'){
+    const avail=[0,1,2,3].filter(p=>!G.locked[p]);
+    if(!avail.length){ addIntel('☉','ROOT — All positions already confirmed.'); return; }
+    const p=avail[Math.floor(Math.random()*avail.length)];
+    G.cur[p]=G.secret[p]; G.locked[p]=true;
+    const c=K[G.secret[p]];
+    addIntel('☉', `ROOT — Decrypted: <span style="color:${c.fg}">Slot ${p+1}: ${c.sym} ${c.name}</span>`);
+  }
+}
+
+function addIntel(sym, body){
+  const ct=document.getElementById('intel');
+  const e=ct.querySelector('.intel-empty'); if(e) e.remove();
+  const d=document.createElement('div'); d.className='intel-entry';
+  d.innerHTML=`<span class="intel-sym">${sym}</span><span class="intel-body">${body}</span>`;
+  ct.appendChild(d);
+}
+
+// ══════════════════════════════════════════════
+// BOARD
+// ══════════════════════════════════════════════
+function renderBoard(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  const active=G.rows.length;
+  for(let r=0;r<G.maxRows;r++){
+    const isActive=r===active&&!G.over, isPast=r<G.rows.length;
+    const row=document.createElement('div');
+    row.className='row'+(isActive?' active':'');
+    const num=document.createElement('div');
+    num.className='row-n'; num.textContent=G.maxRows-r;
+    row.appendChild(num);
+    if(isPast){
+      const g=G.rows[r];
+      for(let i=0;i<4;i++){const p=document.createElement('div');p.className='peg';paintPeg(p,g.guess[i]);row.appendChild(p);}
+      const fb=document.createElement('div');fb.className='fb';fb.innerHTML=fbHtml(g.feedback);row.appendChild(fb);
+    } else if(isActive){
+      for(let i=0;i<4;i++){
+        const p=document.createElement('div');
+        p.className='peg'+(G.locked[i]?'':G.phase==='guess'?' tap':'');
+        paintPeg(p,G.cur[i],G.locked[i]);
+        if(!G.locked[i]&&G.phase==='guess'){
+          const idx=i;
+          p.onclick=()=>{G.cur[idx]=nextColour(G.cur[idx]);sndKey(G.cur[idx]);paintPeg(p,G.cur[idx],false);syncSub();}
+        }
+        row.appendChild(p);
+      }
+      const fb=document.createElement('div');fb.className='fb';fb.innerHTML=`<div class="fp none"></div>`.repeat(4);row.appendChild(fb);
+    } else {
+      for(let i=0;i<4;i++){const p=document.createElement('div');p.className='peg';p.style.opacity='.32';row.appendChild(p);}
+      const fb=document.createElement('div');fb.className='fb';fb.style.opacity='.18';fb.innerHTML=`<div class="fp none"></div>`.repeat(4);row.appendChild(fb);
+    }
     board.appendChild(row);
   }
+  const sr=document.getElementById('secret-row');
+  if(G.over){sr.classList.add('show');for(let i=0;i<4;i++)paintPeg(document.getElementById('s'+i),G.secret[i]);}
+  else sr.classList.remove('show');
+}
 
-  // Secret reveal
-  const sr = document.getElementById("secret-row");
-  if (gameOver) {
-    sr.classList.add("visible");
-    for (let i = 0; i < LEN; i++) paint(document.getElementById("s" + i), secret[i]);
+// ══════════════════════════════════════════════
+// PHASE / CONTROLS
+// ══════════════════════════════════════════════
+function renderPhase(){
+  const ph=document.getElementById('phase'),st=document.getElementById('status'),ct=document.getElementById('ctrls');
+  if(G.over==='won'){
+    ph.className='phase';ph.textContent='';
+    st.className='status win';st.textContent=`// Breach Successful — ${G.rows.length} cycle${G.rows.length===1?'':'s'}`;
+    ct.innerHTML=`<button class="btn btn-new" onclick="newGame()">New Breach</button>`;
+  } else if(G.over==='lost'){
+    ph.className='phase';ph.textContent='';
+    st.className='status lose';st.textContent='// Connection Terminated — Traced';
+    ct.innerHTML=`<button class="btn btn-new" onclick="newGame()">New Breach</button>`;
   } else {
-    sr.classList.remove("visible");
-  }
-
-  // Status text
-  const st = document.getElementById("status");
-  if      (gameOver === "won")  { st.className = "status-bar win";  st.textContent = `Cracked in ${guesses.length} guess${guesses.length === 1 ? "" : "es"}.`; }
-  else if (gameOver === "lost") { st.className = "status-bar lose"; st.textContent = "Code unbroken. See the answer above."; }
-  else                          { st.className = "status-bar";      st.textContent = `${MAX - guesses.length} of ${MAX} guesses remaining`; }
-
-  // Controls
-  const ctrl = document.getElementById("controls");
-  if (gameOver) {
-    ctrl.innerHTML = `<button class="btn btn-new" onclick="newGame()">New Game</button>`;
-  } else {
-    ctrl.innerHTML = `
-      <button class="btn btn-clear" id="btn-clear">Clear</button>
-      <button class="btn btn-submit" id="btn-submit" disabled>Submit</button>`;
-    document.getElementById("btn-clear").onclick = () => { current = [-1,-1,-1,-1]; render(); };
-    document.getElementById("btn-submit").onclick = submit;
-    setSubmit();
+    const rem=G.maxRows-G.rows.length;
+    st.className='status';st.textContent=`${rem} cycle${rem===1?'':'s'} remaining`;
+    const probing=G.phase==='probe-slot'||G.phase==='probe-colour';
+    if(G.phase==='play-card'||probing){
+      ph.className='phase'+(probing?' probe':' active');
+      ph.textContent=probing?'> Probe active — select slot and key above':'> Load and deploy a program to proceed';
+      ct.innerHTML=`<button class="btn btn-x" id="btn-clr">Purge</button><button class="btn btn-sub" id="btn-sub" disabled>Execute</button>`;
+    } else {
+      ph.className='phase';ph.textContent='> Input injection sequence and execute';
+      ct.innerHTML=`<button class="btn btn-x" id="btn-clr">Purge</button><button class="btn btn-sub" id="btn-sub" disabled>Execute</button>`;
+      document.getElementById('btn-sub').onclick=doSubmit;
+      syncSub();
+    }
+    const bc=document.getElementById('btn-clr');
+    if(bc) bc.onclick=()=>{for(let i=0;i<4;i++)if(!G.locked[i])G.cur[i]=-1;renderBoard();syncSub();};
   }
 }
 
-function setSubmit() {
-  const b = document.getElementById("btn-submit");
-  if (b) b.disabled = current.some(c => c === -1);
+function syncSub(){
+  const b=document.getElementById('btn-sub');
+  if(b) b.disabled=G.phase!=='guess'||G.cur.some(v=>v===-1);
 }
 
-function submit() {
-  if (current.some(c => c === -1) || gameOver) return;
-  const fb = check(current, secret);
-  guesses.push({ guess: [...current], feedback: fb });
-  playSubmit();
-  if (fb.exact === LEN) {
-    gameOver = "won";
-    playWin();
-    updateStats(true, guesses.length);
-  } else if (guesses.length >= MAX) {
-    gameOver = "lost";
-    updateStats(false, 0);
-  }
-  current = [-1,-1,-1,-1];
-  render();
+// ══════════════════════════════════════════════
+// SUBMIT
+// ══════════════════════════════════════════════
+function doSubmit(){
+  if(G.cur.some(v=>v===-1)||G.phase!=='guess') return;
+  const fb=checkGuess(G.cur,G.secret);
+  G.rows.push({guess:[...G.cur],feedback:fb});
+  sndSubmit();
+  if(fb.exact===4){G.over='won';sndWin();recWin(G.rows.length);renderBoard();renderPhase();}
+  else if(G.rows.length>=G.maxRows){G.over='lost';sndLose();recLoss();renderBoard();renderPhase();}
+  else startTurn();
 }
 
+function renderAll(){renderHand();renderBoard();renderPhase();updateDescBar();}
+
+// ══════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════
+document.getElementById('gear-btn').onclick=showSettings;
+document.getElementById('back-btn').onclick=hideSettings;
 newGame();
 renderStats();
 </script>
