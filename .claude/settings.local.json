@@ -108,7 +108,12 @@
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io status)",
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log --oneline -5)",
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io mv mastermind kill.code)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node --check killcode/js/main.js)",
+      "Bash(node --check killcode/js/audio.js)",
+      "Bash(node --check killcode/js/render/paint.js)",
+      "Bash(node --check killcode/js/render/viewport.js)",
+      "Bash(xargs wc -l)"
     ]
   }
 }
