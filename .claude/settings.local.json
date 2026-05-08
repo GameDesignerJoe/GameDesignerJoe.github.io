@@ -107,7 +107,8 @@
       "Bash(node --check c:/Users/GameD/GameDesignerJoe.github.io/flickpick/app.js)",
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io status)",
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log --oneline -5)",
-      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io mv mastermind kill.code)"
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io mv mastermind kill.code)",
+      "Bash(git push *)"
     ]
   }
 }
