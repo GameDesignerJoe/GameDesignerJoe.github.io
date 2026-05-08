@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BREACH</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<title>kill.code</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 :root {
   --amber:   #c9a84c;
@@ -79,10 +79,10 @@ body::after {
 }
 
 h1 {
-  font-family: 'Orbitron', sans-serif;
+  font-family: 'Orbitron', 'Noto Sans JP', sans-serif;
   font-size: 2.6rem; font-weight: 900;
   letter-spacing: .28em; color: var(--amber);
-  text-transform: uppercase; line-height: 1;
+  text-transform: none; line-height: 1;
   text-shadow: 0 0 18px #c9a84c88, 0 0 50px #c9a84c33;
   animation: title-glitch 8s infinite;
 }
@@ -177,13 +177,13 @@ h1 {
   transform: translateY(-5px);
   filter: drop-shadow(0 0 9px var(--glow));
 }
-.card-cat { font-size: 8px; letter-spacing: .15em; text-transform: uppercase; position: absolute; top: 5px; left: 0; right: 0; text-align: center; }
+.card-name { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; position: absolute; top: 5px; left: 0; right: 0; text-align: center; line-height: 1.2; }
 .card-sym {
   font-size: 1.6rem; line-height: 1; margin-top: 7px;
   text-shadow: 0 0 6px currentColor;
   animation: card-glitch 7s infinite;
 }
-.card-name { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: center; line-height: 1.2; }
+.card-cat { font-size: 8px; letter-spacing: .15em; text-transform: uppercase; text-align: center; line-height: 1.2; }
 .card-cost { font-size: 8px; position: absolute; bottom: 4px; right: 5px; color: var(--red); font-weight: 700; }
 
 .card::after {
@@ -581,7 +581,7 @@ body.lockdown .lockdown-cta { animation: lockdown-fade .9s ease-out .7s both; }
 <div class="game">
 
   <div class="game-hdr">
-    <h1>BREACH</h1>
+    <h1><span id="title-kill">キル</span>.code</h1>
     <p class="sub">CRACK THE CODE BEFORE LOCKDOWN</p>
     <button class="gear-btn" id="gear-btn">⚙</button>
   </div>
@@ -691,7 +691,7 @@ body.lockdown .lockdown-cta { animation: lockdown-fade .9s ease-out .7s both; }
   <button class="lockdown-cta" onclick="newGame()">// Try Another Source</button>
 </div>
 
-<audio id="bgm-audio" src="audio/Chrome%20Avenue.mp3" loop preload="auto"></audio>
+<audio id="bgm-audio" preload="auto"></audio>
 
 <script>
 // ══════════════════════════════════════════════
@@ -811,10 +811,64 @@ function tone(freq,dur=.08,vol=.12,type='sine'){
 
 const bgmEl=document.getElementById('bgm-audio');
 if(bgmEl){ bgmEl.volume = bgmMuted ? 0 : bgmVol; }
+
+// Smart-shuffle playlist. Track list resolves from (in order):
+//   1. Server directory listing of audio/ (works with `python -m http.server`)
+//   2. audio/playlist.json (for GitHub Pages or any host without dir listing)
+//   3. Hardcoded fallback below.
+let _bgmTracks  = ['Chrome Avenue.mp3'];
+let _bgmQueue   = [];
+let _bgmCurrent = null;
+
+async function _loadBgmTracks(){
+  try{
+    const r=await fetch('audio/');
+    if(r.ok){
+      const html=await r.text();
+      const matches=[...html.matchAll(/href="([^"#?]+\.mp3)"/gi)];
+      const tracks=[...new Set(matches.map(m=>decodeURIComponent(m[1]).replace(/^.*\//,'')))];
+      if(tracks.length){ _bgmTracks=tracks; return; }
+    }
+  }catch(e){}
+  try{
+    const r=await fetch('audio/playlist.json');
+    if(r.ok){
+      const list=await r.json();
+      if(Array.isArray(list)&&list.length) _bgmTracks=list;
+    }
+  }catch(e){}
+}
+
+function _shuffleBgmQueue(){
+  const arr=[..._bgmTracks];
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  // Avoid back-to-back repeat across queue boundaries.
+  if(_bgmCurrent && arr.length>1 && arr[0]===_bgmCurrent){
+    [arr[0],arr[1]]=[arr[1],arr[0]];
+  }
+  _bgmQueue=arr;
+}
+
+function _playNextBgm(){
+  if(!bgmEl||_bgmTracks.length===0) return;
+  if(_bgmQueue.length===0) _shuffleBgmQueue();
+  _bgmCurrent=_bgmQueue.shift();
+  bgmEl.src='audio/'+encodeURIComponent(_bgmCurrent);
+  if(!bgmMuted) bgmEl.play().catch(()=>{});
+}
+
 function tryPlayBgm(){
   if(!bgmEl||bgmMuted) return;
+  if(!bgmEl.src){ _playNextBgm(); return; }
   bgmEl.play().catch(()=>{});
 }
+
+if(bgmEl) bgmEl.addEventListener('ended', _playNextBgm);
+_loadBgmTracks();
+
 // Browsers gate autoplay until user gesture — kick off on first interaction.
 ['click','keydown','touchstart'].forEach(ev=>{
   window.addEventListener(ev, tryPlayBgm, { once:true, capture:true });
@@ -932,9 +986,9 @@ function renderHand(){
     const d=document.createElement('div');
     d.className='card '+def.catCls+(sel?' sel':'');
     d.innerHTML=`
-      <div class="card-cat ${def.catCls}">${def.cat}</div>
-      <div class="card-sym ${def.catCls}">${def.sym}</div>
       <div class="card-name ${def.catCls}">${def.name}</div>
+      <div class="card-sym ${def.catCls}">${def.sym}</div>
+      <div class="card-cat ${def.catCls}">${def.cat}</div>
       ${def.cost?`<div class="card-cost">${def.cost}</div>`:''}`;
     if(G.phase==='play-card'||G.phase==='probe-slot'||G.phase==='probe-colour'){
       d.onclick=()=>{ G.selCard=G.selCard===hi?null:hi; renderHand(); updateDescBar(); };
@@ -1198,6 +1252,31 @@ renderAudioControls();
 newGame();
 renderStats();
 fitToViewport();
+
+// Title language cycle — kanji is the default; briefly flash 'kill' for ~2s every 24s.
+// First swap rides the CSS title-glitch (7.3s); the swap-back rides a programmatic flicker.
+const _titleH1   = document.querySelector('.game-hdr h1');
+const _killSpan  = document.getElementById('title-kill');
+const _KANJI = 'キル', _ENG = 'kill';
+function _programmaticFlicker(){
+  _titleH1.animate([
+    { textShadow: '0 0 18px #c9a84c88, 0 0 50px #c9a84c33', letterSpacing: '.28em' },
+    { textShadow: '-3px 0 #ff003caa, 3px 0 #00fff9aa',       letterSpacing: '.26em' },
+    { textShadow: '3px 0 #ff003caa, -3px 0 #00fff9aa',       letterSpacing: '.30em' },
+    { textShadow: '0 0 18px #c9a84c88, 0 0 50px #c9a84c33', letterSpacing: '.28em' }
+  ], { duration: 200, easing: 'steps(4, end)', composite: 'replace' });
+}
+function _flashKill(){
+  _killSpan.textContent = _ENG;       // masked by current CSS glitch peak
+  setTimeout(()=>{
+    _programmaticFlicker();
+    setTimeout(()=>{ _killSpan.textContent = _KANJI; }, 50);
+  }, 2200);
+}
+setTimeout(function tick(){
+  _flashKill();
+  setTimeout(tick, 24000);            // 24s = 3 glitch beats; keeps swap-in aligned to CSS glitch
+}, 7300);
 </script>
 </body>
 </html>
