@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="6" fill="#060908"/>
+  <text x="32" y="46"
+        text-anchor="middle"
+        font-family="'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic','Meiryo',sans-serif"
+        font-size="30" font-weight="900"
+        fill="#c9a84c">キル</text>
+</svg>

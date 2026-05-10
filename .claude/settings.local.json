@@ -123,7 +123,10 @@
       "Read(//c/Users/GameD/AppData/Local/Microsoft/Edge/**)",
       "Read(//c/Program Files/Google/Chrome/Application//**)",
       "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --dump-dom --enable-logging --v=1 --virtual-time-budget=3000 \"http://localhost:8765/killcode/\")",
-      "Bash(kill 932)"
+      "Bash(kill 932)",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --screenshot=/tmp/favicon-32.png --window-size=32,32 \"file:///c/Users/GameD/GameDesignerJoe.github.io/killcode/favicon.svg\")",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --screenshot=/tmp/favicon-128.png --window-size=128,128 \"file:///c/Users/GameD/GameDesignerJoe.github.io/killcode/favicon.svg\")",
+      "Read(//c/Users/GameD/AppData/Local/Temp/**)"
     ]
   }
 }
