@@ -166,6 +166,24 @@
 
 <audio id="bgm-audio" preload="auto"></audio>
 
+<!-- file:// catcher: ES modules require an HTTP server. If the page is opened
+     directly from disk, main.js never loads and the UI looks frozen. Show
+     instructions instead. -->
+<div id="file-protocol-warning" style="display:none; position:fixed; inset:0; z-index:2000; background:#060908; color:#c5d6bc; font-family:'Share Tech Mono', monospace; padding:32px; line-height:1.6; overflow:auto;">
+  <h2 style="color:#c9a84c; font-family:'Orbitron', sans-serif; letter-spacing:.18em; margin-bottom:16px;">// LOCAL SERVER REQUIRED</h2>
+  <p>kill.code uses ES modules — these can't load when the file is opened directly from disk (<code style="color:#3af090">file://</code>).</p>
+  <p style="margin-top:12px;">From the project root, run one of:</p>
+  <pre style="background:#0b0e0a; padding:12px; margin:10px 0; color:#3af090; border:1px solid #36492e;">python -m http.server 8000
+# or
+npx serve .</pre>
+  <p>Then open <a style="color:#3af090" href="http://localhost:8000/killcode/">http://localhost:8000/killcode/</a></p>
+</div>
+<script>
+  if (location.protocol === 'file:') {
+    document.getElementById('file-protocol-warning').style.display = 'block';
+  }
+</script>
+
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

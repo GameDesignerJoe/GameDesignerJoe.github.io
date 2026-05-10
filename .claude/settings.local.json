@@ -113,7 +113,17 @@
       "Bash(node --check killcode/js/audio.js)",
       "Bash(node --check killcode/js/render/paint.js)",
       "Bash(node --check killcode/js/render/viewport.js)",
-      "Bash(xargs wc -l)"
+      "Bash(xargs wc -l)",
+      "Bash(python -m http.server 8765)",
+      "Bash(echo \"PID: $!\")",
+      "Read(//tmp/**)",
+      "Bash(curl -sf http://localhost:8765/killcode/ -o /tmp/index.html)",
+      "Bash(curl -sfo /dev/null -w '%{http_code} __TRACKED_VAR__\\\\n' http://localhost:8765/killcode/__TRACKED_VAR__)",
+      "Bash(npm ls *)",
+      "Read(//c/Users/GameD/AppData/Local/Microsoft/Edge/**)",
+      "Read(//c/Program Files/Google/Chrome/Application//**)",
+      "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --dump-dom --enable-logging --v=1 --virtual-time-budget=3000 \"http://localhost:8765/killcode/\")",
+      "Bash(kill 932)"
     ]
   }
 }
