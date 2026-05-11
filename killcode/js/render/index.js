@@ -13,7 +13,10 @@ import { renderPhase }     from './phase.js';
 import { renderDescBar }   from './descBar.js';
 import { renderSecretRow } from './secret.js';
 import { fitToViewport }   from './viewport.js';
-import { wireIntelToBus }  from './intel.js';
+import { wireIntelToBus }      from './intel.js';
+import { wireIceLogToBus }     from './iceLog.js';
+import { wireIceOverlayToBus } from './iceOverlay.js';
+import { wireIceFlashToBus }   from './iceFlash.js';
 
 export function renderAll(){
   renderHand(state, document);
@@ -41,8 +44,11 @@ export function wireRenderToBus(){
     'effects.applied',
   ].forEach(ev => bus.on(ev, renderAll));
 
-  // Intel log handles its own incremental updates.
+  // Intel + Corp logs handle their own incremental updates.
   wireIntelToBus();
+  wireIceLogToBus();
+  wireIceOverlayToBus();
+  wireIceFlashToBus();
 
   // Lockdown body class — toggled here so engine never touches the DOM.
   bus.on('game.started', () => document.body.classList.remove('lockdown'));

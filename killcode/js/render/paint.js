@@ -18,10 +18,16 @@ export function paintPeg(el, ci, locked = false){
   }
 }
 
-export function fbHtml(fb){
+export function fbHtml(fb, hidden = 0){
+  const total        = fb.exact + fb.miss;
+  const hide         = Math.min(hidden, total);
+  const visible      = total - hide;
+  const visibleExact = Math.min(fb.exact, visible);
+  const visibleMiss  = visible - visibleExact;
   const p = [];
-  for(let i = 0; i < fb.exact; i++) p.push('exact');
-  for(let i = 0; i < fb.miss;  i++) p.push('miss');
+  for(let i = 0; i < visibleExact; i++) p.push('exact');
+  for(let i = 0; i < visibleMiss;  i++) p.push('miss');
+  for(let i = 0; i < hide;         i++) p.push('hidden');
   while(p.length < 4) p.push('none');
   return p.map(t => `<div class="fp ${t}"></div>`).join('');
 }

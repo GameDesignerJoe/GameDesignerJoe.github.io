@@ -13,6 +13,12 @@ export const PHASES = {
     enter(s){ s.selCard = null; },
   },
 
+  // Corp deck is drawing + resolving. Input is blocked; transient.
+  'ice-resolving': {
+    enter(){},
+    exit(){},
+  },
+
   // Active during a multi-step card. s.cardCtx = { cardId, stepIndex, scratch }.
   'card-step': {
     exit(s){ s.cardCtx = null; },

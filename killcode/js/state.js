@@ -30,6 +30,12 @@ export const state = {
 
   // Narrative scratch flags (durable per-run)
   flags: {},
+
+  // ICE / Corp counterplay
+  iceDeck:      [],                        // Array<iceId> — pop() to draw
+  iceLog:       [],                        // Array<{turn, id, message}>
+  corpLocked:   [false,false,false,false], // forced-by-Corp slots this turn
+  badDataSlots: [],                        // slots blocked from input this turn
 };
 
 // Reset state in-place. Used by newGame() so the exported reference stays stable.

@@ -16,9 +16,24 @@ export const K = [
 // Starting deck composition. Card ids are looked up in cards/_registry.js.
 export const DECK_SRC = ['mole','mole','ghost','ghost','ping','probe','buffer','root','root'];
 
+// ICE deck composition. Card ids are looked up in ice/_registry.js.
+export const ICE_DECK_SRC = [
+  'ice-lock',         // ×2  DISRUPTOR
+  'ice-lock',
+  'ice-bad-data',     // ×1  DISRUPTOR
+  'ice-blackout',     // ×2  INTELLIGENCE DENIER
+  'ice-blackout',
+  'ice-disappear',    // ×1  INTELLIGENCE DENIER
+  'ice-purge',        // ×1  RESOURCE ATTACK
+  'ice-lockdown',     // ×1  RESOURCE ATTACK
+  'ice-lost-context', // ×1  MEMORY ATTACK
+  'ice-bad-sector',   // ×2  MEMORY ATTACK
+  'ice-bad-sector',
+];
+
 // Game shape constants.
 export const SECRET_LEN        = 4;
-export const MAX_ROWS_DEFAULT  = 5;
+export const MAX_ROWS_DEFAULT  = 10;
 
 // Per-colour SFX pitches, indexed by colour index in K.
 export const PITCH = [880, 740, 660, 1000, 820, 600];

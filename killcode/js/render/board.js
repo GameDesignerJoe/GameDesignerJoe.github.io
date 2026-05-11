@@ -25,23 +25,39 @@ export function renderBoard(state, root){
     row.appendChild(num);
 
     if(isPast){
-      const g = state.rows[r];
+      const g         = state.rows[r];
+      const hiddenRow = !!g.hidden;
+      const obscured  = g.obscuredSlots ?? [];
       for(let i = 0; i < SECRET_LEN; i++){
         const p = document.createElement('div');
-        p.className = 'peg';
-        paintPeg(p, g.guess[i]);
+        if(hiddenRow){
+          p.className = 'peg redacted';
+        } else if(obscured.includes(i)){
+          p.className = 'peg obscured';
+        } else {
+          p.className = 'peg';
+          paintPeg(p, g.guess[i]);
+        }
         row.appendChild(p);
       }
       const fb = document.createElement('div');
       fb.className = 'fb';
-      fb.innerHTML = fbHtml(g.feedback);
+      fb.innerHTML = hiddenRow
+        ? `<div class="fp hidden"></div>`.repeat(SECRET_LEN)
+        : fbHtml(g.feedback, g.hiddenFeedback ?? 0);
       row.appendChild(fb);
     } else if(isActive){
       for(let i = 0; i < SECRET_LEN; i++){
-        const p = document.createElement('div');
-        const tappable = !state.locked[i] && state.phase === 'guess';
-        p.className = 'peg' + (tappable ? ' tap' : '');
-        paintPeg(p, state.cur[i], state.locked[i]);
+        const p          = document.createElement('div');
+        const corpLocked = !!state.corpLocked[i];
+        const badData    = state.badDataSlots.includes(i);
+        const tappable   = !state.locked[i] && !corpLocked && !badData && state.phase === 'guess';
+        let cls = 'peg';
+        if(tappable)   cls += ' tap';
+        if(corpLocked) cls += ' corp-locked';
+        if(badData)    cls += ' bad-data';
+        p.className = cls;
+        if(!badData) paintPeg(p, state.cur[i], state.locked[i] && !corpLocked);
         if(tappable){
           p.dataset.action = 'cycle-peg';
           p.dataset.slot   = i;

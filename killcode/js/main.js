@@ -4,6 +4,7 @@
 // ══════════════════════════════════════════════
 
 import './audio.js';                                 // self-installs bus subs + autoplay listeners
+import './ice/_engine.js';                            // ensures ICE registry is loaded
 import { newGame }                       from './engine.js';
 import { renderAll, wireRenderToBus }    from './render/index.js';
 import { installDelegation }             from './render/events.js';

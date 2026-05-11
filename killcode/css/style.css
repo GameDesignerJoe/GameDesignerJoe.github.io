@@ -61,7 +61,7 @@ body::after {
   padding: 14px 11px 32px;
 }
 
-.game { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 7px; }
+.game { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 7px; position: relative; }
 
 /* ── Header ── */
 .game-hdr {
@@ -286,7 +286,7 @@ h1 {
 }
 .cdb-deploy:hover:not(:disabled) { color: #000 !important; }
 .cdb-deploy:disabled { opacity: .3; cursor: not-allowed; }
-.pick-row { display: flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+.pick-row { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
 .pos-btn {
   flex: 1; min-width: 38px; padding: 10px;
   background: var(--bg1); border: 1px solid var(--amber2);
@@ -296,11 +296,11 @@ h1 {
 }
 .pos-btn:hover { background: var(--amber); color: #000; }
 .col-btn {
-  width: 46px; height: 46px;
+  width: 36px; height: 36px;
   clip-path: var(--clip-sm);
   border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; transition: transform .1s, filter .1s;
+  font-size: 1.15rem; transition: transform .1s, filter .1s;
 }
 .col-btn:hover { transform: scale(1.1); filter: brightness(1.3); }
 
@@ -322,6 +322,93 @@ h1 {
 .intel-sym { font-size: .95rem; flex-shrink: 0; margin-top: 1px; }
 .intel-body { color: var(--text2); }
 .intel-body strong { color: var(--text); }
+
+/* ── Corp / ICE log panel ── */
+.ice-log-wrap {
+  clip-path: var(--clip-lg);
+  filter: drop-shadow(0 0 1px #3a1010);
+  background: #0f0505;
+  border: 1px solid #3a1010;
+}
+.ice-log-title {
+  font-size: 12px; letter-spacing: .28em; color: var(--red);
+  text-transform: uppercase; padding: 7px 13px;
+  border-bottom: 1px solid #2a0808;
+  text-shadow: 0 0 8px #ff3a3a55;
+}
+.ice-log-entries { padding: 7px 13px; display: flex; flex-direction: column; gap: 6px; min-height: 28px; }
+.ice-log-empty   { font-size: 12px; color: #5a2020; font-style: italic; }
+.ice-log-entry   { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.45; }
+.ice-log-sym     { font-size: .9rem; color: var(--red); flex-shrink: 0; margin-top: 1px; }
+.ice-log-body    { color: #c87070; }
+.ice-log-body strong { color: #ff9090; }
+
+/* ── ICE resolution overlay ── */
+/* Sits absolute over the entire .game card. Hidden by default; flips to flex
+   when an attack sequence is running. Two flavours via mode class:
+   - .intro — heavy red tint, dramatic introduction.
+   - .card  — lighter tint so board changes are visible behind the text. */
+.ice-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  z-index: 50;
+  pointer-events: none;
+  padding: 24px 18px;
+}
+.ice-overlay.active { display: flex; animation: ice-overlay-in .22s ease-out; }
+.ice-overlay.intro {
+  background: radial-gradient(ellipse at center, rgba(80,10,10,.78), rgba(10,2,2,.92));
+}
+.ice-overlay.card {
+  background: linear-gradient(180deg, rgba(40,5,5,.78), rgba(20,2,2,.35) 55%, rgba(20,2,2,.78));
+}
+.ice-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(255,40,40,.07) 3px, rgba(255,40,40,.07) 5px);
+}
+.ice-overlay-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: .22em;
+  color: var(--red);
+  text-transform: uppercase;
+  text-shadow: 0 0 16px #ff3a3aaa, 0 0 4px #ff3a3a;
+  animation: ice-overlay-pulse 1.3s infinite ease-in-out;
+  z-index: 1;
+}
+.ice-overlay.intro .ice-overlay-title { font-size: 28px; }
+.ice-overlay.card  .ice-overlay-title { font-size: 22px; }
+.ice-overlay-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  letter-spacing: .18em;
+  color: #ffb0b0;
+  margin-top: 14px;
+  max-width: 92%;
+  line-height: 1.5;
+  text-transform: uppercase;
+  z-index: 1;
+}
+.ice-overlay.card .ice-overlay-sub { text-transform: none; letter-spacing: .04em; font-size: 13px; }
+@keyframes ice-overlay-in {
+  from { opacity: 0; transform: scale(.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes ice-overlay-pulse {
+  0%, 100% { opacity: 1;   }
+  50%      { opacity: .55; }
+}
 
 /* ── Phase banner ── */
 .phase {
@@ -356,6 +443,104 @@ h1 {
 .fp.exact { background: var(--amber); box-shadow: 0 0 6px #c9a84c88; }
 .fp.miss  { background: transparent; border: 2px solid #8a806a; }
 .fp.none  { background: #1c281a; border: 1px solid #34442e; }
+.fp.hidden {
+  background: #1f0000; border: 1.5px solid #ff3a3a55;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: #ff3a3a99;
+}
+.fp.hidden::after { content: '?'; }
+
+/* ── Corp-affected pegs ── */
+/* LOCK ICE — colour shown with red scanline overlay, not clickable. */
+.peg.corp-locked { cursor: not-allowed; }
+.peg.corp-locked::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(255,40,40,.18) 2px, rgba(255,40,40,.18) 4px);
+}
+.peg.corp-locked .lk { color: var(--red); }
+
+/* BAD DATA ICE — empty slot with red overlay + ERR label. */
+.peg.bad-data {
+  background: #120000; border-color: #ff3a3a66; cursor: not-allowed;
+}
+.peg.bad-data::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(255,40,40,.22) 2px, rgba(255,40,40,.22) 4px);
+}
+.peg.bad-data::before {
+  content: 'ERR'; position: absolute; inset: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; letter-spacing: .15em; color: #ff3a3aaa;
+  pointer-events: none;
+}
+
+/* BAD SECTOR ICE — obscured tile in a past row. */
+.peg.obscured {
+  background: #080000; border-color: #ff3a3a33;
+}
+.peg.obscured::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(255,40,40,.12) 2px, rgba(255,40,40,.12) 4px);
+}
+
+/* LOST CONTEXT ICE — entire row redacted. */
+.peg.redacted {
+  background: #050000; border-color: #2a0808; opacity: .55;
+}
+
+/* ── ICE attack pulses ── */
+/* Draws the player's eye to the element that just got hit. Used on pegs,
+   feedback areas, whole rows, queue label, and status text. */
+@keyframes ice-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 58, 58, 0);
+    border-color: var(--peg-border, currentColor);
+  }
+  35% {
+    box-shadow: 0 0 22px 6px rgba(255, 58, 58, .85),
+                inset 0 0 14px rgba(255, 58, 58, .65);
+    border-color: #ff3a3a;
+  }
+}
+.peg.ice-pulse,
+.fb.ice-pulse,
+#queue-lbl.ice-pulse,
+#status.ice-pulse {
+  animation: ice-pulse 1.4s ease-in-out 1;
+}
+/* LOST CONTEXT pulses the whole row — light up every peg in it. */
+.row.ice-pulse .peg { animation: ice-pulse 1.4s ease-in-out 1; }
+
+/* ── Corp Activity entry pulse ── */
+@keyframes ice-log-pulse {
+  0%, 100% {
+    background: transparent;
+    box-shadow: 0 0 0 0 rgba(255, 58, 58, 0);
+  }
+  35% {
+    background: rgba(255, 58, 58, .18);
+    box-shadow: 0 0 14px rgba(255, 58, 58, .35);
+  }
+}
+@keyframes ice-log-text-pulse {
+  0%, 100% { color: #c87070; text-shadow: 0 0 0 transparent; }
+  35%      { color: #ffe0e0; text-shadow: 0 0 8px #ff3a3aaa; }
+}
+.ice-log-entry.ice-log-pulse {
+  animation: ice-log-pulse 1.4s ease-in-out 1;
+  border-radius: 2px;
+  margin: 0 -6px;
+  padding: 0 6px;
+}
+.ice-log-entry.ice-log-pulse .ice-log-body {
+  animation: ice-log-text-pulse 1.4s ease-in-out 1;
+}
 
 /* ── Secret ── */
 .secret-row { display: grid; grid-template-columns: 38px repeat(4,1fr) 46px; gap: 4px; align-items: center; opacity: 0; transition: opacity .5s; }

@@ -43,7 +43,8 @@ export function renderPhase(state, root){
     ph.textContent = '> Input injection sequence and execute';
   }
 
-  const submitDisabled = state.phase !== 'guess' || state.cur.some(v => v === -1);
+  const submitDisabled = state.phase !== 'guess'
+    || state.cur.some((v, i) => v === -1 && !state.badDataSlots.includes(i));
   ct.innerHTML =
     `<button class="btn btn-x" data-action="purge">Purge</button>` +
     `<button class="btn btn-sub" data-action="submit" ${submitDisabled ? 'disabled' : ''}>Execute</button>`;

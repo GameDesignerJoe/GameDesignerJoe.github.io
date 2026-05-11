@@ -86,4 +86,89 @@ export const fx = {
     state.flags[name] = value;
     applied('setFlag', { name, value });
   },
+
+  // ── ICE / Corp counterplay ───────────────────
+  // LOCK ICE — force a slot from the last guess into the current row.
+  applyCorpLock(slotIndex, colourIndex){
+    if(state.locked[slotIndex]) return;             // never overwrite a ROOT-confirmed tile
+    state.cur[slotIndex]        = colourIndex;
+    state.corpLocked[slotIndex] = true;
+    bus.emit('ice.lock.applied', { slotIndex, colourIndex });
+    applied('applyCorpLock', { slotIndex, colourIndex });
+  },
+
+  // BAD DATA ICE — block a slot from input this turn.
+  applyBadData(slotIndex){
+    if(!state.badDataSlots.includes(slotIndex)) state.badDataSlots.push(slotIndex);
+    bus.emit('ice.baddata.applied', { slotIndex });
+    applied('applyBadData', { slotIndex });
+  },
+
+  // BLACKOUT ICE — hide one feedback peg on the row just submitted.
+  applyBlackout(){
+    if(!state.rows.length) return;
+    const row = state.rows[state.rows.length - 1];
+    row.hiddenFeedback = (row.hiddenFeedback ?? 0) + 1;
+    bus.emit('ice.blackout.applied', { rowIndex: state.rows.length - 1 });
+    applied('applyBlackout', {});
+  },
+
+  // DISAPPEARING PEG ICE — remove a feedback peg from a previous visible row.
+  applyDisappearingPeg(){
+    const idx = state.rows.findLastIndex(r => !r.hidden && (r.hiddenFeedback ?? 0) < 4);
+    if(idx < 0) return;
+    state.rows[idx].hiddenFeedback = (state.rows[idx].hiddenFeedback ?? 0) + 1;
+    bus.emit('ice.disappear.applied', { rowIndex: idx });
+    applied('applyDisappearingPeg', { rowIndex: idx });
+  },
+
+  // PURGE ICE — burn the top card from the player's draw queue.
+  applyPurge(){
+    if(!state.deck.length) return;
+    const purged = state.deck.pop();
+    bus.emit('ice.purge.applied', { purged });
+    applied('applyPurge', { purged });
+  },
+
+  // LOCKDOWN ICE — remove one cycle from the board.
+  applyLockdown(){
+    if(state.maxRows > state.rows.length + 1){
+      state.maxRows--;
+      bus.emit('ice.lockdown.applied', {});
+    }
+    applied('applyLockdown', {});
+  },
+
+  // LOST CONTEXT ICE — hide the oldest visible guess row.
+  applyLostContext(){
+    const idx = state.rows.findIndex(r => !r.hidden);
+    if(idx < 0) return;
+    state.rows[idx].hidden = true;
+    bus.emit('ice.lostcontext.applied', { rowIndex: idx });
+    applied('applyLostContext', { rowIndex: idx });
+  },
+
+  // BAD SECTOR ICE — black out one tile in a random previous visible row.
+  applyBadSector(){
+    const candidates = state.rows
+      .map((r, i) => ({ r, i }))
+      .filter(({ r }) => !r.hidden);
+    if(!candidates.length) return;
+    const { r, i } = candidates[Math.floor(Math.random() * candidates.length)];
+    if(!r.obscuredSlots) r.obscuredSlots = [];
+    const available = [0,1,2,3].filter(s => !r.obscuredSlots.includes(s));
+    if(!available.length) return;
+    const slot = available[Math.floor(Math.random() * available.length)];
+    r.obscuredSlots.push(slot);
+    bus.emit('ice.badsector.applied', { rowIndex: i, slot });
+    applied('applyBadSector', { rowIndex: i, slot });
+  },
+
+  // Add a line to the Corp log. Emits 'ice.logged' for incremental rendering.
+  addIceLog(id, message){
+    const entry = { turn: state.rows.length + 1, id, message };
+    state.iceLog.push(entry);
+    bus.emit('ice.logged', entry);
+    applied('addIceLog', { id, message });
+  },
 };

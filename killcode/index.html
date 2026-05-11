@@ -54,6 +54,12 @@
 <div id="v-main">
 <div class="game">
 
+  <!-- Translucent overlay shown during the ICE resolution sequence. -->
+  <div class="ice-overlay" id="ice-overlay" aria-hidden="true">
+    <div class="ice-overlay-title" id="ice-overlay-title"></div>
+    <div class="ice-overlay-sub"   id="ice-overlay-sub"></div>
+  </div>
+
   <div class="game-hdr">
     <h1><span id="title-kill">キル</span>.code</h1>
     <p class="sub">CRACK THE CODE BEFORE LOCKDOWN</p>
@@ -76,6 +82,11 @@
   <div class="intel-wrap">
     <div class="intel-title">// Intel Gathered</div>
     <div class="intel-entries" id="intel"><span class="intel-empty">No data yet.</span></div>
+  </div>
+
+  <div class="ice-log-wrap">
+    <div class="ice-log-title">// Corp Activity</div>
+    <div class="ice-log-entries" id="ice-log"><span class="ice-log-empty">No Corp activity yet.</span></div>
   </div>
 
   <div class="phase" id="phase"></div>

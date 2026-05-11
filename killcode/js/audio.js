@@ -40,6 +40,8 @@ export function sndDeploy(){   tone(600, .1, .11, 'square'); }
 export function sndSubmit(){   tone(330, .15, .1, 'triangle'); }
 export function sndWin(){      [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f, .22, .12),       i*90));  }
 export function sndLose(){     [330,277,220].forEach((f,i)=>setTimeout(()=>tone(f, .25, .1, 'sawtooth'), i*120)); }
+export function sndIceIntro(){ [240,180,140].forEach((f,i)=>setTimeout(()=>tone(f, .25, .14, 'sawtooth'), i*120)); }
+export function sndIceCard(){  tone(220, .18, .13, 'square'); setTimeout(()=>tone(140, .22, .12, 'sawtooth'), 90); }
 
 // ── BGM ──────────────────────────────────────────
 const bgmEl = document.getElementById('bgm-audio');
@@ -112,6 +114,8 @@ bus.on('peg.cycled',    ({ ci }) => { if(ci !== -1) sndKey(ci); });
 bus.on('guess.submitted', sndSubmit);
 bus.on('game.won',      sndWin);
 bus.on('game.lost',     sndLose);
+bus.on('ice.sequence.start', sndIceIntro);
+bus.on('ice.card.starting',  sndIceCard);
 
 // ── Settings API (used by settings.js) ─────────────
 export const isSfxMuted = () => sfxMuted;

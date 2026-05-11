@@ -12,6 +12,7 @@ import { bus } from './bus.js';
 import { fx } from './effects.js';
 import { enterPhase } from './phases.js';
 import { getCard } from './cards/_registry.js';
+import { buildIceDeck, iceCountForCycle, resolveIceSequence } from './ice/_engine.js';
 
 // ── Pure helpers ─────────────────────────────────
 function nextColour(current){
@@ -55,17 +56,37 @@ export function newGame(){
     phaseReturn: null,
     over:        false,
     flags:       {},
+    iceDeck:      [],
+    iceLog:       [],
+    corpLocked:   [false,false,false,false],
+    badDataSlots: [],
   });
+  state.iceDeck = buildIceDeck();
   state.hand.push(state.deck.pop());
   startTurn({ firstTurn: true });
 }
 
 export function startTurn({ firstTurn = false } = {}){
-  state.cur     = state.rooted.map(c => c == null ? -1 : c);
-  state.locked  = state.rooted.map(c => c != null);
-  state.selCard = null;
-  state.cardCtx = null;
+  state.cur          = state.rooted.map(c => c == null ? -1 : c);
+  state.locked       = state.rooted.map(c => c != null);
+  state.selCard      = null;
+  state.cardCtx      = null;
+  state.corpLocked   = [false,false,false,false];
+  state.badDataSlots = [];
   if(state.deck.length > 0) state.hand.push(state.deck.pop());
+
+  const cycle  = state.rows.length + 1;
+  const hadIce = iceCountForCycle(cycle) > 0 && state.iceDeck.length > 0;
+
+  if(hadIce){
+    enterPhase('ice-resolving');
+    resolveIceSequence(state, fx, () => {
+      enterPhase('play-card');
+      bus.emit('turn.started', { rowIndex: state.rows.length });
+    });
+    return;
+  }
+
   enterPhase('play-card');                                          // resting phase BEFORE any narrative
   if(firstTurn) bus.emit('game.started', { secret: state.secret }); // narrative captures returnTo='play-card'
   bus.emit('turn.started', { rowIndex: state.rows.length });
@@ -112,12 +133,15 @@ export function pickStepChoice(value){
   if(!step) return;
 
   step.pick(value, state, fx, scratch);
-  bus.emit('step.advanced', { cardId, stepIndex, value });
 
   if(stepIndex + 1 < card.steps.length){
+    // Mutate FIRST, then emit — render reads state.cardCtx.stepIndex synchronously.
     state.cardCtx.stepIndex = stepIndex + 1;
-    return;   // step.advanced already emitted; render listens for it
+    bus.emit('step.advanced', { cardId, stepIndex, value });
+    return;
   }
+
+  bus.emit('step.advanced', { cardId, stepIndex, value });
 
   // Last step: remove the card from hand, clear ctx, deploy, advance to guess.
   const handIndex = state.cardCtx.handIndex;
@@ -137,19 +161,23 @@ export function pickStepChoice(value){
 // ── Guess interaction ────────────────────────────
 export function cyclePeg(slot){
   if(state.phase !== 'guess' || state.locked[slot]) return;
+  if(state.corpLocked[slot] || state.badDataSlots.includes(slot)) return;
   state.cur[slot] = nextColour(state.cur[slot]);
   bus.emit('peg.cycled', { slot, ci: state.cur[slot] });
 }
 
 export function purgeGuess(){
+  if(state.phase !== 'guess') return;
   for(let i = 0; i < SECRET_LEN; i++){
-    if(!state.locked[i]) state.cur[i] = -1;
+    if(!state.locked[i] && !state.corpLocked[i]) state.cur[i] = -1;
   }
   bus.emit('guess.purged');
 }
 
 export function submitGuess(){
-  if(state.phase !== 'guess' || state.cur.some(v => v === -1)) return;
+  if(state.phase !== 'guess') return;
+  // BAD DATA slots stay at -1 by design; only require non-blocked slots to be filled.
+  if(state.cur.some((v, i) => v === -1 && !state.badDataSlots.includes(i))) return;
   const fb = checkGuess(state.cur, state.secret);
   state.rows.push({ guess: [...state.cur], feedback: fb });
   bus.emit('guess.submitted', { guess: [...state.cur], feedback: fb, rowIndex: state.rows.length - 1 });
