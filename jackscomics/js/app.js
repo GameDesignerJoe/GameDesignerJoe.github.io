@@ -464,7 +464,10 @@ function wireControls() {
 
   document.getElementById('dr-close').addEventListener('click', closeDrawer);
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key !== 'Escape') return;
+    const emailOpen = document.getElementById('email-modal').classList.contains('open');
+    if (emailOpen) closeEmailForm();
+    else closeDrawer();
   });
 
   document.getElementById('drawer').addEventListener('click', e => {
@@ -483,7 +486,17 @@ function wireControls() {
     try { localStorage.setItem(LS_COMPACT_KEY, compact ? '1' : '0'); } catch (e) {}
     render();
   });
-  document.getElementById('emailbtn').addEventListener('click', emailMom);
+  document.getElementById('emailbtn').addEventListener('click', openEmailForm);
+  document.getElementById('email-close').addEventListener('click', closeEmailForm);
+  document.getElementById('email-modal').addEventListener('click', e => {
+    // Click on the dim backdrop (but not inside the .modal box) closes the form
+    if (e.target === e.currentTarget) closeEmailForm();
+  });
+  document.getElementById('email-budget').addEventListener('input', regenerateEmailBody);
+  document.getElementById('send-gmail').addEventListener('click', sendViaGmail);
+  document.getElementById('send-outlook').addEventListener('click', sendViaOutlook);
+  document.getElementById('send-copy').addEventListener('click', sendViaCopy);
+  document.getElementById('copywants').addEventListener('click', copyWantList);
   document.getElementById('copylink').addEventListener('click', copyShareUrl);
   document.getElementById('resetbtn').addEventListener('click', () => {
     if (wants.size === 0 && claimed.size === 0) return;
@@ -495,8 +508,7 @@ function wireControls() {
   });
 }
 
-function emailMom() {
-  if (wants.size === 0) return;
+function buildWantListBody(budget) {
   const groups = new Map();
   for (const t of wants) {
     const [sid, ...rest] = t.split(':');
@@ -505,12 +517,14 @@ function emailMom() {
     groups.get(sid).push(iss);
   }
   const lines = ['Hi Mom — here\'s the list of comics I\'d like:', ''];
-  // Preserve series order from S
+  if (budget && budget.trim()) {
+    lines.push(`Budget: ${budget.trim()}`);
+    lines.push('');
+  }
   for (const s of S) {
     const issues = groups.get(s.id);
     if (!issues || !issues.length) continue;
     lines.push(`${s.title.toUpperCase()} (${s.year})`);
-    // Sort by original order in series.issues
     const orderIdx = new Map(s.issues.map((iss, i) => [iss, i]));
     issues.sort((a, b) => (orderIdx.get(a) ?? 999) - (orderIdx.get(b) ?? 999));
     for (const iss of issues) {
@@ -529,9 +543,93 @@ function emailMom() {
   lines.push('');
   lines.push('Thanks!');
   lines.push('— Jack');
-  const subject = `Jack's comic want list (${wants.size} issue${wants.size === 1 ? '' : 's'})`;
-  const body = lines.join('\n');
-  location.href = `mailto:${MOM_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return lines.join('\n');
+}
+
+function openEmailForm() {
+  if (wants.size === 0) return;
+  document.getElementById('email-subject').value = `Jack's comic want list (${wants.size} issue${wants.size === 1 ? '' : 's'})`;
+  document.getElementById('email-budget').value = '';
+  document.getElementById('email-body').value = buildWantListBody('');
+  const modal = document.getElementById('email-modal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  // Focus subject after a tick so the slide-in completes first
+  setTimeout(() => document.getElementById('email-subject').focus(), 50);
+}
+
+function closeEmailForm() {
+  const modal = document.getElementById('email-modal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function regenerateEmailBody() {
+  const budget = document.getElementById('email-budget').value;
+  document.getElementById('email-body').value = buildWantListBody(budget);
+}
+
+function sendViaGmail() {
+  const subject = document.getElementById('email-subject').value;
+  const body = document.getElementById('email-body').value;
+  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(MOM_EMAIL)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(url, '_blank', 'noopener');
+}
+
+function sendViaOutlook() {
+  const subject = document.getElementById('email-subject').value;
+  const body = document.getElementById('email-body').value;
+  const url = `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(MOM_EMAIL)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(url, '_blank', 'noopener');
+}
+
+async function sendViaCopy() {
+  const subject = document.getElementById('email-subject').value;
+  const body = document.getElementById('email-body').value;
+  const fullText = `To: ${MOM_EMAIL}\nSubject: ${subject}\n\n${body}`;
+  try {
+    await navigator.clipboard.writeText(fullText);
+    const btn = document.getElementById('send-copy');
+    const original = btn.textContent;
+    btn.textContent = '✓ COPIED — paste into any email';
+    btn.classList.add('act');
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('act'); }, 2200);
+  } catch (e) {
+    alert('Copy failed. Select the message text below and copy manually.');
+  }
+}
+
+async function copyWantList() {
+  if (wants.size === 0) return;
+  const btn = document.getElementById('copywants');
+  // Group by series, preserve original issue order
+  const groups = new Map();
+  for (const t of wants) {
+    const [sid, ...rest] = t.split(':');
+    const iss = rest.join(':');
+    if (!groups.has(sid)) groups.set(sid, []);
+    groups.get(sid).push(iss);
+  }
+  const lines = [];
+  for (const s of S) {
+    const issues = groups.get(s.id);
+    if (!issues || !issues.length) continue;
+    const orderIdx = new Map(s.issues.map((iss, i) => [iss, i]));
+    issues.sort((a, b) => (orderIdx.get(a) ?? 999) - (orderIdx.get(b) ?? 999));
+    for (const iss of issues) {
+      const label = /^\d+$/.test(iss) ? '#' + iss : iss;
+      lines.push(`${s.title} ${label}`);
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'));
+    const original = btn.textContent;
+    btn.textContent = '✓ COPIED';
+    btn.classList.add('act');
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('act'); }, 1500);
+  } catch (e) {
+    alert('Copy failed.');
+  }
 }
 
 async function copyShareUrl() {
@@ -551,6 +649,7 @@ function updateControls() {
   const hasWants = wants.size > 0;
   const hasAny = hasWants || claimed.size > 0;
   document.getElementById('emailbtn').disabled = !hasWants;
+  document.getElementById('copywants').disabled = !hasWants;
   document.getElementById('copylink').disabled = !hasAny;
   document.getElementById('resetbtn').disabled = !hasAny;
   const banner = document.getElementById('modebanner');

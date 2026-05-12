@@ -156,6 +156,29 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
 
 .wantsum{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.08em;margin-top:5px;font-weight:500}
 
+/* EMAIL FORM MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:50;display:none;justify-content:center;align-items:flex-start;padding:40px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border-l);width:100%;max-width:600px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal-head{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.modal-title{font-family:var(--display);font-size:1.6rem;letter-spacing:.05em;line-height:1.1;color:var(--gold)}
+.modal-sub{font-family:var(--mono);font-size:11px;color:var(--text-m);letter-spacing:.06em;margin-top:4px}
+.modal-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:8px}
+.modal-lbl{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-top:10px;font-weight:500}
+.modal-lbl:first-of-type{margin-top:0}
+.modal-lbl-hint{color:var(--text-m);text-transform:none;letter-spacing:.04em;font-weight:400;margin-left:4px}
+.modal-input{padding:10px 12px;border:1px solid var(--border-l);background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;outline:none;letter-spacing:.04em;width:100%;min-height:42px}
+.modal-input:focus{border-color:var(--gold-d)}
+.modal-input[readonly]{opacity:.6;cursor:not-allowed}
+.modal-textarea{font-family:var(--mono);font-size:12px;line-height:1.5;resize:vertical;min-height:240px}
+.modal-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.modal-act{padding:12px 16px;border:1px solid var(--border-l);background:transparent;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;letter-spacing:.07em;transition:all .12s;flex:1;min-width:140px;min-height:46px;font-weight:500}
+.modal-act:hover{border-color:var(--text-m);background:rgba(255,255,255,.03)}
+.modal-act.primary{border-color:var(--gold-d);color:var(--gold);background:rgba(201,168,76,.08)}
+.modal-act.primary:hover{border-color:var(--gold);background:rgba(201,168,76,.16)}
+.modal-act.act{border-color:#5a8a5e;color:#9adf9a;background:rgba(127,200,127,.12)}
+.modal-hint{font-family:var(--mono);font-size:11px;color:var(--text-m);letter-spacing:.04em;margin-top:6px;line-height:1.5;font-style:italic}
+
 /* COMPACT MODE */
 .grid.compact{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
 .card.compact{padding:0}
@@ -222,7 +245,8 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
     </select>
     <button class="kbtn" id="kbtn">Keys only</button>
     <button id="compactbtn" title="Toggle compact view (titles + issue numbers only)">▦ COMPACT</button>
-    <button class="emailbtn" id="emailbtn" disabled title="Email your want list to Mom">✉ EMAIL MOM</button>
+    <button class="emailbtn" id="emailbtn" disabled title="Email your want list to Joe's Mom">✉ EMAIL JOE'S MOM</button>
+    <button id="copywants" disabled title="Copy a plain text list of your wanted comics">⎘ COPY WANT LIST</button>
     <button id="copylink" disabled title="Copy a shareable URL of the current state">⎘ COPY LINK</button>
     <button id="resetbtn" disabled title="Clear all wants and claims">⟲ RESET</button>
     <input type="search" id="srch" placeholder="search series…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -243,6 +267,38 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
   <div class="rl"><span id="rl"></span><span class="vt" id="vt"></span></div>
   <div class="grid" id="grid"></div>
 </main>
+
+<div class="modal-overlay" id="email-modal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-labelledby="email-title">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="email-title">Send want list to Joe's Mom</div>
+        <div class="modal-sub">She'll get a list with covers, prices, and a clickable link.</div>
+      </div>
+      <button class="dr-close" id="email-close" aria-label="Close">CLOSE ✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="modal-lbl">To</label>
+      <input type="text" class="modal-input" id="email-to" value="gollum@bak.rr.com" readonly>
+
+      <label class="modal-lbl" for="email-subject">Subject</label>
+      <input type="text" class="modal-input" id="email-subject" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+      <label class="modal-lbl" for="email-budget">Budget — what you're willing to pay <span class="modal-lbl-hint">(optional, will be added to the message)</span></label>
+      <input type="text" class="modal-input" id="email-budget" placeholder="e.g. $100 total · or $20 per issue · or 'whatever you think is fair'" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+      <label class="modal-lbl" for="email-body">Message <span class="modal-lbl-hint">(edit freely before sending)</span></label>
+      <textarea class="modal-input modal-textarea" id="email-body" rows="14" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+
+      <div class="modal-actions">
+        <button class="modal-act primary" id="send-gmail">✉ OPEN IN GMAIL</button>
+        <button class="modal-act" id="send-outlook">✉ OPEN IN OUTLOOK</button>
+        <button class="modal-act" id="send-copy">⎘ COPY MESSAGE</button>
+      </div>
+      <div class="modal-hint">"OPEN IN…" launches your webmail in a new tab with everything pre-filled. Then just click Send there.</div>
+    </div>
+  </div>
+</div>
 
 <aside class="drawer" id="drawer" aria-hidden="true">
   <div class="dr-head">
