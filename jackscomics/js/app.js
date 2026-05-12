@@ -8,8 +8,9 @@ const BM = {
 
 let S = [];
 let M = { series: {} }; // manifest
-let bxF = 'all', srt = 'alpha-asc', keysOnly = false, srchTxt = '';
+let bxF = 'all', srt = 'alpha-asc', keysOnly = false, srchTxt = '', compact = false;
 const expanded = new Set();
+const LS_COMPACT_KEY = 'jackscomics_compact';
 
 // Wanted + claimed state. Tokens are "seriesId:issue".
 const wants = new Set();
@@ -146,7 +147,7 @@ function hasMissing(issues) {
 function buildCard(s) {
   const d = BM[s.box];
   const inWant = bxF === 'want';
-  const isOpen = inWant || expanded.has(s.id);
+  const isOpen = compact || inWant || expanded.has(s.id);
   const keyNums = new Set(s.keys.flatMap(k => [k.issue.replace(/^#/, ''), k.issue]));
   const dupeSet = new Set(s.dupes);
   const gaps = hasMissing(s.issues);
@@ -168,6 +169,15 @@ function buildCard(s) {
     if (claimed.has(t)) c += ' claimed';
     return `<span class="${c}" data-series="${esc(s.id)}" data-issue="${esc(iss)}">${esc(iss)}</span>`;
   }).join('');
+
+  if (compact) {
+    return `<div class="card compact" id="card-${s.id}" data-box="${s.box}" data-id="${s.id}">
+<div class="cbody">
+  <div class="ctitle">${esc(s.title)} <span class="cyear">${s.year}</span></div>
+  <div class="ilist open">${pillsHtml || '<span class="empty-pills">(nothing matched)</span>'}</div>
+</div>
+</div>`;
+  }
 
   const keysHtml = s.keys.length ? `<div class="keys">${s.keys.map(k => `
 <div class="kr"><span class="knum">${esc(k.issue)}</span><div class="ki"><div class="knote">${esc(k.note)}</div><div class="kprice">${esc(k.price)}</div></div></div>`).join('')}</div>` : '';
@@ -199,7 +209,7 @@ function buildCard(s) {
   </div>
   <div class="prow">
     <span class="pval">${esc(s.priceRange)}</span>
-    <span class="plbl">/ issue · VG–FN</span>
+    <span class="plbl">/ issue · Fair/Good</span>
   </div>
   <div class="pest">Est. run value: ~$${Math.round(ev).toLocaleString()} at midpoint × ${s.issues.length} issues</div>
   ${keysHtml}
@@ -258,11 +268,12 @@ function getVis() {
 function render() {
   const vis = getVis();
   const grid = document.getElementById('grid');
+  grid.classList.toggle('compact', compact);
   grid.innerHTML = vis.length ? vis.map(buildCard).join('') : '<div class="empty">NO SERIES MATCH YOUR FILTERS</div>';
   const vi = vis.reduce((s, c) => s + c.issues.length, 0);
   const vv = vis.reduce((s, c) => s + estVal(c), 0);
   document.getElementById('rl').textContent = `Showing ${vis.length} of ${S.length} series · ${vi} issues`;
-  document.getElementById('vt').textContent = vis.length ? `Est. visible value: ~$${Math.round(vv).toLocaleString()} (VG–FN midpoints)` : '';
+  document.getElementById('vt').textContent = vis.length ? `Est. visible value: ~$${Math.round(vv).toLocaleString()} (Fair/Good midpoints)` : '';
 }
 
 function renderTabs() {
@@ -290,27 +301,39 @@ function renderStats() {
 
 function toggleWant(seriesId, issue) {
   const t = tok(seriesId, issue);
+  // A claimed item is locked — must un-claim before removing from wants.
+  if (claimed.has(t)) return;
   if (wants.has(t)) wants.delete(t);
-  else { wants.add(t); claimed.delete(t); }
+  else wants.add(t);
   pushState();
   rerenderCard(seriesId);
   renderTabs();
   updateControls();
-  if (bxF === 'want') render(); // need to refilter if series newly has/loses wants
+  if (bxF === 'want') render(); // refilter if series newly has/loses wants
+  refreshDrawerIfOpen(seriesId, issue);
 }
 
 function toggleClaim(seriesId, issue) {
   const t = tok(seriesId, issue);
-  if (claimed.has(t)) claimed.delete(t);
-  else claimed.add(t);
+  if (claimed.has(t)) {
+    claimed.delete(t);
+  } else {
+    claimed.add(t);
+    wants.add(t); // claiming implies wanting — keeps the two states coherent
+  }
   pushState();
   rerenderCard(seriesId);
-  // If the drawer is open on this issue, re-render it to flip the button label
+  renderTabs();
+  updateControls();
+  if (bxF === 'want') render();
+  refreshDrawerIfOpen(seriesId, issue);
+}
+
+function refreshDrawerIfOpen(seriesId, issue) {
   const drawer = document.getElementById('drawer');
   if (drawer.classList.contains('open') && drawer.dataset.series === seriesId && drawer.dataset.issue === issue) {
     openDrawer(seriesId, issue);
   }
-  updateControls();
 }
 
 function rerenderCard(seriesId) {
@@ -358,7 +381,7 @@ function openDrawer(seriesId, issue) {
     <div class="dr-lbl">Estimated value</div>
     <div class="dr-val-row">
       <span class="dr-val">${esc(s.priceRange)}</span>
-      <span class="dr-val-lbl">/ issue · VG–FN</span>
+      <span class="dr-val-lbl">/ issue · Fair/Good</span>
     </div>
     ${isDup ? `<div class="dr-dup">Jack has a duplicate copy of this issue.</div>` : ''}
   </div>`);
@@ -366,13 +389,13 @@ function openDrawer(seriesId, issue) {
   if (data?.name && data.name.trim()) {
     parts.push(`<div class="dr-section">
       <div class="dr-lbl">Issue title</div>
-      <div style="font-family:var(--serif);font-size:13px;color:var(--text)">${esc(data.name)}</div>
+      <div style="font-family:var(--serif);font-size:15px;color:var(--text)">${esc(data.name)}</div>
     </div>`);
   }
 
   parts.push(`<div class="dr-section">
     <div class="dr-lbl">About the series</div>
-    <div style="font-family:var(--serif);font-size:12px;color:var(--text-m);line-height:1.5;font-style:italic">${esc(s.note)}</div>
+    <div style="font-family:var(--serif);font-size:14px;color:var(--text);line-height:1.55;font-style:italic">${esc(s.note)}</div>
   </div>`);
 
   if (data?.cv_id) {
@@ -382,8 +405,9 @@ function openDrawer(seriesId, issue) {
   const t = tok(seriesId, issue);
   const isWant = wants.has(t);
   const isClaimed = claimed.has(t);
+  const wantDisabled = isClaimed ? ' disabled title="Already claimed — un-claim first"' : '';
   parts.unshift(`<div class="dr-actions">
-    <button class="dr-act dr-want${isWant ? ' on' : ''}" data-drawer-want>${isWant ? '★ WANTED' : '☆ ADD TO WANTS'}</button>
+    <button class="dr-act dr-want${isWant ? ' on' : ''}" data-drawer-want${wantDisabled}>${isWant ? '★ WANTED' : '☆ ADD TO WANTS'}</button>
     <button class="dr-act dr-claim${isClaimed ? ' on' : ''}" data-drawer-claim>${isClaimed ? '✓ CLAIMED — UNDO' : 'MARK AS CLAIMED'}</button>
   </div>`);
 
@@ -452,6 +476,13 @@ function wireControls() {
     else if (e.target.closest('[data-drawer-claim]')) toggleClaim(seriesId, issue);
   });
 
+  document.getElementById('compactbtn').addEventListener('click', function () {
+    compact = !compact;
+    this.classList.toggle('act', compact);
+    this.textContent = compact ? '▤ DETAILED' : '▦ COMPACT';
+    try { localStorage.setItem(LS_COMPACT_KEY, compact ? '1' : '0'); } catch (e) {}
+    render();
+  });
   document.getElementById('emailbtn').addEventListener('click', emailMom);
   document.getElementById('copylink').addEventListener('click', copyShareUrl);
   document.getElementById('resetbtn').addEventListener('click', () => {
@@ -556,6 +587,14 @@ async function init() {
   if (fromUrl && wants.size > 0) bxF = 'want';
   // Make sure the URL reflects state (especially when hydrated only from localStorage).
   pushState();
+
+  // Compact mode is a view preference; persist across sessions but not in URL.
+  try { compact = localStorage.getItem(LS_COMPACT_KEY) === '1'; } catch (e) {}
+  const cbtn = document.getElementById('compactbtn');
+  if (cbtn) {
+    cbtn.classList.toggle('act', compact);
+    cbtn.textContent = compact ? '▤ DETAILED' : '▦ COMPACT';
+  }
 
   renderStats();
   renderTabs();
