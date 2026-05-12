@@ -1,6 +1,8 @@
 import { loadSettings, saveSettings, isConfigured, renderSettingsForm, readSettingsForm, PROVIDERS } from './settings.js';
+import { listComics, countComics, getComic, addComic, updateComic, removeComic, exportJSON, importJSON } from './collection.js';
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
 // ---------- Settings modal ----------
 
@@ -71,7 +73,8 @@ function updateConfiguredBadge() {
 // ---------- Image upload + identify ----------
 
 let currentImage = null;
-let currentResult = null;
+let currentResult = null;       // { ai, cv, edited (bool) }
+let savedComicId = null;        // set after SAVE so user sees "saved" state
 
 async function handleFileSelected(e) {
   const file = e.target.files?.[0];
@@ -144,6 +147,19 @@ function renderAiResult(comic) {
   $('#ai-confidence').className = 'badge conf-' + comic.confidence;
   $('#result').classList.add('show');
   $('#cv-section').innerHTML = '<div class="cv-loading">looking up…</div>';
+  // Pre-fill the edit fields so user can tweak immediately if AI is wrong.
+  $('#edit-title').value = comic.title || '';
+  $('#edit-issue').value = comic.issue || '';
+  $('#edit-year').value = comic.year || '';
+  $('#edit-publisher').value = comic.publisher || '';
+  // Reset save state
+  savedComicId = null;
+  const sb = $('#save-btn');
+  sb.disabled = false;
+  sb.textContent = '+ SAVE TO COLLECTION';
+  sb.classList.remove('saved');
+  $('#save-status').textContent = '';
+  $('#edit-section').classList.remove('open');
 }
 
 function renderComicVineResult(cvJson, aiComic) {
@@ -173,6 +189,232 @@ function setBusy(busy, msg) {
 
 function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
+// ---------- Save / edit / re-lookup ----------
+
+function buildSaveRecord() {
+  if (!currentResult) return null;
+  const ai = currentResult.ai || {};
+  const cv = currentResult.cv || null;
+  const i = cv?.issue || null;
+  const v = cv?.volume || null;
+  // If user edited, those values override the AI's
+  const edited = currentResult.edited || {};
+  return {
+    title: edited.title ?? (v?.name || ai.title || ''),
+    issue: edited.issue ?? (i?.issue_number ?? ai.issue ?? ''),
+    year: edited.year ?? (v?.start_year ?? ai.year ?? null),
+    publisher: edited.publisher ?? (v?.publisher || ai.publisher || ''),
+    cover_url: i?.image_url || null,
+    cv_volume_id: v?.id || null,
+    cv_issue_id: i?.cv_id || null,
+    cv_cover_date: i?.cover_date || null,
+    cv_detail_url: i?.cv_detail_url || null,
+    issue_name: i?.name || '',
+    ai_original: { ...ai },
+    user_corrected: !!currentResult.edited,
+  };
+}
+
+function handleSave() {
+  if (!currentResult || savedComicId) return;
+  const record = buildSaveRecord();
+  const saved = addComic(record);
+  savedComicId = saved.id;
+  const sb = $('#save-btn');
+  sb.textContent = '✓ SAVED TO COLLECTION';
+  sb.classList.add('saved');
+  sb.disabled = true;
+  $('#save-status').textContent = `Added to collection. ${countComics()} comic${countComics() === 1 ? '' : 's'} saved.`;
+  updateCollectionCount();
+}
+
+function toggleEditSection() {
+  $('#edit-section').classList.toggle('open');
+}
+
+async function handleRelookup() {
+  const editedTitle = $('#edit-title').value.trim();
+  const editedIssue = $('#edit-issue').value.trim();
+  const editedYearRaw = $('#edit-year').value.trim();
+  const editedYear = editedYearRaw ? Number(editedYearRaw) : null;
+  const editedPublisher = $('#edit-publisher').value.trim();
+
+  if (!editedTitle) { $('#save-status').textContent = 'Title is required for re-lookup.'; return; }
+
+  // Mark as edited so SAVE uses these values
+  currentResult.edited = {
+    title: editedTitle,
+    issue: editedIssue,
+    year: editedYear,
+    publisher: editedPublisher,
+  };
+
+  // Update the visible AI section to reflect the corrected values
+  $('#ai-title').textContent = editedTitle;
+  $('#ai-issue').textContent = editedIssue ? `#${editedIssue}` : '';
+  $('#ai-year').textContent = editedYear || '';
+  $('#ai-publisher').textContent = editedPublisher || '';
+
+  // Reset save UI in case the user already saved before realizing it was wrong
+  savedComicId = null;
+  const sb = $('#save-btn');
+  sb.disabled = false;
+  sb.textContent = '+ SAVE TO COLLECTION';
+  sb.classList.remove('saved');
+
+  $('#cv-section').innerHTML = '<div class="cv-loading">re-looking up on ComicVine…</div>';
+  try {
+    const cvRes = await fetch(
+      `/api/comicvine?title=${encodeURIComponent(editedTitle)}&year=${editedYear ?? ''}&issue=${encodeURIComponent(editedIssue)}`,
+      { method: 'GET' }
+    );
+    const cvJson = await cvRes.json();
+    if (cvRes.ok && cvJson.ok) {
+      currentResult.cv = cvJson;
+      renderComicVineResult(cvJson, { title: editedTitle, issue: editedIssue, year: editedYear, publisher: editedPublisher });
+    } else {
+      currentResult.cv = null;
+      renderComicVineMiss(cvJson?.error || `HTTP ${cvRes.status}`, { title: editedTitle, issue: editedIssue });
+    }
+  } catch (err) {
+    currentResult.cv = null;
+    renderComicVineMiss(err.message, { title: editedTitle, issue: editedIssue });
+  }
+}
+
+// ---------- Tabs ----------
+
+function setActiveView(viewName) {
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === viewName));
+  $$('.view').forEach(v => v.classList.toggle('active', v.id === `view-${viewName}`));
+  if (viewName === 'collection') renderCollection();
+}
+
+function updateCollectionCount() {
+  const n = countComics();
+  $('#col-count').textContent = n ? `(${n})` : '';
+}
+
+// ---------- Collection view ----------
+
+function renderCollection() {
+  const list = listComics();
+  const stats = $('#col-stats');
+  const listEl = $('#col-list');
+  stats.innerHTML = `<strong>${list.length}</strong> comic${list.length === 1 ? '' : 's'} in your collection`;
+
+  if (list.length === 0) {
+    listEl.innerHTML = `<div class="collection-empty">No comics saved yet.<br>Switch to the <strong>Identify</strong> tab, scan a cover, and click <strong>SAVE TO COLLECTION</strong>.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = `<div class="collection-grid">${list.map(renderCollectionCard).join('')}</div>`;
+}
+
+function renderCollectionCard(c) {
+  const cover = c.cover_url
+    ? `<img class="col-cover" src="${esc(c.cover_url)}" alt="${esc(c.title)} cover" loading="lazy" referrerpolicy="no-referrer">`
+    : `<div class="col-cover-missing">📕</div>`;
+  const issueLabel = c.issue ? ` #${esc(c.issue)}` : '';
+  const meta = [c.year, c.publisher].filter(Boolean).map(esc).join(' · ');
+  return `<div class="col-card" data-id="${esc(c.id)}">
+    <div class="col-cover-wrap">${cover}</div>
+    <div class="col-body">
+      <div class="col-title">${esc(c.title || '(untitled)')}${issueLabel}</div>
+      <div class="col-meta">${meta || '—'}</div>
+    </div>
+  </div>`;
+}
+
+function openCollectionDetail(id) {
+  const c = getComic(id);
+  if (!c) return;
+  $('#detail-title').textContent = c.title || '(untitled)';
+  const subParts = [];
+  if (c.issue) subParts.push(`#${c.issue}`);
+  if (c.year) subParts.push(String(c.year));
+  if (c.publisher) subParts.push(c.publisher);
+  $('#detail-sub').textContent = subParts.join(' · ');
+
+  const parts = [];
+  if (c.cover_url) parts.push(`<img src="${esc(c.cover_url)}" alt="cover" referrerpolicy="no-referrer">`);
+  parts.push('<div class="detail-info">');
+  if (c.cv_cover_date) parts.push(`<div class="detail-row"><span class="detail-lbl">Cover date</span><span class="detail-val">${esc(c.cv_cover_date)}</span></div>`);
+  if (c.issue_name) parts.push(`<div class="detail-row"><span class="detail-lbl">Issue title</span><span class="detail-val">${esc(c.issue_name)}</span></div>`);
+  if (c.added_at) parts.push(`<div class="detail-row"><span class="detail-lbl">Added</span><span class="detail-val">${esc(new Date(c.added_at).toLocaleString())}</span></div>`);
+  if (c.user_corrected) parts.push(`<div class="detail-row"><span class="detail-lbl">AI guess</span><span class="detail-val" style="color:#9a9aa0;font-size:13px">${esc(c.ai_original?.title || '?')} #${esc(c.ai_original?.issue || '?')} (${esc(c.ai_original?.confidence || '?')}) — you corrected this</span></div>`);
+  parts.push('</div>');
+  parts.push(`<div class="detail-notes-section">
+    <div class="detail-lbl" style="margin-bottom:5px">Notes</div>
+    <textarea class="detail-notes" id="detail-notes" placeholder="add any notes (condition, where you got it, etc.)">${esc(c.notes || '')}</textarea>
+  </div>`);
+  parts.push(`<div class="detail-actions">
+    ${c.cv_detail_url ? `<a class="btn-secondary" href="${esc(c.cv_detail_url)}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;">View on ComicVine ↗</a>` : ''}
+    <button class="btn-secondary" id="detail-save-notes">SAVE NOTES</button>
+    <button class="btn-danger" id="detail-remove" style="margin-left:auto">REMOVE</button>
+  </div>`);
+
+  $('#detail-body').innerHTML = parts.join('');
+  const modal = $('#detail-modal');
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  modal.dataset.id = id;
+
+  $('#detail-save-notes').addEventListener('click', () => {
+    const notes = $('#detail-notes').value;
+    updateComic(id, { notes });
+    $('#detail-save-notes').textContent = '✓ NOTES SAVED';
+    setTimeout(() => { $('#detail-save-notes').textContent = 'SAVE NOTES'; }, 1200);
+  });
+  $('#detail-remove').addEventListener('click', () => {
+    if (!confirm('Remove this comic from your collection?')) return;
+    removeComic(id);
+    closeDetailModal();
+    renderCollection();
+    updateCollectionCount();
+  });
+}
+
+function closeDetailModal() {
+  const modal = $('#detail-modal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  modal.dataset.id = '';
+}
+
+function handleExport() {
+  const json = exportJSON();
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `comic-collection-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function handleImportClick() {
+  $('#col-import-input').click();
+}
+
+async function handleImportFile(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const { added, skipped } = importJSON(text);
+    alert(`Imported ${added} comic${added === 1 ? '' : 's'}.${skipped > 0 ? ` Skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}.` : ''}`);
+    renderCollection();
+    updateCollectionCount();
+  } catch (err) {
+    alert(`Import failed: ${err.message}`);
+  } finally {
+    e.target.value = '';
+  }
+}
+
 // ---------- Wiring ----------
 
 function init() {
@@ -181,13 +423,38 @@ function init() {
   $('#settings-modal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeSettings();
   });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && $('#settings-modal').classList.contains('open')) closeSettings();
+  $('#detail-close').addEventListener('click', closeDetailModal);
+  $('#detail-modal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeDetailModal();
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if ($('#detail-modal').classList.contains('open')) return closeDetailModal();
+    if ($('#settings-modal').classList.contains('open')) return closeSettings();
+  });
+
   $('#file-input').addEventListener('change', handleFileSelected);
   $('#identify-btn').addEventListener('click', handleIdentify);
 
+  // Save / edit / re-lookup
+  $('#save-btn').addEventListener('click', handleSave);
+  $('#edit-toggle-btn').addEventListener('click', toggleEditSection);
+  $('#relookup-btn').addEventListener('click', handleRelookup);
+
+  // Tabs
+  $$('.tab').forEach(t => t.addEventListener('click', () => setActiveView(t.dataset.view)));
+
+  // Collection toolbar + clicks
+  $('#col-export').addEventListener('click', handleExport);
+  $('#col-import').addEventListener('click', handleImportClick);
+  $('#col-import-input').addEventListener('change', handleImportFile);
+  $('#col-list').addEventListener('click', (e) => {
+    const card = e.target.closest('.col-card');
+    if (card) openCollectionDetail(card.dataset.id);
+  });
+
   updateConfiguredBadge();
+  updateCollectionCount();
   if (!isConfigured()) openSettings();
 }
 
