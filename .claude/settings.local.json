@@ -127,7 +127,18 @@
       "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --screenshot=/tmp/favicon-32.png --window-size=32,32 \"file:///c/Users/GameD/GameDesignerJoe.github.io/killcode/favicon.svg\")",
       "Bash(\"/c/Program Files/Google/Chrome/Application/chrome.exe\" --headless --disable-gpu --screenshot=/tmp/favicon-128.png --window-size=128,128 \"file:///c/Users/GameD/GameDesignerJoe.github.io/killcode/favicon.svg\")",
       "Read(//c/Users/GameD/AppData/Local/Temp/**)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "PowerShell($key = \\(Get-Content jackscomics\\\\.env | Where-Object { $_ -match '^COMICVINE_KEY=' }\\) -replace '^COMICVINE_KEY=',''; $key = $key.Trim\\(\\); $resp = Invoke-RestMethod -Uri \"https://comicvine.gamespot.com/api/issue/4000-6/?api_key=$key&format=json&field_list=name,issue_number,cover_date,volume,image\" -UserAgent \"JacksComics/0.1 \\(test\\)\" -ErrorAction Stop; \"status_code: $\\($resp.status_code\\)\"; \"error: $\\($resp.error\\)\"; \"results.name: $\\($resp.results.name\\)\"; \"results.issue_number: $\\($resp.results.issue_number\\)\"; \"results.cover_date: $\\($resp.results.cover_date\\)\"; \"results.volume.name: $\\($resp.results.volume.name\\)\"; \"results.image.original_url: $\\($resp.results.image.original_url\\)\")",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(node jackscomics/scripts/extract-series.mjs)",
+      "Bash(python3 -m http.server 8765 --bind 127.0.0.1)",
+      "Bash(py -m http.server 8765 --bind 127.0.0.1)",
+      "PowerShell(node jackscomics/scripts/lookup-covers.mjs --list)",
+      "PowerShell(node jackscomics/scripts/lookup-covers.mjs conan)",
+      "Bash(node -e \"const m = JSON.parse\\(require\\('fs'\\).readFileSync\\('jackscomics/manifest.json','utf8'\\)\\); const c = m.series.conan; console.log\\('status:', c.status\\); console.log\\('hits:', c.hits\\); console.log\\('misses:', c.misses\\); console.log\\('issues:'\\); for \\(const [k,v] of Object.entries\\(c.issues || {}\\)\\) console.log\\('  ', k, '=>', v?.image_url || 'MISS'\\);\")",
+      "Bash(node -e ' *)",
+      "PowerShell(node jackscomics/scripts/fix-up.mjs)"
     ]
   }
 }

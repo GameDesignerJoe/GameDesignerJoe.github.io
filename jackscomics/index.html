@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jack's Comic Collection</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0e0d;--surface:#1a1815;--card:#201e1b;--card-h:#282522;
+  --border:#36322c;--border-l:#4a4540;
+  --gold:#c9a84c;--gold-d:#7a6428;--red:#b5311b;
+  --text:#e8e0d0;--text-m:#9a9080;--text-d:#5a5248;
+  --mono:'JetBrains Mono','Courier New',monospace;
+  --serif:'Crimson Pro',Georgia,serif;
+  --display:'Bebas Neue','Impact',sans-serif;
+  --b1:#b8860b;--b2:#1a5f90;--b3:#1a7a45;--b4:#7040b0;--b5:#a02010;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--serif);font-size:16px;min-height:100vh}
+
+/* HEADER */
+header{padding:24px 32px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:20}
+.hrow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-family:var(--display);font-size:2.4rem;letter-spacing:.06em;line-height:1}
+h1 em{color:var(--gold);font-style:normal}
+.hstats{font-family:var(--mono);font-size:10px;color:var(--text-d);line-height:2;letter-spacing:.06em;text-align:right}
+.hstats b{color:var(--gold);font-weight:500}
+.controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btabs{display:flex;gap:3px}
+button{padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--text-d);font-family:var(--mono);font-size:10px;cursor:pointer;letter-spacing:.07em;transition:all .12s;white-space:nowrap}
+button:hover{border-color:var(--border-l);color:var(--text-m)}
+button.act{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.07)}
+button.kbtn:hover,button.kbtn.act{border-color:var(--red);color:var(--red)}
+button.kbtn.act{background:rgba(181,49,27,.08)}
+select,input[type=search]{padding:5px 10px;border:1px solid var(--border);background:var(--surface);color:var(--text-m);font-family:var(--mono);font-size:10px;outline:none;letter-spacing:.05em}
+input[type=search]{width:175px;margin-left:auto}
+input[type=search]:focus{border-color:var(--gold-d);color:var(--text)}
+input::placeholder{color:var(--text-d)}
+select{cursor:pointer}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text-d);letter-spacing:.06em;align-items:center}
+.lsw{width:9px;height:9px;display:inline-block;vertical-align:middle;margin-right:3px;border-radius:1px}
+.pill-demo{font-family:var(--mono);font-size:8px;padding:2px 4px}
+.key-demo{background:rgba(181,49,27,.15);color:#d06050}
+.dup-demo{background:var(--surface);color:var(--text-d)}
+.dup-demo::after{content:'×2';font-size:7px;color:var(--gold-d);margin-left:2px}
+
+/* MAIN */
+main{padding:18px 32px 60px}
+.rl{font-family:var(--mono);font-size:10px;color:var(--text-d);letter-spacing:.07em;margin-bottom:14px;display:flex;gap:16px;flex-wrap:wrap}
+.vt{color:var(--gold)}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1px;background:var(--border);border:1px solid var(--border)}
+
+/* CARD */
+.card{background:var(--card);border-left:3px solid transparent;display:flex;flex-direction:column;transition:background .12s}
+.card:hover{background:var(--card-h)}
+.card[data-box="1"]{border-left-color:var(--b1)}
+.card[data-box="2"]{border-left-color:var(--b2)}
+.card[data-box="3"]{border-left-color:var(--b3)}
+.card[data-box="4"]{border-left-color:var(--b4)}
+.card[data-box="5"]{border-left-color:var(--b5)}
+
+/* COVER */
+.cover{height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:10px}
+.cv-bg{position:absolute;inset:0}
+.cv-accent{position:absolute;top:0;left:0;bottom:0;width:7px;opacity:.7;z-index:2}
+.cv-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;display:block}
+.cv-content{position:relative;z-index:1;text-align:center}
+.cover.has-img .cv-content{display:none}
+.cv-abbr{font-family:var(--display);font-size:1.9rem;letter-spacing:.1em;line-height:1}
+.cv-yr{font-family:var(--mono);font-size:8px;letter-spacing:.1em;opacity:.6;margin-top:2px}
+.cv-chip{position:absolute;top:5px;left:12px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;opacity:.85;z-index:3;background:rgba(15,14,13,.6);padding:2px 5px;border-radius:1px}
+.cv-link{position:absolute;bottom:5px;right:8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;z-index:3;text-decoration:none;opacity:.55;transition:opacity .12s;background:rgba(15,14,13,.55);padding:2px 5px;border-radius:1px}
+.cv-link:hover{opacity:1}
+
+/* BODY */
+.body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:6px}
+.stitle{font-family:var(--display);font-size:1.2rem;letter-spacing:.04em;line-height:1.1}
+.meta{display:flex;gap:10px;font-family:var(--mono);font-size:9px;color:var(--text-d);letter-spacing:.05em;flex-wrap:wrap}
+.meta .yr{color:var(--gold-d)}
+.meta .cnt{color:var(--text-m)}
+.prow{display:flex;align-items:baseline;gap:6px;margin-top:1px}
+.pval{font-size:1.15rem;font-weight:600;color:#7fc87f;line-height:1}
+.plbl{font-family:var(--mono);font-size:9px;color:var(--text-d)}
+.pest{font-family:var(--mono);font-size:9px;color:var(--text-d);font-style:italic}
+.keys{display:flex;flex-direction:column;gap:3px;margin-top:2px}
+.kr{display:flex;align-items:flex-start;gap:5px}
+.knum{font-family:var(--mono);font-size:9px;background:rgba(181,49,27,.18);color:#d06050;padding:1px 5px;flex-shrink:0;letter-spacing:.03em}
+.ki{flex:1}
+.knote{font-size:11px;color:var(--text-m);line-height:1.3}
+.kprice{font-family:var(--mono);font-size:9px;color:#7fc87f;margin-top:1px}
+.cnote{font-size:12px;color:var(--text-d);font-style:italic;line-height:1.5;border-left:2px solid var(--border-l);padding-left:8px}
+.itoggle{font-family:var(--mono);font-size:9px;color:var(--text-d);background:none;border:none;padding:0;cursor:pointer;letter-spacing:.07em;text-align:left}
+.itoggle:hover{color:var(--text-m);border-color:transparent}
+.ilist{display:none;flex-wrap:wrap;gap:3px;margin-top:2px}
+.ilist.open{display:flex}
+.pill{font-family:var(--mono);font-size:8px;padding:2px 4px;background:var(--surface);color:var(--text-d);letter-spacing:.03em;cursor:pointer;transition:background .1s,color .1s,box-shadow .1s}
+.pill:hover{background:var(--card-h);color:var(--text);box-shadow:inset 0 0 0 1px var(--gold-d)}
+.pill.ik{background:rgba(181,49,27,.15);color:#d06050}
+.pill.ik:hover{background:rgba(181,49,27,.28);color:#e88070;box-shadow:inset 0 0 0 1px var(--red)}
+.pill.id::after{content:'×2';font-size:7px;color:var(--gold-d);margin-left:2px}
+.empty{grid-column:1/-1;padding:60px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-d);letter-spacing:.08em}
+
+/* DRAWER */
+.drawer{position:fixed;top:0;right:0;width:380px;max-width:90vw;height:100vh;background:var(--surface);border-left:1px solid var(--border-l);z-index:40;transform:translateX(100%);transition:transform .22s ease-out;display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(0,0,0,.4)}
+.drawer.open{transform:translateX(0)}
+.dr-head{padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.dr-title{font-family:var(--display);font-size:1.4rem;letter-spacing:.05em;line-height:1.1;color:var(--gold)}
+.dr-sub{font-family:var(--mono);font-size:9px;color:var(--text-d);letter-spacing:.08em;margin-top:3px}
+.dr-close{font-family:var(--mono);font-size:11px;color:var(--text-d);background:none;border:1px solid var(--border);padding:4px 9px;cursor:pointer;letter-spacing:.08em;flex-shrink:0}
+.dr-close:hover{border-color:var(--red);color:var(--red)}
+.dr-body{flex:1;overflow-y:auto;padding:14px 18px 24px}
+.dr-img{width:100%;background:var(--bg);border:1px solid var(--border);display:block}
+.dr-imgbox{margin:0 0 14px;display:flex;justify-content:center;align-items:center;min-height:200px;background:var(--bg);border:1px solid var(--border)}
+.dr-imgbox img{max-width:100%;max-height:420px;display:block}
+.dr-missing{font-family:var(--mono);font-size:10px;color:var(--text-d);letter-spacing:.06em;padding:40px 20px;text-align:center}
+.dr-section{margin-bottom:14px}
+.dr-lbl{font-family:var(--mono);font-size:8px;color:var(--text-d);letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase}
+.dr-key{border-left:2px solid var(--red);padding-left:10px;margin-bottom:14px}
+.dr-key-tag{font-family:var(--mono);font-size:8px;background:rgba(181,49,27,.18);color:#d06050;padding:2px 6px;letter-spacing:.06em;display:inline-block;margin-bottom:6px}
+.dr-key-note{font-family:var(--serif);font-size:13px;color:var(--text);line-height:1.45}
+.dr-key-price{font-family:var(--mono);font-size:11px;color:#7fc87f;margin-top:5px;font-weight:600}
+.dr-val-row{display:flex;align-items:baseline;gap:8px}
+.dr-val{font-family:var(--display);font-size:1.3rem;color:#7fc87f;letter-spacing:.04em}
+.dr-val-lbl{font-family:var(--mono);font-size:9px;color:var(--text-d);letter-spacing:.06em}
+.dr-cv-link{font-family:var(--mono);font-size:9px;color:var(--text-d);letter-spacing:.06em;text-decoration:none;border-bottom:1px dotted var(--text-d);display:inline-block;margin-top:6px}
+.dr-cv-link:hover{color:var(--gold);border-bottom-color:var(--gold)}
+.dr-dup{font-family:var(--mono);font-size:9px;color:var(--gold-d);letter-spacing:.06em;margin-top:4px}
+
+@media(max-width:600px){
+  header{padding:16px 16px 12px}main{padding:14px 16px 40px}
+  h1{font-size:1.8rem}input[type=search]{width:100%;margin-left:0}
+  .drawer{width:100vw}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div>
+      <h1>JACK'S <em>COMIC COLLECTION</em></h1>
+      <p style="font-family:var(--mono);font-size:9px;color:var(--text-d);margin-top:3px;letter-spacing:.06em">Silver &amp; Bronze Age Marvel · 5 boxes · pricing: VG–FN (grade 4.0–6.0)</p>
+    </div>
+    <div class="hstats" id="hstats"></div>
+  </div>
+  <div class="controls">
+    <div class="btabs" id="btabs"></div>
+    <select id="srt">
+      <option value="alpha-asc">A → Z</option>
+      <option value="alpha-desc">Z → A</option>
+      <option value="year-asc">Oldest first</option>
+      <option value="year-desc">Newest first</option>
+      <option value="count-desc">Most issues</option>
+      <option value="count-asc">Fewest issues</option>
+      <option value="value-desc">Est. value ↓</option>
+    </select>
+    <button class="kbtn" id="kbtn">★ Keys only</button>
+    <input type="search" id="srch" placeholder="search series…">
+  </div>
+  <div class="legend">
+    <span><span class="lsw" style="background:var(--b1)"></span>Box 1</span>
+    <span><span class="lsw" style="background:var(--b2)"></span>Box 2</span>
+    <span><span class="lsw" style="background:var(--b3)"></span>Box 3</span>
+    <span><span class="lsw" style="background:var(--b4)"></span>Box 4 — Thor</span>
+    <span><span class="lsw" style="background:var(--b5)"></span>Box 5</span>
+    <span style="margin-left:6px"><span class="pill-demo key-demo">##</span> key issue</span>
+    <span><span class="pill-demo dup-demo">##</span> duplicate copy</span>
+  </div>
+</header>
+
+<main>
+  <div class="rl"><span id="rl"></span><span class="vt" id="vt"></span></div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dr-head">
+    <div>
+      <div class="dr-title" id="dr-title"></div>
+      <div class="dr-sub" id="dr-sub"></div>
+    </div>
+    <button class="dr-close" id="dr-close" aria-label="Close">CLOSE ✕</button>
+  </div>
+  <div class="dr-body" id="dr-body"></div>
+</aside>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
