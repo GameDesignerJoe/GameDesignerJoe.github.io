@@ -128,6 +128,34 @@ main{padding:18px 32px 60px}
 .dr-cv-link{font-family:var(--mono);font-size:9px;color:var(--text-d);letter-spacing:.06em;text-decoration:none;border-bottom:1px dotted var(--text-d);display:inline-block;margin-top:6px}
 .dr-cv-link:hover{color:var(--gold);border-bottom-color:var(--gold)}
 .dr-dup{font-family:var(--mono);font-size:9px;color:var(--gold-d);letter-spacing:.06em;margin-top:4px}
+.dr-actions{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.dr-act{font-family:var(--mono);font-size:10px;letter-spacing:.07em;padding:7px 12px;border:1px solid var(--border);background:transparent;color:var(--text-m);cursor:pointer;flex:1;min-width:120px;transition:all .12s}
+.dr-act:hover{color:var(--text);border-color:var(--border-l);background:rgba(255,255,255,.02)}
+.dr-want.on{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.1)}
+.dr-want.on:hover{background:rgba(201,168,76,.16);color:var(--gold)}
+.dr-claim.on{border-color:#5a8a5e;color:#7fc87f;background:rgba(127,200,127,.1)}
+.dr-claim.on:hover{background:rgba(127,200,127,.16);color:#9fd89f}
+
+/* WANT / CLAIMED pill states */
+.pill.wanted{box-shadow:inset 0 0 0 1px var(--gold);color:var(--gold)}
+.pill.wanted.ik{color:#d06050;box-shadow:inset 0 0 0 1px var(--gold)}
+.pill.claimed{opacity:.4;text-decoration:line-through;box-shadow:none}
+.pill.claimed.wanted{box-shadow:none}
+
+button.wantbtn{border-color:transparent;color:var(--gold-d)}
+button.wantbtn:hover{border-color:var(--gold-d);color:var(--gold)}
+button.wantbtn.act{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08)}
+
+button.emailbtn{border-color:var(--gold-d);color:var(--gold)}
+button.emailbtn:hover:not(:disabled){border-color:var(--gold);background:rgba(201,168,76,.1)}
+button:disabled{opacity:.35;cursor:not-allowed}
+button:disabled:hover{border-color:var(--border);color:var(--text-d)}
+
+.wantsum{font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:.08em;margin-top:4px}
+
+#modebanner{display:none;font-family:var(--mono);font-size:11px;color:var(--text-m);background:rgba(201,168,76,.06);border:1px solid var(--gold-d);padding:10px 14px;margin-bottom:14px;letter-spacing:.04em;line-height:1.5}
+#modebanner strong{color:var(--gold);font-weight:500}
+#modebanner em{color:var(--text);font-style:normal;letter-spacing:.06em}
 
 @media(max-width:600px){
   header{padding:16px 16px 12px}main{padding:14px 16px 40px}
@@ -157,7 +185,10 @@ main{padding:18px 32px 60px}
       <option value="count-asc">Fewest issues</option>
       <option value="value-desc">Est. value ↓</option>
     </select>
-    <button class="kbtn" id="kbtn">★ Keys only</button>
+    <button class="kbtn" id="kbtn">Keys only</button>
+    <button class="emailbtn" id="emailbtn" disabled title="Email your want list to Mom">✉ EMAIL MOM</button>
+    <button id="copylink" disabled title="Copy a shareable URL of the current state">⎘ COPY LINK</button>
+    <button id="resetbtn" disabled title="Clear all wants and claims">⟲ RESET</button>
     <input type="search" id="srch" placeholder="search series…">
   </div>
   <div class="legend">
@@ -172,6 +203,7 @@ main{padding:18px 32px 60px}
 </header>
 
 <main>
+  <div id="modebanner"></div>
   <div class="rl"><span id="rl"></span><span class="vt" id="vt"></span></div>
   <div class="grid" id="grid"></div>
 </main>

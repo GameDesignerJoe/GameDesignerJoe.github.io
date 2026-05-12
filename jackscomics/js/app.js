@@ -11,6 +11,75 @@ let M = { series: {} }; // manifest
 let bxF = 'all', srt = 'alpha-asc', keysOnly = false, srchTxt = '';
 const expanded = new Set();
 
+// Wanted + claimed state. Tokens are "seriesId:issue".
+const wants = new Set();
+const claimed = new Set();
+const LS_KEY = 'jackscomics_state';
+const MOM_EMAIL = 'gollum@bak.rr.com';
+
+function tok(seriesId, issue) { return seriesId + ':' + issue; }
+
+function serializeSet(set) {
+  return [...set].map(t => {
+    const i = t.indexOf(':');
+    return t.slice(0, i) + ':' + encodeURIComponent(t.slice(i + 1));
+  }).join(',');
+}
+
+function parseList(raw) {
+  if (!raw) return [];
+  return raw.split(',').map(t => {
+    const i = t.indexOf(':');
+    if (i < 0) return null;
+    return t.slice(0, i) + ':' + decodeURIComponent(t.slice(i + 1));
+  }).filter(Boolean);
+}
+
+function loadStateFromUrl() {
+  const p = new URLSearchParams(location.search);
+  const w = parseList(p.get('want'));
+  const c = parseList(p.get('claimed'));
+  if (w.length || c.length) {
+    wants.clear(); claimed.clear();
+    w.forEach(t => wants.add(t));
+    c.forEach(t => claimed.add(t));
+    return true;
+  }
+  return false;
+}
+
+function loadStateFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    (o.want || []).forEach(t => wants.add(t));
+    (o.claimed || []).forEach(t => claimed.add(t));
+  } catch (e) { /* ignore */ }
+}
+
+function pushState() {
+  const p = new URLSearchParams();
+  if (wants.size) p.set('want', serializeSet(wants));
+  if (claimed.size) p.set('claimed', serializeSet(claimed));
+  const qs = p.toString();
+  const url = location.pathname + (qs ? '?' + qs : '') + location.hash;
+  history.replaceState(null, '', url);
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      want: [...wants],
+      claimed: [...claimed],
+    }));
+  } catch (e) { /* ignore quota */ }
+}
+
+function resetState() {
+  wants.clear();
+  claimed.clear();
+  try { localStorage.removeItem(LS_KEY); } catch (e) { /* ignore */ }
+  pushState();
+}
+
 // Pick the first concrete issue number from a key's "issue" string.
 // "#57" → "57", "#2–5" → "2", "KS-2/3/4" → "KS-2", "Annual 1" → "Annual 1"
 function firstFromKeyIssue(keyIssueStr) {
@@ -76,17 +145,27 @@ function hasMissing(issues) {
 
 function buildCard(s) {
   const d = BM[s.box];
-  const isOpen = expanded.has(s.id);
+  const inWant = bxF === 'want';
+  const isOpen = inWant || expanded.has(s.id);
   const keyNums = new Set(s.keys.flatMap(k => [k.issue.replace(/^#/, ''), k.issue]));
   const dupeSet = new Set(s.dupes);
   const gaps = hasMissing(s.issues);
   const ev = estVal(s);
+  const wantedInSeries = s.issues.filter(iss => wants.has(tok(s.id, iss))).length;
+  const claimedInSeries = s.issues.filter(iss => claimed.has(tok(s.id, iss))).length;
 
-  const pillsHtml = s.issues.map(iss => {
+  const issuesToShow = (bxF === 'want')
+    ? s.issues.filter(iss => wants.has(tok(s.id, iss)) || claimed.has(tok(s.id, iss)))
+    : s.issues;
+
+  const pillsHtml = issuesToShow.map(iss => {
+    const t = tok(s.id, iss);
     const bare = iss.replace(/^#/, '');
     let c = 'pill';
     if (keyNums.has(bare) || keyNums.has(iss)) c += ' ik';
     if (dupeSet.has(bare) || dupeSet.has(iss)) c += ' id';
+    if (wants.has(t)) c += ' wanted';
+    if (claimed.has(t)) c += ' claimed';
     return `<span class="${c}" data-series="${esc(s.id)}" data-issue="${esc(iss)}">${esc(iss)}</span>`;
   }).join('');
 
@@ -125,7 +204,9 @@ function buildCard(s) {
   <div class="pest">Est. run value: ~$${Math.round(ev).toLocaleString()} at midpoint × ${s.issues.length} issues</div>
   ${keysHtml}
   <div class="cnote">${esc(s.note)}</div>
-  <button class="itoggle" data-toggle="${esc(s.id)}">${isOpen ? '▼ HIDE ISSUE LIST' : `▶ SHOW ALL ${s.issues.length} ISSUES`}</button>
+  ${inWant
+    ? `<div class="wantsum">${wantedInSeries} wanted${claimedInSeries ? ` · ${claimedInSeries} claimed` : ''}</div>`
+    : `<button class="itoggle" data-toggle="${esc(s.id)}">${isOpen ? '▼ HIDE ISSUE LIST' : `▶ SHOW ALL ${s.issues.length} ISSUES`}</button>`}
   <div class="ilist ${isOpen ? 'open' : ''}" id="il-${s.id}">${pillsHtml}</div>
 </div>
 </div>`;
@@ -140,9 +221,21 @@ function toggleSeries(id) {
   el.replaceWith(tmp.firstChild);
 }
 
+function seriesHasWantOrClaim(s) {
+  for (const iss of s.issues) {
+    const t = tok(s.id, iss);
+    if (wants.has(t) || claimed.has(t)) return true;
+  }
+  return false;
+}
+
 function getVis() {
   let list = S.filter(s => {
-    if (bxF !== 'all' && s.box !== +bxF) return false;
+    if (bxF === 'want') {
+      if (!seriesHasWantOrClaim(s)) return false;
+    } else if (bxF !== 'all') {
+      if (s.box !== +bxF) return false;
+    }
     if (keysOnly && !s.keys.length) return false;
     if (srchTxt && !s.title.toLowerCase().includes(srchTxt.toLowerCase())) return false;
     return true;
@@ -173,11 +266,17 @@ function render() {
 }
 
 function renderTabs() {
-  document.getElementById('btabs').innerHTML =
-    ['all', '1', '2', '3', '4', '5'].map(b => {
-      const lbl = b === 'all' ? 'ALL' : BM[+b].label.toUpperCase();
-      return `<button class="${bxF === b ? 'act' : ''}" data-box-filter="${b}">${lbl}</button>`;
-    }).join('');
+  const tabs = ['all', '1', '2', '3', '4', '5', 'want'];
+  document.getElementById('btabs').innerHTML = tabs.map(b => {
+    let lbl;
+    if (b === 'all') lbl = 'ALL';
+    else if (b === 'want') {
+      const n = wants.size;
+      lbl = '★ WANT' + (n ? ` (${n})` : '');
+    } else lbl = BM[+b].label.toUpperCase();
+    const extra = b === 'want' ? ' wantbtn' : '';
+    return `<button class="${bxF === b ? 'act' : ''}${extra}" data-box-filter="${b}">${lbl}</button>`;
+  }).join('');
 }
 
 function renderStats() {
@@ -187,6 +286,41 @@ function renderStats() {
   document.getElementById('hstats').innerHTML =
     `<b>${S.length}</b> SERIES &nbsp;·&nbsp; <b>${totalIssues}</b> ISSUES<br>` +
     `<b>${totalKeys}</b> KEY ISSUES &nbsp;·&nbsp; EST. TOTAL <b>~$${Math.round(totalVal).toLocaleString()}</b>`;
+}
+
+function toggleWant(seriesId, issue) {
+  const t = tok(seriesId, issue);
+  if (wants.has(t)) wants.delete(t);
+  else { wants.add(t); claimed.delete(t); }
+  pushState();
+  rerenderCard(seriesId);
+  renderTabs();
+  updateControls();
+  if (bxF === 'want') render(); // need to refilter if series newly has/loses wants
+}
+
+function toggleClaim(seriesId, issue) {
+  const t = tok(seriesId, issue);
+  if (claimed.has(t)) claimed.delete(t);
+  else claimed.add(t);
+  pushState();
+  rerenderCard(seriesId);
+  // If the drawer is open on this issue, re-render it to flip the button label
+  const drawer = document.getElementById('drawer');
+  if (drawer.classList.contains('open') && drawer.dataset.series === seriesId && drawer.dataset.issue === issue) {
+    openDrawer(seriesId, issue);
+  }
+  updateControls();
+}
+
+function rerenderCard(seriesId) {
+  const el = document.getElementById('card-' + seriesId);
+  if (!el) return;
+  const s = S.find(x => x.id === seriesId);
+  if (!s) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = buildCard(s);
+  el.replaceWith(tmp.firstChild);
 }
 
 function openDrawer(seriesId, issue) {
@@ -245,10 +379,20 @@ function openDrawer(seriesId, issue) {
     parts.push(`<a class="dr-cv-link" href="https://comicvine.gamespot.com/issue/4000-${data.cv_id}/" target="_blank" rel="noopener">View on ComicVine ↗</a>`);
   }
 
+  const t = tok(seriesId, issue);
+  const isWant = wants.has(t);
+  const isClaimed = claimed.has(t);
+  parts.unshift(`<div class="dr-actions">
+    <button class="dr-act dr-want${isWant ? ' on' : ''}" data-drawer-want>${isWant ? '★ WANTED' : '☆ ADD TO WANTS'}</button>
+    <button class="dr-act dr-claim${isClaimed ? ' on' : ''}" data-drawer-claim>${isClaimed ? '✓ CLAIMED — UNDO' : 'MARK AS CLAIMED'}</button>
+  </div>`);
+
   body.innerHTML = parts.join('');
   body.scrollTop = 0;
 
   const drawer = document.getElementById('drawer');
+  drawer.dataset.series = seriesId;
+  drawer.dataset.issue = issue;
   drawer.classList.add('open');
   drawer.setAttribute('aria-hidden', 'false');
 }
@@ -298,6 +442,98 @@ function wireControls() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeDrawer();
   });
+
+  document.getElementById('drawer').addEventListener('click', e => {
+    const drawer = e.currentTarget;
+    const seriesId = drawer.dataset.series;
+    const issue = drawer.dataset.issue;
+    if (!seriesId) return;
+    if (e.target.closest('[data-drawer-want]')) toggleWant(seriesId, issue);
+    else if (e.target.closest('[data-drawer-claim]')) toggleClaim(seriesId, issue);
+  });
+
+  document.getElementById('emailbtn').addEventListener('click', emailMom);
+  document.getElementById('copylink').addEventListener('click', copyShareUrl);
+  document.getElementById('resetbtn').addEventListener('click', () => {
+    if (wants.size === 0 && claimed.size === 0) return;
+    if (!confirm('Clear all wants and claims? This cannot be undone.')) return;
+    resetState();
+    renderTabs();
+    updateControls();
+    render();
+  });
+}
+
+function emailMom() {
+  if (wants.size === 0) return;
+  const groups = new Map();
+  for (const t of wants) {
+    const [sid, ...rest] = t.split(':');
+    const iss = rest.join(':');
+    if (!groups.has(sid)) groups.set(sid, []);
+    groups.get(sid).push(iss);
+  }
+  const lines = ['Hi Mom — here\'s the list of comics I\'d like:', ''];
+  // Preserve series order from S
+  for (const s of S) {
+    const issues = groups.get(s.id);
+    if (!issues || !issues.length) continue;
+    lines.push(`${s.title.toUpperCase()} (${s.year})`);
+    // Sort by original order in series.issues
+    const orderIdx = new Map(s.issues.map((iss, i) => [iss, i]));
+    issues.sort((a, b) => (orderIdx.get(a) ?? 999) - (orderIdx.get(b) ?? 999));
+    for (const iss of issues) {
+      const key = keyForIssue(s, iss);
+      const label = /^\d+$/.test(iss) ? '#' + iss : iss;
+      if (key) lines.push(`  ${label} — ${key.note} (${key.price})`);
+      else lines.push(`  ${label}`);
+    }
+    lines.push('');
+  }
+  lines.push('Open this link to see covers and details. When you grab one for me,');
+  lines.push('click it and hit "MARK AS CLAIMED" — then forward the new link to');
+  lines.push('anyone else who\'s helping look:');
+  lines.push('');
+  lines.push(location.href);
+  lines.push('');
+  lines.push('Thanks!');
+  lines.push('— Jack');
+  const subject = `Jack's comic want list (${wants.size} issue${wants.size === 1 ? '' : 's'})`;
+  const body = lines.join('\n');
+  location.href = `mailto:${MOM_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+async function copyShareUrl() {
+  const btn = document.getElementById('copylink');
+  try {
+    await navigator.clipboard.writeText(location.href);
+    const original = btn.textContent;
+    btn.textContent = '✓ COPIED';
+    btn.classList.add('act');
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('act'); }, 1500);
+  } catch (e) {
+    alert('Copy failed — URL: ' + location.href);
+  }
+}
+
+function updateControls() {
+  const hasWants = wants.size > 0;
+  const hasAny = hasWants || claimed.size > 0;
+  document.getElementById('emailbtn').disabled = !hasWants;
+  document.getElementById('copylink').disabled = !hasAny;
+  document.getElementById('resetbtn').disabled = !hasAny;
+  const banner = document.getElementById('modebanner');
+  if (banner) {
+    if (bxF === 'want' && hasWants) {
+      const remaining = [...wants].filter(t => !claimed.has(t)).length;
+      const claimedCount = claimed.size;
+      banner.style.display = 'block';
+      banner.innerHTML = `<strong>Jack's want list</strong> · ${remaining} still needed${claimedCount ? ` · ${claimedCount} already claimed` : ''}. ` +
+        `Click any issue to view; use <em>MARK AS CLAIMED</em> when you have one. Then use <em>COPY LINK</em> to share the updated list.`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
 }
 
 async function init() {
@@ -312,10 +548,20 @@ async function init() {
   } else {
     console.warn('manifest.json not available; covers will fall back to abbreviation blocks');
   }
+
+  // State: URL is authoritative if present; otherwise hydrate from localStorage.
+  const fromUrl = loadStateFromUrl();
+  if (!fromUrl) loadStateFromLocalStorage();
+  // If URL had wants, default to the WANT tab so recipients land on the filtered view.
+  if (fromUrl && wants.size > 0) bxF = 'want';
+  // Make sure the URL reflects state (especially when hydrated only from localStorage).
+  pushState();
+
   renderStats();
   renderTabs();
   wireControls();
   render();
+  updateControls();
 }
 
 init().catch(err => {
