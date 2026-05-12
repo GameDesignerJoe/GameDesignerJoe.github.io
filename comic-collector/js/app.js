@@ -75,6 +75,84 @@ function updateConfiguredBadge() {
 let currentImage = null;
 let currentResult = null;       // { ai, cv, edited (bool) }
 let savedComicId = null;        // set after SAVE so user sees "saved" state
+let cameraStream = null;
+let cameraFacing = 'environment'; // 'environment' = rear, 'user' = front
+
+// ---------- Live camera ----------
+
+function cameraSupported() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+async function openCamera() {
+  if (!cameraSupported()) {
+    $('#camera-error').textContent = 'Camera is not available on this browser/device. Use CHOOSE FILE instead.';
+    $('#camera-section').classList.add('show');
+    return;
+  }
+  $('#camera-error').textContent = '';
+  $('#camera-section').classList.add('show');
+  $('#preview').classList.remove('show');
+  $('#result').classList.remove('show');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: cameraFacing }, width: { ideal: 1920 }, height: { ideal: 1440 } },
+      audio: false,
+    });
+    cameraStream = stream;
+    const video = $('#camera-video');
+    video.srcObject = stream;
+    // iOS Safari: play() must be triggered, even though autoplay is set
+    try { await video.play(); } catch (_) { /* autoplay restrictions; user gesture already happened */ }
+  } catch (err) {
+    let msg = err?.message || String(err);
+    if (err?.name === 'NotAllowedError') msg = 'Camera permission denied. Allow camera access in your browser settings.';
+    else if (err?.name === 'NotFoundError') msg = 'No camera found on this device.';
+    else if (err?.name === 'NotReadableError') msg = 'Camera is already in use by another app.';
+    $('#camera-error').textContent = msg;
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const video = $('#camera-video');
+  if (video) video.srcObject = null;
+}
+
+function closeCamera() {
+  stopCamera();
+  $('#camera-section').classList.remove('show');
+}
+
+async function flipCamera() {
+  cameraFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+  stopCamera();
+  await openCamera();
+}
+
+function captureFromCamera() {
+  const video = $('#camera-video');
+  if (!video.videoWidth || !video.videoHeight) {
+    $('#camera-error').textContent = 'Camera is still warming up — wait a second and try again.';
+    return;
+  }
+  const canvas = $('#camera-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  currentImage = dataUrl;
+  $('#preview-img').src = dataUrl;
+  $('#preview').classList.add('show');
+  closeCamera();
+  $('#identify-btn').disabled = !isConfigured();
+}
+
+// ---------- File upload ----------
 
 async function handleFileSelected(e) {
   const file = e.target.files?.[0];
@@ -287,7 +365,10 @@ async function handleRelookup() {
 function setActiveView(viewName) {
   $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === viewName));
   $$('.view').forEach(v => v.classList.toggle('active', v.id === `view-${viewName}`));
-  if (viewName === 'collection') renderCollection();
+  if (viewName === 'collection') {
+    closeCamera(); // stop the camera if user switches tabs while it's open
+    renderCollection();
+  }
 }
 
 function updateCollectionCount() {
@@ -435,6 +516,20 @@ function init() {
 
   $('#file-input').addEventListener('change', handleFileSelected);
   $('#identify-btn').addEventListener('click', handleIdentify);
+
+  // Camera viewfinder
+  if (cameraSupported()) {
+    $('#camera-open-btn').addEventListener('click', openCamera);
+    $('#camera-cancel').addEventListener('click', closeCamera);
+    $('#camera-capture').addEventListener('click', captureFromCamera);
+    $('#camera-flip').addEventListener('click', flipCamera);
+  } else {
+    $('#camera-open-btn').hidden = true;
+  }
+  // Also stop the stream if the page is hidden (e.g., user backgrounds the tab)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopCamera();
+  });
 
   // Save / edit / re-lookup
   $('#save-btn').addEventListener('click', handleSave);

@@ -33,10 +33,28 @@ main{max-width:720px;margin:0 auto;padding:28px 22px 60px}
 .upload-card{background:#1c1c1f;border:1px solid #2a2a2e;border-radius:12px;padding:28px;margin-bottom:20px;text-align:center}
 .upload-card h2{font-size:18px;font-weight:500;margin-bottom:8px;color:#fff}
 .upload-card p{font-size:14px;color:#9a9aa0;margin-bottom:18px}
-.file-label{display:inline-block;padding:14px 24px;background:#4a9eff;color:#fff;border-radius:8px;cursor:pointer;font-weight:500;font-size:15px;transition:background .15s;min-height:44px;line-height:1.2;touch-action:manipulation}
+.upload-options{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.file-label{display:inline-flex;align-items:center;justify-content:center;padding:14px 22px;background:#4a9eff;color:#fff;border-radius:8px;cursor:pointer;font-weight:500;font-size:15px;transition:background .15s;min-height:44px;line-height:1.2;touch-action:manipulation;border:none;font-family:inherit}
 .file-label:hover{background:#3a8eef}
+.file-label.secondary{background:transparent;color:#e8e8ea;border:1px solid #4a4a50}
+.file-label.secondary:hover{background:#26262a;border-color:#5a5a60}
+.file-label[hidden]{display:none}
 #file-input{display:none}
 .upload-hint{margin-top:14px;font-size:12px;color:#7a7a80}
+
+/* CAMERA VIEWFINDER */
+.camera-section{display:none;margin-top:18px}
+.camera-section.show{display:block}
+#camera-video{width:100%;max-width:480px;border-radius:8px;background:#000;border:1px solid #2a2a2e;display:block;margin:0 auto;aspect-ratio:3/4;object-fit:cover}
+.camera-controls{display:flex;gap:10px;margin-top:14px;justify-content:center;flex-wrap:wrap;align-items:center}
+.camera-capture{padding:14px 28px;background:#7fdf9a;color:#0d1e13;border:none;border-radius:8px;font-weight:600;font-size:15px;cursor:pointer;min-height:50px;touch-action:manipulation;font-family:inherit;letter-spacing:.04em}
+.camera-capture:hover{background:#9fefa9}
+.camera-flip{width:50px;min-height:50px;padding:0;border:1px solid #4a4a50;background:transparent;color:#e8e8ea;border-radius:8px;cursor:pointer;font-size:20px;touch-action:manipulation;font-family:inherit}
+.camera-flip:hover{background:#26262a}
+.camera-cancel{padding:12px 18px;background:transparent;color:#9a9aa0;border:1px solid #3a3a40;border-radius:8px;font-size:13px;cursor:pointer;min-height:50px;touch-action:manipulation;font-family:inherit;letter-spacing:.04em}
+.camera-cancel:hover{color:#e8e8ea;border-color:#4a4a50}
+.camera-hint{margin-top:10px;text-align:center;font-size:12px;color:#7a7a80;font-style:italic}
+.camera-error{margin-top:14px;color:#ff7070;font-size:13px;text-align:center}
 
 .preview{display:none;margin-top:20px}
 .preview.show{display:block}
@@ -173,10 +191,25 @@ main{max-width:720px;margin:0 auto;padding:28px 22px 60px}
 <main>
   <div class="upload-card">
     <h2>Identify a comic</h2>
-    <p>Take a photo of the front cover, or pick one from your photos.</p>
-    <label class="file-label" for="file-input">📷 Choose Image</label>
-    <input type="file" id="file-input" accept="image/*" capture="environment">
-    <div class="upload-hint">On phone, this opens the camera. On desktop, picks from disk.</div>
+    <p>Snap a photo of the front cover or pick one from your photos.</p>
+    <div class="upload-options">
+      <button class="file-label" id="camera-open-btn">📹 USE CAMERA</button>
+      <label class="file-label secondary" for="file-input">📁 CHOOSE FILE</label>
+      <input type="file" id="file-input" accept="image/*">
+    </div>
+    <div class="upload-hint">Camera opens a live viewfinder in this page. File works on any device.</div>
+
+    <div class="camera-section" id="camera-section">
+      <video id="camera-video" autoplay muted playsinline></video>
+      <div class="camera-controls">
+        <button class="camera-cancel" id="camera-cancel">CANCEL</button>
+        <button class="camera-capture" id="camera-capture">📸 CAPTURE</button>
+        <button class="camera-flip" id="camera-flip" title="Switch front/back camera">↻</button>
+      </div>
+      <div class="camera-hint">Hold the cover flat, fill the frame, then tap CAPTURE.</div>
+      <div class="camera-error" id="camera-error"></div>
+      <canvas id="camera-canvas" style="display:none"></canvas>
+    </div>
 
     <div class="preview" id="preview">
       <img id="preview-img" class="preview-img" alt="comic cover preview">
