@@ -566,6 +566,16 @@ function wireControls() {
     updateControls();
     render();
   });
+
+  const mToggle = document.getElementById('m-toggle');
+  if (mToggle) {
+    mToggle.addEventListener('click', () => {
+      const header = document.querySelector('header');
+      const open = header.classList.toggle('expanded');
+      mToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      mToggle.textContent = open ? '▴ FEWER OPTIONS' : '▾ MORE OPTIONS';
+    });
+  }
 }
 
 function buildWantListBody(budget) {

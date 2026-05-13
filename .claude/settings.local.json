@@ -139,7 +139,9 @@
       "Bash(node -e \"const m = JSON.parse\\(require\\('fs'\\).readFileSync\\('jackscomics/manifest.json','utf8'\\)\\); const c = m.series.conan; console.log\\('status:', c.status\\); console.log\\('hits:', c.hits\\); console.log\\('misses:', c.misses\\); console.log\\('issues:'\\); for \\(const [k,v] of Object.entries\\(c.issues || {}\\)\\) console.log\\('  ', k, '=>', v?.image_url || 'MISS'\\);\")",
       "Bash(node -e ' *)",
       "PowerShell(node jackscomics/scripts/fix-up.mjs)",
-      "Bash(py -m http.server 8766 --bind 127.0.0.1)"
+      "Bash(py -m http.server 8766 --bind 127.0.0.1)",
+      "Bash(node --check c:/Users/GameD/GameDesignerJoe.github.io/jackscomics/js/app.js)",
+      "Bash(curl -s \"http://localhost:8765/jackscomics/index.html\")"
     ]
   }
 }

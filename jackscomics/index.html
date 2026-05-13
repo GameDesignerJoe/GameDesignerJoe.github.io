@@ -208,14 +208,40 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
   .stitle{font-size:1.3rem}
 }
 
+/* MOBILE COLLAPSE TOGGLE — hidden by default, shown on phones */
+#m-toggle{display:none}
+
 /* Phone */
 @media(max-width:600px){
-  header{padding:16px 16px 12px}main{padding:14px 16px 40px}
-  h1{font-size:1.8rem}input[type=search]{width:100%;margin-left:0}
+  header{padding:12px 14px 10px}main{padding:14px 16px 40px}
+  .hrow{margin-bottom:10px}
+  h1{font-size:1.5rem}
+  h1+p{display:none}
+  .hstats{font-size:11px;line-height:1.5}
+  .controls{gap:6px;row-gap:8px}
+  input[type=search]{width:100%;margin-left:0}
   .drawer{width:100vw}
-  button{padding:9px 14px;font-size:12px;min-height:40px}
+  button{padding:9px 12px;font-size:12px;min-height:38px}
   .pill{padding:7px 11px;font-size:12px}
   .ilist{gap:6px}
+
+  /* Box tabs scroll horizontally on one line instead of wrapping */
+  .btabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .btabs::-webkit-scrollbar{display:none}
+  .btabs button{flex-shrink:0;padding:7px 11px;font-size:11px;min-height:34px;letter-spacing:.05em}
+
+  /* Secondary controls collapse behind the toggle */
+  #m-toggle{display:block;width:100%;padding:9px;margin-top:4px;background:transparent;color:var(--text-m);border:1px dashed var(--border-l);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-align:center;cursor:pointer;min-height:36px}
+  #m-toggle:hover{color:var(--text);border-color:var(--text-d)}
+  header:not(.expanded) #srt,
+  header:not(.expanded) #kbtn,
+  header:not(.expanded) #compactbtn,
+  header:not(.expanded) #emailbtn,
+  header:not(.expanded) #copywants,
+  header:not(.expanded) #copylink,
+  header:not(.expanded) #resetbtn,
+  header:not(.expanded) .legend{display:none}
+  header.expanded .legend{margin-top:10px}
 }
 </style>
 </head>
@@ -248,7 +274,8 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
     <button id="resetbtn" disabled title="Clear all wants and claims">⟲ RESET</button>
     <input type="search" id="srch" placeholder="search series…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
   </div>
-  <div class="legend">
+  <button id="m-toggle" aria-expanded="false" aria-controls="hdr-extras">▾ MORE OPTIONS</button>
+  <div class="legend" id="hdr-extras">
     <span><span class="lsw" style="background:var(--b1)"></span>Box 1</span>
     <span><span class="lsw" style="background:var(--b2)"></span>Box 2</span>
     <span><span class="lsw" style="background:var(--b3)"></span>Box 3</span>
