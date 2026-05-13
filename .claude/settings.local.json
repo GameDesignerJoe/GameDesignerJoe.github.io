@@ -141,7 +141,13 @@
       "PowerShell(node jackscomics/scripts/fix-up.mjs)",
       "Bash(py -m http.server 8766 --bind 127.0.0.1)",
       "Bash(node --check c:/Users/GameD/GameDesignerJoe.github.io/jackscomics/js/app.js)",
-      "Bash(curl -s \"http://localhost:8765/jackscomics/index.html\")"
+      "Bash(curl -s \"http://localhost:8765/jackscomics/index.html\")",
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io status --short)",
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log --oneline -3)",
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io show ed9b040 --stat)",
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io show ed9b040 -- jackscomics/js/app.js jackscomics/index.html)",
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log --oneline origin/main..HEAD)",
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log -1 origin/main --oneline)"
     ]
   }
 }

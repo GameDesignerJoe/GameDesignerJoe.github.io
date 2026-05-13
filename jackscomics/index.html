@@ -334,6 +334,19 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
   <div class="dr-body" id="dr-body"></div>
 </aside>
 
-<script type="module" src="./js/app.js"></script>
+<script>
+// Mobile header expand/collapse — kept inline so it's independent of the module bundle.
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('m-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const header = document.querySelector('header');
+    const open = header.classList.toggle('expanded');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.textContent = open ? '▴ FEWER OPTIONS' : '▾ MORE OPTIONS';
+  });
+});
+</script>
+<script type="module" src="./js/app.js?v=2"></script>
 </body>
 </html>
