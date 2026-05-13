@@ -44,8 +44,6 @@ select{cursor:pointer}
 .lsw{width:11px;height:11px;display:inline-block;vertical-align:middle;margin-right:4px;border-radius:1px}
 .pill-demo{font-family:var(--mono);font-size:10px;padding:2px 5px}
 .key-demo{background:rgba(181,49,27,.15);color:#d06050}
-.dup-demo{background:var(--surface);color:var(--text-d)}
-.dup-demo::after{content:'×2';font-size:7px;color:var(--gold-d);margin-left:2px}
 
 /* MAIN */
 main{padding:18px 32px 60px}
@@ -103,7 +101,6 @@ main{padding:18px 32px 60px}
 .pill:hover{background:var(--card-h);color:var(--text);box-shadow:inset 0 0 0 1px var(--gold-d)}
 .pill.ik{background:rgba(181,49,27,.22);color:#e88070;font-weight:500}
 .pill.ik:hover{background:rgba(181,49,27,.32);color:#ff9580;box-shadow:inset 0 0 0 1px var(--red)}
-.pill.id::after{content:'×2';font-size:9px;color:var(--gold);margin-left:3px}
 .empty{grid-column:1/-1;padding:60px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-d);letter-spacing:.08em}
 
 /* DRAWER */
@@ -258,7 +255,6 @@ button:disabled:hover{border-color:var(--border);color:var(--text-d)}
     <span><span class="lsw" style="background:var(--b4)"></span>Box 4 — Thor</span>
     <span><span class="lsw" style="background:var(--b5)"></span>Box 5</span>
     <span style="margin-left:6px"><span class="pill-demo key-demo">##</span> key issue</span>
-    <span><span class="pill-demo dup-demo">##</span> duplicate copy</span>
   </div>
 </header>
 

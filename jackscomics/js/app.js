@@ -18,7 +18,24 @@ const claimed = new Set();
 const LS_KEY = 'jackscomics_state';
 const MOM_EMAIL = 'gollum@bak.rr.com';
 
-function tok(seriesId, issue) { return seriesId + ':' + issue; }
+// Token format: "seriesId:issue" (copy 0) or "seriesId:issue:c<N>" (copy 1+).
+// Copy 0 is the original; copy 1+ are duplicates Jack owns of the same issue.
+function tok(seriesId, issue, copy = 0) {
+  return seriesId + ':' + issue + (copy > 0 ? ':c' + copy : '');
+}
+
+function parseTok(t) {
+  const i = t.indexOf(':');
+  const seriesId = t.slice(0, i);
+  let issue = t.slice(i + 1);
+  let copy = 0;
+  const m = issue.match(/:c(\d+)$/);
+  if (m) {
+    copy = +m[1];
+    issue = issue.slice(0, -m[0].length);
+  }
+  return { seriesId, issue, copy };
+}
 
 function serializeSet(set) {
   return [...set].map(t => {
@@ -34,6 +51,29 @@ function parseList(raw) {
     if (i < 0) return null;
     return t.slice(0, i) + ':' + decodeURIComponent(t.slice(i + 1));
   }).filter(Boolean);
+}
+
+function copyCountFor(s, issue) {
+  const bare = issue.replace(/^#/, '');
+  const dupes = s.dupes || [];
+  const isDupe = dupes.includes(issue) || dupes.includes(bare);
+  return isDupe ? 2 : 1;
+}
+
+function physicalCount(s) { return s.issues.length + (s.dupes ? s.dupes.length : 0); }
+
+function claimedInSeries(seriesId) {
+  let n = 0;
+  const prefix = seriesId + ':';
+  for (const t of claimed) if (t.startsWith(prefix)) n++;
+  return n;
+}
+
+function wantedInSeries(seriesId) {
+  let n = 0;
+  const prefix = seriesId + ':';
+  for (const t of wants) if (t.startsWith(prefix)) n++;
+  return n;
 }
 
 function loadStateFromUrl() {
@@ -149,25 +189,34 @@ function buildCard(s) {
   const inWant = bxF === 'want';
   const isOpen = compact || inWant || expanded.has(s.id);
   const keyNums = new Set(s.keys.flatMap(k => [k.issue.replace(/^#/, ''), k.issue]));
-  const dupeSet = new Set(s.dupes);
   const gaps = hasMissing(s.issues);
   const ev = estVal(s);
-  const wantedInSeries = s.issues.filter(iss => wants.has(tok(s.id, iss))).length;
-  const claimedInSeries = s.issues.filter(iss => claimed.has(tok(s.id, iss))).length;
+  const wantedCount = wantedInSeries(s.id);
+  const claimedCount = claimedInSeries(s.id);
+  const totalBooks = physicalCount(s);
+  const remainingBooks = totalBooks - claimedCount;
 
-  const issuesToShow = (bxF === 'want')
-    ? s.issues.filter(iss => wants.has(tok(s.id, iss)) || claimed.has(tok(s.id, iss)))
-    : s.issues;
+  // Each (issue, copy) pair is one physical book — duplicates render as their own pill.
+  const pillEntries = [];
+  for (const iss of s.issues) {
+    const copies = copyCountFor(s, iss);
+    for (let c = 0; c < copies; c++) pillEntries.push({ iss, copy: c });
+  }
+  const entriesToShow = inWant
+    ? pillEntries.filter(e => {
+        const t = tok(s.id, e.iss, e.copy);
+        return wants.has(t) || claimed.has(t);
+      })
+    : pillEntries;
 
-  const pillsHtml = issuesToShow.map(iss => {
-    const t = tok(s.id, iss);
-    const bare = iss.replace(/^#/, '');
+  const pillsHtml = entriesToShow.map(e => {
+    const t = tok(s.id, e.iss, e.copy);
+    const bare = e.iss.replace(/^#/, '');
     let c = 'pill';
-    if (keyNums.has(bare) || keyNums.has(iss)) c += ' ik';
-    if (dupeSet.has(bare) || dupeSet.has(iss)) c += ' id';
+    if (keyNums.has(bare) || keyNums.has(e.iss)) c += ' ik';
     if (wants.has(t)) c += ' wanted';
     if (claimed.has(t)) c += ' claimed';
-    return `<span class="${c}" data-series="${esc(s.id)}" data-issue="${esc(iss)}">${esc(iss)}</span>`;
+    return `<span class="${c}" data-series="${esc(s.id)}" data-issue="${esc(e.iss)}" data-copy="${e.copy}">${esc(e.iss)}</span>`;
   }).join('');
 
   if (compact) {
@@ -178,6 +227,8 @@ function buildCard(s) {
 </div>
 </div>`;
   }
+
+  const issueCountLabel = remainingBooks + ' issue' + (remainingBooks !== 1 ? 's' : '');
 
   const keysHtml = s.keys.length ? `<div class="keys">${s.keys.map(k => `
 <div class="kr"><span class="knum">${esc(k.issue)}</span><div class="ki"><div class="knote">${esc(k.note)}</div><div class="kprice">${esc(k.price)}</div></div></div>`).join('')}</div>` : '';
@@ -202,7 +253,7 @@ function buildCard(s) {
   <div class="stitle">${esc(s.title)}</div>
   <div class="meta">
     <span class="yr">${s.year}</span>
-    <span class="cnt">${s.issues.length} issue${s.issues.length !== 1 ? 's' : ''}</span>
+    <span class="cnt">${esc(issueCountLabel)}</span>
     <span>${esc(issueRange(s.issues))}</span>
     ${gaps ? '<span style="color:var(--text-d)">has gaps</span>' : ''}
     ${s.dupes.length ? `<span style="color:var(--gold-d)">${s.dupes.length} dupl.</span>` : ''}
@@ -215,8 +266,8 @@ function buildCard(s) {
   ${keysHtml}
   <div class="cnote">${esc(s.note)}</div>
   ${inWant
-    ? `<div class="wantsum">${wantedInSeries} wanted${claimedInSeries ? ` · ${claimedInSeries} claimed` : ''}</div>`
-    : `<button class="itoggle" data-toggle="${esc(s.id)}">${isOpen ? '▼ HIDE ISSUE LIST' : `▶ SHOW ALL ${s.issues.length} ISSUES`}</button>`}
+    ? `<div class="wantsum">${wantedCount} wanted${claimedCount ? ` · ${claimedCount} claimed` : ''}</div>`
+    : `<button class="itoggle" data-toggle="${esc(s.id)}">${isOpen ? '▼ HIDE ISSUE LIST' : `▶ SHOW ALL ${remainingBooks} ISSUES`}</button>`}
   <div class="ilist ${isOpen ? 'open' : ''}" id="il-${s.id}">${pillsHtml}</div>
 </div>
 </div>`;
@@ -232,10 +283,9 @@ function toggleSeries(id) {
 }
 
 function seriesHasWantOrClaim(s) {
-  for (const iss of s.issues) {
-    const t = tok(s.id, iss);
-    if (wants.has(t) || claimed.has(t)) return true;
-  }
+  const prefix = s.id + ':';
+  for (const t of wants) if (t.startsWith(prefix)) return true;
+  for (const t of claimed) if (t.startsWith(prefix)) return true;
   return false;
 }
 
@@ -270,7 +320,7 @@ function render() {
   const grid = document.getElementById('grid');
   grid.classList.toggle('compact', compact);
   grid.innerHTML = vis.length ? vis.map(buildCard).join('') : '<div class="empty">NO SERIES MATCH YOUR FILTERS</div>';
-  const vi = vis.reduce((s, c) => s + c.issues.length, 0);
+  const vi = vis.reduce((acc, c) => acc + physicalCount(c) - claimedInSeries(c.id), 0);
   const vv = vis.reduce((s, c) => s + estVal(c), 0);
   document.getElementById('rl').textContent = `Showing ${vis.length} of ${S.length} series · ${vi} issues`;
   document.getElementById('vt').textContent = vis.length ? `Est. visible value: ~$${Math.round(vv).toLocaleString()} (Fair/Good midpoints)` : '';
@@ -291,16 +341,18 @@ function renderTabs() {
 }
 
 function renderStats() {
-  const totalIssues = S.reduce((a, c) => a + c.issues.length, 0);
+  const totalBooks = S.reduce((a, c) => a + physicalCount(c), 0);
+  const remainingBooks = totalBooks - claimed.size;
   const totalKeys = S.reduce((a, c) => a + c.keys.length, 0);
   const totalVal = S.reduce((s, c) => s + estVal(c), 0);
+  const claimedSuffix = claimed.size ? ` <span style="color:var(--text-d)">(${claimed.size} claimed)</span>` : '';
   document.getElementById('hstats').innerHTML =
-    `<b>${S.length}</b> SERIES &nbsp;·&nbsp; <b>${totalIssues}</b> ISSUES<br>` +
+    `<b>${S.length}</b> SERIES &nbsp;·&nbsp; <b>${remainingBooks}</b> ISSUES${claimedSuffix}<br>` +
     `<b>${totalKeys}</b> KEY ISSUES &nbsp;·&nbsp; EST. TOTAL <b>~$${Math.round(totalVal).toLocaleString()}</b>`;
 }
 
-function toggleWant(seriesId, issue) {
-  const t = tok(seriesId, issue);
+function toggleWant(seriesId, issue, copy) {
+  const t = tok(seriesId, issue, copy);
   // A claimed item is locked — must un-claim before removing from wants.
   if (claimed.has(t)) return;
   if (wants.has(t)) wants.delete(t);
@@ -308,13 +360,14 @@ function toggleWant(seriesId, issue) {
   pushState();
   rerenderCard(seriesId);
   renderTabs();
+  renderStats();
   updateControls();
   if (bxF === 'want') render(); // refilter if series newly has/loses wants
-  refreshDrawerIfOpen(seriesId, issue);
+  refreshDrawerIfOpen(seriesId, issue, copy);
 }
 
-function toggleClaim(seriesId, issue) {
-  const t = tok(seriesId, issue);
+function toggleClaim(seriesId, issue, copy) {
+  const t = tok(seriesId, issue, copy);
   if (claimed.has(t)) {
     claimed.delete(t);
   } else {
@@ -322,17 +375,20 @@ function toggleClaim(seriesId, issue) {
     wants.add(t); // claiming implies wanting — keeps the two states coherent
   }
   pushState();
-  rerenderCard(seriesId);
+  render(); // claimed count affects header/row totals, so do a full re-render
   renderTabs();
+  renderStats();
   updateControls();
-  if (bxF === 'want') render();
-  refreshDrawerIfOpen(seriesId, issue);
+  refreshDrawerIfOpen(seriesId, issue, copy);
 }
 
-function refreshDrawerIfOpen(seriesId, issue) {
+function refreshDrawerIfOpen(seriesId, issue, copy) {
   const drawer = document.getElementById('drawer');
-  if (drawer.classList.contains('open') && drawer.dataset.series === seriesId && drawer.dataset.issue === issue) {
-    openDrawer(seriesId, issue);
+  if (drawer.classList.contains('open')
+      && drawer.dataset.series === seriesId
+      && drawer.dataset.issue === issue
+      && +drawer.dataset.copy === +copy) {
+    openDrawer(seriesId, issue, copy);
   }
 }
 
@@ -346,17 +402,19 @@ function rerenderCard(seriesId) {
   el.replaceWith(tmp.firstChild);
 }
 
-function openDrawer(seriesId, issue) {
+function openDrawer(seriesId, issue, copy = 0) {
+  copy = +copy || 0;
   const s = S.find(x => x.id === seriesId);
   if (!s) return;
   const data = getIssueData(seriesId, issue);
   const key = keyForIssue(s, issue);
-  const isDup = s.dupes.includes(issue) || s.dupes.includes(issue.replace(/^#/, ''));
+  const totalCopies = copyCountFor(s, issue);
 
   document.getElementById('dr-title').textContent = s.title;
   const issueLabel = /^\d+$/.test(issue) ? `#${issue}` : issue;
   const coverDate = data?.cover_date ? new Date(data.cover_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : null;
   const subParts = [`${s.year} series`, issueLabel];
+  if (totalCopies > 1) subParts.push(`copy ${copy + 1} of ${totalCopies}`);
   if (coverDate) subParts.push(coverDate);
   document.getElementById('dr-sub').textContent = subParts.join(' · ');
 
@@ -383,7 +441,7 @@ function openDrawer(seriesId, issue) {
       <span class="dr-val">${esc(s.priceRange)}</span>
       <span class="dr-val-lbl">/ issue · Fair/Good</span>
     </div>
-    ${isDup ? `<div class="dr-dup">Jack has a duplicate copy of this issue.</div>` : ''}
+    ${totalCopies > 1 ? `<div class="dr-dup">Jack has ${totalCopies} copies of this issue — you're viewing copy ${copy + 1}.</div>` : ''}
   </div>`);
 
   if (data?.name && data.name.trim()) {
@@ -402,7 +460,7 @@ function openDrawer(seriesId, issue) {
     parts.push(`<a class="dr-cv-link" href="https://comicvine.gamespot.com/issue/4000-${data.cv_id}/" target="_blank" rel="noopener">View on ComicVine ↗</a>`);
   }
 
-  const t = tok(seriesId, issue);
+  const t = tok(seriesId, issue, copy);
   const isWant = wants.has(t);
   const isClaimed = claimed.has(t);
   const wantDisabled = isClaimed ? ' disabled title="Already claimed — un-claim first"' : '';
@@ -417,6 +475,7 @@ function openDrawer(seriesId, issue) {
   const drawer = document.getElementById('drawer');
   drawer.dataset.series = seriesId;
   drawer.dataset.issue = issue;
+  drawer.dataset.copy = String(copy);
   drawer.classList.add('open');
   drawer.setAttribute('aria-hidden', 'false');
 }
@@ -458,7 +517,7 @@ function wireControls() {
     const pill = e.target.closest('.pill[data-series][data-issue]');
     if (pill) {
       e.stopPropagation();
-      openDrawer(pill.dataset.series, pill.dataset.issue);
+      openDrawer(pill.dataset.series, pill.dataset.issue, +pill.dataset.copy || 0);
     }
   });
 
@@ -474,9 +533,10 @@ function wireControls() {
     const drawer = e.currentTarget;
     const seriesId = drawer.dataset.series;
     const issue = drawer.dataset.issue;
+    const copy = +drawer.dataset.copy || 0;
     if (!seriesId) return;
-    if (e.target.closest('[data-drawer-want]')) toggleWant(seriesId, issue);
-    else if (e.target.closest('[data-drawer-claim]')) toggleClaim(seriesId, issue);
+    if (e.target.closest('[data-drawer-want]')) toggleWant(seriesId, issue, copy);
+    else if (e.target.closest('[data-drawer-claim]')) toggleClaim(seriesId, issue, copy);
   });
 
   document.getElementById('compactbtn').addEventListener('click', function () {
@@ -511,10 +571,9 @@ function wireControls() {
 function buildWantListBody(budget) {
   const groups = new Map();
   for (const t of wants) {
-    const [sid, ...rest] = t.split(':');
-    const iss = rest.join(':');
-    if (!groups.has(sid)) groups.set(sid, []);
-    groups.get(sid).push(iss);
+    const p = parseTok(t);
+    if (!groups.has(p.seriesId)) groups.set(p.seriesId, []);
+    groups.get(p.seriesId).push(p.issue);
   }
   const lines = ['Hi Mom — here\'s the list of comics I\'d like:', ''];
   if (budget && budget.trim()) {
@@ -605,10 +664,9 @@ async function copyWantList() {
   // Group by series, preserve original issue order
   const groups = new Map();
   for (const t of wants) {
-    const [sid, ...rest] = t.split(':');
-    const iss = rest.join(':');
-    if (!groups.has(sid)) groups.set(sid, []);
-    groups.get(sid).push(iss);
+    const p = parseTok(t);
+    if (!groups.has(p.seriesId)) groups.set(p.seriesId, []);
+    groups.get(p.seriesId).push(p.issue);
   }
   const lines = [];
   for (const s of S) {
