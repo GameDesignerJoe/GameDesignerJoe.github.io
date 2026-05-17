@@ -1921,6 +1921,20 @@
     margin-top: 2px;
     opacity: 0.75;
   }
+  .tm-source-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .tm-source-toggle input {
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
 
   .tm-idle {
     display: flex;

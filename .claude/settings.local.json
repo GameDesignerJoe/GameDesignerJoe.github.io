@@ -147,7 +147,11 @@
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io show ed9b040 --stat)",
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io show ed9b040 -- jackscomics/js/app.js jackscomics/index.html)",
       "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log --oneline origin/main..HEAD)",
-      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log -1 origin/main --oneline)"
+      "Bash(git -C c:/Users/GameD/GameDesignerJoe.github.io log -1 origin/main --oneline)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(findstr LISTENING)",
+      "Bash(start http://localhost:8000/flickpick/)"
     ]
   }
 }

@@ -784,6 +784,22 @@ const TM_QUEUE_TARGET = 12;
 const TM_REFILL_THRESHOLD = 3;
 const TM_WATCHDOG_MS = 6000;
 const TM_MAX_CONSECUTIVE_ERRORS = 5;
+const TM_WATCHLIST_ONLY_KEY = 'flickpick_tm_watchlist_only';
+
+function isTrailerWatchlistOnly() {
+  const el = document.getElementById('tm-watchlist-only');
+  if (el) return el.checked;
+  try { return localStorage.getItem(TM_WATCHLIST_ONLY_KEY) === '1'; } catch (e) { return false; }
+}
+
+function initTrailerSourceToggle() {
+  const el = document.getElementById('tm-watchlist-only');
+  if (!el) return;
+  try { el.checked = localStorage.getItem(TM_WATCHLIST_ONLY_KEY) === '1'; } catch (e) {}
+  el.addEventListener('change', () => {
+    try { localStorage.setItem(TM_WATCHLIST_ONLY_KEY, el.checked ? '1' : '0'); } catch (e) {}
+  });
+}
 
 function loadYouTubeAPI() {
   if (trailerMode.apiLoadPromise) return trailerMode.apiLoadPromise;
@@ -806,11 +822,14 @@ function loadYouTubeAPI() {
 // Skips items that are already seen / noped / queued / played, and items we
 // already know have no trailer (hasTrailer === false from prior fetches).
 function buildTrailerQueue(targetSize = TM_QUEUE_TARGET) {
-  const sources = [
-    Object.values(state.want),
-    (recsCarousels.loved && recsCarousels.loved.state.pool) || [],
-    (recsCarousels['wl-recs'] && recsCarousels['wl-recs'].state.pool) || []
-  ];
+  const watchlistOnly = isTrailerWatchlistOnly();
+  const sources = watchlistOnly
+    ? [Object.values(state.want)]
+    : [
+        Object.values(state.want),
+        (recsCarousels.loved && recsCarousels.loved.state.pool) || [],
+        (recsCarousels['wl-recs'] && recsCarousels['wl-recs'].state.pool) || []
+      ];
   const inUse = new Set();
   for (const it of trailerMode.queue) inUse.add(it.id);
   for (const it of trailerMode.history) if (it) inUse.add(it.id);
@@ -899,7 +918,11 @@ async function startTrailerMode() {
 
   const candidates = buildTrailerQueue();
   if (candidates.length === 0) {
-    if (idleMsg) idleMsg.textContent = 'Add shows to your Watchlist or rate some loved to use trailer mode.';
+    if (idleMsg) {
+      idleMsg.textContent = isTrailerWatchlistOnly()
+        ? 'Your Watchlist is empty. Add shows or turn off Watchlist only.'
+        : 'Add shows to your Watchlist or rate some loved to use trailer mode.';
+    }
     return;
   }
 
@@ -2257,6 +2280,7 @@ initDiscoverCarousels();
 initSyncCodeInput();
 initVersionFooter();
 initLoadingPhraseCycler();
+initTrailerSourceToggle();
 updateTrailerModeVisibility();
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
