@@ -139,7 +139,7 @@
     "id": "captain-marvel",
     "title": "Captain Marvel",
     "year": 1968,
-    "box": 2,
+    "box": 1,
     "abbr": "CM",
     "issues": [
       "2",
@@ -173,7 +173,7 @@
     "id": "captain-savage",
     "title": "Captain Savage & Leatherneck Raiders",
     "year": 1968,
-    "box": 2,
+    "box": 1,
     "abbr": "CS",
     "issues": [
       "1",
@@ -213,7 +213,7 @@
     "id": "nick-fury",
     "title": "Nick Fury, Agent of SHIELD",
     "year": 1968,
-    "box": 2,
+    "box": 1,
     "abbr": "NF",
     "issues": [
       "3",
@@ -242,7 +242,7 @@
   {
     "id": "outlaws-west",
     "title": "Outlaws of the West",
-    "year": 1961,
+    "year": 1966,
     "box": 2,
     "abbr": "OW",
     "issues": [
@@ -340,7 +340,7 @@
     "id": "marvel-collectors-item",
     "title": "Marvel Collectors' Item Classics",
     "year": 1965,
-    "box": 3,
+    "box": 2,
     "abbr": "MCI",
     "issues": [
       "4",
@@ -367,8 +367,8 @@
   {
     "id": "marvel-comics-group-bp",
     "title": "Marvel Comics Group — Black Panther",
-    "year": 1972,
-    "box": 3,
+    "year": 1976,
+    "box": 2,
     "abbr": "MBP",
     "issues": [
       "24"
@@ -383,8 +383,8 @@
   {
     "id": "marvel-comics-group-ff",
     "title": "Marvel Comics Group — Fantastic Four",
-    "year": 1979,
-    "box": 3,
+    "year": 1980,
+    "box": 2,
     "abbr": "MFF",
     "issues": [
       "215"
@@ -400,7 +400,7 @@
     "id": "marvels-greatest-comics",
     "title": "Marvel's Greatest Comics",
     "year": 1969,
-    "box": 3,
+    "box": 2,
     "abbr": "MGC",
     "issues": [
       "23",
@@ -420,7 +420,7 @@
     "id": "marvel-tales",
     "title": "Marvel Tales",
     "year": 1964,
-    "box": 3,
+    "box": 2,
     "abbr": "MT",
     "issues": [
       "2",
@@ -454,7 +454,7 @@
     "id": "strange-tales",
     "title": "Strange Tales",
     "year": 1951,
-    "box": 3,
+    "box": 2,
     "abbr": "ST",
     "issues": [
       "131",
@@ -503,7 +503,7 @@
     "id": "thor",
     "title": "Thor",
     "year": 1966,
-    "box": 4,
+    "box": 3,
     "abbr": "THOR",
     "issues": [
       "Annual 2",
@@ -602,7 +602,7 @@
     "id": "journey-into-mystery",
     "title": "Journey Into Mystery",
     "year": 1952,
-    "box": 4,
+    "box": 3,
     "abbr": "JIM",
     "issues": [
       "92",
@@ -638,7 +638,7 @@
     "id": "tales-of-asgard",
     "title": "Tales of Asgard",
     "year": 1968,
-    "box": 4,
+    "box": 3,
     "abbr": "TOA",
     "issues": [
       "1"
@@ -660,7 +660,7 @@
     "id": "sgt-fury",
     "title": "Sgt. Fury and his Howling Commandos",
     "year": 1963,
-    "box": 5,
+    "box": 4,
     "abbr": "SGT",
     "issues": [
       "9",
@@ -742,8 +742,8 @@
   {
     "id": "sgt-fury-specials",
     "title": "Sgt. Fury Specials",
-    "year": 1974,
-    "box": 5,
+    "year": 1968,
+    "box": 4,
     "abbr": "SFS",
     "issues": [
       "Special 4",
@@ -763,7 +763,7 @@
     "id": "special-marvel-edition",
     "title": "Special Marvel Edition",
     "year": 1971,
-    "box": 4,
+    "box": 3,
     "abbr": "SME",
     "issues": [
       "1"

@@ -1,9 +1,8 @@
 const BM = {
-  1: { label: 'Box 1',       bg: '#2a1e06', accent: '#b8860b', text: '#f0d070' },
-  2: { label: 'Box 2',       bg: '#081626', accent: '#1a5f90', text: '#80c0f0' },
-  3: { label: 'Box 3',       bg: '#061a10', accent: '#1a7a45', text: '#70d090' },
-  4: { label: 'Box 4 · Thor', bg: '#160830', accent: '#7040b0', text: '#c090f0' },
-  5: { label: 'Box 5',       bg: '#200805', accent: '#a02010', text: '#f08070' },
+  1: { label: 'Box 1',           bg: '#2a1e06', accent: '#b8860b', text: '#f0d070' },
+  2: { label: 'Box 2',           bg: '#081626', accent: '#1a5f90', text: '#80c0f0' },
+  3: { label: 'Box 3 · Thor',     bg: '#061a10', accent: '#1a7a45', text: '#70d090' },
+  4: { label: 'Box 4 · Sgt. Fury', bg: '#160830', accent: '#7040b0', text: '#c090f0' },
 };
 
 let S = [];
@@ -327,7 +326,7 @@ function render() {
 }
 
 function renderTabs() {
-  const tabs = ['all', '1', '2', '3', '4', '5', 'want'];
+  const tabs = ['all', '1', '2', '3', '4', 'want'];
   document.getElementById('btabs').innerHTML = tabs.map(b => {
     let lbl;
     if (b === 'all') lbl = 'ALL';

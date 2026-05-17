@@ -151,7 +151,9 @@
       "Bash(netstat -ano)",
       "Bash(findstr :8000)",
       "Bash(findstr LISTENING)",
-      "Bash(start http://localhost:8000/flickpick/)"
+      "Bash(start http://localhost:8000/flickpick/)",
+      "PowerShell(Get-Content jackscomics\\\\series.json -Raw | ConvertFrom-Json | Group-Object -Property box | Sort-Object Name | ForEach-Object { \"$\\($_.Name\\): $\\($_.Count\\) series\" })",
+      "PowerShell($data = Get-Content jackscomics\\\\series.json -Raw | ConvertFrom-Json; $data | Group-Object -Property box | Sort-Object Name | ForEach-Object { \"Box $\\($_.Name\\): $\\($_.Count\\) series\" })"
     ]
   }
 }
