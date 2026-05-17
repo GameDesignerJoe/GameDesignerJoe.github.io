@@ -107,15 +107,17 @@ const CHOOSER_NEW_TARGET = 8;     // keep filling NEW FINDS until it has this ma
 const CHOOSER_MAX_FETCHES = 4;    // cap on lazy-load Claude calls per search
 // Order matters — buckets render top-to-bottom in this order. NEW first so the
 // user sees fresh discovery before their pre-saved watchlist.
-const CHOOSER_BUCKETS = ['new', 'want'];
+const CHOOSER_BUCKETS = ['new', 'want', 'seen', 'nope'];
 const CHOOSER_BUCKET_LABELS = {
   new: 'New Finds',
   want: 'From Your Watchlist',
+  seen: 'Already Seen',
+  nope: 'Not For You',
 };
 let chooserState = {
   query: '',
   pool: [],
-  pages: { new: 0, want: 0 },
+  pages: { new: 0, want: 0, seen: 0, nope: 0 },
   fetching: false,
   exhausted: false,
   fetchCount: 0,
@@ -3137,7 +3139,7 @@ async function doSearch() {
       tmdbHits.forEach(registerItem);
       chooserState.query = query;
       chooserState.pool = tmdbHits;
-      chooserState.pages = { new: 0, want: 0 };
+      chooserState.pages = { new: 0, want: 0, seen: 0, nope: 0 };
       chooserState.fetching = false;
       chooserState.exhausted = false;
       chooserState.fetchCount = 0;
@@ -3224,7 +3226,7 @@ Use real, well-known titles. The "id" must be lowercase with hyphens only. The "
       candidates.forEach(registerItem);
       chooserState.query = query;
       chooserState.pool = candidates;
-      chooserState.pages = { new: 0, want: 0 };
+      chooserState.pages = { new: 0, want: 0, seen: 0, nope: 0 };
       chooserState.fetching = false;
       chooserState.exhausted = false;
       chooserState.fetchCount = 0;
@@ -3306,33 +3308,34 @@ function bucketizeChooserPool(pool) {
   if (chooserState.bucketSnapshot) {
     const idToItem = {};
     for (const item of pool) idToItem[item.id] = item;
-    const buckets = { new: [], want: [] };
+    const buckets = { new: [], want: [], seen: [], nope: [] };
     for (const bucketName of CHOOSER_BUCKETS) {
       const ids = chooserState.bucketSnapshot[bucketName] || [];
       for (const id of ids) {
         const item = idToItem[id];
         if (!item) continue;
         const list = findItemInState(item);
-        // Always-current routing: classified items dropped, watchlist items
-        // route to want bucket, everything else to new — regardless of which
-        // bucket they were in when the snapshot was taken. The snapshot only
-        // dictates ORDERING / PRESENCE in the pool, not classification.
-        if (list === 'seen' || list === 'nope') continue;
-        if (list === 'want') buckets.want.push(item);
+        // Always-current routing: items follow their current classification
+        // regardless of which bucket they were in when the snapshot was taken.
+        // The snapshot only dictates ORDERING / PRESENCE in the pool.
+        if (list === 'seen') buckets.seen.push(item);
+        else if (list === 'nope') buckets.nope.push(item);
+        else if (list === 'want') buckets.want.push(item);
         else buckets.new.push(item);
       }
     }
     return buckets;
   }
 
-  const buckets = { new: [], want: [] };
+  const buckets = { new: [], want: [], seen: [], nope: [] };
   for (const item of pool) {
     const list = findItemInState(item);
-    // NEW FINDS is strictly unclassified items only. Seen/Noped items get
-    // dropped from search results entirely (they're already on the user's
-    // lists; they can find them on the Seen page).
-    if (list === 'seen' || list === 'nope') continue;
-    if (list === 'want') buckets.want.push(item);
+    // NEW FINDS is strictly unclassified items. Items already on a user list
+    // surface in their own buckets so you can see "yes, the app knows about
+    // this title" instead of getting silently swallowed.
+    if (list === 'seen') buckets.seen.push(item);
+    else if (list === 'nope') buckets.nope.push(item);
+    else if (list === 'want') buckets.want.push(item);
     else if (passesFilters(item)) buckets.new.push(item);
   }
   return buckets;
@@ -3617,7 +3620,7 @@ Return up to ${CHOOSER_LOAD_MORE_COUNT} ADDITIONAL candidates that match the sea
 function resetChooserState() {
   chooserState.query = '';
   chooserState.pool = [];
-  chooserState.pages = { new: 0, want: 0 };
+  chooserState.pages = { new: 0, want: 0, seen: 0, nope: 0 };
   chooserState.fetching = false;
   chooserState.exhausted = false;
   chooserState.fetchCount = 0;
@@ -3641,6 +3644,8 @@ function snapshotChooserState() {
     bucketSnapshot: {
       new: buckets.new.map(i => i.id),
       want: buckets.want.map(i => i.id),
+      seen: buckets.seen.map(i => i.id),
+      nope: buckets.nope.map(i => i.id),
     },
   };
 }
