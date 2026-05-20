@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Art Style Compass</title>
+<style>
+:root{
+  --bg:#0d0d10;--surface:#17171c;--surface2:#1e1e25;--surface3:#25252e;
+  --border:#2a2a35;--border2:#3a3a48;
+  --text:#e6e6f0;--text2:#8888a8;--text3:#50505e;
+  --accent:#7170f8;--accent-dim:#28285a;--success:#50c87a;
+  --indie:#2a4a2a;--indie-b:#3a7a3a;--indie-t:#7acc7a;
+  --mid:#3a3a20;--mid-b:#7a7020;--mid-t:#c0b050;
+  --aaa:#3a2020;--aaa-b:#7a3030;--aaa-t:#c07070;
+  --radius:8px;--radius-lg:12px;--sidebar:224px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5;}
+.app{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh;}
+.sidebar{border-right:1px solid var(--border);padding:1.5rem 1rem;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.main{display:flex;flex-direction:column;padding:2rem 2.5rem 7rem;max-width:740px;}
+.sb-title{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;margin-bottom:1.25rem;}
+.bible-empty{font-size:12px;color:var(--text3);font-style:italic;line-height:1.7;}
+.bible-item{margin-bottom:.9rem;padding-bottom:.9rem;border-bottom:1px solid var(--border);}
+.bible-item:last-child{border-bottom:none;}
+.bible-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:2px;}
+.bible-val{font-size:12px;color:var(--text);font-weight:600;}
+.dna-badge{display:inline-block;font-size:10px;font-weight:700;background:var(--accent-dim);color:var(--accent);border-radius:20px;padding:1px 8px;margin-top:4px;}
+.prog-wrap{display:flex;gap:3px;margin-bottom:2.5rem;}
+.prog-seg{flex:1;height:2px;border-radius:2px;background:var(--border2);transition:background .25s;}
+.prog-seg.done{background:var(--accent);}.prog-seg.cur{background:var(--text2);}
+.step{display:none;}.step.on{display:block;}
+.step-num{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.step-hd{margin-bottom:1.75rem;}
+.step-hd h2{font-size:22px;font-weight:700;margin-bottom:6px;}
+.step-hd p{font-size:13px;color:var(--text2);line-height:1.65;}
+.step-hd strong{color:var(--text);font-weight:600;}
+.fld{margin-bottom:1.4rem;}
+.fld-lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+input[type=text],textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;padding:10px 12px;font-family:inherit;outline:none;transition:border-color .15s;}
+input[type=text]:focus,textarea:focus{border-color:var(--accent);}
+textarea{min-height:68px;resize:vertical;line-height:1.5;}
+input::placeholder,textarea::placeholder{color:var(--text3);}
+.hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5;}
+hr.div{border:none;border-top:1px solid var(--border);margin:1.25rem 0;}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:7px;}
+.cgrid.wide{grid-template-columns:repeat(auto-fill,minmax(172px,1fr));}
+.cgrid.sm{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));}
+.copt{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s;width:100%;color:var(--text);}
+.copt:hover{border-color:var(--border2);background:var(--surface2);}
+.copt.sel{border-color:var(--accent);background:var(--accent-dim);}
+.copt-icon{font-size:18px;margin-bottom:6px;display:block;}
+.copt-title{font-size:12px;font-weight:700;display:block;margin-bottom:2px;}
+.copt-desc{font-size:11px;color:var(--text2);line-height:1.4;}
+.spectrum-wrap{margin-bottom:1.5rem;}
+.spectrum-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:1.5rem;}
+.spectrum-track{position:relative;margin:0 2.5rem 2rem;}
+.spectrum-line{position:absolute;top:11px;left:0;right:0;height:1px;background:var(--border2);}
+.spectrum-fill{position:absolute;top:11px;left:0;height:1px;background:var(--accent);transition:width .3s;width:0;}
+.spectrum-points{display:flex;justify-content:space-between;position:relative;z-index:1;}
+.sp-point{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;flex:1;}
+.sp-dot{width:24px;height:24px;border-radius:50%;background:var(--surface2);border:2px solid var(--border2);transition:all .2s;flex-shrink:0;}
+.sp-point:hover .sp-dot{border-color:var(--accent);}
+.sp-point.sel .sp-dot{background:var(--accent);border-color:var(--accent);}
+.sp-lbl{font-size:11px;color:var(--text2);text-align:center;line-height:1.4;max-width:90px;transition:color .2s;}
+.sp-point.sel .sp-lbl{color:var(--accent);font-weight:700;}
+.dna-detail{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:1.25rem;display:none;margin-top:.5rem;}
+.dna-detail.vis{display:block;}
+.dna-detail-name{font-size:15px;font-weight:700;margin-bottom:6px;}
+.dna-detail-desc{font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6;}
+.dna-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.dna-tag{font-size:10px;background:var(--accent-dim);border:1px solid rgba(113,112,248,.4);border-radius:20px;padding:2px 8px;color:var(--accent);}
+.dna-cross{font-size:11px;color:var(--text3);line-height:1.5;}
+.refs-no-dna{font-size:13px;color:var(--text3);font-style:italic;padding:1rem 0;}
+.scope-group{margin-bottom:1.25rem;}
+.scope-group-hd{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.scope-group-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);}
+.scope-pill{font-size:9px;font-weight:700;border-radius:20px;padding:1px 7px;letter-spacing:.04em;}
+.scope-pill.indie{background:var(--indie);border:1px solid var(--indie-b);color:var(--indie-t);}
+.scope-pill.mid{background:var(--mid);border:1px solid var(--mid-b);color:var(--mid-t);}
+.scope-pill.aaa{background:var(--aaa);border:1px solid var(--aaa-b);color:var(--aaa-t);}
+.chips-row{display:flex;flex-wrap:wrap;gap:5px;}
+.gchip{display:inline-flex;align-items:center;padding:4px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface);font-size:12px;color:var(--text2);cursor:pointer;user-select:none;transition:all .15s;white-space:nowrap;}
+.gchip:hover{border-color:var(--border2);color:var(--text);}
+.gchip.sel{border-color:var(--accent);background:var(--accent-dim);color:var(--accent);}
+.gchip.scope-match{border-color:var(--border2);}
+.gchip .srch{border-left:1px solid var(--border);padding-left:6px;margin-left:6px;color:var(--text3);font-size:11px;text-decoration:none;}
+.gchip.sel .srch{border-left-color:rgba(113,112,248,.4);color:rgba(113,112,248,.6);}
+.gchip .srch:hover{color:var(--text);}
+.ref-summary{font-size:12px;color:var(--text2);padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);margin-top:8px;display:none;}
+.ref-summary.vis{display:block;}
+.scope-note{font-size:11px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin-bottom:1rem;line-height:1.5;display:none;}
+.scope-note.vis{display:block;}
+.coherence-note{background:rgba(113,112,248,.1);border:1px solid rgba(113,112,248,.3);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--text);margin-bottom:1.25rem;display:none;line-height:1.55;}
+.coherence-note.vis{display:block;}
+.cam-note{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;color:var(--text2);margin-bottom:1.25rem;line-height:1.55;display:none;}
+.cam-note.vis{display:block;}
+.hidden-block{display:none;}
+.env-block{margin-bottom:1.25rem;}
+.env-label-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.env-num{width:20px;height:20px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:50%;font-size:10px;font-weight:700;color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.env-block-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);}
+.env-block-sub{font-size:11px;color:var(--text3);}
+.nav-bar{position:fixed;bottom:0;left:var(--sidebar);right:0;background:var(--bg);border-top:1px solid var(--border);padding:.9rem 2.5rem;display:flex;align-items:center;justify-content:space-between;}
+.nav-lbl{font-size:12px;color:var(--text3);}
+button{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:inherit;padding:8px 18px;cursor:pointer;transition:all .15s;}
+button:hover{border-color:var(--border2);background:var(--surface3);}
+button:active{transform:scale(.98);}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;}
+button.primary:hover{background:#8180f9;border-color:#8180f9;}
+button.sm{font-size:12px;padding:5px 12px;}
+.output-page{display:none;min-height:100vh;padding:2rem 2.5rem 4rem;max-width:960px;margin:0 auto;}
+.output-page.on{display:block;}
+.output-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:2rem;}
+.output-hd-text h1{font-size:24px;font-weight:700;margin-bottom:4px;}
+.output-hd-text p{font-size:13px;color:var(--text2);}
+.bible-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem 1.5rem;margin-bottom:2rem;}
+.bible-card h3{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:1rem;}
+.bible-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem;}
+.r-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:2px;}
+.r-value{font-size:13px;font-weight:700;color:var(--text);}
+.r-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.prompts-grid{display:flex;flex-direction:column;gap:12px;}
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;}
+.pcard-hd{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.shot-num{width:26px;height:26px;background:var(--surface2);border-radius:50%;font-size:11px;font-weight:700;color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.shot-name{font-size:14px;font-weight:700;}
+.shot-desc{font-size:11px;color:var(--text2);}
+.badges{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap;}
+.shot-badge{font-size:10px;background:var(--accent-dim);border:1px solid rgba(113,112,248,.4);color:var(--accent);border-radius:20px;padding:1px 8px;white-space:nowrap;}
+.ratio-badge{font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:20px;padding:1px 8px;white-space:nowrap;}
+.ptxt{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);font-size:11px;font-family:'SFMono-Regular',Consolas,monospace;padding:10px;line-height:1.65;resize:vertical;min-height:84px;margin-bottom:8px;outline:none;}
+.pact{display:flex;align-items:center;gap:8px;}
+.ref-a{font-size:12px;color:var(--text3);text-decoration:none;}
+.ref-a:hover{color:var(--text2);}
+.cfb{font-size:11px;color:var(--success);opacity:0;transition:opacity .3s;}
+.cfb.show{opacity:1;}
+.tips-card{margin-top:1.5rem;padding:1rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);}
+.tips-card h4{font-size:12px;font-weight:700;margin-bottom:6px;}
+.tips-card p,code{font-size:12px;color:var(--text2);line-height:1.65;}
+code{background:var(--surface2);padding:1px 5px;border-radius:4px;font-family:monospace;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+@media(max-width:680px){.app{grid-template-columns:1fr;}.sidebar{display:none;}.nav-bar{left:0;padding:.9rem 1.25rem;}.main{padding:1.5rem 1.25rem 7rem;}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="sidebar">
+    <div class="sb-title">Art Direction Bible</div>
+    <div id="bibleContent"><div class="bible-empty">Your visual rules appear here as you make choices.</div></div>
+  </div>
+  <div class="main">
+    <div class="prog-wrap" id="progBar"></div>
+
+    <!-- STEP 1 -->
+    <div class="step on" id="s1">
+      <div class="step-num">Step 1 of 10 — Project Identity</div>
+      <div class="step-hd"><h2>What are you making?</h2><p>These foundational choices shape every prompt. Camera type is especially important — it determines how your character is shown and changes the art prompts significantly.</p></div>
+      <div class="fld"><label class="fld-lbl" for="gTitle">Game title or working title</label><input type="text" id="gTitle" placeholder="e.g. Endeavor, Project Nova, Hollow Sun&#x2026;"></div>
+      <div class="fld"><label class="fld-lbl">Genre</label>
+        <div class="cgrid" data-field="genre" data-type="single">
+          <button class="copt" data-v="action extraction shooter"><span class="copt-icon">&#127919;</span><span class="copt-title">Action / Extraction</span><span class="copt-desc">Combat-forward, mission loop</span></button>
+          <button class="copt" data-v="action RPG"><span class="copt-icon">&#9876;&#65039;</span><span class="copt-title">Action RPG</span><span class="copt-desc">Combat + progression</span></button>
+          <button class="copt" data-v="horror survival"><span class="copt-icon">&#128065;&#65039;</span><span class="copt-title">Horror / Survival</span><span class="copt-desc">Dread, resource scarcity</span></button>
+          <button class="copt" data-v="strategy and tactics"><span class="copt-icon">&#9822;&#65039;</span><span class="copt-title">Strategy / Tactics</span><span class="copt-desc">Planning, positioning</span></button>
+          <button class="copt" data-v="narrative adventure"><span class="copt-icon">&#128218;</span><span class="copt-title">Narrative</span><span class="copt-desc">Story and character driven</span></button>
+          <button class="copt" data-v="roguelike run-based"><span class="copt-icon">&#128260;</span><span class="copt-title">Roguelike</span><span class="copt-desc">Runs, builds, permadeath</span></button>
+          <button class="copt" data-v="platformer with exploration"><span class="copt-icon">&#127939;</span><span class="copt-title">Platformer</span><span class="copt-desc">Movement, traversal</span></button>
+          <button class="copt" data-v="open world exploration"><span class="copt-icon">&#128506;&#65039;</span><span class="copt-title">Open World</span><span class="copt-desc">Exploration first</span></button>
+        </div>
+      </div>
+      <div class="fld"><label class="fld-lbl">Primary platform</label>
+        <div class="cgrid sm" data-field="platform" data-type="single">
+          <button class="copt" data-v="PC and console"><span class="copt-icon">&#128421;&#65039;</span><span class="copt-title">PC / Console</span></button>
+          <button class="copt" data-v="Nintendo Switch"><span class="copt-icon">&#128377;&#65039;</span><span class="copt-title">Switch</span></button>
+          <button class="copt" data-v="mobile"><span class="copt-icon">&#128241;</span><span class="copt-title">Mobile</span></button>
+          <button class="copt" data-v="VR"><span class="copt-icon">&#129509;</span><span class="copt-title">VR</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Camera type</label>
+        <div class="cgrid wide" data-field="cameraType" data-type="single">
+          <button class="copt" data-v="first-person perspective, camera is the player's eyes, no player character visible from outside" onclick="updateCharIfNeeded()"><span class="copt-icon">&#128065;&#65039;</span><span class="copt-title">First Person</span><span class="copt-desc">FPS / adventure. Hands and arms only — no full character shown</span></button>
+          <button class="copt" data-v="third-person over-the-shoulder camera, character visible from behind and sides" onclick="updateCharIfNeeded()"><span class="copt-icon">&#127918;</span><span class="copt-title">Third Person</span><span class="copt-desc">TPS / over-shoulder. Character fully visible</span></button>
+          <button class="copt" data-v="isometric angled top-down camera, classic isometric projection" onclick="updateCharIfNeeded()"><span class="copt-icon">&#9672;</span><span class="copt-title">Isometric</span><span class="copt-desc">Angled overhead, classic RPG view</span></button>
+          <button class="copt" data-v="top-down directly overhead camera view" onclick="updateCharIfNeeded()"><span class="copt-icon">&#11041;</span><span class="copt-title">Top-Down</span><span class="copt-desc">Bird's-eye, directly above</span></button>
+          <button class="copt" data-v="side-scrolling 2D perspective camera" onclick="updateCharIfNeeded()"><span class="copt-icon">&#9654;</span><span class="copt-title">Side-Scrolling</span><span class="copt-desc">2D side view, platformer style</span></button>
+          <button class="copt" data-v="fixed cinematic camera angles set by the designer" onclick="updateCharIfNeeded()"><span class="copt-icon">&#127909;</span><span class="copt-title">Fixed / Cinematic</span><span class="copt-desc">Set angles, cinematic framing</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Dimension</label>
+        <div class="cgrid" data-field="dimension" data-type="single">
+          <button class="copt" data-v="pure 2D game art, sprites and drawn assets, flat layered composition"><span class="copt-icon">&#9645;</span><span class="copt-title">Pure 2D</span><span class="copt-desc">Sprites, drawn, layered</span></button>
+          <button class="copt" data-v="2.5D game, 3D environment with constrained perspective, depth through layers"><span class="copt-icon">&#9747;</span><span class="copt-title">2.5D</span><span class="copt-desc">3D world, constrained camera</span></button>
+          <button class="copt" data-v="3D world with stylized 2D-influenced art direction, toon or flat shading on 3D models"><span class="copt-icon">&#9713;</span><span class="copt-title">3D + 2D Art Direction</span><span class="copt-desc">3D models, toon/flat rendering</span></button>
+          <button class="copt" data-v="fully 3D game with open camera, volumetric depth, three-dimensional space"><span class="copt-icon">&#11041;</span><span class="copt-title">Full 3D</span><span class="copt-desc">Open camera, full depth</span></button>
+        </div>
+        <p class="hint">Stylized Painterly in 2D = Cuphead. In Full 3D = Dishonored. Same DNA, completely different pipelines.</p>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Production scope</label>
+        <div class="cgrid sm" data-field="scope" data-type="single">
+          <button class="copt" data-v="artfully constrained indie production, small team, every asset earns its place, elegant simplicity over volume"><span class="copt-icon">&#127807;</span><span class="copt-title">Indie / Artful</span><span class="copt-desc">Small team, every element intentional</span></button>
+          <button class="copt" data-v="focused mid-tier production quality, professional polish within defined scope, dedicated art team"><span class="copt-icon">&#128295;</span><span class="copt-title">Mid-tier / Focused</span><span class="copt-desc">Dedicated team, polished scope</span></button>
+          <button class="copt" data-v="AAA full production quality, technically ambitious, hyper-detailed, large studio scope"><span class="copt-icon">&#127942;</span><span class="copt-title">AAA / Full</span><span class="copt-desc">Large studio, maximum density</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step" id="s2">
+      <div class="step-num">Step 2 of 10 &#8212; Core Tone</div>
+      <div class="step-hd"><h2>How should it feel?</h2><p>Tone is the most important constraint. A well-matched art style <strong>amplifies</strong> your game&#8217;s emotion &#8212; a mismatched one fights it.</p></div>
+      <div class="fld"><label class="fld-lbl">Primary emotional tone</label>
+        <div class="cgrid wide" data-field="tone" data-type="single">
+          <button class="copt" data-v="dark gritty brutal and oppressive, heavy with consequence and weight"><span class="copt-icon">&#127761;</span><span class="copt-title">Dark / Gritty</span><span class="copt-desc">Heavy, brutal, real stakes</span></button>
+          <button class="copt" data-v="hopeful and bright, uplifting, triumph over adversity"><span class="copt-icon">&#9728;&#65039;</span><span class="copt-title">Hopeful / Bright</span><span class="copt-desc">Optimistic, energizing</span></button>
+          <button class="copt" data-v="eerie mysterious unsettling, something wrong beneath the surface, liminal and strange"><span class="copt-icon">&#127762;</span><span class="copt-title">Eerie / Mysterious</span><span class="copt-desc">Strange, liminal, unknown</span></button>
+          <button class="copt" data-v="epic and grand, mythological scale, heroic stakes, monumental"><span class="copt-icon">&#9968;&#65039;</span><span class="copt-title">Epic / Grand</span><span class="copt-desc">Myth-scale, monumental</span></button>
+          <button class="copt" data-v="tense and urgent, constant pressure, reactive, high stakes moment-to-moment"><span class="copt-icon">&#9889;</span><span class="copt-title">Tense / Urgent</span><span class="copt-desc">Pressure, pulse-pounding</span></button>
+          <button class="copt" data-v="stylish confident dripping with attitude and swagger"><span class="copt-icon">&#10024;</span><span class="copt-title">Stylish / Cool</span><span class="copt-desc">Swagger, flair, attitude</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">The world feels...</label>
+        <div class="cgrid sm" data-field="worldFeel" data-type="single">
+          <button class="copt" data-v="threatening and hostile, danger everywhere, survival is the goal"><span class="copt-icon">&#9760;&#65039;</span><span class="copt-title">Hostile</span><span class="copt-desc">Dangerous, survivalist</span></button>
+          <button class="copt" data-v="morally complex, beauty and danger coexist, worth understanding"><span class="copt-icon">&#9878;&#65039;</span><span class="copt-title">Complex</span><span class="copt-desc">Layered, morally grey</span></button>
+          <button class="copt" data-v="wondrous and worth exploring, rewards curiosity, alive with possibility"><span class="copt-icon">&#128301;</span><span class="copt-title">Wondrous</span><span class="copt-desc">Inviting, full of life</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Pacing feel</label>
+        <div class="cgrid sm" data-field="pacing" data-type="single">
+          <button class="copt" data-v="fast kinetic always moving, action drives every moment"><span class="copt-icon">&#128168;</span><span class="copt-title">Fast / Kinetic</span></button>
+          <button class="copt" data-v="measured and deliberate, tactical thoughtful pacing"><span class="copt-icon">&#128737;&#65039;</span><span class="copt-title">Deliberate</span></button>
+          <button class="copt" data-v="slow atmospheric and contemplative, mood over momentum"><span class="copt-icon">&#127754;</span><span class="copt-title">Atmospheric</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: DNA Spectrum -->
+    <div class="step" id="s3">
+      <div class="step-num">Step 3 of 10 &#8212; Visual DNA (most important)</div>
+      <div class="step-hd"><h2>Pick one visual language</h2><p>This applies to <strong>everything</strong> &#8212; characters, enemies, environments, props. Mixing these across asset types is how games feel incoherent.</p></div>
+      <div class="spectrum-wrap">
+        <div class="spectrum-axis"><span>&#8592; More real</span><span>More abstract &#8594;</span></div>
+        <div class="spectrum-track">
+          <div class="spectrum-line"></div>
+          <div class="spectrum-fill" id="specFill"></div>
+          <div class="spectrum-points" id="specPoints"></div>
+        </div>
+        <div class="dna-detail" id="dnaDetail"></div>
+      </div>
+    </div>
+
+    <!-- STEP 4: Visual Rules -->
+    <div class="step" id="s4">
+      <div class="step-num">Step 4 of 10 &#8212; Visual Rules</div>
+      <div class="step-hd"><h2>Lock the specific rules</h2><p>These apply across <strong>all</strong> asset types. Think of them as constraints that can never be violated.</p></div>
+      <div class="coherence-note" id="coherenceNote"></div>
+      <div class="fld"><label class="fld-lbl">Shape language</label>
+        <div class="cgrid sm" data-field="shapeLanguage" data-type="single">
+          <button class="copt" data-v="angular sharp geometric shapes throughout, aggressive hard-edged mechanical feeling"><span class="copt-icon">&#9671;</span><span class="copt-title">Angular / Sharp</span><span class="copt-desc">Aggressive, industrial, sci-fi</span></button>
+          <button class="copt" data-v="intentional shape contrast, sharp threatening enemy shapes against rounded approachable hero shapes"><span class="copt-icon">&#9680;</span><span class="copt-title">Mixed / Contrast</span><span class="copt-desc">Sharp threats, soft allies</span></button>
+          <button class="copt" data-v="rounded organic soft shapes throughout, natural flowing approachable feeling"><span class="copt-icon">&#9675;</span><span class="copt-title">Rounded / Organic</span><span class="copt-desc">Natural, approachable</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Color philosophy</label>
+        <div class="cgrid" data-field="colorMood" data-type="single">
+          <button class="copt" data-v="rich vibrant saturated colors, bold punchy hues, eye-catching palette throughout"><span class="copt-icon">&#127912;</span><span class="copt-title">Bold / Vibrant</span><span class="copt-desc">Punchy, saturated</span></button>
+          <button class="copt" data-v="natural earthy tones throughout, warm organic palette, grounded believable colors"><span class="copt-icon">&#127810;</span><span class="copt-title">Natural / Earthy</span><span class="copt-desc">Browns, greens, believable</span></button>
+          <button class="copt" data-v="dark moody desaturated palette throughout, deep atmospheric shadows, grim weighted tones"><span class="copt-icon">&#127787;&#65039;</span><span class="copt-title">Dark / Moody</span><span class="copt-desc">Desaturated, heavy</span></button>
+          <button class="copt" data-v="neon electric accent colors over dark base, glowing highlights, high-contrast cyberpunk palette"><span class="copt-icon">&#9889;</span><span class="copt-title">Neon / Electric</span><span class="copt-desc">Glow, contrast, cyber</span></button>
+          <button class="copt" data-v="muted subtle desaturated palette, understated elegant tones, restrained and quiet color"><span class="copt-icon">&#129144;</span><span class="copt-title">Muted / Subtle</span><span class="copt-desc">Low saturation, elegant</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Dominant lighting mood</label>
+        <div class="cgrid" data-field="lighting" data-type="single">
+          <button class="copt" data-v="warm golden-hour lighting, long dramatic shadows, amber atmospheric glow"><span class="copt-icon">&#127749;</span><span class="copt-title">Golden / Warm</span><span class="copt-desc">Amber, sunset, long shadows</span></button>
+          <button class="copt" data-v="cool moonlit atmosphere, blue-grey tones, silver cold light"><span class="copt-icon">&#127769;</span><span class="copt-title">Cool / Night</span><span class="copt-desc">Blue, lunar, cold</span></button>
+          <button class="copt" data-v="dramatic chiaroscuro lighting, deep shadows against bright highlights, high contrast volume"><span class="copt-icon">&#128557;</span><span class="copt-title">Dramatic</span><span class="copt-desc">Deep shadows, contrast</span></button>
+          <button class="copt" data-v="soft diffused ambient lighting, even exposure, gentle shadows, overcast quality"><span class="copt-icon">&#127780;&#65039;</span><span class="copt-title">Soft / Ambient</span><span class="copt-desc">Even, diffused, gentle</span></button>
+          <button class="copt" data-v="harsh direct intense lighting, sharp cast shadows, unforgiving exposure"><span class="copt-icon">&#9728;&#65039;</span><span class="copt-title">Harsh / Intense</span><span class="copt-desc">Glaring, unforgiving</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Detail density</label>
+        <div class="cgrid sm" data-field="detailDensity" data-type="single">
+          <button class="copt" data-v="sparse and readable with deliberate negative space, clean focused compositions"><span class="copt-title">Sparse / Clean</span><span class="copt-desc">Breathable, deliberate</span></button>
+          <button class="copt" data-v="balanced detail level, rich enough to feel substantial without overwhelming"><span class="copt-title">Balanced</span><span class="copt-desc">Rich but readable</span></button>
+          <button class="copt" data-v="dense richly layered detail, rewards close inspection, complex visual environment"><span class="copt-title">Dense / Rich</span><span class="copt-desc">Layered, intricate</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: References -->
+    <div class="step" id="s5">
+      <div class="step-num">Step 5 of 10 &#8212; Visual References</div>
+      <div class="step-hd"><h2>Build your mood board</h2><p>Games within your chosen DNA only. Scope badges show production scale &#8212; separating tonal references from realistic targets.</p></div>
+      <div class="scope-note" id="scopeNote"></div>
+      <div id="gameRefArea"><div class="refs-no-dna">Choose a Visual DNA in Step 3 to see relevant references.</div></div>
+      <div class="ref-summary" id="refSummary"></div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">Other inspirations &#8212; films, art, animation, artists</label><input type="text" id="nonGame" placeholder="e.g. Blade Runner 2049, Moebius, Caravaggio, brutalist architecture&#x2026;"></div>
+      <div class="fld"><label class="fld-lbl">Styles you want to avoid</label><input type="text" id="antiRef" placeholder="e.g. Fortnite cartoon look, generic brown-and-gray realism&#x2026;"></div>
+    </div>
+
+    <!-- STEP 6: Environments x3 -->
+    <div class="step" id="s6">
+      <div class="step-num">Step 6 of 10 &#8212; Environments</div>
+      <div class="step-hd"><h2>Where does this happen?</h2><p>Three environments produce three separate 16:9 shots for your pitch deck. Each should be meaningfully different from the last to show your world&#8217;s range.</p></div>
+      <div class="fld"><label class="fld-lbl">Setting</label>
+        <div class="cgrid" data-field="setting" data-type="single">
+          <button class="copt" data-v="sci-fi futuristic universe"><span class="copt-icon">&#128640;</span><span class="copt-title">Sci-fi / Future</span></button>
+          <button class="copt" data-v="epic fantasy realm"><span class="copt-icon">&#129497;</span><span class="copt-title">Fantasy</span></button>
+          <button class="copt" data-v="post-apocalyptic collapsed civilization"><span class="copt-icon">&#127962;&#65039;</span><span class="copt-title">Post-Apocalyptic</span></button>
+          <button class="copt" data-v="contemporary modern world"><span class="copt-icon">&#127961;&#65039;</span><span class="copt-title">Contemporary</span></button>
+          <button class="copt" data-v="historical inspired period setting"><span class="copt-icon">&#127984;&#65039;</span><span class="copt-title">Historical</span></button>
+          <button class="copt" data-v="alien or cosmic world with unknown rules"><span class="copt-icon">&#128125;</span><span class="copt-title">Alien / Cosmic</span></button>
+        </div>
+      </div>
+      <div class="fld"><label class="fld-lbl" for="archStyle">Architecture style (applies to all environments)</label><input type="text" id="archStyle" placeholder="e.g. Brutalist megastructures consumed by alien growth, Gothic spires fused with machinery&#x2026;"></div>
+      <hr class="div">
+      <div class="env-block">
+        <div class="env-label-row"><div class="env-num">1</div><div><div class="env-block-title">Primary environment</div><div class="env-block-sub">Signature location &#8212; where players spend the most time</div></div></div>
+        <textarea id="envDesc1" placeholder="e.g. A crumbling orbital station overgrown with alien flora, lit by a dying red star. Military corridors fused with spreading organic architecture&#x2026;"></textarea>
+      </div>
+      <div class="env-block">
+        <div class="env-label-row"><div class="env-num">2</div><div><div class="env-block-title">Secondary environment</div><div class="env-block-sub">A distinctly different area players explore</div></div></div>
+        <textarea id="envDesc2" placeholder="e.g. An ancient alien archive deep underground, crystalline structures, bioluminescent glow, vast cathedral-like silence&#x2026;"></textarea>
+      </div>
+      <div class="env-block">
+        <div class="env-label-row"><div class="env-num">3</div><div><div class="env-block-title">Third environment <span style="font-weight:400;color:var(--text3)">(optional)</span></div><div class="env-block-sub">Maximum contrast &#8212; the space that feels most different</div></div></div>
+        <textarea id="envDesc3" placeholder="e.g. Open alien surface, vast sky, ruins of a crashed fleet on the horizon, first time seeing natural light&#x2026;"></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 7: Characters (camera-aware) -->
+    <div class="step" id="s7">
+      <div class="step-num">Step 7 of 10 &#8212; Player Characters</div>
+      <div class="step-hd"><h2>Who is the player?</h2><p>Player characters carry the visual identity of the whole game. Their silhouette becomes your logo.</p></div>
+      <div class="cam-note" id="fpNote"><strong>First-person camera selected.</strong> The full player character is never shown in-game. Instead of a character portrait, you&#8217;ll get a <strong>first-person hands/arms study</strong> &#8212; what the player sees of themselves. Key art will show first-person perspective looking into the world rather than a hero pose.</div>
+      <div id="charStandard">
+        <div class="fld"><label class="fld-lbl">Body proportions</label>
+          <div class="cgrid sm" data-field="bodyProp" data-type="single">
+            <button class="copt" data-v="realistic human anatomy and proportions"><span class="copt-icon">&#129485;</span><span class="copt-title">Realistic</span></button>
+            <button class="copt" data-v="slightly stylized heroic proportions pushed for readability"><span class="copt-icon">&#129464;</span><span class="copt-title">Heroic / Stylized</span></button>
+            <button class="copt" data-v="strongly exaggerated proportions, anime or cartoon-influenced"><span class="copt-icon">&#10024;</span><span class="copt-title">Exaggerated</span></button>
+          </div>
+        </div>
+        <div class="fld"><label class="fld-lbl">Costume and gear complexity</label>
+          <div class="cgrid sm" data-field="costumeComp" data-type="single">
+            <button class="copt" data-v="simple functional outfit, clean readable silhouette, minimal ornamentation"><span class="copt-icon">&#128085;</span><span class="copt-title">Simple / Functional</span></button>
+            <button class="copt" data-v="detailed layered equipment with moderate ornamentation, worn textures with history"><span class="copt-icon">&#129405;</span><span class="copt-title">Detailed / Layered</span></button>
+            <button class="copt" data-v="ornate elaborate costume with intricate patterns and rich decoration"><span class="copt-icon">&#128081;</span><span class="copt-title">Ornate / Elaborate</span></button>
+          </div>
+        </div>
+        <div class="fld"><label class="fld-lbl" for="charDesc">Describe your main character</label><textarea id="charDesc" placeholder="e.g. A battle-scarred mercenary in salvaged combat armor, mid-30s, intense face with a jaw scar, mismatched gear maintained for years&#x2026;"></textarea></div>
+      </div>
+      <div id="charFirstPerson" class="hidden-block">
+        <div class="fld"><label class="fld-lbl" for="handsDesc">Describe what the player sees of themselves</label><textarea id="handsDesc" placeholder="e.g. Gloved weathered hands gripping a modified plasma rifle, salvaged tactical sleeve visible at the wrist, worn leather and metal&#x2026;"></textarea><p class="hint">Hands, arms, held items. This feeds the hands study prompt and appears in foreground of action shots.</p></div>
+      </div>
+    </div>
+
+    <!-- STEP 8: Enemies (simplified) -->
+    <div class="step" id="s8">
+      <div class="step-num">Step 8 of 10 &#8212; Enemies</div>
+      <div class="step-hd"><h2>What does the player face?</h2><p>One enemy type is enough to establish design direction. Same DNA as everything else &#8212; contrast comes from <strong>design choices</strong>, not a different rendering style.</p></div>
+      <div class="fld"><label class="fld-lbl">Enemy type</label>
+        <div class="cgrid wide" data-field="enemyNature" data-type="single">
+          <button class="copt" data-v="no enemies, peaceful game with no combat opponents" onclick="toggleEnemyDetail(false)"><span class="copt-icon">&#128538;</span><span class="copt-title">No enemies</span><span class="copt-desc">Peaceful, no combat</span></button>
+          <button class="copt" data-v="humanoid soldier enemies, human or near-human opponents with tactical gear" onclick="toggleEnemyDetail(true)"><span class="copt-icon">&#128130;</span><span class="copt-title">Humanoid / Soldiers</span><span class="copt-desc">Organized, tactical</span></button>
+          <button class="copt" data-v="creature and beast enemies, organic biological threats with natural weapons" onclick="toggleEnemyDetail(true)"><span class="copt-icon">&#129422;</span><span class="copt-title">Creatures / Beasts</span><span class="copt-desc">Feral, organic</span></button>
+          <button class="copt" data-v="robotic and mechanical enemies, machine threats with synthetic construction" onclick="toggleEnemyDetail(true)"><span class="copt-icon">&#129302;</span><span class="copt-title">Robotic / Machines</span><span class="copt-desc">Metal, mechanical</span></button>
+          <button class="copt" data-v="corrupted hybrid enemies, once something else now twisted and fused in wrong ways" onclick="toggleEnemyDetail(true)"><span class="copt-icon">&#9763;&#65039;</span><span class="copt-title">Corrupted / Hybrid</span><span class="copt-desc">Twisted, fused, wrong</span></button>
+          <button class="copt" data-v="alien or cosmic entities, incomprehensible forms, otherworldly biology" onclick="toggleEnemyDetail(true)"><span class="copt-icon">&#128126;</span><span class="copt-title">Alien / Cosmic</span><span class="copt-desc">Unknown, strange</span></button>
+        </div>
+      </div>
+      <div id="enemyDetail" class="hidden-block">
+        <div class="fld"><label class="fld-lbl" for="enemyDesc">Describe one example enemy</label><textarea id="enemyDesc" placeholder="e.g. A corrupted soldier fused with alien biomatter &#8212; degraded military armor overrun with organic growth, amber glowing eyes, moves in hunched lurching patterns&#x2026;"></textarea><p class="hint">One concrete enemy establishes the design direction. No need to describe the full roster.</p></div>
+      </div>
+    </div>
+
+    <!-- STEP 9: Equipment & Props (simplified) -->
+    <div class="step" id="s9">
+      <div class="step-num">Step 9 of 10 &#8212; Equipment &amp; Props</div>
+      <div class="step-hd"><h2>What does the world contain?</h2><p>A single prop and the equipment aesthetic is enough to establish design language for all world objects.</p></div>
+      <div class="fld"><label class="fld-lbl">Equipment aesthetic</label>
+        <div class="cgrid wide" data-field="equipAesthetic" data-type="single">
+          <button class="copt" data-v="military tactical equipment, functional over form, matte finishes, standardized components"><span class="copt-icon">&#129686;</span><span class="copt-title">Military / Tactical</span><span class="copt-desc">Functional, matte, standardized</span></button>
+          <button class="copt" data-v="advanced sci-fi technology, smooth integrated surfaces, clean industrial design"><span class="copt-icon">&#128300;</span><span class="copt-title">Sci-fi / Advanced</span><span class="copt-desc">Sleek, integrated, future</span></button>
+          <button class="copt" data-v="fantasy mystical equipment, ornate decorative surfaces, magical materials, runes and carvings"><span class="copt-icon">&#128302;</span><span class="copt-title">Mystical / Ornate</span><span class="copt-desc">Decorated, runic, magical</span></button>
+          <button class="copt" data-v="improvised salvaged equipment, mixed found materials, jury-rigged modifications, visible repairs"><span class="copt-icon">&#9881;&#65039;</span><span class="copt-title">Improvised / Salvaged</span><span class="copt-desc">Jury-rigged, patched, raw</span></button>
+          <button class="copt" data-v="modern contemporary everyday objects and equipment, familiar real-world items and materials"><span class="copt-icon">&#127978;</span><span class="copt-title">Modern / Contemporary</span><span class="copt-desc">Real-world, recognizable</span></button>
+          <button class="copt" data-v="alien organic equipment, grown rather than manufactured, biological materials, unfamiliar forms"><span class="copt-icon">&#129517;</span><span class="copt-title">Alien / Organic</span><span class="copt-desc">Grown, biological, strange</span></button>
+          <button class="copt" data-v="no weapons or combat equipment, peaceful world with tools and everyday objects only"><span class="copt-icon">&#128538;</span><span class="copt-title">No weapons</span><span class="copt-desc">Tools and objects only</span></button>
+        </div>
+      </div>
+      <div class="fld"><label class="fld-lbl" for="singleProp">Describe one key prop in this world</label><input type="text" id="singleProp" placeholder="e.g. An alien data terminal grown from organic material, pulsing with amber light, interface made of living tissue&#x2026;"><p class="hint">One specific concrete prop tells more than a list of generic items.</p></div>
+    </div>
+
+    <!-- STEP 10: Title & UI -->
+    <div class="step" id="s10">
+      <div class="step-num">Step 10 of 10 &#8212; Title &amp; UI</div>
+      <div class="step-hd"><h2>Presentation layer</h2><p>A logo treatment for your pitch deck header bar, and a UI mockup showing how the game talks to players.</p></div>
+      <div class="fld"><label class="fld-lbl">Logo and title typography style</label>
+        <div class="cgrid" data-field="fontStyle" data-type="single">
+          <button class="copt" data-v="clean modern sans-serif typography, geometric letterforms, minimal ornamentation"><span class="copt-title">Clean / Modern</span><span class="copt-desc">Geometric, minimal</span></button>
+          <button class="copt" data-v="elegant serif typography, refined letterforms, classical weight and proportion"><span class="copt-title">Serif / Elegant</span><span class="copt-desc">Classical, refined</span></button>
+          <button class="copt" data-v="dramatic display typography, custom decorative letterforms, strong graphic presence"><span class="copt-title">Display / Decorative</span><span class="copt-desc">Custom, graphic, bold</span></button>
+          <button class="copt" data-v="hand-lettered organic typography, drawn letterforms, natural imperfection and character"><span class="copt-title">Hand-Lettered</span><span class="copt-desc">Drawn, organic</span></button>
+          <button class="copt" data-v="aggressive distressed typography, rough edges, battle-worn weight and texture"><span class="copt-title">Aggressive / Distressed</span><span class="copt-desc">Rough, worn, battle-ready</span></button>
+          <button class="copt" data-v="technical monospaced typography, digital precision, code or data aesthetic"><span class="copt-title">Technical / Mono</span><span class="copt-desc">Digital, precise, data</span></button>
+        </div>
+      </div>
+      <hr class="div">
+      <div class="fld"><label class="fld-lbl">UI and HUD aesthetic</label>
+        <div class="cgrid wide" data-field="uiStyle" data-type="single">
+          <button class="copt" data-v="minimal diegetic UI, information lives in the world itself, no traditional HUD elements on screen"><span class="copt-title">Minimal / Diegetic</span><span class="copt-desc">Info in world, no screen UI</span></button>
+          <button class="copt" data-v="clean subtle UI, small unobtrusive HUD elements, information available but never dominant"><span class="copt-title">Clean / Subtle</span><span class="copt-desc">Small, readable, unobtrusive</span></button>
+          <button class="copt" data-v="tactical data-rich HUD, detailed information display, multiple readouts and indicators visible"><span class="copt-title">Tactical / Data-rich</span><span class="copt-desc">Detailed HUD, lots of info</span></button>
+          <button class="copt" data-v="thematic UI that feels like an object from the game world, UI elements are artifacts of the setting"><span class="copt-title">Thematic / World-built</span><span class="copt-desc">UI as world artifact</span></button>
+          <button class="copt" data-v="stylized UI with strong graphic identity and bold visual personality"><span class="copt-title">Stylized / Graphic</span><span class="copt-desc">Bold UI personality</span></button>
+        </div>
+      </div>
+      <div class="fld"><label class="fld-lbl" for="uiDesc">Any specific UI elements or notes</label><input type="text" id="uiDesc" placeholder="e.g. Health shown as a biological monitor, inventory is holographic, compass embedded in the wrist&#x2026;"></div>
+    </div>
+
+    <div class="nav-bar" id="navBar">
+      <button id="prevBtn">&#8592; Back</button>
+      <span class="nav-lbl" id="navLbl">Step 1 of 10</span>
+      <button class="primary" id="nextBtn">Next &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<!-- OUTPUT -->
+<div class="output-page" id="outputPage">
+  <div class="output-hd">
+    <div class="output-hd-text"><h1>Art direction prompts</h1><p>Generated prompts for your pitch deck. Aspect ratio shown on each card.</p></div>
+    <button onclick="restart()">&#8592; Start over</button>
+  </div>
+  <div class="bible-card" id="artBibleCard"></div>
+  <div class="prompts-grid" id="promptsGrid"></div>
+  <div class="tips-card">
+    <h4>Using aspect ratios in your AI generator</h4>
+    <p>Specify ratio explicitly: Midjourney uses <code>--ar 16:9</code>, <code>--ar 1:1</code>, <code>--ar 2:3</code>, <code>--ar 4:1</code>. In Gemini Imagen, set width/height in advanced options. Environment shots at 16:9 go full-bleed on pitch deck slides. Square shots work as column inserts. The 4:1 title banner fits across the top of any slide.</p>
+  </div>
+</div>
+
+<script>
+const st={
+  gameTitle:'',genre:'',platform:'',cameraType:'',dimension:'',scope:'',
+  tone:'',worldFeel:'',pacing:'',
+  dna:'',dnaName:'',
+  shapeLanguage:'',colorMood:'',lighting:'',detailDensity:'',
+  referenceGames:[],nonGame:'',antiRef:'',
+  setting:'',archStyle:'',envDesc1:'',envDesc2:'',envDesc3:'',
+  bodyProp:'',costumeComp:'',charDesc:'',handsDesc:'',
+  enemyNature:'',enemyDesc:'',
+  equipAesthetic:'',singleProp:'',
+  fontStyle:'',uiStyle:'',uiDesc:''
+};
+let cur=1;
+const TOTAL=10;
+
+const DNA_SPECTRUM=[
+  {name:'Cinematic Realism',v:'photorealistic game art, physically-based rendering, cinematic realism, hyper-detailed surfaces and textures, film-quality lighting',desc:'Everything looks like it could physically exist. PBR materials, realistic lighting. The camera could be a film camera.',tags:['No outlines','High surface detail','Realistic anatomy','PBR materials'],cross:'Works best with: Natural/Earthy or Dark/Moody palette. Dramatic or Soft lighting.'},
+  {name:'Stylized Painterly',v:'stylized painterly game art, expressive brushstroke quality throughout, concept-art aesthetic, artistic rendering, slightly pushed proportions and colors, painterly texture on all surfaces',desc:'Painterly texture on every surface, expressively pushed proportions. Still 3D, but clearly made by hand.',tags:['Soft or no outlines','Brushstroke surfaces','Heroic proportions','Painterly surfaces'],cross:'Works best with: Bold/Vibrant or Natural palette. Dramatic or Golden lighting.'},
+  {name:'Graphic / Cel-Shaded',v:'cel-shaded graphic art style, bold ink outlines on every element, flat or semi-flat color fills, hard shadow boundaries, graphic novel aesthetic, toon rendering throughout',desc:'Bold outlines on every element. Flat fills. High contrast. Feels like a comic book in motion.',tags:['Bold outlines everywhere','Flat color fills','High contrast','Graphic enemies'],cross:'Works best with: Bold/Vibrant or Neon palette. Dramatic or Soft lighting.'},
+  {name:'Hand-Drawn / Illustrated',v:'hand-drawn illustrated game art, expressive ink linework on all elements, organic watercolor and ink texture throughout, visible hand-crafted quality in every asset',desc:'Everything looks drawn by hand. Linework varies in weight. Organic, beautifully imperfect.',tags:['Variable linework','Ink/watercolor texture','Gestural characters','Drawn props'],cross:'Works best with: Natural/Earthy or Muted palette. Soft or Golden lighting.'},
+  {name:'Minimalist / Design-Forward',v:'minimalist geometric game art, flat design throughout, shape-language driven with severely limited palette, silhouette-first design philosophy, design-forward aesthetic on every element',desc:'Shape language carries all information. Severe palette. Silhouettes must work without detail.',tags:['Silhouette-first','Geometric shapes','Minimal palette','Abstract props'],cross:'Works best with: Muted or Neon palette. Soft or Dramatic lighting. Sparse detail.'}
+];
+
+const DNA_COHERENCE={
+  'Cinematic Realism':'DNA locked: Cinematic Realism. All assets use PBR rendering — no outlines, no stylization anywhere.',
+  'Stylized Painterly':'DNA locked: Stylized Painterly. All assets share brushstroke quality and slightly pushed proportions.',
+  'Graphic / Cel-Shaded':'DNA locked: Graphic / Cel-Shaded. Bold ink outlines appear on everything — not just some assets.',
+  'Hand-Drawn / Illustrated':'DNA locked: Hand-Drawn / Illustrated. Ink-and-watercolor quality extends to every asset type.',
+  'Minimalist / Design-Forward':'DNA locked: Minimalist / Design-Forward. Shape-first thinking and limited palette apply everywhere.'
+};
+
+const GAMES_BY_DNA={
+  'Cinematic Realism':[
+    {n:'Firewatch',q:'Firewatch game art style',scope:'indie'},{n:'Soma',q:'Soma game art style',scope:'indie'},
+    {n:'What Remains of Edith Finch',q:'What Remains of Edith Finch art style',scope:'indie'},
+    {n:'Outer Wilds',q:'Outer Wilds game art style',scope:'indie'},{n:'Oxenfree',q:'Oxenfree game art style',scope:'indie'},
+    {n:'Stray',q:'Stray game art style',scope:'mid'},{n:'Kena: Bridge of Spirits',q:'Kena Bridge of Spirits art style',scope:'mid'},
+    {n:'A Plague Tale: Innocence',q:'A Plague Tale Innocence art style',scope:'mid'},{n:'Hellblade',q:'Hellblade Senua Sacrifice art style',scope:'mid'},
+    {n:'The Last of Us II',q:'The Last of Us Part 2 art style',scope:'aaa'},
+    {n:'God of War (2018)',q:'God of War 2018 art style',scope:'aaa'},{n:'Ghost of Tsushima',q:'Ghost of Tsushima art style',scope:'aaa'},
+    {n:'Red Dead Redemption 2',q:'Red Dead Redemption 2 art style',scope:'aaa'},{n:'Returnal',q:'Returnal game art style',scope:'aaa'}
+  ],
+  'Stylized Painterly':[
+    {n:'Tunic',q:'Tunic game art style',scope:'indie'},{n:'Spiritfarer',q:'Spiritfarer game art style',scope:'indie'},
+    {n:'Haven',q:'Haven game art style',scope:'indie'},{n:'Wildermyth',q:'Wildermyth game art style',scope:'indie'},
+    {n:'Hi-Fi Rush',q:'Hi-Fi Rush game art style',scope:'mid'},{n:'Psychonauts 2',q:'Psychonauts 2 art style',scope:'mid'},
+    {n:'Prey (2017)',q:'Prey 2017 game art style',scope:'mid'},{n:'Control',q:'Control Remedy art style',scope:'mid'},
+    {n:'Dishonored 2',q:'Dishonored 2 art style',scope:'aaa'},{n:'Bioshock Infinite',q:'Bioshock Infinite art style',scope:'aaa'},
+    {n:'Deathloop',q:'Deathloop game art style',scope:'aaa'}
+  ],
+  'Graphic / Cel-Shaded':[
+    {n:'Pyre',q:'Pyre Supergiant game art style',scope:'indie'},{n:'Hades',q:'Hades game art style',scope:'indie'},
+    {n:'Hades II',q:'Hades II art style',scope:'indie'},{n:'Skullgirls',q:'Skullgirls game art style',scope:'indie'},
+    {n:'Jet Set Radio',q:'Jet Set Radio game art style',scope:'indie'},
+    {n:'Knockout City',q:'Knockout City game art style',scope:'mid'},{n:'Hi-Fi Rush cel',q:'Hi-Fi Rush cel shaded art style',scope:'mid'},
+    {n:'Guilty Gear Strive',q:'Guilty Gear Strive art style',scope:'aaa'},{n:'Borderlands 3',q:'Borderlands 3 cel shaded art style',scope:'aaa'}
+  ],
+  'Hand-Drawn / Illustrated':[
+    {n:'Hollow Knight',q:'Hollow Knight game art style',scope:'indie'},{n:'Cuphead',q:'Cuphead game art style',scope:'indie'},
+    {n:'Gris',q:'Gris game art style',scope:'indie'},{n:'Dead Cells',q:'Dead Cells game art style',scope:'indie'},
+    {n:'Sable',q:'Sable game art style',scope:'indie'},{n:'Cult of the Lamb',q:'Cult of the Lamb game art style',scope:'indie'},
+    {n:'Spiritfarer (2D)',q:'Spiritfarer hand drawn art style',scope:'indie'},
+    {n:'Ori: Blind Forest',q:'Ori Blind Forest art style',scope:'mid'},{n:'Ori: Will of the Wisps',q:'Ori Will of the Wisps art style',scope:'mid'}
+  ],
+  'Minimalist / Design-Forward':[
+    {n:'Journey',q:'Journey thatgamecompany art style',scope:'indie'},{n:'Gris',q:'Gris game art style minimalist',scope:'indie'},
+    {n:'Limbo',q:'Limbo Playdead game art style',scope:'indie'},{n:'Inside',q:'Inside Playdead game art style',scope:'indie'},
+    {n:'Cocoon',q:'Cocoon 2023 game art style',scope:'indie'},{n:'Flower',q:'Flower thatgamecompany art style',scope:'indie'},
+    {n:'Transistor',q:'Transistor Supergiant art style',scope:'indie'},{n:'Monument Valley',q:'Monument Valley game art style',scope:'indie'},
+    {n:'Abzu',q:'Abzu game art style',scope:'mid'}
+  ]
+};
+const SCOPE_LABELS={indie:'Indie / Artful',mid:'Mid-tier',aaa:'AAA'};
+
+function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
+function short(s,w){return capFirst((s||'').split(' ').slice(0,w).join(' '));}
+function isFP(){return st.cameraType&&st.cameraType.includes('first-person');}
+function noEnemies(){return st.enemyNature&&st.enemyNature.includes('no enemies');}
+function noWeapons(){return st.equipAesthetic&&st.equipAesthetic.includes('no weapons');}
+function getScopeKey(){
+  if(st.scope.includes('indie')||st.scope.includes('artful'))return'indie';
+  if(st.scope.includes('mid')||st.scope.includes('focused'))return'mid';
+  if(st.scope.includes('AAA')||st.scope.includes('full'))return'aaa';
+  return'';
+}
+
+function buildSpectrum(){
+  const pts=document.getElementById('specPoints');if(!pts)return;
+  pts.innerHTML=DNA_SPECTRUM.map((d,i)=>`<div class="sp-point" data-idx="${i}" onclick="selectDNA(${i})"><div class="sp-dot"></div><div class="sp-lbl">${d.name.replace(' / ','<br>')}</div></div>`).join('');
+}
+
+function selectDNA(idx){
+  document.querySelectorAll('.sp-point').forEach((p,i)=>p.classList.toggle('sel',i===idx));
+  const d=DNA_SPECTRUM[idx];st.dna=d.v;st.dnaName=d.name;
+  const fill=document.getElementById('specFill');if(fill)fill.style.width=((idx/(DNA_SPECTRUM.length-1))*100)+'%';
+  const det=document.getElementById('dnaDetail');
+  if(det){det.classList.add('vis');det.innerHTML=`<div class="dna-detail-name">${d.name}</div><div class="dna-detail-desc">${d.desc}</div><div class="dna-tags">${d.tags.map(t=>'<span class="dna-tag">'+t+'</span>').join('')}</div><div class="dna-cross">${d.cross}</div>`;}
+  updateBible();renderGameRefs();
+}
+
+function renderGameRefs(){
+  const area=document.getElementById('gameRefArea');if(!area)return;
+  if(!st.dnaName){area.innerHTML='<div class="refs-no-dna">Choose a Visual DNA in Step 3 to see relevant references.</div>';return;}
+  const games=GAMES_BY_DNA[st.dnaName]||[];
+  const scopeKey=getScopeKey();
+  const sn=document.getElementById('scopeNote');
+  if(sn&&scopeKey){sn.classList.add('vis');sn.innerHTML='Your scope is <strong>'+SCOPE_LABELS[scopeKey]+'</strong>. Highlighted games are closest to your production scale. Others are useful tonal references.';}
+  else if(sn)sn.classList.remove('vis');
+  const groups={indie:[],mid:[],aaa:[]};
+  games.forEach(g=>{if(groups[g.scope])groups[g.scope].push(g);});
+  let html='';
+  ['indie','mid','aaa'].forEach(s=>{
+    if(!groups[s].length)return;
+    const label=s==='aaa'?'AAA':s==='mid'?'Mid-tier':'Indie';
+    html+=`<div class="scope-group"><div class="scope-group-hd"><span class="scope-group-name">${SCOPE_LABELS[s]}</span><span class="scope-pill ${s}">${label}</span>${s!==scopeKey&&scopeKey?'<span style="font-size:10px;color:var(--text3);">tonal reference</span>':''}</div><div class="chips-row">${groups[s].map(g=>{const url='https://www.google.com/search?q='+encodeURIComponent(g.q)+'&tbm=isch';return`<div class="gchip${s===scopeKey?' scope-match':''}" data-game="${g.n}" onclick="toggleGame(this,'${g.n.replace(/'/g,"\\'")}')"> ${g.n}<a class="srch" href="${url}" target="_blank" onclick="event.stopPropagation()">&#8599;</a></div>`;}).join('')}</div></div>`;
+  });
+  area.innerHTML=html||'<div class="refs-no-dna">No games found for this DNA.</div>';
+  st.referenceGames.forEach(name=>{const el=area.querySelector('[data-game="'+name+'"]');if(el)el.classList.add('sel');});
+}
+
+function toggleGame(el,name){
+  el.classList.toggle('sel');
+  st.referenceGames=el.classList.contains('sel')?[...st.referenceGames,name]:st.referenceGames.filter(g=>g!==name);
+  const s=document.getElementById('refSummary');
+  if(s){if(!st.referenceGames.length)s.classList.remove('vis');else{s.classList.add('vis');s.innerHTML='<strong>Selected:</strong> '+st.referenceGames.join(', ');}}
+  updateBible();
+}
+
+function toggleEnemyDetail(show){const d=document.getElementById('enemyDetail');if(d)d.style.display=show?'block':'none';}
+
+function updateCharIfNeeded(){
+  setTimeout(()=>{
+    const fp=isFP();
+    const fpNote=document.getElementById('fpNote');
+    const charStd=document.getElementById('charStandard');
+    const charFP=document.getElementById('charFirstPerson');
+    if(fpNote)fpNote.style.display=fp?'block':'none';
+    if(charStd)charStd.style.display=fp?'none':'block';
+    if(charFP)charFP.style.display=fp?'block':'none';
+  },0);
+}
+
+function updateBible(){
+  const bc=document.getElementById('bibleContent');if(!bc)return;
+  const items=[];
+  if(st.gameTitle)items.push({l:'Project',v:st.gameTitle});
+  if(st.genre)items.push({l:'Genre',v:short(st.genre,2)});
+  if(st.cameraType)items.push({l:'Camera',v:short(st.cameraType,2)});
+  if(st.dimension)items.push({l:'Dimension',v:short(st.dimension,2)});
+  if(st.scope)items.push({l:'Scope',v:short(st.scope,2)});
+  if(st.dnaName)items.push({l:'Visual DNA',v:st.dnaName,badge:true});
+  if(st.tone)items.push({l:'Tone',v:short(st.tone,2)});
+  if(st.shapeLanguage)items.push({l:'Shape language',v:short(st.shapeLanguage,2)});
+  if(st.colorMood)items.push({l:'Color',v:short(st.colorMood,2)});
+  if(st.lighting)items.push({l:'Lighting',v:short(st.lighting,2)});
+  if(st.setting)items.push({l:'Setting',v:short(st.setting,2)});
+  if(st.referenceGames.length)items.push({l:'References',v:st.referenceGames.slice(0,2).join(', ')+(st.referenceGames.length>2?' +'+(st.referenceGames.length-2):'')});
+  if(st.enemyNature)items.push({l:'Enemies',v:short(st.enemyNature,2)});
+  if(st.equipAesthetic)items.push({l:'Equipment',v:short(st.equipAesthetic,2)});
+  if(!items.length){bc.innerHTML='<div class="bible-empty">Your visual rules will appear here.</div>';return;}
+  bc.innerHTML=items.map(it=>`<div class="bible-item"><div class="bible-lbl">${it.l}</div><div class="bible-val">${it.v}</div>${it.badge?'<div class="dna-badge">Core DNA</div>':''}</div>`).join('');
+}
+
+function updateCoherenceNote(){
+  const el=document.getElementById('coherenceNote');if(!el)return;
+  const msg=DNA_COHERENCE[st.dnaName];
+  if(msg){el.classList.add('vis');const pts=msg.split('. ');el.innerHTML='<strong>'+pts[0]+'.</strong> '+pts.slice(1).join('. ');}
+  else el.classList.remove('vis');
+}
+
+function buildProgBar(){
+  const pb=document.getElementById('progBar');pb.innerHTML='';
+  for(let i=1;i<=TOTAL;i++){const d=document.createElement('div');d.id='pb'+i;d.className='prog-seg'+(i<cur?' done':i===cur?' cur':'');pb.appendChild(d);}
+}
+function updateProgress(){
+  for(let i=1;i<=TOTAL;i++){const el=document.getElementById('pb'+i);if(el)el.className='prog-seg'+(i<cur?' done':i===cur?' cur':'');}
+  const lbl=document.getElementById('navLbl');if(lbl)lbl.textContent='Step '+cur+' of '+TOTAL;
+  const prev=document.getElementById('prevBtn');if(prev)prev.style.visibility=cur===1?'hidden':'visible';
+  const next=document.getElementById('nextBtn');if(next)next.textContent=cur===TOTAL?'Generate prompts \u2192':'Next \u2192';
+}
+function goNext(){
+  if(cur<TOTAL){
+    document.getElementById('s'+cur).classList.remove('on');cur++;
+    document.getElementById('s'+cur).classList.add('on');
+    updateProgress();updateBible();
+    if(cur===4)updateCoherenceNote();
+    if(cur===5)renderGameRefs();
+    if(cur===7)updateCharIfNeeded();
+  } else showOutput();
+}
+function goPrev(){if(cur>1){document.getElementById('s'+cur).classList.remove('on');cur--;document.getElementById('s'+cur).classList.add('on');updateProgress();}}
+
+function pCard(num,icon,name,desc,badge,ratio,prompt,refUrl){
+  return`<div class="pcard"><div class="pcard-hd"><div class="shot-num">${num}</div><div><div class="shot-name">${icon} ${name}</div><div class="shot-desc">${desc}</div></div><div class="badges"><span class="shot-badge">${badge}</span><span class="ratio-badge">${ratio}</span></div></div><textarea class="ptxt" id="ptxt${num}" readonly>${prompt}</textarea><div class="pact"><button class="sm" onclick="copyPrompt(${num})">Copy</button><a class="ref-a" href="${refUrl}" target="_blank">&#8599; References</a><span class="cfb" id="cfb${num}">&#10003; Copied!</span></div></div>`;
+}
+
+function buildPrompts(){
+  const fp=isFP(),noE=noEnemies(),noW=noWeapons();
+  const dna=st.dna||'stylized game art',color=st.colorMood||'rich color palette',light=st.lighting||'cinematic lighting';
+  const shapes=st.shapeLanguage||'',detail=st.detailDensity||'',dim=st.dimension||'';
+  const refs=st.referenceGames.slice(0,3),refStr=refs.length?'visual references: '+refs.join(', '):'';
+  const nonGame=st.nonGame?'inspired by '+st.nonGame:'',antiRef=st.antiRef?'avoid aesthetic of '+st.antiRef:'';
+  const scopeKey=getScopeKey();
+  const scopeStr=scopeKey==='indie'?'artfully constrained indie production, every element intentional':scopeKey==='mid'?'focused professional production quality':scopeKey==='aaa'?'AAA production quality, technically ambitious':'';
+  const tone=st.tone||'atmospheric',worldFeel=st.worldFeel||'',genre=st.genre||'video game',title=st.gameTitle?'"'+st.gameTitle+'" ':'';
+  const cam=st.cameraType||'';
+  const setting=st.setting||'game world',arch=st.archStyle?', '+st.archStyle:'';
+  const charDesc=st.charDesc||(st.bodyProp||'stylized')+' protagonist in '+(st.costumeComp||'gear');
+  const handsDesc=st.handsDesc||'player hands holding equipment';
+  const enemyDesc=st.enemyDesc||st.enemyNature||'opponent';
+  const prop=st.singleProp||'signature world object',equip=st.equipAesthetic||'game equipment';
+  const styleCore=[dna,dim,color,light,shapes,detail,scopeStr,refStr,nonGame].filter(Boolean).join(', ');
+  const neg='no watermark, no UI overlay, no HUD, no logo, no text';
+  const refQ=(refs[0]||st.gameTitle||genre)+' game art';
+  const env1=st.envDesc1||setting,env2=st.envDesc2,env3=st.envDesc3;
+
+  let cards='',n=1;
+
+  // Key art
+  const keyPrompt=fp
+    ?`${title}${genre} game key art, first-person perspective looking into ${env1}${arch}, ${styleCore}, ${tone}, ${worldFeel}, dramatic environmental composition, sense of world scale and stakes, ${antiRef}, ${neg}`
+    :`${title}${genre} game key art, ${charDesc}, powerful iconic hero pose, ${env1}${arch} in background, ${styleCore}, ${tone}, ${worldFeel}, dramatic cinematic composition, game marketing art style, ${antiRef}, ${neg}`;
+  cards+=pCard(n++,'&#9733;','Key art','Primary marketing / pitch hero image',fp?'16:9 landscape':'4:3 portrait',fp?'16:9':'4:3',keyPrompt,'https://www.google.com/search?q='+encodeURIComponent(refQ+' key art')+'&tbm=isch');
+
+  // Env 1
+  cards+=pCard(n++,'&#11035;','Primary environment','Signature location &#8212; most time spent here','16:9 landscape','16:9',`${genre} game environment concept art, ${env1}${arch}, wide establishing shot, 16:9, no characters in frame, ${styleCore}, ${tone}, ${worldFeel}, environmental storytelling, atmospheric depth and scale, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(refQ+' environment concept art')+'&tbm=isch');
+
+  // Env 2
+  if(env2&&env2.trim())
+    cards+=pCard(n++,'&#11035;','Secondary environment','A distinctly different area','16:9 landscape','16:9',`${genre} game environment concept art, ${env2}${arch}, wide establishing shot, 16:9, no characters in frame, ${styleCore}, ${tone}, environmental storytelling, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(refQ+' environment concept art')+'&tbm=isch');
+
+  // Env 3
+  if(env3&&env3.trim())
+    cards+=pCard(n++,'&#11035;','Third environment','Maximum contrast space','16:9 landscape','16:9',`${genre} game environment concept art, ${env3}${arch}, wide establishing shot, 16:9, no characters in frame, ${styleCore}, ${tone}, environmental storytelling, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(refQ+' environment concept art')+'&tbm=isch');
+
+  // Character or hands
+  if(fp){
+    cards+=pCard(n++,'&#9711;','First-person hands study','What the player sees of themselves','Square','1:1',`${genre} game first-person hands study, ${handsDesc}, ${noW?'holding no weapon':'holding equipment'}, centered figure study, ${styleCore}, ${tone}, clean neutral background, front view and slight angle shown, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(genre+' first person hands concept art')+'&tbm=isch');
+  } else {
+    cards+=pCard(n++,'&#9711;','Character portrait','Face and bust, expressive','Portrait','2:3',`${genre} game character portrait, ${charDesc}, face and upper body, expressive ${tone.split(',')[0]} emotion, readable personality, ${styleCore}, character reveal art quality, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(refQ+' character portrait')+'&tbm=isch');
+  }
+
+  // Enemy (conditional)
+  if(!noE)
+    cards+=pCard(n++,'&#9760;','Enemy study','Example enemy design, front view','Square','1:1',`${genre} game enemy concept art, ${enemyDesc}, isolated figure study, ${dna}, ${color}, ${shapes}, ${refStr}, ${tone} threat aesthetic, front view and three-quarter view, game enemy design sheet, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(genre+' game enemy design concept art')+'&tbm=isch');
+
+  // Prop
+  cards+=pCard(n++,'&#9633;','Prop study','Key world object','Square','1:1',`${genre} game prop concept art, ${prop}, isolated on dark neutral background, ${dna}, ${color}, front view and three-quarter view, material texture study, consistent with ${setting}${arch}, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(genre+' game prop design concept art')+'&tbm=isch');
+
+  // Action beat
+  const actionPrompt=fp
+    ?`${genre} game action scene, first-person perspective, ${noW?'player hands reaching out':handsDesc+' visible in foreground'}, ${noE?env1:enemyDesc.split(',')[0]+' visible ahead'} in ${env1}${arch}, ${styleCore}, ${tone}, kinetic energy, dramatic first-person framing, ${antiRef}, ${neg}`
+    :`${genre} game cinematic action scene, ${charDesc}${noE?' exploring ':' in encounter with '+enemyDesc.split(',')[0]+' in '}${env1}${arch}, ${styleCore}, ${tone}, ${worldFeel}, kinetic energy, 16:9, dramatic camera angle, ${antiRef}, ${neg}`;
+  cards+=pCard(n++,'&#9654;','Action beat','Player in world &#8212; key gameplay moment','16:9 landscape','16:9',actionPrompt,'https://www.google.com/search?q='+encodeURIComponent(refQ+' gameplay screenshot')+'&tbm=isch');
+
+  // Title / Logo
+  const titleName=st.gameTitle||'Game Title';
+  const logoStyle=st.fontStyle||'strong display typography';
+  cards+=pCard(n++,'&#9733;','Title &amp; logo treatment','Header bar for pitch deck','4:1 wide banner','4:1',`Game title logo and typography design for "${titleName}", ${genre} game, ${logoStyle}, ${dna} aesthetic applied to letterforms, ${tone} mood, ${color} color scheme, horizontal banner layout for pitch deck, ${shapes||'strong graphic shapes'}, dark background, no tagline, graphic design concept, high quality, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(genre+' game logo title treatment')+'&tbm=isch');
+
+  // UI
+  const uiStyle=st.uiStyle||'clean game UI design';
+  const uiNotes=st.uiDesc?', '+st.uiDesc:'';
+  cards+=pCard(n++,'&#9674;','UI / HUD mockup','Game interface concept','16:9 landscape','16:9',`${genre} game UI and HUD design mockup, ${cam||'game'} perspective, ${uiStyle}${uiNotes}, ${dna} aesthetic applied to interface, ${color}, ${scopeStr}, showing relevant HUD elements for ${genre} gameplay, 16:9, no placeholder text, ${antiRef}, ${neg}`,'https://www.google.com/search?q='+encodeURIComponent(genre+' game UI HUD design concept')+'&tbm=isch');
+
+  return cards;
+}
+
+function showOutput(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('outputPage').classList.add('on');
+  const scopeKey=getScopeKey();
+  const bibleRules=[
+    {l:'Visual DNA',v:st.dnaName||'\u2014',sub:'Applies to all assets'},
+    {l:'Camera',v:short(st.cameraType,2)||'\u2014'},
+    {l:'Dimension',v:short(st.dimension,2)||'\u2014'},
+    {l:'Scope',v:SCOPE_LABELS[scopeKey]||'\u2014'},
+    {l:'Shape language',v:short(st.shapeLanguage,3)||'\u2014'},
+    {l:'Color palette',v:short(st.colorMood,3)||'\u2014'},
+    {l:'Lighting',v:short(st.lighting,3)||'\u2014'},
+    {l:'Tone',v:short(st.tone,3)||'\u2014'},
+    {l:'Enemies',v:noEnemies()?'None':short(st.enemyNature,2)||'\u2014'},
+    {l:'Equipment',v:noWeapons()?'No weapons':short(st.equipAesthetic,2)||'\u2014'},
+    {l:'References',v:st.referenceGames.length?st.referenceGames.slice(0,3).join(', '):'\u2014'}
+  ];
+  document.getElementById('artBibleCard').innerHTML='<h3>Art Direction Bible \u2014 all prompts use these rules</h3><div class="bible-grid">'+bibleRules.map(r=>`<div><div class="r-label">${r.l}</div><div class="r-value">${r.v}</div>${r.sub?'<div class="r-sub">'+r.sub+'</div>':''}</div>`).join('')+'</div>';
+  document.getElementById('promptsGrid').innerHTML=buildPrompts();
+}
+
+function copyPrompt(i){
+  const ta=document.getElementById('ptxt'+i);
+  navigator.clipboard.writeText(ta.value).catch(()=>{ta.select();document.execCommand('copy');});
+  const fb=document.getElementById('cfb'+i);fb.classList.add('show');setTimeout(()=>fb.classList.remove('show'),2000);
+}
+
+function restart(){
+  document.getElementById('outputPage').classList.remove('on');
+  document.getElementById('app').style.display='grid';
+  document.querySelectorAll('.copt.sel,.gchip.sel,.sp-point.sel').forEach(el=>el.classList.remove('sel'));
+  document.querySelectorAll('input[type=text],textarea').forEach(el=>el.value='');
+  Object.keys(st).forEach(k=>{st[k]=Array.isArray(st[k])?[]:''});
+  const sf=document.getElementById('specFill');if(sf)sf.style.width='0';
+  const dd=document.getElementById('dnaDetail');if(dd)dd.classList.remove('vis');
+  const ed=document.getElementById('enemyDetail');if(ed)ed.style.display='none';
+  cur=1;document.querySelectorAll('.step').forEach(s=>s.classList.remove('on'));document.getElementById('s1').classList.add('on');
+  buildProgBar();updateProgress();updateBible();
+  const cn=document.getElementById('coherenceNote');if(cn)cn.classList.remove('vis');
+  renderGameRefs();
+}
+
+document.querySelectorAll('.cgrid[data-field]').forEach(grid=>{
+  const field=grid.dataset.field,type=grid.dataset.type;
+  grid.querySelectorAll('.copt').forEach(opt=>{
+    opt.addEventListener('click',()=>{
+      if(type==='single')grid.querySelectorAll('.copt').forEach(o=>o.classList.remove('sel'));
+      opt.classList.toggle('sel');
+      if(type==='single')st[field]=opt.classList.contains('sel')?opt.dataset.v:'';
+      else st[field]=[...grid.querySelectorAll('.copt.sel')].map(o=>o.dataset.v);
+      updateBible();
+      if(field==='scope'&&cur===5)renderGameRefs();
+    });
+  });
+});
+
+[['gTitle','gameTitle'],['nonGame','nonGame'],['antiRef','antiRef'],
+ ['archStyle','archStyle'],['envDesc1','envDesc1'],['envDesc2','envDesc2'],['envDesc3','envDesc3'],
+ ['charDesc','charDesc'],['handsDesc','handsDesc'],['enemyDesc','enemyDesc'],
+ ['singleProp','singleProp'],['uiDesc','uiDesc']
+].forEach(([id,field])=>{
+  const el=document.getElementById(id);if(el)el.addEventListener('input',()=>{st[field]=el.value;updateBible();});
+});
+
+document.getElementById('prevBtn').onclick=goPrev;
+document.getElementById('nextBtn').onclick=goNext;
+buildProgBar();updateProgress();buildSpectrum();updateBible();
+</script>
+</body>
+</html>
