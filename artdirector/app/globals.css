@@ -169,3 +169,7 @@ button.btn-sm { font-size: 12px; padding: 5px 12px; }
 @media (max-width: 767px) {
   .nav-bar-fixed { left: 0; padding: 0.9rem 1.25rem; }
 }
+
+@media (min-width: 1024px) {
+  .nav-bar-fixed { right: 420px; }
+}
