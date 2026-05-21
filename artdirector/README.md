@@ -36,6 +36,25 @@ Open <http://localhost:3000>. You'll be redirected to `/wizard/1`.
 - The art-direction sidebar updates live as choices are made
 - `POST /api/generate` accepts `{ prompt, ratio, quality }` and returns `{ imageUrl }`. Test it with curl once `FAL_KEY` is set
 
+## What works in Phase 4
+
+- **Style Finder convergence flow** at `/converge` — alternative entry for users who don't know what they want
+- Entry point: "Help me find it →" button on the DNA step
+- Binary-search A/B picker: 4 rounds, 2 parallel fal.ai images per round (~$0.025 total at FLUX schnell rates)
+- Bounds contract toward the winner each round (±40% radius), so the search narrows but neighbouring options stay reachable
+- Final pick writes `quadrantPosition` + sets `quadrantManual: true`, then redirects to the quadrant step so the user sees where they landed
+- Gated by an explicit "Start — Round 1 →" intro screen with a cost note (no accidental auto-generation)
+- "Skip — describe it myself" exit on every round bounces back to the DNA step
+- Identical prompts hit the session cache, so going back to DNA and re-entering convergence is free for repeated runs
+- Pick history disclosure shows what was chosen and where you're heading
+
+### Algorithm
+
+`lib/convergence.ts` exports:
+- `getNextCandidates(bounds)` — samples at 1/3 and 2/3 along the bounds diagonal for max discrimination
+- `updateBounds(current, chosen, posA, posB)` — contracts ±40% around the winner, clamped to [0,100]
+- `buildConvergencePrompt(position, state)` — neutral environment-shot prompt; uses genre/setting from wizard state if available
+
 ## What works in Phase 3
 
 - **Style Quadrant** — new step 4, inserted between DNA (step 3) and Visual Rules (now step 5). Total wizard length is now 11 steps.
@@ -69,10 +88,10 @@ Open <http://localhost:3000>. You'll be redirected to `/wizard/1`.
 
 ## What's NOT wired up yet (deferred to later phases)
 
-- Binary convergence A/B flow (Phase 4)
 - Natural-language refinement bar (Phase 5)
 - Output-page "Generate all" + per-card regeneration (Phase 6)
 - Hover thumbnails on quadrant game dots (the spec mentions pre-cached screenshots or AI-generated style references; we show the name + scope only)
+- "Neither feels right — show different options" button on convergence rounds (spec mentions it, deferred for v1; "Skip" exists as a stronger off-ramp)
 
 ## Project layout
 
@@ -87,12 +106,15 @@ artdirector/
       [step]/page.tsx         dynamic step renderer
     output/
       page.tsx                output page
+    converge/
+      page.tsx                style-finder convergence flow (Phase 4)
     api/generate/route.ts     POST -> fal.ai
   components/
     HydrationGate.tsx         defers persisted-store reads until after mount
     wizard/                   shared wizard UI + 11 step components
       steps/index.ts          STEPS array — single source of step ordering / labels
     quadrant/                 QuadrantMap (Phase 3)
+    convergence/              ConvergenceFlow + ConvergenceRound + ImageChoice (Phase 4)
     preview/                  PreviewPanel + PreviewImage + PreviewSkeleton
     output/                   ArtBible + PromptCard
   hooks/
@@ -103,6 +125,7 @@ artdirector/
     promptBuilder.ts          buildPrompts(state) — ported from prototype JS
     previewPrompts.ts         buildPreviewPrompt(stepId, state) for the panel
     quadrantUtils.ts          GAME_POSITIONS + calculateQuadrantPosition (Phase 3)
+    convergence.ts            bounds + candidate sampling + prompt builder (Phase 4)
     imageCache.ts             in-memory cache, keyed by (ratio, prompt)
     imageGen.ts               fal.ai wrapper (server-side)
   store/wizardStore.ts        Zustand store + derived helpers (isFP, noEnemies, …)
