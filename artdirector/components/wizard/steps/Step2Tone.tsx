@@ -10,8 +10,6 @@ export default function Step2Tone() {
   const s = useWizardStore();
   return (
     <StepWrapper
-      step={2}
-      label="Core Tone"
       title="How should it feel?"
       subtitle={
         <>

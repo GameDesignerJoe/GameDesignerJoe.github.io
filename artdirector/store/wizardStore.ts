@@ -40,6 +40,7 @@ const initialState: WizardState = {
   uiStyle: '',
   uiDesc: '',
   quadrantPosition: { x: 50, y: 50 },
+  quadrantManual: false,
   generatedImages: {},
   styleConfirmed: false,
 };
@@ -48,6 +49,8 @@ interface WizardStore extends WizardState {
   set: <K extends keyof WizardState>(key: K, value: WizardState[K]) => void;
   setDNA: (name: string, v: string) => void;
   toggleReferenceGame: (name: string) => void;
+  setQuadrant: (pos: { x: number; y: number }, opts?: { manual?: boolean }) => void;
+  resetQuadrant: () => void;
   reset: () => void;
 }
 
@@ -63,6 +66,9 @@ export const useWizardStore = create<WizardStore>()(
             ? s.referenceGames.filter((g) => g !== name)
             : [...s.referenceGames, name],
         })),
+      setQuadrant: (pos, opts) =>
+        set({ quadrantPosition: pos, quadrantManual: opts?.manual ?? false }),
+      resetQuadrant: () => set({ quadrantManual: false }),
       reset: () => set({ ...initialState }),
     }),
     {

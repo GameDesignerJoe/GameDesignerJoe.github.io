@@ -153,7 +153,10 @@
       "Bash(findstr LISTENING)",
       "Bash(start http://localhost:8000/flickpick/)",
       "PowerShell(Get-Content jackscomics\\\\series.json -Raw | ConvertFrom-Json | Group-Object -Property box | Sort-Object Name | ForEach-Object { \"$\\($_.Name\\): $\\($_.Count\\) series\" })",
-      "PowerShell($data = Get-Content jackscomics\\\\series.json -Raw | ConvertFrom-Json; $data | Group-Object -Property box | Sort-Object Name | ForEach-Object { \"Box $\\($_.Name\\): $\\($_.Count\\) series\" })"
+      "PowerShell($data = Get-Content jackscomics\\\\series.json -Raw | ConvertFrom-Json; $data | Group-Object -Property box | Sort-Object Name | ForEach-Object { \"Box $\\($_.Name\\): $\\($_.Count\\) series\" })",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

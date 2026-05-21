@@ -10,8 +10,6 @@ export default function Step1Identity() {
   const s = useWizardStore();
   return (
     <StepWrapper
-      step={1}
-      label="Project Identity"
       title="What are you making?"
       subtitle={
         <>

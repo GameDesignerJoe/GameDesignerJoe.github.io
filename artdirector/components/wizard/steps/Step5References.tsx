@@ -9,8 +9,6 @@ export default function Step5References() {
   const s = useWizardStore();
   return (
     <StepWrapper
-      step={5}
-      label="Visual References"
       title="Build your mood board"
       subtitle={
         <>

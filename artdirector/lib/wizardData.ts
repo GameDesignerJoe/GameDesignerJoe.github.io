@@ -211,4 +211,3 @@ export const UI_STYLES: OptionCard[] = [
   { v: 'stylized UI with strong graphic identity and bold visual personality', title: 'Stylized / Graphic', desc: 'Bold UI personality' },
 ];
 
-export const TOTAL_STEPS = 10;

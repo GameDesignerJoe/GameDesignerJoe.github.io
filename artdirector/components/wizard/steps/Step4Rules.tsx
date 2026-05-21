@@ -19,8 +19,6 @@ export default function Step4Rules() {
 
   return (
     <StepWrapper
-      step={4}
-      label="Visual Rules"
       title="Lock the specific rules"
       subtitle={
         <>

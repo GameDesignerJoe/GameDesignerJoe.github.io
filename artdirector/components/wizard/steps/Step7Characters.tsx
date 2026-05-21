@@ -12,8 +12,6 @@ export default function Step7Characters() {
 
   return (
     <StepWrapper
-      step={7}
-      label="Player Characters"
       title="Who is the player?"
       subtitle={
         <>

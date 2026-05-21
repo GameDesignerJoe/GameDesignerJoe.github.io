@@ -36,6 +36,22 @@ Open <http://localhost:3000>. You'll be redirected to `/wizard/1`.
 - The art-direction sidebar updates live as choices are made
 - `POST /api/generate` accepts `{ prompt, ratio, quality }` and returns `{ imageUrl }`. Test it with curl once `FAL_KEY` is set
 
+## What works in Phase 3
+
+- **Style Quadrant** — new step 4, inserted between DNA (step 3) and Visual Rules (now step 5). Total wizard length is now 11 steps.
+- 2D SVG map plotting 23 reference games at hand-picked positions
+- User dot auto-positions from DNA (X axis) + tone/color (Y axis); drag the dot to override and a "Reset to auto" button appears
+- Hover any reference game to see its name + scope tier + coordinates
+- Game dots are colored by scope tier (Indie/Mid/AAA)
+- Subtle radial gradients hint at the four zones: *Dreamlike / Whimsical* (top-left), *Vibrant Realism* (top-right), *Stark / Geometric* (bottom-left), *Gritty Realism* (bottom-right)
+- The Preview Panel returns null on the quadrant step — the map IS the visual
+
+### Internal refactor
+
+- Step metadata moved to [components/wizard/steps/index.ts](components/wizard/steps/index.ts) (`STEPS` array, `TOTAL_STEPS`, `getStepMeta`, `stepIdAt`). File names no longer track URL position; inserting a step in the middle of the flow does not require renumbering 10 files.
+- `StepWrapper` dropped its `step` / `label` props; the "Step N of M — Label" chrome is now rendered by `StepHeader` from the router.
+- `previewPrompts.ts` switched from step numbers to stable `StepId`s.
+
 ## What works in Phase 2
 
 - Live image previews via fal.ai, gated behind an explicit **Generate preview** button (no automatic debounced fires — keeps the bill predictable)
@@ -53,10 +69,10 @@ Open <http://localhost:3000>. You'll be redirected to `/wizard/1`.
 
 ## What's NOT wired up yet (deferred to later phases)
 
-- Quadrant map step (Phase 3)
 - Binary convergence A/B flow (Phase 4)
 - Natural-language refinement bar (Phase 5)
 - Output-page "Generate all" + per-card regeneration (Phase 6)
+- Hover thumbnails on quadrant game dots (the spec mentions pre-cached screenshots or AI-generated style references; we show the name + scope only)
 
 ## Project layout
 
@@ -74,7 +90,9 @@ artdirector/
     api/generate/route.ts     POST -> fal.ai
   components/
     HydrationGate.tsx         defers persisted-store reads until after mount
-    wizard/                   shared wizard UI + 10 step components
+    wizard/                   shared wizard UI + 11 step components
+      steps/index.ts          STEPS array — single source of step ordering / labels
+    quadrant/                 QuadrantMap (Phase 3)
     preview/                  PreviewPanel + PreviewImage + PreviewSkeleton
     output/                   ArtBible + PromptCard
   hooks/
@@ -83,7 +101,8 @@ artdirector/
     dnaData.ts                DNA spectrum, GAMES_BY_DNA, coherence notes
     wizardData.ts             option cards for every step
     promptBuilder.ts          buildPrompts(state) — ported from prototype JS
-    previewPrompts.ts         buildPreviewPrompt(step, state) for the panel
+    previewPrompts.ts         buildPreviewPrompt(stepId, state) for the panel
+    quadrantUtils.ts          GAME_POSITIONS + calculateQuadrantPosition (Phase 3)
     imageCache.ts             in-memory cache, keyed by (ratio, prompt)
     imageGen.ts               fal.ai wrapper (server-side)
   store/wizardStore.ts        Zustand store + derived helpers (isFP, noEnemies, …)

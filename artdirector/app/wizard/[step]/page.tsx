@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import WizardStepRouter from '@/components/wizard/WizardStepRouter';
-import { TOTAL_STEPS } from '@/lib/wizardData';
+import { TOTAL_STEPS } from '@/components/wizard/steps';
 
 export function generateStaticParams() {
   return Array.from({ length: TOTAL_STEPS }, (_, i) => ({ step: String(i + 1) }));

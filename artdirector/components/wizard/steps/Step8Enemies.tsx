@@ -11,8 +11,6 @@ export default function Step8Enemies() {
   const showDetail = !!s.enemyNature && !noEnemies(s);
   return (
     <StepWrapper
-      step={8}
-      label="Enemies"
       title="What does the player face?"
       subtitle={
         <>

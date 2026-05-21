@@ -6,6 +6,7 @@ import { useImageGen } from '@/hooks/useImageGen';
 import { useWizardStore } from '@/store/wizardStore';
 import { buildPreviewPrompt, type PreviewSpec } from '@/lib/previewPrompts';
 import { getCachedImage } from '@/lib/imageCache';
+import { stepIdAt } from '@/components/wizard/steps';
 import PreviewImage from './PreviewImage';
 import PreviewSkeleton from './PreviewSkeleton';
 
@@ -23,11 +24,11 @@ export default function PreviewPanel() {
   const state = useWizardStore();
   const { imageUrl, isLoading, error, generate, showCached, clear } = useImageGen();
 
-  const spec: PreviewSpec | null = useMemo(
-    () => (step ? buildPreviewPrompt(step, state) : null),
-    // Re-derive whenever the step OR any relevant slice of state changes. Cheap to recompute.
-    [step, state]
-  );
+  const spec: PreviewSpec | null = useMemo(() => {
+    if (!step) return null;
+    const id = stepIdAt(step);
+    return id ? buildPreviewPrompt(id, state) : null;
+  }, [step, state]);
 
   // When step or spec.prompt changes, show the cached image for that prompt (if any) instead of
   // an unrelated previous result. Clear if no spec.

@@ -1,6 +1,6 @@
 'use client';
 
-import { TOTAL_STEPS } from '@/lib/wizardData';
+import { TOTAL_STEPS } from './steps';
 
 export default function ProgressBar({ current }: { current: number }) {
   return (

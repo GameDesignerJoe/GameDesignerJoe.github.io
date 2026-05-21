@@ -10,8 +10,6 @@ export default function Step9Props() {
   const s = useWizardStore();
   return (
     <StepWrapper
-      step={9}
-      label="Equipment & Props"
       title="What does the world contain?"
       subtitle={
         <>

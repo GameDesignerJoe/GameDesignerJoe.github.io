@@ -1,5 +1,6 @@
 import type { ImageRatio, WizardState } from '@/types';
 import { isFP } from '@/store/wizardStore';
+import type { StepId } from '@/components/wizard/steps';
 
 export interface PreviewSpec {
   prompt: string;
@@ -16,9 +17,9 @@ function styleCore(s: WizardState): string {
     .join(', ');
 }
 
-export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | null {
-  switch (step) {
-    case 3: {
+export function buildPreviewPrompt(stepId: StepId, s: WizardState): PreviewSpec | null {
+  switch (stepId) {
+    case 'dna': {
       if (!s.dna) return null;
       const color = s.colorMood || 'rich color palette';
       return {
@@ -28,7 +29,7 @@ export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | 
       };
     }
 
-    case 4: {
+    case 'rules': {
       if (!s.dna) return null;
       const parts = [s.shapeLanguage, s.colorMood, s.lighting, s.detailDensity].filter(Boolean);
       if (!parts.length) return null;
@@ -39,7 +40,7 @@ export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | 
       };
     }
 
-    case 6: {
+    case 'environments': {
       const desc = s.envDesc1 || s.setting;
       if (!desc) return null;
       const arch = s.archStyle ? ', ' + s.archStyle : '';
@@ -51,7 +52,7 @@ export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | 
       };
     }
 
-    case 7: {
+    case 'characters': {
       const core = styleCore(s) || 'game concept art';
       if (isFP(s)) {
         if (!s.handsDesc) return null;
@@ -70,7 +71,7 @@ export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | 
       };
     }
 
-    case 8: {
+    case 'enemies': {
       if (!s.enemyNature || s.enemyNature.includes('no enemies')) return null;
       const desc = s.enemyDesc || s.enemyNature;
       const core = styleCore(s) || s.dna || 'game concept art';
@@ -81,7 +82,7 @@ export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | 
       };
     }
 
-    case 9: {
+    case 'props': {
       if (!s.singleProp) return null;
       const core = styleCore(s) || s.dna || 'game concept art';
       const setting = s.setting || 'game world';
@@ -92,11 +93,8 @@ export function buildPreviewPrompt(step: number, s: WizardState): PreviewSpec | 
       };
     }
 
+    // Steps without previews: identity, tone, quadrant (its own visual), references, titleui
     default:
       return null;
   }
-}
-
-export function previewableSteps(): number[] {
-  return [3, 4, 6, 7, 8, 9];
 }

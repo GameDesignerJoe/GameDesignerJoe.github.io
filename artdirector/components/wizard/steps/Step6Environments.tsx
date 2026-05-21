@@ -11,8 +11,6 @@ export default function Step6Environments() {
   const s = useWizardStore();
   return (
     <StepWrapper
-      step={6}
-      label="Environments"
       title="Where does this happen?"
       subtitle={
         <>

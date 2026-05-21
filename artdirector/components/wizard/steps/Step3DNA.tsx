@@ -6,8 +6,6 @@ import SpectrumSelector from '../SpectrumSelector';
 export default function Step3DNA() {
   return (
     <StepWrapper
-      step={3}
-      label="Visual DNA (most important)"
       title="Pick one visual language"
       subtitle={
         <>

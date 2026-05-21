@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { TOTAL_STEPS } from '@/lib/wizardData';
+import { TOTAL_STEPS } from './steps';
 
 export default function NavBar({ current }: { current: number }) {
   const router = useRouter();

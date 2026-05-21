@@ -10,8 +10,6 @@ export default function Step10TitleUI() {
   const s = useWizardStore();
   return (
     <StepWrapper
-      step={10}
-      label="Title & UI"
       title="Presentation layer"
       subtitle={
         <>

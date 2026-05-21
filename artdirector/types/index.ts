@@ -45,6 +45,8 @@ export interface WizardState {
 
   // Phase 2+ extended state (kept here so the store schema is stable from day 1)
   quadrantPosition: { x: number; y: number };
+  /** True once the user has dragged the dot, suppressing further auto-position from DNA/tone. */
+  quadrantManual: boolean;
   generatedImages: Record<string, string>;
   styleConfirmed: boolean;
 }
