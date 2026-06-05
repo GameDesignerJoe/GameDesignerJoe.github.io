@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How I Write Songs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a1410;
+    --paper:#f4ead5;
+    --rust:#c8492b;
+    --gold:#e8a72c;
+    --teal:#2a6f6b;
+    --cream:#fbf6e9;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--ink);
+    font-family:'Space Mono',monospace;
+    color:var(--ink);
+    padding:32px 16px;
+    display:flex;
+    justify-content:center;
+  }
+  .poster{
+    width:100%;
+    max-width:860px;
+    background:var(--paper);
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(200,73,43,.06) 0 2px, transparent 2px),
+      radial-gradient(circle at 80% 30%, rgba(42,111,107,.05) 0 2px, transparent 2px);
+    background-size:7px 7px, 9px 9px;
+    border:3px solid var(--ink);
+    box-shadow:14px 14px 0 var(--rust), 14px 14px 0 3px var(--ink);
+    position:relative;
+    overflow:hidden;
+  }
+  .grain{
+    position:absolute;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  header{
+    background:var(--ink);
+    color:var(--paper);
+    padding:34px 36px 30px;
+    position:relative;
+  }
+  .kicker{
+    font-family:'Space Mono',monospace;
+    font-size:12px;letter-spacing:.45em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:12px;
+  }
+  h1{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(48px,11vw,92px);
+    line-height:.88;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+  h1 .line2{color:var(--rust);-webkit-text-stroke:1px var(--paper);}
+  .subtitle{
+    margin-top:16px;font-size:13px;line-height:1.6;max-width:60ch;color:#cdbfa6;
+  }
+  .tools{
+    display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;
+  }
+  .tools span{
+    font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.12em;
+    padding:3px 12px;border:1.5px solid var(--gold);color:var(--gold);border-radius:2px;
+  }
+  .steps{padding:30px 30px 12px;}
+  .step{
+    display:grid;grid-template-columns:64px 1fr;gap:18px;
+    padding:18px 0;border-bottom:2px dashed rgba(26,20,16,.25);
+    align-items:start;
+  }
+  .step:last-child{border-bottom:none;}
+  .num{
+    font-family:'Anton',sans-serif;font-size:46px;line-height:.8;
+    color:var(--paper);
+    background:var(--teal);
+    width:64px;height:64px;display:flex;align-items:center;justify-content:center;
+    border:2.5px solid var(--ink);
+    box-shadow:4px 4px 0 var(--ink);
+    transform:rotate(-3deg);
+  }
+  .step:nth-child(even) .num{background:var(--rust);transform:rotate(3deg);}
+  .step:nth-child(3n) .num{background:var(--gold);color:var(--ink);}
+  .body .title{
+    font-family:'Bebas Neue',sans-serif;font-size:25px;letter-spacing:.04em;
+    text-transform:uppercase;line-height:1;margin-bottom:5px;color:var(--ink);
+  }
+  .body .desc{font-size:12.5px;line-height:1.6;color:#3a2f24;}
+  footer{
+    background:var(--rust);color:var(--cream);
+    padding:22px 36px;text-align:center;
+    border-top:3px solid var(--ink);
+  }
+  footer .big{font-family:'Anton',sans-serif;font-size:clamp(22px,5vw,34px);text-transform:uppercase;line-height:1;}
+  footer .small{font-size:11px;letter-spacing:.25em;text-transform:uppercase;margin-top:8px;color:#ffe3b3;}
+  @media print{body{background:#fff;padding:0;}.poster{box-shadow:none;border:2px solid #000;}}
+</style>
+</head>
+<body>
+<div class="poster">
+  <div class="grain"></div>
+  <header>
+    <div class="kicker">A Field Guide · One Songwriter's Method</div>
+    <h1>How I<br><span class="line2">Write Songs</span></h1>
+    <p class="subtitle">From a blank page to a finished track — moving between human craft and AI generation, refining the words and the sound together until it lands.</p>
+    <div class="tools">
+      <span>Google Docs</span><span>Claude</span><span>Suno</span>
+    </div>
+  </header>
+
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div class="body">
+      <div class="title">Free-Write First</div>
+      <div class="desc">Write freely in Google Docs about the topic — usually in paragraph form — until there's something worth shaping.</div>
+    </div></div>
+
+    <div class="step"><div class="num">2</div><div class="body">
+      <div class="title">Anchor the Tone</div>
+      <div class="desc">Lock in a genre or artist reference to set the style and emotional register before drafting a single lyric.</div>
+    </div></div>
+
+    <div class="step"><div class="num">3</div><div class="body">
+      <div class="title">Lock the Emotional Frame</div>
+      <div class="desc">Settle whose voice it is and what they feel. Small shifts in framing change everything, so this comes first.</div>
+    </div></div>
+
+    <div class="step"><div class="num">4</div><div class="body">
+      <div class="title">Build Section by Section</div>
+      <div class="desc">Work with Claude iteratively — verse, chorus, pre-chorus, bridge — one piece at a time, never all at once.</div>
+    </div></div>
+
+    <div class="step"><div class="num">5</div><div class="body">
+      <div class="title">Steer With My Own Lines</div>
+      <div class="desc">Drop in revised lines mid-session as directional signals, showing where the song should go.</div>
+    </div></div>
+
+    <div class="step"><div class="num">6</div><div class="body">
+      <div class="title">Push Back When It Misses</div>
+      <div class="desc">Reject directions that feel wrong, flag weak or broken rhymes, and read lines aloud for rhythm and singability.</div>
+    </div></div>
+
+    <div class="step"><div class="num">7</div><div class="body">
+      <div class="title">Feed Bits Into Suno Early</div>
+      <div class="desc">Run sections through Suno to actually hear them. Once you hear it, things click — or don't — in a way the page can't show.</div>
+    </div></div>
+
+    <div class="step"><div class="num">8</div><div class="body">
+      <div class="title">Keep It Grounded &amp; Tight</div>
+      <div class="desc">Favor conversational, authentic language. Cut toward one line, one idea — concrete, visceral, disciplined.</div>
+    </div></div>
+
+    <div class="step"><div class="num">9</div><div class="body">
+      <div class="title">Hold the Lyric in a Doc</div>
+      <div class="desc">Keep the full draft in a document to avoid formatting issues and protect a clean working version.</div>
+    </div></div>
+
+    <div class="step"><div class="num">10</div><div class="body">
+      <div class="title">Tag the Stanzas</div>
+      <div class="desc">Mark each section [VERSE], [CHORUS], [BRIDGE] so Suno knows how to build it. The basic structural tags are what reliably work.</div>
+    </div></div>
+
+    <div class="step"><div class="num">11</div><div class="body">
+      <div class="title">Dial In the Style Tags</div>
+      <div class="desc">Write specific, production-focused tags — no artist names, phonetic spelling for tricky words. Claude helps, but hands-on exploration dials it in.</div>
+    </div></div>
+
+    <div class="step"><div class="num">12</div><div class="body">
+      <div class="title">Generate, Listen, Rewrite</div>
+      <div class="desc">25 to nearly 100 generations before it's ready. Rewrite the lyrics dramatically to hit harder against what Suno produces — words and sound evolve together.</div>
+    </div></div>
+  </div>
+
+  <footer>
+    <div class="big">The Lyrics &amp; The Sound Evolve Together</div>
+    <div class="small">Repeat Until It Feels Ready</div>
+  </footer>
+</div>
+</body>
+</html>
