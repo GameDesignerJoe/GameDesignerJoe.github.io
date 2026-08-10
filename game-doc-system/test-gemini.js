@@ -48,8 +48,15 @@ async function testGeminiAPI(apiKey) {
     }
 }
 
-// Test with the provided API key
-testGeminiAPI('AIzaSyB932lMvUJGzhxwe24XnUAuEXvmI0xsp3I')
+// Test with an API key provided via environment variable or CLI arg.
+// Do NOT hardcode keys here — run with:  GEMINI_API_KEY=... node test-gemini.js
+const apiKey = process.env.GEMINI_API_KEY || process.argv[2];
+if (!apiKey) {
+    console.error('Missing API key. Set GEMINI_API_KEY or pass it as the first argument.');
+    process.exit(1);
+}
+
+testGeminiAPI(apiKey)
     .then(result => {
         console.log('Test complete:', result);
-    }); 
+    });
