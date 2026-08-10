@@ -163,7 +163,9 @@
       "Bash(node_modules/.bin/tsc -p game-doc-system/tsconfig.json --noEmit)",
       "Bash(./node_modules/.bin/tsc -p game-doc-system/tsconfig.json --noEmit)",
       "Bash(echo \"TS5.9 exit: $?\")",
-      "Bash(npx --yes cspell@latest lint game-doc-system/tsconfig.json --no-progress --show-context)"
+      "Bash(npx --yes cspell@latest lint game-doc-system/tsconfig.json --no-progress --show-context)",
+      "WebFetch(domain:json.schemastore.org)",
+      "WebFetch(domain:www.schemastore.org)"
     ]
   }
 }
