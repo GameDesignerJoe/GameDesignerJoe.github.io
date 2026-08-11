@@ -1,12 +1,18 @@
 /* ============================================================
    ITEMS — floor emoji, hand slots, drag ghost, loupe
 ============================================================ */
+/* Drawn at its true size. It used to be set at 44px and then squashed with
+   transform:scale(0.43), which means the glyph was rasterised big and
+   resampled down every frame. On platforms whose emoji are bitmap strikes
+   (iOS, most Android) that resampling is a real softening; on Windows, where
+   they're vector, it mostly just wastes work. Either way there's no reason
+   to paint at 2.3x the size you want. */
 .item{
   position:absolute;z-index:6;
-  font-size:44px;line-height:1;
-  padding:20px;
+  font-size:var(--item-size);line-height:1;
+  padding:var(--item-pad);
   cursor:pointer;
-  filter:drop-shadow(0 3px 2px rgba(0,0,0,.3));
+  filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.3));
 }
 
 .slot{

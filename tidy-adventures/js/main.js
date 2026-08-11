@@ -499,7 +499,8 @@ function buildRoomEl(room){
     sp.className="item";
     sp.dataset.item=it.id;
     sp.textContent=it.type;
-    sp.style.cssText=`left:${it.loc.x}%;top:${it.loc.y}%;transform:translate(-50%,-50%) rotate(${it.loc.rot}deg) scale(0.43);`;
+    /* No scale(): the glyph is drawn at --item-size directly. See css/items.css. */
+    sp.style.cssText=`left:${it.loc.x}%;top:${it.loc.y}%;transform:translate(-50%,-50%) rotate(${it.loc.rot}deg);`;
     el.appendChild(sp);
   }
   return el;
@@ -1344,7 +1345,7 @@ host.addEventListener("pointerup",e=>{
             const el=p.itemEl;
             el.style.transition="left .38s cubic-bezier(.15,.6,.35,1), top .38s cubic-bezier(.15,.6,.35,1), transform .38s linear";
             el.style.left=tx+"%"; el.style.top=ty+"%";
-            el.style.transform=`translate(-50%,-50%) rotate(${(it.loc.rot||0)+(vx>0?540:-540)}deg) scale(0.43)`;
+            el.style.transform=`translate(-50%,-50%) rotate(${(it.loc.rot||0)+(vx>0?540:-540)}deg)`;
             setTimeout(()=>{
               it.flying=false;
               it.loc.rot=Math.random()*40-20;

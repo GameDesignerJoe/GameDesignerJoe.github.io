@@ -13,6 +13,17 @@
   --slot:#3a2f20;
   --hud-h:56px;
   --inv-h:110px;
+
+  /* How big items on the floor are drawn.
+     This is the knob for "the emoji look fuzzy": they are simply small.
+     A picked-up item shows in the loupe at 48px, so at the old effective
+     18.9px it had about 2.5x less detail — that gap is most of the effect.
+     Raising this gives more pixels per item; the cost is that a dense house
+     (Mega packs ~170 items into a room) gets more visual overlap.
+     --item-pad is the invisible touch target around the glyph; keep it at
+     roughly half the size so items stay easy to hit. */
+  --item-size:22px;
+  --item-pad:10px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
