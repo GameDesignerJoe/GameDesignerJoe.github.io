@@ -1,0 +1,65 @@
+{
+  "_readme": [
+    "Room and furniture geometry, plus the registries that rooms.json is checked against.",
+    "",
+    "anchors  — where furniture sits, as % of the room. A room can hold at most this",
+    "           many containers, so adding a 7th container to a room in rooms.json",
+    "           means adding a 7th anchor here first.",
+    "           'rect' is for square rooms, 'soft' is pulled inward for round/hex rooms.",
+    "kinds    — the furniture skins. Each must have a matching .k-<id> rule in",
+    "           css/furniture.css. w/h override defaultSize for that kind.",
+    "floors   — the floor patterns. Each must have a matching .floor-<id> rule in css/room.css.",
+    "tokens   — the non-sortable items: keys, coins. These must NOT appear in rooms.json.",
+    "pads     — keep-out margins around furniture when scattering items, in room %.",
+    "           Bigger pads = items land further from furniture."
+  ],
+
+  "anchors": {
+    "rect": [
+      { "x": 8, "y": 3 },  { "x": 56, "y": 3 },
+      { "x": 8, "y": 40 }, { "x": 56, "y": 40 },
+      { "x": 8, "y": 77 }, { "x": 56, "y": 77 }
+    ],
+    "soft": [
+      { "x": 33, "y": 5 },  { "x": 33, "y": 78 },
+      { "x": 6,  "y": 41 }, { "x": 58, "y": 41 },
+      { "x": 33, "y": 28 }, { "x": 33, "y": 53 }
+    ]
+  },
+
+  "defaultSize": { "w": 34, "h": 16 },
+
+  "_kindsNote": [
+    "w/h are % of the room and override defaultSize for that kind.",
+    "They were a flat 36 x 7 for everything, which is why furniture read as",
+    "a labelled bar rather than an object. Give each kind the silhouette it",
+    "should have: a fridge tall and narrow, a crate wide and low.",
+    "Keep h under ~20 or the bottom row of anchors runs off the floor."
+  ],
+  "kinds": {
+    "steel":   { "label": "Steel cabinet", "w": 25, "h": 20 },
+    "wood":    { "label": "Wood cabinet",  "w": 33, "h": 17 },
+    "slat":    { "label": "Slatted crate", "w": 34, "h": 13 },
+    "glass":   { "label": "Glass case",    "w": 29, "h": 19 },
+    "wicker":  { "label": "Wicker basket", "w": 26, "h": 14 },
+    "plastic": { "label": "Plastic tub",   "w": 32, "h": 13 },
+    "dark":    { "label": "Dark chest",    "w": 31, "h": 15 },
+    "peg":     { "label": "Pegboard",      "w": 35, "h": 16 }
+  },
+
+  "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret"],
+
+  "tokens": {
+    "key":  { "emoji": "🔑", "name": "Key",     "opens": "door" },
+    "coin": { "emoji": "🪙", "name": "Coin",    "opens": "cache" },
+    "skel": { "emoji": "🗝️", "name": "Old key", "opens": "container" }
+  },
+
+  "pads": {
+    "tight": { "x": 1.5, "yTop": 3.5, "yBot": 1.5 },
+    "toss":  { "x": 2,   "yTop": 4,   "yBot": 2 },
+    "cache": { "x": 4,   "yTop": 6,   "yBot": 4 }
+  },
+
+  "cacheSlot": { "w": 9, "h": 4.2 }
+}

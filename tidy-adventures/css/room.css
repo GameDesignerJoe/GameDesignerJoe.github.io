@@ -1,0 +1,131 @@
+/* ============================================================
+   ROOM — walls, shapes, floors, doors, coin-slot caches
+   Floor classes are `.floor-<id>` where <id> is `floor` in data/rooms.json.
+   Adding a floor there requires adding a rule here.
+============================================================ */
+.room{
+  position:absolute;inset:0;
+  margin:auto;
+  border:10px solid var(--wall);
+  border-radius:14px;
+  box-shadow:0 0 0 4px var(--wall-dark), 0 18px 40px rgba(0,0,0,.5);
+  transform-origin:center center;
+}
+.room .floor{position:absolute;inset:0}
+.room.shape-round{border-radius:50%}
+.room.shape-round .floor{border-radius:50%}
+.room.shape-hex{border:none;box-shadow:none;background:transparent}
+.room.shape-hex::before{
+  content:"";position:absolute;inset:0;background:var(--wall);
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+  filter:drop-shadow(0 14px 30px rgba(0,0,0,.5));
+}
+.room.shape-hex .floor{
+  inset:11px;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
+}
+
+/* ---------- FLOORS ---------- */
+.floor-kitchen{background:repeating-conic-gradient(#d9a06a 0% 25%, #cf9257 0% 50%) 0 0/56px 56px;}
+.floor-garage{background:
+  linear-gradient(rgba(255,255,255,.03),rgba(0,0,0,.06)),
+  repeating-linear-gradient(0deg,#9a9a98 0 110px,#8b8b89 110px 114px),#9a9a98;}
+.floor-bathroom{background:repeating-conic-gradient(#bfe0dd 0% 25%, #aed4d0 0% 50%) 0 0/44px 44px;}
+.floor-office{background:repeating-linear-gradient(90deg,#a5744a 0 64px,#996a41 64px 66px);}
+.floor-bedroom{background:radial-gradient(circle at 30% 30%, #c793a2, #b97f90 70%);}
+.floor-closet{background:repeating-linear-gradient(90deg,#6d5138 0 48px,#63482f 48px 50px);}
+.floor-attic{background:repeating-linear-gradient(0deg,#8d6a45 0 74px,#7d5c3a 74px 78px);}
+.floor-shed{background:
+  radial-gradient(circle at 20% 30%, rgba(0,0,0,.06) 4px, transparent 5px) 0 0/70px 70px,
+  #9a8a5f;}
+.floor-secret{background:radial-gradient(circle at 50% 40%, #7d6a9e, #5d4d7a 75%);}
+
+/* ---------- PROPS ----------
+   What a finished room keeps. Decorative only — never interactive. */
+.prop{
+  position:absolute;z-index:5;pointer-events:none;
+  font-size:clamp(18px, 3.4vmin, 34px);line-height:1;
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.35));
+  animation:propsettle .7s ease-out;
+}
+@keyframes propsettle{
+  0%  {opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  60% {opacity:1;transform:translate(-50%,-50%) scale(1.14)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
+
+/* ---------- CACHES (coin-slot boxes) ---------- */
+.cache{
+  position:absolute;z-index:4;cursor:pointer;
+  background:linear-gradient(#544935,#453b28);
+  border:2px solid #2e2718;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  box-shadow:0 3px 6px rgba(0,0,0,.3);
+}
+.cache{container-type:size}
+.cache .cico{font-size:clamp(7px, 55cqh, 12px);opacity:.8;filter:grayscale(.3)}
+.cache .slotline{width:11px;height:3px;background:#161009;border-radius:2px}
+.cache.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.75), 0 3px 6px rgba(0,0,0,.3)}
+.cache.fullhit{animation:furnfull .4s}
+.cache.goldhit{animation:furngold .9s}
+
+/* ---------- DOOR LABELS ---------- */
+.doorlab{
+  position:absolute;z-index:6;pointer-events:none;
+  font-size:clamp(6px, 1.1vmin, 10px);font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(255,255,255,.75);
+  text-shadow:0 1px 3px rgba(0,0,0,.7);
+  white-space:nowrap;
+}
+.doorlab.N{top:34px;left:50%;transform:translateX(-50%)}
+.doorlab.S{bottom:34px;left:50%;transform:translateX(-50%)}
+.doorlab.E{right:36px;top:50%;transform:translateY(-50%)}
+.doorlab.W{left:36px;top:50%;transform:translateY(-50%)}
+
+/* ---------- DOORS ---------- */
+.door{
+  position:absolute;z-index:7;
+  background:linear-gradient(#8a623c,#6d4b2c);
+  border:3px solid #3a2a17;border-radius:5px;
+  box-shadow:0 0 0 3px var(--wall-dark), 0 3px 8px rgba(0,0,0,.4);
+  display:flex;align-items:center;justify-content:center;
+  /* The doorknob (a 6px gold dot on ::before) is gone — at this size it read
+     as a smudge, not a knob. The directional chevron carries the whole
+     affordance now, so it gets real weight. */
+  color:rgba(255,240,210,.95);
+  font-size:clamp(11px, 62cqh, 22px);
+  font-weight:900;
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  cursor:pointer;
+  container-type:size;
+}
+.door::after{content:"";position:absolute;inset:-10px}
+.door.N,.door.S{width:20%;height:28px;left:40%}
+.door.N{top:-17px}
+.door.S{bottom:-17px}
+.door.E,.door.W{width:28px;height:20%;top:40%}
+.door.E{right:-17px}
+.door.W{left:-17px}
+
+/* A door you haven't been through yet beckons. Free wayfinding: doors into
+   unexplored rooms pull, doors back into tidied ones don't. */
+.door.unvisited{animation:doorbeckon 2.6s ease-in-out infinite}
+@keyframes doorbeckon{
+  50%{box-shadow:0 0 0 3px var(--wall-dark), 0 0 14px 3px rgba(245,197,66,.55), 0 3px 8px rgba(0,0,0,.4)}
+}
+
+/* ---------- LOCKED DOORS ---------- */
+.door.locked{
+  background:linear-gradient(#231a10,#150f08);
+  color:var(--gold);
+  flex-direction:column;gap:4px;
+  font-size:13px;
+  border-color:rgba(245,197,66,.55);
+}
+.door.locked.N,.door.locked.S{flex-direction:row;gap:6px}
+.door .pips{display:flex;flex-direction:column;gap:3px}
+.door.locked.N .pips,.door.locked.S .pips{flex-direction:row}
+.door.locked.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.8)}
+.door.locked.goldhit{animation:furngold .9s}
+.door.locked.fullhit{animation:furnfull .4s}

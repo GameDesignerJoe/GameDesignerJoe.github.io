@@ -1,0 +1,41 @@
+/* ============================================================
+   BASE — design tokens, reset, body, motion preferences
+   Load order: base → layout → room → furniture → items → container → overlays
+============================================================ */
+:root{
+  --bg:#211a12;
+  --wall:#4a3a28;
+  --wall-dark:#33281b;
+  --ink:#f3e9d8;
+  --ink-dim:#b9a88d;
+  --gold:#f5c542;
+  --panel:#2c2317;
+  --slot:#3a2f20;
+  --hud-h:56px;
+  --inv-h:110px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+/* iOS Safari inflates small text, and Chrome on Android "font boosts" any
+   sub-12px text it decides is a block — both keyed off layout width, which
+   is why in-room labels looked fine on a laptop and blew out of their boxes
+   on a phone. Neither is a zoom/transform problem; this is the actual fix. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:ui-rounded,"SF Pro Rounded","Segoe UI",system-ui,sans-serif;
+  user-select:none;-webkit-user-select:none;
+  touch-action:manipulation;
+  display:flex;flex-direction:column;
+}
+
+/* The `hidden` attribute alone loses to any rule that sets `display` — which
+   is why .menubtn{display:block} kept the Continue button on screen even
+   though showTitle() correctly set hidden=true. setHidden() in js/dom.js
+   pairs the attribute with this class so it always wins. */
+[hidden], .is-hidden{display:none !important}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}

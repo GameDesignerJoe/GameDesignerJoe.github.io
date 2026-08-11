@@ -1,0 +1,25 @@
+{
+  "_readme": [
+    "What appears in a room once you've finished tidying it.",
+    "",
+    "This is the cheapest immersion in the game: walking back through a room",
+    "you cleaned an hour ago and finding a cat asleep in it does more for",
+    "'this is a place' than a feature would. The room stops being a score and",
+    "starts being somewhere you've been.",
+    "",
+    "Keyed by room id from rooms.json. `at` is a % position in the room.",
+    "Props are decorative only — no pointer events, nothing to collect.",
+    "A room with no entry here simply gets none."
+  ],
+  "props": {
+    "kitchen":  { "emoji": "☕", "at": [72, 62], "title": "Something's brewing" },
+    "garage":   { "emoji": "🔦", "at": [28, 66], "title": "A light left on" },
+    "bathroom": { "emoji": "🕯️", "at": [70, 58], "title": "A candle, lit" },
+    "office":   { "emoji": "🪴", "at": [74, 64], "title": "Room for a plant now" },
+    "closet":   { "emoji": "🐈", "at": [50, 62], "title": "Someone found the warm spot" },
+    "attic":    { "emoji": "🕰️", "at": [30, 60], "title": "The clock is wound again" },
+    "shed":     { "emoji": "🌻", "at": [66, 64], "title": "Something's growing" },
+    "secret":   { "emoji": "🔮", "at": [50, 64], "title": "It hums, faintly" },
+    "bedroom":  { "emoji": "🪔", "at": [26, 64], "title": "A lamp, and quiet" }
+  }
+}

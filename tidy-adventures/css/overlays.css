@@ -1,0 +1,143 @@
+/* ============================================================
+   OVERLAYS — menus, teaching tips, toast
+   Every .overlay shares z-index 120, so DOM order decides which
+   paints on top. Only one should be open at a time; closeMenus()
+   in js/menus.js enforces that.
+============================================================ */
+
+/* ---------- TEACHING TIPS ---------- */
+#tipLayer{position:fixed;inset:0;pointer-events:none;z-index:96}
+.tip{
+  position:fixed;transform:translate(-50%,-100%);
+  background:var(--panel);color:var(--ink);
+  border:2px solid var(--gold);
+  padding:6px 12px;border-radius:999px;
+  font-size:12px;font-weight:700;letter-spacing:.03em;
+  box-shadow:0 6px 16px rgba(0,0,0,.5), 0 0 10px rgba(245,197,66,.25);
+  white-space:nowrap;
+  animation:tipbob 1.6s ease-in-out infinite;
+}
+.tip.below{transform:translate(-50%,0)}
+@keyframes tipbob{50%{margin-top:-5px}}
+
+/* ---------- MESSAGES ----------
+   Moved from just above the inventory bar (under the thumb, behind
+   #dragGhost, where nobody was looking) to just under the HUD. Wraps now
+   instead of `white-space:nowrap`, so a real sentence is readable on a
+   phone. See say() in js/feedback.js for the queue. */
+#toast{
+  position:fixed;left:50%;top:calc(var(--hud-h) + 6px);
+  transform:translateX(-50%) translateY(-8px);
+  max-width:min(88vw, 460px);
+  background:var(--panel);color:var(--ink);
+  padding:9px 16px;border-radius:14px;font-size:13.5px;font-weight:600;
+  line-height:1.4;text-align:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.5);
+  opacity:0;transition:all .25s;pointer-events:none;z-index:95;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- OVERLAY SHELL ---------- */
+.overlay{
+  position:fixed;inset:0;z-index:120;display:none;
+  background:rgba(15,11,6,.88);
+  align-items:center;justify-content:center;padding:24px;text-align:center;
+}
+.overlay.open{display:flex}
+.overlay .card{max-width:440px}
+.overlay h1{font-size:34px;margin-bottom:10px}
+.overlay p{color:var(--ink-dim);line-height:1.55;font-size:15px;margin-bottom:8px}
+.overlay .big{font-size:52px;margin-bottom:8px}
+.overlay button{
+  margin-top:16px;border:0;background:var(--gold);color:#3a2c05;
+  font-size:15px;font-weight:800;letter-spacing:.06em;
+  padding:12px 28px;border-radius:999px;cursor:pointer;
+}
+.gestures{margin-top:10px;text-align:left;display:inline-block}
+.gestures li{list-style:none;color:var(--ink-dim);font-size:14px;margin:6px 0}
+.gestures b{color:var(--ink)}
+
+/* ---------- MENU BUTTONS ---------- */
+.menubtn{
+  display:block;width:100%;
+  margin:7px 0;border:0;border-radius:14px;
+  background:var(--panel);color:var(--ink);
+  font-size:16px;font-weight:800;letter-spacing:.04em;
+  padding:14px 20px;cursor:pointer;text-align:center;
+  font-family:inherit;
+}
+.menubtn small{display:block;font-size:11px;font-weight:600;color:var(--ink-dim);letter-spacing:.08em;margin-top:2px}
+.menubtn.primary{background:var(--gold);color:#3a2c05}
+.menubtn.primary small{color:#6b5416}
+.menubtn.ghost{background:transparent;color:var(--ink-dim);box-shadow:inset 0 0 0 2px var(--panel)}
+.tagline{letter-spacing:.08em}
+.sizegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sizegrid .menubtn{margin:0}
+
+/* ---------- LEVEL SELECT ---------- */
+.lvlbtn{
+  display:flex;align-items:center;gap:10px;width:100%;
+  margin:6px 0;border:0;border-radius:12px;
+  background:var(--panel);color:var(--ink);
+  padding:10px 14px;cursor:pointer;text-align:left;
+  font-family:inherit;
+}
+.lvlbtn .lid{font-size:12px;font-weight:800;color:var(--gold);flex:0 0 34px}
+.lvlbtn .lname{font-size:14px;font-weight:700;flex:1 1 auto}
+.lvlbtn .lstate{font-size:14px;flex:0 0 auto}
+.lvlbtn:disabled{opacity:.35;cursor:default}
+#winButtons{margin-top:6px}
+
+/* ---------- SHOP ---------- */
+.shoprow{
+  display:flex;align-items:center;gap:10px;
+  background:var(--panel);border-radius:12px;
+  padding:10px 12px;margin:8px 0;text-align:left;
+}
+.shoprow .sinfo{flex:1 1 auto;min-width:0}
+.shoprow .sname{font-size:14px;font-weight:800;color:var(--ink)}
+.shoprow .sdesc{font-size:12px;color:var(--ink-dim);line-height:1.35}
+.shoprow .slvl{font-size:11px;color:var(--gold);font-weight:700}
+.shoprow button{
+  margin:0;flex:0 0 auto;
+  padding:8px 14px;font-size:13px;
+}
+.shoprow button:disabled{opacity:.35;cursor:default}
+.shoprow.ghostrow{opacity:.5}
+.shoprow .vol{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.shoprow .vol input[type=range]{flex:1 1 auto;accent-color:var(--gold);height:16px;min-width:90px}
+.shoprow.ghostrow .sname{letter-spacing:.3em;color:var(--ink-dim)}
+
+/* ---------- TALENT DRAFT ----------
+   Row on a tablet, column on a phone. */
+.overlay .card.wide{max-width:min(94vw, 720px)}
+#draftCards{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:10px;margin-top:14px;
+}
+/* `.overlay button` (0,1,1) styles every button in an overlay as a gold pill,
+   so these need at least that much specificity to win. */
+.overlay .dcard{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  background:var(--panel);color:var(--ink);
+  border:2px solid rgba(255,255,255,.06);border-radius:16px;
+  padding:16px 12px 14px;cursor:pointer;text-align:center;
+  font-family:inherit;font-size:inherit;font-weight:400;letter-spacing:normal;
+  margin:0;
+  transition:transform .25s ease, opacity .25s ease, border-color .2s, box-shadow .25s;
+}
+.overlay .dcard:hover{border-color:rgba(245,197,66,.5);transform:translateY(-3px)}
+.overlay .dcard .dicon{font-size:34px;line-height:1}
+.overlay .dcard .dname{font-size:15px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
+.overlay .dcard .dsub{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
+.overlay .dcard .ddesc{font-size:12px;color:var(--ink-dim);line-height:1.4;font-weight:500}
+.dcard .dpips{display:flex;gap:4px;margin-top:2px}
+.dcard .dpips i{width:6px;height:6px;border-radius:50%;background:rgba(245,197,66,.25);display:block}
+.dcard .dpips i.full{background:var(--gold);box-shadow:0 0 4px rgba(245,197,66,.9)}
+
+.overlay .dcard.chosen{
+  transform:scale(1.08);
+  border-color:var(--gold);
+  box-shadow:0 0 26px 6px rgba(245,197,66,.55);
+}
+.overlay .dcard.dismissed{opacity:0;transform:translateY(14px) scale(.92);pointer-events:none}
