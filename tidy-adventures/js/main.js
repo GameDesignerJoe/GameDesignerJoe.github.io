@@ -33,11 +33,15 @@ import {
   initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
 } from './talents.js';
 import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted } from './audio.js';
+import {
+  initQuests, maybeDropNote, openNote, renderObjective, checkQuests, completeQuest,
+} from './quests.js';
 
 /* Data must be in hand before anything reads it. Top-level await keeps every
    module below this point free of "is it loaded yet" checks. */
 await loadData();
 initAudio(DATA.audio);
+initQuests({ change(){ renderHUD(); renderObjective(); scheduleSave(); } });
 
 /* Convenience views over the loaded data, so the code below reads the same
    way it did when these were inline literals. */
@@ -343,6 +347,16 @@ function openCache(cacheIdx, it, fromSlot){
   return true;
 }
 
+/* Does this held item open that lock? Matching is by token TYPE, not by
+   instance: generation makes exactly one 🗝️ per 🗝️ lock so it plays as
+   one-to-one, but two identical keys never behave differently — per-instance
+   matching would be invisible to the player and would reintroduce exactly the
+   guess-the-key problem the roadmap already ruled out. */
+function fitsLock(lock, it){
+  if(!lock || !it) return false;
+  return (it.token || (it.isKey ? "key" : null)) === (lock.token || "key");
+}
+
 function insertContainerKey(contIdx, it, fromSlot){
   fire("lock");
   const room=G.rooms[G.current], c=room.containers[contIdx];
@@ -424,15 +438,21 @@ function buildRoomEl(room){
     f.style.cssText=`left:${s.x}%;top:${s.y}%;width:${s.w}%;height:${s.h}%;`;
     const badges=document.createElement("div"); badges.className="badges";
     if(locked){
-      const ic=document.createElement("span"); ic.textContent="🔒";
+      /* Show the key this lock actually wants rather than a generic 🔒, so
+         the requirement is legible at a glance — no guess-the-key. */
+      const ic=document.createElement("span");
+      ic.textContent=LOOKUP.tokenById[c.lock.token||"key"]?.emoji || "🔒";
       badges.appendChild(ic);
-      const pips=document.createElement("div"); pips.className="pips";
-      for(let i=0;i<c.lock.need;i++){
-        const p=document.createElement("i");
-        if(i<c.lock.have) p.classList.add("full");
-        pips.appendChild(p);
+      /* A single-key lock needs no pip strip; the emoji says it all. */
+      if(c.lock.need>1){
+        const pips=document.createElement("div"); pips.className="pips";
+        for(let i=0;i<c.lock.need;i++){
+          const p=document.createElement("i");
+          if(i<c.lock.have) p.classList.add("full");
+          pips.appendChild(p);
+        }
+        badges.appendChild(pips);
       }
-      badges.appendChild(pips);
     }else{
       // badge strip: unique types inside, gold if that set is complete
       const inside=new Set();
@@ -502,6 +522,7 @@ function render(){
   renderHUD();
   renderInv();
   renderTips();
+  renderObjective();
   if(G.openCont!==null) renderContainer();
 }
 
@@ -629,6 +650,7 @@ function renderInv(){
 
 function senseSuffix(it){
   if(!G.up.sense) return "";
+  if(it.token==="skel") return " → one specific lock";
   if(it.isKey) return " → a lock";
   if(it.isCoin) return " → a coin slot";
   const home=G.typeHome[it.type];
@@ -687,7 +709,12 @@ function afterMutation(room, c, changedRows, opts={}){
     const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
     flyReward(fe, "+"+earned+" ⭐");
   }
-  if(contDone){ sfx("contComplete"); fire("contComplete", {container:c.short||c.name}); }
+  if(contDone){
+    sfx("contComplete");
+    fire("contComplete", {container:c.short||c.name});
+    /* First container finished in a room? Someone leaves you a note. */
+    if(maybeDropNote(room)) renderRoom();
+  }
   else if(newly.length) sfx("rowComplete");
   if(newly.length) fire("rowComplete", {container:c.short||c.name});
 
@@ -701,6 +728,8 @@ function afterMutation(room, c, changedRows, opts={}){
     say(room.name+" is all tidy ✨", {priority:2});
     fire("roomComplete", {room:room.name});
   }
+  const finishedQuest=checkQuests();
+  if(finishedQuest) completeQuest(finishedQuest);
   renderHUD();
   checkDraftThreshold();
   if(checkWin()) setTimeout(showWin,T.winDelay);
@@ -714,6 +743,15 @@ function pickUp(itemId){
   const it=G.items[itemId];
   const sx=it.loc.x, sy=it.loc.y;
   it.loc={kind:"inv",slot};
+  /* A note isn't cargo — reading it consumes it, so it never occupies a
+     hand slot the player needs for actual hauling. */
+  if(it.isNote){
+    it.loc={kind:"used"};
+    sfx("uiTap");
+    renderRoom();
+    openNote(it.noteId);
+    return;
+  }
   G.inv[slot]=it.id;
   if(G.sel===null) G.sel=slot;
   sfx(it.isKey||it.isCoin ? "keyPickup" : "pickup");
@@ -748,7 +786,12 @@ function tossInto(it, contIdx, fromSlot){
   const room=G.rooms[G.current], c=room.containers[contIdx];
   const fe=host.querySelector(`.furn[data-cont="${contIdx}"]`);
   if(c.lock && !c.lock.open){
-    if(it.isKey){ insertContainerKey(contIdx, it, fromSlot); return true; }
+    if(fitsLock(c.lock, it)){ insertContainerKey(contIdx, it, fromSlot); return true; }
+    if(it.isKey||it.isCoin){
+      const want=LOOKUP.tokenById[c.lock.token||"key"];
+      bump(fe, want?.emoji||"🔒", "This one wants "+(want?.name||"a key").toLowerCase()+" — "+(want?.emoji||"🔑"), "wrongToken");
+      return false;
+    }
     if(fe) fe.classList.add("fullhit");
     bump(fe, "🔒", "That one's locked. Feed it keys to open it.", "locked");
     return false;
@@ -1028,7 +1071,7 @@ function showWin(){
   clearSave();
   const secs=Math.round((Date.now()-G.stats.start)/1000);
   const m=Math.floor(secs/60), s=secs%60;
-  const sortable=Object.values(G.items).filter(i=>!i.isKey&&!i.isCoin);
+  const sortable=Object.values(G.items).filter(i=>!i.isKey&&!i.isCoin&&!i.isNote);
   const acc=Math.round(100*G.stats.firstGood/sortable.length);
   const stats=`${sortable.length} items sorted in ${m}m ${s}s — ${acc}% landed in the right home on the first toss.`;
   const btns=$("#winButtons"); btns.innerHTML="";
@@ -1269,7 +1312,7 @@ host.addEventListener("pointerup",e=>{
           if(p.hotCont.classList.contains("cache")){
             if(openCache(+p.hotCont.dataset.cache, it)) return;
           }else if(p.hotCont.classList.contains("locked")){
-            if(it.isKey){ insertKey(+p.hotCont.dataset.lock, it); return; }
+            if(fitsLock(G.locks[+p.hotCont.dataset.lock], it)){ insertKey(+p.hotCont.dataset.lock, it); return; }
             p.hotCont.classList.add("fullhit");
             bump(null, "🔑", "Only a key fits a lock.", "keyOnly");
           }else if(p.hotCont.classList.contains("furn")){
@@ -1491,7 +1534,7 @@ function endInvDrag(e){
     const plate=under && under.closest(".door.locked");
     if(plate && G.inv[d.idx]!==null){
       const it=G.items[G.inv[d.idx]];
-      if(it.isKey){ insertKey(+plate.dataset.lock, it, d.idx); }
+      if(fitsLock(G.locks[+plate.dataset.lock], it)){ insertKey(+plate.dataset.lock, it, d.idx); }
       else{ bump(plate, "🔑", "Only a key fits a lock.", "keyOnly"); }
       return;
     }
@@ -1650,6 +1693,10 @@ $("#helpClose").addEventListener("click",()=>{
 });
 $("#gearClose").addEventListener("click",()=>$("#gearOverlay").classList.remove("open"));
 $("#shopClose").addEventListener("click",()=>$("#shopOverlay").classList.remove("open"));
+$("#noteClose").addEventListener("click",()=>{
+  $("#noteOverlay").classList.remove("open");
+  sfx("uiTap");
+});
 $("#resetBtn").addEventListener("click",()=>{
   if(confirm("Re-roll this run? The current run will be erased.")){
     resetRun();
@@ -1806,7 +1853,12 @@ function buildHelp(){
 }
 
 /* Console handle for poking at a run: `tidy.G`, `tidy.DATA`, `tidy.start('mega')`. */
-window.tidy = { G, DATA, LOOKUP, start:startFree, level:startCampaign, render, generate, setRun, sfx };
+window.tidy = {
+  G, DATA, LOOKUP, start:startFree, level:startCampaign, render, generate, setRun, sfx,
+  /* handy from the console, and what the browser tests drive */
+  dropNote:maybeDropNote, openNote, checkQuests, completeQuest,
+  afterMutation, openContainer, closeCont, doWhirl,
+};
 
 /* boot: land on the title screen */
 buildSizeMenu();

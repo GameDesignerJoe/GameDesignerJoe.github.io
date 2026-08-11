@@ -151,11 +151,24 @@ export function generate(cfg) {
     }
   }
 
-  /* ---------- locked containers ---------- */
+  /* ---------- locked containers ----------
+     Doors and containers now gate differently, so the two flavours aren't
+     reskins of each other:
+       a door  costs a COLLECTION — N interchangeable 🔑
+       a chest costs a HUNT       — one specific 🗝️, spawned far away
+     Feeding a chest three identical keys was a chore; hunting one named key
+     across the house is a small errand with a destination. */
+  const contLocks = [];
   if (cfg.contLocks > 0) {
+    const skel = LOOKUP.tokenById.skel;
     const all = shuffle(rooms.flatMap(r => r.containers));
     for (let i = 0; i < Math.min(cfg.contLocks, all.length); i++) {
-      all[i].lock = { need: cfg.contKeys || 3, have: 0, open: false, token: "key", keyType: keyToken.emoji };
+      if (skel) {
+        all[i].lock = { need: 1, have: 0, open: false, token: "skel", keyType: skel.emoji };
+        contLocks.push(all[i]);
+      } else {
+        all[i].lock = { need: cfg.contKeys || 3, have: 0, open: false, token: "key", keyType: keyToken.emoji };
+      }
     }
   }
 
@@ -176,10 +189,24 @@ export function generate(cfg) {
   /* ---------- keys: exactly enough, never sealed behind their own lock ---------- */
   const openRooms = rooms.filter(r => !lockedSet.has(r.id));
   let totalKeys = locks.reduce((n, l) => n + l.need, 0);
-  for (const r of rooms) for (const c of r.containers) if (c.lock) totalKeys += c.lock.need;
+  for (const r of rooms) for (const c of r.containers) {
+    if (c.lock && c.lock.token === "key") totalKeys += c.lock.need;
+  }
   for (let k = 0; k < totalKeys; k++) {
     drop(openRooms[k % openRooms.length],
       { type: keyToken.emoji, isKey: true, token: "key", judged: true },
+      { margin: 6, span: 88 });
+  }
+
+  /* One named key per locked chest, as far from its own chest as the house
+     allows — a lock whose key is in the same room isn't a hunt. */
+  for (const c of contLocks) {
+    const skel = LOOKUP.tokenById.skel;
+    const home = rooms[c.roomId];
+    const elsewhere = openRooms.filter(r => r.id !== home.id);
+    const far = furthestFrom(rooms, home.id, elsewhere.length ? elsewhere : openRooms);
+    drop(far[rnd(far.length)] || home,
+      { type: skel.emoji, isKey: true, token: "skel", judged: true },
       { margin: 6, span: 88 });
   }
 

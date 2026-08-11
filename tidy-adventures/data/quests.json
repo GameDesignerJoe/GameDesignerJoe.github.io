@@ -1,0 +1,75 @@
+{
+  "_readme": [
+    "NOTES. Finishing the first container in a room leaves a 📝 on the floor.",
+    "Pick it up and someone has written to you.",
+    "",
+    "This is deliberately the cheapest possible NPC: no portrait, no dialogue",
+    "tree, no voice acting. A handwritten card delivers most of the presence a",
+    "character would, establishes a voice, and doesn't interrupt the quiet loop",
+    "the game is actually good at. If the writing lands, THEN consider giving",
+    "the voice a face.",
+    "",
+    "Keyed by room id. `need` is a list of emoji that must all be filed in",
+    "their home container to complete it. If a room has no entry here — or the",
+    "listed emoji aren't in this run — a fallback note is generated from",
+    "whatever the room actually contains, so every room gets one for free.",
+    "",
+    "`text` is the note. `reply` is what arrives when you finish it.",
+    "Keep them to one or two sentences and in the same hand throughout."
+  ],
+
+  "signature": "— M",
+
+  "fallback": {
+    "text": "Whoever's tidying: if you get the {container} sorted I'll owe you one.",
+    "reply": "The {container}. You actually did it. Thank you."
+  },
+
+  "rooms": {
+    "kitchen": {
+      "need": ["🥛", "🥚", "🧈"],
+      "text": "Milk, eggs, butter — in the fridge before dinner, please. I keep finding them on the counter.",
+      "reply": "Fridge stocked. Dinner is saved. You're a marvel."
+    },
+    "garage": {
+      "need": ["🔧", "🔨", "🪛"],
+      "text": "The wrench, the hammer, the screwdriver. Back on the bench where they live. I've been looking for that hammer since March.",
+      "reply": "There it is. Since March. Thank you."
+    },
+    "bathroom": {
+      "need": ["💊", "🩹"],
+      "text": "Pills and plasters in the cabinet, before someone needs them in a hurry.",
+      "reply": "Cabinet sorted. Nobody's bleeding. Good day."
+    },
+    "office": {
+      "need": ["📄", "🧾", "📁"],
+      "text": "The document, the receipt, the folder. Filing cabinet. I have an appointment on Thursday and I need to find all three.",
+      "reply": "Filed. Thursday can happen now."
+    },
+    "bedroom": {
+      "need": ["🧦", "👕", "👖"],
+      "text": "Socks, shirt, jeans — in the dresser. I'd like to get dressed tomorrow without an expedition.",
+      "reply": "Dresser done. Tomorrow will be easy."
+    },
+    "closet": {
+      "need": ["🧳", "🥾"],
+      "text": "Suitcase and boots on the travel shelf. I'm not saying we're going anywhere. I'm saying we could.",
+      "reply": "Packed and ready. We could, you know."
+    },
+    "attic": {
+      "need": ["🖼️", "🕰️"],
+      "text": "The picture and the clock, into the memory chest. Careful with the picture.",
+      "reply": "Both safe. That picture is older than this house."
+    },
+    "shed": {
+      "need": ["🌱", "🪴"],
+      "text": "Seedling and the potted one, on the seed rack where they get light.",
+      "reply": "They'll take now. Give them a month."
+    },
+    "secret": {
+      "need": ["💎", "👑"],
+      "text": "You found this room, then. The gem and the crown go in the chest. Don't ask.",
+      "reply": "Locked away again. We never had this conversation."
+    }
+  }
+}

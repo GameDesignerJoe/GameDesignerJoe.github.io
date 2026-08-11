@@ -11,11 +11,11 @@
 import { DATA_VERSION } from './config.js';
 import { validateData, showBootError, DataError } from './validate.js';
 
-const FILES = ['names','rooms','themes','furniture','sizes','levels','upgrades','strings','props','audio'];
+const FILES = ['names','rooms','themes','furniture','sizes','levels','upgrades','strings','props','audio','quests'];
 
 export const DATA = {
   names:{}, rooms:{}, themes:{}, furniture:{}, sizes:{}, levels:{}, upgrades:{}, strings:{},
-  props:{}, audio:{},
+  props:{}, audio:{}, quests:{},
 };
 
 /* Derived lookups, built once after load so hot paths don't re-scan arrays. */

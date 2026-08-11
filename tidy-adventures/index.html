@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="css/container.css">
 <link rel="stylesheet" href="css/overlays.css">
 <link rel="stylesheet" href="css/feedback.css">
+<link rel="stylesheet" href="css/quests.css">
 </head>
 <body>
 
@@ -43,7 +44,23 @@
 </div>
 
 <div id="tipLayer"></div>
+<!-- Must precede #toast: the CSS uses a sibling combinator to push messages
+     down when an objective is pinned, and ~ only looks forward. -->
+<div id="objective" hidden class="is-hidden"></div>
 <div id="toast"></div>
+
+<!-- The note. Deliberately the cheapest possible NPC: no portrait, no
+     dialogue tree, no voice. A voice, and paper. -->
+<div class="overlay" id="noteOverlay">
+  <div class="card">
+    <div class="notecard">
+      <p id="noteText"></p>
+      <div id="noteNeed"></div>
+      <div id="noteSign"></div>
+    </div>
+    <button id="noteClose">All right then</button>
+  </div>
+</div>
 
 <div class="overlay" id="helpOverlay">
   <div class="card">

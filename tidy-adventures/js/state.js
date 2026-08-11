@@ -54,6 +54,9 @@ export function blankRun() {
     events: new Set(), tipCtx: {},
     taught: new Set(),        // rules already explained in words, once ever
 
+    /* the note loop */
+    quests: { notes: {}, dropped: [], completed: [], active: null },
+
     /* one-shot effects */
     roomFxDone: new Set(),
     propsShown: new Set(),
