@@ -27,7 +27,7 @@ import { inShape, findFloorSpot, spin, pad } from './geometry.js';
 import { generate } from './generate.js';
 import {
   camEl, roomEl, applyCam, clampPan, zoomAt, zoomBy, wheelZoom, panBy,
-  resetPan, resetZoom, isZoomed, camScale, setCamSmooth,
+  resetPan, resetZoom, isZoomed, camScale, setCamSmooth, fitScale,
 } from './camera.js';
 import {
   initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
@@ -354,6 +354,10 @@ function openCache(cacheIdx, it, fromSlot){
    guess-the-key problem the roadmap already ruled out. */
 function fitsLock(lock, it){
   if(!lock || !it) return false;
+  /* A quest seal has no keyhole — it opens by finishing another container in
+     the room. Without this a plain key would satisfy `have >= need` (need is
+     0) and pop it open. */
+  if(lock.quest) return false;
   return (it.token || (it.isKey ? "key" : null)) === (lock.token || "key");
 }
 
@@ -391,6 +395,12 @@ function buildRoomEl(room){
   const sw=room.sw||1, sh=room.sh||1;
   el.style.width=(sw*100)+"%";
   el.style.height=(sh*100)+"%";
+  /* Doors and their labels are sized in real pixels, but the camera scales
+     the whole room to fill the stage — so a small room magnified 3x got
+     doors three times the size of a big room's. Dividing their px sizes by
+     the fit scale keeps them the same on screen whatever the room. Zoom
+     still enlarges them, which is what you want. */
+  el.style.setProperty("--fit", fitScale(room).toFixed(4));
   el.innerHTML=`<div class="floor floor-${room.floor}"></div>`;
   for(const [dir,to] of Object.entries(room.doors)) if(to!==null){
     const d=document.createElement("div");
@@ -439,9 +449,11 @@ function buildRoomEl(room){
     const badges=document.createElement("div"); badges.className="badges";
     if(locked){
       /* Show the key this lock actually wants rather than a generic 🔒, so
-         the requirement is legible at a glance — no guess-the-key. */
+         the requirement is legible at a glance — no guess-the-key. A quest
+         seal wants no key at all, so it gets its own mark. */
       const ic=document.createElement("span");
-      ic.textContent=LOOKUP.tokenById[c.lock.token||"key"]?.emoji || "🔒";
+      ic.textContent=c.lock.quest ? "🔒"
+        : (LOOKUP.tokenById[c.lock.token||"key"]?.emoji || "🔒");
       badges.appendChild(ic);
       /* A single-key lock needs no pip strip; the emoji says it all. */
       if(c.lock.need>1){
@@ -466,7 +478,11 @@ function buildRoomEl(room){
     }
     f.appendChild(badges);
     const lbl=document.createElement("div"); lbl.className="flabel";
-    lbl.textContent=c.short||c.name;   /* short fits the face; name is used in titles */
+    /* The full name. `short` is still in rooms.json and still used where space
+       is genuinely tight (the objective strip, bump messages), but a face
+       reading "SINK" when the thing is the Under the Sink cupboard is just
+       worse — the label wraps to two lines instead. */
+    lbl.textContent=c.name;
     f.appendChild(lbl);
     el.appendChild(f);
   }
@@ -478,6 +494,7 @@ function buildRoomEl(room){
     if(p){
       const pe=document.createElement("div");
       pe.className="prop";
+      pe.dataset.prop=p.title||"";
       pe.title=p.title||"";
       pe.textContent=p.emoji;
       pe.style.cssText=`left:${p.at[0]}%;top:${p.at[1]}%;`;
@@ -713,8 +730,9 @@ function afterMutation(room, c, changedRows, opts={}){
   if(contDone){
     sfx("contComplete");
     fire("contComplete", {container:c.short||c.name});
-    /* First container finished in a room? Someone leaves you a note. */
-    if(maybeDropNote(room)) renderRoom();
+    /* First container finished in a room? Someone leaves you a note, and
+       the room's sealed container opens. */
+    if(maybeDropNote(room, c)){ sfx("unlock"); renderRoom(); }
   }
   else if(newly.length) sfx("rowComplete");
   if(newly.length) fire("rowComplete", {container:c.short||c.name});
@@ -1372,6 +1390,17 @@ host.addEventListener("pointerup",e=>{
   const itemEl=p.itemEl;
   if(itemEl){ pickUp(+itemEl.dataset.item); lastTap={t:0}; return; }
 
+  /* Props aren't clutter and can't be picked up, so say so rather than
+     leaving a tap to fall through into nothing — silence on a tap is what
+     makes an un-tidyable object look like a bug. */
+  const propEl=target.closest(".prop");
+  if(propEl){
+    lastTap={t:0};
+    sfx("uiTap");
+    say(propEl.dataset.prop || "Just where it should be.", {key:"prop"+propEl.dataset.prop});
+    return;
+  }
+
   const cacheEl=target.closest(".cache");
   if(cacheEl){
     lastTap={t:0};
@@ -1420,7 +1449,11 @@ function maybeDraft(){ return drainDrafts(busy); }
 function openContainer(idx, contEl){
   const c=G.rooms[G.current].containers[idx];
   if(c.lock && !c.lock.open){
-    bump(contEl, "🔒", "Locked. Drag keys onto it — the pips show how many are left.", "lockedCont");
+    if(c.lock.quest){
+      bump(contEl, "🔒", "Sealed. Finish another container in this room and it opens.", "questSeal");
+    }else{
+      bump(contEl, "🔒", "Locked. Drag keys onto it — the pips show how many are left.", "lockedCont");
+    }
     return;
   }
   G.openCont=idx;

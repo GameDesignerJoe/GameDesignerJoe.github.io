@@ -32,16 +32,25 @@ export function initQuests({ change }) { onChange = change; }
 /* ============================================================
    Spawning
 ============================================================ */
-/* Called when a container completes. The first one in a room drops a note. */
-export function maybeDropNote(room) {
+/* Called when a container completes. The first one finished in a room drops
+   a note and breaks the seal on that room's quest container. */
+export function maybeDropNote(room, justFinished) {
   if (!G.active) return false;
   if (G.quests.dropped.includes(room.id)) return false;
-  const q = questFor(room);
+
+  const target = questContainer(room);
+  /* Finishing the quest container itself doesn't trigger it. */
+  if (target && justFinished && target.id === justFinished.id) return false;
+
+  const q = questFor(room, target);
   if (!q) return false;
+
+  /* Break the seal — this is the payoff for finishing the first container. */
+  if (target && target.lock?.quest) target.lock.open = true;
 
   G.quests.dropped.push(room.id);
   const id = "q" + room.id;
-  G.quests.notes[id] = { id, room: room.id, ...q, state: "onFloor" };
+  G.quests.notes[id] = { id, room: room.id, cont: target ? target.id : null, ...q, state: "onFloor" };
 
   /* A real item on the floor, so picking it up uses the code the player
      already knows. */
@@ -53,29 +62,56 @@ export function maybeDropNote(room) {
   return true;
 }
 
-/* Build a quest for this room: the authored one if its items are in play,
-   otherwise one generated from whatever the room actually holds. */
-function questFor(room) {
-  const data = DATA.quests;
-  const authored = data.rooms[room.defId];
-  const present = e => {
-    const h = G.typeHome[e];
-    return h && h.room === room.id;
-  };
+export const questContainer = room =>
+  room.questCont == null ? null : room.containers[room.questCont];
 
-  if (authored && authored.need.every(present)) {
-    return { need: [...authored.need], text: authored.text, reply: authored.reply, authored: true };
+/* Is every item of this type already filed where it belongs? */
+function alreadyDone(e) {
+  const h = G.typeHome[e];
+  if (!h) return false;
+  const c = G.rooms[h.room]?.containers[h.cont];
+  if (!c) return false;
+  const want = Object.values(G.items).filter(o => o.type === e).length;
+  let have = 0;
+  for (const rowIds of c.cells) for (const id of rowIds) {
+    if (id !== null && G.items[id].type === e) have++;
+  }
+  return want > 0 && have >= want;
+}
+
+/* Build the quest. Prefer the room's sealed container — its contents are
+   guaranteed to still be loose, so the note can never ask for something
+   you've already put away. */
+function questFor(room, target) {
+  const data = DATA.quests;
+
+  const typesOf = c => Object.entries(G.typeHome)
+    .filter(([, h]) => h.room === room.id && h.cont === c.id)
+    .map(([e]) => e);
+
+  if (target) {
+    const need = shuffle(typesOf(target)).slice(0, 3);
+    if (need.length) {
+      const vars = { container: target.name, room: room.name };
+      const authored = data.rooms[room.defId];
+      /* Authored copy only fits if it names this container's contents. */
+      const fits = authored && authored.need.every(e => need.includes(e));
+      return {
+        need,
+        text: tokenise(fits ? authored.text : data.sealed.text, vars),
+        reply: tokenise(fits ? authored.reply : data.sealed.reply, vars),
+        authored: !!fits,
+      };
+    }
   }
 
-  /* Fallback: pick a container in this room and ask for a few of its types. */
+  /* No sealed container in this room — fall back to an open one, but only
+     ask for types that aren't already filed. */
   const c = room.containers.find(c => !c.lock || c.lock.open);
   if (!c) return null;
-  const types = shuffle(Object.entries(G.typeHome)
-    .filter(([, h]) => h.room === room.id && h.cont === c.id)
-    .map(([e]) => e));
-  if (!types.length) return null;
-  const need = types.slice(0, Math.min(3, types.length));
-  const vars = { container: c.short || c.name, room: room.name };
+  const need = shuffle(typesOf(c).filter(e => !alreadyDone(e))).slice(0, 3);
+  if (!need.length) return null;
+  const vars = { container: c.name, room: room.name };
   return {
     need,
     text: tokenise(data.fallback.text, vars),

@@ -20,6 +20,16 @@
 
   "signature": "— M",
 
+  "_sealedNote": [
+    "Used when the note is about the room's SEALED container — the one that",
+    "stays shut until you finish something else in the room. This is the",
+    "normal case; `fallback` only fires in rooms with no sealed container."
+  ],
+  "sealed": {
+    "text": "You got the rest of it done, so here's the key bit: the {container} still needs filling.",
+    "reply": "The {container} too. That's the whole room, then. Thank you."
+  },
+
   "fallback": {
     "text": "Whoever's tidying: if you get the {container} sorted I'll owe you one.",
     "reply": "The {container}. You actually did it. Thank you."

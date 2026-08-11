@@ -233,6 +233,30 @@ export function generate(cfg) {
     }
   }
 
+  /* ---------- the quest container ----------
+     One small container per room starts sealed and holds nothing. Finishing
+     any OTHER container in that room drops a note and unlocks it; the note
+     asks you to fill it.
+
+     Sealing it is what makes the loop work. A locked container can't be
+     tossed into and is skipped by auto-filing and junk pre-fill, so its
+     items are guaranteed to still be on the floor when the note arrives.
+     The first version generated a note from a container's types without
+     checking, so it could ask for things already filed and you'd have to
+     take them out and put them back. Now that can't happen by construction.
+
+     The smallest container in the room gets the job — the microwave next to
+     the fridge, rather than a second fridge. */
+  if (cfg.quests !== false) {
+    for (const r of rooms) {
+      const free = r.containers.filter(c => !c.lock);
+      if (free.length < 2) continue;   // needs something else to finish first
+      const target = free.reduce((a, b) => (b.cells.length < a.cells.length ? b : a));
+      target.lock = { need: 0, have: 0, open: false, quest: true };
+      r.questCont = target.id;
+    }
+  }
+
   /* ---------- scatter the clutter ---------- */
   const items = {};
   let iid = 0;
@@ -320,6 +344,11 @@ export function generate(cfg) {
   if (cfg.junk) {
     const floorItems = Object.values(items).filter(o => !o.token && o.loc.kind === "floor");
     for (const r of rooms) for (const c of r.containers) {
+      /* Never pre-fill a locked container. It was doing so for key-locked
+         chests too — you'd crack a sealed chest open and find someone had
+         already put junk in it — and it broke the quest seal's guarantee
+         that its contents are still loose when the note arrives. */
+      if (c.lock && !c.lock.open) continue;
       if (Math.random() >= JUNK_CONTAINER_CHANCE) continue;
       const cap = c.cells.length * rowLen;
       const [lo, hi] = JUNK_FILL;

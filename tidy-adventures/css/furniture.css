@@ -30,7 +30,9 @@
   /* Lets everything inside size against THIS box rather than a fixed px
      value, so labels stay proportional at any zoom and on any screen. */
   container-type:size;
-  overflow:hidden;
+  /* NO overflow:hidden here. The badge strip deliberately sits ABOVE the
+     furniture (top:-24cqh), so clipping the box hides the icons that tell
+     you what's inside. Only the name plate clips — see .flabel. */
   isolation:isolate;
 }
 .furn::before,.furn::after{content:"";position:absolute;pointer-events:none}
@@ -43,12 +45,14 @@
    the object's entire identity. */
 .furn .flabel{
   position:relative;z-index:3;
-  margin-bottom:7cqh;
-  max-width:82%;
-  font-size:clamp(5px, 22cqh, 10px);
-  font-weight:800;letter-spacing:.05em;text-transform:uppercase;
-  text-align:center;line-height:1.1;
-  padding:2cqh 5%;
+  margin-bottom:6cqh;
+  max-width:92%;
+  /* Two lines of a real name have to fit, so this is a touch smaller and the
+     plate is wider than when the face only ever showed a short word. */
+  font-size:clamp(4.5px, 17cqh, 9.5px);
+  font-weight:800;letter-spacing:.03em;text-transform:uppercase;
+  text-align:center;line-height:1.12;
+  padding:2cqh 4%;
   border-radius:2px;
   color:rgba(255,255,255,.94);
   background:rgba(0,0,0,.34);
