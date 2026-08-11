@@ -31,7 +31,10 @@ export const PLACE_TRIES = 70;           // scatter attempts before giving up
 
 export const DIRS = { N:[0,-1], S:[0,1], W:[-1,0], E:[1,0] };
 export const OPP  = { N:"S", S:"N", W:"E", E:"W" };
-export const CHEVRON = { N:"˄", S:"˅", W:"‹", E:"›" };
+/* Solid triangles, not the old ˄ ˅ ‹ › chevrons: with the doorknob gone the
+   glyph carries the whole affordance, and at that size ˅ reads as a letter V
+   rather than an arrow. */
+export const CHEVRON = { N:"▲", S:"▼", W:"◀", E:"▶" };
 
 /* ---------- camera ---------- */
 export const ZOOM_MIN = 0.85;

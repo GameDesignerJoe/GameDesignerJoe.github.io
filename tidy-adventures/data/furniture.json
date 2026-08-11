@@ -16,28 +16,35 @@
 
   "anchors": {
     "rect": [
-      { "x": 7, "y": 2 },  { "x": 57, "y": 2 },
-      { "x": 7, "y": 46 }, { "x": 57, "y": 46 },
-      { "x": 7, "y": 90 }, { "x": 57, "y": 90 }
+      { "x": 8, "y": 3 },  { "x": 56, "y": 3 },
+      { "x": 8, "y": 40 }, { "x": 56, "y": 40 },
+      { "x": 8, "y": 77 }, { "x": 56, "y": 77 }
     ],
     "soft": [
-      { "x": 31, "y": 4 },  { "x": 31, "y": 89 },
-      { "x": 6,  "y": 46 }, { "x": 58, "y": 46 },
-      { "x": 31, "y": 32 }, { "x": 31, "y": 60 }
+      { "x": 33, "y": 5 },  { "x": 33, "y": 78 },
+      { "x": 6,  "y": 41 }, { "x": 58, "y": 41 },
+      { "x": 33, "y": 28 }, { "x": 33, "y": 53 }
     ]
   },
 
-  "defaultSize": { "w": 36, "h": 7 },
+  "defaultSize": { "w": 34, "h": 16 },
 
+  "_kindsNote": [
+    "w/h are % of the room and override defaultSize for that kind.",
+    "They were a flat 36 x 7 for everything, which is why furniture read as",
+    "a labelled bar rather than an object. Give each kind the silhouette it",
+    "should have: a fridge tall and narrow, a crate wide and low.",
+    "Keep h under ~20 or the bottom row of anchors runs off the floor."
+  ],
   "kinds": {
-    "steel":   { "label": "Steel cabinet" },
-    "wood":    { "label": "Wood cabinet" },
-    "slat":    { "label": "Slatted crate" },
-    "glass":   { "label": "Glass case" },
-    "wicker":  { "label": "Wicker basket" },
-    "plastic": { "label": "Plastic tub" },
-    "dark":    { "label": "Dark chest" },
-    "peg":     { "label": "Pegboard" }
+    "steel":   { "label": "Steel cabinet", "w": 25, "h": 20 },
+    "wood":    { "label": "Wood cabinet",  "w": 33, "h": 17 },
+    "slat":    { "label": "Slatted crate", "w": 34, "h": 13 },
+    "glass":   { "label": "Glass case",    "w": 29, "h": 19 },
+    "wicker":  { "label": "Wicker basket", "w": 26, "h": 14 },
+    "plastic": { "label": "Plastic tub",   "w": 32, "h": 13 },
+    "dark":    { "label": "Dark chest",    "w": 31, "h": 15 },
+    "peg":     { "label": "Pegboard",      "w": 35, "h": 16 }
   },
 
   "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret"],

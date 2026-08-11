@@ -32,10 +32,12 @@ import {
 import {
   initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
 } from './talents.js';
+import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted } from './audio.js';
 
 /* Data must be in hand before anything reads it. Top-level await keeps every
    module below this point free of "is it loaded yet" checks. */
 await loadData();
+initAudio(DATA.audio);
 
 /* Convenience views over the loaded data, so the code below reads the same
    way it did when these were inline literals. */
@@ -290,7 +292,7 @@ function insertKey(lockIdx, it, fromSlot){
   lock.have++;
   if(lock.have>=lock.need){
     lock.open=true;
-    say("The door creaks open ✨");
+    sfx("unlock"); say("The door creaks open ✨");
   }else{
     /* the pips already show this */
   }
@@ -335,7 +337,7 @@ function openCache(cacheIdx, it, fromSlot){
       rot:Math.random()*50-25};
   }
   G.points++; G.starsEarned++;
-  say("Pop! The coin box bursts open ✨");
+  sfx("cacheOpen"); say("Pop! The coin box bursts open ✨");
   renderRoom(); renderHUD();
   flyReward(host.querySelector(`.cache[data-cache="${cacheIdx}"]`) || host, "+1 ⭐");
   return true;
@@ -353,7 +355,7 @@ function insertContainerKey(contIdx, it, fromSlot){
   c.lock.have++;
   if(c.lock.have>=c.lock.need){
     c.lock.open=true;
-    say("The "+c.name.toLowerCase()+" clicks open ✨");
+    sfx("unlock"); say("The "+c.name.toLowerCase()+" clicks open ✨");
   }else{
     /* the pips already show this */
   }
@@ -447,6 +449,20 @@ function buildRoomEl(room){
     lbl.textContent=c.short||c.name;   /* short fits the face; name is used in titles */
     f.appendChild(lbl);
     el.appendChild(f);
+  }
+  /* A room you finished keeps something of its own. See data/props.json —
+     walking back in and finding a cat asleep does more for "this is a place"
+     than a feature would. */
+  if(G.roomFxDone.has(room.id)){
+    const p=DATA.props.props[room.defId];
+    if(p){
+      const pe=document.createElement("div");
+      pe.className="prop";
+      pe.title=p.title||"";
+      pe.textContent=p.emoji;
+      pe.style.cssText=`left:${p.at[0]}%;top:${p.at[1]}%;`;
+      el.appendChild(pe);
+    }
   }
   for(const k of (room.caches||[])){
     if(k.opened) continue;
@@ -671,14 +687,17 @@ function afterMutation(room, c, changedRows, opts={}){
     const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
     flyReward(fe, "+"+earned+" ⭐");
   }
-  if(contDone) fire("contComplete", {container:c.short||c.name});
+  if(contDone){ sfx("contComplete"); fire("contComplete", {container:c.short||c.name}); }
+  else if(newly.length) sfx("rowComplete");
   if(newly.length) fire("rowComplete", {container:c.short||c.name});
 
   /* Room completion is the biggest moment in the game and v3 marked it with
      a 1400ms toast. Now the gold visibly travels outward from the centre. */
   if(roomComplete(room) && !G.roomFxDone.has(room.id)){
     G.roomFxDone.add(room.id);
+    sfx("roomComplete");
     roomCompleteFX(roomEl());
+    renderRoom();   /* the room's prop appears */
     say(room.name+" is all tidy ✨", {priority:2});
     fire("roomComplete", {room:room.name});
   }
@@ -691,12 +710,13 @@ function afterMutation(room, c, changedRows, opts={}){
 
 function pickUp(itemId){
   const slot=G.inv.indexOf(null);
-  if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); return; }
+  if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); sfx("locked"); return; }
   const it=G.items[itemId];
   const sx=it.loc.x, sy=it.loc.y;
   it.loc={kind:"inv",slot};
   G.inv[slot]=it.id;
   if(G.sel===null) G.sel=slot;
+  sfx(it.isKey||it.isCoin ? "keyPickup" : "pickup");
   fire("pickUp");
   let extra=0;
   if(G.up.magnet){
@@ -759,6 +779,7 @@ function tossInto(it, contIdx, fromSlot){
   const fe2=host.querySelector(`.furn[data-cont="${contIdx}"]`);
   if(fe2) fe2.classList.add(right?"goldhit":"pophit");
   /* After renderRoom, so `lastEl` anchors to the element that's on screen now. */
+  sfx(right ? "gold" : "cold");
   fire("place", {container:c.short||c.name, item:nameOf(it.type), el:fe2});
   if(right) fire("goldPlace", {container:c.short||c.name, el:fe2});
   return true;
@@ -867,6 +888,7 @@ function placeFromSlot(slotIdx,row,col){
   renderContainer(newly);
   const cellEl=contGrid.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
   if(cellEl) cellEl.classList.add(right?"gold":"cold");
+  sfx(right ? "gold" : "cold");
   fire("place", {container:c.short||c.name, item:nameOf(it.type)});
   if(right) fire("goldPlace", {container:c.short||c.name});
   return true;
@@ -877,7 +899,7 @@ function tapCell(row,col){
   const occupant=c.cells[row][col];
   if(occupant!==null){
     const slot=G.inv.indexOf(null);
-    if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); return; }
+    if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); sfx("locked"); return; }
     c.cells[row][col]=null;
     const it=G.items[occupant];
     it.loc={kind:"inv",slot};
@@ -959,7 +981,7 @@ function doWhirl(){
   if(any){
     G.whirlReady=Date.now()+WHIRL_CD;
     renderRoom(); renderHUD();
-    say("Whoosh — everything swept into rows 🌀");
+    sfx("whirlwind"); say("Whoosh — everything swept into rows 🌀");
   }else bump(whirlBtn, "🫧");
 }
 
@@ -1038,6 +1060,7 @@ function showWin(){
 }
 
 function closeCont(){
+  if(G.openCont!==null) sfx("closeCont");
   G.openCont=null;
   $("#contView").classList.remove("open");
   render();
@@ -1357,6 +1380,7 @@ function openContainer(idx, contEl){
     return;
   }
   G.openCont=idx;
+  sfx("openCont");
   renderContainer();
   fire("open", {container: c.short || c.name});
 }
@@ -1561,7 +1585,7 @@ function endCellPtr(e){
     if(overInv){
       const slotEl=under.closest(".slot");
       let slot=(slotEl && G.inv[+slotEl.dataset.slot]===null)?+slotEl.dataset.slot:G.inv.indexOf(null);
-      if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); return; }
+      if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); sfx("locked"); return; }
       c.cells[p.row][p.col]=null;
       it.loc={kind:"inv",slot};
       G.inv[slot]=id;
@@ -1638,6 +1662,21 @@ $("#debugStar").addEventListener("click",()=>{
 });
 $("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#shopOverlay").classList.add("open"); });
 $("#whirlBtn").addEventListener("click",doWhirl);
+
+/* ---- audio settings ---- */
+(function wireAudioUI(){
+  const m=$("#volMaster"), s=$("#volSfx"), b=$("#muteBtn");
+  const sync=()=>{
+    m.value=Math.round(audioSettings.master*100);
+    s.value=Math.round(audioSettings.sfx*100);
+    b.textContent=audioSettings.muted?"🔇":"🔊";
+  };
+  m.addEventListener("input",()=>setVolume("master",m.value/100));
+  s.addEventListener("input",()=>{ setVolume("sfx",s.value/100); sfx("uiTap"); });
+  b.addEventListener("click",()=>{ setMuted(!audioSettings.muted); sync(); if(!audioSettings.muted) sfx("uiTap"); });
+  $("#gearBtn").addEventListener("click",sync);
+  sync();
+})();
 
 /* ============================================================ */
 function closeMenus(){
@@ -1767,7 +1806,7 @@ function buildHelp(){
 }
 
 /* Console handle for poking at a run: `tidy.G`, `tidy.DATA`, `tidy.start('mega')`. */
-window.tidy = { G, DATA, LOOKUP, start:startFree, level:startCampaign, render, generate, setRun };
+window.tidy = { G, DATA, LOOKUP, start:startFree, level:startCampaign, render, generate, setRun, sfx };
 
 /* boot: land on the title screen */
 buildSizeMenu();

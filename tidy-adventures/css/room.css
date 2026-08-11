@@ -40,6 +40,21 @@
   #9a8a5f;}
 .floor-secret{background:radial-gradient(circle at 50% 40%, #7d6a9e, #5d4d7a 75%);}
 
+/* ---------- PROPS ----------
+   What a finished room keeps. Decorative only — never interactive. */
+.prop{
+  position:absolute;z-index:5;pointer-events:none;
+  font-size:clamp(18px, 3.4vmin, 34px);line-height:1;
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.35));
+  animation:propsettle .7s ease-out;
+}
+@keyframes propsettle{
+  0%  {opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  60% {opacity:1;transform:translate(-50%,-50%) scale(1.14)}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
+
 /* ---------- CACHES (coin-slot boxes) ---------- */
 .cache{
   position:absolute;z-index:4;cursor:pointer;

@@ -104,6 +104,8 @@
 }
 .shoprow button:disabled{opacity:.35;cursor:default}
 .shoprow.ghostrow{opacity:.5}
+.shoprow .vol{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
+.shoprow .vol input[type=range]{flex:1 1 auto;accent-color:var(--gold);height:16px;min-width:90px}
 .shoprow.ghostrow .sname{letter-spacing:.3em;color:var(--ink-dim)}
 
 /* ---------- TALENT DRAFT ----------

@@ -1,42 +1,73 @@
 /* ============================================================
-   FURNITURE — the containers you file items into.
+   FURNITURE — real objects, drawn in CSS.
+
+   These used to be flat rounded bars with the name printed across them,
+   which is exactly why they read as "a big label you put things into"
+   rather than furniture. Each kind now has actual structure: a fridge with
+   a door seam and a handle, a slatted crate, a chest with a lid and hasp,
+   a pegboard with holes, a glass case with panes.
+
+   How a piece is built:
+     .furn            the carcass — body colour, edges, shadow
+     .furn::before    the STRUCTURE layer (seams, slats, panes, lid, holes)
+     .furn::after     the HARDWARE layer (handle, hasp, knob, latch)
+     .flabel          a small plate near the bottom, not the whole object
+
    Kind classes are `.k-<kind>` where <kind> is `kind` in data/rooms.json.
-   Adding a kind there requires adding a skin here.
+   Adding a kind there requires adding a skin here — validate.js checks the
+   pair and refuses to boot if they disagree.
 ============================================================ */
 .furn{
   position:absolute;z-index:4;
-  border-radius:8px;
-  border:3px solid rgba(0,0,0,.35);
-  box-shadow:0 5px 10px rgba(0,0,0,.35);
+  border-radius:4px;
+  border:1px solid rgba(0,0,0,.45);
+  box-shadow:
+    0 6px 12px rgba(0,0,0,.4),
+    inset 0 1px 0 rgba(255,255,255,.18),
+    inset 0 -2px 4px rgba(0,0,0,.28);
   cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:flex-end;justify-content:center;
   /* Lets everything inside size against THIS box rather than a fixed px
      value, so labels stay proportional at any zoom and on any screen. */
   container-type:size;
   overflow:hidden;
+  isolation:isolate;
 }
+.furn::before,.furn::after{content:"";position:absolute;pointer-events:none}
+/* structure fills the piece; hardware sits on top of it */
+.furn::before{inset:0;z-index:1}
+.furn::after{z-index:2}
+
+/* ---------- NAME PLATE ----------
+   A small plate low on the piece, the way a real drawer label sits — not
+   the object's entire identity. */
 .furn .flabel{
-  /* cqh resolves against the unscaled layout box, so the clamps are
-     pre-zoom. Was a flat 9px, which the mobile font-boosters inflated. */
-  font-size:clamp(5px, 26cqh, 11px);
-  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-  text-align:center;line-height:1.15;padding:0 4px;
-  color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.6);
+  position:relative;z-index:3;
+  margin-bottom:7cqh;
+  max-width:82%;
+  font-size:clamp(5px, 22cqh, 10px);
+  font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  text-align:center;line-height:1.1;
+  padding:2cqh 5%;
+  border-radius:2px;
+  color:rgba(255,255,255,.94);
+  background:rgba(0,0,0,.34);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.35);
+  text-shadow:0 1px 2px rgba(0,0,0,.65);
   pointer-events:none;
-  /* .furn had no overflow rule at all, so a long name genuinely did escape. */
-  max-width:100%;
   overflow:hidden;
   display:-webkit-box;
   -webkit-line-clamp:2;
   -webkit-box-orient:vertical;
 }
+
 .furn .badges{
   /* top was a fixed -15px, which drifted further from the furniture as the
      room scaled up. Proportional now. */
   position:absolute;top:-24cqh;left:0;right:0;height:22cqh;min-height:12px;
   display:flex;justify-content:center;align-items:flex-end;gap:1px;
   font-size:clamp(7px, 30cqh, 13px);line-height:1;
-  pointer-events:none;white-space:nowrap;overflow:visible;
+  pointer-events:none;white-space:nowrap;overflow:visible;z-index:4;
 }
 .furn .badges span{filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
 .furn .badges span.gold{
@@ -45,10 +76,10 @@
 
 /* ---------- STATES ---------- */
 .furn.aura{
-  box-shadow:0 0 14px 4px rgba(245,197,66,.75), 0 5px 10px rgba(0,0,0,.35);
+  box-shadow:0 0 14px 4px rgba(245,197,66,.75), 0 6px 12px rgba(0,0,0,.4);
   border-color:rgba(245,197,66,.9);
 }
-.furn.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.75), 0 5px 10px rgba(0,0,0,.35)}
+.furn.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.75), 0 6px 12px rgba(0,0,0,.4)}
 .furn.goldhit{animation:furngold .9s}
 @keyframes furngold{20%{box-shadow:0 0 26px 9px rgba(245,197,66,.95)}}
 .furn.pophit{animation:furnpop .28s}
@@ -57,7 +88,7 @@
 @keyframes furnfull{25%{transform:translateX(-4px)}60%{transform:translateX(4px)}}
 .furn.sense{animation:sensepulse 1.1s ease-in-out infinite}
 @keyframes sensepulse{
-  50%{box-shadow:0 0 18px 6px rgba(245,197,66,.85), 0 5px 10px rgba(0,0,0,.35)}
+  50%{box-shadow:0 0 18px 6px rgba(245,197,66,.85), 0 6px 12px rgba(0,0,0,.4)}
 }
 
 .furn.flocked{
@@ -72,15 +103,170 @@
 }
 .pips i.full{background:var(--gold);box-shadow:0 0 4px rgba(245,197,66,.9)}
 
-/* ---------- KINDS ---------- */
-.k-steel {background:linear-gradient(#d3dade,#a9b3b9);border-color:#78838a}
-.k-steel .flabel{color:#2c3438;text-shadow:0 1px 1px rgba(255,255,255,.5)}
-.k-wood  {background:linear-gradient(#7a5533,#61432a);border-color:#4e351d}
-.k-slat  {background:repeating-linear-gradient(0deg,#a5744a 0 7px,#8a5f3a 7px 10px);border-color:#5e4126}
-.k-glass {background:linear-gradient(rgba(210,235,245,.55),rgba(160,200,215,.45));border-color:rgba(120,160,175,.8)}
-.k-glass .flabel{color:#1f3a45;text-shadow:0 1px 1px rgba(255,255,255,.55)}
-.k-wicker{background:repeating-linear-gradient(45deg,#c9a262 0 6px,#b58c4e 6px 12px);border-color:#8a683a}
-.k-wicker .flabel{color:#3d2c12;text-shadow:0 1px 1px rgba(255,255,255,.4)}
-.k-plastic{background:linear-gradient(#5aa7a0,#488a84);border-color:#33645f}
-.k-dark  {background:linear-gradient(#4a3a3f,#382b30);border-color:#241a1e}
-.k-peg   {background:radial-gradient(circle at 6px 6px, rgba(0,0,0,.25) 1.5px, transparent 2px) 0 0/12px 12px, linear-gradient(#c98a4b,#b0763d);border-color:#7d5327}
+/* ============================================================
+   KINDS
+============================================================ */
+
+/* ---------- STEEL — a two-door fridge / metal cabinet ---------- */
+.k-steel{
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.22) 0 6%, rgba(255,255,255,0) 22%),
+    linear-gradient(#e2e8ec, #b6c0c6 55%, #98a3aa);
+  border-color:#6f7a81;
+}
+/* horizontal door seam across the whole face */
+.k-steel::before{
+  background:
+    linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)) 0 38%/100% 2px no-repeat,
+    linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,.45)) 0 calc(38% + 2px)/100% 1px no-repeat;
+}
+/* vertical chrome handle, right of the seam */
+.k-steel::after{
+  right:9%;top:20%;height:56%;width:3.5%;min-width:2px;
+  border-radius:2px;
+  background:linear-gradient(90deg,#f4f7f9,#aab4ba);
+  box-shadow:0 1px 2px rgba(0,0,0,.45);
+}
+.k-steel .flabel{color:#262e33;background:rgba(255,255,255,.5);text-shadow:0 1px 0 rgba(255,255,255,.6)}
+
+/* ---------- WOOD — a chest of drawers ---------- */
+.k-wood{
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 3px, rgba(255,255,255,.03) 3px 7px),
+    linear-gradient(#8a613a,#6a4629 60%,#573820);
+  border-color:#432c18;
+}
+/* three drawer fronts */
+.k-wood::before{
+  background:
+    linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)) 0 33%/100% 2px no-repeat,
+    linear-gradient(rgba(255,255,255,.16),rgba(255,255,255,.16)) 0 calc(33% + 2px)/100% 1px no-repeat,
+    linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)) 0 66%/100% 2px no-repeat,
+    linear-gradient(rgba(255,255,255,.16),rgba(255,255,255,.16)) 0 calc(66% + 2px)/100% 1px no-repeat;
+}
+/* brass pull on the top drawer */
+.k-wood::after{
+  left:50%;top:16%;transform:translateX(-50%);
+  width:22%;height:8%;min-height:2px;border-radius:999px;
+  background:linear-gradient(#e6c079,#a9813c);
+  box-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+
+/* ---------- SLAT — an open produce crate ---------- */
+.k-slat{
+  background:linear-gradient(#a8794c,#8a5f3a);
+  border:1px solid #5e4126;
+  border-width:1px 4% 6% 4%;
+  border-radius:2px;
+}
+/* horizontal slats with gaps you can see between */
+.k-slat::before{
+  background:repeating-linear-gradient(
+    180deg,
+    #b3835a 0 22%,
+    rgba(40,24,10,.85) 22%, rgba(40,24,10,.85) 30%
+  );
+}
+/* corner post down the left edge */
+.k-slat::after{
+  left:0;top:0;bottom:0;width:7%;
+  background:linear-gradient(90deg,#6e4a2b,#8a5f3a);
+  box-shadow:inset -1px 0 2px rgba(0,0,0,.4);
+}
+
+/* ---------- WICKER — a woven basket, tapering ---------- */
+.k-wicker{
+  background:
+    repeating-linear-gradient(46deg,#cda667 0 5px,#b58c4e 5px 10px),
+    repeating-linear-gradient(-46deg,rgba(0,0,0,.10) 0 5px,rgba(255,255,255,.06) 5px 10px);
+  border-color:#8a683a;
+  border-radius:3px 3px 12% 12%;
+}
+/* rim band around the top */
+.k-wicker::before{
+  background:linear-gradient(#e0bd82,#c6a165) 0 0/100% 16% no-repeat;
+  box-shadow:inset 0 16% 0 -14% rgba(0,0,0,.25);
+}
+.k-wicker .flabel{color:#3a2a10;background:rgba(255,255,255,.42);text-shadow:0 1px 0 rgba(255,255,255,.5)}
+
+/* ---------- DARK — a treasure chest with a domed lid and hasp ---------- */
+.k-dark{
+  background:linear-gradient(#4e3d43,#372a2f 60%,#281e22);
+  border-color:#1d1417;
+  border-radius:8% 8% 3px 3px;
+}
+/* lid band + the iron strap down the middle */
+.k-dark::before{
+  background:
+    linear-gradient(#6a545c,#4a3a41) 0 0/100% 34% no-repeat,
+    linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)) 0 34%/100% 3px no-repeat,
+    linear-gradient(90deg,transparent 44%, rgba(196,160,92,.55) 44% 56%, transparent 56%);
+}
+/* brass hasp hanging over the seam */
+.k-dark::after{
+  left:50%;top:26%;transform:translateX(-50%);
+  width:16%;height:22%;min-width:6px;min-height:5px;
+  border-radius:2px;
+  background:linear-gradient(#e3c07a,#a37f38);
+  box-shadow:0 1px 3px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.4);
+}
+
+/* ---------- GLASS — a display case with panes ---------- */
+.k-glass{
+  background:linear-gradient(rgba(214,238,247,.5),rgba(150,196,214,.42));
+  border-color:rgba(120,160,175,.85);
+  backdrop-filter:blur(1px);
+}
+/* mullions: one vertical, one horizontal, plus a diagonal highlight */
+.k-glass::before{
+  background:
+    linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.5)) 50% 0/2px 100% no-repeat,
+    linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.5)) 0 46%/100% 2px no-repeat,
+    linear-gradient(118deg, rgba(255,255,255,.5) 0 14%, transparent 15% 44%, rgba(255,255,255,.26) 45% 52%, transparent 53%);
+}
+/* thin metal frame edge */
+.k-glass::after{
+  inset:0;border:1px solid rgba(255,255,255,.45);border-radius:inherit;
+}
+.k-glass .flabel{color:#153039;background:rgba(255,255,255,.55);text-shadow:0 1px 0 rgba(255,255,255,.6)}
+
+/* ---------- PLASTIC — a stacking tub with a ribbed lid ---------- */
+.k-plastic{
+  background:linear-gradient(#63b6ae,#4d9088 60%,#3d7871);
+  border-color:#2c5a55;
+  border-radius:5px;
+}
+/* lid across the top, plus moulded ribs below it */
+.k-plastic::before{
+  background:
+    linear-gradient(#7fcfc6,#5aa9a1) 0 0/100% 26% no-repeat,
+    linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)) 0 26%/100% 2px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 12%, rgba(0,0,0,.10) 12% 14%);
+}
+/* side clip latch */
+.k-plastic::after{
+  right:6%;top:16%;
+  width:9%;height:16%;min-width:4px;min-height:4px;
+  border-radius:2px;
+  background:linear-gradient(#8fdcd3,#4f938b);
+  box-shadow:0 1px 2px rgba(0,0,0,.45);
+}
+
+/* ---------- PEG — a pegboard with holes and a tool rail ---------- */
+.k-peg{
+  background:linear-gradient(#c98a4b,#ad7239);
+  border-color:#7d5327;
+  border-radius:2px;
+}
+/* the hole grid */
+.k-peg::before{
+  background:
+    radial-gradient(circle at 3px 3px, rgba(0,0,0,.42) 1.4px, transparent 1.8px) 0 0/9px 9px,
+    radial-gradient(circle at 3px 3px, rgba(255,255,255,.20) 1.9px, transparent 2.2px) 0 0/9px 9px;
+}
+/* rail along the bottom */
+.k-peg::after{
+  left:0;right:0;bottom:0;height:14%;
+  background:linear-gradient(#8a5a28,#6d451e);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+}
