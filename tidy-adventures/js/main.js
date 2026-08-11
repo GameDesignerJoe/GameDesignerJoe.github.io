@@ -6,7 +6,7 @@
    input tiers still live here. See docs/CLAUDE.md for the target graph.
 ============================================================ */
 import {
-  SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, SAVE_DEBOUNCE,
+  SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, OPP, CHEVRON, ZOOM_MAX as ZOOM,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD, CELL_DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
@@ -29,6 +29,9 @@ import {
   camEl, roomEl, applyCam, clampPan, zoomAt, zoomBy, wheelZoom, panBy,
   resetPan, resetZoom, isZoomed, camScale, setCamSmooth,
 } from './camera.js';
+import {
+  initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
+} from './talents.js';
 
 /* Data must be in hand before anything reads it. Top-level await keeps every
    module below this point free of "is it loaded yet" checks. */
@@ -680,7 +683,9 @@ function afterMutation(room, c, changedRows, opts={}){
     fire("roomComplete", {room:room.name});
   }
   renderHUD();
+  checkDraftThreshold();
   if(checkWin()) setTimeout(showWin,T.winDelay);
+  else maybeDraft();
   return newly;
 }
 
@@ -958,43 +963,44 @@ function doWhirl(){
   }else bump(whirlBtn, "🫧");
 }
 
-function renderShop(){
-  $("#shopPts").textContent="You have "+G.points+" ⭐ — earn one for every row you complete.";
-  const list=$("#shopList"); list.innerHTML="";
-  for(const u of UPGRADES){
-    const lvl=G.up[u.id];
-    const max=maxLevel(u);
-    const maxed=lvl>=max;
-    const cost=costFor(u,lvl);
-    const row=document.createElement("div"); row.className="shoprow";
-    row.innerHTML=`
-      <div class="sinfo">
-        <div class="sname">${u.icon||""} ${u.name} <span class="slvl">${max>1?("lv "+lvl+"/"+max):(lvl?"owned":"")}</span></div>
-        <div class="sdesc">${tokenise(u.desc, u.params||{})}</div>
-      </div>`;
-    const btn=document.createElement("button");
-    btn.textContent=maxed?"Maxed":cost+" ⭐";
-    btn.disabled=maxed||G.points<cost;
-    btn.addEventListener("click",()=>buyUpgrade(u.id));
-    row.appendChild(btn);
-    list.appendChild(row);
-  }
-}
+/* The draft grants; this repaints and persists. Passed to talents.js as a
+   callback so that module never has to import the render tier. */
+initTalents({
+  grant(){
+    saveTalents();
+    renderHUD(); renderInv(); updateWhirlBtn();
+    fire("talentEarned");
+    scheduleSave();
+  },
+});
 
-function buyUpgrade(id){
-  const u=LOOKUP.upgradeById[id];
-  const lvl=G.up[id];
-  const max=maxLevel(u);
-  if(lvl>=max) return;
-  const cost=costFor(u,lvl);
-  if(G.points<cost){ bump(shopBtn, "⭐"); return; }
-  G.points-=cost;
-  G.up[id]=lvl+1;
-  if(id==="hands") G.inv.push(null);
-  say(u.name+(max>1?" lv "+G.up[id]:"")+" ✨");
-  renderShop(); renderHUD(); renderInv();
-  if(id==="whirl") updateWhirlBtn();
+/* Campaign talents carry across levels — otherwise the draft is pointless,
+   since a level is over in a few minutes. Free play keeps them in the run
+   save as before. */
+function saveTalents(){
+  if(G.mode!=="campaign") return;
+  try{
+    localStorage.setItem(TALENTS_KEY, JSON.stringify({
+      up:G.up, starsEarned:G.starsEarned, draftsTaken:G.draftsTaken, points:G.points,
+    }));
+  }catch(e){}
 }
+function loadTalents(){
+  if(G.mode!=="campaign") return;
+  try{
+    const d=JSON.parse(localStorage.getItem(TALENTS_KEY)||"null");
+    if(!d) return;
+    G.up={...upgradeDefaults(), ...(d.up||{})};
+    G.starsEarned=d.starsEarned||0;
+    G.draftsTaken=d.draftsTaken||0;
+    G.points=d.points||0;
+    /* Rebuild hand slots to match. buyUpgrade used to push onto G.inv, so a
+       fresh generate() would silently lose every earned slot. */
+    const want=INV_SIZE+(G.up.hands||0);
+    while(G.inv.length<want) G.inv.push(null);
+  }catch(e){}
+}
+function clearTalents(){ try{ localStorage.removeItem(TALENTS_KEY); }catch(e){} }
 
 function showWin(){
   clearSave();
@@ -1031,7 +1037,12 @@ function showWin(){
   $("#winOverlay").classList.add("open");
 }
 
-function closeCont(){ G.openCont=null; $("#contView").classList.remove("open"); render(); }
+function closeCont(){
+  G.openCont=null;
+  $("#contView").classList.remove("open");
+  render();
+  maybeDraft();   /* closing a container is a safe moment to interrupt */
+}
 
 function tryMove(dir){
   const to=G.rooms[G.current].doors[dir];
@@ -1335,6 +1346,10 @@ host.addEventListener("pointerup",e=>{
      every room interaction. */
 });
 
+/* Never interrupt a drag or an open container. */
+const busy = () => !!ptr || !!invDrag || !!cellPtr || G.openCont!==null;
+function maybeDraft(){ return drainDrafts(busy); }
+
 function openContainer(idx, contEl){
   const c=G.rooms[G.current].containers[idx];
   if(c.lock && !c.lock.open){
@@ -1617,9 +1632,11 @@ $("#resetBtn").addEventListener("click",()=>{
   }
 });
 $("#debugStar").addEventListener("click",()=>{
-  G.points++; G.starsEarned++; renderHUD(); say("+1 ⭐ (debug)");
+  G.points++; G.starsEarned++; renderHUD();
+  checkDraftThreshold();
+  if(!drainDrafts(()=>false)) say("+1 ⭐ (debug)");
 });
-$("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderShop(); $("#shopOverlay").classList.add("open"); });
+$("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#shopOverlay").classList.add("open"); });
 $("#whirlBtn").addEventListener("click",doWhirl);
 
 /* ============================================================ */
@@ -1645,6 +1662,7 @@ function startFree(sizeKey){
   const cfg=SIZES[sizeKey];
   setRun(generate(cfg), {mode:"free", size:sizeKey, levelIdx:null});
   resetZoom();
+  setHidden(shopBtn, false);   /* always available in free play */
   render();
   say(cfg.label+" house — happy tidying");
 }
@@ -1654,7 +1672,12 @@ function startCampaign(i){
   closeMenus();
   const lv=LEVELS[i];
   setRun(generate(lv), {mode:"campaign", levelIdx:i, size:null});
+  loadTalents();
   resetZoom();
+  /* Hidden until it means something. In v3 it sat there showing "⭐ 0" over
+     an all-unaffordable list from level 1-1 onward, which mostly taught
+     players to ignore it. */
+  setHidden(shopBtn, !Object.values(G.up).some(v=>v>0));
   render();
   say(lv.id+" · "+lv.name, {priority:2});
   say(tokenise(lv.blurb, textVars()), {priority:1});
