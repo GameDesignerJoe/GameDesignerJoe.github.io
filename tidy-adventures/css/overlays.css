@@ -20,13 +20,20 @@
 .tip.below{transform:translate(-50%,0)}
 @keyframes tipbob{50%{margin-top:-5px}}
 
-/* ---------- TOAST ---------- */
+/* ---------- MESSAGES ----------
+   Moved from just above the inventory bar (under the thumb, behind
+   #dragGhost, where nobody was looking) to just under the HUD. Wraps now
+   instead of `white-space:nowrap`, so a real sentence is readable on a
+   phone. See say() in js/feedback.js for the queue. */
 #toast{
-  position:fixed;left:50%;bottom:calc(var(--inv-h) + 10px);
-  transform:translateX(-50%) translateY(8px);
+  position:fixed;left:50%;top:calc(var(--hud-h) + 6px);
+  transform:translateX(-50%) translateY(-8px);
+  max-width:min(88vw, 460px);
   background:var(--panel);color:var(--ink);
-  padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;
-  opacity:0;transition:all .25s;pointer-events:none;z-index:90;white-space:nowrap;
+  padding:9px 16px;border-radius:14px;font-size:13.5px;font-weight:600;
+  line-height:1.4;text-align:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.5);
+  opacity:0;transition:all .25s;pointer-events:none;z-index:95;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 

@@ -7,13 +7,16 @@
 ============================================================ */
 import {
   SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, SAVE_DEBOUNCE,
-  INV_SIZE, DIRS, OPP, ZOOM_MAX as ZOOM,
+  INV_SIZE, DIRS, OPP, CHEVRON, ZOOM_MAX as ZOOM,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD, CELL_DRAG_THRESHOLD, T,
 } from './config.js';
 import { rnd, shuffle, clamp, tokenise, plural } from './util.js';
 /* `el` is aliased: this file has many local `const el = ...` inside render
    functions, and an unaliased import would be shadowed confusingly. */
-import { $, host, setHidden, el as mkEl } from './dom.js';
+import {
+  $, host, invBar, contGrid, shopBtn, whirlBtn, setHidden, el as mkEl,
+} from './dom.js';
+import { say, bump, flyReward, roomCompleteFX, clearSay } from './feedback.js';
 import {
   DATA, LOOKUP, loadData, nameOf, costFor, maxLevel,
   itemCount, upgradeParam, upgradeDefaults,
@@ -38,9 +41,25 @@ function getProgress(){ try{ return Math.max(0, parseInt(localStorage.getItem(PR
 function setProgress(n){ try{ localStorage.setItem(PROGRESS_KEY, String(n)); }catch(e){} }
 function currentCfg(){ return G.mode==="campaign" ? LEVELS[G.levelIdx] : SIZES[G.size]; }
 
-/* ---- anchored teaching tips ---- */
-function tipTarget(kind){
-  switch(kind){
+/* ============================================================
+   TEACHING TIPS
+
+   In v3 a tip's `kind` did triple duty — identity, anchor selector, and
+   dismiss trigger — which is why a level could never have two tips pointing
+   at the same thing, and why tips could only ever be shown at level start.
+   They're three fields now:
+
+     kind    identity + save key
+     target  what it anchors to
+     when    the event that makes it eligible (absent = eligible immediately)
+     until   the event that dismisses it (absent = same as kind)
+
+   `when` is the new capability: a tip can now appear in response to
+   something the player just did, with the thing they did interpolated into
+   the text.
+============================================================ */
+function tipTarget(t){
+  switch(t.target || t.kind){
     case "item": return host.querySelector(".item");
     case "furn": return host.querySelector(".furn:not(.flocked)");
     case "door": return host.querySelector(".door");
@@ -48,15 +67,25 @@ function tipTarget(kind){
     case "shop": return document.getElementById("shopBtn");
     case "open": return host.querySelector(".furn:not(.flocked)");
     case "zoom": case "pan": return host.firstElementChild;
+    case "lastEl": return G.tipCtx.el?.isConnected ? G.tipCtx.el : null;
   }
   return null;
 }
-function pendingTips(){
-  if(!G || !G.tips) return [];
-  // sequential: only the first unlearned lesson shows
-  const t=G.tips.find(t=>!G.tipsDone.has(t.kind));
-  return t?[t]:[];
+
+const tipById = kind => G.tips.find(t => t.kind === kind);
+
+function tipText(t){
+  return tokenise(t.text, { ...textVars(), ...G.tipCtx });
 }
+
+function pendingTips(){
+  if(!G.active || !G.tips.length) return [];
+  /* Sequential: one lesson at a time, and only once its trigger has fired. */
+  const t = G.tips.find(t =>
+    !G.tipsDone.has(t.kind) && (!t.when || G.events.has(t.when)));
+  return t ? [t] : [];
+}
+
 function renderTips(){
   const layer=document.getElementById("tipLayer");
   layer.innerHTML="";
@@ -64,32 +93,62 @@ function renderTips(){
     const b=document.createElement("div");
     b.className="tip";
     b.dataset.kind=t.kind;
-    b.textContent=t.text;
+    b.textContent=tipText(t);
     b.style.display="none";
     layer.appendChild(b);
   }
 }
+
 function positionTips(){
   const layer=document.getElementById("tipLayer");
   if(!layer.children.length) return;
   for(const b of layer.children){
-    const el=tipTarget(b.dataset.kind);
+    const t=tipById(b.dataset.kind);
+    const el=t && tipTarget(t);
     if(!el || document.querySelector(".overlay.open") || G.openCont!==null){
       b.style.display="none"; continue;
     }
     const r=el.getBoundingClientRect();
     if(r.width===0){ b.style.display="none"; continue; }
     b.style.display="block";
+    /* Only a tip the player has actually SEEN can be marked learned. */
+    G.tipShown.add(b.dataset.kind);
     const above=r.top>110;
     b.classList.toggle("below",!above);
     b.style.left=Math.max(90,Math.min(window.innerWidth-90, r.left+r.width/2))+"px";
     b.style.top=above ? (r.top-8)+"px" : (r.bottom+8)+"px";
   }
 }
-(function tipLoop(){ try{ positionTips(); }catch(e){} requestAnimationFrame(tipLoop); })();
+export function startTipLoop(){
+  (function tipLoop(){ try{ positionTips(); }catch(e){} requestAnimationFrame(tipLoop); })();
+}
+startTipLoop();
+
+/* Announce that something happened. Makes `when` tips eligible, dismisses
+   `until` tips, and stashes context for {token} interpolation. */
+function fire(ev, ctx){
+  if(!G.active) return;
+  if(ctx) Object.assign(G.tipCtx, ctx);
+  const fresh = !G.events.has(ev);
+  G.events.add(ev);
+  for(const t of G.tips){
+    if((t.until || t.kind) === ev) tipDone(t.kind);
+  }
+  if(fresh || ctx) renderTips();
+}
+
 function tipDone(kind){
-  if(!G || !G.tips || G.tipsDone.has(kind)) return;
-  if(!G.tips.some(t=>t.kind===kind)) return;
+  if(!G.active || G.tipsDone.has(kind)) return;
+  const t=tipById(kind);
+  if(!t) return;
+  /* v3 marked a lesson learned on membership alone, so a gesture credited its
+     tip even when a different tip was on screen. On level 2-2 the first drag
+     silently ate the pan lesson while the zoom tip was still showing, and the
+     pan tip could never appear. Require it to be the ACTIVE tip and to have
+     actually been rendered. */
+  const active=pendingTips()[0];
+  if(!active || active.kind!==kind) return;
+  if(!G.tipShown.has(kind)) return;
   G.tipsDone.add(kind);
   renderTips();
   scheduleSave();
@@ -212,7 +271,7 @@ function lockFor(roomId, dir){
     ((l.a===roomId&&l.b===to)||(l.b===roomId&&l.a===to))) || null;
 }
 function insertKey(lockIdx, it, fromSlot){
-  tipDone("lock");
+  fire("lock");
   const lock=G.locks[lockIdx];
   it.loc={kind:"used"};
   if(fromSlot!==undefined && fromSlot!==null){
@@ -223,9 +282,9 @@ function insertKey(lockIdx, it, fromSlot){
   lock.have++;
   if(lock.have>=lock.need){
     lock.open=true;
-    toast("The door creaks open ✨");
+    say("The door creaks open ✨");
   }else{
-    toast("Key "+lock.have+" of "+lock.need);
+    /* the pips already show this */
   }
   renderRoom(); renderHUD();
   if(!lock.open){
@@ -248,8 +307,7 @@ function openCache(cacheIdx, it, fromSlot){
   const ke=host.querySelector(`.cache[data-cache="${cacheIdx}"]`);
   if(!cache || cache.opened) return false;
   if(!it.isCoin){
-    if(ke) ke.classList.add("fullhit");
-    toast("A little slot… it wants a coin 🪙");
+    bump(ke, "🪙", "A little slot. Something coin-shaped fits it.", "cacheHint");
     return false;
   }
   it.loc={kind:"used"};
@@ -268,14 +326,15 @@ function openCache(cacheIdx, it, fromSlot){
       y:Math.max(4,Math.min(95,cy+Math.sin(a)*d)),
       rot:Math.random()*50-25};
   }
-  G.points++;
-  toast("Pop! The coin box bursts open ✨ +1 ⭐");
+  G.points++; G.starsEarned++;
+  say("Pop! The coin box bursts open ✨");
   renderRoom(); renderHUD();
+  flyReward(host.querySelector(`.cache[data-cache="${cacheIdx}"]`) || host, "+1 ⭐");
   return true;
 }
 
 function insertContainerKey(contIdx, it, fromSlot){
-  tipDone("lock");
+  fire("lock");
   const room=G.rooms[G.current], c=room.containers[contIdx];
   it.loc={kind:"used"};
   if(fromSlot!==undefined && fromSlot!==null){
@@ -286,9 +345,9 @@ function insertContainerKey(contIdx, it, fromSlot){
   c.lock.have++;
   if(c.lock.have>=c.lock.need){
     c.lock.open=true;
-    toast("The "+c.name.toLowerCase()+" clicks open ✨");
+    say("The "+c.name.toLowerCase()+" clicks open ✨");
   }else{
-    toast("Key "+c.lock.have+" of "+c.lock.need);
+    /* the pips already show this */
   }
   renderRoom(); renderHUD();
   const fe=host.querySelector(`.furn[data-cont="${contIdx}"]`);
@@ -315,7 +374,10 @@ function buildRoomEl(room){
     if(lock){
       d.className="door locked "+dir;
       d.dataset.lock=G.locks.indexOf(lock);
-      const ic=document.createElement("span"); ic.textContent="🔒";
+      /* Show the key the lock actually wants, not a generic 🔒, so the
+         requirement is always legible — no guess-the-key. */
+      const ic=document.createElement("span");
+      ic.textContent=LOOKUP.tokenById[lock.token||"key"]?.emoji || "🔒";
       const pips=document.createElement("div"); pips.className="pips";
       for(let i=0;i<lock.need;i++){
         const p=document.createElement("i");
@@ -324,8 +386,10 @@ function buildRoomEl(room){
       }
       d.appendChild(ic); d.appendChild(pips);
     }else{
-      d.className="door "+dir;
-      d.textContent={N:"˄",S:"˅",W:"‹",E:"›"}[dir];
+      /* Doors into rooms you haven't been in yet breathe gold. Free
+         wayfinding, and it gives the chevron something to say. */
+      d.className="door "+dir+(G.visited.has(to)?"":" unvisited");
+      d.textContent=CHEVRON[dir];
     }
     el.appendChild(d);
     const lab=document.createElement("div");
@@ -424,7 +488,7 @@ function slideTo(dir,newId){
   const hr=host.getBoundingClientRect();
   const px=dx*(hr.width+80), py=dy*(hr.height+80);
   G.current=newId; G.visited.add(newId);
-  tipDone("door");
+  fire("door");
   G.cam="room"; G.pan={x:0,y:0};
   const neu=buildRoomEl(G.rooms[newId]);
   neu.style.transition="none";
@@ -579,11 +643,6 @@ function renderContainer(flashRows){
 /* ============================================================
    ACTIONS
 ============================================================ */
-function toast(msg){
-  const t=$("#toast"); t.textContent=msg;
-  t.classList.add("show");
-  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),1400);
-}
 
 function afterMutation(room, c, changedRows, opts={}){
   const newly=changedRows.filter(r=>rowIsComplete(c,r));
@@ -593,23 +652,40 @@ function afterMutation(room, c, changedRows, opts={}){
     if(!G.awarded.has(k)){ G.awarded.add(k); G.points++; earned++; }
   }
   const contDone=containerComplete(c);
-  if(contDone) toast(c.name+" is complete ✨"+(earned?" +"+earned+" ⭐":""));
-  else if(earned) toast("Row complete ✨ +"+earned+" ⭐");
-  if(roomComplete(room) && contDone) toast(room.name+" is all tidy ✨");
+  G.starsEarned+=earned;
+
+  /* Rewards fly to the ⭐ rather than printing a sentence: it reads without
+     reading, and it teaches where stars accumulate. The gold flash on the
+     container is already saying "complete". */
+  if(earned){
+    const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
+    flyReward(fe, "+"+earned+" ⭐");
+  }
+  if(contDone) fire("contComplete", {container:c.short||c.name});
+  if(newly.length) fire("rowComplete", {container:c.short||c.name});
+
+  /* Room completion is the biggest moment in the game and v3 marked it with
+     a 1400ms toast. Now the gold visibly travels outward from the centre. */
+  if(roomComplete(room) && !G.roomFxDone.has(room.id)){
+    G.roomFxDone.add(room.id);
+    roomCompleteFX(host.firstElementChild);
+    say(room.name+" is all tidy ✨", {priority:2});
+    fire("roomComplete", {room:room.name});
+  }
   renderHUD();
-  if(checkWin()) setTimeout(showWin,900);
+  if(checkWin()) setTimeout(showWin,T.winDelay);
   return newly;
 }
 
 function pickUp(itemId){
   const slot=G.inv.indexOf(null);
-  if(slot===-1){ toast("Hands full — place something first"); return; }
+  if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); return; }
   const it=G.items[itemId];
   const sx=it.loc.x, sy=it.loc.y;
   it.loc={kind:"inv",slot};
   G.inv[slot]=it.id;
   if(G.sel===null) G.sel=slot;
-  tipDone("item");
+  fire("pickUp");
   let extra=0;
   if(G.up.magnet){
     const near=Object.values(G.items)
@@ -624,7 +700,7 @@ function pickUp(itemId){
       extra++;
     }
   }
-  toast((NAMES[it.type]||it.type)+(extra?" ×"+(extra+1)+" 🧲":""));
+  if(extra) say(nameOf(it.type)+" ×"+(extra+1)+" 🧲", {key:"magnet"});
   render();
 }
 
@@ -642,18 +718,18 @@ function tossInto(it, contIdx, fromSlot){
   if(c.lock && !c.lock.open){
     if(it.isKey){ insertContainerKey(contIdx, it, fromSlot); return true; }
     if(fe) fe.classList.add("fullhit");
-    toast("The "+c.name.toLowerCase()+" is locked");
+    bump(fe, "🔒", "That one's locked. Feed it keys to open it.", "locked");
     return false;
   }
   if(it.isKey||it.isCoin){
     if(fe) fe.classList.add("fullhit");
-    toast(it.isCoin?"That coin wants a slot":"That key wants a lock");
+    bump(fe, it.isCoin?"🪙":"🔑", it.isCoin?"Coins go in coin slots, not furniture.":"Keys go in locks, not furniture.", it.isCoin?"coinUse":"keyUse");
     return false;
   }
   const spot=bestSpot(c, it.type);
   if(!spot){
     if(fe) fe.classList.add("fullhit");
-    toast("The "+c.name.toLowerCase()+" is full");
+    bump(fe, "🚫", "That one's full — finish sorting what's inside.", "contFull");
     return false;
   }
   c.cells[spot.row][spot.col]=it.id;
@@ -665,12 +741,14 @@ function tossInto(it, contIdx, fromSlot){
   }
   const home=G.typeHome[it.type];
   const right=home.room===room.id && home.cont===contIdx;
-  tipDone("furn");
   judgeToss(it, room.id, contIdx);
   afterMutation(room,c,[spot.row]);
   renderRoom();
   const fe2=host.querySelector(`.furn[data-cont="${contIdx}"]`);
   if(fe2) fe2.classList.add(right?"goldhit":"pophit");
+  /* After renderRoom, so `lastEl` anchors to the element that's on screen now. */
+  fire("place", {container:c.short||c.name, item:nameOf(it.type), el:fe2});
+  if(right) fire("goldPlace", {container:c.short||c.name, el:fe2});
   return true;
 }
 
@@ -761,16 +839,15 @@ function dropOnFloor(slotIdx,cx,cy,rect){
 function placeFromSlot(slotIdx,row,col){
   const room=G.rooms[G.current], c=room.containers[G.openCont];
   if(c.cells[row][col]!==null) return false;
-  if(slotIdx===null || G.inv[slotIdx]===null){ toast("Pick an item from your hands"); return false; }
+  if(slotIdx===null || G.inv[slotIdx]===null){ bump(invBar, "👆", "Pick something up first, then tap a cell.", "pickFirst"); return false; }
   const it=G.items[G.inv[slotIdx]];
-  if(it.isKey){ toast("That key wants a lock"); return false; }
-  if(it.isCoin){ toast("That coin wants a slot"); return false; }
+  if(it.isKey){ bump(invBar, "🔑", "Keys go in locks, not containers.", "keyUse"); return false; }
+  if(it.isCoin){ bump(invBar, "🪙", "Coins go in coin slots, not containers.", "coinUse"); return false; }
   c.cells[row][col]=it.id;
   it.loc={kind:"cell",room:room.id,cont:c.id,row,col};
   G.inv[slotIdx]=null;
   const home=G.typeHome[it.type];
   const right=home.room===room.id && home.cont===G.openCont;
-  tipDone("furn");
   judgeToss(it, room.id, G.openCont);
   G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
   renderInv();
@@ -778,6 +855,8 @@ function placeFromSlot(slotIdx,row,col){
   renderContainer(newly);
   const cellEl=contGrid.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
   if(cellEl) cellEl.classList.add(right?"gold":"cold");
+  fire("place", {container:c.short||c.name, item:nameOf(it.type)});
+  if(right) fire("goldPlace", {container:c.short||c.name});
   return true;
 }
 
@@ -786,7 +865,7 @@ function tapCell(row,col){
   const occupant=c.cells[row][col];
   if(occupant!==null){
     const slot=G.inv.indexOf(null);
-    if(slot===-1){ toast("Hands full"); return; }
+    if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); return; }
     c.cells[row][col]=null;
     const it=G.items[occupant];
     it.loc={kind:"inv",slot};
@@ -822,7 +901,7 @@ function moveWithinContainer(fromRow,fromCol,toRow,toCol){
 ============================================================ */
 function doWhirl(){
   if(!G.up.whirl) return;
-  if(Date.now()<G.whirlReady){ toast("Whirlwind is resting"); return; }
+  if(Date.now()<G.whirlReady){ bump(whirlBtn, "⏳"); return; }
   const room=G.rooms[G.current];
   let any=false;
   for(const c of room.containers){
@@ -837,13 +916,18 @@ function doWhirl(){
       groups.get(t).push(id);
     }
     const rows=c.cells.length;
-    c.cells=Array.from({length:rows},()=>Array(5).fill(null));
+    /* These two were hardcoded to 5. On Mega (rowLen 8) the rebuilt grid was
+       3 cells narrower than the real one, so up to 3 items per type were
+       dropped out of `cells` while their loc still pointed at a cell that no
+       longer held them: counted in "N left" forever, run unwinnable. */
+    const len=G.rowLen;
+    c.cells=Array.from({length:rows},()=>Array(len).fill(null));
     let r=0, overflow=[];
     for(const [,arr] of groups){
       if(r>=rows){ overflow.push(...arr); continue; }
       let col=0;
       for(const id of arr){
-        if(col===5){ break; } // a type never exceeds 5, safety only
+        if(col===len){ break; } // a type never exceeds one row, safety only
         c.cells[r][col]=id;
         G.items[id].loc={kind:"cell",room:room.id,cont:c.id,row:r,col};
         col++;
@@ -863,8 +947,8 @@ function doWhirl(){
   if(any){
     G.whirlReady=Date.now()+WHIRL_CD;
     renderRoom(); renderHUD();
-    toast("Whoosh — everything swept into rows 🌀");
-  }else toast("Nothing in here to organize");
+    say("Whoosh — everything swept into rows 🌀");
+  }else bump(whirlBtn, "🫧");
 }
 
 function renderShop(){
@@ -896,11 +980,11 @@ function buyUpgrade(id){
   const max=maxLevel(u);
   if(lvl>=max) return;
   const cost=costFor(u,lvl);
-  if(G.points<cost){ toast("Not enough ⭐ yet"); return; }
+  if(G.points<cost){ bump(shopBtn, "⭐"); return; }
   G.points-=cost;
   G.up[id]=lvl+1;
   if(id==="hands") G.inv.push(null);
-  toast(u.name+(max>1?" lv "+G.up[id]:"")+" ✨");
+  say(u.name+(max>1?" lv "+G.up[id]:"")+" ✨");
   renderShop(); renderHUD(); renderInv();
   if(id==="whirl") updateWhirlBtn();
 }
@@ -948,7 +1032,7 @@ function tryMove(dir){
   const lock=lockFor(G.current,dir);
   if(lock){
     bounce(dir);
-    toast("Locked — needs "+(lock.need-lock.have)+" more key"+(lock.need-lock.have===1?"":"s"));
+    bump(host.querySelector(".door.locked"), "🔒", "Sealed. Drag keys onto it — the pips show how many are left.", "lockedDoor");
     const plate=host.querySelector(`.door.locked[data-lock="${G.locks.indexOf(lock)}"]`);
     if(plate) plate.classList.add("fullhit");
     return;
@@ -970,7 +1054,7 @@ function clampPanY(v){
 }
 
 function setZoom(on, cx, cy){
-  if(on) tipDone("zoom");
+  if(on) fire("zoom");
   const el=host.firstElementChild;
   G.cam = on ? "zoom" : "room";
   if(on){
@@ -1055,7 +1139,7 @@ host.addEventListener("pointermove",e=>{
     G.pan.x=clampPanX(ptr.panX+dx/ZOOM);
     G.pan.y=clampPanY(ptr.panY+dy/ZOOM);
     applyCam(host.firstElementChild);
-    tipDone("pan");
+    fire("pan");
   }
 });
 
@@ -1079,7 +1163,7 @@ host.addEventListener("pointerup",e=>{
         if(overInv){
           const slotEl=under.closest(".slot");
           let slot=(slotEl && G.inv[+slotEl.dataset.slot]===null) ? +slotEl.dataset.slot : G.inv.indexOf(null);
-          if(slot===-1){ toast("Hands full"); }
+          if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); }
           else{
             it.loc={kind:"inv",slot};
             G.inv[slot]=it.id;
@@ -1094,7 +1178,7 @@ host.addEventListener("pointerup",e=>{
           }else if(p.hotCont.classList.contains("locked")){
             if(it.isKey){ insertKey(+p.hotCont.dataset.lock, it); return; }
             p.hotCont.classList.add("fullhit");
-            toast("Only a key fits the lock");
+            bump(null, "🔑", "Only a key fits a lock.", "keyOnly");
           }else if(p.hotCont.classList.contains("furn")){
             if(tossInto(it, +p.hotCont.dataset.cont)) return;
           }
@@ -1154,8 +1238,7 @@ host.addEventListener("pointerup",e=>{
   const cacheEl=target.closest(".cache");
   if(cacheEl){
     lastTap={t:0};
-    cacheEl.classList.add("fullhit");
-    toast("A little slot… it wants a coin 🪙");
+    bump(cacheEl, "🪙", "A little slot. Something coin-shaped fits it.", "cacheHint");
     return;
   }
 
@@ -1166,8 +1249,7 @@ host.addEventListener("pointerup",e=>{
     if(doorEl.classList.contains("locked")){
       const lk=lockFor(G.current,dir);
       if(lk){
-        doorEl.classList.add("fullhit");
-        toast("Locked — needs "+(lk.need-lk.have)+" more key"+((lk.need-lk.have)===1?"":"s"));
+        bump(doorEl, "🔒", "Sealed. Drag keys onto it — the pips show how many are left.", "lockedDoor");
       }
     }else if(dir){
       tryMove(dir);
@@ -1175,27 +1257,38 @@ host.addEventListener("pointerup",e=>{
     return;
   }
 
+  /* Furniture opens on a SINGLE tap, in the same early-return chain as
+     items, caches and doors. It used to require a double-tap, and a single
+     tap did nothing whatsoever — no feedback, no hint that the furniture was
+     even interactive. Locked furniture now shakes on the first tap too. */
+  const contEl=target.closest(".furn");
+  if(contEl){
+    lastTap={t:0};
+    openContainer(+contEl.dataset.cont, contEl);
+    return;
+  }
+
   const now=Date.now();
-  const isDouble = (now-lastTap.t<330) && Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<36;
+  const isDouble = (now-lastTap.t<DOUBLE_TAP_MS) && Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<DOUBLE_TAP_SLOP;
   lastTap={t:now,x:e.clientX,y:e.clientY};
 
-  const contEl=target.closest(".furn");
   if(isDouble){
     lastTap={t:0};
-    if(contEl){
-      const c=G.rooms[G.current].containers[+contEl.dataset.cont];
-      if(c.lock && !c.lock.open){
-        contEl.classList.add("fullhit");
-        toast("Locked — needs "+(c.lock.need-c.lock.have)+" more key"+(c.lock.need-c.lock.have===1?"":"s"));
-      }else{
-        G.openCont=+contEl.dataset.cont; renderContainer();
-        tipDone("open");
-      }
-    }
-    else if(G.cam==="room") setZoom(true,e.clientX,e.clientY);
+    if(G.cam==="room") setZoom(true,e.clientX,e.clientY);
     else setZoom(false);
   }
 });
+
+function openContainer(idx, contEl){
+  const c=G.rooms[G.current].containers[idx];
+  if(c.lock && !c.lock.open){
+    bump(contEl, "🔒", "Locked. Drag keys onto it — the pips show how many are left.", "lockedCont");
+    return;
+  }
+  G.openCont=idx;
+  renderContainer();
+  fire("open", {container: c.short || c.name});
+}
 
 host.addEventListener("pointercancel",e=>{
   if(!ptr||e.pointerId!==ptr.id) return;
@@ -1212,7 +1305,7 @@ host.addEventListener("pointercancel",e=>{
 /* ============================================================
    INPUT — inventory: tap to select, drag onto furniture / floor / cells
 ============================================================ */
-const invBar=$("#invBar"), ghost=$("#dragGhost");
+const ghost=$("#dragGhost");   /* invBar comes from dom.js */
 let invDrag=null, hotCell=null, invHotCont=null;
 let lastSlotTap={t:0,idx:-1};
 
@@ -1228,7 +1321,7 @@ function autoPlace(slotIdx){
   const c=G.rooms[G.current].containers[G.openCont];
   const spot=bestSpot(c, G.items[id].type);
   if(spot){ placeFromSlot(slotIdx,spot.row,spot.col); return; }
-  toast("No space left in here");
+  bump(contGrid, "🚫", "No room left in here — take something out first.", "cellFull");
 }
 
 invBar.addEventListener("pointerdown",e=>{
@@ -1298,7 +1391,7 @@ function endInvDrag(e){
     if(plate && G.inv[d.idx]!==null){
       const it=G.items[G.inv[d.idx]];
       if(it.isKey){ insertKey(+plate.dataset.lock, it, d.idx); }
-      else{ plate.classList.add("fullhit"); toast("Only a key fits the lock"); }
+      else{ bump(plate, "🔑", "Only a key fits a lock.", "keyOnly"); }
       return;
     }
     const cont=under && under.closest(".furn");
@@ -1336,7 +1429,7 @@ invBar.addEventListener("pointercancel",e=>{
    INPUT — container view: tap cells, drag between cells
 ============================================================ */
 let cellPtr=null, cellHot=null;
-const contGrid=$("#contGrid");
+/* contGrid comes from dom.js */
 
 contGrid.addEventListener("pointerdown",e=>{
   const cell=e.target.closest(".cell");
@@ -1391,7 +1484,7 @@ function endCellPtr(e){
     if(overInv){
       const slotEl=under.closest(".slot");
       let slot=(slotEl && G.inv[+slotEl.dataset.slot]===null)?+slotEl.dataset.slot:G.inv.indexOf(null);
-      if(slot===-1){ toast("Hands full"); return; }
+      if(slot===-1){ bump(invBar, "✋", "Your hands are full — put something away first", "handsFull"); return; }
       c.cells[p.row][p.col]=null;
       it.loc={kind:"inv",slot};
       G.inv[slot]=id;
@@ -1411,7 +1504,7 @@ function endCellPtr(e){
         return x>s.x-2 && x<s.x+s.w+2 && y>s.y-4 && y<s.y+s.h+2;
       })));
       it.loc={kind:"floor",room:room.id,x,y,rot:Math.random()*40-20};
-      toast((NAMES[it.type]||"")+" tossed on the floor");
+      /* the item is visibly on the floor; no narration needed */
       afterMutation(room,c,[p.row]);
       renderContainer(); renderHUD();
     }
@@ -1462,9 +1555,9 @@ $("#resetBtn").addEventListener("click",()=>{
   }
 });
 $("#debugStar").addEventListener("click",()=>{
-  G.points++; renderHUD(); toast("+1 ⭐ (debug)");
+  G.points++; G.starsEarned++; renderHUD(); say("+1 ⭐ (debug)");
 });
-$("#shopBtn").addEventListener("click",()=>{ tipDone("shop"); renderShop(); $("#shopOverlay").classList.add("open"); });
+$("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderShop(); $("#shopOverlay").classList.add("open"); });
 $("#whirlBtn").addEventListener("click",doWhirl);
 
 /* ============================================================ */
@@ -1490,7 +1583,7 @@ function startFree(sizeKey){
   const cfg=SIZES[sizeKey];
   setRun(generate(cfg), {mode:"free", size:sizeKey, levelIdx:null});
   render();
-  toast(cfg.label+" house — happy tidying");
+  say(cfg.label+" house — happy tidying");
 }
 
 function startCampaign(i){
@@ -1499,8 +1592,8 @@ function startCampaign(i){
   const lv=LEVELS[i];
   setRun(generate(lv), {mode:"campaign", levelIdx:i, size:null});
   render();
-  toast(lv.id+" · "+lv.name);
-  setTimeout(()=>toast(tokenise(lv.blurb, textVars())), 1700);
+  say(lv.id+" · "+lv.name, {priority:2});
+  say(tokenise(lv.blurb, textVars()), {priority:1});
 }
 
 /* Values available to {tokens} in level blurbs, tips and help copy. */
@@ -1534,8 +1627,8 @@ function resetRun(){
 
 /* menu wiring */
 $("#btnContinue").addEventListener("click",()=>{
-  if(loadGame()){ closeMenus(); render(); toast("Welcome back"); }
-  else { setHidden($("#btnContinue"), true); toast("No save found"); }
+  if(loadGame()){ closeMenus(); render(); say("Welcome back"); }
+  else { setHidden($("#btnContinue"), true); say("No save found"); }
 });
 $("#btnCampaign").addEventListener("click",openCampaignMenu);
 $("#btnFree").addEventListener("click",()=>{ closeMenus(); $("#sizeOverlay").classList.add("open"); });
