@@ -8,7 +8,8 @@
 import {
   SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, OPP, CHEVRON, ZOOM_MAX as ZOOM,
-  DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD, CELL_DRAG_THRESHOLD, T,
+  DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD, CELL_DRAG_THRESHOLD,
+  PINCH_TAP_SUPPRESS_MS, T,
 } from './config.js';
 import { rnd, shuffle, clamp, tokenise, plural } from './util.js';
 /* `el` is aliased: this file has many local `const el = ...` inside render
@@ -24,6 +25,10 @@ import {
 import { G, setRun, endRun } from './state.js';
 import { inShape, findFloorSpot, spin, pad } from './geometry.js';
 import { generate } from './generate.js';
+import {
+  camEl, roomEl, applyCam, clampPan, zoomAt, zoomBy, wheelZoom, panBy,
+  resetPan, resetZoom, isZoomed, camScale, setCamSmooth,
+} from './camera.js';
 
 /* Data must be in hand before anything reads it. Top-level await keeps every
    module below this point free of "is it loaded yet" checks. */
@@ -66,7 +71,7 @@ function tipTarget(t){
     case "lock": return host.querySelector(".door.locked, .furn.flocked");
     case "shop": return document.getElementById("shopBtn");
     case "open": return host.querySelector(".furn:not(.flocked)");
-    case "zoom": case "pan": return host.firstElementChild;
+    case "zoom": case "pan": return roomEl();
     case "lastEl": return G.tipCtx.el?.isConnected ? G.tipCtx.el : null;
   }
   return null;
@@ -436,7 +441,7 @@ function buildRoomEl(room){
     }
     f.appendChild(badges);
     const lbl=document.createElement("div"); lbl.className="flabel";
-    lbl.textContent=c.name;
+    lbl.textContent=c.short||c.name;   /* short fits the face; name is used in titles */
     f.appendChild(lbl);
     el.appendChild(f);
   }
@@ -461,17 +466,16 @@ function buildRoomEl(room){
   return el;
 }
 
-function applyCam(el){
-  if(!el) return;
-  el.style.transform = G.cam==="zoom"
-    ? `scale(${ZOOM}) translate(${G.pan.x}px, ${G.pan.y}px)` : "";
-}
-
+/* #roomHost > .cam > .room — the camera owns zoom/pan, the room owns the
+   slide and bounce animations. They shared one transform in v3, which is why
+   bounce() had to repair the camera afterwards. */
 function renderRoom(){
   host.innerHTML="";
-  const el=buildRoomEl(G.rooms[G.current]);
-  applyCam(el);
-  host.appendChild(el);
+  const cam=document.createElement("div");
+  cam.className="cam smooth";
+  cam.appendChild(buildRoomEl(G.rooms[G.current]));
+  host.appendChild(cam);
+  applyCam();
 }
 
 function render(){
@@ -483,17 +487,19 @@ function render(){
 }
 
 function slideTo(dir,newId){
-  const old=host.firstElementChild;
+  const old=roomEl();
   const [dx,dy]=DIRS[dir];
   const hr=host.getBoundingClientRect();
   const px=dx*(hr.width+80), py=dy*(hr.height+80);
   G.current=newId; G.visited.add(newId);
   fire("door");
-  G.cam="room"; G.pan={x:0,y:0};
+  /* Keep the player's zoom through a door; only recentre the pan. Resetting
+     zoom on every transition is what made zoom feel disposable. */
+  resetPan(); applyCam();
   const neu=buildRoomEl(G.rooms[newId]);
   neu.style.transition="none";
   neu.style.transform=`translate(${px}px, ${py}px)`;
-  host.appendChild(neu);
+  camEl().appendChild(neu);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     old.style.transition="transform .32s ease";
     neu.style.transition="transform .32s ease";
@@ -505,13 +511,14 @@ function slideTo(dir,newId){
 }
 
 function bounce(dir){
-  const el=host.firstElementChild;
+  const el=roomEl();
+  if(!el) return;
   const [dx,dy]=DIRS[dir];
   el.style.transition="transform .1s ease";
   el.style.transform=`translate(${dx*14}px, ${dy*14}px)`;
   setTimeout(()=>{
     el.style.transform="";
-    setTimeout(()=>{el.style.transition="";applyCam(el);},120);
+    setTimeout(()=>{el.style.transition="";el.style.transform="";},120);
   },100);
 }
 
@@ -668,7 +675,7 @@ function afterMutation(room, c, changedRows, opts={}){
      a 1400ms toast. Now the gold visibly travels outward from the centre. */
   if(roomComplete(room) && !G.roomFxDone.has(room.id)){
     G.roomFxDone.add(room.id);
-    roomCompleteFX(host.firstElementChild);
+    roomCompleteFX(roomEl());
     say(room.name+" is all tidy ✨", {priority:2});
     fire("roomComplete", {room:room.name});
   }
@@ -792,7 +799,7 @@ function animateFlight(type, fromX, fromY, toX, toY, done){
 }
 
 function roomPctToScreen(x,y){
-  const rect=host.firstElementChild.getBoundingClientRect();
+  const rect=roomEl().getBoundingClientRect();
   return [rect.left+rect.width*x/100, rect.top+rect.height*y/100];
 }
 
@@ -1040,35 +1047,55 @@ function tryMove(dir){
   slideTo(dir,to);
 }
 
-function clampPanX(v){
-  const el=host.firstElementChild;
-  const w=el?el.offsetWidth:host.getBoundingClientRect().width;
-  const lim=w*(ZOOM-1)/(2*ZOOM);
-  return Math.max(-lim,Math.min(lim,v));
-}
-function clampPanY(v){
-  const el=host.firstElementChild;
-  const h=el?el.offsetHeight:host.getBoundingClientRect().height;
-  const lim=h*(ZOOM-1)/(2*ZOOM);
-  return Math.max(-lim,Math.min(lim,v));
-}
-
-function setZoom(on, cx, cy){
-  if(on) fire("zoom");
-  const el=host.firstElementChild;
-  G.cam = on ? "zoom" : "room";
-  if(on){
-    const rect=host.getBoundingClientRect();
-    G.pan={x:clampPanX(rect.width/2-(cx-rect.left)), y:clampPanY(rect.height/2-(cy-rect.top))};
-  } else G.pan={x:0,y:0};
-  applyCam(el);
-}
 
 /* ============================================================
    INPUT — room stage
 ============================================================ */
 let ptr=null, lastTap={t:0,x:0,y:0};
 const loupe=document.getElementById("loupe");
+
+/* Every pointer currently down. v3 kept exactly one and dropped the rest,
+   which is why pinch never worked — a second finger's events were discarded
+   by `if(!ptr||e.pointerId!==ptr.id) return`. */
+const live=new Map();
+let pinch=null;
+/* A trailing finger lifting after a pinch would otherwise land as a tap and
+   open a container. */
+let suppressTapUntil=0;
+
+const pinchSpan=()=>{
+  const [a,b]=[...live.values()];
+  return {d:Math.hypot(a.x-b.x, a.y-b.y), mx:(a.x+b.x)/2, my:(a.y+b.y)/2};
+};
+function startPinch(){
+  const s=pinchSpan();
+  return {d0:s.d, z0:G.cam.z, mx:s.mx, my:s.my};
+}
+function updatePinch(){
+  if(!pinch || live.size<2) return;
+  const s=pinchSpan();
+  if(s.d>0 && pinch.d0>0){
+    zoomAt(pinch.z0 * (s.d/pinch.d0), s.mx, s.my);
+    if(isZoomed()) fire("zoom");
+  }
+  /* Two-finger drag pans at the same time. */
+  panBy(s.mx-pinch.mx, s.my-pinch.my);
+  pinch.mx=s.mx; pinch.my=s.my;
+}
+function endPinch(){
+  pinch=null;
+  suppressTapUntil=Date.now()+PINCH_TAP_SUPPRESS_MS;
+  setCamSmooth(true);
+}
+
+/* Put a half-dragged item back where it came from. */
+function cancelItemDrag(){
+  if(!ptr?.itemEl) return;
+  ptr.itemEl.style.pointerEvents="";
+  ptr.itemEl.style.zIndex="";
+  clearHots();
+  renderRoom();
+}
 
 function showLoupe(it,el,ptype){
   loupe.classList.toggle("mouse", ptype==="mouse");
@@ -1094,32 +1121,60 @@ function hideLoupe(){
   host.querySelectorAll(".furn.sense").forEach(f=>f.classList.remove("sense"));
 }
 
+/* Continuous, cursor-anchored. v3 ignored deltaY's magnitude and snapped
+   between exactly two levels. */
+let wheelIdle=null;
 host.addEventListener("wheel",e=>{
+  if(!G.active) return;
   e.preventDefault();
-  if(e.deltaY<0 && G.cam==="room") setZoom(true,e.clientX,e.clientY);
-  else if(e.deltaY>0 && G.cam==="zoom") setZoom(false);
+  setCamSmooth(false);
+  wheelZoom(e);
+  if(isZoomed()) fire("zoom");
+  clearTimeout(wheelIdle);
+  wheelIdle=setTimeout(()=>setCamSmooth(true),140);
 },{passive:false});
 
 host.addEventListener("pointerdown",e=>{
-  ptr={sx:e.clientX,sy:e.clientY,panX:G.pan.x,panY:G.pan.y,drag:false,id:e.pointerId,
+  if(!G.active) return;
+  live.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  /* Capture is an optimisation, not a requirement — it throws if the pointer
+     is already gone, and an uncaught throw here would kill the rest of the
+     handler (including all pinch handling). */
+  try{ host.setPointerCapture(e.pointerId); }catch(err){}
+
+  /* Second finger down = pinch. v3 stored a single pointer and discarded any
+     other, so pinch-zoom did not exist at all (only double-tap did). Abort
+     any in-flight item drag so the item doesn't fly off mid-pinch. */
+  if(live.size===2){
+    if(ptr?.itemEl) cancelItemDrag();
+    pinch=startPinch();
+    ptr=null;
+    hideLoupe();
+    setCamSmooth(false);
+    return;
+  }
+  if(live.size>2) return;
+
+  ptr={sx:e.clientX,sy:e.clientY,panX:G.cam.x,panY:G.cam.y,drag:false,id:e.pointerId,
        downTarget:e.target,
        itemEl:e.target.closest(".item"), itemMoved:false, ix:0, iy:0, hotCont:null,
        samples:[{t:performance.now(),x:e.clientX,y:e.clientY}]};
-  host.setPointerCapture(e.pointerId);
   if(ptr.itemEl) showLoupe(G.items[+ptr.itemEl.dataset.item], ptr.itemEl, e.pointerType);
 });
 
 host.addEventListener("pointermove",e=>{
+  if(live.has(e.pointerId)) live.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch){ updatePinch(); return; }
   if(!ptr||e.pointerId!==ptr.id) return;
   const dx=e.clientX-ptr.sx, dy=e.clientY-ptr.sy;
-  if(Math.hypot(dx,dy)>10) ptr.drag=true;
+  if(Math.hypot(dx,dy)>DRAG_THRESHOLD) ptr.drag=true;
   if(!ptr.drag) return;
   ptr.samples.push({t:performance.now(),x:e.clientX,y:e.clientY});
   if(ptr.samples.length>6) ptr.samples.shift();
   if(ptr.itemEl){
     ptr.itemMoved=true;
     ptr.itemEl.style.pointerEvents="none";
-    const rect=host.firstElementChild.getBoundingClientRect();
+    const rect=roomEl().getBoundingClientRect();
     ptr.ix=Math.max(2,Math.min(97,(e.clientX-rect.left)/rect.width*100));
     ptr.iy=Math.max(2,Math.min(97,(e.clientY-rect.top)/rect.height*100));
     ptr.itemEl.style.left=ptr.ix+"%";
@@ -1135,15 +1190,19 @@ host.addEventListener("pointermove",e=>{
     if(ptr.hotSlot && ptr.hotSlot!==slotEl) ptr.hotSlot.classList.remove("sel");
     ptr.hotSlot=(slotEl && G.inv[+slotEl.dataset.slot]===null)?slotEl:null;
     if(ptr.hotSlot) ptr.hotSlot.classList.add("sel");
-  }else if(G.cam==="zoom"){
-    G.pan.x=clampPanX(ptr.panX+dx/ZOOM);
-    G.pan.y=clampPanY(ptr.panY+dy/ZOOM);
-    applyCam(host.firstElementChild);
+  }else if(isZoomed()){
+    const t=camScale();
+    G.cam.x=ptr.panX+dx/t;
+    G.cam.y=ptr.panY+dy/t;
+    clampPan(); applyCam();
     fire("pan");
   }
 });
 
 host.addEventListener("pointerup",e=>{
+  live.delete(e.pointerId);
+  if(pinch){ if(live.size<2) endPinch(); return; }
+  if(Date.now()<suppressTapUntil){ ptr=null; return; }
   if(!ptr||e.pointerId!==ptr.id) return;
   hideLoupe();
   const dx=e.clientX-ptr.sx, dy=e.clientY-ptr.sy;
@@ -1224,7 +1283,7 @@ host.addEventListener("pointerup",e=>{
       p.itemEl.style.zIndex="";
       return;
     }
-    if(G.cam==="room" && dist>55){
+    if(!isZoomed() && dist>55){
       const dir = Math.abs(dx)>Math.abs(dy) ? (dx<0?"E":"W") : (dy<0?"S":"N");
       tryMove(dir);
     }
@@ -1268,15 +1327,12 @@ host.addEventListener("pointerup",e=>{
     return;
   }
 
-  const now=Date.now();
-  const isDouble = (now-lastTap.t<DOUBLE_TAP_MS) && Math.hypot(e.clientX-lastTap.x,e.clientY-lastTap.y)<DOUBLE_TAP_SLOP;
-  lastTap={t:now,x:e.clientX,y:e.clientY};
-
-  if(isDouble){
-    lastTap={t:0};
-    if(G.cam==="room") setZoom(true,e.clientX,e.clientY);
-    else setZoom(false);
-  }
+  /* Double-tap-to-zoom on the floor is gone. Pinch (touch) and wheel
+     (mouse) replace it, and keeping it would mean a mis-tap between small
+     furniture and adjacent floor flips between "a panel opens" and "the
+     camera jumps" — a far more jarring error than the old "nothing happens
+     vs. zoom". Removing it also deletes the 330ms deferred-tap latency from
+     every room interaction. */
 });
 
 function openContainer(idx, contEl){
@@ -1291,16 +1347,22 @@ function openContainer(idx, contEl){
 }
 
 host.addEventListener("pointercancel",e=>{
+  live.delete(e.pointerId);
+  if(pinch && live.size<2) endPinch();
   if(!ptr||e.pointerId!==ptr.id) return;
   hideLoupe();
   if(ptr.itemEl){
     ptr.itemEl.style.pointerEvents="";
     ptr.itemEl.style.zIndex="";
   }
-  if(ptr.hotCont) ptr.hotCont.classList.remove("drophot");
-  if(ptr.hotSlot) ptr.hotSlot.classList.remove("sel");
+  clearHots();
   ptr=null;
 });
+
+function clearHots(){
+  if(ptr?.hotCont) ptr.hotCont.classList.remove("drophot");
+  if(ptr?.hotSlot) ptr.hotSlot.classList.remove("sel");
+}
 
 /* ============================================================
    INPUT — inventory: tap to select, drag onto furniture / floor / cells
@@ -1399,7 +1461,7 @@ function endInvDrag(e){
       tossInto(G.items[G.inv[d.idx]], +cont.dataset.cont, d.idx);
       return;
     }
-    const roomEl=host.firstElementChild;
+    const rEl=roomEl();
     if(roomEl){
       const rect=roomEl.getBoundingClientRect();
       if(e.clientX>rect.left && e.clientX<rect.right &&
@@ -1582,6 +1644,7 @@ function startFree(sizeKey){
   closeMenus();
   const cfg=SIZES[sizeKey];
   setRun(generate(cfg), {mode:"free", size:sizeKey, levelIdx:null});
+  resetZoom();
   render();
   say(cfg.label+" house — happy tidying");
 }
@@ -1591,6 +1654,7 @@ function startCampaign(i){
   closeMenus();
   const lv=LEVELS[i];
   setRun(generate(lv), {mode:"campaign", levelIdx:i, size:null});
+  resetZoom();
   render();
   say(lv.id+" · "+lv.name, {priority:2});
   say(tokenise(lv.blurb, textVars()), {priority:1});

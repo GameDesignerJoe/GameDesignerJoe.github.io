@@ -16,6 +16,11 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+/* iOS Safari inflates small text, and Chrome on Android "font boosts" any
+   sub-12px text it decides is a block — both keyed off layout width, which
+   is why in-room labels looked fine on a laptop and blew out of their boxes
+   on a phone. Neither is a zoom/transform problem; this is the actual fix. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{
   background:var(--bg);
   color:var(--ink);

@@ -38,6 +38,16 @@
   height:100%;
   touch-action:none;
 }
+/* The camera. Owns zoom and pan ONLY; the .room inside owns the slide and
+   bounce animations. They shared a single transform in v3, which is why
+   bounce() had to re-apply the camera afterwards and why zoom reset on every
+   door. */
+.cam{
+  position:absolute;inset:0;
+  transform-origin:center center;
+  will-change:transform;
+}
+.cam.smooth{transition:transform .2s ease}
 
 /* ---------- INVENTORY BAR ---------- */
 #invBar{

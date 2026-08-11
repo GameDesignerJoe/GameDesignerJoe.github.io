@@ -10,17 +10,32 @@
   box-shadow:0 5px 10px rgba(0,0,0,.35);
   cursor:pointer;
   display:flex;align-items:center;justify-content:center;
+  /* Lets everything inside size against THIS box rather than a fixed px
+     value, so labels stay proportional at any zoom and on any screen. */
+  container-type:size;
+  overflow:hidden;
 }
 .furn .flabel{
-  font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  /* cqh resolves against the unscaled layout box, so the clamps are
+     pre-zoom. Was a flat 9px, which the mobile font-boosters inflated. */
+  font-size:clamp(5px, 26cqh, 11px);
+  font-weight:800;letter-spacing:.06em;text-transform:uppercase;
   text-align:center;line-height:1.15;padding:0 4px;
   color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.6);
   pointer-events:none;
+  /* .furn had no overflow rule at all, so a long name genuinely did escape. */
+  max-width:100%;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
 }
 .furn .badges{
-  position:absolute;top:-15px;left:0;right:0;height:14px;
-  display:flex;justify-content:center;gap:1px;
-  font-size:11px;line-height:14px;
+  /* top was a fixed -15px, which drifted further from the furniture as the
+     room scaled up. Proportional now. */
+  position:absolute;top:-24cqh;left:0;right:0;height:22cqh;min-height:12px;
+  display:flex;justify-content:center;align-items:flex-end;gap:1px;
+  font-size:clamp(7px, 30cqh, 13px);line-height:1;
   pointer-events:none;white-space:nowrap;overflow:visible;
 }
 .furn .badges span{filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
