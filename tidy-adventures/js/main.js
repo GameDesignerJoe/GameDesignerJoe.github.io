@@ -438,15 +438,19 @@ function buildRoomEl(room){
     const s=c.slot;
     const f=document.createElement("div");
     const locked=c.lock && !c.lock.open;
+    const done=containerComplete(c);
     let sense="";
-    if(G.up.sense && G.sel!==null && G.inv[G.sel]!==null){
+    /* Don't point at a container that's locked or already finished — there's
+       nothing you can do with the hint, and on a finished one it competes
+       with the gold that means "done". */
+    if(G.up.sense && !locked && !done && G.sel!==null && G.inv[G.sel]!==null){
       const held=G.items[G.inv[G.sel]];
-      if(!held.isKey){
+      if(!held.isKey && !held.isCoin && !held.isNote){
         const home=G.typeHome[held.type];
-        if(home.room===room.id && home.cont===c.id) sense=" sense";
+        if(home && home.room===room.id && home.cont===c.id) sense=" sense";
       }
     }
-    f.className="furn k-"+c.kind+(locked?" flocked":"")+(containerComplete(c)&&!locked?" aura":"")+sense;
+    f.className="furn k-"+c.kind+(locked?" flocked":"")+(done&&!locked?" aura":"")+sense;
     f.dataset.cont=c.id;
     f.style.cssText=`left:${s.x}%;top:${s.y}%;width:${s.w}%;height:${s.h}%;`;
     const badges=document.createElement("div"); badges.className="badges";

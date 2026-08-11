@@ -90,9 +90,23 @@
 @keyframes furnpop{40%{transform:scale(1.07)}}
 .furn.fullhit{animation:furnfull .4s}
 @keyframes furnfull{25%{transform:translateX(-4px)}60%{transform:translateX(4px)}}
-.furn.sense{animation:sensepulse 1.1s ease-in-out infinite}
-@keyframes sensepulse{
-  50%{box-shadow:0 0 18px 6px rgba(245,197,66,.85), 0 6px 12px rgba(0,0,0,.4)}
+/* Sixth Sense: "this is where the thing in your hand lives."
+
+   This used to be an endless 1.1s pulse, which meant that from the moment
+   you picked something up its home container strobed until your hands were
+   empty — reads as a broken container, not a hint. It's a steady ring now.
+
+   Cool white-blue on purpose: gold in this game means DONE, and a hint
+   wearing the same colour as a completed container is ambiguous. Also
+   static rather than animated because renderRoom() rebuilds these elements
+   constantly, so any one-shot intro animation would restart on every
+   repaint — which is how you get a strobe back by accident. */
+.furn.sense{
+  box-shadow:
+    0 0 0 2px rgba(198,232,255,.95),
+    0 0 16px 5px rgba(150,205,255,.55),
+    0 6px 12px rgba(0,0,0,.4);
+  border-color:rgba(198,232,255,.9);
 }
 
 /* Key-locked: solid gold edge, and the badge shows the key it wants. */
@@ -101,14 +115,14 @@
   border-color:rgba(245,197,66,.55);
 }
 /* Quest-sealed: no keyhole exists for this one, so it must not look like the
-   above. Dashed edge, cooler tint, and a slow pulse that reads as "waiting
-   on something" rather than "find a key". */
+   above. The dashed edge and the cool tint carry that on their own —
+   it used to pulse as well, and the rule now is that nothing on the board
+   animates forever. Doors that lead somewhere new are the one exception, and
+   they stop the moment you walk through them. */
 .furn.fsealed{
-  border:2px dashed rgba(190,210,235,.8);
+  border:2px dashed rgba(190,210,235,.72);
   filter:saturate(.35) brightness(.78);
-  animation:sealwait 2.8s ease-in-out infinite;
 }
-@keyframes sealwait{50%{border-color:rgba(190,210,235,.35)}}
 .furn .badges .pips{display:flex;align-items:center;gap:3px;margin-left:2px}
 .pips i{
   width:5px;height:5px;border-radius:50%;
