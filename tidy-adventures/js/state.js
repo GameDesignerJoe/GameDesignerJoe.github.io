@@ -59,7 +59,6 @@ export function blankRun() {
 
     /* one-shot effects */
     roomFxDone: new Set(),
-    propsShown: new Set(),
     sawFirstGold: false,
   };
 }

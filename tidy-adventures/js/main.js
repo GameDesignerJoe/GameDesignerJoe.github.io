@@ -391,7 +391,10 @@ function insertContainerKey(contIdx, it, fromSlot){
 
 function buildRoomEl(room){
   const el=document.createElement("div");
-  el.className="room shape-"+(room.shape||"rect");
+  /* A finished room turns its own walls gold — see .room.done in room.css.
+     This replaced dropping a decorative prop on the floor, which read as
+     clutter you were not allowed to tidy. */
+  el.className="room shape-"+(room.shape||"rect")+(roomComplete(room)?" done":"");
   const sw=room.sw||1, sh=room.sh||1;
   el.style.width=(sw*100)+"%";
   el.style.height=(sh*100)+"%";
@@ -451,10 +454,15 @@ function buildRoomEl(room){
       /* Show the key this lock actually wants rather than a generic 🔒, so
          the requirement is legible at a glance — no guess-the-key. A quest
          seal wants no key at all, so it gets its own mark. */
+      /* A quest seal must NOT look like a keyhole. Showing a padlock on it
+         sent me hunting for a key that by design does not exist. It gets an
+         hourglass and a dashed edge; a real lock keeps the key emoji and a
+         solid one. */
       const ic=document.createElement("span");
-      ic.textContent=c.lock.quest ? "🔒"
+      ic.textContent=c.lock.quest ? "⏳"
         : (LOOKUP.tokenById[c.lock.token||"key"]?.emoji || "🔒");
       badges.appendChild(ic);
+      if(c.lock.quest) f.classList.add("fsealed");
       /* A single-key lock needs no pip strip; the emoji says it all. */
       if(c.lock.need>1){
         const pips=document.createElement("div"); pips.className="pips";
@@ -485,21 +493,6 @@ function buildRoomEl(room){
     lbl.textContent=c.name;
     f.appendChild(lbl);
     el.appendChild(f);
-  }
-  /* A room you finished keeps something of its own. See data/props.json —
-     walking back in and finding a cat asleep does more for "this is a place"
-     than a feature would. */
-  if(G.roomFxDone.has(room.id)){
-    const p=DATA.props.props[room.defId];
-    if(p){
-      const pe=document.createElement("div");
-      pe.className="prop";
-      pe.dataset.prop=p.title||"";
-      pe.title=p.title||"";
-      pe.textContent=p.emoji;
-      pe.style.cssText=`left:${p.at[0]}%;top:${p.at[1]}%;`;
-      el.appendChild(pe);
-    }
   }
   for(const k of (room.caches||[])){
     if(k.opened) continue;
@@ -743,7 +736,7 @@ function afterMutation(room, c, changedRows, opts={}){
     G.roomFxDone.add(room.id);
     sfx("roomComplete");
     roomCompleteFX(roomEl());
-    renderRoom();   /* the room's prop appears */
+    renderRoom();   /* repaint so the walls go gold */
     say(room.name+" is all tidy ✨", {priority:2});
     fire("roomComplete", {room:room.name});
   }
@@ -1389,17 +1382,6 @@ host.addEventListener("pointerup",e=>{
   const target=p.downTarget;
   const itemEl=p.itemEl;
   if(itemEl){ pickUp(+itemEl.dataset.item); lastTap={t:0}; return; }
-
-  /* Props aren't clutter and can't be picked up, so say so rather than
-     leaving a tap to fall through into nothing — silence on a tap is what
-     makes an un-tidyable object look like a bug. */
-  const propEl=target.closest(".prop");
-  if(propEl){
-    lastTap={t:0};
-    sfx("uiTap");
-    say(propEl.dataset.prop || "Just where it should be.", {key:"prop"+propEl.dataset.prop});
-    return;
-  }
 
   const cacheEl=target.closest(".cache");
   if(cacheEl){

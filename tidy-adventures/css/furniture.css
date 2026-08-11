@@ -95,10 +95,20 @@
   50%{box-shadow:0 0 18px 6px rgba(245,197,66,.85), 0 6px 12px rgba(0,0,0,.4)}
 }
 
+/* Key-locked: solid gold edge, and the badge shows the key it wants. */
 .furn.flocked{
   filter:saturate(.5) brightness(.8);
   border-color:rgba(245,197,66,.55);
 }
+/* Quest-sealed: no keyhole exists for this one, so it must not look like the
+   above. Dashed edge, cooler tint, and a slow pulse that reads as "waiting
+   on something" rather than "find a key". */
+.furn.fsealed{
+  border:2px dashed rgba(190,210,235,.8);
+  filter:saturate(.35) brightness(.78);
+  animation:sealwait 2.8s ease-in-out infinite;
+}
+@keyframes sealwait{50%{border-color:rgba(190,210,235,.35)}}
 .furn .badges .pips{display:flex;align-items:center;gap:3px;margin-left:2px}
 .pips i{
   width:5px;height:5px;border-radius:50%;

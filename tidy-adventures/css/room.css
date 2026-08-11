@@ -40,39 +40,27 @@
   #9a8a5f;}
 .floor-secret{background:radial-gradient(circle at 50% 40%, #7d6a9e, #5d4d7a 75%);}
 
-/* ---------- PROPS ----------
-   What a finished room keeps.
-
-   These must NOT read as clutter. In a game about picking things up, an
-   object you can't pick up looks like a bug — so a prop is deliberately
-   unlike an item: it sits on a soft warm pool of light instead of an item's
-   hard drop shadow, it's slightly smaller and softer, and it breathes.
-   Tapping it says something rather than doing nothing. */
-.prop{
-  position:absolute;z-index:3;
-  font-size:calc(clamp(15px, 2.6vmin, 26px) / var(--fit,1));
-  line-height:1;
-  transform:translate(-50%,-50%);
-  opacity:.92;
-  cursor:default;
-  animation:propsettle .7s ease-out, propbreathe 5.5s ease-in-out .7s infinite;
+/* ---------- A FINISHED ROOM ----------
+   This used to drop a decorative prop on the floor (a cat, a lit lamp, a
+   coffee). It read as clutter you couldn't pick up, which in a game about
+   picking things up looks like a bug. Gone. The room itself goes gold
+   instead — the walls are already the frame, so they may as well say it. */
+.room.done{
+  border-color:#c9a24a;
+  box-shadow:
+    0 0 0 4px rgba(245,197,66,.5),
+    0 0 26px 6px rgba(245,197,66,.28),
+    0 18px 40px rgba(0,0,0,.5);
+  animation:roomdone 3.4s ease-in-out infinite;
 }
-/* the warm pool underneath — this is the "settled, lived-in" cue */
-.prop::before{
-  content:"";position:absolute;left:50%;top:56%;
-  width:230%;height:120%;
-  transform:translate(-50%,-50%);
-  background:radial-gradient(ellipse at 50% 50%, rgba(255,214,140,.32), rgba(255,214,140,0) 70%);
-  pointer-events:none;z-index:-1;
+@keyframes roomdone{
+  50%{box-shadow:
+    0 0 0 4px rgba(245,197,66,.34),
+    0 0 18px 4px rgba(245,197,66,.16),
+    0 18px 40px rgba(0,0,0,.5)}
 }
-@keyframes propsettle{
-  0%  {opacity:0;transform:translate(-50%,-50%) scale(.4)}
-  60% {opacity:1;transform:translate(-50%,-50%) scale(1.14)}
-  100%{opacity:.92;transform:translate(-50%,-50%) scale(1)}
-}
-@keyframes propbreathe{
-  50%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}
-}
+/* Hex rooms draw their walls with a clip-path, not a border. */
+.room.shape-hex.done::before{filter:drop-shadow(0 0 14px rgba(245,197,66,.6))}
 
 /* ---------- CACHES (coin-slot boxes) ---------- */
 .cache{

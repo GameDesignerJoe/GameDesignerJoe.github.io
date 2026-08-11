@@ -38,8 +38,7 @@ can be edited without touching JavaScript:
 | item names in the loupe | `data/names.json` |
 | room shapes, which rooms a theme uses | `data/themes.json` |
 | furniture size, anchors, keep-out padding, key/coin emoji | `data/furniture.json` |
-| the note each room leaves you | `data/quests.json` |
-| what a finished room keeps | `data/props.json` |
+| the note each room leaves you, and its reply | `data/quests.json` |
 | every sound | `data/audio.json` |
 | title, tagline, help screen | `data/strings.json` |
 

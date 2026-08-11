@@ -47,7 +47,7 @@ The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS fil
 - **Coin-slot caches** ✅ — hidden 🪙-operated boxes holding reserved house items; pop-open scatter, +1⭐. The coin is now placed far from its own box (it used to land in the same room constantly).
 - **Camera** ✅ — auto-fit framing, continuous cursor-anchored wheel zoom, and real pinch-zoom (which never existed — a second finger's events were discarded). Zoom survives walking through a door.
 - **Feedback** ✅ — one overloaded 1400ms toast across 39 call sites became three channels: diegetic rejections, rewards that fly to the ⭐, and a real message queue under the HUD.
-- **Room completion** ✅ — gold ripple travelling outward through the furniture, and the room keeps a prop (`data/props.json`): a sleeping cat, a lit lamp, coffee on the desk.
+- **Room completion** ✅ — gold ripple travelling outward through the furniture, then the room's own walls stay gold. *(A decorative prop was tried first — a cat, a lamp, a coffee — and cut: an object you can't pick up reads as a bug in a game about picking things up.)*
 - **Furniture as objects** ✅ — each kind drawn in CSS with real structure (fridge door seam and handle, slatted crate, chest with lid and hasp, pegboard holes) and its own silhouette, replacing flat labelled bars.
 - **Sound** ✅ — Web Audio engine, all 26 triggers wired, every sound synthesized in code. Drop a commissioned file in `audio/` and set `src` in `data/audio.json` to swap it. *(Assets themselves still ⬜ — see `tidy-audio-assets.md`.)*
 - **Notes** ✅ — see H3 below.

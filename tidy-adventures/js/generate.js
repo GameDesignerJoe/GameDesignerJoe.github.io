@@ -390,7 +390,7 @@ export function generate(cfg) {
     tipsDone: new Set(), tipShown: new Set(),
     events: new Set(), tipCtx: {},
     awarded: new Set(), taught: new Set(),
-    roomFxDone: new Set(), propsShown: new Set(),
+    roomFxDone: new Set(),
     up: upgradeDefaults(),
     whirlReady: 0,
   };
