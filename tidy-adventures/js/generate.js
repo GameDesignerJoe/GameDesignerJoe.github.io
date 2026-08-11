@@ -61,8 +61,29 @@ export function generate(cfg) {
     }
   }
 
-  /* ---------- the rooms ---------- */
-  const defs = shuffle([...pool]).slice(0, roomCount);
+  /* ---------- the rooms ----------
+     When a config sets a type quota, the room draw has to be able to MEET
+     it. Picking purely at random meant an unlucky draw (XL taking 8 of 9
+     rooms and skipping the Kitchen's 46 types) left only 148 types available
+     against a target of 160, and the run quietly came up short with no
+     symptom. Take the biggest rooms first until the quota is coverable, then
+     fill the remainder at random so houses still vary. */
+  const typeCount = d => d.containers.reduce((n, c) => n + c.types.length, 0);
+  let defs;
+  if (cfg.targetTypes) {
+    const byLargest = [...pool].sort((a, b) => typeCount(b) - typeCount(a));
+    const chosen = [];
+    let covered = 0;
+    for (const d of byLargest) {
+      if (chosen.length >= roomCount) break;
+      if (covered >= cfg.targetTypes) break;
+      chosen.push(d); covered += typeCount(d);
+    }
+    const rest = shuffle(pool.filter(d => !chosen.includes(d)));
+    defs = shuffle([...chosen, ...rest].slice(0, roomCount));
+  } else {
+    defs = shuffle([...pool]).slice(0, roomCount);
+  }
   const rooms = cells.map((c, i) => {
     const def = defs[i];
     const tf = def.sizeFactor || 1;
@@ -98,19 +119,35 @@ export function generate(cfg) {
   const anchors = DATA.furniture.anchors;
   const fsize = DATA.furniture.defaultSize;
 
+  /* Which types each container actually took, so the top-up pass below can
+     tell a partially-filled container from a full one. */
+  const taken = new Map();   // container object -> Set of emoji
+
   function addContainer(r, def, types) {
     const AN = r.shape === "rect" ? anchors.rect : anchors.soft;
     const i = r.containers.length;
     const a = AN[i % AN.length];
     const k = DATA.furniture.kinds[def.kind] || {};
-    r.containers.push({
+    const c = {
       id: i, roomId: r.id, defId: def.id,
       name: def.name, short: def.short || def.name, kind: def.kind,
       lock: null,
       slot: { x: a.x, y: a.y, w: k.w ?? fsize.w, h: k.h ?? fsize.h },
       cells: Array.from({ length: types.length }, () => Array(rowLen).fill(null)),
-    });
+    };
+    r.containers.push(c);
+    taken.set(c, new Set(types));
     for (const e of types) typeHome[e] = { room: r.id, cont: i };
+    return c;
+  }
+
+  /* Give an existing container more of its own types — one extra row each. */
+  function growContainer(r, c, types) {
+    for (const e of types) {
+      c.cells.push(Array(rowLen).fill(null));
+      typeHome[e] = { room: r.id, cont: c.id };
+      taken.get(c).add(e);
+    }
   }
 
   const defOf = r => LOOKUP.roomById[r.defId].containers;
@@ -128,6 +165,8 @@ export function generate(cfg) {
         quota -= take; remaining -= take;
       }
     });
+
+    /* Soak leftovers into containers this room hasn't used yet. */
     if (remaining > 0) {
       for (const r of rooms) {
         if (remaining <= 0) break;
@@ -138,6 +177,28 @@ export function generate(cfg) {
           const take = Math.min(def.types.length, remaining);
           addContainer(r, def, shuffle([...def.types]).slice(0, take));
           remaining -= take;
+        }
+      }
+    }
+
+    /* Top up containers that took only a SLICE of their types. Without this
+       the quota silently under-delivers: `take` can be less than the def's
+       full type list, and the soak pass above skips any container already
+       used, so those leftover types were unreachable. Mega asked for 194
+       types and got 192; XL asked for 160 and got 156. */
+    if (remaining > 0) {
+      for (const r of rooms) {
+        if (remaining <= 0) break;
+        for (const c of r.containers) {
+          if (remaining <= 0) break;
+          const def = defOf(r).find(d => d.id === c.defId);
+          if (!def) continue;
+          const have = taken.get(c);
+          const spare = def.types.filter(e => !have.has(e));
+          if (!spare.length) continue;
+          const add = spare.slice(0, remaining);
+          growContainer(r, c, add);
+          remaining -= add.length;
         }
       }
     }

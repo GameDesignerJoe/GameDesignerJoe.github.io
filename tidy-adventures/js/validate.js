@@ -149,10 +149,18 @@ export function validateData(D) {
   }
 
   /* ---------- 7. run configs are satisfiable ---------- */
-  const typesInTheme = tid => (themes[tid]?.rooms || [])
+  const typesPerRoom = tid => (themes[tid]?.rooms || [])
     .map(rid => rooms.find(r => r.id === rid))
     .filter(Boolean)
-    .reduce((n, r) => n + (r.containers || []).reduce((m, c) => m + c.types.length, 0), 0);
+    .map(r => (r.containers || []).reduce((m, c) => m + c.types.length, 0));
+
+  const typesInTheme = tid => typesPerRoom(tid).reduce((a, b) => a + b, 0);
+
+  /* generate() takes the largest rooms first when a quota is set, so the
+     achievable ceiling for n rooms is the n LARGEST — anything above that is
+     genuinely impossible and the run would silently come up short. */
+  const bestCaseTypes = (tid, n) =>
+    typesPerRoom(tid).sort((a, b) => b - a).slice(0, n).reduce((a, b) => a + b, 0);
 
   const checkCfg = (file, cfg, label) => {
     const theme = cfg.theme || D.themes?.defaultTheme || "house";
@@ -172,6 +180,15 @@ export function validateData(D) {
       errors.push(at(file,
         `"${label}" asks for ${cfg.targetTypes} types but theme "${theme}" only has ${typesInTheme(theme)}.`,
         "The generator would silently under-deliver."));
+    } else if (cfg.targetTypes && cfg.rooms) {
+      const best = bestCaseTypes(theme, cfg.rooms);
+      if (cfg.targetTypes > best) {
+        errors.push(at(file,
+          `"${label}" asks for ${cfg.targetTypes} types from ${cfg.rooms} rooms, but the ` +
+          `${cfg.rooms} largest rooms in theme "${theme}" only hold ${best} between them.`,
+          `The run would silently produce fewer items than the menu promises. ` +
+          `Lower targetTypes to ${best}, or raise rooms.`));
+      }
     }
     if (cfg.doorLocks > 0 && !(cfg.doorKeys > 0)) {
       errors.push(at(file, `"${label}" has doorLocks but doorKeys is 0.`,
