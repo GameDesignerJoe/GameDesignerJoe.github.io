@@ -1,0 +1,18 @@
+{
+  "_readme": [
+    "A theme picks which rooms a run can use and which shapes those rooms can take.",
+    "Add a theme here, then set \"theme\" on an entry in sizes.json or levels.json.",
+    "",
+    "Room ids must exist in rooms.json.",
+    "Shapes: \"rect\" (default), \"round\", \"hex\" — all three are implemented in",
+    "css/room.css and in inShape() in js/geometry.js."
+  ],
+  "themes": {
+    "house": {
+      "label": "House",
+      "shapes": ["rect"],
+      "rooms": ["kitchen","garage","bathroom","office","closet","attic","shed","secret","bedroom"]
+    }
+  },
+  "defaultTheme": "house"
+}

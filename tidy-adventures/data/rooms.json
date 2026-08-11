@@ -1,0 +1,127 @@
+{
+  "_readme": [
+    "WHICH EMOJI LIVE IN WHICH CONTAINER. This is the game's taxonomy.",
+    "",
+    "RULES (checked at boot — a violation shows an error screen, not a silent bug):",
+    "  1. Every emoji must appear in exactly ONE container in this whole file.",
+    "     An emoji has one home; two homes makes a run unwinnable.",
+    "  2. Every emoji must also have an entry in names.json.",
+    "  3. Never list the key or coin emoji here (see tokens in furniture.json) —",
+    "     they are tools, not clutter.",
+    "  4. 'kind' must exist in furniture.json kinds, and maps to .k-<kind> in css/furniture.css.",
+    "  5. 'floor' must exist in furniture.json floors, and maps to .floor-<floor> in css/room.css.",
+    "  6. A room may not have more containers than there are anchors in furniture.json.",
+    "",
+    "'short' is what fits on the furniture face; 'name' is used in titles and messages.",
+    "'sizeFactor' scales this room relative to the others (1 = biggest)."
+  ],
+  "rooms": [
+    {
+      "id": "kitchen", "name": "Kitchen", "floor": "kitchen", "sizeFactor": 1,
+      "containers": [
+        { "id": "fridge",  "name": "Fridge",        "short": "Fridge",  "kind": "steel",
+          "types": ["🧀","🥚","🥓","🥬","🥒","🧈","🥛","🍓","🫐","🍒"] },
+        { "id": "pantry",  "name": "Pantry",        "short": "Pantry",  "kind": "wood",
+          "types": ["🍞","🥖","🥨","🥯","🥐","🥫","🍯","🧂","🥜","🫒"] },
+        { "id": "crate",   "name": "Produce Crate", "short": "Produce", "kind": "slat",
+          "types": ["🧅","🍅","🥕","🧄","🥔","🌽","🥦","🍄","🫑","🌶️"] },
+        { "id": "bowl",    "name": "Fruit Bowl",    "short": "Fruit",   "kind": "wicker",
+          "types": ["🍋","🍎","🍌","🍇","🍑","🍐","🍍","🥭","🥝","🍉","🍊"] },
+        { "id": "stash",   "name": "Hidden Stash",  "short": "Stash",   "kind": "dark",
+          "types": ["🍪","🍩","🍫","🍬","🍭"] }
+      ]
+    },
+    {
+      "id": "garage", "name": "Garage", "floor": "garage", "sizeFactor": 1,
+      "containers": [
+        { "id": "bench",    "name": "Workbench",      "short": "Bench",    "kind": "wood",
+          "types": ["🔧","🔨","🪛","🪚","🪓","⛏️","⚒️","🛠️","🗜️"] },
+        { "id": "bins",     "name": "Hardware Bins",  "short": "Hardware", "kind": "steel",
+          "types": ["🔩","🪝","🧲","🔗","⛓️","🔒","🪤"] },
+        { "id": "power",    "name": "Power Shelf",    "short": "Power",    "kind": "peg",
+          "types": ["🔋","🪫","🔌","💡","⚙️","🔦"] },
+        { "id": "storage",  "name": "Storage Corner", "short": "Storage",  "kind": "slat",
+          "types": ["🧱","🪵","📦","🛞","🛢️","🪣","🧯","🪜"] },
+        { "id": "safety",   "name": "Safety Rack",    "short": "Safety",   "kind": "plastic",
+          "types": ["⛑️","🥽","🧰"] }
+      ]
+    },
+    {
+      "id": "bathroom", "name": "Bathroom", "floor": "bathroom", "sizeFactor": 0.6,
+      "containers": [
+        { "id": "meds",   "name": "Medicine Cabinet", "short": "Meds",   "kind": "steel",
+          "types": ["💊","🩹","🌡️","🧷"] },
+        { "id": "vanity", "name": "Vanity Drawer",    "short": "Vanity", "kind": "wood",
+          "types": ["🪥","🪒","🪮","🧴","🧼","🪞"] },
+        { "id": "sink",   "name": "Under the Sink",   "short": "Sink",   "kind": "plastic",
+          "types": ["🧻","🧽","🪠","🧺","🩴"] }
+      ]
+    },
+    {
+      "id": "office", "name": "Office", "floor": "office", "sizeFactor": 0.85,
+      "containers": [
+        { "id": "pens",   "name": "Pen Cup",        "short": "Pens",  "kind": "glass",
+          "types": ["✏️","🖊️","🖋️","✒️","🖍️","🖌️"] },
+        { "id": "books",  "name": "Bookshelf",      "short": "Books", "kind": "wood",
+          "types": ["📕","📗","📘","📙","📒","📓","📔","🗒️"] },
+        { "id": "files",  "name": "Filing Cabinet", "short": "Files", "kind": "steel",
+          "types": ["📁","📂","🗂️","📄","🧾","📇"] },
+        { "id": "desk",   "name": "Desk Drawer",    "short": "Desk",  "kind": "dark",
+          "types": ["📏","📐","✂️","📎","🖇️","📌","🔍"] },
+        { "id": "media",  "name": "Media Box",      "short": "Media", "kind": "plastic",
+          "types": ["💾","💿","📀","🗓️","📮","📊","📈","📉"] }
+      ]
+    },
+    {
+      "id": "closet", "name": "Closet", "floor": "closet", "sizeFactor": 0.5,
+      "containers": [
+        { "id": "rod",    "name": "Wardrobe Rod", "short": "Wardrobe", "kind": "dark",
+          "types": ["👘","🥻","🩱","🎽"] },
+        { "id": "travel", "name": "Travel Shelf", "short": "Travel",   "kind": "wood",
+          "types": ["🧳","👝","🥾","🩲"] }
+      ]
+    },
+    {
+      "id": "attic", "name": "Attic", "floor": "attic", "sizeFactor": 0.85,
+      "containers": [
+        { "id": "memory",  "name": "Memory Chest", "short": "Memories", "kind": "wood",
+          "types": ["🕰️","🖼️","🪆","🎞️"] },
+        { "id": "hobbies", "name": "Old Hobbies",  "short": "Hobbies",  "kind": "slat",
+          "types": ["🎻","📻","🃏","♟️"] }
+      ]
+    },
+    {
+      "id": "shed", "name": "Shed", "floor": "shed", "sizeFactor": 0.65,
+      "containers": [
+        { "id": "seeds",  "name": "Seed Rack",     "short": "Seeds",  "kind": "peg",
+          "types": ["🌱","🌾","🌵","🪴"] },
+        { "id": "garden", "name": "Garden Basket", "short": "Garden", "kind": "wicker",
+          "types": ["🌻","🥀","🍂","🍁"] }
+      ]
+    },
+    {
+      "id": "secret", "name": "Secret Room", "floor": "secret", "sizeFactor": 0.55,
+      "containers": [
+        { "id": "chest", "name": "Treasure Chest", "short": "Treasure", "kind": "dark",
+          "types": ["💎","💰","👑","🪬"] },
+        { "id": "curio", "name": "Curio Shelf",    "short": "Curios",   "kind": "glass",
+          "types": ["🏺","🗿","🔮","🎭"] }
+      ]
+    },
+    {
+      "id": "bedroom", "name": "Bedroom", "floor": "bedroom", "sizeFactor": 0.92,
+      "containers": [
+        { "id": "dresser", "name": "Dresser",      "short": "Dresser", "kind": "wood",
+          "types": ["🧦","👕","👖","🩳","👚","🧤"] },
+        { "id": "closet",  "name": "Closet",       "short": "Closet",  "kind": "dark",
+          "types": ["👗","🧥","🦺","👔","🧣","🧢","👒","🎩"] },
+        { "id": "shoes",   "name": "Shoe Rack",    "short": "Shoes",   "kind": "slat",
+          "types": ["👟","👞","👠","👡","👢","🥿"] },
+        { "id": "jewelry", "name": "Jewelry Box",  "short": "Jewelry", "kind": "glass",
+          "types": ["⌚","💍","📿","🎀","🕶️","👓","👜","👛"] },
+        { "id": "craft",   "name": "Craft Basket", "short": "Crafts",  "kind": "wicker",
+          "types": ["🧶","🧵","🪡","🧸","🕯️"] }
+      ]
+    }
+  ]
+}

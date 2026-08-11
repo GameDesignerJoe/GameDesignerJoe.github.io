@@ -1,0 +1,58 @@
+{
+  "_readme": [
+    "Room and furniture geometry, plus the registries that rooms.json is checked against.",
+    "",
+    "anchors  — where furniture sits, as % of the room. A room can hold at most this",
+    "           many containers, so adding a 7th container to a room in rooms.json",
+    "           means adding a 7th anchor here first.",
+    "           'rect' is for square rooms, 'soft' is pulled inward for round/hex rooms.",
+    "kinds    — the furniture skins. Each must have a matching .k-<id> rule in",
+    "           css/furniture.css. w/h override defaultSize for that kind.",
+    "floors   — the floor patterns. Each must have a matching .floor-<id> rule in css/room.css.",
+    "tokens   — the non-sortable items: keys, coins. These must NOT appear in rooms.json.",
+    "pads     — keep-out margins around furniture when scattering items, in room %.",
+    "           Bigger pads = items land further from furniture."
+  ],
+
+  "anchors": {
+    "rect": [
+      { "x": 7, "y": 2 },  { "x": 57, "y": 2 },
+      { "x": 7, "y": 46 }, { "x": 57, "y": 46 },
+      { "x": 7, "y": 90 }, { "x": 57, "y": 90 }
+    ],
+    "soft": [
+      { "x": 31, "y": 4 },  { "x": 31, "y": 89 },
+      { "x": 6,  "y": 46 }, { "x": 58, "y": 46 },
+      { "x": 31, "y": 32 }, { "x": 31, "y": 60 }
+    ]
+  },
+
+  "defaultSize": { "w": 36, "h": 7 },
+
+  "kinds": {
+    "steel":   { "label": "Steel cabinet" },
+    "wood":    { "label": "Wood cabinet" },
+    "slat":    { "label": "Slatted crate" },
+    "glass":   { "label": "Glass case" },
+    "wicker":  { "label": "Wicker basket" },
+    "plastic": { "label": "Plastic tub" },
+    "dark":    { "label": "Dark chest" },
+    "peg":     { "label": "Pegboard" }
+  },
+
+  "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret"],
+
+  "tokens": {
+    "key":  { "emoji": "🔑", "name": "Key",     "opens": "door" },
+    "coin": { "emoji": "🪙", "name": "Coin",    "opens": "cache" },
+    "skel": { "emoji": "🗝️", "name": "Old key", "opens": "container" }
+  },
+
+  "pads": {
+    "tight": { "x": 1.5, "yTop": 3.5, "yBot": 1.5 },
+    "toss":  { "x": 2,   "yTop": 4,   "yBot": 2 },
+    "cache": { "x": 4,   "yTop": 6,   "yBot": 4 }
+  },
+
+  "cacheSlot": { "w": 9, "h": 4.2 }
+}

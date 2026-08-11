@@ -1,0 +1,103 @@
+{
+  "_readme": [
+    "CAMPAIGN levels, in play order. Same knobs as sizes.json, plus teaching tips.",
+    "",
+    "cont / types are per-room caps (how many containers, how many emoji each).",
+    "sizes.json instead uses targetTypes, a whole-run quota. Levels want tight",
+    "control of what one room shows; free play wants a total.",
+    "",
+    "TIPS — one bubble at a time, in order, anchored to a live element.",
+    "  kind   identity, and the save key. Must be unique within a level.",
+    "  target what it points at: item | furn | door | lock | open | zoom | pan | shop | lastEl",
+    "  when   the event that makes it eligible. Omit = show from level start.",
+    "  until  the event that dismisses it. Omit = defaults to `kind`.",
+    "  text   supports {container} {room} {item} {handSlots} {rowLen}",
+    "",
+    "Events you can use for when/until: pickUp, place, goldPlace, open, door,",
+    "lock, zoom, pan, shop, rowComplete, contComplete, roomComplete.",
+    "",
+    "3-2 and 4-2 deliberately have no tips — they are practice levels."
+  ],
+  "levels": [
+    { "id": "1-1", "name": "Pick It Up", "theme": "house",
+      "rooms": 1, "cont": 1, "types": 1, "rowLen": 3,
+      "doorKeys": 0, "contLocks": 0, "scale": [0.42, 0.5],
+      "tips": [
+        { "kind": "item",    "target": "item", "until": "pickUp",
+          "text": "Tap an item to pick it up" },
+        { "kind": "furn",    "target": "furn", "until": "place",
+          "text": "Drag items here to put them away" },
+        { "kind": "fillAll", "target": "furn", "when": "place", "until": "contComplete",
+          "text": "Now add all items to the {container}" }
+      ],
+      "blurb": "Three things on the floor, one home. Tap to grab, drag to place." },
+
+    { "id": "1-2", "name": "Sort It Out", "theme": "house",
+      "rooms": 1, "cont": 2, "types": 2, "rowLen": 3,
+      "doorKeys": 0, "contLocks": 0, "scale": [0.48, 0.56],
+      "tips": [
+        { "kind": "open", "target": "furn", "until": "open",
+          "text": "Tap a container to look inside" },
+        { "kind": "gold", "target": "lastEl", "when": "goldPlace", "until": "rowComplete",
+          "text": "Gold glow = it lives here. Grey shake = wrong home." }
+      ],
+      "blurb": "Two homes now. Gold flash = right home. Cold = try again." },
+
+    { "id": "2-1", "name": "Open Doors", "theme": "house",
+      "rooms": 2, "cont": 2, "types": 2, "rowLen": 3,
+      "doorKeys": 0, "contLocks": 0, "scale": [0.5, 0.62],
+      "tips": [
+        { "kind": "door", "target": "door", "until": "door",
+          "text": "Tap the door to walk into the next room" }
+      ],
+      "blurb": "A second room. Your hands hold {handSlots} — plan the trip." },
+
+    { "id": "2-2", "name": "Across the House", "theme": "house",
+      "rooms": 3, "cont": 2, "types": 3, "rowLen": 4,
+      "doorKeys": 0, "contLocks": 0, "scale": [0.55, 0.7], "junk": true,
+      "tips": [
+        { "kind": "zoom", "target": "zoom", "until": "zoom",
+          "text": "Pinch or scroll to zoom in" },
+        { "kind": "pan",  "target": "pan",  "when": "zoom", "until": "pan",
+          "text": "Drag to look around" }
+      ],
+      "blurb": "Three rooms of mess. The minimap remembers where you've been." },
+
+    { "id": "3-1", "name": "Under Lock", "theme": "house",
+      "rooms": 2, "cont": 3, "types": 3, "rowLen": 4,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.55, 0.7], "junk": true,
+      "tips": [
+        { "kind": "lock", "target": "lock", "until": "lock",
+          "text": "This one's locked — drag a key 🔑 onto it" }
+      ],
+      "blurb": "One chest is locked. Find the keys 🔑 and drag them onto it." },
+
+    { "id": "3-2", "name": "Hidden Stashes", "theme": "house",
+      "rooms": 3, "cont": 3, "types": 3, "rowLen": 4,
+      "doorKeys": 0, "contLocks": 2, "contKeys": 2, "scale": [0.6, 0.75], "junk": true,
+      "blurb": "Two locked stashes this time. Keys open any lock." },
+
+    { "id": "4-1", "name": "The Locked Door", "theme": "house",
+      "rooms": 3, "cont": 2, "types": 4, "rowLen": 5,
+      "doorKeys": 3, "contLocks": 0, "scale": [0.65, 0.8], "junk": true,
+      "tips": [
+        { "kind": "lock", "target": "lock", "until": "lock",
+          "text": "A locked door — the keys are on this side" }
+      ],
+      "blurb": "A whole room, sealed. The keys are always on your side of the door." },
+
+    { "id": "4-2", "name": "Full House", "theme": "house",
+      "rooms": 4, "cont": 3, "types": 4, "rowLen": 5,
+      "doorKeys": 4, "contLocks": 1, "contKeys": 2, "scale": [0.7, 0.9], "junk": true,
+      "blurb": "Everything at once. Good luck out there." },
+
+    { "id": "5-1", "name": "Talent Show", "theme": "house",
+      "rooms": 3, "cont": 3, "types": 4, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.7, 0.9], "junk": true,
+      "tips": [
+        { "kind": "shop", "target": "shop", "when": "talentEarned", "until": "shop",
+          "text": "Tap here — this is what you've learned" }
+      ],
+      "blurb": "Finish rows to earn ⭐. Cross a threshold and you pick a new talent." }
+  ]
+}

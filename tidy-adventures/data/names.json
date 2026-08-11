@@ -1,0 +1,41 @@
+{
+  "_readme": [
+    "Emoji -> the name shown in the loupe and the hand label.",
+    "Every emoji used in rooms.json must have an entry here or it renders blank.",
+    "Extra entries that nothing uses are harmless (they log a warning, not an error)."
+  ],
+  "names": {
+    "🧅":"Onion","🍅":"Tomato","🥕":"Carrot","🧄":"Garlic","🥔":"Potato","🍋":"Lemon","🥫":"Canned food","🍞":"Bread",
+    "🧀":"Cheese","🥚":"Egg","🥓":"Bacon","🥬":"Lettuce","🥒":"Cucumber","🌽":"Corn","🥦":"Broccoli","🍄":"Mushroom",
+    "🫑":"Bell pepper","🌶️":"Chili","🥖":"Baguette","🥨":"Pretzel","🧈":"Butter","🥛":"Milk","🍯":"Honey","🫒":"Olives",
+    "🍎":"Apple","🍌":"Banana","🍇":"Grapes","🍓":"Strawberry","🫐":"Blueberries","🍑":"Peach","🍐":"Pear","🍍":"Pineapple",
+    "🥭":"Mango","🥝":"Kiwi","🍒":"Cherries","🍉":"Watermelon","🍊":"Orange","🥜":"Peanuts","🍪":"Cookie","🧂":"Salt",
+    "🥯":"Bagel","🥐":"Croissant","🍩":"Donut","🍫":"Chocolate","🍬":"Candy","🍭":"Lollipop",
+
+    "🔧":"Wrench","🔨":"Hammer","🪛":"Screwdriver","🔩":"Bolt","🪚":"Saw","🧰":"Toolbox","🪜":"Ladder","🔦":"Flashlight",
+    "⚙️":"Gear","🪓":"Axe","⛏️":"Pickaxe","⚒️":"Hammer & pick","🛠️":"Hammer & wrench","🗜️":"Clamp","🪝":"Hook","🧲":"Magnet",
+    "🔗":"Chain link","⛓️":"Chains","🪣":"Bucket","🧯":"Extinguisher","🔋":"Battery","🪫":"Low battery","🔌":"Plug","💡":"Bulb",
+    "🧱":"Bricks","🪵":"Lumber","📦":"Box","🛞":"Tire","🛢️":"Oil drum","🔒":"Padlock","🔑":"Key","🪤":"Mousetrap",
+    "⛑️":"Helmet","🥽":"Goggles",
+
+    "🪥":"Toothbrush","🧼":"Soap","🧻":"Toilet paper","🧴":"Lotion","🪒":"Razor","🧽":"Sponge","💊":"Pills","🪮":"Comb",
+    "🩹":"Bandage","🧷":"Safety pin","🪞":"Mirror","🧺":"Basket","🩴":"Flip-flop","🪠":"Plunger","🌡️":"Thermometer",
+
+    "✏️":"Pencil","🖊️":"Pen","🖋️":"Fountain pen","✒️":"Nib","🖍️":"Crayon","🖌️":"Brush","📏":"Ruler","📐":"Triangle",
+    "✂️":"Scissors","📎":"Paperclip","🖇️":"Paperclips","📌":"Pushpin","📕":"Red book","📗":"Green book","📘":"Blue book",
+    "📙":"Orange book","📒":"Ledger","📓":"Notebook","📔":"Journal","🗒️":"Notepad","📁":"Folder","📂":"Open folder",
+    "🗂️":"Dividers","📄":"Document","🧾":"Receipt","📇":"Card index","💾":"Floppy disk","💿":"CD","📀":"DVD",
+    "🔍":"Magnifier","🗓️":"Calendar","📮":"Mailbox","📊":"Bar chart","📈":"Chart up","📉":"Chart down",
+
+    "👘":"Kimono","🥻":"Sari","🩱":"Swimsuit","🎽":"Running shirt","🧳":"Suitcase","👝":"Clutch","🥾":"Hiking boot","🩲":"Briefs",
+    "🕰️":"Mantel clock","🖼️":"Framed picture","🪆":"Nesting dolls","🎞️":"Film reel","🎻":"Violin","📻":"Radio","🃏":"Joker card","♟️":"Chess pawn",
+    "🌱":"Seedling","🌾":"Sheaf","🌵":"Cactus","🪴":"Potted plant","🌻":"Sunflower","🥀":"Wilted rose","🍂":"Fallen leaves","🍁":"Maple leaf",
+    "💎":"Gem","💰":"Money bag","🪙":"Coin","👑":"Crown","🪬":"Amulet","🏺":"Amphora","🗿":"Moai","🔮":"Crystal ball","🎭":"Masks",
+
+    "🧦":"Socks","👕":"T-shirt","👖":"Jeans","🧢":"Cap","🧣":"Scarf","👟":"Sneaker","🧸":"Teddy bear","🕯️":"Candle",
+    "👗":"Dress","👚":"Blouse","🧥":"Coat","🦺":"Vest","👔":"Tie","🩳":"Shorts","🧤":"Gloves","👒":"Sun hat",
+    "🎩":"Top hat","👞":"Dress shoe","👠":"Heel","👡":"Sandal","👢":"Boot","🥿":"Flat","👜":"Handbag","👛":"Purse",
+    "🕶️":"Sunglasses","👓":"Glasses","⌚":"Watch","💍":"Ring","🎀":"Bow","📿":"Beads","🧶":"Yarn","🧵":"Thread","🪡":"Needle",
+    "🗝️":"Old key"
+  }
+}

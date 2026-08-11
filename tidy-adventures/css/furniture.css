@@ -1,0 +1,71 @@
+/* ============================================================
+   FURNITURE — the containers you file items into.
+   Kind classes are `.k-<kind>` where <kind> is `kind` in data/rooms.json.
+   Adding a kind there requires adding a skin here.
+============================================================ */
+.furn{
+  position:absolute;z-index:4;
+  border-radius:8px;
+  border:3px solid rgba(0,0,0,.35);
+  box-shadow:0 5px 10px rgba(0,0,0,.35);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.furn .flabel{
+  font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  text-align:center;line-height:1.15;padding:0 4px;
+  color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.6);
+  pointer-events:none;
+}
+.furn .badges{
+  position:absolute;top:-15px;left:0;right:0;height:14px;
+  display:flex;justify-content:center;gap:1px;
+  font-size:11px;line-height:14px;
+  pointer-events:none;white-space:nowrap;overflow:visible;
+}
+.furn .badges span{filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.furn .badges span.gold{
+  filter:drop-shadow(0 0 3px rgba(245,197,66,1)) drop-shadow(0 0 6px rgba(245,197,66,.8));
+}
+
+/* ---------- STATES ---------- */
+.furn.aura{
+  box-shadow:0 0 14px 4px rgba(245,197,66,.75), 0 5px 10px rgba(0,0,0,.35);
+  border-color:rgba(245,197,66,.9);
+}
+.furn.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.75), 0 5px 10px rgba(0,0,0,.35)}
+.furn.goldhit{animation:furngold .9s}
+@keyframes furngold{20%{box-shadow:0 0 26px 9px rgba(245,197,66,.95)}}
+.furn.pophit{animation:furnpop .28s}
+@keyframes furnpop{40%{transform:scale(1.07)}}
+.furn.fullhit{animation:furnfull .4s}
+@keyframes furnfull{25%{transform:translateX(-4px)}60%{transform:translateX(4px)}}
+.furn.sense{animation:sensepulse 1.1s ease-in-out infinite}
+@keyframes sensepulse{
+  50%{box-shadow:0 0 18px 6px rgba(245,197,66,.85), 0 5px 10px rgba(0,0,0,.35)}
+}
+
+.furn.flocked{
+  filter:saturate(.5) brightness(.8);
+  border-color:rgba(245,197,66,.55);
+}
+.furn .badges .pips{display:flex;align-items:center;gap:3px;margin-left:2px}
+.pips i{
+  width:5px;height:5px;border-radius:50%;
+  background:rgba(245,197,66,.25);
+  display:block;
+}
+.pips i.full{background:var(--gold);box-shadow:0 0 4px rgba(245,197,66,.9)}
+
+/* ---------- KINDS ---------- */
+.k-steel {background:linear-gradient(#d3dade,#a9b3b9);border-color:#78838a}
+.k-steel .flabel{color:#2c3438;text-shadow:0 1px 1px rgba(255,255,255,.5)}
+.k-wood  {background:linear-gradient(#7a5533,#61432a);border-color:#4e351d}
+.k-slat  {background:repeating-linear-gradient(0deg,#a5744a 0 7px,#8a5f3a 7px 10px);border-color:#5e4126}
+.k-glass {background:linear-gradient(rgba(210,235,245,.55),rgba(160,200,215,.45));border-color:rgba(120,160,175,.8)}
+.k-glass .flabel{color:#1f3a45;text-shadow:0 1px 1px rgba(255,255,255,.55)}
+.k-wicker{background:repeating-linear-gradient(45deg,#c9a262 0 6px,#b58c4e 6px 12px);border-color:#8a683a}
+.k-wicker .flabel{color:#3d2c12;text-shadow:0 1px 1px rgba(255,255,255,.4)}
+.k-plastic{background:linear-gradient(#5aa7a0,#488a84);border-color:#33645f}
+.k-dark  {background:linear-gradient(#4a3a3f,#382b30);border-color:#241a1e}
+.k-peg   {background:radial-gradient(circle at 6px 6px, rgba(0,0,0,.25) 1.5px, transparent 2px) 0 0/12px 12px, linear-gradient(#c98a4b,#b0763d);border-color:#7d5327}
