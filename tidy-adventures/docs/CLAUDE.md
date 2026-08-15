@@ -176,6 +176,35 @@ was the active one *and* actually rendered.
 
 ---
 
+## Add to Home Screen
+
+`manifest.json` plus four PNGs in the game folder. Saved to a phone before
+these existed, the game showed a grey tile with a **T** on it — the browser's
+last resort when a page gives it no icon it can use.
+
+The SVG favicon in `index.html` is not one of those: **iOS ignores SVG for
+home-screen icons** and Android wants a manifest, so both fell back to the
+first letter of the title. Home-screen icons have to be real raster files.
+
+| File | Who reads it |
+|---|---|
+| `apple-touch-icon.png` (180) | iOS. Nothing else will do. |
+| `icon-192.png`, `icon-512.png` | the manifest, i.e. Android/desktop |
+| `icon-512-maskable.png` | Android adaptive icons — glyph at 50% so a circle crop can't clip it |
+
+They're the 🏠 emoji rendered on the game's wall-brown. To change the glyph,
+re-render: an HTML page with the emoji centred on that background, screenshot
+at 180/192/512 with the glyph at 66% of the canvas (50% for the maskable one).
+Do it through CDP `Emulation.setDeviceMetricsOverride` rather than
+`--window-size`; Windows enforces a minimum window width, which silently crops
+anything smaller than about 500px.
+
+There is deliberately **no service worker**. The game is a network of small
+JSON files that change often — `DATA_VERSION` exists precisely because
+*ten-minute* CDN caching was already confusing — and a cache-first worker
+would turn that into permanent staleness for a first-open-offline case nobody
+has asked for. `display: standalone` is what makes it feel like an app.
+
 ## Saves
 
 | Key | Holds |

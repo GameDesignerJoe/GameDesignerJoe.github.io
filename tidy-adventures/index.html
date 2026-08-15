@@ -6,6 +6,28 @@
 <title>Tidy Adventures</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧺</text></svg>">
 
+<!-- ADD TO HOME SCREEN.
+     Saved to a phone's home screen this showed a grey tile with a "T" in it —
+     the browser's last resort when a page offers it no real icon. The SVG
+     favicon above doesn't count: iOS ignores SVG for home-screen icons and
+     Android wants a manifest, so both fell back to the first letter of the
+     title. They need actual PNGs, which is what these are (rendered from the
+     house emoji on the game's own wall-brown).
+     apple-touch-icon is iOS's; the manifest carries Android's, including a
+     maskable copy with a wider margin for adaptive icon shapes. -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#211a12">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- Deprecated in favour of the line above, and still the one iOS reads. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<!-- What sits under the icon. "Tidy Adventures" truncates on the home screen. -->
+<meta name="apple-mobile-web-app-title" content="Tidy">
+<!-- The status bar floats over the game; #hud already pads itself by
+     env(safe-area-inset-top), and the viewport above is viewport-fit=cover,
+     so the notch is handled. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <!-- Cascade order matters: later files override earlier ones. -->
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/layout.css">
