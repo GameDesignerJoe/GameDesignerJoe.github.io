@@ -5,6 +5,15 @@
 
 # 🎯 NOW / NEXT (in order)
 
+## N0b. Playtest pass 2 — variety and pacing ✅ DONE
+- **Keys are buried.** They were scattered last and painted on top of everything, so the 🔑 was the one thing on the floor guaranteed not to be covered — the hunt was over on arrival. Tokens are now dropped onto occupied ground and drawn underneath the clutter; finding one means clearing a pile.
+- **Double-tap the floor to zoom** (and again to come back out). Safe now because it is *bare floor only*: furniture, items, doors and caches all return earlier, so there is no ambiguous target and no deferred-tap latency.
+- **Five new rooms** — Playroom, Music Room, Mudroom, Wine Cellar, Observatory — plus a Holiday Box in the attic. 256 emoji across 14 rooms, and a house only has 9 cells, so the surplus is the variety. See H5.
+- **Two of them aren't rectangles.** The Observatory is round, the Wine Cellar is hex — see H8.
+- **Free play stopped forcing the same rooms.** The quota-covering draw took the biggest rooms first, and the Kitchen alone covers Medium's whole target, so it was in *every* house. Random hand first, trade up only as far as the quota requires.
+- **Clutter is spread by floor area,** so small rooms aren't buried while big ones look swept.
+- **Endings are sequenced.** Row, container, room, quest and win used to fire in the same millisecond, with the room's gold ripple playing behind the open container panel — and then being erased by the repaint on the next line. One beat at a time now; a finished container closes its own panel so the room's moment is on screen.
+
 ## N0. Playtest pass — legibility and control ✅ DONE
 Six things that came out of playing it, not planning it.
 - **Put things down where you mean to.** Dragging out of a hand slot onto the floor was dead code that threw on every release; the item now lands exactly where you let go.
@@ -89,9 +98,11 @@ The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS fil
 - Assembly puzzle instead of identification puzzle. Open question: strict position vs. any-order (strict is probably the fun).
 - Pairs with H2: finishing the sandwich feeds someone / unlocks something.
 
-## H5. Strange rooms / wider emoji palette ⬜
-- Mythical creatures, flags (real learnable knowledge), collectibles, sports, aliens, aquarium, apothecary, zodiac...
-- Harder identification as a free difficulty lever. Now a pure content pass: add a room to `rooms.json` and list it in a theme.
+## H5. Strange rooms / wider emoji palette 🔨 *(five rooms in; the strange ones ahead)*
+- **Shipped:** Playroom (toys / games), Music Room (instruments / sound), Mudroom (balls / gear), Wine Cellar (wine / spirits), Observatory (optics / charts), and a Holiday Box in the attic. 62 new emoji, 256 total across 14 rooms.
+- The pool is now bigger than a house (9 cells), which is what makes two runs feel different. Adding the next room is one entry in `rooms.json`, one floor rule in `css/room.css`, one id in `themes.json`.
+- Still ahead, and this is where "strange" starts: mythical creatures, flags (real learnable knowledge), aquarium, apothecary, zodiac. Harder identification is a free difficulty lever.
+- Watch the one rule a validator can't check: a new room must not make an *existing* emoji ambiguous. The Music Room had to take the attic's violin and radio, or "which room does the instrument go in" becomes a coin flip with a walk attached.
 
 ## H6. Movable furniture ⬜
 - Press-and-hold a bed/couch and it slides aside, revealing clutter underneath.
@@ -104,7 +115,7 @@ The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS fil
 ## H8. Name & theme direction ✅ DECIDED — **Tidy Adventures**
 - Settled: the game is *Tidy Adventures*, matching the URL it ships at. Implies a journey of themed zones rather than one house.
 - Themes are already data (`data/themes.json`: which rooms, which room shapes), so a tomb / shipwreck / wizard's tower is a content pass plus a CSS floor and furniture skin — no engine work.
-- Round and hex room shapes are implemented but unused; a new theme can switch them on.
+- ~~Round and hex room shapes are implemented but unused~~ ✅ **live.** A room def can pin its own `shape`, so the Observatory is always round and the Wine Cellar always hex — a silhouette is the cheapest possible "this one is different", and it needed one line in the generator. Use it sparingly: a house where every room is a different polygon is noise, not variety.
 
 ---
 
@@ -116,6 +127,5 @@ The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS fil
 - Letterpress / font-identification theme (the original combined pitch).
 - Daily house / seeded runs for sharing. *(Needs a seeded RNG — generation currently calls `Math.random()` directly.)*
 - Stats & streaks (accuracy % and timer already on the win screen).
-- **Round/hex rooms are unreachable dead code** until a theme opts in. `inShape()` handles them and the CSS exists; `themes.json` just doesn't use them yet.
 - Entry animation when walking into a room where a fling landed.
 - Finish the module split: `js/main.js` still holds the render, action and input tiers. Mechanical, and the target graph is documented in `docs/CLAUDE.md`.

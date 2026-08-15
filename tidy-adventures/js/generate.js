@@ -18,7 +18,8 @@ import {
 import { rnd, shuffle, clamp } from './util.js';
 import { DATA, LOOKUP, theme, themeRooms, upgradeDefaults } from './data.js';
 import {
-  inShape, findFloorSpot, furthestFrom, spin, pad, inSlot, unstickFloorItems,
+  inShape, findFloorSpot, nearestFloorSpot, furthestFrom, spin, pad, inSlot,
+  unstickFloorItems,
 } from './geometry.js';
 
 export function generate(cfg) {
@@ -64,27 +65,35 @@ export function generate(cfg) {
   }
 
   /* ---------- the rooms ----------
-     When a config sets a type quota, the room draw has to be able to MEET
-     it. Picking purely at random meant an unlucky draw (XL taking 8 of 9
-     rooms and skipping the Kitchen's 46 types) left only 148 types available
-     against a target of 160, and the run quietly came up short with no
-     symptom. Take the biggest rooms first until the quota is coverable, then
-     fill the remainder at random so houses still vary. */
+     When a config sets a type quota, the room draw has to be able to MEET it.
+     Drawing purely at random meant an unlucky hand (XL taking 8 of 9 rooms
+     and skipping the Kitchen's 46 types) left the run quietly short with no
+     symptom.
+
+     The first fix took the biggest rooms FIRST, which solved the quota and
+     created a worse problem: the Kitchen alone covers Medium's whole target,
+     so it was in literally every free-play house, every time, and the houses
+     all felt like the same house. That's the "I'm tired of the same rooms"
+     complaint, and it was arithmetic, not bad luck.
+
+     Deal a random hand, then trade up only as far as the quota actually
+     requires: swap the smallest room in hand for the biggest one still on the
+     shelf until the types are coverable. Loose targets (Tiny through Large)
+     never trade at all and stay fully random; Mega, which asks for nearly
+     every type in the game, trades until it has what it needs. */
   const typeCount = d => d.containers.reduce((n, c) => n + c.types.length, 0);
-  let defs;
+  let defs = shuffle([...pool]).slice(0, roomCount);
   if (cfg.targetTypes) {
-    const byLargest = [...pool].sort((a, b) => typeCount(b) - typeCount(a));
-    const chosen = [];
-    let covered = 0;
-    for (const d of byLargest) {
-      if (chosen.length >= roomCount) break;
-      if (covered >= cfg.targetTypes) break;
-      chosen.push(d); covered += typeCount(d);
+    const shelf = pool.filter(d => !defs.includes(d)).sort((a, b) => typeCount(b) - typeCount(a));
+    let covered = defs.reduce((n, d) => n + typeCount(d), 0);
+    while (covered < cfg.targetTypes && shelf.length) {
+      defs.sort((a, b) => typeCount(a) - typeCount(b));
+      const out = defs[0], into = shelf[0];
+      if (typeCount(into) <= typeCount(out)) break;   // nothing left to gain
+      defs[0] = into; shelf.shift();
+      covered += typeCount(into) - typeCount(out);
     }
-    const rest = shuffle(pool.filter(d => !chosen.includes(d)));
-    defs = shuffle([...chosen, ...rest].slice(0, roomCount));
-  } else {
-    defs = shuffle([...pool]).slice(0, roomCount);
+    defs = shuffle(defs);
   }
   const rooms = cells.map((c, i) => {
     const def = defs[i];
@@ -95,7 +104,11 @@ export function generate(cfg) {
       defId: def.id, name: def.name, floor: def.floor,
       sw: +clamp(roll() * tf, 0.35, 1).toFixed(3),
       sh: +clamp(roll() * tf, 0.35, 1).toFixed(3),
-      shape: shapes[rnd(shapes.length)],
+      /* A room def can pin its own silhouette — the Observatory is always
+         round, the Cellar always hex — so walking into one is visibly a
+         different place, not the same box with different labels. Rooms that
+         don't care take the theme's list. */
+      shape: def.shape || shapes[rnd(shapes.length)],
       doors: { N: null, S: null, E: null, W: null },
       containers: [], caches: [],
     };
@@ -281,16 +294,48 @@ export function generate(cfg) {
   /* ---------- scatter the clutter ---------- */
   const items = {};
   let iid = 0;
-  const drop = (room, extra, opts) => {
-    const { x, y } = findFloorSpot(room, opts);
+  const drop = (room, extra, opts = {}) => {
+    const { x, y } = opts.spot || findFloorSpot(room, opts);
     items[iid] = { id: iid, judged: false, ...extra,
       loc: { kind: "floor", room: room.id, x, y, rot: spin() } };
     return items[iid++];
   };
 
+  /* Scatter by FLOOR AREA, not one uniform roll per item. Rooms vary by more
+     than 4x in area (the Observatory is half the Kitchen on each axis, so a
+     quarter of the floor), and a uniform roll gave them all the same share:
+     the small rooms came out buried under an unreadable heap while the big
+     ones looked swept. */
+  const areaOf = r => (r.sw || 1) * (r.sh || 1);
+  const totalArea = rooms.reduce((n, r) => n + areaOf(r), 0);
+  const roomByArea = () => {
+    let t = Math.random() * totalArea;
+    for (const r of rooms) { t -= areaOf(r); if (t <= 0) return r; }
+    return rooms[rooms.length - 1];
+  };
+
   for (const e of Object.keys(typeHome)) {
-    for (let k = 0; k < rowLen; k++) drop(rooms[rnd(rooms.length)], { type: e });
+    for (let k = 0; k < rowLen; k++) drop(roomByArea(), { type: e });
   }
+
+  /* ---------- burying a token ----------
+     Keys used to be scattered like everything else and then painted on top of
+     everything else (they're dropped last, and items share a z-index), so the
+     hunt was over the moment you walked in: the 🔑 was the one thing on the
+     floor guaranteed not to be covered. A key is dropped INTO the mess now —
+     it lands on top of something already lying there, and buildRoomEl draws
+     tokens first so the clutter covers it. Finding one means clearing a pile.
+
+     If a room has nothing on its floor to hide under, it falls back to an
+     ordinary open-floor spot rather than refusing to place the key. */
+  const bury = (room) => {
+    const cover = Object.values(items).filter(o =>
+      o.loc.kind === "floor" && o.loc.room === room.id && !o.token);
+    if (!cover.length) return findFloorSpot(room, { margin: 6, span: 88 });
+    const under = cover[rnd(cover.length)];
+    const off = () => Math.random() * 4 - 2;
+    return nearestFloorSpot(room, under.loc.x + off(), under.loc.y + off(), { margin: 5 });
+  };
 
   /* ---------- keys: exactly enough, never sealed behind their own lock ---------- */
   const openRooms = rooms.filter(r => !lockedSet.has(r.id));
@@ -299,9 +344,9 @@ export function generate(cfg) {
     if (c.lock && c.lock.token === "key") totalKeys += c.lock.need;
   }
   for (let k = 0; k < totalKeys; k++) {
-    drop(openRooms[k % openRooms.length],
-      { type: keyToken.emoji, isKey: true, token: "key", judged: true },
-      { margin: 6, span: 88 });
+    const room = openRooms[k % openRooms.length];
+    drop(room, { type: keyToken.emoji, isKey: true, token: "key", judged: true },
+      { spot: bury(room) });
   }
 
   /* One named key per locked chest, as far from its own chest as the house
@@ -311,9 +356,9 @@ export function generate(cfg) {
     const home = rooms[c.roomId];
     const elsewhere = openRooms.filter(r => r.id !== home.id);
     const far = furthestFrom(rooms, home.id, elsewhere.length ? elsewhere : openRooms);
-    drop(far[rnd(far.length)] || home,
-      { type: skel.emoji, isKey: true, token: "skel", judged: true },
-      { margin: 6, span: 88 });
+    const room = far[rnd(far.length)] || home;
+    drop(room, { type: skel.emoji, isKey: true, token: "skel", judged: true },
+      { spot: bury(room) });
   }
 
   /* ---------- coin-slot caches ---------- */
@@ -349,12 +394,12 @@ export function generate(cfg) {
         ? furthestFrom(rooms, room.id, elsewhere)[rnd(furthestFrom(rooms, room.id, elsewhere).length)]
         : room;
       let coin = drop(cr, { type: coinToken.emoji, isCoin: true, token: "coin", judged: true },
-        { margin: 6, span: 88 });
+        { spot: bury(cr) });
       /* Single-room fallback: at least keep it across the room from the box. */
       if (cr.id === room.id) {
         for (let t = 0; t < 60; t++) {
           if (Math.hypot(coin.loc.x - slot.x, coin.loc.y - slot.y) >= 40) break;
-          const s = findFloorSpot(cr, { margin: 6, span: 88 });
+          const s = bury(cr);
           coin.loc.x = s.x; coin.loc.y = s.y;
         }
       }

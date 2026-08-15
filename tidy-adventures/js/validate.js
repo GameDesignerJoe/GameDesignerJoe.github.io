@@ -102,8 +102,16 @@ export function validateData(D) {
     warnings.push(at("names.json", `${orphanNames.length} names are unused: ${orphanNames.join(" ")}`));
   }
 
-  /* ---------- 4. kinds and floors resolve, in data AND in CSS ---------- */
+  /* ---------- 4. kinds, floors and shapes resolve, in data AND in CSS ---------- */
+  const SHAPES = new Set(["rect", "round", "hex"]);
   for (const room of rooms) {
+    if (room.shape && !SHAPES.has(room.shape)) {
+      errors.push(at("rooms.json",
+        `room "${room.id}" declares shape "${room.shape}".`,
+        `Valid shapes: ${[...SHAPES].join(", ")}. inShape() in js/geometry.js would ` +
+        `treat it as a rectangle while css/room.css drew nothing, so items would ` +
+        `scatter outside the walls.`));
+    }
     if (!floors.has(room.floor)) {
       errors.push(at("rooms.json",
         `room "${room.id}" declares floor "${room.floor}", which is not in furniture.json floors.`,

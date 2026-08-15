@@ -17,7 +17,7 @@ export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice
@@ -40,6 +40,10 @@ export const CHEVRON = { N:"▲", S:"▼", W:"◀", E:"▶" };
 export const ZOOM_MIN = 0.85;
 export const ZOOM_MAX = 2.4;
 export const ZOOM_START = 1;
+/* Where a double-tap on the floor lands. Short of ZOOM_MAX on purpose: the
+   gesture is "get me closer", and leaving headroom keeps pinch and wheel
+   meaningful once you're in. */
+export const ZOOM_TAP = 1.8;
 export const WHEEL_K = 0.0015;      // wheel delta -> zoom exponent
 export const FIT_STRENGTH = 0.85;   // 1 = room always fills the stage, 0 = no auto-fit
 

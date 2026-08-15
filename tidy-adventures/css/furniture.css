@@ -63,6 +63,9 @@
   display:-webkit-box;
   -webkit-line-clamp:2;
   -webkit-box-orient:vertical;
+  /* A word longer than the plate used to be sliced mid-letter with nothing to
+     show for it ("INSTRUMEN CASE" on a narrow glass case). Let it break. */
+  overflow-wrap:anywhere;
 }
 
 .furn .badges{

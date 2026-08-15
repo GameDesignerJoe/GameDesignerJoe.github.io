@@ -14,6 +14,11 @@
   cursor:pointer;
   filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.3));
 }
+/* Keys and coins lie UNDER the clutter — buildRoomEl() draws them first, and
+   every item shares a z-index, so DOM order is the burial. Dimmed a touch so
+   the corner of one poking out of a pile reads as being underneath it rather
+   than as the top of the stack. */
+.item.buried{filter:brightness(.82) drop-shadow(0 1px 1px rgba(0,0,0,.5))}
 
 .slot{
   width:56px;height:56px;border-radius:14px;

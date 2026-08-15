@@ -30,6 +30,7 @@ can be edited without touching JavaScript:
 | I want to change… | Edit |
 |---|---|
 | which emoji go in which container | `data/rooms.json` |
+| adding a room, or giving one a round/hex silhouette | `data/rooms.json` + a floor rule in `css/room.css` + the id in `data/themes.json` |
 | how many rooms / items / locks a run has | `data/sizes.json`, `data/levels.json` |
 | row length (how many of each item exist) | `rowLen` in either of the above |
 | hint text, and when hints appear | `tips` in `data/levels.json` |
@@ -137,6 +138,33 @@ their taps. Anything that puts an item on the floor uses one of those two, and
 `belongsIn()` says that emoji lives somewhere else. Those are the only two
 colours with a meaning, so don't add a third without retiring one.
 
+**Endings are a queue, not four things at once.** `celebrate()` in `main.js`
+plays one beat at a time; a beat marked `inRoom` waits for the container panel
+to close, and a finished container closes its own panel so the room's gold
+ripple is actually watched. Nothing may interrupt a celebration — `busy()`
+includes `celebrating()`, which is what keeps a talent draft off the top of a
+win. Repaint BEFORE decorating: `roomCompleteFX()` hangs elements on the room
+element, so a `renderRoom()` after it silently erases the effect.
+
+**Tokens are drawn first so the clutter buries them.** Every `.item` shares one
+z-index, so DOM order is the whole burial, and `bury()` in `generate.js` drops
+keys and coins onto a spot something is already lying on. A key you can see
+from the doorway is not a hunt.
+
+**Rooms are dealt at random, then traded up only as far as the quota needs.**
+Taking the biggest rooms first — the obvious way to guarantee `targetTypes` —
+put the Kitchen in literally every free-play house, because it alone covers
+Medium's whole target. See the room draw in `generate.js`.
+
+**Clutter is scattered by floor AREA.** A uniform roll per item gave the
+Observatory (a quarter of the Kitchen's floor) the same share and buried it.
+
+**A double-tap zooms, but only on bare floor.** Every other target returns
+earlier in the pointerup chain, so by the time the double-tap check runs the
+tap hit nothing — which is why it can act on the second tap with no deferred-
+tap latency. A tap on the panel backdrop within `PANEL_GRACE` of it opening is
+the tail of the gesture that opened it, not a dismissal.
+
 **Talents do not survive a level.** Campaign levels used to reload the previous
 level's talents from `tidy-campaign-talents`, which meant the levels authored to
 teach locks were played with Sixth Sense already in hand. `up` still rides in
@@ -187,6 +215,18 @@ Run through this after any change; it's what the browser tests cover.
   survive quitting to the menu and continuing the same level.
 - Drag out of a hand slot onto open floor: the item lands where you let go.
   Aim at a doorway and it lands just clear of it, never under the door.
+- Double-tap bare floor zooms toward that point; again returns to the framed
+  view. A single tap, two slow taps, and a double-tap on furniture all leave
+  the camera alone (the last one opens the container and keeps it open).
+- Keys sit UNDER the clutter: tapping a pile picks up what's on top, and the
+  key appears once the pile is cleared.
+- Finish a room with a container open: the panel closes itself, then the gold
+  ripple travels outward, then the message — one at a time, never together.
+  Finish the whole house that way and the win screen comes last.
+- Several houses in a row draw noticeably different rooms; no room is in every
+  house except at Mega, which asks for nearly every type in the game.
+- The Observatory is round and the Wine Cellar is hex, with items inside the
+  walls and furniture clear of the doorways.
 - Foreign items in an open container carry a faint red wash; the container's
   own items don't. Same red on the badge strip above the furniture.
 - Not every room has a sealed container (`roomShare`, quests.json), but every

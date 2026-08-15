@@ -29,7 +29,10 @@
     "the sentence needs an 'although', it's in the wrong place.",
     "",
     "'short' is what fits on the furniture face; 'name' is used in titles and messages.",
-    "'sizeFactor' scales this room relative to the others (1 = biggest)."
+    "'sizeFactor' scales this room relative to the others (1 = biggest).",
+    "'shape' pins a room's silhouette: rect (default), round or hex. Leave it out",
+    "and the theme's shape list decides. Use it sparingly — a shaped room should",
+    "be an event, and a house where every room is a different polygon is noise."
   ],
   "rooms": [
     {
@@ -104,8 +107,8 @@
       "containers": [
         { "id": "memory",  "name": "Memory Chest", "short": "Memories", "kind": "wood",
           "types": ["🕰️","🖼️","🪆","🎞️","🧸"] },
-        { "id": "hobbies", "name": "Old Hobbies",  "short": "Hobbies",  "kind": "slat",
-          "types": ["🎻","📻","🃏","♟️"] }
+        { "id": "holiday", "name": "Holiday Box",  "short": "Holidays", "kind": "slat",
+          "types": ["🎄","🎃","🎁","🏮","🪔","🎊","🎉"] }
       ]
     },
     {
@@ -126,6 +129,53 @@
           "types": ["💎","💰","👑","🪬"] },
         { "id": "curio", "name": "Curio Shelf",    "short": "Curios",   "kind": "glass",
           "types": ["🏺","🗿","🔮","🎭","🕯️"] }
+      ]
+    },
+    {
+      "id": "playroom", "name": "Playroom", "floor": "playroom", "sizeFactor": 0.85,
+      "containers": [
+        { "id": "toys",  "name": "Toy Chest",  "short": "Toys",  "kind": "slat",
+          "types": ["🧩","🪀","🪁","🎈","🪅"] },
+        { "id": "games", "name": "Game Shelf", "short": "Games", "kind": "wood",
+          "types": ["🎲","🀄","🎯","🎮","🕹️","🃏","♟️"] }
+      ]
+    },
+    {
+      "id": "music", "name": "Music Room", "floor": "music", "sizeFactor": 0.7,
+      "containers": [
+        { "id": "stand", "name": "Music Rack", "short": "Music", "kind": "peg",
+          "types": ["🎸","🎺","🎷","🪕","🪗","🥁","🎹","🎻"] },
+        { "id": "sound", "name": "Sound Shelf",      "short": "Sound",       "kind": "dark",
+          "types": ["🎤","🎧","📯","🔔","📻"] }
+      ]
+    },
+    {
+      "id": "mudroom", "name": "Mudroom", "floor": "mudroom", "sizeFactor": 0.8,
+      "containers": [
+        { "id": "balls", "name": "Ball Bin",  "short": "Balls", "kind": "wicker",
+          "types": ["⚽","🏀","🎾","🏈","⚾","🏐","🥎","🎱","🎳"] },
+        { "id": "gear",  "name": "Gear Rack", "short": "Gear",  "kind": "peg",
+          "types": ["🥊","🛼","🛹","🏒","🏑","🥅","🏓","🏸"] }
+      ]
+    },
+    {
+      "_note": "Hex. A cellar you walk into and immediately know is not another square room.",
+      "id": "cellar", "name": "Wine Cellar", "floor": "cellar", "sizeFactor": 0.6, "shape": "hex",
+      "containers": [
+        { "id": "rack",    "name": "Wine Rack",     "short": "Wine",    "kind": "slat",
+          "types": ["🍷","🍾","🥂"] },
+        { "id": "spirits", "name": "Spirits Shelf", "short": "Spirits", "kind": "glass",
+          "types": ["🥃","🍸","🍹","🍺","🧊"] }
+      ]
+    },
+    {
+      "_note": "Round, and the smallest room in the house — a tower you climb to.",
+      "id": "observatory", "name": "Observatory", "floor": "observatory", "sizeFactor": 0.5, "shape": "round",
+      "containers": [
+        { "id": "optics", "name": "Optics Case", "short": "Optics", "kind": "glass",
+          "types": ["🔭","🧭","🔬"] },
+        { "id": "charts", "name": "Chart Drawer",    "short": "Charts", "kind": "wood",
+          "types": ["🗺️","📜","🪐","🌙","🌠","🛰️"] }
       ]
     },
     {

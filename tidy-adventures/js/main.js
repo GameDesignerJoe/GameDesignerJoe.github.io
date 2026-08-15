@@ -7,11 +7,11 @@
 ============================================================ */
 import {
   SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
-  INV_SIZE, DIRS, OPP, CHEVRON, ZOOM_MAX as ZOOM,
-  DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD, CELL_DRAG_THRESHOLD,
+  INV_SIZE, DIRS, CHEVRON, ZOOM_TAP,
+  DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
 } from './config.js';
-import { rnd, shuffle, clamp, tokenise, plural } from './util.js';
+import { rnd, tokenise } from './util.js';
 /* `el` is aliased: this file has many local `const el = ...` inside render
    functions, and an unaliased import would be shadowed confusingly. */
 import {
@@ -526,10 +526,18 @@ function buildRoomEl(room){
     ke.innerHTML=`<span class="cico">🪙</span><span class="slotline"></span>`;
     el.appendChild(ke);
   }
-  for(const it of Object.values(G.items)){
-    if(it.loc.kind!=="floor"||it.loc.room!==room.id||it.flying) continue;
+  /* Tokens go down FIRST, so the clutter paints on top of them.
+     Every item shares z-index 6, so this order is the whole burial: a key
+     under a pile is behind it and taps hit whatever is on top, which is what
+     makes finding one a matter of clearing the pile rather than scanning for
+     the shiniest emoji on the floor. Generation drops keys into the clutter
+     on purpose — see generate.js. */
+  const floorItems=Object.values(G.items)
+    .filter(it=>it.loc.kind==="floor" && it.loc.room===room.id && !it.flying)
+    .sort((a,b)=>(a.token?0:1)-(b.token?0:1));
+  for(const it of floorItems){
     const sp=document.createElement("div");
-    sp.className="item";
+    sp.className="item"+(it.token?" buried":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
     /* No scale(): the glyph is drawn at --item-size directly. See css/items.css. */
@@ -732,6 +740,50 @@ function renderContainer(flashRows){
 }
 
 /* ============================================================
+   CELEBRATIONS — one beat at a time, and never behind the panel
+
+   Finishing a container is almost always finishing a ROW as well, and
+   sometimes the ROOM, the QUEST and the RUN too — all inside the same
+   millisecond. Four sounds played over each other, four messages queued at
+   once, and the room's gold ripple ran underneath the open container panel,
+   where the player could not see the biggest moment the game has. (It was
+   also cancelling itself: roomCompleteFX() decorated the room element and the
+   very next line rebuilt that element.)
+
+   So the endings are a queue. One beat plays, then the next, and a beat
+   marked `inRoom` waits until the container panel is out of the way. A
+   finished container closes its own panel, because there is nothing left
+   inside it to do — which is what gets the room's moment on screen.
+============================================================ */
+const beats=[];
+let beatBusy=false;
+
+function celebrate(beat){
+  /* Already queued? Once is a celebration, twice is noise. Whirlwind can
+     finish eight rows in one call. */
+  if(beat.key && beats.some(b=>b.key===beat.key)) return;
+  beats.push(beat);
+  playBeats();
+}
+
+function playBeats(){
+  if(beatBusy || !beats.length) return;
+  if(!G.active){ beats.length=0; return; }
+  /* The room's moments wait for the room to be visible. */
+  if(beats[0].inRoom && G.openCont!==null) return;
+  const b=beats.shift();
+  beatBusy=true;
+  try{ b.run(); }
+  catch(err){ console.error("[Tidy Adventures] celebration beat failed", err); }
+  setTimeout(()=>{ beatBusy=false; playBeats(); }, b.ms ?? 350);
+}
+
+/* Nothing may interrupt a celebration — least of all a talent draft, which is
+   itself a celebration and was landing on top of these. */
+const celebrating = () => beatBusy || beats.length>0;
+function clearBeats(){ beats.length=0; beatBusy=false; }
+
+/* ============================================================
    ACTIONS
 ============================================================ */
 
@@ -747,36 +799,56 @@ function afterMutation(room, c, changedRows, opts={}){
 
   /* Rewards fly to the ⭐ rather than printing a sentence: it reads without
      reading, and it teaches where stars accumulate. The gold flash on the
-     container is already saying "complete". */
+     container is already saying "complete". Immediate, not queued — this one
+     is the receipt for the tap that just happened. */
   if(earned){
     const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
     flyReward(fe, "+"+earned+" ⭐");
   }
   if(contDone){
-    sfx("contComplete");
+    celebrate({key:"cont", ms:620, run(){ sfx("contComplete"); }});
     fire("contComplete", {container:c.short||c.name});
     /* First container finished in a room? Someone leaves you a note, and
-       the room's sealed container opens. */
-    if(maybeDropNote(room, c)){ sfx("unlock"); renderRoom(); }
+       the room's sealed container opens. The note drops now — that's state —
+       but its arrival gets its own beat. */
+    if(maybeDropNote(room, c)) celebrate({ms:420, run(){ sfx("unlock"); renderRoom(); }});
+    /* A complete container holds nothing you can act on, so the panel bows
+       out and stops standing in front of whatever the room does next. */
+    celebrate({ms:300, run(){
+      if(G.openCont===c.id && G.current===room.id) closeCont();
+    }});
   }
-  else if(newly.length) sfx("rowComplete");
+  else if(newly.length) celebrate({key:"row", ms:280, run(){ sfx("rowComplete"); }});
   if(newly.length) fire("rowComplete", {container:c.short||c.name});
 
   /* Room completion is the biggest moment in the game and v3 marked it with
-     a 1400ms toast. Now the gold visibly travels outward from the centre. */
+     a 1400ms toast. Now the gold visibly travels outward from the centre —
+     and waits for the panel, so it is actually watched. */
   if(roomComplete(room) && !G.roomFxDone.has(room.id)){
     G.roomFxDone.add(room.id);
-    sfx("roomComplete");
-    roomCompleteFX(roomEl());
-    renderRoom();   /* repaint so the walls go gold */
-    say(room.name+" is all tidy ✨", {priority:2});
     fire("roomComplete", {room:room.name});
+    celebrate({key:"room"+room.id, ms:1500, inRoom:true, run(){
+      /* Repaint FIRST so the walls are gold and the element is the one that
+         stays, THEN decorate it. The old order drew the ripple onto an
+         element that renderRoom() threw away on the next line. */
+      renderRoom();
+      sfx("roomComplete");
+      roomCompleteFX(roomEl());
+      say(room.name+" is all tidy ✨", {priority:2});
+    }});
   }
   const finishedQuest=checkQuests();
-  if(finishedQuest) completeQuest(finishedQuest);
+  if(finishedQuest) celebrate({ms:900, run(){ completeQuest(finishedQuest); }});
   renderHUD();
   checkDraftThreshold();
-  if(checkWin()) setTimeout(showWin,T.winDelay);
+  if(checkWin()){
+    /* The run is over: there is nothing left to sort, so the panel is closed
+       for the player instead of making them dismiss it to reach the ending. */
+    celebrate({key:"win", ms:0, run(){
+      if(G.openCont!==null) closeCont();
+      showWin();
+    }});
+  }
   else maybeDraft();
   return newly;
 }
@@ -1152,6 +1224,7 @@ function closeCont(){
   G.openCont=null;
   $("#contView").classList.remove("open");
   render();
+  playBeats();    /* anything that was waiting for the room can play now */
   maybeDraft();   /* closing a container is a safe moment to interrupt */
 }
 
@@ -1459,17 +1532,45 @@ host.addEventListener("pointerup",e=>{
     return;
   }
 
-  /* Double-tap-to-zoom on the floor is gone. Pinch (touch) and wheel
-     (mouse) replace it, and keeping it would mean a mis-tap between small
-     furniture and adjacent floor flips between "a panel opens" and "the
-     camera jumps" — a far more jarring error than the old "nothing happens
-     vs. zoom". Removing it also deletes the 330ms deferred-tap latency from
-     every room interaction. */
+  /* ---- double-tap the bare floor: zoom in, and back out ----
+     This is BARE FLOOR ONLY, which is what makes it safe. It was removed
+     because a mis-tap between small furniture and the floor beside it flipped
+     between "a panel opens" and "the camera jumps"; every one of those targets
+     returned above, so by the time we get here the tap hit nothing at all.
+     And because a single floor tap does nothing, the second tap can act
+     immediately — there's no 330ms deferred-tap latency anywhere, which was
+     the other reason it went. */
+  const now=Date.now();
+  if(now-lastTap.t<DOUBLE_TAP_MS &&
+     Math.hypot(e.clientX-lastTap.x, e.clientY-lastTap.y)<DOUBLE_TAP_SLOP){
+    lastTap={t:0,x:0,y:0};
+    setCamSmooth(true);
+    if(isZoomed()){
+      resetZoom(); applyCam(); sfx("zoomOut");
+    }else{
+      /* Zoom toward the tapped point, so double-tapping a corner of the room
+         brings THAT corner in, not the middle. */
+      zoomAt(ZOOM_TAP, e.clientX, e.clientY);
+      sfx("zoomIn");
+      fire("zoom");
+    }
+    return;
+  }
+  lastTap={t:now,x:e.clientX,y:e.clientY};
 });
 
-/* Never interrupt a drag or an open container. */
-const busy = () => !!ptr || !!invDrag || !!cellPtr || G.openCont!==null;
+/* Never interrupt a drag, an open container, or a celebration in progress. */
+const busy = () => !!ptr || !!invDrag || !!cellPtr || G.openCont!==null || celebrating();
 function maybeDraft(){ return drainDrafts(busy); }
+
+/* When the panel opened. A tap on the backdrop closes the panel, so the
+   second tap of a double-tap aimed at furniture used to open it and shut it
+   again in one gesture — the panel flashed and the player saw nothing
+   happen. Now that double-tap means something on the floor, that gesture is
+   one people will make. A tap within this window of opening is the tail of
+   the gesture that opened it, not a dismissal. */
+let contOpenedAt=0;
+const PANEL_GRACE=320;
 
 function openContainer(idx, contEl){
   const c=G.rooms[G.current].containers[idx];
@@ -1482,6 +1583,7 @@ function openContainer(idx, contEl){
     return;
   }
   G.openCont=idx;
+  contOpenedAt=Date.now();
   sfx("openCont");
   renderContainer();
   fire("open", {container: c.short || c.name});
@@ -1728,7 +1830,11 @@ contGrid.addEventListener("pointercancel",e=>{
   }
 });
 $("#contClose").addEventListener("click",closeCont);
-$("#contView").addEventListener("pointerup",e=>{ if(e.target.id==="contView") closeCont(); });
+$("#contView").addEventListener("pointerup",e=>{
+  if(e.target.id!=="contView") return;
+  if(Date.now()-contOpenedAt<PANEL_GRACE) return;   /* tail of the opening tap */
+  closeCont();
+});
 
 /* keyboard */
 window.addEventListener("keydown",e=>{
@@ -1792,8 +1898,14 @@ function closeMenus(){
   $("#contView").classList.remove("open");
 }
 
+/* A run ending takes its unfinished business with it: queued celebrations and
+   queued messages both belong to the run that queued them, and a "Kitchen is
+   all tidy ✨" arriving over the title screen belongs to nobody. */
+function endCeremony(){ clearBeats(); clearSay(); }
+
 function showTitle(){
   closeMenus();
+  endCeremony();
   endRun();
   setHidden($("#btnContinue"), !hasSave());
   $("#titleOverlay").classList.add("open");
@@ -1805,6 +1917,7 @@ function showTitle(){
 function startFree(sizeKey){
   clearSave();
   closeMenus();
+  endCeremony();
   const cfg=SIZES[sizeKey];
   setRun(generate(cfg), {mode:"free", size:sizeKey, levelIdx:null});
   resetZoom();
@@ -1816,6 +1929,7 @@ function startFree(sizeKey){
 function startCampaign(i){
   clearSave();
   closeMenus();
+  endCeremony();
   const lv=LEVELS[i];
   setRun(generate(lv), {mode:"campaign", levelIdx:i, size:null});
   /* A level starts with nothing learned — see clearTalents() above. The key
@@ -1856,6 +1970,7 @@ function openCampaignMenu(){
 function resetRun(){
   clearSave();
   closeMenus();
+  endCeremony();
   const cfg=currentCfg();
   setRun(generate(cfg), {mode:G.mode, levelIdx:G.levelIdx, size:G.size});
   render();

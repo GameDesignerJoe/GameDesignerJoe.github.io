@@ -90,6 +90,31 @@
       "need": ["💎", "👑"],
       "text": "You found this room, then. The gem and the crown go in the chest. Don't ask.",
       "reply": "Locked away again. We never had this conversation."
+    },
+    "playroom": {
+      "need": ["🧩", "🪁"],
+      "text": "The puzzle and the kite, in the toy chest. There are eleven hundred pieces and I have found four of them with my feet.",
+      "reply": "Toy chest shut. My feet thank you personally."
+    },
+    "music": {
+      "need": ["🎤", "🎧"],
+      "text": "Microphone and headphones back on the sound shelf. Nobody in this house has been quiet since we bought that microphone.",
+      "reply": "Sound shelf sorted. Blessed, blessed silence."
+    },
+    "mudroom": {
+      "need": ["🛹", "🛼"],
+      "text": "Skateboard and skates on the gear rack, not in the doorway. I have views about this that you have heard before.",
+      "reply": "Gear rack loaded. Nobody breaks an ankle tonight."
+    },
+    "cellar": {
+      "need": ["🍷", "🍾"],
+      "text": "The wine glass and the good bottle, on the rack. The bottle is for an occasion. This is not the occasion.",
+      "reply": "Back on the rack. One day, the occasion. Not today."
+    },
+    "observatory": {
+      "need": ["🔭", "🧭"],
+      "text": "Telescope and compass into the optics case before the damp gets at the lenses. Clear sky on Thursday.",
+      "reply": "Both cased. Thursday, then — bring a coat, it's cold up here."
     }
   }
 }

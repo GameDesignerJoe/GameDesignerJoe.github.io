@@ -6,6 +6,8 @@
     "           many containers, so adding a 7th container to a room in rooms.json",
     "           means adding a 7th anchor here first.",
     "           'rect' is for square rooms, 'soft' is pulled inward for round/hex rooms.",
+    "           Keep 'soft' clear of doorZone below: a round room is small, and",
+    "           furniture parked in a doorway sits under the door's own label.",
     "kinds    — the furniture skins. Each must have a matching .k-<id> rule in",
     "           css/furniture.css. w/h override defaultSize for that kind.",
     "floors   — the floor patterns. Each must have a matching .floor-<id> rule in css/room.css.",
@@ -25,8 +27,8 @@
       { "x": 8, "y": 77 }, { "x": 56, "y": 77 }
     ],
     "soft": [
-      { "x": 33, "y": 5 },  { "x": 33, "y": 78 },
-      { "x": 6,  "y": 41 }, { "x": 58, "y": 41 },
+      { "x": 33, "y": 12 }, { "x": 33, "y": 68 },
+      { "x": 10, "y": 41 }, { "x": 56, "y": 41 },
       { "x": 33, "y": 28 }, { "x": 33, "y": 53 }
     ]
   },
@@ -51,7 +53,8 @@
     "peg":     { "label": "Pegboard",      "w": 35, "h": 16 }
   },
 
-  "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret"],
+  "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret",
+             "playroom","music","mudroom","cellar","observatory"],
 
   "tokens": {
     "key":  { "emoji": "🔑", "name": "Key",     "opens": "door" },

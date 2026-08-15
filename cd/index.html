@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en" data-mbtss-nonce="xak46vae047br5u92d3fn5t1qx4vdr2wdl3fsfbxqqn"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riot MMO — Creative Direction</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --void: #080810;
+  --surface: #13131f;
+  --raised: #1a1a2e;
+  --border: #2a2a45;
+  --gold: #c8a96e;
+  --gold-dim: #8a6f3e;
+  --rune: #4fc3f7;
+  --white: #f0ede8;
+  --muted: #8a8799;
+  --red: #e05c5c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--void);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  background: rgba(8,8,16,0.96);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+  height: 52px;
+  backdrop-filter: blur(8px);
+}
+
+.nav-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.nav-slides { display: flex; gap: 4px; align-items: center; }
+
+.nav-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none; padding: 0;
+}
+.nav-dot.active { background: var(--gold); transform: scale(1.4); }
+.nav-dot:hover { background: var(--gold-dim); }
+
+.nav-counter { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; margin-left: 1rem; }
+
+.deck { padding-top: 52px; }
+
+.slide {
+  display: none;
+  min-height: calc(100vh - 52px);
+  padding: 3rem 3rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-direction: column;
+  justify-content: center;
+}
+.slide.active { display: flex; }
+
+.rune-line {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.rune-line::before { content:''; flex:1; height:1px; background: linear-gradient(90deg,transparent,var(--border)); }
+.rune-line::after  { content:''; flex:1; height:1px; background: linear-gradient(90deg,var(--border),transparent); }
+.rune-glyph {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem; color: var(--gold-dim);
+  letter-spacing: 0.3em; text-transform: uppercase; white-space: nowrap;
+}
+
+.eyebrow {
+  font-family: 'Cinzel', serif; font-size: 0.65rem;
+  letter-spacing: 0.3em; color: var(--gold); text-transform: uppercase; margin-bottom: 1rem;
+}
+
+h1 { font-family:'Cinzel',serif; font-size:clamp(2rem,5vw,3.2rem); font-weight:900; line-height:1.1; margin-bottom:1.25rem; }
+h1 em { font-style:normal; color:var(--gold); }
+h2 { font-family:'Cinzel',serif; font-size:clamp(1.2rem,3vw,1.8rem); font-weight:600; line-height:1.2; margin-bottom:1.25rem; }
+h3 { font-family:'Cinzel',serif; font-size:0.8rem; font-weight:600; color:var(--gold); letter-spacing:0.1em; margin-bottom:0.5rem; text-transform:uppercase; }
+p { font-size:0.925rem; line-height:1.7; color:var(--white); opacity:0.85; max-width:68ch; }
+p + p { margin-top:0.75rem; }
+.lead { font-size:1.05rem; line-height:1.6; opacity:0.9; }
+
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); margin-top:1.25rem; }
+.col-block { background:var(--surface); padding:1.25rem; }
+.col-label { font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.25em; color:var(--muted); text-transform:uppercase; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem; }
+.col-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); margin-top:1.25rem; }
+.card { background:var(--surface); padding:1.25rem; transition:background 0.2s; }
+.card:hover { background:var(--raised); }
+
+.pull-quote { border-left:2px solid var(--gold); padding:0.75rem 1.25rem; margin:1.25rem 0; background:var(--surface); }
+.pull-quote p { font-family:'Cinzel',serif; font-size:0.95rem; color:var(--white); opacity:1; max-width:100%; }
+
+.tier-table { width:100%; border-collapse:collapse; margin-top:1.25rem; font-size:0.85rem; }
+.tier-table th { text-align:left; padding:0.6rem 0.875rem; background:var(--raised); font-family:'Cinzel',serif; font-size:0.6rem; letter-spacing:0.2em; color:var(--gold); text-transform:uppercase; border-bottom:1px solid var(--border); }
+.tier-table td { padding:0.75rem 0.875rem; border-bottom:1px solid var(--border); vertical-align:top; line-height:1.55; opacity:0.85; }
+.tier-table tr:last-child td { border-bottom:none; }
+.tier-table tr:hover td { background:var(--raised); }
+.tier-label { font-family:'Cinzel',serif; font-size:0.65rem; color:var(--rune); letter-spacing:0.1em; text-transform:uppercase; white-space:nowrap; }
+
+.dream-grid { display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); margin-top:1.25rem; }
+.dream-card { background:var(--surface); padding:1.25rem; display:grid; grid-template-columns:2rem 1fr; gap:1rem; align-items:start; transition:background 0.2s; }
+.dream-card:hover { background:var(--raised); }
+.dream-num { font-family:'Cinzel',serif; font-size:1.3rem; font-weight:900; color:var(--border); line-height:1; padding-top:0.15rem; }
+.dream-title { font-family:'Cinzel',serif; font-size:0.78rem; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.35rem; }
+.dream-body { font-size:0.875rem; line-height:1.6; opacity:0.8; }
+
+.focus-list { display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); margin-top:1.25rem; }
+.focus-item { background:var(--surface); padding:1.25rem; display:grid; grid-template-columns:10rem 1fr; gap:1.5rem; align-items:start; transition:background 0.2s; }
+.focus-item:hover { background:var(--raised); }
+.focus-label { font-family:'Cinzel',serif; font-size:0.72rem; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; line-height:1.8; }
+.focus-label span { display:block; font-size:0.62rem; color:var(--muted); font-family:'Inter',sans-serif; letter-spacing:0.05em; text-transform:none; margin-top:0.2rem; }
+
+.final-slide { text-align:center; align-items:center; }
+.rune-mark { font-family:'Cinzel',serif; font-size:3rem; color:var(--gold-dim); line-height:1; margin-bottom:2rem; opacity:0.35; }
+.final-line { font-family:'Cinzel',serif; font-size:clamp(1rem,2.5vw,1.5rem); font-weight:600; color:var(--white); line-height:1.4; max-width:36ch; margin:0 auto 1rem; }
+.tag-line { font-size:0.75rem; letter-spacing:0.25em; color:var(--muted); text-transform:uppercase; }
+
+.slide-nav { position:fixed; bottom:2rem; right:2rem; display:flex; gap:0.5rem; z-index:100; }
+.slide-btn { background:var(--surface); border:1px solid var(--border); color:var(--white); width:40px; height:40px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1rem; transition:all 0.2s; }
+.slide-btn:hover { background:var(--raised); border-color:var(--gold-dim); color:var(--gold); }
+.slide-btn:disabled { opacity:0.2; cursor:default; }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:200; align-items:center; justify-content:center; padding:2rem; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:var(--surface); border:1px solid var(--border); max-width:860px; width:100%; max-height:90vh; overflow-y:auto; padding:2rem; position:relative; }
+.modal-close { position:absolute; top:1rem; right:1rem; background:none; border:1px solid var(--border); color:var(--muted); width:32px; height:32px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+.modal-close:hover { color:var(--white); border-color:var(--gold-dim); }
+
+/* FRAMEWORK CARDS */
+.fw-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); margin-top:1.25rem; }
+.fw-card { background:var(--surface); padding:1.25rem; cursor:pointer; transition:background 0.2s; position:relative; }
+.fw-card:hover { background:var(--raised); }
+.fw-card-label { font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.2em; color:var(--muted); text-transform:uppercase; margin-bottom:0.5rem; }
+.fw-card h3 { margin-bottom:0.75rem; }
+.fw-expand { position:absolute; top:0.75rem; right:0.75rem; font-size:0.58rem; color:var(--gold-dim); letter-spacing:0.1em; font-family:'Cinzel',serif; }
+.diagram-svg { width:100%; height:auto; display:block; }
+
+/* FEEL FIRST INTERACTIVE */
+.ff-panels { display:flex; gap:1px; background:var(--border); border:1px solid var(--border); margin-top:1.5rem; }
+.ff-panel { flex:1; background:var(--surface); padding:0.75rem 0.6rem 0.6rem; cursor:pointer; transition:background 0.2s; display:flex; flex-direction:column; gap:0.4rem; border-bottom:2px solid transparent; }
+.ff-panel:hover { background:var(--raised); }
+.ff-panel.active { background:var(--raised); border-bottom:2px solid var(--gold); }
+.ff-num { font-family:'Cinzel',serif; font-size:0.58rem; color:var(--gold-dim); letter-spacing:0.2em; }
+.ff-panel.active .ff-num { color:var(--gold); }
+.ff-panel-title { font-family:'Cinzel',serif; font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; line-height:1.3; }
+.ff-panel.active .ff-panel-title { color:var(--white); }
+.ff-game-thumb { width:100%; aspect-ratio:3/4; background:var(--void); border:1px solid var(--border); overflow:hidden; margin-top:0.25rem; }
+.ff-text-area { border:1px solid var(--border); border-top:none; background:var(--surface); padding:1.25rem 1.5rem; min-height:5rem; display:flex; align-items:center; justify-content:center; text-align:center; }
+.ff-text { display:none; opacity:0; transition:opacity 0.3s ease; }
+.ff-text.active { display:block; }
+.ff-text.visible { opacity:1; }
+.ff-text p { font-size:0.9rem; opacity:0.85; max-width:72ch; margin:0 auto; }
+
+/* TABS for slide 4 */
+.tab-bar { display:flex; gap:1px; background:var(--border); border:1px solid var(--border); border-bottom:none; }
+.tab-btn { flex:1; padding:0.75rem 1rem; background:var(--surface); border:none; color:var(--muted); font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; cursor:pointer; transition:all 0.2s; border-bottom:2px solid transparent; }
+.tab-btn:hover { background:var(--raised); color:var(--white); }
+.tab-btn.active { background:var(--raised); color:var(--gold); border-bottom:2px solid var(--gold); }
+.tab-panel { display:none; border:1px solid var(--border); background:var(--surface); }
+.tab-panel.active { display:block; }
+
+/* SVG centering */
+.svg-center { display:flex; align-items:center; justify-content:center; width:100%; background:var(--void); padding:1rem; }
+.svg-center svg { max-width:100%; height:auto; display:block; }
+
+@media (max-width:600px) {
+  .two-col,.fw-grid { grid-template-columns:1fr; }
+  .focus-item { grid-template-columns:1fr; gap:0.5rem; }
+  .ff-panels { flex-wrap:wrap; }
+  .ff-panel { min-width:45%; }
+}
+
+.svg-center { display:flex; align-items:center; justify-content:center; width:100%; background:var(--void); padding:1rem; }
+.svg-center svg { max-width:100%; height:auto; display:block; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-title">Riot MMO — Creative Direction</span>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <div class="nav-slides" id="navDots"></div>
+    <span class="nav-counter" id="navCounter"></span>
+  </div>
+</nav>
+
+<div class="deck">
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 1 — THE PROMISE
+══════════════════════════════════════════════ -->
+<div class="slide active" id="slide-1">
+  <div class="rune-line"><span class="rune-glyph" style="font-size:18px">I — The Promise</span></div>
+  <h1>You Are Born to<br><em>Runeterra</em></h1>
+  <p class="lead" style="color: rgb(240, 237, 232);"><i>
+    This world is in your blood.<br>
+    The color of your eyes,<br>
+    The shade of your skin,<br>
+    It is the burden upon your shoulders.<br><br>
+    So, when a darkness spreads across the land,<br>
+    Your land,<br>
+    You don't call a Champion.<br>
+    You take up your burden<br>
+    And you fight.
+  </i></p>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 2 — FEEL FIRST
+══════════════════════════════════════════════ -->
+<div class="slide" id="slide-2">
+  <div class="rune-line"><span class="rune-glyph" style="font-size:18px">II — Creative Direction</span></div>
+  <div class="eyebrow">MY APPROACH TO THE CREATIVE PROCESS</div>
+  <h2>Find The Feel First</h2>
+
+  <div class="ff-panels" id="ffPanels">
+
+    <div class="ff-panel" onclick="selectPanel(0)">
+      <div class="ff-num" style="font-size: 12px;">01</div>
+      <div class="ff-panel-title" style="font-size: 12px;"><b><span style="font-weight: bold;">Intention Before Tool</span></b></div>
+      <div class="ff-game-thumb">
+        <svg viewBox="0 0 90 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <rect width="90" height="120" fill="#080e12"></rect>
+          <polygon points="12,100 45,22 78,100" fill="none" stroke="#c8a96e" stroke-width="1" opacity="0.35"></polygon>
+          <polygon points="26,100 45,42 64,100" fill="#c8a96e" opacity="0.05"></polygon>
+          <circle cx="45" cy="22" r="3" fill="#c8a96e" opacity="0.85"></circle>
+          <line x1="45" y1="22" x2="45" y2="12" stroke="#c8a96e" stroke-width="0.75" opacity="0.5" stroke-dasharray="2,1"></line>
+          <text x="45" y="113" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#8a8799" letter-spacing="1">GHOST OF TSUSHIMA</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="ff-panel" onclick="selectPanel(1)">
+      <div class="ff-num" style="font-size: 12px;">02</div>
+      <div class="ff-panel-title" style="font-size: 12px;"><span style="font-weight: bold;">We Make It For Them</span></div>
+      <div class="ff-game-thumb">
+        <svg viewBox="0 0 90 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <rect width="90" height="120" fill="#080f10"></rect>
+          <rect x="12" y="22" width="66" height="4" fill="#4fc3f7" opacity="0.25" rx="1"></rect>
+          <rect x="12" y="32" width="48" height="4" fill="#4fc3f7" opacity="0.15" rx="1"></rect>
+          <rect x="12" y="42" width="56" height="4" fill="#4fc3f7" opacity="0.15" rx="1"></rect>
+          <rect x="12" y="52" width="40" height="4" fill="#4fc3f7" opacity="0.1" rx="1"></rect>
+          <circle cx="65" cy="80" r="14" fill="none" stroke="#c8a96e" stroke-width="1" opacity="0.4"></circle>
+          <path d="M58,80 L63,85 L72,75" stroke="#c8a96e" stroke-width="1.5" fill="none" opacity="0.6"></path>
+          <text x="45" y="113" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#8a8799" letter-spacing="1">CITY OF HEROES</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="ff-panel" onclick="selectPanel(2)">
+      <div class="ff-num" style="font-size: 12px;">03</div>
+      <div class="ff-panel-title" style="font-size: 12px;"><span style="font-weight: bold;">Capture The Experience</span></div>
+      <div class="ff-game-thumb">
+        <svg viewBox="0 0 90 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <rect width="90" height="120" fill="#140808"></rect>
+          <polygon points="45,18 65,65 25,65" fill="none" stroke="#c8a96e" stroke-width="1" opacity="0.45"></polygon>
+          <polygon points="45,28 58,62 32,62" fill="#c8a96e" opacity="0.08"></polygon>
+          <line x1="18" y1="78" x2="72" y2="78" stroke="#c8a96e" stroke-width="0.5" opacity="0.25"></line>
+          <line x1="28" y1="78" x2="24" y2="88" stroke="#c8a96e" stroke-width="0.5" opacity="0.25"></line>
+          <line x1="45" y1="78" x2="45" y2="88" stroke="#c8a96e" stroke-width="0.5" opacity="0.25"></line>
+          <line x1="62" y1="78" x2="66" y2="88" stroke="#c8a96e" stroke-width="0.5" opacity="0.25"></line>
+          <text x="45" y="113" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#8a8799" letter-spacing="1">DIABLO III</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="ff-panel" onclick="selectPanel(3)">
+      <div class="ff-num" style="font-size: 12px;">04</div>
+      <div class="ff-panel-title" style="font-size: 12px;"><span style="font-weight: bold;">See The Destination</span></div>
+      <div class="ff-game-thumb">
+        <svg viewBox="0 0 90 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <rect width="90" height="120" fill="#0a0d14"></rect>
+          <circle cx="45" cy="55" r="22" fill="none" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></circle>
+          <line x1="45" y1="33" x2="45" y2="77" stroke="#c8a96e" stroke-width="0.5" opacity="0.2"></line>
+          <line x1="23" y1="55" x2="67" y2="55" stroke="#c8a96e" stroke-width="0.5" opacity="0.2"></line>
+          <polygon points="45,35 48,44 45,42 42,44" fill="#c8a96e" opacity="0.75"></polygon>
+          <circle cx="45" cy="55" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+          <text x="45" y="113" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#8a8799" letter-spacing="1">BELIEVER</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="ff-panel" onclick="selectPanel(4)">
+      <div class="ff-num" style="font-size: 12px;">05</div>
+      <div class="ff-panel-title" style="font-size: 12px;"><span style="font-weight: bold;">Repeat. Repeat. Repeat.</span></div>
+      <div class="ff-game-thumb">
+        <svg viewBox="0 0 90 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <rect width="90" height="120" fill="#0d0d1a"></rect>
+          <path d="M 34,55 A 16,16 0 1 1 56,55" fill="none" stroke="#c8a96e" stroke-width="1.5" opacity="0.45"></path>
+          <polygon points="54,47 61,55 52,57" fill="#c8a96e" opacity="0.45"></polygon>
+          <text x="45" y="88" text-anchor="middle" font-family="Cinzel,serif" font-size="10" fill="#c8a96e" opacity="0.25">∞</text>
+          <text x="45" y="113" text-anchor="middle" font-family="Cinzel,serif" font-size="6" fill="#8a8799" letter-spacing="1">ALL OF THEM</text>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="ff-text-area" id="ffTextArea">
+    <div class="ff-text" data-index="0">
+      <p>As artists and craftspeople we set our intention before we pick up our tools. For creative direction that's tone, mood, theme, and message. What are we making, what experience are we trying to capture, and what is its intended impact on the audience? On Ghost, this was very much the first step "We want to make you feel like you're playing a Kurosawa film." Everything else built from that.</p>
+    </div>
+    <div class="ff-text" data-index="1">
+      <p>It's easy to get lost in what you want to make — or worse, to put your craft above the player. The discipline is holding the game vision in one hand and player desire in the other. On City of Heroes the community was practically embedded on the team (highly active forums where devs would have direct communication with them, personal meet ups multiple times a year, even content development with a system called Mission Architect I led).</p>
+    </div>
+    <div class="ff-text" data-index="2">
+      <p>With intention and player expectation aligned, you can build toward the player experience. This is more than systems, art, or design in isolation. Those are each sparks that can light the fire of a game. On Diablo 3, we already new what players loved about the world and gameplay. My mission as Narrative Lead was to both push the world forward, while holding tightly to what made it great to begin with.</p>
+    </div>
+    <div class="ff-text" data-index="3">
+      <p>As a Creative Director, you are not the artist, the engineer, or the writer. Instead, you have to hold this idea in your head that few others can see, like a distant mountain top you need to get everyone else to see. You don't know the path through the forest. You didn't bring a torch for the caves, or a boat for the river. Instead, you depend on everyone else on the team to find the path, light the torch, and build the boat. Your job is clarity of destination and to trust them to do the rest.</p>
+    </div>
+    <div class="ff-text" data-index="4">
+      <p>Repeat the vision. Do it in meetings, in documents, in hallway conversations, and to yourself. Creative direction doesn't land once — it has to land a thousand times in a dozen different ways. Develop with intention, cultivate player expectation, capture the experience, and give clarity to a team smarter than you. Then do it all again.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 3 — FRAMEWORKS
+══════════════════════════════════════════════ -->
+<div class="slide" id="slide-3">
+  <div class="rune-line"><span class="rune-glyph" style="font-size: 18px;">III — Frameworks</span></div>
+  <div class="eyebrow">Tools I Use</div>
+  <h2>Working Frameworks.</h2>
+  <p>These are a couple frameworks that I've found have a lot of value when it comes to bringing alignment and direction to the creative process.</p>
+  <div class="fw-grid">
+
+    <!-- STORY STACK -->
+    <div class="fw-card" onclick="openModal('modal-storystack')">
+      <span class="fw-expand">expand ↗</span>
+      <div class="fw-card-label">Framework 01</div>
+      <h3>The Story Stack</h3>
+      <svg class="diagram-svg" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg">
+        <rect x="20" y="148" width="260" height="22" fill="#c8a96e" opacity="0.9" rx="2"></rect>
+        <text x="150" y="163" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#080810" font-weight="700">FANTASY</text>
+        <rect x="32" y="120" width="236" height="22" fill="#c8a96e" opacity="0.7" rx="2"></rect>
+        <text x="150" y="135" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#080810" font-weight="700">ACTIONS</text>
+        <rect x="46" y="92" width="208" height="22" fill="#c8a96e" opacity="0.52" rx="2"></rect>
+        <text x="150" y="107" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#080810" font-weight="700">PROGRESSION</text>
+        <rect x="62" y="64" width="176" height="22" fill="#c8a96e" opacity="0.35" rx="2"></rect>
+        <text x="150" y="79" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#f0ede8" font-weight="600">WORLD</text>
+        <rect x="80" y="36" width="140" height="22" fill="#c8a96e" opacity="0.2" rx="2"></rect>
+        <text x="150" y="51" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#f0ede8">STORY</text>
+        <text x="150" y="18" text-anchor="middle" font-family="Cinzel,serif" font-size="6.5" fill="#8a8799" letter-spacing="1.5">FIXED → FLEXIBLE</text>
+      </svg>
+    </div>
+
+    <!-- FANTASY TO CONTENT -->
+    <div class="fw-card" onclick="openModal('modal-fantasy')">
+      <span class="fw-expand">expand ↗</span>
+      <div class="fw-card-label">Framework 02</div>
+      <h3>Fantasy to Content</h3>
+      <svg class="diagram-svg" viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8" y="76" width="62" height="28" fill="#1a1a2e" stroke="#2a2a45" stroke-width="1" rx="2"></rect>
+        <text x="39" y="92" text-anchor="middle" font-family="Cinzel,serif" font-size="7" fill="#c8a96e">CONCEPT</text>
+        <line x1="70" y1="90" x2="82" y2="90" stroke="#2a2a45" stroke-width="1"></line>
+        <polygon points="79,87 85,90 79,93" fill="#2a2a45"></polygon>
+        <rect x="85" y="76" width="54" height="28" fill="#1a1a2e" stroke="#c8a96e" stroke-width="1.5" rx="2"></rect>
+        <text x="112" y="87" text-anchor="middle" font-family="Cinzel,serif" font-size="7" fill="#c8a96e">PLAYER</text>
+        <text x="112" y="98" text-anchor="middle" font-family="Cinzel,serif" font-size="7" fill="#c8a96e">FANTASY</text>
+        <line x1="139" y1="82" x2="158" y2="42" stroke="#2a2a45" stroke-width="0.75"></line>
+        <line x1="139" y1="87" x2="158" y2="68" stroke="#2a2a45" stroke-width="0.75"></line>
+        <line x1="139" y1="90" x2="158" y2="90" stroke="#2a2a45" stroke-width="0.75"></line>
+        <line x1="139" y1="93" x2="158" y2="112" stroke="#2a2a45" stroke-width="0.75"></line>
+        <line x1="139" y1="98" x2="158" y2="138" stroke="#2a2a45" stroke-width="0.75"></line>
+        <rect x="158" y="30" width="66" height="22" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="1"></rect>
+        <text x="191" y="44" text-anchor="middle" font-family="Cinzel,serif" font-size="6.5" fill="#4fc3f7">ACTIONS</text>
+        <rect x="158" y="57" width="66" height="22" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="1"></rect>
+        <text x="191" y="71" text-anchor="middle" font-family="Cinzel,serif" font-size="6.5" fill="#4fc3f7">ACTIONS</text>
+        <rect x="158" y="79" width="66" height="22" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="1"></rect>
+        <text x="191" y="93" text-anchor="middle" font-family="Cinzel,serif" font-size="6.5" fill="#4fc3f7">ACTIONS</text>
+        <rect x="158" y="101" width="66" height="22" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="1"></rect>
+        <text x="191" y="115" text-anchor="middle" font-family="Cinzel,serif" font-size="6.5" fill="#4fc3f7">ACTIONS</text>
+        <rect x="158" y="126" width="66" height="22" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="1"></rect>
+        <text x="191" y="140" text-anchor="middle" font-family="Cinzel,serif" font-size="6.5" fill="#4fc3f7">ACTIONS</text>
+        <!-- content type tags -->
+        <line x1="224" y1="41" x2="232" y2="35" stroke="#2a2a45" stroke-width="0.5"></line>
+        <line x1="224" y1="41" x2="232" y2="47" stroke="#2a2a45" stroke-width="0.5"></line>
+        <text x="234" y="38" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Challenges</text>
+        <text x="234" y="50" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Locations</text>
+        <line x1="224" y1="68" x2="232" y2="62" stroke="#2a2a45" stroke-width="0.5"></line>
+        <line x1="224" y1="68" x2="232" y2="74" stroke="#2a2a45" stroke-width="0.5"></line>
+        <text x="234" y="65" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Missions</text>
+        <text x="234" y="77" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Collectibles</text>
+        <line x1="224" y1="90" x2="232" y2="84" stroke="#2a2a45" stroke-width="0.5"></line>
+        <line x1="224" y1="90" x2="232" y2="96" stroke="#2a2a45" stroke-width="0.5"></line>
+        <text x="234" y="87" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Activities</text>
+        <text x="234" y="99" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Systemics</text>
+        <line x1="224" y1="112" x2="232" y2="106" stroke="#2a2a45" stroke-width="0.5"></line>
+        <line x1="224" y1="112" x2="232" y2="118" stroke="#2a2a45" stroke-width="0.5"></line>
+        <text x="234" y="109" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Events</text>
+        <text x="234" y="121" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">NPCs</text>
+        <line x1="224" y1="137" x2="232" y2="131" stroke="#2a2a45" stroke-width="0.5"></line>
+        <line x1="224" y1="137" x2="232" y2="143" stroke="#2a2a45" stroke-width="0.5"></line>
+        <text x="234" y="134" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Narrative</text>
+        <text x="234" y="146" font-family="Inter,sans-serif" font-size="5.5" fill="#8a8799" style="font-size: 7px;" font-weight="700">Systemics</text>
+      </svg>
+    </div>
+
+    <!-- DEMF and Same/Improved/New removed — kept as appendix material -->
+
+    <!-- BRINGING CD TO LIFE -->
+    <div class="fw-card" onclick="openModal('modal-cdartifacts')" style="grid-column:1/-1">
+      <span class="fw-expand">expand ↗</span>
+      <div class="fw-card-label">Framework 03</div>
+      <h3>Bringing Creative Direction to Life</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-top:0.75rem">
+        <div style="background:var(--void);padding:1rem;text-align:center">
+          <svg viewBox="0 0 80 52" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;margin-bottom:0.5rem"><rect x="20" y="4" width="40" height="44" fill="#13131f" stroke="#c8a96e" stroke-width="0.75" rx="2" opacity="0.8"></rect><line x1="28" y1="16" x2="52" y2="16" stroke="#c8a96e" stroke-width="0.75" opacity="0.4"></line><line x1="28" y1="22" x2="52" y2="22" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line><line x1="28" y1="28" x2="44" y2="28" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line><rect x="28" y="33" width="10" height="8" fill="#c8a96e" opacity="0.2" rx="1"></rect><rect x="40" y="33" width="10" height="8" fill="#c8a96e" opacity="0.2" rx="1"></rect></svg>
+          <div style="font-family:Cinzel,serif;font-size:0.6rem;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase">Story Pitch</div>
+        </div>
+        <div style="background:var(--void);padding:1rem;text-align:center">
+          <svg viewBox="0 0 80 52" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;margin-bottom:0.5rem"><rect x="14" y="10" width="52" height="32" fill="#13131f" stroke="#c8a96e" stroke-width="0.75" rx="2" opacity="0.7"></rect><polygon points="34,18 34,34 50,26" fill="#c8a96e" opacity="0.5"></polygon><rect x="14" y="10" width="6" height="32" fill="#c8a96e" opacity="0.1"></rect><rect x="60" y="10" width="6" height="32" fill="#c8a96e" opacity="0.1"></rect></svg>
+          <div style="font-family:Cinzel,serif;font-size:0.6rem;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase">Tone Video</div>
+        </div>
+        <div style="background:var(--void);padding:1rem;text-align:center">
+          <svg viewBox="0 0 80 52" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;margin-bottom:0.5rem"><rect x="14" y="10" width="52" height="32" fill="#13131f" stroke="#c8a96e" stroke-width="0.75" rx="2" opacity="0.7"></rect><polygon points="34,18 34,34 50,26" fill="#c8a96e" opacity="0.5"></polygon><rect x="14" y="10" width="6" height="32" fill="#c8a96e" opacity="0.1"></rect><rect x="60" y="10" width="6" height="32" fill="#c8a96e" opacity="0.1"></rect><rect x="24" y="36" width="32" height="3" fill="#c8a96e" opacity="0.2" rx="1"></rect></svg>
+          <div style="font-family:Cinzel,serif;font-size:0.6rem;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase">Feels Video</div>
+        </div>
+        <div style="background:var(--void);padding:1rem;text-align:center">
+          <svg viewBox="0 0 80 52" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;margin-bottom:0.5rem"><rect x="14" y="10" width="52" height="32" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2" opacity="0.7"></rect><polygon points="24,22 24,30 32,26" fill="#4fc3f7" opacity="0.5"></polygon><line x1="36" y1="20" x2="52" y2="20" stroke="#4fc3f7" stroke-width="0.75" opacity="0.3"></line><line x1="36" y1="26" x2="48" y2="26" stroke="#4fc3f7" stroke-width="0.75" opacity="0.25"></line><line x1="36" y1="32" x2="50" y2="32" stroke="#4fc3f7" stroke-width="0.75" opacity="0.2"></line></svg>
+          <div style="font-family:Cinzel,serif;font-size:0.6rem;color:var(--rune);letter-spacing:0.1em;text-transform:uppercase">AI Playable</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 4 — HW Q1: STORIES IN MULTIPLAYER
+══════════════════════════════════════════════ -->
+<div class="slide" id="slide-4">
+  <div class="rune-line"><span class="rune-glyph" style="font-size: 18px;">IV — Homework One</span></div>
+  <div class="eyebrow" style="color:var(--gold)">How do you tell compelling stories in a multiplayer space?</div>
+  <h2>Four Layers.<br>Always Running.</h2>
+  <p>While there are likely many ways to do this and it all really depends on what you want your players to experience, here's an example of how I could approach this. From the overall shape of the world and the story that is emerging from everything below it, to the community that's driving the direction, the events that force collisions, challenge, and chaos, to each players personal journey and motivations, and finally, the game story itself that acts as a backdrop and a back stop for the player experience - it all builds on top of itself to create a compelling, multiplayer story. That <em style="font-style:normal;color:var(--gold)">is</em> Runeterra.</p>
+
+  <div style="margin-top:2rem;border:1px solid var(--border)">
+      <div class="svg-center" style="padding:1.5rem">
+        <svg viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:860px;height:auto;display:block">
+
+          <!-- GAME STORY — bottom/smallest -->
+          <g transform="translate(80,478)">
+            <polygon points="100,0 200,25 100,50 0,25" fill="#13131f" stroke="#2a2a45" stroke-width="1"></polygon>
+            <polygon points="0,25 0,37 100,62 100,50" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <polygon points="200,25 200,37 100,62 100,50" fill="#111120" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <text x="100" y="30" text-anchor="middle" font-family="Cinzel,serif" font-size="11" fill="#8a8799">GAME STORY</text>
+          </g>
+          <text x="330" y="496" font-family="Inter,sans-serif" font-size="11" fill="#8a8799">Quests that orient players. Not narrative — direction.</text>
+
+          <!-- PERSONAL STORY -->
+          <g transform="translate(56,374)">
+            <polygon points="124,0 248,31 124,62 0,31" fill="#1a1a2e" stroke="#2a2a45" stroke-width="1"></polygon>
+            <polygon points="0,31 0,45 124,76 124,62" fill="#131328" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <polygon points="248,31 248,45 124,76 124,62" fill="#161630" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <text x="124" y="36" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#c8a96e" opacity="0.7">PERSONAL</text>
+          </g>
+          <text x="330" y="394" font-family="Inter,sans-serif" font-size="11" fill="#8a8799">The agency every player should have to decide how 'they' want to play.</text>
+
+          <!-- EVENT STORY -->
+          <g transform="translate(26,258)">
+            <polygon points="154,0 308,38 154,76 0,38" fill="#1a1a2e" stroke="#2a2a45" stroke-width="1"></polygon>
+            <polygon points="0,38 0,55 154,93 154,76" fill="#131328" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <polygon points="308,38 308,55 154,93 154,76" fill="#161630" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <text x="154" y="44" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#c8a96e" opacity="0.85">EVENT</text>
+          </g>
+          <text x="330" y="280" font-family="Inter,sans-serif" font-size="11" fill="#8a8799">Game triggered systems to force collisions and hard choices.</text>
+
+          <!-- COMMUNITY STORY -->
+          <g transform="translate(0,130)">
+            <polygon points="180,0 360,45 180,90 0,45" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" stroke-opacity="0.4"></polygon>
+            <polygon points="0,45 0,63 180,108 180,90" fill="#131328" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <polygon points="360,45 360,63 180,108 180,90" fill="#161630" stroke="#2a2a45" stroke-width="0.5"></polygon>
+            <text x="180" y="51" text-anchor="middle" font-family="Cinzel,serif" font-size="14" fill="#c8a96e" opacity="0.9">COMMUNITY</text>
+          </g>
+          <text x="330" y="152" font-family="Inter,sans-serif" font-size="11" fill="#8a8799">What the community is doing, saying, and how they are behavior in the world.</text>
+
+          <!-- WORLD STORY — top/largest -->
+          <g transform="translate(0,0)">
+            <polygon points="180,0 360,45 180,90 0,45" fill="#1e1e34" stroke="#c8a96e" stroke-width="1.5" stroke-opacity="0.7"></polygon>
+            <polygon points="0,45 0,62 180,107 180,90" fill="#14142a" stroke="#c8a96e" stroke-width="0.5" stroke-opacity="0.3"></polygon>
+            <polygon points="360,45 360,62 180,107 180,90" fill="#18183a" stroke="#c8a96e" stroke-width="0.5" stroke-opacity="0.3"></polygon>
+            <text x="180" y="51" text-anchor="middle" font-family="Cinzel,serif" font-size="15" fill="#c8a96e" font-weight="600">WORLD STORY</text>
+          </g>
+          <text x="330" y="22" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8" opacity="0.8">The big picture point of view at any given time (civil war, advancing darkness, etc.).</text>
+        </svg>
+      </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 5 — HW Q2: UNTELEGRAPHED MOMENTS
+══════════════════════════════════════════════ -->
+<div class="slide" id="slide-5">
+  <div class="rune-line"><span class="rune-glyph" style="font-size: 18px;">V — Homework Two</span></div>
+  <div class="eyebrow" style="color:var(--gold)">How does the game generate UNSCRIPTED memorable moments?</div>
+  <h2>A Collision of<br>Content and Systems Generate Surprise</h2>
+  <p>Create systems that are designed to overlap with each other to create interesting outcomes. These systems will then collide with player intent to create tension and memorable experiences.</p>
+
+  <div style="border:1px solid var(--border);margin-top:1.25rem">
+    <svg viewBox="0 0 820 290" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;background:var(--void);padding:0.5rem">
+      <circle cx="190" cy="165" r="90" fill="#c8a96e" fill-opacity="0.07" stroke="#c8a96e" stroke-width="0.75" stroke-opacity="0.4"></circle>
+      <circle cx="310" cy="165" r="90" fill="#4fc3f7" fill-opacity="0.05" stroke="#4fc3f7" stroke-width="0.75" stroke-opacity="0.3"></circle>
+      <circle cx="250" cy="95" r="80" fill="#e05c5c" fill-opacity="0.05" stroke="#e05c5c" stroke-width="0.75" stroke-opacity="0.3"></circle>
+      <text x="108" y="225" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#c8a96e">DAY / NIGHT</text>
+      <text x="108" y="239" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">CYCLE</text>
+      <text x="392" y="225" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#4fc3f7">ROAMING</text>
+      <text x="392" y="239" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">ENEMIES</text>
+      <text x="250" y="22" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#e05c5c">METEOR</text>
+      <text x="250" y="36" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">EVENT</text>
+      <text x="250" y="145" text-anchor="middle" font-family="Cinzel,serif" font-size="10" fill="#f0ede8">COLLISION</text>
+      <text x="250" y="160" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">surprise</text>
+      <line x1="400" y1="118" x2="430" y2="105" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="400" y1="138" x2="430" y2="132" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="400" y1="158" x2="430" y2="158" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="400" y1="178" x2="430" y2="185" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="400" y1="196" x2="430" y2="212" stroke="#2a2a45" stroke-width="0.75"></line>
+      <text x="436" y="108" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Enemies drawn to meteor glow, ambushed by wildlife</text>
+      <text x="436" y="135" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Players harvest resources from crash site as enemies arrive</text>
+      <text x="436" y="161" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Daytime fight interrupted by impact — chaos for everyone</text>
+      <text x="436" y="188" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Wildlife flees crater, floods areas they don't normally go</text>
+      <text x="436" y="215" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Players follow wildlife trail into uncharted territory</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 6 — HW Q3: WORLD AS CHARACTER
+══════════════════════════════════════════════ -->
+<div class="slide" id="slide-6">
+  <div class="rune-line"><span class="rune-glyph" style="font-size: 18px;">VI — Homework Three</span></div>
+  <div class="eyebrow" style="color:var(--gold)">How does the world function as a character that players belong to?</div>
+  <h2>A World That Acts<br>and Reacts.</h2>
+  <p>The world shows players what they've done to it — and responds. Small choices that can compound into bigger ones. Over the course of a single session or over weeks of play with allies, you can see the shape of the world based off of player's impact. In every case, the world <em style="font-style:normal;color:var(--gold)">reacts.</em></p>
+
+  <!-- PLAYER → WORLD → OUTPUT CYCLE -->
+  <div style="border:1px solid var(--border);margin-top:1.25rem;background:var(--void)">
+    <div style="padding:0.6rem 1rem;background:var(--surface);border-bottom:1px solid var(--border)">
+      <span style="font-family:Cinzel,serif;font-size:0.62rem;color:var(--gold);letter-spacing:0.2em;text-transform:uppercase">Player Action → World Reaction → Player Response</span>
+    </div>
+    <div style="display:flex;justify-content:center;padding:0.75rem;background:var(--void)">
+    <svg viewBox="0 0 1000 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:1000px;height:auto;display:block">
+      <text x="105" y="24" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#c8a96e" letter-spacing="1.5">PLAYER ACTIONS</text>
+      <rect x="10" y="34" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="57" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Joins Winter's Claw faction</text>
+      <rect x="10" y="78" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="101" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Raids an Avarosan trade route</text>
+      <rect x="10" y="122" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="145" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Corners the wood market</text>
+      <rect x="10" y="166" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="189" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Completes 50 Freljord quests</text>
+      <rect x="10" y="210" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="233" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Ignores the war, fishes instead</text>
+      <rect x="10" y="254" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="277" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Builds a trading empire</text>
+      <rect x="10" y="298" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="321" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Leads a guild war campaign</text>
+      <rect x="10" y="342" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="365" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Voted on a world-tier choice</text>
+      <rect x="10" y="386" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="409" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Protects a neutral village</text>
+      <rect x="10" y="430" width="190" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="0.75" rx="2"></rect>
+      <text x="105" y="453" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Defects to rival faction</text>
+      <line x1="200" y1="53" x2="376" y2="278" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="97" x2="376" y2="288" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="141" x2="376" y2="298" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="185" x2="376" y2="308" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="229" x2="376" y2="318" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="273" x2="376" y2="328" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="317" x2="376" y2="338" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="361" x2="376" y2="348" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="405" x2="376" y2="358" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="200" y1="449" x2="376" y2="368" stroke="#2a2a45" stroke-width="0.5"></line>
+      <!-- RUNETERRA center — 3x larger -->
+      <rect x="376" y="234" width="248" height="156" fill="#1e1e34" stroke="#c8a96e" stroke-width="2" rx="6"></rect>
+      <text x="500" y="300" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#c8a96e">RUNETERRA</text>
+      <text x="500" y="326" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" fill="#8a8799">reads · remembers</text>
+      <text x="500" y="346" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" fill="#8a8799">responds · reacts</text>
+      <line x1="624" y1="278" x2="800" y2="53" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="288" x2="800" y2="97" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="298" x2="800" y2="141" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="308" x2="800" y2="185" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="318" x2="800" y2="229" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="328" x2="800" y2="273" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="338" x2="800" y2="317" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="348" x2="800" y2="361" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="358" x2="800" y2="405" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="624" y1="368" x2="800" y2="449" stroke="#2a2a45" stroke-width="0.5"></line>
+      <text x="895" y="24" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#4fc3f7" letter-spacing="1.5">WORLD OUTPUTS</text>
+      <rect x="800" y="34" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="57" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">NPCs eye you at Avarosan gates</text>
+      <rect x="800" y="78" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="101" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Trade route quest types shift</text>
+      <rect x="800" y="122" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="145" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Rivals rally, prices collapse</text>
+      <rect x="800" y="166" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="189" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Ashe appears as a region NPC</text>
+      <rect x="800" y="210" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="233" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Town knows her by name</text>
+      <rect x="800" y="254" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="277" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Other players seek her to trade</text>
+      <rect x="800" y="298" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="321" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Border shifts on faction map</text>
+      <rect x="800" y="342" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="365" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">World event fires — NPCs react</text>
+      <rect x="800" y="386" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="409" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">Village sends you a named ally</text>
+      <rect x="800" y="430" width="190" height="38" fill="#13131f" stroke="#4fc3f7" stroke-width="0.75" rx="2"></rect>
+      <text x="895" y="453" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" fill="#f0ede8">New faction treats you as enemy</text>
+      <path d="M 895,484 Q 895,540 500,552 Q 105,564 105,488" fill="none" stroke="#c8a96e" stroke-width="1" stroke-opacity="0.3" stroke-dasharray="5,4"></path>
+      <polygon points="108,484 102,491 111,492" fill="#c8a96e" opacity="0.3"></polygon>
+      <text x="500" y="548" text-anchor="middle" font-family="Inter,sans-serif" font-size="10" fill="#c8a96e" opacity="0.45">Outputs drive new player actions — the cycle continues</text>
+    </svg>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 7 — DREAM BIG
+══════════════════════════════════════════════ -->
+<div class="slide" id="slide-7">
+  <div class="rune-line"><span class="rune-glyph">VII — Dream Big</span></div>
+  <div class="eyebrow">WHERE i COULD SEE MMOS HEADING</div>
+  <h2>Big Dreams of a<br>Future MMO.</h2>
+  <div class="dream-grid">
+    <div class="dream-card" style="grid-template-columns:2rem 1fr 160px;align-items:center;gap:1.25rem">
+      <div class="dream-num">I</div>
+      <div>
+        <div class="dream-title">Offerings to the Gods</div>
+        <p class="dream-body">Give players the power to decide what happens to the world through more than combat. Not a voting UI — diegetic ritual. Freljord players offer to the Three Sisters. Shuriman players petition the Ascended. Accumulated offerings shape the next live update. Players steer the world. The live team gets a real signal. Neither side breaks the frame.</p>
+      </div>
+      <svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:90px;flex-shrink:0;display:block">
+        <rect width="160" height="90" fill="#0d0d1a"></rect>
+        <!-- altar platform -->
+        <rect x="55" y="62" width="50" height="8" fill="#c8a96e" opacity="0.3" rx="1"></rect>
+        <rect x="63" y="50" width="34" height="12" fill="#c8a96e" opacity="0.18" rx="1"></rect>
+        <!-- flame abstract -->
+        <ellipse cx="80" cy="42" rx="7" ry="11" fill="#c8a96e" opacity="0.35"></ellipse>
+        <ellipse cx="80" cy="38" rx="4" ry="7" fill="#c8a96e" opacity="0.65"></ellipse>
+        <!-- rising particles -->
+        <circle cx="76" cy="26" r="1.5" fill="#c8a96e" opacity="0.3"></circle>
+        <circle cx="82" cy="20" r="1" fill="#c8a96e" opacity="0.2"></circle>
+        <circle cx="79" cy="13" r="0.75" fill="#c8a96e" opacity="0.12"></circle>
+        <!-- radiating lines outward (offerings) -->
+        <line x1="56" y1="56" x2="30" y2="44" stroke="#c8a96e" stroke-width="0.5" opacity="0.2"></line>
+        <line x1="56" y1="56" x2="24" y2="60" stroke="#c8a96e" stroke-width="0.5" opacity="0.2"></line>
+        <line x1="104" y1="56" x2="130" y2="44" stroke="#c8a96e" stroke-width="0.5" opacity="0.2"></line>
+        <line x1="104" y1="56" x2="136" y2="60" stroke="#c8a96e" stroke-width="0.5" opacity="0.2"></line>
+      </svg>
+    </div>
+    <div class="dream-card" style="grid-template-columns:2rem 1fr 160px;align-items:center;gap:1.25rem">
+      <div class="dream-num">II</div>
+      <div>
+        <div class="dream-title">The Living World Engine</div>
+        <p class="dream-body">Show players the world recognizes them. Every region has a state that moves with player action. That state determines what exists — which NPCs are present, which champions surface, what the weather is, which events fire. Win too much and the darkness answers. There is no greater feeling than a world that knows you were there.</p>
+      </div>
+      <svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:90px;flex-shrink:0;display:block">
+        <rect width="160" height="90" fill="#0d0d1a"></rect>
+        <!-- horizontal state bar -->
+        <rect x="10" y="36" width="140" height="18" fill="#13131f" rx="2"></rect>
+        <!-- filled portion — contested in middle -->
+        <rect x="48" y="38" width="64" height="14" fill="#c8a96e" opacity="0.2" rx="1"></rect>
+        <!-- void danger zones -->
+        <rect x="10" y="38" width="22" height="14" fill="#e05c5c" opacity="0.25" rx="1"></rect>
+        <rect x="128" y="38" width="22" height="14" fill="#e05c5c" opacity="0.25" rx="1"></rect>
+        <!-- center dot -->
+        <circle cx="80" cy="45" r="5" fill="none" stroke="#c8a96e" stroke-width="1.2" opacity="0.7"></circle>
+        <circle cx="80" cy="45" r="2" fill="#c8a96e" opacity="0.6"></circle>
+        <!-- arrows showing movement -->
+        <line x1="80" y1="45" x2="60" y2="45" stroke="#c8a96e" stroke-width="0.75" stroke-dasharray="2,2" opacity="0.4"></line>
+        <line x1="80" y1="45" x2="100" y2="45" stroke="#c8a96e" stroke-width="0.75" stroke-dasharray="2,2" opacity="0.4"></line>
+        <!-- consequence lines below -->
+        <line x1="21" y1="56" x2="21" y2="72" stroke="#e05c5c" stroke-width="0.5" opacity="0.35"></line>
+        <line x1="139" y1="56" x2="139" y2="72" stroke="#e05c5c" stroke-width="0.5" opacity="0.35"></line>
+        <line x1="80" y1="56" x2="80" y2="72" stroke="#c8a96e" stroke-width="0.5" opacity="0.25"></line>
+      </svg>
+    </div>
+    <div class="dream-card" style="grid-template-columns:2rem 1fr 160px;align-items:center;gap:1.25rem">
+      <div class="dream-num">III</div>
+      <div>
+        <div class="dream-title">A Life Within The Game</div>
+        <p class="dream-body">Create a system where players feel as if there is a story they are taking part in, rather than just moving through. Play solo for years and never run out. Hunt bounties. Run economic espionage. Build a house. Run a harbor. The same world — radically different lives. The ambition is the sheer depth of content required to make all of it real at once.</p>
+      </div>
+      <svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg" style="width:160px;height:90px;flex-shrink:0;display:block">
+        <rect width="160" height="90" fill="#0d0d1a"></rect>
+        <!-- central circle -->
+        <circle cx="80" cy="45" r="16" fill="none" stroke="#c8a96e" stroke-width="1" opacity="0.4"></circle>
+        <!-- radial spokes — 6 paths -->
+        <line x1="80" y1="29" x2="80" y2="12" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line>
+        <line x1="94" y1="33" x2="110" y2="20" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line>
+        <line x1="96" y1="45" x2="116" y2="45" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line>
+        <line x1="94" y1="57" x2="110" y2="70" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line>
+        <line x1="66" y1="57" x2="50" y2="70" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line>
+        <line x1="64" y1="45" x2="44" y2="45" stroke="#c8a96e" stroke-width="0.75" opacity="0.3"></line>
+        <!-- dots at spoke ends -->
+        <circle cx="80" cy="10" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+        <circle cx="112" cy="18" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+        <circle cx="118" cy="45" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+        <circle cx="112" cy="72" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+        <circle cx="48" cy="72" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+        <circle cx="42" cy="45" r="2.5" fill="#c8a96e" opacity="0.5"></circle>
+      </svg>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SLIDE 9 — CLOSE
+══════════════════════════════════════════════ -->
+<div class="slide final-slide" id="slide-9">
+  <div class="rune-mark">✦</div>
+  <div class="final-line">You are born to Runeterra.</div>
+  <div class="final-line" style="color:var(--gold);margin-top:0.5rem">And Runeterra is born through you.</div>
+  <div style="margin-top:3rem;width:1px;height:4rem;background:var(--border);margin-left:auto;margin-right:auto"></div>
+  <p class="tag-line" style="margin-top:2rem">What does the future hold?</p>
+</div>
+
+</div><!-- /deck -->
+
+<!-- ══════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════ -->
+
+<!-- STORY STACK MODAL -->
+<div class="modal-overlay" id="modal-storystack">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-storystack')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Framework 01</div>
+    <h2 style="margin-bottom:0.75rem">The Story Stack</h2>
+    <p style="margin-bottom:1.25rem">The most fixed things live at the bottom. The most flexible at the top. Swap out the foundation and everything above it collapses. Applied to this MMO:</p>
+    <svg viewBox="0 0 620 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+      <!-- FANTASY -->
+      <rect x="40" y="295" width="540" height="54" fill="#c8a96e" opacity="0.92" rx="3"></rect>
+      <text x="310" y="319" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#080810" font-weight="900">FANTASY</text>
+      <text x="310" y="337" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#080810" opacity="0.75">Born to Runeterra — the unshifting core. Everything lives on this.</text>
+      <!-- example pill -->
+      <rect x="455" y="299" width="118" height="16" fill="#080810" opacity="0.2" rx="8"></rect>
+      <text x="514" y="311" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#080810">e.g. "I belong here"</text>
+
+      <!-- ACTIONS -->
+      <rect x="68" y="236" width="484" height="50" fill="#c8a96e" opacity="0.7" rx="3"></rect>
+      <text x="310" y="258" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#080810" font-weight="700">ACTIONS</text>
+      <text x="310" y="275" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#080810" opacity="0.75">What players do — crafting, combat, trading, exploring, politicking</text>
+
+      <!-- PROGRESSION -->
+      <rect x="100" y="177" width="420" height="50" fill="#c8a96e" opacity="0.5" rx="3"></rect>
+      <text x="310" y="199" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#f0ede8" font-weight="700">PROGRESSION</text>
+      <text x="310" y="216" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#f0ede8" opacity="0.75">Reputation, craft mastery, faction standing, legacy - multi axis improvement</text>
+
+      <!-- WORLD -->
+      <rect x="136" y="118" width="348" height="50" fill="#c8a96e" opacity="0.32" rx="3"></rect>
+      <text x="310" y="140" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#f0ede8" font-weight="600">WORLD</text>
+      <text x="310" y="157" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#f0ede8" opacity="0.75">Runeterra's regions, factions, cultures — built to serve the layers below</text>
+
+      <!-- STORY -->
+      <rect x="176" y="56" width="268" height="50" fill="#c8a96e" opacity="0.18" rx="3"></rect>
+      <text x="310" y="78" text-anchor="middle" font-family="Cinzel,serif" font-size="13" fill="#f0ede8" font-weight="400">STORY</text>
+      <text x="310" y="95" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" fill="#f0ede8" opacity="0.75">Authored quests, champion arcs, lore — most flexible, built last</text>
+
+      <text x="310" y="22" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#2a2a45" letter-spacing="2">MOST FLEXIBLE ↑</text>
+    </svg>
+  </div>
+</div>
+
+<!-- FANTASY TO CONTENT MODAL -->
+<div class="modal-overlay" id="modal-fantasy">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-fantasy')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Framework 02</div>
+    <h2 style="margin-bottom:0.75rem">Fantasy to Content</h2>
+    <p style="margin-bottom:1.25rem">The idea here is to start with the high level concept of the game "A LoL MMO that takes palce on Runterra", then to drill down into the Player Fantasy we're offering in that game, describe what that fantasy is, what acctions support it, and finally what content needs to be created to reinforce it.&nbsp;Every action, mechanic, and content type traces back to that description. If it doesn't — it doesn't belong.</p>
+    <svg viewBox="0 0 700 310" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+      <!-- CONCEPT -->
+      <rect x="10" y="126" width="86" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="1.5" rx="3"></rect>
+      <text x="53" y="142" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#c8a96e">GAME CONCEPT</text>
+      <text x="53" y="156" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Runeterra MMO</text>
+      <line x1="96" y1="145" x2="110" y2="145" stroke="#c8a96e" stroke-width="1"></line>
+      <polygon points="107,142 113,145 107,148" fill="#c8a96e"></polygon>
+      <!-- TITLE -->
+      <rect x="113" y="126" width="86" height="38" fill="#1a1a2e" stroke="#c8a96e" stroke-width="1.5" rx="3"></rect>
+      <text x="156" y="142" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#c8a96e">PLAYER FANTASY</text>
+      <text x="156" y="156" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Born to Runeterra</text>
+      <line x1="199" y1="145" x2="213" y2="145" stroke="#c8a96e" stroke-width="1"></line>
+      <polygon points="210,142 216,145 210,148" fill="#c8a96e"></polygon>
+      <!-- DESCRIPTION -->
+      <rect x="216" y="112" width="110" height="66" fill="#1a1a2e" stroke="#c8a96e" stroke-width="2" rx="3"></rect>
+      <text x="271" y="134" text-anchor="middle" font-family="Cinzel,serif" font-size="8.5" fill="#c8a96e">FANTASY DESCRIPTION</text>
+      <text x="271" y="148" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Living, fighting, and growing</text>
+      <text x="271" y="159" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">in the world you were born to.</text>
+      <text x="271" y="170" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Runeterra is what you make it.</text>
+      <!-- fan out lines -->
+      <line x1="326" y1="128" x2="346" y2="46" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="326" y1="136" x2="346" y2="88" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="326" y1="145" x2="346" y2="130" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="326" y1="154" x2="346" y2="172" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="326" y1="162" x2="346" y2="214" stroke="#2a2a45" stroke-width="0.75"></line>
+      <!-- ACTIONS boxes -->
+      <rect x="346" y="30" width="90" height="28" fill="#13131f" stroke="#4fc3f7" stroke-width="1" rx="2"></rect>
+      <text x="391" y="42" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#4fc3f7">ACTIONS</text>
+      <text x="391" y="53" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Fight, craft, trade</text>
+      <rect x="346" y="72" width="90" height="28" fill="#13131f" stroke="#4fc3f7" stroke-width="1" rx="2"></rect>
+      <text x="391" y="84" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#4fc3f7">ACTIONS</text>
+      <text x="391" y="95" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Join factions</text>
+      <rect x="346" y="114" width="90" height="28" fill="#13131f" stroke="#4fc3f7" stroke-width="1" rx="2"></rect>
+      <text x="391" y="126" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#4fc3f7">ACTIONS</text>
+      <text x="391" y="137" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Build reputation</text>
+      <rect x="346" y="156" width="90" height="28" fill="#13131f" stroke="#4fc3f7" stroke-width="1" rx="2"></rect>
+      <text x="391" y="168" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#4fc3f7">ACTIONS</text>
+      <text x="391" y="179" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Shape the world</text>
+      <rect x="346" y="198" width="90" height="28" fill="#13131f" stroke="#4fc3f7" stroke-width="1" rx="2"></rect>
+      <text x="391" y="210" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#4fc3f7">ACTIONS</text>
+      <text x="391" y="221" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Tell your story</text>
+      <!-- content type fans -->
+      <line x1="436" y1="44" x2="452" y2="36" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="436" y1="44" x2="452" y2="52" stroke="#2a2a45" stroke-width="0.5"></line>
+      <rect x="452" y="28" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="38" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Challenges · Locations</text>
+      <rect x="452" y="46" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="56" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Combat · Exploration</text>
+      <line x1="436" y1="86" x2="452" y2="78" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="436" y1="86" x2="452" y2="94" stroke="#2a2a45" stroke-width="0.5"></line>
+      <rect x="452" y="70" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="80" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Missions · Allegiances</text>
+      <rect x="452" y="88" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="98" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Faction events · NPCs</text>
+      <line x1="436" y1="128" x2="452" y2="120" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="436" y1="128" x2="452" y2="136" stroke="#2a2a45" stroke-width="0.5"></line>
+      <rect x="452" y="112" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="122" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Collectibles · Crafting</text>
+      <rect x="452" y="130" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="140" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Progression tracks</text>
+      <line x1="436" y1="170" x2="452" y2="162" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="436" y1="170" x2="452" y2="178" stroke="#2a2a45" stroke-width="0.5"></line>
+      <rect x="452" y="154" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="164" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Council votes · Economy</text>
+      <rect x="452" y="172" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="182" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Territory warfare</text>
+      <line x1="436" y1="212" x2="452" y2="204" stroke="#2a2a45" stroke-width="0.5"></line>
+      <line x1="436" y1="212" x2="452" y2="220" stroke="#2a2a45" stroke-width="0.5"></line>
+      <rect x="452" y="196" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="206" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Narrative quests</text>
+      <rect x="452" y="214" width="74" height="14" fill="#0d0d1a" stroke="#2a2a45" stroke-width="0.5" rx="1"></rect>
+      <text x="489" y="224" text-anchor="middle" font-family="Inter,sans-serif" font-size="6.5" fill="#8a8799">Champion encounters</text>
+      <text x="350" y="285" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">If it doesn't trace back to the fantasy — it doesn't belong.</text>
+    </svg>
+  </div>
+</div>
+
+<!-- DEMF MODAL -->
+<div class="modal-overlay" id="modal-demf">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-demf')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Framework 03</div>
+    <h2 style="margin-bottom:0.75rem">DEMF</h2>
+    <p style="margin-bottom:0.5rem">Map your core features against player expectations. Fewer Destroys than Exceeds. More Meets than either. Forgivable is fine — you can't win everywhere. Riot uses this framework too.</p>
+    <p style="margin-bottom:1.25rem;color:var(--gold);font-size:0.875rem;opacity:1">Applied to this MMO:</p>
+    <svg viewBox="0 0 620 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+      <text x="310" y="20" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#8a8799" letter-spacing="2">PLAYER EXPECTATION MAPPING</text>
+      <!-- D -->
+      <rect x="40" y="34" width="78" height="44" fill="#c8a96e" opacity="0.9" rx="2"></rect>
+      <text x="79" y="54" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#080810" font-weight="900">D</text>
+      <text x="79" y="70" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#080810">Destroys</text>
+      <text x="130" y="50" font-family="Inter,sans-serif" font-size="7.5" fill="#c8a96e">→ Environmental storytelling · World reactivity · Player legacy</text>
+      <!-- E -->
+      <rect x="40" y="90" width="130" height="44" fill="#c8a96e" opacity="0.62" rx="2"></rect>
+      <text x="105" y="110" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#080810" font-weight="700">E</text>
+      <text x="105" y="126" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#080810">Exceeds</text>
+      <text x="182" y="106" font-family="Inter,sans-serif" font-size="7.5" fill="#c8a96e">→ Faction depth · Crafting paths · Social systems</text>
+      <!-- M -->
+      <rect x="40" y="146" width="200" height="44" fill="#c8a96e" opacity="0.38" rx="2"></rect>
+      <text x="140" y="166" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#f0ede8" font-weight="600">M</text>
+      <text x="140" y="182" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#f0ede8">Meets</text>
+      <text x="252" y="162" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">→ Combat · Quests · Character progression</text>
+      <!-- F -->
+      <rect x="40" y="202" width="260" height="44" fill="#c8a96e" opacity="0.14" rx="2"></rect>
+      <text x="170" y="222" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#f0ede8" font-weight="300">F</text>
+      <text x="170" y="238" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">Forgivable</text>
+      <text x="312" y="218" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">→ Graphics parity with top-tier · Launch content breadth</text>
+      <text x="310" y="270" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Width = relative count of features at that level.</text>
+    </svg>
+  </div>
+</div>
+
+<!-- SAME / IMPROVED / NEW MODAL -->
+<div class="modal-overlay" id="modal-sin">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-sin')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Framework 04</div>
+    <h2 style="margin-bottom:0.75rem">Same / Improved / New</h2>
+    <p style="margin-bottom:1.25rem">A scoping model for feature mix. Players trust the familiar — it makes the game legible on day one. They stay for the improved. They tell their friends about the new. Applied to this MMO:</p>
+    <svg viewBox="0 0 620 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+      <rect x="40" y="30" width="270" height="54" fill="#c8a96e" opacity="0.2" rx="2"></rect>
+      <text x="175" y="52" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#c8a96e">SAME</text>
+      <text x="175" y="68" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">~50%+ — Combat, quests, leveling, crafting, PvP zones</text>
+      <rect x="40" y="92" width="200" height="54" fill="#c8a96e" opacity="0.5" rx="2"></rect>
+      <text x="140" y="114" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#c8a96e">IMPROVED</text>
+      <text x="140" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">30–40% — Environmental storytelling, faction systems, reputation</text>
+      <rect x="40" y="154" width="110" height="54" fill="#c8a96e" opacity="0.88" rx="2"></rect>
+      <text x="95" y="176" text-anchor="middle" font-family="Cinzel,serif" font-size="12" fill="#080810" font-weight="900">NEW</text>
+      <text x="95" y="192" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#080810">~15% — Living World Engine, Offerings, Council System</text>
+      <text x="310" y="115" text-anchor="middle" font-family="Inter,sans-serif" font-size="8.5" fill="#8a8799">Players need to trust the genre</text>
+      <text x="310" y="130" text-anchor="middle" font-family="Inter,sans-serif" font-size="8.5" fill="#8a8799">before they'll follow you</text>
+      <text x="310" y="145" text-anchor="middle" font-family="Inter,sans-serif" font-size="8.5" fill="#8a8799">somewhere they've never been.</text>
+    </svg>
+  </div>
+</div>
+
+<!-- VENN / SYSTEMS COLLISION MODAL -->
+<div class="modal-overlay" id="modal-venn">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-venn')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Systems Collision</div>
+    <h2 style="margin-bottom:0.75rem">The Untelegraphed Moment</h2>
+    <p style="margin-bottom:1.25rem">Three independent systems — day/night cycle, roaming enemies, a meteor event — fire simultaneously. No designer planned the outcome. Players generated it. This is the model.</p>
+    <svg viewBox="0 0 680 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+      <!-- Circles -->
+      <circle cx="200" cy="165" r="100" fill="#c8a96e" fill-opacity="0.07" stroke="#c8a96e" stroke-width="1" stroke-opacity="0.5"></circle>
+      <circle cx="320" cy="165" r="100" fill="#4fc3f7" fill-opacity="0.06" stroke="#4fc3f7" stroke-width="1" stroke-opacity="0.4"></circle>
+      <circle cx="260" cy="85" r="90" fill="#e05c5c" fill-opacity="0.06" stroke="#e05c5c" stroke-width="1" stroke-opacity="0.4"></circle>
+      <!-- System labels -->
+      <text x="148" y="192" text-anchor="middle" font-family="Cinzel,serif" font-size="8.5" fill="#c8a96e">DAY / NIGHT</text>
+      <text x="148" y="204" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">CYCLE</text>
+      <text x="372" y="192" text-anchor="middle" font-family="Cinzel,serif" font-size="8.5" fill="#4fc3f7">ROAMING</text>
+      <text x="372" y="204" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">ENEMIES</text>
+      <text x="260" y="32" text-anchor="middle" font-family="Cinzel,serif" font-size="8.5" fill="#e05c5c">METEOR</text>
+      <text x="260" y="44" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.5" fill="#8a8799">EVENT</text>
+      <!-- Center -->
+      <text x="260" y="132" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#f0ede8">COLLISION</text>
+      <text x="260" y="146" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">untelegraphed</text>
+      <!-- Outcomes -->
+      <line x1="360" y1="105" x2="430" y2="65" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="360" y1="125" x2="430" y2="105" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="360" y1="155" x2="430" y2="155" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="360" y1="185" x2="430" y2="205" stroke="#2a2a45" stroke-width="0.75"></line>
+      <line x1="360" y1="205" x2="430" y2="253" stroke="#2a2a45" stroke-width="0.75"></line>
+      <text x="434" y="68" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Enemies drawn to meteor glow, ambushed by wildlife</text>
+      <text x="434" y="108" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Players harvest resources from crash site as enemies arrive</text>
+      <text x="434" y="158" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Daytime fight interrupted by impact — chaos for everyone</text>
+      <text x="434" y="208" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Wildlife flees crater, floods areas they don't normally go</text>
+      <text x="434" y="256" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Players follow wildlife trail into uncharted territory</text>
+      <text x="340" y="295" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">Add: The Council System. Players vote on what to do with the crater. The world responds to that choice.</text>
+      <text x="340" y="315" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#c8a96e">City of Heroes — the Walmart greeter, the protection guild. We built the conditions. Players made the legend.</text>
+      <text x="340" y="335" text-anchor="middle" font-family="Cinzel,serif" font-size="7.5" fill="#c8a96e">Ghost of Tsushima — the Ronin town. The world communicated consequence through environment alone.</text>
+    </svg>
+  </div>
+</div>
+
+<!-- LIVING WORLD ENGINE MODAL -->
+<div class="modal-overlay" id="modal-worldengine">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-worldengine')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Living World Engine</div>
+    <h2 style="margin-bottom:0.75rem">Dynamic World State — Freljord</h2>
+    <p style="margin-bottom:0.75rem">Player action moves the state. The state determines what exists in the world at any moment — NPCs, quests, weather, champions, events. Extreme dominance in either direction triggers a Void surge. Balance can never hold forever. That's the drama.</p>
+    <svg viewBox="0 0 660 390" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">
+      <text x="14" y="60" font-family="Cinzel,serif" font-size="8" fill="#8a8799" transform="rotate(-90,14,165)" text-anchor="middle">STABILITY</text>
+      <line x1="40" y1="30" x2="40" y2="320" stroke="#2a2a45" stroke-width="1"></line>
+      <text x="44" y="40" font-family="Inter,sans-serif" font-size="7" fill="#e05c5c">CHAOS</text>
+      <text x="44" y="318" font-family="Inter,sans-serif" font-size="7" fill="#4fc3f7">ORDER</text>
+      <line x1="40" y1="320" x2="640" y2="320" stroke="#2a2a45" stroke-width="1"></line>
+      <text x="44" y="336" font-family="Inter,sans-serif" font-size="7" fill="#c8a96e">AVAROSAN</text>
+      <text x="340" y="336" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">CONTESTED</text>
+      <text x="590" y="336" font-family="Inter,sans-serif" font-size="7" fill="#4fc3f7">WINTER'S CLAW</text>
+      <!-- Void surge zones -->
+      <rect x="41" y="31" width="148" height="160" fill="#e05c5c" opacity="0.07" rx="0"></rect>
+      <text x="115" y="108" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#e05c5c" opacity="0.8">VOID SURGE</text>
+      <text x="115" y="122" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Factions unite or fall</text>
+      <text x="115" y="134" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Champions emerge</text>
+      <text x="115" y="146" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Reset follows</text>
+      <rect x="491" y="31" width="148" height="160" fill="#e05c5c" opacity="0.07" rx="0"></rect>
+      <text x="565" y="108" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#e05c5c" opacity="0.8">VOID SURGE</text>
+      <text x="565" y="122" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Balance broken</text>
+      <text x="565" y="134" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Darkness answers</text>
+      <text x="565" y="146" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Reset follows</text>
+      <!-- Start point -->
+      <rect x="266" y="152" width="148" height="104" fill="#c8a96e" opacity="0.07" rx="0"></rect>
+      <text x="340" y="198" text-anchor="middle" font-family="Cinzel,serif" font-size="9" fill="#c8a96e">START</text>
+      <circle cx="340" cy="210" r="9" fill="none" stroke="#c8a96e" stroke-width="1.5"></circle>
+      <!-- State descriptions -->
+      <text x="115" y="230" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#c8a96e">Avarosan</text>
+      <text x="115" y="244" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Trade routes open</text>
+      <text x="115" y="255" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Ashe's emissaries</text>
+      <text x="115" y="266" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Peace quests surge</text>
+      <text x="565" y="230" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#4fc3f7">Winter's Claw</text>
+      <text x="565" y="244" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Raids intensify</text>
+      <text x="565" y="255" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Sejuani banners</text>
+      <text x="565" y="266" text-anchor="middle" font-family="Inter,sans-serif" font-size="7" fill="#8a8799">Combat quests surge</text>
+      <!-- footer -->
+      <rect x="41" y="344" width="598" height="1" fill="#2a2a45"></rect>
+      <text x="340" y="362" text-anchor="middle" font-family="Inter,sans-serif" font-size="8" fill="#8a8799">State controls: NPC presence · quests · weather · champion appearances · event triggers · environmental mood</text>
+      <text x="340" y="378" text-anchor="middle" font-family="Cinzel,serif" font-size="8" fill="#c8a96e">A balance can never be maintained for long. That's the point.</text>
+    </svg>
+  </div>
+</div>
+
+<!-- NAV ARROWS -->
+<div class="slide-nav">
+  <button class="slide-btn" id="prevBtn" onclick="changeSlide(-1)">←</button>
+  <button class="slide-btn" id="nextBtn" onclick="changeSlide(1)">→</button>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const navDots = document.getElementById('navDots');
+const navCounter = document.getElementById('navCounter');
+let current = 0;
+
+slides.forEach((_, i) => {
+  const dot = document.createElement('button');
+  dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+  dot.onclick = () => goTo(i);
+  navDots.appendChild(dot);
+});
+
+function updateNav() {
+  document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i === current));
+  navCounter.textContent = `${current + 1} / ${slides.length}`;
+  document.getElementById('prevBtn').disabled = current === 0;
+  document.getElementById('nextBtn').disabled = current === slides.length - 1;
+}
+
+function goTo(n) {
+  slides[current].classList.remove('active');
+  current = Math.max(0, Math.min(n, slides.length - 1));
+  slides[current].classList.add('active');
+  updateNav();
+  window.scrollTo(0, 0);
+}
+
+function changeSlide(dir) { goTo(current + dir); }
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => {
+      m.classList.remove('open');
+      document.body.style.overflow = '';
+    });
+  }
+  if (document.querySelectorAll('.modal-overlay.open').length > 0) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') changeSlide(-1);
+});
+
+updateNav();
+
+function selectPanel(index) {
+  document.querySelectorAll('.ff-panel').forEach((p, i) => p.classList.toggle('active', i === index));
+  document.querySelectorAll('.ff-text').forEach(t => t.classList.remove('active', 'visible'));
+  const target = document.querySelector(`.ff-text[data-index="${index}"]`);
+  if (target) {
+    target.classList.add('active');
+    requestAnimationFrame(() => requestAnimationFrame(() => target.classList.add('visible')));
+  }
+}
+
+function switchTab(slideId, tabId) {
+  const allBtns = document.querySelectorAll(`button[onclick*="switchTab('${slideId}'"]`);
+  allBtns.forEach(b => b.classList.remove('active'));
+  document.querySelectorAll(`[id^="${slideId}-"]`).forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const panel = document.getElementById(`${slideId}-${tabId}`);
+  if (panel) panel.classList.add('active');
+}
+
+function switchCDTab(tabId) {
+  document.querySelectorAll('#modal-cdartifacts .tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('[id^="cdtab-"]').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const panel = document.getElementById('cdtab-' + tabId);
+  if (panel) panel.classList.add('active');
+}
+</script>
+
+
+
+<!-- ══ MODAL: CD ARTIFACTS ══ -->
+<div class="modal-overlay" id="modal-cdartifacts">
+  <div class="modal-box" style="max-width:960px">
+    <button class="modal-close" onclick="closeModal('modal-cdartifacts')">✕</button>
+    <div class="eyebrow" style="margin-bottom:0.75rem">Framework 03</div>
+    <h2 style="margin-bottom:0.5rem">Bringing Creative Direction to Life</h2>
+    <p style="margin-bottom:1.5rem">Four artifacts that translate creative direction from concept into something a team can feel, reference, and build from.</p>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchCDTab('story')">Story Pitch</button>
+      <button class="tab-btn" onclick="switchCDTab('tone')">Tone Video</button>
+      <button class="tab-btn" onclick="switchCDTab('feels')">Feels Video</button>
+      <button class="tab-btn" onclick="switchCDTab('playable')">AI Playable</button>
+    </div>
+    <div class="tab-panel active" id="cdtab-story" style="padding:1.25rem">
+      <h3 style="margin-bottom:0.4rem">Story Pitch</h3>
+      <p style="font-size:0.875rem;max-width:100%;margin-bottom:1rem">A 20-page document: 10 pages of found art that captures the world's visual feeling, 10 pages of text covering what's unique, the genre, key characters, and what this game is a love letter to. The first artifact that makes the game feel real to a team that hasn't seen it yet.</p>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1.5rem">Reference example: Stranger Things series bible.</p>
+      <div style="text-align:center">
+        <a href="https://superscout.ai/downloads/Stranger_Things_-_Bible.pdf" target="_blank" rel="noopener" style="display:inline-block;padding:0.875rem 2rem;background:var(--raised);border:1px solid var(--gold);font-family:Cinzel,serif;font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);text-decoration:none">Open Story Pitch PDF ↗</a>
+      </div>
+    </div>
+    <div class="tab-panel" id="cdtab-tone" style="padding:1.25rem">
+      <h3 style="margin-bottom:0.4rem">Tone Video</h3>
+      <p style="font-size:0.875rem;max-width:100%;margin-bottom:1.5rem">Found media — film, anime, TV — cut to a piece of music that captures the world's emotional register. 2–3 minutes. The fastest way to align a team on tone before a word of design is written.</p>
+      <div style="text-align:center">
+        <a href="https://youtu.be/sDxRg38F-sU" target="_blank" rel="noopener" style="display:inline-block;padding:0.875rem 2rem;background:var(--raised);border:1px solid var(--gold);font-family:Cinzel,serif;font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);text-decoration:none">Watch Tone Video ↗</a>
+      </div>
+    </div>
+    <div class="tab-panel" id="cdtab-feels" style="padding:1.25rem">
+      <h3 style="margin-bottom:0.75rem">Feels Video</h3>
+      <p style="font-size:0.875rem;max-width:100%;margin-bottom:1rem">Longer than the tone video. Focused on specific gameplay experiences — existing game footage and found media cut together to capture what a given moment should <em style="font-style:normal;color:var(--gold)">feel</em> like. One per major experience pillar.</p>
+      <div style="border:1px solid var(--border);background:var(--surface);padding:3rem;text-align:center">
+        <div style="font-family:Cinzel,serif;font-size:0.7rem;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase">Coming Soon</div>
+      </div>
+    </div>
+    <div class="tab-panel" id="cdtab-playable" style="padding:1.25rem">
+      <h3 style="margin-bottom:0.4rem">AI Playable</h3>
+      <p style="font-size:0.875rem;max-width:100%;margin-bottom:1.5rem">Existing concept art assembled into a rough interactive walkthrough — the core loop, characters, how narrative and systems are introduced. Built with Claude Code. Proof of concept before a line of production code is written.</p>
+      <div style="text-align:center">
+        <a href="https://youtu.be/qrppWqvwLzk" target="_blank" rel="noopener" style="display:inline-block;padding:0.875rem 2rem;background:var(--raised);border:1px solid var(--rune);font-family:Cinzel,serif;font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--rune);text-decoration:none">Watch AI Playable ↗</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -36,6 +36,26 @@
     "👗":"Dress","👚":"Blouse","🧥":"Coat","🦺":"Vest","👔":"Tie","🩳":"Shorts","🧤":"Gloves","👒":"Sun hat",
     "🎩":"Top hat","👞":"Dress shoe","👠":"Heel","👡":"Sandal","👢":"Boot","🥿":"Flat","👜":"Handbag","👛":"Purse",
     "🕶️":"Sunglasses","👓":"Glasses","⌚":"Watch","💍":"Ring","🎀":"Bow","📿":"Beads","🧶":"Yarn","🧵":"Thread","🪡":"Needle",
-    "🗝️":"Old key"
+    "🗝️":"Old key",
+
+    "🧩":"Jigsaw piece","🪀":"Yo-yo","🪁":"Kite","🎈":"Balloon","🪅":"Piñata",
+    "🎲":"Dice","🀄":"Mahjong tile","🎯":"Dartboard","🎮":"Controller","🕹️":"Joystick",
+
+    "🎸":"Guitar","🎺":"Trumpet","🎷":"Saxophone","🪕":"Banjo","🪗":"Accordion","🥁":"Drum","🎹":"Keyboard",
+    "🎤":"Microphone","🎧":"Headphones","📯":"Bugle","🔔":"Bell",
+
+    "⚽":"Football","🏀":"Basketball","🎾":"Tennis ball","🏈":"Rugby ball","⚾":"Baseball",
+    "🏐":"Volleyball","🥎":"Softball","🎱":"Eight ball","🎳":"Bowling ball",
+    "🥊":"Boxing glove","🛼":"Roller skate","🛹":"Skateboard","🏒":"Hockey stick","🏑":"Field hockey stick",
+    "🥅":"Goal net","🏓":"Ping-pong bat","🏸":"Badminton racquet",
+
+    "🍷":"Wine glass","🍾":"Champagne","🥂":"Toasting glasses",
+    "🥃":"Tumbler","🍸":"Martini","🍹":"Cocktail","🍺":"Beer","🧊":"Ice",
+
+    "🔭":"Telescope","🧭":"Compass","🔬":"Microscope",
+    "🗺️":"Map","📜":"Scroll","🪐":"Ringed planet","🌙":"Crescent moon","🌠":"Shooting star","🛰️":"Satellite",
+
+    "🎄":"Christmas tree","🎃":"Pumpkin","🎁":"Present","🏮":"Paper lantern","🪔":"Oil lamp",
+    "🎊":"Confetti ball","🎉":"Party popper"
   }
 }

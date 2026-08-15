@@ -39,6 +39,25 @@
   radial-gradient(circle at 20% 30%, rgba(0,0,0,.06) 4px, transparent 5px) 0 0/70px 70px,
   #9a8a5f;}
 .floor-secret{background:radial-gradient(circle at 50% 40%, #7d6a9e, #5d4d7a 75%);}
+/* Foam play mat: big interlocking squares, the one floor in the house that is
+   deliberately louder than the clutter on it. */
+.floor-playroom{background:
+  repeating-conic-gradient(#c98a86 0% 25%, #b9776f 0% 50%) 0 0/92px 92px;}
+/* Studio parquet, laid on the diagonal. */
+.floor-music{background:
+  repeating-linear-gradient(45deg,#7a5a3d 0 26px,#6d4f34 26px 52px),#7a5a3d;}
+/* Rubber matting, dimpled. */
+.floor-mudroom{background:
+  radial-gradient(circle at 50% 50%, rgba(0,0,0,.10) 3px, transparent 4px) 0 0/26px 26px,
+  #6f6f6a;}
+/* Cellar flagstones: staggered courses of cut stone. */
+.floor-cellar{background:
+  repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 2px,transparent 2px 58px),
+  repeating-linear-gradient(90deg,rgba(0,0,0,.22) 0 2px,transparent 2px 84px),
+  #6b6258;}
+/* The tower: a dark chamber with the dome's light coming down the middle. */
+.floor-observatory{background:
+  radial-gradient(circle at 50% 45%, #4a4a76 0%, #33335a 55%, #24243f 100%);}
 
 /* ---------- A FINISHED ROOM ----------
    This used to drop a decorative prop on the floor (a cat, a lit lamp, a
@@ -80,9 +99,16 @@
   position:absolute;z-index:6;pointer-events:none;
   font-size:calc(clamp(6px, 1.1vmin, 10px) / var(--fit,1));
   font-weight:800;letter-spacing:.18em;text-transform:uppercase;
-  color:rgba(255,255,255,.75);
+  color:rgba(255,255,255,.8);
   text-shadow:0 1px 3px rgba(0,0,0,.7);
   white-space:nowrap;
+  /* Its own plate. In a small round room the furniture sits close to the wall
+     and this landed straight on top of a furniture name — two labels sharing
+     the same pixels, neither readable. A backing pill separates them without
+     moving anything. */
+  padding:calc(2px / var(--fit,1)) calc(6px / var(--fit,1));
+  border-radius:999px;
+  background:rgba(20,14,8,.42);
 }
 .doorlab.N{top:calc(34px / var(--fit,1));left:50%;transform:translateX(-50%)}
 .doorlab.S{bottom:calc(34px / var(--fit,1));left:50%;transform:translateX(-50%)}

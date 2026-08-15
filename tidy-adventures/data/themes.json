@@ -5,13 +5,18 @@
     "",
     "Room ids must exist in rooms.json.",
     "Shapes: \"rect\" (default), \"round\", \"hex\" — all three are implemented in",
-    "css/room.css and in inShape() in js/geometry.js."
+    "css/room.css and in inShape() in js/geometry.js. This list is the pool a room",
+    "draws from; a room in rooms.json can pin its own \"shape\" and ignore it.",
+    "",
+    "A theme may list far more rooms than a house has cells (the grid holds 9).",
+    "That surplus IS the variety: each run draws a different subset."
   ],
   "themes": {
     "house": {
       "label": "House",
       "shapes": ["rect"],
-      "rooms": ["kitchen","garage","bathroom","office","closet","attic","shed","secret","bedroom"]
+      "rooms": ["kitchen","garage","bathroom","office","closet","attic","shed","secret","bedroom",
+                "playroom","music","mudroom","cellar","observatory"]
     }
   },
   "defaultTheme": "house"
