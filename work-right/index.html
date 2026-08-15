@@ -1,0 +1,2536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Deliverables</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(135deg, #f5f5f4 0%, #efefee 100%);
+    color: #0b0b0b;
+    padding: 2rem;
+    line-height: 1.6;
+    font-size: 18px;
+  }
+  body.dark-mode {
+    background: linear-gradient(135deg, #1a1a19 0%, #242423 100%);
+    color: #ffffff;
+  }
+
+  button { color: inherit; font-family: inherit; }
+
+  .container { max-width: 1280px; margin: 0 auto; }
+
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 2rem; padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  body.dark-mode .header { border-bottom-color: rgba(255,255,255,0.1); }
+  .header-content h1 { font-size: 32px; font-weight: 600; margin-bottom: 0.4rem; }
+  .header-content .sub1 { font-size: 20px; opacity: 0.7; }
+  .header-content .sub2 { font-size: 16px; opacity: 0.55; font-style: italic; margin-top: 0.3rem; }
+
+  .theme-toggle {
+    background: rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px; padding: 8px 14px; cursor: pointer;
+    font-size: 16px; font-weight: 500; transition: all 0.2s;
+  }
+  body.dark-mode .theme-toggle { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+  .theme-toggle:hover { background: rgba(0,0,0,0.1); }
+  body.dark-mode .theme-toggle:hover { background: rgba(255,255,255,0.15); }
+
+  .gear-wrap { position: relative; }
+  .gear-menu {
+    display: none; position: absolute; right: 0; top: calc(100% + 8px);
+    background: white; border: 1px solid rgba(0,0,0,0.12); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 6px; z-index: 50;
+    min-width: 280px;
+  }
+  body.dark-mode .gear-menu { background: #2c2c2b; border-color: rgba(255,255,255,0.15); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .gear-menu.open { display: block; }
+  .gear-item {
+    display: block; width: 100%; text-align: left; background: transparent;
+    border: none; font-size: 16px; padding: 10px 14px; border-radius: 6px; cursor: pointer;
+  }
+  .gear-item:hover { background: rgba(0,0,0,0.06); }
+  body.dark-mode .gear-item:hover { background: rgba(255,255,255,0.08); }
+
+  .config-badge {
+    display: inline-flex; align-items: center; gap: 8px; margin-top: 8px;
+    font-size: 14px; font-weight: 600; opacity: 0.75;
+  }
+  .config-badge .lock-pill {
+    background: rgba(214,69,69,0.12); border: 1px solid rgba(214,69,69,0.45);
+    color: #d64545; border-radius: 10px; padding: 1px 10px; font-size: 13px;
+  }
+  .lock-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1e3a5f; color: #d4a574; border: 1px solid #d4a574;
+    border-radius: 10px; padding: 10px 20px; font-size: 15px; font-weight: 600;
+    z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .lock-toast.show { opacity: 1; }
+
+  .tab-nav {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  body.dark-mode .tab-nav { border-bottom-color: rgba(255,255,255,0.1); }
+  .tab-button {
+    padding: 12px 16px; background: transparent; border: none;
+    border-bottom: 3px solid transparent; cursor: pointer;
+    font-size: 18px; font-weight: 500; opacity: 0.6; transition: all 0.2s;
+  }
+  .tab-button:hover { opacity: 0.85; }
+  .tab-button.active { opacity: 1; border-bottom-color: #3987e5; color: #3987e5; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .category { margin-bottom: 3rem; }
+  .category-title {
+    font-size: 16px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; opacity: 0.6; margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: white; border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 8px; padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    transition: all 0.2s;
+  }
+  body.dark-mode .card { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .card:hover { box-shadow: 0 6px 14px rgba(0,0,0,0.10); }
+  body.dark-mode .card:hover { box-shadow: 0 6px 14px rgba(0,0,0,0.35); }
+  .card.inactive { opacity: 0.4; }
+
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .card-title { font-size: 22px; font-weight: 600; }
+  .card-desc { font-size: 17px; opacity: 0.7; line-height: 1.45; }
+
+  .active-toggle {
+    font-size: 13px; font-weight: 600; padding: 4px 12px;
+    border-radius: 12px; cursor: pointer; white-space: nowrap;
+    border: 1px solid #1baf7a; background: rgba(27,175,122,0.12); color: #1baf7a;
+  }
+  .active-toggle.off {
+    border-color: rgba(120,120,120,0.5); background: transparent; color: inherit; opacity: 0.6;
+  }
+
+  .prio-toggle {
+    font-size: 13px; font-weight: 700; padding: 4px 12px;
+    border-radius: 12px; cursor: pointer; white-space: nowrap;
+    border: 1px solid; background: transparent; letter-spacing: 0.3px;
+  }
+  .prio-toggle.p-wont   { border-color: rgba(120,120,120,0.5); color: #8a8a8a; }
+  .prio-toggle.p-could  { border-color: rgba(120,120,120,0.4); color: inherit; opacity: 0.65; }
+  .prio-toggle.p-should { border-color: #d97706; color: #d97706; background: rgba(217,119,6,0.10); }
+  .prio-toggle.p-must   { border-color: #bf6a6a; color: #bf6a6a; background: rgba(191,106,106,0.10); }
+
+  .card.prio-wont, .napkin-row.prio-wont { opacity: 0.22; filter: grayscale(0.7); }
+  .card.prio-should, .napkin-row.prio-should { border-color: rgba(217,119,6,0.5); }
+  .card.prio-must, .napkin-row.prio-must { border-color: rgba(191,106,106,0.55); }
+
+  .card-toggles { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.06); }
+  body.dark-mode .card-toggles { border-top-color: rgba(255,255,255,0.06); }
+
+  .need-toggle {
+    font-size: 14px; font-weight: 500; padding: 4px 10px; border-radius: 4px;
+    border: 1px dashed rgba(0,0,0,0.25); background: transparent;
+    cursor: pointer; opacity: 0.45; transition: all 0.15s;
+  }
+  body.dark-mode .need-toggle { border-color: rgba(255,255,255,0.3); }
+  .need-toggle:hover { opacity: 0.8; }
+  .need-toggle.on {
+    background: #1e3a5f;
+    border: 1px solid #d4a574;
+    color: #d4a574;
+    opacity: 1;
+  }
+  .need-toggle.on.d2 { border-width: 2px; font-weight: 600; }
+  .need-toggle.on.d3 { border-width: 3px; font-weight: 700; }
+  .need-toggle.on.d4 { border-width: 3px; font-weight: 700; box-shadow: 0 0 0 1px #d4a574; }
+  .need-toggle.on.d5 { border-width: 3px; font-weight: 800; box-shadow: 0 0 0 2px #d4a574; }
+
+  .cat-bar { width: 5px; border-radius: 3px; flex: 0 0 5px; align-self: stretch; }
+
+  .effort-key {
+    font-size: 14px; opacity: 0.6; margin-bottom: 1.25rem; line-height: 1.5;
+  }
+
+  /* Boards */
+  .totals-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.75rem; }
+  .load-details { margin-top: 1.5rem; }
+  .load-details summary {
+    cursor: pointer; font-size: 16px; font-weight: 600; opacity: 0.7;
+    padding: 8px 0;
+  }
+  .total-chip {
+    background: white; border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 16px; padding: 6px 14px; font-size: 15px;
+  }
+  body.dark-mode .total-chip { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .total-chip strong { font-weight: 600; }
+  .total-chip .total-num { color: #3987e5; font-weight: 600; }
+  .total-chip.hot { border-color: rgba(214,69,69,0.5); }
+  .total-chip.hot .total-num { color: #d64545; }
+  .total-chip .overhead { opacity: 0.6; font-style: italic; }
+
+  .roster-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 1.25rem; }
+  .roster-card {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 10px 16px; min-width: 130px; text-align: center;
+  }
+  body.dark-mode .roster-card { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .roster-name { font-size: 16px; font-weight: 600; }
+  .roster-skill-grid { display: flex; justify-content: center; gap: 12px; margin: 6px 0; flex-wrap: wrap; }
+  .roster-skill { display: flex; flex-direction: column; align-items: center; }
+  .roster-skill-count { font-size: 18px; font-weight: 600; color: #d4a574; line-height: 1.2; }
+  .roster-skill-name { font-size: 11px; opacity: 0.55; max-width: 130px; line-height: 1.2; }
+  .verdict-banner {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 1.5rem 2rem; margin-bottom: 1.5rem;
+  }
+  body.dark-mode .verdict-banner { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .verdict-line { font-size: 22px; font-weight: 600; line-height: 1.45; margin-bottom: 8px; }
+  .verdict-sub { font-size: 16px; opacity: 0.7; line-height: 1.5; }
+  .verdict-nums { font-size: 17px; margin-top: 12px; }
+
+  .group-cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 2rem; }
+  .group-card {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 12px 18px; text-align: center; min-width: 130px;
+  }
+  body.dark-mode .group-card { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .group-card .g-emoji { font-size: 32px; }
+  .group-card .g-name { font-size: 15px; font-weight: 600; }
+  .group-card .g-nums { font-size: 14px; opacity: 0.65; }
+  .group-card .g-pct { font-size: 20px; font-weight: 700; }
+
+  .sum-team { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 2rem; }
+  .sum-person {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 12px 16px; text-align: center; min-width: 120px;
+  }
+  body.dark-mode .sum-person { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .sum-person .p-emoji { font-size: 36px; }
+  .sum-person .p-name { font-size: 16px; font-weight: 600; }
+  .sum-person .p-title { font-size: 12px; opacity: 0.6; line-height: 1.3; }
+
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 1rem; }
+  .filter-label { font-size: 13px; font-weight: 600; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; margin-left: 10px; }
+  .filter-chip {
+    font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 12px;
+    border: 1px solid rgba(128,128,128,0.4); background: transparent; cursor: pointer; opacity: 0.45;
+  }
+  .filter-chip.on { border-color: #3987e5; color: #3987e5; opacity: 1; background: rgba(57,135,229,0.08); }
+
+  .sum-row {
+    display: flex; align-items: center; gap: 10px;
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px;
+    padding: 6px 12px; margin-bottom: 6px;
+  }
+  body.dark-mode .sum-row { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .sum-row.inactive { opacity: 0.4; }
+  .sum-row .cat-bar { align-self: stretch; }
+  .sum-title { flex: 1; font-size: 17px; font-weight: 500; cursor: help; }
+  .sum-weeks { font-size: 14px; opacity: 0.45; min-width: 44px; text-align: right; }
+
+  .staff-title-line { font-size: 13px; opacity: 0.6; margin-top: -2px; }
+
+  .skill-pair { display: inline-flex; align-items: center; gap: 1px; margin-right: 18px; position: relative; }
+  .skill-pair::after {
+    content: '|'; position: absolute; right: -12px;
+    opacity: 0.2; font-weight: 300; pointer-events: none;
+  }
+  .skill-pair:last-child::after { content: ''; }
+
+  .card-digest {
+    font-size: 13.5px; opacity: 0.8; padding-top: 8px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+  body.dark-mode .card-digest { border-top-color: rgba(255,255,255,0.06); }
+  .card-details { border-top: 1px solid rgba(0,0,0,0.06); }
+  body.dark-mode .card-details { border-top-color: rgba(255,255,255,0.06); }
+  .card-details summary {
+    cursor: pointer; font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; opacity: 0.45; padding: 8px 0 4px;
+  }
+  .card-details summary:hover { opacity: 0.8; }
+  .detail-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; opacity: 0.5; margin: 8px 0 4px;
+  }
+
+  .capacity-banner {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 14px 18px; margin-bottom: 1.25rem; font-size: 17px; line-height: 1.5;
+  }
+  body.dark-mode .capacity-banner { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .capacity-pct { font-size: 22px; font-weight: 700; }
+  .capacity-fine { font-size: 13px; opacity: 0.5; font-style: italic; margin-top: 4px; }
+
+  .roster-breakdown { font-size: 12px; opacity: 0.55; margin-bottom: 2px; }
+  .roster-count { font-size: 20px; font-weight: 600; color: #3987e5; }
+  .roster-count.hot { color: #d64545; }
+
+  .gaps-banner {
+    background: rgba(214,69,69,0.08); border: 1px solid rgba(214,69,69,0.3);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 1rem;
+    font-size: 16px; line-height: 1.5;
+  }
+
+  .staff-section {
+    background: rgba(30,58,95,0.06); border: 1px solid rgba(30,58,95,0.35);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 1.25rem;
+    font-size: 16px; line-height: 1.5;
+  }
+  body.dark-mode .staff-section { background: rgba(212,165,116,0.06); border-color: rgba(212,165,116,0.35); }
+  .staff-title { font-weight: 600; margin-bottom: 8px; }
+  .staff-note { font-size: 13px; opacity: 0.55; font-style: italic; margin-top: 8px; }
+
+  /* Needed Staff person cards */
+  .person-card {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px;
+    padding: 20px 18px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  body.dark-mode .person-card { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .person-role {
+    font-size: 18px; font-weight: 700; color: #d4a574;
+    background: #1e3a5f; border: 1px solid #d4a574; border-radius: 8px;
+    padding: 4px 14px;
+  }
+  .person-emoji { font-size: 64px; line-height: 1.1; }
+  .person-need { font-size: 16px; font-weight: 600; color: #d64545; }
+  .person-tasks { text-align: left; width: 100%; margin-top: 8px; font-size: 14px; line-height: 1.55; opacity: 0.8; }
+  .person-tasks li { margin-left: 18px; margin-bottom: 3px; }
+  .person-tasks .offload { font-style: italic; opacity: 0.85; }
+
+  .napkin-reset {
+    font-size: 14px; background: transparent; border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; opacity: 0.6; margin-bottom: 1rem;
+  }
+  body.dark-mode .napkin-reset { border-color: rgba(255,255,255,0.2); }
+
+  .napkin-row {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 12px 16px; margin-bottom: 10px;
+    display: flex; align-items: stretch; gap: 14px;
+  }
+  body.dark-mode .napkin-row { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .napkin-row.inactive { opacity: 0.35; }
+  .napkin-row-body { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .napkin-row-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .napkin-row-title { font-size: 19px; font-weight: 600; }
+  .napkin-toggles { display: flex; flex-wrap: wrap; gap: 5px; }
+  .napkin-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .napkin-head-right { display: flex; align-items: center; gap: 10px; }
+
+  .person-chip {
+    font-size: 14px; font-weight: 500; padding: 4px 12px; border-radius: 14px;
+    border: 1px solid rgba(0,0,0,0.15); background: transparent;
+    cursor: pointer; opacity: 0.5; transition: all 0.15s;
+  }
+  body.dark-mode .person-chip { border-color: rgba(255,255,255,0.2); }
+  .person-chip:hover { opacity: 0.85; }
+  .person-chip.assigned { background: #3987e5; border-color: #3987e5; color: white; opacity: 1; }
+
+  .napkin-needs { font-size: 14px; font-weight: 600; color: #d64545; text-align: right; }
+  .napkin-needs.covered { color: #1baf7a; }
+  .napkin-needs.muted { color: inherit; opacity: 0.35; }
+
+  /* Timeline */
+  .timeline-highlights {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 2rem; padding: 1.5rem 2rem;
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+  }
+  body.dark-mode .timeline-highlights { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .highlight-item { display: block; }
+  .highlight-item summary { cursor: pointer; list-style: none; }
+  .highlight-item summary::-webkit-details-marker { display: none; }
+  .highlight-item summary .expand-hint { font-size: 11px; opacity: 0.4; }
+  .highlight-label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; }
+  .highlight-value { font-size: 24px; font-weight: 600; color: #3987e5; }
+  .hl-detail { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  .mini-table th, .mini-table td { padding: 3px 8px; text-align: left; border-bottom: 1px solid rgba(128,128,128,0.18); }
+  .mini-table th { font-weight: 600; opacity: 0.65; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .core-badge { font-size: 11px; font-weight: 700; color: #d4a574; background: #1e3a5f; border-radius: 3px; padding: 1px 6px; margin-left: 6px; }
+  .fine-print { grid-column: 1 / -1; font-size: 13px; opacity: 0.55; line-height: 1.5; border-top: 1px solid rgba(0,0,0,0.07); padding-top: 10px; margin-top: 4px; }
+  body.dark-mode .fine-print { border-top-color: rgba(255,255,255,0.07); }
+
+  .lessons {
+    background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 8px;
+    padding: 1.5rem 2rem; margin-bottom: 2rem;
+  }
+  body.dark-mode .lessons { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .lessons h3 { font-size: 20px; font-weight: 600; margin-bottom: 1rem; }
+  .lessons p { font-size: 16px; line-height: 1.6; opacity: 0.85; margin-bottom: 0.9rem; }
+  .lessons p strong { opacity: 1; }
+
+  .timeline { position: relative; padding: 0 0 0 60px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 22px; top: 0; bottom: 0; width: 2px;
+    background: linear-gradient(to bottom, rgba(57,135,229,0.3), #3987e5);
+  }
+  .timeline-event {
+    margin-bottom: 1.5rem; padding: 14px 18px; background: white;
+    border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; position: relative;
+  }
+  body.dark-mode .timeline-event { background: #2c2c2b; border-color: rgba(255,255,255,0.1); }
+  .timeline-event::before {
+    content: ''; position: absolute; left: -48px; top: 22px;
+    width: 16px; height: 16px; background: #3987e5;
+    border: 3px solid white; border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+  }
+  body.dark-mode .timeline-event::before { border-color: #2c2c2b; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+  .timeline-date { font-size: 14px; font-weight: 600; color: #3987e5; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .timeline-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .timeline-desc { font-size: 16px; opacity: 0.7; line-height: 1.5; margin-bottom: 6px; }
+  .timeline-source { font-size: 13px; opacity: 0.5; font-style: italic; }
+
+  .chart-line { stroke: #3987e5; stroke-width: 2.5; fill: none; }
+  .chart-dot { fill: #d4a574; }
+  .chart-label { font-size: 11px; fill: currentColor; opacity: 0.6; }
+  .chart-val { font-size: 11px; fill: #3987e5; font-weight: 600; }
+
+  /* Hire builder */
+  .hire-bar { margin-bottom: 1.5rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .add-hire-btn {
+    border: 1px dashed #d4a574; color: #d4a574; background: transparent;
+    border-radius: 8px; padding: 8px 18px; font-size: 16px; font-weight: 600; cursor: pointer;
+  }
+  .add-hire-btn:hover { background: rgba(212,165,116,0.08); }
+  .hire-card { border: 1px dashed #d4a574; }
+  .hire-name-btn { background: transparent; border: none; cursor: pointer; font-size: 18px; font-weight: 700; color: #d4a574; }
+  .hire-name-btn:hover { text-decoration: underline; }
+  .hire-skills { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-top: 4px; }
+  .claim-btn {
+    font-size: 12px; border: 1px solid #3987e5; color: #3987e5; background: transparent;
+    border-radius: 10px; padding: 1px 8px; cursor: pointer; margin-left: 6px; white-space: nowrap;
+  }
+  .claim-btn:hover { background: rgba(57,135,229,0.1); }
+  .remove-hire { font-size: 12px; opacity: 0.5; background: transparent; border: none; cursor: pointer; text-decoration: underline; margin-top: 6px; }
+  .skill-chip-static {
+    font-size: 13px; font-weight: 500; padding: 3px 9px; border-radius: 4px;
+    background: #1e3a5f; border: 1px solid #d4a574; color: #d4a574;
+  }
+  .staff-overhead { font-size: 13px; font-style: italic; opacity: 0.6; }
+
+  .icon-btn {
+    background: transparent; border: none; cursor: pointer;
+    font-size: 15px; opacity: 0.35; padding: 2px 4px; transition: opacity 0.15s;
+  }
+  .icon-btn:hover { opacity: 0.8; }
+  .add-item-btn {
+    background: transparent; border: 1px dashed rgba(128,128,128,0.5);
+    border-radius: 6px; font-size: 13px; font-weight: 600; padding: 2px 10px;
+    cursor: pointer; opacity: 0.6; margin-left: 10px; letter-spacing: 0.5px;
+  }
+  .add-item-btn:hover { opacity: 1; border-color: #d4a574; color: #d4a574; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: white; border-radius: 12px; padding: 24px;
+    width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 14px;
+  }
+  body.dark-mode .modal-box { background: #2c2c2b; }
+  .modal-box h3 { font-size: 20px; font-weight: 600; }
+  .modal-box label { font-size: 14px; font-weight: 600; opacity: 0.7; display: block; margin-bottom: 4px; }
+  .modal-box input, .modal-box textarea {
+    width: 100%; font-family: inherit; font-size: 16px; padding: 8px 12px;
+    border: 1px solid rgba(128,128,128,0.4); border-radius: 6px;
+    background: transparent; color: inherit;
+  }
+  .modal-box textarea { min-height: 90px; resize: vertical; }
+  .modal-box select option { color: #111111; background: #ffffff; }
+  .modal-btn.danger { border-color: #bf6a6a; color: #bf6a6a; margin-right: auto; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+  .modal-btn {
+    font-size: 15px; font-weight: 600; padding: 8px 18px; border-radius: 6px; cursor: pointer;
+    border: 1px solid rgba(128,128,128,0.4); background: transparent;
+  }
+  .modal-btn.primary { background: #1e3a5f; border-color: #d4a574; color: #d4a574; }
+
+  .footer {
+    margin-top: 4rem; padding-top: 2rem; border-top: 1px solid rgba(0,0,0,0.1);
+    font-size: 14px; opacity: 0.6; text-align: center;
+  }
+  body.dark-mode .footer { border-top-color: rgba(255,255,255,0.1); }
+
+  .page-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -4px 0 1rem 0; }
+  .board-hint { opacity: 0.55; font-style: italic; margin: 2rem 0; font-size: 17px; }
+  .tab-button.add-page { opacity: 0.45; border: 1px dashed rgba(128,128,128,0.5); border-radius: 8px 8px 0 0; border-bottom: none; }
+  .tab-button.add-page:hover { opacity: 0.9; color: #d4a574; border-color: #d4a574; }
+  .modal-box input[type="color"] { width: 60px; height: 38px; padding: 2px; border: 1px solid rgba(128,128,128,0.4); border-radius: 6px; background: transparent; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-content">
+      <h1><span id="headerTitle">Work Deliverables</span> <button class="icon-btn" title="Edit header" style="font-size:16px; vertical-align:middle;" onclick="openHeaderModal()">✎</button></h1>
+      <div class="sub1" id="headerSub"></div>
+      <div class="sub2" id="headerSub2"></div>
+      <div class="config-badge" id="configBadge"></div>
+    </div>
+    <div class="gear-wrap">
+      <button class="theme-toggle" onclick="toggleGearMenu(event)" title="Settings">⚙️</button>
+      <div class="gear-menu" id="gearMenu">
+        <button class="gear-item" id="themeMenuItem" onclick="toggleTheme()">🌙 Dark Mode</button>
+        <button class="gear-item" onclick="exportConfig()">⬇️ Export Existing Configuration</button>
+        <button class="gear-item" onclick="document.getElementById('importFile').click()">⬆️ Import New Configuration</button>
+        <button class="gear-item" id="lockMenuItem" onclick="toggleLock()">🔒 Lock Configuration</button>
+        <button class="gear-item" onclick="duplicateConfig()">📄 Duplicate Existing Configuration</button>
+        <button class="gear-item" id="weeksMenuItem" onclick="setWeeksAvailable()">📅 Set Available Weeks</button>
+        <button class="gear-item" onclick="resetBoardPrompt()">🧹 Reset a Page (dots, staffing, priorities)</button>
+        <button class="gear-item" onclick="newBlankConfig()">🆕 New Blank Configuration</button>
+      </div>
+      <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importConfig(this.files[0]); this.value='';">
+    </div>
+  </div>
+
+  <div class="tab-nav" id="tabNav"></div>
+  <div id="tabHost"></div>
+
+  <div class="lock-toast" id="lockToast">🔒 Configuration is locked — unlock it in ⚙️ settings to make changes.</div>
+
+  <div class="modal-overlay" id="itemModal">
+    <div class="modal-box">
+      <h3 id="itemModalTitle">Add Feature</h3>
+      <div><label>Name</label><input type="text" id="itemModalName" placeholder="Feature name"></div>
+      <div><label>Description</label><textarea id="itemModalDesc" placeholder="What is it and why does it exist?"></textarea></div>
+      <div><label>Section</label><select id="itemModalGroup" style="width:100%; font-family:inherit; font-size:16px; padding:8px 12px; border:1px solid rgba(128,128,128,0.4); border-radius:6px; background:transparent; color:inherit;"></select></div>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeItemModal()">Cancel</button>
+        <button class="modal-btn primary" onclick="saveItemModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="skillModal">
+    <div class="modal-box">
+      <h3 id="skillModalTitle">Add Skill</h3>
+      <div><label>Skill name</label><input type="text" id="skillModalName" placeholder="e.g. Animation"></div>
+      <div><label>Discipline group (for capacity roll-ups)</label>
+        <select id="skillModalGroup" style="width:100%; font-family:inherit; font-size:16px; padding:8px 12px; border:1px solid rgba(128,128,128,0.4); border-radius:6px; background:transparent; color:inherit;">
+          <option>Design</option><option>Art</option><option>Engineering</option>
+          <option>Narrative</option><option>Audio</option><option>Other</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn danger" id="skillModalDelete" style="display:none;" onclick="deleteSkillFromModal()">Delete Skill</button>
+        <button class="modal-btn" onclick="closeSkillModal()">Cancel</button>
+        <button class="modal-btn primary" id="skillModalSave" onclick="saveSkillModal()">Add Skill</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="headerModal">
+    <div class="modal-box">
+      <h3>Edit Header</h3>
+      <div><label>Title</label><input type="text" id="headerModalTitle"></div>
+      <div><label>Subtitle</label><input type="text" id="headerModalSub1"></div>
+      <div><label>Tagline</label><input type="text" id="headerModalSub2"></div>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeHeaderModal()">Cancel</button>
+        <button class="modal-btn primary" onclick="saveHeaderModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="weeksModal">
+    <div class="modal-box">
+      <h3>Set Available Weeks &amp; Padding</h3>
+      <div><label>Total available weeks per person</label>
+        <input type="number" id="weeksModalWeeks" min="1" max="200" oninput="updateWeeksPreview()"></div>
+      <div><label>Schedule padding % (0&ndash;90) &mdash; time assumed lost to meetings, sickness, and surprises</label>
+        <input type="number" id="weeksModalPadding" min="0" max="90" oninput="updateWeeksPreview()"></div>
+      <div class="effort-key" style="margin:0;" id="weeksModalPreview"></div>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeWeeksModal()">Cancel</button>
+        <button class="modal-btn primary" onclick="saveWeeksModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="goalModal">
+    <div class="modal-box">
+      <h3 id="goalModalTitle">Add Goal</h3>
+      <div><label>Name</label><input type="text" id="goalModalName" placeholder="e.g. Built for Play"></div>
+      <div><label>Description</label><textarea id="goalModalDesc" placeholder="What does hitting this goal mean?"></textarea></div>
+      <div><label>Type</label>
+        <select id="goalModalType" style="width:100%; font-family:inherit; font-size:16px; padding:8px 12px; border:1px solid rgba(128,128,128,0.4); border-radius:6px; background:transparent; color:inherit;">
+          <option>Vibe</option><option>Pillar</option><option>Sub-Pillar</option><option>Quality</option><option>Milestone</option><option>Foundation</option><option>Other</option>
+        </select>
+      </div>
+      <div><label>Color</label><input type="color" id="goalModalColor" value="#3987e5"></div>
+      <div class="modal-actions">
+        <button class="modal-btn danger" id="goalModalDelete" style="display:none;" onclick="deleteGoalFromModal()">Delete Goal</button>
+        <button class="modal-btn" onclick="closeGoalModal()">Cancel</button>
+        <button class="modal-btn primary" onclick="saveGoalModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="sectionModal">
+    <div class="modal-box">
+      <h3 id="sectionModalTitle">Add Section</h3>
+      <div><label>Name (emoji welcome)</label><input type="text" id="sectionModalName" placeholder="e.g. 🔧 Tech &amp; Pipeline"></div>
+      <div><label>Color</label><input type="color" id="sectionModalColor" value="#3987e5"></div>
+      <div class="modal-actions">
+        <button class="modal-btn danger" id="sectionModalDelete" style="display:none;" onclick="deleteSectionFromModal()">Delete Section</button>
+        <button class="modal-btn" onclick="closeSectionModal()">Cancel</button>
+        <button class="modal-btn primary" onclick="saveSectionModal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Work Deliverables • A back-of-the-napkin team planning tool</p>
+  </div>
+</div>
+<script>
+  // ===================== THEME / GEAR =====================
+  function toggleTheme() {
+    const body = document.body;
+    const item = document.getElementById('themeMenuItem');
+    if (body.classList.contains('dark-mode')) {
+      body.classList.remove('dark-mode');
+      item.textContent = '🌙 Dark Mode';
+      localStorage.setItem('theme', 'light');
+    } else {
+      body.classList.add('dark-mode');
+      item.textContent = '☀️ Light Mode';
+      localStorage.setItem('theme', 'dark');
+    }
+  }
+  function toggleGearMenu(e) {
+    e.stopPropagation();
+    document.getElementById('gearMenu').classList.toggle('open');
+  }
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('gearMenu');
+    if (menu && !e.target.closest('.gear-wrap')) menu.classList.remove('open');
+  });
+
+  // ===================== CONSTANTS =====================
+  const DOT_WEEKS = { 1: 1, 2: 2, 3: 4, 4: 8, 5: 14 };
+  const DOT_LABEL = { 1: '1wk', 2: '2wks', 3: '4wks', 4: '8wks', 5: '14wks' };
+  const TIER_MULT = { 1: 0.5, 2: 1, 3: 2 };
+  const GROUP_LIST = ['Design','Art','Engineering','Narrative','Audio','Other'];
+  const GROUP_EMOJI = { Design: '\ud83d\udcd0', Art: '\ud83c\udfa8', Engineering: '\ud83d\udcbb', Narrative: '\u270d\ufe0f', Audio: '\ud83c\udfa7', Other: '\ud83e\udde9' };
+  const PRIORITIES = ['could','should','must','wont'];
+  const PRIO_LABEL = { wont: "WON'T", could: 'COULD', should: 'SHOULD', must: 'MUST' };
+  const HIRE_EMOJI_SET = ['\ud83c\udd95','\ud83e\udde0','\ud83d\udee0\ufe0f','\ud83d\udcd0','\ud83c\udfa8','\ud83d\udd8c\ufe0f','\ud83d\udca1','\u2728','\ud83c\udfa7','\ud83d\udcbb','\u270d\ufe0f','\ud83d\udcd6','\ud83c\udf99\ufe0f','\ud83e\uddd1\u200d\ud83d\ude80','\ud83e\uddd9','\ud83e\udd16','\ud83e\udd85','\ud83d\udc09'];
+
+  const CORE_SKILLS = [
+    { name:'System Design', group:'Design' }, { name:'Tech Design', group:'Design' },
+    { name:'Layout', group:'Design' }, { name:'Environmental Design', group:'Design' },
+    { name:'Env Art', group:'Art' }, { name:'Concept', group:'Art' }, { name:'Tech Art', group:'Art' },
+    { name:'Art Pipeline', group:'Art' }, { name:'Lighting', group:'Art' }, { name:'VFX', group:'Art' },
+    { name:'Code', group:'Engineering' },
+    { name:'Writing', group:'Narrative' }, { name:'Narrative Design', group:'Narrative' }, { name:'Story', group:'Narrative' },
+    { name:'Audio', group:'Audio' }, { name:'Audio Design', group:'Audio' }, { name:'VO Recording', group:'Audio' }
+  ];
+
+  const ROLE_MAP = {
+    'System Design':'Systems Designer', 'Tech Design':'Technical Designer',
+    'Layout':'Level Designer (Layout)', 'Env Art':'Environment Artist',
+    'Concept':'Concept Artist', 'Tech Art':'Tech Artist',
+    'Environmental Design':'Environmental Designer', 'Art Pipeline':'Art Pipeline (Tech Art)',
+    'Lighting':'Lighting Artist', 'VFX':'VFX Artist', 'Audio':'Audio Designer',
+    'Story':'Narrative / Story Support', 'Code':'Gameplay Engineer',
+    'Writing':'Writer', 'Narrative Design':'Narrative Designer',
+    'VO Recording':'VO Production (external)', 'Audio Design':'Audio Designer'
+  };
+  const ROLE_EMOJI = {
+    'Systems Designer':'\ud83e\udde0', 'Technical Designer':'\ud83d\udee0\ufe0f', 'Level Designer (Layout)':'\ud83d\udcd0',
+    'Environment Artist':'\ud83c\udfa8', 'Concept Artist':'\ud83d\udd8c\ufe0f', 'Lighting Artist':'\ud83d\udca1',
+    'Tech Artist':'\ud83e\uddea', 'Environmental Designer':'\ud83c\udfde\ufe0f', 'Art Pipeline (Tech Art)':'\u2699\ufe0f',
+    'VFX Artist':'\u2728', 'Audio Designer':'\ud83c\udfa7', 'Gameplay Engineer':'\ud83d\udcbb',
+    'Writer':'\u270d\ufe0f', 'Narrative Designer':'\ud83d\udcd6', 'VO Production (external)':'\ud83c\udf99\ufe0f',
+    'Narrative / Story Support':'\ud83d\udcda'
+  };
+
+  // ===================== LEGACY DATA (for one-time migration) =====================
+  const LEGACY_COLORS = { expansion:'#3987e5', gameplay:'#1baf7a', world:'#eda100', session:'#e87ba4', narrsys:'#9085e9', narrwrite:'#b083d6', pipeline:'#5aa7a7' };
+  const LEGACY_TIERS = { 'Jak': 3, 'Anna': 3 };
+  const LEGACY_BOARDS = {
+    napkin: {
+      storagePrefix: 'napkin',
+      cardsContainer: 'deliverablesCards',
+      stripId: 'rosterStrip', bannerId: 'gapsBanner', listId: 'napkinList',
+      disciplines: ['System Design','Tech Design','Layout','Environmental Design','Env Art','Concept','Tech Art','Art Pipeline','Lighting','VFX','Audio','Story','Code'],
+      groups: [
+        { cat:'expansion', label:'🗺️ Content Expansion' },
+        { cat:'gameplay',  label:'🎮 Core Gameplay Systems' },
+        { cat:'world',     label:'✨ World Feel & Life' },
+        { cat:'session',   label:'⏱️ Session Architecture' },
+        { cat:'pipeline',  label:'🔧 Tech & Pipeline' }
+      ],
+      roster: [
+        { name: 'Jak',      skills: ['System Design','Tech Design','Layout'] },
+        { name: 'Joe',      skills: ['Story','System Design'] },
+        { name: 'Mel',      skills: ['Env Art','Layout'] },
+        { name: 'Josh',     skills: ['Env Art','Layout'] },
+        { name: 'Julie',    skills: ['Env Art'] },
+        { name: 'Anna',     skills: ['Tech Art'] },
+        { name: 'Matteo',   skills: ['Concept'] },
+        { name: 'Jon',      skills: ['Lighting'] },
+        { name: 'Matt D.',  skills: ['Tech Design'] },
+        { name: 'Sylvia',   skills: ['Code'] },
+        { name: 'VFX (support)', skills: ['VFX'] },
+        { name: 'Audio (support)', skills: ['Audio'] }
+      ],
+      items: [
+        { id:'onboarding', title:'New Onboarding Experience', cat:'expansion', desc:'Showcase space. Combat, traversal, and co-op play wrapped in game style and narrative. Convince players they want this.', primary:['System Design','Tech Design','Layout','Story'] },
+        { id:'mal',        title:'MAL Map Refresh',           cat:'expansion', desc:'60% refresh: traversal, activities, puzzles, combat, layout, art. The needle invasion story.', primary:['Tech Design','Layout','Env Art'] },
+        { id:'newmap',     title:'Map2',                      cat:'expansion', desc:'2\u20133\u00d7 size. Reuse activities, new POIs, different story thread (Saena/Dragonkin focus).', primary:['System Design','Tech Design','Layout','Env Art','Story'] },
+        { id:'interiors',  title:'Interior Spaces',           cat:'expansion', desc:'Saena and Dragonkin interiors. Single rooms for puzzles and unlocks.', primary:['Layout','Env Art'] },
+        { id:'ship',       title:'3D Ship',                   cat:'expansion', desc:'Walk-about Guardian ship. Rooms, NPC interactions, hub space.', primary:['Layout','Env Art'] },
+        { id:'traversal',  title:'Traversal Rev',             cat:'gameplay',  desc:'Multilayered flowing gymnasium. Distinct primary elements per space, many paths (possibility vs. size).', primary:['System Design','Tech Design','Code'] },
+        { id:'activities', title:'Activities Rev',            cat:'gameplay',  desc:'More Guardian ability\u2013centric, gameplay-focused redesign. Reusable across maps.', primary:['System Design','Tech Design','Code'] },
+        { id:'dynamic',    title:'Dynamic Content',           cat:'gameplay',  desc:'Reposition activities & puzzles. Variations and escalation for replayability.', primary:['System Design','Tech Design','Code'] },
+        { id:'combatsp',   title:'Combat Rev',                cat:'gameplay',  desc:'Spaces and mechanics that enhance or modify combat encounters.', primary:['System Design','Layout'] },
+        { id:'vertical',   title:'Added Verticality',         cat:'gameplay',  desc:'Lots of layers throughout. Multi-level spaces for depth and discovery.', primary:['Layout'] },
+        { id:'encounter',  title:'Encounter Support',         cat:'gameplay',  desc:'Support for evolved reinforcements system, giant monsters, enemy navigation, and support for enemies and verticality and additional guardian traversal fixes.', primary:['System Design','Tech Design','Code'] },
+        { id:'npc',        title:'NPC & Behaviors',           cat:'world',     desc:'NPC models for Saena Monks, Saena AGNI and any other non-combat NPCs: walking, talking, reacting to combat, escaping, cowering, jobbing.', primary:['System Design','Tech Design','Code','Story'] },
+        { id:'enemy',      title:'Enemy Behaviors',           cat:'world',     desc:'Jobbing/idle states, roaming in packs, hunting when overstayed. Emergent play.', primary:['System Design','Tech Design','Code'] },
+        { id:'climax',     title:'Map Climax Moment',         cat:'world',     desc:'Signature space-needle moment. Giant monsters, roaming encounters, NPC events, shifting puzzles.', primary:['Story','System Design','Layout'] },
+        { id:'envstory',   title:'Environmental Story',       cat:'world',     desc:'Details and worldbuilding everywhere. Saena and Dragonkin aesthetics threaded through.', primary:['Story'] },
+        { id:'extraction', title:'Extraction System',         cat:'session',   desc:'Remove timer. Escalation system (offend Dragonkin \u2192 exit pressure). Dynamic session end.', primary:['System Design','Tech Design','Code'] },
+        { id:'soloplay',   title:'Solo Play Support',         cat:'session',   desc:'Allowing for players to have enough content to do and complete while playing by themselves, while encouraging them to team up and work together.', primary:['System Design','Code'] },
+        { id:'midjoin',    title:'Join Mid-Run Support',      cat:'session',   desc:'Allowing players to show up part way through a run and still have content they can do on their own or take part in bigger content on the map \u2014 and not feel like they wasted a run.', primary:['System Design','Code'] },
+        { id:'scaling',    title:'Dynamic Scaling (1\u20138+)', cat:'session', desc:'Variable encounters by player count (1\u20138+). Balance for solo to full squad simultaneously.', primary:['System Design','Tech Design','Code'] },
+        { id:'saenakit',   title:'Saena Faction Kit & Props', cat:'expansion', desc:'Saena faction building kit and props for world construction.', primary:[] },
+        { id:'performance', title:'Performance', cat:'pipeline', desc:'Map performance: budgets, HLODs, load times, and frame health across the world.', primary:[] },
+        { id:'arttechpipe', title:'Art Tech Pipeline', cat:'pipeline', desc:'Tools and pipeline for building and integrating world art efficiently.', primary:[] },
+        { id:'worldbuildpipe', title:'World Building Pipeline', cat:'pipeline', desc:'End-to-end process and tooling for how maps get designed, blocked, and built.', primary:[] }
+      ]
+    },
+    narrative: {
+      storagePrefix: 'narrative',
+      cardsContainer: 'narrativeCards',
+      stripId: 'narrRosterStrip', bannerId: 'narrGapsBanner', listId: 'narrList',
+      disciplines: ['Writing','Narrative Design','VO Recording','Audio Design','System Design','Tech Design','Code'],
+      groups: [
+        { cat:'narrsys',   label:'🛠️ Narrative Systems & Tech' },
+        { cat:'narrwrite', label:'✍️ Writing & Content' }
+      ],
+      roster: [
+        { name: 'Joe',       skills: ['Writing','Narrative Design','System Design'] },
+        { name: 'Shankar',   skills: ['Writing','Narrative Design'] },
+        { name: 'Matt D.',   skills: ['Narrative Design','System Design','Tech Design'] },
+        { name: 'Jak',       skills: ['System Design','Tech Design'] },
+        { name: 'Sylvia',    skills: ['Code'] },
+        { name: 'Audio (support)', skills: ['Audio Design'] },
+        { name: 'VO (external)',   skills: ['VO Recording'] }
+      ],
+      items: [
+        { id:'questsys',    title:'Quest System Improvements', cat:'narrsys', desc:'More quest triggers, improved dialogue/banter options.', primary:['System Design','Tech Design','Code'] },
+        { id:'shipconvimp', title:'Ship Conversation Improvements', cat:'narrsys', desc:'Better performances in conversations, likely additional triggers.', primary:['System Design','Tech Design','Code'] },
+        { id:'gbarkimp',    title:'Guardian Bark Improvements', cat:'narrsys', desc:'Ways to trigger more barks off of different events in the world.', primary:['System Design','Tech Design','Code'] },
+        { id:'ebarkimp',    title:'Enemy Barks Improvements', cat:'narrsys', desc:'Similar (potentially same) as Guardian, but different \u2014 ideally easier \u2014 ways to trigger barks.', primary:['System Design','Tech Design','Code'] },
+        { id:'enemypa',     title:'Enemy PA System', cat:'narrsys', desc:'Kin PA blasting lines. Needs trigger + line hookup based on map time or Guardian actions. Might be the same as a normal bark system.', primary:['System Design','Tech Design','Code'] },
+        { id:'intercsys',   title:'Enemy Conversation Intercept System', cat:'narrsys', desc:'Banter but from enemies \u2014 players overhear chatter from enemies, like a banter.', primary:['System Design','Tech Design','Code'] },
+        { id:'codexsys',    title:'Audio Log / Codex System', cat:'narrsys', desc:'Audio logs found in the world that players collect. Listen on-mission or back on ship via a codex.', primary:['System Design','Tech Design','Code'] },
+        { id:'inrunconv',   title:'In-Run Conversation Model', cat:'narrsys', desc:'Like the ship conversation system but real-time aware: closes out when enemies get near or target the player, etc.', primary:['System Design','Tech Design','Code'] },
+        { id:'relsys',      title:'Relationship System', cat:'narrsys', desc:'Model tracking what conversations can occur between the player and Guardians. Gift giving, runs together with specific Guardians, or both.', primary:['System Design','Tech Design','Code'] },
+        { id:'questflow',   title:'Quest Design & Flow', cat:'narrwrite', desc:'Updating and adding quests to MAL. Creating new quests for Map2.', primary:['Narrative Design','System Design'] },
+        { id:'questdlg',    title:'Quest Dialogue', cat:'narrwrite', desc:'Writing new quests for both MAL and Map2.', primary:['Writing','VO Recording'] },
+        { id:'shipconv',    title:'Writing Ship Conversations', cat:'narrwrite', desc:'Need a large number to cover 20+ hours of gameplay expected for Feb.', primary:['Writing','VO Recording','Audio Design'] },
+        { id:'gbarks',      title:'Writing Guardian World Barks', cat:'narrwrite', desc:'Need to write a lot of barks from Guardians.', primary:['Writing','VO Recording','Audio Design'] },
+        { id:'intercepts',  title:'Writing Enemy Conversation Intercepts', cat:'narrwrite', desc:'Someone\u2019s going to need to write all of these.', primary:['Writing','VO Recording'] },
+        { id:'banter',      title:'Writing Guardian Banters', cat:'narrwrite', desc:'A lot more of these to account for 20+ hours of content.', primary:['Writing','VO Recording'] },
+        { id:'codexwrite',  title:'Writing Audio Log / Codex', cat:'narrwrite', desc:'Need to write all the audio logs.', primary:['Writing','VO Recording','Audio Design'] },
+        { id:'npcdlg',      title:'Writing NPC Dialogue', cat:'narrwrite', desc:'NPCs in part of the map need lines to each other and to Guardians when players talk to them. Likely requires the in-run conversation system.', primary:['Writing','VO Recording'] },
+        { id:'onbdlg',      title:'Writing Onboarding Dialogue', cat:'narrwrite', desc:'Dialogue played during onboarding. Current onboarding is single player and needs a lot of NPC back-and-forth to feel right.', primary:['Writing','Narrative Design','VO Recording'] },
+        { id:'hints',       title:'Writing Hint / Tutorial Text', cat:'narrwrite', desc:'Text, not dialogue \u2014 the little popups that explain what\u2019s going on at any given point.', primary:['Writing'] },
+        { id:'openvideo',   title:'Writing Opening Video', cat:'narrwrite', desc:'Dialogue/text for the opening video, plus narrative design/direction to figure out how to put it together.', primary:['Writing','Narrative Design'] }
+      ]
+    }
+  };
+
+  const LEGACY_TITLES = {
+    'Jak': 'Sr. World / Tech Designer', 'Joe': 'World Director',
+    'Mel': 'Environment Art Director', 'Josh': 'Environment Artist',
+    'Julie': 'Environment Artist', 'Anna': 'Tech Artist',
+    'Matteo': 'Concept Artist', 'Jon': 'Lighting Artist',
+    'Matt D.': 'Tech Designer (Contract)', 'Sylvia': 'Engineer',
+    'Shankar': 'Creative Director',
+    'VFX (support)': 'VFX Support (shared)', 'Audio (support)': 'Audio Support (shared)',
+    'VO (external)': 'VO Production (external)'
+  };
+
+  const LEGACY_OVERHEAD = {
+    'Joe': 'World Director + people mgmt',
+    'Mel': 'Art direction',
+    'Jak': 'Mentoring / senior design voice',
+    'Shankar': 'Creative Director'
+  };
+  // ===================== STATE =====================
+  let app = null;
+  let WEEKS_AVAILABLE = 28;
+
+  function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  function freshApp() {
+    return {
+      boards: [],
+      goals: [],
+      skills: CORE_SKILLS.map(s => ({ name: s.name, group: s.group })),
+      staff: [],
+      hires: [],
+      meta: { name: '', locked: false, weeks: null, padding: 0 }
+    };
+  }
+
+  function normTiers(v) {
+    if (Array.isArray(v)) { const o = {}; v.forEach(s => o[s] = 2); return o; }
+    return v || {};
+  }
+
+  function migrateLegacy(get, needDotScale) {
+    const scale = needDotScale ? { 1: 1, 2: 3, 3: 4 } : null;
+    const deletedSkills = get('deletedSkills') || [];
+
+    function buildNeeds(raw, primary) {
+      let o = {};
+      if (!raw) { (primary || []).forEach(s => o[s] = 1); }
+      else if (Array.isArray(raw)) { raw.forEach(s => o[s] = 1); }
+      else {
+        Object.keys(raw).forEach(s => { o[s] = scale ? (scale[raw[s]] || raw[s]) : raw[s]; });
+      }
+      const f = {};
+      Object.keys(o).forEach(s => { if (!deletedSkills.includes(s)) f[s] = o[s]; });
+      return f;
+    }
+
+    const nameMap = { napkin: 'World', narrative: 'Narrative' };
+    const boardsOut = ['napkin','narrative'].map(k => {
+      const lb = LEGACY_BOARDS[k];
+      const deleted = get(k + 'DeletedItems') || [];
+      const ov = get(k + 'ItemOverrides') || {};
+      const custom = get(k + 'CustomItems') || [];
+      const needsRaw = get(k + 'Needs') || {};
+      const asg = get(k + 'Assignments') || {};
+      const dis = get(k + 'Disabled') || {};
+      const prio = get(k + 'Priority') || {};
+      const base = lb.items.filter(i => !deleted.includes(i.id))
+        .map(i => ov[i.id] ? Object.assign({}, i, ov[i.id]) : i);
+      const items = base.concat(custom).map(i => ({
+        id: i.id, title: i.title, desc: i.desc || '', groupId: i.cat,
+        needs: buildNeeds(needsRaw[i.id], i.primary),
+        people: (asg[i.id] || []).slice(),
+        off: !!dis[i.id],
+        prio: prio[i.id] || 'could'
+      }));
+      const gov = get(k + 'GroupOverrides') || {};
+      const groups = lb.groups.map(g => ({ id: g.cat, label: gov[g.cat] || g.label, color: LEGACY_COLORS[g.cat] || '#3987e5' }));
+      const disciplines = ((get(k + 'Disciplines') || lb.disciplines).slice()).filter(s => !deletedSkills.includes(s));
+      return { id: k, name: nameMap[k], disciplines: disciplines, groups: groups, items: items };
+    });
+
+    // Skill pool
+    const legacyGroupOf = function(s) {
+      const core = CORE_SKILLS.find(c => c.name === s);
+      return core ? core.group : 'Other';
+    };
+    const pool = [];
+    CORE_SKILLS.forEach(c => { if (!deletedSkills.includes(c.name)) pool.push({ name: c.name, group: c.group }); });
+    boardsOut.forEach(b => b.disciplines.forEach(s => {
+      if (!pool.some(p => p.name === s)) pool.push({ name: s, group: legacyGroupOf(s) });
+    }));
+    (get('customSkills') || []).forEach(c => {
+      if (deletedSkills.includes(c.name)) return;
+      const ex = pool.find(p => p.name === c.name);
+      if (ex) ex.group = c.group || ex.group;
+      else pool.push({ name: c.name, group: c.group || 'Other' });
+    });
+
+    // Staff
+    const ovr = get('staffSkillOverrides') || {};
+    const merged = {};
+    ['napkin','narrative'].forEach(k => LEGACY_BOARDS[k].roster.forEach(p => {
+      if (!merged[p.name]) merged[p.name] = [];
+      p.skills.forEach(s => { if (!merged[p.name].includes(s)) merged[p.name].push(s); });
+    }));
+    const staff = Object.keys(merged).map(name => {
+      let tiers;
+      if (ovr[name]) tiers = normTiers(ovr[name]);
+      else {
+        tiers = {};
+        merged[name].forEach(s => tiers[s] = LEGACY_TIERS[name] || 2);
+      }
+      const t2 = {};
+      Object.keys(tiers).forEach(s => { if (!deletedSkills.includes(s)) t2[s] = tiers[s]; });
+      return { name: name, title: LEGACY_TITLES[name] || '', overhead: LEGACY_OVERHEAD[name] || '', tiers: t2 };
+    });
+
+    const hires = (get('customHires') || []).map(h => ({
+      id: h.id, name: h.name, emoji: h.emoji || null, skills: normTiers(h.skills)
+    }));
+
+    const m = get('configMeta') || {};
+    return {
+      boards: boardsOut, skills: pool, staff: staff, hires: hires,
+      meta: { name: m.name || '', locked: !!m.locked, weeks: parseInt(m.weeks) || 28, padding: parseInt(m.padding) || 0 }
+    };
+  }
+
+  function loadApp() {
+    const v3 = lsGet('appV3');
+    if (v3 && v3.boards) { app = v3; }
+    else if (localStorage.getItem('napkinAssignments') || localStorage.getItem('napkinNeeds') ||
+             localStorage.getItem('customHires') || localStorage.getItem('narrativeAssignments') ||
+             localStorage.getItem('napkinCustomItems')) {
+      app = migrateLegacy(lsGet, !localStorage.getItem('dotsV2'));
+      saveApp();
+    } else {
+      app = freshApp();
+      saveApp();
+    }
+    if (!app.goals) app.goals = [];
+    seedGoalsOnce();
+    seedFoundationOnce();
+    seedVibeOnce();
+    seedSubPillarOnce();
+    computeWeeks();
+  }
+
+  function saveApp() { localStorage.setItem('appV3', JSON.stringify(app)); }
+  function weeksSet() { return !!parseInt(app.meta.weeks); }
+  function capStr() { return weeksSet() ? WEEKS_AVAILABLE + 'w' : '\u2014'; }
+  function computeWeeks() {
+    const raw = parseInt(app.meta.weeks);
+    const p = parseInt(app.meta.padding) || 0;
+    WEEKS_AVAILABLE = raw ? Math.round(raw * (100 - p) / 100 * 10) / 10 : 0;
+  }
+
+  // ===================== SMALL HELPERS =====================
+  function uid(p) { return p + Date.now() + Math.floor(Math.random() * 1000); }
+  function esc(s) { return String(s).replace(/'/g, "\\'"); }
+  function attr(s) { return String(s).replace(/"/g, '&quot;'); }
+  function fmtWeeks(w) {
+    const r = Math.round(w * 10) / 10;
+    return (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1)) + 'w';
+  }
+  function boardById(id) { return app.boards.find(b => b.id === id); }
+  function itemById(b, id) { return b.items.find(i => i.id === id); }
+  function skillGroup(name) {
+    const s = app.skills.find(x => x.name === name);
+    return (s && s.group) || 'Other';
+  }
+  function getNeeds(b, item) {
+    const f = {};
+    Object.keys(item.needs || {}).forEach(s => { if (b.disciplines.includes(s)) f[s] = item.needs[s]; });
+    return f;
+  }
+  function rosterFor(b) {
+    const out = [];
+    app.staff.forEach(p => {
+      const skills = Object.keys(p.tiers || {}).filter(s => b.disciplines.includes(s));
+      if (skills.length) out.push({ name: p.name, skills: skills, tiers: p.tiers });
+    });
+    app.hires.forEach(h => {
+      const skills = Object.keys(h.skills || {}).filter(s => b.disciplines.includes(s));
+      if (skills.length) out.push({ name: h.name, skills: skills, tiers: h.skills, isHire: true });
+    });
+    return out;
+  }
+
+  // ===================== LOCK / TOAST =====================
+  function isLocked() { return !!app.meta.locked; }
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = document.getElementById('lockToast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+  function guardLocked() {
+    if (!isLocked()) return false;
+    showToast('\ud83d\udd12 Configuration is locked \u2014 unlock it in \u2699\ufe0f settings to make changes.');
+    return true;
+  }
+  const HEADER_DEFAULTS = {
+    title: 'Work Deliverables',
+    sub1: 'A back-of-the-napkin planner for scoping features, effort, and staffing.',
+    sub2: 'Estimate features in weeks, staff them from your team, and see instantly whether the plan fits your capacity — all saved in this browser, shareable via ⚙️ export.'
+  };
+  function renderHeader() {
+    const t = app.meta.title || HEADER_DEFAULTS.title;
+    document.getElementById('headerTitle').textContent = t;
+    document.getElementById('headerSub').textContent = app.meta.sub1 || HEADER_DEFAULTS.sub1;
+    document.getElementById('headerSub2').textContent = app.meta.sub2 || HEADER_DEFAULTS.sub2;
+    document.title = t;
+  }
+  function openHeaderModal() {
+    if (guardLocked()) return;
+    document.getElementById('headerModalTitle').value = app.meta.title || HEADER_DEFAULTS.title;
+    document.getElementById('headerModalSub1').value = app.meta.sub1 || HEADER_DEFAULTS.sub1;
+    document.getElementById('headerModalSub2').value = app.meta.sub2 || HEADER_DEFAULTS.sub2;
+    document.getElementById('headerModal').classList.add('open');
+    document.getElementById('headerModalTitle').focus();
+  }
+  function closeHeaderModal() { document.getElementById('headerModal').classList.remove('open'); }
+  function saveHeaderModal() {
+    app.meta.title = document.getElementById('headerModalTitle').value.trim();
+    app.meta.sub1 = document.getElementById('headerModalSub1').value.trim();
+    app.meta.sub2 = document.getElementById('headerModalSub2').value.trim();
+    saveApp();
+    closeHeaderModal();
+    renderHeader();
+  }
+
+  function updateConfigBadge() {
+    const el = document.getElementById('configBadge');
+    const name = app.meta.name ? 'Config: ' + app.meta.name : '';
+    const lock = isLocked() ? '<span class="lock-pill">\ud83d\udd12 Locked</span>' : '';
+    el.innerHTML = (name ? name + ' ' : '') + lock;
+    const li = document.getElementById('lockMenuItem');
+    li.textContent = isLocked() ? '\ud83d\udd13 Unlock Configuration' : '\ud83d\udd12 Lock Configuration';
+    const mi = document.getElementById('weeksMenuItem');
+    const raw = parseInt(app.meta.weeks);
+    const p = parseInt(app.meta.padding) || 0;
+    mi.textContent = '\ud83d\udcc5 Set Available Weeks & Padding (' + (!raw ? 'not set' : (p ? raw + 'w \u2212 ' + p + '% padding = ' + WEEKS_AVAILABLE + 'w' : raw + 'w, no padding')) + ')';
+  }
+
+  // ===================== GEAR ACTIONS =====================
+  function toggleLock() {
+    app.meta.locked = !app.meta.locked;
+    saveApp();
+    updateConfigBadge();
+    document.getElementById('gearMenu').classList.remove('open');
+  }
+  function duplicateConfig() {
+    document.getElementById('gearMenu').classList.remove('open');
+    const suggested = app.meta.name ? app.meta.name + ' (copy)' : 'My Configuration';
+    const name = prompt('Name this new configuration:', suggested);
+    if (!name) return;
+    app.meta.name = name;
+    app.meta.locked = false;
+    saveApp();
+    updateConfigBadge();
+    showToast('\ud83d\udcc4 Now working on \u201c' + name + '\u201d \u2014 unlocked and ready to edit.');
+  }
+  function setWeeksAvailable() {
+    document.getElementById('gearMenu').classList.remove('open');
+    if (guardLocked()) return;
+    document.getElementById('weeksModalWeeks').value = parseInt(app.meta.weeks) || '';
+    document.getElementById('weeksModalPadding').value = parseInt(app.meta.padding) || 0;
+    updateWeeksPreview();
+    document.getElementById('weeksModal').classList.add('open');
+    document.getElementById('weeksModalWeeks').focus();
+  }
+  function updateWeeksPreview() {
+    const n = parseInt(document.getElementById('weeksModalWeeks').value) || 0;
+    const p = parseInt(document.getElementById('weeksModalPadding').value) || 0;
+    const eff = Math.round(n * (100 - Math.min(Math.max(p, 0), 90)) / 100 * 10) / 10;
+    document.getElementById('weeksModalPreview').innerHTML =
+      'Effective capacity per person: <strong>' + n + 'w \u2212 ' + p + '% = ' + eff + 'w</strong>';
+  }
+  function closeWeeksModal() { document.getElementById('weeksModal').classList.remove('open'); }
+  function saveWeeksModal() {
+    const n = parseInt(document.getElementById('weeksModalWeeks').value);
+    const p = parseInt(document.getElementById('weeksModalPadding').value) || 0;
+    if (!n || n < 1 || n > 200) { alert('Enter a number of weeks between 1 and 200.'); return; }
+    if (p < 0 || p > 90) { alert('Padding must be between 0 and 90.'); return; }
+    app.meta.weeks = n;
+    app.meta.padding = p;
+    computeWeeks();
+    saveApp();
+    closeWeeksModal();
+    renderAll();
+  }
+
+  function resetBoardPrompt() {
+    document.getElementById('gearMenu').classList.remove('open');
+    if (guardLocked()) return;
+    if (!app.boards.length) { alert('No pages to reset.'); return; }
+    const names = app.boards.map((b, i) => (i + 1) + '. ' + b.name).join('\n');
+    const v = prompt('Reset which page? This clears its dots, staffing, priorities, and ACTIVE flags (features stay).\n\n' + names + '\n\nEnter a number:');
+    if (v === null) return;
+    const idx = parseInt(v) - 1;
+    const b = app.boards[idx];
+    if (!b) { alert('No page matched.'); return; }
+    if (!confirm('Are you sure? This will clear out all dots, staffing, and priorities on \u201c' + b.name + '\u201d.')) return;
+    b.items.forEach(i => { i.needs = {}; i.people = []; i.off = false; i.prio = 'could'; });
+    saveApp();
+    renderAll();
+  }
+
+  function newBlankConfig() {
+    document.getElementById('gearMenu').classList.remove('open');
+    if (!confirm('Start a NEW BLANK configuration?\n\nThis wipes everything in this browser \u2014 all pages, features, dots, staffing, team, and hires. Export first if you want to keep the current setup.')) return;
+    if (!confirm('Last check: this cannot be undone unless you exported. Wipe and start blank?')) return;
+    app = freshApp();
+    saveApp();
+    activeTabId = 'summary';
+    localStorage.setItem('activeTab', activeTabId);
+    renderAll();
+    showToast('\ud83c\udd95 Blank configuration \u2014 add a page to begin.');
+  }
+
+  // ===================== EXPORT / IMPORT =====================
+  function exportConfig() {
+    const payload = { app: 'worlds-team-deliverables', version: 3, exported: new Date().toISOString(), data: app };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const d = new Date().toISOString().slice(0, 10);
+    const slug = app.meta.name ? app.meta.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' : '';
+    a.download = 'work-deliverables-' + slug + d + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    document.getElementById('gearMenu').classList.remove('open');
+  }
+  function importConfig(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function() {
+      let payload;
+      try { payload = JSON.parse(reader.result); }
+      catch (e) { alert('That file is not valid JSON.'); return; }
+      if (!payload || payload.app !== 'worlds-team-deliverables' || !payload.data) {
+        alert('That file does not look like a Work Deliverables configuration export.');
+        return;
+      }
+      const when = payload.exported ? new Date(payload.exported).toLocaleString() : 'unknown date';
+      if (!confirm('Import this configuration (exported ' + when + ')?\n\nThis REPLACES your current pages, features, dots, staffing, team, and hires.')) return;
+      let next;
+      if ((payload.version || 1) >= 3 && payload.data.boards) {
+        next = payload.data;
+      } else {
+        const get = function(k) { return payload.data[k] !== undefined ? payload.data[k] : null; };
+        next = migrateLegacy(get, (payload.version || 1) < 2);
+      }
+      localStorage.setItem('appV3', JSON.stringify(next));
+      location.reload();
+    };
+    reader.readAsText(file);
+  }
+
+  // ===================== MATH =====================
+  const loadsByBoard = {};
+  let capSnapshot = null;
+
+  function totalActiveWorkWeeks() {
+    let t = 0;
+    app.boards.forEach(b => b.items.forEach(item => {
+      if (item.off) return;
+      const needs = getNeeds(b, item);
+      Object.keys(needs).forEach(d => { t += DOT_WEEKS[needs[d]] || 0; });
+    }));
+    return t;
+  }
+
+  function computeBoardLoads(b) {
+    const personWeeks = {}, personSkillWeeks = {}, gaps = {};
+    const roster = rosterFor(b);
+    b.items.forEach(item => {
+      if (item.off) return;
+      const needs = getNeeds(b, item);
+      Object.keys(needs).forEach(disc => {
+        const wks = DOT_WEEKS[needs[disc]] || 0;
+        if (!wks) return;
+        const coverers = (item.people || []).filter(name => {
+          const p = roster.find(r => r.name === name);
+          return p && p.skills.includes(disc);
+        });
+        if (coverers.length === 0) {
+          if (!gaps[disc]) gaps[disc] = { weeks: 0, items: [] };
+          gaps[disc].weeks += wks;
+          gaps[disc].items.push({ boardId: b.id, id: item.id, title: item.title, weeks: wks });
+        } else {
+          // Speed-proportional split: everyone spends wks / sum(multipliers)
+          const sumMult = coverers.reduce((sum, name) => {
+            const p = roster.find(r => r.name === name);
+            return sum + (TIER_MULT[(p && p.tiers && p.tiers[disc]) || 2] || 1);
+          }, 0);
+          const t = wks / sumMult;
+          coverers.forEach(name => {
+            personWeeks[name] = (personWeeks[name] || 0) + t;
+            if (!personSkillWeeks[name]) personSkillWeeks[name] = {};
+            personSkillWeeks[name][disc] = (personSkillWeeks[name][disc] || 0) + t;
+          });
+        }
+      });
+    });
+    return { personWeeks: personWeeks, personSkillWeeks: personSkillWeeks, gaps: gaps };
+  }
+
+  function computeSnapshot() {
+    Object.keys(loadsByBoard).forEach(k => delete loadsByBoard[k]);
+    app.boards.forEach(b => { loadsByBoard[b.id] = computeBoardLoads(b); });
+
+    const people = [];
+    app.staff.forEach(p => { if (Object.keys(p.tiers || {}).length) people.push({ name: p.name, tiers: p.tiers, title: p.title, overhead: p.overhead }); });
+    app.hires.forEach(h => { if (Object.keys(h.skills || {}).length) people.push({ name: h.name, tiers: h.skills, isHire: true }); });
+
+    const isSharedSeat = n => n.includes('(support)') || n.includes('(external)');
+    const capPeople = people.filter(p => !isSharedSeat(p.name));
+    const capacity = capPeople.length * WEEKS_AVAILABLE;
+    const work = totalActiveWorkWeeks();
+    const pct = capacity > 0 ? Math.round(work / capacity * 100) : 0;
+
+    const groupWork = {}, groupCap = {};
+    app.boards.forEach(b => b.items.forEach(item => {
+      if (item.off) return;
+      const needs = getNeeds(b, item);
+      Object.keys(needs).forEach(d => {
+        const g = skillGroup(d);
+        groupWork[g] = (groupWork[g] || 0) + (DOT_WEEKS[needs[d]] || 0);
+      });
+    }));
+    people.forEach(p => {
+      const gs = [...new Set(Object.keys(p.tiers).map(s => skillGroup(s)))];
+      gs.forEach(g => { groupCap[g] = (groupCap[g] || 0) + WEEKS_AVAILABLE / gs.length; });
+    });
+
+    capSnapshot = { work: work, capacity: capacity, capCount: capPeople.length, pct: pct, groupWork: groupWork, groupCap: groupCap, people: people };
+  }
+
+  // ===================== ACTIONS: FEATURES =====================
+  function cycleNeed(bid, iid, skill) {
+    if (guardLocked()) return;
+    const b = boardById(bid); const item = itemById(b, iid);
+    if (!item.needs) item.needs = {};
+    const next = ((item.needs[skill] || 0) + 1) % 6;
+    if (next === 0) delete item.needs[skill]; else item.needs[skill] = next;
+    saveApp(); renderAll();
+  }
+  function toggleAssign(bid, iid, name) {
+    if (guardLocked()) return;
+    const item = itemById(boardById(bid), iid);
+    if (!item.people) item.people = [];
+    const i = item.people.indexOf(name);
+    if (i >= 0) item.people.splice(i, 1); else item.people.push(name);
+    saveApp(); renderAll();
+  }
+  function toggleActive(bid, iid) {
+    if (guardLocked()) return;
+    const item = itemById(boardById(bid), iid);
+    item.off = !item.off;
+    saveApp(); renderAll();
+  }
+  function cyclePriority(bid, iid) {
+    if (guardLocked()) return;
+    const item = itemById(boardById(bid), iid);
+    const cur = item.prio || 'could';
+    item.prio = PRIORITIES[(PRIORITIES.indexOf(cur) + 1) % PRIORITIES.length];
+    saveApp(); renderAll();
+  }
+
+  let itemModalCtx = null;
+  function openItemModal(bid, groupId, itemId) {
+    if (guardLocked()) return;
+    const b = boardById(bid);
+    if (!b.groups.length) { alert('Add a section first \u2014 features live inside sections.'); return; }
+    itemModalCtx = { bid: bid, itemId: itemId };
+    const sel = document.getElementById('itemModalGroup');
+    sel.innerHTML = b.groups.map(g => '<option value="' + g.id + '">' + g.label + '</option>').join('');
+    if (itemId) {
+      const item = itemById(b, itemId);
+      document.getElementById('itemModalTitle').textContent = 'Edit Feature';
+      document.getElementById('itemModalName').value = item.title;
+      document.getElementById('itemModalDesc').value = item.desc || '';
+      sel.value = item.groupId;
+    } else {
+      document.getElementById('itemModalTitle').textContent = 'Add Feature';
+      document.getElementById('itemModalName').value = '';
+      document.getElementById('itemModalDesc').value = '';
+      if (groupId) sel.value = groupId;
+    }
+    document.getElementById('itemModal').classList.add('open');
+    document.getElementById('itemModalName').focus();
+  }
+  function closeItemModal() { document.getElementById('itemModal').classList.remove('open'); itemModalCtx = null; }
+  function saveItemModal() {
+    if (!itemModalCtx) return;
+    const title = document.getElementById('itemModalName').value.trim();
+    const desc = document.getElementById('itemModalDesc').value.trim();
+    const groupId = document.getElementById('itemModalGroup').value;
+    if (!title) { alert('Give it a name.'); return; }
+    const b = boardById(itemModalCtx.bid);
+    if (itemModalCtx.itemId) {
+      const item = itemById(b, itemModalCtx.itemId);
+      item.title = title; item.desc = desc; item.groupId = groupId;
+    } else {
+      b.items.push({ id: uid('i'), title: title, desc: desc, groupId: groupId, needs: {}, people: [], off: false, prio: 'could' });
+    }
+    saveApp(); closeItemModal(); renderAll();
+  }
+  function deleteItem(bid, iid) {
+    if (guardLocked()) return;
+    const b = boardById(bid); const item = itemById(b, iid);
+    if (!confirm('Delete \u201c' + item.title + '\u201d? This removes it and its dots and staffing.')) return;
+    b.items = b.items.filter(i => i.id !== iid);
+    saveApp(); renderAll();
+  }
+
+  // ===================== ACTIONS: SECTIONS =====================
+  let sectionModalCtx = null;
+  function openSectionModal(bid, gid) {
+    if (guardLocked()) return;
+    sectionModalCtx = { bid: bid, gid: gid };
+    const b = boardById(bid);
+    if (gid) {
+      const g = b.groups.find(x => x.id === gid);
+      document.getElementById('sectionModalTitle').textContent = 'Edit Section';
+      document.getElementById('sectionModalName').value = g.label;
+      document.getElementById('sectionModalColor').value = g.color || '#3987e5';
+      document.getElementById('sectionModalDelete').style.display = '';
+    } else {
+      document.getElementById('sectionModalTitle').textContent = 'Add Section';
+      document.getElementById('sectionModalName').value = '';
+      document.getElementById('sectionModalColor').value = '#3987e5';
+      document.getElementById('sectionModalDelete').style.display = 'none';
+    }
+    document.getElementById('sectionModal').classList.add('open');
+    document.getElementById('sectionModalName').focus();
+  }
+  function closeSectionModal() { document.getElementById('sectionModal').classList.remove('open'); sectionModalCtx = null; }
+  function saveSectionModal() {
+    if (!sectionModalCtx) return;
+    const name = document.getElementById('sectionModalName').value.trim();
+    const color = document.getElementById('sectionModalColor').value;
+    if (!name) { alert('Give the section a name.'); return; }
+    const b = boardById(sectionModalCtx.bid);
+    if (sectionModalCtx.gid) {
+      const g = b.groups.find(x => x.id === sectionModalCtx.gid);
+      g.label = name; g.color = color;
+    } else {
+      b.groups.push({ id: uid('g'), label: name, color: color });
+    }
+    saveApp(); closeSectionModal(); renderAll();
+  }
+  function deleteSectionFromModal() {
+    if (!sectionModalCtx || !sectionModalCtx.gid) return;
+    const b = boardById(sectionModalCtx.bid);
+    const count = b.items.filter(i => i.groupId === sectionModalCtx.gid).length;
+    if (count > 0) { alert('This section still has ' + count + ' feature(s). Move or delete them first (edit a feature to change its section).'); return; }
+    if (!confirm('Delete this empty section?')) return;
+    b.groups = b.groups.filter(g => g.id !== sectionModalCtx.gid);
+    saveApp(); closeSectionModal(); renderAll();
+  }
+
+  // ===================== ACTIONS: PAGES =====================
+  function addBoard() {
+    if (guardLocked()) return;
+    const name = prompt('Name this new page (e.g. "Combat", "UI", "Audio"):');
+    if (!name || !name.trim()) return;
+    const b = { id: uid('b'), name: name.trim(), disciplines: [], groups: [], items: [] };
+    app.boards.push(b);
+    saveApp();
+    activeTabId = 'board-' + b.id;
+    localStorage.setItem('activeTab', activeTabId);
+    renderAll();
+  }
+  function renameBoard(bid) {
+    if (guardLocked()) return;
+    const b = boardById(bid);
+    const name = prompt('Rename this page:', b.name);
+    if (!name || !name.trim()) return;
+    b.name = name.trim();
+    saveApp(); renderAll();
+  }
+  function deleteBoard(bid) {
+    if (guardLocked()) return;
+    const b = boardById(bid);
+    if (!confirm('Delete the page \u201c' + b.name + '\u201d and its ' + b.items.length + ' feature(s)? This cannot be undone.')) return;
+    app.boards = app.boards.filter(x => x.id !== bid);
+    saveApp();
+    activeTabId = 'summary';
+    localStorage.setItem('activeTab', activeTabId);
+    renderAll();
+  }
+  function toggleBoardDiscipline(bid, skill) {
+    if (guardLocked()) return;
+    const b = boardById(bid);
+    const i = b.disciplines.indexOf(skill);
+    if (i >= 0) b.disciplines.splice(i, 1); else b.disciplines.push(skill);
+    saveApp(); renderAll();
+  }
+
+  // ===================== ACTIONS: SKILLS =====================
+  let skillModalCtx = null;
+  function openSkillModal(bid) {
+    if (guardLocked()) return;
+    skillModalCtx = { bid: bid, editing: null };
+    document.getElementById('skillModalTitle').textContent = 'Add Skill';
+    document.getElementById('skillModalSave').textContent = 'Add Skill';
+    document.getElementById('skillModalDelete').style.display = 'none';
+    document.getElementById('skillModalName').value = '';
+    document.getElementById('skillModalGroup').value = 'Design';
+    document.getElementById('skillModal').classList.add('open');
+    document.getElementById('skillModalName').focus();
+  }
+  function openSkillEditor(name) {
+    if (guardLocked()) return;
+    skillModalCtx = { bid: null, editing: name };
+    document.getElementById('skillModalTitle').textContent = 'Edit Skill';
+    document.getElementById('skillModalSave').textContent = 'Save';
+    document.getElementById('skillModalDelete').style.display = '';
+    document.getElementById('skillModalName').value = name;
+    document.getElementById('skillModalGroup').value = skillGroup(name);
+    document.getElementById('skillModal').classList.add('open');
+  }
+  function closeSkillModal() { document.getElementById('skillModal').classList.remove('open'); skillModalCtx = null; }
+  function renameSkillEverywhere(oldName, newName) {
+    app.boards.forEach(b => {
+      const i = b.disciplines.indexOf(oldName);
+      if (i >= 0) b.disciplines[i] = newName;
+      b.items.forEach(item => {
+        if (item.needs && item.needs[oldName] !== undefined) { item.needs[newName] = item.needs[oldName]; delete item.needs[oldName]; }
+      });
+    });
+    app.staff.forEach(p => { if (p.tiers[oldName] !== undefined) { p.tiers[newName] = p.tiers[oldName]; delete p.tiers[oldName]; } });
+    app.hires.forEach(h => { if (h.skills[oldName] !== undefined) { h.skills[newName] = h.skills[oldName]; delete h.skills[oldName]; } });
+  }
+  function saveSkillModal() {
+    if (!skillModalCtx) return;
+    const name = document.getElementById('skillModalName').value.trim();
+    const group = document.getElementById('skillModalGroup').value;
+    if (!name) { alert('Give the skill a name.'); return; }
+    const editing = skillModalCtx.editing;
+    if (app.skills.some(s => s.name !== editing && s.name.toLowerCase() === name.toLowerCase())) {
+      alert('A skill with that name already exists.'); return;
+    }
+    if (editing) {
+      const entry = app.skills.find(s => s.name === editing);
+      if (name !== editing) renameSkillEverywhere(editing, name);
+      entry.name = name; entry.group = group;
+    } else {
+      app.skills.push({ name: name, group: group });
+      const bid = skillModalCtx.bid;
+      if (bid) {
+        const b = boardById(bid);
+        if (!b.disciplines.includes(name)) b.disciplines.push(name);
+      }
+    }
+    saveApp(); closeSkillModal(); renderAll();
+  }
+  function deleteSkillFromModal() {
+    if (!skillModalCtx || !skillModalCtx.editing) return;
+    const name = skillModalCtx.editing;
+    if (!confirm('This will remove \u201c' + name + '\u201d from the list of skills. All work assigned to this skill will be lost. Are you sure?')) return;
+    app.skills = app.skills.filter(s => s.name !== name);
+    app.boards.forEach(b => {
+      b.disciplines = b.disciplines.filter(s => s !== name);
+      b.items.forEach(item => { if (item.needs) delete item.needs[name]; });
+    });
+    app.staff.forEach(p => delete p.tiers[name]);
+    app.hires.forEach(h => delete h.skills[name]);
+    saveApp(); closeSkillModal(); renderAll();
+  }
+
+  // ===================== ACTIONS: STAFF & HIRES =====================
+  function addStaff() {
+    if (guardLocked()) return;
+    const name = prompt('Team member name:');
+    if (!name || !name.trim()) return;
+    const nm = name.trim();
+    if (app.staff.some(p => p.name === nm) || app.hires.some(h => h.name === nm)) { alert('That name is already on the roster.'); return; }
+    const title = prompt('Job title (optional):', '') || '';
+    app.staff.push({ name: nm, title: title.trim(), overhead: '', tiers: {} });
+    saveApp(); renderAll();
+  }
+  function removeStaff(name) {
+    if (guardLocked()) return;
+    if (!confirm('Remove \u201c' + name + '\u201d from the team? Their assignments will be cleared.')) return;
+    app.boards.forEach(b => b.items.forEach(item => { item.people = (item.people || []).filter(n => n !== name); }));
+    app.staff = app.staff.filter(p => p.name !== name);
+    saveApp(); renderAll();
+  }
+  function renameStaffPrompt(name) {
+    if (guardLocked()) return;
+    const p = app.staff.find(x => x.name === name);
+    const nn = prompt('Rename team member:', name);
+    if (!nn || !nn.trim() || nn.trim() === name) return;
+    const nm = nn.trim();
+    if (app.staff.some(x => x.name === nm) || app.hires.some(h => h.name === nm)) { alert('That name is already on the roster.'); return; }
+    app.boards.forEach(b => b.items.forEach(item => { item.people = (item.people || []).map(n => n === name ? nm : n); }));
+    p.name = nm;
+    saveApp(); renderAll();
+  }
+  function editStaffTitle(name) {
+    if (guardLocked()) return;
+    const p = app.staff.find(x => x.name === name);
+    const t = prompt('Job title for ' + name + ':', p.title || '');
+    if (t === null) return;
+    p.title = t.trim();
+    saveApp(); renderAll();
+  }
+  function cycleStaffSkill(name, skill) {
+    if (guardLocked()) return;
+    const p = app.staff.find(x => x.name === name);
+    const next = ((p.tiers[skill] || 0) + 1) % 4;
+    if (next === 0) delete p.tiers[skill]; else p.tiers[skill] = next;
+    saveApp(); renderAll();
+  }
+  function addHire() {
+    if (guardLocked()) return;
+    const name = prompt('Title this hire (e.g. "Sr. Technical Designer"):', 'New Hire ' + (app.hires.length + 1));
+    if (!name) return;
+    if (app.staff.some(p => p.name === name) || app.hires.some(h => h.name === name)) { alert('That name is already on a roster.'); return; }
+    app.hires.push({ id: uid('h'), name: name, emoji: null, skills: {} });
+    saveApp(); renderAll();
+  }
+  function removeHire(hid) {
+    if (guardLocked()) return;
+    const h = app.hires.find(x => x.id === hid);
+    if (!h) return;
+    if (!confirm('Remove \u201c' + h.name + '\u201d? Their assignments will be cleared.')) return;
+    app.boards.forEach(b => b.items.forEach(item => { item.people = (item.people || []).filter(n => n !== h.name); }));
+    app.hires = app.hires.filter(x => x.id !== hid);
+    saveApp(); renderAll();
+  }
+  function renameHire(hid) {
+    if (guardLocked()) return;
+    const h = app.hires.find(x => x.id === hid);
+    const name = prompt('Rename this hire:', h.name);
+    if (!name || name === h.name) return;
+    if (app.staff.some(p => p.name === name) || app.hires.some(x => x.name === name)) { alert('That name is already on a roster.'); return; }
+    app.boards.forEach(b => b.items.forEach(item => { item.people = (item.people || []).map(n => n === h.name ? name : n); }));
+    h.name = name;
+    saveApp(); renderAll();
+  }
+  function toggleHireSkill(hid, skill) {
+    if (guardLocked()) return;
+    const h = app.hires.find(x => x.id === hid);
+    const next = ((h.skills[skill] || 0) + 1) % 4;
+    if (next === 0) delete h.skills[skill]; else h.skills[skill] = next;
+    saveApp(); renderAll();
+  }
+  function cycleHireEmoji(hid) {
+    if (guardLocked()) return;
+    const h = app.hires.find(x => x.id === hid);
+    const cur = HIRE_EMOJI_SET.indexOf(h.emoji || HIRE_EMOJI_SET[0]);
+    h.emoji = HIRE_EMOJI_SET[(cur + 1) % HIRE_EMOJI_SET.length];
+    saveApp(); renderAll();
+  }
+  function assignHireToItem(hid, bid, iid) {
+    if (guardLocked()) return;
+    const h = app.hires.find(x => x.id === hid);
+    const item = itemById(boardById(bid), iid);
+    if (!item.people) item.people = [];
+    if (!item.people.includes(h.name)) item.people.push(h.name);
+    saveApp(); renderAll();
+  }
+
+
+  // ===================== GOALS =====================
+  const GOAL_TYPES = ['Vibe','Pillar','Sub-Pillar','Quality','Milestone','Foundation','Other'];
+
+  const ENDEAVOR_GOALS = [
+    { id:'g_wws',  name:'Worlds Worth Saving', type:'Pillar', color:'#d4a574', desc:'Game pillar. A world earns protection \u2014 players fight harder for a place they understand, believe in, and find beautiful.' },
+    { id:'g_mh',   name:'Mythic Heroes', type:'Pillar', color:'#3987e5', desc:'Game pillar. Players feel legendary \u2014 the world, movement, and story make Guardians feel like titans.' },
+    { id:'g_ce',   name:'Charismatic Enemies', type:'Pillar', color:'#d64545', desc:'Game pillar. Enemies players come to know and hate \u2014 present, vocal, and worth fighting.' },
+    { id:'g_titans', name:'A Stage for Titans', type:'Pillar', color:'#b083d6', desc:'World pillar (ladders to Mythic Heroes \u00b7 Charismatic Enemies \u00b7 Worlds Worth Saving). Spaces are backdrops that make combat epic and readable at speed; the map frames encounters worth having.' },
+    { id:'g_move', name:'Movement Is a Playground', type:'Pillar', color:'#1baf7a', desc:'World pillar (ladders to Mythic Heroes). Movement is the most-used verb \u2014 moving through the world is a joy in its own right, with choices always in reach.' },
+    { id:'g_awws', name:'A World Worth Saving', type:'Pillar', color:'#eda100', desc:'World pillar (ladders to Worlds Worth Saving \u00b7 Charismatic Enemies). Beauty concentrated where players spend time; players come to understand the world, someone to fight for, someone to fight against.' },
+    { id:'g_strangers', name:'Bringing Strangers Together', type:'Pillar', color:'#e87ba4', desc:'World pillar. Spaces engineered for the collision of co-op play \u2014 paths lead to attractions, attractions reward collaboration, spectacle pulls players toward each other.' },
+    { id:'g_play', name:'Built for Play', type:'Pillar', color:'#5aa7a7', desc:'World pillar. A map you run a hundred times lives or dies on reconfiguration \u2014 value comes from how it changes, not how big it is. The same map, never the same run.' },
+    { id:'g_m5',   name:'M5: Ready for Community Playtesting', type:'Milestone', color:'#9085e9', desc:'Mid Aug \u2192 early Sep. Live service & Steam prep, matchmaking, difficulty stretching, improved HUD & clarity \u2014 no moderators or sherpas.' },
+    { id:'g_feb',  name:'Feb Scaled Alpha (Steam Next Fest)', type:'Milestone', color:'#e8833a', desc:'The north star. Everything ladders to a scaled alpha in front of real players in February 2027.' }
+  ];
+
+  const ENDEAVOR_TAGS = {
+    onboarding: ['g_feb','g_awws','g_mh'],
+    mal: ['g_titans','g_play','g_feb'],
+    newmap: ['g_wws','g_awws','g_play','g_feb'],
+    interiors: ['g_awws'],
+    ship: ['g_mh','g_awws'],
+    traversal: ['g_move','g_mh'],
+    activities: ['g_play','g_strangers'],
+    dynamic: ['g_play'],
+    combatsp: ['g_titans','g_ce'],
+    vertical: ['g_move','g_titans'],
+    encounter: ['g_titans','g_ce'],
+    npc: ['g_awws','g_wws'],
+    enemy: ['g_ce'],
+    climax: ['g_titans','g_wws','g_ce'],
+    envstory: ['g_awws','g_wws'],
+    extraction: ['g_play','g_ce'],
+    soloplay: ['g_feb'],
+    midjoin: ['g_strangers','g_feb'],
+    scaling: ['g_strangers','g_play'],
+    saenakit: ['g_awws','g_wws'],
+    performance: ['g_feb','g_m5'],
+    questsys: ['g_awws'],
+    shipconvimp: ['g_mh'],
+    gbarkimp: ['g_mh'],
+    ebarkimp: ['g_ce'],
+    enemypa: ['g_ce'],
+    intercsys: ['g_ce'],
+    codexsys: ['g_awws'],
+    inrunconv: ['g_awws'],
+    relsys: ['g_mh'],
+    questflow: ['g_awws','g_feb'],
+    questdlg: ['g_awws','g_feb'],
+    shipconv: ['g_mh'],
+    gbarks: ['g_mh'],
+    intercepts: ['g_ce'],
+    banter: ['g_mh'],
+    codexwrite: ['g_awws'],
+    npcdlg: ['g_awws'],
+    onbdlg: ['g_feb','g_awws'],
+    hints: ['g_m5','g_feb'],
+    openvideo: ['g_wws','g_feb']
+  };
+
+  function seedGoalsOnce() {
+    if (app.meta.goalsSeeded) return;
+    app.meta.goalsSeeded = true;
+    // Only seed the Endeavor set into a config that is recognizably the migrated Endeavor setup
+    const world = app.boards.find(b => b.id === 'napkin');
+    if (!app.goals.length && world && world.items.some(i => i.id === 'mal')) {
+      app.goals = ENDEAVOR_GOALS.map(g => Object.assign({}, g));
+      app.boards.forEach(b => b.items.forEach(item => {
+        if (ENDEAVOR_TAGS[item.id]) item.goals = ENDEAVOR_TAGS[item.id].slice();
+      }));
+    }
+    saveApp();
+  }
+
+  function seedFoundationOnce() {
+    if (app.meta.foundationSeeded) return;
+    app.meta.foundationSeeded = true;
+    if (app.goals.some(g => g.id === 'g_wws') && !app.goals.some(g => g.type === 'Foundation')) {
+      app.goals.push({
+        id: 'g_found', name: 'Foundations', type: 'Foundation', color: '#8a9bb0',
+        desc: 'Work that exists so other work can exist \u2014 pipelines, tooling, performance, and tech that every goal silently depends on. A multiplier, not a destination.'
+      });
+      const tag = ['arttechpipe','worldbuildpipe','performance'];
+      app.boards.forEach(b => b.items.forEach(item => {
+        if (tag.includes(item.id)) {
+          if (!item.goals) item.goals = [];
+          if (!item.goals.includes('g_found')) item.goals.push('g_found');
+        }
+      }));
+    }
+    saveApp();
+  }
+
+  function seedVibeOnce() {
+    if (app.meta.vibeSeeded) return;
+    app.meta.vibeSeeded = true;
+    if (app.goals.some(g => g.id === 'g_wws') && !app.goals.some(g => g.id === 'g_mu')) {
+      app.goals.push({
+        id: 'g_mu', name: 'Mythic Underdog', type: 'Vibe', color: '#8e7cc3',
+        desc: 'The vibe at the core: Mythic (Magician) backdrop \u2014 millennia of history, machine-gods, starship-scale elder dragons \u2014 fused with Underdog (Hero) position: powerful heroes against impossible odds. The odds are long, and still we fight.'
+      });
+      app.goals.push({
+        id: 'g_fff', name: 'Fight for the Future', type: 'Vibe', color: '#e0b84f',
+        desc: 'The creative throughline: present-tense, protective heroism. A golden age is crumbling and the Guardians step up to defend it. Players feel Hopeful & Badass \u2014 darkness comes from the stakes, not from grim cosmology.'
+      });
+      const muTags = ['extraction','encounter','climax'];
+      const fffTags = ['onboarding','openvideo'];
+      app.boards.forEach(b => b.items.forEach(item => {
+        if (muTags.includes(item.id)) { if (!item.goals) item.goals = []; if (!item.goals.includes('g_mu')) item.goals.push('g_mu'); }
+        if (fffTags.includes(item.id)) { if (!item.goals) item.goals = []; if (!item.goals.includes('g_fff')) item.goals.push('g_fff'); }
+      }));
+    }
+    saveApp();
+  }
+
+  function seedSubPillarOnce() {
+    if (app.meta.subPillarSeeded) return;
+    app.meta.subPillarSeeded = true;
+    const worldPillars = ['g_titans','g_move','g_awws','g_strangers','g_play'];
+    app.goals.forEach(g => {
+      if (worldPillars.includes(g.id) && g.type === 'Pillar') g.type = 'Sub-Pillar';
+    });
+    saveApp();
+  }
+
+  function goalById(id) { return app.goals.find(g => g.id === id); }
+  function getItemGoals(item) {
+    return (item.goals || []).filter(id => goalById(id));
+  }
+  function toggleItemGoal(bid, iid, gid) {
+    if (guardLocked()) return;
+    const item = itemById(boardById(bid), iid);
+    if (!item.goals) item.goals = [];
+    const i = item.goals.indexOf(gid);
+    if (i >= 0) item.goals.splice(i, 1); else item.goals.push(gid);
+    saveApp(); renderAll();
+  }
+
+  // Split attribution: an item's weeks divide evenly among its goals; untagged -> Orphans.
+  function computeGoalStats() {
+    const perGoal = {};
+    app.goals.forEach(g => { perGoal[g.id] = { split: 0, touch: 0, count: 0, mustSplit: 0, top: null }; });
+    const orphan = { split: 0, count: 0, items: [] };
+    let total = 0, mustTotal = 0;
+    app.boards.forEach(b => b.items.forEach(item => {
+      if (item.off) return;
+      const needs = getNeeds(b, item);
+      let w = 0;
+      Object.keys(needs).forEach(d => { w += DOT_WEEKS[needs[d]] || 0; });
+      if (!w) return;
+      total += w;
+      const isMust = (item.prio || 'could') === 'must';
+      if (isMust) mustTotal += w;
+      const gs = getItemGoals(item);
+      if (!gs.length) {
+        orphan.split += w; orphan.count++;
+        orphan.items.push({ title: item.title, weeks: w });
+        return;
+      }
+      const share = w / gs.length;
+      gs.forEach(gid => {
+        const pg = perGoal[gid];
+        pg.split += share; pg.touch += w; pg.count++;
+        if (isMust) pg.mustSplit += share;
+        if (!pg.top || share > pg.top.share) pg.top = { title: item.title, share: share };
+      });
+    }));
+    return { perGoal: perGoal, orphan: orphan, total: total, mustTotal: mustTotal };
+  }
+
+  function goalTensions(stats) {
+    const notes = [];
+    if (!app.goals.length || stats.total === 0) return notes;
+    const pctOf = (w, t) => t > 0 ? Math.round(w / t * 100) : 0;
+    if (stats.orphan.split > 0) {
+      const op = pctOf(stats.orphan.split, stats.total);
+      if (op >= 10) notes.push('\u26a0 <strong>' + op + '% of all work is orphaned</strong> \u2014 ' + stats.orphan.count + ' feature(s) serve no stated goal. Either tag them or ask why they\u2019re being built.');
+    }
+    app.goals.forEach(g => {
+      const pg = stats.perGoal[g.id];
+      const share = pctOf(pg.split, stats.total);
+      if (g.type === 'Foundation' || g.type === 'Vibe') {
+        if (pg.count === 0) notes.push('\ud83d\udc7b <strong>' + g.name + '</strong> has no features tagged to it at all.');
+        return;
+      }
+      if ((g.type === 'Pillar' || g.type === 'Sub-Pillar') && share > 0 && share < 5) {
+        notes.push('\ud83e\ude97 <strong>' + g.name + '</strong> is nearly starved \u2014 only ' + share + '% of work serves it despite being a pillar.');
+      }
+      if ((g.type === 'Pillar' || g.type === 'Sub-Pillar') && pg.count > 0 && pg.split === 0) {
+        notes.push('\ud83e\ude97 <strong>' + g.name + '</strong> is tagged on features but none carry effort dots yet.');
+      }
+      if (stats.mustTotal > 0 && share >= 15) {
+        const mustShare = pctOf(pg.mustSplit, stats.mustTotal);
+        if (mustShare < share / 2) {
+          notes.push('\u2696\ufe0f <strong>' + g.name + '</strong>: ' + share + '% of all work but only ' + mustShare + '% of MUST work \u2014 the rhetoric and the commitments disagree.');
+        }
+      }
+      if (pg.split > 0 && pg.top && pg.top.share / pg.split >= 0.7 && pg.count > 1) {
+        notes.push('\ud83e\uddca <strong>' + g.name + '</strong> is fragile \u2014 ~' + Math.round(pg.top.share / pg.split * 100) + '% of its effort lives in one feature (' + pg.top.title + '). Cut that feature and the goal collapses.');
+      }
+      if (pg.count === 0) {
+        notes.push('\ud83d\udc7b <strong>' + g.name + '</strong> has no features tagged to it at all.');
+      }
+    });
+    return notes;
+  }
+
+  let goalModalCtx = null;
+  function openGoalModal(gid) {
+    if (guardLocked()) return;
+    goalModalCtx = { gid: gid };
+    if (gid) {
+      const g = goalById(gid);
+      document.getElementById('goalModalTitle').textContent = 'Edit Goal';
+      document.getElementById('goalModalName').value = g.name;
+      document.getElementById('goalModalDesc').value = g.desc || '';
+      document.getElementById('goalModalType').value = g.type || 'Other';
+      document.getElementById('goalModalColor').value = g.color || '#3987e5';
+      document.getElementById('goalModalDelete').style.display = '';
+    } else {
+      document.getElementById('goalModalTitle').textContent = 'Add Goal';
+      document.getElementById('goalModalName').value = '';
+      document.getElementById('goalModalDesc').value = '';
+      document.getElementById('goalModalType').value = 'Pillar';
+      document.getElementById('goalModalColor').value = '#3987e5';
+      document.getElementById('goalModalDelete').style.display = 'none';
+    }
+    document.getElementById('goalModal').classList.add('open');
+    document.getElementById('goalModalName').focus();
+  }
+  function closeGoalModal() { document.getElementById('goalModal').classList.remove('open'); goalModalCtx = null; }
+  function saveGoalModal() {
+    if (!goalModalCtx) return;
+    const name = document.getElementById('goalModalName').value.trim();
+    if (!name) { alert('Give the goal a name.'); return; }
+    const desc = document.getElementById('goalModalDesc').value.trim();
+    const type = document.getElementById('goalModalType').value;
+    const color = document.getElementById('goalModalColor').value;
+    if (goalModalCtx.gid) {
+      const g = goalById(goalModalCtx.gid);
+      g.name = name; g.desc = desc; g.type = type; g.color = color;
+    } else {
+      app.goals.push({ id: uid('goal'), name: name, desc: desc, type: type, color: color });
+    }
+    saveApp(); closeGoalModal(); renderAll();
+  }
+  function deleteGoalFromModal() {
+    if (!goalModalCtx || !goalModalCtx.gid) return;
+    const g = goalById(goalModalCtx.gid);
+    if (!confirm('Delete the goal \u201c' + g.name + '\u201d? It will be untagged from every feature. The features themselves are untouched.')) return;
+    app.boards.forEach(b => b.items.forEach(item => {
+      if (item.goals) item.goals = item.goals.filter(id => id !== g.id);
+    }));
+    app.goals = app.goals.filter(x => x.id !== g.id);
+    saveApp(); closeGoalModal(); renderAll();
+  }
+
+  function goalsTabHtml() {
+    const stats = computeGoalStats();
+    const pctOf = (w, t) => t > 0 ? Math.round(w / t * 100) : 0;
+
+    const typeOrder = { Vibe: 0, Pillar: 1, 'Sub-Pillar': 2, Quality: 3, Milestone: 4, Foundation: 5, Other: 6 };
+    const sorted = app.goals.slice().sort((a, b) =>
+      (typeOrder[a.type] - typeOrder[b.type]) || (stats.perGoal[b.id].split - stats.perGoal[a.id].split));
+
+    const allocCards = sorted.map(g => {
+      const pg = stats.perGoal[g.id];
+      const share = pctOf(pg.split, stats.total);
+      const isFound = g.type === 'Foundation';
+      return '<div class="group-card" style="border-top: 3px ' + (isFound ? 'dashed' : 'solid') + ' ' + g.color + ';">' +
+        '<div class="g-name">' + (isFound ? '\ud83d\udd27 ' : '') + g.name + '</div>' +
+        '<div class="g-nums">' + fmtWeeks(pg.split) + ' \u00b7 ' + pg.count + ' feature' + (pg.count === 1 ? '' : 's') + '</div>' +
+        '<div class="g-pct" style="color:' + g.color + ';">' + share + '%</div></div>';
+    }).join('') + (stats.orphan.split > 0 || stats.orphan.count > 0
+      ? '<div class="group-card" style="border-top: 3px solid #8a8a8a; opacity:0.85;">' +
+        '<div class="g-name">\ud83d\udc7b Orphans</div>' +
+        '<div class="g-nums">' + fmtWeeks(stats.orphan.split) + ' \u00b7 ' + stats.orphan.count + ' feature' + (stats.orphan.count === 1 ? '' : 's') + '</div>' +
+        '<div class="g-pct" style="color:#8a8a8a;">' + pctOf(stats.orphan.split, stats.total) + '%</div></div>'
+      : '');
+
+    const tensions = goalTensions(stats);
+    const tensionBox = tensions.length
+      ? '<div class="staff-section"><div class="staff-title">\u2696\ufe0f Tension notes (computed live)</div>' +
+        tensions.map(t => '<div style="margin-bottom:6px; font-size:15px;">' + t + '</div>').join('') +
+        '<div class="staff-note">These are the tensions the math can see. For semantic conflicts (goals pulling the design in opposite directions), use \ud83d\udccb Copy Evaluation Brief and paste it to Claude.</div></div>'
+      : (app.goals.length ? '<div class="staff-section"><div class="staff-title">\u2696\ufe0f Tension notes</div><div style="font-size:15px;">No structural tensions detected \u2014 allocations, commitments, and coverage look consistent.</div></div>' : '');
+
+    const orphanList = stats.orphan.items.length
+      ? '<details class="load-details" style="margin: 0 0 1.5rem 0;"><summary>\ud83d\udc7b Orphaned features \u2014 active, estimated, no goal (' + stats.orphan.items.length + ')</summary>' +
+        '<ul class="person-tasks" style="margin-top:8px;">' + stats.orphan.items.map(o => '<li>' + o.title + ' (' + fmtWeeks(o.weeks) + ')</li>').join('') + '</ul></details>'
+      : '';
+
+    const goalCards = sorted.map(g => {
+      const pg = stats.perGoal[g.id];
+      return '<div class="card" style="border-left: 5px solid ' + g.color + ';">' +
+        '<div class="card-head"><div class="card-title">' + g.name + '</div>' +
+        '<div style="display:flex; align-items:center; gap:4px;">' +
+        '<span class="prio-toggle p-could" style="cursor:default;">' + (g.type || 'Other').toUpperCase() + '</span>' +
+        '<button class="icon-btn" title="Edit goal" onclick="openGoalModal(\'' + g.id + '\')">\u270e</button></div></div>' +
+        '<div class="card-desc">' + (g.desc || '') + '</div>' +
+        '<div class="card-digest"><strong>' + fmtWeeks(pg.split) + '</strong> split share \u00b7 touches ' + pg.count + ' feature' + (pg.count === 1 ? '' : 's') + ' (' + fmtWeeks(pg.touch) + ' of work total)</div>' +
+        '</div>';
+    }).join('');
+
+    return '<div id="goals" class="tab-content">' +
+      '<div class="effort-key">Tag features with goals inside each feature\u2019s <strong>Details</strong> on the page tabs. A feature\u2019s weeks split evenly across its goals for the allocation below; features with effort but no goal land in <strong>Orphans</strong>. Enablement work (pipelines, tooling) belongs under a <strong>Foundation</strong>-type goal \u2014 a legitimate \u201cwhy\u201d that keeps it out of the orphan bucket without pretending it\u2019s a pillar. Coverage (\u201ctouches\u201d) counts full feature weeks per goal.</div>' +
+      '<div class="page-controls">' +
+      '<button class="filter-chip on" onclick="openGoalModal(null)">+ Add Goal</button>' +
+      '<span style="flex:1;"></span>' +
+      '<button class="filter-chip" onclick="copyEvalBrief()">\ud83d\udccb Copy Evaluation Brief</button>' +
+      '</div>' +
+      (app.goals.length
+        ? '<div class="category-title">\ud83c\udfaf Where the Work Goes</div><div class="group-cards">' + allocCards + '</div>' +
+          tensionBox + orphanList +
+          '<div class="category-title">\ud83c\udfaf The Goals</div><div class="cards-grid">' + goalCards + '</div>'
+        : '<div class="board-hint">No goals yet. Add pillars, quality bars, or milestone gates \u2014 then tag features with them from each feature\u2019s Details panel.</div>') +
+      '</div>';
+  }
+
+  function buildEvalBrief() {
+    const stats = computeGoalStats();
+    const snap = capSnapshot;
+    const pctOf = (w, t) => t > 0 ? Math.round(w / t * 100) : 0;
+    const L = [];
+    L.push('# Plan Evaluation Brief \u2014 ' + (app.meta.title || 'Work Deliverables'));
+    L.push('Generated ' + new Date().toLocaleString() + '. All effort in \u2605\u2605-equivalent weeks.');
+    L.push('');
+    L.push('## Capacity');
+    L.push('- Active work: ' + fmtWeeks(snap.work) + ' | Team capacity: ' + (weeksSet() ? fmtWeeks(snap.capacity) + ' (' + snap.capCount + ' people \u00d7 ' + WEEKS_AVAILABLE + 'w)' : 'not set') + (weeksSet() ? ' | ' + snap.pct + '% loaded' : ''));
+    L.push('');
+    L.push('## Goals');
+    app.goals.forEach(g => {
+      const pg = stats.perGoal[g.id];
+      L.push('- [' + (g.type || 'Other') + '] ' + g.name + ' \u2014 ' + pctOf(pg.split, stats.total) + '% of work (' + fmtWeeks(pg.split) + ' split share, touches ' + pg.count + ' features). ' + (g.desc || ''));
+    });
+    L.push('- [Orphans] ' + pctOf(stats.orphan.split, stats.total) + '% of work (' + fmtWeeks(stats.orphan.split) + ', ' + stats.orphan.count + ' features) has no goal.');
+    L.push('');
+    L.push('## Features (active only: title | weeks | priority | goals)');
+    app.boards.forEach(b => {
+      L.push('### ' + b.name);
+      b.items.forEach(item => {
+        if (item.off) return;
+        const needs = getNeeds(b, item);
+        let w = 0;
+        Object.keys(needs).forEach(d => { w += DOT_WEEKS[needs[d]] || 0; });
+        const gs = getItemGoals(item).map(id => goalById(id).name);
+        L.push('- ' + item.title + ' | ' + fmtWeeks(w) + ' | ' + PRIO_LABEL[item.prio || 'could'] + ' | ' + (gs.length ? gs.join(', ') : 'ORPHAN'));
+      });
+    });
+    L.push('');
+    const tensions = goalTensions(stats);
+    if (tensions.length) {
+      L.push('## Computed tensions');
+      tensions.forEach(t => L.push('- ' + t.replace(/<[^>]+>/g, '')));
+      L.push('');
+    }
+    L.push('## Your task');
+    L.push('You are evaluating a game team\u2019s scope plan against its stated goals. Please assess:');
+    L.push('Note: goals typed [Foundation] are enablers (pipelines, tooling, performance) \u2014 judge them on whether their size is proportionate to what they unblock, not on direct goal contribution.');
+    L.push('1. Alignment \u2014 does the distribution of effort match the stated priorities of the goals? Which goals are over/under-funded relative to their rhetorical weight?');
+    L.push('2. Semantic conflicts \u2014 which goals are in tension with each other (e.g. scale vs. density, breadth vs. replayability)? Which features serve one goal at the expense of another?');
+    L.push('3. Orphans \u2014 for each orphaned feature, either propose which goal it plausibly serves or flag it as a candidate to cut.');
+    L.push('4. The three biggest risks in this plan, and the single highest-leverage change you would recommend.');
+    L.push('Be direct and specific. Reference features by name.');
+    return L.join('\n');
+  }
+
+  function copyEvalBrief() {
+    const text = buildEvalBrief();
+    function done() { showToast('\ud83d\udccb Evaluation brief copied \u2014 paste it into a Claude chat.'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function() { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  }
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  // ===================== UI STATE =====================
+  let activeTabId = localStorage.getItem('activeTab') || 'summary';
+  const openDetails = new Set();
+  const rosterOpen = new Set();
+  const summaryFilters = { boards: {}, goals: {}, prio: { must: true, should: true, could: true, wont: true }, sort: 'priority' };
+
+  function switchTab(id) {
+    activeTabId = id;
+    localStorage.setItem('activeTab', id);
+    applyActiveTab();
+  }
+  function applyActiveTab() {
+    if (activeTabId !== 'summary' && activeTabId !== 'staff' && activeTabId !== 'goals' &&
+        !app.boards.some(b => 'board-' + b.id === activeTabId)) activeTabId = 'summary';
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === activeTabId));
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === activeTabId));
+  }
+  function cardDetailsClick(bid, iid) {
+    const k = bid + ':' + iid;
+    if (openDetails.has(k)) openDetails.delete(k); else openDetails.add(k);
+    renderAll();
+    return false;
+  }
+  function setAllDetails(bid, open) {
+    const b = boardById(bid);
+    b.items.forEach(item => {
+      const k = bid + ':' + item.id;
+      if (open) openDetails.add(k); else openDetails.delete(k);
+    });
+    renderAll();
+  }
+  function rosterClick(bid) {
+    if (rosterOpen.has(bid)) rosterOpen.delete(bid); else rosterOpen.add(bid);
+    renderAll();
+    return false;
+  }
+  let lensOpen = false;
+  function lensClick() { lensOpen = !lensOpen; renderAll(); return false; }
+  function sumToggleBoard(bid) { summaryFilters.boards[bid] = !summaryFilters.boards[bid]; renderAll(); }
+  function sumTogglePrio(p) { summaryFilters.prio[p] = !summaryFilters.prio[p]; renderAll(); }
+  function sumToggleGoal(id) { summaryFilters.goals[id] = summaryFilters.goals[id] === false ? true : false; renderAll(); }
+  function sumSetSort(s) { summaryFilters.sort = s; renderAll(); }
+
+  // ===================== RENDER HELPERS =====================
+  function prioToggleHtml(bid, iid, prio) {
+    return '<button class="prio-toggle p-' + prio + '" title="Cycle priority: COULD \u2192 SHOULD \u2192 MUST \u2192 WON\u2019T" ' +
+      'onclick="cyclePriority(\'' + bid + '\',\'' + iid + '\')">' + PRIO_LABEL[prio] + '</button>';
+  }
+  function prioClass(prio) { return prio === 'could' ? '' : ' prio-' + prio; }
+  function activeToggleHtml(bid, iid, on) {
+    return '<button class="active-toggle' + (on ? '' : ' off') + '" ' +
+      'onclick="toggleActive(\'' + bid + '\',\'' + iid + '\')">' + (on ? 'ACTIVE' : 'OFF') + '</button>';
+  }
+  function needToggleHtml(b, item) {
+    const needs = getNeeds(b, item);
+    return b.disciplines.map(s => {
+      const dots = needs[s] || 0;
+      const cls = 'need-toggle' + (dots > 0 ? ' on d' + dots : '');
+      const label = s + (dots > 0 ? ' (' + DOT_LABEL[dots] + ')' : '');
+      return '<button class="' + cls + '" onclick="cycleNeed(\'' + b.id + '\',\'' + item.id + '\',\'' + esc(s) + '\')">' + label + '</button>';
+    }).join('');
+  }
+  function personEmoji(tiers, isHire, custom) {
+    if (isHire) return custom || '\ud83c\udd95';
+    const firstRole = ROLE_MAP[Object.keys(tiers || {})[0]] || '';
+    return ROLE_EMOJI[firstRole] || '\ud83e\uddd1\u200d\ud83d\ude80';
+  }
+
+  // ===================== RENDER: BOARD TAB =====================
+  function capacityBannerHtml() {
+    const snap = capSnapshot;
+    if (!weeksSet()) {
+      return '<strong>Active work:</strong> ' + fmtWeeks(snap.work) + ' &nbsp;\u2022&nbsp; ' +
+        '<strong>Team capacity:</strong> not set ' +
+        '<button class="filter-chip on" onclick="setWeeksAvailable()">\ud83d\udcc5 Set available weeks</button>' +
+        '<div class="capacity-fine">Set the number of weeks per person (and optional padding) to unlock the capacity math \u2014 % loaded, per-person limits, and overload warnings.</div>';
+    }
+    const color = snap.pct > 100 ? '#d64545' : (snap.pct > 85 ? '#eda100' : '#1baf7a');
+    const verdict = snap.pct > 100 ? 'over capacity' : (snap.pct > 85 ? 'at the edge' : 'within capacity');
+    const groupRows = GROUP_LIST
+      .filter(g => (snap.groupWork[g] || 0) > 0 || (snap.groupCap[g] || 0) > 0)
+      .map(g => {
+        const gw = snap.groupWork[g] || 0, gc = snap.groupCap[g] || 0;
+        const gp = gc > 0 ? Math.round(gw / gc * 100) : (gw > 0 ? 999 : 0);
+        const gcol = gp > 100 ? '#d64545' : (gp > 85 ? '#eda100' : '#1baf7a');
+        const gpct = gc > 0 ? gp + '%' : (gw > 0 ? 'no cap' : '0%');
+        return '<span class="total-chip"><strong>' + g + '</strong> ' + fmtWeeks(gw) + ' / ' + fmtWeeks(gc) +
+          ' <span style="color:' + gcol + '; font-weight:700;">' + gpct + '</span></span>';
+      }).join(' ');
+    return '<strong>Active work:</strong> ' + fmtWeeks(snap.work) + ' &nbsp;\u2022&nbsp; ' +
+      '<strong>Team capacity:</strong> ' + fmtWeeks(snap.capacity) + ' (' + snap.capCount + ' people \u00d7 ' + WEEKS_AVAILABLE + 'w) &nbsp;\u2022&nbsp; ' +
+      '<span class="capacity-pct" style="color:' + color + ';">' + snap.pct + '% loaded</span> ' +
+      '<span style="color:' + color + '; font-weight:600;">(' + verdict + ')</span>' +
+      '<div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">' + groupRows + '</div>' +
+      '<div class="capacity-fine">Work in \u2605\u2605-equivalent weeks across all pages, active features only. Overall capacity counts staff + proposed hires (shared support/external seats excluded); group rows include shared seats and split each person\u2019s weeks evenly across the groups they have skills in. ' +
+      'Labor split: when several assigned people cover the same discipline, work divides in proportion to their tier speed \u2014 \u2605\u2605\u2605 carries the bulk, a \u2605 assist lightens the load, and everyone spends the same calendar time (estimate \u00f7 sum of speeds).</div>';
+  }
+
+  function rosterStripHtml() {
+    const snap = capSnapshot;
+    if (!snap.people.length) return '<div class="board-hint">No team yet \u2014 add people on the Team tab.</div>';
+    return snap.people.map(p => {
+      let w = 0;
+      const perBoard = [];
+      app.boards.forEach(b => {
+        const bw = (loadsByBoard[b.id] && loadsByBoard[b.id].personWeeks[p.name]) || 0;
+        w += bw;
+        if (bw > 0) perBoard.push(fmtWeeks(bw) + ' ' + b.name);
+      });
+      const skillCells = Object.keys(p.tiers).map(s => {
+        let sw = 0;
+        app.boards.forEach(b => {
+          sw += ((loadsByBoard[b.id] && loadsByBoard[b.id].personSkillWeeks[p.name]) || {})[s] || 0;
+        });
+        return '<div class="roster-skill"><div class="roster-skill-count">' + fmtWeeks(sw) + '</div>' +
+          '<div class="roster-skill-name">' + s + ' ' + '\u2605'.repeat(p.tiers[s]) + '</div></div>';
+      }).join('');
+      const hot = weeksSet() && w > WEEKS_AVAILABLE;
+      const oh = p.overhead ? '<div class="staff-overhead">+ ' + p.overhead + '</div>' : '';
+      return '<div class="roster-card"' + (p.isHire ? ' style="border-style:dashed; border-color:#d4a574;"' : '') + '>' +
+        '<div class="roster-name">' + p.name + '</div>' +
+        '<div class="roster-skill-grid">' + skillCells + '</div>' +
+        '<div class="roster-breakdown">' + (perBoard.length ? perBoard.join(' + ') : 'nothing assigned') + '</div>' +
+        '<div class="roster-count' + (hot ? ' hot' : '') + '">' + fmtWeeks(w) + ' / ' + capStr() + '</div>' + oh +
+        '</div>';
+    }).join('');
+  }
+
+  function goalChipsHtml(bid, item) {
+    if (!app.goals.length) return '<span style="opacity:0.5; font-size:14px;">No goals defined yet \u2014 add them on the Goals tab.</span>';
+    const tagged = getItemGoals(item);
+    return app.goals.map(g => {
+      const on = tagged.includes(g.id);
+      const style = on ? ' style="background:' + g.color + '22; border-color:' + g.color + '; color:' + g.color + '; opacity:1;"' : '';
+      return '<button class="person-chip' + (on ? ' assigned' : '') + '"' + style +
+        ' onclick="toggleItemGoal(\'' + bid + '\',\'' + item.id + '\',\'' + g.id + '\')">' + g.name + '</button>';
+    }).join('');
+  }
+
+  function goalDotsHtml(item) {
+    const gs = getItemGoals(item);
+    if (!gs.length) return '';
+    return ' <span style="white-space:nowrap;">' + gs.map(id => {
+      const g = goalById(id);
+      return '<span title="' + attr(g.name) + '" style="display:inline-block; width:9px; height:9px; border-radius:50%; background:' + g.color + '; margin-left:3px;"></span>';
+    }).join('') + '</span>';
+  }
+
+  function boardTabHtml(b) {
+    const loads = loadsByBoard[b.id];
+    const overallWork = totalActiveWorkWeeks();
+    const roster = rosterFor(b);
+
+    // gaps banner
+    const entries = Object.entries(loads.gaps).sort((a, bb) => bb[1].weeks - a[1].weeks);
+    const gapsHtml = entries.length
+      ? '<div class="gaps-banner"><strong>Unstaffed work (active features, no assigned coverage):</strong> ' +
+        entries.map(e => e[0] + ' \u00d7 ' + fmtWeeks(e[1].weeks)).join(' &nbsp;\u2022&nbsp; ') + '</div>'
+      : '';
+
+    const rosterDetails = '<details class="load-details" style="margin:0 0 1.25rem 0;"' + (rosterOpen.has(b.id) ? ' open' : '') + '>' +
+      '<summary onclick="return rosterClick(\'' + b.id + '\')">Team Load \u2014 everyone, all pages (click to expand)</summary>' +
+      '<div class="roster-strip" style="margin-top:10px;">' + rosterStripHtml() + '</div></details>';
+
+    const key = '<div class="effort-key">Effort per discipline: click a tag to cycle <strong>0 \u2192 1wk \u2192 2wks \u2192 4wks \u2192 8wks \u2192 14wks</strong> ' +
+      '(4wks \u2248 a month \u2022 8wks \u2248 one milestone \u2022 14wks \u2248 half the runway). ' +
+      'Skill tiers: \u2605 = 0.5\u00d7 speed \u2022 \u2605\u2605 = 1\u00d7 (estimates assume this) \u2022 \u2605\u2605\u2605 = 2\u00d7. ' +
+      'Window: ' + (weeksSet() ? '\u2248 <strong>' + WEEKS_AVAILABLE + ' weeks</strong> per person' : '<strong>not set</strong>') + ' (adjustable in \u2699\ufe0f).</div>';
+
+    const controls = '<div class="page-controls">' +
+      '<button class="filter-chip" onclick="setAllDetails(\'' + b.id + '\', true)">Expand All</button>' +
+      '<button class="filter-chip" onclick="setAllDetails(\'' + b.id + '\', false)">Collapse All</button>' +
+      '<span style="flex:1;"></span>' +
+      '<button class="filter-chip" onclick="openSectionModal(\'' + b.id + '\', null)">+ Add Section</button>' +
+      '<button class="filter-chip" onclick="renameBoard(\'' + b.id + '\')">\u270e Rename Page</button>' +
+      '<button class="filter-chip" onclick="deleteBoard(\'' + b.id + '\')">\ud83d\uddd1 Delete Page</button>' +
+      '</div>';
+
+    const sections = b.groups.map(g => {
+      const items = b.items.filter(i => i.groupId === g.id);
+      const cards = items.map(d => {
+        const active = !d.off;
+        const needs = getNeeds(b, d);
+        const assigned = d.people || [];
+        let itemWeeks = 0;
+        Object.keys(needs).forEach(k => { itemWeeks += DOT_WEEKS[needs[k]] || 0; });
+        const pct = overallWork > 0 ? Math.round(itemWeeks / overallWork * 100) : 0;
+        const coveredSkills = new Set();
+        assigned.forEach(name => {
+          const p = roster.find(r => r.name === name);
+          if (p) p.skills.forEach(sk => coveredSkills.add(sk));
+        });
+        const neededDiscs = Object.keys(needs).filter(sk => needs[sk] > 0);
+        const stillNeeds = neededDiscs.filter(sk => !coveredSkills.has(sk));
+
+        const bits = [];
+        if (itemWeeks > 0) bits.push('<strong>' + fmtWeeks(itemWeeks) + '</strong> \u00b7 ' + pct + '% of all work');
+        if (assigned.length) bits.push(assigned.slice(0, 2).join(', ') + (assigned.length > 2 ? ' +' + (assigned.length - 2) : ''));
+        let status;
+        if (!active) status = '';
+        else if (neededDiscs.length && stillNeeds.length) status = '<span style="color:#d64545; font-weight:600;">\u26a0 needs ' + stillNeeds.join(', ') + '</span>';
+        else if (neededDiscs.length && assigned.length) status = '<span style="color:#1baf7a; font-weight:600;">\u2713 covered</span>';
+        else if (neededDiscs.length) status = '<span style="opacity:0.55;">unassigned</span>';
+        else status = '<span style="opacity:0.55;">no effort set</span>';
+        if (status) bits.push(status);
+        const gdots = goalDotsHtml(d);
+        const digest = (bits.length || gdots) ? '<div class="card-digest">' + bits.join(' &nbsp;\u00b7&nbsp; ') + gdots + '</div>' : '';
+
+        const chips = roster.map(p =>
+          '<button class="person-chip' + (assigned.includes(p.name) ? ' assigned' : '') + '" ' +
+          'onclick="toggleAssign(\'' + b.id + '\',\'' + d.id + '\',\'' + esc(p.name) + '\')">' + p.name + '</button>'
+        ).join('') || '<span style="opacity:0.5; font-size:14px;">Nobody on this page yet \u2014 give people these skills on the Team tab, or add skills below.</span>';
+
+        const isOpen = openDetails.has(b.id + ':' + d.id);
+        return '<div class="card' + (active ? '' : ' inactive') + prioClass(d.prio || 'could') + '" style="border-left: 5px solid ' + (g.color || '#3987e5') + ';">' +
+          '<div class="card-head"><div class="card-title">' + d.title + '</div>' +
+          '<div style="display:flex; align-items:center; gap:4px;">' +
+          '<button class="icon-btn" title="Edit" onclick="openItemModal(\'' + b.id + '\',null,\'' + d.id + '\')">\u270e</button>' +
+          '<button class="icon-btn" title="Delete" onclick="deleteItem(\'' + b.id + '\',\'' + d.id + '\')">\ud83d\uddd1</button>' +
+          prioToggleHtml(b.id, d.id, d.prio || 'could') +
+          activeToggleHtml(b.id, d.id, active) + '</div></div>' +
+          '<div class="card-desc">' + d.desc + '</div>' +
+          digest +
+          '<details class="card-details"' + (isOpen ? ' open' : '') + '>' +
+          '<summary onclick="return cardDetailsClick(\'' + b.id + '\',\'' + d.id + '\')">Details \u2014 skills &amp; staffing</summary>' +
+          '<div class="detail-label">Required skills</div>' +
+          '<div class="card-toggles" style="border-top:none; padding-top:0;">' + (b.disciplines.length ? needToggleHtml(b, d) : '<span style="opacity:0.5; font-size:14px;">No skills on this page yet \u2014 turn some on in the Skill Builder below.</span>') + '</div>' +
+          '<div class="detail-label">Staffing</div>' +
+          '<div class="napkin-chips">' + chips + '</div>' +
+          '<div class="detail-label">Goals</div>' +
+          '<div class="napkin-chips">' + goalChipsHtml(b.id, d) + '</div>' +
+          '</details></div>';
+      }).join('');
+      return '<div class="category"><div class="category-title"><span style="display:inline-block; width:12px; height:12px; border-radius:3px; background:' + (g.color || '#3987e5') + ';"></span>' + g.label +
+        '<button class="icon-btn" title="Edit section" style="font-size:13px;" onclick="openSectionModal(\'' + b.id + '\',\'' + g.id + '\')">\u270e</button>' +
+        '<button class="add-item-btn" onclick="openItemModal(\'' + b.id + '\',\'' + g.id + '\',null)">+ ADD</button></div>' +
+        '<div class="cards-grid">' + (cards || '<div class="board-hint">No features yet \u2014 use + ADD.</div>') + '</div></div>';
+    }).join('') || '<div class="board-hint">This page is empty. Use <strong>+ Add Section</strong> above to create your first section, then + ADD features into it.</div>';
+
+    // skill builder
+    const chips = app.skills.map(s => {
+      const on = b.disciplines.includes(s.name);
+      return '<span class="skill-pair">' +
+        '<button class="need-toggle' + (on ? ' on' : '') + '" onclick="toggleBoardDiscipline(\'' + b.id + '\',\'' + esc(s.name) + '\')">' + s.name + '</button>' +
+        '<button class="icon-btn" style="font-size:12px; padding:2px;" title="Edit skill" onclick="openSkillEditor(\'' + esc(s.name) + '\')">\u270e</button></span>';
+    }).join('');
+    const skillBuilder = '<div class="category"><div class="category-title">\ud83e\uddf0 Skill Builder' +
+      '<button class="add-item-btn" onclick="openSkillModal(\'' + b.id + '\')">+ ADD SKILL</button></div>' +
+      '<div class="effort-key">Skills toggled on appear on every feature card on this page. Toggling one off hides (doesn\u2019t delete) any effort already set in it \u2014 flip it back on and the numbers return. New skills also become available on Team character sheets.</div>' +
+      '<div class="card-toggles" style="border-top:none; padding-top:0;">' + chips + '</div></div>';
+
+    return '<div id="board-' + b.id + '" class="tab-content">' +
+      '<div class="capacity-banner">' + capacityBannerHtml() + '</div>' +
+      gapsHtml + rosterDetails + key + controls + sections + skillBuilder + '</div>';
+  }
+
+  // ===================== RENDER: TEAM TAB =====================
+  function staffTabHtml() {
+    const snap = capSnapshot;
+
+    const staffCards = app.staff.map(p => {
+      let booked = 0;
+      const taskList = [];
+      app.boards.forEach(b => {
+        booked += (loadsByBoard[b.id] && loadsByBoard[b.id].personWeeks[p.name]) || 0;
+        b.items.forEach(item => {
+          if (item.off) return;
+          if ((item.people || []).includes(p.name)) taskList.push('<li>' + item.title + '</li>');
+        });
+      });
+      const hot = weeksSet() && booked > WEEKS_AVAILABLE;
+      const skillChips = app.skills.map(sk => {
+        const t = p.tiers[sk.name] || 0;
+        const stars = t ? ' ' + '\u2605'.repeat(t) : '';
+        return '<button class="need-toggle' + (t ? ' on d' + t : '') + '" ' +
+          'onclick="cycleStaffSkill(\'' + esc(p.name) + '\',\'' + esc(sk.name) + '\')">' + sk.name + stars + '</button>';
+      }).join('');
+      const oh = p.overhead ? '<div class="staff-overhead">+ ' + p.overhead + '</div>' : '';
+      return '<div class="person-card">' +
+        '<div class="person-role" style="background:transparent;border:none;color:inherit;">' + p.name +
+        ' <button class="icon-btn" style="font-size:12px;" title="Rename" onclick="renameStaffPrompt(\'' + esc(p.name) + '\')">\u270e</button></div>' +
+        '<div class="staff-title-line">' + (p.title || '<span style="opacity:0.4;">no title</span>') +
+        ' <button class="icon-btn" style="font-size:11px;" title="Edit title" onclick="editStaffTitle(\'' + esc(p.name) + '\')">\u270e</button></div>' +
+        '<div class="person-emoji">' + personEmoji(p.tiers, false) + '</div>' +
+        '<div class="person-need" style="color:' + (hot ? '#d64545' : '#3987e5') + ';">booked ' + fmtWeeks(booked) + ' / ' + capStr() + '</div>' +
+        '<div class="hire-skills">' + skillChips + '</div>' + oh +
+        (taskList.length ? '<ul class="person-tasks">' + taskList.join('') + '</ul>' : '<div class="staff-note">Nothing assigned yet.</div>') +
+        '<button class="remove-hire" onclick="removeStaff(\'' + esc(p.name) + '\')">remove from team</button>' +
+        '</div>';
+    }).join('');
+
+    const hireCards = app.hires.map(h => {
+      const skillChips = app.skills.map(sk => {
+        const t = h.skills[sk.name] || 0;
+        const stars = t ? ' ' + '\u2605'.repeat(t) : '';
+        return '<button class="need-toggle' + (t ? ' on d' + t : '') + '" ' +
+          'onclick="toggleHireSkill(\'' + h.id + '\',\'' + esc(sk.name) + '\')">' + sk.name + stars + '</button>';
+      }).join('');
+      let booked = 0;
+      const taskList = [];
+      app.boards.forEach(b => {
+        booked += (loadsByBoard[b.id] && loadsByBoard[b.id].personWeeks[h.name]) || 0;
+        b.items.forEach(item => {
+          if (item.off) return;
+          if ((item.people || []).includes(h.name)) taskList.push('<li>' + item.title + '</li>');
+        });
+      });
+      const hot = weeksSet() && booked > WEEKS_AVAILABLE;
+      return '<div class="person-card hire-card">' +
+        '<button class="hire-name-btn" onclick="renameHire(\'' + h.id + '\')" title="Click to rename">' + h.name + ' \u270e</button>' +
+        '<button class="icon-btn" style="font-size:64px; opacity:1; line-height:1.1; padding:0;" title="Click to change icon" onclick="cycleHireEmoji(\'' + h.id + '\')">' + (h.emoji || '\ud83c\udd95') + '</button>' +
+        '<div class="person-need" style="color:' + (hot ? '#d64545' : '#1baf7a') + ';">booked ' + fmtWeeks(booked) + ' / ' + capStr() + '</div>' +
+        '<div class="hire-skills">' + skillChips + '</div>' +
+        (taskList.length ? '<ul class="person-tasks">' + taskList.join('') + '</ul>' : '<div class="staff-note">No tasks yet \u2014 claim gaps below or assign inside a feature\u2019s Details.</div>') +
+        '<button class="remove-hire" onclick="removeHire(\'' + h.id + '\')">remove</button>' +
+        '</div>';
+    }).join('');
+
+    // Seats to fill: gaps + overflow
+    const roleData = {};
+    app.boards.forEach(b => {
+      const loads = loadsByBoard[b.id];
+      Object.entries(loads.gaps).forEach(([disc, g]) => {
+        const role = ROLE_MAP[disc] || disc;
+        if (!roleData[role]) roleData[role] = { weeks: 0, tasks: [] };
+        roleData[role].weeks += g.weeks;
+        g.items.forEach(t => {
+          const claimers = app.hires.filter(h => h.skills[disc]).map(h =>
+            '<button class="claim-btn" onclick="assignHireToItem(\'' + h.id + '\',\'' + t.boardId + '\',\'' + t.id + '\')">\u2192 ' + h.name + '</button>'
+          ).join('');
+          roleData[role].tasks.push(t.title + ' \u2014 ' + disc + ' (' + fmtWeeks(t.weeks) + ')' + claimers);
+        });
+      });
+    });
+    const combined = {};
+    snap.people.forEach(p => {
+      let total = 0; const skillWeeks = {};
+      app.boards.forEach(b => {
+        const loads = loadsByBoard[b.id];
+        total += (loads.personWeeks[p.name] || 0);
+        const sw = loads.personSkillWeeks[p.name] || {};
+        Object.keys(sw).forEach(s => { skillWeeks[s] = (skillWeeks[s] || 0) + sw[s]; });
+      });
+      combined[p.name] = { total: total, skillWeeks: skillWeeks };
+    });
+    Object.entries(combined).forEach(([name, c]) => {
+      if (!weeksSet()) return;
+      const overflow = c.total - WEEKS_AVAILABLE;
+      if (overflow <= 0) return;
+      Object.entries(c.skillWeeks).forEach(([disc, wks]) => {
+        const share = overflow * (wks / c.total);
+        if (share < 0.5) return;
+        const role = ROLE_MAP[disc] || disc;
+        if (!roleData[role]) roleData[role] = { weeks: 0, tasks: [] };
+        roleData[role].weeks += share;
+        roleData[role].tasks.push('<span class="offload">Offload ~' + fmtWeeks(share) + ' of ' + disc + ' from ' + name +
+          ' (booked ' + fmtWeeks(c.total) + ' / ' + WEEKS_AVAILABLE + 'w)</span>');
+      });
+    });
+    const roles = Object.entries(roleData).sort((a, b) => b[1].weeks - a[1].weeks);
+    const seatCards = roles.map(([role, d]) => {
+      const months = Math.round(d.weeks / 4.3 * 10) / 10;
+      const tasks = d.tasks.map(t => '<li>' + t + '</li>').join('');
+      return '<div class="person-card">' +
+        '<div class="person-role">' + role + '</div>' +
+        '<div class="person-emoji">' + (ROLE_EMOJI[role] || '\ud83e\uddd1\u200d\ud83d\ude80') + '</div>' +
+        '<div class="person-need">~' + fmtWeeks(d.weeks) + ' of work (\u2248 ' + months + ' months)</div>' +
+        '<ul class="person-tasks">' + tasks + '</ul></div>';
+    }).join('');
+
+    const perBoard = app.boards.map(b => {
+      const entries = Object.entries(loadsByBoard[b.id].gaps).sort((a, bb) => bb[1].weeks - a[1].weeks);
+      if (!entries.length) return '';
+      return '<div class="staff-section"><div class="staff-title">' + b.name + ' \u2014 unstaffed work</div>' +
+        '<div style="font-size:16px;">' + entries.map(e => e[0] + ' \u00d7 ' + fmtWeeks(e[1].weeks)).join(' &nbsp;\u2022&nbsp; ') + '</div></div>';
+    }).join('');
+
+    return '<div id="staff" class="tab-content">' +
+      '<div class="effort-key">Window: ' + (weeksSet() ? '\u2248 <strong>' + WEEKS_AVAILABLE + ' weeks</strong> per person.' : '<strong>not set</strong> \u2014 set it in \u2699\ufe0f to unlock overload detection.') + ' ' +
+      'Seats to Fill covers work that is either <strong>unstaffed</strong> (no assigned person covers it) or <strong>overflow</strong> (assigned people are booked past capacity). ' +
+      'Skill tiers: click a skill to cycle \u2605 (0.5\u00d7 speed) \u2192 \u2605\u2605 (1\u00d7 \u2014 estimates assume this) \u2192 \u2605\u2605\u2605 (2\u00d7). Seat estimates assume a \u2605\u2605 hire.</div>' +
+      '<div class="category"><div class="category-title">\ud83d\udc65 Current Staff' +
+      '<button class="add-item-btn" onclick="addStaff()">+ ADD TEAM MEMBER</button></div>' +
+      '<div class="cards-grid">' + (staffCards || '<div class="board-hint">No team yet \u2014 add your first team member, then tap skills onto their card.</div>') + '</div></div>' +
+      '<div class="category"><div class="category-title">\ud83d\udd28 Needed Staff</div>' +
+      '<div class="hire-bar"><button class="add-hire-btn" onclick="addHire()">\u2795 Add a Hire</button>' +
+      '<span class="staff-note" style="margin:0;">Build a hire: name the role, tap skills onto them, then claim gap tasks below (\u2192 buttons) or assign them inside any feature\u2019s Details. Co-assign them next to an overbooked person to split that load.</span></div>' +
+      (hireCards ? '<div class="cards-grid">' + hireCards + '</div>' : '') + '</div>' +
+      '<div class="category"><div class="category-title">\ud83e\uddd1\u200d\ud83e\udd1d\u200d\ud83e\uddd1 Seats to Fill</div>' +
+      '<div class="cards-grid">' + (seatCards || '<div class="board-hint">All work staffed within capacity \u2713</div>') + '</div></div>' +
+      perBoard +
+      '<div class="staff-note">Hire, borrow, or contract. Effort attribution: each discipline\u2019s dots convert to weeks and split in proportion to each person\u2019s tier speed (\u2605\u2605\u2605 carries the bulk; a \u2605 assist lightens the load instead of halving it). Adjust dots and staffing inside each feature\u2019s Details on the page tabs.</div>' +
+      '</div>';
+  }
+
+  // ===================== RENDER: SUMMARY TAB =====================
+  function summaryTabHtml() {
+    const snap = capSnapshot;
+    const padding = parseInt(app.meta.padding) || 0;
+
+    let mustWork = 0, uncovered = 0;
+    app.boards.forEach(b => {
+      b.items.forEach(item => {
+        if (item.off || (item.prio || 'could') !== 'must') return;
+        const needs = getNeeds(b, item);
+        Object.keys(needs).forEach(d => { mustWork += DOT_WEEKS[needs[d]] || 0; });
+      });
+      Object.values(loadsByBoard[b.id].gaps).forEach(g => uncovered += g.weeks);
+    });
+
+    let v1, color, levers = '';
+    if (app.boards.length && snap.work > 0 && !weeksSet()) {
+      color = '#3987e5';
+      v1 = 'There is ' + fmtWeeks(snap.work) + ' of work scoped. Set your available weeks (\u2699\ufe0f \u2192 \ud83d\udcc5) to see whether it fits your team.';
+    } else if (!app.boards.length) {
+      color = '#3987e5';
+      v1 = 'Nothing here yet. Add a page from the tab bar, create sections and features, then build your team on the Team tab.';
+    } else if (snap.pct > 100) {
+      const over = snap.work - snap.capacity;
+      const ppl = Math.max(1, Math.ceil(over / WEEKS_AVAILABLE));
+      const slip = Math.ceil((snap.work / Math.max(snap.capCount, 1) - WEEKS_AVAILABLE) * 10) / 10;
+      const speed = Math.ceil(snap.work / snap.capacity * 100) / 100;
+      color = '#d64545';
+      v1 = 'We can deliver this scope \u2014 if at least one of these becomes true:';
+      levers = '<div class="verdict-sub" style="margin-bottom:8px;">' +
+        '<div>\u2702\ufe0f &nbsp;We trim ~<strong>' + fmtWeeks(over) + '</strong> of scope (a WON\u2019T pass on the Features list below)</div>' +
+        '<div>\ud83e\udd1d &nbsp;We add ~<strong>' + ppl + ' ' + (ppl === 1 ? 'person' : 'people') + '</strong> for the window (see Seats to Fill on the Team tab)</div>' +
+        '<div>\ud83d\udcc5 &nbsp;We extend the window by ~<strong>' + slip + 'w</strong> per person</div>' +
+        '<div>\u26a1 &nbsp;The team outruns the estimates by ~<strong>' + speed + '\u00d7</strong> across the board (for scale: \u2605\u2605 \u2192 \u2605\u2605\u2605 is 2\u00d7 \u2014 this lever is real but it\u2019s the only one that isn\u2019t a decision)</div>' +
+        '<div style="margin-top:4px; opacity:0.8;">\u2026or a blend: e.g. one hire plus a light trim.</div></div>';
+    } else if (snap.pct > 85) {
+      const slack = snap.capacity - snap.work;
+      color = '#eda100';
+      v1 = 'We can hold this scope \u2014 if nothing new lands and the estimates hold. There\u2019s only ~' + fmtWeeks(slack) + ' of slack (' + (100 - snap.pct) + '%); one surprise eats it.';
+    } else {
+      const slack = snap.capacity - snap.work;
+      color = '#1baf7a';
+      v1 = 'We can deliver this scope as currently staffed, with ~' + fmtWeeks(slack) + ' of slack in hand.';
+    }
+    const notes = [];
+    if (weeksSet() && mustWork > 0 && snap.capacity > 0) notes.push('MUST-priority work alone is ' + Math.round(mustWork / snap.capacity * 100) + '% of capacity.');
+    const hotGroups = Object.keys(snap.groupWork).filter(g => (snap.groupCap[g] || 0) > 0 && snap.groupWork[g] / snap.groupCap[g] > 1);
+    if (hotGroups.length) notes.push('Pressure is concentrated in ' + hotGroups.join(', ') + '.');
+    if (uncovered > 0) notes.push('~' + fmtWeeks(uncovered) + ' of work has no assigned owner yet.');
+    if (app.goals.length) {
+      const gstats = computeGoalStats();
+      if (gstats.total > 0 && gstats.orphan.split / gstats.total >= 0.1) {
+        notes.push(Math.round(gstats.orphan.split / gstats.total * 100) + '% of work serves no stated goal (see Goals tab).');
+      }
+    }
+    if (app.boards.length) {
+      notes.push(padding ? 'Numbers include ' + padding + '% schedule padding.' : 'No schedule padding is allocated \u2014 these are best-case numbers.');
+      notes.push('All figures are ballpark estimates for planning conversation, not commitments.');
+    }
+
+    const verdict = '<div class="verdict-banner">' +
+      '<div class="verdict-line" style="color:' + color + ';">' + v1 + '</div>' +
+      levers +
+      '<div class="verdict-sub">' + notes.join(' ') + '</div>' +
+      (app.boards.length && weeksSet() ? '<div class="verdict-nums"><strong>Active work:</strong> ' + fmtWeeks(snap.work) +
+      ' &nbsp;\u2022&nbsp; <strong>Team capacity:</strong> ' + fmtWeeks(snap.capacity) +
+      ' &nbsp;\u2022&nbsp; <span class="capacity-pct" style="color:' + color + ';">' + snap.pct + '% loaded</span></div>' : '') +
+      '</div>';
+
+    const groupCards = GROUP_LIST
+      .filter(g => (snap.groupWork[g] || 0) > 0 || (snap.groupCap[g] || 0) > 0)
+      .map(g => {
+        const gw = snap.groupWork[g] || 0, gc = snap.groupCap[g] || 0;
+        const gp = gc > 0 ? Math.round(gw / gc * 100) : (gw > 0 ? 999 : 0);
+        const gcol = gp > 100 ? '#d64545' : (gp > 85 ? '#eda100' : '#1baf7a');
+        return '<div class="group-card"><div class="g-emoji">' + (GROUP_EMOJI[g] || '') + '</div>' +
+          '<div class="g-name">' + g + '</div>' +
+          '<div class="g-nums">' + fmtWeeks(gw) + (weeksSet() ? ' / ' + fmtWeeks(gc) : ' work') + '</div>' +
+          '<div class="g-pct" style="color:' + gcol + ';">' + (weeksSet() && gc > 0 ? gp + '%' : '\u2014') + '</div></div>';
+      }).join('');
+
+    const teamCards = snap.people.map(p => {
+      const title = p.isHire ? 'Proposed hire' : (p.title || '');
+      const hireEmoji = p.isHire ? (app.hires.find(h => h.name === p.name) || {}).emoji : null;
+      return '<div class="sum-person"' + (p.isHire ? ' style="border-style:dashed; border-color:#d4a574;"' : '') + '>' +
+        '<div class="p-emoji">' + personEmoji(p.tiers, p.isHire, hireEmoji) + '</div>' +
+        '<div class="p-name">' + p.name + '</div>' +
+        '<div class="p-title">' + title + '</div></div>';
+    }).join('');
+
+    // Lenses panel: filters grouped into labeled rows by kind
+    const lensRow = (label, chips) => chips
+      ? '<div class="filter-bar" style="margin-bottom:4px;"><span class="filter-label" style="margin-left:0; min-width:100px;">' + label + '</span>' + chips + '</div>'
+      : '';
+    let deviations = 0;
+    let boardChips = '';
+    if (app.boards.length > 1) {
+      boardChips = app.boards.map(b => {
+        const on = summaryFilters.boards[b.id] !== false;
+        if (!on) deviations++;
+        return '<button class="filter-chip' + (on ? ' on' : '') + '" onclick="sumToggleBoard(\'' + b.id + '\')">' + b.name + '</button>';
+      }).join('');
+    }
+    const prioChips = ['must','should','could','wont'].map(p => {
+      const on = summaryFilters.prio[p];
+      if (!on) deviations++;
+      return '<button class="filter-chip' + (on ? ' on' : '') + '" onclick="sumTogglePrio(\'' + p + '\')">' + PRIO_LABEL[p] + '</button>';
+    }).join('');
+    const TYPE_ROW_LABEL = { Vibe: 'Vibe', Pillar: 'Game Pillars', 'Sub-Pillar': 'Sub-Pillars', Quality: 'Quality bars', Milestone: 'Milestones', Foundation: 'Foundations', Other: 'Other goals' };
+    const goalRows = GOAL_TYPES.map(t => {
+      const gs = app.goals.filter(g => (g.type || 'Other') === t);
+      if (!gs.length) return '';
+      const chips = gs.map(g => {
+        const on = summaryFilters.goals[g.id] !== false;
+        if (!on) deviations++;
+        return '<button class="filter-chip' + (on ? ' on' : '') + '"' + (on ? ' style="border-color:' + g.color + '; color:' + g.color + ';"' : '') + ' onclick="sumToggleGoal(\'' + g.id + '\')">' + g.name + '</button>';
+      }).join('');
+      return lensRow(TYPE_ROW_LABEL[t], chips);
+    }).join('');
+    let auditChips = '';
+    if (app.goals.length) {
+      const orphOn = summaryFilters.goals['__orphan'] !== false;
+      if (!orphOn) deviations++;
+      auditChips = '<button class="filter-chip' + (orphOn ? ' on' : '') + '" onclick="sumToggleGoal(\'__orphan\')">\ud83d\udc7b Orphans</button>';
+    }
+    const sortChips = [['priority','Priority'],['size','Size'],['alpha','A\u2013Z']].map(s =>
+      '<button class="filter-chip' + (summaryFilters.sort === s[0] ? ' on' : '') + '" onclick="sumSetSort(\'' + s[0] + '\')">' + s[1] + '</button>'
+    ).join('');
+    const lensPanel = '<details class="load-details" style="margin:0 0 1rem 0;"' + (lensOpen ? ' open' : '') + '>' +
+      '<summary onclick="return lensClick()">\ud83d\udd0d Lenses &amp; Filters' + (deviations ? ' \u2014 <span style="color:#3987e5;">' + deviations + ' applied</span>' : '') + '</summary>' +
+      '<div style="margin-top:8px;">' +
+      lensRow('Show', boardChips) +
+      lensRow('Priority', prioChips) +
+      goalRows +
+      lensRow('Audit', auditChips) +
+      lensRow('Sort', sortChips) +
+      '</div></details>';
+
+    const rows = [];
+    app.boards.forEach(b => {
+      if (summaryFilters.boards[b.id] === false) return;
+      b.items.forEach(item => {
+        const prio = item.prio || 'could';
+        if (!summaryFilters.prio[prio]) return;
+        const needs = getNeeds(b, item);
+        let w = 0;
+        Object.keys(needs).forEach(d => { w += DOT_WEEKS[needs[d]] || 0; });
+        const gs = getItemGoals(item);
+        if (app.goals.length) {
+          const pass = gs.length
+            ? gs.some(id => summaryFilters.goals[id] !== false)
+            : summaryFilters.goals['__orphan'] !== false;
+          if (!pass) return;
+        }
+        const g = b.groups.find(x => x.id === item.groupId);
+        rows.push({ bid: b.id, id: item.id, item: item, title: item.title, desc: item.desc || '', color: (g && g.color) || '#3987e5', weeks: w, prio: prio, active: !item.off });
+      });
+    });
+    const prioOrder = { must: 0, should: 1, could: 2, wont: 3 };
+    if (summaryFilters.sort === 'priority') rows.sort((a, b) => (prioOrder[a.prio] - prioOrder[b.prio]) || (b.weeks - a.weeks));
+    else if (summaryFilters.sort === 'size') rows.sort((a, b) => b.weeks - a.weeks);
+    else rows.sort((a, b) => a.title.localeCompare(b.title));
+
+    const featureRows = rows.map(r =>
+      '<div class="sum-row' + (r.active ? '' : ' inactive') + prioClass(r.prio) + '">' +
+      '<div class="cat-bar" style="background:' + r.color + '"></div>' +
+      prioToggleHtml(r.bid, r.id, r.prio) +
+      activeToggleHtml(r.bid, r.id, r.active) +
+      '<div class="sum-title" title="' + attr(r.desc) + '">' + r.title + goalDotsHtml(r.item) + '</div>' +
+      '<div class="sum-weeks">' + (r.weeks ? fmtWeeks(r.weeks) : '') + '</div></div>'
+    ).join('');
+
+    return '<div id="summary" class="tab-content">' + verdict +
+      (groupCards ? '<div class="category-title">\ud83d\udcca Load by Discipline</div><div class="group-cards">' + groupCards + '</div>' : '') +
+      (teamCards ? '<div class="category-title">\ud83d\udc65 The Team</div><div class="sum-team">' + teamCards + '</div>' : '') +
+      (rows.length || app.boards.length ? '<div class="category-title">\ud83d\udccb The Features</div>' +
+        lensPanel + featureRows : '') +
+      '</div>';
+  }
+
+  // ===================== RENDER ALL =====================
+  function renderAll() {
+    computeWeeks();
+    computeSnapshot();
+
+    const nav = ['<button class="tab-button" data-tab="summary" onclick="switchTab(\'summary\')">Summary</button>'];
+    nav.push('<button class="tab-button" data-tab="goals" onclick="switchTab(\'goals\')">Goals</button>');
+    nav.push('<button class="tab-button" data-tab="staff" onclick="switchTab(\'staff\')">Team</button>');
+    app.boards.forEach(b => {
+      nav.push('<button class="tab-button" data-tab="board-' + b.id + '" onclick="switchTab(\'board-' + b.id + '\')">' + b.name + '</button>');
+    });
+    nav.push('<button class="tab-button add-page" onclick="addBoard()">\uff0b Page</button>');
+    document.getElementById('tabNav').innerHTML = nav.join('');
+
+    document.getElementById('tabHost').innerHTML =
+      summaryTabHtml() + app.boards.map(b => boardTabHtml(b)).join('') + goalsTabHtml() + staffTabHtml();
+
+    applyActiveTab();
+    updateConfigBadge();
+    renderHeader();
+  }
+
+  // ===================== INIT =====================
+  window.addEventListener('DOMContentLoaded', function() {
+    if (localStorage.getItem('theme') === 'dark') {
+      document.body.classList.add('dark-mode');
+      document.getElementById('themeMenuItem').textContent = '\u2600\ufe0f Light Mode';
+    }
+    loadApp();
+    renderAll();
+  });
+</script>
+
+</body>
+</html>

@@ -165,7 +165,10 @@
       "Bash(echo \"TS5.9 exit: $?\")",
       "Bash(npx --yes cspell@latest lint game-doc-system/tsconfig.json --no-progress --show-context)",
       "WebFetch(domain:json.schemastore.org)",
-      "WebFetch(domain:www.schemastore.org)"
+      "WebFetch(domain:www.schemastore.org)",
+      "PowerShell(Get-Process -Name python -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell(\"server stopped\")"
     ]
   }
 }
