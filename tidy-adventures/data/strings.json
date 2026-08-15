@@ -18,8 +18,9 @@
     { "b": "Drag anything onto furniture","text": "— it files itself into the right row" },
     { "b": "Tap furniture",               "text": "— look inside; drag items out to toss them on the floor" },
     { "b": "In an open container",        "text": "— tap a hand slot to file that item" },
+    { "b": "Drag out of a hand slot",     "text": "— put it down anywhere on the floor" },
     { "b": "Double-tap a hand slot",      "text": "— toss it back on the floor" },
-    { "b": "Icons above furniture",       "text": "— what's inside; gold aura = that set is done" },
+    { "b": "Icons above furniture",       "text": "— what's inside; gold aura = that set is done; red = it doesn't live there" },
     { "b": "Locks",                       "text": "— some doors and furniture need keys; drag keys onto the lock" },
     { "b": "⭐ per completed row",         "text": "— cross a threshold and you pick a new talent" }
   ]

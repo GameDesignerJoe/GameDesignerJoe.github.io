@@ -17,7 +17,9 @@ import {
 } from './config.js';
 import { rnd, shuffle, clamp } from './util.js';
 import { DATA, LOOKUP, theme, themeRooms, upgradeDefaults } from './data.js';
-import { inShape, findFloorSpot, furthestFrom, spin, pad, inSlot } from './geometry.js';
+import {
+  inShape, findFloorSpot, furthestFrom, spin, pad, inSlot, unstickFloorItems,
+} from './geometry.js';
 
 export function generate(cfg) {
   const themeId = cfg.theme || DATA.themes.defaultTheme;
@@ -234,9 +236,9 @@ export function generate(cfg) {
   }
 
   /* ---------- the quest container ----------
-     One small container per room starts sealed and holds nothing. Finishing
-     any OTHER container in that room drops a note and unlocks it; the note
-     asks you to fill it.
+     In some rooms, one small container starts sealed and holds nothing.
+     Finishing any OTHER container in that room drops a note and unlocks it;
+     the note asks you to fill it.
 
      Sealing it is what makes the loop work. A locked container can't be
      tossed into and is skipped by auto-filing and junk pre-fill, so its
@@ -246,11 +248,30 @@ export function generate(cfg) {
      take them out and put them back. Now that can't happen by construction.
 
      The smallest container in the room gets the job — the microwave next to
-     the fridge, rather than a second fridge. */
+     the fridge, rather than a second fridge.
+
+     NOT EVERY ROOM. Sealing one in every room made "locked" the resting state
+     of the house rather than an event: you walked in already knowing one piece
+     of furniture would refuse you, in every room, forever. It's a share of the
+     rooms now — `roomShare` in quests.json, or a per-config `quests` number —
+     so walking into a room with a sealed cupboard is a thing that sometimes
+     happens. Rooms with no seal still get a note; quests.js falls back to
+     asking about an open container. */
   if (cfg.quests !== false) {
-    for (const r of rooms) {
+    const share = typeof cfg.quests === "number" ? cfg.quests : (DATA.quests.roomShare ?? 0.6);
+    const eligible = rooms.filter(r => r.containers.filter(c => !c.lock).length >= 2);
+    /* Fewest existing locks first, so the rooms that get a seal are the ones
+       that aren't already gated by a key — the dial-back spreads the locks
+       out instead of stacking two onto one room. shuffle() first keeps the
+       choice random within each tier; sort is stable. */
+    const ordered = shuffle([...eligible])
+      .sort((a, b) => a.containers.filter(c => c.lock).length - b.containers.filter(c => c.lock).length);
+    const want = share <= 1 ? Math.round(eligible.length * share) : Math.round(share);
+    /* At least one, so a house always has somewhere for the authored note to
+       land — but only if the designer asked for seals at all. */
+    const n = share > 0 ? Math.min(ordered.length, Math.max(1, want)) : 0;
+    for (const r of ordered.slice(0, n)) {
       const free = r.containers.filter(c => !c.lock);
-      if (free.length < 2) continue;   // needs something else to finish first
       const target = free.reduce((a, b) => (b.cells.length < a.cells.length ? b : a));
       target.lock = { need: 0, have: 0, open: false, quest: true };
       r.questCont = target.id;
@@ -376,6 +397,12 @@ export function generate(cfg) {
       }
     }
   }
+
+  /* Nothing may come to rest in a doorway: a door paints over items and eats
+     their taps, so a key that lands there is invisible and unpickable. The
+     scatter already avoids them; this catches the fallback placements that
+     findFloorSpot returns when it runs out of tries. */
+  unstickFloorItems(rooms, items);
 
   /* ---------- the run ---------- */
   return {

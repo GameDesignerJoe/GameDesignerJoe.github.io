@@ -11,7 +11,11 @@
     "floors   — the floor patterns. Each must have a matching .floor-<id> rule in css/room.css.",
     "tokens   — the non-sortable items: keys, coins. These must NOT appear in rooms.json.",
     "pads     — keep-out margins around furniture when scattering items, in room %.",
-    "           Bigger pads = items land further from furniture."
+    "           Bigger pads = items land further from furniture.",
+    "doorZone — keep-out band in front of every door, in room %. A door paints",
+    "           OVER items and eats their taps, so anything resting in a doorway",
+    "           is invisible and unpickable. depth = how far into the room the",
+    "           band reaches; spread = how wide along that wall."
   ],
 
   "anchors": {
@@ -60,6 +64,8 @@
     "toss":  { "x": 2,   "yTop": 4,   "yBot": 2 },
     "cache": { "x": 4,   "yTop": 6,   "yBot": 4 }
   },
+
+  "doorZone": { "depth": 11, "spread": 36 },
 
   "cacheSlot": { "w": 9, "h": 4.2 }
 }

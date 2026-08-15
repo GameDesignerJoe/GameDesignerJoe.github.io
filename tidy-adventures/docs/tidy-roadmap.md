@@ -5,6 +5,15 @@
 
 # 🎯 NOW / NEXT (in order)
 
+## N0. Playtest pass — legibility and control ✅ DONE
+Six things that came out of playing it, not planning it.
+- **Put things down where you mean to.** Dragging out of a hand slot onto the floor was dead code that threw on every release; the item now lands exactly where you let go.
+- **Nothing rests under a door.** Doors paint over items and eat their taps, so anything that landed in a doorway was invisible *and* unpickable. There's a keep-out band in front of every door (`doorZone` in furniture.json), every placement path shares one spot search, and old saves are repaired on load.
+- **Fewer sealed containers** — see H3.
+- **The taxonomy stopped guessing games.** A Seed Rack holding a cactus next to a Garden Basket holding flowers is a coin flip, and being wrong costs a walk across the house. Confusable things now share a container and the container's name states the rule: Vegetable Crate, Fruit Bowl, Potting Bench, Accessory Hooks. Rule written down at the top of rooms.json.
+- **Wrong home reads at a glance.** A faint red wash on any item sitting in a container it doesn't belong to — in the open container and on the badge strip above the furniture.
+- **Talents reset each level** — see the talent draft entry below.
+
 ## N1. Title screen / main menu ✅ DONE
 The front door of the game; also where "return to main menu" lands.
 - **Campaign Mode** — the staged progression (N2), with level select / progress markers.
@@ -42,7 +51,7 @@ A little guy who shows up and **undoes your sorting** — pulls items out of row
 The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS files + 12 JS modules + 12 JSON data files. **Emoji-per-container, row lengths, room counts, lock and key counts, hint text, free-play presets, talent costs, sound and copy are all hand-editable JSON.** A bad edit produces a named on-screen error at boot rather than a silent gameplay bug. See `docs/CLAUDE.md`. Original preserved at `ref/tidy-house-v3.html`.
 
 - **Save / persistence** ✅ — autosave/resume via localStorage; separate keys for run, campaign progress, campaign talents, and audio prefs.
-- **Talent draft** ✅ — replaced the shop. ⭐ is lifetime score, never spent; crossing a threshold grants a forced pick-one-of-three. Deferred to a safe moment, never mid-drag. The ⭐ button shows what you've learned, and is hidden in campaign until it means something. Campaign talents carry between levels.
+- **Talent draft** ✅ — replaced the shop. ⭐ is lifetime score, never spent; crossing a threshold grants a forced pick-one-of-three. Deferred to a safe moment, never mid-drag. The ⭐ button shows what you've learned, and is hidden in campaign until it means something. *Talents were briefly carried between campaign levels and that is **reverted**: arriving at the level built to teach locked doors already holding Sixth Sense and Bigger Hands made the campaign get easier the further in you went. Each level starts level and earns its own; they still persist within a level, so quit-and-continue keeps them.*
 - **Locks & keys v2** ✅ — doors cost a *collection* (N interchangeable 🔑); chests cost a *hunt* (one specific 🗝️, spawned as far from its chest as the house allows). Every lock displays the key it needs, so requirements are always legible.
 - **Coin-slot caches** ✅ — hidden 🪙-operated boxes holding reserved house items; pop-open scatter, +1⭐. The coin is now placed far from its own box (it used to land in the same room constantly).
 - **Camera** ✅ — auto-fit framing, continuous cursor-anchored wheel zoom, and real pinch-zoom (which never existed — a second finger's events were discarded). Zoom survives walking through a door.
@@ -71,6 +80,7 @@ The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS fil
 
 ## H3. Quests 🔨 *(the note loop shipped; chained payoffs ahead)*
 - Finishing the first container in a room drops a 📝 → picking it up opens a handwritten card asking for three specific things → pinned objective strip → payoff, ⭐, and a reply. Data in `data/quests.json`, with a generated fallback so every room gets one.
+- **The seal is no longer in every room** (`roomShare`, default 0.6). Sealing one container in every single room made "locked" the resting state of the house rather than an event. Rooms without a seal still leave a note — the fallback asks about an open container.
 - **Deliberately not a talking character.** A dialogue tree with a portrait costs ~10× more, interrupts the quiet loop the game is good at, and a badly-written NPC damages the tone. The note is the cheapest possible NPC and it establishes a voice. If the writing lands, *then* consider giving that voice a face.
 - Next: quests that chain, quests that gate a room, quest items that come from *another* room.
 

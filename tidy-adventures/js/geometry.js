@@ -39,22 +39,107 @@ export const onFurniture = (room, x, y, p = pad("tight")) =>
 export const onCache = (room, x, y, p = pad("cache")) =>
   (room.caches || []).some(k => inSlot(k.slot, x, y, p));
 
+/* ============================================================
+   DOORWAYS — the one piece of room furniture items must never land under.
+
+   A door paints at z-index 7 (above items) and carries an invisible ::after
+   that widens its tap target, so an item that comes to rest in a doorway is
+   both hidden AND untappable: the tap walks you into the next room instead of
+   picking the thing up. Nothing else on the floor behaves that way, which is
+   why doorways get their own keep-out rather than sharing the furniture pads.
+
+   The zone is a band along the wall the door is in, expressed in room %, so
+   it doesn't need to know the room's pixel size. Doors are sized in px and
+   divided by --fit precisely so they stay a constant size on screen, and the
+   camera fits every room to the same stage — so a fixed % band tracks them
+   closely enough at any room size. Tune it in furniture.json.
+============================================================ */
+const doorZone = () => DATA.furniture.doorZone || { depth: 10, spread: 34 };
+
+/* Keep-out rects, in room %, for the walls this room actually has doors in. */
+export function doorZones(room) {
+  const { depth, spread } = doorZone();
+  const lo = 50 - spread / 2, hi = 50 + spread / 2;
+  const out = [];
+  for (const [dir, to] of Object.entries(room.doors || {})) {
+    if (to === null || to === undefined) continue;
+    if (dir === "N") out.push({ x0: lo, x1: hi, y0: 0, y1: depth });
+    if (dir === "S") out.push({ x0: lo, x1: hi, y0: 100 - depth, y1: 100 });
+    if (dir === "W") out.push({ x0: 0, x1: depth, y0: lo, y1: hi });
+    if (dir === "E") out.push({ x0: 100 - depth, x1: 100, y0: lo, y1: hi });
+  }
+  return out;
+}
+
+export const inDoorway = (room, x, y) =>
+  doorZones(room).some(z => x > z.x0 && x < z.x1 && y > z.y0 && y < z.y1);
+
+/* Is this point clear of everything that would swallow an item? */
+export function isClearFloor(room, x, y, {
+  padName = "tight", avoidCaches = true, avoidDoors = true,
+} = {}) {
+  if (!inShape(room, x, y)) return false;
+  if (onFurniture(room, x, y, pad(padName))) return false;
+  if (avoidCaches && onCache(room, x, y)) return false;
+  if (avoidDoors && inDoorway(room, x, y)) return false;
+  return true;
+}
+
 /* Find a clear floor point. Returns a point even if it never found a clean
    one — a slightly-overlapping item is far better than a missing item. */
 export function findFloorSpot(room, {
-  padName = "tight", margin = 4, span = 92, avoidCaches = false, tries = PLACE_TRIES,
+  padName = "tight", margin = 4, span = 92, avoidCaches = false, avoidDoors = true,
+  tries = PLACE_TRIES,
 } = {}) {
-  const p = pad(padName);
   let x = 0, y = 0;
   for (let i = 0; i < tries; i++) {
     x = margin + Math.random() * span;
     y = margin + Math.random() * span;
-    if (!inShape(room, x, y)) continue;
-    if (onFurniture(room, x, y, p)) continue;
-    if (avoidCaches && onCache(room, x, y)) continue;
-    return { x, y, clean: true };
+    if (isClearFloor(room, x, y, { padName, avoidCaches, avoidDoors })) return { x, y, clean: true };
   }
   return { x, y, clean: false };
+}
+
+/* Where the player LET GO, if that spot is usable — otherwise the nearest
+   usable spot to it. Dropping is a placement the player aimed, so this walks
+   outward from their point in widening rings instead of re-rolling at random
+   the way findFloorSpot does: the item ends up as close to the drop as the
+   room allows, and never in a doorway or inside a cupboard. */
+export function nearestFloorSpot(room, x, y, opts = {}) {
+  const margin = opts.margin ?? 4;
+  const cx = Math.max(margin, Math.min(100 - margin, x));
+  const cy = Math.max(margin, Math.min(100 - margin, y));
+  if (isClearFloor(room, cx, cy, opts)) return { x: cx, y: cy, clean: true };
+  for (let r = 3; r <= 42; r += 3) {
+    for (let a = 0; a < 12; a++) {
+      /* Offset each ring so successive rings don't all probe the same spokes. */
+      const th = (a / 12) * Math.PI * 2 + r * 0.4;
+      const px = cx + Math.cos(th) * r, py = cy + Math.sin(th) * r;
+      if (px < margin || px > 100 - margin || py < margin || py > 100 - margin) continue;
+      if (isClearFloor(room, px, py, opts)) return { x: px, y: py, clean: true };
+    }
+  }
+  const fall = findFloorSpot(room, { avoidCaches: true, ...opts });
+  return fall.clean ? fall : { x: cx, y: cy, clean: false };
+}
+
+/* Move any floor item that has come to rest in a doorway out into the open.
+   Runs over a whole run on generation and on load, so a save made before
+   doorways were kept clear is repaired rather than left with unreachable
+   items. Deliberately ONLY doorways: an item resting against a cupboard is
+   still visible and still tappable, and shuffling those on load would move
+   things the player put down on purpose. */
+export function unstickFloorItems(rooms, items) {
+  let moved = 0;
+  for (const it of Object.values(items)) {
+    if (it.loc?.kind !== "floor") continue;
+    const room = rooms[it.loc.room];
+    if (!room || !inDoorway(room, it.loc.x, it.loc.y)) continue;
+    const s = nearestFloorSpot(room, it.loc.x, it.loc.y);
+    it.loc.x = s.x; it.loc.y = s.y;
+    moved++;
+  }
+  return moved;
 }
 
 export const spin = (deg = 20) => Math.random() * deg * 2 - deg;

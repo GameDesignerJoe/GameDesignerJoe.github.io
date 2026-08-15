@@ -77,6 +77,13 @@
 .furn .badges span.gold{
   filter:drop-shadow(0 0 3px rgba(245,197,66,1)) drop-shadow(0 0 6px rgba(245,197,66,.8));
 }
+/* Something in here doesn't live here. Same faint red as the cells inside
+   (css/container.css), so the mark means one thing in both views. */
+.furn .badges span.wrong{
+  background:rgba(196,74,62,.42);
+  border-radius:3px;
+  box-shadow:0 0 0 1px rgba(226,110,96,.55);
+}
 
 /* ---------- STATES ---------- */
 .furn.aura{

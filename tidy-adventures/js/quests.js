@@ -17,12 +17,13 @@
    No new systems: it reads typeHome, watches afterMutation, and reuses the
    completion FX. Data lives in data/quests.json.
 
-   Imports: dom, data, state, util, feedback.
+   Imports: dom, data, state, util, geometry, feedback.
 ============================================================ */
 import { $, el, host } from './dom.js';
 import { DATA, LOOKUP, nameOf } from './data.js';
 import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
+import { findFloorSpot, spin } from './geometry.js';
 import { say, flyReward } from './feedback.js';
 
 const NOTE = "📝";
@@ -53,11 +54,14 @@ export function maybeDropNote(room, justFinished) {
   G.quests.notes[id] = { id, room: room.id, cont: target ? target.id : null, ...q, state: "onFloor" };
 
   /* A real item on the floor, so picking it up uses the code the player
-     already knows. */
+     already knows. It goes through the same spot search as everything else:
+     a note that lands in a doorway is painted over by the door and can't be
+     tapped, and this one is the only copy. */
   const iid = Math.max(-1, ...Object.keys(G.items).map(Number)) + 1;
+  const spot = findFloorSpot(room, { margin: 10, span: 78, avoidCaches: true });
   G.items[iid] = {
     id: iid, type: NOTE, isNote: true, noteId: id, judged: true,
-    loc: { kind: "floor", room: room.id, x: 12 + Math.random() * 76, y: 20 + Math.random() * 60, rot: Math.random() * 24 - 12 },
+    loc: { kind: "floor", room: room.id, x: spot.x, y: spot.y, rot: spin(12) },
   };
   return true;
 }

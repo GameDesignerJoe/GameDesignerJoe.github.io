@@ -23,7 +23,9 @@ import {
   itemCount, upgradeParam, upgradeDefaults,
 } from './data.js';
 import { G, setRun, endRun } from './state.js';
-import { inShape, findFloorSpot, spin, pad } from './geometry.js';
+import {
+  findFloorSpot, nearestFloorSpot, unstickFloorItems, inDoorway, spin,
+} from './geometry.js';
 import { generate } from './generate.js';
 import {
   camEl, roomEl, applyCam, clampPan, zoomAt, zoomBy, wheelZoom, panBy,
@@ -229,6 +231,11 @@ function loadGame(){
       levelIdx:(d.levelIdx==null?null:d.levelIdx),
       size:(SIZES[d.size]?d.size:null),
     });
+    /* Saves made before doorways were kept clear can hold items parked under
+       a door, which are invisible and can't be tapped — and the run can't be
+       finished without them. Repair on load rather than bumping SAVE_VERSION
+       and throwing the run away. */
+    unstickFloorItems(G.rooms, G.items);
     return true;
   }catch(e){ return false; }
 }
@@ -237,13 +244,20 @@ function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 /* ============================================================
    RULES — completion, not verdicts
 ============================================================ */
+/* Is this the container that emoji lives in? The home lookup is spelled out
+   at half a dozen call sites, most of which only have a container INDEX to
+   hand; the ones holding the container object itself use this. */
+function belongsIn(c, type){
+  const home=G.typeHome[type];
+  return !!home && home.room===c.roomId && home.cont===c.id;
+}
+
 function rowIsComplete(c,row){
   const ids=c.cells[row];
   if(ids.some(v=>v===null)) return false;
   const t=G.items[ids[0]].type;
   if(!ids.every(id=>G.items[id].type===t)) return false;
-  const home=G.typeHome[t];
-  return home.room===c.roomId && home.cont===c.id;
+  return belongsIn(c,t);
 }
 function containerComplete(c){
   return c.cells.every((_,r)=>rowIsComplete(c,r));
@@ -335,10 +349,11 @@ function openCache(cacheIdx, it, fromSlot){
   for(const id of cache.items){
     const o=G.items[id];
     const a=Math.random()*Math.PI*2, d=4+Math.random()*9;
-    o.loc={kind:"floor",room:room.id,
-      x:Math.max(4,Math.min(95,cx+Math.cos(a)*d)),
-      y:Math.max(4,Math.min(95,cy+Math.sin(a)*d)),
-      rot:Math.random()*50-25};
+    /* The burst is a scatter, so it aims where it likes and then settles on
+       reachable floor — a cache beside a door used to spray items into the
+       doorway, where they can't be picked up. */
+    const s=nearestFloorSpot(room, cx+Math.cos(a)*d, cy+Math.sin(a)*d, {padName:"toss"});
+    o.loc={kind:"floor",room:room.id,x:s.x,y:s.y,rot:spin(25)};
   }
   G.points++; G.starsEarned++;
   sfx("cacheOpen"); say("Pop! The coin box bursts open ✨");
@@ -478,13 +493,17 @@ function buildRoomEl(room){
         badges.appendChild(pips);
       }
     }else{
-      // badge strip: unique types inside, gold if that set is complete
+      /* Badge strip: unique types inside, gold if that set is complete, red
+         if the type doesn't live here at all — so a container holding
+         somebody else's things says so from across the room, without being
+         opened. */
       const inside=new Set();
       for(const rowIds of c.cells) for(const id of rowIds) if(id!==null) inside.add(G.items[id].type);
       for(const t of inside){
         const sp=document.createElement("span");
         sp.textContent=t;
-        if(typeCompleteIn(c,t)) sp.classList.add("gold");
+        if(!belongsIn(c,t)) sp.classList.add("wrong");
+        else if(typeCompleteIn(c,t)) sp.classList.add("gold");
         badges.appendChild(sp);
       }
     }
@@ -695,7 +714,16 @@ function renderContainer(flashRows){
       const cell=document.createElement("div");
       cell.className="cell"; cell.dataset.row=r; cell.dataset.col=col;
       const id=c.cells[r][col];
-      if(id!==null) cell.textContent=G.items[id].type;
+      if(id!==null){
+        cell.textContent=G.items[id].type;
+        /* A faint red wash on anything that doesn't live here. Before this,
+           foreign junk was indistinguishable from a correctly-filed item once
+           the cold shake had played — you had to open the container, read
+           every emoji and remember the taxonomy to find what didn't belong.
+           The state is permanent because the mistake is: it stays wrong until
+           you take it out. */
+        if(!belongsIn(c, G.items[id].type)) cell.classList.add("wrong");
+      }
       rowEl.appendChild(cell);
     }
     grid.appendChild(rowEl);
@@ -862,6 +890,14 @@ function displaceAround(roomId,x,y,radius,push){
     o.loc.x=Math.max(3,Math.min(96,o.loc.x+ux*f));
     o.loc.y=Math.max(3,Math.min(96,o.loc.y+uy*f));
     o.loc.rot=(o.loc.rot||0)+(Math.random()*30-15);
+    /* Shoving something into a doorway hides it under the door. Only that
+       case is corrected — an item nudged up against a cupboard is still
+       perfectly visible and pickable, and dragging those out too would make
+       every landing rearrange half the floor. */
+    if(inDoorway(G.rooms[roomId], o.loc.x, o.loc.y)){
+      const s=nearestFloorSpot(G.rooms[roomId], o.loc.x, o.loc.y, {padName:"toss"});
+      o.loc.x=s.x; o.loc.y=s.y;
+    }
   }
 }
 
@@ -893,13 +929,10 @@ function flingToFloor(slotIdx){
   if(id===null) return;
   const it=G.items[id];
   const room=G.rooms[G.current];
-  let x,y,tries=0;
-  do{
-    x=8+Math.random()*84; y=8+Math.random()*84; tries++;
-  }while(tries<50 && (!inShape(room,x,y) || room.containers.some(c=>{
-    const s=c.slot;
-    return x>s.x-2 && x<s.x+s.w+2 && y>s.y-4 && y<s.y+s.h+2;
-  })));
+  /* This was its own copy of the spot search — one that knew about furniture
+     but not about doorways, so a fling could park an item under a door where
+     it can't be tapped. One function, in geometry.js, for every placement. */
+  const {x,y}=findFloorSpot(room,{padName:"toss",margin:8,span:84,avoidCaches:true});
   const slotEl=invBar.querySelector(`.slot[data-slot="${slotIdx}"]`);
   const sr=slotEl?slotEl.getBoundingClientRect():null;
   it.loc={kind:"floor",room:room.id,x,y,rot:Math.random()*40-20};
@@ -908,6 +941,7 @@ function flingToFloor(slotIdx){
   G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
   render();
   const [tx,ty]=roomPctToScreen(x,y);
+  sfx("fling");
   animateFlight(it.type, sr?sr.left+sr.width/2:tx, sr?sr.top:window.innerHeight, tx, ty, ()=>{
     it.flying=false;
     displaceAround(room.id, x, y, 11, 8);
@@ -915,16 +949,25 @@ function flingToFloor(slotIdx){
   });
 }
 
+/* Put a held item down on the floor exactly where the hand let go.
+   The only correction is nearestFloorSpot's: a drop aimed into a doorway or
+   inside a cupboard slides to the closest open floor instead, because an item
+   left in either place is one the player can't pick back up. */
 function dropOnFloor(slotIdx,cx,cy,rect){
   const id=G.inv[slotIdx];
   if(id===null) return;
   const it=G.items[id];
-  const x=Math.max(4,Math.min(96,(cx-rect.left)/rect.width*100));
-  const y=Math.max(4,Math.min(96,(cy-rect.top)/rect.height*100));
-  it.loc={kind:"floor",room:G.current,x,y,rot:Math.random()*40-20};
+  const room=G.rooms[G.current];
+  const spot=nearestFloorSpot(room,
+    (cx-rect.left)/rect.width*100,
+    (cy-rect.top)/rect.height*100,
+    {padName:"toss"});
+  it.loc={kind:"floor",room:room.id,x:spot.x,y:spot.y,rot:spin()};
   G.inv[slotIdx]=null;
   G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
+  sfx("dropFloor");
   render();
+  scheduleSave();
 }
 
 /* inside the open container */
@@ -1048,39 +1091,25 @@ function doWhirl(){
    callback so that module never has to import the render tier. */
 initTalents({
   grant(){
-    saveTalents();
     renderHUD(); renderInv(); updateWhirlBtn();
     fire("talentEarned");
     scheduleSave();
   },
 });
 
-/* Campaign talents carry across levels — otherwise the draft is pointless,
-   since a level is over in a few minutes. Free play keeps them in the run
-   save as before. */
-function saveTalents(){
-  if(G.mode!=="campaign") return;
-  try{
-    localStorage.setItem(TALENTS_KEY, JSON.stringify({
-      up:G.up, starsEarned:G.starsEarned, draftsTaken:G.draftsTaken, points:G.points,
-    }));
-  }catch(e){}
-}
-function loadTalents(){
-  if(G.mode!=="campaign") return;
-  try{
-    const d=JSON.parse(localStorage.getItem(TALENTS_KEY)||"null");
-    if(!d) return;
-    G.up={...upgradeDefaults(), ...(d.up||{})};
-    G.starsEarned=d.starsEarned||0;
-    G.draftsTaken=d.draftsTaken||0;
-    G.points=d.points||0;
-    /* Rebuild hand slots to match. buyUpgrade used to push onto G.inv, so a
-       fresh generate() would silently lose every earned slot. */
-    const want=INV_SIZE+(G.up.hands||0);
-    while(G.inv.length<want) G.inv.push(null);
-  }catch(e){}
-}
+/* TALENTS DO NOT CARRY BETWEEN LEVELS.
+
+   They used to: a campaign level's talents were written to their own
+   localStorage key and reloaded by the next level, on the reasoning that a
+   draft is pointless if a level is over in a few minutes. What it actually
+   produced was a campaign that got easier the further in you went — by 4-2
+   you arrived holding Sixth Sense and Bigger Hands, and the level that was
+   authored to teach locked doors was being played with the answers already
+   in hand. Every level now starts level, and earns its own.
+
+   They still persist WITHIN a level: `up` rides in the run save, so quitting
+   and continuing mid-level keeps what you drafted. The only thing that's
+   gone is carrying them forward past the win screen. */
 function clearTalents(){ try{ localStorage.removeItem(TALENTS_KEY); }catch(e){} }
 
 function showWin(){
@@ -1355,6 +1384,10 @@ host.addEventListener("pointerup",e=>{
             if(rawY>95) ty=93-Math.random()*9;
             tx=Math.max(4,Math.min(95,tx+(Math.random()*6-3)));
             ty=Math.max(4,Math.min(95,ty+(Math.random()*6-3)));
+            /* A flick that ends in a doorway lands somewhere reachable
+               instead — under a door the item is painted over and its taps
+               go to the door. */
+            ({x:tx,y:ty}=nearestFloorSpot(G.rooms[G.current],tx,ty,{padName:"toss"}));
             it.flying=true;
             it.loc.x=tx; it.loc.y=ty;
             const el=p.itemEl;
@@ -1371,7 +1404,13 @@ host.addEventListener("pointerup",e=>{
             return;
           }
         }
-        it.loc.x=p.ix; it.loc.y=p.iy; scheduleSave();
+        /* Slow release: it stays exactly where the finger was — unless that's
+           a doorway, where it would be invisible and untappable. */
+        const rest=nearestFloorSpot(G.rooms[G.current], p.ix, p.iy, {padName:"toss"});
+        const slid=rest.x!==p.ix || rest.y!==p.iy;
+        it.loc.x=rest.x; it.loc.y=rest.y;
+        scheduleSave();
+        if(slid) renderRoom();
       }
       p.itemEl.style.zIndex="";
       return;
@@ -1563,13 +1602,18 @@ function endInvDrag(e){
       tossInto(G.items[G.inv[d.idx]], +cont.dataset.cont, d.idx);
       return;
     }
+    /* Anywhere else over the room: put it down there.
+       This was `if(roomEl)` — the imported FUNCTION, always truthy — followed
+       by `roomEl.getBoundingClientRect()` on the function object, which threw
+       and took the whole handler down. Dragging out of your hands onto the
+       floor therefore did nothing at all: the item stayed in the slot and the
+       only clue was a console error.
+       The bounds test is the stage rather than the room rect, so a release
+       just past a small room's wall still puts the item down (clamped inward)
+       instead of silently doing nothing. */
     const rEl=roomEl();
-    if(roomEl){
-      const rect=roomEl.getBoundingClientRect();
-      if(e.clientX>rect.left && e.clientX<rect.right &&
-         e.clientY>rect.top  && e.clientY<rect.bottom){
-        dropOnFloor(d.idx,e.clientX,e.clientY,rect);
-      }
+    if(rEl && under && under.closest("#stage")){
+      dropOnFloor(d.idx,e.clientX,e.clientY,rEl.getBoundingClientRect());
     }
     return;
   }
@@ -1660,14 +1704,10 @@ function endCellPtr(e){
     }
     if(!inPanel){
       c.cells[p.row][p.col]=null;
-      let x,y,tries=0;
-      do{
-        x=8+Math.random()*84; y=8+Math.random()*84; tries++;
-      }while(tries<50 && (!inShape(room,x,y) || room.containers.some(cc=>{
-        const s=cc.slot;
-        return x>s.x-2 && x<s.x+s.w+2 && y>s.y-4 && y<s.y+s.h+2;
-      })));
-      it.loc={kind:"floor",room:room.id,x,y,rot:Math.random()*40-20};
+      /* Third copy of the spot search, also blind to doorways. Same function
+         as everything else now. */
+      const {x,y}=findFloorSpot(room,{padName:"toss",margin:8,span:84,avoidCaches:true});
+      it.loc={kind:"floor",room:room.id,x,y,rot:spin()};
       /* the item is visibly on the floor; no narration needed */
       afterMutation(room,c,[p.row]);
       renderContainer(); renderHUD();
@@ -1778,7 +1818,10 @@ function startCampaign(i){
   closeMenus();
   const lv=LEVELS[i];
   setRun(generate(lv), {mode:"campaign", levelIdx:i, size:null});
-  loadTalents();
+  /* A level starts with nothing learned — see clearTalents() above. The key
+     is purged rather than ignored so a save written by the carry-over build
+     can't come back later. */
+  clearTalents();
   resetZoom();
   /* Hidden until it means something. In v3 it sat there showing "⭐ 0" over
      an all-unaffordable list from level 1-1 onward, which mostly taught

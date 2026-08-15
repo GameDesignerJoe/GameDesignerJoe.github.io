@@ -20,6 +20,16 @@
 
   "signature": "— M",
 
+  "_roomShareNote": [
+    "roomShare — what fraction of a house's rooms start with a SEALED container.",
+    "It was effectively 1.0 (every room), which made a locked cupboard the",
+    "resting state of the house instead of an event. 0 turns seals off entirely;",
+    "a level or size entry can override it with a `quests` number (a fraction,",
+    "or a room count if above 1) or `quests: false`.",
+    "Rooms without a seal still leave a note — see `fallback` below."
+  ],
+  "roomShare": 0.6,
+
   "_sealedNote": [
     "Used when the note is about the room's SEALED container — the one that",
     "stays shut until you finish something else in the room. This is the",
@@ -73,7 +83,7 @@
     },
     "shed": {
       "need": ["🌱", "🪴"],
-      "text": "Seedling and the potted one, on the seed rack where they get light.",
+      "text": "Seedling and the potted one, on the potting bench where they get light.",
       "reply": "They'll take now. Give them a month."
     },
     "secret": {

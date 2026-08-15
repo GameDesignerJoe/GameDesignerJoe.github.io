@@ -38,7 +38,9 @@ can be edited without touching JavaScript:
 | item names in the loupe | `data/names.json` |
 | room shapes, which rooms a theme uses | `data/themes.json` |
 | furniture size, anchors, keep-out padding, key/coin emoji | `data/furniture.json` |
+| how much floor to keep clear in front of doors | `doorZone` in `data/furniture.json` |
 | the note each room leaves you, and its reply | `data/quests.json` |
+| how many rooms start with a sealed container | `roomShare` in `data/quests.json` |
 | every sound | `data/audio.json` |
 | title, tagline, help screen | `data/strings.json` |
 
@@ -124,6 +126,22 @@ text triggers iOS text-size-adjust and Chrome Android font boosting.
 (shake the thing that said no, one sentence the first time a rule is hit),
 `flyReward()` for rewards, `say()` for real messages (queued, under the HUD).
 
+**Every floor placement goes through `geometry.js`.** `findFloorSpot()` when
+the game picks the spot, `nearestFloorSpot()` when the player did. There were
+three hand-rolled copies of the search — scatter, fling, container-eject — and
+none of them knew about doors, which paint over items (z-index 7) and swallow
+their taps. Anything that puts an item on the floor uses one of those two, and
+`unstickFloorItems()` sweeps a whole run on generate and on load.
+
+**Gold means done; red means wrong home.** A cell or badge gets `.wrong` when
+`belongsIn()` says that emoji lives somewhere else. Those are the only two
+colours with a meaning, so don't add a third without retiring one.
+
+**Talents do not survive a level.** Campaign levels used to reload the previous
+level's talents from `tidy-campaign-talents`, which meant the levels authored to
+teach locks were played with Sixth Sense already in hand. `up` still rides in
+the run save, so continuing mid-level keeps what you drafted.
+
 **Tips are `kind` / `target` / `when` / `until`.** `when` makes a tip appear in
 response to an event; `until` dismisses it. A tip is only marked learned if it
 was the active one *and* actually rendered.
@@ -134,10 +152,12 @@ was the active one *and* actually rendered.
 
 | Key | Holds |
 |---|---|
-| `tidy-adventures-v4` | the current run |
+| `tidy-adventures-v4` | the current run, talents included |
 | `tidy-campaign-unlocked` | how far the campaign has been unlocked |
-| `tidy-campaign-talents` | talents that carry between campaign levels |
 | `tidy-audio` | volume and mute |
+
+`tidy-campaign-talents` is retired — starting a campaign level deletes it, so a
+save written by the carry-over build can't come back.
 
 Bump `SAVE_VERSION` in `js/config.js` to invalidate old runs; the version
 check discards them cleanly. Campaign unlocks are deliberately *not* cleared
@@ -163,7 +183,14 @@ Run through this after any change; it's what the browser tests cover.
 - Labels stay inside their furniture at maximum zoom, on a phone.
 - Whirlwind on Mega (`rowLen` 8) leaves the remaining count correct.
 - A talent draft never interrupts a drag or an open container; talents and
-  hand slots carry into the next campaign level.
+  hand slots are gone again at the start of the next campaign level, and
+  survive quitting to the menu and continuing the same level.
+- Drag out of a hand slot onto open floor: the item lands where you let go.
+  Aim at a doorway and it lands just clear of it, never under the door.
+- Foreign items in an open container carry a faint red wash; the container's
+  own items don't. Same red on the badge strip above the furniture.
+- Not every room has a sealed container (`roomShare`, quests.json), but every
+  room still leaves a note.
 - Finish a container → a note drops → picking it up pins an objective →
   completing it pays out and replies.
 - Save → reload → Continue restores the run mid-play.
