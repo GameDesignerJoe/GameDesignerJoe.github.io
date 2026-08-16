@@ -10,17 +10,16 @@
   "icon": "🧺",
 
   "_jobBoardNote": [
-    "The campaign screen. Clients come from data/clients.json; these are the",
-    "words the board itself uses. lockedName/lockedTeaser are what a client you",
-    "haven't met yet shows — keep them anonymous, the silhouette is the joke."
+    "The campaign screen: one tile per level, in play order, showing the face of",
+    "whoever hired you. Clients come from data/clients.json; these are the words",
+    "the board itself uses. `sub` takes {done} and {total}. `lockedTile` is the",
+    "name on a client you haven't met — keep it short, it sits under a face in a",
+    "tile about 80px wide, and keep it anonymous: the silhouette is the joke."
   ],
   "jobBoard": {
     "title": "Job Board",
-    "sub": "Who needs you today.",
-    "lockedName": "A NEW CLIENT",
-    "lockedTeaser": "Word gets around.",
-    "waiting": "They'll be in touch.",
-    "done": "Finished. They still recommend you."
+    "sub": "Who needs you today. {done} of {total} done.",
+    "lockedTile": "? ? ?"
   },
 
   "helpIntro": "Everything's on the floor. Every item belongs in one specific piece of furniture — the fridge, the toolbox, the shoe rack. Toss things in, then open them up and sort the rows. A row of {rowLen} matching items glows gold; finish every row in every container.",

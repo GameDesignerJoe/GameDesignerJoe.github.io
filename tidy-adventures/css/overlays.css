@@ -94,54 +94,106 @@
 .sizegrid .menubtn{margin:0}
 
 /* ---------- JOB BOARD ----------
-   The stage rows are the old level-select buttons, unchanged, so a locked
-   level still looks exactly the way players already know. What's new is the
-   card around them: who is hiring, and how far through their story you are. */
-.jobcard{
-  background:rgba(255,255,255,.03);border-radius:14px;
-  padding:10px 10px 6px;margin:10px 0;text-align:left;
-}
-.jhead{display:flex;align-items:center;gap:9px;padding:2px 4px 6px}
-.jface{font-size:30px;line-height:1}
-.jname{font-size:15px;font-weight:800;flex:1 1 auto}
-.jteaser{
-  font-size:12.5px;color:var(--ink-dim);line-height:1.4;
-  padding:0 4px 8px;font-style:italic;
-}
-/* A client you haven't met is a shape, not a name — proof there's more work
-   coming without spoiling who turns up. */
-.jobcard.locked .jface{filter:brightness(0) opacity(.45)}
-.jobcard.locked .jname{color:var(--ink-dim);letter-spacing:.28em;font-size:12px}
+   A grid of faces in play order, not a stack of per-client cards. The board
+   gets the whole width it can — twice the 440px every other overlay uses —
+   and the overlay's own padding is trimmed on this one screen so a phone
+   fits four tiles across with the face big enough to actually read. */
+#campaignOverlay{padding:14px 10px}
+/* width:100% as well as max-width. .card is a flex item in a centring flex
+   container, so with only a max-width it shrinks to fit its contents — which
+   on a desktop collapsed the grid to a single 215px column. */
+#campaignOverlay .card{width:100%;max-width:min(96vw, 880px)}
+/* The board is the screen; the chrome above it was eating half a phone before
+   the first tile. Scoped here so every other overlay keeps its full title. */
+#campaignOverlay .big{font-size:34px;margin-bottom:2px}
+#campaignOverlay h1{font-size:26px;margin-bottom:4px}
+#campaignOverlay p{font-size:13px;margin-bottom:0}
 /* .overlay .card has no max-height, so without this the board clips off the
    bottom of a phone with no way to reach it. The bar itself is hidden — it's
    desktop chrome nobody asked for, and phones don't draw one anyway — and the
-   bottom edge fades instead, which is the affordance that there's more below. */
+   bottom edge fades instead, which is the affordance that there's more below.
+   The 2px padding is headroom for the current tile's outline, which would
+   otherwise be shaved off by overflow at the very top and bottom rows. */
 #jobBoard{
-  max-height:min(60vh, 560px);overflow-y:auto;
+  display:grid;grid-template-columns:repeat(4, 1fr);gap:8px;
+  padding:2px;margin-top:12px;
+  max-height:min(62vh, 600px);overflow-y:auto;
   scrollbar-width:none;                  /* Firefox */
   -webkit-mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
   mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
 }
 #jobBoard::-webkit-scrollbar{display:none}   /* Chrome, Safari */
-
-/* ---------- STAGE ROWS ----------
-   Scoped `.overlay .lvlbtn` (0,2,1), not bare `.lvlbtn` (0,1,0): `.overlay
-   button` (0,1,1) above outranks the bare form, so these rendered as gold
-   pills with gold level ids written on them — invisible. Same trap the draft
-   cards note at the bottom of this file. */
-.overlay .lvlbtn{
-  display:flex;align-items:center;gap:10px;width:100%;
-  margin:6px 0;border:0;border-radius:12px;
-  background:var(--panel);color:var(--ink);
-  padding:10px 14px;cursor:pointer;text-align:left;
-  font-family:inherit;font-size:inherit;font-weight:400;letter-spacing:normal;
+/* The fade means "there's more below", so it has to go once there isn't —
+   otherwise the last row is permanently half-dimmed, and on a full save that
+   row holds the job you're being asked to play. See openCampaignMenu(). */
+#jobBoard.atEnd{-webkit-mask-image:none;mask-image:none}
+/* Past a phone, stop stretching four tiles across 880px — hold the tile size
+   and add columns instead, so the face keeps its proportions. */
+@media (min-width:560px){
+  #jobBoard{grid-template-columns:repeat(auto-fill, minmax(122px, 1fr));gap:10px}
 }
-.lvlbtn .lid{font-size:12px;font-weight:800;color:var(--gold);flex:0 0 34px}
-.lvlbtn .lname{font-size:14px;font-weight:700;flex:1 1 auto}
-.lvlbtn .lstate{font-size:14px;flex:0 0 auto}
-/* The job you can start right now: the row says so, not just the pip. */
-.overlay .lvlbtn.now{box-shadow:inset 0 0 0 2px rgba(245,197,66,.55)}
-.overlay .lvlbtn:disabled{opacity:.35;cursor:default}
+
+/* ---------- JOB TILES ----------
+   Scoped `.overlay .jtile` (0,2,1), not bare `.jtile` (0,1,0): `.overlay
+   button` (0,1,1) styles every button in an overlay as a gold pill and would
+   outrank the bare form. Same trap the draft cards note further down. */
+.overlay .jtile{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  margin:0;border:2px solid transparent;border-radius:15px;
+  background:var(--panel);color:var(--ink);
+  padding:9px 4px 7px;cursor:pointer;overflow:hidden;
+  font-family:inherit;font-weight:400;letter-spacing:normal;
+}
+/* The whole point of the redesign: roughly twice the old 30px, and it grows
+   with the phone rather than being pinned to one size. */
+.jtile .jface{font-size:clamp(38px, 13vw, 58px);line-height:1.06}
+/* Everything below wraps to a second line rather than clipping: "Delta Tau
+   Chi" and "Confidence Interval" don't fit one line of a 68px tile on a 320px
+   phone, and a name cut off mid-word is worse than a slightly taller row. */
+.jtile .jname,.jtile .jtitle{
+  max-width:100%;line-height:1.2;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;overflow-wrap:anywhere;
+}
+/* Who hired you: a caption on the face, above it. */
+.jtile .jname{
+  font-size:9px;font-weight:700;color:var(--ink-dim);letter-spacing:.05em;
+  margin-bottom:1px;
+}
+/* The job: the tile's real label, and the brightest thing on it after the face. */
+.jtile .jtitle{
+  font-size:10px;font-weight:800;color:var(--ink);letter-spacing:.01em;
+  margin-top:2px;
+}
+.jtile .jid{font-size:9px;font-weight:800;color:var(--gold);letter-spacing:.12em;opacity:.7}
+/* Bottom corner, not top: the client's name occupies the top line now, and a
+   badge up there ran straight through "Delta Tau Chi". The id line below is
+   centred and three characters wide, so this corner is empty. */
+.jtile .jmark{position:absolute;bottom:4px;right:5px;font-size:10px;line-height:1}
+@media (min-width:560px){
+  .jtile .jname{font-size:10px}
+  .jtile .jtitle{font-size:11.5px}
+  .jtile .jid{font-size:10px}
+}
+
+/* The job you can start right now. The outline carries it; the pulse is a
+   nudge, and dies with the global reduced-motion switch in base.css — an
+   infinite keyframe survives that rule as a strobe unless it's killed here. */
+.overlay .jtile.now{border-color:var(--gold);animation:jnow 1.9s ease-in-out infinite}
+.overlay .jtile.now .jtitle{color:var(--gold)}
+@keyframes jnow{50%{box-shadow:0 0 15px 2px rgba(245,197,66,.4)}}
+@media (prefers-reduced-motion: reduce){
+  .overlay .jtile.now{animation:none;box-shadow:0 0 12px rgba(245,197,66,.35)}
+}
+.overlay .jtile.done{background:rgba(255,255,255,.04)}
+.overlay .jtile.done .jface{opacity:.75}
+.overlay .jtile:disabled{opacity:.5;cursor:default}
+/* A client you haven't met is a shape, not a name — proof there's more work
+   coming without spoiling who turns up. */
+.jtile.unknown .jface{filter:brightness(0) opacity(.55)}
+.jtile.unknown .jname{color:var(--ink-dim);letter-spacing:.16em}
+
 #winButtons{margin-top:6px}
 
 /* ---------- SHOP ---------- */
@@ -187,12 +239,11 @@
 .overlay .dcard .dname{font-size:15px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
 .overlay .dcard .dsub{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
 .overlay .dcard .ddesc{font-size:12px;color:var(--ink-dim);line-height:1.4;font-weight:500}
-/* Shared by the talent draft and the job board's arc pips. */
+/* How many levels a multi-level talent has. Was shared with the job board's
+   arc pips until the board became a grid of faces. */
 .dpips{display:flex;gap:4px;margin-top:2px}
 .dpips i{width:6px;height:6px;border-radius:50%;background:rgba(245,197,66,.25);display:block}
 .dpips i.full{background:var(--gold);box-shadow:0 0 4px rgba(245,197,66,.9)}
-/* The job you could start right now: an outline, not a fill. */
-.dpips i.now{background:transparent;box-shadow:inset 0 0 0 2px var(--gold)}
 
 .overlay .dcard.chosen{
   transform:scale(1.08);

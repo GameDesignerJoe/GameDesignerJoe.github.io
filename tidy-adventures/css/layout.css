@@ -10,8 +10,21 @@
   padding:0 12px;
   padding-top:env(safe-area-inset-top);
 }
-#roomName{font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
-#roomName small{display:block;font-size:10px;letter-spacing:.2em;color:var(--ink-dim);font-weight:600}
+/* min-width:0 because a flex item defaults to min-width:auto and refuses to
+   shrink below its text. On a 320px phone that pushed the whole row wide and
+   carried #gearBtn clean off the right edge — unreachable on every screen,
+   which is the one thing the gear is not allowed to be.
+
+   nowrap + ellipsis with it, on both lines: shrinking alone just lets the name
+   wrap to three lines and spill out of the fixed-height band into the stage. */
+#roomName{
+  font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+#roomName small{
+  display:block;font-size:10px;letter-spacing:.2em;color:var(--ink-dim);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;
+}
 #roomName.done{color:var(--gold);text-shadow:0 0 14px rgba(245,197,66,.85);animation:donepulse 2.4s ease-in-out infinite}
 #roomName.done small{color:var(--gold);opacity:.85}
 @keyframes donepulse{50%{text-shadow:0 0 4px rgba(245,197,66,.4)}}

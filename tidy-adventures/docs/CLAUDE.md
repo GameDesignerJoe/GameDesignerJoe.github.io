@@ -245,9 +245,26 @@ forward through `levels.json`**.
 
 **A run never remembers its client.** `jobAt(levelIdx)` in `data.js` looks the
 whole job back up from the level index the save already stores — which is why
-this feature added nothing to the save format. `LOOKUP.arcs` is the job board's
-order; `LOOKUP.jobByIdx` is the claim table. Both are built in `buildLookups()`,
-which runs *after* validation, so `validate.js` builds its own claim map.
+this feature added nothing to the save format. `LOOKUP.jobByIdx` is the claim
+table; `LOOKUP.arcs` is who-hired-you grouped by client, which the board now
+uses only to work out which clients you have already met. Both are built in
+`buildLookups()`, which runs *after* validation, so `validate.js` builds its
+own claim map.
+
+**The board is one tile per level, in `levels.json` order.** It used to group
+levels under the client who hired you — a stack of cards, each with a face, a
+quote and its own list of level rows — which read as a tall column of text with
+small faces in it, and the faces are the point. So: a grid, play order, one big
+face per tile, captioned with **who hired you above the head and the job's own
+title below it** — the name labels the face, the title is what the tile is
+offering. Everything on it is still derived from the single progress integer. A tile is `done`/`now`/`locked` by index, and a client is a
+**silhouette** — a generic 🧑 blacked out, never their own emoji dimmed, which
+would give the shape away — until you reach their *first* job. After that their
+face shows on the rest of their arc, so you can see their remaining jobs coming
+and finishing one client's opener un-silhouettes all of theirs at once. The
+level ids on the tiles run out of sequence near the end (7-1, 8-1, 7-2 …) and
+that is correct: `levels.json` is append-only, so the phase-2 arcs were
+appended in their own order and then interleave when played.
 
 **`levels.json` is append-only.** Progress is a single integer index into it
 (`PROGRESS_KEY`), so inserting or reordering a level silently re-points every

@@ -2309,81 +2309,113 @@ function textVars(){
 /* ============================================================
    THE JOB BOARD
 
-   Was a flat list of nine level buttons. It is the same nine levels — and the
-   same single progress integer — grouped under the people who hired you, with
-   a row of pips per arc. Arcs interleave (a client's stages are simply
-   non-contiguous indices), so every piece of state here is still derived from
-   "how far down levels.json have you got".
+   ONE TILE PER LEVEL, IN THE ORDER YOU PLAY THEM. It used to group levels
+   under the client who hired you: a stack of cards, each with a face, a
+   quote and its own list of level rows. That read as a tall column of text
+   with small faces in it, and the faces are the point — so the grouping is
+   gone. The grid is levels.json order, which is also play order, and each
+   tile is a big face saying who that job is for. Two clients' arcs
+   interleave; you can see that in the grid without anyone explaining it.
+
+   Every piece of state is still derived from the single progress integer —
+   nothing here is stored. A tile is done / now / locked by comparing its
+   index to progress, and a client is a SILHOUETTE until you have met them.
 ============================================================ */
 const stageState = (levelIdx, prog) =>
   levelIdx < prog ? "done" : levelIdx === prog ? "now" : "locked";
 
-function arcState(arc, prog){
-  if(arc.soon) return "soon";                                     /* no stages yet */
-  if(arc.stages[0].levelIdx > prog) return "locked";              /* never met them */
-  if(arc.stages.every(s=>s.levelIdx < prog)) return "complete";
-  if(arc.stages.some(s=>s.levelIdx === prog)) return "active";
-  return "waiting";      /* worked for them; their next job is behind someone else's */
+/* Which clients you've actually been introduced to. Met means you've reached
+   their FIRST job — after that their face shows on all their later tiles, so
+   you can see the rest of their arc coming. Anyone you haven't met stays a
+   blank figure, so who turns up next is still a surprise. */
+function metClients(prog){
+  const met=new Set();
+  for(const arc of LOOKUP.arcs)
+    if(!arc.soon && arc.stages[0].levelIdx<=prog) met.add(arc.client.id);
+  return met;
 }
 
-function jobCard(arc, prog){
+function jobTile(job, idx, prog, met){
   const S=DATA.strings.jobBoard||{};
-  const state=arcState(arc, prog);
-  const hidden=state==="locked"||state==="soon";
-  const card=mkEl("div","jobcard"+(hidden?" locked":""));
+  const st=stageState(idx, prog);
+  const known=met.has(job.client.id);
+  const b=document.createElement("button");
+  b.className="jtile "+st+(known?"":" unknown");
+  b.disabled = st==="locked";
+  /* Who hired you goes above the head, the job itself goes below it: the name
+     is a label on the face, the title is what the tile is actually offering. */
+  b.appendChild(mkEl("span","jname",known?job.client.name:(S.lockedTile||"???")));
+  /* A generic figure, not their own emoji blacked out: 👽 and 🧑‍🎓 are still
+     recognisable as shapes, which gives the surprise away a job early. */
+  b.appendChild(mkEl("span","jface",known?job.client.emoji:"🧑"));
+  b.appendChild(mkEl("span","jtitle",job.level.name));
+  b.appendChild(mkEl("span","jid",job.level.id));
+  if(st==="done") b.appendChild(mkEl("span","jmark","✅"));
+  if(st!=="locked") b.addEventListener("click",()=>startCampaign(idx));
+  return b;
+}
 
-  const head=mkEl("div","jhead");
-  head.appendChild(mkEl("span","jface",arc.client.emoji));
-  head.appendChild(mkEl("span","jname",hidden?(S.lockedName||"A NEW CLIENT"):arc.client.name));
-  const pips=mkEl("div","dpips");
-  const n=arc.soon ? (arc.client.arcLength||3) : arc.stages.length;
-  for(let i=0;i<n;i++){
-    const p=mkEl("i");
-    if(!hidden){
-      const st=stageState(arc.stages[i].levelIdx, prog);
-      if(st==="done") p.classList.add("full");
-      else if(st==="now") p.classList.add("now");
-    }
-    pips.appendChild(p);
-  }
-  head.appendChild(pips);
-  card.appendChild(head);
-
-  const teaser =
-    state==="soon"     ? (arc.client.teaser || S.lockedTeaser || "Word gets around.")
-  : state==="locked"   ? (S.lockedTeaser || "Word gets around.")
-  : state==="complete" ? (arc.client.farewell || S.done || "")
-  : state==="waiting"  ? (arc.client.waiting  || S.waiting || "")
-  : (arc.stages.find(s=>s.levelIdx===prog)?.stage.teaser || "");
-  if(teaser) card.appendChild(mkEl("div","jteaser",teaser));
-
-  /* A locked or upcoming client shows no stage rows at all — the pips already
-     say how long the arc is, and the face stays a silhouette so who turns up
-     is still a surprise. */
-  if(!hidden){
-    for(const s of arc.stages){
-      const st=stageState(s.levelIdx, prog);
-      const b=document.createElement("button");
-      b.className="lvlbtn"+(st==="now"?" now":"");
-      b.disabled = st==="locked";
-      b.innerHTML=`<span class="lid">${s.level.id}</span><span class="lname">${s.level.name}</span>
-        <span class="lstate">${st==="done"?"✅":(st==="now"?"▶":"🔒")}</span>`;
-      if(st!=="locked") b.addEventListener("click",()=>startCampaign(s.levelIdx));
-      card.appendChild(b);
-    }
-  }
-  return card;
+/* A client written into clients.json with no stages yet — see `soon`. There
+   are none today (all six are real), but the data model promises they'd show
+   up, and a silhouette that silently vanishes is the sort of thing you only
+   notice months later. One tile each, at the end, unclickable. */
+function soonTile(arc){
+  const S=DATA.strings.jobBoard||{};
+  const b=document.createElement("button");
+  b.className="jtile locked unknown";
+  b.disabled=true;
+  b.appendChild(mkEl("span","jname",S.lockedTile||"???"));
+  b.appendChild(mkEl("span","jface","🧑"));
+  b.appendChild(mkEl("span","jtitle",arc.client.teaser||""));
+  b.appendChild(mkEl("span","jid","SOON"));
+  return b;
 }
 
 function openCampaignMenu(){
   closeMenus();
   const prog=getProgress();
   const S=DATA.strings.jobBoard||{};
+  const met=metClients(prog);
   if(S.title) $("#boardTitle").textContent=S.title;
-  if(S.sub) $("#boardSub").textContent=S.sub;
+  const total=LOOKUP.levelByIdx.length;
+  $("#boardSub").textContent = tokenise(S.sub||"", {
+    done:Math.min(prog,total), total,
+  });
+
   const board=$("#jobBoard"); board.innerHTML="";
-  for(const arc of LOOKUP.arcs) board.appendChild(jobCard(arc, prog));
+  let current=null;
+  LOOKUP.levelByIdx.forEach((lv, i)=>{
+    const job=jobAt(i);
+    if(!job) return;                       /* validate.js makes this impossible */
+    const tile=jobTile(job, i, prog, met);
+    if(i===prog) current=tile;
+    board.appendChild(tile);
+  });
+  for(const arc of LOOKUP.arcs) if(arc.soon) board.appendChild(soonTile(arc));
+
   $("#campaignOverlay").classList.add("open");
+  /* Twenty-two tiles don't fit on a phone, and the one you want is the one
+     you can play. Centre it by hand rather than scrollIntoView(), which on a
+     nested scroller will happily scroll the page behind the overlay too.
+     Rects, not offsetTop: #jobBoard isn't a positioned ancestor, so offsetTop
+     is measured from the overlay and lands the wrong side of a row. After
+     .open, so the board has a height to measure at all. */
+  if(current){
+    const cr=current.getBoundingClientRect(), br=board.getBoundingClientRect();
+    board.scrollTop = Math.max(0,
+      board.scrollTop + (cr.top - br.top) - (br.height - cr.height)/2);
+  }
+  /* Assignment, not addEventListener: openCampaignMenu runs every time the
+     board is opened and stacked listeners would be a slow leak. */
+  board.onscroll = ()=>fadeBoardEnd(board);
+  fadeBoardEnd(board);
+}
+
+/* The bottom fade is the only "more below" affordance, so it has to switch off
+   at the end of the list — see #jobBoard.atEnd in css/overlays.css. */
+function fadeBoardEnd(board){
+  board.classList.toggle("atEnd",
+    board.scrollTop >= board.scrollHeight - board.clientHeight - 2);
 }
 
 function resetRun(){
