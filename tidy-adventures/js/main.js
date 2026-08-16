@@ -6,7 +6,7 @@
    input tiers still live here. See docs/CLAUDE.md for the target graph.
 ============================================================ */
 import {
-  SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
+  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, CHEVRON, ZOOM_TAP,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
@@ -20,8 +20,9 @@ import {
 import { say, bump, flyReward, roomCompleteFX, clearSay } from './feedback.js';
 import {
   DATA, LOOKUP, loadData, nameOf, costFor, maxLevel,
-  itemCount, upgradeParam, upgradeDefaults,
+  itemCount, upgradeParam, upgradeDefaults, jobAt,
 } from './data.js';
+import { showClient, hideClient, isSpeaking } from './client.js';
 import { G, setRun, endRun } from './state.js';
 import {
   findFloorSpot, nearestFloorSpot, unstickFloorItems, inDoorway, spin,
@@ -115,13 +116,19 @@ function renderTips(){
   }
 }
 
+/* Is something modal on screen? A client mid-sentence is a modal in every
+   respect except the backdrop — and the backdrop is the one thing they must
+   not have — so they can't be found by the `.overlay.open` selector and have
+   to be asked for by name. */
+const modalUp = () => !!document.querySelector(".overlay.open") || isSpeaking();
+
 function positionTips(){
   const layer=document.getElementById("tipLayer");
   if(!layer.children.length) return;
   for(const b of layer.children){
     const t=tipById(b.dataset.kind);
     const el=t && tipTarget(t);
-    if(!el || document.querySelector(".overlay.open") || G.openCont!==null){
+    if(!el || modalUp() || G.openCont!==null){
       b.style.display="none"; continue;
     }
     const r=el.getBoundingClientRect();
@@ -180,7 +187,11 @@ function saveGame(){
   try{
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       v:SAVE_VERSION, rooms:G.rooms, items:G.items, typeHome:G.typeHome, locks:G.locks,
-      mode:G.mode, levelIdx:G.levelIdx, size:G.size, rowLen:G.rowLen,
+      /* levelId as well as levelIdx: the index is a position in levels.json and
+         the id is a name. Appending is safe either way, but if a level is ever
+         inserted or reordered the index quietly means a different level, and
+         this save would resume the wrong job. */
+      mode:G.mode, levelIdx:G.levelIdx, levelId:(LEVELS[G.levelIdx]?.id ?? null), size:G.size, rowLen:G.rowLen,
       current:G.current, inv:G.inv, sel:G.sel,
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
       visited:[...G.visited], awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
@@ -205,9 +216,19 @@ function loadGame(){
     if(!raw) return false;
     const d=JSON.parse(raw);
     if(d.v!==SAVE_VERSION) return false;
+    /* Resolve the level by NAME first and fall back to the index for saves
+       written before ids were stored. A campaign save pointing at a level that
+       no longer exists is discarded rather than loaded: it used to load a run
+       with no tips and then throw on the win screen, reading `.id` off
+       undefined. */
+    let levelIdx = d.levelIdx;
+    if(d.mode==="campaign"){
+      if(d.levelId!=null && LOOKUP.levelIdxById[d.levelId]!=null) levelIdx=LOOKUP.levelIdxById[d.levelId];
+      if(!LEVELS[levelIdx]) return false;
+    }
     /* Tips come from levels.json, not the save, so editing tip text can't
        corrupt a run in progress. */
-    const lv = d.mode==="campaign" ? LEVELS[d.levelIdx] : null;
+    const lv = d.mode==="campaign" ? LEVELS[levelIdx] : null;
     setRun({
       rooms:d.rooms, items:d.items, typeHome:d.typeHome, locks:d.locks,
       rowLen:d.rowLen||5, theme:d.theme||DATA.themes.defaultTheme,
@@ -228,7 +249,7 @@ function loadGame(){
       whirlReady:Date.now()+(d.whirlRemain||0),
     },{
       mode:d.mode||"free",
-      levelIdx:(d.levelIdx==null?null:d.levelIdx),
+      levelIdx:(levelIdx==null?null:levelIdx),
       size:(SIZES[d.size]?d.size:null),
     });
     /* Saves made before doorways were kept clear can hold items parked under
@@ -773,9 +794,18 @@ function playBeats(){
   if(beats[0].inRoom && G.openCont!==null) return;
   const b=beats.shift();
   beatBusy=true;
-  try{ b.run(); }
-  catch(err){ console.error("[Tidy Adventures] celebration beat failed", err); }
-  setTimeout(()=>{ beatBusy=false; playBeats(); }, b.ms ?? 350);
+  /* `hold` beats end when they say so, not when a timer says so — a person
+     talking takes as long as the player takes to read. Everything else keeps
+     its exact timing. `settled` makes done() idempotent, so a beat that both
+     calls it and throws can't run the queue twice. */
+  let settled=false;
+  const done=()=>{ if(settled) return; settled=true; beatBusy=false; playBeats(); };
+  try{ b.run(done); }
+  catch(err){
+    console.error("[Tidy Adventures] celebration beat failed", err);
+    if(b.hold) done();
+  }
+  if(!b.hold) setTimeout(done, b.ms ?? 350);
 }
 
 /* Nothing may interrupt a celebration — least of all a talent draft, which is
@@ -842,6 +872,23 @@ function afterMutation(room, c, changedRows, opts={}){
   renderHUD();
   checkDraftThreshold();
   if(checkWin()){
+    /* The client comes back to thank you — after the room's gold, before the
+       win screen, because the queue plays in emission order and the win beat
+       can't start while this one holds.
+
+       NOT inRoom, deliberately. playBeats() has no retry timer, so an inRoom
+       beat reaching the head with the container panel still open would park
+       the queue behind itself — including the win beat that would have closed
+       the panel. It closes the panel itself instead, exactly as the win beat
+       below already does. */
+    const job=G.mode==="campaign" ? jobAt(G.levelIdx) : null;
+    const outro=job?.stage.outro || [];
+    if(outro.length){
+      celebrate({key:"outro", hold:true, run(done){
+        if(G.openCont!==null) closeCont();
+        showClient(job.client.emoji, outro, {side:"left", onDone:done});
+      }});
+    }
     /* The run is over: there is nothing left to sort, so the panel is closed
        for the player instead of making them dismiss it to reach the ending. */
     celebrate({key:"win", ms:0, run(){
@@ -1199,17 +1246,39 @@ function showWin(){
     b.addEventListener("click",fn);
     btns.appendChild(b);
   };
-  if(G.mode==="campaign"){
-    const lv=LEVELS[G.levelIdx];
-    $("#winTitle").textContent=lv.id+" · "+lv.name+" — complete!";
+  const lv=G.mode==="campaign" ? LEVELS[G.levelIdx] : null;
+  if(G.mode==="campaign" && lv){
+    const job=jobAt(G.levelIdx);
+    /* The client's face, not a generic ✨ — you finished a job for a person.
+       They have already said their piece out loud (the outro beat), so this
+       screen only names them. */
+    $("#winOverlay .big").textContent=job ? job.client.emoji : "✨";
+    $("#winTitle").textContent=job
+      ? job.client.name+(job.last ? " — that's the lot" : " — job done")
+      : lv.id+" · "+lv.name+" — complete!";
     $("#winStats").textContent=stats;
     if(G.levelIdx+1>getProgress()) setProgress(G.levelIdx+1);
     if(G.levelIdx+1<LEVELS.length){
-      mk("Next level ▶","primary",()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); });
+      /* Staying with the same client reads as "next job"; moving to a new one
+         goes through the board so they get their own arrival. */
+      const next=jobAt(G.levelIdx+1);
+      const sameClient=job && next && next.client.id===job.client.id;
+      /* `ghost` rather than a bare .menubtn for the secondary: `.overlay button`
+         (0,1,1) outranks `.menubtn` (0,1,0), so a plain one comes out gold and
+         the primary stops meaning anything. */
+      if(sameClient){
+        mk("Next job ▶","primary",()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); });
+        mk("Job board","ghost",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
+      }else{
+        mk("Job board ▶","primary",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
+        mk("Next job","ghost",()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); });
+      }
+    }else{
+      mk("Job board","primary",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
     }
-    mk("Level select","",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }else{
+    $("#winOverlay .big").textContent="✨";
     $("#winTitle").textContent="All tidy.";
     $("#winStats").textContent=stats;
     const sz=SIZES[G.size]||SIZES.medium;
@@ -1559,8 +1628,12 @@ host.addEventListener("pointerup",e=>{
   lastTap={t:now,x:e.clientX,y:e.clientY};
 });
 
-/* Never interrupt a drag, an open container, or a celebration in progress. */
-const busy = () => !!ptr || !!invDrag || !!cellPtr || G.openCont!==null || celebrating();
+/* Never interrupt a drag, an open container, a celebration, or someone talking.
+   isSpeaking() is belt and braces next to celebrating() — the outro beat holds
+   the queue for its whole speech — but each call site defends itself, and the
+   intro is not a beat at all. */
+const busy = () =>
+  !!ptr || !!invDrag || !!cellPtr || G.openCont!==null || celebrating() || isSpeaking();
 function maybeDraft(){ return drainDrafts(busy); }
 
 /* When the panel opened. A tap on the backdrop closes the panel, so the
@@ -1838,6 +1911,7 @@ $("#contView").addEventListener("pointerup",e=>{
 
 /* keyboard */
 window.addEventListener("keydown",e=>{
+  if(isSpeaking()) return;   /* js/client.js owns the keyboard while they talk */
   const k={ArrowUp:"N",ArrowDown:"S",ArrowLeft:"W",ArrowRight:"E"}[e.key];
   if(k && G.openCont===null) tryMove(k);
   if(e.key==="Escape" && G.openCont!==null) closeCont();
@@ -1868,6 +1942,132 @@ $("#resetBtn").addEventListener("click",()=>{
     resetRun();
   }
 });
+/* ============================================================
+   DEBUG — for testing the story without playing four hundred items
+
+   `finishJob` deliberately does NOT jump to the win screen. It files
+   everything the way a player would and then hands the LAST item to
+   afterMutation, so the whole ending runs for real: row → container → the
+   panel bowing out → the room's gold ripple → the client's thank-you → the
+   win screen. Testing the narrative means testing the sequence, and a
+   shortcut past afterMutation would test nothing.
+============================================================ */
+function finishJob(){
+  if(!G.active) return false;
+  /* Which types live in which container, from the run's own home table. */
+  const byHome={};
+  for(const [type,h] of Object.entries(G.typeHome)){
+    const k=h.room+"|"+h.cont;
+    (byHome[k]=byHome[k]||[]).push(type);
+  }
+  const loose={};
+  for(const it of Object.values(G.items)){
+    if(it.token || it.isNote || it.loc.kind==="used") continue;
+    (loose[it.type]=loose[it.type]||[]).push(it);
+  }
+  let lastRoom=null, lastCont=null, lastRow=0, lastCol=0, lastItem=null;
+  for(const room of G.rooms) for(const c of room.containers){
+    if(c.lock) c.lock.open=true;              /* a debug key for every lock */
+    (byHome[room.id+"|"+c.id]||[]).forEach((type,row)=>{
+      if(row>=c.cells.length) return;
+      const items=loose[type]||[];
+      for(let col=0;col<c.cells[row].length;col++){
+        const it=items[col];
+        if(!it) continue;
+        c.cells[row][col]=it.id;
+        it.loc={kind:"cell",room:room.id,cont:c.id,row,col};
+        /* Count them as clean first-time placements so the win screen's
+           accuracy line reads like a game rather than a 0%. */
+        if(!it.judged){ it.judged=true; G.stats.tosses++; G.stats.firstGood++; }
+        lastRoom=room; lastCont=c; lastRow=row; lastCol=col; lastItem=it;
+      }
+    });
+  }
+  for(const l of G.locks) l.open=true;
+  if(!lastItem) return false;
+  /* Pull the very last one back out, then place it properly — that one real
+     placement is what fires the whole celebration chain. */
+  lastCont.cells[lastRow][lastCol]=null;
+  G.current=lastRoom.id; G.visited.add(lastRoom.id);
+  if(G.openCont!==null && G.openCont!==lastCont.id) closeCont();
+  render();
+  lastCont.cells[lastRow][lastCol]=lastItem.id;
+  lastItem.loc={kind:"cell",room:lastRoom.id,cont:lastCont.id,row:lastRow,col:lastCol};
+  afterMutation(lastRoom,lastCont,[lastRow]);
+  return true;
+}
+
+$("#debugFinish").addEventListener("click",()=>{
+  /* The gear is an .overlay at z-index 120 and the client is at 100, so the
+     ending would play behind this panel. */
+  $("#gearOverlay").classList.remove("open");
+  if(!finishJob()) say("Nothing to finish — start a job first.");
+});
+
+$("#debugRelock").addEventListener("click",()=>{
+  setProgress(0);
+  $("#gearOverlay").classList.remove("open");
+  /* No toast: #toast is z-index 95 and the board is 120, so a confirmation
+     would be printed behind it. The board redrawing with one job open says it
+     better anyway. */
+  openCampaignMenu();
+});
+
+/* ============================================================
+   VERSION AND FORCE REFRESH
+
+   Installed to a home screen, this is a plain web page with no update
+   mechanism: the browser keeps serving whatever it cached, and DATA_VERSION
+   can't help because the thing that carries it — config.js — is cached too.
+   Deleting the app and re-adding it worked, and was a ridiculous way to see a
+   change you just pushed.
+
+   So: refetch every asset this page actually loaded, with cache:"reload" to
+   bypass and overwrite the HTTP cache, then reload. performance's resource
+   list is used rather than a hardcoded manifest because it is always exactly
+   what the app loaded — a list here would drift the first time a file was
+   added.
+============================================================ */
+/* When this copy of index.html was made. If it's cached, this is the CACHED
+   copy's date — which is the useful reading: it tells you how old what you're
+   holding is. */
+function copyDate(){
+  const d=new Date(document.lastModified);
+  return isNaN(d.getTime()) ? "" :
+    d.toLocaleString(undefined,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+}
+
+async function forceRefresh(btn){
+  if(btn){ btn.disabled=true; btn.textContent="…"; }
+  const base=location.origin+location.pathname.replace(/[^/]*$/,"");
+
+  /* Drop only OUR files from any service-worker cache. The portfolio at the
+     repo root registers a cache-first worker scoped to "/", and blowing its
+     whole cache away to update this game would be rude to every other app on
+     the site. */
+  try{
+    if(window.caches){
+      for(const key of await caches.keys()){
+        const cache=await caches.open(key);
+        for(const req of await cache.keys()){
+          if(req.url.startsWith(base)) await cache.delete(req);
+        }
+      }
+    }
+  }catch(e){/* no Cache API, or a cross-origin entry we may not touch */}
+
+  const urls=new Set([location.href.split("#")[0]]);
+  for(const e of performance.getEntriesByType("resource")){
+    if(e.name.startsWith(location.origin)) urls.add(e.name);
+  }
+  /* Failures are ignored on purpose: offline, the reload should still bring
+     the app up from cache rather than leaving a dead button. */
+  await Promise.all([...urls].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})));
+  location.reload();
+}
+
+$("#refreshBtn").addEventListener("click",e=>forceRefresh(e.currentTarget));
+
 $("#debugStar").addEventListener("click",()=>{
   G.points++; G.starsEarned++; renderHUD();
   checkDraftThreshold();
@@ -1901,7 +2101,7 @@ function closeMenus(){
 /* A run ending takes its unfinished business with it: queued celebrations and
    queued messages both belong to the run that queued them, and a "Kitchen is
    all tidy ✨" arriving over the title screen belongs to nobody. */
-function endCeremony(){ clearBeats(); clearSay(); }
+function endCeremony(){ clearBeats(); clearSay(); hideClient(); }
 
 function showTitle(){
   closeMenus();
@@ -1942,8 +2142,28 @@ function startCampaign(i){
      players to ignore it. */
   setHidden(shopBtn, !Object.values(G.up).some(v=>v>0));
   render();
-  say(lv.id+" · "+lv.name, {priority:2});
-  say(tokenise(lv.blurb, textVars()), {priority:1});
+
+  /* The client turns up. AFTER render(), so the house they are describing is
+     already on screen behind them.
+
+     The blurb toast is dropped when someone is here to say it: it is
+     instruction copy the teaching tips already deliver word for word, and a
+     strip sliding out from under the HUD while a person talks is the "four
+     things at once" problem again. The level name lands as they leave —
+     showClient() calls clearSay(), so it has to be said afterwards, not before.
+     Teaching tips are suppressed for free by modalUp(). */
+  const job=jobAt(i);
+  const replaying=i<getProgress();
+  if(job?.stage.intro?.length){
+    const lines=[...job.stage.intro];
+    if(replaying && job.stage.replay) lines[0]=job.stage.replay;
+    showClient(job.client.emoji, lines, {
+      onDone(){ say(lv.id+" · "+lv.name, {priority:2}); },
+    });
+  }else{
+    say(lv.id+" · "+lv.name, {priority:2});
+    say(tokenise(lv.blurb, textVars()), {priority:1});
+  }
 }
 
 /* Values available to {tokens} in level blurbs, tips and help copy. */
@@ -1951,19 +2171,83 @@ function textVars(){
   return { handSlots:G.inv.length||INV_SIZE, rowLen:G.rowLen||5 };
 }
 
+/* ============================================================
+   THE JOB BOARD
+
+   Was a flat list of nine level buttons. It is the same nine levels — and the
+   same single progress integer — grouped under the people who hired you, with
+   a row of pips per arc. Arcs interleave (a client's stages are simply
+   non-contiguous indices), so every piece of state here is still derived from
+   "how far down levels.json have you got".
+============================================================ */
+const stageState = (levelIdx, prog) =>
+  levelIdx < prog ? "done" : levelIdx === prog ? "now" : "locked";
+
+function arcState(arc, prog){
+  if(arc.soon) return "soon";                                     /* no stages yet */
+  if(arc.stages[0].levelIdx > prog) return "locked";              /* never met them */
+  if(arc.stages.every(s=>s.levelIdx < prog)) return "complete";
+  if(arc.stages.some(s=>s.levelIdx === prog)) return "active";
+  return "waiting";      /* worked for them; their next job is behind someone else's */
+}
+
+function jobCard(arc, prog){
+  const S=DATA.strings.jobBoard||{};
+  const state=arcState(arc, prog);
+  const hidden=state==="locked"||state==="soon";
+  const card=mkEl("div","jobcard"+(hidden?" locked":""));
+
+  const head=mkEl("div","jhead");
+  head.appendChild(mkEl("span","jface",arc.client.emoji));
+  head.appendChild(mkEl("span","jname",hidden?(S.lockedName||"A NEW CLIENT"):arc.client.name));
+  const pips=mkEl("div","dpips");
+  const n=arc.soon ? (arc.client.arcLength||3) : arc.stages.length;
+  for(let i=0;i<n;i++){
+    const p=mkEl("i");
+    if(!hidden){
+      const st=stageState(arc.stages[i].levelIdx, prog);
+      if(st==="done") p.classList.add("full");
+      else if(st==="now") p.classList.add("now");
+    }
+    pips.appendChild(p);
+  }
+  head.appendChild(pips);
+  card.appendChild(head);
+
+  const teaser =
+    state==="soon"     ? (arc.client.teaser || S.lockedTeaser || "Word gets around.")
+  : state==="locked"   ? (S.lockedTeaser || "Word gets around.")
+  : state==="complete" ? (arc.client.farewell || S.done || "")
+  : state==="waiting"  ? (arc.client.waiting  || S.waiting || "")
+  : (arc.stages.find(s=>s.levelIdx===prog)?.stage.teaser || "");
+  if(teaser) card.appendChild(mkEl("div","jteaser",teaser));
+
+  /* A locked or upcoming client shows no stage rows at all — the pips already
+     say how long the arc is, and the face stays a silhouette so who turns up
+     is still a surprise. */
+  if(!hidden){
+    for(const s of arc.stages){
+      const st=stageState(s.levelIdx, prog);
+      const b=document.createElement("button");
+      b.className="lvlbtn"+(st==="now"?" now":"");
+      b.disabled = st==="locked";
+      b.innerHTML=`<span class="lid">${s.level.id}</span><span class="lname">${s.level.name}</span>
+        <span class="lstate">${st==="done"?"✅":(st==="now"?"▶":"🔒")}</span>`;
+      if(st!=="locked") b.addEventListener("click",()=>startCampaign(s.levelIdx));
+      card.appendChild(b);
+    }
+  }
+  return card;
+}
+
 function openCampaignMenu(){
   closeMenus();
   const prog=getProgress();
-  const list=$("#levelList"); list.innerHTML="";
-  LEVELS.forEach((lv,i)=>{
-    const b=document.createElement("button");
-    b.className="lvlbtn";
-    b.disabled = i>prog;
-    b.innerHTML=`<span class="lid">${lv.id}</span><span class="lname">${lv.name}</span>
-      <span class="lstate">${i<prog?"✅":(i===prog?"▶":"🔒")}</span>`;
-    if(i<=prog) b.addEventListener("click",()=>startCampaign(i));
-    list.appendChild(b);
-  });
+  const S=DATA.strings.jobBoard||{};
+  if(S.title) $("#boardTitle").textContent=S.title;
+  if(S.sub) $("#boardSub").textContent=S.sub;
+  const board=$("#jobBoard"); board.innerHTML="";
+  for(const arc of LOOKUP.arcs) board.appendChild(jobCard(arc, prog));
   $("#campaignOverlay").classList.add("open");
 }
 
@@ -2017,6 +2301,10 @@ function buildSizeMenu(){
 function buildHelp(){
   const s=DATA.strings, v={handSlots:INV_SIZE, rowLen:5};
   document.title=s.title;
+  $("#titleVersion").textContent="v"+VERSION;
+  const when=copyDate();
+  $("#gearVersion").textContent="v"+VERSION+(when?" · this copy "+when:"")+
+    ". Refresh pulls the newest build.";
   for(const h of document.querySelectorAll("#helpOverlay h1,#titleOverlay h1")) h.textContent=s.title;
   $("#titleOverlay .tagline").textContent=s.tagline;
   $("#helpOverlay p").textContent=tokenise(s.helpIntro,v);
@@ -2036,6 +2324,7 @@ window.tidy = {
   /* handy from the console, and what the browser tests drive */
   dropNote:maybeDropNote, openNote, checkQuests, completeQuest,
   afterMutation, openContainer, closeCont, doWhirl,
+  jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
 };
 
 /* boot: land on the title screen */

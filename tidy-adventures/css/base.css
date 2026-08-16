@@ -14,6 +14,11 @@
   --hud-h:56px;
   --inv-h:110px;
 
+  /* One voice, one hand. The client speaks and signs their own notes, so the
+     bubble (css/client.css) and the note card (css/quests.css) must never
+     drift apart. */
+  --hand:"Segoe Print","Bradley Hand","Comic Sans MS",ui-rounded,cursive;
+
   /* How big items on the floor are drawn.
      This is the knob for "the emoji look fuzzy": they are simply small.
      A picked-up item shows in the loupe at 48px, so at the old effective

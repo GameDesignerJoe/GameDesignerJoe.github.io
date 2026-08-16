@@ -16,7 +16,11 @@
       "WebFetch(domain:stitch.withgoogle.com)",
       "Bash(curl -s -L \"https://stitch.withgoogle.com\")",
       "Bash(npm search:*)",
-      "Bash(curl -s \"https://raw.githubusercontent.com/google-labs-code/stitch-sdk/main/README.md\")"
+      "Bash(curl -s \"https://raw.githubusercontent.com/google-labs-code/stitch-sdk/main/README.md\")",
+      "Bash(node C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/drive.mjs http://localhost:8765/tidy-adventures/index.html C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/d6.js)",
+      "Bash(node C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/drive.mjs http://localhost:8765/tidy-adventures/index.html C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/d7.js)",
+      "Bash(node C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/refresh.mjs)",
+      "Bash(node C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/drive.mjs http://localhost:8765/tidy-adventures/index.html C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/v2.js C:/Users/GameD/AppData/Local/Temp/claude/c--Users-GameD-GameDesignerJoe-github-io/e40b90e3-9dbe-412f-a87f-d4aebccb4064/scratchpad/shot-gear2.png)"
     ]
   }
 }

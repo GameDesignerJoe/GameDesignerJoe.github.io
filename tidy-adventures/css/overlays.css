@@ -45,6 +45,13 @@
 }
 .overlay.open{display:flex}
 .overlay .card{max-width:440px}
+/* Settings has grown past a phone screen, and .card has no height limit, so
+   Close was falling off the bottom with no way to reach it. Scoped to this one
+   overlay on purpose: a global overflow rule would clip the talent draft's
+   chosen-card glow, which deliberately scales outside its box. */
+#gearOverlay .card{max-height:calc(100dvh - 40px);overflow-y:auto}
+#gearOverlay .card{scrollbar-width:none}
+#gearOverlay .card::-webkit-scrollbar{display:none}
 .overlay h1{font-size:34px;margin-bottom:10px}
 .overlay p{color:var(--ink-dim);line-height:1.55;font-size:15px;margin-bottom:8px}
 .overlay .big{font-size:52px;margin-bottom:8px}
@@ -71,21 +78,64 @@
 .menubtn.primary small{color:#6b5416}
 .menubtn.ghost{background:transparent;color:var(--ink-dim);box-shadow:inset 0 0 0 2px var(--panel)}
 .tagline{letter-spacing:.08em}
+/* Small enough to ignore while playing, big enough to read out over a phone
+   call when someone asks which build you're on. */
+.version{
+  margin-top:14px;font-size:11px;font-weight:700;letter-spacing:.22em;
+  color:var(--ink-dim);opacity:.5;text-transform:uppercase;
+}
 .sizegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sizegrid .menubtn{margin:0}
 
-/* ---------- LEVEL SELECT ---------- */
-.lvlbtn{
+/* ---------- JOB BOARD ----------
+   The stage rows are the old level-select buttons, unchanged, so a locked
+   level still looks exactly the way players already know. What's new is the
+   card around them: who is hiring, and how far through their story you are. */
+.jobcard{
+  background:rgba(255,255,255,.03);border-radius:14px;
+  padding:10px 10px 6px;margin:10px 0;text-align:left;
+}
+.jhead{display:flex;align-items:center;gap:9px;padding:2px 4px 6px}
+.jface{font-size:30px;line-height:1}
+.jname{font-size:15px;font-weight:800;flex:1 1 auto}
+.jteaser{
+  font-size:12.5px;color:var(--ink-dim);line-height:1.4;
+  padding:0 4px 8px;font-style:italic;
+}
+/* A client you haven't met is a shape, not a name — proof there's more work
+   coming without spoiling who turns up. */
+.jobcard.locked .jface{filter:brightness(0) opacity(.45)}
+.jobcard.locked .jname{color:var(--ink-dim);letter-spacing:.28em;font-size:12px}
+/* .overlay .card has no max-height, so without this the board clips off the
+   bottom of a phone with no way to reach it. The bar itself is hidden — it's
+   desktop chrome nobody asked for, and phones don't draw one anyway — and the
+   bottom edge fades instead, which is the affordance that there's more below. */
+#jobBoard{
+  max-height:min(60vh, 560px);overflow-y:auto;
+  scrollbar-width:none;                  /* Firefox */
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
+  mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
+}
+#jobBoard::-webkit-scrollbar{display:none}   /* Chrome, Safari */
+
+/* ---------- STAGE ROWS ----------
+   Scoped `.overlay .lvlbtn` (0,2,1), not bare `.lvlbtn` (0,1,0): `.overlay
+   button` (0,1,1) above outranks the bare form, so these rendered as gold
+   pills with gold level ids written on them — invisible. Same trap the draft
+   cards note at the bottom of this file. */
+.overlay .lvlbtn{
   display:flex;align-items:center;gap:10px;width:100%;
   margin:6px 0;border:0;border-radius:12px;
   background:var(--panel);color:var(--ink);
   padding:10px 14px;cursor:pointer;text-align:left;
-  font-family:inherit;
+  font-family:inherit;font-size:inherit;font-weight:400;letter-spacing:normal;
 }
 .lvlbtn .lid{font-size:12px;font-weight:800;color:var(--gold);flex:0 0 34px}
 .lvlbtn .lname{font-size:14px;font-weight:700;flex:1 1 auto}
 .lvlbtn .lstate{font-size:14px;flex:0 0 auto}
-.lvlbtn:disabled{opacity:.35;cursor:default}
+/* The job you can start right now: the row says so, not just the pip. */
+.overlay .lvlbtn.now{box-shadow:inset 0 0 0 2px rgba(245,197,66,.55)}
+.overlay .lvlbtn:disabled{opacity:.35;cursor:default}
 #winButtons{margin-top:6px}
 
 /* ---------- SHOP ---------- */
@@ -131,9 +181,12 @@
 .overlay .dcard .dname{font-size:15px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
 .overlay .dcard .dsub{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.08em;text-transform:uppercase}
 .overlay .dcard .ddesc{font-size:12px;color:var(--ink-dim);line-height:1.4;font-weight:500}
-.dcard .dpips{display:flex;gap:4px;margin-top:2px}
-.dcard .dpips i{width:6px;height:6px;border-radius:50%;background:rgba(245,197,66,.25);display:block}
-.dcard .dpips i.full{background:var(--gold);box-shadow:0 0 4px rgba(245,197,66,.9)}
+/* Shared by the talent draft and the job board's arc pips. */
+.dpips{display:flex;gap:4px;margin-top:2px}
+.dpips i{width:6px;height:6px;border-radius:50%;background:rgba(245,197,66,.25);display:block}
+.dpips i.full{background:var(--gold);box-shadow:0 0 4px rgba(245,197,66,.9)}
+/* The job you could start right now: an outline, not a fill. */
+.dpips i.now{background:transparent;box-shadow:inset 0 0 0 2px var(--gold)}
 
 .overlay .dcard.chosen{
   transform:scale(1.08);

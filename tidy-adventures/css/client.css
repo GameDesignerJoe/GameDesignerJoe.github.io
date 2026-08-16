@@ -1,0 +1,103 @@
+/* ============================================================
+   THE CLIENT — the person who hired you, standing in the room.
+
+   Deliberately NOT an .overlay. Every overlay is a dimmed full-screen modal
+   (css/overlays.css:41-45) and the entire point of this one is that you can
+   see the mess behind them while they describe it.
+
+   z-index 100, from the free 97-119 band: above #objective (94), #toast (95)
+   and #tipLayer (96) so nothing paints across the bubble, below .overlay (120)
+   so the win screen and the menus always cover them.
+============================================================ */
+#clientLayer{
+  position:fixed;inset:0;z-index:100;
+  display:none;pointer-events:none;
+}
+/* A full-viewport catcher IS the input block: taps never reach #roomHost or
+   #invBar, so not one line of the input tier has to know this exists. */
+#clientLayer.speaking{display:block;pointer-events:auto}
+
+#clientFig{
+  position:absolute;
+  /* Their feet land on the inventory bar. Safe-area-proof for free: the
+     global box-sizing:border-box (css/base.css:28) puts #invBar's
+     env(safe-area-inset-bottom) padding INSIDE its height:var(--inv-h). */
+  bottom:calc(var(--inv-h) + 8px);
+  max-width:min(84vw, 380px);
+  display:flex;flex-direction:column;
+  transition:transform .38s cubic-bezier(.22,.85,.3,1);
+  will-change:transform;
+}
+#clientLayer.from-left  #clientFig{left:12px;  align-items:flex-start}
+#clientLayer.from-right #clientFig{right:12px; align-items:flex-end}
+
+/* ---------- WHAT THEY SAY ----------
+   Same paper and the same hand as the note card (css/quests.css) — one voice
+   in one handwriting, since the client is also who signs the notes. NOT the
+   note's torn edge or tape: those say "an object someone left behind", and
+   this person is standing here saying it out loud. */
+#clientBubble{
+  position:relative;
+  background:linear-gradient(#fdf3d8,#f3e3bb);
+  color:#3a2c18;
+  border-radius:16px;
+  padding:12px 15px 11px;
+  min-width:120px;
+  /* Floors are light (kitchen #d9a06a, bathroom #bfe0dd) and walls are dark,
+     so cream paper needs a rim as well as a shadow or it vanishes into a
+     kitchen floor. */
+  box-shadow:
+    0 0 0 2px rgba(33,26,18,.55),
+    0 14px 30px rgba(0,0,0,.55),
+    inset 0 0 0 1px rgba(0,0,0,.06);
+}
+#clientLine{
+  margin:0;
+  font-family:var(--hand);
+  font-size:16px;line-height:1.45;
+  /* Wrap, never clip: dialogue that truncates is worse than dialogue that's tall. */
+  overflow-wrap:break-word;
+}
+/* the tail, pointing down at whoever is talking */
+#clientBubble::after{
+  content:"";position:absolute;bottom:-11px;width:0;height:0;
+  border-left:11px solid transparent;
+  border-right:11px solid transparent;
+  border-top:12px solid #f3e3bb;
+  filter:drop-shadow(0 2px 1px rgba(33,26,18,.55));
+}
+#clientLayer.from-left  #clientBubble::after{left:26px}
+#clientLayer.from-right #clientBubble::after{right:26px}
+
+/* ---------- WHO IS SAYING IT ----------
+   Never mirrored when entering from the right: person emoji are front-facing
+   and flipping them reverses asymmetric details for no gain. */
+#clientFace{
+  font-size:clamp(58px, 17vw, 92px);line-height:1;margin-top:8px;
+  filter:drop-shadow(0 6px 6px rgba(0,0,0,.55));
+}
+#clientLayer.from-left  #clientFace{margin-left:8px}
+#clientLayer.from-right #clientFace{margin-right:8px}
+
+#clientMore{
+  font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:#c9b795;
+  /* Clear of the tail, which hangs 11px below the bubble and is the same cream
+     as the paper — at 6px it painted straight over the hint. */
+  margin-top:14px;
+  animation:cnudge 1.5s ease-in-out infinite;
+}
+#clientLayer.from-left  #clientMore{margin-left:52px}
+#clientLayer.from-right #clientMore{margin-right:52px}
+@keyframes cnudge{50%{transform:translateY(-3px)}}
+
+/* Only the words change between lines; the figure doesn't re-enter. */
+#clientBubble.swap{animation:cswap .18s ease-out}
+@keyframes cswap{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* The global reduced-motion rule (css/base.css:50) flattens every duration to
+   .01ms, which turns an INFINITE animation into a strobe. Kill it outright.
+   js/client.js reads the same preference for its timers. */
+@media (prefers-reduced-motion: reduce){
+  #clientMore{animation:none}
+}

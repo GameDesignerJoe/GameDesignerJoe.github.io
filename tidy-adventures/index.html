@@ -38,6 +38,7 @@
 <link rel="stylesheet" href="css/overlays.css">
 <link rel="stylesheet" href="css/feedback.css">
 <link rel="stylesheet" href="css/quests.css">
+<link rel="stylesheet" href="css/client.css">
 </head>
 <body>
 
@@ -71,8 +72,20 @@
 <div id="objective" hidden class="is-hidden"></div>
 <div id="toast"></div>
 
-<!-- The note. Deliberately the cheapest possible NPC: no portrait, no
-     dialogue tree, no voice. A voice, and paper. -->
+<!-- THE CLIENT — the person who hired you, come to explain themselves.
+     Deliberately NOT an .overlay: every overlay is a dimmed full-screen modal,
+     and the point of this one is that the house stays visible behind them.
+     A direct child of <body>, because #stage is overflow:hidden and would clip
+     the slide-in. See js/client.js and css/client.css. -->
+<div id="clientLayer">
+  <div id="clientFig">
+    <div id="clientBubble"><p id="clientLine"></p></div>
+    <div id="clientMore">▾ tap</div>
+    <div id="clientFace" aria-hidden="true"></div>
+  </div>
+</div>
+
+<!-- The note: the same voice, on paper, mid-job. -->
 <div class="overlay" id="noteOverlay">
   <div class="card">
     <div class="notecard">
@@ -125,10 +138,32 @@
     </div>
     <div class="shoprow">
       <div class="sinfo">
+        <div class="sname">Version</div>
+        <!-- filled in by buildHelp(): the build, and how old this copy is -->
+        <div class="sdesc" id="gearVersion"></div>
+      </div>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+    <div class="shoprow">
+      <div class="sinfo">
         <div class="sname">Debug: free skill point</div>
         <div class="sdesc">+1 ⭐ so you can test upgrades without the labor.</div>
       </div>
       <button id="debugStar">+1 ⭐</button>
+    </div>
+    <div class="shoprow">
+      <div class="sinfo">
+        <div class="sname">Debug: finish this job</div>
+        <div class="sdesc">Files everything instantly and lets the ending play: the room's gold, the client's thank-you, the win screen.</div>
+      </div>
+      <button id="debugFinish">Finish</button>
+    </div>
+    <div class="shoprow">
+      <div class="sinfo">
+        <div class="sname">Debug: relock all jobs</div>
+        <div class="sdesc">Job progress back to zero, so the story starts from the first knock on the door. Any run you're in the middle of is left alone.</div>
+      </div>
+      <button id="debugRelock">Relock</button>
     </div>
     <button id="gearClose">Close</button>
   </div>
@@ -162,19 +197,22 @@
     <p class="tagline">Everything Everywhere All In Place</p>
     <div id="titleButtons">
       <button class="menubtn primary" id="btnContinue" hidden>Continue</button>
-      <button class="menubtn" id="btnCampaign">Campaign</button>
+      <button class="menubtn" id="btnCampaign">Jobs</button>
       <button class="menubtn" id="btnFree">Free Play</button>
       <button class="menubtn ghost" id="btnHow">Instructions</button>
     </div>
+    <!-- filled in by buildHelp() from VERSION in js/config.js -->
+    <div class="version" id="titleVersion"></div>
   </div>
 </div>
 
 <div class="overlay" id="campaignOverlay">
   <div class="card">
-    <div class="big">🗺️</div>
-    <h1>Campaign</h1>
-    <p>Learn the house one mess at a time.</p>
-    <div id="levelList"></div>
+    <div class="big">📋</div>
+    <h1 id="boardTitle">Job Board</h1>
+    <p id="boardSub">Who needs you today.</p>
+    <!-- built from data/clients.json by openCampaignMenu() -->
+    <div id="jobBoard"></div>
     <button class="menubtn ghost" id="campBack">Back</button>
   </div>
 </div>

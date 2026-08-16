@@ -16,7 +16,13 @@
     "Events you can use for when/until: pickUp, place, goldPlace, open, door,",
     "lock, zoom, pan, shop, rowComplete, contComplete, roomComplete.",
     "",
-    "3-2 and 4-2 deliberately have no tips — they are practice levels."
+    "3-2 and 4-2 deliberately have no tips — they are practice levels.",
+    "",
+    "APPEND ONLY. Every level here is one client's job (data/clients.json), and",
+    "campaign progress is saved as a plain INDEX into this array. Inserting or",
+    "reordering an entry silently re-points every player's saved progress at a",
+    "different level. New levels go on the end; `id` is the label, `blurb` is",
+    "only used when a level has no client to say it out loud."
   ],
   "levels": [
     { "id": "1-1", "name": "Pick It Up", "theme": "house",
@@ -98,6 +104,84 @@
         { "kind": "shop", "target": "shop", "when": "talentEarned", "until": "shop",
           "text": "Tap here — this is what you've learned" }
       ],
-      "blurb": "Finish rows to earn ⭐. Cross a threshold and you pick a new talent." }
+      "blurb": "Finish rows to earn ⭐. Cross a threshold and you pick a new talent." },
+
+    { "id": "5-2", "name": "Friday Inspection", "theme": "house",
+      "rooms": 4, "cont": 3, "types": 5, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 2, "contKeys": 2, "caches": 1,
+      "scale": [0.72, 0.92], "junk": true,
+      "blurb": "Two locked chests and someone important arriving Friday." },
+
+    { "id": "5-3", "name": "Field Report", "theme": "house",
+      "rooms": 4, "cont": 3, "types": 5, "rowLen": 5,
+      "doorKeys": 3, "contLocks": 1, "contKeys": 2, "caches": 1,
+      "scale": [0.72, 0.92], "junk": true,
+      "blurb": "A sealed door, a locked chest, and someone taking notes." },
+
+    { "id": "6-1", "name": "Deposit Day", "theme": "house",
+      "rooms": 5, "cont": 3, "types": 5, "rowLen": 5,
+      "doorKeys": 4, "contLocks": 2, "contKeys": 2, "caches": 2,
+      "scale": [0.75, 0.95], "junk": true,
+      "blurb": "Five rooms, everything locked, and a landlord on the way." },
+
+    { "id": "6-2", "name": "The Last Room", "theme": "house",
+      "rooms": 5, "cont": 4, "types": 5, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "caches": 2,
+      "scale": [0.75, 0.95], "junk": true,
+      "blurb": "The whole house, one last time." },
+
+    { "id": "7-1", "name": "Supervised Learning", "theme": "house",
+      "rooms": 3, "cont": 3, "types": 4, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 0, "caches": 1,
+      "scale": [0.7, 0.9], "junk": true,
+      "blurb": "Someone is watching how you do this. Closely." },
+
+    { "id": "8-1", "name": "Nap Window", "theme": "house",
+      "rooms": 3, "cont": 4, "types": 5, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 0, "caches": 1,
+      "scale": [0.7, 0.9], "junk": true,
+      "blurb": "Forty minutes. Maybe thirty." },
+
+    { "id": "7-2", "name": "Training Data", "theme": "house",
+      "rooms": 4, "cont": 3, "types": 4, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "caches": 1,
+      "scale": [0.72, 0.92], "junk": true,
+      "blurb": "Everything in here has been sorted once already. Badly." },
+
+    { "id": "9-1", "name": "Peer Review", "theme": "house",
+      "rooms": 4, "cont": 3, "types": 5, "rowLen": 5,
+      "doorKeys": 4, "contLocks": 1, "contKeys": 2, "caches": 2,
+      "scale": [0.72, 0.92], "junk": true,
+      "blurb": "Visitors on Thursday. Sealed doors today." },
+
+    { "id": "8-2", "name": "Second Wind", "theme": "house",
+      "rooms": 4, "cont": 4, "types": 5, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "caches": 1,
+      "scale": [0.75, 0.95], "junk": true,
+      "blurb": "Every drawer in the house has been opened. None of them closed." },
+
+    { "id": "7-3", "name": "Confidence Interval", "theme": "house",
+      "rooms": 4, "cont": 4, "types": 5, "rowLen": 5,
+      "doorKeys": 3, "contLocks": 1, "contKeys": 2, "caches": 2,
+      "scale": [0.75, 0.95], "junk": true,
+      "blurb": "A house nobody has seen before, and someone taking notes." },
+
+    { "id": "9-2", "name": "The Sealed Wing", "theme": "house",
+      "rooms": 5, "cont": 4, "types": 5, "rowLen": 5,
+      "doorKeys": 4, "contLocks": 2, "contKeys": 2, "caches": 2,
+      "scale": [0.78, 0.95], "junk": true,
+      "blurb": "Rooms that haven't been opened in three years." },
+
+    { "id": "8-3", "name": "Sleeping Through", "theme": "house",
+      "rooms": 5, "cont": 4, "types": 5, "rowLen": 5,
+      "doorKeys": 3, "contLocks": 1, "contKeys": 2, "caches": 2,
+      "scale": [0.78, 0.95], "junk": true,
+      "blurb": "Eight hours of sleep and a year of mess." },
+
+    { "id": "9-3", "name": "Publication", "theme": "house",
+      "rooms": 6, "cont": 4, "types": 6, "rowLen": 6,
+      "doorKeys": 4, "contLocks": 2, "contKeys": 2, "caches": 3,
+      "scale": [0.8, 1], "junk": true,
+      "blurb": "Eleven years of work, finished. Eleven years of everything else, not." }
   ]
 }

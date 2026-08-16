@@ -1,0 +1,418 @@
+{
+  "_readme": [
+    "WHO HIRED YOU. You are a professional tidier; every campaign level is a job.",
+    "A client turns up at the start of one, says a line or two, and comes back at",
+    "the end to thank you. They recur: a client's stages are a story arc.",
+    "",
+    "levels.json is the CONFIG (rooms, locks, tips). This file is the VOICE.",
+    "A stage can never change how a level plays — it only claims one by id.",
+    "",
+    "RULES (checked at boot — a violation shows an error screen, not a silent bug):",
+    "  1. Every level in levels.json is claimed by exactly ONE stage. Two claims",
+    "     would put the level on the board twice and give the note two voices;",
+    "     no claim would open a job with nobody there and hide it from the board.",
+    "  2. A stage must name a level that exists, and a client's stages must run",
+    "     FORWARD through levels.json — they are listed in play order, and out of",
+    "     order the pips fill in backwards.",
+    "  3. Every client needs an emoji; every stage needs intro and outro lines.",
+    "  4. A client with no stages is only legal with \"soon\": true — that is how a",
+    "     future client appears on the board as a silhouette.",
+    "",
+    "ARCS INTERLEAVE. Another client can be hired between two of yours; that is",
+    "what makes them feel like people with their own lives. Marguerite pauses",
+    "while the frat house happens, then comes back at the very end.",
+    "",
+    "TOKENS. intro/outro/teaser: {handSlots} {rowLen} {name} {level}",
+    "        note text/reply:    {container} {room} {handSlots} {rowLen} {name}",
+    "        (a room and container are only known once one is finished)",
+    "",
+    "NOTES are a LIST, one per room that leaves you one, in the order rooms are",
+    "finished — not room order. Keep each one room-agnostic apart from its tokens.",
+    "A level with one container (1-1) never drops a note at all; put those words",
+    "in the intro. Omit `note` and the room-authored copy in quests.json is used",
+    "instead, signed by this client either way.",
+    "",
+    "VOICE. Dry, warm, short. One or two sentences. The frat types in lower case",
+    "because they are texting you; Zorb does not use contractions. Nobody in this",
+    "game shouts, except the frat, once, about the Dean."
+  ],
+
+  "clients": [
+    {
+      "id": "marguerite",
+      "name": "Marguerite",
+      "emoji": "👩",
+      "sign": "— Marguerite",
+      "waiting": "She says she's fine. She is not fine.",
+      "farewell": "The house sold in a week. She kept the clock.",
+      "stages": [
+        {
+          "level": "1-1",
+          "teaser": "\"It was just too overwhelming.\"",
+          "intro": [
+            "Thanks for coming. This was my grandmother's house.",
+            "I've been standing in this room for an hour and I haven't picked up one thing."
+          ],
+          "outro": ["Three things. I couldn't do three things on my own. Thank you."]
+        },
+        {
+          "level": "1-2",
+          "teaser": "\"There was a system. There was.\"",
+          "replay": "Back again? There's always more.",
+          "intro": [
+            "She had a place for everything.",
+            "I just never learned what it was."
+          ],
+          "outro": ["You found the system. I'd half convinced myself she never had one."],
+          "note": [
+            { "text": "The {container} is hers — that's where all this went. Fill it the way she would have.",
+              "reply": "That's exactly how she had it. Thank you." }
+          ]
+        },
+        {
+          "level": "2-1",
+          "teaser": "\"I've been avoiding the second room.\"",
+          "intro": [
+            "There's another room through there.",
+            "I've had that door shut since March. Please don't judge me."
+          ],
+          "outro": ["I opened a door I'd been avoiding for four months. You opened it, technically."],
+          "note": [
+            { "text": "If the {container} is as bad as I think it is, just do what you can.",
+              "reply": "Better than I'd have managed. Thank you." }
+          ]
+        },
+        {
+          "level": "2-2",
+          "teaser": "\"It's getting easier. Slightly.\"",
+          "intro": [
+            "Three rooms today. I've stopped apologising for it.",
+            "Well. Nearly."
+          ],
+          "outro": ["The estate agent comes Tuesday. Because of you I'm going to let her in."],
+          "note": [
+            { "text": "The {room} is where she actually lived. The {container} first, if you don't mind.",
+              "reply": "The {container}, done. That was the one that mattered." },
+            { "text": "Whatever's left in here goes in the {container}. She was never sentimental about storage.",
+              "reply": "Sorted. She'd have approved of the efficiency." }
+          ]
+        },
+        {
+          "level": "6-2",
+          "teaser": "\"One last room. I couldn't face it alone.\"",
+          "intro": [
+            "The house sold. Completed on Friday.",
+            "There's one room I never opened while she was alive, and I'm not opening it by myself."
+          ],
+          "outro": [
+            "Photographs. Forty years of them, in date order.",
+            "Of course she had a system. Thank you for staying."
+          ],
+          "note": [
+            { "text": "Anything that looks like it mattered — the {container}. I'll go through it at home.",
+              "reply": "I'll go through it at home. Thank you for not making me do it here." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "delta",
+      "name": "Delta Tau Chi",
+      "emoji": "🧑‍🎓",
+      "sign": "— the guys",
+      "waiting": "They've gone quiet. That's usually worse.",
+      "farewell": "They got the deposit back. All of it. They were genuinely stunned.",
+      "stages": [
+        {
+          "level": "3-1",
+          "teaser": "\"this was like this when we moved in\"",
+          "intro": [
+            "hey so. this was like this when we moved in.",
+            "the last guys were animals. we would never live like this."
+          ],
+          "outro": ["yeah that's so much better. we're gonna keep it like this."],
+          "note": [
+            { "text": "if you find the keys to the {container} let us know, we've been guessing for a week",
+              "reply": "you got it open. nobody has seen inside that thing since september" }
+          ]
+        },
+        {
+          "level": "3-2",
+          "teaser": "\"ok that was ONE party. one.\"",
+          "replay": "you again. we're not even embarrassed anymore.",
+          "intro": [
+            "ok before you say anything: that was one party.",
+            "one. it is not going to happen again."
+          ],
+          "outro": ["you're a legend. that is not going to happen again."],
+          "note": [
+            { "text": "whatever's in the {container} isn't ours. we're not asking. you don't have to either",
+              "reply": "we are all agreeing that the {container} was always like that" }
+          ]
+        },
+        {
+          "level": "4-2",
+          "teaser": "\"same as last time. you know where it goes.\"",
+          "intro": [
+            "same as last time. you know where everything goes.",
+            "we've stopped pretending this is unusual."
+          ],
+          "outro": ["honestly at this point you know this house better than we do."],
+          "note": [
+            { "text": "the {container}. don't ask. thank you",
+              "reply": "the {container}. we owe you one." },
+            { "text": "if the {room} smells, that's a known issue",
+              "reply": "the {room} does not smell anymore. incredible" }
+          ]
+        },
+        {
+          "level": "5-2",
+          "teaser": "\"the Dean is coming FRIDAY\"",
+          "intro": [
+            "the Dean is coming friday. FRIDAY.",
+            "he brings a clipboard. he has used it before."
+          ],
+          "outro": ["he walked the whole house and said 'huh'. that's a win. that's a huge win."],
+          "note": [
+            { "text": "the {container} is the first thing he opens. he always opens the {container}",
+              "reply": "he opened the {container} and said nothing. perfect" }
+          ]
+        },
+        {
+          "level": "6-1",
+          "teaser": "\"deposit day. it all rides on this.\"",
+          "intro": [
+            "last one. we're moving out.",
+            "if we get the deposit back you're invited to the next one. sorry. sorry."
+          ],
+          "outro": [
+            "we got all of it back. ALL of it.",
+            "the landlord asked who our cleaner was. we said you were unavailable. we're keeping you."
+          ],
+          "note": [
+            { "text": "the {container} has to look like nobody ever touched it. good luck",
+              "reply": "the {container} looks brand new. how" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "zorb",
+      "name": "Zorb",
+      "emoji": "👽",
+      "sign": "— ZORB",
+      "waiting": "Zorb is compiling. Zorb will return.",
+      "farewell": "The report was submitted. Zorb scored 4 out of 10 and considers this a triumph.",
+      "stages": [
+        {
+          "level": "4-1",
+          "teaser": "\"I have sealed a room. I no longer recall why.\"",
+          "intro": [
+            "I have been assigned this dwelling for one of your years.",
+            "I have sealed a room. I no longer recall why. The keys are in here somewhere."
+          ],
+          "outro": ["The room is open. It contained nothing of interest. I am relieved and also disappointed."],
+          "note": [
+            { "text": "Place the objects inside the {container}. I have observed your species doing this and I do not know why.",
+              "reply": "The {container} is full and I feel nothing. I am told this is normal." }
+          ]
+        },
+        {
+          "level": "5-1",
+          "teaser": "\"I have a hypothesis about socks.\"",
+          "intro": [
+            "I have observed your species for four hundred years.",
+            "I cannot determine why the spoon and the shovel live apart. They are the same tool at two scales."
+          ],
+          "outro": ["I have a hypothesis about socks. Do not tell me if I am wrong."],
+          "note": [
+            { "text": "I have filled the {container} according to my own logic. Correct me. I will not be offended. I will be slightly offended.",
+              "reply": "Your arrangement of the {container} is superior. I have recorded this." }
+          ]
+        },
+        {
+          "level": "5-3",
+          "teaser": "\"My report is due. It is mostly wrong.\"",
+          "intro": [
+            "My field report is due at the end of this cycle.",
+            "It is four hundred pages and I now believe most of it is wrong."
+          ],
+          "outro": [
+            "I have rewritten the chapter on storage. It is one sentence now.",
+            "\"They put like with like, and they are not always sure why.\" It is the best thing I have written."
+          ],
+          "note": [
+            { "text": "I am testing a theory on the {room}. Please fill the {container} and I will observe.",
+              "reply": "Theory confirmed. The {container} was always going to be the answer." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "unit7",
+      "name": "Unit 7",
+      "emoji": "🤖",
+      "sign": "— UNIT 7",
+      "waiting": "Unit 7 is retraining. It has asked for privacy.",
+      "farewell": "Unit 7 passed its evaluation. It has requested a reference.",
+      "stages": [
+        {
+          "level": "7-1",
+          "teaser": "\"Demonstrate. I will watch.\"",
+          "intro": [
+            "I am learning where objects belong. I have forty thousand hours of video of humans putting things away.",
+            "I have concluded nothing. Demonstrate. I will watch."
+          ],
+          "outro": ["I have recorded every placement. I do not understand them yet. I have recorded them."],
+          "note": [
+            { "text": "I have filled the {container} at random, to establish a baseline. Correct it.",
+              "reply": "Baseline established. My error rate was total. This is useful." }
+          ]
+        },
+        {
+          "level": "7-2",
+          "teaser": "\"I have a hypothesis about socks.\"",
+          "replay": "You have returned. I have new questions.",
+          "intro": [
+            "I have a hypothesis about socks.",
+            "Do not tell me if I am wrong. I would like to find that out by being wrong."
+          ],
+          "outro": ["My hypothesis was wrong in a way I did not predict. That is the best available outcome."],
+          "note": [
+            { "text": "I predicted the {container} takes objects of similar shape. I am testing this.",
+              "reply": "Shape was not the rule. The rule was what a thing is FOR. I have rewritten everything." }
+          ]
+        },
+        {
+          "level": "7-3",
+          "teaser": "\"My evaluation is tomorrow.\"",
+          "intro": [
+            "My evaluation is tomorrow. I will be scored on a house I have never seen.",
+            "I asked for you specifically. I hope that was permitted."
+          ],
+          "outro": [
+            "I scored ninety-four. The six percent was a drawer of things that belong nowhere.",
+            "You told me some houses have one of those. That was not in the training data."
+          ],
+          "note": [
+            { "text": "I am timing myself against you on the {container}. Please do not slow down for me.",
+              "reply": "You were faster. I have logged that as your record, not my failure. I am learning." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "newdad",
+      "name": "Sam",
+      "emoji": "👨‍🍼",
+      "sign": "— Sam",
+      "waiting": "Sam says he's got it under control. Sam does not have it under control.",
+      "farewell": "She sleeps through now. He sent a photo of a tidy living room. It will not last.",
+      "stages": [
+        {
+          "level": "8-1",
+          "teaser": "\"You've got forty minutes. Maybe.\"",
+          "intro": [
+            "She's asleep. She is actually asleep.",
+            "You've got forty minutes. Maybe thirty. Please don't ring the bell."
+          ],
+          "outro": ["Fifty-one minutes. That's a record for both of us. Thank you."],
+          "note": [
+            { "text": "Anything in the {container} that isn't hers, just put it back. I've stopped being able to tell.",
+              "reply": "The {container}. Yes. That is where that goes. I knew that once." }
+          ]
+        },
+        {
+          "level": "8-2",
+          "teaser": "\"She's learned to open drawers.\"",
+          "replay": "Come in, come in, mind the — yeah. Mind that.",
+          "intro": [
+            "New development. She's learned to open drawers.",
+            "Not close. Open."
+          ],
+          "outro": ["I fell asleep sitting up while you worked and woke up somewhere that looks like a house. Thank you."],
+          "note": [
+            { "text": "Everything on the floor by the {container} is the drawer she got into. I'm sorry.",
+              "reply": "You put it back better than it was. I'm not going to think about how." }
+          ]
+        },
+        {
+          "level": "8-3",
+          "teaser": "\"She slept through. I need the house to match.\"",
+          "intro": [
+            "She slept through the night. Eight hours.",
+            "I woke at five anyway, looked at the house, and — could you come today. Please."
+          ],
+          "outro": [
+            "I sat down in a tidy house and drank a hot cup of coffee. Hot. All of it.",
+            "I don't know what to say to that. Thank you."
+          ],
+          "note": [
+            { "text": "The {container} is the last of the things she's grown out of. Careful with it. I'm fine.",
+              "reply": "That's done, then. She's grown out of it and I'm fine. Thanks for not saying anything." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "ashworth",
+      "name": "Dr. Ashworth",
+      "emoji": "🧑‍🔬",
+      "sign": "— A. Ashworth",
+      "waiting": "Dr. Ashworth hasn't replied. The lights are on.",
+      "farewell": "The paper was published. The acknowledgements thank \"a professional, who knows what they did\".",
+      "stages": [
+        {
+          "level": "9-1",
+          "teaser": "\"Two colleagues are coming. To the house.\"",
+          "intro": [
+            "Two colleagues are coming to the house on Thursday. Please don't ask why the house.",
+            "I haven't looked at it properly since — well. Since."
+          ],
+          "outro": ["They came, they sat down, nobody mentioned it. That is the highest praise this discipline offers."],
+          "note": [
+            { "text": "The {container}. I know what's in there. I don't want to know what's in there. Both are true.",
+              "reply": "The {container} is sorted and I have decided to be pleased rather than embarrassed." }
+          ]
+        },
+        {
+          "level": "9-2",
+          "teaser": "\"There are rooms I haven't opened in three years.\"",
+          "intro": [
+            "There are rooms in this house I haven't opened since the funding came through.",
+            "That was three years ago. The keys are in here somewhere. Probably."
+          ],
+          "outro": [
+            "A whole room I'd forgotten I owned. There was a bicycle in it.",
+            "I don't own a bicycle."
+          ],
+          "note": [
+            { "text": "If the {container} holds anything that looks like data, leave it. Everything else, please.",
+              "reply": "None of it was data. All of it was crockery. Thank you." }
+          ]
+        },
+        {
+          "level": "9-3",
+          "teaser": "\"It's finished. Eleven years, and it's finished.\"",
+          "intro": [
+            "It's finished. Eleven years and it's finished, and I looked up, and it's — this.",
+            "I'd like to see the house. Before I start the next one."
+          ],
+          "outro": [
+            "I can see the floor. I can see the whole floor.",
+            "I've been told to take a holiday. I'm going to reorganise the shed instead. Don't tell anyone."
+          ],
+          "note": [
+            { "text": "Everything in the {container} is from before. Put it where it goes and I'll decide about it later.",
+              "reply": "Later. Yes. Thank you for the {container}, and for not asking what's next." }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -5,6 +5,16 @@
 
 # 🎯 NOW / NEXT (in order)
 
+## N0c. Clients — the people who hire you ✅ DONE (all six arcs)
+The roadmap said it: *"the note is the cheapest possible NPC… if the writing lands, THEN consider giving that voice a face."* It landed. You are a professional tidier now, and people hire you.
+- **A client bookends every job.** They slide in over the room — the house is visible behind them while they explain it — say a line or two, and come back after the gold ripple to thank you. Not a modal: `js/client.js` + `css/client.css`.
+- **Campaign is a job board.** Same nine levels, same single progress integer, now grouped under the people who hired you with a row of stage pips per arc. Arcs **interleave**: Marguerite pauses while the frat house happens and returns at the very end.
+- **Three arcs, thirteen levels** (four appended — `levels.json` is append-only now, because progress is an index into it). 👩 Marguerite clearing her grandmother's house carries the tutorial; 🧑‍🎓 Delta Tau Chi runs your five-beat escalation; 👽 Zorb argues with the taxonomy.
+- **Then three more, and the data model held**: 🤖 Unit 7 training its brain on where things go, 👨‍🍼 Sam and a baby who has learned to open drawers, 🧑‍🔬 Dr. Ashworth who hasn't opened half her house in three years. Nine appended levels, **22 in total, six arcs, no code changes** — giving a silhouette a `stages` array was the whole job, which was the test of whether `clients.json` was right.
+- **Debug tools in the gear**: *Finish this job* (files everything and lets the real ending sequence play — the point is testing the sequence, not skipping to the win screen) and *Relock all jobs*.
+- **The notes are theirs.** Each client signs their own, and a stage can write the note itself. "— M" now means the hand a house writes in when *nobody* hired you, i.e. Free Play.
+- **Nothing was added to the save.** A level is exactly one client's job, so the client is looked up from the level index the save already stored. `data/clients.json` is validated as hard as `rooms.json`: every level claimed exactly once, stages in play order, tokens resolve.
+
 ## N0b. Playtest pass 2 — variety and pacing ✅ DONE
 - **Keys are buried.** They were scattered last and painted on top of everything, so the 🔑 was the one thing on the floor guaranteed not to be covered — the hunt was over on arrival. Tokens are now dropped onto occupied ground and drawn underneath the clutter; finding one means clearing a pile.
 - **Double-tap the floor to zoom** (and again to come back out). Safe now because it is *bare floor only*: furniture, items, doors and caches all return earlier, so there is no ambiguous target and no deferred-tap latency.
@@ -32,6 +42,7 @@ The front door of the game; also where "return to main menu" lands.
 - *Fixed since: Continue appeared with no save (and with saves too old to load); Instructions opened behind the title screen and was unreadable.*
 
 ## N2. Campaign mode — teaching through progression 🔨 IN PROGRESS
+*(Now framed as jobs — see N0c. The remaining work below is unchanged: the teaching order still lives in `levels.json`, a client only puts a face on it.)*
 *(Shipped: 9 data-driven levels, level select w/ progress, per-level row lengths (3→4→5), variable room sizes, smart auto-filing, and event-triggered tips. Remaining: more levels per chapter, quests woven into levels, difficulty tuning.)*
 Each stage is a small playable house introducing exactly one new element. Level definitions are data — `data/levels.json` — so a new level is a JSON entry, not code.
 
@@ -90,7 +101,7 @@ The 2,495-line single file is now `index.html` (~150 lines of shell) + 9 CSS fil
 ## H3. Quests 🔨 *(the note loop shipped; chained payoffs ahead)*
 - Finishing the first container in a room drops a 📝 → picking it up opens a handwritten card asking for three specific things → pinned objective strip → payoff, ⭐, and a reply. Data in `data/quests.json`, with a generated fallback so every room gets one.
 - **The seal is no longer in every room** (`roomShare`, default 0.6). Sealing one container in every single room made "locked" the resting state of the house rather than an event. Rooms without a seal still leave a note — the fallback asks about an open container.
-- **Deliberately not a talking character.** A dialogue tree with a portrait costs ~10× more, interrupts the quiet loop the game is good at, and a badly-written NPC damages the tone. The note is the cheapest possible NPC and it establishes a voice. If the writing lands, *then* consider giving that voice a face.
+- ~~**Deliberately not a talking character.**~~ ✅ **The face happened** — see N0c. Still no dialogue tree and no portrait art: an emoji, a paper bubble, one to three sentences, tap to advance. The prediction held exactly — the expensive part was never the character, it was the writing, and the writing was already proven by the notes.
 - Next: quests that chain, quests that gate a room, quest items that come from *another* room.
 
 ## H4. Sets & recipes ⬜

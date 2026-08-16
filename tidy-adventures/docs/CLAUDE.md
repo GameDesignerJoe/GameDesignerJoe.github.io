@@ -29,6 +29,7 @@ can be edited without touching JavaScript:
 
 | I want to change… | Edit |
 |---|---|
+| who hires you, and everything they say | `data/clients.json` |
 | which emoji go in which container | `data/rooms.json` |
 | adding a room, or giving one a round/hex silhouette | `data/rooms.json` + a floor rule in `css/room.css` + the id in `data/themes.json` |
 | how many rooms / items / locks a run has | `data/sizes.json`, `data/levels.json` |
@@ -58,6 +59,22 @@ boot; warnings log and continue.
 If you edit a JSON file, push, and don't see the change: GitHub Pages caches
 assets for ten minutes. Bump `DATA_VERSION` in `js/config.js` — it's appended
 as `?v=` to every data fetch.
+
+That covers the *data*. The **JS modules carry no cache-buster at all**, so a
+stale `config.js` means a stale `DATA_VERSION`, which then re-fetches the stale
+JSON — bumping the number does nothing until the module itself is refetched.
+Hard-reload when testing; automated tests should set
+`Network.setCacheDisabled` before navigating. This bites once per session and
+looks exactly like "my edit didn't save".
+
+On a phone there is no hard-reload, which is what **Refresh** in the gear is
+for: it refetches every asset the page actually loaded with `cache:"reload"`
+(from `performance.getEntriesByType("resource")`, so the list can never drift
+out of date the way a hardcoded one would), drops this game's entries from any
+service-worker cache, and reloads. `VERSION` in `js/config.js` shows on the
+title screen and in the gear, next to the date of the copy you're holding —
+bump it when you ship, or there is no way to tell from a home-screen install
+whether you're looking at the build you just pushed.
 
 ---
 
@@ -176,6 +193,61 @@ was the active one *and* actually rendered.
 
 ---
 
+## Clients
+
+You are a professional tidier and people hire you. Every campaign level is one
+client's job; they walk in at the start, say a line or two, and come back at the
+end. A client's stages are a story arc, and arcs interleave — someone else gets
+hired between two of yours.
+
+**`levels.json` is config, `clients.json` is voice.** A stage claims a level by
+id and can never change how it plays. The two rules that keep it honest are
+checked at boot: **every level is claimed by exactly one stage** (the same shape
+of rule as "every emoji has exactly one home"), and **a client's stages run
+forward through `levels.json`**.
+
+**A run never remembers its client.** `jobAt(levelIdx)` in `data.js` looks the
+whole job back up from the level index the save already stores — which is why
+this feature added nothing to the save format. `LOOKUP.arcs` is the job board's
+order; `LOOKUP.jobByIdx` is the claim table. Both are built in `buildLookups()`,
+which runs *after* validation, so `validate.js` builds its own claim map.
+
+**`levels.json` is append-only.** Progress is a single integer index into it
+(`PROGRESS_KEY`), so inserting or reordering a level silently re-points every
+player's saved progress at a different job. Saves now also record `levelId` and
+prefer it on load, which turns that from corruption into a clean discard.
+
+**The client is not an `.overlay`.** Overlays are dimmed full-screen modals and
+the whole point of the character is that the house stays visible behind them.
+`js/client.js` is pure presentation — it is handed a character and some lines
+and knows nothing about runs — and `#clientLayer.speaking` is a full-viewport
+`pointer-events:auto` catcher, which is the entire input block: not one line of
+the pointer handlers knows this feature exists. Because it carries no
+`.overlay` class, the two global gates that look for `.overlay.open`
+(`drainDrafts`, `positionTips`) have to ask for it by name — `isSpeaking()`.
+
+**The outro is a `hold` beat.** Beats normally end on a timer; a person talking
+ends when the player taps. `hold:true` keeps `beatBusy` true for the whole
+speech, which is what stops the win screen landing on someone mid-sentence.
+The outro must NOT be `inRoom`: `playBeats()` has head-of-line blocking with no
+retry, so an `inRoom` beat reaching the head with the container panel open would
+park the queue *including the win beat that would have closed the panel*. It
+closes the panel itself instead.
+
+**Two debug buttons in the gear, and one of them matters.** *Finish this job*
+files everything and then hands the LAST item to `afterMutation`, so the whole
+ending runs for real — row, container, the panel bowing out, the room's gold,
+the client, the win screen. It would have been easier to call `showWin()`
+directly and that would have tested nothing; the thing worth testing here is
+the sequence. It closes the gear first, because the gear is an overlay at
+z-index 120 and the client is at 100. *Relock all jobs* puts progress back to
+zero and reopens the board.
+
+**The note is in the client's hand too.** `voice()` in `quests.js` resolves the
+signature and any stage-authored note copy; the signature is baked into the note
+when it drops, not read live. Free play has no client, which is what "— M" now
+means: the hand a house writes in when nobody hired you.
+
 ## Add to Home Screen
 
 `manifest.json` plus four PNGs in the game folder. Saved to a phone before
@@ -260,6 +332,21 @@ Run through this after any change; it's what the browser tests cover.
   own items don't. Same red on the badge strip above the furniture.
 - Not every room has a sealed container (`roomShare`, quests.json), but every
   room still leaves a note.
+- Every campaign level opens with a client over a rendered room and ends with
+  their thank-you, *after* the gold ripple and *before* the win screen. Taps
+  during a speech never reach the room.
+- Win with the container panel open: the panel closes, the room celebrates, the
+  client speaks, the win screen waits for them. It must never stall there.
+- A client you haven't met is a silhouette with no name and no stage rows; a
+  paused arc shows its waiting line, not the next stage's teaser.
+- An existing `tidy-campaign-unlocked` integer unlocks exactly the levels it did
+  before, now grouped under faces.
+- Campaign notes are signed by the client; free-play notes are still "— M".
+- The version on the title screen matches `VERSION` in `js/config.js`; the gear
+  shows it again with the age of the copy, and Refresh brings back a newer
+  build without reinstalling (test it by editing a file and pressing it — an
+  ordinary reload will still show the old one, which is the point).
+- Settings scrolls on a short screen and its Close button stays reachable.
 - Finish a container → a note drops → picking it up pins an objective →
   completing it pays out and replies.
 - Save → reload → Continue restores the run mid-play.

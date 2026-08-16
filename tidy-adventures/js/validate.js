@@ -271,6 +271,144 @@ export function validateData(D) {
     errors.push(at("upgrades.json", `draftSteps must increase: [${steps}]`));
   }
 
+  /* ---------- 10. clients.json: every level is exactly one client's job ----------
+     Same shape of rule as "every emoji has exactly one home", and for the same
+     reason: a level claimed twice appears twice on the board and its note
+     arrives in two voices, and a level claimed by nobody opens with no one
+     there and can never be found.
+     This builds its OWN index of level ids — buildLookups() runs after this
+     function, so LOOKUP is still empty here. */
+  const levels = D.levels?.levels || [];
+  const CLIENT_TEXT_TOKENS = new Set(["handSlots", "rowLen", "name", "level"]);
+  const CLIENT_NOTE_TOKENS = new Set(["container", "room", "handSlots", "rowLen", "name"]);
+
+  /* Level ids must be unique before anything can be claimed by one: the id ->
+     index map is a plain object, so a duplicate silently drops one of them. */
+  const seenLevel = new Map();
+  levels.forEach((lv, i) => {
+    if (seenLevel.has(lv.id)) {
+      errors.push(at("levels.json",
+        `two levels share the id "${lv.id}" (indexes ${seenLevel.get(lv.id)} and ${i}).`,
+        "The id is how clients.json claims a level and how the win screen names it, so the second copy could never be hired for."));
+    } else seenLevel.set(lv.id, i);
+  });
+
+  const clients = D.clients?.clients;
+  if (!Array.isArray(clients) || !clients.length) {
+    errors.push(at("clients.json", "no `clients` array.",
+      "Nobody hires you: the job board would be empty and the campaign unreachable."));
+  } else if (levels.length) {
+    const claims = new Map();      // level id -> ["clientId#stageNo", ...]
+    const seenClient = new Set();
+
+    for (const c of clients) {
+      if (seenClient.has(c.id)) {
+        errors.push(at("clients.json", `two clients share the id "${c.id}".`,
+          "The id is how a job is looked up; the second client would be unreachable."));
+      }
+      seenClient.add(c.id);
+
+      if (!c.emoji) {
+        errors.push(at("clients.json", `client "${c.id}" has no emoji.`,
+          "The job board row, the character who walks in and the win screen are all drawn from it."));
+      }
+
+      const stages = c.stages || [];
+      if (!stages.length) {
+        if (!c.soon) {
+          errors.push(at("clients.json", `client "${c.id}" has no stages.`,
+            'A client with no jobs and no promise of one can never appear. Give them stages, or "soon": true to show them as a silhouette.'));
+        }
+        continue;
+      }
+
+      let prev = -1;
+      stages.forEach((s, n) => {
+        const where = `client "${c.id}" stage ${n + 1}`;
+        const idx = seenLevel.get(s.level);
+        if (idx === undefined) {
+          errors.push(at("clients.json", `${where} claims level "${s.level}", which is not in levels.json.`,
+            `Known level ids: ${levels.map(l => l.id).join(", ")}`));
+          return;
+        }
+        if (!claims.has(s.level)) claims.set(s.level, []);
+        claims.get(s.level).push(`${c.id}#${n + 1}`);
+
+        if (idx < prev) {
+          errors.push(at("clients.json",
+            `${where} ("${s.level}") comes before the stage above it in levels.json.`,
+            "Stages are listed in play order. Out of order, the pips fill in backwards and the story arrives out of sequence."));
+        }
+        prev = idx;
+
+        if (!s.intro?.length) {
+          errors.push(at("clients.json", `${where} ("${s.level}") has no intro lines.`,
+            "The client turns up at the start of the job with nothing to say."));
+        }
+        if (!s.outro?.length) {
+          errors.push(at("clients.json", `${where} ("${s.level}") has no outro lines.`,
+            "The whole point of a client is that they come back and thank you."));
+        }
+        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || ""]) {
+          for (const tok of tokensIn(line)) {
+            if (!CLIENT_TEXT_TOKENS.has(tok)) {
+              errors.push(at("clients.json", `${where} uses {${tok}}, which is never filled in.`,
+                `Available here: ${[...CLIENT_TEXT_TOKENS].map(t => "{" + t + "}").join(" ")} ` +
+                "— {container} and {room} exist only in note copy, where a room is known."));
+            }
+          }
+        }
+
+        (s.note || []).forEach((b, bi) => {
+          if (b.text && !b.reply) {
+            errors.push(at("clients.json", `${where} note ${bi + 1} has text but no reply.`,
+              "The reply is what arrives when the note is finished; the payout would land in silence."));
+          }
+          for (const tok of tokensIn((b.text || "") + " " + (b.reply || ""))) {
+            if (!CLIENT_NOTE_TOKENS.has(tok)) {
+              errors.push(at("clients.json", `${where} note ${bi + 1} uses {${tok}}, which is never filled in.`,
+                `Available in note copy: ${[...CLIENT_NOTE_TOKENS].map(t => "{" + t + "}").join(" ")}`));
+            }
+          }
+        });
+
+        /* A note only drops when a container finishes while another still holds
+           loose items, so a one-container level never leaves one. */
+        const lv = levels[idx];
+        if ((s.note || []).length && lv.cont === 1) {
+          warnings.push(at("clients.json",
+            `${where} writes notes for level "${s.level}", which has cont: 1 and can never drop one. Put those words in the intro.`));
+        }
+        if ((s.note || []).length > (lv.rooms || 1)) {
+          warnings.push(at("clients.json",
+            `${where} has ${s.note.length} notes but level "${s.level}" only has ${lv.rooms} rooms, so the last ones can never be read.`));
+        }
+      });
+
+      if (stages.length < 3 || stages.length > 5) {
+        warnings.push(at("clients.json", `client "${c.id}" has ${stages.length} stages; arcs are meant to be 3-5.`));
+      }
+    }
+
+    for (const [id, owners] of claims) {
+      if (owners.length > 1) {
+        errors.push(at("clients.json", `level "${id}" is claimed by ${owners.length} stages: ${owners.join(", ")}.`,
+          "Every level is exactly one client's job, or it shows twice on the board and its note arrives in two voices."));
+      }
+    }
+    for (const lv of levels) {
+      if (!claims.has(lv.id)) {
+        errors.push(at("clients.json", `level "${lv.id}" has no client.`,
+          "Every campaign level is somebody's job: this one would open with nobody there, end with no thank-you, and never appear on the job board at all."));
+      }
+    }
+  }
+
+  if (!D.quests?.signature) {
+    warnings.push(at("quests.json", "no `signature`. Free-play notes would arrive unsigned.",
+      "Campaign notes are signed by the client who hired you; this is the hand a house writes in when nobody did."));
+  }
+
   return { errors, warnings };
 }
 

@@ -11,11 +11,11 @@
 import { DATA_VERSION } from './config.js';
 import { validateData, showBootError, DataError } from './validate.js';
 
-const FILES = ['names','rooms','themes','furniture','sizes','levels','upgrades','strings','audio','quests'];
+const FILES = ['names','rooms','themes','furniture','sizes','levels','upgrades','strings','audio','quests','clients'];
 
 export const DATA = {
   names:{}, rooms:{}, themes:{}, furniture:{}, sizes:{}, levels:{}, upgrades:{}, strings:{},
-  audio:{}, quests:{},
+  audio:{}, quests:{}, clients:{},
 };
 
 /* Derived lookups, built once after load so hot paths don't re-scan arrays. */
@@ -25,9 +25,13 @@ export const LOOKUP = {
   containerOf: {},    // "roomId/contId" -> container def
   sizeById: {},
   levelByIdx: [],
+  levelIdxById: {},   // "3-1" -> 4
   upgradeById: {},
   tokenById: {},
   tokenByEmoji: {},
+  clientById: {},
+  arcs: [],           // job board order: clients by their first stage
+  jobByIdx: [],       // level index -> the job at that level
 };
 
 export async function loadData() {
@@ -77,10 +81,41 @@ function buildLookups() {
   }
   for (const s of DATA.sizes.sizes) LOOKUP.sizeById[s.id] = s;
   LOOKUP.levelByIdx = DATA.levels.levels;
+  DATA.levels.levels.forEach((lv, i) => { LOOKUP.levelIdxById[lv.id] = i; });
   for (const u of DATA.upgrades.upgrades) LOOKUP.upgradeById[u.id] = u;
   for (const [id, t] of Object.entries(DATA.furniture.tokens || {})) {
     LOOKUP.tokenById[id] = { id, ...t };
     LOOKUP.tokenByEmoji[t.emoji] = { id, ...t };
+  }
+
+  /* ---------- who hired you ----------
+     A level is exactly one client's job, so the claim table is built once here
+     and a RUN NEVER HAS TO REMEMBER a client: the level index it already saves
+     is enough to look the whole job back up. That is what keeps this feature
+     out of the save format entirely. */
+  for (const c of DATA.clients.clients || []) LOOKUP.clientById[c.id] = c;
+
+  LOOKUP.arcs = (DATA.clients.clients || []).map(client => ({
+    client,
+    /* A client with no stages yet is a silhouette on the board — see `soon`
+       in data/clients.json. It sorts last, after everyone with real work. */
+    soon: !client.stages?.length,
+    stages: (client.stages || []).map((stage, n) => {
+      const levelIdx = LOOKUP.levelIdxById[stage.level];
+      return { stage, stageNo: n + 1, levelIdx, level: DATA.levels.levels[levelIdx] };
+    }),
+  })).sort((a, b) =>
+    (a.soon ? 1e6 : a.stages[0].levelIdx) - (b.soon ? 1e6 : b.stages[0].levelIdx));
+
+  for (const arc of LOOKUP.arcs) {
+    for (const s of arc.stages) {
+      LOOKUP.jobByIdx[s.levelIdx] = {
+        ...s,
+        client: arc.client,
+        stageCount: arc.stages.length,
+        last: s.stageNo === arc.stages.length,
+      };
+    }
   }
 }
 
@@ -106,6 +141,13 @@ export const isToken  = emoji => !!LOOKUP.tokenByEmoji[emoji];
 
 export const theme = id => DATA.themes.themes[id || DATA.themes.defaultTheme];
 export const themeRooms = id => theme(id).rooms.map(rid => LOOKUP.roomById[rid]);
+
+/* The job at this level index: who hired you, which stage of their arc this
+   is, and the level itself. Null in free play, or if a save points at a level
+   that no longer exists.
+   -> { stage, stageNo, stageCount, last, levelIdx, level, client } */
+export const jobAt = idx => LOOKUP.jobByIdx[idx] || null;
+export const levelIdxOf = id => LOOKUP.levelIdxById[id] ?? -1;
 
 /* The item count a config actually produces. The old SIZES[].items field and
    the hardcoded "~50 items" menu labels were both copies of this that drifted. */

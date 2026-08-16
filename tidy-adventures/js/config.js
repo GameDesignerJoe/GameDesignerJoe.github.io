@@ -8,6 +8,13 @@
    Imports: none. This is a leaf.
 ============================================================ */
 
+/* The build, shown on the title screen and in the gear. Bump it whenever you
+   ship something you'd want to be able to point at from a phone — it is the
+   only way to tell, on a home-screen install, whether the thing in your hand
+   is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
+   changed. */
+export const VERSION = "1.0.0";
+
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
 export const SAVE_KEY     = "tidy-adventures-v" + SAVE_VERSION;
@@ -17,7 +24,7 @@ export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 5;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice

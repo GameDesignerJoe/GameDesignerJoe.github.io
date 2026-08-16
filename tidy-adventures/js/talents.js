@@ -20,6 +20,7 @@
    Imports: config, dom, data, state, util, feedback.
 ============================================================ */
 import { $, el, setHidden, shopBtn } from './dom.js';
+import { isSpeaking } from './client.js';
 import { DATA, LOOKUP, costFor, maxLevel, upgradeParam } from './data.js';
 import { G } from './state.js';
 import { rnd, shuffle, tokenise } from './util.js';
@@ -57,7 +58,11 @@ export function nextThreshold() {
 /* Is now a safe moment to interrupt? */
 export function drainDrafts(isBusy) {
   if (!G.active || G.pendingDrafts <= 0 || isBusy()) return false;
-  if (document.querySelector(".overlay.open")) return false;
+  /* A client mid-sentence is a modal in everything but the backdrop, and
+     deliberately doesn't carry .overlay — so ask for them by name. A draft
+     landing on top of someone talking is the exact interruption this whole
+     deferral mechanism exists to prevent. */
+  if (document.querySelector(".overlay.open") || isSpeaking()) return false;
   openDraft();
   return true;
 }

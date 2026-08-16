@@ -18,6 +18,12 @@
     "Keep them to one or two sentences and in the same hand throughout."
   ],
 
+  "_signatureNote": [
+    "The hand a house writes in when nobody hired you — free play, where there",
+    "is no client. A campaign note is signed by whoever gave you the job, and",
+    "a stage in clients.json can write the whole note itself; everything below",
+    "stays as that job's fallback."
+  ],
   "signature": "— M",
 
   "_roomShareNote": [

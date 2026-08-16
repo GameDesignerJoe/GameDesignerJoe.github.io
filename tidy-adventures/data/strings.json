@@ -9,6 +9,20 @@
   "tagline": "Everything Everywhere All In Place",
   "icon": "🧺",
 
+  "_jobBoardNote": [
+    "The campaign screen. Clients come from data/clients.json; these are the",
+    "words the board itself uses. lockedName/lockedTeaser are what a client you",
+    "haven't met yet shows — keep them anonymous, the silhouette is the joke."
+  ],
+  "jobBoard": {
+    "title": "Job Board",
+    "sub": "Who needs you today.",
+    "lockedName": "A NEW CLIENT",
+    "lockedTeaser": "Word gets around.",
+    "waiting": "They'll be in touch.",
+    "done": "Finished. They still recommend you."
+  },
+
   "helpIntro": "Everything's on the floor. Every item belongs in one specific piece of furniture — the fridge, the toolbox, the shoe rack. Toss things in, then open them up and sort the rows. A row of {rowLen} matching items glows gold; finish every row in every container.",
 
   "helpBullets": [

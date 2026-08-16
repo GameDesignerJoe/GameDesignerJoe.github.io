@@ -20,7 +20,7 @@
    Imports: dom, data, state, util, geometry, feedback.
 ============================================================ */
 import { $, el, host } from './dom.js';
-import { DATA, LOOKUP, nameOf } from './data.js';
+import { DATA, LOOKUP, nameOf, jobAt } from './data.js';
 import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
 import { findFloorSpot, spin } from './geometry.js';
@@ -83,11 +83,28 @@ function alreadyDone(e) {
   return want > 0 && have >= want;
 }
 
+/* Whose hand is this note in? A campaign level is somebody's job, so it is
+   theirs. A free-play house is nobody's, and writes in the house's own hand —
+   which is what "— M" now means. */
+function voice() {
+  const job = G.mode === "campaign" ? jobAt(G.levelIdx) : null;
+  if (!job) return { sign: DATA.quests.signature || "", beats: [] };
+  return {
+    sign: job.client.sign || ("— " + job.client.name),
+    beats: job.stage.note || [],
+  };
+}
+
 /* Build the quest. Prefer the room's sealed container — its contents are
    guaranteed to still be loose, so the note can never ask for something
    you've already put away. */
 function questFor(room, target) {
   const data = DATA.quests;
+  const v = voice();
+  /* One note per room, in the order rooms are FINISHED, so the stage's beats
+     are consumed in that order too. dropped[] is pushed after this returns,
+     so its length is this note's index. */
+  const beat = v.beats[G.quests.dropped.length] || null;
 
   const typesOf = c => Object.entries(G.typeHome)
     .filter(([, h]) => h.room === room.id && h.cont === c.id)
@@ -100,10 +117,17 @@ function questFor(room, target) {
       const authored = data.rooms[room.defId];
       /* Authored copy only fits if it names this container's contents. */
       const fits = authored && authored.need.every(e => need.includes(e));
+      /* Three tiers, client first: what THIS job's client wrote, else the
+         room's own authored copy, else the generic line. One voice per job is
+         the rule, so a stage that writes its own beat wins — otherwise the
+         frat house would start quoting a note about milk and eggs. Either
+         way it is signed by whoever hired you. */
+      const copy = beat || (fits ? authored : data.sealed);
       return {
         need,
-        text: tokenise(fits ? authored.text : data.sealed.text, vars),
-        reply: tokenise(fits ? authored.reply : data.sealed.reply, vars),
+        text: tokenise(copy.text, vars),
+        reply: tokenise(copy.reply, vars),
+        sign: v.sign,
         authored: !!fits,
       };
     }
@@ -116,10 +140,12 @@ function questFor(room, target) {
   const need = shuffle(typesOf(c).filter(e => !alreadyDone(e))).slice(0, 3);
   if (!need.length) return null;
   const vars = { container: c.name, room: room.name };
+  const copy = beat || data.fallback;
   return {
     need,
-    text: tokenise(data.fallback.text, vars),
-    reply: tokenise(data.fallback.reply, vars),
+    text: tokenise(copy.text, vars),
+    reply: tokenise(copy.reply, vars),
+    sign: v.sign,
     authored: false,
   };
 }
@@ -134,7 +160,9 @@ export function openNote(noteId) {
   G.quests.active = noteId;
 
   $("#noteText").textContent = q.text;
-  $("#noteSign").textContent = DATA.quests.signature || "";
+  /* Baked into the note when it dropped, not read live: the note keeps the
+     voice of whoever left it even if the run moves on. */
+  $("#noteSign").textContent = q.sign || DATA.quests.signature || "";
   const row = $("#noteNeed");
   row.innerHTML = "";
   for (const e of q.need) {
@@ -200,7 +228,7 @@ export function completeQuest(q) {
   const room = G.rooms[q.room];
   const fe = host.querySelector(".furn");
   flyReward(fe || host, "+1 ⭐");
-  say(q.reply + "  " + (DATA.quests.signature || ""), { priority: 2, ms: 4200 });
+  say(q.reply + "  " + (q.sign || DATA.quests.signature || ""), { priority: 2, ms: 4200 });
   onChange();
 }
 
