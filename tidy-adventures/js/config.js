@@ -13,7 +13,7 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "1.0.2";
+export const VERSION = "1.0.6";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
@@ -35,6 +35,15 @@ export const JUNK_CONTAINER_CHANCE = 0.25;
 export const JUNK_FILL = [0.01, 0.10];   // 1%-10% of a container's capacity
 export const CACHE_STASH = [3, 5];       // items hidden in each coin box
 export const PLACE_TRIES = 70;           // scatter attempts before giving up
+/* Roughly how wide a floor item is, as a % of a FULL-SIZE room. bury() divides
+   this by the room's own scale, because the same emoji covers far more of a
+   small room. Raise it and keys peek out further; drop it toward 0 and they
+   vanish underneath the clutter entirely, which is where this started. */
+export const ITEM_SPAN = 9;
+/* How long "Debug: where are the keys" flashes for. It used to stay on until
+   you went back into the gear and turned it off, which is nagging rather than
+   helpful — long enough to point, short enough to shut up. */
+export const REVEAL_MS = 5000;
 
 export const DIRS = { N:[0,-1], S:[0,1], W:[-1,0], E:[1,0] };
 export const OPP  = { N:"S", S:"N", W:"E", E:"W" };

@@ -184,10 +184,26 @@ includes `celebrating()`, which is what keeps a talent draft off the top of a
 win. Repaint BEFORE decorating: `roomCompleteFX()` hangs elements on the room
 element, so a `renderRoom()` after it silently erases the effect.
 
-**Tokens are drawn first so the clutter buries them.** Every `.item` shares one
-z-index, so DOM order is the whole burial, and `bury()` in `generate.js` drops
-keys and coins onto a spot something is already lying on. A key you can see
-from the doorway is not a hunt.
+**Tokens are drawn first so the clutter buries them — and yes, most of them are
+completely hidden.** Every `.item` shares one z-index, so DOM order is the whole
+burial, and `bury()` in `generate.js` drops a key within a couple of percent of
+a real item's middle. **That is the feature.** A key you can see from the
+doorway is not a hunt, and burial can never make a level unwinnable: the things
+covering a key are things you have to pick up and file anyway, so a tidy room is
+an exposed key by definition.
+
+This was once "fixed" — offset onto a ring so a corner always showed, plus a
+render pass that lifted any token under 20% visible out of the pile — after a
+report of a key that couldn't be found. The key count was never the problem
+(60 draws of every config, none short), the hunt was working as designed, and
+the fix quietly deleted it. Both halves were reverted. If it looks like keys
+are hiding too well, that is the intent; reach for **Debug: where are the
+keys** in the gear before changing placement.
+
+The one rule `bury()` still enforces is that a token never lands within
+`ITEM_SPAN * 0.8` of another token — a key under a key reads as one key, and
+hiding the thing you are hunting under another copy of itself is a joke at the
+player's expense rather than a hunt.
 
 **Rooms are dealt at random, then traded up only as far as the quota needs.**
 Taking the biggest rooms first — the obvious way to guarantee `targetTypes` —
@@ -255,7 +271,34 @@ retry, so an `inRoom` beat reaching the head with the container panel open would
 park the queue *including the win beat that would have closed the panel*. It
 closes the panel itself instead.
 
-**Two debug buttons in the gear, and one of them matters.** *Finish this job*
+**The gear outranks the overlays.** `#gearBtn` carries `position:relative;
+z-index:130` — `#hud` is a plain flex band and creates no stacking context, so
+that competes directly with `.overlay` (120) and wins without taking the button
+out of the HUD's layout. Settings is therefore reachable from the title screen,
+the job board and the win screen, where the whole HUD used to be buried and you
+had to start a level to change the volume. Two consequences to keep in mind:
+the button has to close its own panel (it floats above it), and anything in
+that panel which acts on a run is disabled when there isn't one — "New house"
+re-rolled a config that doesn't exist and "+1 ⭐" repainted a HUD with no rooms,
+and both threw. The single exception is `body.drafting`, which hides the gear
+for the talent draft: that modal has no close button by design and a gear over
+it is a back door out of the one choice the game insists on.
+
+**Settings names the job you're in.** `nowPlaying()` fills the line under the
+Settings heading each time the gear opens — level id, level name, client and
+stage. Mid-level there was previously no way to tell 5-1 from 5-3, which makes
+a bug report ("the second alien level") much harder to act on than it should
+be.
+
+**Three debug buttons in the gear, and two of them matter.**
+*Where are the keys* rings every loose token, lifts it above the clutter, and
+names the rooms holding one. It is the only way to tell a level that is
+*solvable* from one that is *findable* — generation buries keys deliberately,
+so "I searched and there is no key" is a claim you need a way to check. It is a
+**flash, not a mode**: `REVEAL_MS` (5s), and anything meaning "yes, I've seen
+it" ends it early — picking up the token it points at, or pressing the button
+again. `stopReveal()` is also called from `endCeremony()`, so a pending timer
+can never fire into a run that has already ended. *Finish this job*
 files everything and then hands the LAST item to `afterMutation`, so the whole
 ending runs for real — row, container, the panel bowing out, the room's gold,
 the client, the win screen. It would have been easier to call `showWin()`
@@ -343,8 +386,13 @@ Run through this after any change; it's what the browser tests cover.
 - Double-tap bare floor zooms toward that point; again returns to the framed
   view. A single tap, two slow taps, and a double-tap on furniture all leave
   the camera alone (the last one opens the container and keeps it open).
-- Keys sit UNDER the clutter: tapping a pile picks up what's on top, and the
-  key appears once the pile is cleared.
+- Keys sit UNDER the clutter and are usually invisible until you move something:
+  tapping a pile picks up what's on top, and the key appears as the room empties.
+  That is correct. What must NOT happen is a key under another key.
+- Every lock has enough reachable keys: 60 draws of every level and size, keys
+  counted only in rooms you can walk to before opening anything. Re-run this
+  before believing any "I can't find the key" report — it has been the tool
+  twice now, and the answer was the same both times.
 - Finish a room with a container open: the panel closes itself, then the gold
   ripple travels outward, then the message — one at a time, never together.
   Finish the whole house that way and the win screen comes last.
@@ -371,6 +419,10 @@ Run through this after any change; it's what the browser tests cover.
   build without reinstalling (test it by editing a file and pressing it — an
   ordinary reload will still show the old one, which is the point).
 - Settings scrolls on a short screen and its Close button stays reachable.
+- The gear opens from the title screen, the job board, Instructions, the size
+  menu, mid-level, over a talking client and over the win screen — and is
+  hidden only during a talent draft. With no run in progress, the run-only
+  buttons are greyed rather than throwing.
 - Finish a container → a note drops → picking it up pins an objective →
   completing it pays out and replies.
 - Save → reload → Continue restores the run mid-play — **and then zoom, walk

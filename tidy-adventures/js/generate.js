@@ -13,7 +13,7 @@
 ============================================================ */
 import {
   GRID, MAX_ROOMS, DIRS, OPP, INV_SIZE, ZOOM_START,
-  BONUS_DOOR_CHANCE, JUNK_CONTAINER_CHANCE, JUNK_FILL, CACHE_STASH,
+  BONUS_DOOR_CHANCE, JUNK_CONTAINER_CHANCE, JUNK_FILL, CACHE_STASH, ITEM_SPAN,
 } from './config.js';
 import { rnd, shuffle, clamp } from './util.js';
 import { DATA, LOOKUP, theme, themeRooms, upgradeDefaults } from './data.js';
@@ -333,8 +333,34 @@ export function generate(cfg) {
       o.loc.kind === "floor" && o.loc.room === room.id && !o.token);
     if (!cover.length) return findFloorSpot(room, { margin: 6, span: 88 });
     const under = cover[rnd(cover.length)];
-    const off = () => Math.random() * 4 - 2;
-    return nearestFloorSpot(room, under.loc.x + off(), under.loc.y + off(), { margin: 5 });
+    /* UNDER something, not beside it. The key lands within a couple of percent
+       of a real item's middle, and buildRoomEl draws tokens first, so the
+       clutter covers it and finding it means clearing the pile. That IS the
+       hunt, and it can never make a level unwinnable: the things hiding the
+       key are things you have to pick up and file anyway, so a tidy room is
+       an exposed key by definition.
+
+       (Briefly this offset the key onto a ring instead, far enough that a
+       corner always showed. It solved a problem nobody had — the keys were
+       always findable — and cost the hunt, which was the point of burying
+       them. Reverted deliberately.) */
+    const span = ITEM_SPAN / Math.max(0.35, Math.min(1, ((room.sw || 1) + (room.sh || 1)) / 2));
+    /* The one thing worth keeping clear of is ANOTHER token: a key under a key
+       reads as one key, and hiding a key under the thing you are hunting for
+       is a joke at the player's expense rather than a hunt. */
+    const tokens = Object.values(items).filter(o =>
+      o.loc.kind === "floor" && o.loc.room === room.id && o.token);
+    const clearOfTokens = (x, y) =>
+      !tokens.some(o => Math.hypot(o.loc.x - x, o.loc.y - y) < span * 0.8);
+    const jitter = () => Math.random() * 4 - 2;
+    let fallback = null;
+    for (let t = 0; t < 30; t++) {
+      const under = cover[rnd(cover.length)];
+      const s = nearestFloorSpot(room, under.loc.x + jitter(), under.loc.y + jitter(), { margin: 5 });
+      fallback = fallback || s;
+      if (clearOfTokens(s.x, s.y)) return s;
+    }
+    return fallback;
   };
 
   /* ---------- keys: exactly enough, never sealed behind their own lock ---------- */

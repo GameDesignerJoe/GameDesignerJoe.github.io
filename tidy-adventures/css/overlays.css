@@ -78,6 +78,12 @@
 .menubtn.primary small{color:#6b5416}
 .menubtn.ghost{background:transparent;color:var(--ink-dim);box-shadow:inset 0 0 0 2px var(--panel)}
 .tagline{letter-spacing:.08em}
+/* Which job you're in the middle of, under the Settings heading. */
+.nowplaying{
+  color:var(--gold) !important;font-size:13px;font-weight:700;
+  letter-spacing:.06em;margin-bottom:14px;
+}
+.nowplaying small{display:block;color:var(--ink-dim);font-weight:600;font-size:11.5px;letter-spacing:.1em;margin-top:2px}
 /* Small enough to ignore while playing, big enough to read out over a phone
    call when someone asks which build you're on. */
 .version{

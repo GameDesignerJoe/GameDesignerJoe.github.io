@@ -132,6 +132,9 @@ export function openDraft() {
   $("#draftSub").textContent =
     `${G.points} ⭐ earned — pick one.`;
 
+  /* Hides the always-on-top gear for the duration — see css/layout.css. */
+  document.body.classList.add("drafting");
+
   for (const c of cards) {
     const card = el("button", "dcard");
     card.appendChild(el("div", "dicon", c.icon || "✨"));
@@ -174,6 +177,7 @@ function choose(c, cardEl, grid) {
 
   setTimeout(() => {
     $("#draftOverlay").classList.remove("open");
+    document.body.classList.remove("drafting");
     grid.dataset.done = "";
     flyReward(cardEl, c.icon || "✨");
     say(c.name + " ✨", { priority: 2 });

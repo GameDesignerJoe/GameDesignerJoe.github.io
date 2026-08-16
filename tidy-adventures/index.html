@@ -112,6 +112,8 @@
   <div class="card">
     <div class="big">⚙️</div>
     <h1>Settings</h1>
+    <!-- which job you're in the middle of; filled in each time the gear opens -->
+    <p class="nowplaying" id="nowPlaying"></p>
     <div class="shoprow">
       <div class="sinfo">
         <div class="sname">Main menu</div>
@@ -157,6 +159,13 @@
         <div class="sdesc">Files everything instantly and lets the ending play: the room's gold, the client's thank-you, the win screen.</div>
       </div>
       <button id="debugFinish">Finish</button>
+    </div>
+    <div class="shoprow">
+      <div class="sinfo">
+        <div class="sname">Debug: where are the keys</div>
+        <div class="sdesc">Rings every key and coin still on the floor and lifts it above the clutter, in every room. Press again to hide.</div>
+      </div>
+      <button id="debugKeys">Reveal</button>
     </div>
     <div class="shoprow">
       <div class="sinfo">

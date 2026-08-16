@@ -7,7 +7,7 @@
 ============================================================ */
 import {
   VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
-  INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START,
+  INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START, REVEAL_MS,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
 } from './config.js';
@@ -555,12 +555,14 @@ function buildRoomEl(room){
      makes finding one a matter of clearing the pile rather than scanning for
      the shiniest emoji on the floor. Generation drops keys into the clutter
      on purpose — see generate.js. */
+  /* Tokens go down FIRST so the clutter paints over them — that ordering is
+     the entire burial, since every item shares a z-index. */
   const floorItems=Object.values(G.items)
     .filter(it=>it.loc.kind==="floor" && it.loc.room===room.id && !it.flying)
     .sort((a,b)=>(a.token?0:1)-(b.token?0:1));
   for(const it of floorItems){
     const sp=document.createElement("div");
-    sp.className="item"+(it.token?" buried":"");
+    sp.className="item"+(it.token?" buried":"")+(G.reveal&&it.token?" revealed":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
     /* The glyph is drawn at --item-size directly; the only scale() an item
@@ -573,7 +575,12 @@ function buildRoomEl(room){
 
 /* #roomHost > .cam > .room — the camera owns zoom/pan, the room owns the
    slide and bounce animations. They shared one transform in v3, which is why
-   bounce() had to repair the camera afterwards. */
+   bounce() had to repair the camera afterwards.
+
+   Nothing here lifts a hidden key out of the pile. That existed briefly and is
+   gone on purpose: keys are buried, finding them is the hunt, and the clutter
+   covering one is clutter you have to pick up anyway. "Debug: where are the
+   keys" in the gear is the way to check a level, not a rule in the renderer. */
 function renderRoom(){
   host.innerHTML="";
   const cam=document.createElement("div");
@@ -1614,7 +1621,16 @@ host.addEventListener("pointerup",e=>{
 
   const target=p.downTarget;
   const itemEl=p.itemEl;
-  if(itemEl){ pickUp(+itemEl.dataset.item); lastTap={t:0}; return; }
+  if(itemEl){
+    const id=+itemEl.dataset.item;
+    /* Picking up the thing it is pointing at is acknowledgement enough — the
+       flashing has done its job and can stop. pickUp() repaints, so this
+       doesn't. */
+    if(G.reveal && G.items[id]?.token) stopReveal(false);
+    pickUp(id);
+    lastTap={t:0};
+    return;
+  }
 
   const cacheEl=target.closest(".cache");
   if(cacheEl){
@@ -1974,7 +1990,35 @@ $("#helpBtn").addEventListener("click",()=>{
   helpReturnsToTitle=false;
   $("#helpOverlay").classList.add("open");
 });
-$("#gearBtn").addEventListener("click",()=>$("#gearOverlay").classList.add("open"));
+/* What am I actually playing? Campaign levels are named on the job board and
+   then never again, so mid-level there was no way to tell 5-1 from 5-3. */
+function nowPlaying(){
+  const el=$("#nowPlaying");
+  if(!G.active){ setHidden(el,true); return; }
+  setHidden(el,false);
+  if(G.mode==="campaign"){
+    const lv=LEVELS[G.levelIdx], job=jobAt(G.levelIdx);
+    el.innerHTML=`${lv?lv.id+" · "+lv.name:"Campaign"}`+
+      (job?`<small>${job.client.emoji} ${job.client.name} — job ${job.stageNo} of ${job.stageCount}</small>`:"");
+  }else{
+    const sz=SIZES[G.size];
+    el.innerHTML=`Free Play${sz?" · "+sz.label:""}<small>${G.rooms.length} rooms</small>`;
+  }
+}
+$("#gearBtn").addEventListener("click",()=>{
+  const gear=$("#gearOverlay");
+  /* The button floats above its own panel now, so it has to close it too. */
+  if(gear.classList.contains("open")){ gear.classList.remove("open"); return; }
+  nowPlaying();
+  /* Reachable from the title screen and the job board, where there is no run:
+     grey out everything that would act on one. Left ungated, "New house"
+     re-rolled a config that doesn't exist and "+1 ⭐" repainted a HUD with no
+     rooms in it — both threw. */
+  for(const id of ["resetBtn","debugStar","debugFinish","debugKeys"]){
+    $("#"+id).disabled=!G.active;
+  }
+  gear.classList.add("open");
+});
 /* were inline onclick= in the v3 single file; modules can't reach globals from markup */
 $("#helpClose").addEventListener("click",()=>{
   $("#helpOverlay").classList.remove("open");
@@ -2051,6 +2095,48 @@ $("#debugFinish").addEventListener("click",()=>{
      ending would play behind this panel. */
   $("#gearOverlay").classList.remove("open");
   if(!finishJob()) say("Nothing to finish — start a job first.");
+});
+
+/* Where are the keys. Rings every token still loose, in every room, and lifts
+   it above whatever it is hiding under — generation buries them on purpose, so
+   this is the only way to check a level is findable rather than merely
+   solvable. Names the rooms too, since the one you want is usually elsewhere.
+
+   It is a FLASH, not a mode: it points, then gets out of the way. Anything
+   that means "yes, I've seen it" ends it early — tapping the key it is
+   pointing at, or pressing the button again. */
+let revealTimer=null;
+function stopReveal(repaint=true){
+  clearTimeout(revealTimer); revealTimer=null;
+  if(!G.reveal) return;
+  G.reveal=false;
+  $("#debugKeys").textContent="Reveal";
+  if(repaint && G.active) renderRoom();
+}
+function startReveal(){
+  clearTimeout(revealTimer);
+  G.reveal=true;
+  $("#debugKeys").textContent="Hide";
+  renderRoom();
+  revealTimer=setTimeout(()=>stopReveal(), REVEAL_MS);
+}
+
+$("#debugKeys").addEventListener("click",()=>{
+  if(!G.active) return;
+  $("#gearOverlay").classList.remove("open");
+  if(G.reveal){ stopReveal(); return; }
+  startReveal();
+  const where={};
+  for(const it of Object.values(G.items)){
+    if(!it.token || it.loc.kind!=="floor") continue;
+    const room=G.rooms[it.loc.room].name;
+    (where[room]=where[room]||[]).push(it.type);
+  }
+  const rooms=Object.entries(where);
+  say(rooms.length
+    ? rooms.map(([room,ks])=>ks.join("")+" "+room).join(" · ")
+    : "Nothing left on the floor — every key has been used.",
+    {ms:REVEAL_MS, priority:2});
 });
 
 $("#debugRelock").addEventListener("click",()=>{
@@ -2150,7 +2236,7 @@ function closeMenus(){
 /* A run ending takes its unfinished business with it: queued celebrations and
    queued messages both belong to the run that queued them, and a "Kitchen is
    all tidy ✨" arriving over the title screen belongs to nobody. */
-function endCeremony(){ clearBeats(); clearSay(); hideClient(); }
+function endCeremony(){ clearBeats(); clearSay(); hideClient(); stopReveal(false); }
 
 function showTitle(){
   closeMenus();
