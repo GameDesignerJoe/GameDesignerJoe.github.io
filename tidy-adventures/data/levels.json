@@ -18,6 +18,13 @@
     "",
     "3-2 and 4-2 deliberately have no tips — they are practice levels.",
     "",
+    "\"quests\": false on 1-2 / 2-1 / 2-2. The quest seal starts a container",
+    "LOCKED, and the tutorial block runs contLocks: 0 on purpose — the first",
+    "locked thing in the game is meant to be 3-1, which is called Under Lock.",
+    "Without this the seal quietly put a locked cupboard in level two, four",
+    "levels early, before anything had taught what a lock is. Notes still drop",
+    "in these levels; with no seal, quests.js asks about an open container.",
+    "",
     "APPEND ONLY. Every level here is one client's job (data/clients.json), and",
     "campaign progress is saved as a plain INDEX into this array. Inserting or",
     "reordering an entry silently re-points every player's saved progress at a",
@@ -40,7 +47,7 @@
 
     { "id": "1-2", "name": "Sort It Out", "theme": "house",
       "rooms": 1, "cont": 2, "types": 2, "rowLen": 3,
-      "doorKeys": 0, "contLocks": 0, "scale": [0.48, 0.56],
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.48, 0.56],
       "tips": [
         { "kind": "open", "target": "furn", "until": "open",
           "text": "Tap a container to look inside" },
@@ -51,7 +58,7 @@
 
     { "id": "2-1", "name": "Open Doors", "theme": "house",
       "rooms": 2, "cont": 2, "types": 2, "rowLen": 3,
-      "doorKeys": 0, "contLocks": 0, "scale": [0.5, 0.62],
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.5, 0.62],
       "tips": [
         { "kind": "door", "target": "door", "until": "door",
           "text": "Tap the door to walk into the next room" }
@@ -60,7 +67,7 @@
 
     { "id": "2-2", "name": "Across the House", "theme": "house",
       "rooms": 3, "cont": 2, "types": 3, "rowLen": 4,
-      "doorKeys": 0, "contLocks": 0, "scale": [0.55, 0.7], "junk": true,
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.55, 0.7], "junk": true,
       "tips": [
         { "kind": "zoom", "target": "zoom", "until": "zoom",
           "text": "Pinch or scroll to zoom in" },

@@ -193,6 +193,12 @@
    coming without spoiling who turns up. */
 .jtile.unknown .jface{filter:brightness(0) opacity(.55)}
 .jtile.unknown .jname{color:var(--ink-dim);letter-spacing:.16em}
+/* The one job ahead. Greyed rather than blacked out: the whole point is that
+   you can see who's coming, so the face has to stay legible — and it lifts
+   above the plain locked opacity, or the tease is too faint to be one. */
+.overlay .jtile.next:disabled{opacity:.85}
+.jtile.next .jface{filter:grayscale(.92) brightness(.72)}
+.jtile.next .jname{color:var(--ink-dim)}
 
 #winButtons{margin-top:6px}
 

@@ -2324,30 +2324,25 @@ function textVars(){
 const stageState = (levelIdx, prog) =>
   levelIdx < prog ? "done" : levelIdx === prog ? "now" : "locked";
 
-/* Which clients you've actually been introduced to. Met means you've reached
-   their FIRST job — after that their face shows on all their later tiles, so
-   you can see the rest of their arc coming. Anyone you haven't met stays a
-   blank figure, so who turns up next is still a surprise. */
-function metClients(prog){
-  const met=new Set();
-  for(const arc of LOOKUP.arcs)
-    if(!arc.soon && arc.stages[0].levelIdx<=prog) met.add(arc.client.id);
-  return met;
-}
-
-function jobTile(job, idx, prog, met){
+function jobTile(job, idx, prog){
   const S=DATA.strings.jobBoard||{};
   const st=stageState(idx, prog);
-  const known=met.has(job.client.id);
+  /* FACES ARE RATIONED. Everything you've worked and the job you can start
+     show their client outright. Exactly ONE job ahead is a tease: the face is
+     there but greyed, so you can see who's coming and equally see that you
+     can't have them yet. Everything past that is a silhouette. Showing a
+     client's whole arc at once spent the arrival of every one of their jobs
+     the moment you met them. */
+  const seen=idx<=prog, peek=idx===prog+1;
   const b=document.createElement("button");
-  b.className="jtile "+st+(known?"":" unknown");
+  b.className="jtile "+st+(seen?"":peek?" next":" unknown");
   b.disabled = st==="locked";
   /* Who hired you goes above the head, the job itself goes below it: the name
      is a label on the face, the title is what the tile is actually offering. */
-  b.appendChild(mkEl("span","jname",known?job.client.name:(S.lockedTile||"???")));
+  b.appendChild(mkEl("span","jname",seen||peek?job.client.name:(S.lockedTile||"???")));
   /* A generic figure, not their own emoji blacked out: 👽 and 🧑‍🎓 are still
      recognisable as shapes, which gives the surprise away a job early. */
-  b.appendChild(mkEl("span","jface",known?job.client.emoji:"🧑"));
+  b.appendChild(mkEl("span","jface",seen||peek?job.client.emoji:"🧑"));
   b.appendChild(mkEl("span","jtitle",job.level.name));
   b.appendChild(mkEl("span","jid",job.level.id));
   if(st==="done") b.appendChild(mkEl("span","jmark","✅"));
@@ -2375,7 +2370,6 @@ function openCampaignMenu(){
   closeMenus();
   const prog=getProgress();
   const S=DATA.strings.jobBoard||{};
-  const met=metClients(prog);
   if(S.title) $("#boardTitle").textContent=S.title;
   const total=LOOKUP.levelByIdx.length;
   $("#boardSub").textContent = tokenise(S.sub||"", {
@@ -2387,7 +2381,7 @@ function openCampaignMenu(){
   LOOKUP.levelByIdx.forEach((lv, i)=>{
     const job=jobAt(i);
     if(!job) return;                       /* validate.js makes this impossible */
-    const tile=jobTile(job, i, prog, met);
+    const tile=jobTile(job, i, prog);
     if(i===prog) current=tile;
     board.appendChild(tile);
   });

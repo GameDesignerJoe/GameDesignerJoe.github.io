@@ -385,8 +385,11 @@ export function validateData(D) {
         }
       });
 
-      if (stages.length < 3 || stages.length > 5) {
-        warnings.push(at("clients.json", `client "${c.id}" has ${stages.length} stages; arcs are meant to be 3-5.`));
+      /* Two is legal because of Mom: a prologue whose whole job is to teach the
+         verbs and hand you to a real client. Three to five is the shape of an
+         arc that has somewhere to go. */
+      if (stages.length < 2 || stages.length > 5) {
+        warnings.push(at("clients.json", `client "${c.id}" has ${stages.length} stages; arcs are meant to be 3-5 (2 for a prologue).`));
       }
     }
 

@@ -34,10 +34,52 @@
     "",
     "VOICE. Dry, warm, short. One or two sentences. The frat types in lower case",
     "because they are texting you; Zorb does not use contractions. Nobody in this",
-    "game shouts, except the frat, once, about the Dean."
+    "game shouts, except the frat, once, about the Dean.",
+    "",
+    "MOM IS THE PROLOGUE and the only person here who isn't a client — the first",
+    "two levels are your own room, which is why she can teach the verbs without a",
+    "word of tutorial voice. Two stages is deliberate: she exists to hand you to",
+    "Marguerite, and validate.js allows a two-stage arc for exactly that."
   ],
 
   "clients": [
+    {
+      "id": "mom",
+      "name": "Mom",
+      "emoji": "👩‍🦰",
+      "sign": "— Mom",
+      "waiting": "She has a list. She always has a list.",
+      "farewell": "She still sends you photos of the garage.",
+      "stages": [
+        {
+          "level": "1-1",
+          "teaser": "\"I'm not asking again.\"",
+          "intro": [
+            "You want to make money this summer? Wonderful. You can start with your own room.",
+            "Three things on this floor. One place they go. I believe in you."
+          ],
+          "outro": ["There's a carpet under there. I always suspected."]
+        },
+        {
+          "level": "1-2",
+          "teaser": "\"A pile is not a system.\"",
+          "replay": "Again? It'll be like this by Thursday anyway.",
+          "intro": [
+            "Better. Now the part where things go where they actually belong.",
+            "A pile is not a system, sweetheart."
+          ],
+          "outro": [
+            "Look at that. You're genuinely good at this.",
+            "So I told my friend Marguerite about you. She's clearing out her grandmother's house and she's drowning. Expect a call."
+          ],
+          "note": [
+            { "text": "While you're in here: anything that lives in the {container} goes back in the {container}.",
+              "reply": "Was that so hard? Don't answer that." }
+          ]
+        }
+      ]
+    },
+
     {
       "id": "marguerite",
       "name": "Marguerite",
@@ -47,36 +89,17 @@
       "farewell": "The house sold in a week. She kept the clock.",
       "stages": [
         {
-          "level": "1-1",
-          "teaser": "\"It was just too overwhelming.\"",
-          "intro": [
-            "Thanks for coming. This was my grandmother's house.",
-            "I've been standing in this room for an hour and I haven't picked up one thing."
-          ],
-          "outro": ["Three things. I couldn't do three things on my own. Thank you."]
-        },
-        {
-          "level": "1-2",
-          "teaser": "\"There was a system. There was.\"",
+          "level": "2-1",
+          "teaser": "\"Your mother said you'd know what to do.\"",
           "replay": "Back again? There's always more.",
           "intro": [
-            "She had a place for everything.",
-            "I just never learned what it was."
+            "Your mom said you were looking to make some money this summer.",
+            "This was my grandmother's house. I've been standing in it for an hour and I haven't picked up one thing."
           ],
-          "outro": ["You found the system. I'd half convinced myself she never had one."],
-          "note": [
-            { "text": "The {container} is hers — that's where all this went. Fill it the way she would have.",
-              "reply": "That's exactly how she had it. Thank you." }
-          ]
-        },
-        {
-          "level": "2-1",
-          "teaser": "\"I've been avoiding the second room.\"",
-          "intro": [
-            "There's another room through there.",
-            "I've had that door shut since March. Please don't judge me."
+          "outro": [
+            "There's a door in there I've had shut since March.",
+            "You walked through it like it was nothing. Thank you."
           ],
-          "outro": ["I opened a door I'd been avoiding for four months. You opened it, technically."],
           "note": [
             { "text": "If the {container} is as bad as I think it is, just do what you can.",
               "reply": "Better than I'd have managed. Thank you." }
@@ -86,8 +109,8 @@
           "level": "2-2",
           "teaser": "\"It's getting easier. Slightly.\"",
           "intro": [
-            "Three rooms today. I've stopped apologising for it.",
-            "Well. Nearly."
+            "Three rooms this time. I've almost stopped apologising for the state of it.",
+            "Almost."
           ],
           "outro": ["The estate agent comes Tuesday. Because of you I'm going to let her in."],
           "note": [

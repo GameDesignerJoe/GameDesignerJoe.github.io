@@ -257,11 +257,15 @@ quote and its own list of level rows — which read as a tall column of text wit
 small faces in it, and the faces are the point. So: a grid, play order, one big
 face per tile, captioned with **who hired you above the head and the job's own
 title below it** — the name labels the face, the title is what the tile is
-offering. Everything on it is still derived from the single progress integer. A tile is `done`/`now`/`locked` by index, and a client is a
-**silhouette** — a generic 🧑 blacked out, never their own emoji dimmed, which
-would give the shape away — until you reach their *first* job. After that their
-face shows on the rest of their arc, so you can see their remaining jobs coming
-and finishing one client's opener un-silhouettes all of theirs at once. The
+offering. Everything on it is still derived from the single progress integer. A tile is `done`/`now`/`locked` by index.
+
+**Faces are rationed to three states.** Everything you have worked and the job
+you can start show their client outright; exactly **one** job ahead is greyed
+(`.next`) so you can see who is coming and equally see you can't have them yet;
+everything past that is a **silhouette** — a generic 🧑 blacked out, never
+their own emoji dimmed, which would give the shape away. The first cut showed a
+client's whole arc the moment you met them, which spent the arrival of every
+one of their jobs at once. One tease at a time is the tease. The
 level ids on the tiles run out of sequence near the end (7-1, 8-1, 7-2 …) and
 that is correct: `levels.json` is append-only, so the phase-2 arcs were
 appended in their own order and then interleave when played.
