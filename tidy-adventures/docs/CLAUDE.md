@@ -144,6 +144,16 @@ text triggers iOS text-size-adjust and Chrome Android font boosting.
 (shake the thing that said no, one sentence the first time a rule is hit),
 `flyReward()` for rewards, `say()` for real messages (queued, under the HUD).
 
+**A drag keeps the grab point.** `ptr.grabDX/grabDY` is the offset between the
+pointer and the item's centre, recorded on pointerdown and added back on every
+move. Without it the drag wrote the pointer position straight into the item's
+centre, so crossing the drag threshold teleported the item sideways by however
+far from its middle you grabbed — half its width at worst, and worse on a
+phone, where the camera scales an item to twice its laptop size. The item is
+also scaled up slightly while held (`itemTransform(it, true)` plus the `.held`
+class); every release path that doesn't repaint the room must call `unlift()`,
+or an item keeps the lift after it is put down.
+
 **Every floor placement goes through `geometry.js`.** `findFloorSpot()` when
 the game picks the spot, `nearestFloorSpot()` when the player did. There were
 three hand-rolled copies of the search — scatter, fling, container-eject — and
@@ -316,6 +326,9 @@ Run through this after any change; it's what the browser tests cover.
   survive quitting to the menu and continuing the same level.
 - Drag out of a hand slot onto open floor: the item lands where you let go.
   Aim at a doorway and it lands just clear of it, never under the door.
+- Grab a floor item near its edge and drag: it must not jump when the drag
+  starts, and your finger must stay over the part of it you grabbed. Check it
+  zoomed in too — the error scales with the camera.
 - Double-tap bare floor zooms toward that point; again returns to the framed
   view. A single tap, two slow taps, and a double-tap on furniture all leave
   the camera alone (the last one opens the container and keeps it open).

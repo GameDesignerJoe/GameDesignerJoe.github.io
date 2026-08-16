@@ -13,6 +13,17 @@
   padding:var(--item-pad);
   cursor:pointer;
   filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.3));
+  /* Only the pick-up lift animates: dragging moves left/top, which this does
+     not touch, and a fling sets its own inline transition. */
+  transition:transform .12s ease;
+}
+/* Held. Bigger, with the shadow of something off the floor — the only signal
+   that a tap has become a drag. The scale lives in the inline transform
+   (itemTransform() in js/main.js), because that string also carries the item's
+   resting rotation. */
+.item.held{
+  filter:drop-shadow(0 7px 6px rgba(0,0,0,.5));
+  cursor:grabbing;
 }
 /* Keys and coins lie UNDER the clutter — buildRoomEl() draws them first, and
    every item shares a z-index, so DOM order is the burial. Dimmed a touch so

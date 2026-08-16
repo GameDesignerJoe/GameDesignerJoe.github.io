@@ -561,8 +561,9 @@ function buildRoomEl(room){
     sp.className="item"+(it.token?" buried":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
-    /* No scale(): the glyph is drawn at --item-size directly. See css/items.css. */
-    sp.style.cssText=`left:${it.loc.x}%;top:${it.loc.y}%;transform:translate(-50%,-50%) rotate(${it.loc.rot}deg);`;
+    /* The glyph is drawn at --item-size directly; the only scale() an item
+       ever carries is the pick-up lift. See css/items.css. */
+    sp.style.cssText=`left:${it.loc.x}%;top:${it.loc.y}%;transform:${itemTransform(it)};`;
     el.appendChild(sp);
   }
   return el;
@@ -1042,6 +1043,26 @@ function roomPctToScreen(x,y){
   const rect=roomEl().getBoundingClientRect();
   return [rect.left+rect.width*x/100, rect.top+rect.height*y/100];
 }
+/* The other direction. The camera's scale and pan are already baked into the
+   room's client rect, so nothing here needs to know about zoom. */
+function screenToRoomPct(cx,cy){
+  const rect=roomEl().getBoundingClientRect();
+  return [(cx-rect.left)/rect.width*100, (cy-rect.top)/rect.height*100];
+}
+
+/* How an item on the floor is drawn. It was written out at each of the three
+   places that move one, which is how a dragged item could keep a stale
+   `scale()` after it was put down. `held` is the pick-up lift. */
+function itemTransform(it, held){
+  return `translate(-50%,-50%) rotate(${it.loc.rot||0}deg)`+(held?" scale(1.12)":"");
+}
+/* Put it back down. Every release path that doesn't repaint the room has to
+   call this, or the item keeps the lift it was picked up with. */
+function unlift(el, it){
+  if(!el) return;
+  el.classList.remove("held");
+  if(it) el.style.transform=itemTransform(it);
+}
 
 function flingToFloor(slotIdx){
   const id=G.inv[slotIdx];
@@ -1422,8 +1443,22 @@ host.addEventListener("pointerdown",e=>{
   ptr={sx:e.clientX,sy:e.clientY,panX:G.cam.x,panY:G.cam.y,drag:false,id:e.pointerId,
        downTarget:e.target,
        itemEl:e.target.closest(".item"), itemMoved:false, ix:0, iy:0, hotCont:null,
+       grabDX:0, grabDY:0,
        samples:[{t:performance.now(),x:e.clientX,y:e.clientY}]};
-  if(ptr.itemEl) showLoupe(G.items[+ptr.itemEl.dataset.item], ptr.itemEl, e.pointerType);
+  if(ptr.itemEl){
+    /* Remember WHERE ON THE ITEM you took hold of it. Without this the drag
+       writes the pointer position straight into the item's centre, so the
+       moment you move past the drag threshold the thing leaps sideways by
+       however far from its middle you happened to grab — up to half its width,
+       and worse on a phone, where the camera scales an item to twice the size
+       it is on a laptop. You are then holding an object that jumped out from
+       under your finger before it started following it. */
+    const it=G.items[+ptr.itemEl.dataset.item];
+    const [px,py]=screenToRoomPct(e.clientX,e.clientY);
+    ptr.grabDX=it.loc.x-px;
+    ptr.grabDY=it.loc.y-py;
+    showLoupe(it, ptr.itemEl, e.pointerType);
+  }
 });
 
 host.addEventListener("pointermove",e=>{
@@ -1436,14 +1471,24 @@ host.addEventListener("pointermove",e=>{
   ptr.samples.push({t:performance.now(),x:e.clientX,y:e.clientY});
   if(ptr.samples.length>6) ptr.samples.shift();
   if(ptr.itemEl){
+    const first=!ptr.itemMoved;
     ptr.itemMoved=true;
     ptr.itemEl.style.pointerEvents="none";
-    const rect=roomEl().getBoundingClientRect();
-    ptr.ix=Math.max(2,Math.min(97,(e.clientX-rect.left)/rect.width*100));
-    ptr.iy=Math.max(2,Math.min(97,(e.clientY-rect.top)/rect.height*100));
+    const [px,py]=screenToRoomPct(e.clientX,e.clientY);
+    /* Carry the grab offset, so the item travels WITH the finger instead of
+       snapping its centre to it. */
+    ptr.ix=Math.max(2,Math.min(97,px+ptr.grabDX));
+    ptr.iy=Math.max(2,Math.min(97,py+ptr.grabDY));
     ptr.itemEl.style.left=ptr.ix+"%";
     ptr.itemEl.style.top=ptr.iy+"%";
     ptr.itemEl.style.zIndex=20;
+    /* Lifted off the floor: a little bigger, with a longer shadow. It is the
+       only feedback that the tap became a drag. */
+    if(first){
+      const it=G.items[+ptr.itemEl.dataset.item];
+      ptr.itemEl.style.transform=itemTransform(it,true);
+      ptr.itemEl.classList.add("held");
+    }
     moveLoupe(ptr.itemEl);
     const under=document.elementFromPoint(e.clientX,e.clientY);
     const cont=under && under.closest(".furn, .door.locked, .cache");
@@ -1546,13 +1591,14 @@ host.addEventListener("pointerup",e=>{
             return;
           }
         }
-        /* Slow release: it stays exactly where the finger was — unless that's
+        /* Slow release: it stays exactly where you let go of it — unless that's
            a doorway, where it would be invisible and untappable. */
         const rest=nearestFloorSpot(G.rooms[G.current], p.ix, p.iy, {padName:"toss"});
         const slid=rest.x!==p.ix || rest.y!==p.iy;
         it.loc.x=rest.x; it.loc.y=rest.y;
         scheduleSave();
         if(slid) renderRoom();
+        else unlift(p.itemEl, it);   /* no repaint here, so set it down by hand */
       }
       p.itemEl.style.zIndex="";
       return;
@@ -1670,6 +1716,7 @@ host.addEventListener("pointercancel",e=>{
   if(ptr.itemEl){
     ptr.itemEl.style.pointerEvents="";
     ptr.itemEl.style.zIndex="";
+    unlift(ptr.itemEl, G.items[+ptr.itemEl.dataset.item]);
   }
   clearHots();
   ptr=null;
