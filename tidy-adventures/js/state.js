@@ -29,9 +29,15 @@ export function blankRun() {
     /* which config produced this run */
     mode: "free", levelIdx: null, size: null, theme: "house",
 
-    /* camera — still the v3 two-state model; Phase 4 replaces it with a
-       continuous {z,x,y} once pinch and wheel zoom land. */
-    cam: "room", pan: { x: 0, y: 0 },
+    /* camera — a continuous {z,x,y}, read and written by js/camera.js.
+       This used to be the string "room", the v3 two-state model, left behind
+       when pinch and wheel zoom landed. Every path that STARTS a run happened
+       to call resetZoom() afterwards and quietly repaired it; Continue did
+       not, so a resumed run had a string here and the first zoom threw
+       "Cannot create property 'z' on string 'room'". Walking through a door
+       threw too, in resetPan(), leaving the run pointing at a room it had not
+       drawn. */
+    cam: { z: ZOOM_START, x: 0, y: 0 },
 
     /* player */
     inv: Array(INV_SIZE).fill(null), sel: null, openCont: null,
@@ -69,6 +75,9 @@ export const G = blankRun();
 export function setRun(run, meta = {}) {
   Object.assign(G, blankRun(), run, meta, { active: true });
   if (!G.up || !Object.keys(G.up).length) G.up = upgradeDefaults();
+  /* Every run funnels through here, so this is the one place that can promise
+     the camera is a camera — whatever a caller or an old save hands over. */
+  if (!G.cam || typeof G.cam !== "object") G.cam = { z: ZOOM_START, x: 0, y: 0 };
   return G;
 }
 

@@ -453,7 +453,7 @@ export function generate(cfg) {
   return {
     rooms, items, typeHome, locks, rowLen, theme: themeId,
     current: rooms[0].id,
-    cam: "room", pan: { x: 0, y: 0 },
+    cam: { z: ZOOM_START, x: 0, y: 0 },
     inv: Array(INV_SIZE).fill(null), sel: null, openCont: null,
     stats: { tosses: 0, firstGood: 0, start: Date.now() },
     visited: new Set([rooms[0].id]),

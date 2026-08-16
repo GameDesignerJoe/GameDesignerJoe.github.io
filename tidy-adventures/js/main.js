@@ -7,7 +7,7 @@
 ============================================================ */
 import {
   VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
-  INV_SIZE, DIRS, CHEVRON, ZOOM_TAP,
+  INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
 } from './config.js';
@@ -236,7 +236,9 @@ function loadGame(){
       tipsDone:new Set(d.tipsDone||[]),
       tipShown:new Set(d.tipsDone||[]),
       events:new Set(d.events||[]),
-      current:d.current, cam:"room", pan:{x:0,y:0},
+      /* The camera is not saved, so a resumed run starts framed. It must still
+         be a real {z,x,y} — see the note in js/state.js. */
+      current:d.current, cam:{z:ZOOM_START,x:0,y:0},
       inv:d.inv, sel:d.sel, openCont:null,
       stats:{tosses:d.stats.tosses, firstGood:d.stats.firstGood, start:Date.now()-d.stats.elapsed},
       visited:new Set(d.visited),

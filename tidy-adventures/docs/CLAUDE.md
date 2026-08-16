@@ -129,6 +129,17 @@ a definition back up, so renaming a room in `rooms.json` cannot corrupt a save.
 the slide and bounce animations. They shared one `transform` originally, which
 is why `bounce()` had to repair the camera afterwards.
 
+**`G.cam` is `{z,x,y}`, and `setRun()` guarantees it.** It used to be the
+string `"room"` in `blankRun()`, `generate()` and `loadGame()` — the v3
+two-state model, left behind when continuous zoom landed. Starting a run calls
+`resetZoom()` immediately afterwards, which silently repaired it, so the bug
+only ever appeared on **Continue**: the first zoom threw `Cannot create
+property 'z' on string 'room'`, and walking through a door threw inside
+`resetPan()` *after* `slideTo()` had already advanced `G.current` — leaving the
+run pointing at a room it had never drawn. Two modules imported `ZOOM_START`
+and used it nowhere, which is the fingerprint of a half-finished migration
+worth looking for elsewhere.
+
 **Auto-fit framing.** The camera scales the room to fill the stage at
 `FIT_STRENGTH` (85%), so the per-level `scale` ramp still reads as the house
 growing without leaving early levels adrift in background.
@@ -362,7 +373,9 @@ Run through this after any change; it's what the browser tests cover.
 - Settings scrolls on a short screen and its Close button stays reachable.
 - Finish a container → a note drops → picking it up pins an objective →
   completing it pays out and replies.
-- Save → reload → Continue restores the run mid-play.
+- Save → reload → Continue restores the run mid-play — **and then zoom, walk
+  through a door and swipe.** Continue is the one entry point that doesn't call
+  `resetZoom()`, so it is the one that finds broken camera state.
 - Console clean throughout.
 
 ---
