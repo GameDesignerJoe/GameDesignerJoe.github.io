@@ -50,6 +50,11 @@ export function blankRun() {
     starsEarned: 0,           // lifetime ⭐, drives talent drafts; never decreases
     pendingDrafts: 0,
     draftsTaken: 0,
+    /* Does ⭐ exist in this run yet? `"talents": false` in levels.json turns the
+       whole reward layer off — no chips, no drafts — for levels that run before
+       5-1 "Talent Show" teaches what a star is. Free play never sets it, so it
+       defaults on. See checkDraftThreshold() in talents.js. */
+    talents: true,
     up: {},
     whirlReady: 0,
     freeWhirls: 0,

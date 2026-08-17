@@ -24,7 +24,7 @@ import { DATA, LOOKUP, nameOf, jobAt } from './data.js';
 import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
 import { findFloorSpot, spin } from './geometry.js';
-import { say, flyReward } from './feedback.js';
+import { say, flyStar } from './feedback.js';
 import { play as sfx } from './audio.js';
 
 const NOTE = "📝";
@@ -231,7 +231,7 @@ export function completeQuest(q) {
   /* Finishing someone's errand was the one reward in the game that made no
      sound at all — it flew a ⭐ and said a line into silence. */
   sfx("star");
-  flyReward(fe || host, "+1 ⭐");
+  flyStar(fe || host, "+1 ⭐");
   say(q.reply + "  " + (q.sign || DATA.quests.signature || ""), { priority: 2, ms: 4200 });
   onChange();
 }

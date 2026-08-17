@@ -29,11 +29,25 @@
 `pickup` · `zoom-in` / `zoom-out` · `scatter` · `key-insert` · `locked` ·
 `whirlwind` · `cache-open` · `win` — all still synthesized. `pickup` and `win`
 are the two worth doing next: one fires on every grab, the other is the last
-thing you hear.
+thing you hear. Every one of them is now actually triggered by something, so
+dropping a file in is a one-line data edit with an audible result.
 
-**Two triggers exist in code but nothing calls them yet** (`scatter`,
-`keyInsert`), and `win` has no call site either — the win screen is silent. Not
-a missing file problem; they need wiring when the moment is designed.
+**All three of the unwired triggers now have a moment.** They were configured
+from the first pass and never played, which is why nothing sounded missing —
+there was no gap to hear, only silence where a sound had been designed.
+
+- `win` → the win screen. It was the last thing you saw and nothing at all
+  that you heard. This is the one most worth a real recording: it is the only
+  sound in the game that plays once, at the end, with the player's full
+  attention on it. See `mus-win.ogg` above.
+- `keyInsert` → a key going into a lock that still wants more. In practice
+  that means doors: `doorKeys` is 3 or 4, so the first two or three keys used
+  to move a pip and make no sound. A chest is a one-key hunt with today's
+  data, so its branch is wired for symmetry and does not currently fire.
+- `scatter` → a landing that actually shoves other items aside
+  (`displaceAround`, which now returns how many it moved). Deliberately silent
+  when a flick lands on bare floor, so the sound means "you disturbed the
+  pile", not "something landed".
 
 ## SFX — core loop (the ones that matter most)
 

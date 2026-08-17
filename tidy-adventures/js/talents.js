@@ -39,8 +39,18 @@ function draftsEarnedFor(stars) {
   return steps().filter(s => stars >= s).length;
 }
 
-/* Call after ⭐ changes. Queues a draft if a threshold was just crossed. */
+/* Call after ⭐ changes. Queues a draft if a threshold was just crossed.
+
+   THE ONE GATE. A level with `"talents": false` has not met stars yet, so it
+   must never open a draft. This was the second bug in the notes — "we're still
+   giving stars and rewards before we've taught them" — and it was not a near
+   miss: the first threshold is 4 ⭐, which a player crosses on the LAST item of
+   1-2, the second level of the game. A modal then asked them to choose between
+   three talents, five levels before 5-1 "Talent Show" explains what any of that
+   is. Gating here rather than at the call sites catches all three of them
+   (afterMutation, a finished quest, the debug ⭐ button) in one place. */
 export function checkDraftThreshold() {
+  if (!G.talents) return;
   const earned = draftsEarnedFor(G.starsEarned);
   const owed = earned - G.draftsTaken - G.pendingDrafts;
   if (owed > 0) {

@@ -18,13 +18,14 @@ import { rnd, tokenise } from './util.js';
 import {
   $, host, invBar, contGrid, shopBtn, whirlBtn, setHidden, el as mkEl,
 } from './dom.js';
-import { say, bump, flyReward, roomCompleteFX, clearSay } from './feedback.js';
+import { say, bump, flyStar, roomCompleteFX, clearSay } from './feedback.js';
 import {
   DATA, LOOKUP, loadData, nameOf, costFor, maxLevel,
   itemCount, upgradeParam, upgradeDefaults, jobAt,
 } from './data.js';
 import { showClient, hideClient, isSpeaking } from './client.js';
 import { G, setRun, endRun } from './state.js';
+import { itemAt, underAt, onInk, warmMasks, maskStats } from './hit.js';
 import {
   findFloorSpot, nearestFloorSpot, unstickFloorItems, inDoorway, spin,
 } from './geometry.js';
@@ -297,6 +298,10 @@ function loadGame(){
       rooms:d.rooms, items:d.items, typeHome:d.typeHome, locks:d.locks,
       rowLen:d.rowLen||5, theme:d.theme||DATA.themes.defaultTheme,
       tips:(lv?.tips||[]).map(t=>({...t})),
+      /* Read from levels.json for the same reason as tips, and deliberately not
+         saved: turning stars on for a level must take effect on a run already
+         in progress rather than waiting for the next one. */
+      talents: lv ? lv.talents !== false : true,
       tipsDone:new Set(d.tipsDone||[]),
       tipShown:new Set(d.tipsDone||[]),
       events:new Set(d.events||[]),
@@ -403,7 +408,11 @@ function insertKey(lockIdx, it, fromSlot){
     lock.open=true;
     sfx("unlock"); say("The door creaks open ✨");
   }else{
-    /* the pips already show this */
+    /* A key going into a lock that still wants more was completely silent —
+       the pips changed and nothing else happened, which reads as a dropped
+       input on the one action in the game you have to hunt for the tool to
+       perform. `keyInsert` has been sitting in audio.json unplayed for this. */
+    sfx("keyInsert");
   }
   renderRoom(); renderHUD();
   if(!lock.open){
@@ -449,7 +458,7 @@ function openCache(cacheIdx, it, fromSlot){
   G.points++; G.starsEarned++;
   sfx("cacheOpen"); say("Pop! The coin box bursts open ✨");
   renderRoom(); renderHUD();
-  flyReward(host.querySelector(`.cache[data-cache="${cacheIdx}"]`) || host, "+1 ⭐");
+  flyStar(host.querySelector(`.cache[data-cache="${cacheIdx}"]`) || host, "+1 ⭐");
   return true;
 }
 
@@ -481,7 +490,12 @@ function insertContainerKey(contIdx, it, fromSlot){
     c.lock.open=true;
     sfx("unlock"); say("The "+c.name.toLowerCase()+" clicks open ✨");
   }else{
-    /* the pips already show this */
+    /* Same silence as the door version above. Unreachable with today's data —
+       a chest is a one-key HUNT (`need: 1` on the skel branch in generate.js),
+       so this else never runs — but the two key paths should not disagree
+       about whether a partial insert makes a noise, and generate.js still
+       carries the multi-key branch for when `skel` is absent. */
+    sfx("keyInsert");
   }
   renderRoom(); renderHUD();
   const fe=host.querySelector(`.furn[data-cont="${contIdx}"]`);
@@ -656,6 +670,10 @@ function renderRoom(){
   cam.appendChild(buildRoomEl(G.rooms[G.current]));
   host.appendChild(cam);
   applyCam();
+  /* Measure this room's glyphs while the browser is idle, so the cost never
+     lands on the first tap. Cheap and idempotent — masks are cached by emoji,
+     so re-entering a room measures nothing. See js/hit.js. */
+  warmMasks(host);
 }
 
 function render(){
@@ -943,7 +961,7 @@ function afterMutation(room, c, changedRows, opts={}){
      is the receipt for the tap that just happened. */
   if(earned){
     const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
-    flyReward(fe, "+"+earned+" ⭐");
+    flyStar(fe, "+"+earned+" ⭐");
   }
   if(contDone){
     celebrate({key:"cont", ms:620, run(){ sfx("contComplete"); }});
@@ -1105,8 +1123,12 @@ function tossInto(it, contIdx, fromSlot){
   return true;
 }
 
+/* Returns how many items it shoved, so the caller can make a noise only when
+   something actually clattered. Landing on bare floor should sound like
+   landing on bare floor. */
 function displaceAround(roomId,x,y,radius,push){
   radius=radius||13; push=push||9;
+  let moved=0;
   for(const o of Object.values(G.items)){
     if(o.loc.kind!=="floor"||o.loc.room!==roomId) continue;
     const dx=o.loc.x-x, dy=o.loc.y-y;
@@ -1131,7 +1153,13 @@ function displaceAround(roomId,x,y,radius,push){
       const s=nearestFloorSpot(G.rooms[roomId], o.loc.x, o.loc.y, {padName:"toss"});
       o.loc.x=s.x; o.loc.y=s.y;
     }
+    moved++;
   }
+  /* `scatter` has existed in audio.json since the first pass and nothing has
+     ever played it. This is the moment it was written for — the brief calls it
+     "3-4 items clattering apart". */
+  if(moved) sfx("scatter");
+  return moved;
 }
 
 function animateFlight(type, fromX, fromY, toX, toY, done){
@@ -1420,6 +1448,9 @@ function showWin(){
     mk("New "+sz.label.toLowerCase()+" house","primary",()=>{ $("#winOverlay").classList.remove("open"); startFree(SIZES[G.size]?G.size:"medium"); });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }
+  /* The last thing you hear after finishing a whole house was nothing at all.
+     After the class, so it lands with the screen rather than ahead of it. */
+  sfx("win");
   $("#winOverlay").classList.add("open");
 }
 
@@ -1557,9 +1588,15 @@ host.addEventListener("pointerdown",e=>{
   }
   if(live.size>2) return;
 
+  /* NOT e.target.closest(".item"). The browser hit-tests an item's box, which
+     is the 22px glyph plus 10px of invisible padding on every side — about
+     four times the area you can see, and items are scattered to overlap. So
+     the top item's halo was stealing taps aimed squarely at the item under it.
+     itemAt() prefers whichever glyph's actual pixels are under the point and
+     falls back to this exact box test when none are. See js/hit.js. */
   ptr={sx:e.clientX,sy:e.clientY,panX:G.cam.x,panY:G.cam.y,drag:false,id:e.pointerId,
        downTarget:e.target,
-       itemEl:e.target.closest(".item"), itemMoved:false, ix:0, iy:0, hotCont:null,
+       itemEl:itemAt(e.clientX,e.clientY), itemMoved:false, ix:0, iy:0, hotCont:null,
        grabDX:0, grabDY:0,
        samples:[{t:performance.now(),x:e.clientX,y:e.clientY}]};
   if(ptr.itemEl){
@@ -1608,7 +1645,9 @@ host.addEventListener("pointermove",e=>{
     }
     moveLoupe(ptr.itemEl);
     const under=document.elementFromPoint(e.clientX,e.clientY);
-    const cont=under && under.closest(".furn, .door.locked, .cache");
+    /* underAt, not under.closest: another item lying on the chest is drawn
+       above it and used to swallow the drop. See js/hit.js. */
+    const cont=underAt(e.clientX,e.clientY,".furn, .door.locked, .cache");
     if(ptr.hotCont && ptr.hotCont!==cont) ptr.hotCont.classList.remove("drophot");
     ptr.hotCont=cont||null;
     if(ptr.hotCont) ptr.hotCont.classList.add("drophot");
@@ -2313,6 +2352,9 @@ $("#refreshBtn").addEventListener("click",e=>forceRefresh(e.currentTarget));
 
 $("#debugStar").addEventListener("click",()=>{
   G.points++; G.starsEarned++; renderHUD();
+  /* Say so out loud. Otherwise this button appears broken on any level with
+     `"talents": false`, which is now most of the early campaign. */
+  if(!G.talents){ say("+1 ⭐ (debug) — this level has talents off"); return; }
   checkDraftThreshold();
   if(!drainDrafts(()=>false)) say("+1 ⭐ (debug)");
 });
@@ -2649,7 +2691,9 @@ window.tidy = {
   /* handy from the console, and what the browser tests drive */
   dropNote:maybeDropNote, openNote, checkQuests, completeQuest,
   afterMutation, openContainer, closeCont, doWhirl,
+  insertKey, insertContainerKey, flingToFloor, showWin, displaceAround,
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
+  itemAt, underAt, onInk, maskStats,
   playMusic, nowPlayingMusic, musicDebug, audio:audioSettings,
 };
 

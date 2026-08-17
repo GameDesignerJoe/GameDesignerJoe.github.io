@@ -13,7 +13,7 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "1.2.0";
+export const VERSION = "1.3.0";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
@@ -39,7 +39,7 @@ export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 11;
+export const DATA_VERSION = 12;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice

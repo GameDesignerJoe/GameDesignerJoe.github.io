@@ -37,6 +37,7 @@ can be edited without touching JavaScript:
 | hint text, and when hints appear | `tips` in `data/levels.json` |
 | what a talent costs and how many levels it has | `data/upgrades.json` |
 | when talent drafts happen | `draftSteps` in `data/upgrades.json` |
+| whether a level has ⭐ at all | `"talents": false` in `data/levels.json` |
 | item names in the loupe | `data/names.json` |
 | room shapes, which rooms a theme uses | `data/themes.json` |
 | furniture size, anchors, keep-out padding, key/coin emoji | `data/furniture.json` |
@@ -85,7 +86,7 @@ whether you're looking at the build you just pushed.
 Each tier imports only from strictly lower tiers. There are no cycles.
 
 ```
-0  config · util · dom · validate · audio
+0  config · util · dom · validate · audio · hit
 1  data · toast/feedback
 2  state · geometry
 3  save · rules · generate
@@ -96,8 +97,12 @@ Each tier imports only from strictly lower tiers. There are no cycles.
 ```
 
 Currently `js/main.js` still holds tiers 3–6 in one file; the leaves,
-`state`, `generate`, `geometry`, `camera`, `feedback`, `talents`, `quests`
-and `audio` are extracted. The remaining split is mechanical.
+`state`, `generate`, `geometry`, `camera`, `feedback`, `talents`, `quests`,
+`hit` and `audio` are extracted. The remaining split is mechanical.
+
+`hit.js` imports nothing at all — it is given an element and a screen point
+and answers questions about pixels. It does not know the game exists, which
+is what keeps it at tier 0 despite being about input.
 
 Three cycles exist in the original design and are cut deliberately:
 
@@ -167,6 +172,35 @@ also scaled up slightly while held (`itemTransform(it, true)` plus the `.held`
 class); every release path that doesn't repaint the room must call `unlift()`,
 or an item keeps the lift after it is put down.
 
+**Input hit-tests pixels, not boxes** (`js/hit.js`). An item is a `<div>` with
+one emoji in it, so the browser hit-tests a 22px glyph inside a 50×42 box —
+`--item-pad` adds 10px of invisible target on every side, and the glyph is
+round-ish inside that. Items are scattered to overlap, so the top box wins,
+and you tap the thing you can see and pick up the thing beside it. Measured
+over a dense room, **16–18% of taps that hit an item hit the wrong one**, and
+every single one of those was the same story: the winner's transparent halo
+over the loser's visible pixels.
+
+`itemAt()` walks the hit stack and prefers the topmost item whose *painted*
+pixels are under the point, falling back to the old whole-box answer when none
+are — so the fat-finger padding still works for an item on its own and only
+yields when it is competing with something you are pointing straight at. A tap
+that used to pick something up always still picks something up.
+
+`underAt()` is the same idea from the other end: floor items paint *above*
+furniture, so clutter lying on a chest made that part of the chest refuse a
+drop (20% of the average container's face, and one chest was 94% dead). The
+clutter you are trying to clear must not be what stops you clearing it.
+
+Both stop at the first element that is painted over the items rather than
+holding them, so neither can reach through a door or the inventory bar.
+
+Masks are built once per emoji by drawing it into a canvas laid out the way
+the DOM lays it out — same font, baseline placed for `line-height: 1` — then
+dilated by ~1.5px for antialiasing. If a glyph does not render, the mask is
+`null` and that item silently keeps whole-box behaviour, so an emoji the
+platform cannot draw is never untappable. `tidy.maskStats()` lists them.
+
 **Every floor placement goes through `geometry.js`.** `findFloorSpot()` when
 the game picks the spot, `nearestFloorSpot()` when the player did. There were
 three hand-rolled copies of the search — scatter, fling, container-eject — and
@@ -225,6 +259,20 @@ the tail of the gesture that opened it, not a dismissal.
 level's talents from `tidy-campaign-talents`, which meant the levels authored to
 teach locks were played with Sixth Sense already in hand. `up` still rides in
 the run save, so continuing mid-level keeps what you drafted.
+
+**⭐ does not exist until 5-1 teaches it.** `"talents": false` in `levels.json`
+turns the whole reward layer off for a level: no chips fly, and no draft opens
+however many rows you finish. It is set on every level before 5-1 "Talent
+Show", which is the one that explains stars — before this, the first threshold
+(4 ⭐) was crossed on the *last item of 1-2*, and a modal asked the player to
+choose between three talents they had never heard of, five levels early.
+
+The gate is a single `if (!G.talents) return` at the top of
+`checkDraftThreshold()`, and payouts go through `flyStar()` rather than
+`flyReward()` — one condition in one place each, rather than a flag remembered
+at four call sites. Stars are still *counted* while suppressed, so switching a
+level's talents on needs no migration. `G.talents` is read from `levels.json`
+on load rather than saved, for the same reason tips are.
 
 **Tips are `kind` / `target` / `when` / `until`.** `when` makes a tip appear in
 response to an event; `until` dismisses it. A tip is only marked learned if it
@@ -492,6 +540,21 @@ Run through this after any change; it's what the browser tests cover.
 - Grab a floor item near its edge and drag: it must not jump when the drag
   starts, and your finger must stay over the part of it you grabbed. Check it
   zoomed in too — the error scales with the camera.
+- Aim at an emoji whose neighbour overlaps it and tap: you get the one you
+  aimed at, not the one whose invisible padding was on top. Then tap a bare
+  gap between two items — one of them still picks up, because the padding is
+  still there when nothing is competing for the point.
+- Drag an item onto a container that has clutter lying across its face. It
+  goes in. The old build flung it back onto the floor from about a fifth of
+  every container's surface.
+- Dragging over a door or the inventory bar must not highlight the furniture
+  behind them.
+- Play 1-1 through 4-2: no ⭐ chips, no ⭐ button, and no talent draft. The
+  first draft is in 5-1, whose tip then points at the button. Free play has
+  stars from the first row.
+- The win screen makes a sound. A key into a lock that still wants more makes
+  a sound. A flick that lands in a pile makes a sound; one that lands on bare
+  floor does not. All three were silent until v1.3.0.
 - Double-tap bare floor zooms toward that point; again returns to the framed
   view. A single tap, two slow taps, and a double-tap on furniture all leave
   the camera alone (the last one opens the container and keeps it open).

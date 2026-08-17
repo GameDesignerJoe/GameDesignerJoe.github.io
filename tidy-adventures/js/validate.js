@@ -289,6 +289,40 @@ export function validateData(D) {
             `Available: ${[...TIP_TEXT_TOKENS].map(s => "{" + s + "}").join(" ")}`));
         }
       }
+      /* A level with no stars can never fire talentEarned, so a tip waiting on
+         it waits forever — and the one tip that does is the ONLY thing in the
+         game that explains the ⭐ button. Silent if unchecked: the level plays
+         fine and the player is simply never told. */
+      if (l.talents === false && (t.when === "talentEarned" || target === "shop")) {
+        errors.push(at("levels.json",
+          `level ${l.id} has "talents": false but its tip "${t.kind}" teaches talents.`,
+          "That level hands out no stars, so the tip can never appear. Either give " +
+          "the level talents, or move the tip to the first level that has them."));
+      }
+    }
+  }
+  /* ---------- 8b. talents, once on, stay on ---------- */
+  {
+    const ls = D.levels?.levels || [];
+    for (const l of ls) {
+      if ("talents" in l && typeof l.talents !== "boolean") {
+        errors.push(at("levels.json",
+          `level ${l.id} has "talents": ${JSON.stringify(l.talents)}, which is not true or false.`,
+          "Omit it for the normal behaviour (stars on)."));
+      }
+    }
+    const on = ls.findIndex(l => l.talents !== false);
+    if (on === -1) {
+      warnings.push(at("levels.json", "every level has \"talents\": false, so the talent draft is dead code.",
+        "Some level has to be the one that introduces ⭐."));
+    } else {
+      const relapse = ls.slice(on).filter(l => l.talents === false).map(l => l.id);
+      if (relapse.length) {
+        warnings.push(at("levels.json",
+          `${ls[on].id} turns talents on, but ${relapse.join(", ")} later turn them back off.`,
+          "A reward the player has already been taught should not vanish again. " +
+          "This is a warning, not an error, in case it is a deliberate quiet level."));
+      }
     }
   }
 

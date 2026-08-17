@@ -18,6 +18,15 @@
     "",
     "3-2 and 4-2 deliberately have no tips — they are practice levels.",
     "",
+    "\"talents\": false — this level has not met ⭐ yet, so it hands out none:",
+    "no reward chips, and no talent draft however many rows you finish. Stars",
+    "are still counted internally, so switching it on needs no migration.",
+    "It is set on every level BEFORE 5-1 \"Talent Show\", which is the level that",
+    "actually teaches stars and talents (see its tip and blurb). Without it the",
+    "first threshold, 4 ⭐, is crossed on the LAST item of 1-2 — the second level",
+    "of the game — and a modal asks the player to pick one of three talents they",
+    "have never heard of. Move the flag if you move where talents are taught.",
+    "",
     "\"quests\": false on 1-2 / 2-1 / 2-2. The quest seal starts a container",
     "LOCKED, and the tutorial block runs contLocks: 0 on purpose — the first",
     "locked thing in the game is meant to be 3-1, which is called Under Lock.",
@@ -25,16 +34,20 @@
     "levels early, before anything had taught what a lock is. Notes still drop",
     "in these levels; with no seal, quests.js asks about an open container.",
     "",
-    "APPEND ONLY. Every level here is one client's job (data/clients.json), and",
-    "campaign progress is saved as a plain INDEX into this array. Inserting or",
-    "reordering an entry silently re-points every player's saved progress at a",
-    "different level. New levels go on the end; `id` is the label, `blurb` is",
-    "only used when a level has no client to say it out loud."
+    "INSERTING IS SAFE — it did not used to be. Progress is saved as the SET of",
+    "finished level ids plus a frontier, not as an index into this array, so a",
+    "level dropped into the middle shows up as playable-but-unplayed and nothing",
+    "downstream re-locks. See LEGACY_ORDER in js/config.js, which is the frozen",
+    "22-id order the old integer saves migrate through and must never be edited.",
+    "Two rules survive: every level must be claimed by exactly one client stage",
+    "in clients.json, and an `id` here must never be REUSED for a different job,",
+    "because a player who finished the old one would find the new one already",
+    "done. `id` is the label; `blurb` is only used when no client says it aloud."
   ],
   "levels": [
     { "id": "1-1", "name": "Pick It Up", "theme": "house",
       "rooms": 1, "cont": 1, "types": 1, "rowLen": 3,
-      "doorKeys": 0, "contLocks": 0, "scale": [0.42, 0.5],
+      "doorKeys": 0, "contLocks": 0, "scale": [0.42, 0.5], "talents": false,
       "tips": [
         { "kind": "item",    "target": "item", "until": "pickUp",
           "text": "Tap an item to pick it up" },
@@ -47,7 +60,7 @@
 
     { "id": "1-2", "name": "Sort It Out", "theme": "house",
       "rooms": 1, "cont": 2, "types": 2, "rowLen": 3,
-      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.48, 0.56],
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.48, 0.56], "talents": false,
       "tips": [
         { "kind": "open", "target": "furn", "until": "open",
           "text": "Tap a container to look inside" },
@@ -58,7 +71,7 @@
 
     { "id": "2-1", "name": "Open Doors", "theme": "house",
       "rooms": 2, "cont": 2, "types": 2, "rowLen": 3,
-      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.5, 0.62],
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.5, 0.62], "talents": false,
       "tips": [
         { "kind": "door", "target": "door", "until": "door",
           "text": "Tap the door to walk into the next room" }
@@ -67,7 +80,7 @@
 
     { "id": "2-2", "name": "Across the House", "theme": "house",
       "rooms": 3, "cont": 2, "types": 3, "rowLen": 4,
-      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.55, 0.7], "junk": true,
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.55, 0.7], "junk": true, "talents": false,
       "tips": [
         { "kind": "zoom", "target": "zoom", "until": "zoom",
           "text": "Pinch or scroll to zoom in" },
@@ -85,12 +98,12 @@
         "and is where locks are supposed to arrive." ],
       "id": "D-1", "name": "The Sorting Dream", "theme": "dream",
       "rooms": 2, "cont": 2, "types": 3, "rowLen": 4,
-      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.6, 0.8], "junk": true,
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.6, 0.8], "junk": true, "talents": false,
       "blurb": "You are asleep, and the sky is untidy." },
 
     { "id": "3-1", "name": "Under Lock", "theme": "house",
       "rooms": 2, "cont": 3, "types": 3, "rowLen": 4,
-      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.55, 0.7], "junk": true,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.55, 0.7], "junk": true, "talents": false,
       "tips": [
         { "kind": "lock", "target": "lock", "until": "lock",
           "text": "This one's locked — drag a key 🔑 onto it" }
@@ -99,12 +112,12 @@
 
     { "id": "3-2", "name": "Hidden Stashes", "theme": "house",
       "rooms": 3, "cont": 3, "types": 3, "rowLen": 4,
-      "doorKeys": 0, "contLocks": 2, "contKeys": 2, "scale": [0.6, 0.75], "junk": true,
+      "doorKeys": 0, "contLocks": 2, "contKeys": 2, "scale": [0.6, 0.75], "junk": true, "talents": false,
       "blurb": "Two locked stashes this time. Keys open any lock." },
 
     { "id": "4-1", "name": "The Locked Door", "theme": "house",
       "rooms": 3, "cont": 2, "types": 4, "rowLen": 5,
-      "doorKeys": 3, "contLocks": 0, "scale": [0.65, 0.8], "junk": true,
+      "doorKeys": 3, "contLocks": 0, "scale": [0.65, 0.8], "junk": true, "talents": false,
       "tips": [
         { "kind": "lock", "target": "lock", "until": "lock",
           "text": "A locked door — the keys are on this side" }
@@ -113,13 +126,13 @@
 
     { "id": "4-2", "name": "Full House", "theme": "house",
       "rooms": 4, "cont": 3, "types": 4, "rowLen": 5,
-      "doorKeys": 4, "contLocks": 1, "contKeys": 2, "scale": [0.7, 0.9], "junk": true,
+      "doorKeys": 4, "contLocks": 1, "contKeys": 2, "scale": [0.7, 0.9], "junk": true, "talents": false,
       "blurb": "Everything at once. Good luck out there." },
 
     { "_note": "Locks and keys are taught by now (3-1, 4-1), so this one keeps its seal.",
       "id": "D-2", "name": "The Comet Yard", "theme": "dream",
       "rooms": 3, "cont": 3, "types": 4, "rowLen": 5,
-      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.65, 0.85], "junk": true,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.65, 0.85], "junk": true, "talents": false,
       "blurb": "Ice in one place, rock in the other." },
 
     { "id": "5-1", "name": "Talent Show", "theme": "house",

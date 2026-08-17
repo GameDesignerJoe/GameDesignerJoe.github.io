@@ -105,6 +105,11 @@ export function flyReward(fromEl, text = "+1 ⭐", toEl = shopBtn) {
   const a = fromEl?.getBoundingClientRect();
   const b = toEl?.getBoundingClientRect();
   if (!a || !b) { return; }
+  /* A hidden element still has a rect — an all-zero one. So a chip aimed at the
+     ⭐ button while it was hidden did not silently do nothing: it flew to the
+     top-left corner of the screen and faded there, once per completed row, for
+     the whole of the early campaign. Refuse to fly at a target with no box. */
+  if (!b.width && !b.height) return;
   const n = document.createElement("div");
   n.className = "fxchip";
   n.textContent = text;
@@ -119,6 +124,16 @@ export function flyReward(fromEl, text = "+1 ⭐", toEl = shopBtn) {
     n.remove();
     toEl.classList.remove("pop"); void toEl.offsetWidth; toEl.classList.add("pop");
   }, 620);
+}
+
+/* A ⭐ payout specifically, which a level can turn off wholesale. Every star the
+   game hands out goes through here so that "this level has not met stars yet"
+   is one condition in one place rather than a flag remembered at four call
+   sites. The star is still counted — G.points keeps ticking — it just isn't
+   announced, so switching talents on mid-campaign needs no migration. */
+export function flyStar(fromEl, text = "+1 ⭐") {
+  if (!G.talents) return;
+  flyReward(fromEl, text);
 }
 
 /* ============================================================

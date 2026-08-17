@@ -484,6 +484,8 @@ export function generate(cfg) {
     stats: { tosses: 0, firstGood: 0, start: Date.now() },
     visited: new Set([rooms[0].id]),
     points: 0, starsEarned: 0,
+    /* Opt-OUT, so every existing config and all of free play keeps its stars. */
+    talents: cfg.talents !== false,
     tips: (cfg.tips || []).map(t => ({ ...t })),
     tipsDone: new Set(), tipShown: new Set(),
     events: new Set(), tipCtx: {},
