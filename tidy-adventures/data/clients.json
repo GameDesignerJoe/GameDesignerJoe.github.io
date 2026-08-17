@@ -436,6 +436,71 @@
           ]
         }
       ]
+    },
+
+    {
+      "_note": [
+        "THE DREAM ARC. You are working so hard that you have started dreaming",
+        "about tidying, and in the dream the job is the sky. These are the only",
+        "levels with theme: dream — nobody hired you, so there is no house, no",
+        "client's embarrassment, and no thanks owed. That is the tonal point.",
+        "",
+        "Voice: serene and faintly bureaucratic. Treats a galaxy as a filing",
+        "problem and is neither impressed nor surprised by you. Never jokes on",
+        "purpose. Never uses an exclamation mark."
+      ],
+      "id": "dreamgod",
+      "name": "The Dream",
+      "emoji": "🌌",
+      "sign": "— filed in your sleep",
+      "waiting": "You have not been sleeping enough to go back.",
+      "farewell": "You woke up. The sky, as far as anyone can tell, stayed where you put it.",
+      "stages": [
+        {
+          "level": "D-1",
+          "teaser": "\"You are asleep. The work continues.\"",
+          "replay": "You are here again. You are always here again.",
+          "intro": [
+            "You are asleep.",
+            "This is not a house. Nothing in here belongs to anyone, and it still has to go somewhere."
+          ],
+          "outro": [
+            "You sorted the sky and felt nothing about it.",
+            "That is the most restful thing that has happened to you all week."
+          ]
+        },
+        {
+          "level": "D-2",
+          "teaser": "\"The comets have been left out again.\"",
+          "intro": [
+            "Back so soon. The comets have been left out again.",
+            "Ice in one place, rock in the other. It is not a difficult system. It is simply a large one."
+          ],
+          "outro": [
+            "Filed. The yard is clear as far as anything out here is ever clear."
+          ],
+          "note": [
+            { "text": "The {container} has been sealed since before there was anyone to seal it. See to it.",
+              "reply": "The {container} is in order. Nothing out here will notice. I noticed." }
+          ]
+        },
+        {
+          "level": "D-3",
+          "teaser": "\"Every star has a home. This is the whole of the work.\"",
+          "intro": [
+            "You have done this enough times that the sky expects you now.",
+            "Every star has a home. Every moon has a shelf. This is the whole of the work, and it is never once finished."
+          ],
+          "outro": [
+            "It is done, in the way that this is ever done.",
+            "Your alarm is about to go off. There is a kitchen waiting, and it is much, much smaller than this."
+          ],
+          "note": [
+            { "text": "Whatever is loose in here goes to the {container}. The sky does not mind waiting; I do.",
+              "reply": "The {container}, correctly. You may go back to your life now." }
+          ]
+        }
+      ]
     }
   ]
 }

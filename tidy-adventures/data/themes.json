@@ -9,7 +9,19 @@
     "draws from; a room in rooms.json can pin its own \"shape\" and ignore it.",
     "",
     "A theme may list far more rooms than a house has cells (the grid holds 9).",
-    "That surplus IS the variety: each run draws a different subset."
+    "That surplus IS the variety: each run draws a different subset.",
+    "",
+    "Every key under \"themes\" is a theme — do not park notes in there.",
+    "",
+    "AN EMOJI'S HOME IS UNIQUE PER THEME, NOT GLOBALLY. A run only ever draws",
+    "rooms from one theme, so two themes may each give the same emoji a home;",
+    "within one theme two homes still makes a run unwinnable and is an error.",
+    "That is what lets `dream` use 🪐 🔭 🌙 🛰️ while the house Observatory",
+    "keeps them too. See check 1 in js/validate.js.",
+    "",
+    "DREAM: the tidier is working so hard they dream about tidying. The frame",
+    "is a wrapper rather than one setting — it can hold any world without",
+    "explaining how the player got there, and space is only the first."
   ],
   "themes": {
     "house": {
@@ -17,6 +29,12 @@
       "shapes": ["rect"],
       "rooms": ["kitchen","garage","bathroom","office","closet","attic","shed","secret","bedroom",
                 "playroom","music","mudroom","cellar","observatory"]
+    },
+
+    "dream": {
+      "label": "Dream",
+      "shapes": ["round","hex"],
+      "rooms": ["nebula","comet","hall","orbit"]
     }
   },
   "defaultTheme": "house"

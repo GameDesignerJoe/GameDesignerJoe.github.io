@@ -194,6 +194,68 @@
         { "id": "craft",   "name": "Sewing Basket",   "short": "Sewing",  "kind": "wicker",
           "types": ["🧶","🧵","🪡"] }
       ]
+    },
+
+    {
+      "_note": [
+        "--- THE DREAM THEME ---",
+        "Rooms 15-18 belong to the `dream` theme, not `house`, and a run only",
+        "ever draws from one theme — which is why these may reuse emoji the",
+        "house already owns (🪐 🔭 🌙 🛰️ 👑 🗿 and friends). Uniqueness is",
+        "enforced PER THEME; see check 1 in js/validate.js.",
+        "",
+        "Nobody has intuitions about where a comet goes, so the container names",
+        "here carry more weight than in a kitchen: each one states its test in",
+        "two words. Ice or rock. Beast or figure. Planet or moon."
+      ],
+      "id": "nebula", "name": "Nebula Nursery", "floor": "nebula", "sizeFactor": 0.7, "shape": "round",
+      "containers": [
+        { "id": "stars", "name": "New Stars", "short": "Stars",  "kind": "glass",
+          "types": ["🌟","💫","🌠","🌞","☀️"] },
+        { "id": "gas",   "name": "Gas & Dust",    "short": "Gas",    "kind": "wicker",
+          "types": ["☁️","🌫️","💨","🌪️","🫧"] },
+        { "id": "light", "name": "Stray Light",   "short": "Light",  "kind": "peg",
+          "types": ["🌈","⚡","🔥","🎆","🎇"] }
+      ]
+    },
+
+    {
+      "_note": "Hex. The yard where everything that is still travelling is parked.",
+      "id": "comet", "name": "Comet Yard", "floor": "comet", "sizeFactor": 0.6, "shape": "hex",
+      "containers": [
+        { "id": "ice",   "name": "Ice & Comets",   "short": "Ice",   "kind": "slat",
+          "types": ["☄️","🧊","❄️","🌨️","⛄"] },
+        { "id": "rock",  "name": "Rock & Debris",  "short": "Rock",  "kind": "dark",
+          "types": ["🪨","⛰️","🌋","🗿","🧱"] },
+        { "id": "metal", "name": "Hardware",  "short": "Metal", "kind": "steel",
+          "types": ["🛰️","🚀","🛸","🔩","⚙️"] }
+      ]
+    },
+
+    {
+      "_note": "The only rectangular dream room: a hall reads as built, and after two soft silhouettes that contrast is the point.",
+      "id": "hall", "name": "Constellation Hall", "floor": "constellation", "sizeFactor": 0.95, "shape": "rect",
+      "containers": [
+        { "id": "beasts",  "name": "Sky Beasts",  "short": "Beasts",  "kind": "wood",
+          "types": ["🦁","🦀","🐂","🐟","🦂","🐍"] },
+        { "id": "figures", "name": "Sky Figures", "short": "Figures", "kind": "glass",
+          "types": ["🏹","⚖️","👑","🗡️","🏺"] },
+        { "id": "charts",  "name": "Charts & Tools",  "short": "Charts",  "kind": "peg",
+          "types": ["🔭","🧭","🗺️","📜","⏳"] }
+      ]
+    },
+
+    {
+      "_note": "Round. Planets and moons are separate containers on purpose: it is the one call in this theme a player can actually reason about.",
+      "id": "orbit", "name": "Orbit Shelf", "floor": "orbit", "sizeFactor": 0.8, "shape": "round",
+      "containers": [
+        { "id": "planets", "name": "Planets",        "short": "Planets", "kind": "slat",
+          "types": ["🪐","🌍","🌎","🌏"] },
+        { "id": "moons",   "name": "Moons",          "short": "Moons",   "kind": "wicker",
+          "types": ["🌕","🌙","🌛","🌚"] },
+        { "id": "paths",   "name": "Orbits", "short": "Orbits",  "kind": "plastic",
+          "types": ["🔄","➰","🌀","⭕"] }
+      ]
     }
   ]
 }

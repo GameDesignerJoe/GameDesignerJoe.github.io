@@ -6,7 +6,8 @@
    input tiers still live here. See docs/CLAUDE.md for the target graph.
 ============================================================ */
 import {
-  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, TALENTS_KEY, SAVE_DEBOUNCE,
+  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, LEGACY_ORDER,
+  TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START, REVEAL_MS,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
@@ -55,8 +56,61 @@ const LEVELS   = LOOKUP.levelByIdx;
 const NAMES    = LOOKUP.names;
 const WHIRL_CD = upgradeParam("whirl", "cooldownMs", 60000);
 
-function getProgress(){ try{ return Math.max(0, parseInt(localStorage.getItem(PROGRESS_KEY)||"0",10)||0); }catch(e){ return 0; } }
-function setProgress(n){ try{ localStorage.setItem(PROGRESS_KEY, String(n)); }catch(e){} }
+/* ============================================================
+   CAMPAIGN PROGRESS — finished job ids, not a count
+
+   It used to be one integer: "how many levels are unlocked", an index into
+   levels.json. That made the file APPEND-ONLY, because inserting a level
+   silently re-pointed every saved player at a different job — and append-only
+   is precisely what stopped a new kind of level ever arriving early.
+
+   Now it is the set of level ids you have finished, plus a FRONTIER: the
+   furthest you have ever reached. A level is locked only past the frontier, so
+   a job inserted behind it shows up as playable-but-unplayed sitting in a row
+   of finished ones, and nothing downstream re-locks. That is what makes
+   insertion safe rather than merely possible.
+============================================================ */
+function doneIds(){
+  try{
+    const raw=localStorage.getItem(DONE_KEY);
+    if(raw!=null) return new Set(JSON.parse(raw));
+  }catch(e){}
+  /* Nothing under the new key: migrate the old integer through the frozen
+     order the campaign had when it was written. Reading it against TODAY's
+     levels.json would be the exact bug this whole change exists to avoid. */
+  let n=0;
+  try{ n=Math.max(0, parseInt(localStorage.getItem(PROGRESS_KEY)||"0",10)||0); }catch(e){}
+  const done=new Set(LEGACY_ORDER.slice(0, n));
+  if(n>0) saveDone(done);          /* write it through so this runs once */
+  return done;
+}
+function saveDone(set){
+  try{ localStorage.setItem(DONE_KEY, JSON.stringify([...set])); }catch(e){}
+}
+function markDone(id){
+  if(!id) return;
+  const done=doneIds();
+  if(done.has(id)) return;
+  done.add(id);
+  saveDone(done);
+}
+function clearDone(){
+  saveDone(new Set());
+  /* The legacy key would otherwise re-migrate on the next read and undo this. */
+  try{ localStorage.removeItem(PROGRESS_KEY); }catch(e){}
+}
+
+/* Everything the job board and the level flow need, derived in one place.
+   `frontier` is how far you've ever got; `now` is the earliest job you have
+   not finished, which after an insertion is the new one. */
+function progress(){
+  const done=doneIds();
+  let frontier=0;
+  LEVELS.forEach((lv,i)=>{ if(done.has(lv.id)) frontier=Math.max(frontier, i+1); });
+  let now=LEVELS.findIndex((lv,i)=> i<=frontier && !done.has(lv.id));
+  if(now===-1) now=Math.min(frontier, LEVELS.length);
+  return { done, frontier, now, count:done.size };
+}
 function currentCfg(){ return G.mode==="campaign" ? LEVELS[G.levelIdx] : SIZES[G.size]; }
 
 /* ============================================================
@@ -192,7 +246,11 @@ function saveGame(){
          the id is a name. Appending is safe either way, but if a level is ever
          inserted or reordered the index quietly means a different level, and
          this save would resume the wrong job. */
-      mode:G.mode, levelIdx:G.levelIdx, levelId:(LEVELS[G.levelIdx]?.id ?? null), size:G.size, rowLen:G.rowLen,
+      /* theme was generated into the run and then dropped on the floor here,
+         while loadGame() defaulted it back to "house" — invisible until
+         something read it, and then a resumed dream would come back beige. */
+      mode:G.mode, levelIdx:G.levelIdx, levelId:(LEVELS[G.levelIdx]?.id ?? null), size:G.size,
+      theme:G.theme, rowLen:G.rowLen,
       current:G.current, inv:G.inv, sel:G.sel,
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
       visited:[...G.visited], awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
@@ -601,12 +659,31 @@ function renderRoom(){
 }
 
 function render(){
+  applyTheme();
   renderRoom();
   renderHUD();
   renderInv();
   renderTips();
   renderObjective();
   if(G.openCont!==null) renderContainer();
+}
+
+/* THE ONLY PLACE THE THEME REACHES THE SCREEN.
+
+   A room element carries `shape-*` and `floor-*` and nothing else, so until
+   now the theme was generated, saved and then never looked at — two houses
+   and a dream all painted the same beige. One attribute on <body> lets
+   css/themes.css repoint --bg, --wall and --wall-dark, which between them own
+   the walls of all three room shapes, the door surround, the door glow and
+   the page behind everything.
+
+   Chrome tokens (--panel, --ink, --gold) are deliberately NOT themed: the
+   HUD, the gear and the job board should be the one thing that stays put
+   while the world changes underneath them. */
+function applyTheme(){
+  const t = G.active ? (G.theme || DATA.themes.defaultTheme) : "";
+  if(t) document.body.dataset.theme = t;
+  else delete document.body.dataset.theme;
 }
 
 function slideTo(dir,newId){
@@ -1315,7 +1392,7 @@ function showWin(){
       ? job.client.name+(job.last ? " — that's the lot" : " — job done")
       : lv.id+" · "+lv.name+" — complete!";
     $("#winStats").textContent=stats;
-    if(G.levelIdx+1>getProgress()) setProgress(G.levelIdx+1);
+    markDone(lv.id);
     if(G.levelIdx+1<LEVELS.length){
       /* Staying with the same client reads as "next job"; moving to a new one
          goes through the board so they get their own arrival. */
@@ -2171,7 +2248,7 @@ $("#debugKeys").addEventListener("click",()=>{
 });
 
 $("#debugRelock").addEventListener("click",()=>{
-  setProgress(0);
+  clearDone();
   $("#gearOverlay").classList.remove("open");
   /* No toast: #toast is z-index 95 and the board is 120, so a confirmation
      would be printed behind it. The board redrawing with one job open says it
@@ -2276,6 +2353,7 @@ function showTitle(){
   closeMenus();
   endCeremony();
   endRun();
+  applyTheme();          /* endRun cleared G.active — drop back to house colours */
   const save=peekSave();
   setHidden($("#btnContinue"), !save);
   if(save) labelContinue(save);
@@ -2361,7 +2439,7 @@ function startCampaign(i){
      showClient() calls clearSay(), so it has to be said afterwards, not before.
      Teaching tips are suppressed for free by modalUp(). */
   const job=jobAt(i);
-  const replaying=i<getProgress();
+  const replaying=progress().done.has(lv.id);
   if(job?.stage.intro?.length){
     const lines=[...job.stage.intro];
     if(replaying && job.stage.replay) lines[0]=job.stage.replay;
@@ -2394,19 +2472,26 @@ function textVars(){
    nothing here is stored. A tile is done / now / locked by comparing its
    index to progress, and a client is a SILHOUETTE until you have met them.
 ============================================================ */
-const stageState = (levelIdx, prog) =>
-  levelIdx < prog ? "done" : levelIdx === prog ? "now" : "locked";
+/* FOUR states, not three. "open" is the one insertion made necessary: a job
+   you can play, have not played, and which is not the next one up — which is
+   what a level dropped in behind an existing player's frontier looks like. It
+   needs no styling of its own; it is simply not dimmed and not ringed. */
+const stageState = (idx, p) =>
+  p.done.has(LEVELS[idx].id) ? "done"
+  : idx === p.now            ? "now"
+  : idx <= p.frontier        ? "open"
+  : "locked";
 
-function jobTile(job, idx, prog){
+function jobTile(job, idx, p){
   const S=DATA.strings.jobBoard||{};
-  const st=stageState(idx, prog);
+  const st=stageState(idx, p);
   /* FACES ARE RATIONED. Everything you've worked and the job you can start
      show their client outright. Exactly ONE job ahead is a tease: the face is
      there but greyed, so you can see who's coming and equally see that you
      can't have them yet. Everything past that is a silhouette. Showing a
      client's whole arc at once spent the arrival of every one of their jobs
      the moment you met them. */
-  const seen=idx<=prog, peek=idx===prog+1;
+  const seen=idx<=p.frontier, peek=idx===p.frontier+1;
   const b=document.createElement("button");
   b.className="jtile "+st+(seen?"":peek?" next":" unknown");
   b.disabled = st==="locked";
@@ -2441,12 +2526,15 @@ function soonTile(arc){
 
 function openCampaignMenu(){
   closeMenus();
-  const prog=getProgress();
+  const p=progress();
   const S=DATA.strings.jobBoard||{};
   if(S.title) $("#boardTitle").textContent=S.title;
   const total=LOOKUP.levelByIdx.length;
+  /* The real count of finished jobs, not the frontier — after an insertion
+     those differ, and "13 of 25" while one behind you is unplayed would be a
+     lie the board tells every time you open it. */
   $("#boardSub").textContent = tokenise(S.sub||"", {
-    done:Math.min(prog,total), total,
+    done:Math.min(p.count,total), total,
   });
 
   const board=$("#jobBoard"); board.innerHTML="";
@@ -2454,8 +2542,8 @@ function openCampaignMenu(){
   LOOKUP.levelByIdx.forEach((lv, i)=>{
     const job=jobAt(i);
     if(!job) return;                       /* validate.js makes this impossible */
-    const tile=jobTile(job, i, prog);
-    if(i===prog) current=tile;
+    const tile=jobTile(job, i, p);
+    if(i===p.now) current=tile;
     board.appendChild(tile);
   });
   for(const arc of LOOKUP.arcs) if(arc.soon) board.appendChild(soonTile(arc));

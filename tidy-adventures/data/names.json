@@ -56,6 +56,17 @@
     "🗺️":"Map","📜":"Scroll","🪐":"Ringed planet","🌙":"Crescent moon","🌠":"Shooting star","🛰️":"Satellite",
 
     "🎄":"Christmas tree","🎃":"Pumpkin","🎁":"Present","🏮":"Paper lantern","🪔":"Oil lamp",
-    "🎊":"Confetti ball","🎉":"Party popper"
+    "🎊":"Confetti ball","🎉":"Party popper",
+
+    "🌟":"Glowing star","💫":"Dizzy star","🌞":"Sun with face","☀️":"Sun",
+    "☁️":"Cloud","🌫️":"Fog","💨":"Dashing away","🌪️":"Tornado","🫧":"Bubbles",
+    "🌈":"Rainbow","⚡":"Lightning","🔥":"Fire","🎆":"Fireworks","🎇":"Sparkler",
+    "☄️":"Comet","❄️":"Snowflake","🌨️":"Snow cloud","⛄":"Snowman",
+    "🪨":"Rock","⛰️":"Mountain","🌋":"Volcano","🚀":"Rocket","🛸":"Flying saucer",
+    "🦁":"Lion","🦀":"Crab","🐂":"Ox","🐟":"Fish","🦂":"Scorpion","🐍":"Snake",
+    "🏹":"Bow and arrow","⚖️":"Scales","🗡️":"Dagger","⏳":"Hourglass",
+    "🌍":"Globe (Europe)","🌎":"Globe (Americas)","🌏":"Globe (Asia)",
+    "🌕":"Full moon","🌛":"First quarter moon","🌚":"New moon with face",
+    "🔄":"Loop arrows","➰":"Curly loop","🌀":"Cyclone","⭕":"Hollow circle"
   }
 }

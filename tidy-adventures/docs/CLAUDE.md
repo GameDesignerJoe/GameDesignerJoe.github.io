@@ -51,7 +51,8 @@ Each file opens with a `_readme` explaining its rules. The loader ignores any
 key starting with `_`.
 
 **A bad edit stops boot with a named on-screen error**, not a silent bug —
-that's `js/validate.js`. It checks that an emoji has exactly one home, that
+that's `js/validate.js`. It checks that an emoji has exactly one home **within
+a theme** (see below), that
 kinds and floors exist in both the JSON *and* the stylesheet, that locks have
 keys, that a config's type quota is actually reachable, that tip targets are
 real, and that no description contains a token nothing fills in. Errors block
@@ -231,6 +232,48 @@ was the active one *and* actually rendered.
 
 ---
 
+## Themes — more than one world
+
+A theme is a **room pool** (`data/themes.json`) plus a **palette**
+(`css/themes.css`). `house` is the game; `dream` is the second one — the tidier
+works so hard they dream about tidying, which is a wrapper that can hold any
+setting without explaining how the player got there. Space is only the first.
+
+**An emoji's home is unique PER THEME, not globally.** This is the rule that
+makes themed content possible at all, and it is worth understanding before you
+touch `rooms.json`. A run only ever draws rooms from one theme
+(`generate.js` takes its pool from `themeRooms`), so two homes for one emoji
+only make a run unwinnable when both rooms can turn up *together*. The check
+used to be global, which was stricter than the real requirement and blocked the
+obvious content: a space theme could not use 🪐 🔭 🌙 🛰️ because the house's
+Observatory had already claimed them — precisely the emoji it most wants. Now
+`house` and `dream` may each give those a home. **Within** one theme, two homes
+is still a boot error, for the original reason.
+
+A room listed in **no** theme can never be drawn, so that is a warning.
+
+**The theme reaches the screen through exactly one hook**: `applyTheme()` in
+`main.js` sets `document.body.dataset.theme`, and `css/themes.css` repoints
+`--bg`, `--wall` and `--wall-dark` — six declaration sites that between them
+own the walls of all three room shapes, the door surround, the door glow and
+the page background. Chrome tokens (`--panel`, `--ink`, `--gold`) are
+deliberately **not** themed: the HUD, gear and job board are what stay put
+while the world changes, and gold has to keep meaning "correct".
+
+Floors stay per-room (`.floor-*`), not per-theme — a theme is a set of rooms
+and each still wants its own ground.
+
+`theme` is saved with the run. It used to be generated and then dropped, with
+`loadGame` defaulting it back to `house`, which was invisible until something
+read it — and then a resumed dream came back beige.
+
+**To add a world:** a `themes.json` entry · rooms in `rooms.json` (their emoji
+need only be unique within the new theme) · a `floors` id and a `.floor-*` rule
+each · names in `names.json` · a `body[data-theme="…"]` block · levels with
+that `theme`, each claimed by a client stage.
+
+---
+
 ## Clients
 
 You are a professional tidier and people hire you. Every campaign level is one
@@ -258,7 +301,9 @@ quote and its own list of level rows — which read as a tall column of text wit
 small faces in it, and the faces are the point. So: a grid, play order, one big
 face per tile, captioned with **who hired you above the head and the job's own
 title below it** — the name labels the face, the title is what the tile is
-offering. Everything on it is still derived from the single progress integer. A tile is `done`/`now`/`locked` by index.
+offering. Everything on it is derived from the finished-ids set: a tile is
+`done` if its id is in there, `now` if it is the earliest unfinished job,
+`open` if it is behind the frontier, and `locked` past it.
 
 **Faces are rationed to three states.** Everything you have worked and the job
 you can start show their client outright; exactly **one** job ahead is greyed
@@ -271,10 +316,24 @@ level ids on the tiles run out of sequence near the end (7-1, 8-1, 7-2 …) and
 that is correct: `levels.json` is append-only, so the phase-2 arcs were
 appended in their own order and then interleave when played.
 
-**`levels.json` is append-only.** Progress is a single integer index into it
-(`PROGRESS_KEY`), so inserting or reordering a level silently re-points every
-player's saved progress at a different job. Saves now also record `levelId` and
-prefer it on load, which turns that from corruption into a clean discard.
+**`levels.json` is no longer append-only** — and that was the whole point of
+the progress change. Progress used to be one integer index into it
+(`PROGRESS_KEY`), so inserting a level silently re-pointed every saved player
+at a different job. It is now the **set of finished level ids** (`DONE_KEY`),
+plus a **frontier**: the furthest index you have ever reached. A tile is locked
+only *past* the frontier, so a job inserted behind an existing player shows up
+as playable-but-unplayed in a row of finished ones and **nothing downstream
+re-locks**. Ids are what make insertion safe; the frontier is what makes it
+humane.
+
+An old integer is migrated once, read against `LEGACY_ORDER` in `config.js` —
+a frozen copy of the campaign as it stood when indices still meant something.
+**Never reorder or edit that list**: it is the only way to know what index 7
+used to mean. New levels go in `levels.json` and never in there. The old key is
+deliberately left in place so rolling back to an older build loses nothing.
+
+Saves also record `levelId` alongside `levelIdx` and prefer it on load, which
+is what stops a resumed run opening the wrong job after an insertion.
 
 **The client is not an `.overlay`.** Overlays are dimmed full-screen modals and
 the whole point of the character is that the house stays visible behind them.
@@ -368,7 +427,8 @@ has asked for. `display: standalone` is what makes it feel like an app.
 | Key | Holds |
 |---|---|
 | `tidy-adventures-v4` | the current run, talents included |
-| `tidy-campaign-unlocked` | how far the campaign has been unlocked |
+| `tidy-campaign-done` | the ids of the jobs you have finished |
+| `tidy-campaign-unlocked` | the retired integer, read once to migrate, then left alone |
 | `tidy-audio` | master / effects / music volume, and mute |
 
 **Music uses an `<audio>` element for the source but is routed THROUGH the Web
@@ -460,8 +520,17 @@ Run through this after any change; it's what the browser tests cover.
   client speaks, the win screen waits for them. It must never stall there.
 - A client you haven't met is a silhouette with no name and no stage rows; a
   paused arc shows its waiting line, not the next stage's teaser.
-- An existing `tidy-campaign-unlocked` integer unlocks exactly the levels it did
-  before, now grouped under faces.
+- **Progress migration**, re-run after *any* change to `levels.json` order:
+  set `tidy-campaign-unlocked` to 0 / 4 / 13 / 22 by hand with
+  `tidy-campaign-done` cleared, and confirm every job that integer had finished
+  is still finished, that nothing already unlocked re-locks, and that an
+  inserted level shows as playable rather than dragging the frontier back.
+  Then reload again: the migration must be idempotent.
+- A dream level draws only dream rooms, is winnable to "0 left", and keeps
+  `data-theme="dream"` across quit-to-menu and Continue. The palette changes
+  between a house and a dream level; the HUD and gear do not.
+- Two themes sharing an emoji boots clean; the same emoji twice *inside* one
+  theme is a named boot error.
 - Campaign notes are signed by the client; free-play notes are still "— M".
 - The version on the title screen matches `VERSION` in `js/config.js`; the gear
   shows it again with the age of the copy, and Refresh brings back a newer

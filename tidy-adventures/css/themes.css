@@ -1,0 +1,37 @@
+/* ============================================================
+   THEMES — one palette per world
+
+   A theme is a room pool in data/themes.json. This is the other half: what
+   that pool LOOKS like. js/main.js applyTheme() puts the theme id on
+   <body data-theme="...">, and each block below repoints the three tokens
+   that own the world:
+
+     --bg          the page behind the stage
+     --wall        every room's walls — the rect border, the round border,
+                   the hex clip-path fill, and the door surround
+     --wall-dark   the outer ring and the door-beckon glow
+
+   Six declaration sites between them (css/base.css, css/room.css), which is
+   why a whole world costs three lines here.
+
+   WHAT IS DELIBERATELY NOT THEMED: --panel, --ink, --ink-dim, --gold. The
+   HUD, the gear, the job board and every overlay keep one identity across
+   every world. If the chrome changed too, nothing would anchor the player
+   between a kitchen and a nebula — and gold would stop meaning "correct",
+   which is the one colour the game teaches.
+
+   Floors stay per-room (.floor-* in css/room.css) rather than per-theme: a
+   theme is a set of rooms, and each room still gets its own ground.
+
+   Loaded LAST in index.html so these win over :root without !important.
+============================================================ */
+
+/* ---------- DREAM ----------
+   Deep indigo rather than black: the rooms have to read as rooms, and pure
+   black gives the walls nothing to sit against. The walls are a cold violet
+   so a dream room's silhouette is the first thing that says "not a house". */
+body[data-theme="dream"]{
+  --bg:#0d0a1c;
+  --wall:#3a2f63;
+  --wall-dark:#221a3d;
+}

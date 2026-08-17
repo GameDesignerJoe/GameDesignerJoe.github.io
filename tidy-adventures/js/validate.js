@@ -61,7 +61,9 @@ export function validateData(D) {
     (D.furniture?.anchors?.soft || []).length
   );
 
-  /* ---------- 1. an emoji has exactly one home ---------- */
+  /* Every emoji anywhere in the file, and which containers list it. Used by
+     the token and name checks below, which are genuinely global — a key must
+     not be sortable in ANY room, and an emoji needs a name wherever it lives. */
   const claims = new Map();
   for (const room of rooms) {
     for (const c of room.containers || []) {
@@ -71,11 +73,53 @@ export function validateData(D) {
       }
     }
   }
-  for (const [emoji, owners] of claims) {
-    if (owners.length > 1) {
-      errors.push(at("rooms.json",
-        `emoji "${emoji}" is claimed by ${owners.length} containers: ${owners.join(", ")}.`,
-        "Every emoji must have exactly one home, or items can never all be filed and the run becomes unwinnable."));
+
+  /* ---------- 1. an emoji has exactly one home WITHIN A THEME ----------
+
+     This used to be a single global check across the whole file, which was
+     stricter than the actual rule and it blocked themed content: a run only
+     ever draws rooms from ONE theme (generate.js takes its pool from
+     themeRooms), so two homes only make a run unwinnable when both rooms can
+     turn up together. Globally unique meant a space theme could not use 🪐 or
+     🔭 because the house's Observatory had already spoken for them — the exact
+     emoji it most wants. Per theme, both may claim them; they never share a
+     run. Within one theme it is still an error, for the original reason. */
+  const themeDefs = D.themes?.themes || {};
+  const listedBy = new Map();                 // room id -> [theme ids]
+  for (const [tid, t] of Object.entries(themeDefs)) {
+    for (const rid of t.rooms || []) {
+      if (!listedBy.has(rid)) listedBy.set(rid, []);
+      listedBy.get(rid).push(tid);
+    }
+  }
+  for (const [tid, t] of Object.entries(themeDefs)) {
+    const inTheme = new Map();
+    for (const rid of t.rooms || []) {
+      const room = rooms.find(r => r.id === rid);
+      if (!room) continue;                    /* check 6 names the bad id */
+      for (const c of room.containers || []) {
+        for (const e of c.types || []) {
+          if (!inTheme.has(e)) inTheme.set(e, []);
+          inTheme.get(e).push(`${room.id}/${c.id}`);
+        }
+      }
+    }
+    for (const [emoji, owners] of inTheme) {
+      if (owners.length > 1) {
+        errors.push(at("rooms.json",
+          `emoji "${emoji}" is claimed by ${owners.length} containers in theme "${tid}": ${owners.join(", ")}.`,
+          "Within one theme an emoji must have exactly one home, or a run that draws both rooms can never file it. " +
+          "Two different themes may each claim the same emoji — they never share a run."));
+      }
+    }
+  }
+  /* A room nothing lists is dead content: it can never be drawn, and the
+     per-theme check above never sees it either. */
+  for (const room of rooms) {
+    if (!listedBy.has(room.id)) {
+      warnings.push(at("rooms.json",
+        `room "${room.id}" is listed in no theme, so no run can ever draw it.`,
+        "Add its id to a theme in themes.json, or delete the room."));
     }
   }
 

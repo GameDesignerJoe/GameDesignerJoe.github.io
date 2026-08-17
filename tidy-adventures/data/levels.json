@@ -76,6 +76,18 @@
       ],
       "blurb": "Three rooms of mess. The minimap remembers where you've been." },
 
+    { "_note": [
+        "FIRST DREAM. Placed here on purpose: you cannot dream about tidying",
+        "until you have tidied, and four jobs in is where a house starts to",
+        "look like the same house. It teaches nothing — the whole beat is",
+        "'where am I' — so quests: false, because the quest seal starts a",
+        "container LOCKED and the very next level, 3-1, is called Under Lock",
+        "and is where locks are supposed to arrive." ],
+      "id": "D-1", "name": "The Sorting Dream", "theme": "dream",
+      "rooms": 2, "cont": 2, "types": 3, "rowLen": 4,
+      "doorKeys": 0, "contLocks": 0, "quests": false, "scale": [0.6, 0.8], "junk": true,
+      "blurb": "You are asleep, and the sky is untidy." },
+
     { "id": "3-1", "name": "Under Lock", "theme": "house",
       "rooms": 2, "cont": 3, "types": 3, "rowLen": 4,
       "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.55, 0.7], "junk": true,
@@ -103,6 +115,12 @@
       "rooms": 4, "cont": 3, "types": 4, "rowLen": 5,
       "doorKeys": 4, "contLocks": 1, "contKeys": 2, "scale": [0.7, 0.9], "junk": true,
       "blurb": "Everything at once. Good luck out there." },
+
+    { "_note": "Locks and keys are taught by now (3-1, 4-1), so this one keeps its seal.",
+      "id": "D-2", "name": "The Comet Yard", "theme": "dream",
+      "rooms": 3, "cont": 3, "types": 4, "rowLen": 5,
+      "doorKeys": 0, "contLocks": 1, "contKeys": 2, "scale": [0.65, 0.85], "junk": true,
+      "blurb": "Ice in one place, rock in the other." },
 
     { "id": "5-1", "name": "Talent Show", "theme": "house",
       "rooms": 3, "cont": 3, "types": 4, "rowLen": 5,
@@ -136,6 +154,13 @@
       "doorKeys": 0, "contLocks": 1, "contKeys": 2, "caches": 2,
       "scale": [0.75, 0.95], "junk": true,
       "blurb": "The whole house, one last time." },
+
+    { "_note": "All four dream rooms at once — the pool is exactly 4, so this is the only dream level that never varies its rooms.",
+      "id": "D-3", "name": "Every Star A Home", "theme": "dream",
+      "rooms": 4, "cont": 3, "types": 5, "rowLen": 5,
+      "doorKeys": 3, "doorLocks": 1, "contLocks": 1, "contKeys": 2, "caches": 1,
+      "scale": [0.7, 0.9], "junk": true,
+      "blurb": "Every star has a home. It is never once finished." },
 
     { "id": "7-1", "name": "Supervised Learning", "theme": "house",
       "rooms": 3, "cont": 3, "types": 4, "rowLen": 5,

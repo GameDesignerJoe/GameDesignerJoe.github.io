@@ -13,18 +13,33 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "1.1.3";
+export const VERSION = "1.2.0";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
 export const SAVE_KEY     = "tidy-adventures-v" + SAVE_VERSION;
+/* The OLD progress key: a single integer, "how many levels are unlocked".
+   Read once at boot to migrate, then never written again — left in place so
+   rolling back to an older build doesn't lose anyone's campaign. */
 export const PROGRESS_KEY = "tidy-campaign-unlocked";
+/* The new one: the ids of the jobs you have actually finished. An index can
+   only ever mean "the file has not changed since"; ids survive insertion,
+   which is what lets a level land in the middle of the campaign. */
+export const DONE_KEY     = "tidy-campaign-done";
+/* The campaign as it stood when progress was still an index, frozen. The only
+   way to read an old save correctly is to know what index 7 MEANT, so this
+   list must never be reordered or edited — it is a historical record, not a
+   config. New levels go in levels.json; they never go here. */
+export const LEGACY_ORDER = [
+  "1-1","1-2","2-1","2-2","3-1","3-2","4-1","4-2","5-1","5-2","5-3",
+  "6-1","6-2","7-1","8-1","7-2","9-1","8-2","7-3","9-2","8-3","9-3",
+];
 export const TALENTS_KEY  = "tidy-campaign-talents";
 export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 10;
+export const DATA_VERSION = 11;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice

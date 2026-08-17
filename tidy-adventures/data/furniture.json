@@ -54,7 +54,8 @@
   },
 
   "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret",
-             "playroom","music","mudroom","cellar","observatory"],
+             "playroom","music","mudroom","cellar","observatory",
+             "nebula","comet","constellation","orbit"],
 
   "tokens": {
     "key":  { "emoji": "🔑", "name": "Key",     "opens": "door" },
