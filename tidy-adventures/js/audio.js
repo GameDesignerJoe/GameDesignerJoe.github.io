@@ -17,6 +17,7 @@
 let ctx = null;
 let masterGain = null;
 let sfxGain = null;
+let musicGain = null;
 let cfg = null;
 let unlocked = false;
 const buffers = new Map();     // name -> AudioBuffer for real files
@@ -41,7 +42,37 @@ export function initAudio(audioData) {
   for (const ev of ["pointerdown", "keydown", "touchstart"]) {
     window.addEventListener(ev, unlock, { once: false, passive: true });
   }
+
+  /* PUT THE GAME DOWN AND IT GOES QUIET.
+
+     Nothing stops a looping <audio> element when a phone is locked or the app
+     is backgrounded — on an iPhone the music kept playing into a dark screen,
+     and on iOS it takes over the lock-screen controls while it does. A browser
+     tab gets away with this; something installed to the home screen reads as a
+     broken app.
+
+     visibilitychange covers lock, app switch and tab change on every platform
+     that matters. pagehide is the iOS belt-and-braces: Safari can move a page
+     into the back/forward cache without firing visibilitychange first. */
+  const sleep = () => {
+    resumeOnReturn = !!(musicEl && !musicEl.paused);
+    musicEl?.pause();
+    oldEl?.pause();
+    ctx?.suspend?.().catch?.(() => {});
+  };
+  const wake = () => {
+    if (document.hidden) return;
+    ctx?.resume?.().catch?.(() => {});
+    /* Only what was actually playing, and only where it left off — the track
+       is not restarted, so coming back mid-level doesn't reset the loop. */
+    if (resumeOnReturn && musicEl) musicEl.play().catch(() => {});
+    resumeOnReturn = false;
+  };
+  document.addEventListener("visibilitychange", () => document.hidden ? sleep() : wake());
+  window.addEventListener("pagehide", sleep);
+  window.addEventListener("pageshow", wake);
 }
+let resumeOnReturn = false;
 
 function ensureCtx() {
   if (ctx) return ctx;
@@ -50,7 +81,9 @@ function ensureCtx() {
   try { ctx = new AC(); } catch { return null; }
   masterGain = ctx.createGain();
   sfxGain = ctx.createGain();
+  musicGain = ctx.createGain();
   sfxGain.connect(masterGain);
+  musicGain.connect(masterGain);
   masterGain.connect(ctx.destination);
   applyVolumes();
   unlocked = true;
@@ -68,11 +101,22 @@ function applyVolumes() {
 /* ============================================================
    MUSIC
 
-   An <audio> element, not the Web Audio graph the effects use. Music is one
-   long file that wants to stream and loop natively; decoding a three-megabyte
-   track into an AudioBuffer to get the same result costs memory and delays the
-   first note by however long the decode takes. The cost of that choice is that
-   music has its own volume path — hence applyMusicVolume() beside applyVolumes.
+   An <audio> element for the SOURCE — one long file wants to stream and loop
+   natively, and decoding three megabytes into an AudioBuffer to reach the same
+   place costs memory and delays the first note — but its output is routed
+   THROUGH the Web Audio graph, and every volume change is made on a GainNode.
+
+   THIS IS AN iOS FIX, and it is the whole reason the routing exists.
+   `HTMLMediaElement.volume` is read-only on iOS: the setter is silently
+   ignored, because Apple reserves loudness for the hardware buttons. So a
+   build that set `el.volume` had music that could not be turned down and could
+   not be muted on an iPhone, while behaving perfectly on a desktop — which is
+   exactly how it was reported. A GainNode has no such restriction.
+
+   Chain: element -> MediaElementSource -> per-track gain -> musicGain ->
+   masterGain -> out. Per-track gain carries the track's own trim and the
+   cross-fade; musicGain is the Music slider; masterGain is Master and mute,
+   shared with the effects, which is what makes one mute button cover both.
 
    Tracks live in data/audio.json under "music", so a per-client theme later is
    a data edit: add the track, name it in clients.json, done.
@@ -83,16 +127,49 @@ let oldEl = null;          // what's fading out under it
 let musicId = null;
 let blockedTrack = null;   // asked for before the browser allowed audio
 
-const musicLevel = () => settings.muted ? 0 : settings.master * settings.music;
-
 function applyMusicVolume() {
+  if (musicGain) musicGain.gain.value = settings.music;
   for (const el of [musicEl, oldEl]) {
-    if (el) el.volume = Math.max(0, Math.min(1, musicLevel() * el._gain * el._fade));
+    if (!el) continue;
+    const v = Math.max(0, Math.min(1, el._gain * el._fade));
+    if (el._node) el._node.gain.value = v;
+    /* No graph yet (the context hasn't been unlocked): fall back to the
+       element, which works everywhere except iOS — and on iOS nothing is
+       audible before the unlocking gesture anyway. */
+    else el.volume = Math.max(0, Math.min(1, musicLevelFallback() * v));
+  }
+}
+const musicLevelFallback = () => settings.muted ? 0 : settings.master * settings.music;
+
+/* Stop a track and take it out of the graph. Without the disconnect every
+   track change leaves a dead source node hanging off musicGain for the rest of
+   the session — silent, but it accumulates. */
+function retire(el) {
+  if (!el) return;
+  el.pause();
+  try { el._node?.disconnect(); } catch {}
+  el._node = null;
+}
+
+/* Route an element into the graph. Once only per element — a second
+   createMediaElementSource on the same element throws. */
+function wire(el) {
+  if (el._node || !ensureCtx()) return;
+  try {
+    const node = ctx.createGain();
+    ctx.createMediaElementSource(el).connect(node);
+    node.connect(musicGain);
+    node.gain.value = 0;
+    el._node = node;
+    el.volume = 1;              /* the graph does the attenuating now */
+  } catch (e) {
+    console.warn("[Tidy Adventures] audio: music could not be routed through the graph; " +
+      "volume and mute will not work on iOS.", e.message);
   }
 }
 
-/* Volume ramp on a timer. The element's own `volume` has no scheduling API the
-   way an AudioParam does, so this is the fade. */
+/* Volume ramp on a timer. AudioParam has scheduling, but the ramp has to drive
+   the element fallback too, so one timer covers both paths. */
 function ramp(el, to, ms, done) {
   clearInterval(el._timer);
   const from = el._fade, t0 = performance.now();
@@ -112,21 +189,31 @@ export function playMusic(id) {
   if (musicId === id && musicEl && !musicEl.paused) return;
 
   if (musicEl) {                       /* fade the outgoing one out and drop it */
-    if (oldEl) { clearInterval(oldEl._timer); oldEl.pause(); }
+    if (oldEl) { clearInterval(oldEl._timer); retire(oldEl); }
     oldEl = musicEl;
-    ramp(oldEl, 0, FADE_MS, () => { oldEl?.pause(); oldEl = null; });
+    ramp(oldEl, 0, FADE_MS, () => { retire(oldEl); oldEl = null; });
   }
 
   const el = new Audio(def.src);
   el.loop = def.loop !== false;
   el.preload = "auto";
+  /* Deliberately NOT crossOrigin: the tracks are same-origin, so the graph
+     can't be tainted by them, and setting it would turn a plain media request
+     into a CORS one for no benefit — on the one platform this routing exists
+     to fix, and which I can't test directly. If music ever moves to another
+     origin it will need `crossOrigin = "anonymous"` AND CORS headers, or the
+     graph will output silence. */
   el._gain = def.vol ?? 1;
   el._fade = 0;
+  el._node = null;
   musicEl = el;
   musicId = id;
+  wire(el);
   applyMusicVolume();
   el.play().then(() => {
     blockedTrack = null;
+    wire(el);                          /* in case the context only opened now */
+    applyMusicVolume();
     ramp(el, 1, FADE_MS);
   }).catch(() => {
     /* Autoplay policy: no gesture yet. initAudio's unlock listener retries. */
@@ -157,7 +244,17 @@ export const musicDebug = () => ({
   src: musicEl?.src.split("/").pop() ?? null,
   paused: musicEl?.paused ?? null,
   at: musicEl ? +musicEl.currentTime.toFixed(2) : null,
-  volume: musicEl ? +musicEl.volume.toFixed(3) : null,
+  /* What the graph is actually doing, which is the only number that means
+     anything on iOS — el.volume is ignored there. */
+  routed: !!musicEl?._node,
+  trackGain: musicEl?._node ? +musicEl._node.gain.value.toFixed(3) : null,
+  musicGain: musicGain ? +musicGain.gain.value.toFixed(3) : null,
+  masterGain: masterGain ? +masterGain.gain.value.toFixed(3) : null,
+  out: musicEl?._node && musicGain && masterGain
+    ? +(musicEl._node.gain.value * musicGain.gain.value * masterGain.gain.value).toFixed(4)
+    : null,
+  ctx: ctx?.state ?? null,
+  elVolume: musicEl ? +musicEl.volume.toFixed(3) : null,
   fadingOut: oldEl ? oldEl.src.split("/").pop() : null,
 });
 

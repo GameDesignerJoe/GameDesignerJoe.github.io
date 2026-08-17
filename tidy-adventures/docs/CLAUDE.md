@@ -371,11 +371,27 @@ has asked for. `display: standalone` is what makes it feel like an app.
 | `tidy-campaign-unlocked` | how far the campaign has been unlocked |
 | `tidy-audio` | master / effects / music volume, and mute |
 
-**Music is an `<audio>` element, not the Web Audio graph the effects use.**
-One long looping file wants to stream; decoding three megabytes into an
-`AudioBuffer` to reach the same place costs memory and delays the first note.
-The price is that music has its own volume path (`applyMusicVolume`) alongside
-the graph's, so a change to one has to be mirrored in the other. Browsers
+**Music uses an `<audio>` element for the source but is routed THROUGH the Web
+Audio graph, and every volume change is made on a `GainNode`.** The element is
+there because one long looping file wants to stream — decoding three megabytes
+into an `AudioBuffer` costs memory and delays the first note. The routing is
+there because **`HTMLMediaElement.volume` is read-only on iOS**: the setter is
+silently ignored, so the first build's music could not be turned down or muted
+on an iPhone while behaving perfectly on a desktop. Never set `el.volume` as
+the volume path again — the chain is element → `MediaElementSource` → per-track
+gain (trim + cross-fade) → `musicGain` (the Music slider) → `masterGain`
+(Master and mute, shared with the effects, which is what makes one mute button
+cover both). Music is same-origin on purpose; moving it to another origin needs
+`crossOrigin` **and** CORS headers or the graph outputs silence.
+
+**Audio stops when the game is put down.** `visibilitychange` (plus `pagehide`
+for iOS's back/forward cache) pauses the track and suspends the context;
+returning resumes from where it left off rather than restarting the loop.
+Without it a looping element plays on into a locked phone and takes over the
+iOS lock-screen controls — survivable in a tab, broken-feeling in something
+installed to a home screen.
+
+Browsers
 refuse audio before a gesture, so a track asked for too early is remembered in
 `blockedTrack` and started by the same first-tap listener that unlocks the
 effects — which is why the title music begins the instant you touch the screen
