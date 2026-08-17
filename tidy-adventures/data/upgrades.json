@@ -2,46 +2,76 @@
   "_readme": [
     "TALENTS and how you earn them.",
     "",
-    "costs[] is indexed by CURRENT level: costs[0] is the price of the first",
-    "purchase, costs[1] the second, and so on. The array LENGTH is the max level —",
-    "there is no separate 'max' field to keep in sync. Want 5 hand slots? Five",
-    "numbers. Want the 4th to cost 20? Type 20.",
+    "levels — how many times this talent can be taken. That is the whole knob.",
+    "It used to be a costs[] array of prices, but ⭐ is score and is never spent",
+    "(see the header of js/talents.js), so nothing ever read a price. Five numbers",
+    "sat there looking like balance you could tune, and tuning them did nothing.",
     "",
     "draftSteps — lifetime ⭐ thresholds. Crossing one grants a pick-1-of-3 draft.",
     "             Stars are score, not a wallet: they are never spent.",
     "",
     "desc supports {token} and {token|sec} (milliseconds -> seconds), resolved",
     "against this upgrade's params. An unresolvable token is a boot error, so a",
-    "typo can never ship to the player."
+    "typo can never ship to the player.",
+    "",
+    "EVERY id HERE MUST BE IMPLEMENTED. The list of ids the code actually reads",
+    "is TALENT_IDS in js/config.js, and boot validation compares the two. Adding",
+    "a talent here and nowhere else used to give you a card that animated, said",
+    "its name, incremented a level and did nothing whatsoever — invisible, because",
+    "a talent that does nothing looks exactly like a talent you misunderstood.",
+    "Same rule for consumable `effect` values and CONSUMABLE_EFFECTS.",
+    "",
+    "WHAT WAS CUT, AND WHY, so it doesn't get reinvented:",
+    "",
+    "  Magnet Fingers used to fire on PICK-UP: grabbing an item also grabbed",
+    "  matching items within 14% of the room. Measured over 180 generated rooms",
+    "  and 10,272 floor items, that condition was true 8.1% of the time — a",
+    "  talent that did nothing in 92 pick-ups out of 100. The fantasy was right",
+    "  and the moment was wrong: duplicates exist (71.7% of items have one loose",
+    "  in the same room) but they are scattered, so requiring them to be NEAR",
+    "  each other threw the talent away. It now fires on PUT-AWAY, where being",
+    "  near each other doesn't matter.",
+    "",
+    "  Tidy Whirlwind sorted the items already inside containers into clean rows.",
+    "  It filed nothing off the floor, so it never moved the only number the",
+    "  player is watching. It also cost a HUD button, a cooldown ticker, a",
+    "  once-a-second interval and a consumable to refresh it."
   ],
 
   "draftSteps": [4, 10, 18, 28, 40, 55, 72],
   "draftCards": 3,
 
   "upgrades": [
-    { "id": "hands",  "name": "Bigger Hands",   "icon": "🙌",
-      "costs": [3, 5, 7, 9, 11],
+    { "id": "hands",  "name": "Bigger Hands",  "icon": "🙌", "levels": 5,
       "desc": "+1 hand slot. Haul more per trip." },
 
-    { "id": "magnet", "name": "Magnet Fingers", "icon": "🧲",
-      "costs": [4], "params": { "radius": 14 },
-      "desc": "Picking up an item grabs nearby matching items too." },
-
-    { "id": "sense",  "name": "Sixth Sense",    "icon": "🔮",
-      "costs": [5],
+    { "id": "sense",  "name": "Sixth Sense",   "icon": "🔮", "levels": 1,
       "desc": "Held items whisper where they live — and their home glows if it's in the room." },
 
-    { "id": "whirl",  "name": "Tidy Whirlwind", "icon": "🌀",
-      "costs": [8], "params": { "cooldownMs": 60000 },
-      "desc": "Active 🌀: instantly organize every container in the room into clean rows. {cooldownMs|sec}s cooldown." }
+    { "id": "magnet", "name": "Magnet Fingers", "icon": "🧲", "levels": 3,
+      "params": { "pull": 1 },
+      "desc": "Putting something away tugs {pull} more of its kind off the floor and into the same home. One more per level." },
+
+    { "id": "oneTrip", "name": "One Trip",     "icon": "🫳", "levels": 2,
+      "desc": "Put one thing away and the rest of the armful goes with it — its own kind at first, then anything in your hands that lives there." },
+
+    { "id": "homesick", "name": "Homesick",    "icon": "🏡", "levels": 1,
+      "desc": "Anything on this floor with a home in this room gives off a soft glow." }
   ],
 
+  "_consumableNote": [
+    "One-offs, used to back-fill a draft when there aren't three talents left to",
+    "offer. `effect` must be in CONSUMABLE_EFFECTS (js/config.js).",
+    "",
+    "Two of the three that used to live here — Second Wind and X-Ray Eyes — set a",
+    "field on the run that NOTHING EVER READ. They were drafted, animated, named",
+    "and had no effect at all. X-Ray's idea was worth keeping, so it is a real",
+    "talent now (Homesick); Second Wind went with the Whirlwind it refreshed."
+  ],
   "consumables": [
-    { "id": "stars3", "name": "Lucky Find",  "icon": "⭐", "effect": "stars", "amount": 3,
+    { "id": "stars3", "name": "Lucky Find", "icon": "⭐", "effect": "stars", "amount": 3,
       "desc": "+3 ⭐ right now." },
-    { "id": "freeWhirl", "name": "Second Wind", "icon": "🌀", "effect": "freeWhirl",
-      "desc": "One free Whirlwind, no cooldown." },
-    { "id": "xray", "name": "X-Ray Eyes", "icon": "👁️", "effect": "xray", "durationMs": 20000,
-      "desc": "Every container in this room glows if something here belongs in it. 20s." }
+    { "id": "armful", "name": "Drop Everything", "icon": "🧺", "effect": "fileHands",
+      "desc": "Right now: everything in your hands that lives in this room goes home." }
   ]
 }

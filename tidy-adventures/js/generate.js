@@ -492,6 +492,5 @@ export function generate(cfg) {
     awarded: new Set(), taught: new Set(),
     roomFxDone: new Set(),
     up: upgradeDefaults(),
-    whirlReady: 0,
   };
 }

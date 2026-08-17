@@ -21,16 +21,22 @@
 ============================================================ */
 import { $, el, setHidden, shopBtn } from './dom.js';
 import { isSpeaking } from './client.js';
-import { DATA, LOOKUP, costFor, maxLevel, upgradeParam } from './data.js';
+import { CONSUMABLE_EFFECTS } from './config.js';
+import { DATA, maxLevel } from './data.js';
 import { G } from './state.js';
-import { rnd, shuffle, tokenise } from './util.js';
+import { shuffle, tokenise } from './util.js';
 import { say, flyReward } from './feedback.js';
 import { play as sfx } from './audio.js';
 
 let onGrant = () => {};
-/* main.js owns rendering; it hands us a callback so this module never has to
-   import the render tier (which would be a cycle). */
-export function initTalents({ grant }) { onGrant = grant; }
+let onFileHands = () => 0;
+/* main.js owns rendering AND the rules; it hands us callbacks so this module
+   never has to import either tier (which would be a cycle). A consumable that
+   moves items has to reach the rules, so it reaches them through here. */
+export function initTalents({ grant, fileHands }) {
+  onGrant = grant;
+  onFileHands = fileHands;
+}
 
 const steps = () => DATA.upgrades.draftSteps;
 
@@ -198,11 +204,19 @@ function choose(c, cardEl, grid) {
   }, 620);
 }
 
+/* EVERY case here must appear in CONSUMABLE_EFFECTS (js/config.js), and every
+   name in that list must appear here. Boot validation checks the data against
+   the list; this comment is the other half. Two consumables used to ship with
+   an effect that fell straight through this switch — drafted, animated, named,
+   and doing nothing at all. */
 function applyConsumable(c) {
   switch (c.effect) {
     case "stars":     G.points += c.amount; G.starsEarned += c.amount; break;
-    case "freeWhirl": G.freeWhirls = (G.freeWhirls || 0) + 1; break;
-    case "xray":      G.xrayUntil = Date.now() + (c.durationMs || 20000); break;
+    case "fileHands": onFileHands(); break;
+    default:
+      /* Unreachable if validation ran, which is exactly why it is worth saying
+         out loud rather than shrugging. */
+      console.error("[Tidy Adventures] consumable effect with no handler:", c.effect);
   }
 }
 

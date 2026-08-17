@@ -56,9 +56,6 @@ export function blankRun() {
        defaults on. See checkDraftThreshold() in talents.js. */
     talents: true,
     up: {},
-    whirlReady: 0,
-    freeWhirls: 0,
-    xrayUntil: 0,
 
     /* teaching */
     tips: [], tipsDone: new Set(), tipShown: new Set(),

@@ -9,7 +9,7 @@
 
    Imports: none. This is a leaf.
 ============================================================ */
-import { MAX_ROOMS } from './config.js';
+import { MAX_ROOMS, TALENT_IDS, CONSUMABLE_EFFECTS } from './config.js';
 import { tokensIn } from './util.js';
 
 export class DataError extends Error {}
@@ -326,13 +326,27 @@ export function validateData(D) {
     }
   }
 
-  /* ---------- 9. upgrades ---------- */
+  /* ---------- 9. upgrades ----------
+     THE IMPORTANT CHECK HERE IS THE LAST ONE. A talent is half data and half
+     code, and only the data half shows: a talent listed here with nothing
+     reading its id gives you a draft card that animates, says its name, raises
+     a level and does nothing at all. Two consumables shipped in exactly that
+     state — Second Wind and X-Ray Eyes both set a field on the run that
+     nothing ever read — and neither looked broken, because a talent that does
+     nothing looks exactly like a talent you misunderstood. So the ids the code
+     implements are declared in js/config.js and compared here, both ways. */
+  const seenUp = new Set();
   for (const u of D.upgrades?.upgrades || []) {
-    if (!Array.isArray(u.costs) || !u.costs.length) {
-      errors.push(at("upgrades.json", `"${u.id}" has no costs array.`,
-        "The array length is the max level, so an empty one means the talent can never be taken."));
-    } else if (u.costs.some(c => !(Number.isFinite(c) && c > 0))) {
-      errors.push(at("upgrades.json", `"${u.id}" has a cost that is not a positive number: [${u.costs}]`));
+    if (!u.id) { errors.push(at("upgrades.json", "an upgrade has no id.")); continue; }
+    if (seenUp.has(u.id)) {
+      errors.push(at("upgrades.json", `two upgrades share the id "${u.id}".`,
+        "G.up is keyed by id, so the second would silently share the first's level."));
+    }
+    seenUp.add(u.id);
+    if (!(Number.isInteger(u.levels) && u.levels > 0)) {
+      errors.push(at("upgrades.json",
+        `"${u.id}" has levels: ${JSON.stringify(u.levels)}, which is not a positive whole number.`,
+        "levels is how many times the talent can be taken; 0 means it can never be taken."));
     }
     for (const tok of tokensIn(u.desc || "")) {
       if (!(u.params && tok in u.params)) {
@@ -341,6 +355,44 @@ export function validateData(D) {
           "The raw token would be shown to the player."));
       }
     }
+    if (!TALENT_IDS.includes(u.id)) {
+      errors.push(at("upgrades.json",
+        `talent "${u.id}" is not implemented — no code reads it.`,
+        "Add it to TALENT_IDS in js/config.js and write the code that reads " +
+        "G.up." + u.id + ", or remove it here. A talent with no code still " +
+        "draws a card, plays the sound and raises a level; it just does nothing."));
+    }
+  }
+  for (const id of TALENT_IDS) {
+    if (!seenUp.has(id)) {
+      errors.push(at("upgrades.json",
+        `TALENT_IDS lists "${id}" but upgrades.json has no such talent.`,
+        "The code reads G.up." + id + ", which will be undefined forever. " +
+        "Either add the talent here or drop it from js/config.js."));
+    }
+  }
+  const seenCon = new Set();
+  for (const c of D.upgrades?.consumables || []) {
+    if (seenCon.has(c.id)) {
+      errors.push(at("upgrades.json", `two consumables share the id "${c.id}".`));
+    }
+    seenCon.add(c.id);
+    if (!CONSUMABLE_EFFECTS.includes(c.effect)) {
+      errors.push(at("upgrades.json",
+        `consumable "${c.id}" has effect "${c.effect}", which nothing implements.`,
+        `Known effects: ${CONSUMABLE_EFFECTS.join(", ")}. Add a case to ` +
+        "applyConsumable() in js/talents.js and the name to CONSUMABLE_EFFECTS " +
+        "in js/config.js, or the card is a reward that does nothing."));
+    }
+  }
+  /* The draft back-fills with consumables when the talent pool runs dry, so
+     there has to be enough of both to fill a grid. */
+  const cards = D.upgrades?.draftCards ?? 3;
+  const supply = (D.upgrades?.upgrades || []).length + (D.upgrades?.consumables || []).length;
+  if (supply < cards) {
+    warnings.push(at("upgrades.json",
+      `${supply} things to offer but draftCards is ${cards}, so a draft can never fill its grid.`,
+      "Add a talent or a consumable, or lower draftCards."));
   }
   const steps = D.upgrades?.draftSteps;
   if (!Array.isArray(steps) || !steps.length) {

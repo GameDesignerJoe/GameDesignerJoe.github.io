@@ -132,8 +132,10 @@ function deepFreeze(o) {
 ============================================================ */
 
 /* costs[] is indexed by current level; past the end means maxed. */
-export const costFor  = (u, lvl) => (lvl >= u.costs.length ? null : u.costs[lvl]);
-export const maxLevel = u => u.costs.length;
+/* How many times a talent can be taken. This used to be `u.costs.length` — the
+   length of a price list whose prices nothing ever read, because ⭐ is score and
+   is never spent. `levels` says the one thing that was actually true. */
+export const maxLevel = u => u.levels || 1;
 
 export const nameOf   = emoji => LOOKUP.names[emoji] || emoji;
 export const tokenFor = emoji => LOOKUP.tokenByEmoji[emoji] || null;

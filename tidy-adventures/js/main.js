@@ -16,11 +16,11 @@ import { rnd, tokenise } from './util.js';
 /* `el` is aliased: this file has many local `const el = ...` inside render
    functions, and an unaliased import would be shadowed confusingly. */
 import {
-  $, host, invBar, contGrid, shopBtn, whirlBtn, setHidden, el as mkEl,
+  $, host, invBar, contGrid, shopBtn, setHidden, el as mkEl,
 } from './dom.js';
 import { say, bump, flyStar, roomCompleteFX, clearSay } from './feedback.js';
 import {
-  DATA, LOOKUP, loadData, nameOf, costFor, maxLevel,
+  DATA, LOOKUP, loadData, nameOf, maxLevel,
   itemCount, upgradeParam, upgradeDefaults, jobAt,
 } from './data.js';
 import { showClient, hideClient, isSpeaking } from './client.js';
@@ -55,7 +55,6 @@ const UPGRADES = DATA.upgrades.upgrades;
 const SIZES    = LOOKUP.sizeById;
 const LEVELS   = LOOKUP.levelByIdx;
 const NAMES    = LOOKUP.names;
-const WHIRL_CD = upgradeParam("whirl", "cooldownMs", 60000);
 
 /* ============================================================
    CAMPAIGN PROGRESS — finished job ids, not a count
@@ -256,7 +255,6 @@ function saveGame(){
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
       visited:[...G.visited], awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
       points:G.points, up:G.up,
-      whirlRemain:Math.max(0, G.whirlReady-Date.now()),
     }));
   }catch(e){/* storage unavailable in this environment */}
 }
@@ -317,7 +315,6 @@ function loadGame(){
       points:d.points||0,
       starsEarned:d.starsEarned??d.points??0,
       up:{...upgradeDefaults(), ...(d.up||{})},
-      whirlReady:Date.now()+(d.whirlRemain||0),
     },{
       mode:d.mode||"free",
       levelIdx:(levelIdx==null?null:levelIdx),
@@ -509,6 +506,25 @@ function insertContainerKey(contIdx, it, fromSlot){
    try/catch swallowed the temporal-dead-zone throw on the first frame.
 ============================================================ */
 
+/* HOMESICK. Does this item have a home in this room that could take it right
+   now? Measured across 180 generated rooms, a quarter of what's lying on any
+   given floor lives in that room — so this lights about 25% of the clutter,
+   which is a signal rather than a wash. The useful half is the inverse: the
+   other 75% is stuff you are going to have to carry somewhere, and until now
+   the only way to learn that was to pick each piece up and ask.
+
+   "Could take it right now" is the literal reading, and the honest one: a
+   locked chest or a full one glows for nothing, because you cannot act on it. */
+function homesick(room, it){
+  if(!G.up.homesick) return false;
+  if(it.isKey||it.isCoin||it.isNote||it.token) return false;
+  const h=G.typeHome[it.type];
+  if(!h || h.room!==room.id) return false;
+  const c=room.containers[h.cont];
+  if(!c || (c.lock && !c.lock.open)) return false;
+  return !!bestSpot(c, it.type);
+}
+
 function buildRoomEl(room){
   const el=document.createElement("div");
   /* A finished room turns its own walls gold — see .room.done in room.css.
@@ -631,20 +647,18 @@ function buildRoomEl(room){
     ke.innerHTML=`<span class="cico">🪙</span><span class="slotline"></span>`;
     el.appendChild(ke);
   }
-  /* Tokens go down FIRST, so the clutter paints on top of them.
-     Every item shares z-index 6, so this order is the whole burial: a key
-     under a pile is behind it and taps hit whatever is on top, which is what
-     makes finding one a matter of clearing the pile rather than scanning for
-     the shiniest emoji on the floor. Generation drops keys into the clutter
-     on purpose — see generate.js. */
   /* Tokens go down FIRST so the clutter paints over them — that ordering is
-     the entire burial, since every item shares a z-index. */
+     the entire burial, since every item shares a z-index. A key under a pile
+     is behind it, which is what makes finding one a matter of clearing the
+     pile rather than scanning for the shiniest emoji on the floor. Generation
+     drops keys into the clutter on purpose — see generate.js. */
   const floorItems=Object.values(G.items)
     .filter(it=>it.loc.kind==="floor" && it.loc.room===room.id && !it.flying)
     .sort((a,b)=>(a.token?0:1)-(b.token?0:1));
   for(const it of floorItems){
     const sp=document.createElement("div");
-    sp.className="item"+(it.token?" buried":"")+(G.reveal&&it.token?" revealed":"");
+    sp.className="item"+(it.token?" buried":"")+(G.reveal&&it.token?" revealed":"")
+      +(homesick(room, it)?" homesick":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
     /* The glyph is drawn at --item-size directly; the only scale() an item
@@ -767,20 +781,10 @@ function renderHUD(){
   }).length;
   $("#remaining").textContent=left+" left";
   $("#shopBtn").textContent="⭐ "+G.points;
-  updateWhirlBtn();
   drawMinimap();
   scheduleSave();
 }
 
-function updateWhirlBtn(){
-  const b=$("#whirlBtn");
-  if(!G.up.whirl){ b.hidden=true; return; }
-  b.hidden=false;
-  const remain=G.whirlReady-Date.now();
-  if(remain>0){ b.classList.add("cool"); b.textContent=Math.ceil(remain/1000)+"s"; }
-  else{ b.classList.remove("cool"); b.textContent="🌀"; }
-}
-setInterval(()=>{ if(G && G.up.whirl) updateWhirlBtn(); },1000);
 
 function drawMinimap(){
   const cv=$("#minimap canvas"), ctx=cv.getContext("2d");
@@ -908,8 +912,8 @@ const beats=[];
 let beatBusy=false;
 
 function celebrate(beat){
-  /* Already queued? Once is a celebration, twice is noise. Whirlwind can
-     finish eight rows in one call. */
+  /* Already queued? Once is a celebration, twice is noise. One Trip at level 2
+     can finish several rows in a single put-away. */
   if(beat.key && beats.some(b=>b.key===beat.key)) return;
   beats.push(beat);
   playBeats();
@@ -1047,21 +1051,9 @@ function pickUp(itemId){
   if(G.sel===null) G.sel=slot;
   sfx(it.isKey||it.isCoin ? "keyPickup" : "pickup");
   fire("pickUp");
-  let extra=0;
-  if(G.up.magnet){
-    const near=Object.values(G.items)
-      .filter(o=>o.id!==it.id && o.loc.kind==="floor" && o.loc.room===G.current
-        && o.type===it.type && Math.hypot(o.loc.x-sx,o.loc.y-sy)<=14)
-      .sort((a,b)=>Math.hypot(a.loc.x-sx,a.loc.y-sy)-Math.hypot(b.loc.x-sx,b.loc.y-sy));
-    for(const o of near){
-      const s2=G.inv.indexOf(null);
-      if(s2===-1) break;
-      o.loc={kind:"inv",slot:s2};
-      G.inv[s2]=o.id;
-      extra++;
-    }
-  }
-  if(extra) say(nameOf(it.type)+" ×"+(extra+1)+" 🧲", {key:"magnet"});
+  /* Magnet Fingers used to fire here, sweeping up matching items within 14% of
+     the room. It was true 8.1% of the time. It now fires on put-away instead —
+     see cascade(). */
   render();
 }
 
@@ -1070,6 +1062,76 @@ function tapSlot(i){
   G.sel = (G.sel===i) ? null : i;
   renderInv();
   if(G.up.sense) renderRoom();
+}
+
+/* ============================================================
+   THE CASCADE — One Trip and Magnet Fingers
+
+   Both talents answer the same complaint from the notes doc: filing is done
+   one item at a time even when the next five are obviously the same errand.
+   They fire at the same moment (a correct placement) and differ only in where
+   they reach:
+
+     One Trip       your HANDS. Level 1 takes the same kind, level 2 takes
+                    anything you're carrying that lives in this container.
+     Magnet Fingers the FLOOR of this room, `pull` items of the filed kind per
+                    level.
+
+   Only on a CORRECT placement, deliberately. A wrong drop is information — the
+   grey shake is how the game teaches where things live — and cascading five
+   more items into the wrong home would turn one mistake into six, then make
+   the player undo all of them. Getting it right is what pays.
+
+   Returns how many extra items it filed, so the caller can say so.
+============================================================ */
+function cascade(room, c, contIdx, type){
+  const filed=[];
+  const put=o=>{
+    const spot=bestSpot(c, o.type);
+    if(!spot) return false;                 /* container full: stop, quietly */
+    c.cells[spot.row][spot.col]=o.id;
+    o.loc={kind:"cell",room:room.id,cont:c.id,row:spot.row,col:spot.col};
+    judgeToss(o, room.id, contIdx);
+    filed.push(spot.row);
+    return true;
+  };
+  const livesHere=o=>{
+    const h=G.typeHome[o.type];
+    return h && h.room===room.id && h.cont===contIdx;
+  };
+
+  /* ---- One Trip: out of your hands ---- */
+  if(G.up.oneTrip){
+    for(let s=0;s<G.inv.length;s++){
+      const id=G.inv[s];
+      if(id===null) continue;
+      const o=G.items[id];
+      if(o.isKey||o.isCoin||o.isNote) continue;
+      /* Level 1 is "and the others like it"; level 2 is "and everything else
+         that lives in this drawer". Level 2 is the one the doc asked for;
+         level 1 exists so the talent has somewhere to grow from. */
+      const want = G.up.oneTrip>=2 ? livesHere(o) : (o.type===type && livesHere(o));
+      if(!want) continue;
+      if(!put(o)) break;
+      G.inv[s]=null;
+    }
+    G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
+  }
+
+  /* ---- Magnet Fingers: off the floor of this room ---- */
+  if(G.up.magnet){
+    const budget=G.up.magnet*upgradeParam("magnet","pull",1);
+    const loose=Object.values(G.items)
+      .filter(o=>o.loc.kind==="floor" && o.loc.room===room.id && o.type===type)
+      /* Nearest first, so what flies home is what you could see — the talent
+         reads as a tug on the pile you are standing in, not teleportation
+         from a room-corner you have never looked at. */
+      .sort((a,b)=>Math.hypot(a.loc.x-50,a.loc.y-50)-Math.hypot(b.loc.x-50,b.loc.y-50))
+      .slice(0,budget);
+    for(const o of loose) if(!put(o)) break;
+  }
+
+  return filed;
 }
 
 /* toss an item into a piece of furniture: first empty slot, no logic */
@@ -1108,7 +1170,29 @@ function tossInto(it, contIdx, fromSlot){
   const home=G.typeHome[it.type];
   const right=home.room===room.id && home.cont===contIdx;
   judgeToss(it, room.id, contIdx);
-  afterMutation(room,c,[spot.row]);
+  /* The talents ride along BEFORE afterMutation, so the rows they complete are
+     in the same batch as the row you completed by hand: one gold flash, one
+     "+3 ⭐" chip, one celebration. Paying them out separately would turn one
+     satisfying put-away into a stutter of three. */
+  const extra = right ? cascade(room, c, contIdx, it.type) : [];
+  /* Deduped: two cascaded items can land in the same row, and afterMutation
+     would then look at that row twice. G.awarded stops it paying twice either
+     way, but the celebration counts off this list. */
+  afterMutation(room,c,[...new Set([spot.row,...extra])]);
+  if(extra.length){
+    /* `whirlwind` lost its call site when the Whirlwind talent went, and it is
+       a whoosh — which is exactly what a handful of things flying home sounds
+       like. The same sound, at the moment it was always describing. */
+    sfx("whirlwind");
+    /* Count, not type: One Trip at level 2 files a whole mixed armful, so
+       "Onion ×4" would be a lie. */
+    say("+"+extra.length+" more put away ✨", {key:"cascade"});
+    renderInv();
+    /* The panel can be open on the very container we just poured into — the
+       room's furniture is still reachable around the edges of it. One item
+       landing was survivable to miss; a cascade landing five is not. */
+    if(G.openCont===c.id) renderContainer();
+  }
   renderRoom();
   const fe2=host.querySelector(`.furn[data-cont="${contIdx}"]`);
   if(fe2) fe2.classList.add(right?"goldhit":"pophit");
@@ -1314,68 +1398,49 @@ function moveWithinContainer(fromRow,fromCol,toRow,toCol){
   if(el) el.classList.add(right?"gold":"cold");
 }
 
-/* ============================================================
-   UPGRADE ACTIONS
-============================================================ */
-function doWhirl(){
-  if(!G.up.whirl) return;
-  if(Date.now()<G.whirlReady){ bump(whirlBtn, "⏳"); return; }
-  const room=G.rooms[G.current];
-  let any=false;
-  for(const c of room.containers){
-    if(c.lock && !c.lock.open) continue;
-    const ids=c.cells.flat().filter(v=>v!==null);
-    if(!ids.length) continue;
-    // group by type, first-seen order; each type starts a fresh row
-    const groups=new Map();
-    for(const id of ids){
-      const t=G.items[id].type;
-      if(!groups.has(t)) groups.set(t,[]);
-      groups.get(t).push(id);
-    }
-    const rows=c.cells.length;
-    /* These two were hardcoded to 5. On Mega (rowLen 8) the rebuilt grid was
-       3 cells narrower than the real one, so up to 3 items per type were
-       dropped out of `cells` while their loc still pointed at a cell that no
-       longer held them: counted in "N left" forever, run unwinnable. */
-    const len=G.rowLen;
-    c.cells=Array.from({length:rows},()=>Array(len).fill(null));
-    let r=0, overflow=[];
-    for(const [,arr] of groups){
-      if(r>=rows){ overflow.push(...arr); continue; }
-      let col=0;
-      for(const id of arr){
-        if(col===len){ break; } // a type never exceeds one row, safety only
-        c.cells[r][col]=id;
-        G.items[id].loc={kind:"cell",room:room.id,cont:c.id,row:r,col};
-        col++;
-      }
-      r++;
-    }
-    // safety net for fragmentation: stuff leftovers into remaining cells
-    for(const id of overflow){
-      const spot=firstEmptyCell(c);
-      if(!spot) break;
-      c.cells[spot.row][spot.col]=id;
-      G.items[id].loc={kind:"cell",room:room.id,cont:c.id,row:spot.row,col:spot.col};
-    }
-    any=true;
-    afterMutation(room,c,[...Array(rows).keys()]);
-  }
-  if(any){
-    G.whirlReady=Date.now()+WHIRL_CD;
-    renderRoom(); renderHUD();
-    sfx("whirlwind"); say("Whoosh — everything swept into rows 🌀");
-  }else bump(whirlBtn, "🫧");
-}
-
 /* The draft grants; this repaints and persists. Passed to talents.js as a
    callback so that module never has to import the render tier. */
 initTalents({
   grant(){
-    renderHUD(); renderInv(); updateWhirlBtn();
+    renderHUD(); renderInv();
     fire("talentEarned");
     scheduleSave();
+  },
+  /* "Drop Everything": file every item in your hands that has an open home in
+     this room. Reuses the same bestSpot/afterMutation path a hand placement
+     takes, so a row it completes celebrates and pays out exactly like one you
+     filed yourself. */
+  fileHands(){
+    if(!G.active) return 0;
+    const room=G.rooms[G.current];
+    let n=0;
+    for(let s=0;s<G.inv.length;s++){
+      const id=G.inv[s];
+      if(id===null) continue;
+      const o=G.items[id];
+      if(o.isKey||o.isCoin||o.isNote) continue;
+      const h=G.typeHome[o.type];
+      if(!h || h.room!==room.id) continue;
+      const c=room.containers[h.cont];
+      if(!c || (c.lock && !c.lock.open)) continue;
+      const spot=bestSpot(c, o.type);
+      if(!spot) continue;
+      c.cells[spot.row][spot.col]=o.id;
+      o.loc={kind:"cell",room:room.id,cont:c.id,row:spot.row,col:spot.col};
+      G.inv[s]=null;
+      judgeToss(o, room.id, h.cont);
+      afterMutation(room,c,[spot.row]);
+      n++;
+    }
+    if(n){
+      G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
+      sfx("toss"); sfx("gold");
+      say("+"+n+" put away ✨", {priority:2});
+      render();
+    }else{
+      say("Nothing in your hands lives in this room.", {priority:2});
+    }
+    return n;
   },
 });
 
@@ -2359,7 +2424,6 @@ $("#debugStar").addEventListener("click",()=>{
   if(!drainDrafts(()=>false)) say("+1 ⭐ (debug)");
 });
 $("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#shopOverlay").classList.add("open"); });
-$("#whirlBtn").addEventListener("click",doWhirl);
 
 /* ---- audio settings ---- */
 (function wireAudioUI(){
@@ -2690,8 +2754,9 @@ window.tidy = {
   G, DATA, LOOKUP, start:startFree, level:startCampaign, render, generate, setRun, sfx,
   /* handy from the console, and what the browser tests drive */
   dropNote:maybeDropNote, openNote, checkQuests, completeQuest,
-  afterMutation, openContainer, closeCont, doWhirl,
+  afterMutation, openContainer, closeCont,
   insertKey, insertContainerKey, flingToFloor, showWin, displaceAround,
+  tossInto, cascade, pickUp, openDraft,
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
   itemAt, underAt, onInk, maskStats,
   playMusic, nowPlayingMusic, musicDebug, audio:audioSettings,

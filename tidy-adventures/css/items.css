@@ -31,6 +31,32 @@
    than as the top of the stack. */
 .item.buried{filter:brightness(.82) drop-shadow(0 1px 1px rgba(0,0,0,.5))}
 
+/* HOMESICK (talent). Everything on this floor with an open home in this room.
+   About a quarter of a typical floor, so it has to sit far below the gold of a
+   correct placement or it becomes the loudest thing on screen for the whole
+   level. A warm halo and nothing else: no ring, no pulse, no lift. It is
+   ambient information you read out of the corner of your eye while deciding
+   what to carry, not a thing demanding to be tapped — and it deliberately does
+   NOT touch transform, which carries the item's resting rotation. */
+.item.homesick{
+  /* Two stops: a tight near-white rim so the glyph separates from whatever it
+     is lying on, then a wider gold bloom that survives being scaled down on a
+     phone. One soft 5px shadow was the first attempt and it was invisible at
+     the size items are actually drawn — a talent you cannot see is a talent
+     that does nothing, which is the whole thing this pass was about. */
+  filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.35))
+         drop-shadow(0 0 2px rgba(255,238,190,.95))
+         drop-shadow(0 0 8px rgba(245,197,66,.8));
+}
+/* A buried token that is also homesick keeps its dimming — being under a pile
+   outranks being near home, because the burial is a gameplay rule. */
+.item.buried.homesick{
+  filter:brightness(.82) drop-shadow(0 1px 1px rgba(0,0,0,.5));
+}
+@media (prefers-reduced-motion: no-preference){
+  .item.homesick{transition:filter .25s ease}
+}
+
 /* Debug: where is the key. Lifted above the clutter it is hiding under, ringed
    and pulsing, so it reads through a pile of forty other emoji. */
 .item.revealed{

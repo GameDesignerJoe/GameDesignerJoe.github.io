@@ -35,7 +35,8 @@ can be edited without touching JavaScript:
 | how many rooms / items / locks a run has | `data/sizes.json`, `data/levels.json` |
 | row length (how many of each item exist) | `rowLen` in either of the above |
 | hint text, and when hints appear | `tips` in `data/levels.json` |
-| what a talent costs and how many levels it has | `data/upgrades.json` |
+| how many levels a talent has | `levels` in `data/upgrades.json` |
+| what a talent DOES | `TALENT_IDS` in `js/config.js` + the code that reads it |
 | when talent drafts happen | `draftSteps` in `data/upgrades.json` |
 | whether a level has ⭐ at all | `"talents": false` in `data/levels.json` |
 | item names in the loupe | `data/names.json` |
@@ -113,7 +114,7 @@ Three cycles exist in the original design and are cut deliberately:
 - **`actions → menus → render → actions`.** `showWin()` is separate from
   `menus`; the direction is strictly `actions → win → menus → render`.
 
-Modules that own a loop (`startTipLoop`, the whirl ticker) export a start
+Modules that own a loop (`startTipLoop`) export a start
 function rather than running on import.
 
 ---
@@ -254,6 +255,45 @@ earlier in the pointerup chain, so by the time the double-tap check runs the
 tap hit nothing — which is why it can act on the second tap with no deferred-
 tap latency. A tap on the panel backdrop within `PANEL_GRACE` of it opening is
 the tail of the gesture that opened it, not a dismissal.
+
+**A talent is half data and half code, and only the data half shows.** Add an
+id to `upgrades.json` and nothing else and you get a card that animates, says
+its name, raises a level and does nothing at all — which on screen is
+indistinguishable from a talent you misunderstood. Two consumables shipped in
+exactly that state (`freeWhirl`, `xray`): both set a field on the run that
+nothing ever read. So `TALENT_IDS` and `CONSUMABLE_EFFECTS` live in
+`js/config.js`, a tier-0 leaf both `validate.js` and `talents.js` can see, and
+boot validation compares them against the data **in both directions**. Adding
+either half without the other is a named error, not a quiet nothing.
+
+**The talents, and why these ones.** Measured over 180 generated rooms and
+10,272 floor items:
+
+| talent | levels | what it does | how often it can fire |
+|---|---|---|---|
+| Bigger Hands | 5 | +1 hand slot | always |
+| Sixth Sense | 1 | held item names its home; the home glows | always |
+| Magnet Fingers | 3 | a correct put-away tugs N more of that kind off this floor | 71.7% |
+| One Trip | 2 | …and takes the armful with it: L1 same kind, L2 anything that lives there | ~31% blind, more if you load up on purpose |
+| Homesick | 1 | everything on this floor with an open home in this room glows | lights ~24% of a floor |
+
+The two cascade talents fire at the same moment — a **correct** placement, in
+`cascade()` next to `tossInto()`. Deliberately not on a wrong one: the grey
+shake is how the game teaches where things live, and cascading five more items
+into the wrong home turns one mistake into six the player then has to undo.
+They ride *before* `afterMutation`, so rows they finish land in the same batch
+as the row you finished by hand — one gold flash, one chip, one celebration.
+
+Two talents were cut and should not be reinvented. **Magnet Fingers used to
+fire on pick-up**, needing a match within 14% of the room: true 8.1% of the
+time, so it did nothing in 92 pick-ups out of 100. The fantasy was right and
+the moment was wrong — duplicates exist, they are just never *near* each other.
+**Tidy Whirlwind** re-sorted the items already inside containers, so it never
+moved the only number the player watches, and it cost a HUD button, a cooldown
+ticker, a once-a-second interval and a consumable to refresh it.
+
+**`levels`, not `costs`.** ⭐ is score and is never spent, so the price list
+nothing read is gone. Only its length ever meant anything.
 
 **Talents do not survive a level.** Campaign levels used to reload the previous
 level's talents from `tidy-campaign-talents`, which meant the levels authored to
@@ -531,7 +571,13 @@ Run through this after any change; it's what the browser tests cover.
 - Pinch zoom on a real touch device, and no accidental container-open when the
   trailing finger lifts.
 - Labels stay inside their furniture at maximum zoom, on a phone.
-- Whirlwind on Mega (`rowLen` 8) leaves the remaining count correct.
+- Every draft offers three cards, every time — including after you have taken
+  every talent, where it back-fills with consumables.
+- Magnet Fingers at level N files N extra of that kind; One Trip at level 2
+  empties the whole armful into one container. Drop something in the WRONG
+  container with both maxed and exactly one item moves.
+- Homesick lights roughly a quarter of a floor, and an item whose home is
+  locked or full stops glowing.
 - A talent draft never interrupts a drag or an open container; talents and
   hand slots are gone again at the start of the next campaign level, and
   survive quitting to the menu and continuing the same level.

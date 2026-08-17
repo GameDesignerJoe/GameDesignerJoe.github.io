@@ -13,7 +13,7 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "1.3.0";
+export const VERSION = "1.4.0";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
@@ -39,7 +39,7 @@ export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 12;
+export const DATA_VERSION = 13;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice
@@ -59,6 +59,23 @@ export const ITEM_SPAN = 9;
    you went back into the gear and turned it off, which is nagging rather than
    helpful — long enough to point, short enough to shut up. */
 export const REVEAL_MS = 5000;
+
+/* ---------- talents ----------
+   THE CONTRACT BETWEEN upgrades.json AND THE CODE.
+
+   A talent is data plus a piece of code that reads it, and only the data half
+   is visible. Add an id to upgrades.json and nothing else, and you get a card
+   that animates, says its name, raises a level and does absolutely nothing —
+   which on screen is indistinguishable from a talent you simply misunderstood.
+   That is not hypothetical: two consumables shipped in exactly that state,
+   setting a field on the run that nothing ever read.
+
+   So the ids the code implements live HERE, in a tier-0 leaf that both
+   js/validate.js and js/talents.js can see, and boot validation compares this
+   list against the data in both directions. Adding either half without the
+   other is a named error on a black screen instead of a quiet nothing. */
+export const TALENT_IDS = ["hands", "sense", "magnet", "oneTrip", "homesick"];
+export const CONSUMABLE_EFFECTS = ["stars", "fileHands"];
 
 export const DIRS = { N:[0,-1], S:[0,1], W:[-1,0], E:[1,0] };
 export const OPP  = { N:"S", S:"N", W:"E", E:"W" };

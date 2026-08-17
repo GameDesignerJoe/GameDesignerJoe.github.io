@@ -44,6 +44,9 @@ there was no gap to hear, only silence where a sound had been designed.
   that means doors: `doorKeys` is 3 or 4, so the first two or three keys used
   to move a pip and make no sound. A chest is a one-key hunt with today's
   data, so its branch is wired for symmetry and does not currently fire.
+- `whirlwind` → the talent it was named for is gone (see `docs/CLAUDE.md`), but
+  the sound is a whoosh and now plays when Magnet Fingers or One Trip send a
+  handful of items home at once. Same moment it was always describing.
 - `scatter` → a landing that actually shoves other items aside
   (`displaceAround`, which now returns how many it moved). Deliberately silent
   when a flick lands on bare floor, so the sound means "you disturbed the
