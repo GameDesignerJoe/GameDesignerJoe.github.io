@@ -43,8 +43,9 @@ can be edited without touching JavaScript:
 | how much floor to keep clear in front of doors | `doorZone` in `data/furniture.json` |
 | the note each room leaves you, and its reply | `data/quests.json` |
 | how many rooms start with a sealed container | `roomShare` in `data/quests.json` |
-| every sound | `data/audio.json` |
-| title, tagline, help screen | `data/strings.json` |
+| every sound, and the music tracks | `data/audio.json` |
+| which music a client brings with them | `music` on a client in `data/clients.json` |
+| title, tagline, home-screen icon | `data/strings.json` |
 
 Each file opens with a `_readme` explaining its rules. The loader ignores any
 key starting with `_`.
@@ -368,7 +369,18 @@ has asked for. `display: standalone` is what makes it feel like an app.
 |---|---|
 | `tidy-adventures-v4` | the current run, talents included |
 | `tidy-campaign-unlocked` | how far the campaign has been unlocked |
-| `tidy-audio` | volume and mute |
+| `tidy-audio` | master / effects / music volume, and mute |
+
+**Music is an `<audio>` element, not the Web Audio graph the effects use.**
+One long looping file wants to stream; decoding three megabytes into an
+`AudioBuffer` to reach the same place costs memory and delays the first note.
+The price is that music has its own volume path (`applyMusicVolume`) alongside
+the graph's, so a change to one has to be mirrored in the other. Browsers
+refuse audio before a gesture, so a track asked for too early is remembered in
+`blockedTrack` and started by the same first-tap listener that unlocks the
+effects — which is why the title music begins the instant you touch the screen
+rather than never. `playMusic` ignores a request for what is already playing,
+so calling it from every screen transition can't restart a track underfoot.
 
 `tidy-campaign-talents` is retired — starting a campaign level deletes it, so a
 save written by the carry-over build can't come back.

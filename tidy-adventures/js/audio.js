@@ -30,8 +30,14 @@ export function initAudio(audioData) {
   settings.sfx = audioData.sfxVolume ?? 1;
   settings.music = audioData.musicVolume ?? 0.6;
   loadPrefs();
-  /* One-shot unlock on the first real gesture. */
-  const unlock = () => { ensureCtx(); if (ctx?.state === "suspended") ctx.resume(); };
+  /* One-shot unlock on the first real gesture. Music asked for before that
+     gesture was refused by the browser, so retry it here — this is why the
+     title track starts the moment you touch the screen rather than never. */
+  const unlock = () => {
+    ensureCtx();
+    if (ctx?.state === "suspended") ctx.resume();
+    if (blockedTrack) playMusic(blockedTrack);
+  };
   for (const ev of ["pointerdown", "keydown", "touchstart"]) {
     window.addEventListener(ev, unlock, { once: false, passive: true });
   }
@@ -53,10 +59,107 @@ function ensureCtx() {
 }
 
 function applyVolumes() {
+  applyMusicVolume();
   if (!masterGain) return;
   masterGain.gain.value = settings.muted ? 0 : settings.master;
   sfxGain.gain.value = settings.sfx;
 }
+
+/* ============================================================
+   MUSIC
+
+   An <audio> element, not the Web Audio graph the effects use. Music is one
+   long file that wants to stream and loop natively; decoding a three-megabyte
+   track into an AudioBuffer to get the same result costs memory and delays the
+   first note by however long the decode takes. The cost of that choice is that
+   music has its own volume path — hence applyMusicVolume() beside applyVolumes.
+
+   Tracks live in data/audio.json under "music", so a per-client theme later is
+   a data edit: add the track, name it in clients.json, done.
+============================================================ */
+const FADE_MS = 700;
+let musicEl = null;        // what's playing
+let oldEl = null;          // what's fading out under it
+let musicId = null;
+let blockedTrack = null;   // asked for before the browser allowed audio
+
+const musicLevel = () => settings.muted ? 0 : settings.master * settings.music;
+
+function applyMusicVolume() {
+  for (const el of [musicEl, oldEl]) {
+    if (el) el.volume = Math.max(0, Math.min(1, musicLevel() * el._gain * el._fade));
+  }
+}
+
+/* Volume ramp on a timer. The element's own `volume` has no scheduling API the
+   way an AudioParam does, so this is the fade. */
+function ramp(el, to, ms, done) {
+  clearInterval(el._timer);
+  const from = el._fade, t0 = performance.now();
+  el._timer = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    el._fade = from + (to - from) * k;
+    applyMusicVolume();
+    if (k >= 1) { clearInterval(el._timer); el._timer = null; done && done(); }
+  }, 40);
+}
+
+/* Start (or cross-fade to) a track. Calling it with the track already playing
+   is a no-op, so it is safe to call from every screen transition. */
+export function playMusic(id) {
+  const def = cfg?.music?.[id];
+  if (!def?.src) return;
+  if (musicId === id && musicEl && !musicEl.paused) return;
+
+  if (musicEl) {                       /* fade the outgoing one out and drop it */
+    if (oldEl) { clearInterval(oldEl._timer); oldEl.pause(); }
+    oldEl = musicEl;
+    ramp(oldEl, 0, FADE_MS, () => { oldEl?.pause(); oldEl = null; });
+  }
+
+  const el = new Audio(def.src);
+  el.loop = def.loop !== false;
+  el.preload = "auto";
+  el._gain = def.vol ?? 1;
+  el._fade = 0;
+  musicEl = el;
+  musicId = id;
+  applyMusicVolume();
+  el.play().then(() => {
+    blockedTrack = null;
+    ramp(el, 1, FADE_MS);
+  }).catch(() => {
+    /* Autoplay policy: no gesture yet. initAudio's unlock listener retries. */
+    blockedTrack = id;
+    musicId = null;
+  });
+}
+
+export function stopMusic() {
+  blockedTrack = null;
+  musicId = null;
+  for (const el of [musicEl, oldEl]) {
+    if (!el) continue;
+    clearInterval(el._timer);
+    el.pause();
+  }
+  musicEl = null; oldEl = null;
+}
+
+export const nowPlayingMusic = () => musicId;
+
+/* The music element is never in the document, so nothing can inspect it from
+   outside. This is how a test — or the console — sees what is actually coming
+   out of the speakers rather than what was last asked for. */
+export const musicDebug = () => ({
+  id: musicId,
+  blocked: blockedTrack,
+  src: musicEl?.src.split("/").pop() ?? null,
+  paused: musicEl?.paused ?? null,
+  at: musicEl ? +musicEl.currentTime.toFixed(2) : null,
+  volume: musicEl ? +musicEl.volume.toFixed(3) : null,
+  fadingOut: oldEl ? oldEl.src.split("/").pop() : null,
+});
 
 /* Any sound with a real "src" is fetched once; the rest stay synthesized. */
 async function preloadFiles() {

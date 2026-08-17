@@ -35,7 +35,8 @@ import {
 import {
   initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
 } from './talents.js';
-import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted } from './audio.js';
+import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted,
+         playMusic, nowPlayingMusic, musicDebug } from './audio.js';
 import {
   initQuests, maybeDropNote, openNote, renderObjective, checkQuests, completeQuest,
 } from './quests.js';
@@ -2234,14 +2235,17 @@ $("#whirlBtn").addEventListener("click",doWhirl);
 
 /* ---- audio settings ---- */
 (function wireAudioUI(){
-  const m=$("#volMaster"), s=$("#volSfx"), b=$("#muteBtn");
+  const m=$("#volMaster"), s=$("#volSfx"), u=$("#volMusic"), b=$("#muteBtn");
   const sync=()=>{
     m.value=Math.round(audioSettings.master*100);
     s.value=Math.round(audioSettings.sfx*100);
+    u.value=Math.round(audioSettings.music*100);
     b.textContent=audioSettings.muted?"🔇":"🔊";
   };
   m.addEventListener("input",()=>setVolume("master",m.value/100));
   s.addEventListener("input",()=>{ setVolume("sfx",s.value/100); sfx("uiTap"); });
+  /* No confirmation blip on this one: the track itself is the feedback. */
+  u.addEventListener("input",()=>setVolume("music",u.value/100));
   b.addEventListener("click",()=>{ setMuted(!audioSettings.muted); sync(); if(!audioSettings.muted) sfx("uiTap"); });
   $("#gearBtn").addEventListener("click",sync);
   sync();
@@ -2267,6 +2271,17 @@ function showTitle(){
   setHidden($("#btnContinue"), !save);
   if(save) labelContinue(save);
   $("#titleOverlay").classList.add("open");
+  playMusic("menu");
+}
+
+/* Which track this run wants. Free play and anyone without a theme of their
+   own get "play"; a client with "music" in clients.json gets theirs, which is
+   the whole per-character hook — see data/audio.json. playMusic() ignores a
+   request for what's already playing, so calling this on every entry into a
+   run (new job, Continue, re-roll) can't restart the track under the player. */
+function runMusic(){
+  const job = G.mode==="campaign" ? jobAt(G.levelIdx) : null;
+  playMusic(job?.client.music || "play");
 }
 
 /* "Continue" on its own asks you to remember what you were in the middle of,
@@ -2303,6 +2318,7 @@ function startFree(sizeKey){
   resetZoom();
   setHidden(shopBtn, false);   /* always available in free play */
   render();
+  runMusic();
   say(cfg.label+" house — happy tidying");
 }
 
@@ -2322,6 +2338,7 @@ function startCampaign(i){
      players to ignore it. */
   setHidden(shopBtn, !Object.values(G.up).some(v=>v>0));
   render();
+  runMusic();
 
   /* The client turns up. AFTER render(), so the house they are describing is
      already on screen behind them.
@@ -2468,7 +2485,7 @@ function resetRun(){
 
 /* menu wiring */
 $("#btnContinue").addEventListener("click",()=>{
-  if(loadGame()){ closeMenus(); render(); say("Welcome back"); }
+  if(loadGame()){ closeMenus(); render(); runMusic(); say("Welcome back"); }
   else { setHidden($("#btnContinue"), true); say("No save found"); }
 });
 $("#btnCampaign").addEventListener("click",openCampaignMenu);
@@ -2534,6 +2551,7 @@ window.tidy = {
   dropNote:maybeDropNote, openNote, checkQuests, completeQuest,
   afterMutation, openContainer, closeCont, doWhirl,
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
+  playMusic, nowPlayingMusic, musicDebug, audio:audioSettings,
 };
 
 /* boot: land on the title screen */

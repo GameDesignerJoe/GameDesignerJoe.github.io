@@ -24,6 +24,22 @@
   "sfxVolume": 1,
   "musicVolume": 0.6,
 
+  "_musicNote": [
+    "MUSIC. \"menu\" plays on the title screen, the job board and Free Play;",
+    "\"play\" plays during a level. Both loop unless you set \"loop\": false.",
+    "vol is a per-track trim (0-1) applied under the music slider, for when one",
+    "track is mastered hotter than another.",
+    "",
+    "PER-CHARACTER MUSIC IS A DATA EDIT. Add a track here, then give a client",
+    "\"music\": \"<trackId>\" in clients.json and their jobs use it — no code.",
+    "Boot validation checks that the name resolves, so a typo is an error",
+    "screen and not a silent fallback to the default."
+  ],
+  "music": {
+    "menu": { "src": "sound/music_tidy_menu.mp3",   "vol": 1 },
+    "play": { "src": "sound/music_tidy_play01.mp3", "vol": 1 }
+  },
+
   "sounds": {
     "pickup":       { "src": null, "synth": { "type":"triangle", "f":620, "to":880, "dur":0.09, "vol":0.30, "pitchJitter":0.04 } },
     "toss":         { "src": null, "synth": { "type":"triangle", "f":420, "to":300, "dur":0.10, "vol":0.26, "pitchJitter":0.04 } },

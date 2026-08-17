@@ -11,10 +11,16 @@
 
 ## Music (4 tracks)
 
+> **Delivered tracks go in `tidy-adventures/sound/` and are wired in `data/audio.json`
+> under `music`** — the names below were the request, not a requirement, and the two
+> that have landed use the names they arrived with. A client can bring their own
+> track with `"music": "<trackId>"` in `clients.json`; boot validation rejects a
+> track name that doesn't exist rather than silently falling back.
+
 | File | Where it plays | Direction | Priority |
 |---|---|---|---|
-| `mus-title.ogg` | Title screen | Warm, inviting, short loop (30–45s). A front-porch hello. Music-box, soft piano, or plucked strings. | ★★★ |
-| `mus-tidy-a.ogg` | Main gameplay loop | Cozy, unhurried, low-attention. Should survive 20+ minutes of looping without grating — sparse arrangement, no big hooks. Lo-fi beat, kalimba, marimba, soft guitar all work. 60–90s loop. | ★★★ |
+| ~~`mus-title.ogg`~~ **✅ in as `sound/music_tidy_menu.mp3`** | Title screen, job board, Free Play menu | Warm, inviting, short loop (30–45s). A front-porch hello. Music-box, soft piano, or plucked strings. | ★★★ |
+| ~~`mus-tidy-a.ogg`~~ **✅ in as `sound/music_tidy_play01.mp3`** | Main gameplay loop | Cozy, unhurried, low-attention. Should survive 20+ minutes of looping without grating — sparse arrangement, no big hooks. Lo-fi beat, kalimba, marimba, soft guitar all work. 60–90s loop. | ★★★ |
 | `mus-tidy-b.ogg` | Gameplay alt (rotates or per-room-theme later) | Sibling of A, slightly different palette. | ★ |
 | `mus-win.ogg` | Win screen | 8–12s non-looping sting that resolves warmly. The musical equivalent of a deep exhale looking at a clean room. | ★★ |
 

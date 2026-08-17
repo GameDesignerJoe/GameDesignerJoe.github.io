@@ -313,6 +313,14 @@ export function validateData(D) {
           "The job board row, the character who walks in and the win screen are all drawn from it."));
       }
 
+      /* Their own theme tune, if they have one. A typo here would otherwise
+         fall back to the default track silently, and "why is this client
+         playing the wrong music" is a miserable thing to chase. */
+      if (c.music && !(D.audio?.music || {})[c.music]) {
+        errors.push(at("clients.json", `client "${c.id}" asks for music "${c.music}", which is not in audio.json.`,
+          `Known tracks: ${Object.keys(D.audio?.music || {}).join(", ") || "(none)"}`));
+      }
+
       const stages = c.stages || [];
       if (!stages.length) {
         if (!c.soon) {
