@@ -203,13 +203,18 @@ function saveGame(){
 /* Does a save exist that this build can actually load? showTitle() used to
    check only that the key existed, so a stale save showed a Continue button
    that failed the moment you pressed it. */
-function hasSave(){
+/* The save PARSED BUT NOT LOADED. Enough to put the job you're going back to
+   on the Continue button without touching the live run — pressing Continue is
+   still what installs it. */
+function peekSave(){
   try{
     const raw=localStorage.getItem(SAVE_KEY);
-    if(!raw) return false;
-    return JSON.parse(raw).v===SAVE_VERSION;
-  }catch(e){ return false; }
+    if(!raw) return null;
+    const d=JSON.parse(raw);
+    return d.v===SAVE_VERSION ? d : null;
+  }catch(e){ return null; }
 }
+const hasSave = () => !!peekSave();
 function loadGame(){
   try{
     const raw=localStorage.getItem(SAVE_KEY);
@@ -252,7 +257,11 @@ function loadGame(){
     },{
       mode:d.mode||"free",
       levelIdx:(levelIdx==null?null:levelIdx),
-      size:(SIZES[d.size]?d.size:null),
+      /* Fall back to the smallest LIVE preset, never null. A save whose preset
+         has since been retired kept its rooms and items either way, but a null
+         size made currentCfg() undefined and "New house" in the gear threw on
+         generate(undefined). */
+      size:(SIZES[d.size] ? d.size : (DATA.sizes.sizes[0]?.id ?? null)),
     });
     /* Saves made before doorways were kept clear can hold items parked under
        a door, which are invisible and can't be tapped — and the run can't be
@@ -641,11 +650,23 @@ function renderHUD(){
   const rn=$("#roomName");
   rn.classList.toggle("done",done);
   rn.innerHTML=`${room.name}<small>${done?"all tidy ✨":"swipe through doors"}</small>`;
+  /* "N left" means items not yet in the container they belong in — so it ticks
+     down on EVERY correct placement.
+
+     It used to count an item as away only once its whole ROW was complete,
+     which meant four placements moved nothing and the fifth dropped the number
+     by five. The information was real (a part-filled row isn't finished) but it
+     read as a counter that had stopped working.
+
+     Keys, coins and notes are excluded, because they are not things you put
+     away — they're spent. Counting them meant a finished house could still say
+     "2 left" over a spare key. This is now the same set showWin() reports, so
+     the counter reaches exactly 0 as the win screen appears. */
   const left=Object.values(G.items).filter(i=>{
-    if(i.loc.kind==="used") return false;
+    if(i.isKey || i.isCoin || i.isNote || i.loc.kind==="used") return false;
     if(i.loc.kind!=="cell") return true;
-    const c=G.rooms[i.loc.room].containers[i.loc.cont];
-    return !rowIsComplete(c,i.loc.row);
+    const home=G.typeHome[i.type];
+    return !home || i.loc.room!==home.room || i.loc.cont!==home.cont;
   }).length;
   $("#remaining").textContent=left+" left";
   $("#shopBtn").textContent="⭐ "+G.points;
@@ -2242,8 +2263,32 @@ function showTitle(){
   closeMenus();
   endCeremony();
   endRun();
-  setHidden($("#btnContinue"), !hasSave());
+  const save=peekSave();
+  setHidden($("#btnContinue"), !save);
+  if(save) labelContinue(save);
   $("#titleOverlay").classList.add("open");
+}
+
+/* "Continue" on its own asks you to remember what you were in the middle of,
+   which after a day away you don't. Name the client and the job. */
+function labelContinue(d){
+  const b=$("#btnContinue");
+  b.textContent="Continue";
+  let sub="";
+  if(d.mode==="campaign"){
+    /* Same id-first resolution as loadGame(), so the button can never name a
+       different job than the one Continue is about to open. */
+    const idx = (d.levelId!=null && LOOKUP.levelIdxById[d.levelId]!=null)
+      ? LOOKUP.levelIdxById[d.levelId] : d.levelIdx;
+    const lv=LEVELS[idx], job=jobAt(idx);
+    /* No lv means loadGame() will discard this save; say nothing rather than
+       promise a job that isn't there. */
+    if(lv) sub=(job?job.client.emoji+" "+job.client.name+" · ":"")+lv.id+" "+lv.name;
+  }else{
+    const sz=SIZES[d.size];
+    sub="Free Play"+(sz?" · "+sz.label+" house":"");
+  }
+  if(sub) b.appendChild(mkEl("small",null,sub));
 }
 
 /* generate() returns a run; setRun installs it along with the metadata that
@@ -2468,6 +2513,9 @@ function buildHelp(){
     ". Refresh pulls the newest build.";
   for(const h of document.querySelectorAll("#helpOverlay h1,#titleOverlay h1")) h.textContent=s.title;
   $("#titleOverlay .tagline").textContent=s.tagline;
+  /* strings.json carried an `icon` that nothing read, so the title screen's
+     emoji was whatever index.html said and the two could disagree. */
+  if(s.icon) $("#titleOverlay .big").textContent=s.icon;
   $("#helpOverlay p").textContent=tokenise(s.helpIntro,v);
   const ul=$("#helpOverlay .gestures");
   ul.innerHTML="";

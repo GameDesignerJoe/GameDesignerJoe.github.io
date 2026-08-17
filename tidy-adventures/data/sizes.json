@@ -2,6 +2,17 @@
   "_readme": [
     "FREE PLAY presets, in the order they appear on the menu.",
     "",
+    "THE WHOLE MENU SHIFTED UP. Six presets starting at a 2-room house was too",
+    "many decisions for a mode you pick when you just want to tidy something,",
+    "and the small end went unplayed — free play is where you go for a big one.",
+    "The two smallest were dropped and the rest relabelled, so \"Small\" here is",
+    "a 4-room house, not a starter one.",
+    "",
+    "`id` DELIBERATELY NO LONGER MATCHES `label`. The id is written into saves",
+    "(`size`), so renaming ids would orphan every run in progress; the label is",
+    "the only part players see. Add new presets with fresh ids and never reuse",
+    "an old one for different numbers.",
+    "",
     "There is deliberately NO item count here. The real number is",
     "targetTypes x rowLen, and the menu computes and shows that — so it can",
     "never drift out of sync the way the old hardcoded '~50 items' labels did.",
@@ -17,23 +28,15 @@
     "scale       — [min,max] random room size, 1 = fills the stage"
   ],
   "sizes": [
-    { "id": "tiny",   "label": "Tiny",   "theme": "house", "rooms": 2, "targetTypes": 10,
-      "rowLen": 5, "doorLocks": 0, "doorKeys": 0, "contLocks": 0, "contKeys": 0,
-      "caches": 0, "junk": true, "scale": [0.7, 0.95] },
-
-    { "id": "small",  "label": "Small",  "theme": "house", "rooms": 3, "targetTypes": 20,
-      "rowLen": 5, "doorLocks": 1, "doorKeys": 2, "contLocks": 1, "contKeys": 2,
-      "caches": 1, "junk": true, "scale": [0.7, 0.95] },
-
-    { "id": "medium", "label": "Medium", "theme": "house", "rooms": 4, "targetTypes": 40,
+    { "id": "medium", "label": "Small",  "theme": "house", "rooms": 4, "targetTypes": 40,
       "rowLen": 5, "doorLocks": 1, "doorKeys": 3, "contLocks": 1, "contKeys": 2,
       "caches": 2, "junk": true, "scale": [0.7, 0.95] },
 
-    { "id": "large",  "label": "Large",  "theme": "house", "rooms": 6, "targetTypes": 80,
+    { "id": "large",  "label": "Medium", "theme": "house", "rooms": 6, "targetTypes": 80,
       "rowLen": 5, "doorLocks": 2, "doorKeys": 3, "contLocks": 2, "contKeys": 3,
       "caches": 3, "junk": true, "scale": [0.7, 0.95] },
 
-    { "id": "xl",     "label": "XL",     "theme": "house", "rooms": 8, "targetTypes": 160,
+    { "id": "xl",     "label": "Large",  "theme": "house", "rooms": 8, "targetTypes": 160,
       "rowLen": 5, "doorLocks": 2, "doorKeys": 4, "contLocks": 3, "contKeys": 3,
       "caches": 4, "junk": true, "scale": [0.7, 0.95] },
 

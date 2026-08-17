@@ -13,7 +13,7 @@
 
 | File | Where it plays | Direction | Priority |
 |---|---|---|---|
-| `mus-title.ogg` | our LA
+| `mus-title.ogg` | Title screen | Warm, inviting, short loop (30–45s). A front-porch hello. Music-box, soft piano, or plucked strings. | ★★★ |
 | `mus-tidy-a.ogg` | Main gameplay loop | Cozy, unhurried, low-attention. Should survive 20+ minutes of looping without grating — sparse arrangement, no big hooks. Lo-fi beat, kalimba, marimba, soft guitar all work. 60–90s loop. | ★★★ |
 | `mus-tidy-b.ogg` | Gameplay alt (rotates or per-room-theme later) | Sibling of A, slightly different palette. | ★ |
 | `mus-win.ogg` | Win screen | 8–12s non-looping sting that resolves warmly. The musical equivalent of a deep exhale looking at a clean room. | ★★ |
