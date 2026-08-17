@@ -25,6 +25,7 @@ import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
 import { findFloorSpot, spin } from './geometry.js';
 import { say, flyReward } from './feedback.js';
+import { play as sfx } from './audio.js';
 
 const NOTE = "📝";
 let onChange = () => {};
@@ -227,6 +228,9 @@ export function completeQuest(q) {
   G.points++; G.starsEarned++;
   const room = G.rooms[q.room];
   const fe = host.querySelector(".furn");
+  /* Finishing someone's errand was the one reward in the game that made no
+     sound at all — it flew a ⭐ and said a line into silence. */
+  sfx("star");
   flyReward(fe || host, "+1 ⭐");
   say(q.reply + "  " + (q.sign || DATA.quests.signature || ""), { priority: 2, ms: 4200 });
   onChange();

@@ -616,6 +616,7 @@ function slideTo(dir,newId){
   const px=dx*(hr.width+80), py=dy*(hr.height+80);
   G.current=newId; G.visited.add(newId);
   fire("door");
+  sfx("door");
   /* Keep the player's zoom through a door; only recentre the pan. Resetting
      zoom on every transition is what made zoom feel disposable. */
   resetPan(); applyCam();
@@ -1016,7 +1017,11 @@ function tossInto(it, contIdx, fromSlot){
   renderRoom();
   const fe2=host.querySelector(`.furn[data-cont="${contIdx}"]`);
   if(fe2) fe2.classList.add(right?"goldhit":"pophit");
-  /* After renderRoom, so `lastEl` anchors to the element that's on screen now. */
+  /* After renderRoom, so `lastEl` anchors to the element that's on screen now.
+     Two layers, and they say different things: the toss is the item landing,
+     which happens either way; gold/cold is the verdict on top of it. Until the
+     recordings arrived only the verdict played, so a placement had no body. */
+  sfx("toss");
   sfx(right ? "gold" : "cold");
   fire("place", {container:c.short||c.name, item:nameOf(it.type), el:fe2});
   if(right) fire("goldPlace", {container:c.short||c.name, el:fe2});
@@ -1161,6 +1166,7 @@ function placeFromSlot(slotIdx,row,col){
   renderContainer(newly);
   const cellEl=contGrid.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
   if(cellEl) cellEl.classList.add(right?"gold":"cold");
+  sfx("toss");
   sfx(right ? "gold" : "cold");
   fire("place", {container:c.short||c.name, item:nameOf(it.type)});
   if(right) fire("goldPlace", {container:c.short||c.name});
@@ -1351,9 +1357,12 @@ function closeCont(){
 
 function tryMove(dir){
   const to=G.rooms[G.current].doors[dir];
-  if(to===null){ bounce(dir); return; }
+  /* Swiping into a wall. The bounce was silent, which read as a dropped input
+     rather than "there's nothing that way". */
+  if(to===null){ sfx("bump"); bounce(dir); return; }
   const lock=lockFor(G.current,dir);
   if(lock){
+    sfx("locked");
     bounce(dir);
     bump(host.querySelector(".door.locked"), "🔒", "Sealed. Drag keys onto it — the pips show how many are left.", "lockedDoor");
     const plate=host.querySelector(`.door.locked[data-lock="${G.locks.indexOf(lock)}"]`);

@@ -24,6 +24,17 @@
 | `mus-tidy-b.ogg` | Gameplay alt (rotates or per-room-theme later) | Sibling of A, slightly different palette. | ★ |
 | `mus-win.ogg` | Win screen | 8–12s non-looping sting that resolves warmly. The musical equivalent of a deep exhale looking at a clean room. | ★★ |
 
+## Still missing (everything else is in)
+
+`pickup` · `zoom-in` / `zoom-out` · `scatter` · `key-insert` · `locked` ·
+`whirlwind` · `cache-open` · `win` — all still synthesized. `pickup` and `win`
+are the two worth doing next: one fires on every grab, the other is the last
+thing you hear.
+
+**Two triggers exist in code but nothing calls them yet** (`scatter`,
+`keyInsert`), and `win` has no call site either — the win screen is silent. Not
+a missing file problem; they need wiring when the moment is designed.
+
 ## SFX — core loop (the ones that matter most)
 
 | File | Trigger | Direction | Priority |

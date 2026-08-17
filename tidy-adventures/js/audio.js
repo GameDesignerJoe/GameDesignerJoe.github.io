@@ -168,11 +168,36 @@ async function preloadFiles() {
     try {
       const res = await fetch(def.src);
       if (!res.ok) throw new Error("HTTP " + res.status);
-      buffers.set(name, await ctx.decodeAudioData(await res.arrayBuffer()));
+      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+      buffers.set(name, buf);
+      starts.set(name, def.trim === false ? 0 : onsetOf(buf));
     } catch (e) {
       console.warn(`[Tidy Adventures] audio: ${def.src} failed to load, using the synth fallback.`, e.message);
     }
   }
+}
+
+/* WHERE THE SOUND ACTUALLY STARTS.
+
+   An exported file often carries a few frames of silence at the head. Played
+   from sample zero that silence is latency: the toss recording that shipped
+   opens with 116ms of nothing, and a toss you hear 116ms after the item lands
+   doesn't read as "late audio", it reads as a laggy game. The door was 271ms.
+
+   So the head is measured once at load and skipped at play time. Doing it here
+   rather than asking for re-trimmed exports means it is handled for every file
+   that ever lands in sound/, including ones nobody thought to check. A file
+   that wants its silence kept can say "trim": false. */
+const starts = new Map();            // name -> seconds to skip
+const SILENCE = 0.004;               // below this is silence, not a soft attack
+const PREROLL = 0.006;               // keep a hair of it so the attack isn't clipped
+
+function onsetOf(buf) {
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) {
+    if (Math.abs(d[i]) > SILENCE) return Math.max(0, i / buf.sampleRate - PREROLL);
+  }
+  return 0;                          /* silent all the way through: play as-is */
 }
 
 function makeNoise() {
@@ -206,7 +231,7 @@ function playBuffer(name, def, opts) {
   const g = ctx.createGain();
   g.gain.value = (def.vol ?? 1) * (opts.vol ?? 1);
   src.connect(g); g.connect(sfxGain);
-  src.start();
+  src.start(0, starts.get(name) || 0);
 }
 
 function playSynth(s, opts) {

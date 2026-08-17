@@ -106,7 +106,7 @@ export function showClient(character, text, { side = "left", onDone = null } = {
       shownAt = Date.now();
     }));
     shownAt = Date.now();
-    sfx("uiTap");
+    sfx("npc");                      /* someone walking in */
   });
 }
 
@@ -153,7 +153,7 @@ function leave() {
   const off = layer.classList.contains("from-right")
     ? "calc(100% + 24px)" : "calc(-100% - 24px)";
   fig.style.transform = `translateX(${off})`;
-  sfx("uiTap");
+  sfx("npc");                        /* and walking back out */
   setTimeout(() => { if (epoch === mine) settle(true); }, slideMs() + 20);
 }
 

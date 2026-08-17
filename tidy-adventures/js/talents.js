@@ -25,6 +25,7 @@ import { DATA, LOOKUP, costFor, maxLevel, upgradeParam } from './data.js';
 import { G } from './state.js';
 import { rnd, shuffle, tokenise } from './util.js';
 import { say, flyReward } from './feedback.js';
+import { play as sfx } from './audio.js';
 
 let onGrant = () => {};
 /* main.js owns rendering; it hands us a callback so this module never has to
@@ -160,6 +161,8 @@ function choose(c, cardEl, grid) {
   if (grid.dataset.done) return;
   grid.dataset.done = "1";
 
+  /* The one choice the game insists on, and it was silent. */
+  sfx("talent");
   for (const other of grid.children) {
     if (other === cardEl) other.classList.add("chosen");
     else other.classList.add("dismissed");
