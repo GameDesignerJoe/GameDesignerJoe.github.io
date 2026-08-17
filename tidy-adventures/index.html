@@ -147,34 +147,39 @@
       </div>
       <button id="refreshBtn">Refresh</button>
     </div>
-    <div class="shoprow">
-      <div class="sinfo">
-        <div class="sname">Debug: free skill point</div>
-        <div class="sdesc">+1 ⭐ so you can test upgrades without the labor.</div>
+    <!-- Folded away by default so settings looks like what a player sees.
+         <details> is closed unless it carries `open`; no script needed. -->
+    <details class="debugbox">
+      <summary>Debug tools<i></i></summary>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Free skill point</div>
+          <div class="sdesc">+1 ⭐ so you can test upgrades without the labor.</div>
+        </div>
+        <button id="debugStar">+1 ⭐</button>
       </div>
-      <button id="debugStar">+1 ⭐</button>
-    </div>
-    <div class="shoprow">
-      <div class="sinfo">
-        <div class="sname">Debug: finish this job</div>
-        <div class="sdesc">Files everything instantly and lets the ending play: the room's gold, the client's thank-you, the win screen.</div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Finish this job</div>
+          <div class="sdesc">Files everything instantly and lets the ending play: the room's gold, the client's thank-you, the win screen.</div>
+        </div>
+        <button id="debugFinish">Finish</button>
       </div>
-      <button id="debugFinish">Finish</button>
-    </div>
-    <div class="shoprow">
-      <div class="sinfo">
-        <div class="sname">Debug: where are the keys</div>
-        <div class="sdesc">Rings every key and coin still on the floor and lifts it above the clutter, in every room. Press again to hide.</div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Where are the keys</div>
+          <div class="sdesc">Rings every key and coin still on the floor and lifts it above the clutter, in every room. Press again to hide.</div>
+        </div>
+        <button id="debugKeys">Reveal</button>
       </div>
-      <button id="debugKeys">Reveal</button>
-    </div>
-    <div class="shoprow">
-      <div class="sinfo">
-        <div class="sname">Debug: relock all jobs</div>
-        <div class="sdesc">Job progress back to zero, so the story starts from the first knock on the door. Any run you're in the middle of is left alone.</div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Relock all jobs</div>
+          <div class="sdesc">Job progress back to zero, so the story starts from the first knock on the door. Any run you're in the middle of is left alone.</div>
+        </div>
+        <button id="debugRelock">Relock</button>
       </div>
-      <button id="debugRelock">Relock</button>
-    </div>
+    </details>
     <button id="gearClose">Close</button>
   </div>
 </div>
@@ -208,8 +213,10 @@
     <h1>Tidy Adventures</h1>
     <p class="tagline">Everything Everywhere All in its place</p>
     <div id="titleButtons">
-      <button class="menubtn primary" id="btnContinue" hidden>Continue</button>
-      <button class="menubtn" id="btnCampaign">Jobs</button>
+      <!-- hidden with no save; the label is rewritten by labelContinue() to
+           carry the client and level, so change the text in BOTH places. -->
+      <button class="menubtn primary" id="btnContinue" hidden>Continue Tidy Job</button>
+      <button class="menubtn" id="btnCampaign">Take a Tidy Job</button>
       <button class="menubtn" id="btnFree">Free Play</button>
       <button class="menubtn ghost" id="btnHow">Instructions</button>
     </div>

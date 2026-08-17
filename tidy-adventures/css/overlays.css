@@ -45,6 +45,23 @@
 }
 .overlay.open{display:flex}
 .overlay .card{max-width:440px}
+/* SETTINGS PAINTS OVER THE OTHER OVERLAYS.
+
+   Every .overlay shares z-index 120, so DOM order decides who wins — and
+   #gearOverlay is declared at the top of index.html, ahead of the title, the
+   job board, Free Play and the win screen. Once the gear button became
+   reachable from those screens, opening it put the panel BEHIND an opaque
+   backdrop on every one of them: visible enough to look broken, and with
+   Refresh and Close both untappable.
+
+   Moving the markup would fix it and break the next thing declared after it,
+   so settings is given a band of its own instead. Below #gearBtn (130) on
+   purpose, so the button that opened it can still be tapped to close it. */
+#gearOverlay{z-index:125}
+/* Solid black, not the shared translucent backdrop: settings is the one
+   overlay that opens ON TOP of another one, and anything short of opaque let
+   the title screen's bright type ghost through behind the cards. */
+#gearOverlay{background:#000}
 /* Settings has grown past a phone screen, and .card has no height limit, so
    Close was falling off the bottom with no way to reach it. Scoped to this one
    overlay on purpose: a global overflow rule would clip the talent draft's
@@ -221,6 +238,31 @@
 .shoprow .vol{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px}
 .shoprow .vol input[type=range]{flex:1 1 auto;accent-color:var(--gold);height:16px;min-width:90px}
 .shoprow.ghostrow .sname{letter-spacing:.3em;color:var(--ink-dim)}
+
+/* ---------- DEBUG DRAWER ----------
+   Shut by default, so opening settings shows the panel a player would get.
+   A <details> element, so the open/close state is the browser's job — no
+   script, and nothing to get out of sync with the DOM. */
+.debugbox{margin:14px 0 0;text-align:left}
+.debugbox>summary{
+  list-style:none;cursor:pointer;user-select:none;
+  display:flex;align-items:center;gap:8px;
+  padding:9px 12px;border-radius:12px;
+  background:transparent;box-shadow:inset 0 0 0 2px var(--panel);
+  color:var(--ink-dim);font-size:12px;font-weight:800;letter-spacing:.16em;
+  text-transform:uppercase;
+}
+/* Safari draws its own triangle unless both of these are killed. */
+.debugbox>summary::-webkit-details-marker{display:none}
+.debugbox>summary::marker{content:""}
+.debugbox>summary i{
+  margin-left:auto;width:0;height:0;border:5px solid transparent;
+  border-top-color:var(--ink-dim);transform:translateY(2px);
+  transition:transform .18s ease;
+}
+.debugbox[open]>summary i{transform:rotate(180deg) translateY(2px)}
+.debugbox[open]>summary{color:var(--gold);box-shadow:inset 0 0 0 2px rgba(245,197,66,.35)}
+.debugbox .shoprow:first-of-type{margin-top:8px}
 
 /* ---------- TALENT DRAFT ----------
    Row on a tablet, column on a phone. */

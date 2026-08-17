@@ -13,7 +13,7 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "1.1.2";
+export const VERSION = "1.1.3";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;

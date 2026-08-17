@@ -2297,7 +2297,9 @@ function runMusic(){
    which after a day away you don't. Name the client and the job. */
 function labelContinue(d){
   const b=$("#btnContinue");
-  b.textContent="Continue";
+  /* Must match the fallback label in index.html — this one is what you
+     actually see, because the button only shows when there IS a save. */
+  b.textContent="Continue Tidy Job";
   let sub="";
   if(d.mode==="campaign"){
     /* Same id-first resolution as loadGame(), so the button can never name a
