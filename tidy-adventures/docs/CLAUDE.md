@@ -503,6 +503,47 @@ the pointer handlers knows this feature exists. Because it carries no
 `.overlay` class, the two global gates that look for `.overlay.open`
 (`drainDrafts`, `positionTips`) have to ask for it by name — `isSpeaking()`.
 
+**One card component, two screens.** `fillJobCard()` is pure presentation —
+handed a face, a name and up to two lines, knowing nothing about runs, saves or
+progress, the same way `js/client.js` is handed a character and some lines.
+That is what lets the win screen and the title screen share it: the win screen
+offers a job that has not started, Continue offers the one you are standing in
+the middle of, and only the copy differs.
+
+| | win screen | Continue |
+|---|---|---|
+| tag / chip | Next job · New client \| Asking for you again | Continue · In progress \| Free play |
+| face + name | the next client | the client whose house you are in, or the **world's** icon in free play |
+| body | their `hook` — how they found you | how much is still on the floor |
+| quote | their `teaser` — the ask | their `teaser`, still outstanding |
+| footer | the level id | the level id and the room you were in |
+
+**Continue reads the save and never loads it.** `peekSave()` parses the run
+without installing it — pressing the button is still what does that — so the
+card counts items out of the parsed JSON with `itemsLeft()`, which is the same
+filter the HUD uses. It is shared rather than copied because "N left" is the one
+number the player watches and two definitions of it will drift.
+
+**The button element is reused, not replaced.** `labelContinue()` empties
+`#btnContinue`, swaps its classes and fills it with the card's spans, which is
+what keeps the click handler bound at module scope. It uses `classList` rather
+than `className =` so it cannot wipe the `is-hidden` that `setHidden()` just put
+there. A save whose level no longer exists falls back to the plain gold button:
+`loadGame()` will discard it, and a card with a face on it is a promise.
+
+**NO ARTICLE MAY GO NEAR A ROOM NAME.** Room names supply their own and they
+disagree — "Kitchen" and "Attic" want *the*, "The Familiar's Roost" already has
+one, "Hydroponics" wants none. "You left off in the {room}" shipped as *"in the
+the Familiar's Roost"* and *"in the Hydroponics"* on the same build. The room is
+named in the card's **footer** now, uppercased beside the id, where it is a label
+and nothing implies an article. Any future sentence that embeds a room name has
+the same problem waiting.
+
+**A theme carries an `icon`** (`themes.json`) for exactly one reason: a free-play
+save has no client, and the game's own 🏠 over a half-tidied wizard's tower says
+nothing about where you were. Campaign saves use the client's emoji and never
+read it.
+
 **The win screen leads with the NEXT JOB, and it is a card, not a button.**
 It used to offer *Next job* and *Job board* and swap which of them was gold:
 same client made *Next job* primary, a new one sent you to the board instead
@@ -866,6 +907,14 @@ Run through this after any change; it's what the browser tests cover.
   jokes on purpose.
 - The card on a phone: the whole win screen still fits without scrolling, and the
   card is a rounded rectangle rather than an oval (see the specificity note).
+- **Continue names who you left standing there.** Save mid-job, quit to the title:
+  the button is the same card, with that client's face, the count still on the
+  floor matching the HUD exactly, their line, and the room in the footer. Press it
+  and the run comes back with the same count. Do it again from a free-play run —
+  the world's own icon, the preset name, no quote. Then corrupt the save's
+  `levelId` and confirm it degrades to the plain gold button rather than promising
+  a job that isn't there.
+- No sentence anywhere prints "the the". Room names carry their own articles.
 - Console clean throughout.
 
 ---

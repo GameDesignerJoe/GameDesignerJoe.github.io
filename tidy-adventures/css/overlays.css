@@ -325,14 +325,17 @@
    card rather than a bar, so the person offering the job has somewhere to be.
    Left-aligned: everything else on this screen is centred, and three lines of
    prose centred is a wedding invitation. */
-/* #winButtons, NOT a bare .nextjob. `.overlay button` is (0,1,1) and carries
-   border-radius:999px, padding:12px 28px and margin-top:16px, so a class
-   selector at (0,1,0) loses all three and the card renders as a gold ELLIPSE.
-   This is the same trap the mk() comment in showWin() warns about for .menubtn,
-   and it catches a card far harder than a bar: .menubtn merely comes out rounder
-   than its 14px, whereas a 240px-tall element at 999px is an oval. Anything
-   block-shaped inside an .overlay has to out-specify that rule. */
-#winButtons .nextjob{
+/* `.overlay button.jobcard`, NOT a bare `.jobcard`. `.overlay button` is (0,1,1)
+   and carries border-radius:999px, padding:12px 28px and margin-top:16px, so a
+   class selector at (0,1,0) loses all three and the card renders as a gold
+   ELLIPSE. Same trap the mk() comment in showWin() warns about for .menubtn, and
+   it catches a card far harder than a bar: .menubtn merely comes out rounder than
+   its 14px, whereas a 200px-tall element at 999px is an oval.
+   The selector used to be `#winButtons .jobcard`, which worked while the card
+   lived on one screen only. It is on the title screen too now — hence a form that
+   does not care which overlay it is in. Anything block-shaped inside an .overlay
+   has to out-specify that rule. */
+.overlay button.jobcard{
   display:block;width:100%;
   margin:7px 0 10px;border:0;border-radius:16px;
   background:var(--gold);color:#3a2c05;
@@ -342,16 +345,16 @@
   font-size:16px;letter-spacing:normal;
   box-shadow:0 6px 18px rgba(0,0,0,.35);
 }
-#winButtons .nextjob:active{transform:translateY(1px)}
+.overlay button.jobcard:active{transform:translateY(1px)}
 
-.nextjob .njtag{
+.jobcard .njtag{
   display:flex;align-items:center;gap:8px;
   font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
   color:#6b5416;
 }
 /* The chip is the whole new-vs-returning signal, so it has to survive being
    glanced at: a filled pill rather than another weight of the same text. */
-.nextjob .njchip{
+.jobcard .njchip{
   font-style:normal;
   margin-left:auto;
   background:rgba(58,44,5,.16);
@@ -360,30 +363,30 @@
   font-size:10px;letter-spacing:.1em;
 }
 
-.nextjob .njrow{display:flex;align-items:flex-start;gap:11px;margin-top:8px}
+.jobcard .njrow{display:flex;align-items:flex-start;gap:11px;margin-top:8px}
 /* Big enough to read as a portrait rather than an icon — this is the "show me
    who is hiring me" half of the card. */
-.nextjob .njface{
+.jobcard .njface{
   flex:0 0 auto;
   font-size:40px;line-height:1;
   filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));
 }
-.nextjob .njtext{display:block;min-width:0;flex:1 1 auto}
-.nextjob .njname{
+.jobcard .njtext{display:block;min-width:0;flex:1 1 auto}
+.jobcard .njname{
   display:block;
   font-size:17px;font-weight:800;letter-spacing:.02em;
   margin-bottom:2px;
 }
 /* Why they are calling you. Normal weight on purpose: it is prose, and bolding
    it would make the card shout two things at once. */
-.nextjob .njhook{
+.jobcard .njhook{
   display:block;
   font-size:13px;font-weight:600;line-height:1.4;
   color:#4a3a08;
 }
 /* Their own words. Quieter and italic so it reads as a voice rather than more
    narration — and it is the only place stage.teaser has ever been shown. */
-.nextjob .njsay{
+.jobcard .njsay{
   display:block;margin-top:5px;
   font-size:12.5px;font-weight:600;font-style:italic;line-height:1.35;
   color:#6b5416;
@@ -392,17 +395,17 @@
 /* Was "T-1 · FOUR HUNDRED YEARS"; it is just "T-1" now, so the rule only has to
    keep the divider and the arrow reading as one footer rather than as a stray
    label. See the comment in nextJobCard(). */
-.nextjob .njfoot{
+.jobcard .njfoot{
   display:flex;align-items:center;gap:6px;
   margin-top:9px;padding-top:8px;
   border-top:1px solid rgba(58,44,5,.18);
   font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
   color:#6b5416;
 }
-.nextjob .njfoot em{font-style:normal;margin-left:auto;font-size:13px}
+.jobcard .njfoot em{font-style:normal;margin-left:auto;font-size:13px}
 
 /* A phone in portrait: the face shrinks before the words do. */
 @media (max-width:380px){
-  .nextjob .njface{font-size:34px}
-  .nextjob .njhook{font-size:12.5px}
+  .jobcard .njface{font-size:34px}
+  .jobcard .njhook{font-size:12.5px}
 }

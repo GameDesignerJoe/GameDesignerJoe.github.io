@@ -221,8 +221,11 @@
     <h1>Tidy Adventures</h1>
     <p class="tagline">Everything Everywhere All in its place</p>
     <div id="titleButtons">
-      <!-- hidden with no save; the label is rewritten by labelContinue() to
-           carry the client and level, so change the text in BOTH places. -->
+      <!-- Hidden with no save. With one, labelContinue() REPLACES this button's
+           contents and classes with the job card the win screen uses — face,
+           client, where you left off — so the text below is only what shows in
+           the frame before data/strings.json lands. The element itself is reused
+           rather than swapped out, which is what keeps its click handler. -->
       <button class="menubtn primary" id="btnContinue" hidden>Continue Tidy Job</button>
       <button class="menubtn" id="btnCampaign">Take a Tidy Job</button>
       <button class="menubtn" id="btnFree">Free Play</button>

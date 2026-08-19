@@ -4,6 +4,11 @@
     "Add a theme here, then set \"theme\" on an entry in sizes.json or levels.json.",
     "",
     "Room ids must exist in rooms.json.",
+    "icon — the face the Continue card wears for a FREE-PLAY save of this world.",
+    "       Free play has no client, and the game's own 🏠 on a half-tidied wizard's",
+    "       tower says nothing about where you actually were. Campaign saves use the",
+    "       client's emoji instead and never read this.",
+    "",
     "Shapes: \"rect\" (default), \"round\", \"hex\" — all three are implemented in",
     "css/room.css and in inShape() in js/geometry.js. This list is the pool a room",
     "draws from; a room in rooms.json can pin its own \"shape\" and ignore it.",
@@ -37,6 +42,7 @@
   "themes": {
     "house": {
       "label": "House",
+      "icon": "🏠",
       "shapes": ["rect"],
       "rooms": ["kitchen","garage","bathroom","office","closet","attic","shed","secret","bedroom",
                 "playroom","music","mudroom","cellar","observatory"]
@@ -44,30 +50,35 @@
 
     "dream": {
       "label": "Dream",
+      "icon": "🌌",
       "shapes": ["round","hex"],
       "rooms": ["nebula","comet","hall","orbit"]
     },
 
     "frat": {
       "label": "Frat House",
+      "icon": "🧑‍🎓",
       "shapes": ["rect"],
       "rooms": ["pong","pit","laundry","trophy","kitchenette","study","yard"]
     },
 
     "ship": {
       "label": "Survey Ship",
+      "icon": "👽",
       "shapes": ["rect","round"],
       "rooms": ["specimen","cryo","replica","instrument","anomaly","hydro"]
     },
 
     "tower": {
       "label": "Wizard's Tower",
+      "icon": "🧙",
       "shapes": ["rect","hex"],
       "rooms": ["library","apothecary","roost","scrying","broom","reliquary"]
     },
 
     "zoo": {
       "label": "The Zoo",
+      "icon": "🦜",
       "shapes": ["rect","round"],
       "rooms": ["aviary","keeper","feedstore","reptile","enclosure","vault"]
     }

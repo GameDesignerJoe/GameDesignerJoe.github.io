@@ -16,6 +16,30 @@
     "name on a client you haven't met — keep it short, it sits under a face in a",
     "tile about 80px wide, and keep it anonymous: the silhouette is the joke."
   ],
+  "_titleScreenNote": [
+    "The Continue card. It is the same component as the win screen's next-job",
+    "card (see winScreen below) with different copy: that one pitches a job you",
+    "have not started, this one names the person you left standing in a half-tidy",
+    "house. {room} is the room the save was in and {left} is how many items are",
+    "still out — both read straight off the parsed save, which is never loaded",
+    "until the button is pressed.",
+    "",
+    "NO ARTICLE GOES NEAR {room}. Room names supply their own and they disagree:",
+    "\"Kitchen\" and \"Attic\" want \"the\", \"The Familiar's Roost\" already has one,",
+    "and \"Hydroponics\" wants none. \"You left off in the {room}\" produced \"in the",
+    "the Familiar's Roost\" and \"in the Hydroponics\" on the same build. The room",
+    "is named in the card's FOOTER instead, where it is a label rather than part",
+    "of a sentence, and the body line talks about the floor."
+  ],
+  "titleScreen": {
+    "continueTag": "Continue",
+    "chipMidJob": "In progress",
+    "chipFreePlay": "Free play",
+    "leftOff": "Still {left} things on the floor in there.",
+    "leftOffClear": "The floor is clear — go and finish it.",
+    "continueFallback": "Continue Tidy Job"
+  },
+
   "_winScreenNote": [
     "The card at the top of the win screen. The COPY on it is per-stage (hook",
     "and teaser in clients.json); these are only the labels around it, so a",

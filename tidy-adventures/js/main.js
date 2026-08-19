@@ -811,6 +811,19 @@ function bounce(dir){
   },100);
 }
 
+/* The HUD's "N left", extracted so the Continue card can ask the same question
+   of a SAVE it has not loaded — peekSave() parses the run without installing it,
+   which is the whole point of that function, and a second copy of this filter
+   would be a second definition of the only number the player watches. */
+function itemsLeft(items, typeHome){
+  return Object.values(items||{}).filter(i=>{
+    if(i.isKey || i.isCoin || i.isNote || i.loc.kind==="used") return false;
+    if(i.loc.kind!=="cell") return true;
+    const home=(typeHome||{})[i.type];
+    return !home || i.loc.room!==home.room || i.loc.cont!==home.cont;
+  }).length;
+}
+
 function renderHUD(){
   const room=G.rooms[G.current];
   const done=roomComplete(room);
@@ -829,13 +842,7 @@ function renderHUD(){
      away — they're spent. Counting them meant a finished house could still say
      "2 left" over a spare key. This is now the same set showWin() reports, so
      the counter reaches exactly 0 as the win screen appears. */
-  const left=Object.values(G.items).filter(i=>{
-    if(i.isKey || i.isCoin || i.isNote || i.loc.kind==="used") return false;
-    if(i.loc.kind!=="cell") return true;
-    const home=G.typeHome[i.type];
-    return !home || i.loc.room!==home.room || i.loc.cont!==home.cont;
-  }).length;
-  $("#remaining").textContent=left+" left";
+  $("#remaining").textContent=itemsLeft(G.items, G.typeHome)+" left";
   $("#shopBtn").textContent="⭐ "+G.points;
   drawMinimap();
   scheduleSave();
@@ -1551,6 +1558,42 @@ function clearTalents(){ try{ localStorage.removeItem(TALENTS_KEY); }catch(e){} 
    actually done an earlier job for this client. That also keeps it honest for a
    level inserted behind a player's frontier.
 ============================================================ */
+/* PURE PRESENTATION. Handed a face, a name and up to two lines; knows nothing
+   about runs, saves or progress. Same reasoning as js/client.js, and the reason
+   the win screen and the title screen can share one component: the win screen
+   offers a job that has not started, the title screen offers one you are in the
+   middle of, and the only thing that differs is the copy. */
+function fillJobCard(b, o){
+  b.textContent = "";
+  b.classList.remove("menubtn","primary","ghost");
+  b.classList.add("jobcard");
+
+  const tag = mkEl("span","njtag", o.tag);
+  if(o.chip) tag.appendChild(mkEl("em","njchip", o.chip));
+  b.appendChild(tag);
+
+  const row = mkEl("span","njrow");
+  row.appendChild(mkEl("span","njface", o.face));
+  const text = mkEl("span","njtext");
+  text.appendChild(mkEl("span","njname", o.name));
+  /* Both lines are optional: a free-play save has nobody to quote, and a stage
+     with no teaser must not leave a gap where one used to be. */
+  if(o.body) text.appendChild(mkEl("span","njhook", o.body));
+  if(o.say)  text.appendChild(mkEl("span","njsay",  o.say));
+  row.appendChild(text);
+  b.appendChild(row);
+
+  const foot = mkEl("span","njfoot", o.foot || "");
+  foot.appendChild(mkEl("em",null,"▶"));
+  b.appendChild(foot);
+  return b;
+}
+function jobCard(o){
+  const b = fillJobCard(document.createElement("button"), o);
+  if(o.onGo) b.addEventListener("click", o.onGo);
+  return b;
+}
+
 function nextJobCard(idx, onGo){
   const next = jobAt(idx);
   if(!next) return null;
@@ -1559,42 +1602,28 @@ function nextJobCard(idx, onGo){
   /* Have we actually worked for this person, or does the arc merely say so? */
   const arc = LOOKUP.arcs.find(a => a.client.id === next.client.id);
   const worked = !!arc && arc.stages.some(s => s.stageNo < next.stageNo && done.has(s.level.id));
-
-  const b = document.createElement("button");
-  b.className = "nextjob";
-
-  const tag = mkEl("span","njtag", S.nextJob || "Next job");
-  tag.appendChild(mkEl("em","njchip", worked ? (S.chipAgain || "Asking for you again")
-                                             : (S.chipNew   || "New client")));
-  b.appendChild(tag);
-
-  const row = mkEl("span","njrow");
-  row.appendChild(mkEl("span","njface", next.client.emoji));
-  const text = mkEl("span","njtext");
-  text.appendChild(mkEl("span","njname", next.client.name));
   /* hook is the line that matters; teaser is flavour and may be absent. Falling
      back to the level blurb means this card can never render an empty gap. */
   const hook = next.stage.hook || next.level.blurb || "";
-  if(hook) text.appendChild(mkEl("span","njhook", tokenise(hook, {handSlots:INV_SIZE, rowLen:next.level.rowLen||5, name:next.client.name, level:next.level.id})));
-  if(next.stage.teaser) text.appendChild(mkEl("span","njsay", next.stage.teaser));
-  row.appendChild(text);
-  b.appendChild(row);
-
-  /* NO LEVEL NAME. The card carries two lines of the client's own voice, and the
-     level title is a THIRD headline competing with them — on eleven of the
-     thirty-four stages it also repeats a word the card has already said, because
-     the titles were written from the same beats: "Terms have been agreed." above
-     TERMS AGREED, "Twelve a day. Worth it." above TWELVE A DAY, and T-1's hook
-     saying "Four hundred years I have lived here" directly above FOUR HUNDRED
-     YEARS. Two quotes of the same thing reads as a mistake even where it is not.
-     The id stays: it is four characters, it is what the job board and the gear
-     call this job, and it is the only thing on the card a bug report can name. */
-  const foot = mkEl("span","njfoot", next.level.id);
-  foot.appendChild(mkEl("em",null,"▶"));
-  b.appendChild(foot);
-
-  b.addEventListener("click", onGo);
-  return b;
+  /* NO LEVEL NAME, only the id. The card carries two lines of the client's own
+     voice, and the level title is a THIRD headline competing with them — on
+     eleven of the thirty-four stages it also repeats a word the card has already
+     said, because the titles were written from the same beats: "Terms have been
+     agreed." above TERMS AGREED, "Twelve a day. Worth it." above TWELVE A DAY,
+     T-1's hook saying "Four hundred years I have lived here" directly above FOUR
+     HUNDRED YEARS. Two quotes of the same thing reads as a mistake even where it
+     is not. The id stays: four characters, what the board and the gear call this
+     job, and the only thing on the card a bug report can name. */
+  return jobCard({
+    tag:  S.nextJob || "Next job",
+    chip: worked ? (S.chipAgain || "Asking for you again") : (S.chipNew || "New client"),
+    face: next.client.emoji,
+    name: next.client.name,
+    body: hook && tokenise(hook, {handSlots:INV_SIZE, rowLen:next.level.rowLen||5, name:next.client.name, level:next.level.id}),
+    say:  next.stage.teaser,
+    foot: next.level.id,
+    onGo,
+  });
 }
 
 function showWin(){
@@ -2633,27 +2662,75 @@ function runMusic(){
 }
 
 /* "Continue" on its own asks you to remember what you were in the middle of,
-   which after a day away you don't. Name the client and the job. */
+   which after a day away you don't. It used to name the client and the job on a
+   one-line subtitle; it is now the SAME card the win screen uses, because the
+   thing that pulls somebody back into a half-tidied house is the person waiting
+   in it. The win screen says "here is who wants to hire you"; this says "here is
+   who you left standing there".
+
+   It reads the save through peekSave() and never loads it — pressing the button
+   is still what installs the run — so everything here has to come out of the
+   parsed JSON: the room you were in, the count still on the floor, and the job
+   the level id resolves to. */
 function labelContinue(d){
   const b=$("#btnContinue");
-  /* Must match the fallback label in index.html — this one is what you
-     actually see, because the button only shows when there IS a save. */
-  b.textContent="Continue Tidy Job";
-  let sub="";
+  const S=DATA.strings.titleScreen||{};
+  const left=itemsLeft(d.items, d.typeHome);
+  const room=(d.rooms||[]).find(r=>r.id===d.current);
+  /* Two phrasings rather than one with a number that might be zero: showWin()
+     clears the save, so a finished run should never be resumable, but "Still 0
+     things on the floor" is a sentence worth making unreachable by construction. */
+  const where = tokenise(left ? (S.leftOff||"") : (S.leftOffClear||""), {left});
+  /* THE ROOM IS A FOOTER LABEL, NOT PART OF A SENTENCE. Room names carry their
+     own articles and they disagree: "Kitchen" wants "the", "The Familiar's Roost"
+     already has one, "Hydroponics" wants none. "You left off in the {room}" gave
+     "in the the Familiar's Roost" and "in the Hydroponics" on the same build. In
+     the footer, uppercased next to the id, no article is implied by anything. */
+  const at = room ? " · " + room.name : "";
+
   if(d.mode==="campaign"){
-    /* Same id-first resolution as loadGame(), so the button can never name a
+    /* Same id-first resolution as loadGame(), so the card can never name a
        different job than the one Continue is about to open. */
     const idx = (d.levelId!=null && LOOKUP.levelIdxById[d.levelId]!=null)
       ? LOOKUP.levelIdxById[d.levelId] : d.levelIdx;
     const lv=LEVELS[idx], job=jobAt(idx);
-    /* No lv means loadGame() will discard this save; say nothing rather than
-       promise a job that isn't there. */
-    if(lv) sub=(job?job.client.emoji+" "+job.client.name+" · ":"")+lv.id+" "+lv.name;
-  }else{
-    const sz=SIZES[d.size];
-    sub="Free Play"+(sz?" · "+presetName(sz):"");
+    /* No lv means loadGame() will discard this save. Fall back to the plain
+       button rather than promising a job that is not there. */
+    if(lv && job){
+      fillJobCard(b, {
+        tag:  S.continueTag || "Continue",
+        chip: S.chipMidJob  || "In progress",
+        face: job.client.emoji,
+        name: job.client.name,
+        body: where,
+        /* Their own words about THIS job, still outstanding. The hook is not
+           reused: it is about how they found you, which is settled by now. */
+        say:  job.stage.teaser,
+        foot: lv.id + at,
+      });
+      return;
+    }
+    b.classList.remove("jobcard");
+    b.classList.add("menubtn","primary");
+    b.textContent = S.continueFallback || "Continue Tidy Job";
+    return;
   }
-  if(sub) b.appendChild(mkEl("small",null,sub));
+
+  const sz=SIZES[d.size];
+  /* Free play has no client to put a face to, so the WORLD wears one — a 🏠 over
+     a half-tidied wizard's tower says nothing about where you were. There is
+     nobody to quote either, and fillJobCard() simply omits that line. */
+  const th=DATA.themes.themes[d.theme] || DATA.themes.themes[DATA.themes.defaultTheme];
+  fillJobCard(b, {
+    tag:  S.continueTag || "Continue",
+    chip: S.chipFreePlay || "Free play",
+    face: th?.icon || DATA.strings.icon || "🧺",
+    name: sz ? presetName(sz) : (S.continueFallback || "Continue Tidy Job"),
+    body: where,
+    /* Not the theme's label — for every world preset that is the same string as
+       the name directly above it ("Frat House" over "Frat House"). */
+    foot: (d.rooms||[]).length + " rooms" + at,
+  });
 }
 
 /* generate() returns a run; setRun installs it along with the metadata that
