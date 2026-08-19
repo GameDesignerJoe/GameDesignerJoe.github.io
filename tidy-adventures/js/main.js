@@ -1515,6 +1515,88 @@ initTalents({
    gone is carrying them forward past the win screen. */
 function clearTalents(){ try{ localStorage.removeItem(TALENTS_KEY); }catch(e){} }
 
+/* ============================================================
+   THE NEXT JOB CARD — the win screen's whole first answer
+
+   WHAT THIS REPLACED. The win screen offered "Next job" and "Job board" and
+   swapped which of them was gold: staying with the same client made Next job
+   primary, moving to a new one sent you to the board instead, "so they get
+   their own arrival". The reasoning was sound and the result was not — a
+   client's arrival on the board is a small greyed tile in a grid of thirty-four,
+   and the player had to go looking for it. Half the transitions in the campaign
+   were a menu.
+
+   So the next job is now ALWAYS first, always gold, and big enough to carry the
+   person offering it: their face, their name, why they are calling you, and one
+   line in their own voice. A new client's arrival is a card with their face on
+   it, which is a better arrival than the board ever gave them.
+
+   TWO LINES, DOING TWO DIFFERENT JOBS.
+     stage.hook   — third person, and the one that carries the through-line:
+                    how this person found you, or what they want. For a first
+                    stage that is a referral ("Your mom told her about you"),
+                    which is what makes the cast feel like it knows itself.
+     stage.teaser — their own words, quoted.
+
+   `teaser` ALREADY EXISTED ON EVERY STAGE AND NOTHING HAS EVER RENDERED IT.
+   Thirty-four authored lines, validated for tokens on every boot, checked for
+   voice in review, and dead — the only reader was soonTile(), which asks for
+   `client.teaser` (a client-level field no client has) rather than a stage's.
+   That is the same failure mode as the two consumables that set a field nothing
+   read: it did not look broken, it looked like copy someone had decided against.
+
+   NEW vs RETURNING is measured, not assumed. `stageNo > 1` would be wrong the
+   moment a level is skipped — with "Unlock all jobs" on you can reach a third
+   stage having met nobody — so it asks the finished-set whether you have
+   actually done an earlier job for this client. That also keeps it honest for a
+   level inserted behind a player's frontier.
+============================================================ */
+function nextJobCard(idx, onGo){
+  const next = jobAt(idx);
+  if(!next) return null;
+  const S = DATA.strings.winScreen || {};
+  const done = progress().done;
+  /* Have we actually worked for this person, or does the arc merely say so? */
+  const arc = LOOKUP.arcs.find(a => a.client.id === next.client.id);
+  const worked = !!arc && arc.stages.some(s => s.stageNo < next.stageNo && done.has(s.level.id));
+
+  const b = document.createElement("button");
+  b.className = "nextjob";
+
+  const tag = mkEl("span","njtag", S.nextJob || "Next job");
+  tag.appendChild(mkEl("em","njchip", worked ? (S.chipAgain || "Asking for you again")
+                                             : (S.chipNew   || "New client")));
+  b.appendChild(tag);
+
+  const row = mkEl("span","njrow");
+  row.appendChild(mkEl("span","njface", next.client.emoji));
+  const text = mkEl("span","njtext");
+  text.appendChild(mkEl("span","njname", next.client.name));
+  /* hook is the line that matters; teaser is flavour and may be absent. Falling
+     back to the level blurb means this card can never render an empty gap. */
+  const hook = next.stage.hook || next.level.blurb || "";
+  if(hook) text.appendChild(mkEl("span","njhook", tokenise(hook, {handSlots:INV_SIZE, rowLen:next.level.rowLen||5, name:next.client.name, level:next.level.id})));
+  if(next.stage.teaser) text.appendChild(mkEl("span","njsay", next.stage.teaser));
+  row.appendChild(text);
+  b.appendChild(row);
+
+  /* NO LEVEL NAME. The card carries two lines of the client's own voice, and the
+     level title is a THIRD headline competing with them — on eleven of the
+     thirty-four stages it also repeats a word the card has already said, because
+     the titles were written from the same beats: "Terms have been agreed." above
+     TERMS AGREED, "Twelve a day. Worth it." above TWELVE A DAY, and T-1's hook
+     saying "Four hundred years I have lived here" directly above FOUR HUNDRED
+     YEARS. Two quotes of the same thing reads as a mistake even where it is not.
+     The id stays: it is four characters, it is what the job board and the gear
+     call this job, and it is the only thing on the card a bug report can name. */
+  const foot = mkEl("span","njfoot", next.level.id);
+  foot.appendChild(mkEl("em",null,"▶"));
+  b.appendChild(foot);
+
+  b.addEventListener("click", onGo);
+  return b;
+}
+
 function showWin(){
   clearSave();
   const secs=Math.round((Date.now()-G.stats.start)/1000);
@@ -1542,24 +1624,17 @@ function showWin(){
       : lv.id+" · "+lv.name+" — complete!";
     $("#winStats").textContent=stats;
     markDone(lv.id);
-    if(G.levelIdx+1<LEVELS.length){
-      /* Staying with the same client reads as "next job"; moving to a new one
-         goes through the board so they get their own arrival. */
-      const next=jobAt(G.levelIdx+1);
-      const sameClient=job && next && next.client.id===job.client.id;
-      /* `ghost` rather than a bare .menubtn for the secondary: `.overlay button`
-         (0,1,1) outranks `.menubtn` (0,1,0), so a plain one comes out gold and
-         the primary stops meaning anything. */
-      if(sameClient){
-        mk("Next job ▶","primary",()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); });
-        mk("Job board","ghost",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
-      }else{
-        mk("Job board ▶","primary",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
-        mk("Next job","ghost",()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); });
-      }
-    }else{
-      mk("Job board","primary",()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
-    }
+    /* markDone above ran BEFORE this, which matters: the card asks the
+       finished-set whether you have worked for the next client, and the job you
+       just finished has to be in it. */
+    const card = G.levelIdx+1<LEVELS.length
+      ? nextJobCard(G.levelIdx+1, ()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); })
+      : null;
+    if(card) btns.appendChild(card);
+    /* `ghost` rather than a bare .menubtn for the secondaries: `.overlay button`
+       (0,1,1) outranks `.menubtn` (0,1,0), so a plain one comes out gold and the
+       card stops being the obvious thing to press. */
+    mk("Job board", card?"ghost":"primary", ()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }else{
     $("#winOverlay .big").textContent="✨";

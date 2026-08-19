@@ -22,7 +22,33 @@
     "what makes them feel like people with their own lives. Marguerite pauses",
     "while the frat house happens, then comes back at the very end.",
     "",
-    "TOKENS. intro/outro/teaser: {handSlots} {rowLen} {name} {level}",
+    "THE NEXT-JOB CARD carries two of these, and they are not interchangeable:",
+    "  hook   — THE CLIENT TALKING TO YOU. First person, direct address, in their",
+    "           own voice, about the RELATIONSHIP: how they got hold of you, or",
+    "           what having worked for you once has changed. Not the narrator.",
+    "           A draft of these was third person and it was accurate and inert:",
+    "           the referral is the funniest thing most of these people have to",
+    "           offer, and reported rather than told it stops being a joke. An",
+    "           alien watched you through a window for a month; a parrot got your",
+    "           number out of a bin; a gorilla lifted it off the parrot's desk; a",
+    "           robot was handed your details by a frat boy and cannot parse the",
+    "           compliment. Say it in their mouth.",
+    "           A FIRST stage is a referral, and the referrals CHAIN across the",
+    "           whole cast on purpose — Mom to Marguerite to Sam; a pizza box to the",
+    "           frat to Unit 7 to Dr. Ashworth; Zorb to Nettle; Captain to Boris.",
+    "           That chain is the only thing making eleven clients feel like one",
+    "           world rather than eleven jobs.",
+    "           DO NOT write the job into it. A draft did, and because the teaser",
+    "           below already says what they want, the card printed the same",
+    "           sentence twice on thirteen levels. Two lines on a phone, maximum.",
+    "  teaser — THEIR OWN WORDS, quoted. These existed on every stage from the",
+    "           start and NOTHING RENDERED THEM until the card did: the only reader",
+    "           asked for a client-level teaser field that no client has.",
+    "           Thirty-four authored lines, boot-validated for tokens the whole",
+    "           time, and invisible. Add a field here, render it in the same change.",
+    "A stage with no hook falls back to the level blurb, and boot warns about it.",
+    "",
+    "TOKENS. intro/outro/teaser/hook: {handSlots} {rowLen} {name} {level}",
     "        note text/reply:    {container} {room} {handSlots} {rowLen} {name}",
     "        (a room and container are only known once one is finished)",
     "",
@@ -53,6 +79,7 @@
       "stages": [
         {
           "level": "1-1",
+          "hook": "You asked me for a summer job. I have one for you. It is upstairs and it is yours.",
           "teaser": "\"I'm not asking again.\"",
           "intro": [
             "You want to make money this summer? Wonderful. You can start with your own room.",
@@ -62,6 +89,7 @@
         },
         {
           "level": "1-2",
+          "hook": "I looked at it again this morning. Sweetheart. Come back up here.",
           "teaser": "\"A pile is not a system.\"",
           "replay": "Again? It'll be like this by Thursday anyway.",
           "intro": [
@@ -90,6 +118,7 @@
       "stages": [
         {
           "level": "2-1",
+          "hook": "Your mom rang me about you. I am in my grandmother’s house, I have been for an hour, and I have not picked up one thing.",
           "teaser": "\"Your mother said you'd know what to do.\"",
           "replay": "Back again? There's always more.",
           "intro": [
@@ -107,6 +136,7 @@
         },
         {
           "level": "2-2",
+          "hook": "I kept your number. There are three more rooms in here and I have almost stopped apologising for them.",
           "teaser": "\"It's getting easier. Slightly.\"",
           "intro": [
             "Three rooms this time. I've almost stopped apologising for the state of it.",
@@ -122,6 +152,7 @@
         },
         {
           "level": "6-2",
+          "hook": "It has been months and the house has sold. I asked for you because I could not ask anybody else.",
           "teaser": "\"One last room. I couldn't face it alone.\"",
           "intro": [
             "The house sold. Completed on Friday.",
@@ -150,6 +181,7 @@
       "stages": [
         {
           "level": "3-1",
+          "hook": "hey so somebody wrote your number on a pizza box and honestly thank god. six of us. one deposit.",
           "teaser": "\"this was like this when we moved in\"",
           "intro": [
             "hey so. this was like this when we moved in.",
@@ -163,6 +195,7 @@
         },
         {
           "level": "3-2",
+          "hook": "you’re in the group chat now. under a name we are not going to tell you.",
           "teaser": "\"ok that was ONE party. one.\"",
           "replay": "you again. we're not even embarrassed anymore.",
           "intro": [
@@ -177,6 +210,7 @@
         },
         {
           "level": "4-2",
+          "hook": "we’re not even getting up to let you in anymore. door’s open. help yourself.",
           "teaser": "\"same as last time. you know where it goes.\"",
           "intro": [
             "same as last time. you know where everything goes.",
@@ -192,6 +226,7 @@
         },
         {
           "level": "5-2",
+          "hook": "sorry it’s 11pm. we need you. it is not an emergency. it is completely an emergency.",
           "teaser": "\"the Dean is coming FRIDAY\"",
           "intro": [
             "the Dean is coming friday. FRIDAY.",
@@ -205,6 +240,7 @@
         },
         {
           "level": "6-1",
+          "hook": "last one man. we want the person who has seen this place at its absolute worst. that’s you. affectionately.",
           "teaser": "\"deposit day. it all rides on this.\"",
           "intro": [
             "last one. we're moving out.",
@@ -232,6 +268,7 @@
       "stages": [
         {
           "level": "4-1",
+          "hook": "I have watched you working through a window, three houses distant, for one of your months. I have questions. Come.",
           "teaser": "\"I have sealed a room. I no longer recall why.\"",
           "intro": [
             "I have been assigned this dwelling for one of your years.",
@@ -251,6 +288,7 @@
             "This is also the level that teaches ⭐, and the two land together on",
             "purpose — the first talent draft should happen somewhere memorable." ],
           "level": "5-1",
+          "hook": "You have not once asked me what I am. I have decided that this makes you trustworthy. Tell nobody where you are going.",
           "teaser": "\"You will come aboard. It is parked behind the shed.\"",
           "intro": [
             "You will come aboard. It has been behind the shed for one of your years and nobody has said anything.",
@@ -267,6 +305,7 @@
         },
         {
           "level": "5-3",
+          "hook": "I have kept you on. I now request you by name, which among my people is a considerable statement.",
           "teaser": "\"My report is due. It is mostly wrong.\"",
           "intro": [
             "My field report is due at the end of this cycle. It is four hundred pages and I now believe most of it is wrong.",
@@ -294,6 +333,7 @@
       "stages": [
         {
           "level": "7-1",
+          "hook": "A human named Chad supplied your details. He described you as ‘unreal at this’. I have been unable to parse that phrase for six weeks.",
           "teaser": "\"Demonstrate. I will watch.\"",
           "intro": [
             "I am learning where objects belong. I have forty thousand hours of video of humans putting things away.",
@@ -307,6 +347,7 @@
         },
         {
           "level": "7-2",
+          "hook": "I have reviewed forty thousand hours of recordings of you working. All of them. I remain at a loss.",
           "teaser": "\"I have a hypothesis about socks.\"",
           "replay": "You have returned. I have new questions.",
           "intro": [
@@ -321,6 +362,7 @@
         },
         {
           "level": "7-3",
+          "hook": "I was permitted to request one human. I requested you by name. I hope that was allowed.",
           "teaser": "\"My evaluation is tomorrow.\"",
           "intro": [
             "My evaluation is tomorrow. I will be scored on a house I have never seen.",
@@ -348,6 +390,7 @@
       "stages": [
         {
           "level": "8-1",
+          "hook": "Marguerite gave me your number outside the estate agent’s. I have never asked anybody for help before. She is asleep. Please hurry.",
           "teaser": "\"You've got forty minutes. Maybe.\"",
           "intro": [
             "She's asleep. She is actually asleep.",
@@ -361,6 +404,7 @@
         },
         {
           "level": "8-2",
+          "hook": "You’re in my phone as THE TIDIER. There has been a development. Come now if you can.",
           "teaser": "\"She's learned to open drawers.\"",
           "replay": "Come in, come in, mind the — yeah. Mind that.",
           "intro": [
@@ -375,6 +419,7 @@
         },
         {
           "level": "8-3",
+          "hook": "It’s five in the morning and I am not upset. I need you to see something. Please come today.",
           "teaser": "\"She slept through. I need the house to match.\"",
           "intro": [
             "She slept through the night. Eight hours.",
@@ -402,6 +447,7 @@
       "stages": [
         {
           "level": "9-1",
+          "hook": "A machine gave you as a reference, which is a sentence I have had to sit with for some time. I am told you are discreet.",
           "teaser": "\"Two colleagues are coming. To the house.\"",
           "intro": [
             "Two colleagues are coming to the house on Thursday. Please don't ask why the house.",
@@ -415,6 +461,7 @@
         },
         {
           "level": "9-2",
+          "hook": "Thursday went well. Nobody mentioned it. I would like to go further into the house now, if you have the time.",
           "teaser": "\"There are rooms I haven't opened in three years.\"",
           "intro": [
             "There are rooms in this house I haven't opened since the funding came through.",
@@ -431,6 +478,7 @@
         },
         {
           "level": "9-3",
+          "hook": "I looked up this morning for the first time in a decade. I would like to see the floor of my own house. Would you come.",
           "teaser": "\"It's finished. Eleven years, and it's finished.\"",
           "intro": [
             "It's finished. Eleven years and it's finished, and I looked up, and it's — this.",
@@ -468,6 +516,7 @@
       "stages": [
         {
           "level": "D-1",
+          "hook": "You did not travel here. You closed your eyes, and the filing simply continued without a building around it.",
           "teaser": "\"You are asleep. The work continues.\"",
           "replay": "You are here again. You are always here again.",
           "intro": [
@@ -481,6 +530,7 @@
         },
         {
           "level": "D-2",
+          "hook": "You are back. I did not send for you. Nothing out here sends for anyone.",
           "teaser": "\"The comets have been left out again.\"",
           "intro": [
             "Back so soon. The comets have been left out again.",
@@ -496,6 +546,7 @@
         },
         {
           "level": "D-3",
+          "hook": "You have done this often enough that I no longer explain it. The sky expects you now.",
           "teaser": "\"Every star has a home. This is the whole of the work.\"",
           "intro": [
             "You have done this enough times that the sky expects you now.",
@@ -533,6 +584,7 @@
       "stages": [
         {
           "level": "T-1",
+          "hook": "Your name reached me through the small green thing that has been measuring my tower. Four hundred years I have lived here. Come up, the stairs will hold.",
           "teaser": "\"Don't touch the cupboard. It's fine. Mostly.\"",
           "intro": [
             "You'll be wondering about the stairs. Don't. They're fine now.",
@@ -549,6 +601,7 @@
         },
         {
           "level": "T-2",
+          "hook": "I would like you back, and I would like it understood that this is not an emergency. It is simply very bad.",
           "teaser": "\"I took an apprentice. Briefly.\"",
           "replay": "Back again. Something has almost certainly moved.",
           "intro": [
@@ -568,6 +621,7 @@
         },
         {
           "level": "T-3",
+          "hook": "Four hundred years without asking anybody for help and I have now asked you twice. Do not read anything into that. Do not read anything at all, in fact.",
           "teaser": "\"The tower is being inspected.\"",
           "intro": [
             "The tower is being inspected. By whom is not your concern and frankly not mine either.",
@@ -605,6 +659,7 @@
       "stages": [
         {
           "level": "Z-1",
+          "hook": "I obtained your number from a bin. I will not be elaborating. Present yourself at the facility after six.",
           "teaser": "\"The humans have left. I am in charge.\"",
           "intro": [
             "The humans clock off at six. After six, I run this facility.",
@@ -621,6 +676,7 @@
         },
         {
           "level": "Z-3",
+          "hook": "You are on the payroll as of this morning. There is no payroll. Come at once and ask nothing on an open line.",
           "teaser": "\"I have located every banana in this facility.\"",
           "intro": [
             "Boris has declined my restructuring proposal. Fine. Excellent, in fact.",
@@ -637,6 +693,7 @@
         },
         {
           "level": "Z-5",
+          "hook": "I no longer refer to you as a contractor. I refer to you as staff. Do not let that go to your head.",
           "teaser": "\"Terms have been agreed.\"",
           "intro": [
             "Terms have been agreed. Boris answers to me. I answer to nobody.",
@@ -672,6 +729,7 @@
       "stages": [
         {
           "level": "Z-2",
+          "hook": "Took your number off the bird’s desk while he was on a call. He does the talking. I do the lifting. Come round.",
           "teaser": "\"Bird says a lot of things.\"",
           "intro": [
             "You're the one Captain hired. Right.",
@@ -688,6 +746,7 @@
         },
         {
           "level": "Z-4",
+          "hook": "I’m telling you and I’m not telling him. They’re gone. All of them. I counted twice.",
           "teaser": "\"All I want is to know where they are.\"",
           "replay": "Come on in. Mind the gate, it goes both ways now.",
           "intro": [
@@ -705,6 +764,7 @@
         },
         {
           "level": "Z-6",
+          "hook": "Come and see how it turned out. That is the whole job. You’ve earned a look.",
           "teaser": "\"Twelve a day. Worth it.\"",
           "intro": [
             "Twelve a day. He thinks he won.",

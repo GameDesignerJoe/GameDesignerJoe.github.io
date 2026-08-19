@@ -16,6 +16,17 @@
     "name on a client you haven't met — keep it short, it sits under a face in a",
     "tile about 80px wide, and keep it anonymous: the silhouette is the joke."
   ],
+  "_winScreenNote": [
+    "The card at the top of the win screen. The COPY on it is per-stage (hook",
+    "and teaser in clients.json); these are only the labels around it, so a",
+    "rename never has to touch thirty-four stages."
+  ],
+  "winScreen": {
+    "nextJob": "Next job",
+    "chipNew": "New client",
+    "chipAgain": "Asking for you again"
+  },
+
   "jobBoard": {
     "title": "Job Board",
     "sub": "Who needs you today. {done} of {total} done.",

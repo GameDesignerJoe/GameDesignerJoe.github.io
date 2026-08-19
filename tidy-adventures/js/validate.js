@@ -487,7 +487,18 @@ export function validateData(D) {
           errors.push(at("clients.json", `${where} ("${s.level}") has no outro lines.`,
             "The whole point of a client is that they come back and thank you."));
         }
-        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || ""]) {
+        /* hook and teaser are the two lines on the win screen's next-job card.
+           teaser was validated here for a long time while NOTHING rendered it —
+           the only reader asked for a client-level field that does not exist —
+           so it was thirty-four authored lines the player never saw. Both are
+           shown now, and a stage missing its hook falls back to the level blurb
+           rather than leaving a gap. */
+        if (!s.hook) {
+          warnings.push(at("clients.json",
+            `${where} ("${s.level}") has no \`hook\`, so the next-job card falls back to the level blurb.`,
+            "The hook is the line that carries the through-line — how this client found you, or why they are calling again."));
+        }
+        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || "", s.hook || ""]) {
           for (const tok of tokensIn(line)) {
             if (!CLIENT_TEXT_TOKENS.has(tok)) {
               errors.push(at("clients.json", `${where} uses {${tok}}, which is never filled in.`,

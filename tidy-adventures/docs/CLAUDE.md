@@ -503,6 +503,80 @@ the pointer handlers knows this feature exists. Because it carries no
 `.overlay` class, the two global gates that look for `.overlay.open`
 (`drainDrafts`, `positionTips`) have to ask for it by name — `isSpeaking()`.
 
+**The win screen leads with the NEXT JOB, and it is a card, not a button.**
+It used to offer *Next job* and *Job board* and swap which of them was gold:
+same client made *Next job* primary, a new one sent you to the board instead
+"so they get their own arrival". The reasoning was sound and the result was not
+— a client's arrival on the board is a small greyed tile in a grid of
+thirty-four, and the player had to go looking for it. Half the transitions in
+the campaign were a menu. Now the next job is always first, always gold, and
+big enough to carry the person offering it: face, name, why they are calling,
+and one line in their own voice. A card with their face on it is a better
+arrival than the board ever gave anybody.
+
+**Two lines, and they must not do the same job.** This is a rule, not a style
+note, because the first draft broke it on thirteen levels:
+
+| field | voice | says |
+|---|---|---|
+| `hook` | **the client, first person, to you** | **the relationship** — how they got hold of you, or what working for you once has changed |
+| `teaser` | the client, quoted | **the ask** — what they want this time |
+
+**The hook is in the client's mouth, not the narrator's.** A draft of these was
+third person and it was accurate and inert — because the referral is the funniest
+thing most of these people have to offer, and reported rather than told it stops
+being a joke at all. Compare:
+
+> ✗ Zorb has been telling something about you. Four hundred years in one tower.
+> ✓ Your name reached me through the small green thing that has been measuring my
+>   tower. Four hundred years I have lived here. Come up, the stairs will hold.
+
+An alien watched you through a window for a month; a parrot got your number out
+of a bin and will not be elaborating; a gorilla lifted it off the parrot's desk
+while it was on a call; a robot was handed your details by a frat boy and has
+spent six weeks failing to parse "unreal at this". None of that survives being
+described. Both lines on the card are the client speaking, which is correct —
+they are two beats of one speech, the way `intro[]` already is.
+
+**The level TITLE is not on the card**, only its id. The title is a third
+headline competing with two lines of the client's voice, and on eleven of the
+thirty-four stages it repeats a word the card has already said — the titles were
+written from the same beats. "Terms have been agreed." above TERMS AGREED reads
+as a bug even though both lines are correct. The id survives because it is what
+the board and the gear call this job, and it is the only thing on the card a bug
+report can name.
+
+Writing the job into the hook makes the card print the same sentence twice
+("Terms have been agreed. Captain would like the facility to look like it." /
+"Terms have been agreed."), because the teasers were authored to be the *only*
+line. A first stage's hook is a **referral**, and the referrals chain across the
+whole cast on purpose: Mom hands you to Marguerite who hands you to Sam; a pizza
+box gets you the frat, who get you Unit 7, who give you as a reference to
+Dr. Ashworth; Zorb passes your name to Nettle; Boris takes your number off
+Captain's desk. That chain is the only thing that makes eleven clients feel like
+one world rather than eleven jobs, and it is data.
+
+**`teaser` had been on every stage from the start and nothing had ever rendered
+it.** Thirty-four authored lines, token-validated on every boot, reviewed for
+voice — and invisible, because the only reader was `soonTile()` asking for a
+client-level `teaser` that no client has. Same failure as the two consumables
+that set a field nothing read: it did not look broken, it looked like copy
+somebody had decided against. If you add a field to `clients.json`, render it in
+the same change.
+
+**New vs returning is measured, not inferred.** `stageNo > 1` is wrong the moment
+a level is skipped — with *Unlock all jobs* on you can reach a third stage
+having met nobody — so the card asks the finished-set whether you have actually
+done an earlier job for this client. That also stays honest for a level inserted
+behind an existing player's frontier.
+
+**The card is `#winButtons .nextjob`, not `.nextjob`.** `.overlay button` is
+(0,1,1) and carries `border-radius:999px`, so a class selector at (0,1,0) loses
+it and a 200px-tall card renders as a gold **ellipse**. This is the same trap
+the `mk()` comment warns about for `.menubtn`, where it only shows up as corners
+slightly rounder than the 14px asked for. Anything block-shaped inside an
+overlay has to out-specify that rule.
+
 **The outro is a `hold` beat.** Beats normally end on a timer; a person talking
 ends when the player taps. `hold:true` keeps `beatBusy` true for the whole
 speech, which is what stops the win screen landing on someone mid-sentence.
@@ -777,6 +851,21 @@ Run through this after any change; it's what the browser tests cover.
   frontier all come back to exactly what they were. It survives a reload. The
   last tile on the board is reachable by scrolling on a phone — there are 34 of
   them now, and with this on the last ones are the point.
+- Finish a campaign level: the **next job card is the first thing** under the
+  stats, gold, with the next client's face, a hook that is about *them* and a
+  quoted teaser that is about *the job* — never the same sentence twice. Pressing
+  it starts that level. The chip reads "New client" only when you have genuinely
+  never worked for them. The last level (9-3) has no card and *Job board* goes
+  back to being primary. Free play gets no card at all.
+- **Read the hook out loud in the client's voice.** Every one is first person and
+  addressed to the player; a hook that describes them from outside has drifted
+  back to narration and should be rewritten before it ships. Mom is warm and
+  brisk, the frat types in lower case, Zorb uses no contractions, Nettle explains
+  nothing twice, Captain says "facility", Boris keeps it to short sentences,
+  Unit 7 is precise, Sam is tired, Dr. Ashworth deflects, and the Dream never
+  jokes on purpose.
+- The card on a phone: the whole win screen still fits without scrolling, and the
+  card is a rounded rectangle rather than an oval (see the specificity note).
 - Console clean throughout.
 
 ---
