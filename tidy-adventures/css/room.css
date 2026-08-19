@@ -88,6 +88,136 @@
     transparent 0 26px, rgba(180,205,255,.16) 26px 28px),
   radial-gradient(circle at 50% 50%, #4b3a72 0%, #2c2150 60%, #1b1436 100%);}
 
+/* ---------- FRAT FLOORS ----------
+   These are house floors that something happened to. Each one is a domestic
+   surface plus the specific stain that room earned, so the frat reads as a
+   place people live in badly rather than as a different building. */
+/* Basement concrete, and the rings a cup leaves when it lives on the floor. */
+.floor-pong{background:
+  radial-gradient(circle at 30% 40%, rgba(120,80,30,.16) 8px, transparent 9px) 0 0/78px 78px,
+  radial-gradient(circle at 70% 75%, rgba(120,80,30,.12) 6px, transparent 7px) 0 0/53px 53px,
+  linear-gradient(#8f8b82,#7c7871);}
+/* Rental carpet, low pile, gone shiny in the traffic lane. */
+.floor-pit{background:
+  repeating-linear-gradient(45deg, rgba(0,0,0,.05) 0 3px, rgba(255,255,255,.03) 3px 6px),
+  linear-gradient(#6f6152,#5f5245);}
+/* Laundry-room vinyl: big soft speckle, the cheapest floor in any house. */
+.floor-laundry{background:
+  radial-gradient(circle at 25% 25%, rgba(255,255,255,.10) 2px, transparent 3px) 0 0/22px 22px,
+  radial-gradient(circle at 70% 60%, rgba(0,0,0,.07) 2px, transparent 3px) 0 0/31px 31px,
+  #8d8f8a;}
+/* The one room with a rug in it, because the trophies live here. */
+.floor-trophy{background:
+  repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 14px, transparent 14px 28px),
+  radial-gradient(circle at 50% 50%, #6b3d3f, #4e2c2f 78%);}
+/* Kitchen lino on the diagonal, worn through to the grey underneath. */
+.floor-kitchenette{background:
+  repeating-conic-gradient(#b8ac93 0% 25%, #a89c84 0% 50%) 0 0/46px 46px;}
+/* Laminate boards. The tidiest floor in the house and nobody walks on it. */
+.floor-study{background:
+  repeating-linear-gradient(90deg,#9d7c56 0 58px,#916f4b 58px 61px);}
+/* Patchy lawn: grass, then the bald spot where the grill stands. */
+.floor-yard{background:
+  radial-gradient(circle at 62% 58%, rgba(120,100,60,.55) 0%, transparent 34%),
+  repeating-linear-gradient(28deg, rgba(0,0,0,.05) 0 5px, rgba(255,255,255,.04) 5px 11px),
+  linear-gradient(#5e7a3e,#4c6733);}
+
+/* ---------- SHIP FLOORS ----------
+   Cold, lit from inside, and built rather than laid. The palette runs teal
+   against the house's browns so a Zorb level is legible from the doorway. */
+/* Deck plate: a grid of panels with the seams lit. */
+.floor-specimen{background:
+  repeating-linear-gradient(0deg, rgba(120,255,230,.10) 0 1px, transparent 1px 46px),
+  repeating-linear-gradient(90deg, rgba(120,255,230,.10) 0 1px, transparent 1px 46px),
+  radial-gradient(circle at 50% 45%, #1c4a48 0%, #123331 70%, #0b2322 100%);}
+/* Frost creeping in from the walls of a hex room. */
+.floor-cryo{background:
+  radial-gradient(circle at 18% 22%, rgba(200,240,255,.22) 0%, transparent 38%),
+  radial-gradient(circle at 82% 78%, rgba(200,240,255,.16) 0%, transparent 42%),
+  linear-gradient(#204a5c,#12303c 75%);}
+/* Zorb's idea of a carpet, reconstructed from footage. Nearly right. */
+.floor-replica{background:
+  repeating-conic-gradient(#4a6b5e 0% 25%, #3f5d51 0% 50%) 0 0/64px 64px;}
+/* The bright room: a ring of instrument light around a dark centre. */
+.floor-instrument{background:
+  repeating-radial-gradient(circle at 50% 50%,
+    transparent 0 30px, rgba(110,235,215,.13) 30px 32px),
+  radial-gradient(circle at 50% 50%, #0e3a38 0%, #0a2726 68%, #061b1a 100%);}
+/* Containment: hazard chevrons under a dim floor, because of what is stored. */
+.floor-anomaly{background:
+  repeating-linear-gradient(135deg, rgba(220,190,60,.10) 0 14px, transparent 14px 28px),
+  linear-gradient(#2b3330,#1b2320);}
+/* Grow beds seen through standing water. */
+.floor-hydro{background:
+  repeating-linear-gradient(0deg, rgba(90,220,150,.13) 0 3px, transparent 3px 34px),
+  linear-gradient(#17493a,#0e3128 80%);}
+
+/* ---------- TOWER FLOORS ----------
+   Stone, and a great deal of candle. Warm where the ship is cold, so the two
+   never read as the same "not a house". */
+/* Flagstone, laid in a ring the way a round tower is built. */
+.floor-library{background:
+  repeating-radial-gradient(circle at 50% 50%,
+    rgba(0,0,0,.20) 0 2px, transparent 2px 44px),
+  repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 2px, transparent 2px 70px),
+  #5a4a63;}
+/* Spilled everything, four hundred years of it, on tile. */
+.floor-apothecary{background:
+  radial-gradient(circle at 34% 62%, rgba(150,230,120,.14) 0%, transparent 24%),
+  radial-gradient(circle at 71% 30%, rgba(200,120,220,.14) 0%, transparent 26%),
+  repeating-conic-gradient(#5f5068 0% 25%, #55475d 0% 50%) 0 0/50px 50px;}
+/* Straw over board. The only soft floor in the tower. */
+.floor-roost{background:
+  repeating-linear-gradient(72deg, rgba(210,180,90,.16) 0 3px, transparent 3px 9px),
+  repeating-linear-gradient(18deg, rgba(210,180,90,.10) 0 2px, transparent 2px 7px),
+  #6a5a44;}
+/* A dark round room with one thing worth looking at in the middle. */
+.floor-scrying{background:
+  radial-gradient(circle at 50% 48%, rgba(190,150,255,.34) 0%, transparent 40%),
+  radial-gradient(circle at 50% 50%, #3b2b57 0%, #261a3c 62%, #170f28 100%);}
+/* Bare boards in a cupboard, and a lot of dust. */
+.floor-broom{background:
+  repeating-linear-gradient(0deg,#6b543c 0 40px,#5e4933 40px 43px);}
+/* Cut slabs and a worn processional line down the middle of the hex. */
+.floor-reliquary{background:
+  linear-gradient(90deg, transparent 42%, rgba(230,205,140,.10) 50%, transparent 58%),
+  repeating-linear-gradient(0deg, rgba(0,0,0,.24) 0 2px, transparent 2px 62px),
+  repeating-linear-gradient(90deg, rgba(0,0,0,.24) 0 2px, transparent 2px 88px),
+  #4e4550;}
+
+/* ---------- ZOO FLOORS ----------
+   Every one of these is an ENCLOSURE floor rather than a room floor: sand,
+   sawdust, wet concrete, straw. The zoo is the only theme where the ground is
+   the animal's and the tidier is the visitor. */
+/* Sand, raked, with bird grit through it. */
+.floor-aviary{background:
+  repeating-linear-gradient(12deg, rgba(255,255,255,.06) 0 2px, transparent 2px 8px),
+  radial-gradient(circle at 40% 60%, rgba(0,0,0,.07) 1.5px, transparent 2.5px) 0 0/19px 19px,
+  #b09a6e;}
+/* The one built floor: hut boards, scuffed. */
+.floor-keeper{background:
+  repeating-linear-gradient(90deg,#7d6242 0 52px,#6f563a 52px 55px);}
+/* Spilled grain over concrete. */
+.floor-feedstore{background:
+  radial-gradient(circle at 30% 40%, rgba(225,200,120,.30) 2px, transparent 3px) 0 0/27px 27px,
+  radial-gradient(circle at 72% 66%, rgba(225,200,120,.22) 1.5px, transparent 2.5px) 0 0/17px 17px,
+  #6e6a61;}
+/* Hot rock under a heat lamp: the only floor in the game with a hot spot. */
+.floor-reptile{background:
+  radial-gradient(circle at 50% 42%, rgba(255,170,70,.26) 0%, transparent 44%),
+  repeating-linear-gradient(56deg, rgba(0,0,0,.10) 0 6px, transparent 6px 15px),
+  linear-gradient(#6b5340,#54402f);}
+/* Sawdust and straw, thick, over a big flat pen. */
+.floor-enclosure{background:
+  repeating-linear-gradient(38deg, rgba(215,185,110,.20) 0 4px, transparent 4px 12px),
+  repeating-linear-gradient(-24deg, rgba(215,185,110,.13) 0 3px, transparent 3px 10px),
+  #7a6a4a;}
+/* Poured concrete and a vault ring. Nothing lives in here; bananas do. */
+.floor-vault{background:
+  repeating-radial-gradient(circle at 50% 50%,
+    transparent 0 22px, rgba(240,210,90,.16) 22px 25px),
+  radial-gradient(circle at 50% 50%, #59544a 0%, #403c35 72%, #2e2b26 100%);}
+
 /* ---------- A FINISHED ROOM ----------
    This used to drop a decorative prop on the floor (a cat, a lit lamp, a
    coffee). It read as clutter you couldn't pick up, which in a game about

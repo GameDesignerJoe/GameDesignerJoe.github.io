@@ -50,12 +50,39 @@
     "wicker":  { "label": "Wicker basket", "w": 26, "h": 14 },
     "plastic": { "label": "Plastic tub",   "w": 32, "h": 13 },
     "dark":    { "label": "Dark chest",    "w": 31, "h": 15 },
-    "peg":     { "label": "Pegboard",      "w": 35, "h": 16 }
+    "peg":     { "label": "Pegboard",      "w": 35, "h": 16 },
+
+    "hull":    { "label": "Bulkhead locker", "w": 27, "h": 19 },
+    "arcane":  { "label": "Rune cabinet",    "w": 30, "h": 18 },
+    "mesh":    { "label": "Wire cage",       "w": 32, "h": 17 }
   },
 
+  "_worldKindsNote": [
+    "hull / arcane / mesh were added with the ship, tower and zoo themes so a new",
+    "world is not the house's furniture in a different colour. A theme's palette",
+    "(css/themes.css) only repaints the WALLS — the furniture is drawn from these",
+    "kinds and stays whatever it was, so without a kind of its own a wizard's rune",
+    "cabinet is a chest of drawers standing in a purple room.",
+    "Each needs a .k-<id> skin in css/furniture.css; validate.js checks both ways."
+  ],
+
+  "_floorsNote": [
+    "One id per room, and each needs a matching .floor-<id> rule in css/room.css.",
+    "Grouped by theme below purely for reading; the list itself is flat and order",
+    "means nothing."
+  ],
   "floors": ["kitchen","garage","bathroom","office","bedroom","closet","attic","shed","secret",
              "playroom","music","mudroom","cellar","observatory",
-             "nebula","comet","constellation","orbit"],
+
+             "nebula","comet","constellation","orbit",
+
+             "pong","pit","laundry","trophy","kitchenette","study","yard",
+
+             "specimen","cryo","replica","instrument","anomaly","hydro",
+
+             "library","apothecary","roost","scrying","broom","reliquary",
+
+             "aviary","keeper","feedstore","reptile","enclosure","vault"],
 
   "tokens": {
     "key":  { "emoji": "🔑", "name": "Key",     "opens": "door" },

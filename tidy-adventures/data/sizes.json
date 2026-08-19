@@ -25,7 +25,25 @@
     "contLocks   — how many containers are locked; contKeys = keys needed per container",
     "caches      — hidden coin-slot boxes holding items taken off the floor",
     "junk        — start some containers with foreign clutter to drag out",
-    "scale       — [min,max] random room size, 1 = fills the stage"
+    "scale       — [min,max] random room size, 1 = fills the stage",
+    "theme       — which world this preset draws from (data/themes.json)",
+    "group       — the heading this preset sits under in the menu. Presets with",
+    "              the same group are listed together and the heading is printed",
+    "              once, in first-appearance order.",
+    "",
+    "FREE PLAY IS WHERE PEOPLE GO FOR A BIG ONE, and until the worlds landed it",
+    "was four house presets and nothing else — the campaign could take you to a",
+    "ship and a tower and free play could not. Every world now has an entry, so",
+    "the menu is 'where' as much as 'how big'. The four house sizes keep their",
+    "ids and their order because the id is written into saves.",
+    "",
+    "targetTypes ON A WORLD PRESET IS DELIBERATELY ABOUT HALF ITS POOL. Each of",
+    "the new worlds holds roughly 150 types across six rooms, and asking for all",
+    "of them would make every run of that world the same run. Asking for half",
+    "means the six rooms drawn, and the containers drawn inside them, differ every",
+    "time — which is the entire point of building the worlds in the first place.",
+    "The ceiling is still real: boot validation refuses more types than the",
+    "n-largest rooms can hold, so raise the room count before raising this."
   ],
   "sizes": [
     { "id": "medium", "label": "Small",  "theme": "house", "rooms": 4, "targetTypes": 40,
@@ -40,8 +58,35 @@
       "rowLen": 5, "doorLocks": 2, "doorKeys": 4, "contLocks": 3, "contKeys": 3,
       "caches": 4, "junk": true, "scale": [0.7, 0.95] },
 
-    { "id": "mega",   "label": "Mega",   "theme": "house", "rooms": 9, "targetTypes": 194,
+    { "id": "mega",   "label": "Mega",   "theme": "house", "rooms": 9, "targetTypes": 240,
       "rowLen": 8, "doorLocks": 3, "doorKeys": 4, "contLocks": 4, "contKeys": 3,
-      "caches": 4, "junk": true, "scale": [0.7, 0.95] }
+      "caches": 4, "junk": true, "scale": [0.7, 0.95] },
+
+    { "_note": "One preset per world. Sized so a run uses most of a small pool rather than a slice of a big one — see the ceiling note above.",
+      "id": "fratHouse", "label": "Frat House", "theme": "frat", "group": "Other worlds",
+      "rooms": 6, "targetTypes": 92,
+      "rowLen": 5, "doorLocks": 2, "doorKeys": 3, "contLocks": 2, "contKeys": 3,
+      "caches": 3, "junk": true, "scale": [0.7, 0.95] },
+
+    { "id": "surveyShip", "label": "Survey Ship", "theme": "ship", "group": "Other worlds",
+      "rooms": 6, "targetTypes": 88,
+      "rowLen": 5, "doorLocks": 2, "doorKeys": 3, "contLocks": 2, "contKeys": 3,
+      "caches": 3, "junk": true, "scale": [0.7, 0.95] },
+
+    { "id": "wizardTower", "label": "Wizard's Tower", "theme": "tower", "group": "Other worlds",
+      "rooms": 6, "targetTypes": 90,
+      "rowLen": 5, "doorLocks": 2, "doorKeys": 3, "contLocks": 2, "contKeys": 3,
+      "caches": 3, "junk": true, "scale": [0.7, 0.95] },
+
+    { "id": "theZoo", "label": "The Zoo", "theme": "zoo", "group": "Other worlds",
+      "rooms": 6, "targetTypes": 84,
+      "rowLen": 5, "doorLocks": 2, "doorKeys": 3, "contLocks": 2, "contKeys": 3,
+      "caches": 3, "junk": true, "scale": [0.7, 0.95] },
+
+    { "_note": "The dream pool is only four rooms, so this one always draws all of them. It has been playable in the campaign since D-1 and reachable from free play never, which was an oversight rather than a decision.",
+      "id": "theDream", "label": "The Dream", "theme": "dream", "group": "Other worlds",
+      "rooms": 4, "targetTypes": 58,
+      "rowLen": 6, "doorLocks": 1, "doorKeys": 3, "contLocks": 2, "contKeys": 3,
+      "caches": 2, "junk": true, "scale": [0.7, 0.95] }
   ]
 }

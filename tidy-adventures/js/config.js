@@ -13,7 +13,7 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "1.4.0";
+export const VERSION = "1.5.1";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
@@ -26,6 +26,10 @@ export const PROGRESS_KEY = "tidy-campaign-unlocked";
    only ever mean "the file has not changed since"; ids survive insertion,
    which is what lets a level land in the middle of the campaign. */
 export const DONE_KEY     = "tidy-campaign-done";
+/* Debug: show every job on the board regardless of progress. Deliberately its
+   OWN key rather than a value written into DONE_KEY — see debugUnlocked() in
+   js/main.js for why unlocking must not mark anything finished. */
+export const UNLOCK_KEY   = "tidy-debug-unlock";
 /* The campaign as it stood when progress was still an index, frozen. The only
    way to read an old save correctly is to know what index 7 MEANT, so this
    list must never be reordered or edited — it is a historical record, not a
@@ -39,7 +43,7 @@ export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 13;
+export const DATA_VERSION = 14;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice

@@ -35,3 +35,42 @@ body[data-theme="dream"]{
   --wall:#3a2f63;
   --wall-dark:#221a3d;
 }
+
+/* ---------- FRAT ----------
+   Still a house — the same brown family as :root, just dimmer and greener,
+   the way a room reads when the blinds have been shut since Tuesday. The
+   whole point of this one is that it is NOT exotic: the player should clock
+   "somebody lives here badly" rather than "different world". */
+body[data-theme="frat"]{
+  --bg:#141610;
+  --wall:#4c4a30;
+  --wall-dark:#2f2e1c;
+}
+
+/* ---------- SHIP ----------
+   Cold teal, lit from inside. Reads at a glance against both the house browns
+   and the dream's violet, which is the only requirement a palette has here. */
+body[data-theme="ship"]{
+  --bg:#061412;
+  --wall:#1f5450;
+  --wall-dark:#0c2b29;
+}
+
+/* ---------- TOWER ----------
+   Plum and candlelight. Deliberately warmer than the dream's indigo: they are
+   the two purple worlds and they must not be mistaken for each other, so the
+   dream stays cold and the tower has a fire in it somewhere. */
+body[data-theme="tower"]{
+  --bg:#181022;
+  --wall:#5b3f72;
+  --wall-dark:#33203f;
+}
+
+/* ---------- ZOO ----------
+   Painted enclosure walls: municipal green, the colour every zoo on earth
+   has agreed on. The only theme whose walls are brighter than its floors. */
+body[data-theme="zoo"]{
+  --bg:#0d1a10;
+  --wall:#417a3a;
+  --wall-dark:#22401f;
+}

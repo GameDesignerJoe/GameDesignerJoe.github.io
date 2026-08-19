@@ -146,6 +146,7 @@
       "sign": "— the guys",
       "waiting": "They've gone quiet. That's usually worse.",
       "farewell": "They got the deposit back. All of it. They were genuinely stunned.",
+      "_note": "Every one of these jobs is theme: frat — the first world in the game that is not the house and not a dream. It arrives at 3-1 because that is when they arrive, which is the whole design: a world should turn up because somebody hired you into it.",
       "stages": [
         {
           "level": "3-1",
@@ -227,7 +228,7 @@
       "emoji": "👽",
       "sign": "— ZORB",
       "waiting": "Zorb is compiling. Zorb will return.",
-      "farewell": "The report was submitted. Zorb scored 4 out of 10 and considers this a triumph.",
+      "farewell": "The report was submitted. Zorb scored 4 out of 10 and considers this a triumph. He kept the horse.",
       "stages": [
         {
           "level": "4-1",
@@ -243,13 +244,22 @@
           ]
         },
         {
+          "_note": [
+            "THE FIRST LEVEL THAT IS NOT A BUILDING. Zorb's first job (4-1) is the",
+            "dwelling he was assigned, because meeting an alien in a beige house is",
+            "the joke; his second is his own ship, because the joke only works once.",
+            "This is also the level that teaches ⭐, and the two land together on",
+            "purpose — the first talent draft should happen somewhere memorable." ],
           "level": "5-1",
-          "teaser": "\"I have a hypothesis about socks.\"",
+          "teaser": "\"You will come aboard. It is parked behind the shed.\"",
           "intro": [
-            "I have observed your species for four hundred years.",
-            "I cannot determine why the spoon and the shovel live apart. They are the same tool at two scales."
+            "You will come aboard. It has been behind the shed for one of your years and nobody has said anything.",
+            "I have observed your species for four hundred years and I cannot determine why the spoon and the shovel live apart. They are the same tool at two scales. Start there."
           ],
-          "outro": ["I have a hypothesis about socks. Do not tell me if I am wrong."],
+          "outro": [
+            "I have a hypothesis about socks. Do not tell me if I am wrong.",
+            "You did not once ask what any of this was. I have recorded that as good manners."
+          ],
           "note": [
             { "text": "I have filled the {container} according to my own logic. Correct me. I will not be offended. I will be slightly offended.",
               "reply": "Your arrangement of the {container} is superior. I have recorded this." }
@@ -259,8 +269,8 @@
           "level": "5-3",
           "teaser": "\"My report is due. It is mostly wrong.\"",
           "intro": [
-            "My field report is due at the end of this cycle.",
-            "It is four hundred pages and I now believe most of it is wrong."
+            "My field report is due at the end of this cycle. It is four hundred pages and I now believe most of it is wrong.",
+            "Before we begin: there is a horse in the anomaly locker. It is not a horse. I have had it eleven years and I no longer wish to discuss it."
           ],
           "outro": [
             "I have rewritten the chapter on storage. It is one sentence now.",
@@ -498,6 +508,215 @@
           "note": [
             { "text": "Whatever is loose in here goes to the {container}. The sky does not mind waiting; I do.",
               "reply": "The {container}, correctly. You may go back to your life now." }
+          ]
+        }
+      ]
+    }
+,
+
+    {
+      "_note": [
+        "THE WIZARD. Placed one job after the alien so the two land as a turn in",
+        "the game rather than as one oddity — after T-1 the player has stopped",
+        "assuming the next client will be a person in a house.",
+        "Voice: four hundred years old, brisk, entirely unbothered. Treats",
+        "catastrophic magic as a chore and the tidier's surprise as slightly",
+        "tiresome. Short sentences. Never explains a thing twice, and never",
+        "explains the stairs at all."
+      ],
+      "id": "wizard",
+      "name": "Nettle",
+      "emoji": "🧙",
+      "sign": "— Nettle",
+      "waiting": "Nettle is busy. Nettle is always busy.",
+      "farewell": "The tower is tidy. It will not stay tidy. Nettle is aware.",
+      "stages": [
+        {
+          "level": "T-1",
+          "teaser": "\"Don't touch the cupboard. It's fine. Mostly.\"",
+          "intro": [
+            "You'll be wondering about the stairs. Don't. They're fine now.",
+            "Four hundred years in one tower and not once have I thrown anything away. Start anywhere. It is all equally bad."
+          ],
+          "outro": [
+            "The floor. I had forgotten the colour of it.",
+            "Green. All this time."
+          ],
+          "note": [
+            { "text": "The {container}, when you get to it. Don't read anything on the way.",
+              "reply": "The {container}, done, and you didn't read a word of it. I checked." }
+          ]
+        },
+        {
+          "level": "T-2",
+          "teaser": "\"I took an apprentice. Briefly.\"",
+          "replay": "Back again. Something has almost certainly moved.",
+          "intro": [
+            "I took an apprentice. Briefly.",
+            "He alphabetised the reagents. By colour. I would like it put back the way it was, which is to say the way it is supposed to be."
+          ],
+          "outro": [
+            "Correct. Not tidy — correct.",
+            "There is a difference and he never once got hold of it."
+          ],
+          "note": [
+            { "text": "Whatever's loose goes in the {container}. He will tell you it goes somewhere else. He is wrong, and he is nineteen.",
+              "reply": "The {container}, as it has been since before his grandmother. Thank you." },
+            { "text": "Don't sort the {room} by colour. I cannot stress this enough.",
+              "reply": "Not one thing in the {room} sorted by colour. You have no idea what that means to me." }
+          ]
+        },
+        {
+          "level": "T-3",
+          "teaser": "\"The tower is being inspected.\"",
+          "intro": [
+            "The tower is being inspected. By whom is not your concern and frankly not mine either.",
+            "Everything I have ever kept is in this building. That is not a figure of speech."
+          ],
+          "outro": [
+            "Passed. They asked what was in the locked one and I said 'nothing' and they wrote it down.",
+            "Four hundred years, and that is the first time anybody has seen the whole floor at once. Including me."
+          ],
+          "note": [
+            { "text": "The {container} is the one they'll open. They always open the {container}.",
+              "reply": "They opened it. They said 'oh'. That is the best review this tower has ever had." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "_note": [
+        "THE PARROT, and see the gorilla below — ONE story told by two clients",
+        "who disagree, which is a shape the arc system supports and nothing else",
+        "in the game has used yet. Their stages alternate through levels.json, so",
+        "the job board shows the two faces trading places down the grid and the",
+        "turf war is legible before either of them says a word.",
+        "Voice: clipped, imperious, absolutely convinced it is management. Short",
+        "declaratives. Says 'facility', never 'zoo'. Never admits to wanting",
+        "anything; only to having decided it."
+      ],
+      "id": "parrot",
+      "name": "Captain",
+      "emoji": "🦜",
+      "sign": "— Captain",
+      "waiting": "Captain is in a meeting. Captain has scheduled a meeting with Boris.",
+      "farewell": "The facility runs to the minute now. Captain would like this noted.",
+      "stages": [
+        {
+          "level": "Z-1",
+          "teaser": "\"The humans have left. I am in charge.\"",
+          "intro": [
+            "The humans clock off at six. After six, I run this facility.",
+            "You will find things are not where they should be. That is Boris. We are working on Boris."
+          ],
+          "outro": [
+            "Correct. Exactly correct.",
+            "I have made a note of you. That is a good thing. I keep the notes."
+          ],
+          "note": [
+            { "text": "The {container}. Boris will tell you otherwise. Boris does not read.",
+              "reply": "The {container}, filed. Boris has been informed and Boris has shrugged." }
+          ]
+        },
+        {
+          "level": "Z-3",
+          "teaser": "\"I have located every banana in this facility.\"",
+          "intro": [
+            "Boris has declined my restructuring proposal. Fine. Excellent, in fact.",
+            "I have located every banana in this facility and they are all going into the vault. You are going to help me and you are not going to ask why."
+          ],
+          "outro": [
+            "Every one. Counted, crated, sealed.",
+            "Boris is at the door. Boris can wait. Boris is going to be very reasonable in about an hour."
+          ],
+          "note": [
+            { "text": "The {container}, quickly, before he finishes his rounds. Do not look pleased with yourself, he can tell.",
+              "reply": "The {container}. Done, and he suspects nothing, which is his default state." }
+          ]
+        },
+        {
+          "level": "Z-5",
+          "teaser": "\"Terms have been agreed.\"",
+          "intro": [
+            "Terms have been agreed. Boris answers to me. I answer to nobody.",
+            "The terms are twelve bananas a day in perpetuity and we will not be discussing them further."
+          ],
+          "outro": [
+            "A functioning chain of command and a facility you can walk through. This is what I have been saying.",
+            "He does the lifting. I do the thinking. Everyone is delighted. I have written that down too."
+          ],
+          "note": [
+            { "text": "The {container} is now my responsibility, which means it is now your responsibility. Delegation.",
+              "reply": "The {container}. Excellent work. I will be taking credit for it, obviously." }
+          ]
+        }
+      ]
+    },
+
+    {
+      "_note": [
+        "THE GORILLA. Half of the parrot's story and the half that is right about",
+        "everything. He is not the dumb muscle: he is the only one in the building",
+        "actually thinking about the animals, and the joke is that Captain has no",
+        "idea he has been managed the entire time.",
+        "Voice: slow, decent, short sentences, no jokes he is aware of. Never",
+        "raises it. Says 'bird' when he is annoyed and 'Captain' when he is not."
+      ],
+      "id": "boris",
+      "name": "Boris",
+      "emoji": "🦍",
+      "sign": "— Boris",
+      "waiting": "Boris is doing the rounds. Boris is always doing the rounds.",
+      "farewell": "Boris got twelve a day and a quiet life. He thinks that went rather well.",
+      "stages": [
+        {
+          "level": "Z-2",
+          "teaser": "\"Bird says a lot of things.\"",
+          "intro": [
+            "You're the one Captain hired. Right.",
+            "Bird says a lot of things. I do the lifting. Put it where it goes and I won't mind either way."
+          ],
+          "outro": [
+            "Good. Nobody's hungry, nothing's out where it can be trodden on.",
+            "That's the job. He'll tell you it's more complicated. It isn't."
+          ],
+          "note": [
+            { "text": "The {container}, if you can reach it. I can reach it. I just can't get my hand back out.",
+              "reply": "The {container}. Thanks. My hands aren't built for that and Captain finds it hilarious every time." }
+          ]
+        },
+        {
+          "level": "Z-4",
+          "teaser": "\"All I want is to know where they are.\"",
+          "replay": "Come on in. Mind the gate, it goes both ways now.",
+          "intro": [
+            "The bananas are gone. All of them. I counted twice and then I sat down for a bit.",
+            "I'm not angry. I'd just like to know where they are. Help me look."
+          ],
+          "outro": [
+            "Found them. Every one, stacked like he was proud of it.",
+            "He wants me to answer to him now. I said fine. I said fine on one condition, and he agreed before I'd finished the sentence."
+          ],
+          "note": [
+            { "text": "Anything in the {container} that shouldn't be, put it right. He's been in there. I can tell.",
+              "reply": "The {container}. Yeah, that's how it goes. Thanks for not making a thing of it." }
+          ]
+        },
+        {
+          "level": "Z-6",
+          "teaser": "\"Twelve a day. Worth it.\"",
+          "intro": [
+            "Twelve a day. He thinks he won.",
+            "He does the rotas, the feeds, the paperwork and all the arguing with the vending machine. I lift things and eat twelve bananas. Come and see the place."
+          ],
+          "outro": [
+            "Best year this place has had. The birds are fed on time and nothing's on the floor.",
+            "Don't tell him I said that. Actually — do. He'd like it, and he's earned one."
+          ],
+          "note": [
+            { "text": "The {room} is the one the visitors see first. Do that one properly and I'll take the rest.",
+              "reply": "The {room} looks like somebody cares about it. Because somebody does. Two of us, apparently." }
           ]
         }
       ]

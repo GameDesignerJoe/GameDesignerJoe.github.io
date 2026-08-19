@@ -40,8 +40,16 @@ export function initTalents({ grant, fileHands }) {
 
 const steps = () => DATA.upgrades.draftSteps;
 
-/* How many drafts the player's lifetime ⭐ has earned in total. */
-function draftsEarnedFor(stars) {
+/* How many drafts the player's lifetime ⭐ has earned in total.
+
+   EXPORTED because the save needs it. `draftsTaken` is what stops an earned
+   draft being granted twice, and for a while it was not written to the save at
+   all — so every Continue reset it to 0 while ⭐ came back intact, `owed` came
+   out as "every draft you have ever taken", and the player was handed one of
+   them back at each safe moment, i.e. every time they closed a container, until
+   the backlog drained. It is saved now; this is here so a save written BEFORE
+   it was can still be settled honestly (see loadGame). */
+export function draftsEarnedFor(stars) {
   return steps().filter(s => stars >= s).length;
 }
 

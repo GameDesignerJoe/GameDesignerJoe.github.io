@@ -6,7 +6,7 @@
    input tiers still live here. See docs/CLAUDE.md for the target graph.
 ============================================================ */
 import {
-  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, LEGACY_ORDER,
+  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, LEGACY_ORDER,
   TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START, REVEAL_MS,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
@@ -36,6 +36,7 @@ import {
 } from './camera.js';
 import {
   initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
+  draftsEarnedFor,
 } from './talents.js';
 import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted,
          playMusic, nowPlayingMusic, musicDebug } from './audio.js';
@@ -100,6 +101,33 @@ function clearDone(){
   try{ localStorage.removeItem(PROGRESS_KEY); }catch(e){}
 }
 
+/* ---------- DEBUG: every job open at once ----------
+
+   THIS MOVES THE GATE, IT DOES NOT MARK ANYTHING DONE, and that distinction is
+   the whole design. The obvious implementation — write all 34 ids into
+   DONE_KEY — is destructive and irreversible: it overwrites the real record of
+   what you have actually played, and there is no way back to it afterwards.
+   It also lies to the rest of the game. Every tile would render "done" with a
+   ✅, the board would read "34 of 34", the "now" job would fall off the end,
+   and every client would be showing their farewell line instead of their arc —
+   so the one thing you turned it on to look at, the story, is the thing it
+   would hide.
+
+   The frontier is the only thing that locks a tile (see stageState), so
+   overriding just the frontier gives you every job playable and every client's
+   face revealed while the finished-set stays honest underneath. Turning it off restores
+   exactly the progress you had, because nothing was ever written over. */
+function debugUnlocked(){
+  try{ return localStorage.getItem(UNLOCK_KEY)==="1"; }catch(e){ return false; }
+}
+function setDebugUnlock(on){
+  try{
+    if(on) localStorage.setItem(UNLOCK_KEY,"1");
+    else localStorage.removeItem(UNLOCK_KEY);
+  }catch(e){}
+  return debugUnlocked();
+}
+
 /* Everything the job board and the level flow need, derived in one place.
    `frontier` is how far you've ever got; `now` is the earliest job you have
    not finished, which after an insertion is the new one. */
@@ -107,11 +135,24 @@ function progress(){
   const done=doneIds();
   let frontier=0;
   LEVELS.forEach((lv,i)=>{ if(done.has(lv.id)) frontier=Math.max(frontier, i+1); });
+  /* The debug override lands HERE and nowhere else: one assignment, before
+     anything derives from it, so the board, the faces, the tile states and the
+     replay line all agree without a single one of them knowing about it. */
+  const unlocked=debugUnlocked();
+  if(unlocked) frontier=LEVELS.length;
   let now=LEVELS.findIndex((lv,i)=> i<=frontier && !done.has(lv.id));
   if(now===-1) now=Math.min(frontier, LEVELS.length);
-  return { done, frontier, now, count:done.size };
+  return { done, frontier, now, count:done.size, unlocked };
 }
 function currentCfg(){ return G.mode==="campaign" ? LEVELS[G.levelIdx] : SIZES[G.size]; }
+/* "Small" and "Mega" are sizes OF a house, so the word was baked into three
+   strings. "Frat House house" and "New the zoo house" are what that turns into
+   the moment a preset names a place instead of a size, so the word now comes
+   from the preset: house presets keep it, world presets are already a noun. */
+function presetName(cfg){
+  if(!cfg) return "";
+  return cfg.theme && cfg.theme!=="house" ? cfg.label : cfg.label+" house";
+}
 
 /* ============================================================
    TEACHING TIPS
@@ -254,7 +295,16 @@ function saveGame(){
       current:G.current, inv:G.inv, sel:G.sel,
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
       visited:[...G.visited], awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
-      points:G.points, up:G.up,
+      /* draftsTaken is what stops an earned talent draft being handed out
+         twice, and it was missing here while ⭐ was written faithfully — so a
+         Continue restored "you have 30 lifetime stars" next to "you have never
+         drafted", and checkDraftThreshold() dutifully re-owed every draft the
+         player had already taken. They arrived one per safe moment, which in
+         practice is one every time you close a container. Anything that gates a
+         reward has to travel with the score that earns it. */
+      points:G.points, starsEarned:G.starsEarned,
+      draftsTaken:G.draftsTaken, pendingDrafts:G.pendingDrafts,
+      up:G.up,
     }));
   }catch(e){/* storage unavailable in this environment */}
 }
@@ -314,6 +364,12 @@ function loadGame(){
       roomFxDone:new Set(d.roomFxDone||[]),
       points:d.points||0,
       starsEarned:d.starsEarned??d.points??0,
+      /* A save written before draftsTaken existed still has to be settled, and
+         the honest reading of one is "they took what their stars earned" —
+         they are holding the talents to prove it. Assuming zero is what caused
+         the bug in the first place, so it is the one answer this may not give. */
+      draftsTaken:d.draftsTaken??draftsEarnedFor(d.starsEarned??d.points??0),
+      pendingDrafts:d.pendingDrafts||0,
       up:{...upgradeDefaults(), ...(d.up||{})},
     },{
       mode:d.mode||"free",
@@ -1510,7 +1566,7 @@ function showWin(){
     $("#winTitle").textContent="All tidy.";
     $("#winStats").textContent=stats;
     const sz=SIZES[G.size]||SIZES.medium;
-    mk("New "+sz.label.toLowerCase()+" house","primary",()=>{ $("#winOverlay").classList.remove("open"); startFree(SIZES[G.size]?G.size:"medium"); });
+    mk("New "+presetName(sz).toLowerCase(),"primary",()=>{ $("#winOverlay").classList.remove("open"); startFree(SIZES[G.size]?G.size:"medium"); });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }
   /* The last thing you hear after finishing a whole house was nothing at all.
@@ -2229,6 +2285,9 @@ $("#gearBtn").addEventListener("click",()=>{
   for(const id of ["resetBtn","debugStar","debugFinish","debugKeys"]){
     $("#"+id).disabled=!G.active;
   }
+  /* Unlock and Relock act on progress, not on a run, so they stay live on the
+     title screen and the board — which is exactly where you want them. */
+  syncUnlockBtn();
   gear.classList.add("open");
 });
 /* were inline onclick= in the v3 single file; modules can't reach globals from markup */
@@ -2349,6 +2408,27 @@ $("#debugKeys").addEventListener("click",()=>{
     ? rooms.map(([room,ks])=>ks.join("")+" "+room).join(" · ")
     : "Nothing left on the floor — every key has been used.",
     {ms:REVEAL_MS, priority:2});
+});
+
+/* A TOGGLE, not a one-way switch, and it reports its own state on the button:
+   this is the one debug control whose effect is invisible until you open
+   another screen, so a button that always says the same thing would leave you
+   guessing whether the last press turned it on or off. */
+function syncUnlockBtn(){
+  const b=$("#debugUnlock");
+  if(!b) return;
+  const on=debugUnlocked();
+  b.textContent = on ? "On ✓" : "Unlock";
+  b.classList.toggle("dbgon", on);
+}
+$("#debugUnlock").addEventListener("click",()=>{
+  setDebugUnlock(!debugUnlocked());
+  syncUnlockBtn();
+  $("#gearOverlay").classList.remove("open");
+  /* Straight to the board, because the board is the whole point of the button
+     and it is where the change is visible. Any run in progress is untouched —
+     this writes one localStorage key and nothing else. */
+  openCampaignMenu();
 });
 
 $("#debugRelock").addEventListener("click",()=>{
@@ -2496,7 +2576,7 @@ function labelContinue(d){
     if(lv) sub=(job?job.client.emoji+" "+job.client.name+" · ":"")+lv.id+" "+lv.name;
   }else{
     const sz=SIZES[d.size];
-    sub="Free Play"+(sz?" · "+sz.label+" house":"");
+    sub="Free Play"+(sz?" · "+presetName(sz):"");
   }
   if(sub) b.appendChild(mkEl("small",null,sub));
 }
@@ -2514,7 +2594,7 @@ function startFree(sizeKey){
   setHidden(shopBtn, false);   /* always available in free play */
   render();
   runMusic();
-  say(cfg.label+" house — happy tidying");
+  say(presetName(cfg)+" — happy tidying");
 }
 
 function startCampaign(i){
@@ -2641,7 +2721,11 @@ function openCampaignMenu(){
      lie the board tells every time you open it. */
   $("#boardSub").textContent = tokenise(S.sub||"", {
     done:Math.min(p.count,total), total,
-  });
+  }) + (p.unlocked ? "  ·  🔓 debug: all jobs open" : "");
+  /* A board with everything open has to SAY it is a debug board. Without this
+     there is no way to tell a real 34-of-34 from an unlocked one — not from a
+     screenshot, and not from a bug report a week later. Same reasoning as
+     nowPlaying() in the gear. */
 
   const board=$("#jobBoard"); board.innerHTML="";
   let current=null;
@@ -2712,10 +2796,23 @@ $("#menuBtn").addEventListener("click",()=>{ saveGame(); showTitle(); });
    (targetTypes x rowLen). v3 hardcoded "~50 items" in the markup alongside an
    `items:` field in the config that generate() never read — three numbers for
    one quantity, none of them authoritative. */
+/* `group` splits the grid under headings. Free play used to be four house
+   sizes, so the labels alone ("Small", "Mega") answered the only question
+   there was. With a preset per world in the same list, "Mega" and "The Zoo"
+   read as answers to two different questions, and a player scanning for the
+   new worlds has to know which of the nine words are places. A heading per
+   group costs one span and says it outright.
+   Ungrouped presets keep the top of the list with no heading at all, so the
+   house sizes look exactly as they always did. */
 function buildSizeMenu(){
   const grid=$("#sizeOverlay .sizegrid");
   grid.innerHTML="";
+  let group=null;
   for(const s of DATA.sizes.sizes){
+    if((s.group||null)!==group){
+      group=s.group||null;
+      if(group) grid.appendChild(mkEl("h2","sizehead",group));
+    }
     const b=mkEl("button","menubtn");
     b.appendChild(document.createTextNode(s.label));
     b.appendChild(mkEl("small",null,"~"+itemCount(s).toLocaleString()+" items"));
@@ -2757,6 +2854,18 @@ window.tidy = {
   afterMutation, openContainer, closeCont,
   insertKey, insertContainerKey, flingToFloor, showWin, displaceAround,
   tossInto, cascade, pickUp, openDraft,
+  /* The SAVE ROUND-TRIP. Continue is the one entry point that restores state
+     rather than generating it, so it is where state that was never written
+     shows up — and that is exactly how the talent draft came to re-grant every
+     draft a player had already taken, one per container they closed. There was
+     no way to exercise it from here, which is a large part of why it survived
+     as long as it did. */
+  saveGame, loadGame, clearSave, checkDraftThreshold, maybeDraft, finishJob,
+  /* `tidy.unlockAll()` / `tidy.unlockAll(false)` / `tidy.progress()`. The gear
+     button is the same call; this is here because "open every job" is a thing
+     you want mid-thought without hunting for a panel. */
+  unlockAll:on=>{ const v=setDebugUnlock(on!==false); syncUnlockBtn(); return v; },
+  progress, relockAll:()=>{ clearDone(); return progress(); },
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
   itemAt, underAt, onInk, maskStats,
   playMusic, nowPlayingMusic, musicDebug, audio:audioSettings,

@@ -295,6 +295,24 @@ ticker, a once-a-second interval and a consumable to refresh it.
 **`levels`, not `costs`.** ⭐ is score and is never spent, so the price list
 nothing read is gone. Only its length ever meant anything.
 
+**A reward gate must travel with the score that earns it.** `checkDraftThreshold()`
+computes `owed = draftsEarnedFor(starsEarned) - draftsTaken - pendingDrafts`,
+and for a while the save wrote `points` but not `draftsTaken`. So every
+**Continue** restored "you have 30 lifetime stars" beside "you have never
+drafted", the run was owed every draft the player had already taken, and they
+arrived one per safe moment — which in practice is **one every time you close a
+container**, until the backlog drained. Four free talents, silently, on every
+resume. All three counters are saved now, and a save written before they were is
+settled with `draftsTaken = draftsEarnedFor(starsEarned)` on load: the honest
+reading of an old save is "they took what their stars earned", and they are
+holding the talents to prove it.
+
+The reason this survived so long is that **the save round-trip was not reachable
+from `window.tidy`**. `saveGame`, `loadGame`, `clearSave` and
+`checkDraftThreshold` are on the console handle now. Continue is the one entry
+point that restores state rather than generating it, so it is where state that
+was never written shows up at all.
+
 **Talents do not survive a level.** Campaign levels used to reload the previous
 level's talents from `tidy-campaign-talents`, which meant the levels authored to
 teach locks were played with Sixth Sense already in hand. `up` still rides in
@@ -323,9 +341,39 @@ was the active one *and* actually rendered.
 ## Themes — more than one world
 
 A theme is a **room pool** (`data/themes.json`) plus a **palette**
-(`css/themes.css`). `house` is the game; `dream` is the second one — the tidier
-works so hard they dream about tidying, which is a wrapper that can hold any
-setting without explaining how the player got there. Space is only the first.
+(`css/themes.css`). There are six: `house`, `dream`, `frat`, `ship`, `tower`
+and `zoo`.
+
+**A world arrives because somebody hired you into it.** `dream` proved a world
+could be swapped in at all — the tidier works so hard they dream about tidying,
+a wrapper that holds any setting without explaining how the player got there —
+but nobody hires you for a dream, so it could only ever be an interlude. The
+other four belong to **clients**: the frat house is Delta Tau Chi's, the survey
+ship is Zorb's, the tower is Nettle's, the zoo is the parrot's. Retheming a
+client's existing jobs costs one word per level, and it is the whole reason the
+midgame stopped being beige.
+
+**The house was 21 of the first 25 campaign levels.** That is the shape the
+"I'm sick of the same attic with the same two chests" note was describing, and
+it was arithmetic rather than taste: three dream levels were the only relief in
+a run of twenty-one houses. It is now 15 of 34, the tutorial (1-1 to 2-2) and
+the ending — the late clients are a robot learning chores, a new father and a
+researcher who hasn't looked up in three years, all specifically domestic. The
+first job that is not a house is **3-1, the frat's first**, which is the moment
+a player has seen the house enough to be bored of it.
+
+**A world is not a variety fix on its own.** Every new room shipped with three
+containers and the levels that draw them ask for `cont: 3` or `4`, so a Pong
+Basement showed the same three every single time — the Attic's problem at a new
+address. `generate()` picks `cont` containers at random from a room's list, so
+a room only varies if its list is LONGER than the ask. **Five is the floor**,
+everywhere: C(5,3) is ten line-ups and C(5,4) is five. Measured over 40 draws,
+every room in every theme now produces between four and twelve distinct
+container line-ups; before this pass, seven house rooms and all twenty-five new
+ones produced exactly one.
+
+If you add a room, give it five containers. Three is a room the player will
+have memorised by their second visit.
 
 **An emoji's home is unique PER THEME, not globally.** This is the rule that
 makes themed content possible at all, and it is worth understanding before you
@@ -355,10 +403,27 @@ and each still wants its own ground.
 `loadGame` defaulting it back to `house`, which was invisible until something
 read it — and then a resumed dream came back beige.
 
-**To add a world:** a `themes.json` entry · rooms in `rooms.json` (their emoji
-need only be unique within the new theme) · a `floors` id and a `.floor-*` rule
-each · names in `names.json` · a `body[data-theme="…"]` block · levels with
-that `theme`, each claimed by a client stage.
+**Furniture is NOT themed, which is why `hull`, `arcane` and `mesh` exist.**
+A theme repaints the walls and nothing else, and that is correct — the HUD, the
+gold and the furniture are the constants a player navigates by. The cost is that
+a wizard's rune cabinet drawn as `.k-wood` is a chest of drawers standing in a
+purple room, which reads as the same house with the lights off. Three new kinds
+(a bulkhead locker, a rune cabinet, a wire cage) give the ship, the tower and
+the zoo a silhouette of their own. **The frat deliberately gets none**: it is a
+house somebody wrecked, and reusing the domestic furniture is the joke.
+
+**To add a world:** a `themes.json` entry · rooms in `rooms.json`, five
+containers each (their emoji need only be unique within the new theme) · a
+`floors` id and a `.floor-*` rule each · names in `names.json` · a
+`body[data-theme="…"]` block · levels with that `theme`, each claimed by a
+client stage · room notes in `quests.json` · a free-play preset in
+`sizes.json`.
+
+**Free play has one preset per world**, grouped under a heading the menu builds
+from a `group` field. It used to be four house sizes, which meant the campaign
+could take you to a ship and free play could not. `presetName()` in `main.js`
+is why "Frat House" is not called "Frat House house" — the word "house" used to
+be baked into three strings, because every preset was a size OF one.
 
 ---
 
@@ -374,6 +439,12 @@ id and can never change how it plays. The two rules that keep it honest are
 checked at boot: **every level is claimed by exactly one stage** (the same shape
 of rule as "every emoji has exactly one home"), and **a client's stages run
 forward through `levels.json`**.
+
+**Two clients can tell one story.** `parrot` and `boris` run the zoo together
+and disagree about it; their stages alternate through `levels.json`, so the job
+board shows the two faces trading places down the grid and the turf war is
+legible before either of them says a word. Nothing in the arc system needed
+changing for this — it falls out of "arcs interleave" plus deliberate ordering.
 
 **A run never remembers its client.** `jobAt(levelIdx)` in `data.js` looks the
 whole job back up from the level index the save already stores — which is why
@@ -459,7 +530,7 @@ stage. Mid-level there was previously no way to tell 5-1 from 5-3, which makes
 a bug report ("the second alien level") much harder to act on than it should
 be.
 
-**Three debug buttons in the gear, and two of them matter.**
+**Five debug buttons in the gear, and three of them matter.**
 *Where are the keys* rings every loose token, lifts it above the clutter, and
 names the rooms holding one. It is the only way to tell a level that is
 *solvable* from one that is *findable* — generation buries keys deliberately,
@@ -475,6 +546,35 @@ directly and that would have tested nothing; the thing worth testing here is
 the sequence. It closes the gear first, because the gear is an overlay at
 z-index 120 and the client is at 100. *Relock all jobs* puts progress back to
 zero and reopens the board.
+
+*Unlock all jobs* is the other half of that pair and the one to reach for when
+you want to look at a level rather than earn it. **It moves the gate; it does
+not mark anything done**, and that is the entire design rather than an
+implementation detail. Writing all 34 ids into `DONE_KEY` is the obvious
+version and it is wrong twice over: it overwrites the real record of what you
+have played with no way back, and it lies to everything downstream — every tile
+renders `done` with a ✅, the board reads "34 of 34", the *now* job falls off
+the end, and every client shows their **farewell** instead of their arc. The
+story is the thing you turned it on to see, so that version hides it.
+
+The frontier is the only thing that locks a tile (`stageState`), so the override
+is one assignment inside `progress()` — `if (unlocked) frontier = LEVELS.length`
+— placed before anything derives from it. The board, the four tile states, the
+face rationing and the replay line all then agree without one of them knowing
+the feature exists. `done` stays untouched, so **turning it off restores exactly
+the progress you had**; the toggle lives in its own key (`UNLOCK_KEY`), never
+inside the progress record.
+
+Two things it must keep doing. It is a **toggle that reports its own state**
+("Unlock" / "On ✓", re-synced every time the gear opens): its effect is
+invisible until you open another screen, so a button that always reads the same
+leaves you guessing which way you left it. And the board **says out loud** that
+it is unlocked (🔓 in the subtitle) — without that there is no way to tell a
+real 34-of-34 from a debug one, not from a screenshot and not from a bug report
+a week later. Same reasoning as `nowPlaying()`.
+
+From the console: `tidy.unlockAll()`, `tidy.unlockAll(false)`, `tidy.progress()`,
+`tidy.relockAll()`.
 
 **The note is in the client's hand too.** `voice()` in `quests.js` resolves the
 signature and any stage-authored note copy; the signature is baked into the note
@@ -655,6 +755,28 @@ Run through this after any change; it's what the browser tests cover.
 - Save → reload → Continue restores the run mid-play — **and then zoom, walk
   through a door and swipe.** Continue is the one entry point that doesn't call
   `resetZoom()`, so it is the one that finds broken camera state.
+- **The talent draft after a Continue.** Earn past a threshold or two, take the
+  drafts, quit to the menu, Continue, then finish rows and close containers. You
+  must be offered NOTHING you have already taken. This is the bug above and the
+  symptom is unmistakable once you know it: a draft every time a container
+  closes, several in a row, then nothing.
+- Every theme draws only its own rooms, keeps its `data-theme` across
+  quit-to-menu and Continue, and its walls change while the HUD and gold do not.
+  Six worlds now, and the two purple ones (dream, tower) must not be mistakable
+  for each other — the dream is cold and the tower has a fire in it.
+- Free Play lists nine presets under two headings, the card scrolls on a short
+  screen with Back still reachable, and no preset is described as a "house"
+  unless it is one.
+- Play the same level five times and watch one room. Its containers must not be
+  the same five twice running — that is what the five-container floor buys, and
+  it is the single thing most worth protecting when adding rooms.
+- **Unlock all jobs**, with a few levels genuinely finished: every tile becomes
+  playable, every silhouette becomes a face, the ✅ marks stay on only the jobs
+  you really did, the subtitle says 🔓, and `tidy-campaign-done` is byte-for-byte
+  what it was. Press it again and the locked count, the silhouette count and the
+  frontier all come back to exactly what they were. It survives a reload. The
+  last tile on the board is reachable by scrolling on a phone — there are 34 of
+  them now, and with this on the last ones are the point.
 - Console clean throughout.
 
 ---

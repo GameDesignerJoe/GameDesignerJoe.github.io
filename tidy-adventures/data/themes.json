@@ -21,7 +21,18 @@
     "",
     "DREAM: the tidier is working so hard they dream about tidying. The frame",
     "is a wrapper rather than one setting — it can hold any world without",
-    "explaining how the player got there, and space is only the first."
+    "explaining how the player got there, and space is only the first.",
+    "",
+    "THE OTHER FOUR ARE ATTACHED TO PEOPLE, not to a frame. Dream proved a world",
+    "could be swapped in; what it could not do is arrive because of anybody, since",
+    "nobody hired you for it. So each of these belongs to a client and turns up",
+    "when they do: frat is Delta Tau Chi's house, ship is Zorb's, tower is the",
+    "wizard's and zoo is the parrot's. The house stops being the default at 3-1,",
+    "which is the first job the frat gives you.",
+    "",
+    "SHAPES ARE PART OF THE IDENTITY. The frat is all rect because it is a house",
+    "somebody wrecked, not a magic place; the ship and the zoo mix round in; the",
+    "tower mixes hex. Rooms that pin their own shape ignore this list."
   ],
   "themes": {
     "house": {
@@ -35,6 +46,30 @@
       "label": "Dream",
       "shapes": ["round","hex"],
       "rooms": ["nebula","comet","hall","orbit"]
+    },
+
+    "frat": {
+      "label": "Frat House",
+      "shapes": ["rect"],
+      "rooms": ["pong","pit","laundry","trophy","kitchenette","study","yard"]
+    },
+
+    "ship": {
+      "label": "Survey Ship",
+      "shapes": ["rect","round"],
+      "rooms": ["specimen","cryo","replica","instrument","anomaly","hydro"]
+    },
+
+    "tower": {
+      "label": "Wizard's Tower",
+      "shapes": ["rect","hex"],
+      "rooms": ["library","apothecary","roost","scrying","broom","reliquary"]
+    },
+
+    "zoo": {
+      "label": "The Zoo",
+      "shapes": ["rect","round"],
+      "rooms": ["aviary","keeper","feedstore","reptile","enclosure","vault"]
     }
   },
   "defaultTheme": "house"

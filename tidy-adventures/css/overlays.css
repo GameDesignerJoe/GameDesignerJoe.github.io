@@ -109,6 +109,19 @@
 }
 .sizegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sizegrid .menubtn{margin:0}
+/* A group heading spans the whole grid and sits above its own presets. */
+.sizegrid .sizehead{
+  grid-column:1 / -1;
+  margin:10px 0 0;
+  font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-dim);text-align:left;
+}
+.sizegrid .sizehead:first-child{margin-top:0}
+/* Free Play went from four presets to nine, which is taller than a phone.
+   Same treatment the gear already has: the CARD scrolls, so Back stays
+   reachable instead of being pushed off the bottom of the screen. */
+#sizeOverlay .card{max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:none}
+#sizeOverlay .card::-webkit-scrollbar{display:none}
 
 /* ---------- JOB BOARD ----------
    A grid of faces in play order, not a stack of per-client cards. The board
@@ -299,3 +312,10 @@
   box-shadow:0 0 26px 6px rgba(245,197,66,.55);
 }
 .overlay .dcard.dismissed{opacity:0;transform:translateY(14px) scale(.92);pointer-events:none}
+
+/* A debug toggle that is ON says so on its own face — the gear is the only
+   place you can check, and "Unlock" vs "Unlock" tells you nothing. */
+#debugUnlock.dbgon{
+  background:#7fd07f;
+  color:#12300f;
+}

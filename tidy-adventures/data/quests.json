@@ -15,7 +15,21 @@
     "whatever the room actually contains, so every room gets one for free.",
     "",
     "`text` is the note. `reply` is what arrives when you finish it.",
-    "Keep them to one or two sentences and in the same hand throughout."
+    "Keep them to one or two sentences and in the same hand throughout.",
+    "",
+    "A NOTE IS THE ROOM'S VOICE, NOT THE CLIENT'S. That distinction did not",
+    "matter while every room was in a house and every house had one kind of",
+    "person in it. It matters now: a frat room can turn up in free play, where",
+    "nobody hired you and the signature is '— M'. So these are written in the",
+    "room's own hand — dry, sentence case, whoever is standing in it — and the",
+    "client's voice goes in `note` on their stage in clients.json, which",
+    "overrides this. Zorb's ship and Nettle's tower are the two places that bend",
+    "the rule, because those rooms belong to one person so completely that a",
+    "neutral note would read as nobody at all.",
+    "",
+    "`need` may name emoji a given run does not contain — a level's `types` cap",
+    "means a container often takes a slice of its list. That is handled: the",
+    "fallback fires and the room still leaves a note."
   ],
 
   "_signatureNote": [
@@ -121,6 +135,139 @@
       "need": ["🔭", "🧭"],
       "text": "Telescope and compass into the optics case before the damp gets at the lenses. Clear sky on Thursday.",
       "reply": "Both cased. Thursday, then — bring a coat, it's cold up here."
+    },
+
+    "_frat": "Delta Tau Chi's house.",
+    "pong": {
+      "need": ["🥤", "🍺"],
+      "text": "The cups. All of them, on the tower. Whatever else you do, do not knock over the tower.",
+      "reply": "Cups filed and the tower is still standing. That is the whole of anyone's ambition for this room."
+    },
+    "pit": {
+      "need": ["📱", "🎧"],
+      "text": "Somebody's phone and somebody's headphones are inside this couch. They have been inside this couch since Sunday.",
+      "reply": "Both recovered. Two people are going to be extremely relieved and neither of them will say so."
+    },
+    "laundry": {
+      "need": ["👕", "🧦"],
+      "text": "A shirt and a pair of socks onto the clean-ish pile. Clean-ish is a real category and this is where it lives.",
+      "reply": "Clean-ish restocked. Nobody has to make a decision tomorrow morning."
+    },
+    "trophy": {
+      "need": ["🏆", "🏅"],
+      "text": "The trophy and the medal, back in the case. We won those. We definitely won those.",
+      "reply": "Behind glass where they can be pointed at. That is what they are for."
+    },
+    "kitchenette": {
+      "need": ["🍽️", "🍳"],
+      "text": "The plate and the pan. In the sink is not the same as done, but it is a great deal closer than the floor.",
+      "reply": "Sink loaded, floor clear. This is now technically a kitchen."
+    },
+    "study": {
+      "need": ["📕", "📚"],
+      "text": "The books back on the shelf. Nobody has opened them. That is not the point.",
+      "reply": "Shelved, spines out. The room looks like studying happens in it, which is exactly the point."
+    },
+    "yard": {
+      "need": ["🥏", "⚽"],
+      "text": "The frisbee and the ball off the grass and into the lawn crate, before the mower finds them again.",
+      "reply": "Both crated. The mower lives to see another Saturday."
+    },
+
+    "_ship": "Zorb's survey vessel. These are in his hand; the ship is his and a neutral note would read as nobody.",
+    "specimen": {
+      "need": ["🦋", "🐚"],
+      "text": "The specimen and the shell are to be returned to their cases. They are not the same kind of thing. One of them is still alive.",
+      "reply": "Both cased. Only one of them minded."
+    },
+    "cryo": {
+      "need": ["🧊", "🌡️"],
+      "text": "Ice to the frozen stock, gauge to the wall. If you get this the wrong way round I will know within the hour.",
+      "reply": "Correct on both counts. The rack is holding at temperature. Thank you."
+    },
+    "replica": {
+      "need": ["🪑", "🧸"],
+      "text": "The sitting apparatus and the comfort object. I have watched four hundred hours of your species and I remain unsure which is which.",
+      "reply": "Filed as you filed them. I have amended the diagram. The diagram was wrong."
+    },
+    "instrument": {
+      "need": ["📡", "🔭"],
+      "text": "Dish and scope into the array. Nothing is currently pointed at anything, which is how a survey becomes four hundred pages of nonsense.",
+      "reply": "Array restored. I am once again looking at the correct sky."
+    },
+    "anomaly": {
+      "need": ["🎠", "🧿"],
+      "text": "The horse and the eye. The horse is unexplained. The eye I have grown fond of. Do not ask me to justify the difference.",
+      "reply": "Both away, in their correct and entirely arbitrary places. I feel better and I do not know why."
+    },
+    "hydro": {
+      "need": ["🌱", "🥕"],
+      "text": "Seedling to the growing beds, carrot to the harvest bin. One of these has a future and one of these is dinner.",
+      "reply": "Beds and bin, correctly. Dinner is on schedule. So is the future."
+    },
+
+    "_tower": "Nettle's tower, in Nettle's hand, for the same reason as the ship.",
+    "library": {
+      "need": ["📜", "📕"],
+      "text": "Scroll to the scroll case, book to the shelf. If the scroll starts talking, ignore it.",
+      "reply": "Both away, and it did start talking. You did well to ignore it."
+    },
+    "apothecary": {
+      "need": ["🧪", "🌿"],
+      "text": "Test tube to the reagent shelf, herb to the dried rack. What you brew WITH and what you brewed it FROM do not share a shelf.",
+      "reply": "Reagents and herbs, apart, as they should have been these four hundred years."
+    },
+    "roost": {
+      "need": ["🪶", "🦉"],
+      "text": "Feather on the rail, owl in the roost. The owl will make this difficult. The owl makes everything difficult.",
+      "reply": "Both settled. The owl has forgiven you, which it has never once done for me."
+    },
+    "scrying": {
+      "need": ["🔮", "🕯️"],
+      "text": "The ball and the candle. Nothing in here works without both, and neither works on the floor.",
+      "reply": "Set. I can see next Tuesday again and I am sorry to report it looks much like this one."
+    },
+    "broom": {
+      "need": ["🧹", "🪄"],
+      "text": "Broom and wand on the same rack. Yes, the same rack. They are both sticks that do a job and I am too old to keep them apart.",
+      "reply": "One rack, two sticks, no argument. That is how it has always been done."
+    },
+    "reliquary": {
+      "need": ["🏺", "💀"],
+      "text": "Urn to the relics, skull to the cursed shelf. Get that the wrong way round and we will both learn why the shelf is called that.",
+      "reply": "Correct, and nothing happened, which is the finest available outcome in this room."
+    },
+
+    "_zoo": "The zoo. Back to the room's own neutral hand — two people run this place and neither owns it.",
+    "aviary": {
+      "need": ["🪶", "🪺"],
+      "text": "Feather on the perch rail, nest box back on its bracket. They come apart every time somebody lands badly.",
+      "reply": "Rail and bracket, both. The residents already have their claws on it."
+    },
+    "keeper": {
+      "need": ["📋", "🔦"],
+      "text": "The clipboard and the torch. Neither belongs on the floor, and one of them has the feeding times on it.",
+      "reply": "Both back on their hooks. Feeding times are legible again, which matters more than it sounds."
+    },
+    "feedstore": {
+      "need": ["🥬", "🌾"],
+      "text": "Greens to the produce bins, grain to the dry sacks. Wet and dry — that is the entire filing system down here.",
+      "reply": "Wet with wet, dry with dry. Nothing is going off before Thursday."
+    },
+    "reptile": {
+      "need": ["🐍", "🐸"],
+      "text": "Snake to the warm rocks, frog to the damp corner. Warm or damp. Nobody has ever needed a third option.",
+      "reply": "Warm and damp, correctly assigned. Everyone in here is as happy as their species allows."
+    },
+    "enclosure": {
+      "need": ["🪀", "🧺"],
+      "text": "Toy to the enrichment crate, basket to the bedding store. He will have both back out within the hour. Do it anyway.",
+      "reply": "Both away, and he has already started on the toy. That is a compliment."
+    },
+    "vault": {
+      "need": ["🍌"],
+      "text": "Bananas in the vault. Only bananas in the vault. This is written on the door and it has not helped.",
+      "reply": "Bananas in the vault. Nothing else in the vault. I would like that read aloud at the next meeting."
     }
   }
 }
