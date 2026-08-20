@@ -16,7 +16,7 @@ import {
   BONUS_DOOR_CHANCE, JUNK_CONTAINER_CHANCE, JUNK_FILL, CACHE_STASH, ITEM_SPAN,
 } from './config.js';
 import { rnd, shuffle, clamp } from './util.js';
-import { DATA, LOOKUP, theme, themeRooms, upgradeDefaults } from './data.js';
+import { DATA, LOOKUP, theme, themeRooms, upgradeDefaults, contCap } from './data.js';
 import {
   inShape, findFloorSpot, nearestFloorSpot, furthestFrom, spin, pad, inSlot,
   unstickFloorItems,
@@ -81,7 +81,28 @@ export function generate(cfg) {
      shelf until the types are coverable. Loose targets (Tiny through Large)
      never trade at all and stay fully random; Mega, which asks for nearly
      every type in the game, trades until it has what it needs. */
-  const typeCount = d => d.containers.reduce((n, c) => n + c.types.length, 0);
+  /* HOW MANY TYPES THIS ROOM CAN ACTUALLY DELIVER — which is not the sum of its
+     containers, because only the first few of them get an anchor to stand on.
+     The Observatory lists five containers holding 24 types between them and can
+     show four of them, so it is a 21-type room, and counting it as 24 made the
+     trade-up below stop one room too early: Mega asked for 240 types and came
+     up with 236 about half the time. Same bug as the one the trade-up exists to
+     fix, one level down.
+
+     WORST CASE TWICE OVER, and both halves earn it. Which shape a room is dealt
+     is not decided until after this hand is picked, so a theme that can deal a
+     round room is costed as if every unpinned room in it will be one. And WHICH
+     containers a room shows is shuffled, so a room is costed at its SMALLEST
+     few: the Observatory can show four of its five and might show the four
+     small ones. Costing it at its best four still left Mega four types short
+     about half the time — the trade-up has to be sure, not hopeful.
+
+     validate.js uses the same cap the other way up, because bestCaseTypes()
+     is asking a different question: whether the target is possible at all. */
+  const softShaped = shapes.some(s => s !== "rect");
+  const capOf = d => contCap(d.shape || (softShaped ? "round" : "rect"));
+  const typeCount = d => d.containers.map(c => c.types.length)
+    .sort((a, b) => a - b).slice(0, capOf(d)).reduce((n, x) => n + x, 0);
   let defs = shuffle([...pool]).slice(0, roomCount);
   if (cfg.targetTypes) {
     const shelf = pool.filter(d => !defs.includes(d)).sort((a, b) => typeCount(b) - typeCount(a));
@@ -167,6 +188,20 @@ export function generate(cfg) {
 
   const defOf = r => LOOKUP.roomById[r.defId].containers;
 
+  /* HOW MANY CONTAINERS THIS ROOM CAN SHOW. addContainer() walks the anchor
+     list in order, so the ceiling is its non-overlapping prefix: 6 in a rect
+     room, 4 in a round or hex one, where the soft list's 5th and 6th slots
+     share the middle column with its 1st and 2nd.
+
+     The campaign asks for a per-room count and validate.js caps that against
+     this. Free play does not — it fills each room from a whole-run TYPE quota
+     and takes as many containers as that needs, so a Mega house was putting
+     five containers in the round Observatory with two of them overlapping by a
+     quarter of their area. Capping here costs the quota nothing: the top-up
+     pass below hands leftover types to containers the room already has, as
+     extra rows. */
+  const roomCap = r => contCap(r.shape);
+
   if (cfg.targetTypes) {
     /* free play: fill toward a whole-run type quota */
     let remaining = cfg.targetTypes;
@@ -174,7 +209,7 @@ export function generate(cfg) {
       const cdefs = shuffle([...defOf(r)]);
       let quota = Math.max(1, Math.round(remaining / (rooms.length - idx)));
       for (const def of cdefs) {
-        if (quota <= 0) break;
+        if (quota <= 0 || r.containers.length >= roomCap(r)) break;
         const take = Math.min(def.types.length, quota);
         addContainer(r, def, shuffle([...def.types]).slice(0, take));
         quota -= take; remaining -= take;
@@ -187,7 +222,7 @@ export function generate(cfg) {
         if (remaining <= 0) break;
         const used = new Set(r.containers.map(c => c.defId));
         for (const def of defOf(r)) {
-          if (remaining <= 0) break;
+          if (remaining <= 0 || r.containers.length >= roomCap(r)) break;
           if (used.has(def.id)) continue;
           const take = Math.min(def.types.length, remaining);
           addContainer(r, def, shuffle([...def.types]).slice(0, take));
@@ -220,7 +255,7 @@ export function generate(cfg) {
   } else {
     /* campaign: per-room caps */
     for (const r of rooms) {
-      const cdefs = shuffle([...defOf(r)]).slice(0, Math.max(1, cfg.cont || 99));
+      const cdefs = shuffle([...defOf(r)]).slice(0, Math.max(1, Math.min(cfg.cont || 99, roomCap(r))));
       for (const def of cdefs) {
         addContainer(r, def, shuffle([...def.types]).slice(0, Math.max(1, cfg.types || 99)));
       }

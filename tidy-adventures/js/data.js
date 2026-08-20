@@ -9,6 +9,7 @@
    Imports: config, validate.
 ============================================================ */
 import { DATA_VERSION } from './config.js';
+import { anchorPrefix, expectedItems } from './util.js';
 import { validateData, showBootError, DataError } from './validate.js';
 
 const FILES = ['names','rooms','themes','furniture','sizes','levels','upgrades','strings','audio','quests','clients'];
@@ -154,6 +155,34 @@ export const levelIdxOf = id => LOOKUP.levelIdxById[id] ?? -1;
 /* The item count a config actually produces. The old SIZES[].items field and
    the hardcoded "~50 items" menu labels were both copies of this that drifted. */
 export const itemCount = cfg => (cfg.targetTypes || 0) * (cfg.rowLen || 0);
+
+/* ---------- how many containers a room of this shape can show ----------
+   Measured from the anchor data rather than hardcoded, so widening the soft
+   anchor list in furniture.json raises the ceiling everywhere at once. Rooms
+   are rect unless they pin a shape or the theme deals them one. */
+export const contCap = shape =>
+  anchorPrefix(DATA.furniture.anchors[shape === "rect" ? "rect" : "soft"] || [],
+               DATA.furniture.defaultSize.w, DATA.furniture.defaultSize.h);
+
+/* ---------- HOW BIG IS THIS JOB ----------
+   DERIVED, never authored. A "size" field on a level would be right until the
+   first time somebody changed `rooms` and then it would be a label that lies.
+
+   Free play states its own total outright (targetTypes x rowLen, which the
+   menu already prints); a campaign level states per-room caps, so what it
+   delivers depends on the rooms it draws and expectedItems() averages that
+   over the theme's pool. */
+export const jobSize = cfg => cfg.targetTypes
+  ? itemCount(cfg)
+  : expectedItems(cfg, themeRooms(cfg.theme));
+
+/* Smallish, medium, big — the bands and their words live in strings.json so
+   they can be renamed without touching this. */
+export const sizeBand = cfg => {
+  const bands = DATA.strings.jobSize?.bands || [];
+  const n = jobSize(cfg);
+  return bands.find(b => b.upTo == null || n <= b.upTo) || null;
+};
 
 export const upgradeDefaults = () =>
   Object.fromEntries(DATA.upgrades.upgrades.map(u => [u.id, 0]));

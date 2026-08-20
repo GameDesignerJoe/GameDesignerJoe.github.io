@@ -51,6 +51,37 @@
     "chipAgain": "Asking for you again"
   },
 
+  "_jobSizeNote": [
+    "HOW BIG IS THIS JOB, in words. The campaign fluctuates job size against the",
+    "client's own story arc — a first job is a look-in, a second is the real",
+    "work, a third is everything they have — and a player who cannot see that",
+    "just feels that some levels took longer. The band is DERIVED from the",
+    "level's own numbers (rooms x cont x types x rowLen, in js/data.js), never",
+    "authored, so it cannot disagree with the job it is describing.",
+    "",
+    "Ordered smallest first. \"upTo\" is the largest item count in the band; the",
+    "LAST entry must omit it and is the catch-all. Boot validation checks both.",
+    "\"pip\" is the compact form for a job-board tile, which has room for about",
+    "three characters beside the id — keep it to marks, not words. Small squares",
+    "were the first try and all but vanished at 9px on a phone; a filled circle",
+    "is the smallest mark that still reads as one at that size.",
+    "",
+    "Retune these and the labels move; retune the levels and the labels follow.",
+    "The one thing not to do is write a size onto a level.",
+    "",
+    "For reference: outside the tutorial the smallest job is about 90 items and",
+    "the biggest about 700, every client's arc climbs across its stages, and no",
+    "two jobs in a row are within a fifth of each other. Boot validation warns",
+    "if either of those last two stops being true."
+  ],
+  "jobSize": {
+    "bands": [
+      { "upTo": 200, "label": "A small job",  "pip": "●" },
+      { "upTo": 440, "label": "A proper job", "pip": "●●" },
+      {              "label": "A big one",    "pip": "●●●" }
+    ]
+  },
+
   "jobBoard": {
     "title": "Job Board",
     "sub": "Who needs you today. {done} of {total} done.",

@@ -10,7 +10,7 @@
    Imports: none. This is a leaf.
 ============================================================ */
 import { MAX_ROOMS, TALENT_IDS, CONSUMABLE_EFFECTS } from './config.js';
-import { tokensIn } from './util.js';
+import { tokensIn, anchorPrefix, expectedItems } from './util.js';
 
 export class DataError extends Error {}
 
@@ -201,10 +201,20 @@ export function validateData(D) {
   }
 
   /* ---------- 7. run configs are satisfiable ---------- */
+  /* A room delivers only as many containers as it has clean anchors for, so its
+     type count is its LARGEST few containers, not all of them — see check 7b.
+     Costed on the worst shape the theme can deal it, matching generate(). */
+  const anchorSize = D.furniture?.defaultSize || { w: 34, h: 16 };
+  const anchorFit = set => anchorPrefix(D.furniture?.anchors?.[set] || [], anchorSize.w, anchorSize.h);
+  const roomCap = (tid, r) => {
+    const shape = r.shape || ((themes[tid]?.shapes || []).some(s => s !== "rect") ? "round" : "rect");
+    return anchorFit(shape === "rect" ? "rect" : "soft");
+  };
   const typesPerRoom = tid => (themes[tid]?.rooms || [])
     .map(rid => rooms.find(r => r.id === rid))
     .filter(Boolean)
-    .map(r => (r.containers || []).reduce((m, c) => m + c.types.length, 0));
+    .map(r => (r.containers || []).map(c => c.types.length)
+      .sort((a, b) => b - a).slice(0, roomCap(tid, r)).reduce((m, n) => m + n, 0));
 
   const typesInTheme = tid => typesPerRoom(tid).reduce((a, b) => a + b, 0);
 
@@ -260,6 +270,72 @@ export function validateData(D) {
 
   for (const s of D.sizes?.sizes || []) checkCfg("sizes.json", s, s.id);
   for (const l of D.levels?.levels || []) checkCfg("levels.json", l, l.id);
+
+  /* ---------- 7b. a room can only show as many containers as it has anchors ----
+     generate() hands out anchors in list order, so the real ceiling is the
+     non-overlapping PREFIX of the list — 6 for a rect room, 4 for a round or
+     hex one, whose 5th and 6th soft slots share the middle column with the 1st
+     and 2nd. That is not obvious from furniture.json, which reads as six of
+     each: a level asking for five containers in the tower rendered two pieces
+     of furniture a quarter on top of each other, and the only symptom was a
+     screenshot. Free play is capped in generate() instead, because it takes
+     however many containers its type quota needs rather than a stated number.
+
+     A theme is judged on every shape it can DEAL, plus any shape its rooms pin
+     for themselves — the house theme is rect-only and still contains a round
+     Observatory and a hex Wine Cellar. */
+  {
+    const size = D.furniture?.defaultSize || { w: 34, h: 16 };
+    const prefix = set => anchorPrefix(D.furniture?.anchors?.[set] || [], size.w, size.h);
+    const capOf = tid => {
+      const t = themes[tid] || {};
+      const shapes = new Set(t.shapes || []);
+      for (const rid of t.rooms || []) {
+        const pinned = rooms.find(r => r.id === rid)?.shape;
+        if (pinned) shapes.add(pinned);
+      }
+      const soft = shapes.has("round") || shapes.has("hex");
+      return soft ? Math.min(prefix("rect"), prefix("soft")) : prefix("rect");
+    };
+    for (const l of D.levels?.levels || []) {
+      const tid = l.theme || D.themes?.defaultTheme || "house";
+      if (!themes[tid]) continue;                       // already reported above
+      const cap = capOf(tid);
+      if (l.cont > cap) {
+        errors.push(at("levels.json",
+          `"${l.id}" asks for ${l.cont} containers per room, but theme "${tid}" can only place ${cap} without furniture overlapping.`,
+          `A round or hex room fits ${prefix("soft")}; a rect-only theme fits ${prefix("rect")}. ` +
+          "Lower cont, or add non-overlapping anchors to data/furniture.json."));
+      }
+    }
+  }
+
+  /* ---------- 7c. the job-size bands are usable ----------
+     A malformed band list does not crash anything; it silently mislabels every
+     job on the board and the win screen, which is worse. */
+  {
+     const bands = D.strings?.jobSize?.bands;
+     if (!Array.isArray(bands) || !bands.length) {
+       warnings.push(at("strings.json", "no jobSize.bands, so no job will say how big it is.",
+         "The next-job card and the board tiles just omit the label."));
+     } else {
+       bands.forEach((b, i) => {
+         const last = i === bands.length - 1;
+         if (!b.label) errors.push(at("strings.json", `jobSize band ${i + 1} has no label.`));
+         if (last && b.upTo != null) {
+           errors.push(at("strings.json", `the last jobSize band has upTo: ${b.upTo}, so the biggest jobs fall through it and get no label.`,
+             "The last band is the catch-all and must omit upTo."));
+         }
+         if (!last && !(b.upTo > 0)) {
+           errors.push(at("strings.json", `jobSize band "${b.label}" needs an upTo; only the last one may omit it.`));
+         }
+         if (!last && bands[i + 1].upTo != null && bands[i + 1].upTo <= b.upTo) {
+           errors.push(at("strings.json", `jobSize bands are out of order: "${b.label}" ends at ${b.upTo} but "${bands[i + 1].label}" ends at ${bands[i + 1].upTo}.`,
+             "They are matched in order, smallest first, so a later band that ends earlier can never be reached."));
+         }
+       });
+     }
+  }
 
   /* ---------- 8. tips are well formed ---------- */
   const TARGETS = new Set(["item","furn","door","lock","open","zoom","pan","shop","lastEl"]);
@@ -552,6 +628,55 @@ export function validateData(D) {
       if (!claims.has(lv.id)) {
         errors.push(at("clients.json", `level "${lv.id}" has no client.`,
           "Every campaign level is somebody's job: this one would open with nobody there, end with no thank-you, and never appear on the job board at all."));
+      }
+    }
+  }
+
+  /* ---------- 11. THE SIZE CURVE ----------
+     Two warnings, not errors: both of these are design shape rather than
+     correctness, and a level that breaks them still plays.
+
+     (a) A CLIENT'S ARC CLIMBS. A first job is a look-in, a second is the real
+         work, a third is everything they have — that is the whole reason the
+         same house does not feel like the same house twice, and it lives in
+         two files at once (the numbers here, the voice in clients.json), so
+         nothing but a check keeps them agreeing.
+
+     (b) NO TWO JOBS IN A ROW FEEL THE SAME SIZE. The complaint that produced
+         all of this was "all the levels feel the same size", and the cause was
+         arithmetic: twenty-six consecutive levels sat between 3 and 6 rooms
+         with cont 3-4, types 5 and rowLen 5, so consecutive jobs differed by a
+         few per cent and the arcs' shape was invisible. Adjacent levels have
+         to differ by more than a fifth or the player cannot feel the swing.
+         The tutorial is exempt: the first jobs are a ramp on purpose. */
+  {
+    /* What the level will actually DELIVER, not what it asks for. The two
+       differ by up to a fifth on a house level, which is exactly the size of
+       the gap this check is looking for — measuring the ask flagged two pairs
+       that are a clear quarter apart in play. */
+    const askOf = l => expectedItems(l, (themes[l.theme || D.themes?.defaultTheme]?.rooms || [])
+      .map(rid => rooms.find(r => r.id === rid)).filter(Boolean));
+    const idxOf = new Map(levels.map((l, i) => [l.id, i]));
+    for (const c of (Array.isArray(clients) ? clients : [])) {
+      const st = (c.stages || []).filter(s => idxOf.has(s.level));
+      for (let i = 1; i < st.length; i++) {
+        const a = levels[idxOf.get(st[i - 1].level)], b = levels[idxOf.get(st[i].level)];
+        if (askOf(b) < askOf(a)) {
+          warnings.push(at("levels.json",
+            `client "${c.id}" gets SMALLER: "${a.id}" asks for ${askOf(a)} items and the next job for them, "${b.id}", asks for ${askOf(b)}.`,
+            "An arc is meant to grow — a look-in, then the real work, then everything they have."));
+        }
+      }
+    }
+    /* The first job with talents on is where the ramp ends and the swing starts. */
+    const rampEnds = levels.findIndex(l => l.talents !== false);
+    for (let i = Math.max(1, rampEnds + 1); i < levels.length; i++) {
+      const a = askOf(levels[i - 1]), b = askOf(levels[i]);
+      const r = b / a;
+      if (r > 0.8 && r < 1.25) {
+        warnings.push(at("levels.json",
+          `"${levels[i - 1].id}" (${a} items) and "${levels[i].id}" (${b}) are the same size, back to back.`,
+          "Consecutive jobs need to differ by more than a fifth, or the size swing is invisible and every level feels like the last one."));
       }
     }
   }

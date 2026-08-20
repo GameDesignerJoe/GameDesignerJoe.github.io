@@ -427,6 +427,123 @@ be baked into three strings, because every preset was a size OF one.
 
 ---
 
+## How big a job is
+
+**"All the levels feel the same size" was true, and it was arithmetic.** From
+T-1 to the end, twenty-six consecutive levels sat at 3–6 rooms with `cont` 3–4,
+`types` 5 and `rowLen` 5. Every room in the back half of the game therefore held
+three or four containers of five rows of five, the item counts crept from 170 to
+700 in steps of a few per cent, and eleven story arcs all ended in roughly the
+same 500-item job. The campaign climbed; nothing about it *swung*.
+
+Size is now **two things multiplied**, and neither of them is "how far through
+the campaign are you":
+
+1. **Where you are in this client's arc.** A first job is a look-in — they are
+   trying you out, and it is over in a few minutes. A second is the real work.
+   A third is everything they have. Every arc climbs across its stages.
+2. **How big that client's place is** — a trait of the character, not of the
+   schedule. Mom's is a bedroom. The frat house is seven rooms and Delta Tau
+   Chi's last job uses all seven. A survey ship is six cramped compartments. The
+   dream is four rooms and can never be more, because the pool is four.
+
+The second one is what stops the eleven finales being the same job: Marguerite's
+biggest (472) is smaller than Boris's middle one (392), and both are right.
+
+Because **arcs interleave**, the two together produce a sawtooth — a client's
+finale is followed by somebody else's look-in. In play order the campaign now
+reads `1111111112221221333231212212332333` (marks per tile), and the sharpest
+edge in it is T-3 → 7-1: 600 items to 153, a wizard finishing four hundred
+years of hoarding and then a robot being shown how to put one shelf away.
+
+**Two boot warnings hold the shape**, both in `js/validate.js`, both warnings
+rather than errors because this is design shape and a level that breaks them
+still plays:
+
+- **an arc that gets smaller.** The numbers live in `levels.json` and the voice
+  in `clients.json`; nothing else keeps the two agreeing.
+- **two consecutive jobs within a fifth of each other**, past 5-1. That check is
+  the whole point of this section and the first thing to look at if the game
+  starts feeling flat again. Everything before 5-1 is exempt: the opening is a
+  teaching ramp and is meant to climb steadily.
+
+Both measure `expectedItems()` (`js/util.js`), not `rooms × cont × types × rowLen`.
+The two differ by up to a fifth on a house level — `cont` is capped by how many
+containers the room it lands in happens to have and `types` by how many that
+container holds, so the Closet's two-emoji shoe rack returns two when asked for
+five. Non-house themes run five-of-five throughout and hit the bound exactly,
+which is why the gap only shows on house levels. Measuring the ask flagged two
+pairs that are a clear quarter apart in play.
+
+### rowLen and cont are texture, not difficulty
+
+**A star is one completed ROW**, so `rooms × cont × types` is the star count and
+`rowLen` is free — it changes the rhythm of a job without touching the reward
+economy at all. It had been 5 for twenty-six levels running. It is now a
+per-world signature: 6 in the frat house because there are six of them, 6 in a
+dream because a dream has more of everything, 4 on Zorb's ship *and in the first
+job he gives you*, which is in a house, 5 at home.
+
+`cont` is the other one. Many rooms holding a few things each plays nothing
+like a few rooms crammed, at the same item count — so 6-1 is seven frat rooms of
+three and 5-1 is four ship rooms of four.
+
+### The ceiling on cont is 4, not 6
+
+`furniture.json` lists six anchors per set and reads as though six containers
+fit anywhere. They do not: the `soft` set used for **round and hex** rooms puts
+its 5th and 6th slots in the same middle column as its 1st and 2nd, so a fifth
+container lands a quarter on top of the first. Measured, not guessed — the first
+draft of this retune gave 5-1 five containers and the only symptom was a
+screenshot.
+
+`anchorPrefix()` in `js/util.js` computes the real ceiling from the anchor
+data, so widening the list raises it everywhere at once. Two callers:
+
+- `validate.js` **refuses** a level whose `cont` exceeds it, judging a theme on
+  every shape it can deal *plus any shape its rooms pin* — the house theme is
+  rect-only and still contains a round Observatory and a hex Wine Cellar. A
+  rect-only theme (the frat) may use all six.
+- `generate.js` **caps free play**, which asks for a whole-run type quota rather
+  than a per-room count and took however many containers that needed. A Mega
+  house was putting five containers in the round Observatory and two of them
+  overlapped. The quota costs nothing to keep: the top-up pass hands leftover
+  types to containers the room already has, as extra rows. Verified — every
+  preset still delivers `targetTypes × rowLen` exactly.
+
+### scale is not a free choice
+
+Items scatter by floor **area**, so how readable a job is comes out as
+items-per-room over room size. Halve the items in a room and the room has to
+shrink with them or it reads as swept; double them and it reads as a heap. Every
+`scale` in `levels.json` was recomputed from the hand-tuned density curve when
+the sizes changed —
+
+> `newScale = oldScale × √( (newItemsPerRoom / old) × (oldFreeFloor / newFreeFloor) )`
+
+— where free floor allows for the fact that furniture eats it too, so a room
+with four containers has less of it than one with three. Change `rooms` or
+`cont` without touching `scale` and the level will look wrong before it
+plays wrong.
+
+### The player is told
+
+An unexpectedly short level reads as a level that **ended early** unless
+something said it was going to be short — so the size is on both surfaces that
+offer a job:
+
+- the **next-job card** footer: `4-2 · A PROPER JOB` beside the id.
+- a **board tile**: one to three marks on the id line. On one screen of
+  thirty-four tiles that is the only place the shape of the whole campaign is
+  visible. Hidden on a client you have not met, along with their face and name —
+  how big somebody's house is is part of meeting them.
+
+Both come from `sizeBand()` → `jobSize.bands` in `strings.json`, and both are
+**derived**. A `"size"` field on a level would be correct until the first time
+somebody changed `rooms`, and then it would be a label that lies.
+
+---
+
 ## Clients
 
 You are a professional tidier and people hire you. Every campaign level is one
@@ -915,6 +1032,22 @@ Run through this after any change; it's what the browser tests cover.
   `levelId` and confirm it degrades to the plain gold button rather than promising
   a job that isn't there.
 - No sentence anywhere prints "the the". Room names carry their own articles.
+- **The size swing.** Every client's arc grows across its stages, and no two
+  consecutive jobs past 5-1 are within a fifth of each other — boot warns about
+  both, so a clean console is the test. Confirm against what the generator
+  actually builds, not against `rooms × cont × types × rowLen`: generate every
+  level 20 times and compare the item count to `jobSize()`.
+- **Furniture never sits on furniture.** Walk every room of every level, ten
+  draws each, and compare the container slot boxes: a round or hex room takes
+  four, a rect room six. Then check free play too — its container count comes
+  from a type quota, not from `cont` — and that every preset still delivers
+  `targetTypes × rowLen` after the cap.
+- The size label fits: the card footer stays on ONE line on a 390px phone with
+  the level id already on it, and a board tile's id line does not clip. A client
+  you have not met shows no size mark.
+- A room whose item count changed also had its `scale` recomputed — screenshot
+  it. The failure is visual and silent: the same numbers in a room too small
+  read as an unsortable heap.
 - Console clean throughout.
 
 ---

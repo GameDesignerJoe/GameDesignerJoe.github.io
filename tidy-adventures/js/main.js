@@ -21,7 +21,7 @@ import {
 import { say, bump, flyStar, roomCompleteFX, clearSay } from './feedback.js';
 import {
   DATA, LOOKUP, loadData, nameOf, maxLevel,
-  itemCount, upgradeParam, upgradeDefaults, jobAt,
+  itemCount, upgradeParam, upgradeDefaults, jobAt, jobSize, sizeBand, contCap,
 } from './data.js';
 import { showClient, hideClient, isSpeaking } from './client.js';
 import { G, setRun, endRun } from './state.js';
@@ -1539,10 +1539,15 @@ function clearTalents(){ try{ localStorage.removeItem(TALENTS_KEY); }catch(e){} 
    it, which is a better arrival than the board ever gave them.
 
    TWO LINES, DOING TWO DIFFERENT JOBS.
-     stage.hook   — third person, and the one that carries the through-line:
-                    how this person found you, or what they want. For a first
-                    stage that is a referral ("Your mom told her about you"),
-                    which is what makes the cast feel like it knows itself.
+     stage.hook   — THE CLIENT TALKING TO YOU, first person, and the line that
+                    carries the through-line: how they got hold of you. For a
+                    first stage that is a referral ("Your mom rang me about
+                    you"), and the referrals chain across the whole cast, which
+                    is what makes it feel like one world rather than eleven
+                    jobs. An earlier draft was third person and it was accurate
+                    and inert — the referral is the funniest thing most of these
+                    people have to offer, and reported rather than told it stops
+                    being a joke.
      stage.teaser — their own words, quoted.
 
    `teaser` ALREADY EXISTED ON EVERY STAGE AND NOTHING HAS EVER RENDERED IT.
@@ -1594,6 +1599,12 @@ function jobCard(o){
   return b;
 }
 
+/* " · A big one", or nothing at all if the bands are missing. */
+function footSize(lv){
+  const band = sizeBand(lv);
+  return band && band.label ? " · " + band.label : "";
+}
+
 function nextJobCard(idx, onGo){
   const next = jobAt(idx);
   if(!next) return null;
@@ -1621,7 +1632,13 @@ function nextJobCard(idx, onGo){
     name: next.client.name,
     body: hook && tokenise(hook, {handSlots:INV_SIZE, rowLen:next.level.rowLen||5, name:next.client.name, level:next.level.id}),
     say:  next.stage.teaser,
-    foot: next.level.id,
+    /* AND HOW BIG IT IS. Job size now swings against the client's arc — a
+       first job is a look-in, a third is everything they have — and the whole
+       point of that is lost if the player cannot see it coming: a short level
+       they were not expecting reads as a level that ended early rather than as
+       a small job. Two words, derived from the level's own numbers, so it can
+       never promise a size the generator does not build. */
+    foot: next.level.id + footSize(next.level),
     onGo,
   });
 }
@@ -2840,7 +2857,14 @@ function jobTile(job, idx, p){
      recognisable as shapes, which gives the surprise away a job early. */
   b.appendChild(mkEl("span","jface",seen||peek?job.client.emoji:"🧑"));
   b.appendChild(mkEl("span","jtitle",job.level.name));
-  b.appendChild(mkEl("span","jid",job.level.id));
+  /* The id line carries a size mark. On one screen of thirty-four tiles that
+     is the only place the shape of the campaign is visible — smallish, medium,
+     big, cycling with each client's arc rather than climbing in a straight
+     line. Marks rather than words: the line is about three characters wide.
+     Hidden on a job you have not met, along with the face and the name; how
+     big somebody's house is is part of meeting them. */
+  const pip = seen||peek ? (sizeBand(job.level)||{}).pip : null;
+  b.appendChild(mkEl("span","jid",job.level.id + (pip ? " " + pip : "")));
   if(st==="done") b.appendChild(mkEl("span","jmark","✅"));
   if(st!=="locked") b.addEventListener("click",()=>startCampaign(idx));
   return b;
@@ -3019,6 +3043,8 @@ window.tidy = {
   unlockAll:on=>{ const v=setDebugUnlock(on!==false); syncUnlockBtn(); return v; },
   progress, relockAll:()=>{ clearDone(); return progress(); },
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
+  /* How big is this job — the same two calls the card and the board tiles make. */
+  jobSize, sizeBand, contCap,
   itemAt, underAt, onInk, maskStats,
   playMusic, nowPlayingMusic, musicDebug, audio:audioSettings,
 };
