@@ -17,6 +17,29 @@ export class DataError extends Error {}
 /* ---------- helpers ---------- */
 const at = (file, msg, why) => `data/${file} — ${msg}${why ? "\n    " + why : ""}`;
 
+/* ---------- NO ARTICLE MAY GO NEAR A NAME TOKEN ----------
+
+   docs/CLAUDE.md has carried this rule for room names since "You left off in
+   the {room}" shipped as "in the the Familiar's Roost" and "in the
+   Hydroponics" on the same build. It is exactly as true of {container} and
+   {item}, and the moment `quips` started embedding them in prose it broke the
+   same way: "The {container} gives" rendered as "The The Locked Case gives."
+
+   The names supply their own articles and they disagree. Containers: "Fridge"
+   and "Pantry" want "the", "The Locked Case" and "The Actual Bin" already have
+   one, and "Not Bananas", "Do Not Open", "Growing" and "Things We Don't
+   Discuss" take none at all. Items are worse — they are capitalised, because
+   every other reader of names.json is a LABEL (the loupe, the hand bar,
+   senseSuffix), so "The Salt goes" is wrong twice over.
+
+   So a name token goes in LABEL POSITION: after a dash, a colon or a full
+   stop, where nothing implies an article and nothing implies lower case. This
+   catches the article; the position is a writing habit the copy demonstrates.
+
+   Returns a list of offending "the {container}"-shaped substrings. */
+const ARTICLE_BEFORE = /\b(the|a|an|The|A|An)\s+\{(container|room|item)\}/g;
+const articleSlips = str => [...String(str).matchAll(ARTICLE_BEFORE)].map(m => m[0]);
+
 /* Class selectors actually present in the loaded stylesheets. Used to catch
    the "renamed .k-steel in CSS but not in JSON" drift that pure data-vs-data
    checking can't see. */
@@ -186,6 +209,90 @@ export function validateData(D) {
       errors.push(at("rooms.json",
         `room "${room.id}" has ${n} containers but furniture.json only defines ${anchorCount} anchors.`,
         "Containers past the last anchor would stack on top of the first one."));
+    }
+
+    /* ---------- 5b. NO TWO CONTAINERS IN A ROOM SHARE A SKIN ----------
+
+       A kind is the only thing telling two pieces of furniture apart at a
+       glance, and a room is where the player is doing the comparing. The
+       bathroom shipped with "Under the Sink" and "The Bath Toys Box" both as
+       `plastic`, and the frat kitchen's "The Sink" wore the FRIDGE skin —
+       so the answer to "which of these grey boxes is the sink" was to read
+       the name plate, which is exactly the job the drawn furniture exists to
+       take off the player. Twelve shape kinds were added to make this
+       satisfiable everywhere; see _shapeKindsNote in furniture.json. */
+    const bySkin = new Map();
+    for (const c of room.containers || []) {
+      if (!bySkin.has(c.kind)) bySkin.set(c.kind, []);
+      bySkin.get(c.kind).push(c.id);
+    }
+    for (const [kind, ids] of bySkin) {
+      if (ids.length > 1) {
+        warnings.push(at("rooms.json",
+          `room "${room.id}" draws ${ids.length} containers with the same kind "${kind}": ${ids.join(", ")}.`,
+          "Two identical silhouettes in one room means the name plate is the only way to tell them apart. " +
+          `Spare kinds: ${Object.keys(kinds).filter(k => !bySkin.has(k)).join(", ") || "none"}.`));
+      }
+    }
+  }
+
+  /* ---------- 5c. NAME BAIT — a container advertising what it won't take ----
+
+     The taxonomy rule in rooms.json says confusable emoji share a container
+     and the container's NAME is the test. This is the failure mode of that
+     rule that no amount of care catches by eye, because it needs two files
+     open at once: a container whose NAME contains the name of an item that
+     lives in a DIFFERENT container in the SAME ROOM.
+
+     Three shipped. "Minerals & Salts" sat beside the salt. "Mirrors & Lenses"
+     sat beside the mirror. "Supplements & Salts", again the salt. Every one of
+     them is a container asking out loud for something it is coded to reject —
+     which is worse than an unguessable home, because the player is not
+     guessing, they are reading, and the game is lying to them.
+
+     Word-stem matching, both sides authored (container names here, item names
+     in names.json), which is what keeps it precise rather than a heuristic
+     that cries wolf. `"baitOk": true` on a container opts out, for the one
+     case where the bait IS the joke: the Banana Vault's "Not Bananas". */
+  {
+    /* Furniture words. These are what a container is, never what it holds, so
+       matching on them says nothing — and "The Box Shelf" beside a box would
+       be flagged forever. */
+    const CARCASS = new Set(("the a an and or of in on under my not it its at out for to with " +
+      "box boxes bin bins bag bags rack racks shelf shelves case cases drawer drawers " +
+      "cabinet corner pile heap stack stand tin trunk chest crate basket bowl cup tower " +
+      "store station room wall hook hooks peg pegs rail tray trays locker cupboard " +
+      "things thing stuff other actual one clean ish do don discuss which have been " +
+      "since arrival cannot place grown fond apparatus units objects").split(" "));
+
+    const stem = w =>
+      w.endsWith("ies") && w.length > 4 ? w.slice(0, -3) + "y" :
+      w.endsWith("es")  && w.length > 4 ? w.slice(0, -2) :
+      w.endsWith("s")   && w.length > 3 ? w.slice(0, -1) : w;
+    const keywords = s => new Set(
+      String(s || "").toLowerCase().split(/[^a-z]+/)
+        .filter(w => w && !CARCASS.has(w)).map(stem));
+
+    const names = D.names?.names || {};
+    for (const room of rooms) {
+      const cs = room.containers || [];
+      for (const c of cs) {
+        if (c.baitOk) continue;
+        const want = keywords(c.name);
+        if (!want.size) continue;
+        for (const other of cs) {
+          if (other === c) continue;
+          for (const e of other.types || []) {
+            const shared = [...keywords(names[e])].filter(w => want.has(w));
+            if (!shared.length) continue;
+            warnings.push(at("rooms.json",
+              `room "${room.id}": container "${c.name}" reads as the home of ${e} ${names[e]}, ` +
+              `which actually lives in "${other.name}" one piece of furniture away.`,
+              `Both names claim "${shared.join(", ")}". Move the emoji, rename the container, or ` +
+              `set "baitOk": true if the bait is deliberate.`));
+          }
+        }
+      }
     }
   }
 
@@ -487,6 +594,15 @@ export function validateData(D) {
   const levels = D.levels?.levels || [];
   const CLIENT_TEXT_TOKENS = new Set(["handSlots", "rowLen", "name", "level"]);
   const CLIENT_NOTE_TOKENS = new Set(["container", "room", "handSlots", "rowLen", "name"]);
+  /* The chatter channel always knows which item and which container the moment
+     was about, which note copy never does. */
+  const QUIP_TOKENS = new Set(["container", "room", "item", "handSlots", "rowLen", "name"]);
+  /* The six situations js/chatter.js carries, and what the house calls them in
+     strings.json. Listed here rather than derived from the data, so adding a
+     seventh to chatter.js and forgetting to author it is a named warning rather
+     than a bubble that silently never appears — the exact failure `teaser`
+     shipped with for thirty-four stages. */
+  const QUIP_KINDS = ["door", "cache", "unlock", "room", "misfile", "nothing"];
 
   /* Level ids must be unique before anything can be claimed by one: the id ->
      index map is a plain object, so a duplicate silently drops one of them. */
@@ -574,7 +690,16 @@ export function validateData(D) {
             `${where} ("${s.level}") has no \`hook\`, so the next-job card falls back to the level blurb.`,
             "The hook is the line that carries the through-line — how this client found you, or why they are calling again."));
         }
-        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || "", s.hook || ""]) {
+        /* The nudge is what Continue says. It has to work COLD — read by
+           somebody who last played a week ago and has forgotten the intro —
+           so a stage without one falls back to the house's generic line,
+           which names nothing and is the "Welcome back" problem again. */
+        if (!s.nudge) {
+          warnings.push(at("clients.json",
+            `${where} ("${s.level}") has no \`nudge\`, so coming back to it mid-job says the house's generic line.`,
+            "One sentence restating what is at stake in THIS job, in their voice, read by a player who has forgotten the intro."));
+        }
+        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || "", s.hook || "", s.nudge || ""]) {
           for (const tok of tokensIn(line)) {
             if (!CLIENT_TEXT_TOKENS.has(tok)) {
               errors.push(at("clients.json", `${where} uses {${tok}}, which is never filled in.`,
@@ -589,6 +714,15 @@ export function validateData(D) {
             errors.push(at("clients.json", `${where} note ${bi + 1} has text but no reply.`,
               "The reply is what arrives when the note is finished; the payout would land in silence."));
           }
+          /* NOTE COPY IS DELIBERATELY NOT CHECKED for the article rule, and
+             this is the interesting half of that rule. Fifty-nine authored
+             note phrases read "the {container}", every one of them shipped and
+             reviewed, and warning about all of them each boot would teach a
+             reader to skip warnings — which costs more than the bug. They are
+             repaired at the point of substitution instead (see tokenise() in
+             js/util.js, which eats the doubled article), and the strict check
+             applies only to the copy written after the rule existed: quips and
+             houseVoice, where it is an ERROR. */
           for (const tok of tokensIn((b.text || "") + " " + (b.reply || ""))) {
             if (!CLIENT_NOTE_TOKENS.has(tok)) {
               errors.push(at("clients.json", `${where} note ${bi + 1} uses {${tok}}, which is never filled in.`,
@@ -609,6 +743,55 @@ export function validateData(D) {
             `${where} has ${s.note.length} notes but level "${s.level}" only has ${lv.rooms} rooms, so the last ones can never be read.`));
         }
       });
+
+      /* ---------- quips: the same voice, mid-job ----------
+         Every one of these was a narrator sentence in say() before it was a
+         client sentence in a bubble. A client missing one is not broken — the
+         house's copy in strings.json covers it — but it is a client with
+         nothing to say about the best moment in a room, which wastes the only
+         cast this game has. */
+      const quips = c.quips || {};
+      for (const kind of QUIP_KINDS) {
+        const pool = quips[kind];
+        if (pool != null && !Array.isArray(pool)) {
+          errors.push(at("clients.json", `client "${c.id}" quips.${kind} is not an array.`,
+            "One line or several, and the game picks at random. A bare string would be read a character at a time."));
+          continue;
+        }
+        if (!pool?.length) {
+          warnings.push(at("clients.json",
+            `client "${c.id}" has no \`quips.${kind}\`, so that moment is said in the house's generic voice.`));
+          continue;
+        }
+        for (const line of pool) {
+          for (const tok of tokensIn(line)) {
+            if (!QUIP_TOKENS.has(tok)) {
+              errors.push(at("clients.json", `client "${c.id}" quips.${kind} uses {${tok}}, which is never filled in.`,
+                `Available in quips: ${[...QUIP_TOKENS].map(t => "{" + t + "}").join(" ")}`));
+            }
+          }
+          for (const slip of articleSlips(line)) {
+            errors.push(at("clients.json",
+              `client "${c.id}" quips.${kind} writes "${slip}".`,
+              "Container, room and item names supply their own articles and they disagree — " +
+              "\"the Fridge\" is right and \"the The Locked Case\" is what that renders as. " +
+              "Put the token after a dash, a colon or a full stop instead."));
+          }
+          /* THE ONE QUIP WITH A JOB TO DO. Every other line is flavour; this
+             one is the answer to "then where DOES it go", and a misfile quip
+             that names neither the item nor the container is a client being
+             charming at the exact moment the player is stuck. See
+             misfileHint() in main.js. */
+          if (kind === "misfile") {
+            const has = new Set(tokensIn(line));
+            if (!has.has("item") || !has.has("container")) {
+              errors.push(at("clients.json",
+                `client "${c.id}" has a misfile quip that does not use both {item} and {container}: "${line}"`,
+                "This is the line that tells the player where the thing actually goes. Without both tokens it is sympathy, not an answer."));
+            }
+          }
+        }
+      }
 
       /* Two is legal because of Mom: a prologue whose whole job is to teach the
          verbs and hand you to a real client. Three to five is the shape of an
@@ -677,6 +860,48 @@ export function validateData(D) {
         warnings.push(at("levels.json",
           `"${levels[i - 1].id}" (${a} items) and "${levels[i].id}" (${b}) are the same size, back to back.`,
           "Consecutive jobs need to differ by more than a fifth, or the size swing is invisible and every level feels like the last one."));
+      }
+    }
+  }
+
+  /* ---------- 12. the house can cover for anybody ----------
+     houseVoice is BOTH the free-play voice and the fallback for a client with
+     a gap, so a missing situation here is real silence rather than a downgrade
+     — the one place in this feature where nothing at all would happen. */
+  {
+    const hv = D.strings?.houseVoice;
+    if (!hv) {
+      errors.push(at("strings.json", "no `houseVoice`.",
+        "Free play has no client, and this is also the fallback for a campaign client missing a quip. Without it those moments are silent."));
+    } else {
+      for (const kind of [...QUIP_KINDS, "nudge"]) {
+        if (!hv[kind]?.length) {
+          errors.push(at("strings.json", `houseVoice has no \`${kind}\` lines.`,
+            "This is the floor: a client with no quip for this situation falls through to here, so an empty one is silence."));
+        }
+      }
+      for (const [kind, pool] of Object.entries(hv)) {
+        if (!Array.isArray(pool)) continue;          /* `face` is a string */
+        for (const line of pool) {
+          for (const tok of tokensIn(line)) {
+            if (!QUIP_TOKENS.has(tok)) {
+              errors.push(at("strings.json", `houseVoice.${kind} uses {${tok}}, which is never filled in.`,
+                `Available: ${[...QUIP_TOKENS].map(t => "{" + t + "}").join(" ")}`));
+            }
+          }
+          for (const slip of articleSlips(line)) {
+            errors.push(at("strings.json", `houseVoice.${kind} writes "${slip}".`,
+              "Same rule as anywhere else these tokens appear: the names carry their own articles."));
+          }
+        }
+      }
+      for (const line of hv.misfile || []) {
+        const has = new Set(tokensIn(line));
+        if (!has.has("item") || !has.has("container")) {
+          errors.push(at("strings.json",
+            `houseVoice.misfile does not use both {item} and {container}: "${line}"`,
+            "Same rule as a client's: this line exists to name where the thing actually goes."));
+        }
       }
     }
   }

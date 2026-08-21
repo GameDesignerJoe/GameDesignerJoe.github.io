@@ -12,7 +12,7 @@ import {
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
   PINCH_TAP_SUPPRESS_MS, T,
 } from './config.js';
-import { rnd, tokenise } from './util.js';
+import { rnd, pick, tokenise } from './util.js';
 /* `el` is aliased: this file has many local `const el = ...` inside render
    functions, and an unaliased import would be shadowed confusingly. */
 import {
@@ -24,6 +24,7 @@ import {
   itemCount, upgradeParam, upgradeDefaults, jobAt, jobSize, sizeBand, contCap,
 } from './data.js';
 import { showClient, hideClient, isSpeaking } from './client.js';
+import { chatter, clearChatter, chatterState, setChatterGate, CHAT } from './chatter.js';
 import { G, setRun, endRun } from './state.js';
 import { itemAt, underAt, onInk, warmMasks, maskStats } from './hit.js';
 import {
@@ -295,6 +296,26 @@ function saveGame(){
       current:G.current, inv:G.inv, sel:G.sel,
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
       visited:[...G.visited], awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
+      /* THREE SETS THAT loadGame() HAS ALWAYS READ AND THIS HAS NEVER WRITTEN.
+         `d.taught`, `d.events` and `d.roomFxDone` are all restored on the way
+         in and were all silently dropped on the way out, which is the same
+         half-finished shape as the draftsTaken bug above — and invisible for
+         the same reason, because an empty Set behaves like a fresh run rather
+         than throwing.
+
+         What it cost: `taught` is the "say this sentence the first time the
+         player hits this rule" record (js/feedback.js), so every resume
+         re-taught every lesson from scratch; `events` is what tip `when`/`until`
+         conditions watch, so a dismissed tip could come back; `roomFxDone` is
+         what stops a room playing its gold ripple twice.
+
+         It matters more now: misfileHint() puts "misfile:<emoji>" keys in
+         `taught` to say where a thing lives once and not again, and without
+         this line "once" meant "once per sitting".
+
+         Additive, so no SAVE_VERSION bump — loadGame() already defaults each of
+         them to an empty set, and an older build ignores fields it doesn't read. */
+      taught:[...G.taught], events:[...G.events], roomFxDone:[...G.roomFxDone],
       /* draftsTaken is what stops an earned talent draft being handed out
          twice, and it was missing here while ⭐ was written faithfully — so a
          Continue restored "you have 30 lifetime stars" next to "you have never
@@ -459,7 +480,7 @@ function insertKey(lockIdx, it, fromSlot){
   lock.have++;
   if(lock.have>=lock.need){
     lock.open=true;
-    sfx("unlock"); say("The door creaks open ✨");
+    sfx("unlock"); aside("door");
   }else{
     /* A key going into a lock that still wants more was completely silent —
        the pips changed and nothing else happened, which reads as a dropped
@@ -509,7 +530,7 @@ function openCache(cacheIdx, it, fromSlot){
     o.loc={kind:"floor",room:room.id,x:s.x,y:s.y,rot:spin(25)};
   }
   G.points++; G.starsEarned++;
-  sfx("cacheOpen"); say("Pop! The coin box bursts open ✨");
+  sfx("cacheOpen"); aside("cache");
   renderRoom(); renderHUD();
   flyStar(host.querySelector(`.cache[data-cache="${cacheIdx}"]`) || host, "+1 ⭐");
   return true;
@@ -541,7 +562,7 @@ function insertContainerKey(contIdx, it, fromSlot){
   c.lock.have++;
   if(c.lock.have>=c.lock.need){
     c.lock.open=true;
-    sfx("unlock"); say("The "+c.name.toLowerCase()+" clicks open ✨");
+    sfx("unlock"); aside("unlock", {container:c.name});
   }else{
     /* Same silence as the door version above. Unreachable with today's data —
        a chest is a one-key HUNT (`need: 1` on the skel branch in generate.js),
@@ -1059,7 +1080,7 @@ function afterMutation(room, c, changedRows, opts={}){
       renderRoom();
       sfx("roomComplete");
       roomCompleteFX(roomEl());
-      say(room.name+" is all tidy ✨", {priority:2});
+      aside("room", {room:room.name}, {key:"room"+room.id});
     }});
   }
   const finishedQuest=checkQuests();
@@ -1233,6 +1254,7 @@ function tossInto(it, contIdx, fromSlot){
   const home=G.typeHome[it.type];
   const right=home.room===room.id && home.cont===contIdx;
   judgeToss(it, room.id, contIdx);
+  if(!right) misfileHint(room, it);
   /* The talents ride along BEFORE afterMutation, so the rows they complete are
      in the same batch as the row you completed by hand: one gold flash, one
      "+3 ⭐" chip, one celebration. Paying them out separately would turn one
@@ -1501,7 +1523,7 @@ initTalents({
       say("+"+n+" put away ✨", {priority:2});
       render();
     }else{
-      say("Nothing in your hands lives in this room.", {priority:2});
+      aside("nothing");
     }
     return n;
   },
@@ -1645,6 +1667,11 @@ function nextJobCard(idx, onGo){
 
 function showWin(){
   clearSave();
+  /* A bubble fading over the win screen is the same class of bug as a client
+     mid-sentence under it: this screen is the ending, and the ending is not
+     shared. The gate in setChatterGate() stops anything NEW draining behind an
+     overlay; this clears what is already up. */
+  clearSay(); clearChatter();
   const secs=Math.round((Date.now()-G.stats.start)/1000);
   const m=Math.floor(secs/60), s=secs%60;
   const sortable=Object.values(G.items).filter(i=>!i.isKey&&!i.isCoin&&!i.isNote);
@@ -2654,7 +2681,7 @@ function closeMenus(){
 /* A run ending takes its unfinished business with it: queued celebrations and
    queued messages both belong to the run that queued them, and a "Kitchen is
    all tidy ✨" arriving over the title screen belongs to nobody. */
-function endCeremony(){ clearBeats(); clearSay(); hideClient(); stopReveal(false); }
+function endCeremony(){ clearBeats(); clearSay(); clearChatter(); hideClient(); stopReveal(false); }
 
 function showTitle(){
   closeMenus();
@@ -2813,6 +2840,125 @@ function textVars(){
 }
 
 /* ============================================================
+   THE CLIENT'S VOICE, MID-JOB
+
+   Six things happen in a room that are worth a sentence: a door gives way, a
+   coin box bursts, a locked container opens, a room comes clear, you misfile
+   something, and you try to file an armful in a room none of it lives in.
+   Every one of them used to be a `say()` — one line of NARRATOR in a grey
+   strip that slides out from under the HUD for a second and a half.
+
+   That strip is in the wrong place twice over. Physically: the player's eyes
+   are on the thing they just tapped, which is never the top of the screen.
+   Tonally: this game's entire personality is the person who hired you, and
+   the six most eventful moments in a room were the one place they didn't
+   speak. "The door creaks open ✨" is nobody.
+
+   So the lines moved into their mouth (`quips` in clients.json) and into a
+   bubble beside their face (js/chatter.js), and `say()` kept only the
+   RECEIPTS — the level id, "+3 put away", the debug buttons. Two channels
+   with one job each, rather than one channel with two.
+
+   WHAT STAYED A RECEIPT, and why: the cascade and One Trip payouts ("+4 more
+   put away"). Those fire on somewhere between a third and three quarters of
+   all correct placements, and a talent proc is not an event the client has an
+   opinion about — turning it into speech would mean the client comments on
+   most of the taps in the game, which is how you teach a player to stop
+   reading. The flying ⭐ chip is already the receipt for those.
+============================================================ */
+
+/* WHO IS TALKING. A run never remembers its client — jobAt() looks the whole
+   job back up from the level index the save already stores — so this is
+   derived every time rather than held anywhere. */
+function speaker(){
+  const job = G.mode==="campaign" ? jobAt(G.levelIdx) : null;
+  if(job) return { face:job.client.emoji, quips:job.client.quips||{} };
+  /* Free play was hired by nobody, so the house talks: the same hand that
+     signs a free-play note. It wears the WORLD's icon rather than the game's
+     🏠 for exactly the reason the Continue card does — 🏠 over a half-tidied
+     wizard's tower says nothing about where you are. */
+  const hv = DATA.strings.houseVoice || {};
+  return {
+    face: DATA.themes.themes[G.theme]?.icon || hv.face || DATA.strings.icon || "🏠",
+    quips: hv,
+  };
+}
+
+/* Say one of the lines authored for this situation, in the voice of whoever
+   hired you. Falls back to the house's own copy when a client has nothing for
+   this situation, so adding a seventh situation can never produce silence —
+   which is the failure mode `teaser` shipped with for thirty-four stages. */
+function aside(kind, vars={}, {rank=null, key=null}={}){
+  const { face, quips } = speaker();
+  const hv = DATA.strings.houseVoice || {};
+  const pool = (quips[kind]?.length ? quips[kind] : hv[kind]) || [];
+  if(!pool.length) return;
+  chatter(face, tokenise(pick(pool), {...textVars(), ...vars}),
+          { rank: rank ?? CHAT[kind] ?? CHAT.cont, key });
+}
+
+/* ---------- THE WRONG HOME, AND WHERE THE RIGHT ONE IS ----------
+
+   Some homes are a coin flip and always will be. Boot validation now refuses
+   to let a container ADVERTISE something it won't take (check 5c in
+   validate.js caught three shipped cases: "Minerals & Salts" standing next to
+   the salt, "Mirrors & Lenses" next to the mirror), but "is a salt shaker dry
+   goods or a seasoning" is a genuine ambiguity that no naming fixes, and the
+   taxonomy rule in rooms.json already admits it: keep the guessable ones
+   together, and where you can't, the player is reading the designer's mind.
+
+   What CAN be fixed is the PRICE of losing the flip. If the real home is in
+   this same room, the client just says which one it is — so a wrong guess
+   costs one sentence instead of a lap of the house.
+
+   Two limits, both deliberate. Only a home in THIS room: naming a container
+   three doors away is a spoiler and a walk, not a lesson, and Sixth Sense is
+   the talent you spend a ⭐ on to get that. And once per emoji per run, via
+   G.taught — the same set bump() uses for its teaching sentences, and it
+   rides in the save, so resuming doesn't restart the lecture. */
+function misfileHint(room, it){
+  const home=G.typeHome[it.type];
+  if(!home || home.room!==room.id) return;
+  const key="misfile:"+it.type;
+  if(G.taught.has(key)) return;
+  G.taught.add(key);
+  aside("misfile", { item:nameOf(it.type), container:room.containers[home.cont].name }, { key });
+}
+
+/* ---------- COMING BACK TO A JOB YOU LEFT HALF DONE ----------
+
+   This was `say("Welcome back")` — the sentence a bank website says. A player
+   returning after a week has forgotten whose house this is and what was riding
+   on it, and BOTH of those are authored: the client, and the `nudge` line on
+   the stage. So the person who hired you turns up and restates the stakes.
+   The Dean still comes on Friday. The estate agent still comes Tuesday. The
+   baby is still asleep.
+
+   showClient() rather than chatter(), which is the one place in this change
+   the loud channel is the right one: it happens at most once per resume, it is
+   the same beat as an arrival, and it is the single line the player must not
+   miss. The level id lands as they leave, exactly as on a fresh start. */
+function welcomeBack(){
+  const job = G.mode==="campaign" ? jobAt(G.levelIdx) : null;
+  const lv  = G.mode==="campaign" ? LEVELS[G.levelIdx] : null;
+  const label = () => { if(lv) say(lv.id+" · "+lv.name, {priority:2}); };
+  if(job?.stage.nudge){
+    showClient(job.client.emoji, [job.stage.nudge], {onDone:label});
+    return;
+  }
+  /* Free play has nobody with a stake in it, so the house says it quietly. */
+  aside("nudge", {}, {key:"nudge"});
+  label();
+}
+
+/* WHO OUTRANKS THE BUBBLE. Injected rather than imported, so chatter.js stays
+   a dom+audio leaf and client.js can clear it without a cycle — and so this
+   one predicate covers the overlays too. `.overlay.open` is the same test
+   modalUp() uses; isSpeaking() has to be asked for by name because the client
+   deliberately carries no .overlay class (see docs/CLAUDE.md). */
+setChatterGate(() => isSpeaking() || !!document.querySelector(".overlay.open"));
+
+/* ============================================================
    THE JOB BOARD
 
    ONE TILE PER LEVEL, IN THE ORDER YOU PLAY THEM. It used to group levels
@@ -2950,7 +3096,7 @@ function resetRun(){
 
 /* menu wiring */
 $("#btnContinue").addEventListener("click",()=>{
-  if(loadGame()){ closeMenus(); render(); runMusic(); say("Welcome back"); }
+  if(loadGame()){ closeMenus(); render(); runMusic(); welcomeBack(); }
   else { setHidden($("#btnContinue"), true); say("No save found"); }
 });
 $("#btnCampaign").addEventListener("click",openCampaignMenu);
@@ -3043,6 +3189,12 @@ window.tidy = {
   unlockAll:on=>{ const v=setDebugUnlock(on!==false); syncUnlockBtn(); return v; },
   progress, relockAll:()=>{ clearDone(); return progress(); },
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
+  /* THE CHATTER CHANNEL. `tidy.aside("room",{room:"Kitchen"})` fires one in the
+     voice of whoever hired you, which is the only way to check a client's quips
+     without playing to the moment that triggers them. chatterState() answers
+     "what is on screen and what is queued behind it", which is the question to
+     ask when two lines look like they stepped on each other. */
+  chatter, aside, chatterState, clearChatter, welcomeBack,
   /* How big is this job — the same two calls the card and the board tiles make. */
   jobSize, sizeBand, contCap,
   itemAt, underAt, onInk, maskStats,

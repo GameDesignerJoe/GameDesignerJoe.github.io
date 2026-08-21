@@ -88,6 +88,37 @@
     "lockedTile": "? ? ?"
   },
 
+  "_houseVoiceNote": [
+    "FREE PLAY HAS NO CLIENT, and these are the lines the house uses instead.",
+    "Same six situations as `quips` in clients.json (door, cache, unlock, room,",
+    "misfile, nothing) plus `nudge` for coming back to a half-tidied house.",
+    "",
+    "The voice is the same hand that signs a free-play note — the one \"— M\"",
+    "belongs to. Fond, faintly amused, and never chatty: a client has a stake in",
+    "the job and can afford a joke, whereas the house is only keeping you",
+    "company. Keep these SHORTER than a client's for that reason.",
+    "",
+    "These are also the fallback for a campaign client missing a quip, so every",
+    "situation must be covered here even if every client covers it too. `face` is",
+    "the emoji the bubble wears when nobody was hired; a themed free-play run",
+    "prefers the theme's own `icon` from themes.json and only falls back to this.",
+    "",
+    "{room} {container} {item} are filled in; the same token rules as quips."
+  ],
+  "houseVoice": {
+    "face": "🏠",
+    "door":    ["It opens. Nobody is surprised."],
+    "cache":   ["Coins, in a box, in a house nobody lives in. Fine."],
+    "unlock":  ["{container} gives up whatever it was holding onto."],
+    "room":    ["{room} is clear.",
+                "Nothing left on the floor in {room}."],
+    "misfile": [
+      "{item} — {container}.",
+      "{item} goes here: {container}."],
+    "nothing": ["None of that lives in this room."],
+    "nudge":   ["You left this one half done. It has waited."]
+  },
+
   "helpIntro": "Everything's on the floor. Every item belongs in one specific piece of furniture — the fridge, the toolbox, the shoe rack. Toss things in, then open them up and sort the rows. A row of {rowLen} matching items glows gold; finish every row in every container.",
 
   "helpBullets": [

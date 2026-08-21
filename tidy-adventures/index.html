@@ -39,6 +39,7 @@
 <link rel="stylesheet" href="css/feedback.css">
 <link rel="stylesheet" href="css/quests.css">
 <link rel="stylesheet" href="css/client.css">
+<link rel="stylesheet" href="css/chatter.css">
 <!-- last: theme blocks repoint the palette tokens :root declares -->
 <link rel="stylesheet" href="css/themes.css">
 </head>
@@ -72,6 +73,17 @@
      down when an objective is pinned, and ~ only looks forward. -->
 <div id="objective" hidden class="is-hidden"></div>
 <div id="toast"></div>
+
+<!-- THE CLIENT LEANING IN — the same voice at a volume you can play through.
+     Not a modal, not an input catcher, no tap required: the narrative half of
+     what say() used to carry, moved into the client's mouth and put where the
+     player is actually looking. z-index 98, under #clientLayer (100) because
+     someone standing in the room outranks someone calling from the doorway.
+     See js/chatter.js and css/chatter.css. -->
+<div id="chatterLayer">
+  <div id="chatterFace" aria-hidden="true"></div>
+  <div id="chatterBubble"><p id="chatterLine"></p></div>
+</div>
 
 <!-- THE CLIENT — the person who hired you, come to explain themselves.
      Deliberately NOT an .overlay: every overlay is a dimmed full-screen modal,

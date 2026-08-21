@@ -13,14 +13,34 @@ export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const pick = a => a[rnd(a.length)];
 
 /* Resolve {token} and {token|sec} against a values object.
-   Used for upgrade descriptions, tip text, and help copy. */
+   Used for upgrade descriptions, tip text, help copy, note copy and quips.
+
+   IT ALSO SWALLOWS A DOUBLED ARTICLE, and that is not a flourish. Room and
+   container names carry their own articles and they disagree: "Fridge" and
+   "Kitchen" want a "the", while "The Dish Rack", "The Familiar's Roost" and
+   "The Actual Bin" already have one. Copy that reads "anything that lives in
+   the {container} goes back in the {container}" is correct English for two
+   thirds of the containers in the game and renders as "in the The Dish Rack"
+   for the rest — and there are fifty-nine such phrases across the note copy
+   alone, every one of them authored, reviewed and shipped.
+
+   docs/CLAUDE.md's rule stands and is stricter than this: a NEW sentence
+   should hold these names in label position, and validate.js now errors on an
+   article in front of {container}/{room}/{item} in quip copy. This is the
+   repair for the sentences that already exist, applied once, at the only place
+   every one of them passes through. It cannot fix the opposite mistake — "the
+   Hydroponics", where the name takes no article at all — because nothing here
+   knows which names those are. */
 export function tokenise(str, values = {}) {
-  return String(str).replace(/\{(\w+)(?:\|(\w+))?\}/g, (all, key, filter) => {
-    if (!(key in values)) return all;         // left intact; validate.js flags it
-    const v = values[key];
-    if (filter === "sec") return String(Math.round(v / 1000));
-    return String(v);
-  });
+  return String(str).replace(/((?:\b(?:the|a|an)\s+)?)\{(\w+)(?:\|(\w+))?\}/gi,
+    (all, lead, key, filter) => {
+      if (!(key in values)) return all;       // left intact; validate.js flags it
+      const v = values[key];
+      if (filter === "sec") return lead + String(Math.round(v / 1000));
+      let out = String(v);
+      if (/^the\s+$/i.test(lead) && /^the\s+/i.test(out)) out = out.slice(4);
+      return lead + out;
+    });
 }
 
 /* Every {token} a string references, so validation can check them up front. */

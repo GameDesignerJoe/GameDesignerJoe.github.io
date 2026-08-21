@@ -1,0 +1,99 @@
+/* ============================================================
+   CHATTER — the client leaning in. Paired with js/chatter.js.
+
+   Same paper and the same hand as #clientBubble and the note card, because it
+   is the same person: one voice in one handwriting, whether they are standing
+   in the room, calling from the doorway, or leaving it in writing.
+
+   What is different from #clientLayer, and why:
+     - a HEAD, not a figure. Half the size, so it sits beside the bubble
+       instead of under it and the whole thing is one band across the bottom.
+     - pointer-events:none on the layer. This channel must never eat a tap.
+       Only #chatterBubble takes one, and only to dismiss itself early.
+     - no "▾ tap". Nothing is waiting on the player, so nothing may imply it.
+
+   z-index 98, from the free 97-119 band: above #tipLayer (96) and #toast (95)
+   so a receipt can't paint across a sentence, below #clientLayer (100) so a
+   real arrival always covers it, and below .overlay (120) so every menu does.
+============================================================ */
+#chatterLayer{
+  position:fixed;
+  left:10px;
+  /* Above the inventory bar, clear of the thumb. Safe-area-proof for free:
+     the global box-sizing:border-box puts #invBar's env(safe-area-inset-bottom)
+     padding INSIDE its height:var(--inv-h). */
+  bottom:calc(var(--inv-h) + 10px);
+  z-index:98;
+  max-width:min(78vw, 340px);
+  display:flex;align-items:flex-end;gap:8px;
+  pointer-events:none;
+  /* Parked and inert until .up. visibility rather than display so the
+     transition has something to animate out of. */
+  opacity:0;visibility:hidden;
+  transform:translateY(10px) scale(.96);
+  transform-origin:left bottom;
+  transition:opacity .2s ease, transform .26s cubic-bezier(.22,.85,.3,1), visibility .26s;
+}
+#chatterLayer.up{
+  opacity:1;visibility:visible;
+  transform:none;
+}
+
+/* ---------- WHO IS SAYING IT ----------
+   Small enough to read as "leaning in" rather than "arrived", and the same
+   front-facing emoji as the full figure — never mirrored, never dimmed. */
+#chatterFace{
+  flex:0 0 auto;
+  font-size:clamp(30px, 9vw, 44px);line-height:1;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));
+}
+
+/* ---------- WHAT THEY SAY ----------
+   The tail points sideways at the head, not down at the floor: they are beside
+   the bubble here, not underneath it. */
+#chatterBubble{
+  position:relative;
+  background:linear-gradient(#fdf3d8,#f3e3bb);
+  color:#3a2c18;
+  border-radius:14px;
+  padding:9px 13px 8px;
+  /* Floors are light and walls are dark, so cream paper needs a rim as well as
+     a shadow or it disappears into a kitchen floor. Same reasoning as
+     #clientBubble. */
+  box-shadow:
+    0 0 0 2px rgba(33,26,18,.55),
+    0 10px 22px rgba(0,0,0,.5);
+  /* The one thing in the layer that accepts input, and only to dismiss. */
+  pointer-events:auto;
+  cursor:pointer;
+}
+#chatterLine{
+  margin:0;
+  font-family:var(--hand);
+  font-size:15px;line-height:1.4;
+  /* Wrap, never clip. Dialogue that truncates is worse than dialogue that's tall. */
+  overflow-wrap:break-word;
+}
+#chatterBubble::before{
+  content:"";position:absolute;
+  left:-9px;bottom:12px;width:0;height:0;
+  border-top:8px solid transparent;
+  border-bottom:8px solid transparent;
+  border-right:10px solid #f7e9c6;
+  filter:drop-shadow(-2px 0 1px rgba(33,26,18,.55));
+}
+
+/* The room can be finishing behind this, and the room's gold is the moment.
+   A bubble that also pops competes with it, so this one only ever slides. */
+@media (prefers-reduced-motion: reduce){
+  #chatterLayer{transition:opacity .01ms, visibility .01ms;transform:none}
+  #chatterLayer.up{transform:none}
+}
+
+/* A phone in landscape has almost no height between the HUD and the inventory
+   bar, and the bubble is the thing that can afford to get smaller. */
+@media (max-height: 460px){
+  #chatterFace{font-size:30px}
+  #chatterLine{font-size:13px}
+  #chatterBubble{padding:7px 10px 6px}
+}

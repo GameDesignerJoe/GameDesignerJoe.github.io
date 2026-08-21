@@ -40,7 +40,7 @@
       "containers": [
         { "id": "fridge",  "name": "Fridge",          "short": "Fridge",  "kind": "steel",
           "types": ["🧀","🥚","🥓","🧈","🥛"] },
-        { "id": "pantry",  "name": "Pantry",          "short": "Pantry",  "kind": "wood",
+        { "id": "pantry",  "name": "Pantry",          "short": "Pantry",  "kind": "shelf",
           "types": ["🍞","🥖","🥨","🥯","🥐","🥫","🍯","🧂","🥜","🫒"] },
         { "id": "crate",   "name": "Vegetable Crate", "short": "Veg",     "kind": "slat",
           "types": ["🧅","🍅","🥕","🧄","🥔","🌽","🥦","🍄","🫑","🌶️","🥬","🥒"] },
@@ -48,22 +48,22 @@
           "types": ["🍋","🍎","🍌","🍇","🍑","🍐","🍍","🥭","🥝","🍉","🍊","🍓","🫐","🍒"] },
         { "id": "stash",   "name": "Hidden Stash",    "short": "Stash",   "kind": "dark",
           "types": ["🍪","🍩","🍫","🍬","🍭"] },
-        { "id": "dishes",  "name": "The Dish Rack",   "short": "Dishes",  "kind": "steel",
+        { "id": "dishes",  "name": "The Dish Rack",   "short": "Dishes",  "kind": "cubby",
           "types": ["🍽️","🥣","🍳","🥄","🍴","🫖"] }
       ]
     },
     {
       "id": "garage", "name": "Garage", "floor": "garage", "sizeFactor": 1,
       "containers": [
-        { "id": "bench",    "name": "Workbench",      "short": "Bench",    "kind": "wood",
+        { "id": "bench",    "name": "Workbench",      "short": "Bench",    "kind": "table",
           "types": ["🔧","🔨","🪛","🪚","🪓","⛏️","⚒️","🛠️","🗜️","🧰"] },
-        { "id": "bins",     "name": "Hardware Bins",  "short": "Hardware", "kind": "steel",
+        { "id": "bins",     "name": "Hardware Bins",  "short": "Hardware", "kind": "bin",
           "types": ["🔩","🪝","🧲","🔗","⛓️","🔒","🪤","⚙️"] },
-        { "id": "power",    "name": "Power Shelf",    "short": "Power",    "kind": "peg",
+        { "id": "power",    "name": "Power Shelf",    "short": "Power",    "kind": "shelf",
           "types": ["🔋","🪫","🔌","💡","🔦"] },
         { "id": "storage",  "name": "Storage Corner", "short": "Storage",  "kind": "slat",
           "types": ["🧱","🪵","📦","🛞","🛢️","🪣","🪜"] },
-        { "id": "safety",   "name": "Safety Rack",    "short": "Safety",   "kind": "plastic",
+        { "id": "safety",   "name": "Safety Rack",    "short": "Safety",   "kind": "peg",
           "types": ["⛑️","🥽","🧯"] }
       ]
     },
@@ -74,9 +74,9 @@
           "types": ["💊","🩹","🌡️","🧷"] },
         { "id": "vanity", "name": "Vanity Drawer",    "short": "Vanity", "kind": "wood",
           "types": ["🪥","🪒","🪮","🧴","👓"] },
-        { "id": "sink",   "name": "Under the Sink",   "short": "Sink",   "kind": "plastic",
+        { "id": "sink",   "name": "Under the Sink",   "short": "Sink",   "kind": "basin",
           "types": ["🧻","🧽","🪠","🧺","🩴","🧼"] },
-        { "id": "towels", "name": "The Towel Rail", "short": "Towels", "kind": "peg",
+        { "id": "towels", "name": "The Bath Corner", "short": "Bath", "kind": "tub",
           "types": ["🛁","🚿","🫧"] },
         { "id": "bathtoys", "name": "The Bath Toys Box", "short": "Bath Toys", "kind": "plastic",
           "types": ["🦆","🐳","🐠","🛟","🐙"] }
@@ -87,26 +87,26 @@
       "containers": [
         { "id": "pens",   "name": "Pen Cup",        "short": "Pens",  "kind": "glass",
           "types": ["✏️","🖊️","🖋️","✒️","🖍️","🖌️"] },
-        { "id": "books",  "name": "Bookshelf",      "short": "Books", "kind": "wood",
+        { "id": "books",  "name": "Bookshelf",      "short": "Books", "kind": "shelf",
           "types": ["📕","📗","📘","📙","📒","📓","📔"] },
         { "id": "files",  "name": "Filing Cabinet", "short": "Files", "kind": "steel",
           "types": ["📁","📂","🗂️","📄","🧾","📇","📊","📈","📉","🗓️","📮"] },
-        { "id": "desk",   "name": "Desk Drawer",    "short": "Desk",  "kind": "dark",
+        { "id": "desk",   "name": "Desk Drawer",    "short": "Desk",  "kind": "wood",
           "types": ["📏","📐","✂️","📎","🖇️","📌","🔍","🗒️"] },
-        { "id": "media",  "name": "Disc Rack",      "short": "Discs", "kind": "plastic",
+        { "id": "media",  "name": "Disc Rack",      "short": "Discs", "kind": "cubby",
           "types": ["💾","💿","📀"] }
       ]
     },
     {
       "id": "closet", "name": "Closet", "floor": "closet", "sizeFactor": 0.5,
       "containers": [
-        { "id": "rod",    "name": "Wardrobe Rod", "short": "Wardrobe", "kind": "dark",
+        { "id": "rod",    "name": "Wardrobe Rod", "short": "Wardrobe", "kind": "hook",
           "types": ["👘","🥻"] },
         { "id": "gym",    "name": "Gym & Swim",   "short": "Gym",      "kind": "plastic",
           "types": ["🩱","🎽","🩲"] },
-        { "id": "travel", "name": "Travel Shelf", "short": "Travel",   "kind": "wood",
+        { "id": "travel", "name": "Travel Shelf", "short": "Travel",   "kind": "shelf",
           "types": ["🧳","🥾"] },
-        { "id": "boxes",  "name": "The Box Shelf",  "short": "Boxes",  "kind": "steel",
+        { "id": "boxes",  "name": "The Box Shelf",  "short": "Boxes",  "kind": "cubby",
           "types": ["🗃️","🗄️","🏷️","📋","🗑️"] },
         { "id": "winter", "name": "The Winter Box", "short": "Winter", "kind": "wicker",
           "types": ["🛷","🏂","🎿","⛸️","🥌"] }
@@ -115,30 +115,30 @@
     {
       "id": "attic", "name": "Attic", "floor": "attic", "sizeFactor": 0.85,
       "containers": [
-        { "id": "memory",  "name": "Memory Chest", "short": "Memories", "kind": "wood",
+        { "id": "memory",  "name": "Memory Chest", "short": "Memories", "kind": "dark",
           "types": ["🕰️","🖼️","🎞️","🧸","🪞"] },
         { "id": "holiday", "name": "Holiday Box",  "short": "Holidays", "kind": "slat",
           "types": ["🎄","🎃","🎁","🏮","🪔","🎊","🎉"] },
-        { "id": "paper",   "name": "Paper Boxes",  "short": "Paper",    "kind": "steel",
+        { "id": "paper",   "name": "Paper Boxes",  "short": "Paper",    "kind": "bin",
           "types": ["📰","🗞️","📬","🗳️"] },
-        { "id": "costume", "name": "The Costume Trunk", "short": "Costumes", "kind": "dark",
+        { "id": "costume", "name": "The Costume Trunk", "short": "Costumes", "kind": "wood",
           "types": ["🎪","🤡","🥸","👺","👹"] },
-        { "id": "oldtech", "name": "Old Electronics",   "short": "Electronics", "kind": "slat",
+        { "id": "oldtech", "name": "Old Electronics",   "short": "Electronics", "kind": "shelf",
           "types": ["📼","📺","📹","🖥️","💻"] }
       ]
     },
     {
       "id": "shed", "name": "Shed", "floor": "shed", "sizeFactor": 0.65,
       "containers": [
-        { "id": "potting", "name": "Potting Bench",   "short": "Potting", "kind": "wood",
+        { "id": "potting", "name": "Potting Bench",   "short": "Potting", "kind": "table",
           "types": ["🌱","🪴","🌵"] },
         { "id": "flowers", "name": "Flower Vase",     "short": "Flowers", "kind": "glass",
           "types": ["🌻","🥀"] },
-        { "id": "garden",  "name": "Yard Waste Bin",  "short": "Yard",    "kind": "wicker",
+        { "id": "garden",  "name": "Yard Waste Bin",  "short": "Yard",    "kind": "bin",
           "types": ["🍂","🍁","🌾"] },
         { "id": "seeds",    "name": "The Seed Tin",        "short": "Seeds",   "kind": "steel",
           "types": ["🌰","🫘","🍀","🌿","🎋"] },
-        { "id": "watering", "name": "The Watering Corner", "short": "Watering","kind": "plastic",
+        { "id": "watering", "name": "The Watering Corner", "short": "Watering","kind": "basin",
           "types": ["💧","☔","🌊","💦"] }
       ]
     },
@@ -149,26 +149,26 @@
           "types": ["💎","💰","👑","🏺"] },
         { "id": "curio", "name": "Curio Shelf",    "short": "Curios",   "kind": "glass",
           "types": ["🗿","🔮","🎭","🕯️","🪆"] },
-        { "id": "bones", "name": "The Ossuary", "short": "Bones", "kind": "steel",
+        { "id": "bones", "name": "The Ossuary", "short": "Bones", "kind": "cubby",
           "types": ["💀","☠️","🦴","⚰️","🪦"] },
         { "id": "arms",  "name": "Things We Don't Discuss", "short": "Don't Discuss", "kind": "peg",
           "types": ["🗡️","🏹","⚔️","🛡️","🔱"] },
-        { "id": "occult", "name": "The Locked Case", "short": "Locked Case", "kind": "dark",
+        { "id": "occult", "name": "The Locked Case", "short": "Locked Case", "kind": "steel",
           "types": ["🔯","👁️","🕎","⚱️","🏵️"] }
       ]
     },
     {
       "id": "playroom", "name": "Playroom", "floor": "playroom", "sizeFactor": 0.85,
       "containers": [
-        { "id": "toys",  "name": "Toy Chest",  "short": "Toys",  "kind": "slat",
+        { "id": "toys",  "name": "Toy Chest",  "short": "Toys",  "kind": "dark",
           "types": ["🧩","🪀","🪁","🎈","🎠"] },
-        { "id": "games", "name": "Game Shelf", "short": "Games", "kind": "wood",
+        { "id": "games", "name": "Game Shelf", "short": "Games", "kind": "shelf",
           "types": ["🎲","🀄","🎯","🎮","🕹️","🃏","♟️"] },
         { "id": "plush",    "name": "Stuffed Animals",  "short": "Stuffed", "kind": "wicker",
           "types": ["🐻","🐰","🐼","🦄","🐷"] },
-        { "id": "vehicles", "name": "The Toy Car Bin",  "short": "Cars",    "kind": "plastic",
+        { "id": "vehicles", "name": "The Toy Car Bin",  "short": "Cars",    "kind": "bin",
           "types": ["🚗","🚕","🚙","🚚","🚓","🚒"] },
-        { "id": "art", "name": "The Craft Table", "short": "Craft", "kind": "wood",
+        { "id": "art", "name": "The Craft Table", "short": "Craft", "kind": "table",
           "types": ["🎨","🧧","🎫","🎀","🪅"] }
       ]
     },
@@ -177,11 +177,11 @@
       "containers": [
         { "id": "stand", "name": "Music Rack", "short": "Music", "kind": "peg",
           "types": ["🎸","🎺","🎷","🪕","🪗","🥁","🎹","🎻"] },
-        { "id": "sound", "name": "Sound Shelf",      "short": "Sound",       "kind": "dark",
+        { "id": "sound", "name": "Sound Shelf",      "short": "Sound",       "kind": "shelf",
           "types": ["🎤","🎧","📯","📻","🎼"] },
         { "id": "sheet",  "name": "Sheet Music",      "short": "Sheets", "kind": "wood",
           "types": ["🎵","🎶","📃"] },
-        { "id": "cables", "name": "Cables & Levels",  "short": "Cables", "kind": "plastic",
+        { "id": "cables", "name": "Cables & Levels",  "short": "Cables", "kind": "steel",
           "types": ["🎚️","🎛️","🔊","📢","🔉"] },
         { "id": "percussion", "name": "The Percussion Corner", "short": "Percussion", "kind": "slat",
           "types": ["🪘","🎬","🪇","🎙️","🔔"] }
@@ -190,13 +190,13 @@
     {
       "id": "mudroom", "name": "Mudroom", "floor": "mudroom", "sizeFactor": 0.8,
       "containers": [
-        { "id": "balls", "name": "Ball Bin",  "short": "Balls", "kind": "wicker",
+        { "id": "balls", "name": "Ball Bin",  "short": "Balls", "kind": "bin",
           "types": ["⚽","🏀","🎾","🏈","⚾","🏐","🥎","🎱","🎳"] },
         { "id": "gear",  "name": "Gear Rack", "short": "Gear",  "kind": "peg",
           "types": ["🥊","🏒","🏑","🥅","🏓","🏸"] },
-        { "id": "umbrella", "name": "The Umbrella Stand", "short": "Umbrellas", "kind": "plastic",
+        { "id": "umbrella", "name": "The Umbrella Stand", "short": "Umbrellas", "kind": "stand",
           "types": ["☂️","🌂","🦯","🩼","🪃"] },
-        { "id": "dog",      "name": "The Leash Hook",     "short": "Leashes",   "kind": "peg",
+        { "id": "dog",      "name": "The Leash Hook",     "short": "Leashes",   "kind": "hook",
           "types": ["🐕","🦮","🐾","🪢"] },
         { "id": "wheels", "name": "The Wheel Rack", "short": "Wheels", "kind": "slat",
           "types": ["🚲","🛴","🛹","🛼","🪖"] }
@@ -206,15 +206,15 @@
       "_note": "Hex. A cellar you walk into and immediately know is not another square room.",
       "id": "cellar", "name": "Wine Cellar", "floor": "cellar", "sizeFactor": 0.6, "shape": "hex",
       "containers": [
-        { "id": "rack",    "name": "Wine Rack",     "short": "Wine",    "kind": "slat",
+        { "id": "rack",    "name": "Wine Rack",     "short": "Wine",    "kind": "cubby",
           "types": ["🍷","🍾","🥂"] },
-        { "id": "spirits", "name": "Spirits Shelf", "short": "Spirits", "kind": "glass",
+        { "id": "spirits", "name": "Spirits Shelf", "short": "Spirits", "kind": "shelf",
           "types": ["🥃","🍸","🍹","🍺","🧊"] },
         { "id": "dark",   "name": "The Dark Corner",  "short": "Dark Corner", "kind": "dark",
           "types": ["🕷️","🕸️","🦇","🐀","🐁"] },
         { "id": "mixers", "name": "The Mixer Shelf",  "short": "Mixers",      "kind": "plastic",
           "types": ["🧃","🥤","🧋","🧉","🍵"] },
-        { "id": "preserves", "name": "The Preserve Shelf", "short": "Preserves", "kind": "wicker",
+        { "id": "preserves", "name": "The Preserve Shelf", "short": "Preserves", "kind": "glass",
           "types": ["🫙","🍆","🍈","🥥","🍚"] }
       ]
     },
@@ -228,7 +228,7 @@
           "types": ["🗺️","📜","🪐","🌙","🌠","🛰️"] },
         { "id": "weather", "name": "The Weather Station",   "short": "Weather", "kind": "steel",
           "types": ["⛅","🌦️","🌩️","🌪️","🌈"] },
-        { "id": "time",    "name": "The Timekeeping Shelf", "short": "Timing",  "kind": "peg",
+        { "id": "time",    "name": "The Timekeeping Shelf", "short": "Timing",  "kind": "shelf",
           "types": ["⏳","⌛","⏰","⏱️","⏲️"] },
         { "id": "sky", "name": "The Deep Sky Drawer", "short": "Deep Sky", "kind": "dark",
           "types": ["🌌","💫","🌟","☄️","🌀"] }
@@ -239,9 +239,9 @@
       "containers": [
         { "id": "dresser", "name": "Dresser",         "short": "Dresser", "kind": "wood",
           "types": ["🧦","👕","👖","🩳","👚"] },
-        { "id": "closet",  "name": "Closet",          "short": "Closet",  "kind": "dark",
+        { "id": "closet",  "name": "Closet",          "short": "Closet",  "kind": "hook",
           "types": ["👗","🧥","🦺","👔"] },
-        { "id": "shoes",   "name": "Shoe Rack",       "short": "Shoes",   "kind": "slat",
+        { "id": "shoes",   "name": "Shoe Rack",       "short": "Shoes",   "kind": "cubby",
           "types": ["👟","👞","👠","👡","👢","🥿"] },
         { "id": "jewelry", "name": "Jewelry Box",     "short": "Jewelry", "kind": "glass",
           "types": ["⌚","💍","📿","🪬"] },
@@ -268,7 +268,7 @@
       "containers": [
         { "id": "stars", "name": "New Stars", "short": "Stars",  "kind": "glass",
           "types": ["🌟","💫","🌠","🌞","☀️"] },
-        { "id": "gas",   "name": "Gas & Dust",    "short": "Gas",    "kind": "wicker",
+        { "id": "gas",   "name": "Gas & Dust",    "short": "Gas",    "kind": "heap",
           "types": ["☁️","🌫️","💨","🌪️","🫧"] },
         { "id": "light", "name": "Stray Light",   "short": "Light",  "kind": "peg",
           "types": ["🌈","⚡","🔥","🎆","🎇"] }
@@ -281,9 +281,9 @@
       "containers": [
         { "id": "ice",   "name": "Ice & Comets",   "short": "Ice",   "kind": "slat",
           "types": ["☄️","🧊","❄️","🌨️","⛄"] },
-        { "id": "rock",  "name": "Rock & Debris",  "short": "Rock",  "kind": "dark",
+        { "id": "rock",  "name": "Rock & Debris",  "short": "Rock",  "kind": "heap",
           "types": ["🪨","⛰️","🌋","🗿","🧱"] },
-        { "id": "metal", "name": "Hardware",  "short": "Metal", "kind": "steel",
+        { "id": "metal", "name": "Hardware",  "short": "Metal", "kind": "hull",
           "types": ["🛰️","🚀","🛸","🔩","⚙️"] }
       ]
     },
@@ -305,7 +305,7 @@
       "_note": "Round. Planets and moons are separate containers on purpose: it is the one call in this theme a player can actually reason about.",
       "id": "orbit", "name": "Orbit Shelf", "floor": "orbit", "sizeFactor": 0.8, "shape": "round",
       "containers": [
-        { "id": "planets", "name": "Planets",        "short": "Planets", "kind": "slat",
+        { "id": "planets", "name": "Planets",        "short": "Planets", "kind": "cubby",
           "types": ["🪐","🌍","🌎","🌏"] },
         { "id": "moons",   "name": "Moons",          "short": "Moons",   "kind": "wicker",
           "types": ["🌕","🌙","🌛","🌚"] },
@@ -327,15 +327,15 @@
       ],
       "id": "pong", "name": "The Pong Basement", "floor": "pong", "sizeFactor": 0.9,
       "containers": [
-        { "id": "cups",  "name": "The Cup Tower",   "short": "Cups",  "kind": "plastic",
+        { "id": "cups",  "name": "The Cup Tower",   "short": "Cups",  "kind": "stand",
           "types": ["🥤","🧋","🧉","🍺","🍻"] },
         { "id": "cans",  "name": "Can Return",      "short": "Cans",  "kind": "slat",
           "types": ["🥫","🧃","🍾","🍶"] },
-        { "id": "table", "name": "Under the Table", "short": "Under", "kind": "dark",
+        { "id": "table", "name": "Under the Table", "short": "Under", "kind": "table",
           "types": ["🏓","🎱","🎲","🪀","🥎"] },
         { "id": "speakers", "name": "The Speaker Stack", "short": "Speakers", "kind": "steel",
           "types": ["🔊","🎚️","🎛️","🔉","📻"] },
-        { "id": "bin",      "name": "The Actual Bin",    "short": "The Bin",  "kind": "plastic",
+        { "id": "bin",      "name": "The Actual Bin",    "short": "The Bin",  "kind": "bin",
           "types": ["🗑️","🧻","🧹","🪠","🪣"] }
       ]
     },
@@ -343,13 +343,13 @@
     {
       "id": "pit", "name": "The Couch Pit", "floor": "pit", "sizeFactor": 0.85,
       "containers": [
-        { "id": "cushions",    "name": "Under the Cushions",    "short": "Cushions",    "kind": "dark",
+        { "id": "cushions",    "name": "Under the Cushions",    "short": "Cushions",    "kind": "couch",
           "types": ["📱","🎧","🕶️","💳","🔌"] },
         { "id": "snacks",      "name": "The Snack Graveyard",   "short": "Snacks",      "kind": "slat",
           "types": ["🍕","🌮","🍔","🌭","🍟","🥡","🍗"] },
         { "id": "controllers", "name": "The Controller Basket", "short": "Controllers", "kind": "wicker",
           "types": ["🎮","🕹️","💿","📀","🃏"] },
-        { "id": "blankets", "name": "The Blanket Heap", "short": "Blankets", "kind": "plastic",
+        { "id": "blankets", "name": "The Blanket Heap", "short": "Blankets", "kind": "heap",
           "types": ["🧣","🧤","🛏️","🧶","🪡"] },
         { "id": "mail",     "name": "The Mail Pile",     "short": "Mail",     "kind": "wood",
           "types": ["📬","📰","🧾","📄","🗞️"] }
@@ -359,13 +359,13 @@
     {
       "id": "laundry", "name": "Laundry Mountain", "floor": "laundry", "sizeFactor": 0.7,
       "containers": [
-        { "id": "clean",   "name": "The Clean-ish Pile", "short": "Clean-ish", "kind": "wicker",
+        { "id": "clean",   "name": "The Clean-ish Pile", "short": "Clean-ish", "kind": "heap",
           "types": ["👕","🩳","🧦","🩲","👖"] },
-        { "id": "jerseys", "name": "The Jersey Rack",    "short": "Jerseys",   "kind": "peg",
+        { "id": "jerseys", "name": "The Jersey Rack",    "short": "Jerseys",   "kind": "hook",
           "types": ["🎽","🦺","🧢","🥋","🩱"] },
         { "id": "shoes",   "name": "Shoe Mountain",      "short": "Shoes",     "kind": "slat",
           "types": ["👟","🥾","🩴","👞","🥿"] },
-        { "id": "detergent", "name": "The Detergent Shelf", "short": "Detergent", "kind": "steel",
+        { "id": "detergent", "name": "The Detergent Shelf", "short": "Detergent", "kind": "shelf",
           "types": ["🧴","🧼","🫧","🧽","🪥"] },
         { "id": "formal",    "name": "The One Suit",        "short": "The Suit",  "kind": "wood",
           "types": ["👔","🧥","🎩","👓","⌚"] }
@@ -391,15 +391,15 @@
     {
       "id": "kitchenette", "name": "The Kitchen Situation", "floor": "kitchenette", "sizeFactor": 0.95,
       "containers": [
-        { "id": "sink",       "name": "The Sink",            "short": "Sink",        "kind": "steel",
+        { "id": "sink",       "name": "The Sink",            "short": "Sink",        "kind": "basin",
           "types": ["🍽️","🥣","🍳","🥄","🍴"] },
-        { "id": "shelf",      "name": "The One Clean Shelf", "short": "Clean Shelf", "kind": "wood",
+        { "id": "shelf",      "name": "The One Clean Shelf", "short": "Clean Shelf", "kind": "shelf",
           "types": ["🍞","🥜","🧂","🍯","🥨"] },
         { "id": "condiments", "name": "The Condiment Shelf", "short": "Condiments",  "kind": "plastic",
           "types": ["🧈","🌶️","🧄","🍋","🧅"] },
         { "id": "mugs",    "name": "The Mug Shelf",      "short": "Mugs",    "kind": "peg",
           "types": ["☕","🍵","🫖","🥛","🍼"] },
-        { "id": "freezer", "name": "The Freezer Drawer", "short": "Freezer", "kind": "dark",
+        { "id": "freezer", "name": "The Freezer Drawer", "short": "Freezer", "kind": "frost",
           "types": ["🥟","🍤","🥠","🍡","🍥"] }
       ]
     },
@@ -408,11 +408,11 @@
       "_note": "The study nobody studies in. It is the tidiest room in the house, which is a joke about the house rather than about the room.",
       "id": "study", "name": "The Quiet Room", "floor": "study", "sizeFactor": 0.65,
       "containers": [
-        { "id": "books", "name": "Actual Textbooks",  "short": "Textbooks", "kind": "wood",
+        { "id": "books", "name": "Actual Textbooks",  "short": "Textbooks", "kind": "shelf",
           "types": ["📕","📗","📘","📙","📚","📖"] },
-        { "id": "desk",  "name": "The Desk Drawer",   "short": "Desk",      "kind": "steel",
+        { "id": "desk",  "name": "The Desk Drawer",   "short": "Desk",      "kind": "wood",
           "types": ["✏️","🖊️","📎","📌","✂️","📏"] },
-        { "id": "tech",  "name": "The Charging Pile", "short": "Charging",  "kind": "peg",
+        { "id": "tech",  "name": "The Charging Pile", "short": "Charging",  "kind": "heap",
           "types": ["💻","🖱️","⌨️","🖨️","🔋"] },
         { "id": "art",   "name": "The Art Supplies", "short": "Art",   "kind": "wicker",
           "types": ["🖍️","🖌️","🎨","✒️","🖋️"] },
@@ -428,7 +428,7 @@
           "types": ["🍖","🥩","🌽","🍢","🥓"] },
         { "id": "lawn",   "name": "Lawn Games",        "short": "Lawn",   "kind": "slat",
           "types": ["🥏","⚽","🏈","🪁","🎯"] },
-        { "id": "cooler", "name": "The Cooler",        "short": "Cooler", "kind": "plastic",
+        { "id": "cooler", "name": "The Cooler",        "short": "Cooler", "kind": "frost",
           "types": ["🧊","❄️","🍦","🍧","🍨"] },
         { "id": "garden", "name": "The Garden Corner", "short": "Garden", "kind": "wicker",
           "types": ["🌱","🌻","🍂","🌿","🌾"] },
@@ -451,15 +451,15 @@
       ],
       "id": "specimen", "name": "The Specimen Bay", "floor": "specimen", "sizeFactor": 0.8, "shape": "round",
       "containers": [
-        { "id": "live",      "name": "Live Specimens",     "short": "Live",      "kind": "glass",
+        { "id": "live",      "name": "Live Specimens",     "short": "Live",      "kind": "tank",
           "types": ["🐛","🦋","🐌","🕷️","🦎","🐸"] },
         { "id": "preserved", "name": "Preserved Samples",  "short": "Preserved", "kind": "hull",
           "types": ["🦴","🐚","🪶","🦷","🧬"] },
-        { "id": "flora",     "name": "The Botanical Rack", "short": "Botanical", "kind": "slat",
+        { "id": "flora",     "name": "The Botanical Rack", "short": "Botanical", "kind": "shelf",
           "types": ["🌿","🍄","🌵","🪸","🌾"] },
         { "id": "sampling", "name": "Sampling Tools", "short": "Sampling", "kind": "peg",
           "types": ["🧰","🔧","🪛","✂️","🧷"] },
-        { "id": "eggs",     "name": "Egg Trays",      "short": "Eggs",     "kind": "wicker",
+        { "id": "eggs",     "name": "Egg Trays",      "short": "Eggs",     "kind": "cubby",
           "types": ["🥚","🪺","🐣","🦠","🐤"] }
       ]
     },
@@ -467,15 +467,15 @@
     {
       "id": "cryo", "name": "The Cryo Rack", "floor": "cryo", "sizeFactor": 0.6, "shape": "hex",
       "containers": [
-        { "id": "frozen",  "name": "Frozen Stock",     "short": "Frozen",  "kind": "hull",
+        { "id": "frozen",  "name": "Frozen Stock",     "short": "Frozen",  "kind": "frost",
           "types": ["🧊","❄️","🌨️","⛄","🥶"] },
         { "id": "thermal", "name": "Thermal Controls", "short": "Thermal", "kind": "peg",
           "types": ["🌡️","🔥","♨️","💨","🌬️"] },
-        { "id": "cells",   "name": "Power Cells",      "short": "Power",   "kind": "steel",
+        { "id": "cells",   "name": "Power Cells",      "short": "Power",   "kind": "hull",
           "types": ["⚡","🔋","🪫","🔌","🧲"] },
         { "id": "rations", "name": "Frozen Rations", "short": "Rations", "kind": "slat",
           "types": ["🍱","🍙","🥟","🍢","🍡"] },
-        { "id": "suits",   "name": "Cold Suits",     "short": "Suits",   "kind": "dark",
+        { "id": "suits",   "name": "Cold Suits",     "short": "Suits",   "kind": "hook",
           "types": ["🧥","🧤","🥾","🧣","🥽"] }
       ]
     },
@@ -483,16 +483,16 @@
     {
       "id": "replica", "name": "The Human Room", "floor": "replica", "sizeFactor": 0.9,
       "containers": [
-        { "id": "sitting", "name": "Sitting Apparatus", "short": "Sitting",     "kind": "wood",
+        { "id": "sitting", "name": "Sitting Apparatus", "short": "Sitting",     "kind": "couch",
           "types": ["🪑","🛋️","🛏️","🚪","🪟"] },
         { "id": "nourish", "name": "Nourishment Units", "short": "Nourishment", "kind": "plastic",
           "types": ["🍔","🥤","🍎","🥪","🍿"] },
         { "id": "comfort", "name": "Comfort Objects",   "short": "Comfort",     "kind": "wicker",
-          "types": ["🧸","🛁","📺","🕯️","🪆"] },
+          "types": ["🧸","☕","📺","🕯️","🪆"] },
         { "id": "ceremony", "name": "Objects Of Ceremony",   "short": "Ceremony", "kind": "glass",
           "types": ["🎂","🎁","🎊","🎉","🧧"] },
-        { "id": "hygiene",  "name": "Cleansing Apparatus",   "short": "Cleansing","kind": "peg",
-          "types": ["🪥","🧼","🧻","🪒","🪮"] }
+        { "id": "hygiene",  "name": "Cleansing Apparatus",   "short": "Cleansing","kind": "tub",
+          "types": ["🪥","🧼","🧻","🪒","🪮","🛁"] }
       ]
     },
 
@@ -505,7 +505,7 @@
           "types": ["🔦","💡","🚨","🔆","🪩"] },
         { "id": "logs",    "name": "Field Notes",      "short": "Notes",   "kind": "wood",
           "types": ["📓","📄","📊","📈","🖊️"] },
-        { "id": "nav",   "name": "Navigation",   "short": "Navigation", "kind": "slat",
+        { "id": "nav",   "name": "Navigation",   "short": "Navigation", "kind": "cubby",
           "types": ["🗺️","🧮","⏱️","⌛","🎚️"] },
         { "id": "comms", "name": "Comms Locker", "short": "Comms",      "kind": "hull",
           "types": ["📻","📞","📢","📼","💾"] }
@@ -532,13 +532,13 @@
     {
       "id": "hydro", "name": "Hydroponics", "floor": "hydro", "sizeFactor": 0.85, "shape": "hex",
       "containers": [
-        { "id": "growing", "name": "Growing",           "short": "Growing", "kind": "slat",
+        { "id": "growing", "name": "Growing",           "short": "Growing", "kind": "shelf",
           "types": ["🌱","🪴","🌷","🌻","🌼"] },
-        { "id": "harvest", "name": "The Harvest Bin",   "short": "Harvest", "kind": "wicker",
+        { "id": "harvest", "name": "The Harvest Bin",   "short": "Harvest", "kind": "bin",
           "types": ["🥕","🥔","🫑","🍅","🥬"] },
-        { "id": "water",   "name": "Water Reclamation", "short": "Water",   "kind": "plastic",
+        { "id": "water",   "name": "Water Reclamation", "short": "Water",   "kind": "basin",
           "types": ["💧","🚿","🪣","🧴","💦"] },
-        { "id": "seedbank", "name": "The Seed Bank", "short": "Seed Bank", "kind": "steel",
+        { "id": "seedbank", "name": "The Seed Bank", "short": "Seed Bank", "kind": "cubby",
           "types": ["🌰","🫘","🥜","🌽","🍒"] },
         { "id": "bedtools", "name": "Bed Tools",     "short": "Bed Tools", "kind": "peg",
           "types": ["🧹","🪝","🧺","🪜","🔗"] }
@@ -557,13 +557,13 @@
       ],
       "id": "library", "name": "The Spell Library", "floor": "library", "sizeFactor": 0.95,
       "containers": [
-        { "id": "grimoires", "name": "Grimoires",       "short": "Grimoires", "kind": "wood",
+        { "id": "grimoires", "name": "Grimoires",       "short": "Grimoires", "kind": "shelf",
           "types": ["📕","📗","📘","📙","📓","📔"] },
-        { "id": "scrolls",   "name": "The Scroll Case", "short": "Scrolls",   "kind": "slat",
+        { "id": "scrolls",   "name": "The Scroll Case", "short": "Scrolls",   "kind": "cubby",
           "types": ["📜","🗞️","🧾","🗒️","📃"] },
         { "id": "sigils",    "name": "The Sigil Board", "short": "Sigils",    "kind": "arcane",
           "types": ["🔯","✡️","☯️","⚜️","♾️","🔱"] },
-        { "id": "maps", "name": "The Map Drawer", "short": "Maps", "kind": "steel",
+        { "id": "maps", "name": "The Map Drawer", "short": "Maps", "kind": "wood",
           "types": ["🗺️","🧭","📐","🗄️","🗃️"] },
         { "id": "inks", "name": "Inks & Quills",   "short": "Inks", "kind": "wicker",
           "types": ["🖋️","✒️","🖊️","📎","📌"] }
@@ -573,13 +573,13 @@
     {
       "id": "apothecary", "name": "The Apothecary", "floor": "apothecary", "sizeFactor": 0.8,
       "containers": [
-        { "id": "reagents", "name": "The Reagent Shelf", "short": "Reagents", "kind": "glass",
+        { "id": "reagents", "name": "The Reagent Shelf", "short": "Reagents", "kind": "shelf",
           "types": ["🧪","⚗️","🧫","💉","🩸"] },
-        { "id": "dried",    "name": "Dried Herbs",       "short": "Dried",    "kind": "wicker",
+        { "id": "dried",    "name": "Dried Herbs",       "short": "Dried",    "kind": "hook",
           "types": ["🌿","🍂","🌾","🍄","🌰"] },
-        { "id": "bottled",  "name": "Bottled Things",    "short": "Bottled",  "kind": "slat",
+        { "id": "bottled",  "name": "Bottled Things",    "short": "Bottled",  "kind": "glass",
           "types": ["🍯","🧴","🥛","🧂","🧃"] },
-        { "id": "minerals", "name": "Minerals & Salts",  "short": "Minerals", "kind": "steel",
+        { "id": "minerals", "name": "Stone & Ore",       "short": "Stone",    "kind": "steel",
           "types": ["🪨","🧱","🧊","🥌","⛏️"] },
         { "id": "scales",   "name": "Scales & Measures", "short": "Scales",   "kind": "peg",
           "types": ["⚖️","📏","🥄","🧮","⏲️"] }
@@ -591,11 +591,11 @@
       "containers": [
         { "id": "familiars", "name": "Familiars",        "short": "Familiars", "kind": "mesh",
           "types": ["🐈","🦉","🐀","🐍","🦇","🐸"] },
-        { "id": "feed",      "name": "The Feed Bin",     "short": "Feed",      "kind": "wicker",
+        { "id": "feed",      "name": "The Feed Bin",     "short": "Feed",      "kind": "bin",
           "types": ["🥜","🌽","🪺","🐛","🍎"] },
-        { "id": "perches",   "name": "Perches & Chains", "short": "Perches",   "kind": "peg",
+        { "id": "perches",   "name": "Perches & Chains", "short": "Perches",   "kind": "hook",
           "types": ["🪶","🔗","🔔","⛓️","🪝"] },
-        { "id": "eggs",   "name": "Eggs & Hatchlings", "short": "Eggs",     "kind": "glass",
+        { "id": "eggs",   "name": "Eggs & Hatchlings", "short": "Eggs",     "kind": "cubby",
           "types": ["🥚","🐣","🐤","🦆","🐥"] },
         { "id": "physic", "name": "Beast Medicine",    "short": "Medicine", "kind": "steel",
           "types": ["💊","🩹","🌡️","🧷","🩺"] }
@@ -608,11 +608,11 @@
       "containers": [
         { "id": "seeing",  "name": "Seeing Things",   "short": "Seeing",  "kind": "arcane",
           "types": ["🔮","🪞","🧿","👁️","🕯️"] },
-        { "id": "fortune", "name": "Fortune Telling", "short": "Fortune", "kind": "wood",
+        { "id": "fortune", "name": "Fortune Telling", "short": "Fortune", "kind": "table",
           "types": ["🃏","🎴","🀄","🎲","⏳"] },
-        { "id": "charts",  "name": "Star Charts",     "short": "Charts",  "kind": "slat",
+        { "id": "charts",  "name": "Star Charts",     "short": "Charts",  "kind": "wood",
           "types": ["🌙","🌟","☄️","🪐","🌌"] },
-        { "id": "lenses",  "name": "Mirrors & Lenses", "short": "Lenses",  "kind": "glass",
+        { "id": "lenses",  "name": "Lenses & Eyewear", "short": "Lenses",  "kind": "glass",
           "types": ["🔍","🔭","🥽","👓","🕶️"] },
         { "id": "incense", "name": "Incense & Smoke",  "short": "Incense", "kind": "wicker",
           "types": ["🕉️","☸️","🪔","💨","🌫️"] }
@@ -622,14 +622,14 @@
     {
       "id": "broom", "name": "The Broom Cupboard", "floor": "broom", "sizeFactor": 0.5,
       "containers": [
-        { "id": "brooms", "name": "Brooms & Staves",  "short": "Brooms", "kind": "peg",
+        { "id": "brooms", "name": "Brooms & Staves",  "short": "Brooms", "kind": "stand",
           "types": ["🧹","🪄","🦯","🪵","🎋"] },
-        { "id": "robes",  "name": "Robes & Hats",     "short": "Robes",  "kind": "dark",
-          "types": ["🎩","👒","🧥","👘","🩰"] },
-        { "id": "charms", "name": "The Charm Drawer", "short": "Charms", "kind": "wicker",
+        { "id": "robes",  "name": "Robes & Hats",     "short": "Robes",  "kind": "hook",
+          "types": ["🎩","👒","🧥","👘","🥻"] },
+        { "id": "charms", "name": "The Charm Drawer", "short": "Charms", "kind": "wood",
           "types": ["🪬","📿","💍","🧵","🪢"] },
-        { "id": "boots",    "name": "Boots & Gloves",   "short": "Boots",    "kind": "slat",
-          "types": ["🥾","🧤","🧦","👢","🩴"] },
+        { "id": "boots",    "name": "Boots & Gloves",   "short": "Boots",    "kind": "cubby",
+          "types": ["🥾","🧤","🧦","👢","🩴","🩰"] },
         { "id": "lanterns", "name": "Lanterns & Lamps", "short": "Lanterns", "kind": "glass",
           "types": ["🔦","💡","🏮","🎆","🔅"] }
       ]
@@ -645,9 +645,9 @@
           "types": ["💀","☠️","🦴","🪦","⚰️"] },
         { "id": "tribute", "name": "Tribute",          "short": "Tribute", "kind": "dark",
           "types": ["👑","💎","💰","🏵️","🎁"] },
-        { "id": "banners", "name": "Banners of the Order", "short": "Banners", "kind": "peg",
+        { "id": "banners", "name": "Banners of the Order", "short": "Banners", "kind": "hook",
           "types": ["🚩","🏴","🎌","🎏","🏳️"] },
-        { "id": "armour",  "name": "Arms & Armour",        "short": "Armour",  "kind": "steel",
+        { "id": "armour",  "name": "Arms & Armour",        "short": "Armour",  "kind": "peg",
           "types": ["🗡️","🛡️","⚔️","🏹","🪖"] }
       ]
     },
@@ -663,13 +663,13 @@
       ],
       "id": "aviary", "name": "The Aviary", "floor": "aviary", "sizeFactor": 0.85, "shape": "round",
       "containers": [
-        { "id": "perch", "name": "The Perch Rail", "short": "Perches", "kind": "peg",
+        { "id": "perch", "name": "The Perch Rail", "short": "Perches", "kind": "hook",
           "types": ["🪶","🔔","🪁","🪢","🎐"] },
-        { "id": "nest",  "name": "Nest Boxes",     "short": "Nests",   "kind": "wicker",
+        { "id": "nest",  "name": "Nest Boxes",     "short": "Nests",   "kind": "cubby",
           "types": ["🪺","🥚","🍂","🪵","🕸️"] },
         { "id": "seed",  "name": "Seed Trays",     "short": "Seed",    "kind": "slat",
           "types": ["🌻","🌰","🥜","🌽","🫘"] },
-        { "id": "dishes", "name": "Water Dishes",   "short": "Dishes", "kind": "plastic",
+        { "id": "dishes", "name": "Water Dishes",   "short": "Dishes", "kind": "basin",
           "types": ["💧","🥛","🍶","☔","💦"] },
         { "id": "vet",    "name": "The Bird Vet Box","short": "Vet",    "kind": "steel",
           "types": ["💊","🩹","🧷","💉","🩺"] }
@@ -681,11 +681,11 @@
       "containers": [
         { "id": "kit",   "name": "The Keeper's Kit",   "short": "Kit",    "kind": "steel",
           "types": ["🧤","🥾","🔦","🔧","🪛"] },
-        { "id": "paper", "name": "Charts & Clipboards","short": "Charts", "kind": "wood",
+        { "id": "paper", "name": "Charts & Clipboards","short": "Charts", "kind": "peg",
           "types": ["📋","📄","📊","✏️","🗓️"] },
-        { "id": "radio", "name": "The Radio Shelf",    "short": "Radio",  "kind": "peg",
+        { "id": "radio", "name": "The Radio Shelf",    "short": "Radio",  "kind": "shelf",
           "types": ["📻","📞","📢","🔌","🔋"] },
-        { "id": "uniform", "name": "The Uniform Peg",    "short": "Uniform", "kind": "dark",
+        { "id": "uniform", "name": "The Uniform Peg",    "short": "Uniform", "kind": "hook",
           "types": ["🧥","🧢","👖","🥽","⌚"] },
         { "id": "lunch",   "name": "The Keeper's Lunch", "short": "Lunch",   "kind": "wicker",
           "types": ["🥪","☕","🍫","🍪","🧃"] }
@@ -695,15 +695,15 @@
     {
       "id": "feedstore", "name": "The Feed Store", "floor": "feedstore", "sizeFactor": 0.9,
       "containers": [
-        { "id": "produce", "name": "Produce Bins",   "short": "Produce",  "kind": "slat",
+        { "id": "produce", "name": "Produce Bins",   "short": "Produce",  "kind": "bin",
           "types": ["🥬","🥕","🍎","🍆","🥦"] },
-        { "id": "dry",     "name": "Dry Feed Sacks", "short": "Dry Feed", "kind": "wicker",
+        { "id": "dry",     "name": "Dry Feed Sacks", "short": "Dry Feed", "kind": "heap",
           "types": ["🌾","🍚","🥖","🥣","🧂"] },
-        { "id": "treats",  "name": "The Treat Tin",  "short": "Treats",   "kind": "plastic",
+        { "id": "treats",  "name": "The Treat Tin",  "short": "Treats",   "kind": "steel",
           "types": ["🍖","🐟","🧀","🍯","🥓"] },
-        { "id": "frozen",  "name": "The Chest Freezer", "short": "Freezer",     "kind": "steel",
+        { "id": "frozen",  "name": "The Chest Freezer", "short": "Freezer",     "kind": "frost",
           "types": ["🧊","❄️","🥩","🍤","🦐"] },
-        { "id": "supps",   "name": "Supplements & Salts","short": "Supplements", "kind": "glass",
+        { "id": "supps",   "name": "Supplements & Measures","short": "Supplements", "kind": "glass",
           "types": ["🧴","🥄","⚖️","🧫","🫙"] }
       ]
     },
@@ -712,13 +712,13 @@
       "_note": "Hex. Warm or damp — that is the whole test, and the room is named after the question.",
       "id": "reptile", "name": "The Reptile House", "floor": "reptile", "sizeFactor": 0.7, "shape": "hex",
       "containers": [
-        { "id": "warm", "name": "The Warm Rocks",  "short": "Warm",  "kind": "dark",
+        { "id": "warm", "name": "The Basking Tank", "short": "Basking", "kind": "tank",
           "types": ["🦎","🐍","🐢","🦖","🐊"] },
         { "id": "damp", "name": "The Damp Corner", "short": "Damp",  "kind": "plastic",
           "types": ["🐸","🐌","🦂","🕷️","🐛"] },
         { "id": "heat", "name": "Heat Lamps",      "short": "Lamps", "kind": "peg",
           "types": ["💡","🔥","🌡️","🔆","☀️"] },
-        { "id": "substrate", "name": "Substrate Bins", "short": "Substrate", "kind": "slat",
+        { "id": "substrate", "name": "Substrate Bins", "short": "Substrate", "kind": "bin",
           "types": ["🪨","🌿","🧱","🪸","🏜️"] },
         { "id": "livefood",  "name": "Live Food",      "short": "Live Food", "kind": "mesh",
           "types": ["🦗","🐜","🪱","🐝","🦟"] }
@@ -730,13 +730,13 @@
       "containers": [
         { "id": "enrich",  "name": "Enrichment",        "short": "Enrichment", "kind": "mesh",
           "types": ["🪀","🛞","🥏","🏐","🪃"] },
-        { "id": "bedding", "name": "The Bedding Store", "short": "Bedding",    "kind": "wicker",
+        { "id": "bedding", "name": "The Bedding Store", "short": "Bedding",    "kind": "heap",
           "types": ["🧺","🛏️","🧣","🧶","🎋"] },
-        { "id": "mucking", "name": "Mucking Out",       "short": "Mucking",    "kind": "peg",
+        { "id": "mucking", "name": "Mucking Out",       "short": "Mucking",    "kind": "stand",
           "types": ["🧹","🪣","🧽","🚿","🧼"] },
         { "id": "climb",    "name": "Climbing Frame Parts", "short": "Climbing", "kind": "slat",
           "types": ["🪜","🔗","⛓️","🪝","🔩"] },
-        { "id": "puzzles",  "name": "Puzzle Feeders",       "short": "Puzzles",  "kind": "plastic",
+        { "id": "puzzles",  "name": "Puzzle Feeders",       "short": "Puzzles",  "kind": "bin",
           "types": ["🧩","🥥","🎾","🥎","🏈"] }
       ]
     },
@@ -747,9 +747,9 @@
       "containers": [
         { "id": "bananas", "name": "Bananas",                "short": "Bananas",     "kind": "mesh",
           "types": ["🍌"] },
-        { "id": "decoy",   "name": "Not Bananas",            "short": "Not Bananas", "kind": "dark",
+        { "id": "decoy",   "name": "Not Bananas",            "short": "Not Bananas", "kind": "dark", "baitOk": true,
           "types": ["🥭","🍈","🥒","🫑","🍐"] },
-        { "id": "demands", "name": "The Demands",            "short": "Demands",     "kind": "wood",
+        { "id": "demands", "name": "The Demands",            "short": "Demands",     "kind": "peg",
           "types": ["📜","🖊️","📌","🧾","📈"] },
         { "id": "security", "name": "Security",          "short": "Security", "kind": "steel",
           "types": ["🔒","🚨","📹","📸","🪤"] },

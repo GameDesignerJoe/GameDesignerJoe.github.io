@@ -45,6 +45,10 @@ can be edited without touching JavaScript:
 | how much floor to keep clear in front of doors | `doorZone` in `data/furniture.json` |
 | the note each room leaves you, and its reply | `data/quests.json` |
 | how many rooms start with a sealed container | `roomShare` in `data/quests.json` |
+| what the client SAYS mid-job (a door, a room, a wrong home) | `quips` on a client in `data/clients.json` |
+| what they say when you come back to a half-done job | `nudge` on a stage in `data/clients.json` |
+| the same six lines when nobody hired you | `houseVoice` in `data/strings.json` |
+| what a piece of furniture LOOKS like | `kind` in `data/rooms.json` + a `.k-<kind>` skin in `css/furniture.css` |
 | every sound, and the music tracks | `data/audio.json` |
 | which music a client brings with them | `music` on a client in `data/clients.json` |
 | title, tagline, home-screen icon | `data/strings.json` |
@@ -88,8 +92,8 @@ Each tier imports only from strictly lower tiers. There are no cycles.
 
 ```
 0  config · util · dom · validate · audio · hit
-1  data · toast/feedback
-2  state · geometry
+1  data · toast/feedback · chatter
+2  state · geometry · client
 3  save · rules · generate
 4  render · hud · inventory · containerView · tips · camera · talents · quests
 5  actions · locks · win · menus
@@ -133,6 +137,13 @@ exists.
 own `kind`/`name`/`short`, copied at generation time. Nothing downstream looks
 a definition back up, so renaming a room in `rooms.json` cannot corrupt a save.
 
+One consequence that costs ten minutes if you don't know it: **a live room's
+`id` is its INDEX in the run, not its id in `rooms.json`.** `G.rooms[2].id` is
+`2`. So a test that wants "the Bathroom" has to match on `floor`, which is the
+one definition field that survives generation — `G.rooms.find(r => r.floor ===
+"bathroom")`. Containers keep their real string id, which is why `data-cont`
+lookups work.
+
 **`#roomHost > .cam > .room`.** The camera owns zoom and pan; the room owns
 the slide and bounce animations. They shared one `transform` originally, which
 is why `bounce()` had to repair the camera afterwards.
@@ -159,9 +170,57 @@ with `hidden = true`.
 **In-room text sizes with container queries (`cqh`), not px.** Fixed sub-12px
 text triggers iOS text-size-adjust and Chrome Android font boosting.
 
-**Feedback has three channels** (`js/feedback.js`): `bump()` for rejections
-(shake the thing that said no, one sentence the first time a rule is hit),
-`flyReward()` for rewards, `say()` for real messages (queued, under the HUD).
+**Feedback has FOUR channels, and only one of them is the narrator.**
+`js/feedback.js` has three: `bump()` for rejections (shake the thing that said
+no, one sentence the first time a rule is hit), `flyReward()` for rewards, and
+`say()` for receipts. `js/chatter.js` is the fourth — the client leaning in.
+
+`say()` used to carry everything, and it was the wrong channel twice over for
+most of it. **Physically**: it slides a strip out from under the HUD, and the
+player's eyes are on the thing they just tapped, which is never the top of the
+screen. **Tonally**: this game's whole personality is the person who hired you,
+and the six most eventful moments in a room were the one place nobody spoke.
+"The door creaks open ✨" is not in anybody's voice.
+
+So the split is now by KIND OF THING, not by shape of widget:
+
+| | carries | looks like |
+|---|---|---|
+| `say()` | receipts — the level id, "+3 put away", the gear's debug buttons | grey strip under the HUD |
+| `chatter()` | the six narrative moments, in the client's voice | small bubble beside their face, bottom-left, auto-dismissing |
+| `showClient()` | arrivals, thank-yous, and the Continue nudge | full figure, input blocked, waits for a tap |
+
+**What deliberately stayed a receipt: the cascade and One Trip payouts.** Those
+fire on between a third and three quarters of all correct placements, and a
+talent proc is not something a client has an opinion about — making it speech
+means the client comments on most of the taps in the game, which is how you
+teach a player to stop reading. The flying ⭐ chip is already their receipt.
+
+**The chatter queue is serial and RANKED.** Finishing a container can also
+finish the row, the room, the quest and the run in the same millisecond — the
+pile-up `celebrate()` exists for. Two rules keep this channel out of it: one
+bubble at a time with a gap between, and **a higher-rank line evicts everything
+still waiting** (a chest creaking open is not worth sitting through on the way
+to hearing the room is clear). What is already ON SCREEN is never yanked — that
+is the bug the module is fixing. `CHAT` in `js/chatter.js` is the whole pecking
+order, keyed by the same names as `quips` in `clients.json`.
+
+**Precedence is injected, not imported.** `client.js` calls `clearChatter()`
+when it takes the screen, so `chatter.js` must not import `client.js` back.
+Instead `main.js` calls `setChatterGate(() => isSpeaking() || !!$(".overlay.open"))`
+once — which also gets the overlays covered for free without `chatter.js`
+learning what an overlay is. A gated line WAITS rather than being dropped; only
+`clearChatter()` discards, and `endCeremony()` and `showWin()` are what call it.
+
+**Coming back to a half-done job is `showClient()`, not `chatter()`.** Continue
+used to `say("Welcome back")` — the sentence a bank website says. A player who
+last played a week ago has forgotten whose house this is and what was riding on
+it, and both are authored: the client, and `nudge` on the stage. The Dean still
+comes on Friday. The estate agent still comes Tuesday. The baby is still
+asleep. It is the loud channel because it happens at most once per resume and
+is the one line the player must not miss; the level id lands as they leave,
+exactly as on a fresh start. Free play has nobody with a stake in it, so the
+house says its line quietly through `chatter()` instead.
 
 **A drag keeps the grab point.** `ptr.grabDX/grabDY` is the offset between the
 pointer and the item's centre, recorded on pointerdown and added back on every
@@ -212,6 +271,83 @@ their taps. Anything that puts an item on the floor uses one of those two, and
 **Gold means done; red means wrong home.** A cell or badge gets `.wrong` when
 `belongsIn()` says that emoji lives somewhere else. Those are the only two
 colours with a meaning, so don't add a third without retiring one.
+
+**A CONTAINER MAY NOT ADVERTISE WHAT IT WON'T TAKE.** This is the failure mode
+of the taxonomy rule in `rooms.json` ("confusable things share a container, and
+the container's NAME is the rule") that no amount of care catches by eye,
+because catching it needs two files open at once: a container whose **name
+contains the name of an item that lives in a different container in the same
+room**.
+
+Three shipped. *Minerals & Salts* stood next to the salt. *Mirrors & Lenses*
+stood next to the mirror. *Supplements & Salts*, the salt again. That is worse
+than an unguessable home, because the player is not guessing — they are reading
+the label, and the label is lying to them.
+
+Check **5c** in `validate.js` is now the lint for it: word-stem matching with
+both sides authored (container names in `rooms.json`, item names in
+`names.json`), which is what keeps it precise instead of a heuristic that cries
+wolf. It found the three above plus two more nobody had reported — *Paper
+Boxes* beside the paper lantern, and *The Warm Rocks* beside the rock.
+`"baitOk": true` on a container opts out, for the one place in the game where
+the bait IS the joke: the Banana Vault's *Not Bananas*.
+
+The fixes are worth reading as a set, because they are three different fixes:
+**rename the container** (*Minerals & Salts* → *Stone & Ore*, *Mirrors &
+Lenses* → *Lenses & Eyewear*, *Supplements & Salts* → *Supplements &
+Measures*, *The Warm Rocks* → *The Basking Tank*), **rename the emoji** (🏮 was
+"Paper lantern" and is now "Red lantern", which is both more accurate and stops
+it baiting the Attic's *Paper Boxes*), or **move the item**, when the item
+really does belong where the name says. A bathtub filed under *Comfort Objects*
+next to a container called *Cleansing Apparatus* is the robot being wrong, so
+🛁 moved and ☕ took its place; 🩰 ballet shoes moved out of *Robes & Hats* into
+*Boots & Gloves* for the same reason.
+
+**Some homes are a coin flip and no lint fixes that**, so the game tells you.
+"Is a salt shaker dry goods or a seasoning" is a genuine ambiguity — the rule in
+`rooms.json` already admits that where you can't keep the confusable ones
+together, the player is reading the designer's mind. What CAN be fixed is the
+PRICE of losing the flip: `misfileHint()` in `main.js` has the client name the
+real home, **once per emoji per run, and only when that home is in the room you
+are standing in**. Naming a container three doors away is a spoiler and a walk,
+not a lesson — that is what Sixth Sense is for, and you spend a ⭐ on it. The
+once-per-emoji record lives in `G.taught`, the same set `bump()` uses.
+
+**NO TWO CONTAINERS IN ONE ROOM SHARE A `kind`.** The first eleven kinds were
+MATERIALS — steel, wood, wicker, glass — which is a real axis and was the right
+first one. It runs out the moment a room holds a fridge AND a sink and both of
+them are `steel`, which is what shipped: the bathroom's *Under the Sink* and
+the frat kitchen's *The Sink* were both drawn as the fridge skin, and the
+bathroom had `plastic` twice. When two pieces of furniture in a room have the
+same silhouette, the name plate is the only way to tell them apart — which is
+the exact job the drawn furniture exists to take off the player.
+
+So there is a second wave of **twelve SHAPE kinds** (`basin tub shelf hook bin
+heap frost tank table cubby stand couch`), drawn from what the container is
+CALLED rather than what it is made of: a sink has a tap and a dark bowl, a bin
+has a lid that overhangs, a hook rail has hooks hanging below it, a heap has no
+straight edge anywhere on it. Every container in `rooms.json` was reassigned
+against them and **no room repeats a kind**; check 5b warns if one starts to.
+
+Three things learned drawing them, all of which cost a second pass:
+
+- **The carcass is sometimes the hole.** `.k-shelf` paints its boards on top of
+  a dark recess rather than the reverse, because an open shelf is defined by
+  being able to see past it. Same for `.k-table`, whose carcass is transparent.
+- **`mask()` on a stripe field is not how you draw five of something.** The
+  first `.k-hook` carved hooks out of a repeating gradient and rendered as four
+  barely-visible slivers. Draw ONE and clone it with `box-shadow` offsets in
+  **`cqw`** — `.furn` sets `container-type:size`, so those resolve against the
+  piece's own box and the spacing holds at any zoom and any room scale. Same
+  idiom for the couch's arms, the stand's handles and the tub's feet.
+- **`.flabel` moves off the bottom on kinds whose bottom edge isn't solid.** A
+  name plate floating in the gap under a tabletop, or over a row of hooks,
+  reads as a bug. `.k-table` and `.k-hook` push it to the top with
+  `margin-bottom:auto`.
+
+Judge a skin against its NEIGHBOURS, not on its own: build a grid of all of
+them at once as `.furn.k-<id>` divs inside `#roomHost` and look at it. Six of
+the twelve were wrong in ways that were invisible one at a time.
 
 **Endings are a queue, not four things at once.** `celebrate()` in `main.js`
 plays one beat at a time; a beat marked `inRoom` waits for the container panel
@@ -306,6 +442,24 @@ resume. All three counters are saved now, and a save written before they were is
 settled with `draftsTaken = draftsEarnedFor(starsEarned)` on load: the honest
 reading of an old save is "they took what their stars earned", and they are
 holding the talents to prove it.
+
+**Three more sets were read on the way in and dropped on the way out**, which
+is the same half-finished shape and hid for the same reason: an empty `Set`
+behaves like a fresh run rather than throwing. `loadGame()` has always restored
+`d.taught`, `d.events` and `d.roomFxDone`; `saveGame()` never wrote any of
+them. So `taught` — the "say this sentence the first time the player hits this
+rule" record — was reset by every **Continue**, and the whole game re-taught
+itself from scratch; `events` is what tip `when`/`until` conditions watch, so a
+dismissed tip could come back; `roomFxDone` is what stops a room playing its
+gold ripple twice.
+
+It matters more now that `misfileHint()` puts `misfile:<emoji>` keys in
+`taught` to name a home once and not again — without the write, "once" meant
+"once per sitting". Additive, so no `SAVE_VERSION` bump: `loadGame()` already
+defaulted each to an empty set, and an older build ignores fields it never
+reads. **When you add a field to `loadGame()`, add it to `saveGame()` in the
+same change** — that is the same rule as "if you add a field to `clients.json`,
+render it in the same change", and this file now has three examples of it.
 
 The reason this survived so long is that **the save round-trip was not reachable
 from `window.tidy`**. `saveGame`, `loadGame`, `clearSave` and
@@ -648,13 +802,41 @@ than `className =` so it cannot wipe the `is-hidden` that `setHidden()` just put
 there. A save whose level no longer exists falls back to the plain gold button:
 `loadGame()` will discard it, and a card with a face on it is a promise.
 
-**NO ARTICLE MAY GO NEAR A ROOM NAME.** Room names supply their own and they
-disagree — "Kitchen" and "Attic" want *the*, "The Familiar's Roost" already has
-one, "Hydroponics" wants none. "You left off in the {room}" shipped as *"in the
-the Familiar's Roost"* and *"in the Hydroponics"* on the same build. The room is
-named in the card's **footer** now, uppercased beside the id, where it is a label
-and nothing implies an article. Any future sentence that embeds a room name has
-the same problem waiting.
+**NO ARTICLE MAY GO NEAR A ROOM NAME — OR A CONTAINER OR ITEM NAME.** Room
+names supply their own and they disagree: "Kitchen" and "Attic" want *the*,
+"The Familiar's Roost" already has one, "Hydroponics" wants none. "You left off
+in the {room}" shipped as *"in the the Familiar's Roost"* and *"in the
+Hydroponics"* on the same build. The room is named in the card's **footer** now,
+uppercased beside the id, where it is a label and nothing implies an article.
+
+The sentence that says "any future sentence that embeds a room name has the
+same problem waiting" was right, and `quips` walked straight into it: "The
+{container} gives" rendered as **"The The Locked Case gives."** Containers are
+exactly as inconsistent — *Fridge* and *Pantry* want an article, *The Actual
+Bin* and *The Locked Case* have one, and *Not Bananas*, *Do Not Open*,
+*Growing* and *Things We Don't Discuss* take none. Items are worse: they are
+Capitalised, because every other reader of `names.json` is a LABEL (the loupe,
+the hand bar, `senseSuffix`), so "The Salt goes" is wrong twice over.
+
+Two halves to the fix, and they are for different populations of copy:
+
+- **New copy is checked.** `articleSlips()` in `validate.js` ERRORS on an
+  article immediately before `{container}`, `{room}` or `{item}` in `quips` and
+  `houseVoice`. A name token belongs in LABEL POSITION — after a dash, a colon
+  or a full stop — which is why every misfile line reads "`{item}` goes here —
+  `{container}`" rather than a sentence with the names inside it.
+- **Old copy is repaired at the point of substitution.** `tokenise()` in
+  `util.js` swallows a **doubled** article: "the {container}" with *The Dish
+  Rack* renders "the Dish Rack". There are **fifty-nine** such phrases across
+  the note copy alone, every one authored, reviewed and shipped, and warning
+  about all of them on every boot would teach a reader to skip warnings —
+  which costs more than the bug does. So note copy is deliberately NOT checked;
+  read the comment on that decision in `validate.js`.
+
+`tokenise()` cannot fix the opposite mistake — "the Hydroponics", where the
+name takes no article at all — because nothing there knows which names those
+are. Two note lines that were exposed to it (a frat one that could hit *Laundry
+Mountain*, a ship one that could hit *Hydroponics*) were rewritten by hand.
 
 **A theme carries an `icon`** (`themes.json`) for exactly one reason: a free-play
 save has no client, and the game's own 🏠 over a half-tidied wizard's tower says
@@ -1031,7 +1213,35 @@ Run through this after any change; it's what the browser tests cover.
   the world's own icon, the preset name, no quote. Then corrupt the save's
   `levelId` and confirm it degrades to the plain gold button rather than promising
   a job that isn't there.
-- No sentence anywhere prints "the the". Room names carry their own articles.
+- No sentence anywhere prints "the the". Room, container and item names all
+  carry their own articles — `tokenise()` eats a doubled one and `validate.js`
+  errors on a fresh one in quip copy, so this is a spot-check of the third
+  case: a name that takes NO article ("Hydroponics", "Laundry Mountain", "Not
+  Bananas") behind a written "the". Play a ship and a frat level to their notes.
+- **The client speaks, and nothing steps on anything.** Open a locked door, a
+  coin box and a locked container; finish a room; finish a note; misfile
+  something whose home is in the room you're in. Six bubbles, six different
+  lines, one at a time, bottom-left, and never one of them under the client's
+  own figure. Then finish the LAST room of a job and watch the whole tail: the
+  room's gold, one bubble, the bubble gone, the client walking in, the win
+  screen. `tidy.chatterState()` answers "what is showing and what is queued"
+  when two lines look like they collided. `tidy.aside('room',{room:'Kitchen'})`
+  fires one on demand, which is the only way to check a client's quips without
+  playing to the moment.
+- **Misfiling teaches once, and only about this room.** Put something in the
+  wrong container when its real home is in the same room: the client names the
+  right one. Do it again with the same emoji: silence. Save, Continue, do it a
+  third time: still silence (`taught` is written now). Then misfile something
+  whose home is in ANOTHER room: silence the first time too — that would be a
+  spoiler and a walk.
+- **Continue names the stakes.** Start a campaign level, quit to the menu,
+  press Continue: the client walks in with their `nudge`, and the level id
+  lands as they leave. Do it from free play: no figure, one quiet house line.
+- **No room has two pieces of furniture with the same skin.** Boot warns, so a
+  clean console covers `rooms.json` — but eyeball the Bathroom, the frat
+  kitchen and Hydroponics specifically, because those are the three that
+  shipped with a sink drawn as a fridge. Judge new skins in a GRID of all of
+  them at once, never one at a time.
 - **The size swing.** Every client's arc grows across its stages, and no two
   consecutive jobs past 5-1 are within a fifth of each other — boot warns about
   both, so a clean console is the test. Confirm against what the generator

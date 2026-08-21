@@ -11,11 +11,12 @@
    audio only), so the render tier and the talent tier can both import it with
    no cycle.
 
-   Imports: config, dom, feedback, audio.
+   Imports: config, dom, feedback, audio, chatter.
 ============================================================ */
 import { T } from './config.js';
 import { $ } from './dom.js';
 import { clearSay } from './feedback.js';
+import { clearChatter } from './chatter.js';
 import { play as sfx } from './audio.js';
 
 const layer  = $("#clientLayer");
@@ -89,8 +90,13 @@ export function showClient(character, text, { side = "left", onDone = null } = {
 
     /* They are the authority while they are up: a message strip sliding out
        from under the HUD mid-sentence is exactly the "everything at once"
-       problem the celebration queue was built to fix. */
+       problem the celebration queue was built to fix. The chatter bubble is
+       worse than the strip — it is the SAME PERSON, half-size, in the corner
+       this figure is about to stand in. Both go. (chatter.js does not import
+       this module in return; main.js injects the precedence rule instead, so
+       there is no cycle here.) */
     clearSay();
+    clearChatter();
 
     /* Park off screen, then let the stylesheet's transition bring them in.
        Same two-rAF idiom as slideTo() in main.js. The distance is

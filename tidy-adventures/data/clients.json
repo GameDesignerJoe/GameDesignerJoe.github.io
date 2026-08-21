@@ -47,6 +47,34 @@
     "           Thirty-four authored lines, boot-validated for tokens the whole",
     "           time, and invisible. Add a field here, render it in the same change.",
     "A stage with no hook falls back to the level blurb, and boot warns about it.",
+    "  nudge  — WHAT THEY SAY WHEN YOU COME BACK TO A JOB YOU LEFT HALF DONE.",
+    "           Continue used to say \"Welcome back\" in a grey strip under the HUD,",
+    "           which told a player who had been away a week nothing at all: not",
+    "           whose house this is, not what was at stake, not why they cared.",
+    "           One line, in their mouth, that RESTATES THE STAKES — the Dean is",
+    "           still coming on Friday, the estate agent is still coming Tuesday,",
+    "           the baby is still asleep. It has to work cold, read by somebody",
+    "           who has forgotten the intro, so name the thing that is at risk",
+    "           rather than referring back to it. Per stage, because the stakes",
+    "           change across an arc; boot warns if a stage has none.",
+    "",
+    "QUIPS are the same voice at a volume you can play through — the client",
+    "reacting to what just happened in the room, in a small bubble beside their",
+    "face that dismisses itself (js/chatter.js). Every one of these lines used to",
+    "be one sentence of NARRATOR delivered by say(), in a strip above the",
+    "inventory bar that nobody looked at, because the player is looking at the",
+    "thing they just tapped. Six situations, per client:",
+    "  door    a locked door opens",
+    "  cache   a coin box bursts open",
+    "  unlock  a locked container gives up — {container}",
+    "  room    a whole room is clear — {room}. The best one in the game; write two.",
+    "  misfile you put something in the wrong home AND the right one is in this",
+    "          same room, so naming it costs the player nothing. MUST use both",
+    "          {item} and {container} — the whole point is that the game stops",
+    "          making you guess twice. Said once per emoji per run.",
+    "  nothing you tried to file an armful in a room none of it lives in",
+    "Arrays: one is fine, two is better for `room`, and the game picks at random.",
+    "Free play has no client, so strings.json carries the house's own versions.",
     "",
     "TOKENS. intro/outro/teaser/hook: {handSlots} {rowLen} {name} {level}",
     "        note text/reply:    {container} {room} {handSlots} {rowLen} {name}",
@@ -75,10 +103,23 @@
       "emoji": "👩‍🦰",
       "sign": "— Mom",
       "waiting": "She has a list. She always has a list.",
+      "quips": {
+        "door":    ["Oh, that door. I'd forgotten what was behind it."],
+        "cache":   ["That was your father's. Don't ask me why it locked."],
+        "unlock":  ["{container}. I had wondered about that one."],
+        "room":    [
+          "{room} done. I could cry. I won't.",
+          "Look at {room}. Look at it."],
+        "misfile": [
+          "Sweetheart, no. {item} goes here — {container}.",
+          "Wrong home. {item} — {container}. It always has been."],
+        "nothing": ["Nothing in your hands belongs in this room, love. Try next door."]
+      },
       "farewell": "She still sends you photos of the garage.",
       "stages": [
         {
           "level": "1-1",
+          "nudge": "You came back. It is still three things on the floor, sweetheart. Three.",
           "hook": "You asked me for a summer job. I have one for you. It is upstairs and it is yours.",
           "teaser": "\"I'm not asking again.\"",
           "intro": [
@@ -89,6 +130,7 @@
         },
         {
           "level": "1-2",
+          "nudge": "I haven't touched it. I want you to see exactly what I have been looking at.",
           "hook": "I looked at it again this morning. Sweetheart. Come back up here.",
           "teaser": "\"A pile is not a system.\"",
           "replay": "Again? It'll be like this by Thursday anyway.",
@@ -114,10 +156,23 @@
       "emoji": "👩",
       "sign": "— Marguerite",
       "waiting": "She says she's fine. She is not fine.",
+      "quips": {
+        "door":    ["That's been shut a long time. Go on."],
+        "cache":   ["Grandma and her little locked things. Honestly."],
+        "unlock":  ["{container}. She kept the key somewhere sensible and then forgot where sensible was."],
+        "room":    [
+          "{room}. I haven't seen it like that since I was small.",
+          "You've finished {room}. I'm going to stand in the doorway a minute."],
+        "misfile": [
+          "I think that goes elsewhere. {item} — {container}.",
+          "{item}? {container}. She was very firm about it."],
+        "nothing": ["None of that belongs in this room. It'll be somewhere else in the house."]
+      },
       "farewell": "The house sold in a week. She kept the clock.",
       "stages": [
         {
           "level": "2-1",
+          "nudge": "You came back. I've been standing in the hall not touching anything, in case that helped.",
           "hook": "Your mom rang me about you. I am in my grandmother’s house, I have been for an hour, and I have not picked up one thing.",
           "teaser": "\"Your mother said you'd know what to do.\"",
           "replay": "Back again? There's always more.",
@@ -136,6 +191,7 @@
         },
         {
           "level": "2-2",
+          "nudge": "The estate agent still comes Tuesday. It is Sunday. I mention that lightly.",
           "hook": "I kept your number. There are three more rooms in here and I have almost stopped apologising for them.",
           "teaser": "\"It's getting easier. Slightly.\"",
           "intro": [
@@ -152,6 +208,7 @@
         },
         {
           "level": "6-2",
+          "nudge": "That room is still shut. I've made tea twice and not gone in either time.",
           "hook": "It has been months and the house has sold. I asked for you because I could not ask anybody else.",
           "teaser": "\"One last room. I couldn't face it alone.\"",
           "intro": [
@@ -176,11 +233,24 @@
       "emoji": "🧑‍🎓",
       "sign": "— the guys",
       "waiting": "They've gone quiet. That's usually worse.",
+      "quips": {
+        "door":    ["oh sick that door's been stuck since october"],
+        "cache":   ["dude there was money in there. there was actual money in there"],
+        "unlock":  ["{container}?? that has NEVER opened"],
+        "room":    [
+          "{room} is CLEAN. bro. {room}.",
+          "ok {room} looks like a room again. that's on you"],
+        "misfile": [
+          "nah man. {item} — {container}",
+          "wrong one. {item} goes here — {container}. apparently we have a system"],
+        "nothing": ["none of that goes in here man. different room"]
+      },
       "farewell": "They got the deposit back. All of it. They were genuinely stunned.",
       "_note": "Every one of these jobs is theme: frat — the first world in the game that is not the house and not a dream. It arrives at 3-1 because that is when they arrive, which is the whole design: a world should turn up because somebody hired you into it.",
       "stages": [
         {
           "level": "3-1",
+          "nudge": "oh thank god. nothing's worse. nothing's better either but nothing's worse",
           "hook": "hey so somebody wrote your number on a pizza box and honestly thank god. six of us. one deposit.",
           "teaser": "\"this was like this when we moved in\"",
           "intro": [
@@ -195,6 +265,7 @@
         },
         {
           "level": "3-2",
+          "nudge": "still one party. still never happening again. the kitchen has a different view",
           "hook": "you’re in the group chat now. under a name we are not going to tell you.",
           "teaser": "\"ok that was ONE party. one.\"",
           "replay": "you again. we're not even embarrassed anymore.",
@@ -210,6 +281,7 @@
         },
         {
           "level": "4-2",
+          "nudge": "you know the drill by now. we moved two things and put them both back wrong",
           "hook": "we’re not even getting up to let you in anymore. door’s open. help yourself.",
           "teaser": "\"same as last time. you know where it goes.\"",
           "intro": [
@@ -220,12 +292,13 @@
           "note": [
             { "text": "the {container}. don't ask. thank you",
               "reply": "the {container}. we owe you one." },
-            { "text": "if the {room} smells, that's a known issue",
-              "reply": "the {room} does not smell anymore. incredible" }
+            { "text": "heads up, {room} smells. that's a known issue",
+              "reply": "{room} does not smell anymore. incredible" }
           ]
         },
         {
           "level": "5-2",
+          "nudge": "remember the Dean comes friday. FRIDAY. with a clipboard. A CLIPBOARD",
           "hook": "sorry it’s 11pm. we need you. it is not an emergency. it is completely an emergency.",
           "teaser": "\"the Dean is coming FRIDAY\"",
           "intro": [
@@ -240,6 +313,7 @@
         },
         {
           "level": "6-1",
+          "nudge": "the whole deposit is still riding on this dude. that's real money. that's our money",
           "hook": "last one man. we want the person who has seen this place at its absolute worst. that’s you. affectionately.",
           "teaser": "\"deposit day. it all rides on this.\"",
           "intro": [
@@ -264,10 +338,23 @@
       "emoji": "👽",
       "sign": "— ZORB",
       "waiting": "Zorb is compiling. Zorb will return.",
+      "quips": {
+        "door":    ["The door yields. I had assumed it was structural."],
+        "cache":   ["A container that requires payment to open. I have recorded this and I do not understand it."],
+        "unlock":  ["{container}. I sealed that. I still do not know why I sealed it."],
+        "room":    [
+          "{room} is resolved. I feel something. I will look it up later.",
+          "{room} is in order. Four hundred years and I did not know it could be."],
+        "misfile": [
+          "Incorrect. {item} — {container}. I have checked twice.",
+          "That is not its home. {item} goes here — {container}."],
+        "nothing": ["Nothing you are holding belongs in this room. This is a common human error. I make it also."]
+      },
       "farewell": "The report was submitted. Zorb scored 4 out of 10 and considers this a triumph. He kept the horse.",
       "stages": [
         {
           "level": "4-1",
+          "nudge": "You have returned. The sealed room remains sealed. I still do not recall why.",
           "hook": "I have watched you working through a window, three houses distant, for one of your months. I have questions. Come.",
           "teaser": "\"I have sealed a room. I no longer recall why.\"",
           "intro": [
@@ -288,6 +375,7 @@
             "This is also the level that teaches ⭐, and the two land together on",
             "purpose — the first talent draft should happen somewhere memorable." ],
           "level": "5-1",
+          "nudge": "You are back aboard. The spoon and the shovel are still apart. I have not made peace with it.",
           "hook": "You have not once asked me what I am. I have decided that this makes you trustworthy. Tell nobody where you are going.",
           "teaser": "\"You will come aboard. It is parked behind the shed.\"",
           "intro": [
@@ -305,6 +393,7 @@
         },
         {
           "level": "5-3",
+          "nudge": "The report is still due at the end of this cycle. The horse is still not a horse.",
           "hook": "I have kept you on. I now request you by name, which among my people is a considerable statement.",
           "teaser": "\"My report is due. It is mostly wrong.\"",
           "intro": [
@@ -316,7 +405,7 @@
             "\"They put like with like, and they are not always sure why.\" It is the best thing I have written."
           ],
           "note": [
-            { "text": "I am testing a theory on the {room}. Please fill the {container} and I will observe.",
+            { "text": "I am testing a theory. The subject is {room}. Please fill the {container} and I will observe.",
               "reply": "Theory confirmed. The {container} was always going to be the answer." }
           ]
         }
@@ -329,10 +418,23 @@
       "emoji": "🤖",
       "sign": "— UNIT 7",
       "waiting": "Unit 7 is retraining. It has asked for privacy.",
+      "quips": {
+        "door":    ["Door state: open. I did not know that was available."],
+        "cache":   ["Payment accepted. The container has emptied itself onto the floor. This appears to be intended."],
+        "unlock":  ["{container}. Open. I have added a row to the model."],
+        "room":    [
+          "{room}: complete. I am going to watch it for a moment before we continue.",
+          "{room} is finished. I have nothing to compare it to. I am keeping it."],
+        "misfile": [
+          "Correction. {item} — {container}. Ninety-one percent confidence.",
+          "{item} goes here — {container}. Forty thousand hours of video and they all agree."],
+        "nothing": ["Nothing in your hands has a home in this room. I have verified this."]
+      },
       "farewell": "Unit 7 passed its evaluation. It has requested a reference.",
       "stages": [
         {
           "level": "7-1",
+          "nudge": "You have resumed. I observed the room while you were gone. Nothing moved. I logged it anyway.",
           "hook": "A human named Chad supplied your details. He described you as ‘unreal at this’. I have been unable to parse that phrase for six weeks.",
           "teaser": "\"Demonstrate. I will watch.\"",
           "intro": [
@@ -347,6 +449,7 @@
         },
         {
           "level": "7-2",
+          "nudge": "The sock hypothesis is unresolved. I have not looked it up. I said that I would not.",
           "hook": "I have reviewed forty thousand hours of recordings of you working. All of them. I remain at a loss.",
           "teaser": "\"I have a hypothesis about socks.\"",
           "replay": "You have returned. I have new questions.",
@@ -362,6 +465,7 @@
         },
         {
           "level": "7-3",
+          "nudge": "My evaluation remains scheduled for tomorrow. I have been unable to stop referencing that.",
           "hook": "I was permitted to request one human. I requested you by name. I hope that was allowed.",
           "teaser": "\"My evaluation is tomorrow.\"",
           "intro": [
@@ -386,10 +490,23 @@
       "emoji": "👨‍🍼",
       "sign": "— Sam",
       "waiting": "Sam says he's got it under control. Sam does not have it under control.",
+      "quips": {
+        "door":    ["Quietly, quietly. Yes. Good."],
+        "cache":   ["Coins. That's where they've all been going."],
+        "unlock":  ["{container}. That's the one she can't get into. Long may it last."],
+        "room":    [
+          "{room} is done. I'm not going to think about how long that lasts.",
+          "You've finished {room}. That is the nicest thing that's happened this week."],
+        "misfile": [
+          "Ah — not there. {item} — {container}. My wife would want me to say something.",
+          "{item} goes here — {container}. That one I actually know."],
+        "nothing": ["Nothing there for this room, I'm afraid. Try the next one. Quietly."]
+      },
       "farewell": "She sleeps through now. He sent a photo of a tidy living room. It will not last.",
       "stages": [
         {
           "level": "8-1",
+          "nudge": "She's still asleep. I've been standing very still this whole time. Please carry on.",
           "hook": "Marguerite gave me your number outside the estate agent’s. I have never asked anybody for help before. She is asleep. Please hurry.",
           "teaser": "\"You've got forty minutes. Maybe.\"",
           "intro": [
@@ -404,6 +521,7 @@
         },
         {
           "level": "8-2",
+          "nudge": "Every drawer you closed she has opened. I'm sorry. I'm so glad you're back.",
           "hook": "You’re in my phone as THE TIDIER. There has been a development. Come now if you can.",
           "teaser": "\"She's learned to open drawers.\"",
           "replay": "Come in, come in, mind the — yeah. Mind that.",
@@ -419,6 +537,7 @@
         },
         {
           "level": "8-3",
+          "nudge": "My coffee has gone cold twice waiting. Doesn't matter. Keep going.",
           "hook": "It’s five in the morning and I am not upset. I need you to see something. Please come today.",
           "teaser": "\"She slept through. I need the house to match.\"",
           "intro": [
@@ -443,10 +562,23 @@
       "emoji": "🧑‍🔬",
       "sign": "— A. Ashworth",
       "waiting": "Dr. Ashworth hasn't replied. The lights are on.",
+      "quips": {
+        "door":    ["Oh. That door. I'd stopped counting it as a door."],
+        "cache":   ["A locked box of coins in my own house. I've no explanation and I've stopped needing one."],
+        "unlock":  ["{container}. I haven't had that open since before the funding."],
+        "room":    [
+          "{room}. I can see the floor of it. That's — thank you.",
+          "{room} is finished. I'd forgotten it was a room and not storage."],
+        "misfile": [
+          "Miscategorised. {item} — {container}. Professionally embarrassing.",
+          "{item} goes here — {container}. I'm aware of the irony."],
+        "nothing": ["Nothing you're carrying belongs in this room. It'll be somewhere I haven't opened."]
+      },
       "farewell": "The paper was published. The acknowledgements thank \"a professional, who knows what they did\".",
       "stages": [
         {
           "level": "9-1",
+          "nudge": "Thursday hasn't moved. Two colleagues, this house, and I still haven't looked at it properly.",
           "hook": "A machine gave you as a reference, which is a sentence I have had to sit with for some time. I am told you are discreet.",
           "teaser": "\"Two colleagues are coming. To the house.\"",
           "intro": [
@@ -461,6 +593,7 @@
         },
         {
           "level": "9-2",
+          "nudge": "The keys are still in here somewhere. I have stopped saying “probably”.",
           "hook": "Thursday went well. Nobody mentioned it. I would like to go further into the house now, if you have the time.",
           "teaser": "\"There are rooms I haven't opened in three years.\"",
           "intro": [
@@ -478,6 +611,7 @@
         },
         {
           "level": "9-3",
+          "nudge": "The work is still finished. That's the part I can't get used to. Take your time.",
           "hook": "I looked up this morning for the first time in a decade. I would like to see the floor of my own house. Would you come.",
           "teaser": "\"It's finished. Eleven years, and it's finished.\"",
           "intro": [
@@ -512,10 +646,23 @@
       "emoji": "🌌",
       "sign": "— filed in your sleep",
       "waiting": "You have not been sleeping enough to go back.",
+      "quips": {
+        "door":    ["The door was never locked. It only wanted asking."],
+        "cache":   ["It opens because you paid it. Even out here, that works."],
+        "unlock":  ["{container} gives. Nothing out here stays shut for long."],
+        "room":    [
+          "{room} is filed. It will be out again by morning, and that is fine.",
+          "{room} is clear. Out here that lasts about as long as you do."],
+        "misfile": [
+          "Not there. {item} — {container}. Even here there are rules.",
+          "{item} belongs elsewhere: {container}. The sky is large but it is not disorganised."],
+        "nothing": ["Nothing in your hands belongs to this part of the sky."]
+      },
       "farewell": "You woke up. The sky, as far as anyone can tell, stayed where you put it.",
       "stages": [
         {
           "level": "D-1",
+          "nudge": "You are asleep again. It is the same sky. It has not tidied itself in the meantime.",
           "hook": "You did not travel here. You closed your eyes, and the filing simply continued without a building around it.",
           "teaser": "\"You are asleep. The work continues.\"",
           "replay": "You are here again. You are always here again.",
@@ -530,6 +677,7 @@
         },
         {
           "level": "D-2",
+          "nudge": "The comets are where you left them. They are patient in the way that only ice is.",
           "hook": "You are back. I did not send for you. Nothing out here sends for anyone.",
           "teaser": "\"The comets have been left out again.\"",
           "intro": [
@@ -546,6 +694,7 @@
         },
         {
           "level": "D-3",
+          "nudge": "You came back. Every star still has a home. Every moon still has its shelf.",
           "hook": "You have done this often enough that I no longer explain it. The sky expects you now.",
           "teaser": "\"Every star has a home. This is the whole of the work.\"",
           "intro": [
@@ -580,10 +729,23 @@
       "emoji": "🧙",
       "sign": "— Nettle",
       "waiting": "Nettle is busy. Nettle is always busy.",
+      "quips": {
+        "door":    ["The door. Yes. It only ever needed the key and four hundred years."],
+        "cache":   ["Coins. In my own tower. I have no memory of that and I decline to speculate."],
+        "unlock":  ["{container}. I sealed that and then outlived the reason."],
+        "room":    [
+          "{room}. Correct, not tidy. There is a difference and that is the difference.",
+          "{room} is finished. First time in four centuries anybody has seen the whole floor."],
+        "misfile": [
+          "No. {item} — {container}. It has always been {container}.",
+          "Wrong. {item} goes here — {container}. My apprentice made that exact mistake and he is no longer my apprentice."],
+        "nothing": ["Nothing you are holding lives in this room. The tower is tall. Keep walking."]
+      },
       "farewell": "The tower is tidy. It will not stay tidy. Nettle is aware.",
       "stages": [
         {
           "level": "T-1",
+          "nudge": "Back, are you. Four hundred years — an afternoon away has made no difference at all.",
           "hook": "Your name reached me through the small green thing that has been measuring my tower. Four hundred years I have lived here. Come up, the stairs will hold.",
           "teaser": "\"Don't touch the cupboard. It's fine. Mostly.\"",
           "intro": [
@@ -601,6 +763,7 @@
         },
         {
           "level": "T-2",
+          "nudge": "The reagents are still alphabetised by colour. I have been looking at them. It has not helped.",
           "hook": "I would like you back, and I would like it understood that this is not an emergency. It is simply very bad.",
           "teaser": "\"I took an apprentice. Briefly.\"",
           "replay": "Back again. Something has almost certainly moved.",
@@ -621,6 +784,7 @@
         },
         {
           "level": "T-3",
+          "nudge": "The inspection has not been cancelled. I did ask. Everything I have ever kept is still in here.",
           "hook": "Four hundred years without asking anybody for help and I have now asked you twice. Do not read anything into that. Do not read anything at all, in fact.",
           "teaser": "\"The tower is being inspected.\"",
           "intro": [
@@ -655,10 +819,23 @@
       "emoji": "🦜",
       "sign": "— Captain",
       "waiting": "Captain is in a meeting. Captain has scheduled a meeting with Boris.",
+      "quips": {
+        "door":    ["Door open. Noted. Filed."],
+        "cache":   ["That is petty cash and I will be accounting for it."],
+        "unlock":  ["{container}. That was locked for a reason and the reason was Boris."],
+        "room":    [
+          "{room}. Correct. Exactly correct. I have made a note.",
+          "{room} is done to standard. This is what I have been saying."],
+        "misfile": [
+          "No. {item} — {container}. I will not be repeating that.",
+          "{item} goes here — {container}. This is not a negotiation, it is a filing system."],
+        "nothing": ["Nothing in your hands is this room's business. Move along the corridor."]
+      },
       "farewell": "The facility runs to the minute now. Captain would like this noted.",
       "stages": [
         {
           "level": "Z-1",
+          "nudge": "You are back. Good. Boris has been through here since. I have made a note of it.",
           "hook": "I obtained your number from a bin. I will not be elaborating. Present yourself at the facility after six.",
           "teaser": "\"The humans have left. I am in charge.\"",
           "intro": [
@@ -676,6 +853,7 @@
         },
         {
           "level": "Z-3",
+          "nudge": "The bananas are still loose in a facility that I run. Continue where you left off.",
           "hook": "You are on the payroll as of this morning. There is no payroll. Come at once and ask nothing on an open line.",
           "teaser": "\"I have located every banana in this facility.\"",
           "intro": [
@@ -693,6 +871,7 @@
         },
         {
           "level": "Z-5",
+          "nudge": "Terms remain agreed. Terms do not tidy a facility. Proceed.",
           "hook": "I no longer refer to you as a contractor. I refer to you as staff. Do not let that go to your head.",
           "teaser": "\"Terms have been agreed.\"",
           "intro": [
@@ -725,10 +904,23 @@
       "emoji": "🦍",
       "sign": "— Boris",
       "waiting": "Boris is doing the rounds. Boris is always doing the rounds.",
+      "quips": {
+        "door":    ["Door's open. Wasn't me that shut it."],
+        "cache":   ["Coins. Bird's, probably. Leave it."],
+        "unlock":  ["{container}'s open. Fine. Nothing in there worth locking."],
+        "room":    [
+          "{room}'s done. Nothing on the floor, nobody trips. That's the job.",
+          "{room}. Good. He'll tell you it's more complicated than that. It isn't."],
+        "misfile": [
+          "Other one. {item} — {container}.",
+          "{item} goes here — {container}. Bird'd have a lot more to say about it."],
+        "nothing": ["Nothing there for this room. Try another one."]
+      },
       "farewell": "Boris got twelve a day and a quiet life. He thinks that went rather well.",
       "stages": [
         {
           "level": "Z-2",
+          "nudge": "You're back. Nothing's moved. I don't move things — that's rather the whole point of me.",
           "hook": "Took your number off the bird’s desk while he was on a call. He does the talking. I do the lifting. Come round.",
           "teaser": "\"Bird says a lot of things.\"",
           "intro": [
@@ -746,6 +938,7 @@
         },
         {
           "level": "Z-4",
+          "nudge": "Still gone, all of them. I sat down again for a bit. Then I got up. Let's keep looking.",
           "hook": "I’m telling you and I’m not telling him. They’re gone. All of them. I counted twice.",
           "teaser": "\"All I want is to know where they are.\"",
           "replay": "Come on in. Mind the gate, it goes both ways now.",
@@ -764,6 +957,7 @@
         },
         {
           "level": "Z-6",
+          "nudge": "Twelve a day, still. Place still wants walking through. No rush from me.",
           "hook": "Come and see how it turned out. That is the whole job. You’ve earned a look.",
           "teaser": "\"Twelve a day. Worth it.\"",
           "intro": [

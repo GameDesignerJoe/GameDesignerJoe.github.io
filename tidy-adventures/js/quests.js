@@ -17,14 +17,15 @@
    No new systems: it reads typeHome, watches afterMutation, and reuses the
    completion FX. Data lives in data/quests.json.
 
-   Imports: dom, data, state, util, geometry, feedback.
+   Imports: dom, data, state, util, geometry, feedback, chatter, audio.
 ============================================================ */
 import { $, el, host } from './dom.js';
 import { DATA, LOOKUP, nameOf, jobAt } from './data.js';
 import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
 import { findFloorSpot, spin } from './geometry.js';
-import { say, flyStar } from './feedback.js';
+import { flyStar } from './feedback.js';
+import { chatter, CHAT } from './chatter.js';
 import { play as sfx } from './audio.js';
 
 const NOTE = "📝";
@@ -232,8 +233,26 @@ export function completeQuest(q) {
      sound at all — it flew a ⭐ and said a line into silence. */
   sfx("star");
   flyStar(fe || host, "+1 ⭐");
-  say(q.reply + "  " + (q.sign || DATA.quests.signature || ""), { priority: 2, ms: 4200 });
+  /* The reply used to be a say() with the signature stapled onto the end of it,
+     which is a note read out by the narrator and then attributed. It is the
+     client answering you back, so they say it — and once their FACE is on the
+     bubble the signature is redundant, which is the whole argument for the
+     chatter channel in one line. The face is looked up the same way voice()
+     resolves the signature, so a note and its reply can never disagree about
+     who left it. */
+  chatter(replyFace(), q.reply, { rank: CHAT.note, key: "reply:" + q.id });
   onChange();
+}
+
+/* Who answers. A note is signed when it DROPS and keeps that hand for the rest
+   of the run (see the comment on q.sign), but the reply arrives live, so this
+   asks the run who is on the job right now — and falls back to the house the
+   same way speaker() in main.js does. */
+function replyFace() {
+  const job = G.mode === "campaign" ? jobAt(G.levelIdx) : null;
+  if (job) return job.client.emoji;
+  const hv = DATA.strings.houseVoice || {};
+  return DATA.themes.themes[G.theme]?.icon || hv.face || DATA.strings.icon || "🏠";
 }
 
 export function blankQuests() {

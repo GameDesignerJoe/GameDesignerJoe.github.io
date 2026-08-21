@@ -54,8 +54,36 @@
 
     "hull":    { "label": "Bulkhead locker", "w": 27, "h": 19 },
     "arcane":  { "label": "Rune cabinet",    "w": 30, "h": 18 },
-    "mesh":    { "label": "Wire cage",       "w": 32, "h": 17 }
+    "mesh":    { "label": "Wire cage",       "w": 32, "h": 17 },
+
+    "basin":   { "label": "Sink unit",       "w": 30, "h": 15 },
+    "tub":     { "label": "Bathtub",         "w": 33, "h": 13 },
+    "shelf":   { "label": "Open shelving",   "w": 32, "h": 19 },
+    "hook":    { "label": "Hook rail",       "w": 34, "h": 11 },
+    "bin":     { "label": "Lidded bin",      "w": 21, "h": 18 },
+    "heap":    { "label": "Soft heap",       "w": 31, "h": 12 },
+    "frost":   { "label": "Chest freezer",   "w": 30, "h": 15 },
+    "tank":    { "label": "Glass tank",      "w": 30, "h": 17 },
+    "table":   { "label": "Table",           "w": 34, "h": 16 },
+    "cubby":   { "label": "Pigeonholes",     "w": 29, "h": 18 },
+    "stand":   { "label": "Upright stand",   "w": 18, "h": 20 },
+    "couch":   { "label": "Couch",           "w": 35, "h": 14 }
   },
+
+  "_shapeKindsNote": [
+    "THE SECOND WAVE, and the reason for it: a container's skin has to agree with",
+    "its NAME. The first eleven kinds were MATERIALS (steel, wood, wicker), which",
+    "is a fine axis right up until a room holds a sink and a fridge and both of",
+    "them are `steel` — at which point the player is reading a name plate to tell",
+    "two identical grey boxes apart, and the furniture has stopped doing its job.",
+    "These twelve are SHAPES instead: a sink has a tap, a bin has a lid, a hook",
+    "rail has hooks, a heap has no straight edges at all.",
+    "",
+    "The rule that came out of it: NO TWO CONTAINERS IN ONE ROOM SHARE A KIND.",
+    "validate.js warns when they do. A room is where the player is comparing",
+    "furniture, so a room is where two identical silhouettes cost something.",
+    "Same reasoning as the confusable-emoji rule in rooms.json, one layer up."
+  ],
 
   "_worldKindsNote": [
     "hull / arcane / mesh were added with the ship, tower and zoo themes so a new",

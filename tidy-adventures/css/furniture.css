@@ -390,3 +390,363 @@
   box-shadow:0 1px 2px rgba(0,0,0,.5);
 }
 .k-mesh .flabel{background:rgba(0,0,0,.52)}
+
+/* ============================================================
+   SHAPE KINDS — basin, tub, shelf, hook, bin, heap, frost, tank,
+                 table, cubby, stand, couch
+
+   The first eleven kinds are MATERIALS: steel, wood, wicker, glass. That is a
+   real axis and it was the right first one, but it runs out the moment a room
+   holds a fridge AND a sink and both of them are the steel skin — which is
+   exactly what shipped. Two identical grey boxes in one room means the player
+   is reading a name plate to tell furniture apart, and the whole reason these
+   are drawn objects rather than labelled bars is so they don't have to.
+
+   So this wave is drawn from the container's NAME instead of its material: a
+   sink has a tap, a bin has a lid, a hook rail has hooks, a heap has no
+   straight edge anywhere on it. `.flabel` moves off the bottom on the kinds
+   whose bottom edge isn't solid (a table's legs, a hook rail's hooks), because
+   a name plate floating in the gap under a tabletop reads as a bug.
+
+   The rule they exist to make possible: NO TWO CONTAINERS IN ONE ROOM SHARE A
+   KIND. validate.js warns when they do.
+============================================================ */
+
+/* ---------- BASIN — a sink unit: cabinet, bowl, tap ----------
+   The one this wave was named for. "Under the Sink" and "The Sink" were both
+   drawn as .k-steel, which is the FRIDGE skin, so the bathroom and the frat
+   kitchen each had a sink that was a refrigerator with a different word on it. */
+.k-basin{
+  background:linear-gradient(#eef2f3,#d3dbdd 46%,#b9c3c6);
+  border-color:#8d989b;
+  border-radius:3px;
+}
+/* THE BOWL HAS TO BE THE DARKEST THING ON THE PIECE. The first pass drew it
+   at .55 alpha and it read as a smudge on a grey cabinet, which is how a sink
+   ends up looking like a toolbox. */
+.k-basin::before{
+  background:
+    radial-gradient(ellipse 40% 86% at 50% 52%, rgba(28,42,48,.92) 0 62%, rgba(28,42,48,.55) 78%, transparent 84%) 0 4%/100% 46% no-repeat,
+    linear-gradient(rgba(255,255,255,.85),rgba(255,255,255,.85)) 0 50%/100% 2px no-repeat,
+    linear-gradient(rgba(0,0,0,.34),rgba(0,0,0,.34)) 0 52%/100% 2px no-repeat,
+    linear-gradient(90deg,transparent 48%, rgba(0,0,0,.26) 49% 51%, transparent 52%) 0 54%/100% 46% no-repeat;
+}
+/* The tap, in four parts, because an outline of a rounded rectangle is a
+   HANDLE and that is exactly what the first pass drew: an upstand, a spout arm
+   reaching out over the bowl, and two taps either side of it. */
+.k-basin::after{
+  inset:0;
+  background:
+    linear-gradient(#f4f9fa,#b4c2c6) 50% 3%/4.5% 17% no-repeat,
+    linear-gradient(#f0f6f7,#c0ccd0) 50% 17%/17% 4.5% no-repeat,
+    radial-gradient(circle at 50% 50%, #f0f6f7 0 44%, transparent 48%) 33% 8%/9% 9% no-repeat,
+    radial-gradient(circle at 50% 50%, #f0f6f7 0 44%, transparent 48%) 67% 8%/9% 9% no-repeat;
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.45));
+}
+.k-basin .flabel{color:#283436;background:rgba(255,255,255,.62);text-shadow:0 1px 0 rgba(255,255,255,.6)}
+
+/* ---------- TUB — a freestanding bath, rolled rim and feet ----------
+   "How is a tub not part of a Cleansing Apparatus?" was a taxonomy bug (the
+   robot had it filed under Comfort Objects) and it needed a skin as well: the
+   bath now lives with the soap and looks like a bath. */
+.k-tub{
+  background:linear-gradient(#f6f8f8,#dfe6e6 52%,#c4cdcd);
+  border-color:#98a4a4;
+  border-radius:10px 10px 26% 26%/8px 8px 60% 60%;
+}
+/* rolled rim, then the water sheen down inside it */
+.k-tub::before{
+  border-radius:inherit;
+  background:
+    linear-gradient(#ffffff,#e4ebeb) 0 0/100% 22% no-repeat,
+    linear-gradient(rgba(0,0,0,.26),rgba(0,0,0,.26)) 0 22%/100% 2px no-repeat,
+    linear-gradient(160deg, rgba(150,205,215,.55) 0 40%, rgba(190,225,232,.3) 41% 100%) 0 24%/100% 76% no-repeat;
+}
+/* a tap at one end, and a pair of feet peeking out under the belly */
+.k-tub::after{
+  left:8%;top:4%;
+  width:7%;height:16%;min-width:3px;min-height:3px;
+  border-radius:2px 2px 0 0;
+  background:linear-gradient(#e9d9a8,#b99a56);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.5),
+    9px  calc(100cqh - 6px) 0 0 rgba(120,130,130,.9),
+    calc(100cqw - 26px) calc(100cqh - 6px) 0 0 rgba(120,130,130,.9);
+}
+.k-tub .flabel{color:#23302f;background:rgba(255,255,255,.66);text-shadow:0 1px 0 rgba(255,255,255,.6)}
+
+/* ---------- SHELF — open shelving: two uprights, three boards ----------
+   The carcass is the DARK GAP, not the wood: an open shelf is defined by being
+   able to see past it, so the boards are painted on top of a recess rather than
+   the other way round. */
+.k-shelf{
+  /* Not black: at in-room size the recess is most of the piece, and at .88 it
+     read as a void with a frame round it rather than shelving you can see the
+     back of. */
+  background:linear-gradient(rgba(40,31,21,.74),rgba(26,20,13,.80));
+  border-color:#4a341d;
+  border-radius:2px;
+}
+/* three boards, evenly spaced, each with a lit front edge */
+.k-shelf::before{
+  background:
+    linear-gradient(#c1925c,#8d6337) 0 3%/100% 12% no-repeat,
+    linear-gradient(#c1925c,#8d6337) 0 43%/100% 12% no-repeat,
+    linear-gradient(#c1925c,#8d6337) 0 84%/100% 14% no-repeat,
+    linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)) 0 4%/100% 1px no-repeat,
+    linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)) 0 44%/100% 1px no-repeat,
+    linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)) 0 84%/100% 1px no-repeat;
+}
+/* the uprights holding them up */
+.k-shelf::after{
+  inset:0;
+  background:
+    linear-gradient(#a9793f,#7d5227) 0 0/7% 100% no-repeat,
+    linear-gradient(#a9793f,#7d5227) 100% 0/7% 100% no-repeat;
+}
+
+/* ---------- HOOK — a wall rail with hooks hanging off it ----------
+   Shallow on purpose: the thing on the wall is a board, and the depth in the
+   silhouette is the hooks. */
+.k-hook{
+  background:linear-gradient(#9d6f42,#7c5430);
+  border-color:#553618;
+  border-radius:2px;
+}
+/* grain plus the moulded top edge of the board */
+.k-hook::before{
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 5px, rgba(255,255,255,.04) 5px 11px),
+    linear-gradient(rgba(255,255,255,.26),rgba(255,255,255,.26)) 0 0/100% 14% no-repeat,
+    linear-gradient(rgba(0,0,0,.30),rgba(0,0,0,.30)) 0 16%/100% 2px no-repeat;
+}
+/* THE HOOKS ARE THE WHOLE KIND, so they are drawn as one element cloned by
+   box-shadow rather than carved out of a stripe field with mask() — that first
+   version rendered as four barely-visible slivers. The offsets are in `cqw`,
+   which resolves against .furn's own box (it sets container-type:size), so the
+   spacing holds at any zoom and any room scale. Same idiom as the tub's feet. */
+.k-hook::after{
+  left:10%;bottom:-30%;
+  width:3.6%;height:36%;min-width:2px;min-height:5px;
+  border-radius:1px 1px 999px 999px;
+  background:linear-gradient(#f0d094,#a97f38);
+  box-shadow:
+    17.5cqw 0 0 0 #d9b473,
+    35cqw   0 0 0 #d9b473,
+    52.5cqw 0 0 0 #d9b473,
+    70cqw   0 0 0 #d9b473,
+    0 1px 2px rgba(0,0,0,.55);
+}
+/* the bottom edge is hooks, not carcass — the plate belongs up on the board */
+.k-hook .flabel{margin-bottom:auto;margin-top:24cqh}
+
+/* ---------- BIN — a lidded bin, narrow and slightly tapered ---------- */
+.k-bin{
+  background:linear-gradient(90deg, rgba(255,255,255,.14) 0 12%, transparent 30%),
+             linear-gradient(#5d6a72,#47535a 60%,#37424a);
+  border-color:#232c32;
+  border-radius:4px 4px 12% 12%;
+}
+/* the lid, the dark gap under it, and vertical body ribs */
+.k-bin::before{
+  background:
+    linear-gradient(#8d9ca4,#6a7981) 0 0/100% 19% no-repeat,
+    linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,.72)) 0 19%/100% 3px no-repeat,
+    linear-gradient(rgba(255,255,255,.18),rgba(255,255,255,.18)) 0 calc(19% + 3px)/100% 1px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 24%, rgba(0,0,0,.20) 24% 28%) 0 24%/100% 76% no-repeat;
+}
+/* THE OVERHANGING RIM IS WHAT MAKES IT A BIN. A lid painted flush inside the
+   box is a seam, and a seam on a grey box is a cabinet — which is what the
+   first pass looked like beside the steel fridge. This one sticks out past both
+   sides, so the silhouette says lid before any of the shading does. */
+.k-bin::after{
+  left:-6%;right:-6%;top:-5%;height:10%;min-height:3px;
+  border-radius:2px;
+  background:linear-gradient(#a6b4bb,#74838b);
+  box-shadow:0 2px 3px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.3);
+}
+
+/* ---------- HEAP — a pile. No straight edge anywhere on it ----------
+   For every container whose name is a confession: The Clean-ish Pile, The
+   Blanket Heap, The Charging Pile, Dry Feed Sacks. A pile drawn as a cabinet
+   is the joke landing upside down. */
+.k-heap{
+  background:linear-gradient(#8e7a63,#6d5c48 60%,#544738);
+  border-color:rgba(0,0,0,.35);
+  /* deliberately lopsided: a symmetrical mound reads as a loaf */
+  border-radius:52% 44% 16% 20% / 78% 68% 16% 18%;
+  box-shadow:0 5px 10px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.14);
+}
+/* more lumps under the first, so the mass reads as several things */
+.k-heap::before{
+  border-radius:inherit;
+  background:
+    radial-gradient(ellipse 42% 60% at 26% 44%, rgba(255,255,255,.16), transparent 70%),
+    radial-gradient(ellipse 36% 52% at 74% 58%, rgba(0,0,0,.22), transparent 72%),
+    radial-gradient(ellipse 60% 30% at 50% 96%, rgba(0,0,0,.35), transparent 75%);
+}
+/* one thing sticking out of it, which is what makes it a pile of SOMETHING */
+.k-heap::after{
+  right:12%;top:-8%;
+  width:16%;height:34%;min-width:3px;
+  border-radius:999px;
+  background:linear-gradient(#a4917a,#7a6a56);
+  transform:rotate(24deg);
+  box-shadow:0 1px 2px rgba(0,0,0,.4);
+}
+
+/* ---------- FROST — a chest freezer, lid seam and frost ---------- */
+.k-frost{
+  background:linear-gradient(#f2f8fa,#dae9ef 50%,#bed3dc);
+  border-color:#8fa8b3;
+  border-radius:3px;
+}
+/* the lid across the top, its gasket, and frost speckling the body */
+.k-frost::before{
+  background:
+    linear-gradient(#ffffff,#e6f2f6) 0 0/100% 30% no-repeat,
+    linear-gradient(rgba(120,160,175,.75),rgba(120,160,175,.75)) 0 30%/100% 2px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,.95) 1.1px, transparent 1.5px) 0 0/8px 8px,
+    radial-gradient(circle, rgba(190,225,238,.7) 1.6px, transparent 2px) 4px 4px/13px 13px;
+}
+/* the temperature strip: the one cold-blue accent on the piece */
+.k-frost::after{
+  left:10%;bottom:16%;
+  width:34%;height:12%;min-height:3px;
+  border-radius:2px;
+  background:linear-gradient(90deg,#7fd6f5,#3f9fc9);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.6), 0 1px 2px rgba(0,0,0,.3);
+}
+.k-frost .flabel{color:#1d3138;background:rgba(255,255,255,.66);text-shadow:0 1px 0 rgba(255,255,255,.7)}
+
+/* ---------- TANK — a glass vivarium: mesh lid, substrate, water line ---------- */
+.k-tank{
+  background:linear-gradient(rgba(196,226,222,.34),rgba(140,186,190,.30));
+  border:1px solid rgba(110,150,150,.9);
+  border-radius:2px;
+  backdrop-filter:blur(1px);
+}
+/* mesh lid on top, substrate in the bottom, one glass highlight across it */
+.k-tank::before{
+  background:
+    repeating-linear-gradient(90deg, rgba(90,105,100,.85) 0 1px, transparent 1px 4px) 0 0/100% 13% no-repeat,
+    linear-gradient(rgba(70,84,80,.9),rgba(70,84,80,.9)) 0 13%/100% 2px no-repeat,
+    linear-gradient(#9a7f56,#7a6340) 0 100%/100% 16% no-repeat,
+    linear-gradient(124deg, rgba(255,255,255,.42) 0 12%, transparent 13% 46%, rgba(255,255,255,.20) 47% 54%, transparent 55%);
+}
+/* the frame, which is what stops it reading as a pane of nothing */
+.k-tank::after{
+  inset:0;border:2px solid rgba(120,148,148,.75);border-radius:inherit;
+}
+.k-tank .flabel{color:#12292b;background:rgba(255,255,255,.55);text-shadow:0 1px 0 rgba(255,255,255,.55)}
+
+/* ---------- TABLE — a top on legs, open underneath ---------- */
+.k-table{
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+  border-radius:0;
+}
+/* the top plank and its lit front edge; the legs are ::after */
+.k-table::before{
+  background:
+    linear-gradient(#a87c4c,#8a6136) 0 0/100% 26% no-repeat,
+    linear-gradient(rgba(255,255,255,.30),rgba(255,255,255,.30)) 0 24%/100% 1px no-repeat,
+    linear-gradient(rgba(0,0,0,.45),rgba(0,0,0,.45)) 0 26%/100% 3px no-repeat;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.45));
+}
+/* two legs and the stretcher between them */
+.k-table::after{
+  inset:0;
+  background:
+    linear-gradient(#7e5730,#5f3f20) 6% 26%/9% 74% no-repeat,
+    linear-gradient(#7e5730,#5f3f20) 94% 26%/9% 74% no-repeat,
+    linear-gradient(#6b4926,#6b4926) 0 74%/100% 7% no-repeat;
+}
+/* there is no carcass at the bottom to print on — the plate sits on the top */
+.k-table .flabel{margin-bottom:auto;margin-top:3cqh}
+
+/* ---------- CUBBY — a grid of pigeonholes ----------
+   Shoes, scrolls, wine, nest boxes, discs: everything that is stored one-per-
+   slot rather than tipped into a box. */
+.k-cubby{
+  background:linear-gradient(#8d6a44,#6d5133);
+  border-color:#412d18;
+  border-radius:2px;
+}
+/* The holes, as two crossed stripe fields multiplied together. Both were at
+   .88 alpha in the first pass, and multiplied that is effectively black — a
+   dark grid, not furniture with recesses in it. At .5 the wood still shows
+   through the shadow, which is what makes it read as depth. */
+.k-cubby::before{
+  background:
+    repeating-linear-gradient(90deg, transparent 0 4%, rgba(30,20,10,.5) 4% 29%, transparent 29% 33%),
+    repeating-linear-gradient(180deg, transparent 0 6%, rgba(30,20,10,.5) 6% 44%, transparent 44% 50%),
+    /* a lit lip along the bottom of each row, so the shelves read as shelves */
+    repeating-linear-gradient(180deg, transparent 0 42%, rgba(214,170,110,.35) 42% 45%, transparent 45% 50%);
+}
+/* the frame, so the grid reads as built rather than printed */
+.k-cubby::after{
+  inset:0;
+  border:2px solid rgba(150,110,68,.85);
+  border-radius:inherit;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+/* ---------- STAND — a tall narrow upright: umbrellas, brooms, cues ---------- */
+.k-stand{
+  background:linear-gradient(90deg, rgba(255,255,255,.16) 0 14%, transparent 34%),
+             linear-gradient(#6a5a48,#4d4134 62%,#3a3128);
+  border-color:#241d16;
+  border-radius:3px 3px 20% 20%;
+}
+/* open mouth at the top, a band round the middle, a flared foot. The mouth is
+   near-opaque: an upright you cannot see INTO is a bollard. */
+.k-stand::before{
+  background:
+    radial-gradient(ellipse 74% 100% at 50% 6%, rgba(8,6,4,.96) 0 58%, rgba(8,6,4,.6) 74%, transparent 82%) 0 0/100% 22% no-repeat,
+    linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)) 0 52%/100% 3px no-repeat,
+    linear-gradient(rgba(255,255,255,.14),rgba(255,255,255,.14)) 0 calc(52% + 3px)/100% 1px no-repeat,
+    linear-gradient(#57493a,#40372c) 0 100%/100% 11% no-repeat;
+}
+/* Handles leaning out of the mouth — the reason it's a stand and not a pipe.
+   Cloned in cqw like the hooks and the couch arms, so the pair keeps its gap
+   however narrow the piece is drawn. */
+.k-stand::after{
+  /* They poke ABOVE the box, which is also where the badge strip lives
+     (top:-24cqh). That is fine and deliberate: .badges is z-index 4 and
+     ::after is 2, so a badge always paints over a handle rather than being
+     hidden behind one. Kept short enough that the overlap reads as depth. */
+  left:50%;top:-20%;
+  width:11%;height:42%;min-width:3px;
+  border-radius:999px;
+  background:linear-gradient(#a08e70,#645843);
+  transform:rotate(12deg);
+  box-shadow:-38cqw 5cqw 0 0 rgba(140,124,98,.95), 0 1px 2px rgba(0,0,0,.5);
+}
+
+/* ---------- COUCH — back, seat, arms ---------- */
+.k-couch{
+  background:linear-gradient(#7a5b6b,#5d4351 58%,#48333e);
+  border-color:#2d1f27;
+  border-radius:8px 8px 4px 4px;
+}
+/* the back cushion, its seam, and the seat cushion below */
+.k-couch::before{
+  background:
+    linear-gradient(#8f6c7d,#6d4f5d) 0 0/100% 42% no-repeat,
+    linear-gradient(rgba(0,0,0,.40),rgba(0,0,0,.40)) 0 42%/100% 2px no-repeat,
+    linear-gradient(90deg, transparent 49%, rgba(0,0,0,.30) 49.5% 50.5%, transparent 51%) 0 0/100% 42% no-repeat,
+    linear-gradient(#8a6878,#664956) 0 46%/100% 40% no-repeat;
+}
+/* An arm at each end, rolled — drawn as one element cloned by box-shadow so
+   both get a real border-radius. Painted as two background stripes they came
+   out square and only a shade off the body, which read as a purple box. */
+.k-couch::after{
+  left:0;top:8%;width:15%;height:92%;
+  border-radius:7px 7px 2px 2px;
+  background:linear-gradient(#b18b99,#7d5b69);
+  box-shadow:
+    85cqw 0 0 0 #a37e8c,
+    inset 0 1px 0 rgba(255,255,255,.26);
+}
