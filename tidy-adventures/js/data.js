@@ -9,7 +9,7 @@
    Imports: config, validate.
 ============================================================ */
 import { DATA_VERSION } from './config.js';
-import { anchorPrefix, expectedItems } from './util.js';
+import { anchorPrefix, expectedItems, themeTypeCap, clamp } from './util.js';
 import { validateData, showBootError, DataError } from './validate.js';
 
 const FILES = ['names','rooms','themes','furniture','sizes','levels','upgrades','strings','audio','quests','clients'];
@@ -24,7 +24,9 @@ export const LOOKUP = {
   names: {},          // emoji -> display name
   roomById: {},       // id -> room def
   containerOf: {},    // "roomId/contId" -> container def
-  sizeById: {},
+  bandById: {},      // free-play size band id -> band def
+  freeJobs: [],      // every free-play house, in board order
+  freeJobById: {},   // "fp:mom:roomy:3" -> the same object
   levelByIdx: [],
   levelIdxById: {},   // "3-1" -> 4
   upgradeById: {},
@@ -80,7 +82,7 @@ function buildLookups() {
     LOOKUP.roomById[room.id] = room;
     for (const c of room.containers) LOOKUP.containerOf[`${room.id}/${c.id}`] = c;
   }
-  for (const s of DATA.sizes.sizes) LOOKUP.sizeById[s.id] = s;
+  for (const b of DATA.sizes.bands || []) LOOKUP.bandById[b.id] = b;
   LOOKUP.levelByIdx = DATA.levels.levels;
   DATA.levels.levels.forEach((lv, i) => { LOOKUP.levelIdxById[lv.id] = i; });
   for (const u of DATA.upgrades.upgrades) LOOKUP.upgradeById[u.id] = u;
@@ -118,6 +120,120 @@ function buildLookups() {
       };
     }
   }
+
+  buildFreeBoard();
+}
+
+/* ============================================================
+   FREE PLAY — the board of houses
+
+   SIZE BAND x CHARACTER x housesPerBand, built once here rather than authored,
+   which is the only reason two hundred and thirty-odd houses is a sane amount
+   of content: the whole board is nine numbers in sizes.json and five place
+   names per person in clients.json.
+
+   Every house is a JOB with a stable id, exactly like a campaign level: `fp`,
+   the character, the band, the house number. Ids rather than indices for the
+   same reason DONE_KEY holds level ids — inserting a band, a character or a
+   sixth house must not re-point what a player has already finished.
+
+   A RUN NEVER REMEMBERS THE HOUSE ITSELF, only this id, and freeJobAt() looks
+   the rest back up. Same trick as jobAt(levelIdx) in the campaign, and it is
+   what keeps the save format to one extra string.
+============================================================ */
+function buildFreeBoard() {
+  const S = DATA.sizes || {};
+  const bands = S.bands || [];
+  const per = S.housesPerBand || 5;
+  const reach = S.reach ?? 0.85;
+  const fill = S.typeFill ?? 1;
+  const rowMin = S.rowLen?.min ?? 4, rowMax = S.rowLen?.max ?? 8;
+  const V = S.variation || {};
+  const themes = DATA.themes?.themes || {};
+  const anchors = DATA.furniture?.anchors, dflt = DATA.furniture?.defaultSize;
+
+  /* One capacity lookup per (world, roomCount) pair, because themeTypeCap()
+     sorts the whole room pool and the board would otherwise call it ~1,200
+     times on boot for eleven distinct answers. */
+  const capCache = new Map();
+  const capOf = (worldId, rooms) => {
+    const k = worldId + "/" + rooms;
+    if (!capCache.has(k)) {
+      capCache.set(k, themeTypeCap(themes[worldId], DATA.rooms.rooms, anchors, dflt, rooms));
+    }
+    return capCache.get(k);
+  };
+
+  /* items -> the closest (targetTypes, rowLen) this world can actually build.
+     Prefers MORE TYPES over more of each: variety is what makes two runs of
+     one world different, and rowLen only has to carry the rest. */
+  const fit = (worldId, bandRooms, items) => {
+    const rooms = Math.min(bandRooms, (themes[worldId]?.rooms || []).length);
+    /* `usable`, not `cap`: a run may not spend a world's whole pool. See
+       typeFill in sizes.json — it is the difference between five houses in one
+       world and one house five times, and it is also the headroom generate()
+       needs to actually hit the number the tile prints. */
+    const cap = capOf(worldId, rooms);
+    const usable = Math.floor(cap * fill);
+    if (!usable) return null;
+    const first = clamp(Math.round(items / usable), rowMin, rowMax);
+    const targetTypes = clamp(Math.round(items / first), 1, usable);
+    /* SECOND PASS, and it is what makes the five houses differ in a SMALL
+       world. `first` was derived for a type count the world may not be able to
+       supply; once targetTypes clamps to `usable`, the item drift that was
+       supposed to separate house 1 from house 5 has nowhere to go and every
+       house comes out at the ceiling — three of Zorb's five Small houses
+       printed the same count. Re-deriving rowLen from the types we can
+       actually have puts the drift on rowLen instead. A no-op when nothing
+       clamped, which is every house in the house world. */
+    const rowLen = clamp(Math.round(items / targetTypes), rowMin, rowMax);
+    return { rooms, cap, usable, rowLen, targetTypes, items: targetTypes * rowLen };
+  };
+
+  LOOKUP.freeJobs = [];
+  LOOKUP.freeJobById = {};
+
+  for (const band of bands) {
+    for (const arc of LOOKUP.arcs) {
+      const client = arc.client;
+      if (!client.world || !themes[client.world]) continue;
+      /* Offered at all? Measured at the band's NOMINAL size, so whether a
+         character appears under a band cannot depend on which of their five
+         houses you happen to look at. */
+      const nominal = fit(client.world, band.rooms, band.items);
+      if (!nominal || nominal.items < band.items * reach) continue;
+
+      for (let n = 1; n <= per; n++) {
+        /* House 3 IS the band; 1 and 2 are its small end, 4 and 5 its big end. */
+        const drift = 1 + (V.step ?? 0) * (n - Math.ceil(per / 2));
+        const f = fit(client.world, band.rooms, Math.round(band.items * drift));
+        const at = i => Array.isArray(i) ? i[Math.min(n - 1, i.length - 1)] : i;
+        const place = (client.places || [])[n - 1] || `House ${n}`;
+        const job = {
+          id: `fp:${client.id}:${band.id}:${n}`,
+          client, band, n, place,
+          /* The config generate() will be handed. `theme` comes from the
+             person and nothing else in it mentions a world. */
+          cfg: {
+            label: place,
+            theme: client.world,
+            rooms: f.rooms,
+            targetTypes: f.targetTypes,
+            rowLen: f.rowLen,
+            doorLocks: at(V.doorLocks) || 0,
+            doorKeys:  at(V.doorKeys)  || 0,
+            contLocks: at(V.contLocks) || 0,
+            contKeys:  at(V.contKeys)  || 0,
+            caches:    at(V.caches)    || 0,
+            junk:      !!at(V.junk),
+            scale:     band.scale || S.scale || [0.7, 0.95],
+          },
+        };
+        LOOKUP.freeJobs.push(job);
+        LOOKUP.freeJobById[job.id] = job;
+      }
+    }
+  }
 }
 
 function deepFreeze(o) {
@@ -151,6 +267,26 @@ export const themeRooms = id => theme(id).rooms.map(rid => LOOKUP.roomById[rid])
    -> { stage, stageNo, stageCount, last, levelIdx, level, client } */
 export const jobAt = idx => LOOKUP.jobByIdx[idx] || null;
 export const levelIdxOf = id => LOOKUP.levelIdxById[id] ?? -1;
+
+/* The free-play house with this id: who is asking, how big, which of their
+   five, and the config to generate. Null for an id that no longer exists,
+   which is what a save written before a band was renamed looks like.
+   -> { id, client, band, n, place, cfg } */
+export const freeJobAt = id => LOOKUP.freeJobById[id] || null;
+
+/* Every house, in board order (band, then character, then 1..housesPerBand).
+   The board renders straight off this and does no arithmetic of its own. */
+export const freeJobs = () => LOOKUP.freeJobs;
+
+/* The bands that actually have houses in them, in authored order. A band whose
+   every world fell below `reach` would otherwise render as an empty heading. */
+export const freeBands = () => (DATA.sizes.bands || [])
+  .filter(b => LOOKUP.freeJobs.some(j => j.band.id === b.id));
+
+/* The characters offering houses in this band, in story order. */
+export const freeClientsIn = bandId => LOOKUP.arcs
+  .map(a => a.client)
+  .filter(c => LOOKUP.freeJobs.some(j => j.band.id === bandId && j.client.id === c.id));
 
 /* The item count a config actually produces. The old SIZES[].items field and
    the hardcoded "~50 items" menu labels were both copies of this that drifted. */

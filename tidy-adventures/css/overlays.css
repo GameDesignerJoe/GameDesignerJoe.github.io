@@ -107,21 +107,124 @@
   margin-top:14px;font-size:11px;font-weight:700;letter-spacing:.22em;
   color:var(--ink-dim);opacity:.5;text-transform:uppercase;
 }
-.sizegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.sizegrid .menubtn{margin:0}
-/* A group heading spans the whole grid and sits above its own presets. */
-.sizegrid .sizehead{
-  grid-column:1 / -1;
-  margin:10px 0 0;
-  font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--ink-dim);text-align:left;
+/* ---------- THE FREE PLAY BOARD ----------
+   Was `.sizegrid`: two columns of nine gold pills. It is now the same kind of
+   screen as the job board, because it is now the same kind of thing — a grid
+   of jobs with a record of which ones are done.
+
+   The structure is the grouping, and the grouping is the feature:
+     .fpband   a size band          -> .fpbhead  its name, pip and count
+     .fpchar   one person's row     -> .fpwho    face, name, "3 / 5"
+     .fprow    their five houses    -> .fptile   one house
+   Sized so five tiles fit across a phone: the row is the unit the eye reads,
+   so five must never wrap to two lines or the set stops looking like a set.
+
+   Same width treatment as #campaignOverlay for the same reason — this board is
+   the screen, and the chrome above it was eating half a phone. */
+#sizeOverlay{padding:14px 10px}
+#sizeOverlay .card{width:100%;max-width:min(96vw, 880px)}
+#sizeOverlay .big{font-size:34px;margin-bottom:2px}
+#sizeOverlay h1{font-size:26px;margin-bottom:4px}
+#sizeOverlay p{font-size:13px;margin-bottom:0}
+
+/* The board scrolls, not the card: Back has to stay reachable, and the bottom
+   edge fades to say there is more below. Identical to #jobBoard, including
+   .atEnd killing the fade once there isn't — see openFreeMenu(). */
+#freeBoard{
+  margin-top:12px;padding:2px;text-align:left;
+  max-height:min(62vh, 600px);overflow-y:auto;
+  scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
+  mask-image:linear-gradient(#000 calc(100% - 26px), transparent);
 }
-.sizegrid .sizehead:first-child{margin-top:0}
-/* Free Play went from four presets to nine, which is taller than a phone.
-   Same treatment the gear already has: the CARD scrolls, so Back stays
-   reachable instead of being pushed off the bottom of the screen. */
-#sizeOverlay .card{max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:none}
-#sizeOverlay .card::-webkit-scrollbar{display:none}
+#freeBoard::-webkit-scrollbar{display:none}
+#freeBoard.atEnd{-webkit-mask-image:none;mask-image:none}
+
+/* ---------- a size band ---------- */
+.fpband{margin-bottom:18px}
+.fpband:last-child{margin-bottom:2px}
+.fpbhead{
+  display:flex;align-items:baseline;gap:8px;
+  padding:0 2px 5px;margin-bottom:8px;
+  border-bottom:1px solid rgba(255,255,255,.12);
+  /* Sticky so you always know which band you are scrolling through — 235
+     tiles is a long way from the heading that explains them.
+     .card has NO background of its own (the .overlay backdrop is what you see
+     through it), so this has to paint its own or the tiles scroll through the
+     text. Near-opaque in the backdrop's own colour rather than a token,
+     because there is no card-background token to borrow. */
+  position:sticky;top:0;z-index:2;
+  background:rgba(15,11,6,.97);
+}
+.fpbname{font-size:15px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--ink)}
+.fpbpip{font-size:9px;color:var(--gold);letter-spacing:.1em;font-style:normal;opacity:.85}
+.fpbcount{
+  margin-left:auto;font-style:normal;
+  font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--ink-dim);
+}
+
+/* ---------- one person's row of houses ---------- */
+.fpchar{margin-bottom:10px}
+.fpwho{display:flex;align-items:center;gap:7px;margin:0 2px 5px}
+.fpface{font-size:22px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.fpname{font-size:12.5px;font-weight:800;letter-spacing:.04em;color:var(--ink)}
+.fpcp{
+  margin-left:auto;font-style:normal;
+  font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--ink-dim);
+}
+/* All five done. The only gold on the row, so a finished set is findable by
+   scrolling past rather than by reading every counter. */
+.fpwho.allin .fpname{color:var(--gold)}
+.fpwho.allin .fpcp{color:var(--gold);opacity:.9}
+
+.fprow{display:grid;grid-template-columns:repeat(5, 1fr);gap:5px}
+@media (min-width:560px){
+  .fprow{gap:8px}
+}
+
+/* ---------- one house ----------
+   Scoped `.overlay .fptile` (0,2,1) for the same reason .jtile is: `.overlay
+   button` (0,1,1) makes every button in an overlay a gold pill and would
+   outrank a bare class selector. */
+.overlay .fptile{
+  position:relative;
+  display:flex;flex-direction:column;justify-content:center;gap:3px;
+  min-height:52px;padding:7px 5px;margin:0;
+  border-radius:9px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:none;
+  cursor:pointer;
+  text-align:center;
+  transition:background .15s, border-color .15s;
+}
+.overlay .fptile:hover{background:rgba(255,255,255,.09);border-color:rgba(245,197,66,.5)}
+.fptile .fpplace{
+  font-size:9.5px;font-weight:800;line-height:1.15;letter-spacing:-.01em;
+  color:var(--ink);
+  /* Place names run to four words ("Before The Faculty Dinner") in a tile about
+     58px wide on a phone. Two lines then clamp, with the ellipsis -webkit-line-
+     clamp adds for free. `anywhere` is the LAST resort and it shows: at 10px a
+     single long word ("homecoming") was broken mid-letter rather than clamped,
+     which is why the type is a half-point smaller with the letter-spacing
+     pulled in — the longest single word in `places` has to fit one line. */
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;overflow-wrap:anywhere;
+}
+.fptile .fpcount{
+  font-size:8.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--ink-dim);white-space:nowrap;
+}
+/* Done. Dimmer rather than brighter: the eye should land on what is LEFT. */
+.overlay .fptile.done{background:rgba(245,197,66,.10);border-color:rgba(245,197,66,.30)}
+.overlay .fptile.done .fpplace{color:var(--ink-dim)}
+.fptile .fpmark{position:absolute;top:2px;right:3px;font-size:8px;line-height:1}
+
+@media (min-width:560px){
+  .fptile .fpplace{font-size:11.5px}
+  .fptile .fpcount{font-size:9.5px}
+  .overlay .fptile{min-height:60px}
+}
 
 /* ---------- JOB BOARD ----------
    A grid of faces in play order, not a stack of per-client cards. The board

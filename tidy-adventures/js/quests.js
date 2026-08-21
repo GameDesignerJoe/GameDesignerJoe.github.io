@@ -20,7 +20,7 @@
    Imports: dom, data, state, util, geometry, feedback, chatter, audio.
 ============================================================ */
 import { $, el, host } from './dom.js';
-import { DATA, LOOKUP, nameOf, jobAt } from './data.js';
+import { DATA, LOOKUP, nameOf, jobAt, freeJobAt } from './data.js';
 import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
 import { findFloorSpot, spin } from './geometry.js';
@@ -88,12 +88,22 @@ function alreadyDone(e) {
 /* Whose hand is this note in? A campaign level is somebody's job, so it is
    theirs. A free-play house is nobody's, and writes in the house's own hand —
    which is what "— M" now means. */
+/* WHO IS ON THIS JOB — campaign or free play. Free play used to have nobody
+   in it, which is what "— M" in quests.json means: the hand a house writes in
+   when nobody hired you. Every free-play house belongs to one of the cast now,
+   so the note is signed by them and the reply arrives in their voice, and the
+   generic hand is left for a legacy save with no house id. */
 function voice() {
-  const job = G.mode === "campaign" ? jobAt(G.levelIdx) : null;
+  const job = G.mode === "campaign" ? jobAt(G.levelIdx) : freeJobAt(G.freeId);
   if (!job) return { sign: DATA.quests.signature || "", beats: [] };
   return {
     sign: job.client.sign || ("— " + job.client.name),
-    beats: job.stage.note || [],
+    /* A FREE-PLAY HOUSE HAS NO STAGE, so no stage-authored note copy — the
+       optional chain is load-bearing, not defensive. What it gets instead is
+       the room's own copy from quests.json signed in their hand, which is the
+       right split: the words are about the room and the signature is about who
+       asked. Authoring free-play note copy per house would be 235 x 3 lines. */
+    beats: job.stage?.note || [],
   };
 }
 
@@ -249,7 +259,7 @@ export function completeQuest(q) {
    asks the run who is on the job right now — and falls back to the house the
    same way speaker() in main.js does. */
 function replyFace() {
-  const job = G.mode === "campaign" ? jobAt(G.levelIdx) : null;
+  const job = G.mode === "campaign" ? jobAt(G.levelIdx) : freeJobAt(G.freeId);
   if (job) return job.client.emoji;
   const hv = DATA.strings.houseVoice || {};
   return DATA.themes.themes[G.theme]?.icon || hv.face || DATA.strings.icon || "🏠";

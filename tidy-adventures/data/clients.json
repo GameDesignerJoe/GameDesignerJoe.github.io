@@ -96,11 +96,50 @@
     "Marguerite, and validate.js allows a two-stage arc for exactly that."
   ],
 
+  "_freePlayNote": [
+    "FREE PLAY IS THESE PEOPLE TOO. The board is size bands (data/sizes.json)",
+    "crossed with this cast, five houses each, and every character therefore",
+    "needs two more fields:",
+    "",
+    "  world  — which theme their houses draw from, by id from themes.json. It is",
+    "           AUTHORED rather than inferred from their campaign stages, because",
+    "           inferring it gets Zorb wrong: his first job (4-1) is a house he",
+    "           has been assigned, and he is unmistakably the ship. Boot",
+    "           validation checks the id exists.",
+    "  places — one short name per free-play house, `housesPerBand` of them,",
+    "           reused across every band. A tile saying \"Mom · House 3\" is a",
+    "           spreadsheet; a tile saying \"Mom · The Loft\" is somewhere to go.",
+    "           Keep them SHORT (they sit in a ~120px tile under a face) and",
+    "           deliberately vague about scale, because the same name has to work",
+    "           at 220 items and at 1,800 — which is why they are occasions and",
+    "           places rather than rooms. Voice still applies: the frat's are in",
+    "           lower case because the frat types in lower case.",
+    "",
+    "Their `quips`, `nudge` and note signature all work in free play now, which",
+    "they could not before — free play used to have nobody in it, and",
+    "houseVoice in strings.json was written for exactly that. It is still the",
+    "fallback for a save whose free-play job no longer resolves."
+  ],
+
   "clients": [
     {
       "id": "mom",
       "name": "Mom",
       "emoji": "👩‍🦰",
+      "world": "house",
+      "places": [
+        "The Spare Room",
+        "The Garage Again",
+        "Nan's Bungalow",
+        "The Good Front Room",
+        "The Loft"
+      ],
+      "freeVoice": {
+        "greet": ["Right. This one next, and don't sigh at me.",
+                  "I've made a list. You'll want to see the list."],
+        "back":  ["You came back to it. Good.",
+                  "Still exactly where you left it. Funny, that."]
+      },
       "sign": "— Mom",
       "waiting": "She has a list. She always has a list.",
       "quips": {
@@ -154,6 +193,20 @@
       "id": "marguerite",
       "name": "Marguerite",
       "emoji": "👩",
+      "world": "house",
+      "places": [
+        "The Estate Sale",
+        "Her Own Flat",
+        "The Lock-Up",
+        "The Summer House",
+        "Her Sister's Place"
+      ],
+      "freeVoice": {
+        "greet": ["Thank you for coming. I've stopped apologising. Mostly.",
+                  "Another one. I did warn you there were several."],
+        "back":  ["You came back. I haven't touched a thing.",
+                  "Still standing in the doorway. Still not helping."]
+      },
       "sign": "— Marguerite",
       "waiting": "She says she's fine. She is not fine.",
       "quips": {
@@ -231,6 +284,20 @@
       "id": "delta",
       "name": "Delta Tau Chi",
       "emoji": "🧑‍🎓",
+      "world": "frat",
+      "places": [
+        "after formal",
+        "the annex",
+        "rush week",
+        "the basement again",
+        "the tailgate"
+      ],
+      "freeVoice": {
+        "greet": ["ok so this one's rough. we know",
+                  "different room same energy. good luck king"],
+        "back":  ["oh good you're back. nothing's improved",
+                  "you left it half done and honestly? fair"]
+      },
       "sign": "— the guys",
       "waiting": "They've gone quiet. That's usually worse.",
       "quips": {
@@ -336,6 +403,20 @@
       "id": "zorb",
       "name": "Zorb",
       "emoji": "👽",
+      "world": "ship",
+      "places": [
+        "The Second Vessel",
+        "The Long Survey",
+        "The Cargo Deck",
+        "The Quiet Rotation",
+        "Before The Report"
+      ],
+      "freeVoice": {
+        "greet": ["Another dwelling. I have questions. I will save them.",
+                  "Begin. I will observe and take notes you will never see."],
+        "back":  ["You have returned. Nothing moved. I checked hourly.",
+                  "Resuming. The notes are longer now."]
+      },
       "sign": "— ZORB",
       "waiting": "Zorb is compiling. Zorb will return.",
       "quips": {
@@ -416,6 +497,20 @@
       "id": "unit7",
       "name": "Unit 7",
       "emoji": "🤖",
+      "world": "house",
+      "places": [
+        "Training Set A",
+        "Training Set B",
+        "The Retake",
+        "Unsupervised",
+        "The Field Test"
+      ],
+      "freeVoice": {
+        "greet": ["A new sample. I am recording from the first item.",
+                  "Demonstrate again. Repetition is how I learn anything at all."],
+        "back":  ["Resumed. I paused the recording out of politeness.",
+                  "You returned. I had estimated that you would."]
+      },
       "sign": "— UNIT 7",
       "waiting": "Unit 7 is retraining. It has asked for privacy.",
       "quips": {
@@ -488,6 +583,20 @@
       "id": "newdad",
       "name": "Sam",
       "emoji": "👨‍🍼",
+      "world": "house",
+      "places": [
+        "Nap Two",
+        "The Nursery",
+        "Grandma's Visit",
+        "The Second Birthday",
+        "Teething Week"
+      ],
+      "freeVoice": {
+        "greet": ["She's down. Go. Quietly.",
+                  "Fresh disaster, same forty minutes. Please."],
+        "back":  ["Still asleep, somehow. Carry on.",
+                  "You're back. I'd hug you but I'd wake her."]
+      },
       "sign": "— Sam",
       "waiting": "Sam says he's got it under control. Sam does not have it under control.",
       "quips": {
@@ -560,6 +669,20 @@
       "id": "ashworth",
       "name": "Dr. Ashworth",
       "emoji": "🧑‍🔬",
+      "world": "house",
+      "places": [
+        "Before The Faculty Dinner",
+        "The Study",
+        "The Cottage",
+        "After The Grant",
+        "The Sabbatical"
+      ],
+      "freeVoice": {
+        "greet": ["I'd rather not explain this one. Please just start.",
+                  "It got away from me again. Same as last time."],
+        "back":  ["You came back to it. I'd stopped expecting that.",
+                  "Still exactly as bad. I've been busy."]
+      },
       "sign": "— A. Ashworth",
       "waiting": "Dr. Ashworth hasn't replied. The lights are on.",
       "quips": {
@@ -644,6 +767,20 @@
       "id": "dreamgod",
       "name": "The Dream",
       "emoji": "🌌",
+      "world": "dream",
+      "places": [
+        "A Tuesday Night",
+        "The Recurring One",
+        "Half Awake",
+        "The Long Nap",
+        "Before The Alarm"
+      ],
+      "freeVoice": {
+        "greet": ["You are asleep. Again. There is more sky.",
+                  "This one has not been sorted since you last dreamt it."],
+        "back":  ["You are back in it. The sky waited.",
+                  "The same dream, further along."]
+      },
       "sign": "— filed in your sleep",
       "waiting": "You have not been sleeping enough to go back.",
       "quips": {
@@ -727,6 +864,20 @@
       "id": "wizard",
       "name": "Nettle",
       "emoji": "🧙",
+      "world": "tower",
+      "places": [
+        "The Second Tower",
+        "The Cellars",
+        "The Guest Wing",
+        "After The Apprentice",
+        "The Long Inventory"
+      ],
+      "freeVoice": {
+        "greet": ["Another room. Four hundred years, remember.",
+                  "Start anywhere. It is all equally bad."],
+        "back":  ["Back. Nothing has moved and nothing has aged.",
+                  "You returned. The tower noticed. I did not."]
+      },
       "sign": "— Nettle",
       "waiting": "Nettle is busy. Nettle is always busy.",
       "quips": {
@@ -817,6 +968,20 @@
       "id": "parrot",
       "name": "Captain",
       "emoji": "🦜",
+      "world": "zoo",
+      "places": [
+        "The Night Shift",
+        "Quarter Review",
+        "The Annexe",
+        "Inspection Week",
+        "The Reorganisation"
+      ],
+      "freeVoice": {
+        "greet": ["Right. Facility standards. Begin.",
+                  "This one is behind schedule and I have a note about it."],
+        "back":  ["You are back. I logged the absence.",
+                  "Resuming. The note is still open."]
+      },
       "sign": "— Captain",
       "waiting": "Captain is in a meeting. Captain has scheduled a meeting with Boris.",
       "quips": {
@@ -902,6 +1067,20 @@
       "id": "boris",
       "name": "Boris",
       "emoji": "🦍",
+      "world": "zoo",
+      "places": [
+        "The Rounds",
+        "Feeding Time",
+        "The Back Paddocks",
+        "Cover Shift",
+        "The Quiet Sunday"
+      ],
+      "freeVoice": {
+        "greet": ["This lot needs doing. No rush from me.",
+                  "Bird's not looking. Do it however you like."],
+        "back":  ["You're back. Nothing moved. That's me, that is.",
+                  "Still here, still needs doing. Take your time."]
+      },
       "sign": "— Boris",
       "waiting": "Boris is doing the rounds. Boris is always doing the rounds.",
       "quips": {

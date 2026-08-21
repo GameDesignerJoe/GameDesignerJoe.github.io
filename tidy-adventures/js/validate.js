@@ -10,7 +10,7 @@
    Imports: none. This is a leaf.
 ============================================================ */
 import { MAX_ROOMS, TALENT_IDS, CONSUMABLE_EFFECTS } from './config.js';
-import { tokensIn, anchorPrefix, expectedItems } from './util.js';
+import { tokensIn, anchorPrefix, expectedItems, themeTypeCap } from './util.js';
 
 export class DataError extends Error {}
 
@@ -375,7 +375,148 @@ export function validateData(D) {
     }
   };
 
-  for (const s of D.sizes?.sizes || []) checkCfg("sizes.json", s, s.id);
+  /* ---------- 7c. THE FREE PLAY BOARD IS BUILDABLE ----------
+
+     sizes.json used to be nine ready-made configs and checkCfg() could read
+     each one straight off. A band carries no theme and no type count now — it
+     is an item target that data.js resolves per world — so the thing to check
+     is not the band, it is every house the band produces: eleven characters
+     times five bands times five houses, and every one of them a config
+     generate() has to be able to satisfy.
+
+     Cheap to be exhaustive here (a few hundred arithmetic checks at boot) and
+     the alternative is finding out four hundred items into a run. */
+  {
+    const SZ = D.sizes || {};
+    const bands = Array.isArray(SZ.bands) ? SZ.bands : null;
+    const clients = Array.isArray(D.clients?.clients) ? D.clients.clients : [];
+    const per = SZ.housesPerBand;
+
+    if (!bands || !bands.length) {
+      errors.push(at("sizes.json", "no `bands` array.",
+        "Free play is size bands crossed with the cast in clients.json. With none there is no free play at all."));
+    }
+    if (!(per >= 1)) {
+      errors.push(at("sizes.json", `housesPerBand is ${per}.`,
+        "How many houses each character offers per band. It also has to match the length of every client's `places`."));
+    }
+
+    const seenBand = new Set();
+    for (const b of bands || []) {
+      if (!b.id) {
+        errors.push(at("sizes.json", "a band has no `id`.", "The id goes into every house id and into every save."));
+      } else if (seenBand.has(b.id)) {
+        errors.push(at("sizes.json", `two bands share the id "${b.id}".`,
+          "House ids are built from it, so duplicates collide in FREE_KEY and two bands share one set of ticks."));
+      } else seenBand.add(b.id);
+      if (!b.label) warnings.push(at("sizes.json", `band "${b.id}" has no \`label\`, so its board heading is blank.`));
+      if (!(b.rooms >= 1)) errors.push(at("sizes.json", `band "${b.id}" has rooms: ${b.rooms}.`));
+      else if (b.rooms > MAX_ROOMS) {
+        errors.push(at("sizes.json", `band "${b.id}" asks for ${b.rooms} rooms; the layout grid holds ${MAX_ROOMS}.`));
+      }
+      if (!(b.items >= 1)) {
+        errors.push(at("sizes.json", `band "${b.id}" has items: ${b.items}.`,
+          "`items` is the only size number authored anywhere — targetTypes and rowLen are derived from it per world."));
+      }
+    }
+    /* Smallest first, or the board's headings are a shuffled list. */
+    for (let i = 1; i < (bands || []).length; i++) {
+      if (!(bands[i].items > bands[i - 1].items)) {
+        warnings.push(at("sizes.json",
+          `band "${bands[i].id}" (${bands[i].items} items) is not bigger than "${bands[i - 1].id}" (${bands[i - 1].items}).`,
+          "The board renders in this order and the headings read as a size ramp."));
+      }
+    }
+
+    /* ---------- every house, derived exactly as data.js derives it ---------- */
+    const rowMin = SZ.rowLen?.min ?? 4, rowMax = SZ.rowLen?.max ?? 8;
+    const reach = SZ.reach ?? 0.85;
+    const fill = SZ.typeFill ?? 1;
+    if (!(fill > 0 && fill <= 1)) {
+      errors.push(at("sizes.json", `typeFill is ${fill}.`,
+        "The fraction of a world's type pool one run may use. Above 1 would ask for types that do not exist; " +
+        "at 1 every run of a small world is the same run."));
+    }
+    if (!(rowMin >= 1 && rowMax >= rowMin)) {
+      errors.push(at("sizes.json", `rowLen is {min:${rowMin}, max:${rowMax}}.`,
+        "rowLen is how many of each emoji exist: min at least 1, max at least min."));
+    }
+    let pairs = 0, filled = 0;
+    for (const c of clients) {
+      if (!c.world) {
+        errors.push(at("clients.json", `client "${c.id}" has no \`world\`.`,
+          "Free play is these people too, and a house has to draw its rooms from somewhere. It is authored rather " +
+          "than inferred from their campaign stages, because inferring it gets Zorb wrong: his first job is a house."));
+        continue;
+      }
+      if (!themes[c.world]) {
+        errors.push(at("clients.json", `client "${c.id}" has world "${c.world}", which is not in themes.json.`,
+          `Known worlds: ${Object.keys(themes).join(", ")}`));
+        continue;
+      }
+      const places = c.places || [];
+      if (per >= 1 && places.length !== per) {
+        errors.push(at("clients.json",
+          `client "${c.id}" has ${places.length} \`places\` but housesPerBand is ${per}.`,
+          "One place name per house. Short and the last tiles fall back to \"House 4\"; over and the extras never render."));
+      }
+      places.forEach((place, i) => {
+        if (!String(place || "").trim()) {
+          errors.push(at("clients.json", `client "${c.id}" place ${i + 1} is empty.`));
+        }
+      });
+      /* Two people may share a world (Captain and Boris both run the zoo) but
+         not a place name inside it, or two tiles in one band read identically. */
+      const dup = places.filter((p, i) => places.indexOf(p) !== i);
+      if (dup.length) {
+        warnings.push(at("clients.json", `client "${c.id}" repeats a place name: ${[...new Set(dup)].join(", ")}.`));
+      }
+
+      for (const b of bands || []) {
+        pairs++;
+        const nRooms = Math.min(b.rooms, (themes[c.world].rooms || []).length);
+        const cap = themeTypeCap(themes[c.world], rooms, D.furniture?.anchors, anchorSize, nRooms);
+        if (!cap) {
+          errors.push(at("themes.json", `world "${c.world}" has no rooms with any container types.`,
+            "Nothing can be generated in it, so every one of its free-play houses would be empty."));
+          continue;
+        }
+        const usable = Math.floor(cap * fill);
+        const first = Math.max(rowMin, Math.min(rowMax, Math.round(b.items / (usable || 1))));
+        const types = Math.max(1, Math.min(usable || 1, Math.round(b.items / first)));
+        /* Same second pass as buildFreeBoard() — see the comment there. */
+        const rowLen = Math.max(rowMin, Math.min(rowMax, Math.round(b.items / types)));
+        const got = types * rowLen;
+        /* Under `reach` means the band is NOT OFFERED for this world — a
+           deliberate absence, not a fault. The Dream is four rooms and 58
+           types; it cannot honestly be an 1,800-item house and is left out of
+           the big bands rather than shrunk into them. */
+        if (got < b.items * reach) continue;
+        filled++;
+        /* The one derivation that would actually break a run. It clamps to
+           `cap`, so this can only fire if buildFreeBoard() in js/data.js and
+           this loop have drifted apart — which is the whole reason both go
+           through themeTypeCap() rather than each doing their own sums. */
+        if (types > usable) {
+          errors.push(at("sizes.json",
+            `free-play houses "fp:${c.id}:${b.id}:*" want ${types} types but ${nRooms} rooms of ` +
+            `world "${c.world}" offer ${usable} (of ${cap}, at typeFill ${fill}).`,
+            "buildFreeBoard() in js/data.js and this check must derive the same numbers."));
+        }
+      }
+    }
+    if (bands?.length && clients.length && !filled) {
+      errors.push(at("sizes.json", "no world can fill any band, so the free-play board is empty.",
+        `Every combination came out under \`reach\` (${reach}). Lower it, or lower the bands' item counts.`));
+    }
+    /* Worth SAYING how much board there is. Nobody authored it, so nobody would
+       otherwise notice a retuned band quietly halving free play. */
+    if (filled && per >= 1) {
+      warnings.push(at("sizes.json",
+        `free play offers ${filled * per} houses — ${filled} of ${pairs} character-and-band pairs, ${per} houses each.`,
+        "Informational. A pair is left out when the world cannot honestly reach that band's item count."));
+    }
+  }
   for (const l of D.levels?.levels || []) checkCfg("levels.json", l, l.id);
 
   /* ---------- 7b. a room can only show as many containers as it has anchors ----

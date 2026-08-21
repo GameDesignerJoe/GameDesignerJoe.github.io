@@ -26,8 +26,12 @@ export function blankRun() {
     rooms: [], items: {}, typeHome: {}, locks: [], rowLen: 5,
     current: 0,
 
-    /* which config produced this run */
-    mode: "free", levelIdx: null, size: null, theme: "house",
+    /* WHICH CONFIG PRODUCED THIS RUN. A campaign run stores the level index and
+       looks the client back up (jobAt); a free run stores the free-play house id
+       and looks the band, the character and the config back up (freeJobAt). The
+       old `size` field held a preset id and is gone with the presets — a legacy
+       save still carries one and loadGame() simply leaves freeId null for it. */
+    mode: "free", levelIdx: null, freeId: null, theme: "house",
 
     /* camera — a continuous {z,x,y}, read and written by js/camera.js.
        This used to be the string "room", the v3 two-state model, left behind

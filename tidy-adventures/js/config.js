@@ -26,6 +26,12 @@ export const PROGRESS_KEY = "tidy-campaign-unlocked";
    only ever mean "the file has not changed since"; ids survive insertion,
    which is what lets a level land in the middle of the campaign. */
 export const DONE_KEY     = "tidy-campaign-done";
+/* WHICH FREE-PLAY HOUSES YOU HAVE FINISHED. A set of free-job ids
+   ("fp:mom:roomy:3"), exactly like DONE_KEY holds a set of level ids and for
+   exactly the same reason: an id survives inserting a band, a character or a
+   sixth house, and an index does not. Free play had no progress record at all
+   before — it was nine buttons that re-rolled a house and forgot. */
+export const FREE_KEY = "tidy-free-done-v1";
 /* Debug: show every job on the board regardless of progress. Deliberately its
    OWN key rather than a value written into DONE_KEY — see debugUnlocked() in
    js/main.js for why unlocking must not mark anything finished. */

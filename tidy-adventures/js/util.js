@@ -88,6 +88,40 @@ export function expectedItems(cfg, roomDefs) {
    generate.js need that number and neither may guess it — a free-play Mega
    house was putting five containers in the round Observatory and two of them
    overlapped by a quarter of their area. */
+/* HOW MANY DISTINCT TYPES A THEME CAN PUT ON THE FLOOR with its n LARGEST
+   rooms — the ceiling on `targetTypes`, and now also the thing free play sizes
+   itself against.
+
+   It has to be one function because three callers need the same answer and any
+   two of them disagreeing is a bug you find 400 items into a run: validate.js
+   refuses a config that asks for more than this, data.js builds every free-play
+   house by working backwards from it, and generate.js has to be able to deliver
+   what both of them promised. validate.js had the only copy and it was a local
+   closure over its own `rooms` array.
+
+   n LARGEST, not all of them: generate() takes the biggest rooms first once a
+   quota is set, and a room only shows as many containers as it has clean
+   anchors for — which is 6 in a rect room and 4 in a round or hex one, because
+   the soft anchor list's 5th and 6th slots share a column with its 1st and 2nd.
+
+   PURE — every input is passed in, so validate.js can call it before
+   buildLookups() has run and data.js can call it after. */
+export function themeTypeCap(theme, roomDefs, anchors, defaultSize, nRooms) {
+  const fit = set => anchorPrefix(anchors?.[set] || [], defaultSize.w, defaultSize.h);
+  const rectN = fit("rect"), softN = fit("soft");
+  const soft = (theme?.shapes || []).some(s => s !== "rect");
+  const per = (theme?.rooms || [])
+    .map(rid => roomDefs.find(r => r.id === rid))
+    .filter(Boolean)
+    .map(r => {
+      const cap = (r.shape || (soft ? "round" : "rect")) === "rect" ? rectN : softN;
+      return (r.containers || []).map(c => (c.types || []).length)
+        .sort((a, b) => b - a).slice(0, cap).reduce((m, n) => m + n, 0);
+    })
+    .sort((a, b) => b - a);
+  return per.slice(0, nRooms).reduce((a, b) => a + b, 0);
+}
+
 export function anchorPrefix(list, w, h) {
   const hits = (a, b) =>
     Math.min(a.x + w, b.x + w) > Math.max(a.x, b.x) &&

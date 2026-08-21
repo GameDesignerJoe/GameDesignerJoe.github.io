@@ -194,6 +194,13 @@
       </div>
       <div class="shoprow">
         <div class="sinfo">
+          <div class="sname">Clear free play</div>
+          <div class="sdesc">Unticks every house on the free-play board, so the 235-house grid starts from nothing again. Campaign progress and any run you're in the middle of are left alone.</div>
+        </div>
+        <button id="debugFreeClear">Clear</button>
+      </div>
+      <div class="shoprow">
+        <div class="sinfo">
           <div class="sname">Relock all jobs</div>
           <div class="sdesc">Job progress back to zero, so the story starts from the first knock on the door. Any run you're in the middle of is left alone.</div>
         </div>
@@ -259,13 +266,17 @@
   </div>
 </div>
 
+<!-- FREE PLAY — a board of houses, not a list of presets.
+     Size band, then character, then five houses each, all built by
+     openFreeMenu() from data/sizes.json x the cast in data/clients.json.
+     Same shape as #campaignOverlay above and deliberately so: two boards,
+     two progressions, one component vocabulary. -->
 <div class="overlay" id="sizeOverlay">
   <div class="card">
     <div class="big">🏠</div>
-    <h1>Free Play</h1>
-    <p>Where, and how big a mess are we talking?</p>
-    <!-- built from data/sizes.json by buildSizeMenu(); item counts are computed -->
-    <div class="sizegrid"></div>
+    <h1 id="freeTitle">Free Play</h1>
+    <p id="freeSub"></p>
+    <div id="freeBoard"></div>
     <button class="menubtn ghost" id="sizeBack">Back</button>
   </div>
 </div>

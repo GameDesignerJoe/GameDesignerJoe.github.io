@@ -100,6 +100,32 @@
     ]
   },
 
+  "_freePlayNote": [
+    "THE FREE PLAY BOARD. Size bands from data/sizes.json crossed with the cast",
+    "from data/clients.json, five houses each. These are the words the board",
+    "itself uses; the place names on the tiles are `places` on each client and",
+    "the band names are `label` on each band.",
+    "",
+    "`sub` takes {done} and {total} — the whole board. `bandSub` takes {done}",
+    "and {total} for one band and {who} for how many characters are in it, which",
+    "is what stops a short row reading as a missing tile: The Dream is a",
+    "four-room world and honestly cannot offer a 1,800-item house, so it is not",
+    "listed under the big bands at all (see `reach` in sizes.json).",
+    "",
+    "`tileItems` takes {n}, already thousands-separated. It is the count the run",
+    "will ACTUALLY hold, derived per world, never the band's authored target."
+  ],
+  "freePlay": {
+    "title": "Free Play",
+    "sub": "Pick a house. {done} of {total} done.",
+    "bandSub": "{who} people · {done} of {total}",
+    "tileItems": "{n} things",
+    "nextTag": "Next house",
+    "chipSame": "Same person",
+    "chipNew": "Someone else",
+    "allDone": "Every house on the board. All of them."
+  },
+
   "jobBoard": {
     "title": "Job Board",
     "sub": "Who needs you today. {done} of {total} done.",

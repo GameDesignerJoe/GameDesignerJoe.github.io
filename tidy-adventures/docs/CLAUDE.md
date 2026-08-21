@@ -32,7 +32,10 @@ can be edited without touching JavaScript:
 | who hires you, and everything they say | `data/clients.json` |
 | which emoji go in which container | `data/rooms.json` |
 | adding a room, or giving one a round/hex silhouette | `data/rooms.json` + a floor rule in `css/room.css` + the id in `data/themes.json` |
-| how many rooms / items / locks a run has | `data/sizes.json`, `data/levels.json` |
+| how many rooms / items / locks a campaign level has | `data/levels.json` |
+| free-play size bands, and how many houses each holds | `bands` / `housesPerBand` in `data/sizes.json` |
+| which world a character's free-play houses draw from | `world` on a client in `data/clients.json` |
+| what a character's five free-play houses are called | `places` on a client in `data/clients.json` |
 | row length (how many of each item exist) | `rowLen` in either of the above |
 | hint text, and when hints appear | `tips` in `data/levels.json` |
 | how many levels a talent has | `levels` in `data/upgrades.json` |
@@ -1021,6 +1024,115 @@ signature and any stage-authored note copy; the signature is baked into the note
 when it drops, not read live. Free play has no client, which is what "— M" now
 means: the hand a house writes in when nobody hired you.
 
+## Free play — a board, not a menu
+
+Free play was nine buttons: four house sizes and one preset per world. You
+pressed one, tidied a house, and **the game forgot**. There was no record
+anywhere that you had ever played free play at all, so the mode had no shape —
+nothing to be partway through and nothing to finish — in the half of the game
+people actually live in. The campaign had a board, a frontier, ticks and a
+story; free play had a size picker.
+
+It is a board now, and **the grouping is the feature: size, then character,
+then five of their houses.** Size first because that is the question a player
+arrives with ("how long have I got"); the person second because it is what
+makes a row of five tiles read as somebody's five houses rather than five
+slots. **215 houses**, every one with a stable id and a tick.
+
+**Nothing is authored.** The whole board is a dozen numbers in `sizes.json`
+plus five place names per person in `clients.json`, crossed in
+`buildFreeBoard()` (`js/data.js`). That is the only reason 215 houses is a
+maintainable amount of content rather than a folder of level files — and it
+means retuning the board is editing `items` on five bands, not editing 215
+configs.
+
+**A band carries no theme, and that is the point of the restructure.**
+`sizes.json` used to conflate *how big* with *where*: "Frat House" was a size,
+so there was no way to ask for a big one. Size lives in the band; the world
+comes from the person, via an authored `world` on each client. Authored rather
+than inferred from their campaign stages, because inferring it gets Zorb wrong
+— his first job is a house he has been assigned to, and he is unmistakably the
+ship.
+
+**A band authors ITEMS, and everything else is derived per world.** The worlds
+are not the same size: the house pool holds 284 distinct types across fourteen
+rooms and the dream pool holds 58 across four. A band saying `targetTypes: 240`
+would be a house band with the other worlds clamped out of it. A band saying
+`items: 1800` is a promise every world can be *measured against*:
+
+```
+rooms       = min(band.rooms, rooms in the world)
+cap         = themeTypeCap(world, rooms)      ← js/util.js
+usable      = floor(cap × typeFill)
+rowLen      = clamp(round(items / usable), rowLen.min, rowLen.max)
+targetTypes = clamp(round(items / rowLen), 1, usable)
+```
+
+and the tile prints `targetTypes × rowLen` — **what the run will actually
+hold, never the band's authored target.** `themeTypeCap()` is in `util.js`
+rather than inline because three callers need the same answer and any two of
+them disagreeing is a bug you find 400 items into a run: `validate.js` polices
+the ceiling with it, `data.js` derives every house from it, and `generate.js`
+has to deliver what both promised.
+
+**`typeFill` exists because 5 of the first 235 houses came in short.** Asking
+for a world's exact ceiling does two bad things. It kills variety — a run
+needing every emoji a world has draws every room and every container, so every
+run of that world is the same run, which `sizes.json` already said out loud
+about the old world presets and then did anyway. And `targetTypes` is a
+**quota, not a promise**: `generate()` takes as many types as each container
+actually holds, and the trade-up and top-up passes close most of the gap and
+not all of it, so a run asked for the ceiling arrives 1–4% under and the tile's
+count becomes a small lie about the one number the player watches. At 0.85
+every one of the 215 houses generates the exact count on its tile.
+
+**`reach` is why not every character appears under every band.** If a world
+cannot deliver 85% of a band's items, that band is not offered for that world
+at all — The Dream is four rooms and 58 types, so it does Small and Medium and
+is absent from the big ones. Shrinking the job and keeping the label would be
+worse: "Mega" has to mean one thing on every row of the grid. The board prints
+**how many characters each band has** ("6 people · 0 of 30"), which is what
+turns a short row from a missing tile into a fact about that world.
+
+The ceiling is `rowLen.max: 8`, and it is there for a reason that has nothing
+to do with this file: `renderContainer()` sizes cells at
+`innerWidth × 0.72 / rowLen`, so 10 is a 28px cell on a phone. Raising it would
+widen the top bands to more worlds and make the core interaction worse.
+
+**`variation` is what makes house 4 different from house 1.** Five houses that
+differed only in their label would make the number five arbitrary, and the
+point of five is that finishing them means something. Each array is indexed by
+house number, so the first house of a band has no locks and no junk — the one
+to learn a world in — and the fifth is the full version. `step` drifts the item
+count either side of the band's nominal, so house 3 *is* the band and 1 and 5
+are its ends.
+
+**Nothing is locked, and that is not laziness.** The campaign is a story and
+has a frontier. Free play is where you go to pick the thing you feel like
+doing, and gating it takes away the one thing it is for. `FREE_KEY` holds a set
+of finished ids — a record, not a gate — in its own key, deliberately not
+folded into `DONE_KEY`: they are two progressions, and "34 of 34" on the job
+board must never move because of a free house.
+
+**Free play has a person in it now, and that came almost free.** Every house
+belongs to one of the cast, so `speaker()` resolves a client there, and their
+`quips`, their note signature and the reply all work without a line of new
+copy. Two fields were added: `freeVoice.greet` (they arrive when you start a
+house) and `freeVoice.back` (they arrive when you Continue one). `houseVoice`
+in `strings.json` is still the fallback and is now reached only by a **legacy
+save** — one written before the board, whose `size` preset no longer exists.
+Such a save still plays: it keeps its own rooms and items, `freeId` is left
+null, and every reader falls back exactly as free play always behaved.
+
+**No quote on the free-play Continue card.** Pressing it makes the client walk
+in and say their `freeVoice.back` line, so printing one of the two on the card
+showed the same sentence twice in three seconds. The campaign card *can* carry
+a quote because its quote is the `teaser` — a different line from the `nudge`
+it then speaks. Same component, two different jobs; see the win-screen table
+above.
+
+---
+
 ## Add to Home Screen
 
 `manifest.json` plus four PNGs in the game folder. Saved to a phone before
@@ -1284,6 +1396,20 @@ Run through this after any change; it's what the browser tests cover.
 - A room whose item count changed also had its `scale` recomputed — screenshot
   it. The failure is visual and silent: the same numbers in a room too small
   read as an unsortable heap.
+- **The free-play board.** Open it: five band headings, character rows under
+  each, five tiles per row, and the scroll lands on the first house you have
+  not done rather than at the top. Finish one and confirm the tick, the row's
+  "3 / 5", the band's count and the "N of 215" all move. The win screen should
+  offer the next unfinished house **by the same person** before it offers
+  anybody else — five of somebody's houses is the set the board is about.
+- **Every house is buildable.** `tidy.freeJobs()` is the derived list; generate
+  each one and compare the item count to the tile's. It should match EXACTLY —
+  if any come in short, `typeFill` is too high, not too low. Boot also logs the
+  house count, so a retune that quietly halves free play says so.
+- **A legacy free-play save still loads.** Write a save with an old preset id
+  (`size: "mega"`, no `freeId`) and press Continue: it resumes, the card wears
+  the world's icon instead of a face, and the gear's "New house" does not throw.
+  That is the one path `houseVoice` in `strings.json` still exists for.
 - Console clean throughout.
 
 ---

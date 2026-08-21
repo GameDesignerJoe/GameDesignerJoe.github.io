@@ -7,6 +7,7 @@
 ============================================================ */
 import {
   VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, LEGACY_ORDER,
+  FREE_KEY,
   TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START, REVEAL_MS,
   DOUBLE_TAP_MS, DOUBLE_TAP_SLOP, DRAG_THRESHOLD,
@@ -22,6 +23,7 @@ import { say, bump, flyStar, roomCompleteFX, clearSay } from './feedback.js';
 import {
   DATA, LOOKUP, loadData, nameOf, maxLevel,
   itemCount, upgradeParam, upgradeDefaults, jobAt, jobSize, sizeBand, contCap,
+  freeJobAt, freeJobs, freeBands, freeClientsIn,
 } from './data.js';
 import { showClient, hideClient, isSpeaking } from './client.js';
 import { chatter, clearChatter, chatterState, setChatterGate, CHAT } from './chatter.js';
@@ -54,7 +56,7 @@ initQuests({ change(){ renderHUD(); renderObjective(); scheduleSave(); } });
 /* Convenience views over the loaded data, so the code below reads the same
    way it did when these were inline literals. */
 const UPGRADES = DATA.upgrades.upgrades;
-const SIZES    = LOOKUP.sizeById;
+const BANDS    = LOOKUP.bandById;
 const LEVELS   = LOOKUP.levelByIdx;
 const NAMES    = LOOKUP.names;
 
@@ -145,14 +147,75 @@ function progress(){
   if(now===-1) now=Math.min(frontier, LEVELS.length);
   return { done, frontier, now, count:done.size, unlocked };
 }
-function currentCfg(){ return G.mode==="campaign" ? LEVELS[G.levelIdx] : SIZES[G.size]; }
-/* "Small" and "Mega" are sizes OF a house, so the word was baked into three
-   strings. "Frat House house" and "New the zoo house" are what that turns into
-   the moment a preset names a place instead of a size, so the word now comes
-   from the preset: house presets keep it, world presets are already a noun. */
-function presetName(cfg){
-  if(!cfg) return "";
-  return cfg.theme && cfg.theme!=="house" ? cfg.label : cfg.label+" house";
+/* ============================================================
+   FREE-PLAY PROGRESS
+
+   A set of finished house ids, in its own key. Deliberately NOT folded into
+   the campaign's DONE_KEY: the two are different progressions, a player can be
+   deep in one and untouched in the other, and "34 of 34" on the job board must
+   never be affected by how many free houses are ticked.
+
+   Ids, never indices — the same reason the campaign moved off PROGRESS_KEY.
+   Inserting a band, a character or a sixth house per band re-points every
+   index and re-points nothing at all here.
+
+   No frontier and nothing locked. Free play is where you go to pick a thing
+   you feel like doing, so every house is open from the first boot; the record
+   is a record, not a gate. What it buys is the thing free play never had —
+   something to be partway through.
+============================================================ */
+function freeDone(){
+  try{ return new Set(JSON.parse(localStorage.getItem(FREE_KEY)||"[]")); }
+  catch(e){ return new Set(); }
+}
+function saveFreeDone(set){
+  try{ localStorage.setItem(FREE_KEY, JSON.stringify([...set])); }catch(e){}
+}
+function markFreeDone(id){
+  if(!id) return;
+  const s=freeDone(); s.add(id); saveFreeDone(s);
+}
+function clearFreeDone(){ try{ localStorage.removeItem(FREE_KEY); }catch(e){} }
+
+/* Counts for the headings: the whole board, and per band, and per character
+   within a band. Derived every time it is asked rather than cached, because
+   the only caller is a board that is being rebuilt anyway. */
+function freeProgress(){
+  const done=freeDone();
+  const all=freeJobs();
+  return {
+    done,
+    count: all.filter(j=>done.has(j.id)).length,
+    total: all.length,
+    inBand: b => {
+      const js=all.filter(j=>j.band.id===b);
+      return { count: js.filter(j=>done.has(j.id)).length, total: js.length };
+    },
+    forClient: (b,c) => {
+      const js=all.filter(j=>j.band.id===b && j.client.id===c);
+      return { count: js.filter(j=>done.has(j.id)).length, total: js.length };
+    },
+  };
+}
+
+/* The config that produced this run. Campaign reads levels.json; free play
+   resolves the house id back to a generated config, and falls back to the
+   FIRST house on the board for a legacy save whose preset no longer exists —
+   never null, because "New house" in the gear calls generate() on this. */
+function currentCfg(){
+  if(G.mode==="campaign") return LEVELS[G.levelIdx];
+  return freeJobAt(G.freeId)?.cfg || freeJobs()[0]?.cfg || null;
+}
+/* WHAT TO CALL A FREE-PLAY HOUSE. It used to be the preset's label with the
+   word "house" bolted on for house-themed ones, which is what "Frat House
+   house" came from. A house now has a person and a place, so it is named the
+   way the campaign names a job: who, then where.
+
+   Takes the JOB rather than the config, because the config deliberately knows
+   nothing about who asked — it is the thing handed to generate(). */
+function freeName(job){
+  if(!job) return "";
+  return job.client.name + " · " + job.place;
 }
 
 /* ============================================================
@@ -291,7 +354,10 @@ function saveGame(){
       /* theme was generated into the run and then dropped on the floor here,
          while loadGame() defaulted it back to "house" — invisible until
          something read it, and then a resumed dream would come back beige. */
-      mode:G.mode, levelIdx:G.levelIdx, levelId:(LEVELS[G.levelIdx]?.id ?? null), size:G.size,
+      /* freeId is the free-play half of levelId: a name, not a position, so a
+         board rebuilt with an extra band still resumes the same house. */
+      mode:G.mode, levelIdx:G.levelIdx, levelId:(LEVELS[G.levelIdx]?.id ?? null),
+      freeId:G.freeId,
       theme:G.theme, rowLen:G.rowLen,
       current:G.current, inv:G.inv, sel:G.sel,
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
@@ -399,7 +465,12 @@ function loadGame(){
          has since been retired kept its rooms and items either way, but a null
          size made currentCfg() undefined and "New house" in the gear threw on
          generate(undefined). */
-      size:(SIZES[d.size] ? d.size : (DATA.sizes.sizes[0]?.id ?? null)),
+      /* Null for a save written before the board existed — that run keeps its
+         own rooms and items and plays out fine; it just has no character and no
+         place, so the Continue card and the chatter fall back to the house's own
+         voice exactly as free play always did. currentCfg() has its own
+         fallback, so "New house" cannot throw on one either. */
+      freeId:(freeJobAt(d.freeId) ? d.freeId : null),
     });
     /* Saves made before doorways were kept clear can hold items parked under
        a door, which are invisible and can't be tapped — and the run can't be
@@ -1727,11 +1798,19 @@ function showWin(){
     mk("Job board", card?"ghost":"primary", ()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }else{
-    $("#winOverlay .big").textContent="✨";
-    $("#winTitle").textContent="All tidy.";
+    /* FREE PLAY HAS AN ENDING NOW. It used to be a generic ✨ over "All tidy."
+       and a button to roll another one of the same size — which is the whole
+       reason the mode had no shape: nothing you finished was ever recorded, so
+       there was nothing to have finished. */
+    const job=freeJobAt(G.freeId);
+    if(job) markFreeDone(job.id);
+    $("#winOverlay .big").textContent=job ? job.client.emoji : "✨";
+    $("#winTitle").textContent=job ? freeName(job)+" — done" : "All tidy.";
+    /* markFreeDone ran BEFORE this, so the next-house card counts this one. */
+    const nxt=job ? nextFreeCard(job, ()=>{ $("#winOverlay").classList.remove("open"); }) : null;
     $("#winStats").textContent=stats;
-    const sz=SIZES[G.size]||SIZES.medium;
-    mk("New "+presetName(sz).toLowerCase(),"primary",()=>{ $("#winOverlay").classList.remove("open"); startFree(SIZES[G.size]?G.size:"medium"); });
+    if(nxt) btns.appendChild(nxt);
+    mk("Free play", nxt?"ghost":"primary", ()=>{ $("#winOverlay").classList.remove("open"); openFreeMenu(); });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }
   /* The last thing you hear after finishing a whole house was nothing at all.
@@ -2434,8 +2513,12 @@ function nowPlaying(){
     el.innerHTML=`${lv?lv.id+" · "+lv.name:"Campaign"}`+
       (job?`<small>${job.client.emoji} ${job.client.name} — job ${job.stageNo} of ${job.stageCount}</small>`:"");
   }else{
-    const sz=SIZES[G.size];
-    el.innerHTML=`Free Play${sz?" · "+sz.label:""}<small>${G.rooms.length} rooms</small>`;
+    /* Mid-run there was no way to tell which free house you were in, which is
+       the same complaint nowPlaying() was written for on the campaign side. */
+    const job=freeJobAt(G.freeId);
+    el.innerHTML=`Free Play${job?" · "+job.band.label+" · "+job.place:""}`+
+      (job?`<small>${job.client.emoji} ${job.client.name} — house ${job.n} of ${DATA.sizes.housesPerBand||5}</small>`
+          :`<small>${G.rooms.length} rooms</small>`);
   }
 }
 $("#gearBtn").addEventListener("click",()=>{
@@ -2443,6 +2526,7 @@ $("#gearBtn").addEventListener("click",()=>{
   /* The button floats above its own panel now, so it has to close it too. */
   if(gear.classList.contains("open")){ gear.classList.remove("open"); return; }
   nowPlaying();
+  syncFreeBtn();
   /* Reachable from the title screen and the job board, where there is no run:
      grey out everything that would act on one. Left ungated, "New house"
      re-rolled a config that doesn't exist and "+1 ⭐" repainted a HUD with no
@@ -2596,6 +2680,20 @@ $("#debugUnlock").addEventListener("click",()=>{
   openCampaignMenu();
 });
 
+$("#debugFreeClear").addEventListener("click",()=>{
+  clearFreeDone();
+  syncFreeBtn();
+  say("Free play progress cleared");
+});
+/* Reports its own state, same rule as the unlock toggle: a debug button whose
+   label never changes leaves you guessing what you already pressed. */
+function syncFreeBtn(){
+  const b=$("#debugFreeClear");
+  if(!b) return;
+  const p=freeProgress();
+  b.textContent = p.count ? "Clear ("+p.count+")" : "Clear";
+  b.disabled = !p.count;
+}
 $("#debugRelock").addEventListener("click",()=>{
   clearDone();
   $("#gearOverlay").classList.remove("open");
@@ -2789,19 +2887,29 @@ function labelContinue(d){
     return;
   }
 
-  const sz=SIZES[d.size];
+  const job=freeJobAt(d.freeId);
   /* Free play has no client to put a face to, so the WORLD wears one — a 🏠 over
      a half-tidied wizard's tower says nothing about where you were. There is
      nobody to quote either, and fillJobCard() simply omits that line. */
   const th=DATA.themes.themes[d.theme] || DATA.themes.themes[DATA.themes.defaultTheme];
   fillJobCard(b, {
     tag:  S.continueTag || "Continue",
-    chip: S.chipFreePlay || "Free play",
-    face: th?.icon || DATA.strings.icon || "🧺",
-    name: sz ? presetName(sz) : (S.continueFallback || "Continue Tidy Job"),
+    /* The band, not the words "Free play": a card that says which house of
+       whose you are standing in the middle of is doing the same job the
+       campaign card does. Only a legacy save falls back. */
+    chip: job ? job.band.label : (S.chipFreePlay || "Free play"),
+    /* A face at last. Free play had nobody in it, so this wore the WORLD's icon
+       — right at the time and now only the fallback for a save with no house. */
+    face: job ? job.client.emoji : (th?.icon || DATA.strings.icon || "🧺"),
+    name: job ? freeName(job) : (S.continueFallback || "Continue Tidy Job"),
     body: where,
-    /* Not the theme's label — for every world preset that is the same string as
-       the name directly above it ("Frat House" over "Frat House"). */
+    /* NO QUOTE, for the reason the campaign's next-job card has none: pressing
+       this button makes the client walk in and say their `freeVoice.back` line
+       out loud, and printing one of the two on the card meant seeing the same
+       sentence twice in three seconds. The band is in the chip and the person
+       and the place are in the name — the card is not short of information.
+       The campaign card CAN carry a quote because its quote is a teaser, which
+       is a different line from the nudge it then speaks. */
     foot: (d.rooms||[]).length + " rooms" + at,
   });
 }
@@ -2809,17 +2917,31 @@ function labelContinue(d){
 /* generate() returns a run; setRun installs it along with the metadata that
    says which config produced it. In v3 generate() overwrote the global and
    these three fields had to be patched back on afterwards. */
-function startFree(sizeKey){
+/* Start one of the houses on the free-play board. Takes an ID, not a preset:
+   the config is derived from it (see buildFreeBoard in js/data.js), which is
+   what lets the board be two hundred and thirty-five houses without two
+   hundred and thirty-five authored configs. */
+function startFree(freeId){
+  const job=freeJobAt(freeId);
+  if(!job){ say("That house isn't on the board any more."); return; }
   clearSave();
   closeMenus();
   endCeremony();
-  const cfg=SIZES[sizeKey];
-  setRun(generate(cfg), {mode:"free", size:sizeKey, levelIdx:null});
+  setRun(generate(job.cfg), {mode:"free", freeId, levelIdx:null});
   resetZoom();
   setHidden(shopBtn, false);   /* always available in free play */
   render();
   runMusic();
-  say(presetName(cfg)+" — happy tidying");
+  /* THE PERSON TURNS UP HERE TOO. Free play used to open with a grey strip
+     saying "Mega house — happy tidying" because there was nobody in it to say
+     anything. Their intro belongs to a campaign stage and would be a lie here,
+     so this is the same shape without one: they arrive, they name the place.
+     The house's size lands as a receipt on the way out, as the level id does
+     on a campaign level. */
+  const label=()=>say(job.band.label+" · "+job.place+" — "+itemCount(job.cfg).toLocaleString()+" things", {priority:2});
+  const hello=pick(job.client.freeVoice?.greet || []);
+  if(hello) showClient(job.client.emoji, [hello], {onDone:label});
+  else label();
 }
 
 function startCampaign(i){
@@ -2900,12 +3022,16 @@ function textVars(){
    job back up from the level index the save already stores — so this is
    derived every time rather than held anywhere. */
 function speaker(){
-  const job = G.mode==="campaign" ? jobAt(G.levelIdx) : null;
+  /* FREE PLAY HAS A PERSON IN IT NOW. Every house on the board belongs to one
+     of the cast, so their quips, their nudge and their signature all work here
+     — which is most of what "free play broken up by the characters" buys, and
+     it needed no new copy at all. */
+  const job = G.mode==="campaign" ? jobAt(G.levelIdx) : freeJobAt(G.freeId);
   if(job) return { face:job.client.emoji, quips:job.client.quips||{} };
-  /* Free play was hired by nobody, so the house talks: the same hand that
-     signs a free-play note. It wears the WORLD's icon rather than the game's
-     🏠 for exactly the reason the Continue card does — 🏠 over a half-tidied
-     wizard's tower says nothing about where you are. */
+  /* Nobody: a legacy free save from before the board. The house talks, wearing
+     the WORLD's icon rather than the game's 🏠 for the reason the Continue card
+     does — 🏠 over a half-tidied wizard's tower says nothing about where you
+     are. This is what houseVoice in strings.json was written for. */
   const hv = DATA.strings.houseVoice || {};
   return {
     face: DATA.themes.themes[G.theme]?.icon || hv.face || DATA.strings.icon || "🏠",
@@ -2968,14 +3094,24 @@ function misfileHint(room, it){
    the same beat as an arrival, and it is the single line the player must not
    miss. The level id lands as they leave, exactly as on a fresh start. */
 function welcomeBack(){
-  const job = G.mode==="campaign" ? jobAt(G.levelIdx) : null;
-  const lv  = G.mode==="campaign" ? LEVELS[G.levelIdx] : null;
-  const label = () => { if(lv) say(lv.id+" · "+lv.name, {priority:2}); };
-  if(job?.stage.nudge){
-    showClient(job.client.emoji, [job.stage.nudge], {onDone:label});
+  if(G.mode==="campaign"){
+    const job=jobAt(G.levelIdx), lv=LEVELS[G.levelIdx];
+    const label=()=>{ if(lv) say(lv.id+" · "+lv.name, {priority:2}); };
+    if(job?.stage.nudge){
+      showClient(job.client.emoji, [job.stage.nudge], {onDone:label});
+      return;
+    }
+    label();
     return;
   }
-  /* Free play has nobody with a stake in it, so the house says it quietly. */
+  /* Free play has a person in it now, so it gets the same treatment. There is
+     no per-stage nudge to draw on — a free house is not a stage — so it uses
+     the client's own generic one from `quips.nudge`, and only falls through to
+     the house's line for a legacy save with no house id. */
+  const job=freeJobAt(G.freeId);
+  const label=()=>{ if(job) say(job.band.label+" · "+job.place, {priority:2}); };
+  const line=pick(job?.client.freeVoice?.back || []);
+  if(line){ showClient(job.client.emoji, [line], {onDone:label}); return; }
   aside("nudge", {}, {key:"nudge"});
   label();
 }
@@ -3119,7 +3255,7 @@ function resetRun(){
   closeMenus();
   endCeremony();
   const cfg=currentCfg();
-  setRun(generate(cfg), {mode:G.mode, levelIdx:G.levelIdx, size:G.size});
+  setRun(generate(cfg), {mode:G.mode, levelIdx:G.levelIdx, freeId:G.freeId});
   render();
 }
 
@@ -3129,7 +3265,7 @@ $("#btnContinue").addEventListener("click",()=>{
   else { setHidden($("#btnContinue"), true); say("No save found"); }
 });
 $("#btnCampaign").addEventListener("click",openCampaignMenu);
-$("#btnFree").addEventListener("click",()=>{ closeMenus(); $("#sizeOverlay").classList.add("open"); });
+$("#btnFree").addEventListener("click",openFreeMenu);
 /* Every overlay shares z-index 120, so DOM order decides who paints on top
    and #titleOverlay is declared last. Opening help without closing the title
    first left the help card behind an opaque backdrop, unreadable and
@@ -3155,21 +3291,126 @@ $("#menuBtn").addEventListener("click",()=>{ saveGame(); showTitle(); });
    group costs one span and says it outright.
    Ungrouped presets keep the top of the list with no heading at all, so the
    house sizes look exactly as they always did. */
-function buildSizeMenu(){
-  const grid=$("#sizeOverlay .sizegrid");
-  grid.innerHTML="";
-  let group=null;
-  for(const s of DATA.sizes.sizes){
-    if((s.group||null)!==group){
-      group=s.group||null;
-      if(group) grid.appendChild(mkEl("h2","sizehead",group));
+/* ============================================================
+   THE FREE PLAY BOARD
+
+   Free play was nine buttons. You pressed one, tidied a house, and the game
+   forgot — so the mode had no shape at all: nothing to be partway through and
+   nothing to finish, in the half of the game people actually live in.
+
+   It is a board now, and the grouping is the feature: SIZE first, then the
+   PERSON, then five of their houses. Size first because that is the question a
+   player actually arrives with ("how long have I got"), and the person second
+   because it is what makes a row of five tiles feel like somebody's five
+   houses rather than five slots. Every tile has a stable id and a tick.
+
+   Nothing here is authored. The whole board is nine numbers in sizes.json and
+   five place names per person in clients.json, crossed in buildFreeBoard()
+   (js/data.js) — which is the only reason two hundred and thirty-five houses
+   is a maintainable amount of content rather than a folder of level files.
+
+   NOTHING IS LOCKED, and that is not laziness. The campaign is a story and has
+   a frontier; free play is where you go to pick the thing you feel like doing,
+   and gating it would take away the one thing it is for. The record is a
+   record, not a gate.
+============================================================ */
+function freeTile(job, p){
+  const S=DATA.strings.freePlay||{};
+  const done=p.done.has(job.id);
+  const b=document.createElement("button");
+  b.className="fptile"+(done?" done":"");
+  b.appendChild(mkEl("span","fpplace",job.place));
+  b.appendChild(mkEl("span","fpcount",
+    tokenise(S.tileItems||"{n}", {n:itemCount(job.cfg).toLocaleString()})));
+  /* Same ✅ as a finished job tile: one mark meaning one thing in both boards. */
+  if(done) b.appendChild(mkEl("span","fpmark","✅"));
+  b.addEventListener("click",()=>startFree(job.id));
+  return b;
+}
+
+function openFreeMenu(){
+  closeMenus();
+  const S=DATA.strings.freePlay||{};
+  const p=freeProgress();
+  if(S.title) $("#freeTitle").textContent=S.title;
+  $("#freeSub").textContent=tokenise(S.sub||"", {done:p.count, total:p.total});
+
+  const board=$("#freeBoard"); board.innerHTML="";
+  let firstUndone=null;
+  for(const band of freeBands()){
+    const sec=mkEl("div","fpband");
+    const head=mkEl("div","fpbhead");
+    head.appendChild(mkEl("span","fpbname",band.label));
+    head.appendChild(mkEl("em","fpbpip",band.pip||""));
+    const clients=freeClientsIn(band.id);
+    const bp=p.inBand(band.id);
+    /* WHY A BAND CAN HAVE FEWER PEOPLE IN IT, said out loud. A world that
+       cannot honestly fill a band is left out of it rather than shrunk into it
+       (see `reach` in sizes.json), and a row that is simply absent reads as a
+       bug. Printing the count makes it a fact about the band instead. */
+    head.appendChild(mkEl("i","fpbcount",
+      tokenise(S.bandSub||"", {who:clients.length, done:bp.count, total:bp.total})));
+    sec.appendChild(head);
+
+    for(const c of clients){
+      const row=mkEl("div","fpchar");
+      const who=mkEl("div","fpwho");
+      who.appendChild(mkEl("span","fpface",c.emoji));
+      who.appendChild(mkEl("span","fpname",c.name));
+      const cp=p.forClient(band.id, c.id);
+      who.appendChild(mkEl("i","fpcp",cp.count+" / "+cp.total));
+      if(cp.count===cp.total) who.classList.add("allin");
+      row.appendChild(who);
+      const tiles=mkEl("div","fprow");
+      for(const job of freeJobs().filter(j=>j.band.id===band.id && j.client.id===c.id)){
+        const t=freeTile(job, p);
+        if(!firstUndone && !p.done.has(job.id)) firstUndone=t;
+        tiles.appendChild(t);
+      }
+      row.appendChild(tiles);
+      sec.appendChild(row);
     }
-    const b=mkEl("button","menubtn");
-    b.appendChild(document.createTextNode(s.label));
-    b.appendChild(mkEl("small",null,"~"+itemCount(s).toLocaleString()+" items"));
-    b.addEventListener("click",()=>startFree(s.id));
-    grid.appendChild(b);
+    board.appendChild(sec);
   }
+
+  $("#sizeOverlay").classList.add("open");
+  /* Land on the first house you have not done rather than at the top, which
+     after a while is a screen of ticks. Rects rather than offsetTop, and after
+     .open so the board has a height to measure — same reasoning as the job
+     board's centring, and the same reason it is not scrollIntoView(): on a
+     nested scroller that scrolls the page behind the overlay too. */
+  if(firstUndone){
+    const cr=firstUndone.getBoundingClientRect(), br=board.getBoundingClientRect();
+    board.scrollTop=Math.max(0,
+      board.scrollTop + (cr.top - br.top) - (br.height - cr.height)/2);
+  }
+  board.onscroll=()=>fadeBoardEnd(board);
+  fadeBoardEnd(board);
+}
+
+/* The win screen's offer of another one. Prefers the next unfinished house by
+   the SAME person — five of somebody's houses is a set, and the point of the
+   board is finishing sets — then falls back to the next unfinished house
+   anywhere, in board order. Null once the whole board is done. */
+function nextFreeCard(job, onGo){
+  const S=DATA.strings.freePlay||{};
+  const done=freeDone();
+  const all=freeJobs();
+  const open=all.filter(j=>!done.has(j.id));
+  if(!open.length) return null;
+  const mine=open.find(j=>j.client.id===job.client.id && j.band.id===job.band.id)
+          || open.find(j=>j.client.id===job.client.id);
+  const next=mine || open[0];
+  const same=next.client.id===job.client.id;
+  return jobCard({
+    tag:  S.nextTag || "Next house",
+    chip: same ? (S.chipSame||"Same person") : (S.chipNew||"Someone else"),
+    face: next.client.emoji,
+    name: freeName(next),
+    body: tokenise(S.tileItems||"{n}", {n:itemCount(next.cfg).toLocaleString()}),
+    foot: next.band.label + " · " + next.band.pip,
+    onGo: ()=>{ if(onGo) onGo(); startFree(next.id); },
+  });
 }
 
 /* Help copy lives in strings.json so the rename, the hand count and the row
@@ -3218,6 +3459,15 @@ window.tidy = {
   unlockAll:on=>{ const v=setDebugUnlock(on!==false); syncUnlockBtn(); return v; },
   progress, relockAll:()=>{ clearDone(); return progress(); },
   jobAt, showClient, hideClient, isSpeaking, board:openCampaignMenu,
+  /* THE FREE PLAY BOARD. `tidy.freeBoard()` opens it, `tidy.freeProgress()`
+     answers "how much of it is done", and `tidy.freeAll()` ticks every house so
+     the finished state of a 235-tile board can be looked at without playing it.
+     freeJobs() is the whole derived list, which is the thing to print when a
+     tile shows a number you did not expect. */
+  freeBoard:openFreeMenu, freeJobs, freeJobAt, freeProgress,
+  freeAll:()=>{ const s=new Set(freeJobs().map(j=>j.id)); saveFreeDone(s); return s.size; },
+  freeClear:()=>{ clearFreeDone(); return freeProgress().count; },
+  freeStart:startFree,
   /* THE CHATTER CHANNEL. `tidy.aside("room",{room:"Kitchen"})` fires one in the
      voice of whoever hired you, which is the only way to check a client's quips
      without playing to the moment that triggers them. chatterState() answers
@@ -3231,6 +3481,7 @@ window.tidy = {
 };
 
 /* boot: land on the title screen */
-buildSizeMenu();
+/* The free-play board is built on demand rather than at boot: it is ~235
+   buttons and nobody has seen it yet. openFreeMenu() is idempotent. */
 buildHelp();
 showTitle();
