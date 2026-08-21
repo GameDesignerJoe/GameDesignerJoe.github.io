@@ -96,14 +96,31 @@
   ],
 
   "bands": [
-    { "id": "cosy",     "label": "Small",  "rooms": 3, "items": 220,  "pip": "●" },
-    { "id": "roomy",    "label": "Medium", "rooms": 5, "items": 450,  "pip": "●●" },
-    { "id": "grand",    "label": "Large",  "rooms": 7, "items": 750,  "pip": "●●●" },
-    { "id": "vast",     "label": "Huge",   "rooms": 8, "items": 1100, "pip": "●●●●" },
-    { "id": "colossal", "label": "Mega",   "rooms": 9, "items": 1800, "pip": "●●●●●" }
+    { "id": "cosy",     "label": "Small",  "rooms": 3, "items": 220,  "rewards": 1, "pip": "●" },
+    { "id": "roomy",    "label": "Medium", "rooms": 5, "items": 450,  "rewards": 2, "pip": "●●" },
+    { "id": "grand",    "label": "Large",  "rooms": 7, "items": 750,  "rewards": 3, "pip": "●●●" },
+    { "id": "vast",     "label": "Huge",   "rooms": 8, "items": 1100, "rewards": 4, "pip": "●●●●" },
+    { "id": "colossal", "label": "Mega",   "rooms": 9, "items": 1800, "rewards": 5, "pip": "●●●●●" }
   ],
 
   "housesPerBand": 5,
+
+  "_starsNote": [
+    "FREE PLAY MINTS NO STARS, and that is deliberate rather than an oversight.",
+    "⭐ is the meta currency now — it buys permanent upgrades and unlocks the",
+    "cast — and this board is 215 houses. Paying stars here would put an",
+    "unbounded farm next to the campaign's pacing: a player could buy the whole",
+    "cast without playing the campaign the cast exists for.",
+    "",
+    "What free play DOES keep is `rewards`: the in-level talent picks. Those",
+    "expire with the run, so they cost the meta layer nothing and they are the",
+    "reason a free house is fun to play rather than a chore to tick. So the",
+    "split is: free play gives you a good afternoon, the campaign gives you",
+    "money. Replaying campaign levels is the way to farm.",
+    "",
+    "`rewards` is clamped to rooms-1 at run time, because the last room finishing",
+    "IS the level finishing and a talent draft must not land on the ending."
+  ],
 
   "rowLen": { "min": 4, "max": 8 },
 

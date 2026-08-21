@@ -126,6 +126,19 @@
     "allDone": "Every house on the board. All of them."
   },
 
+  "_homeNote": [
+    "HOME — the meta layer's own screen. {stars} is the wallet, {ever} is the",
+    "lifetime total, which is deliberately NOT the number you shop with: a",
+    "lifetime total that goes down is not a lifetime total.",
+    "",
+    "Keep `sub` short. The screen is a grid of faces and prices and the sentence",
+    "above it only has to say what the screen is for."
+  ],
+  "home": {
+    "sub": "{stars} to spend. {ever} earned all told.",
+    "empty": "Nothing yet. Finish a room and come back."
+  },
+
   "jobBoard": {
     "title": "Job Board",
     "sub": "Who needs you today. {done} of {total} done.",

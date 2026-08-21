@@ -50,15 +50,18 @@ export function blankRun() {
     stats: { tosses: 0, firstGood: 0, start: 0 },
     visited: new Set(),
     awarded: new Set(),       // "room|cont|row" of rows already paid out
-    points: 0,                // displayed ⭐
-    starsEarned: 0,           // lifetime ⭐, drives talent drafts; never decreases
+    points: 0,                // ⭐ earned in THIS run, for the HUD
+    starsEarned: 0,           // same, kept separate because points is displayed
+    /* HOW MANY TALENTS THIS HOUSE TEACHES. `picksMax` is the level's authored
+       `rewards` plus the Reputation upgrade, clamped to rooms-1, computed once
+       at run start; `picksTaken` counts them off. It replaced `draftsTaken`
+       against lifetime-⭐ thresholds and the per-level `talents: false`
+       override that existed to work around them — see the header of
+       js/talents.js. Zero is a legal and common value: the tutorial teaches
+       nothing, and that is now something a level says rather than a flag. */
+    picksMax: 0,
+    picksTaken: 0,
     pendingDrafts: 0,
-    draftsTaken: 0,
-    /* Does ⭐ exist in this run yet? `"talents": false` in levels.json turns the
-       whole reward layer off — no chips, no drafts — for levels that run before
-       5-1 "Talent Show" teaches what a star is. Free play never sets it, so it
-       defaults on. See checkDraftThreshold() in talents.js. */
-    talents: true,
     up: {},
 
     /* teaching */

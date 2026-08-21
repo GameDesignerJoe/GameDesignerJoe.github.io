@@ -32,6 +32,22 @@ export const DONE_KEY     = "tidy-campaign-done";
    sixth house, and an index does not. Free play had no progress record at all
    before — it was nine buttons that re-rolled a house and forgot. */
 export const FREE_KEY = "tidy-free-done-v1";
+
+/* ---------- HOME: the meta progression ----------
+   Three keys, because they answer three different questions and a player can
+   be anywhere in one and nowhere in the others. Folding them into one blob
+   would mean a schema change every time any of them grows.
+
+     STARS_KEY  the wallet. A BALANCE that goes down when you spend, which is
+                a reversal: ⭐ used to be lifetime score that was never spent,
+                and upgrades.json had a costs[] array deleted for that reason.
+                Prices are read now. Do not re-delete them.
+     HOME_KEY   {id: level} for the permanent upgrades bought at home.
+     CAST_KEY   the client ids you have unlocked. The campaign is not all there
+                at the start: you get Mom and Marguerite, and buy the rest. */
+export const STARS_KEY = "tidy-stars-v1";
+export const HOME_KEY  = "tidy-home-v1";
+export const CAST_KEY  = "tidy-cast-v1";
 /* Debug: show every job on the board regardless of progress. Deliberately its
    OWN key rather than a value written into DONE_KEY — see debugUnlocked() in
    js/main.js for why unlocking must not mark anything finished. */
@@ -84,7 +100,22 @@ export const REVEAL_MS = 5000;
    js/validate.js and js/talents.js can see, and boot validation compares this
    list against the data in both directions. Adding either half without the
    other is a named error on a black screen instead of a quiet nothing. */
-export const TALENT_IDS = ["hands", "sense", "magnet", "oneTrip", "homesick"];
+/* IN-LEVEL talents: drafted during a run, gone when it ends. These change
+   WHAT YOU KNOW about the house in front of you, which is why they cannot be
+   permanent — a level authored to teach locked doors must not be playable with
+   the answers already in hand. `hands` used to be here and is a HOME upgrade
+   now; the three at the end were added when it left, because a five-pick house
+   drained a four-talent pool. */
+export const TALENT_IDS = [
+  "sense", "magnet", "oneTrip", "homesick", "keyring", "label", "skeleton",
+];
+
+/* HOME upgrades: bought with ⭐, kept forever. These change HOW YOU PLAY rather
+   than what you know, which is the line that decides which list a thing goes
+   in. Same both-directions boot check as TALENT_IDS: an id here with no code
+   reading it is a card that animates, charges you and does nothing. */
+export const HOME_IDS = ["hands", "picks", "wage", "cards", "spare"];
+
 export const CONSUMABLE_EFFECTS = ["stars", "fileHands"];
 
 export const DIRS = { N:[0,-1], S:[0,1], W:[-1,0], E:[1,0] };

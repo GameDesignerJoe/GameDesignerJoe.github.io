@@ -750,3 +750,12 @@
     85cqw 0 0 0 #a37e8c,
     inset 0 1px 0 rgba(255,255,255,.26);
 }
+
+/* LABEL MAKER's ghost badges: what this container is still waiting for.
+   Deliberately the faintest thing in the strip. The badges that mean "this is
+   inside" are the primary read and these sit behind them — outlined rather
+   than filled, so a want can never be mistaken for a have at a glance. */
+.furn .badges span.want{
+  opacity:.45;
+  filter:grayscale(.85) drop-shadow(0 1px 1px rgba(0,0,0,.4));
+}

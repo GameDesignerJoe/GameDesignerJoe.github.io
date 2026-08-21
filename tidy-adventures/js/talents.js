@@ -1,23 +1,32 @@
 /* ============================================================
-   TALENTS — a pick-one-of-three draft, replacing the shop.
+   TALENTS — a pick-one-of-three draft, granted by the LEVEL.
 
-   WHY THE SHOP WENT. A currency with four items in it, spent inside a
-   four-minute level, whose button was visible from level 1-1 showing "⭐ 0"
-   over an all-unaffordable list, is a fake economy. Mostly it taught players
-   to ignore a HUD button. So the economy is replaced, not rebalanced:
+   WHAT CHANGED AND WHY. Drafts used to be granted by crossing lifetime-⭐
+   thresholds (`draftSteps: [4,10,18,28,40,55,72]`). That put the reward rate
+   entirely outside a level's control: how many talents a house handed out fell
+   out of how many rows it happened to contain, and nothing could say "this is
+   a small job, it teaches you nothing" or "this is everything they have, take
+   five". The first threshold was crossed on the LAST ITEM OF 1-2, which is why
+   every level up to 5-1 carried `"talents": false` — a per-level override
+   invented to work around having no per-level control.
 
-     ⭐ is lifetime score and is never spent.
-     Crossing a threshold in upgrades.json grants a draft.
-     The draft is a forced single choice between three cards.
-     The ⭐ button becomes "what you've learned", not a store.
+   So a level authors `rewards: N` and grants a pick on each of its first N
+   ROOM completions. Room completion because it is already the biggest moment
+   the game has (gold ripple, its own celebration beat) and because a level's
+   room count is its main size lever, so "mega house, five talents" is close to
+   one per room. N is clamped to rooms-1: the last room finishing IS the level
+   finishing, and a draft must not land on the ending.
 
-   WHEN IT FIRES. On a threshold crossing, deferred to a safe moment — never
-   mid-drag, never over an open container. Deferral is what makes it read as
-   a celebration rather than an interruption of the flow state the game is
-   actually good at. Deliberately NOT on level complete, where it would
-   compete with the win screen.
+   ⭐ LEFT THIS MODULE ENTIRELY. It is money now, spent at home (js/home.js) on
+   things that persist. Nothing here reads it, and `draftSteps`,
+   `draftsEarnedFor` and `nextThreshold` are gone rather than left dead.
 
-   Imports: config, dom, data, state, util, feedback.
+   WHEN A PICK FIRES. Deferred to a safe moment — never mid-drag, never over an
+   open container, never on top of a client mid-sentence. Deferral is what makes
+   it read as a celebration rather than an interruption of the flow state the
+   game is actually good at.
+
+   Imports: config, dom, data, state, util, feedback, audio, client.
 ============================================================ */
 import { $, el, setHidden, shopBtn } from './dom.js';
 import { isSpeaking } from './client.js';
@@ -30,55 +39,38 @@ import { play as sfx } from './audio.js';
 
 let onGrant = () => {};
 let onFileHands = () => 0;
+let onSkeleton = () => {};
 /* main.js owns rendering AND the rules; it hands us callbacks so this module
    never has to import either tier (which would be a cycle). A consumable that
-   moves items has to reach the rules, so it reaches them through here. */
-export function initTalents({ grant, fileHands }) {
+   moves items has to reach the rules, so it reaches them through here — and so
+   does Skeleton Key, which is the one talent that acts on the world the moment
+   it is learned rather than changing a rule that is read later. */
+export function initTalents({ grant, fileHands, skeleton }) {
   onGrant = grant;
   onFileHands = fileHands;
+  onSkeleton = skeleton || (() => {});
 }
 
-const steps = () => DATA.upgrades.draftSteps;
+/* A ROOM IS FINISHED — is that worth a talent?
 
-/* How many drafts the player's lifetime ⭐ has earned in total.
+   Called from afterMutation's room-complete branch, which is already the one
+   place that knows a room has just come clean and already fires exactly once
+   per room (`G.roomFxDone` guards it). So this needs no guard of its own: it
+   is called once per room per run, and it hands out a pick while the level has
+   any left to give.
 
-   EXPORTED because the save needs it. `draftsTaken` is what stops an earned
-   draft being granted twice, and for a while it was not written to the save at
-   all — so every Continue reset it to 0 while ⭐ came back intact, `owed` came
-   out as "every draft you have ever taken", and the player was handed one of
-   them back at each safe moment, i.e. every time they closed a container, until
-   the backlog drained. It is saved now; this is here so a save written BEFORE
-   it was can still be settled honestly (see loadGame). */
-export function draftsEarnedFor(stars) {
-  return steps().filter(s => stars >= s).length;
+   `G.picksMax` is the level's authored `rewards`, plus the Reputation upgrade,
+   clamped to rooms-1 — computed once at run start by main.js, because it
+   depends on the home layer and this module must not import it. */
+export function roomFinished() {
+  if (G.picksTaken + G.pendingDrafts >= G.picksMax) return;
+  G.pendingDrafts++;
+  /* The ⭐ button appears the exact moment it means something. */
+  setHidden(shopBtn, false);
 }
 
-/* Call after ⭐ changes. Queues a draft if a threshold was just crossed.
-
-   THE ONE GATE. A level with `"talents": false` has not met stars yet, so it
-   must never open a draft. This was the second bug in the notes — "we're still
-   giving stars and rewards before we've taught them" — and it was not a near
-   miss: the first threshold is 4 ⭐, which a player crosses on the LAST item of
-   1-2, the second level of the game. A modal then asked them to choose between
-   three talents, five levels before 5-1 "Talent Show" explains what any of that
-   is. Gating here rather than at the call sites catches all three of them
-   (afterMutation, a finished quest, the debug ⭐ button) in one place. */
-export function checkDraftThreshold() {
-  if (!G.talents) return;
-  const earned = draftsEarnedFor(G.starsEarned);
-  const owed = earned - G.draftsTaken - G.pendingDrafts;
-  if (owed > 0) {
-    G.pendingDrafts += owed;
-    /* The shop button appears the exact moment it means something — no
-       per-level "show upgrades" flag needed. */
-    setHidden(shopBtn, false);
-  }
-}
-
-export function nextThreshold() {
-  const taken = G.draftsTaken;
-  return steps()[taken] ?? null;
-}
+/* How many picks this level still owes, for the HUD and the win screen. */
+export const picksLeft = () => Math.max(0, G.picksMax - G.picksTaken);
 
 /* Is now a safe moment to interrupt? */
 export function drainDrafts(isBusy) {
@@ -141,21 +133,25 @@ function cardForUpgrade(u) {
 export function openDraft() {
   const cards = pool();
   if (!cards.length) {
-    /* Nothing left to choose. Never open a modal with no decision in it —
-       just pay out and move on. */
+    /* Nothing left to choose — every talent maxed. Never open a modal with no
+       decision in it; pay out in the currency that still means something and
+       move on. `onGrant(null)` is what banks it, because ⭐ is a wallet in
+       js/home.js now and this module deliberately cannot see it. */
     G.pendingDrafts--;
-    G.draftsTaken++;
+    G.picksTaken++;
     G.points += 3; G.starsEarned += 3;
+    onGrant({ kind: "consumable", effect: "stars", amount: 3, icon: "⭐", name: "Lucky Find" });
     flyReward(shopBtn, "+3 ⭐");
-    onGrant(null);
     return;
   }
 
   const wrap = $("#draftOverlay");
   const grid = $("#draftCards");
   grid.innerHTML = "";
+  /* "1 of 4" rather than a ⭐ count: the level decides how many of these you
+     get now, so the useful number is how far through its offer you are. */
   $("#draftSub").textContent =
-    `${G.points} ⭐ earned — pick one.`;
+    `Talent ${G.picksTaken + 1} of ${G.picksMax} — pick one.`;
 
   /* Hides the always-on-top gear for the duration — see css/layout.css. */
   document.body.classList.add("drafting");
@@ -193,11 +189,15 @@ function choose(c, cardEl, grid) {
   }
 
   G.pendingDrafts--;
-  G.draftsTaken++;
+  G.picksTaken++;
 
   if (c.kind === "upgrade") {
     G.up[c.id] = (G.up[c.id] || 0) + 1;
-    if (c.id === "hands") G.inv.push(null);
+    /* `hands` used to be handled here; it is a HOME upgrade now and is applied
+       once at run start instead. Every talent left in this list is read where
+       it is used, so there is nothing to do at grant time except two that fire
+       immediately rather than changing a rule: */
+    if (c.id === "skeleton") onSkeleton();
   } else {
     applyConsumable(c);
   }
@@ -236,9 +236,11 @@ export function renderTalents() {
   list.innerHTML = "";
   const owned = DATA.upgrades.upgrades.filter(u => G.up[u.id] > 0);
 
-  $("#shopPts").textContent = owned.length
-    ? `${G.points} ⭐ earned.`
-    : `${G.points} ⭐ earned. Finish rows to earn more.`;
+  const left = picksLeft();
+  $("#shopPts").textContent = G.picksMax
+    ? `${G.picksTaken} of ${G.picksMax} learned in this house` +
+      (left ? ` — ${left} more to come.` : ".")
+    : "This job doesn't teach you anything. Some of them don't.";
 
   for (const u of owned) {
     const max = maxLevel(u);
@@ -259,15 +261,13 @@ export function renderTalents() {
   /* Silhouettes for what's still out there — a reason to keep earning,
      without spoiling what it is. */
   const undiscovered = DATA.upgrades.upgrades.filter(u => G.up[u.id] === 0);
-  if (undiscovered.length) {
+  if (undiscovered.length && G.picksMax) {
     const row = el("div", "shoprow ghostrow");
     const info = el("div", "sinfo");
     info.appendChild(el("div", "sname", "？".repeat(Math.min(3, undiscovered.length))));
-    const next = nextThreshold();
-    info.appendChild(el("div", "sdesc",
-      next != null
-        ? `${undiscovered.length} more to learn. Next at ${next} ⭐.`
-        : `${undiscovered.length} more to learn.`));
+    info.appendChild(el("div", "sdesc", left
+      ? `${undiscovered.length} more out there. Finish a room to learn one.`
+      : `${undiscovered.length} more out there — but not in this house.`));
     row.appendChild(info);
     list.appendChild(row);
   } else if (!owned.length) {

@@ -127,6 +127,12 @@
     <h1>Settings</h1>
     <!-- which job you're in the middle of; filled in each time the gear opens -->
     <p class="nowplaying" id="nowPlaying"></p>
+    <!-- THE META STATE, always shown, even with no run. Every debug button
+         below changes something that is otherwise invisible from in here — the
+         wallet is on the title screen, the cast is on the job board — so the
+         panel has to be its own readout or pressing a button looks like it did
+         nothing. See syncGear(). -->
+    <p class="gearmeta" id="gearMeta"></p>
     <div class="shoprow">
       <div class="sinfo">
         <div class="sname">Main menu</div>
@@ -166,10 +172,10 @@
       <summary>Debug tools<i></i></summary>
       <div class="shoprow">
         <div class="sinfo">
-          <div class="sname">Free skill point</div>
-          <div class="sdesc">+1 ⭐ so you can test upgrades without the labor.</div>
+          <div class="sname">Free talent</div>
+          <div class="sdesc">Grants one in-level pick and opens the draft, without finishing a room for it. Does nothing on a house that teaches none — the row says so.</div>
         </div>
-        <button id="debugStar">+1 ⭐</button>
+        <button id="debugStar">Draft</button>
       </div>
       <div class="shoprow">
         <div class="sinfo">
@@ -191,6 +197,34 @@
           <div class="sdesc">Opens every job on the board so you can play any of them in any order, and reveals every client. Your real progress is left exactly as it is — press again to put the gate back.</div>
         </div>
         <button id="debugUnlock">Unlock</button>
+      </div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Pocket money</div>
+          <div class="sdesc" id="dbgStarsDesc">+500 ⭐ into the wallet, which is about a third of everything Home sells. Press again for more.</div>
+        </div>
+        <button id="debugStars">+500 ⭐</button>
+      </div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Hire everybody</div>
+          <div class="sdesc" id="dbgHireDesc">Takes on the whole cast for free, so the job board and every client's arc are reachable. Leaves the wallet alone — "can I afford them" and "what does the board look like with all of them" are different questions.</div>
+        </div>
+        <button id="debugHire">Hire all</button>
+      </div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Max permanent upgrades</div>
+          <div class="sdesc" id="dbgMaxDesc">Every Home upgrade at its top level, free. Takes effect on the next house you start; hand slots apply to a resumed one too.</div>
+        </div>
+        <button id="debugMaxHome">Max out</button>
+      </div>
+      <div class="shoprow">
+        <div class="sinfo">
+          <div class="sname">Clear Home</div>
+          <div class="sdesc">Empties the wallet, un-buys every permanent upgrade and fires everybody except the two you start with. Campaign and free-play ticks are left alone.</div>
+        </div>
+        <button id="debugHomeClear">Clear</button>
       </div>
       <div class="shoprow">
         <div class="sinfo">
@@ -247,11 +281,33 @@
            rather than swapped out, which is what keeps its click handler. -->
       <button class="menubtn primary" id="btnContinue" hidden>Continue Tidy Job</button>
       <button class="menubtn" id="btnCampaign">Take a Tidy Job</button>
+      <!-- Always present, at 0 ⭐ included: it is the entrance to half the
+           progression and hiding it made the meta layer undiscoverable. The
+           `hidden` here is only for the frame before refreshTitle() runs. -->
+      <button class="menubtn" id="btnHome" hidden>Home</button>
       <button class="menubtn" id="btnFree">Free Play</button>
       <button class="menubtn ghost" id="btnHow">Instructions</button>
     </div>
     <!-- filled in by buildHelp() from VERSION in js/config.js -->
     <div class="version" id="titleVersion"></div>
+  </div>
+</div>
+
+<!-- HOME — where ⭐ gets spent. Two sections: the cast you can take on, then
+     the permanent upgrades. The cast is first because it changes what the game
+     IS (a new person, their jobs, their voice) and the upgrades are numbers;
+     a player with forty stars should be looking at a face. See js/home.js. -->
+<div class="overlay" id="homeOverlay">
+  <div class="card">
+    <div class="big">🛋️</div>
+    <h1>Home</h1>
+    <p id="homeSub"></p>
+    <div id="homeStars">0 ⭐</div>
+    <h2 class="homehead">Who you work for</h2>
+    <div id="homeCast"></div>
+    <h2 class="homehead">What you have learned for good</h2>
+    <div id="homeUpgrades"></div>
+    <button class="menubtn ghost" id="homeClose">Back</button>
   </div>
 </div>
 

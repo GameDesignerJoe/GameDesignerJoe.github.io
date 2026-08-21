@@ -512,3 +512,109 @@
   .jobcard .njface{font-size:34px}
   .jobcard .njhook{font-size:12.5px}
 }
+
+/* ============================================================
+   HOME — the shop the meta layer spends in.
+
+   Same screen shape as the two boards (#campaignOverlay, #sizeOverlay): wide
+   card, trimmed chrome, one scrolling region. It is a third board and it should
+   not look like a fourth kind of thing.
+============================================================ */
+/* OPAQUE, like #gearOverlay and for the identical reason: this is one of the
+   two overlays that opens ON TOP of another one. The shared backdrop is
+   rgba(15,11,6,.88), and at 88% the title screen's big bright type ghosts
+   straight through a grid of faces. */
+#homeOverlay{padding:14px 10px;background:#0b0805}
+#homeOverlay .card{width:100%;max-width:min(96vw, 760px)}
+#homeOverlay .big{font-size:34px;margin-bottom:2px}
+#homeOverlay h1{font-size:26px;margin-bottom:4px}
+#homeOverlay p{font-size:13px;margin-bottom:6px}
+/* The card scrolls rather than the sections, because there are two sections and
+   two independent scrollers on one screen is a way to lose the second one. */
+#homeOverlay .card{max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:none}
+#homeOverlay .card::-webkit-scrollbar{display:none}
+
+/* THE WALLET, big enough to be the thing you check. It is also the flight
+   target for every purchase chip, so it must never be display:none. */
+#homeStars{
+  font-size:30px;font-weight:900;letter-spacing:.02em;
+  color:var(--gold);margin:2px 0 14px;
+  text-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+#homeStars.pop{animation:fxpop .45s ease-out}
+
+.homehead{
+  text-align:left;margin:14px 2px 8px;
+  font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-dim);
+  border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:5px;
+}
+
+/* ---------- the cast ---------- */
+#homeCast{display:grid;grid-template-columns:repeat(3, 1fr);gap:7px}
+@media (min-width:560px){
+  #homeCast{grid-template-columns:repeat(auto-fill, minmax(132px, 1fr));gap:10px}
+}
+/* Scoped `.overlay .htile` (0,2,1) for the reason `.jtile` is: `.overlay
+   button` (0,1,1) makes every button in an overlay a gold pill. */
+.overlay .htile{
+  position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;
+  margin:0;padding:9px 6px 8px;border-radius:12px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:none;cursor:pointer;text-align:center;
+  transition:background .15s, border-color .15s;
+}
+.hface{font-size:clamp(30px, 10vw, 44px);line-height:1.05;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5))}
+.hname{font-size:11.5px;font-weight:800;letter-spacing:.02em;color:var(--ink);line-height:1.15}
+.hjobs{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--ink-dim)}
+.hprice{
+  margin-top:3px;font-size:11px;font-weight:900;letter-spacing:.04em;
+  color:var(--gold);display:flex;flex-direction:column;align-items:center;gap:1px;
+}
+/* The referral discount says so. Without this the chain pays and never
+   explains why, which reads as inconsistent pricing rather than a reward. */
+.hprice .href{
+  font-style:normal;font-size:8px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:#8fd0a0;
+}
+.hprice.done{color:#8fd0a0}
+/* Affordable is the only state that gets gold edging: on a screen of eleven
+   faces the useful signal is "which of these can I have right now". */
+.overlay .htile.afford{border-color:rgba(245,197,66,.55)}
+.overlay .htile.afford:hover{background:rgba(245,197,66,.12)}
+.overlay .htile.dear{opacity:.5;cursor:default}
+.overlay .htile.dear .hface{filter:grayscale(.9) brightness(.8)}
+.overlay .htile.owned{background:rgba(143,208,160,.10);border-color:rgba(143,208,160,.35);cursor:default}
+.overlay .htile:disabled{cursor:default}
+
+/* ---------- the upgrades ---------- */
+#homeUpgrades .shoprow.maxed{opacity:.55}
+#homeUpgrades .shoprow button{white-space:nowrap}
+
+/* ---------- board tiles for somebody you have not hired ----------
+   Distinct from `.locked`, which means "not yet". This one means "go and buy
+   them", so it keeps a full-strength silhouette and shows a price rather than
+   fading toward invisible like a level you are not up to. */
+.overlay .jtile.unhired{opacity:.72;cursor:default;border-style:dashed}
+.jtile.unhired .jid{color:var(--gold);opacity:1}
+
+/* THE GEAR'S META READOUT. Sits under nowPlaying() and, unlike it, is shown
+   with no run at all — because the wallet and the cast exist outside a run and
+   the debug buttons that change them are in here.
+
+   It is also the ONLY feedback those buttons can give. A say() pressed from
+   inside the gear is invisible: #toast is z-index 95 and .overlay is 120, so
+   the message lands behind the panel you are looking at. Every debug action
+   that changes meta state repaints this line instead. */
+.gearmeta{
+  color:var(--ink-dim) !important;
+  font-size:11.5px;font-weight:700;letter-spacing:.04em;
+  margin:-8px 0 14px;line-height:1.5;
+}
+.gearmeta b{color:var(--gold);font-weight:900}
+/* The transient half: what the button you just pressed actually did. */
+.gearmeta i{
+  display:block;font-style:normal;margin-top:3px;
+  color:#8fd0a0;font-weight:800;letter-spacing:.06em;
+}

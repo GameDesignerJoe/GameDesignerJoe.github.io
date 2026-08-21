@@ -1,25 +1,49 @@
 {
   "_readme": [
-    "TALENTS and how you earn them.",
+    "TWO CATALOGUES, and the split is the whole design.",
     "",
-    "levels — how many times this talent can be taken. That is the whole knob.",
-    "It used to be a costs[] array of prices, but ⭐ is score and is never spent",
-    "(see the header of js/talents.js), so nothing ever read a price. Five numbers",
-    "sat there looking like balance you could tune, and tuning them did nothing.",
+    "  upgrades[] — IN-LEVEL TALENTS. Drafted during a run, gone when it ends.",
+    "  home[]     — PERMANENT UPGRADES. Bought at home with ⭐, kept forever.",
     "",
-    "draftSteps — lifetime ⭐ thresholds. Crossing one grants a pick-1-of-3 draft.",
-    "             Stars are score, not a wallet: they are never spent.",
+    "THE LINE BETWEEN THEM: a talent changes WHAT YOU KNOW about the house in",
+    "front of you; a home upgrade changes HOW YOU PLAY. Only the second is safe",
+    "to make permanent. Sixth Sense tells you where a held item lives — carrying",
+    "that between levels would gut the taxonomy the game is about, and 4-2 was",
+    "already being played with it in hand back when talents did carry over. So",
+    "the information talents stay per-run and the friction ones went home.",
+    "",
+    "WHAT CHANGED, so it does not get changed back:",
+    "",
+    "  ⭐ IS A WALLET NOW. It used to be lifetime score that was never spent, and",
+    "  this file used to carry a costs[] array that was deleted because nothing",
+    "  read it. Prices are read. `cost` on a home upgrade is per LEVEL taken, and",
+    "  `cost` on a client in clients.json is a one-off unlock. Do not delete them",
+    "  again on the grounds that stars are score — they are money.",
+    "",
+    "  draftSteps IS GONE. Drafts used to be granted by crossing lifetime-⭐",
+    "  thresholds [4,10,18,28,40,55,72], which gave a LEVEL no say in how many",
+    "  rewards it handed out — the count fell out of how many rows it happened to",
+    "  contain. The first threshold was crossed on the last item of 1-2, which is",
+    "  why every level before 5-1 carried \"talents\": false: a workaround for",
+    "  having no per-level control. A level now authors `rewards: N` and grants a",
+    "  pick on each of its first N ROOM completions, and the workaround is gone.",
+    "",
+    "  hands LEFT THIS LIST for home[]. That took the in-level pool down to four",
+    "  talents and seven picks, which a five-pick house drains — so keyring,",
+    "  label and skeleton were written to refill it. Seven talents, twelve picks.",
+    "",
+    "levels — how many times a thing can be taken. That is the whole knob.",
     "",
     "desc supports {token} and {token|sec} (milliseconds -> seconds), resolved",
-    "against this upgrade's params. An unresolvable token is a boot error, so a",
-    "typo can never ship to the player.",
+    "against that entry's params. An unresolvable token is a boot error.",
     "",
-    "EVERY id HERE MUST BE IMPLEMENTED. The list of ids the code actually reads",
-    "is TALENT_IDS in js/config.js, and boot validation compares the two. Adding",
-    "a talent here and nowhere else used to give you a card that animated, said",
-    "its name, incremented a level and did nothing whatsoever — invisible, because",
-    "a talent that does nothing looks exactly like a talent you misunderstood.",
-    "Same rule for consumable `effect` values and CONSUMABLE_EFFECTS.",
+    "EVERY id HERE MUST BE IMPLEMENTED. TALENT_IDS and HOME_IDS in js/config.js",
+    "are the lists the code actually reads, and boot validation compares them",
+    "against this file IN BOTH DIRECTIONS. Adding an entry here and nowhere else",
+    "used to give you a card that animated, said its name, incremented a level",
+    "and did nothing whatsoever — invisible, because a talent that does nothing",
+    "looks exactly like a talent you misunderstood. A home upgrade in that state",
+    "would also take the player's money.",
     "",
     "WHAT WAS CUT, AND WHY, so it doesn't get reinvented:",
     "",
@@ -38,13 +62,9 @@
     "  once-a-second interval and a consumable to refresh it."
   ],
 
-  "draftSteps": [4, 10, 18, 28, 40, 55, 72],
   "draftCards": 3,
 
   "upgrades": [
-    { "id": "hands",  "name": "Bigger Hands",  "icon": "🙌", "levels": 5,
-      "desc": "+1 hand slot. Haul more per trip." },
-
     { "id": "sense",  "name": "Sixth Sense",   "icon": "🔮", "levels": 1,
       "desc": "Held items whisper where they live — and their home glows if it's in the room." },
 
@@ -56,7 +76,61 @@
       "desc": "Put one thing away and the rest of the armful goes with it — its own kind at first, then anything in your hands that lives there." },
 
     { "id": "homesick", "name": "Homesick",    "icon": "🏡", "levels": 1,
-      "desc": "Anything on this floor with a home in this room gives off a soft glow." }
+      "desc": "Anything on this floor with a home in this room gives off a soft glow." },
+
+    { "_note": "Written when `hands` moved home and the pool dropped to four talents. All three are INFORMATION or FRICTION inside one run, which is what keeps them on this side of the line.",
+      "id": "keyring", "name": "Keyring",      "icon": "🔑", "levels": 1,
+      "desc": "Every key and coin still loose in the room you're standing in rings, and lifts above the clutter." },
+
+    { "id": "label",  "name": "Label Maker",   "icon": "🏷️", "levels": 2,
+      "params": { "show": 2 },
+      "desc": "Furniture shows {show} of the things it's still waiting for, greyed out beside what's already inside. One more per level." },
+
+    { "id": "skeleton", "name": "Skeleton Key", "icon": "🗝️", "levels": 2,
+      "desc": "Every lock still shut in this house wants one key fewer. Takes effect the moment you learn it." }
+  ],
+
+  "_homeNote": [
+    "HOME. Bought with ⭐ at the main menu, kept forever, and the reason to keep",
+    "playing past the room in front of you.",
+    "",
+    "  cost   — ⭐ per level taken. An ARRAY prices each level separately (Bigger",
+    "           Hands gets steeper); a NUMBER prices every level the same.",
+    "  levels — how many times it can be bought.",
+    "",
+    "PRICED AGAINST THE CAMPAIGN, not against free play, because free play mints",
+    "no stars at all (see the note in sizes.json). The 34 campaign levels pay",
+    "roughly 1 ⭐ per completed row, so a first run through the whole campaign is",
+    "in the low hundreds — enough to unlock most of the cast OR max two or three",
+    "upgrades, not both. Choosing is the point; replaying is the way out of a",
+    "corner.",
+    "",
+    "`picks` IS THE ONE THAT FEEDS BACK INTO THE OTHER CATALOGUE: it raises how",
+    "many in-level talents a house hands out, on top of whatever the level",
+    "authored. It is capped by the level's own room count either way — a house",
+    "cannot grant a pick for a room it does not have."
+  ],
+  "home": [
+    { "id": "hands", "name": "Bigger Hands", "icon": "🙌", "levels": 4,
+      "cost": [12, 26, 48, 80],
+      "desc": "+1 hand slot, in every house, forever. Haul more per trip." },
+
+    { "id": "picks", "name": "Reputation",   "icon": "📣", "levels": 2,
+      "cost": [40, 110],
+      "desc": "+1 talent to learn per house, on top of what the job offers. Never more than the house has rooms." },
+
+    { "id": "wage",  "name": "Good Name",    "icon": "💫", "levels": 3,
+      "cost": [30, 70, 140],
+      "params": { "each": 1 },
+      "desc": "+{each} ⭐ every time you finish a whole room. One more per level." },
+
+    { "id": "cards", "name": "Business Cards", "icon": "📇", "levels": 2,
+      "cost": [45, 100],
+      "desc": "Every client costs 20% less to take on. Stacks with the discount for being referred." },
+
+    { "id": "spare", "name": "Spare Set",    "icon": "🔐", "levels": 1,
+      "cost": [55],
+      "desc": "Start every house already holding an old key. One lock is somebody else's problem." }
   ],
 
   "_consumableNote": [

@@ -9,7 +9,7 @@
 
    Imports: none. This is a leaf.
 ============================================================ */
-import { MAX_ROOMS, TALENT_IDS, CONSUMABLE_EFFECTS } from './config.js';
+import { MAX_ROOMS, TALENT_IDS, HOME_IDS, CONSUMABLE_EFFECTS } from './config.js';
 import { tokensIn, anchorPrefix, expectedItems, themeTypeCap } from './util.js';
 
 export class DataError extends Error {}
@@ -617,36 +617,53 @@ export function validateData(D) {
          it waits forever — and the one tip that does is the ONLY thing in the
          game that explains the ⭐ button. Silent if unchecked: the level plays
          fine and the player is simply never told. */
-      if (l.talents === false && (t.when === "talentEarned" || target === "shop")) {
+      if (!(l.rewards > 0) && (t.when === "talentEarned" || target === "shop")) {
         errors.push(at("levels.json",
-          `level ${l.id} has "talents": false but its tip "${t.kind}" teaches talents.`,
-          "That level hands out no stars, so the tip can never appear. Either give " +
-          "the level talents, or move the tip to the first level that has them."));
+          `level ${l.id} has rewards: ${l.rewards} but its tip "${t.kind}" teaches talents.`,
+          "That level teaches no talents, so talentEarned can never fire and the tip waits " +
+          "forever. Give the level a reward, or move the tip to the first level that has one."));
       }
     }
   }
-  /* ---------- 8b. talents, once on, stay on ---------- */
+  /* ---------- 8b. HOW MANY TALENTS EACH LEVEL TEACHES ----------
+
+     `rewards` replaced a boolean `talents` flag, which replaced lifetime-⭐
+     thresholds. The rule that matters is the CAP: a pick is granted on a room
+     completion, and the last room completing is the level completing, so a
+     level may promise at most rooms-1 or its final pick lands on the ending —
+     on top of the client's outro and the win screen, which is exactly the
+     pile-up the celebration queue exists to stop.
+
+     An over-promise is silent without this check: the extra pick is simply
+     never granted, so the level quietly hands out fewer talents than authored
+     and nothing anywhere says so. */
   {
     const ls = D.levels?.levels || [];
     for (const l of ls) {
-      if ("talents" in l && typeof l.talents !== "boolean") {
+      if ("talents" in l) {
         errors.push(at("levels.json",
-          `level ${l.id} has "talents": ${JSON.stringify(l.talents)}, which is not true or false.`,
-          "Omit it for the normal behaviour (stars on)."));
+          `level ${l.id} still has "talents": ${JSON.stringify(l.talents)}.`,
+          "That flag is gone — a level says how many talents it teaches with `rewards: N`. " +
+          "See the header of js/talents.js."));
+      }
+      if (!(Number.isInteger(l.rewards) && l.rewards >= 0)) {
+        errors.push(at("levels.json",
+          `level ${l.id} has rewards: ${JSON.stringify(l.rewards)}, which is not a whole number ≥ 0.`,
+          "How many talents this house teaches. 0 is legal and normal — the tutorial teaches none."));
+        continue;
+      }
+      const cap = Math.max(0, (l.rooms || 1) - 1);
+      if (l.rewards > cap) {
+        errors.push(at("levels.json",
+          `level ${l.id} promises ${l.rewards} talents but has ${l.rooms} rooms, so at most ${cap} can be granted.`,
+          "Picks are granted on room completions and the LAST room completing is the level " +
+          "completing. Lower rewards or add a room; the extra is silently never handed out."));
       }
     }
-    const on = ls.findIndex(l => l.talents !== false);
+    const on = ls.findIndex(l => l.rewards > 0);
     if (on === -1) {
-      warnings.push(at("levels.json", "every level has \"talents\": false, so the talent draft is dead code.",
-        "Some level has to be the one that introduces ⭐."));
-    } else {
-      const relapse = ls.slice(on).filter(l => l.talents === false).map(l => l.id);
-      if (relapse.length) {
-        warnings.push(at("levels.json",
-          `${ls[on].id} turns talents on, but ${relapse.join(", ")} later turn them back off.`,
-          "A reward the player has already been taught should not vanish again. " +
-          "This is a warning, not an error, in case it is a deliberate quiet level."));
-      }
+      warnings.push(at("levels.json", "no level teaches any talents, so the draft is dead code.",
+        "Some level has to be the one that introduces them."));
     }
   }
 
@@ -718,11 +735,84 @@ export function validateData(D) {
       `${supply} things to offer but draftCards is ${cards}, so a draft can never fill its grid.`,
       "Add a talent or a consumable, or lower draftCards."));
   }
-  const steps = D.upgrades?.draftSteps;
-  if (!Array.isArray(steps) || !steps.length) {
-    errors.push(at("upgrades.json", "draftSteps must be a non-empty array of ⭐ thresholds."));
-  } else if (steps.some((v, i) => i && v <= steps[i - 1])) {
-    errors.push(at("upgrades.json", `draftSteps must increase: [${steps}]`));
+  if ("draftSteps" in (D.upgrades || {})) {
+    errors.push(at("upgrades.json", "`draftSteps` is still here and nothing reads it.",
+      "Drafts are granted by a level's `rewards` count on room completions now. " +
+      "Delete it rather than leaving a tuning knob that does nothing — this file " +
+      "already carries two war stories about exactly that."));
+  }
+
+  /* ---------- 9b. HOME: the permanent half ----------
+     Same both-ways check as the talents, and it matters MORE here: an
+     unimplemented talent draws a card that does nothing, and an unimplemented
+     home upgrade does nothing AND takes the player's money. */
+  {
+    const home = D.upgrades?.home;
+    if (!Array.isArray(home) || !home.length) {
+      errors.push(at("upgrades.json", "no `home` array.",
+        "The permanent upgrades bought with ⭐. Without them the Home screen is empty and " +
+        "⭐ has nothing to be spent on, which is the fake-economy problem the old shop had."));
+    }
+    const seenHome = new Set();
+    for (const u of home || []) {
+      if (!u.id) { errors.push(at("upgrades.json", "a home upgrade has no id.")); continue; }
+      if (seenHome.has(u.id)) {
+        errors.push(at("upgrades.json", `two home upgrades share the id "${u.id}".`,
+          "HOME_KEY is keyed by id, so the second would share the first's level."));
+      }
+      seenHome.add(u.id);
+      if (!HOME_IDS.includes(u.id)) {
+        errors.push(at("upgrades.json",
+          `home upgrade "${u.id}" is not implemented — no code reads it.`,
+          "Add it to HOME_IDS in js/config.js and write the code that reads homeLevel(\"" +
+          u.id + "\"). Unimplemented, it charges the player and does nothing."));
+      }
+      if (!(Number.isInteger(u.levels) && u.levels > 0)) {
+        errors.push(at("upgrades.json", `home upgrade "${u.id}" has levels: ${JSON.stringify(u.levels)}.`));
+      }
+      /* Prices are READ now. A missing or non-increasing one is a free upgrade
+         or a cheaper second level, and both look like generosity rather than a
+         bug until somebody notices the economy has no floor. */
+      const cost = u.cost;
+      const arr = Array.isArray(cost) ? cost : (cost == null ? null : [cost]);
+      if (!arr || !arr.length || arr.some(v => !(Number.isFinite(v) && v > 0))) {
+        errors.push(at("upgrades.json",
+          `home upgrade "${u.id}" has cost: ${JSON.stringify(cost)}.`,
+          "A positive number, or one per level. ⭐ is money now — an upgrade with no price is free."));
+      } else {
+        if (Array.isArray(cost) && cost.length !== u.levels) {
+          warnings.push(at("upgrades.json",
+            `home upgrade "${u.id}" has ${cost.length} prices for ${u.levels} levels; the last one repeats.`));
+        }
+        if (arr.some((v, i) => i && v <= arr[i - 1])) {
+          warnings.push(at("upgrades.json",
+            `home upgrade "${u.id}" prices do not increase: [${arr}].`,
+            "A later level costing the same or less makes the earlier one the bad deal."));
+        }
+      }
+      for (const tok of tokensIn(u.desc || "")) {
+        if (!(u.params && tok in u.params)) {
+          errors.push(at("upgrades.json",
+            `home upgrade "${u.id}" description uses {${tok}} but params has no "${tok}".`));
+        }
+      }
+    }
+    for (const id of HOME_IDS) {
+      if (!seenHome.has(id)) {
+        errors.push(at("upgrades.json",
+          `HOME_IDS lists "${id}" but upgrades.json has no such home upgrade.`,
+          "The code reads homeLevel(\"" + id + "\"), which will be 0 forever."));
+      }
+    }
+    /* An id cannot be in both lists: G.up and HOME_KEY are separate records and
+       the same id in both would be two different levels of the same name. */
+    for (const id of TALENT_IDS) {
+      if (HOME_IDS.includes(id)) {
+        errors.push(at("upgrades.json", `"${id}" is in both TALENT_IDS and HOME_IDS.`,
+          "A thing is either learned inside a house and forgotten, or bought once and kept. " +
+          "Being both means two separate levels under one name."));
+      }
+    }
   }
 
   /* ---------- 10. clients.json: every level is exactly one client's job ----------
@@ -840,7 +930,7 @@ export function validateData(D) {
             `${where} ("${s.level}") has no \`nudge\`, so coming back to it mid-job says the house's generic line.`,
             "One sentence restating what is at stake in THIS job, in their voice, read by a player who has forgotten the intro."));
         }
-        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || "", s.hook || "", s.nudge || ""]) {
+        for (const line of [...(s.intro || []), ...(s.outro || []), s.teaser || "", s.replay || "", s.hook || "", s.hookCold || "", s.nudge || ""]) {
           for (const tok of tokensIn(line)) {
             if (!CLIENT_TEXT_TOKENS.has(tok)) {
               errors.push(at("clients.json", `${where} uses {${tok}}, which is never filled in.`,
@@ -934,6 +1024,55 @@ export function validateData(D) {
         }
       }
 
+      /* ---------- can this person be hired, and does their opening make sense ----
+         The campaign is bought a client at a time, so `cost` decides whether
+         somebody is part of the opening (0) or something to save up for.
+
+         `hookCold` is the interesting one. Every first-stage hook is a
+         REFERRAL — Mom hands you to Marguerite who hands you to Sam, a pizza
+         box gets you the frat who get you Unit 7 who give you as a reference to
+         Dr. Ashworth — and in a shop where anything is buyable in any order,
+         that line can arrive before the person it names. So a client whose
+         `needs` points at somebody BUYABLE must also carry a cold opening. A
+         client whose referrer is part of the free opening can never be missing
+         one, and authoring an unreachable line there is dead copy. */
+      if (!(typeof c.cost === "number" && c.cost >= 0)) {
+        errors.push(at("clients.json", `client "${c.id}" has cost: ${JSON.stringify(c.cost)}.`,
+          "⭐ to hire them. 0 means they are part of the opening and never appear in the shop."));
+      }
+      if (c.needs !== null && c.needs !== undefined) {
+        const ref = (clients || []).find(x => x.id === c.needs);
+        if (!ref) {
+          errors.push(at("clients.json", `client "${c.id}" needs "${c.needs}", who does not exist.`,
+            "`needs` is who refers you — it sets the referral discount and picks warm vs cold copy."));
+        } else {
+          if (ref.id === c.id) {
+            errors.push(at("clients.json", `client "${c.id}" refers themselves.`));
+          }
+          const buyable = ref.cost > 0;
+          const cold = stages[0]?.hookCold;
+          if (buyable && !cold) {
+            errors.push(at("clients.json",
+              `client "${c.id}" is referred by "${ref.id}", who can be locked, but has no \`hookCold\`.`,
+              `Their opening line names somebody the player may never have met. Write the version ` +
+              `for finding them another way, on their first stage.`));
+          }
+          if (!buyable && cold) {
+            warnings.push(at("clients.json",
+              `client "${c.id}" has a \`hookCold\` but is referred by "${ref.id}", who is never locked.`,
+              "That line can never be shown. Dead copy."));
+          }
+        }
+      } else if (stages[0]?.hookCold) {
+        warnings.push(at("clients.json", `client "${c.id}" has a \`hookCold\` but no \`needs\`.`,
+          "With no referrer their warm hook is already the cold one, so this never shows."));
+      }
+      /* Somebody has to be free or there is no way to start. */
+      if (!(clients || []).some(x => !(x.cost > 0))) {
+        errors.push(at("clients.json", "every client costs ⭐, so a fresh save has nobody to work for.",
+          "At least one client needs cost: 0."));
+      }
+
       /* Two is legal because of Mom: a prologue whose whole job is to teach the
          verbs and hand you to a real client. Three to five is the shape of an
          arc that has somewhere to go. */
@@ -992,8 +1131,12 @@ export function validateData(D) {
         }
       }
     }
-    /* The first job with talents on is where the ramp ends and the swing starts. */
-    const rampEnds = levels.findIndex(l => l.talents !== false);
+    /* The first job that TEACHES ANYTHING is where the ramp ends and the swing
+       starts. This used to read `l.talents !== false`; that flag is gone and
+       with it went the check's own start point — reading the new field keeps
+       the tutorial exempt, which is the whole point of it (the first jobs are a
+       deliberate ramp, so "no two in a row the same size" must not apply). */
+    const rampEnds = levels.findIndex(l => l.rewards > 0);
     for (let i = Math.max(1, rampEnds + 1); i < levels.length; i++) {
       const a = askOf(levels[i - 1]), b = askOf(levels[i]);
       const r = b / a;

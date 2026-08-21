@@ -38,9 +38,13 @@ import {
   resetPan, resetZoom, isZoomed, camScale, setCamSmooth, fitScale,
 } from './camera.js';
 import {
-  initTalents, checkDraftThreshold, drainDrafts, renderTalents, openDraft,
-  draftsEarnedFor,
+  initTalents, drainDrafts, renderTalents, openDraft, roomFinished, picksLeft,
 } from './talents.js';
+import {
+  initHome, openHome, stars, addStars, homeLevel, castHas, castUnlocked,
+  peekNewHire, takeNewHire, wasReferred, priceOf, clearHome, grantStars, homeState,
+  hireAll, maxHome, homeSummary,
+} from './home.js';
 import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted,
          playMusic, nowPlayingMusic, musicDebug } from './audio.js';
 import {
@@ -134,6 +138,26 @@ function setDebugUnlock(on){
 /* Everything the job board and the level flow need, derived in one place.
    `frontier` is how far you've ever got; `now` is the earliest job you have
    not finished, which after an insertion is the new one. */
+/* ============================================================
+   PROGRESS — and why the board had to become dynamic
+
+   Two gates now, not one. The FRONTIER is how far you have got; HIRING is
+   whether you have a client at all. The campaign is no longer all there at the
+   start: you get Mom and Marguerite and buy the rest at home, so two players
+   twenty levels in can have completely different casts, and the board cannot
+   promise "the one after next" the way it used to.
+
+   `hired` is the set of level ids whose client you own. Everything downstream
+   — the tile states, the faces, `now`, the win screen's next-job card — reads
+   it rather than each working it out, which is the same discipline the debug
+   unlock override already follows.
+
+   THE NEW HIRE JUMPS THE QUEUE. Buying somebody should hand you that person,
+   not leave you to find them in a grid of thirty-four, so `now` points at
+   their first job. Everything you skipped to get there sits behind you as
+   `open` — playable-but-unplayed — which the done-set-plus-frontier model was
+   built for when levels became insertable.
+============================================================ */
 function progress(){
   const done=doneIds();
   let frontier=0;
@@ -143,9 +167,37 @@ function progress(){
      replay line all agree without a single one of them knowing about it. */
   const unlocked=debugUnlocked();
   if(unlocked) frontier=LEVELS.length;
-  let now=LEVELS.findIndex((lv,i)=> i<=frontier && !done.has(lv.id));
+
+  /* Which levels you have somebody for. Unlock-all also unlocks the cast —
+     otherwise the button that exists to let you look at any level would open a
+     board of silhouettes. */
+  const cast=castUnlocked();
+  const hired=new Set(LEVELS.filter((lv,i)=>{
+    const job=jobAt(i);
+    return unlocked || (job && cast.has(job.client.id));
+  }).map(lv=>lv.id));
+
+  const playable=(lv,i)=> i<=frontier && hired.has(lv.id);
+  let now=LEVELS.findIndex((lv,i)=> playable(lv,i) && !done.has(lv.id));
+
+  /* Just hired somebody? Their first job IS what you bought, so it is next
+     until you have played it — not until you have looked at the board. Cleared
+     the moment it is honoured, which makes this safe to call from anywhere. */
+  const fresh=peekNewHire();
+  if(fresh){
+    /* THEIR FIRST STAGE, not their next unplayed one. The promise is "the very
+       next job you get", singular — hijacking `now` for a client's whole arc
+       would make every purchase override the normal earliest-unfinished rule
+       for three levels, which is a different and much bigger promise. */
+    const at=LEVELS.findIndex((lv,i)=>{
+      const job=jobAt(i);
+      return job && job.client.id===fresh && job.stageNo===1;
+    });
+    if(at!==-1 && hired.has(LEVELS[at].id) && !done.has(LEVELS[at].id)) now=at;
+    else takeNewHire();          /* played, or unreachable: promise discharged */
+  }
   if(now===-1) now=Math.min(frontier, LEVELS.length);
-  return { done, frontier, now, count:done.size, unlocked };
+  return { done, frontier, now, hired, count:done.size, unlocked };
 }
 /* ============================================================
    FREE-PLAY PROGRESS
@@ -382,15 +434,18 @@ function saveGame(){
          Additive, so no SAVE_VERSION bump — loadGame() already defaults each of
          them to an empty set, and an older build ignores fields it doesn't read. */
       taught:[...G.taught], events:[...G.events], roomFxDone:[...G.roomFxDone],
-      /* draftsTaken is what stops an earned talent draft being handed out
-         twice, and it was missing here while ⭐ was written faithfully — so a
-         Continue restored "you have 30 lifetime stars" next to "you have never
-         drafted", and checkDraftThreshold() dutifully re-owed every draft the
-         player had already taken. They arrived one per safe moment, which in
-         practice is one every time you close a container. Anything that gates a
-         reward has to travel with the score that earns it. */
+      /* picksTaken is what stops a talent this house already taught being
+         handed out twice. Its ancestor `draftsTaken` was missing here while ⭐
+         was written faithfully, so a Continue restored "you have 30 lifetime
+         stars" next to "you have never drafted" and re-owed every draft the
+         player had already taken, one per closed container. Anything that gates
+         a reward travels with the thing that earns it.
+         `picksMax` is NOT saved: it is derived at run start from the level plus
+         the home layer, so buying Reputation mid-campaign takes effect on the
+         run you are already in rather than the one after it. Same reasoning as
+         tips and `talents` before it. */
       points:G.points, starsEarned:G.starsEarned,
-      draftsTaken:G.draftsTaken, pendingDrafts:G.pendingDrafts,
+      picksTaken:G.picksTaken, pendingDrafts:G.pendingDrafts,
       up:G.up,
     }));
   }catch(e){/* storage unavailable in this environment */}
@@ -433,10 +488,9 @@ function loadGame(){
       rooms:d.rooms, items:d.items, typeHome:d.typeHome, locks:d.locks,
       rowLen:d.rowLen||5, theme:d.theme||DATA.themes.defaultTheme,
       tips:(lv?.tips||[]).map(t=>({...t})),
-      /* Read from levels.json for the same reason as tips, and deliberately not
-         saved: turning stars on for a level must take effect on a run already
-         in progress rather than waiting for the next one. */
-      talents: lv ? lv.talents !== false : true,
+      /* Derived, never saved — see saveGame. A run resumed after buying
+         Reputation gets the extra pick immediately. */
+      picksMax: picksFor(lv, d.rooms?.length || 0),
       tipsDone:new Set(d.tipsDone||[]),
       tipShown:new Set(d.tipsDone||[]),
       events:new Set(d.events||[]),
@@ -451,11 +505,11 @@ function loadGame(){
       roomFxDone:new Set(d.roomFxDone||[]),
       points:d.points||0,
       starsEarned:d.starsEarned??d.points??0,
-      /* A save written before draftsTaken existed still has to be settled, and
-         the honest reading of one is "they took what their stars earned" —
-         they are holding the talents to prove it. Assuming zero is what caused
-         the bug in the first place, so it is the one answer this may not give. */
-      draftsTaken:d.draftsTaken??draftsEarnedFor(d.starsEarned??d.points??0),
+      /* A save written before picksTaken existed carries `draftsTaken`, which
+         counted the same thing under the old threshold model, so it settles
+         honestly. Assuming zero is what caused the original bug, so it stays
+         the one answer this may not give. */
+      picksTaken:d.picksTaken ?? d.draftsTaken ?? 0,
       pendingDrafts:d.pendingDrafts||0,
       up:{...upgradeDefaults(), ...(d.up||{})},
     },{
@@ -477,6 +531,10 @@ function loadGame(){
        finished without them. Repair on load rather than bumping SAVE_VERSION
        and throwing the run away. */
     unstickFloorItems(G.rooms, G.items);
+    /* Home upgrades are not in the save — they are bought outside a run and
+       read live, so a resume picks up anything bought since. resumeHome()
+       rather than applyHome() because the two differ on the one-shot: see it. */
+    resumeHome();
     return true;
   }catch(e){ return false; }
 }
@@ -775,6 +833,32 @@ function buildRoomEl(room){
         else if(typeCompleteIn(c,t)) sp.classList.add("gold");
         badges.appendChild(sp);
       }
+      /* LABEL MAKER. The badge strip already says what is INSIDE; this adds
+         what the thing is still waiting for, greyed, after it. Which is the
+         one piece of information the game otherwise makes you learn by being
+         wrong — and unlike Sixth Sense it tells you about the FURNITURE rather
+         than about the item in your hand, so the two stack into "what lives
+         here" from both ends without either being redundant.
+         Capped, and capped low: the whole strip is one line above a 34%-wide
+         box, and a container with twelve types would push the real badges off
+         the end of it. */
+      if(G.up.label){
+        const show=(upgradeParam("label","show",2)||2) + (G.up.label - 1);
+        let n=0;
+        for(const [t,h] of Object.entries(G.typeHome)){
+          if(n>=show) break;
+          /* c.id is the container's INDEX in a live run (rooms are dealt and
+             the definition's string id is not carried), which is what
+             belongsIn() compares against too. */
+          if(h.room!==room.id || h.cont!==c.id) continue;
+          if(inside.has(t)) continue;
+          const sp=document.createElement("span");
+          sp.textContent=t;
+          sp.className="want";
+          badges.appendChild(sp);
+          n++;
+        }
+      }
     }
     f.appendChild(badges);
     const lbl=document.createElement("div"); lbl.className="flabel";
@@ -805,7 +889,13 @@ function buildRoomEl(room){
     .sort((a,b)=>(a.token?0:1)-(b.token?0:1));
   for(const it of floorItems){
     const sp=document.createElement("div");
-    sp.className="item"+(it.token?" buried":"")+(G.reveal&&it.token?" revealed":"")
+    /* KEYRING rides the debug reveal's own class, deliberately: one look
+       meaning one thing, and it is already the look for "there is a token
+       here". The difference is scope — the debug button is a five-second flash
+       across the whole house, the talent is permanent and only ever renders
+       the room you are standing in, because burial IS the feature (see bury()
+       in generate.js) and un-burying the house would delete the hunt. */
+    sp.className="item"+(it.token?" buried":"")+((G.reveal||G.up.keyring)&&it.token?" revealed":"")
       +(homesick(room, it)?" homesick":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
@@ -935,7 +1025,16 @@ function renderHUD(){
      "2 left" over a spare key. This is now the same set showWin() reports, so
      the counter reaches exactly 0 as the win screen appears. */
   $("#remaining").textContent=itemsLeft(G.items, G.typeHome)+" left";
-  $("#shopBtn").textContent="⭐ "+G.points;
+  /* THE BUTTON COUNTS WHAT IS WORTH SOMETHING HERE. In the campaign that is ⭐,
+     because it is money you take home. In free play it is not: free play mints
+     no currency (see sizes.json), so a "⭐ 7" that buys nothing is a number the
+     game is inviting you to care about and then refusing to honour. What free
+     play DOES hand out is talents, so it counts those instead — and the panel
+     behind the button has always been "what you've learned" rather than a
+     store, so the two finally agree. */
+  $("#shopBtn").textContent = G.mode==="campaign"
+    ? "⭐ "+G.points
+    : (G.picksMax ? "✨ "+G.picksTaken+"/"+G.picksMax : "✨");
   drawMinimap();
   scheduleSave();
 }
@@ -1121,6 +1220,10 @@ function afterMutation(room, c, changedRows, opts={}){
   if(earned){
     const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
     flyStar(fe, "+"+earned+" ⭐");
+    /* BANKED AS THEY LAND, not at the win screen. ⭐ is money and quitting a
+       house half way through a phone call must not cost you the money you
+       already earned. Free play mints none — see the note in sizes.json. */
+    if(G.mode==="campaign") addStars(earned);
   }
   if(contDone){
     celebrate({key:"cont", ms:620, run(){ sfx("contComplete"); }});
@@ -1144,6 +1247,18 @@ function afterMutation(room, c, changedRows, opts={}){
   if(roomComplete(room) && !G.roomFxDone.has(room.id)){
     G.roomFxDone.add(room.id);
     fire("roomComplete", {room:room.name});
+    /* A WHOLE ROOM IS WHAT BUYS A TALENT NOW. Outside the celebration beat on
+       purpose: the beat is a 1.5s animation and the pick is deferred to the
+       next safe moment anyway, so queueing the grant behind the ripple would
+       only make it land later for no reason. roomFinished() is idempotent per
+       room because this branch is guarded by G.roomFxDone. */
+    roomFinished();
+    /* And Good Name pays a bonus for it — the one home upgrade that touches
+       the star rate, applied at the single place a room can complete. */
+    const bonus = homeLevel("wage") * (upgradeParam("wage", "each", 1));
+    if(bonus && G.mode==="campaign"){
+      G.points += bonus; G.starsEarned += bonus; addStars(bonus);
+    }
     celebrate({key:"room"+room.id, ms:1500, inRoom:true, run(){
       /* Repaint FIRST so the walls are gold and the element is the one that
          stays, THEN decorate it. The old order drew the ripple onto an
@@ -1151,13 +1266,13 @@ function afterMutation(room, c, changedRows, opts={}){
       renderRoom();
       sfx("roomComplete");
       roomCompleteFX(roomEl());
+      if(bonus) flyStar(roomEl(), "+"+bonus+" ⭐");
       aside("room", {room:room.name}, {key:"room"+room.id});
     }});
   }
   const finishedQuest=checkQuests();
   if(finishedQuest) celebrate({ms:900, run(){ completeQuest(finishedQuest); }});
   renderHUD();
-  checkDraftThreshold();
   if(checkWin()){
     /* The client comes back to thank you — after the room's gold, before the
        win screen, because the queue plays in emission order and the win beat
@@ -1556,6 +1671,28 @@ function moveWithinContainer(fromRow,fromCol,toRow,toCol){
 
 /* The draft grants; this repaints and persists. Passed to talents.js as a
    callback so that module never has to import the render tier. */
+/* ============================================================
+   THE META LAYER'S TWO CALLBACKS
+
+   js/home.js is a leaf: it owns the wallet, the cast and its own screen, and
+   deliberately cannot see the render tier or the rules. So the two things it
+   needs from up here are handed in, exactly as initTalents() does it.
+============================================================ */
+initHome({
+  /* A PURCHASE CHANGES TWO SCREENS AT ONCE. The title screen shows the wallet
+     on its Home button and the Continue card reads the cast; and if a run is
+     already going, buying Reputation has to add its pick to the house you are
+     standing in rather than the one after it. */
+  change(){
+    refreshTitle();
+    if(G.active){
+      G.picksMax = picksFor(currentCfg(), G.rooms.length);
+      renderHUD();
+    }
+  },
+  back(){ showTitle(); },
+});
+
 initTalents({
   grant(){
     renderHUD(); renderInv();
@@ -1566,6 +1703,21 @@ initTalents({
      this room. Reuses the same bestSpot/afterMutation path a hand placement
      takes, so a row it completes celebrates and pays out exactly like one you
      filed yourself. */
+  /* SKELETON KEY acts on the world the moment it is learned rather than
+     changing a rule that is read later, so it needs the rules tier — which
+     talents.js cannot import. Every lock still shut wants one key fewer,
+     FLOORED AT ONE: a lock needing zero keys is a lock that is already open,
+     and opening every door in the house off one talent card is not a talent,
+     it is an end to the level. */
+  skeleton(){
+    let n=0;
+    for(const l of G.locks){ if(!l.open && l.need>1){ l.need--; n++; } }
+    for(const r of G.rooms) for(const c of r.containers){
+      if(c.lock && !c.lock.open && c.lock.need>1){ c.lock.need--; n++; }
+    }
+    renderRoom(); renderHUD();
+    return n;
+  },
   fileHands(){
     if(!G.active) return 0;
     const room=G.rooms[G.current];
@@ -1725,8 +1877,18 @@ function nextJobCard(idx, onGo){
      one; it is just not this card.
 
      Falling back to the level blurb keeps this card from ever rendering an
-     empty gap. */
-  const hook = next.stage.hook || next.level.blurb || "";
+     empty gap.
+
+     WARM OR COLD. A first stage's hook is a REFERRAL — "Your name reached me
+     through the small green thing that has been measuring my tower" — and the
+     cast is bought in any order now, so that line can arrive before the person
+     it names. `hookCold` is the version for having found them another way, and
+     it is only ever right on a FIRST stage: a later hook is about what working
+     for you once has changed, which needs no referrer. Clients whose referrer
+     is part of the free opening carry no cold line at all and boot validation
+     warns if one is authored, because it could never be shown. */
+  const cold = next.stageNo===1 && !wasReferred(next.client) && next.stage.hookCold;
+  const hook = cold || next.stage.hook || next.level.blurb || "";
   /* NO LEVEL NAME, only the id. The card carries two lines of the client's own
      voice, and the level title is a THIRD headline competing with them — on
      eleven of the thirty-four stages it also repeats a word the card has already
@@ -1788,8 +1950,17 @@ function showWin(){
     /* markDone above ran BEFORE this, which matters: the card asks the
        finished-set whether you have worked for the next client, and the job you
        just finished has to be in it. */
-    const card = G.levelIdx+1<LEVELS.length
-      ? nextJobCard(G.levelIdx+1, ()=>{ $("#winOverlay").classList.remove("open"); startCampaign(G.levelIdx+1); })
+    /* THE NEXT JOB YOU CAN ACTUALLY PLAY, which is no longer just the next
+       index: the level after this one may belong to somebody you have not
+       hired. Walk forward to the first unfinished job whose client you own, and
+       offer nothing rather than offering a locked door. */
+    const p2=progress();
+    let nx=-1;
+    for(let i=G.levelIdx+1;i<LEVELS.length;i++){
+      if(p2.hired.has(LEVELS[i].id) && !p2.done.has(LEVELS[i].id)){ nx=i; break; }
+    }
+    const card = nx!==-1
+      ? nextJobCard(nx, ()=>{ $("#winOverlay").classList.remove("open"); startCampaign(nx); })
       : null;
     if(card) btns.appendChild(card);
     /* `ghost` rather than a bare .menubtn for the secondaries: `.overlay button`
@@ -2521,12 +2692,65 @@ function nowPlaying(){
           :`<small>${G.rooms.length} rooms</small>`);
   }
 }
+/* ============================================================
+   THE GEAR IS ITS OWN READOUT
+
+   Every meta debug button changes something you cannot see from inside the
+   gear: the wallet lives on the title screen, the cast lives on the job board,
+   the permanent upgrades only show up in the next house you start. Pressing one
+   therefore looked exactly like pressing a broken button — which is what
+   happened with "+100 ⭐" mid-run: it granted the stars, wrote them to
+   localStorage, and every number on screen stayed where it was.
+
+   AND say() CANNOT BE THE FEEDBACK. #toast is z-index 95, `.overlay` is 120, so
+   a message said from inside the gear lands *behind the panel you are reading*.
+   That was true of the old "+1 ⭐ (debug)" line too and nobody noticed for the
+   same reason. Anything pressed in here reports into `#gearMeta` instead.
+============================================================ */
+function syncGear(note=null){
+  const m=$("#gearMeta");
+  if(m){
+    const h=homeSummary();
+    const bought=h.bought.length ? h.bought.join(" · ") : "nothing bought";
+    m.innerHTML =
+      `<b>${h.stars} ⭐</b> to spend · ${h.hired} of ${h.total} hired · ${bought}` +
+      (G.active ? ` · this house teaches ${G.picksTaken}/${G.picksMax}` : "") +
+      (note ? `<i>${note}</i>` : "");
+  }
+  /* Button labels are the other half of the readout: a debug toggle whose text
+     never changes leaves you guessing which way you left it. Same rule the
+     unlock toggle already follows. */
+  const st=$("#debugStars"); if(st) st.textContent="+500 ⭐";
+  const hb=$("#debugHire");
+  if(hb){
+    const h=homeSummary();
+    const all=h.hired>=h.total;
+    hb.textContent = all ? "All hired ✓" : "Hire all";
+    hb.disabled = all;
+    hb.classList.toggle("dbgon", all);
+  }
+  const mx=$("#debugMaxHome");
+  if(mx){
+    const maxed=(DATA.upgrades.home||[]).every(u=>homeLevel(u.id)>=maxLevel(u));
+    mx.textContent = maxed ? "Maxed ✓" : "Max out";
+    mx.disabled = maxed;
+    mx.classList.toggle("dbgon", maxed);
+  }
+  const dr=$("#debugStar");
+  if(dr){
+    dr.textContent = G.active ? (G.picksMax ? "Draft" : "No talents") : "Draft";
+    dr.disabled = !G.active || !G.picksMax;
+  }
+  syncFreeBtn();
+  syncUnlockBtn();
+}
+
 $("#gearBtn").addEventListener("click",()=>{
   const gear=$("#gearOverlay");
   /* The button floats above its own panel now, so it has to close it too. */
   if(gear.classList.contains("open")){ gear.classList.remove("open"); return; }
   nowPlaying();
-  syncFreeBtn();
+  syncGear();
   /* Reachable from the title screen and the job board, where there is no run:
      grey out everything that would act on one. Left ungated, "New house"
      re-rolled a config that doesn't exist and "+1 ⭐" repainted a HUD with no
@@ -2680,10 +2904,36 @@ $("#debugUnlock").addEventListener("click",()=>{
   openCampaignMenu();
 });
 
+$("#debugStars").addEventListener("click",()=>{
+  /* 500 rather than 100. The ask was "grant myself a large amount and see a
+     number of things I could buy", and Home sells about 1,440 ⭐ of stuff, so a
+     hundred bought one cheap client and looked like nothing had happened. */
+  grantStars(500);
+  refreshTitle();
+  syncGear("+500 ⭐ — " + stars() + " in the wallet");
+});
+$("#debugHire").addEventListener("click",()=>{
+  const n=hireAll();
+  refreshTitle();
+  syncGear("hired all " + n + " — every job on the board is playable");
+});
+$("#debugMaxHome").addEventListener("click",()=>{
+  maxHome();
+  refreshTitle();
+  /* Reputation changes how many talents the CURRENT house teaches, and hand
+     slots apply to a run already going, so a live run has to be told. */
+  if(G.active){ G.picksMax=picksFor(currentCfg(), G.rooms.length); resumeHome(); renderHUD(); renderInv(); }
+  syncGear("every permanent upgrade maxed");
+});
+$("#debugHomeClear").addEventListener("click",()=>{
+  clearHome();
+  refreshTitle();
+  if(G.active){ G.picksMax=picksFor(currentCfg(), G.rooms.length); renderHUD(); }
+  syncGear("wallet emptied, upgrades un-bought, cast back to the opening two");
+});
 $("#debugFreeClear").addEventListener("click",()=>{
   clearFreeDone();
-  syncFreeBtn();
-  say("Free play progress cleared");
+  syncGear("free-play board back to 0 of " + freeJobs().length);
 });
 /* Reports its own state, same rule as the unlock toggle: a debug button whose
    label never changes leaves you guessing what you already pressed. */
@@ -2759,12 +3009,21 @@ async function forceRefresh(btn){
 $("#refreshBtn").addEventListener("click",e=>forceRefresh(e.currentTarget));
 
 $("#debugStar").addEventListener("click",()=>{
-  G.points++; G.starsEarned++; renderHUD();
-  /* Say so out loud. Otherwise this button appears broken on any level with
-     `"talents": false`, which is now most of the early campaign. */
-  if(!G.talents){ say("+1 ⭐ (debug) — this level has talents off"); return; }
-  checkDraftThreshold();
-  if(!drainDrafts(()=>false)) say("+1 ⭐ (debug)");
+  /* IT WAS A ⭐ BUTTON AND IS A TALENT BUTTON. ⭐ used to be what bought a
+     draft, so "+1 ⭐" was the way to force one; drafts are granted by room
+     completions now and ⭐ is money you spend at Home, so the two jobs split.
+     Money is the row above; this one grants a PICK.
+
+     It also still called checkDraftThreshold(), which was deleted with the
+     threshold model — so the button threw a ReferenceError on click. Nothing
+     caught it because a debug handler has no caller to notice. */
+  if(!G.active || !G.picksMax){ syncGear("this house teaches no talents"); return; }
+  G.pendingDrafts++;
+  $("#gearOverlay").classList.remove("open");
+  /* Straight out of the gear: the draft is an .overlay too, and drainDrafts()
+     refuses to open one while another is up — which would have made this button
+     silently do nothing from in here. */
+  if(!drainDrafts(()=>false)) syncGear("no talents left to offer");
 });
 $("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#shopOverlay").classList.add("open"); });
 
@@ -2803,11 +3062,36 @@ function showTitle(){
   endCeremony();
   endRun();
   applyTheme();          /* endRun cleared G.active — drop back to house colours */
+  refreshTitle();
+  $("#titleOverlay").classList.add("open");
+  playMusic("menu");
+}
+
+/* Everything on the title screen that the meta layer can change. Split out of
+   showTitle() because a purchase changes it WITHOUT the screen being reopened:
+   js/home.js closes over this through initHome's `change`. */
+function refreshTitle(){
   const save=peekSave();
   setHidden($("#btnContinue"), !save);
   if(save) labelContinue(save);
-  $("#titleOverlay").classList.add("open");
-  playMusic("menu");
+  /* HOME IS ALWAYS THERE, INCLUDING AT 0 ⭐.
+
+     It was hidden until you had a star to spend, on the reasoning that a shop
+     button over an empty wallet is the "⭐ 0 over an all-unaffordable list"
+     mistake that got the original in-level shop deleted. That was the wrong
+     lesson to borrow. THAT button sat in the HUD during play and taught people
+     to ignore a thing they were looking at forty times a level; this one is a
+     main-menu entrance to half the game's progression, and hiding it means a
+     new player has no way to find out the meta layer exists — which is exactly
+     what happened the first time somebody opened the build.
+
+     At zero stars the screen is still doing a job: it says there IS a currency,
+     what it buys, and that nine of the eleven people in this game are somebody
+     you have to go and hire. That is a reason to play, not a dead end. */
+  const wallet=stars();
+  const btn=$("#btnHome");
+  setHidden(btn, false);
+  btn.textContent = wallet>0 ? "Home  ·  " + wallet + " ⭐" : "Home";
 }
 
 /* Which track this run wants. Free play and anyone without a theme of their
@@ -2928,6 +3212,8 @@ function startFree(freeId){
   closeMenus();
   endCeremony();
   setRun(generate(job.cfg), {mode:"free", freeId, levelIdx:null});
+  G.picksMax=picksFor(job.cfg, G.rooms.length);
+  applyHome();
   resetZoom();
   setHidden(shopBtn, false);   /* always available in free play */
   render();
@@ -2949,7 +3235,9 @@ function startCampaign(i){
   closeMenus();
   endCeremony();
   const lv=LEVELS[i];
-  setRun(generate(lv), {mode:"campaign", levelIdx:i, size:null});
+  setRun(generate(lv), {mode:"campaign", levelIdx:i});
+  G.picksMax=picksFor(lv, G.rooms.length);
+  applyHome();
   /* A level starts with nothing learned — see clearTalents() above. The key
      is purged rather than ignored so a save written by the carry-over build
      can't come back later. */
@@ -2983,6 +3271,64 @@ function startCampaign(i){
     say(lv.id+" · "+lv.name, {priority:2});
     say(tokenise(lv.blurb, textVars()), {priority:1});
   }
+}
+
+/* ============================================================
+   HOW MANY TALENTS THIS HOUSE TEACHES
+
+   The level (or the free-play band) authors `rewards`; Reputation adds to it;
+   and the whole thing is capped at rooms-1 because a pick is granted on a ROOM
+   completion and the LAST room completing is the level completing. A draft
+   landing on the ending would compete with the client's outro and the win
+   screen, which is the pile-up the celebration queue exists to prevent.
+
+   Derived at run start rather than saved, so buying Reputation takes effect on
+   the house you are already standing in — same reasoning as tips.
+============================================================ */
+function picksFor(cfg, rooms){
+  if(!cfg) return 0;
+  const asked=(cfg.rewards ?? 0) + homeLevel("picks");
+  return Math.max(0, Math.min(asked, Math.max(0, (rooms||0) - 1)));
+}
+
+/* ---------- what you bought, applied to the run in front of you ----------
+   Called immediately after setRun() on every path that starts or resumes a
+   run. One function so a new home upgrade has one place to land, rather than
+   being remembered at startCampaign, startFree and loadGame separately. */
+function applyHome(){
+  /* Bigger Hands. blankRun() gives INV_SIZE slots; each level bought adds one.
+     Appended rather than resized so anything already held keeps its slot. */
+  for(let i=0;i<homeLevel("hands");i++) G.inv.push(null);
+  /* Spare Set: start holding an old key. A real item in a real slot, so every
+     path that already knows what to do with a key needs no special case — it
+     can be dropped, tossed at the wrong lock, or carried around forgotten. */
+  if(homeLevel("spare")){
+    const skel=LOOKUP.tokenById.skel;
+    const slot=G.inv.indexOf(null);
+    if(skel && slot!==-1){
+      const id="spare";
+      G.items[id]={ id, type:skel.emoji, isKey:true, token:"skel", judged:true,
+                    loc:{kind:"inv",slot} };
+      G.inv[slot]=id;
+      if(G.sel===null) G.sel=slot;
+    }
+  }
+}
+
+/* RESUMING IS applyHome() MINUS THE ONE-SHOT, and the difference is the whole
+   reason there are two functions.
+
+   Hand slots must be re-applied: `inv` comes back from the save at whatever
+   length it was written, and blankRun() reset it, so without this a maxed
+   player resumes with fewer hands than they paid for.
+
+   The spare key must NOT be re-granted. The saved `inv` already holds it if
+   this run was ever given one, so applying it again mints a second key on
+   every Continue — the same shape as the talent draft that re-owed itself on
+   every resume, and the reason that bug is worth remembering. */
+function resumeHome(){
+  const want=INV_SIZE + homeLevel("hands");
+  while(G.inv.length < want) G.inv.push(null);
 }
 
 /* Values available to {tokens} in level blurbs, tips and help copy. */
@@ -3142,10 +3488,15 @@ setChatterGate(() => isSpeaking() || !!document.querySelector(".overlay.open"));
    you can play, have not played, and which is not the next one up — which is
    what a level dropped in behind an existing player's frontier looks like. It
    needs no styling of its own; it is simply not dimmed and not ringed. */
+/* FIVE states now. "unhired" is the one the meta layer added: the job exists,
+   you may even be past it in level order, and you simply have not taken this
+   person on. It is not the same as "locked" — locked is "not yet", unhired is
+   "go and buy them", and a tile that cannot tell you which is unhelpful. */
 const stageState = (idx, p) =>
-  p.done.has(LEVELS[idx].id) ? "done"
-  : idx === p.now            ? "now"
-  : idx <= p.frontier        ? "open"
+  p.done.has(LEVELS[idx].id)  ? "done"
+  : !p.hired.has(LEVELS[idx].id) ? "unhired"
+  : idx === p.now             ? "now"
+  : idx <= p.frontier         ? "open"
   : "locked";
 
 function jobTile(job, idx, p){
@@ -3157,10 +3508,18 @@ function jobTile(job, idx, p){
      can't have them yet. Everything past that is a silhouette. Showing a
      client's whole arc at once spent the arrival of every one of their jobs
      the moment you met them. */
-  const seen=idx<=p.frontier, peek=idx===p.frontier+1;
+  /* FACES ARE RATIONED DIFFERENTLY NOW, because the tease moved. It used to be
+     "one job ahead is greyed, the rest are silhouettes" — which only works when
+     everybody knows what comes next. With a bought cast, what comes next is
+     your decision, and the place to be tempted by a person is the shop, where
+     their face IS the price tag. So: anyone you have HIRED shows their face
+     wherever their jobs are, and anyone you have not is a silhouette with a
+     price. The tease is "you could have them", not "you can't". */
+  const seen=p.hired.has(job.level.id) && idx<=p.frontier;
+  const peek=p.hired.has(job.level.id);
   const b=document.createElement("button");
   b.className="jtile "+st+(seen?"":peek?" next":" unknown");
-  b.disabled = st==="locked";
+  b.disabled = st==="locked" || st==="unhired";
   /* Who hired you goes above the head, the job itself goes below it: the name
      is a label on the face, the title is what the tile is actually offering. */
   b.appendChild(mkEl("span","jname",seen||peek?job.client.name:(S.lockedTile||"???")));
@@ -3175,9 +3534,15 @@ function jobTile(job, idx, p){
      Hidden on a job you have not met, along with the face and the name; how
      big somebody's house is is part of meeting them. */
   const pip = seen||peek ? (sizeBand(job.level)||{}).pip : null;
-  b.appendChild(mkEl("span","jid",job.level.id + (pip ? " " + pip : "")));
+  /* An unhired tile shows the PRICE instead of the id, because the id is not
+     the useful thing about a job you cannot start: what you want to know is
+     what it costs to be able to. */
+  b.appendChild(mkEl("span","jid", st==="unhired"
+    ? priceOf(job.client) + " ⭐"
+    : job.level.id + (pip ? " " + pip : "")));
   if(st==="done") b.appendChild(mkEl("span","jmark","✅"));
-  if(st!=="locked") b.addEventListener("click",()=>startCampaign(idx));
+  if(st==="unhired") b.appendChild(mkEl("span","jmark","🔒"));
+  if(st!=="locked" && st!=="unhired") b.addEventListener("click",()=>startCampaign(idx));
   return b;
 }
 
@@ -3265,6 +3630,10 @@ $("#btnContinue").addEventListener("click",()=>{
   else { setHidden($("#btnContinue"), true); say("No save found"); }
 });
 $("#btnCampaign").addEventListener("click",openCampaignMenu);
+/* HOME. Hidden until you have a star or have bought something — a shop button
+   over an empty wallet on a fresh save is the "⭐ 0 over an all-unaffordable
+   list" mistake the original talent shop was deleted for. */
+$("#btnHome").addEventListener("click",openHome);
 $("#btnFree").addEventListener("click",openFreeMenu);
 /* Every overlay shares z-index 120, so DOM order decides who paints on top
    and #titleOverlay is declared last. Opening help without closing the title
@@ -3452,7 +3821,7 @@ window.tidy = {
      draft a player had already taken, one per container they closed. There was
      no way to exercise it from here, which is a large part of why it survived
      as long as it did. */
-  saveGame, loadGame, clearSave, checkDraftThreshold, maybeDraft, finishJob,
+  saveGame, loadGame, clearSave, maybeDraft, finishJob, roomFinished, picksLeft,
   /* `tidy.unlockAll()` / `tidy.unlockAll(false)` / `tidy.progress()`. The gear
      button is the same call; this is here because "open every job" is a thing
      you want mid-thought without hunting for a panel. */
@@ -3474,6 +3843,12 @@ window.tidy = {
      "what is on screen and what is queued behind it", which is the question to
      ask when two lines look like they stepped on each other. */
   chatter, aside, chatterState, clearChatter, welcomeBack,
+  /* THE META LAYER. `tidy.home()` opens the shop, `tidy.homeState()` prints the
+     wallet, what is bought and who is hired — which is the thing to look at
+     when a board tile is locked and you do not know why. `tidy.give(n)` is the
+     only way to test a 160-⭐ purchase without playing to it. */
+  home:openHome, homeState, give:grantStars, wipeHome:clearHome, nextJobCard, castHas,
+  picksFor, applyHome,
   /* How big is this job — the same two calls the card and the board tiles make. */
   jobSize, sizeBand, contCap,
   itemAt, underAt, onInk, maskStats,

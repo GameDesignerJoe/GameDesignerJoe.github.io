@@ -126,13 +126,12 @@ export function flyReward(fromEl, text = "+1 ⭐", toEl = shopBtn) {
   }, 620);
 }
 
-/* A ⭐ payout specifically, which a level can turn off wholesale. Every star the
-   game hands out goes through here so that "this level has not met stars yet"
-   is one condition in one place rather than a flag remembered at four call
-   sites. The star is still counted — G.points keeps ticking — it just isn't
-   announced, so switching talents on mid-campaign needs no migration. */
+/* A ⭐ payout specifically. It used to be gated on `G.talents` so a level that
+   had not "met stars yet" could suppress it — that flag is gone, because ⭐ is
+   money now (js/home.js) and a currency you can earn but not see is worse than
+   one you do not understand yet. Every payout still goes through this one
+   function, which is what keeps the next rule about stars a one-line change. */
 export function flyStar(fromEl, text = "+1 ⭐") {
-  if (!G.talents) return;
   flyReward(fromEl, text);
 }
 

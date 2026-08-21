@@ -220,6 +220,9 @@ function buildFreeBoard() {
             rooms: f.rooms,
             targetTypes: f.targetTypes,
             rowLen: f.rowLen,
+            /* The band's talent count, carried onto the config so free play and
+               a campaign level present the same field to picksFor(). */
+            rewards: band.rewards ?? 0,
             doorLocks: at(V.doorLocks) || 0,
             doorKeys:  at(V.doorKeys)  || 0,
             contLocks: at(V.contLocks) || 0,
