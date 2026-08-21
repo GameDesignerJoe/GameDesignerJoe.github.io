@@ -786,8 +786,34 @@ the middle of, and only the copy differs.
 | tag / chip | Next job · New client \| Asking for you again | Continue · In progress \| Free play |
 | face + name | the next client | the client whose house you are in, or the **world's** icon in free play |
 | body | their `hook` — how they found you | how much is still on the floor |
-| quote | their `teaser` — the ask | their `teaser`, still outstanding |
-| footer | the level id | the level id and the room you were in |
+| quote | **nothing** | their `teaser` — the ask, still outstanding |
+| footer | the level id and how big the job is | the level id and the room you were in |
+
+**The quote is the one thing the two cards do NOT share, and which of them gets
+it depends on whether the player has already been in the room.** A `teaser` is
+authored from the same beats as the stage's `intro` and on many stages it is
+the *same sentence*: 3-2's teaser is "ok that was ONE party. one." and the
+first thing its intro says out loud is "ok before you say anything: that was
+one party."
+
+On the **Continue** card that costs nothing — the job is underway, the intro
+has been heard, and the quote is a reminder of the ask you are still in the
+middle of. On the **win screen's** card the next job has not started, so the
+same line lands before the scene it belongs to and spends the opening joke
+early. A joke told twice is a joke told once, and the card was telling it
+first.
+
+So the next-job card carries **only the `hook`** — the client making contact,
+which is the right and only thing to put in front of a job you have not
+started. `fillJobCard()` omits the quote line entirely when there is nothing to
+say, so that is an absence rather than a gap.
+
+Worth noticing that this is the second time `teaser` has needed a reader.
+It spent thirty-four stages authored, boot-validated and rendered by nothing at
+all; the rule that came out of that was "a field in `clients.json` has a
+reader, added in the same change". It still does — the Continue card — it is
+just no longer this one. **Deleting the last reader of a field is the same
+mistake as adding a field with none.**
 
 **Continue reads the save and never loads it.** `peekSave()` parses the run
 without installing it — pressing the button is still what does that — so the

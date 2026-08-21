@@ -1635,8 +1635,26 @@ function nextJobCard(idx, onGo){
   /* Have we actually worked for this person, or does the arc merely say so? */
   const arc = LOOKUP.arcs.find(a => a.client.id === next.client.id);
   const worked = !!arc && arc.stages.some(s => s.stageNo < next.stageNo && done.has(s.level.id));
-  /* hook is the line that matters; teaser is flavour and may be absent. Falling
-     back to the level blurb means this card can never render an empty gap. */
+  /* THE HOOK IS THE ONLY LINE ON THIS CARD, and that is a deliberate cut of
+     what used to be two. `hook` is the client MAKING CONTACT — how they got
+     hold of you, what working for you once has changed — and it is the right
+     and only thing to put in front of a job that has not started.
+
+     `teaser` used to sit under it and it was a spoiler. The teasers were
+     authored from the same beats as the intros, so on many stages the card
+     printed the client's opening line before the client got to say it: 3-2's
+     teaser is "ok that was ONE party. one." and the first beat of its intro is
+     "ok before you say anything: that was one party." A joke told twice is a
+     joke told once, and the card told it first.
+
+     It still renders on the CONTINUE card, where the job is already underway
+     and the intro has been heard — see labelContinue(). That matters: `teaser`
+     spent thirty-four stages authored and unrendered once already, and the rule
+     that came out of it is that a field in clients.json has a reader. It has
+     one; it is just not this card.
+
+     Falling back to the level blurb keeps this card from ever rendering an
+     empty gap. */
   const hook = next.stage.hook || next.level.blurb || "";
   /* NO LEVEL NAME, only the id. The card carries two lines of the client's own
      voice, and the level title is a THIRD headline competing with them — on
@@ -1653,7 +1671,6 @@ function nextJobCard(idx, onGo){
     face: next.client.emoji,
     name: next.client.name,
     body: hook && tokenise(hook, {handSlots:INV_SIZE, rowLen:next.level.rowLen||5, name:next.client.name, level:next.level.id}),
-    say:  next.stage.teaser,
     /* AND HOW BIG IT IS. Job size now swings against the client's arc — a
        first job is a look-in, a third is everything they have — and the whole
        point of that is lost if the player cannot see it coming: a short level
@@ -2747,8 +2764,20 @@ function labelContinue(d){
         face: job.client.emoji,
         name: job.client.name,
         body: where,
-        /* Their own words about THIS job, still outstanding. The hook is not
-           reused: it is about how they found you, which is settled by now. */
+        /* THE QUOTE LIVES HERE AND NOT ON THE NEXT-JOB CARD. Both cards can
+           carry one and only this one should, because a `teaser` is written from
+           the same beats as the stage's `intro` and is frequently the same
+           sentence — 3-2's teaser is "ok that was ONE party. one." and the
+           first thing its intro says out loud is "ok before you say anything:
+           that was one party."
+
+           On THIS card that costs nothing: the job is already underway, so the
+           player has heard the intro, and the quote is a reminder of the ask
+           they are still in the middle of. On the win screen's card the next
+           job has NOT started, so the same line arrives before the scene it
+           belongs to and spends the opening joke early. Same field, same
+           component, opposite effect — which is decided by whether the player
+           has already been in the room. */
         say:  job.stage.teaser,
         foot: lv.id + at,
       });

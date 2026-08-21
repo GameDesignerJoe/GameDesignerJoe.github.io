@@ -24,6 +24,14 @@
     "still out — both read straight off the parsed save, which is never loaded",
     "until the button is pressed.",
     "",
+    "THIS CARD IS THE ONE THAT QUOTES THE CLIENT. It shows the stage `teaser` —",
+    "the ask, still outstanding — and the win screen's card deliberately does",
+    "not, even though it is the same component. The teasers were written from",
+    "the same beats as the intros, so quoting one in front of a job that has NOT",
+    "started prints the client's opening line before they get to say it. Here",
+    "the job is underway and the intro has been heard, so the same line is a",
+    "reminder instead of a spoiler.",
+    "",
     "NO ARTICLE GOES NEAR {room}. Room names supply their own and they disagree:",
     "\"Kitchen\" and \"Attic\" want \"the\", \"The Familiar's Roost\" already has one,",
     "and \"Hydroponics\" wants none. \"You left off in the {room}\" produced \"in the",
@@ -41,9 +49,19 @@
   },
 
   "_winScreenNote": [
-    "The card at the top of the win screen. The COPY on it is per-stage (hook",
-    "and teaser in clients.json); these are only the labels around it, so a",
-    "rename never has to touch thirty-four stages."
+    "The card at the top of the win screen. The COPY on it is per-stage (`hook`",
+    "in clients.json); these are only the labels around it, so a rename never",
+    "has to touch thirty-four stages.",
+    "",
+    "ONE LINE ONLY, AND IT IS THE HOOK. A hook is the client making contact —",
+    "how they got hold of you, what working for you once has changed — which is",
+    "the right thing to put in front of a job that has not started. The stage",
+    "`teaser` used to sit under it and it was a spoiler: the teasers were",
+    "authored from the same beats as the intros, so the card printed the",
+    "client's opening line before the client said it (3-2's teaser is \"ok that",
+    "was ONE party. one.\" and its intro opens \"ok before you say anything: that",
+    "was one party\"). The teaser still renders on the Continue card, where the",
+    "intro has already been heard — see _titleScreenNote."
   ],
   "winScreen": {
     "nextJob": "Next job",
