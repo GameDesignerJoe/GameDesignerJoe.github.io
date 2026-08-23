@@ -45,7 +45,7 @@
 #chatterFace{
   flex:0 0 auto;
   font-size:clamp(30px, 9vw, 44px);line-height:1;
-  filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));
+  text-shadow:0 3px 5px rgba(0,0,0,.55);
 }
 
 /* ---------- WHAT THEY SAY ----------

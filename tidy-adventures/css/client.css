@@ -74,7 +74,7 @@
    and flipping them reverses asymmetric details for no gain. */
 #clientFace{
   font-size:clamp(58px, 17vw, 92px);line-height:1;margin-top:8px;
-  filter:drop-shadow(0 6px 6px rgba(0,0,0,.55));
+  text-shadow:0 6px 7px rgba(0,0,0,.55);
 }
 #clientLayer.from-left  #clientFace{margin-left:8px}
 #clientLayer.from-right #clientFace{margin-right:8px}

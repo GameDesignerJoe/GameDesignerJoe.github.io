@@ -43,16 +43,37 @@
 /* ---------- NAME PLATE ----------
    A small plate low on the piece, the way a real drawer label sits — not
    the object's entire identity. */
+/* HOW MANY CHARACTERS ACTUALLY FIT.
+
+   "The Weather Station" showed as "THE / WE…" and "The Deep Sky Drawer" as
+   "THE DEEP SKY…". Four things were each costing characters, and they
+   compounded:
+
+     1. The type was sized off container HEIGHT alone (17cqh) and capped at
+        9.5px. On a tall narrow piece — a fridge, a glass case — that is a big
+        type size in a plate barely wider than three letters, so the name
+        broke after the first word and the second line ellipsised. Sizing off
+        `min(cqh, cqi)` ties the type to whichever dimension is actually
+        scarce, which is the one that decides how much text fits.
+     2. Two lines. A three-word name has no chance in two lines at any size
+        that is still legible; three lines is one more word for free, and the
+        plate is small enough that the extra line costs the furniture nothing.
+     3. The plate wasted 8% of the face on margins and another 8% on its own
+        padding. 4% and 5% now — the same visual inset, half the cost.
+     4. letter-spacing .03em on a plate this narrow is a whole character every
+        two lines. Gone, and the leading is tighter with it.
+
+   buildRoomEl() in js/main.js drops a leading "The " before it ever gets
+   here, which is the fifth. Together it roughly doubles what you can read
+   without touching a single name in data/rooms.json. */
 .furn .flabel{
   position:relative;z-index:3;
-  margin-bottom:6cqh;
-  max-width:92%;
-  /* Two lines of a real name have to fit, so this is a touch smaller and the
-     plate is wider than when the face only ever showed a short word. */
-  font-size:clamp(4.5px, 17cqh, 9.5px);
-  font-weight:800;letter-spacing:.03em;text-transform:uppercase;
-  text-align:center;line-height:1.12;
-  padding:2cqh 4%;
+  margin-bottom:5cqh;
+  max-width:96%;
+  font-size:clamp(4px, min(15cqh, 13cqi), 8.5px);
+  font-weight:800;letter-spacing:0;text-transform:uppercase;
+  text-align:center;line-height:1.05;
+  padding:1.5cqh 2.5%;
   border-radius:2px;
   color:rgba(255,255,255,.94);
   background:rgba(0,0,0,.34);
@@ -61,7 +82,7 @@
   pointer-events:none;
   overflow:hidden;
   display:-webkit-box;
-  -webkit-line-clamp:2;
+  -webkit-line-clamp:3;
   -webkit-box-orient:vertical;
   /* A word longer than the plate used to be sliced mid-letter with nothing to
      show for it ("INSTRUMEN CASE" on a narrow glass case). Let it break. */

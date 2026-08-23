@@ -6,9 +6,19 @@
 .room{
   position:absolute;inset:0;
   margin:auto;
-  border:10px solid var(--wall);
+  /* WALL THICKNESS. Halved from 10px + a 4px ring.
+
+     The wall is drawn in ROOM space and the camera then magnifies the whole
+     room to fill the stage (fitScale() in js/camera.js, up to 2.6x), so the
+     smallest rooms — the round observatory, a closet — wore the thickest
+     walls on screen: 14 room px became nearly 30. It read as a picture frame
+     around a keyhole rather than as a room you are standing in. Everything
+     else that must not balloon in a small room divides by --fit; the wall
+     deliberately does NOT, because a big room genuinely should have a heavier
+     wall than a broom cupboard. It just should not have three times one. */
+  border:5px solid var(--wall);
   border-radius:14px;
-  box-shadow:0 0 0 4px var(--wall-dark), 0 18px 40px rgba(0,0,0,.5);
+  box-shadow:0 0 0 2px var(--wall-dark), 0 16px 34px rgba(0,0,0,.5);
   transform-origin:center center;
 }
 .room .floor{position:absolute;inset:0}
@@ -21,7 +31,8 @@
   filter:drop-shadow(0 14px 30px rgba(0,0,0,.5));
 }
 .room.shape-hex .floor{
-  inset:11px;
+  /* Matches the rect/round wall above: 5px + the 2px outer ring. */
+  inset:7px;
   clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);
 }
 
@@ -228,9 +239,9 @@
 .room.done{
   border-color:#c9a24a;
   box-shadow:
-    0 0 0 4px rgba(245,197,66,.5),
+    0 0 0 2px rgba(245,197,66,.5),
     0 0 26px 6px rgba(245,197,66,.28),
-    0 18px 40px rgba(0,0,0,.5);
+    0 16px 34px rgba(0,0,0,.5);
 }
 /* Hex rooms draw their walls with a clip-path, not a border. */
 .room.shape-hex.done::before{filter:drop-shadow(0 0 14px rgba(245,197,66,.6))}
@@ -278,14 +289,28 @@
 .door{
   position:absolute;z-index:7;
   background:linear-gradient(#8a623c,#6d4b2c);
-  border:3px solid #3a2a17;border-radius:5px;
-  box-shadow:0 0 0 3px var(--wall-dark), 0 3px 8px rgba(0,0,0,.4);
+  /* EVERY px ON A DOOR DIVIDES BY --fit, edges included.
+
+     The door's size already did (see the .N/.S/.E/.W block below), but its
+     3px border and 3px surround did not — so in a room the camera magnifies
+     2x the frame came out 12px thick around a 28px door, which is most of
+     the door. Same number of on-screen pixels in every room now, and half
+     what it was in a small one. */
+  border:calc(3px / var(--fit,1)) solid #3a2a17;
+  border-radius:calc(5px / var(--fit,1));
+  box-shadow:0 0 0 calc(3px / var(--fit,1)) var(--wall-dark),
+             0 calc(3px / var(--fit,1)) calc(8px / var(--fit,1)) rgba(0,0,0,.4);
   display:flex;align-items:center;justify-content:center;
   /* The doorknob (a 6px gold dot on ::before) is gone — at this size it read
-     as a smudge, not a knob. The directional chevron carries the whole
-     affordance now, so it gets real weight. */
+     as a smudge, not a knob. The directional chevron carries the affordance.
+
+     Same --fit story as the border, and worse: `clamp(9px, 52cqh, 17px)`
+     clamps in ROOM px, so in a magnified room 52cqh fell under the 9px floor
+     and the chevron was pinned there — 19 on-screen px inside a 28px door,
+     a triangle almost as tall as the doorway. A flat fit-normalised size is
+     the same arrow in every room, and about half the old one. */
   color:rgba(255,240,210,.95);
-  font-size:clamp(9px, 52cqh, 17px);
+  font-size:calc(9px / var(--fit,1));
   font-weight:900;
   text-shadow:0 1px 3px rgba(0,0,0,.6);
   cursor:pointer;
@@ -303,20 +328,24 @@
    unexplored rooms pull, doors back into tidied ones don't. */
 .door.unvisited{animation:doorbeckon 2.6s ease-in-out infinite}
 @keyframes doorbeckon{
-  50%{box-shadow:0 0 0 3px var(--wall-dark), 0 0 14px 3px rgba(245,197,66,.55), 0 3px 8px rgba(0,0,0,.4)}
+  50%{box-shadow:0 0 0 calc(3px / var(--fit,1)) var(--wall-dark),
+      0 0 calc(14px / var(--fit,1)) calc(3px / var(--fit,1)) rgba(245,197,66,.55),
+      0 calc(3px / var(--fit,1)) calc(8px / var(--fit,1)) rgba(0,0,0,.4)}
 }
 
 /* ---------- LOCKED DOORS ---------- */
 .door.locked{
   background:linear-gradient(#231a10,#150f08);
   color:var(--gold);
-  flex-direction:column;gap:4px;
-  font-size:13px;
+  flex-direction:column;gap:calc(4px / var(--fit,1));
+  /* The key emoji, not a chevron — bigger than the arrow because it has to be
+     identifiable, still fit-normalised so it is the same in every room. */
+  font-size:calc(11px / var(--fit,1));
   border-color:rgba(245,197,66,.55);
 }
-.door.locked.N,.door.locked.S{flex-direction:row;gap:6px}
-.door .pips{display:flex;flex-direction:column;gap:3px}
+.door.locked.N,.door.locked.S{flex-direction:row;gap:calc(6px / var(--fit,1))}
+.door .pips{display:flex;flex-direction:column;gap:calc(3px / var(--fit,1))}
 .door.locked.N .pips,.door.locked.S .pips{flex-direction:row}
-.door.locked.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.8)}
+.door.locked.drophot{box-shadow:0 0 0 calc(3px / var(--fit,1)) rgba(245,197,66,.8)}
 .door.locked.goldhit{animation:furngold .9s}
 .door.locked.fullhit{animation:furnfull .4s}

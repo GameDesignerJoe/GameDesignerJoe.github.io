@@ -8,7 +8,10 @@
 .fxglyph{
   position:fixed;transform:translate(-50%,-50%);
   font-size:26px;line-height:1;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  /* text-shadow, not filter:drop-shadow — see the note on .item in
+     css/items.css. A drop-shadow filter on a colour-emoji glyph paints from
+     the layer box, not the glyph, and leaves black corners behind it. */
+  text-shadow:0 2px 4px rgba(0,0,0,.6);
   animation:fxrise .75s ease-out forwards;
 }
 @keyframes fxrise{

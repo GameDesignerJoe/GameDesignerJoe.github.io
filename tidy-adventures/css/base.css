@@ -11,7 +11,19 @@
   --gold:#f5c542;
   --panel:#2c2317;
   --slot:#3a2f20;
-  --hud-h:56px;
+  /* HUD BAND HEIGHT, NOT COUNTING THE STATUS BAR.
+
+     #hud adds env(safe-area-inset-top) ON TOP of this rather than padding
+     inside it — see css/layout.css for why the old version crushed the row
+     into the notch. Anything that positions itself BELOW the HUD (#objective,
+     #toast) has to add the same inset, spelled out the same way:
+
+         top: calc(var(--hud-h) + env(safe-area-inset-top, 0px) + Npx)
+
+     Deliberately not wrapped in a --hud-drop custom property: env() nested
+     inside a custom property has a history of resolving to nothing in Safari,
+     and Safari on a notched phone is the only place any of this matters. */
+  --hud-h:64px;
   --inv-h:110px;
 
   /* One voice, one hand. The client speaks and signs their own notes, so the

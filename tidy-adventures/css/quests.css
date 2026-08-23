@@ -33,7 +33,7 @@
 #noteNeed{display:flex;gap:10px;justify-content:center;margin:14px 0 6px}
 #noteNeed .nreq{
   font-size:30px;line-height:1;
-  filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));
+  text-shadow:0 2px 2px rgba(0,0,0,.25);
 }
 #noteSign{
   text-align:right;font-size:14px;color:#6b573a;
@@ -42,7 +42,7 @@
 
 /* ---------- pinned objective ---------- */
 #objective{
-  position:fixed;left:50%;top:calc(var(--hud-h) + 6px);
+  position:fixed;left:50%;top:calc(var(--hud-h) + env(safe-area-inset-top, 0px) + 6px);
   transform:translateX(-50%);
   display:flex;align-items:center;gap:7px;
   background:var(--panel);
@@ -63,4 +63,4 @@
 
 /* The message strip and the objective share the same slot under the HUD;
    nudge messages down when an objective is pinned. */
-#objective:not([hidden]) ~ #toast.show{top:calc(var(--hud-h) + 42px)}
+#objective:not([hidden]) ~ #toast.show{top:calc(var(--hud-h) + env(safe-area-inset-top, 0px) + 42px)}

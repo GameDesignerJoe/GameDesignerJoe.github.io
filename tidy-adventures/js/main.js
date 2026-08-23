@@ -865,8 +865,16 @@ function buildRoomEl(room){
     /* The full name. `short` is still in rooms.json and still used where space
        is genuinely tight (the objective strip, bump messages), but a face
        reading "SINK" when the thing is the Under the Sink cupboard is just
-       worse — the label wraps to two lines instead. */
-    lbl.textContent=c.name;
+       worse — the label wraps to three lines instead.
+
+       Minus a leading article. The plate is about seven characters wide, so
+       "The Weather Station" spent the whole first line on the one word that
+       carries no information and showed "THE / WE…" — the piece was
+       identified by its definite article. Uppercase and on a name plate,
+       "THE" is noise everywhere it appears; every other place a container
+       name is written (the container view's title, the objective strip) still
+       gets the name exactly as data/rooms.json spells it. */
+    lbl.textContent=c.name.replace(/^the\s+/i,"");
     f.appendChild(lbl);
     el.appendChild(f);
   }
@@ -1524,7 +1532,7 @@ function animateFlight(type, fromX, fromY, toX, toY, done){
   fl.style.cssText=`position:fixed;left:${fromX}px;top:${fromY}px;z-index:220;
     font-size:34px;line-height:1;pointer-events:none;
     transform:translate(-50%,-50%) rotate(0deg);
-    filter:drop-shadow(0 8px 10px rgba(0,0,0,.45));
+    text-shadow:0 8px 11px rgba(0,0,0,.45);
     transition:left .42s cubic-bezier(.2,.55,.4,1), top .42s cubic-bezier(.35,.1,.55,1), transform .42s linear;`;
   document.body.appendChild(fl);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{

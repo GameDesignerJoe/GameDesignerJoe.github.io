@@ -1,0 +1,2245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tidy Adventures — Talents &amp; Upgrades</title>
+<!--
+  ============================================================
+  TALENTS & UPGRADES — a live report, read straight off the game's own files.
+
+  WHAT THIS IS. Every talent and permanent upgrade, what it says, what it
+  actually does, when you can get it, and where the code that does it lives.
+  Nothing here is a copy of the data: it fetches data/*.json and js/*.js on
+  every refresh and re-derives the whole page, so a number on screen is the
+  number the game will use.
+
+  WHY IT WATCHES THE FILES. The point of a balance report is to be trusted at
+  a glance, and a report that was true when it was generated is exactly as
+  useless as no report at all. It polls every file it reads, hashes the text,
+  and repaints the moment any of them changes — so you can leave this open on
+  a second monitor, edit upgrades.json, and watch the numbers move.
+
+  THE TWO HALVES, and the split is the whole design (see data/upgrades.json):
+    upgrades[]  IN-LEVEL TALENTS — drafted during a run, gone when it ends.
+    home[]      PERMANENT UPGRADES — bought at home with stars, kept forever.
+
+  THE CODE PANELS ARE THE HONEST PART. A talent is data plus a piece of code
+  that reads it, and only the data half is visible in the JSON. Each entry
+  pulls its real implementation out of the js source by ANCHOR TEXT (not line
+  number, which drifts) and shows it. Each snippet is hashed and compared
+  against a baseline taken when the prose notes below were written: if the
+  code changed, the entry says so, in as many words, rather than quietly
+  describing a version of the game that no longer exists.
+
+  RUN IT. This needs the same web server the game does — fetch() is blocked
+  under file://.
+      python -m http.server 8000
+      http://localhost:8000/tidy-adventures/tools/talents.html
+
+  IT IS ALSO AN EDITOR, for data/upgrades.json and nothing else. Press Edit and
+  the names, emoji, descriptions, level counts, prices and params become inputs.
+  What it deliberately WILL NOT do: add or delete an entry, reorder them, rename
+  an id, or touch another file — every one of those needs a matching change in
+  js/config.js, and a change this page cannot verify is a change it should not
+  make.
+
+  A save is a SURGICAL TEXT PATCH, never a re-serialisation. This file is two
+  thirds prose and JSON.stringify would keep every key and destroy every word of
+  it. So an edit replaces exactly the characters that were the old value, and
+  then proves itself: the patched text is re-parsed and compared against the
+  same edit applied to the parsed original, and a mismatch of one character
+  refuses the save. See section 6b.
+
+  Nothing is written without a click, and the browser cannot write anywhere the
+  user has not personally pointed the file picker at. The real undo is git.
+  ============================================================
+-->
+<style>
+:root{
+  /* The game's own tokens, so this reads as part of the project. See css/base.css. */
+  --bg:#211a12;
+  --panel:#2c2317;
+  --panel-2:#33281b;
+  --wall:#4a3a28;
+  --ink:#f3e9d8;
+  --dim:#b9a88d;
+  --gold:#f5c542;
+  --good:#7fc98a;
+  --warn:#e8a33d;
+  --bad:#e0705f;
+  --info:#7fb3d5;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --r:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:120px}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:ui-rounded,"SF Pro Rounded","Segoe UI",system-ui,sans-serif;
+  font-size:15px;line-height:1.5;
+  padding-bottom:140px;
+}
+a{color:var(--gold)}
+code,.mono{font-family:var(--mono);font-size:.86em}
+
+/* ---------- chrome ---------- */
+.bar{
+  position:sticky;top:0;z-index:50;
+  background:color-mix(in srgb,var(--panel) 92%,black);
+  border-bottom:1px solid var(--wall);
+  padding:10px 18px;
+  display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
+}
+.bar h1{font-size:17px;font-weight:700;letter-spacing:.01em}
+.bar h1 small{color:var(--dim);font-weight:400;font-size:12px;margin-left:8px}
+.spacer{flex:1}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--panel-2);border:1px solid var(--wall);border-radius:999px;
+  padding:4px 11px;font-size:12.5px;color:var(--dim);
+}
+.pill b{color:var(--ink);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good);flex:none}
+.dot.off{background:var(--dim)}
+.dot.hit{background:var(--gold);box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 30%,transparent)}
+button,select{
+  font:inherit;font-size:13px;color:var(--ink);
+  background:var(--panel-2);border:1px solid var(--wall);border-radius:8px;
+  padding:5px 11px;cursor:pointer;
+}
+button:hover,select:hover{border-color:var(--gold)}
+button:active{transform:translateY(1px)}
+nav{
+  position:sticky;top:53px;z-index:49;
+  background:color-mix(in srgb,var(--bg) 94%,black);
+  border-bottom:1px solid var(--wall);
+  padding:7px 18px;display:flex;flex-wrap:wrap;gap:4px;
+}
+nav a{
+  color:var(--dim);text-decoration:none;font-size:12.5px;
+  padding:3px 9px;border-radius:6px;
+}
+nav a:hover{color:var(--ink);background:var(--panel-2)}
+
+/* ---------- layout ---------- */
+main{max-width:1180px;margin:0 auto;padding:22px 18px}
+section{margin:0 0 42px}
+section>h2{
+  font-size:20px;margin:0 0 4px;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+}
+section>h2 .count{font-size:12.5px;color:var(--dim);font-weight:400}
+section>.lede{color:var(--dim);font-size:13.5px;max-width:78ch;margin:0 0 18px}
+
+/* ---------- entry cards ---------- */
+.card{
+  background:var(--panel);border:1px solid var(--wall);border-radius:var(--r);
+  margin:0 0 16px;overflow:hidden;
+}
+.chead{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:14px 16px;background:var(--panel-2);
+  border-bottom:1px solid var(--wall);
+}
+.emoji{font-size:34px;line-height:1;flex:none;width:44px;text-align:center}
+.ctitle{flex:1;min-width:0}
+.ctitle h3{font-size:17px;font-weight:700;display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+.ctitle h3 .id{font-family:var(--mono);font-size:11.5px;color:var(--dim);font-weight:400}
+.desc{margin-top:3px;font-size:14px}
+.desc .raw{display:block;color:var(--dim);font-size:12px;font-family:var(--mono);margin-top:3px}
+.cmeta{display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex:none;text-align:right}
+.tag{
+  font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+  padding:2px 8px;border-radius:999px;border:1px solid var(--wall);color:var(--dim);
+}
+.tag.talent{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,var(--wall))}
+.tag.home{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 45%,var(--wall))}
+.tag.consumable{color:var(--dim)}
+.pips{display:flex;gap:3px;justify-content:flex-end}
+.pips i{width:9px;height:9px;border-radius:50%;background:var(--wall);display:block}
+.pips i.on{background:var(--gold)}
+.cbody{padding:14px 16px;display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media (max-width:860px){.cbody{grid-template-columns:1fr}}
+.cbody>.wide{grid-column:1/-1}
+h4{
+  font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--dim);margin:0 0 7px;font-weight:700;
+}
+
+/* ---------- tables ---------- */
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:5px 9px;border-bottom:1px solid var(--panel-2)}
+th{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+tbody tr:hover{background:var(--panel-2)}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+.lvlcell{font-family:var(--mono);color:var(--gold);white-space:nowrap}
+table.grid{background:var(--panel);border:1px solid var(--wall);border-radius:var(--r);overflow:hidden}
+table.grid th{background:var(--panel-2)}
+.wrapscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ---------- rule lists ---------- */
+ul.rules{list-style:none;display:flex;flex-direction:column;gap:7px}
+ul.rules li{font-size:13.5px;padding-left:16px;position:relative}
+ul.rules li::before{content:"›";position:absolute;left:2px;color:var(--gold)}
+ul.rules li .src{
+  display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:1px;
+}
+ul.watch li::before{content:"!";color:var(--warn);font-weight:700}
+
+/* ---------- findings ---------- */
+.finding{
+  display:flex;gap:12px;padding:12px 14px;
+  border:1px solid var(--wall);border-left-width:4px;border-radius:8px;
+  background:var(--panel);margin:0 0 9px;
+}
+.finding .fi{font-size:18px;line-height:1.3;flex:none}
+.finding h5{font-size:14.5px;margin:0 0 3px}
+.finding p{font-size:13px;color:var(--ink)}
+.finding p+p{margin-top:5px}
+.finding .src{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:5px;display:block}
+.finding.bad{border-left-color:var(--bad)}
+.finding.warn{border-left-color:var(--warn)}
+.finding.ok{border-left-color:var(--good)}
+.finding.info{border-left-color:var(--info)}
+.sev{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+
+/* ---------- code ---------- */
+details.code{margin:0;grid-column:1/-1}
+details.code>summary{
+  cursor:pointer;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--dim);font-weight:700;padding:5px 0;
+}
+details.code>summary:hover{color:var(--gold)}
+details.code[open]>summary{color:var(--ink)}
+.snip{margin:6px 0 12px}
+.snip .loc{
+  font-family:var(--mono);font-size:11px;color:var(--dim);
+  display:flex;justify-content:space-between;gap:12px;align-items:center;
+  padding:3px 0;
+}
+.snip pre{
+  background:#1a140d;border:1px solid var(--wall);border-radius:8px;
+  padding:10px 12px;overflow-x:auto;
+  font-family:var(--mono);font-size:11.5px;line-height:1.55;color:#e6dcc8;
+  white-space:pre;
+}
+.drift{color:var(--warn);font-weight:700}
+.drift.gone{color:var(--bad)}
+.drift.same{color:var(--dim);font-weight:400}
+
+/* ---------- misc ---------- */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:13px}
+.kv dt{color:var(--dim)}
+.kv dd{font-family:var(--mono)}
+.fld{
+  /* Everything that came out of a JSON file wears this. In edit mode the
+     editable ones become inputs; otherwise it is a hover target that names
+     its own source. */
+  border-bottom:1px dotted color-mix(in srgb,var(--gold) 45%,transparent);
+  cursor:help;
+}
+
+/* ---------- the editor ----------
+   Inputs are deliberately quiet: this is still a report you read, and a page
+   of loud form controls stops being one. They look like the values they
+   replaced until you touch them. */
+input.fe,textarea.fe{
+  font:inherit;font-size:inherit;color:var(--ink);
+  background:color-mix(in srgb,var(--gold) 7%,var(--panel-2));
+  border:1px solid color-mix(in srgb,var(--gold) 30%,var(--wall));
+  border-radius:6px;padding:1px 6px;min-width:2.5em;
+}
+input.fe:focus,textarea.fe:focus{
+  outline:none;border-color:var(--gold);
+  background:color-mix(in srgb,var(--gold) 14%,var(--panel-2));
+}
+input.fe.n{text-align:right;font-family:var(--mono)}
+input.fe.emoji-in{font-size:26px;width:2.1em;text-align:center;padding:2px}
+input.fe.name-in{font-size:17px;font-weight:700;min-width:9em}
+textarea.fe{width:100%;resize:vertical;min-height:4.2em;line-height:1.5;font-size:13.5px}
+input.fe.dirty,textarea.fe.dirty{
+  border-color:var(--good);
+  background:color-mix(in srgb,var(--good) 16%,var(--panel-2));
+}
+.editrow{grid-column:1/-1;border-top:1px dashed var(--wall);padding-top:12px}
+.editrow .hint{font-size:11.5px;color:var(--dim);margin-top:4px}
+
+/* the working-copy banner */
+.workbanner{
+  position:sticky;top:88px;z-index:48;
+  background:color-mix(in srgb,var(--good) 20%,var(--panel));
+  border:1px solid color-mix(in srgb,var(--good) 50%,var(--wall));
+  border-radius:8px;padding:9px 13px;margin:0 0 18px;font-size:13.5px;
+}
+.workbanner b{color:var(--good)}
+
+/* the save bar */
+.savebar{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:color-mix(in srgb,var(--panel) 96%,black);
+  border-top:1px solid var(--gold);
+  padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  box-shadow:0 -8px 24px rgba(0,0,0,.45);
+}
+.savebar .n{font-weight:700;color:var(--gold)}
+.savebar .msg{font-size:12.5px;color:var(--dim);flex:1;min-width:200px}
+.savebar .msg.bad{color:var(--bad)}
+.savebar .msg.good{color:var(--good)}
+.savebar button.primary{
+  background:var(--gold);color:#241b0d;border-color:var(--gold);font-weight:700;
+}
+.savebar button.primary:disabled{opacity:.4;cursor:not-allowed}
+.savebar button:disabled{opacity:.4;cursor:not-allowed}
+body.editing{padding-bottom:220px}
+
+/* the diff */
+.diffbox{
+  background:#1a140d;border:1px solid var(--wall);border-radius:8px;
+  padding:10px 12px;margin:10px 0 0;font-family:var(--mono);font-size:11.5px;
+  line-height:1.6;max-height:44vh;overflow:auto;white-space:pre;
+}
+.diffbox .del{color:var(--bad)}
+.diffbox .add{color:var(--good)}
+.diffbox .ctx{color:var(--dim)}
+.vlist{list-style:none;font-size:12.5px;margin-top:6px}
+.vlist li{padding:2px 0}
+.vlist li.e::before{content:"⛔ ";}
+.vlist li.w::before{content:"⚠️ ";}
+.err{
+  background:color-mix(in srgb,var(--bad) 18%,var(--panel));
+  border:1px solid var(--bad);border-radius:var(--r);
+  padding:18px;margin:22px auto;max-width:800px;font-size:14px;
+}
+.err h2{font-size:17px;margin-bottom:8px}
+.err pre{font-family:var(--mono);font-size:12px;margin-top:10px;white-space:pre-wrap}
+.flash{animation:fl 1.1s ease-out}
+@keyframes fl{from{background:color-mix(in srgb,var(--gold) 26%,transparent)}to{background:transparent}}
+.muted{color:var(--dim)}
+.big{font-size:26px;font-family:var(--mono);color:var(--gold);line-height:1.1}
+.statrow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.stat{
+  background:var(--panel);border:1px solid var(--wall);border-radius:var(--r);
+  padding:11px 14px;min-width:150px;flex:1;
+}
+.stat .lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.stat .sub{font-size:11.5px;color:var(--dim);margin-top:2px}
+.bar-in{height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar-in i{display:block;height:100%;background:var(--gold)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>🧹 Talents &amp; Upgrades <small id="gameVer"></small></h1>
+  <span class="spacer"></span>
+  <span class="pill"><span class="dot" id="watchDot"></span><span id="watchTxt">starting…</span></span>
+  <span class="pill" id="lastPill">read <b id="lastRead">—</b></span>
+  <select id="ivl" title="How often to check the files for changes">
+    <option value="2000">check every 2s</option>
+    <option value="5000" selected>check every 5s</option>
+    <option value="15000">check every 15s</option>
+    <option value="0">manual only</option>
+  </select>
+  <button id="refresh">Refresh now</button>
+  <button id="editBtn" title="Edit the numbers, text and emoji in data/upgrades.json">✏️ Edit</button>
+</div>
+
+<nav>
+  <a href="#health">Health check</a>
+  <a href="#talents">In-level talents</a>
+  <a href="#home">Permanent upgrades</a>
+  <a href="#consumables">Consumables</a>
+  <a href="#when">When you get them</a>
+  <a href="#economy">The star economy</a>
+  <a href="#draft">Draft odds</a>
+  <a href="#sources">Files being watched</a>
+</nav>
+
+<main id="out"></main>
+
+<script>
+/* ============================================================
+   1. WHAT WE READ
+
+   Every file this report makes a claim about. Anything not on this list
+   cannot be watched, so if a claim below depends on a file, that file goes
+   here — the alternative is a page that silently stops being true.
+============================================================ */
+const BASE = "../";
+const FILES = {
+  upgrades:  "data/upgrades.json",
+  levels:    "data/levels.json",
+  sizes:     "data/sizes.json",
+  clients:   "data/clients.json",
+  rooms:     "data/rooms.json",
+  themes:    "data/themes.json",
+  furniture: "data/furniture.json",
+  quests:    "data/quests.json",
+  config:    "js/config.js",
+  main:      "js/main.js",
+  talents:   "js/talents.js",
+  home:      "js/home.js",
+  generate:  "js/generate.js",
+  questsjs:  "js/quests.js",
+};
+const JSON_KEYS = ["upgrades","levels","sizes","clients","rooms","themes","furniture","quests"];
+
+/* ============================================================
+   2. HASHING AND SOURCE EXTRACTION
+
+   normalise() + fnv1a() are the drift detector. Whitespace is collapsed
+   first, so re-indenting a block is not a change; anything else is.
+
+   These two functions and snip() below are byte-identical to the generator
+   that produced BASELINES. Edit one and you must edit the other, or every
+   entry on the page will claim its code changed.
+============================================================ */
+function normalise(s){ return String(s).replace(/\s+/g," ").trim(); }
+function fnv1a(s){
+  let h = 0x811c9dc5;
+  for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h>>>0).toString(16).padStart(8,"0");
+}
+
+/* Find `needle` in src, back up to the start of its line, then return either
+   a brace-balanced block or a fixed number of lines.
+
+   ANCHORED ON TEXT, NEVER ON A LINE NUMBER. main.js is 3800 lines and every
+   edit above a snippet would move it; a line number in this file would be
+   wrong by the end of the afternoon. The cost is that renaming a function
+   loses the anchor — which is why a lost anchor is reported loudly rather
+   than skipped, since "the code moved" is exactly what you want to know. */
+function snip(src, needle, opts){
+  opts = opts || {};
+  const i = src.indexOf(needle);
+  if (i === -1) return null;
+  const lineStart = src.lastIndexOf("\n", i) + 1;
+  const line = src.slice(0, i).split("\n").length;
+  if (opts.lines){
+    let end = lineStart;
+    for (let n=0; n<opts.lines; n++){
+      const nl = src.indexOf("\n", end);
+      if (nl === -1) { end = src.length; break; }
+      end = nl + 1;
+    }
+    return { text: src.slice(lineStart, end).replace(/\s+$/,""), line };
+  }
+  let j = src.indexOf("{", i);
+  if (j === -1) return null;
+  let depth = 0, inStr = null, k = j;
+  for (; k < src.length; k++){
+    const c = src[k], p = src[k-1];
+    if (inStr){ if (c === inStr && p !== "\\") inStr = null; continue; }
+    if (c === '"' || c === "'" || c === "`") { inStr = c; continue; }
+    if (c === "/" && src[k+1] === "*"){ const e = src.indexOf("*/", k+2); k = e === -1 ? src.length : e+1; continue; }
+    if (c === "/" && src[k+1] === "/"){ const e = src.indexOf("\n", k); k = e === -1 ? src.length : e; continue; }
+    if (c === "{") depth++;
+    else if (c === "}"){ depth--; if (depth === 0) { k++; break; } }
+  }
+  let end = src.indexOf("\n", k); if (end === -1) end = src.length;
+  return { text: src.slice(lineStart, end).replace(/\s+$/,""), line };
+}
+
+/* Hashes taken when the prose in MECH was written. A mismatch does not mean
+   the code is wrong — it means these notes were written against a different
+   version of it and should be re-read. */
+const BASELINES = {
+  "sense::glow on the home container": "e1ce0564",
+  "sense::the hand label suffix": "4a92f364",
+  "sense::repaint when you change hands": "16bbe9a6",
+  "magnet::the pull, inside cascade()": "58374740",
+  "oneTrip::out of your hands, inside cascade()": "4ee7564f",
+  "homesick::which floor items glow": "35ddb544",
+  "keyring::the class on a floor item": "fb453621",
+  "label::the greyed-out want badges": "4ce1c4d3",
+  "skeleton::fires once, on learning it": "a4a74c22",
+  "hands::applied at run start": "2c6b76c4",
+  "hands::re-applied on resume": "7cabdd7a",
+  "picks::how many picks a house owes": "425a2f01",
+  "wage::paid on room completion": "e15e33ce",
+  "cards::the price a client asks": "1b9cc806",
+  "spare::the key you start holding": "7d600b6f",
+  "stars3::consumables": "0ad87e85",
+  "armful::consumables": "0ad87e85",
+  "armful::filing the armful": "9960cde0",
+  "_draft::which three cards you are shown": "317faed2",
+  "_draft::a room came clean — is that a pick?": "6e675ddb",
+  "_draft::consumables": "0ad87e85",
+  "_draft::the empty-pool payout": "1901d2fc",
+  "_locks::how strong a door lock is": "73783877",
+  "_locks::how strong a container lock is": "b04a008e",
+  "_cascade::the shared put() and livesHere()": "3b8c7cd1",
+};
+
+/* ============================================================
+   3. THE MECHANICS TABLE
+
+   The half of a talent that is NOT in the JSON. Each entry says what fires
+   it, what each level is worth (computed from the entry's own params, so a
+   number changed in upgrades.json moves it), the rules that are easy to
+   misremember, the things worth watching for, and the anchors that pull its
+   real implementation out of the source.
+
+   `perLevel(lvl, p, ctx)` is called once per level with that entry's params,
+   so this is where "level 2 shows three badges, not two" comes from.
+============================================================ */
+const MECH = {
+
+  /* ---------------- IN-LEVEL TALENTS ---------------- */
+
+  sense: {
+    fires: "Continuously, while a slot in your hands is selected.",
+    perLevel: () => "Held item names its home in the hand label; that home glows if it is in this room.",
+    rules: [
+      ["The hand label gains an arrow: <code>→ Chest of Drawers</code>, plus <code>(Attic)</code> when the home is in another room.", "js/main.js — senseSuffix()"],
+      ["Keys read <code>→ a lock</code>, coins <code>→ a coin slot</code>, and the old key 🗝️ reads <code>→ one specific lock</code> — a token never names a container.", "js/main.js — senseSuffix()"],
+      ["The container itself gets a glow, but only when the held item's home is <em>in the room you are standing in</em>.", "js/main.js — buildRoomEl()"],
+      ["Tapping a different hand slot repaints the room, so the glow follows the selection rather than going stale.", "js/main.js — tapSlot()"],
+      ["Also drives the loupe: long-pressing an item shows the same suffix and lights the same furniture.", "js/main.js — the loupe"],
+    ],
+    watch: [
+      ["No glow on a <strong>locked</strong> or <strong>already finished</strong> container — deliberate, since neither can take the item, but it means a held item can correctly have no glow anywhere.", "js/main.js — the !locked && !done guard in buildRoomEl()"],
+      ["The text half still names a locked container. Only the glow is suppressed, so the two halves of one talent disagree in that case.", "js/main.js — senseSuffix() has no lock check"],
+    ],
+    anchors: [
+      { file:"main", label:"glow on the home container", needle:'if(G.up.sense && !locked && !done' },
+      { file:"main", label:"the hand label suffix",       needle:'function senseSuffix(it){' },
+      { file:"main", label:"repaint when you change hands", needle:'function tapSlot(i){' },
+    ],
+  },
+
+  magnet: {
+    fires: "On a correct put-away, inside cascade(). Never on pick-up, and never on a wrong drop.",
+    perLevel: (lvl, p) => `Pulls ${lvl * (p.pull ?? 1)} more of the same kind off this room's floor into the same home.`,
+    rules: [
+      ["Budget is <code>level × pull</code> items per correct placement.", "js/main.js — cascade()"],
+      ["Only the <em>same emoji type</em> as the thing you just filed, and only from the floor of the room you are in.", "js/main.js — cascade()"],
+      ["Nearest to the room's centre first, so what flies is what you could plausibly see.", "js/main.js — sorted on distance from 50,50"],
+      ["Stops silently the moment the container has no free cell left.", "js/main.js — <code>if(!put(o)) break</code>"],
+      ["Everything it files goes through the same judgeToss/afterMutation path as a hand placement, so rows it completes pay out and celebrate normally.", "js/main.js — put() in cascade()"],
+    ],
+    watch: [
+      ["It sorts by distance from the room centre, not from you or from the container. In a wide room the two are not the same thing.", "js/main.js — cascade()"],
+      ["Fires per placement, so One Trip's cascade does not re-trigger it — one correct tap is one magnet budget, however many items One Trip moved.", "js/main.js — cascade() runs once"],
+      ["It used to fire on pick-up with a 14% radius, which was true 8.1% of the time. If you are reading old notes, that is the version they describe.", "data/upgrades.json — _readme"],
+    ],
+    anchors: [{ file:"main", label:"the pull, inside cascade()", needle:'if(G.up.magnet){' }],
+  },
+
+  oneTrip: {
+    fires: "On a correct put-away, inside cascade().",
+    perLevel: (lvl) => lvl >= 2
+      ? "Also files anything else in your hands that lives in this container — not just the same kind."
+      : "Also files the other items in your hands of the same kind that live in this container.",
+    rules: [
+      ["Level 1 is <em>and the others like it</em>: same emoji type, and it must live here.", "js/main.js — cascade()"],
+      ["Level 2 is <em>and everything else that lives in this drawer</em>: any type whose home is this container.", "js/main.js — <code>G.up.oneTrip>=2</code>"],
+      ["Keys, coins and notes are always skipped — they are not cargo.", "js/main.js — cascade()"],
+      ["Selection is repaired afterwards: the first remaining full slot becomes the held one, or null if your hands emptied.", "js/main.js — cascade()"],
+    ],
+    watch: [
+      ["Level 1 exists mainly so the talent has somewhere to grow from. If the draft offers it at level 1 and you never see level 2, it overlaps heavily with Magnet Fingers.", "data/upgrades.json — the desc says so"],
+      ["Stops on the first item that will not fit, rather than skipping it and trying the next — a nearly full container can leave sortable items in your hands.", "js/main.js — <code>if(!put(o)) break</code>"],
+    ],
+    anchors: [{ file:"main", label:"out of your hands, inside cascade()", needle:'if(G.up.oneTrip){' }],
+  },
+
+  homesick: {
+    fires: "On every room repaint, for the room you are standing in.",
+    perLevel: () => "Every floor item in this room whose home is also in this room glows.",
+    rules: [
+      ["Three conditions, all required: the item's home is in <em>this</em> room, that container is unlocked, and it has a free cell.", "js/main.js — homesick()"],
+      ["Keys, coins, notes and buried tokens never glow — they have no container home.", "js/main.js — homesick()"],
+      ["Roughly a quarter of any given floor lights up; the useful reading is the inverse — the other 75% is stuff you will have to carry.", "data/upgrades.json — measured over 180 rooms"],
+    ],
+    watch: [
+      ["\"Can take it right now\" is literal. Fill the home container and the glow goes out even though the item still lives there — correct, but it looks like the talent switching itself off.", "js/main.js — <code>bestSpot(c, it.type)</code>"],
+      ["Only ever the current room. It is not a house-wide answer.", "js/main.js — called from buildRoomEl()"],
+    ],
+    anchors: [{ file:"main", label:"which floor items glow", needle:'function homesick(room, it){' }],
+  },
+
+  keyring: {
+    fires: "On every room repaint, for the room you are standing in.",
+    perLevel: () => "Every 🔑 and 🪙 still loose on this room's floor renders un-buried.",
+    rules: [
+      ["Rides the same <code>.revealed</code> class the debug reveal uses — one look meaning one thing.", "js/main.js — buildRoomEl()"],
+      ["Only tokens (keys and coins). Ordinary items are untouched.", "js/main.js — <code>it.token</code>"],
+      ["Permanent for the run, where the debug button is a five-second flash across the whole house.", "js/config.js — REVEAL_MS"],
+    ],
+    watch: [
+      ["Current room only, on purpose: burial is the feature, and un-burying the house would delete the hunt.", "js/main.js — the comment above it"],
+      ["Cosmetic. It changes nothing about reachability — a key under a pile is still under the pile, it is just visible.", "css/items.css — .revealed"],
+    ],
+    anchors: [{ file:"main", label:"the class on a floor item", needle:'sp.className="item"+(it.token?" buried":"")', lines:2 }],
+  },
+
+  label: {
+    fires: "On every room repaint, on each container in the room.",
+    perLevel: (lvl, p) => `Each container shows ${(p.show ?? 2) + (lvl - 1)} of the types it is still waiting for.`,
+    rules: [
+      ["Count is <code>show + (level − 1)</code>, greyed out beside the badges for what is already inside.", "js/main.js — buildRoomEl()"],
+      ["Only types <em>not already in</em> the container are shown, so the strip shrinks as you fill it.", "js/main.js — <code>if(inside.has(t)) continue</code>"],
+      ["Capped low on purpose: the strip is one line above a box 34% of the room wide, and a container with twelve types would push the real badges off the end.", "js/main.js — the comment above it"],
+    ],
+    watch: [
+      ["<strong>Which</strong> types you see is insertion order of <code>G.typeHome</code>, not sorted by count, rarity or what is on the floor. Level 2 does not necessarily add the most useful third badge — it adds the next one the generator happened to register.", "js/main.js — <code>Object.entries(G.typeHome)</code>"],
+      ["Pairs with Sixth Sense from the other end (what lives here vs. where this lives). Taking both is a real information stack, not a redundancy.", "data/upgrades.json — the comment says so"],
+    ],
+    anchors: [{ file:"main", label:"the greyed-out want badges", needle:'if(G.up.label){' }],
+  },
+
+  skeleton: {
+    fires: "Once, the instant you learn it. It is not a rule read later.",
+    perLevel: (lvl) => `Every lock still shut that needs more than one key wants one fewer${lvl >= 2 ? " — a second time, so a 3-key door ends at 1" : ""}.`,
+    rules: [
+      ["Runs over both lock registries: door locks in <code>G.locks</code>, and container locks on every room's containers.", "js/main.js — the skeleton() callback"],
+      ["<strong>Floored at one.</strong> A lock needing zero keys is a lock already open, and opening the house off one card is not a talent.", "js/main.js — <code>l.need &gt; 1</code>"],
+      ["Taken twice is two passes, so a door needing four keys ends up needing two.", "js/main.js — one decrement per take"],
+      ["Reaches the world through a callback handed in by main.js, because talents.js may not import the rules tier.", "js/talents.js — initTalents()"],
+    ],
+    watch: [
+      ["<strong>It can never touch a container lock.</strong> Container locks are generated with <code>need: 1</code> whenever furniture.json defines the old key 🗝️, and the floor at one excludes them. In practice this talent only ever weakens the one locked door.", "js/generate.js — contLocks"],
+      ["On a level with <code>doorKeys: 0</code> or <code>doorKeys: 1</code> it does nothing at all, and it is drafted anyway. See the level table below for which ones.", "js/generate.js — <code>need: cfg.doorKeys</code>"],
+      ["Fires on learning, so taking it after the locked door is already open is wasted. There is nothing that stops it being offered then.", "js/talents.js — choose()"],
+    ],
+    anchors: [{ file:"main", label:"fires once, on learning it", needle:'  skeleton(){' }],
+  },
+
+  /* ---------------- PERMANENT UPGRADES ---------------- */
+
+  hands: {
+    fires: "Applied once at the start of every run, and re-applied on resume.",
+    perLevel: (lvl, p, ctx) => `${ctx.invSize + lvl} hand slots (base ${ctx.invSize} + ${lvl}).`,
+    rules: [
+      ["Slots are <em>appended</em>, not resized, so anything already held keeps the slot it was in.", "js/main.js — applyHome()"],
+      ["Re-applied on resume by padding up to <code>INV_SIZE + level</code>, because the saved <code>inv</code> comes back at whatever length it was written.", "js/main.js — resumeHome()"],
+      ["Priced steeply and separately per level — the only upgrade whose cost array climbs this hard.", "data/upgrades.json — cost[]"],
+    ],
+    watch: [
+      ["This lived in the in-level talent pool once. Anything describing Bigger Hands as a draftable talent is out of date.", "data/upgrades.json — _readme"],
+      ["Buying it mid-run does not widen your hands until the next start or resume — <code>applyHome()</code> is not re-run on a purchase.", "js/main.js — applyHome() call sites"],
+    ],
+    anchors: [
+      { file:"main", label:"applied at run start", needle:'function applyHome(){' },
+      { file:"main", label:"re-applied on resume", needle:'function resumeHome(){' },
+    ],
+  },
+
+  picks: {
+    fires: "Read at run start, when the house works out how many talents it teaches.",
+    perLevel: (lvl) => `+${lvl} talent to learn per house, on top of the level's own rewards — still capped at rooms − 1.`,
+    rules: [
+      ["<code>picksFor()</code> is <code>min(level.rewards + picks, rooms − 1)</code>, floored at 0.", "js/main.js — picksFor()"],
+      ["The cap exists because a pick is granted on a <em>room completion</em>, and the last room completing is the level completing — a draft must not land on the ending.", "js/talents.js — the header"],
+      ["Derived at run start rather than saved, so buying it takes effect on the house you are already standing in when you resume.", "js/main.js — picksFor() call sites"],
+    ],
+    watch: [
+      ["<strong>The cap eats it on a lot of levels.</strong> Any level already promising rooms − 1 gets nothing from this, and the shop does not say so. The table below counts exactly how many levels each of the two purchased levels is dead on.", "js/main.js — picksFor()"],
+      ["Free-play bands carry their own <code>rewards</code>, so this applies there too — but free play mints no stars, so it can never be paid for out of free play.", "data/sizes.json — bands[] and _starsNote"],
+    ],
+    anchors: [{ file:"main", label:"how many picks a house owes", needle:'function picksFor(cfg, rooms){' }],
+  },
+
+  wage: {
+    fires: "On every room completion.",
+    perLevel: (lvl, p) => `+${lvl * (p.each ?? 1)} ⭐ every time a whole room comes clean.`,
+    rules: [
+      ["Paid at the single place a room can complete, alongside the gold ripple.", "js/main.js — afterMutation()"],
+      ["Banked to the wallet immediately via <code>addStars()</code>, not held until the win screen.", "js/main.js — afterMutation()"],
+      ["The only permanent upgrade that touches the rate stars are earned at, which is what makes it the one that compounds.", "data/upgrades.json — _homeNote"],
+    ],
+    watch: [
+      ["<strong>Campaign only.</strong> <code>G.mode === \"campaign\"</code> gates it, so on the 215-house free-play board it pays nothing at all.", "js/main.js — afterMutation()"],
+      ["Pays per room, so its value tracks a house's room count, not its item count. A Mega free-play house is worth zero and a 7-room campaign level is worth 7 × level.", "js/main.js — afterMutation()"],
+    ],
+    anchors: [{ file:"main", label:"paid on room completion", needle:'const bonus = homeLevel("wage")', lines:5 }],
+  },
+
+  cards: {
+    fires: "Every time a client's price is displayed or paid.",
+    perLevel: (lvl) => `Clients cost ${Math.round((1 - Math.pow(0.8, lvl)) * 100)}% less (0.8^${lvl}).`,
+    rules: [
+      ["Multiplicative, not additive: <code>0.8^level</code>. Two levels is 36% off, not 40%.", "js/home.js — priceOf()"],
+      ["Stacks with the referral discount, which is a separate <code>×0.6</code> for having already met whoever refers them.", "js/home.js — REFERRED_OFF"],
+      ["Final price is <code>max(1, round(base × referral × cards))</code>, so nothing is ever free.", "js/home.js — priceOf()"],
+    ],
+    watch: [
+      ["<strong>Clients only.</strong> It does not discount the permanent upgrades, including itself.", "js/home.js — upgradeCost() ignores it"],
+      ["It has to pay for itself out of the clients you have <em>left</em> to buy. Bought late it cannot; the payback table below is the actual sum.", "js/home.js — priceOf()"],
+    ],
+    anchors: [{ file:"home", label:"the price a client asks", needle:'export function priceOf(client) {' }],
+  },
+
+  spare: {
+    fires: "Once, at the start of every run. Deliberately not on resume.",
+    perLevel: () => "Start every house holding one old key 🗝️.",
+    rules: [
+      ["A real item in a real slot, so every path that already knows what to do with a key needs no special case — it can be dropped, misfiled at the wrong lock, or carried around forgotten.", "js/main.js — applyHome()"],
+      ["Container locks want exactly one old key, so this is one locked container opened for free, anywhere in the house.", "js/generate.js — contLocks"],
+      ["Explicitly <em>not</em> re-granted by <code>resumeHome()</code>: the saved inventory already holds it, and re-granting would mint a fresh key on every Continue.", "js/main.js — resumeHome()"],
+    ],
+    watch: [
+      ["It occupies a hand slot from the moment the house starts, so at 5 slots you begin every run with 4 usable ones until you spend it.", "js/main.js — applyHome()"],
+      ["On a level with <code>contLocks: 0</code> there is nothing for it to open, and it still takes the slot.", "data/levels.json — contLocks"],
+      ["Silently does nothing if the old key token is missing from furniture.json or there is no free slot.", "js/main.js — the skel && slot!==-1 guard in applyHome()"],
+    ],
+    anchors: [{ file:"main", label:"the key you start holding", needle:'if(homeLevel("spare")){' }],
+  },
+
+  /* ---------------- CONSUMABLES ---------------- */
+
+  stars3: {
+    fires: "Immediately, when the card is chosen.",
+    perLevel: () => "One-off.",
+    rules: [
+      ["Back-fill only: consumables are shown when there are not enough unmaxed talents left to fill the three-card grid.", "js/talents.js — pool()"],
+      ["Adds to the run's displayed <code>G.points</code> and to <code>G.starsEarned</code>.", "js/talents.js — applyConsumable()"],
+    ],
+    watch: [
+      ["<strong>It never reaches the wallet.</strong> <code>applyConsumable()</code> does not call <code>addStars()</code>, so the +3 shows in the HUD for the rest of the run and is gone at the win screen. See the health check.", "js/talents.js — <code>case \"stars\"</code>"],
+    ],
+    anchors: [{ file:"talents", label:"consumables", needle:'function applyConsumable(c) {' }],
+  },
+
+  armful: {
+    _anchorsNote: "Two halves: the switch that dispatches it, and the callback that does the work.",
+    fires: "Immediately, when the card is chosen.",
+    perLevel: () => "One-off.",
+    rules: [
+      ["Files every item in your hands that has an open home in the room you are standing in.", "js/main.js — the fileHands() callback"],
+      ["Reuses the same bestSpot/afterMutation path a hand placement takes, so a row it completes celebrates and pays out identically.", "js/main.js — fileHands()"],
+      ["Reaches the rules tier through a callback, for the same reason Skeleton Key does.", "js/talents.js — initTalents()"],
+    ],
+    watch: [
+      ["Worth nothing at all if nothing in your hands lives in this room — and the draft offers it without checking.", "js/talents.js — pool()"],
+    ],
+    anchors: [
+      { file:"talents", label:"consumables", needle:'function applyConsumable(c) {' },
+      { file:"main",    label:"filing the armful", needle:'  fileHands(){' },
+    ],
+  },
+};
+
+/* Anchors that belong to the systems rather than to one entry. Shown in their
+   own section so the draft and the locks can be read as code too. */
+const SYSTEM_ANCHORS = {
+  _draft: [
+    { file:"talents",  label:"which three cards you are shown", needle:'function pool() {' },
+    { file:"talents",  label:"a room came clean — is that a pick?", needle:'export function roomFinished() {' },
+    { file:"talents",  label:"the empty-pool payout", needle:'  if (!cards.length) {' },
+    { file:"talents",  label:"consumables", needle:'function applyConsumable(c) {' },
+  ],
+  _locks: [
+    { file:"generate", label:"how strong a door lock is", needle:'const nDoorLocks =', lines:12 },
+    { file:"generate", label:"how strong a container lock is", needle:'if (cfg.contLocks > 0) {' },
+  ],
+  _cascade: [
+    { file:"main", label:"the shared put() and livesHere()", needle:'function cascade(room, c, contIdx, type){', lines:16 },
+  ],
+};
+
+/* ============================================================
+   4. LOADING AND WATCHING
+============================================================ */
+const state = { raw:{}, json:{}, hashes:{}, prev:{}, changed:[], firstLoad:true, lastRead:null };
+
+async function readAll(){
+  const stamp = Date.now();
+  const jobs = Object.entries(FILES).map(async ([key, path]) => {
+    const url = BASE + path + "?t=" + stamp;
+    let res;
+    try { res = await fetch(url, { cache:"no-store" }); }
+    catch (e) { throw new Error(path + " could not be fetched (" + e.message + ")."); }
+    if (!res.ok) throw new Error(path + " — HTTP " + res.status + " " + res.statusText);
+    return [key, await res.text()];
+  });
+  const parts = await Promise.all(jobs);
+  const raw = {}, hashes = {}, json = {};
+  for (const [key, text] of parts){
+    raw[key] = text;
+    hashes[key] = fnv1a(text);
+    if (JSON_KEYS.includes(key)){
+      try { json[key] = JSON.parse(text); }
+      catch (e) { throw new Error(FILES[key] + " is not valid JSON.\n" + e.message); }
+    }
+  }
+  state.changed = state.firstLoad ? [] :
+    Object.keys(FILES).filter(k => state.hashes[k] !== hashes[k]);
+  state.prev = state.hashes;
+  state.raw = raw; state.hashes = hashes; state.json = json;
+  state.lastRead = new Date();
+}
+
+/* ============================================================
+   5. SMALL HELPERS
+============================================================ */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const el = t => document.createElement(t);
+const num = n => (typeof n === "number" ? n.toLocaleString() : n);
+const pct = n => Math.round(n * 100) + "%";
+
+/* THE EDIT SEAM. Every value taken out of a JSON file is printed through one
+   of these two, carrying the dotted path back to the key it came from.
+
+   fld() is EDITABLE — in edit mode it becomes an input, and the path is what
+   tells the patcher where to write. ro() is READ-ONLY and always renders as
+   text: it is for values this editor deliberately does not own yet (a level's
+   room count, a client's price), because an input you cannot save is worse
+   than no input at all. Keeping them as separate calls means the difference is
+   decided at the call site rather than guessed from the path. */
+function fld(value, path, opts){
+  opts = opts || {};
+  if (!EDIT.on) return ro(value, path);
+  const v = edits.has(path) ? edits.get(path) : value;
+  const dirty = edits.has(path) ? " dirty" : "";
+  if (opts.area){
+    return `<textarea class="fe${dirty}" data-path="${esc(path)}"
+      rows="3" spellcheck="false">${esc(v)}</textarea>`;
+  }
+  const cls = ["fe", opts.cls || "", dirty].filter(Boolean).join(" ");
+  const size = Math.max(opts.min || 2, String(v).length + 1);
+  return `<input class="${cls}" data-path="${esc(path)}" size="${size}"
+    value="${esc(v)}" spellcheck="false">`;
+}
+/* READ-ONLY, and note the attribute: `data-ref`, not `data-path`.
+
+   These used to share one attribute, and that made `data-path` ambiguous — the
+   Reputation finding quotes a price that an entry card also renders, so one
+   path addressed two elements and the first one found was a span with no value
+   to set. An editor's address space has to belong to the editor: `data-path`
+   now means "this is the one input that owns this key", and it is checked for
+   uniqueness every time the editors are wired. */
+function ro(value, path){
+  return `<span class="fld" data-ref="${esc(path)}" title="${esc(path)}">${esc(value)}</span>`;
+}
+const maxLevel = u => u.levels || 1;
+
+/* Resolve {token} and {token|sec} against an entry's params, the same way
+   js/util.js does. An unresolved token is left visible on purpose — the game
+   treats it as a boot error and so should this page. */
+function tokenise(str, values){
+  values = values || {};
+  return String(str).replace(/((?:\b(?:the|a|an)\s+)?)\{(\w+)(?:\|(\w+))?\}/gi,
+    (all, lead, key, filter) => {
+      if (!(key in values)) return all;
+      const v = values[key];
+      if (filter === "sec") return lead + String(Math.round(v / 1000));
+      let out = String(v);
+      if (/^the\s+$/i.test(lead) && /^the\s+/i.test(out)) out = out.slice(4);
+      return lead + out;
+    });
+}
+function unresolved(str, values){
+  return [...String(str).matchAll(/\{(\w+)(?:\|\w+)?\}/g)]
+    .map(m => m[1]).filter(k => !(k in (values || {})));
+}
+
+/* Pull a constant out of js/config.js by reading the source. Cheaper and far
+   more honest than duplicating the number here. */
+function conf(name, dflt){
+  const m = state.raw.config.match(new RegExp("export const " + name + "\\s*=\\s*([^;\\n]+)"));
+  if (!m) return dflt;
+  const v = m[1].trim().replace(/^["']|["']$/g, "");
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+function confList(name){
+  const m = state.raw.config.match(new RegExp("export const " + name + "\\s*=\\s*\\[([\\s\\S]*?)\\]"));
+  if (!m) return [];
+  return [...m[1].matchAll(/["']([^"']+)["']/g)].map(x => x[1]);
+}
+
+/* ---------- one code snippet, with its drift verdict ---------- */
+function renderAnchor(key, a){
+  const src = state.raw[a.file];
+  const path = "js/" + a.file.replace("questsjs","quests") + ".js";
+  const id = key + "::" + a.label;
+  const s = snip(src, a.needle, a);
+  if (!s){
+    return `<div class="snip"><div class="loc"><span>${esc(path)} — ${esc(a.label)}</span>
+      <span class="drift gone">anchor not found — this code moved or was renamed</span></div>
+      <pre>Could not locate:  ${esc(a.needle)}</pre></div>`;
+  }
+  const h = fnv1a(normalise(s.text));
+  const base = BASELINES[id];
+  const verdict = !base
+    ? `<span class="drift same">no baseline</span>`
+    : h === base
+      ? `<span class="drift same">unchanged since these notes were written</span>`
+      : `<span class="drift">⚠ changed since these notes were written (${base} → ${h})</span>`;
+  return `<div class="snip"><div class="loc">
+      <span>${esc(path)}:${s.line} — ${esc(a.label)}</span>${verdict}
+    </div><pre>${esc(s.text)}</pre></div>`;
+}
+
+/* ============================================================
+   6. DERIVED MODEL — the arithmetic the game does, redone here
+
+   Every function below mirrors one in the game. Where it mirrors, the source
+   is named, because the moment one of these drifts from its original this
+   whole page starts lying with confidence.
+============================================================ */
+
+/* js/util.js — expectedItems(). Rows are what pay: afterMutation() awards one
+   ⭐ per newly completed ROW, so rows = expectedItems / rowLen = the mean
+   below, times the room count. */
+function roomsOfTheme(themeId){
+  const themes = state.json.themes.themes || {};
+  const byId = {};
+  for (const r of (state.json.rooms.rooms || [])) byId[r.id] = r;
+  return (themes[themeId]?.rooms || []).map(id => byId[id]).filter(Boolean);
+}
+function rowsFor(cfg){
+  const defs = roomsOfTheme(cfg.theme);
+  if (!defs.length) return 0;
+  const perRoom = defs.map(r => {
+    const cs = r.containers || [];
+    if (!cs.length) return 0;
+    const taken = Math.min(cfg.cont ?? cs.length, cs.length);
+    const mean = cs.reduce((n, c) => n + Math.min(cfg.types ?? 99, (c.types || []).length), 0) / cs.length;
+    return taken * mean;
+  });
+  return (cfg.rooms || 1) * perRoom.reduce((a, b) => a + b, 0) / perRoom.length;
+}
+/* js/main.js — picksFor(). */
+function picksFor(cfg, rooms, repLevel){
+  if (!cfg) return 0;
+  const asked = (cfg.rewards ?? 0) + repLevel;
+  return Math.max(0, Math.min(asked, Math.max(0, (rooms || 0) - 1)));
+}
+/* js/home.js — priceOf(). */
+function priceOf(client, cardsLevel, referred){
+  const base = client.cost || 0;
+  if (!base) return 0;
+  return Math.max(1, Math.round(base * (referred ? 0.6 : 1) * Math.pow(0.8, cardsLevel)));
+}
+/* js/home.js — upgradeCost(). */
+function costAt(u, lvl){
+  return Array.isArray(u.cost) ? (u.cost[lvl] ?? u.cost[u.cost.length - 1]) : u.cost;
+}
+function totalCost(u){
+  let n = 0;
+  for (let i = 0; i < maxLevel(u); i++) n += costAt(u, i) || 0;
+  return n;
+}
+/* js/generate.js — the two lock registries, as configured by a level. */
+function lockShape(l){
+  const doorKeys = l.doorKeys ?? 0;
+  const doorLocks = l.doorLocks != null ? l.doorLocks : (doorKeys > 0 ? 1 : 0);
+  const hasSkel = !!(state.json.furniture.tokens || {}).skel;
+  const contNeed = hasSkel ? 1 : (l.contKeys || 3);
+  return { doorKeys, doorLocks, contLocks: l.contLocks ?? 0, contNeed, hasSkel };
+}
+/* How many keys Skeleton Key actually removes from a level, per talent level. */
+function skelSaving(l, talentLevel){
+  const s = lockShape(l);
+  let saved = 0;
+  for (let i = 0; i < s.doorLocks; i++)
+    saved += Math.max(0, s.doorKeys - Math.max(1, s.doorKeys - talentLevel));
+  for (let i = 0; i < s.contLocks; i++)
+    saved += Math.max(0, s.contNeed - Math.max(1, s.contNeed - talentLevel));
+  return saved;
+}
+/* Job board order: clients by their first stage, the way js/data.js builds it. */
+function arcs(){
+  const levelIdx = {};
+  (state.json.levels.levels || []).forEach((l, i) => { levelIdx[l.id] = i; });
+  const lvl = {};
+  (state.json.levels.levels || []).forEach(l => { lvl[l.id] = l; });
+  return (state.json.clients.clients || []).map(c => ({
+    client: c,
+    stages: (c.stages || []).map(s => ({ ...s, level: lvl[s.level], id: s.level })),
+    first: Math.min(...(c.stages || []).map(s => levelIdx[s.level] ?? 1e9)),
+  })).sort((a, b) => a.first - b.first);
+}
+
+/* ============================================================
+   6b. THE EDITOR
+
+   WHY IT PATCHES TEXT AND DOES NOT RE-SERIALISE.
+
+   The obvious way to write a changed value back is JSON.parse, mutate,
+   JSON.stringify. It is also the one thing that must not happen to this
+   project's data files. upgrades.json is two thirds prose: a _readme that
+   argues for the split between the two catalogues, a _homeNote that explains
+   what the prices are balanced against, war stories about knobs that were
+   deleted for doing nothing. stringify keeps the keys and destroys the
+   authoring — every group re-flowed, every deliberate blank line gone. The
+   file would still boot and would no longer be worth reading.
+
+   So an edit is a SURGICAL TEXT REPLACEMENT. Find the entry's object in the
+   raw text by its id, find the key inside it, replace exactly the run of
+   characters that is the old value. Everything else in the file — including
+   every comment and every line break — is untouched by construction.
+
+   THE GUARD THAT MAKES THIS SAFE. A text patcher can always mis-aim, so it
+   is checked rather than trusted: after patching, the result is re-parsed and
+   compared against the same edits applied to the parsed original. If the two
+   disagree by a single character, the save is refused. A patch that lands in
+   the wrong place cannot get past that, and neither can one that produces
+   invalid JSON.
+
+   WHAT IT DELIBERATELY CANNOT DO: add an entry, delete one, reorder them,
+   rename an id, or touch any file but upgrades.json. Every one of those needs
+   a matching change in js/config.js or elsewhere, and a change this page
+   cannot verify is a change it should not make. Numbers, text and emoji only.
+============================================================ */
+const EDIT = { on:false, target:"upgrades" };
+const edits = new Map();          /* path -> raw string the user typed */
+let work = null;                  /* patched text not yet saved to disk */
+let workJson = null;              /* ...parsed, so the page can render from it */
+let fileHandle = null;            /* File System Access handle, once granted */
+
+/* THE ONE PLACE THE PAGE READS THE CATALOGUE. Everything derived — the level
+   tables, the economy, the health check — goes through this, so applying an
+   edit in the page and reading its knock-on effects is the same code path as
+   reading the file off disk. That is the whole reason it is a function. */
+const UPG = () => workJson || state.json.upgrades;
+const dirty = () => edits.size > 0 || work != null;
+
+/* The text we are editing on top of: the working copy if there is one, else
+   whatever the last read from disk gave us. */
+const baseText = () => work != null ? work : state.raw[EDIT.target];
+const baseJson = () => JSON.parse(baseText());
+
+/* ---------- a string-aware bracket scanner ----------
+   Descriptions contain {pull} and [brackets], so counting brackets without
+   knowing where strings are would mis-span the very entries being edited. */
+function spanFrom(raw, openIdx){
+  let depth = 0, inStr = false;
+  for (let k = openIdx; k < raw.length; k++){
+    const c = raw[k];
+    if (inStr){
+      if (c === "\\") { k++; continue; }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"'){ inStr = true; continue; }
+    if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]"){ depth--; if (depth === 0) return [openIdx, k + 1]; }
+  }
+  return null;
+}
+
+/* The span of each object inside a named top-level array.
+
+   Located with a regex on `"key"\s*:\s*\[` rather than indexOf('"upgrades"'),
+   because the _readme above it discusses upgrades.json by name and an
+   indexOf would happily match inside the prose. */
+function arrayElementSpans(raw, key){
+  const m = raw.match(new RegExp('"' + key + '"\\s*:\\s*\\['));
+  if (!m) return [];
+  const arr = spanFrom(raw, m.index + m[0].length - 1);
+  if (!arr) return [];
+  const spans = [];
+  let depth = 0, start = -1, inStr = false;
+  for (let k = arr[0] + 1; k < arr[1] - 1; k++){
+    const c = raw[k];
+    if (inStr){
+      if (c === "\\") { k++; continue; }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"'){ inStr = true; continue; }
+    if (c === "{"){ if (depth === 0) start = k; depth++; }
+    else if (c === "["){ depth++; }
+    else if (c === "}" || c === "]"){ depth--; if (depth === 0 && c === "}") spans.push([start, k + 1]); }
+  }
+  return spans;
+}
+
+/* Find the character run that is the value of `key` inside `span`. Returns
+   null when the key is absent, which is a real case — `params` only exists on
+   the entries that tune something. */
+function valueRun(raw, span, key){
+  const seg = raw.slice(span[0], span[1]);
+  const re = new RegExp('("' + key + '"\\s*:\\s*)');
+  const m = seg.match(re);
+  if (!m) return null;
+  const vStart = span[0] + m.index + m[1].length;
+  const c = raw[vStart];
+  if (c === "{" || c === "["){
+    const s = spanFrom(raw, vStart);
+    return s && { start: s[0], end: s[1], kind: c === "{" ? "obj" : "arr" };
+  }
+  if (c === '"'){
+    let k = vStart + 1;
+    for (; k < raw.length; k++){
+      if (raw[k] === "\\") { k++; continue; }
+      if (raw[k] === '"') break;
+    }
+    return { start: vStart, end: k + 1, kind: "str" };
+  }
+  const rest = raw.slice(vStart).match(/^(-?\d+(?:\.\d+)?|true|false|null)/);
+  return rest && { start: vStart, end: vStart + rest[0].length, kind: "lit" };
+}
+
+/* The numbers inside an array literal, as character runs. */
+function arrayNumberRuns(raw, span){
+  const runs = [];
+  const re = /-?\d+(?:\.\d+)?/g;
+  const seg = raw.slice(span.start, span.end);
+  let m;
+  while ((m = re.exec(seg))) runs.push({ start: span.start + m.index, end: span.start + m.index + m[0].length });
+  return runs;
+}
+
+/* ---------- resolve one dotted path to a character run ----------
+   Paths look like  upgrades.upgrades[2].params.pull  or
+   upgrades.home[0].cost[1]  — the leading segment is the file, which is
+   always `upgrades` here and is checked rather than assumed. */
+function runForPath(raw, path){
+  const m = path.match(/^upgrades\.(upgrades|home|consumables)\[(\d+)\]\.(.+)$/);
+  if (!m) return { error: "not an editable path: " + path };
+  const [, arrKey, idxStr, rest] = m;
+  const spans = arrayElementSpans(raw, arrKey);
+  const span = spans[Number(idxStr)];
+  if (!span) return { error: "no entry " + idxStr + " in " + arrKey };
+
+  let mm;
+  if ((mm = rest.match(/^params\.(\w+)$/))){
+    const pv = valueRun(raw, span, "params");
+    if (!pv || pv.kind !== "obj") return { error: "no params object on this entry" };
+    const run = valueRun(raw, [pv.start, pv.end], mm[1]);
+    return run || { error: "no param " + mm[1] };
+  }
+  if ((mm = rest.match(/^cost\[(\d+)\]$/))){
+    const cv = valueRun(raw, span, "cost");
+    if (!cv) return { error: "no cost on this entry" };
+    if (cv.kind !== "arr") return cv;             /* a flat number prices every level */
+    const runs = arrayNumberRuns(raw, cv);
+    return runs[Number(mm[1])] || { error: "cost has no level " + mm[1] };
+  }
+  if (/^\w+$/.test(rest)){
+    const run = valueRun(raw, span, rest);
+    return run || { error: "no key " + rest + " on this entry" };
+  }
+  return { error: "cannot address " + rest };
+}
+
+/* The same path, applied to a parsed object. This is the half that says what
+   the patch was SUPPOSED to do, so the two can be compared. */
+function setByPath(obj, path, value){
+  const m = path.match(/^upgrades\.(upgrades|home|consumables)\[(\d+)\]\.(.+)$/);
+  if (!m) return false;
+  const [, arrKey, idxStr, rest] = m;
+  const entry = (obj[arrKey] || [])[Number(idxStr)];
+  if (!entry) return false;
+  let mm;
+  if ((mm = rest.match(/^params\.(\w+)$/))){
+    if (!entry.params) return false;
+    entry.params[mm[1]] = value; return true;
+  }
+  if ((mm = rest.match(/^cost\[(\d+)\]$/))){
+    if (Array.isArray(entry.cost)) { entry.cost[Number(mm[1])] = value; return true; }
+    entry.cost = value; return true;
+  }
+  entry[rest] = value; return true;
+}
+/* What a path's value should be READ as. Text keys stay text; everything else
+   this editor exposes is a number, and a number typed into a text field is
+   still a number in the file. */
+const TEXT_KEYS = ["name", "icon", "desc"];
+function coerce(path, rawStr){
+  const key = path.split(".").pop().replace(/\[\d+\]$/, "");
+  if (TEXT_KEYS.includes(key)) return String(rawStr);
+  const n = Number(String(rawStr).trim());
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/* ---------- apply every pending edit ----------
+   Returns { text, json, errors }. Patches are applied back to front so an
+   earlier replacement cannot move a later offset. */
+function applyEdits(){
+  const raw = baseText();
+  const errors = [];
+  const patches = [];
+  const expected = JSON.parse(raw);
+
+  for (const [path, typed] of edits){
+    const value = coerce(path, typed);
+    if (typeof value === "number" && !Number.isFinite(value)){
+      errors.push(`${path}: “${typed}” is not a number.`);
+      continue;
+    }
+    const run = runForPath(raw, path);
+    if (run.error){ errors.push(`${path}: ${run.error}`); continue; }
+    patches.push({ run, literal: JSON.stringify(value) });
+    setByPath(expected, path, value);
+  }
+  if (errors.length) return { errors };
+
+  let text = raw;
+  for (const p of patches.sort((a, b) => b.run.start - a.run.start))
+    text = text.slice(0, p.run.start) + p.literal + text.slice(p.run.end);
+
+  /* THE GUARD. Re-parse and compare against the intended result. */
+  let json;
+  try { json = JSON.parse(text); }
+  catch (e){ return { errors: ["The patched file is not valid JSON (" + e.message + "). Nothing was written."] }; }
+  if (JSON.stringify(json) !== JSON.stringify(expected))
+    return { errors: ["A patch did not land where it was aimed — the result does not match the intended edit. Nothing was written."] };
+
+  return { text, json, errors: [] };
+}
+
+/* ---------- validation ----------
+   Not a re-implementation of js/validate.js — just the rules that a value
+   typed here can break, checked before anything is written. Errors block the
+   save; warnings do not. */
+function validateEdit(json){
+  const errors = [], warnings = [];
+  const all = [
+    ...(json.upgrades || []).map(u => ["talent", u]),
+    ...(json.home || []).map(u => ["home", u]),
+    ...(json.consumables || []).map(u => ["consumable", u]),
+  ];
+  for (const [kind, u] of all){
+    const who = `${u.id}`;
+    if (!String(u.name || "").trim()) errors.push(`${who}: name is empty.`);
+    if (!String(u.icon || "").trim()) errors.push(`${who}: icon is empty — the card would draw a blank.`);
+    if (!String(u.desc || "").trim()) errors.push(`${who}: description is empty.`);
+    const miss = unresolved(u.desc || "", u.params || {});
+    if (miss.length) errors.push(`${who}: description has {${miss.join("}, {")}} and nothing fills it in. This stops the game booting.`);
+    if (kind !== "consumable"){
+      const lv = u.levels ?? 1;
+      if (!Number.isInteger(lv) || lv < 1) errors.push(`${who}: levels is ${JSON.stringify(u.levels)} — it must be a whole number of 1 or more.`);
+      if (lv > 8) warnings.push(`${who}: ${lv} levels. The draft shows one pip per level and the card gets crowded past about six.`);
+    }
+    for (const [k, v] of Object.entries(u.params || {}))
+      if (typeof v !== "number" || !Number.isFinite(v)) errors.push(`${who}: param ${k} is not a number.`);
+    if (kind === "home"){
+      const costs = Array.isArray(u.cost) ? u.cost : [u.cost];
+      for (const c of costs)
+        if (typeof c !== "number" || !Number.isFinite(c) || c < 1)
+          errors.push(`${who}: a cost of ${JSON.stringify(c)} — prices must be numbers of 1 or more.`);
+      if (Array.isArray(u.cost) && u.cost.length < (u.levels ?? 1))
+        warnings.push(`${who}: ${u.cost.length} prices for ${u.levels} levels. The levels past the end all cost what the last one costs.`);
+      if (Array.isArray(u.cost) && u.cost.some((c, i) => i && c <= u.cost[i - 1]))
+        warnings.push(`${who}: its prices do not climb. Every level costing the same or less makes the last one the obvious first buy.`);
+    }
+  }
+  const supply = (json.upgrades || []).length + (json.consumables || []).length;
+  const cards = json.draftCards ?? 3;
+  if (!Number.isInteger(cards) || cards < 1) errors.push(`draftCards is ${JSON.stringify(cards)} — it must be a whole number of 1 or more.`);
+  else if (supply < cards) errors.push(`draftCards is ${cards} but there are only ${supply} things to offer, so a draft could never fill its grid.`);
+  return { errors, warnings };
+}
+
+/* ---------- a line-level diff, for the preview ---------- */
+function diffLines(before, after){
+  const A = before.split("\n"), B = after.split("\n");
+  const out = [];
+  /* Same line count by construction — a value replacement cannot add or
+     remove lines unless a description gained one, so fall back to a plain
+     side-by-side note if the counts ever differ. */
+  if (A.length !== B.length)
+    return `<span class="ctx">${A.length} lines in, ${B.length} out — the whole file is shown by the save, not this preview.</span>`;
+  for (let i = 0; i < A.length; i++){
+    if (A[i] === B[i]) continue;
+    out.push(`<span class="ctx">${String(i + 1).padStart(4)} </span><span class="del">- ${esc(A[i].trim())}</span>`);
+    out.push(`<span class="ctx">     </span><span class="add">+ ${esc(B[i].trim())}</span>`);
+  }
+  return out.length ? out.join("\n") : `<span class="ctx">No change.</span>`;
+}
+
+/* ============================================================
+   7. THE HEALTH CHECK
+
+   Everything that can be decided from the files, decided on every refresh.
+   Two kinds live here together on purpose: the wiring checks that mirror
+   js/validate.js (does this talent exist in both halves), and the balance
+   observations that no validator would ever catch (does this talent do
+   anything on the level that hands it to you).
+============================================================ */
+function findings(){
+  const F = [];
+  const U = UPG();
+  const levels = state.json.levels.levels || [];
+  const add = (sev, title, body, src) => F.push({ sev, title, body, src });
+
+  /* ---- wiring, both directions, same as validate.js ---- */
+  const talentIds = confList("TALENT_IDS");
+  const homeIds = confList("HOME_IDS");
+  const effects = confList("CONSUMABLE_EFFECTS");
+  const dataTalents = (U.upgrades || []).map(u => u.id);
+  const dataHome = (U.home || []).map(u => u.id);
+
+  const missA = dataTalents.filter(id => !talentIds.includes(id));
+  const missB = talentIds.filter(id => !dataTalents.includes(id));
+  const missC = dataHome.filter(id => !homeIds.includes(id));
+  const missD = homeIds.filter(id => !dataHome.includes(id));
+  if (missA.length || missB.length || missC.length || missD.length){
+    add("bad", "A catalogue entry and its code list disagree",
+      [missA.length ? `In upgrades.json but not TALENT_IDS: <code>${missA.join(", ")}</code> — a card that animates, names itself, raises a level and does nothing.` : "",
+       missB.length ? `In TALENT_IDS but not upgrades.json: <code>${missB.join(", ")}</code>.` : "",
+       missC.length ? `In home[] but not HOME_IDS: <code>${missC.join(", ")}</code> — this one also takes the player's money.` : "",
+       missD.length ? `In HOME_IDS but not home[]: <code>${missD.join(", ")}</code>.` : ""].filter(Boolean).join(" "),
+      "data/upgrades.json ↔ js/config.js");
+  } else {
+    add("ok", "Every entry is wired up in both directions",
+      `${dataTalents.length} talents and ${dataHome.length} permanent upgrades appear in both upgrades.json and js/config.js. Boot validation checks the same thing.`,
+      "data/upgrades.json ↔ js/config.js");
+  }
+
+  /* ---- does the code actually read each id? ----
+
+     THREE SHAPES, and only checking for the first is how this test produced a
+     false alarm on Skeleton Key. A talent can be:
+       a rule read where it is used       G.up.sense
+       an action fired when it is granted c.id === "skeleton"
+       a tuned number                     upgradeParam("magnet", "pull")
+     A home upgrade is always homeLevel("id"). An id matching NONE of these is
+     the failure worth shouting about: a card that animates and does nothing. */
+  const wiring = {};
+  const src = state.raw.main + "\n" + state.raw.talents + "\n" + state.raw.home;
+  for (const id of dataTalents){
+    const forms = [];
+    if (src.includes("G.up." + id)) forms.push("G.up." + id);
+    if (src.includes('=== "' + id + '"') || src.includes('==="' + id + '"')) forms.push('c.id === "' + id + '"');
+    if (src.includes('upgradeParam("' + id + '"')) forms.push('upgradeParam("' + id + '")');
+    wiring[id] = forms;
+  }
+  for (const id of dataHome){
+    const forms = [];
+    if (src.includes('homeLevel("' + id + '")')) forms.push('homeLevel("' + id + '")');
+    if (src.includes('upgradeParam("' + id + '"')) forms.push('upgradeParam("' + id + '")');
+    wiring[id] = forms;
+  }
+  const unread = Object.entries(wiring).filter(([, f]) => !f.length).map(([id]) => id);
+  if (unread.length){
+    add("bad", "An id nothing reads",
+      `No source line in main.js, talents.js or home.js mentions
+       ${unread.map(id => "<code>" + esc(id) + "</code>").join(", ")} in any of the three forms a
+       talent can be implemented in. It is in both lists and still does nothing.`,
+      "js/main.js, js/talents.js, js/home.js");
+  } else {
+    add("ok", "Every id is read somewhere in the source",
+      Object.entries(wiring).map(([id, f]) =>
+        `<code>${esc(id)}</code> → ${f.map(x => "<code>" + esc(x) + "</code>").join(" + ")}`).join("<br>"),
+      "js/main.js, js/talents.js, js/home.js");
+  }
+
+  /* ---- descriptions and their tokens ---- */
+  const bad = [];
+  for (const u of [...(U.upgrades || []), ...(U.home || []), ...(U.consumables || [])]){
+    const miss = unresolved(u.desc || "", u.params || {});
+    if (miss.length) bad.push(`<code>${u.id}</code> → {${miss.join("}, {")}}`);
+  }
+  if (bad.length) add("bad", "A description has a token nothing fills in",
+    `${bad.join("; ")}. The game treats this as a boot error, not a cosmetic one.`, "data/upgrades.json — desc");
+
+  /* ---- unused params ---- */
+  const unusedParams = [];
+  for (const u of [...(U.upgrades || []), ...(U.home || [])]){
+    for (const k of Object.keys(u.params || {})){
+      const inDesc = (u.desc || "").includes("{" + k);
+      const inCode = state.raw.main.includes(`upgradeParam("${u.id}", "${k}"`) ||
+                     state.raw.main.includes(`upgradeParam("${u.id}","${k}"`);
+      if (!inDesc && !inCode) unusedParams.push(`<code>${u.id}.${k}</code>`);
+    }
+  }
+  if (unusedParams.length) add("warn", "A param nothing reads",
+    `${unusedParams.join(", ")} appears in neither its own description nor an <code>upgradeParam()</code> call. A tuning knob that does nothing is the exact failure upgrades.json keeps two war stories about.`,
+    "data/upgrades.json — params");
+
+  /* ---- the three-card grid can always be filled ---- */
+  const cards = U.draftCards ?? 3;
+  const supply = (U.upgrades || []).length + (U.consumables || []).length;
+  if (supply < cards) add("bad", "A draft can never fill its grid",
+    `${supply} things to offer, <code>draftCards: ${cards}</code>.`, "data/upgrades.json");
+
+  /* ---- rewards vs. the rooms-1 cap ---- */
+  const over = levels.filter(l => (l.rewards ?? 0) > Math.max(0, (l.rooms || 1) - 1));
+  if (over.length) add("bad", "A level promises more talents than it can grant",
+    `${over.map(l => `<code>${l.id}</code> (${l.rewards} promised, ${Math.max(0,(l.rooms||1)-1)} possible)`).join(", ")}. The extra is silently never handed out.`,
+    "data/levels.json — rewards vs. rooms");
+
+  /* ---- SKELETON KEY vs. container locks ---- */
+  const hasSkel = !!(state.json.furniture.tokens || {}).skel;
+  const skelEntry = (U.upgrades || []).find(u => u.id === "skeleton");
+  if (hasSkel && skelEntry){
+    const teaching = levels.filter(l => (l.rewards ?? 0) > 0);
+    const dead = teaching.filter(l => skelSaving(l, 1) === 0);
+    const l2helps = teaching.filter(l => skelSaving(l, 2) > skelSaving(l, 1));
+    add("warn", "Skeleton Key cannot touch a container lock, and its description implies it can",
+      `<p>It reads “<em>${esc(tokenise(skelEntry.desc, skelEntry.params || {}))}</em>”, but
+        <code>skeleton()</code> only decrements locks that need <strong>more than one</strong> key, and
+        <code>generate.js</code> gives every container lock <code>need: 1</code> whenever furniture.json
+        defines the old key 🗝️ — which it does. So the only lock in the house it can ever weaken is
+        <strong>the one locked door</strong>, and only on a level that authored <code>doorKeys</code> of 2
+        or more.</p>
+       <p>Of the <strong>${teaching.length}</strong> levels that teach talents, it removes
+        <strong>no keys at all</strong> on <strong>${dead.length}</strong>${dead.length ? " — " +
+        dead.map(l => "<code>" + l.id + "</code>").join(", ") : ""}. Its second level is worth something on
+        <strong>${l2helps.length}</strong> of the ${teaching.length}. It is offered on all of them
+        regardless, and there is nothing that stops it being offered after the door is already open.</p>`,
+      "js/main.js — skeleton() · js/generate.js — contLocks");
+  }
+
+  /* ---- contKeys is unreachable while skel exists ---- */
+  if (hasSkel){
+    const usesContKeys = levels.filter(l => l.contKeys != null).length;
+    if (usesContKeys) add("warn", "<code>contKeys</code> is dead data on every level that sets it",
+      `${usesContKeys} levels author <code>contKeys</code>, but the branch that reads it in <code>generate.js</code> only runs when the old key 🗝️ is <em>missing</em> from furniture.json. Every container lock is <code>need: 1</code> in practice, so changing this number changes nothing.`,
+      "js/generate.js — contLocks");
+  }
+
+  /* ---- Reputation vs. the cap ---- */
+  const repEntry = (U.home || []).find(u => u.id === "picks");
+  if (repEntry){
+    const teaching = levels.filter(l => (l.rewards ?? 0) > 0);
+    const wasted = lvl => teaching.filter(l =>
+      picksFor(l, l.rooms, lvl) === picksFor(l, l.rooms, lvl - 1));
+    const gain = lvl => teaching.reduce((n, l) =>
+      n + picksFor(l, l.rooms, lvl) - picksFor(l, l.rooms, lvl - 1), 0);
+    const rows = [];
+    for (let lvl = 1; lvl <= maxLevel(repEntry); lvl++){
+      const w = wasted(lvl), g = gain(lvl);
+      rows.push(`<p><strong>Level ${lvl}</strong> (${ro(costAt(repEntry, lvl - 1) ?? "?", "upgrades.home[" + (U.home||[]).findIndex(x=>x.id==="picks") + "].cost[" + (lvl-1) + "]")} ⭐) —
+        dead on <strong>${w.length} of ${teaching.length}</strong> talent-teaching levels, and buys
+        <strong>${g}</strong> extra pick${g === 1 ? "" : "s"} across the whole campaign${
+          g === 0 ? ". It cannot pay for itself in the campaign at any price" :
+          ` — about ${(costAt(repEntry, lvl - 1) / g).toFixed(0)} ⭐ per pick`}.${
+          w.length && w.length < teaching.length ? " Dead on: " + w.map(l => "<code>" + l.id + "</code>").join(", ") + "." : ""}</p>`);
+    }
+    const bands = state.json.sizes.bands || [];
+    const freeUse = bands.filter(b =>
+      picksFor({ rewards: b.rewards }, b.rooms, maxLevel(repEntry)) >
+      picksFor({ rewards: b.rewards }, b.rooms, maxLevel(repEntry) - 1));
+    add(gain(maxLevel(repEntry)) === 0 ? "warn" : "info",
+      "Reputation is capped at rooms − 1, and the cap eats most of it",
+      `<p>A house grants at most <code>rooms − 1</code> picks, because a pick lands on a room completion
+        and the last room completing is the level completing. Any level already promising its cap gets
+        nothing from this upgrade, and the shop does not say so.</p>
+       ${rows.join("")}
+       <p>Its remaining use is free play, where the bands are roomier: ${freeUse.length
+        ? "the top level still helps on the " + freeUse.map(b => "<strong>" + esc(b.label) + "</strong>").join(", ") + " band" + (freeUse.length === 1 ? "" : "s")
+        : "not even there"}. Free play mints no ⭐, so it can never be paid for out of the board it is useful on.</p>`,
+      "js/main.js — picksFor() · data/sizes.json — bands[]");
+  }
+
+  /* ---- Reputation overriding a level that was authored to teach nothing ---- */
+  if (repEntry){
+    const silent = levels.filter(l => (l.rewards ?? 0) === 0 &&
+      picksFor(l, l.rooms, 1) > 0);
+    if (silent.length) add("info",
+      "Reputation makes levels teach talents that were authored to teach none",
+      `<p><code>picksFor()</code> is <code>min(rewards + picks, rooms − 1)</code> — it <em>adds</em> before
+        it clamps, so <code>rewards: 0</code> is not a floor. With one level of Reputation,
+        <strong>${silent.length}</strong> of the ${levels.filter(l => (l.rewards ?? 0) === 0).length} levels
+        that deliberately teach nothing start handing out picks:
+        ${silent.map(l => "<code>" + l.id + "</code>").join(", ")}.</p>
+       <p>Most of those are the tutorial. Every level before 5-1 used to carry <code>"talents": false</code>
+        for exactly this reason, and <code>rewards</code> replaced that flag — so if “this is a small job,
+        it teaches you nothing” is still the intent, it is an intent Reputation can buy its way past on a
+        replay. If it is <em>not</em> the intent, this is fine and nothing needs doing.</p>`,
+      "js/main.js — picksFor() · js/talents.js — the header");
+  }
+
+  /* ---- stars that never reach the wallet ----
+
+     A HEURISTIC, and it says so on screen. Every place that raises the run's
+     starsEarned is found exactly; whether it BANKS is decided by looking for
+     an addStars() call in the following LEAK_WINDOW lines. Row completions
+     bank 12 lines after the increment, which is why the window is not tight —
+     the cost of that is a genuine leak going unreported if it happens to sit
+     above an unrelated addStars(), so the sites are printed rather than
+     merely counted. */
+  const LEAK_WINDOW = 14;
+  const leaks = [];
+  const scan = (key, file) => {
+    const lines = state.raw[key].split("\n");
+    lines.forEach((ln, i) => {
+      if (!/starsEarned\s*(\+\+|\+=)/.test(ln)) return;
+      const win = lines.slice(i, i + LEAK_WINDOW).join(" ");
+      if (!/addStars\(/.test(win)) leaks.push({ file, line: i + 1, text: ln.trim() });
+    });
+  };
+  scan("main", "js/main.js"); scan("talents", "js/talents.js"); scan("questsjs", "js/quests.js");
+  if (leaks.length){
+    add("warn", "⭐ awarded to the run but never banked to the wallet",
+      `<p>Since ⭐ became money, <code>addStars()</code> is what actually moves it into the wallet.
+       ${leaks.length} place${leaks.length === 1 ? "" : "s"} raise the run's <code>starsEarned</code> —
+       and the number on the HUD — with no <code>addStars()</code> call within ${LEAK_WINDOW} lines, so
+       those stars are shown, flown to the HUD, counted for the run, and gone at the win screen:</p>
+       <p>${leaks.map(l => `<code>${esc(l.file)}:${l.line}</code> — <code>${esc(l.text)}</code>`).join("<br>")}</p>
+       <p>Row completions and the Good Name bonus do bank correctly. What is listed above is coin caches,
+       quest replies, the Lucky Find consumable, and the payout for a draft with nothing left to offer.
+       Whether that is deliberate is a design call — <code>G.points</code> is the run's score and the
+       wallet is separate — but the player is shown <code>+1 ⭐</code> either way.</p>`,
+      "js/home.js — addStars() · a " + LEAK_WINDOW + "-line proximity test, so check the sites");
+  } else {
+    add("ok", "Every ⭐ awarded reaches the wallet",
+      "Every place that raises <code>starsEarned</code> also calls <code>addStars()</code>.", "js/home.js — addStars()");
+  }
+
+  /* ---- free play mints nothing ---- */
+  const bands = state.json.sizes.bands || [];
+  const bandPicks = bands.reduce((n, b) => n + (b.rewards || 0), 0);
+  if (bandPicks > 0) add("info",
+    "Free play teaches talents and pays no stars",
+    `The five size bands hand out ${bands.map(b => b.rewards).join("/")} picks, and Good Name is gated to <code>G.mode === "campaign"</code>. The permanent upgrades those picks would want can only ever be paid for out of the ${levels.length} campaign levels.`,
+    "data/sizes.json — bands[] · js/main.js — afterMutation()");
+
+  /* ---- drift ---- */
+  let drifted = 0, gone = 0, checked = 0;
+  const allAnchors = [];
+  for (const [id, m] of Object.entries(MECH)) for (const a of m.anchors) allAnchors.push([id, a]);
+  for (const [id, list] of Object.entries(SYSTEM_ANCHORS)) for (const a of list) allAnchors.push([id, a]);
+  for (const [id, a] of allAnchors){
+    const s = snip(state.raw[a.file], a.needle, a);
+    const base = BASELINES[id + "::" + a.label];
+    if (!base) continue;
+    checked++;
+    if (!s) gone++;
+    else if (fnv1a(normalise(s.text)) !== base) drifted++;
+  }
+  if (gone || drifted) add("warn", "The code behind some of these notes has changed",
+    `${drifted} of ${checked} tracked snippets differ from the version these notes were written against${gone ? `, and ${gone} anchor${gone === 1 ? "" : "s"} could not be found at all` : ""}. Each entry says which. The prose may be describing an older implementation.`,
+    "the code panels below");
+  else add("ok", "Every note matches the code it was written against",
+    `All ${checked} tracked snippets hash identically to their baseline.`, "the code panels below");
+
+  const rank = { bad:0, warn:1, info:2, ok:3 };
+  return F.sort((a, b) => rank[a.sev] - rank[b.sev]);
+}
+
+/* ============================================================
+   8. RENDERING
+============================================================ */
+function renderFindings(){
+  const icons = { bad:"⛔", warn:"⚠️", info:"ℹ️", ok:"✅" };
+  const names = { bad:"needs fixing", warn:"worth a look", info:"for information", ok:"checks out" };
+  const F = findings();
+  return `<section id="health">
+    <h2>Health check <span class="count">${F.filter(f=>f.sev!=="ok").length} thing${F.filter(f=>f.sev!=="ok").length===1?"":"s"} to look at · re-run on every refresh</span></h2>
+    <p class="lede">Decided from the files, every time this page reads them. The wiring checks mirror
+      <code>js/validate.js</code>; the rest are balance observations no validator would catch — a talent
+      that is wired up perfectly and still does nothing on the level that hands it to you.</p>
+    ${F.map(f => `<div class="finding ${f.sev}">
+      <span class="fi">${icons[f.sev]}</span>
+      <div>
+        <span class="sev">${names[f.sev]}</span>
+        <h5>${f.title}</h5>
+        ${/^<p>/.test(f.body) ? f.body : `<p>${f.body}</p>`}
+        <span class="src">${esc(f.src)}</span>
+      </div>
+    </div>`).join("")}
+  </section>`;
+}
+
+function renderEntry(u, kind, idx, ctx){
+  const m = MECH[u.id];
+  const max = maxLevel(u);
+  const params = u.params || {};
+  const root = kind === "talent" ? "upgrades.upgrades" : kind === "home" ? "upgrades.home" : "upgrades.consumables";
+  const p = k => `${root}[${idx}].${k}`;
+  const resolved = tokenise(u.desc || "", params);
+  const isHome = kind === "home";
+
+  /* per-level table */
+  let levelRows = "";
+  if (m){
+    let cum = 0;
+    for (let i = 1; i <= max; i++){
+      const c = isHome ? (costAt(u, i - 1) || 0) : null;
+      cum += c || 0;
+      levelRows += `<tr>
+        <td class="lvlcell">lv ${i}</td>
+        <td>${m.perLevel(i, params, ctx)}</td>
+        ${isHome ? `<td class="num">${fld(c, p("cost[" + (i-1) + "]"), {cls:"n", min:3})} ⭐</td><td class="num muted">${num(cum)}</td>` : ""}
+      </tr>`;
+    }
+  }
+
+  const paramList = Object.keys(params).length
+    ? `<dl class="kv">${Object.entries(params).map(([k, v]) =>
+        `<dt>${esc(k)}</dt><dd>${fld(v, p("params." + k), {cls:"n", min:3})}</dd>`).join("")}</dl>`
+    : `<p class="muted" style="font-size:13px">No tuning params — the only knob is <code>levels</code>.</p>`;
+
+  return `<div class="card" id="e-${u.id}">
+    <div class="chead">
+      <div class="emoji">${fld(u.icon || "✨", p("icon"), {cls:"emoji-in", min:2})}</div>
+      <div class="ctitle">
+        <h3>${fld(u.name, p("name"), {cls:"name-in", min:12})} <span class="id">${esc(u.id)}</span></h3>
+        <div class="desc">${esc(resolved)}
+          ${resolved !== (u.desc || "") ? `<span class="raw">${esc(u.desc)}</span>` : ""}</div>
+      </div>
+      <div class="cmeta">
+        <span class="tag ${kind}">${kind === "talent" ? "in-level" : kind === "home" ? "permanent" : "one-off"}</span>
+        <div class="pips">${Array.from({length:max}, () => '<i class="on"></i>').join("")}</div>
+        <span class="muted" style="font-size:11.5px">${fld(max, p("levels"), {cls:"n", min:2})} level${max===1?"":"s"}${isHome ? ` · ${num(totalCost(u))} ⭐ all in` : ""}</span>
+      </div>
+    </div>
+    <div class="cbody">
+      ${EDIT.on ? `<div class="editrow">
+        <h4>Description — the raw text, as the card in the game shows it</h4>
+        ${fld(u.desc || "", p("desc"), {area:true})}
+        <div class="hint">${Object.keys(params).length
+          ? `<code>{${Object.keys(params).join("}</code>, <code>{")}}</code> are filled in from this
+             entry's params. A token nothing fills in stops the game booting, so the save is blocked
+             on it.`
+          : `This entry has no params, so a <code>{token}</code> here would stop the game booting.
+             The save is blocked on it.`}</div>
+      </div>` : ""}
+      <div class="wide">
+        <h4>What each level is worth</h4>
+        <div class="wrapscroll"><table>
+          <thead><tr><th>Level</th><th>Effect</th>${isHome ? '<th class="num">Cost</th><th class="num">Cumulative</th>' : ""}</tr></thead>
+          <tbody>${levelRows || '<tr><td colspan="4" class="muted">No mechanics note for this id yet.</td></tr>'}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <h4>When it fires</h4>
+        <p style="font-size:13.5px">${m ? esc(m.fires) : '<span class="muted">—</span>'}</p>
+        <h4 style="margin-top:14px">Params</h4>
+        ${paramList}
+        <h4 style="margin-top:14px">How you get it</h4>
+        <p style="font-size:13.5px">${unlockText(u, kind, ctx)}</p>
+      </div>
+      <div>
+        <h4>How it works</h4>
+        <ul class="rules">${m ? m.rules.map(([t, s]) =>
+          `<li>${t}<span class="src">${s}</span></li>`).join("") : '<li class="muted">—</li>'}</ul>
+      </div>
+      ${m && m.watch && m.watch.length ? `<div class="wide">
+        <h4>Watch for</h4>
+        <ul class="rules watch">${m.watch.map(([t, s]) =>
+          `<li>${t}<span class="src">${s}</span></li>`).join("")}</ul>
+      </div>` : ""}
+      ${m ? `<details class="code"><summary>The code that does it (${m.anchors.length} snippet${m.anchors.length===1?"":"s"}, read live)</summary>
+        ${m.anchors.map(a => renderAnchor(u.id, a)).join("")}</details>` : ""}
+    </div>
+  </div>`;
+}
+
+function unlockText(u, kind, ctx){
+  if (kind === "home"){
+    const first = costAt(u, 0);
+    return `Bought at the main menu with ⭐, at any time. First level costs <strong>${num(first)}</strong> ⭐;
+      all ${maxLevel(u)} cost <strong>${num(totalCost(u))}</strong> ⭐. Nothing gates it but the price — there is
+      no level requirement and no prerequisite.`;
+  }
+  if (kind === "consumable"){
+    return `Never bought. Shown in a draft only as <strong>back-fill</strong>, when fewer than
+      ${UPG().draftCards ?? 3} talents remain unmaxed.`;
+  }
+  const teaching = (state.json.levels.levels || []).filter(l => (l.rewards ?? 0) > 0);
+  const firstL = teaching[0];
+  return `Drafted in-level, from the first pick onward — <strong>no talent is gated to a level</strong>.
+    The earliest draft in the campaign is <code>${firstL ? esc(firstL.id) : "—"}</code>${firstL ? " “" + esc(firstL.name) + "”" : ""},
+    which teaches ${firstL ? firstL.rewards : 0}. Unowned talents are weighted <strong>×3</strong> in the
+    three-card pool, so a first draft is far more likely to show something new. <em>Gone when the run ends.</em>`;
+}
+
+/* ---------- when you get them ---------- */
+function renderWhen(){
+  const levels = state.json.levels.levels || [];
+  const bands = state.json.sizes.bands || [];
+  const teaching = levels.filter(l => (l.rewards ?? 0) > 0);
+  const totalPicks = levels.reduce((n, l) => n + (l.rewards ?? 0), 0);
+  const rep = (UPG().home || []).find(u => u.id === "picks");
+  const repMax = rep ? maxLevel(rep) : 0;
+
+  const rows = levels.map((l, i) => {
+    const cap = Math.max(0, (l.rooms || 1) - 1);
+    const s = lockShape(l);
+    const cols = [];
+    for (let r = 0; r <= repMax; r++) cols.push(picksFor(l, l.rooms, r));
+    const dead1 = cols[1] === cols[0], dead2 = repMax > 1 && cols[2] === cols[1];
+    return `<tr>
+      <td class="mono">${esc(l.id)}</td>
+      <td>${esc(l.name)}</td>
+      <td class="num">${ro(l.rooms, `levels.levels[${i}].rooms`)}</td>
+      <td class="num">${ro(l.rewards ?? 0, `levels.levels[${i}].rewards`)}</td>
+      <td class="num muted">${cap}</td>
+      ${cols.slice(1).map((v, k) => `<td class="num" style="color:${(k===0?dead1:dead2)?"var(--warn)":"var(--good)"}">${v}${(k===0?dead1:dead2)?" ✗":""}</td>`).join("")}
+      <td class="num">${s.doorLocks ? s.doorLocks + " × " + s.doorKeys + " 🔑" : "—"}</td>
+      <td class="num">${s.contLocks ? s.contLocks + " × 1 🗝️" : "—"}</td>
+      <td class="num" style="color:${skelSaving(l,1)?"var(--good)":"var(--warn)"}">${skelSaving(l,1) || "0 ✗"}</td>
+      <td class="num" style="color:${skelSaving(l,2)>skelSaving(l,1)?"var(--good)":"var(--warn)"}">${skelSaving(l,2)}</td>
+    </tr>`;
+  }).join("");
+
+  return `<section id="when">
+    <h2>When you get them <span class="count">${totalPicks} picks across ${levels.length} campaign levels</span></h2>
+    <p class="lede">No talent is gated to a level — a level authors <code>rewards: N</code> and grants a pick on
+      each of its first N <strong>room completions</strong>, and which three cards you see is the draft's own
+      weighting. So the question is not <em>when does Sixth Sense unlock</em>, it is <em>how many chances does
+      this house give you</em>. The two rightmost pairs of columns answer the questions the shop does not:
+      what Reputation is actually worth here, and whether Skeleton Key does anything at all.</p>
+    <div class="statrow">
+      <div class="stat"><div class="lab">Picks the campaign hands out</div><div class="big">${totalPicks}</div>
+        <div class="sub">across ${teaching.length} levels that teach anything</div></div>
+      <div class="stat"><div class="lab">First draft</div><div class="big">${teaching[0] ? esc(teaching[0].id) : "—"}</div>
+        <div class="sub">${teaching[0] ? esc(teaching[0].name) + " — " + teaching[0].rewards + " picks" : ""}</div></div>
+      <div class="stat"><div class="lab">Talent levels to fill</div><div class="big">${(UPG().upgrades||[]).reduce((n,u)=>n+maxLevel(u),0)}</div>
+        <div class="sub">${(UPG().upgrades||[]).length} talents · a single house can never drain the pool</div></div>
+      <div class="stat"><div class="lab">Free play</div><div class="big">${bands.reduce((n,b)=>n+(b.rewards||0),0)}</div>
+        <div class="sub">picks per set of five houses (${bands.map(b=>b.rewards).join("/")}) · pays no ⭐</div></div>
+    </div>
+    <div class="wrapscroll"><table class="grid">
+      <thead><tr>
+        <th>Level</th><th>Name</th><th class="num">Rooms</th><th class="num">rewards</th><th class="num">cap</th>
+        ${Array.from({length:repMax},(_, r)=>`<th class="num">Rep ${r+1}</th>`).join("")}
+        <th class="num">Locked doors</th><th class="num">Locked chests</th>
+        <th class="num">Skel 1</th><th class="num">Skel 2</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <p class="lede" style="margin-top:10px">
+      <strong>Rep 1 / Rep 2</strong> — picks this level would actually grant with that many levels of Reputation;
+      ✗ means the <code>rooms − 1</code> cap ate it. Note the top of the table: a level authored
+      <code>rewards: 0</code> still hands out picks once Reputation is bought, because
+      <code>picksFor()</code> adds before it clamps.
+      <strong>Locked doors / chests</strong> — <em>count × keys each</em>, as <code>generate.js</code> builds
+      them. A chest is always one key.
+      <strong>Skel 1 / Skel 2</strong> — keys Skeleton Key actually removes from this house at that talent
+      level. Chests never contribute: they are generated at <code>need: 1</code> and the talent's floor is 1.</p>
+  </section>`;
+}
+
+/* ---------- the economy ---------- */
+function renderEconomy(){
+  const levels = state.json.levels.levels || [];
+  const U = UPG();
+  const A = arcs();
+
+  let rows = 0, caches = 0, rooms = 0;
+  for (const l of levels){ rows += rowsFor(l); caches += (l.caches || 0); rooms += (l.rooms || 0); }
+  rows = Math.round(rows);
+  const wageEach = ((U.home || []).find(u => u.id === "wage")?.params?.each) ?? 1;
+  const wageMax = maxLevel((U.home || []).find(u => u.id === "wage") || { levels:0 });
+
+  const homeAll = (U.home || []).reduce((n, u) => n + totalCost(u), 0);
+  const castCold = (state.json.clients.clients || []).reduce((n, c) => n + (c.cost || 0), 0);
+  const castReferred = A.reduce((n, a) =>
+    n + priceOf(a.client, 0, !!(a.client.needs)), 0);
+  const income = rows + caches;
+
+  /* what one arc is worth, and what the next person costs */
+  let bank = 0;
+  const arcRows = A.map(a => {
+    let inc = 0, picks = 0;
+    for (const s of a.stages){ if (!s.level) continue; inc += rowsFor(s.level) + (s.level.caches || 0); picks += s.level.rewards ?? 0; }
+    const price = priceOf(a.client, 0, !!a.client.needs);
+    bank += inc;
+    return `<tr>
+      <td>${esc(a.client.emoji)} ${esc(a.client.name)}</td>
+      <td class="num">${a.client.cost ? ro(a.client.cost, "clients[" + a.client.id + "].cost") : '<span class="muted">free</span>'}</td>
+      <td class="num">${a.client.cost ? num(price) : "—"}${a.client.needs ? ' <span class="muted">ref</span>' : ""}</td>
+      <td class="num">${a.stages.length}</td>
+      <td class="num">${picks}</td>
+      <td class="num">${num(Math.round(inc))}</td>
+      <td class="num" style="color:var(--gold)">${num(Math.round(bank))}</td>
+    </tr>`;
+  }).join("");
+
+  const cardsU = (U.home || []).find(u => u.id === "cards");
+  let cardRows = "";
+  if (cardsU){
+    for (let lvl = 1; lvl <= maxLevel(cardsU); lvl++){
+      const spend = (state.json.clients.clients || []).reduce((n, c) =>
+        n + priceOf(c, lvl, !!c.needs), 0);
+      const base = castReferred;
+      const cost = Array.from({length:lvl}, (_, i) => costAt(cardsU, i) || 0).reduce((a, b) => a + b, 0);
+      const saved = base - spend;
+      cardRows += `<tr><td class="lvlcell">lv ${lvl}</td>
+        <td class="num">${pct(1 - Math.pow(0.8, lvl))}</td>
+        <td class="num">${num(cost)} ⭐</td>
+        <td class="num">${num(saved)} ⭐</td>
+        <td class="num" style="color:${saved - cost >= 0 ? "var(--good)" : "var(--bad)"}">${saved - cost >= 0 ? "+" : ""}${num(saved - cost)} ⭐</td></tr>`;
+    }
+  }
+
+  const sinks = homeAll + castReferred;
+  return `<section id="economy">
+    <h2>The star economy <span class="count">income vs. what there is to spend it on</span></h2>
+    <p class="lede">⭐ is a wallet, not a score. Income is one star per completed <strong>row</strong>
+      (<code>afterMutation()</code>), one per coin cache, one per quest note, plus the Good Name bonus per room —
+      and <strong>campaign only</strong>. The row estimate below re-runs the game's own
+      <code>expectedItems()</code> against rooms.json and themes.json, so it is the average house the
+      generator will build, not a guess.</p>
+    <div class="statrow">
+      <div class="stat"><div class="lab">Rows in the whole campaign</div><div class="big">${num(rows)}</div>
+        <div class="sub">= ⭐ from filing, over ${levels.length} levels</div></div>
+      <div class="stat"><div class="lab">+ coin caches</div><div class="big">${num(caches)}</div>
+        <div class="sub">1 ⭐ each</div></div>
+      <div class="stat"><div class="lab">+ Good Name, maxed</div><div class="big">${num(rooms * wageMax * wageEach)}</div>
+        <div class="sub">${rooms} rooms × ${wageMax} × ${wageEach} ⭐</div></div>
+      <div class="stat"><div class="lab">Everything there is to buy</div><div class="big">${num(sinks)}</div>
+        <div class="sub">${num(homeAll)} upgrades + ${num(castReferred)} cast (following referrals)</div></div>
+    </div>
+    <div class="finding ${income >= sinks * 1.5 ? "warn" : "info"}">
+      <span class="fi">${income >= sinks * 1.5 ? "⚠️" : "ℹ️"}</span>
+      <div>
+        <span class="sev">the headline number</span>
+        <h5>One full campaign pays about ${num(income)} ⭐ against ${num(sinks)} ⭐ of things to buy</h5>
+        <p>That is <strong>${(income / sinks).toFixed(1)}×</strong> everything in the game, before Good Name
+          compounds it${wageMax ? ` (up to ${num(income + rooms * wageMax * wageEach)} ⭐ maxed)` : ""}.
+          The design note in <code>upgrades.json</code> prices the shop against “a first run through the whole
+          campaign is in the low hundreds — enough to unlock most of the cast <em>or</em> max two or three
+          upgrades, not both”, and choosing is stated to be the point.</p>
+        <p>The reason a real first run <em>is</em> in the low hundreds is that the campaign is not open: only
+          ${A.filter(a => !a.client.cost).length} of ${A.length} clients are free, so you cannot reach most of
+          those rows until you have paid for the person who owns them. The arc table below is the honest
+          version — income unlocked per client, banked as you go.</p>
+        <span class="src">js/main.js — afterMutation() · data/upgrades.json — _homeNote</span>
+      </div>
+    </div>
+    <h4 style="margin:18px 0 8px">What each client is worth, in board order</h4>
+    <div class="wrapscroll"><table class="grid">
+      <thead><tr><th>Client</th><th class="num">Listed</th><th class="num">You pay</th>
+        <th class="num">Jobs</th><th class="num">Picks</th><th class="num">⭐ in their arc</th><th class="num">Running total</th></tr></thead>
+      <tbody>${arcRows}</tbody>
+    </table></div>
+    <p class="lede" style="margin-top:8px"><em>You pay</em> applies the ×0.6 referral discount where the
+      client has a <code>needs</code> and you followed the chain. Running total assumes you clear every arc
+      in board order.</p>
+    ${cardRows ? `<h4 style="margin:22px 0 8px">Does Business Cards pay for itself?</h4>
+    <div class="wrapscroll"><table class="grid">
+      <thead><tr><th>Level</th><th class="num">Discount</th><th class="num">Costs</th>
+        <th class="num">Saves on the whole cast</th><th class="num">Net</th></tr></thead>
+      <tbody>${cardRows}</tbody>
+    </table></div>
+    <p class="lede" style="margin-top:8px">Best case: bought before you hire anyone, following every referral.
+      Bought later it saves only on whoever is left, so treat these as ceilings.</p>` : ""}
+  </section>`;
+}
+
+/* ---------- draft odds ---------- */
+function renderDraft(){
+  const U = UPG();
+  const ups = U.upgrades || [];
+  const cards = U.draftCards ?? 3;
+  const weightRows = ups.map(u => `<tr>
+    <td>${esc(u.icon)} ${esc(u.name)}</td>
+    <td class="num">${maxLevel(u)}</td>
+    <td class="num">3</td>
+    <td class="num">${(3 / (ups.length * 3) * 100).toFixed(1)}%</td>
+    <td class="num">${(1 / (ups.length * 3 - 2) * 100).toFixed(1)}%</td>
+  </tr>`).join("");
+
+  return `<section id="draft">
+    <h2>Draft odds <span class="count">pick one of ${cards}</span></h2>
+    <p class="lede">A draft weights each <strong>unowned</strong> talent ×3 and each owned one ×1, shuffles,
+      then takes the first ${cards} distinct ids. So a first draft is heavily biased toward showing you
+      something new, and the bias decays as you collect. If fewer than ${cards} talents are left unmaxed,
+      the grid back-fills with consumables rather than showing a degraded one-card draft.</p>
+    <div class="wrapscroll"><table class="grid">
+      <thead><tr><th>Talent</th><th class="num">Levels</th><th class="num">Weight unowned</th>
+        <th class="num">Share, nothing owned</th><th class="num">Share, this one owned</th></tr></thead>
+      <tbody>${weightRows}</tbody>
+    </table></div>
+    <p class="lede" style="margin-top:8px">Share is that talent's slice of the weighted bag on a single
+      draw — the real chance of appearing in a grid is higher, since ${cards} distinct ids are taken.
+      With ${ups.length} talents and ${ups.reduce((n,u)=>n+maxLevel(u),0)} levels between them, the deepest
+      house in the game (${Math.max(...(state.json.levels.levels||[]).map(l=>l.rewards??0))} picks +
+      Reputation) still cannot drain the pool, so the consumable back-fill should never be seen in the
+      campaign.</p>
+    <details class="code" open><summary>The draft, read live</summary>
+      ${SYSTEM_ANCHORS._draft.map(a => renderAnchor("_draft", a)).join("")}</details>
+    <details class="code"><summary>How locks are generated — the ground truth behind Skeleton Key and Spare Set</summary>
+      ${SYSTEM_ANCHORS._locks.map(a => renderAnchor("_locks", a)).join("")}</details>
+    <details class="code"><summary>The cascade both One Trip and Magnet Fingers run inside</summary>
+      ${SYSTEM_ANCHORS._cascade.map(a => renderAnchor("_cascade", a)).join("")}</details>
+  </section>`;
+}
+
+function renderSources(){
+  const rows = Object.entries(FILES).map(([k, p]) => `<tr>
+    <td class="mono">${esc(p)}</td>
+    <td class="num mono muted">${(state.raw[k].length / 1024).toFixed(1)} kB</td>
+    <td class="num mono">${state.hashes[k]}</td>
+    <td>${state.changed.includes(k) ? '<span style="color:var(--gold)">changed on this read</span>' : '<span class="muted">—</span>'}</td>
+  </tr>`).join("");
+  return `<section id="sources">
+    <h2>Files being watched <span class="count">${Object.keys(FILES).length} files</span></h2>
+    <p class="lede">Every file this page makes a claim about, re-fetched with <code>cache: "no-store"</code>
+      and a fresh query string on each check. The hash is FNV-1a over the raw text — if it moves, the page
+      repaints. A claim that depends on a file not listed here would be a claim this page cannot keep true.</p>
+    <div class="wrapscroll"><table class="grid">
+      <thead><tr><th>File</th><th class="num">Size</th><th class="num">Hash</th><th>Last read</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <p class="lede" style="margin-top:10px">Game version <code>${esc(conf("VERSION","?"))}</code> ·
+      <code>DATA_VERSION ${esc(conf("DATA_VERSION","?"))}</code> ·
+      <code>INV_SIZE ${esc(conf("INV_SIZE","?"))}</code> ·
+      TALENT_IDS <code>${confList("TALENT_IDS").join(", ")}</code> ·
+      HOME_IDS <code>${confList("HOME_IDS").join(", ")}</code></p>
+  </section>`;
+}
+
+function render(){
+  const U = UPG();
+  const ctx = { invSize: conf("INV_SIZE", 5) };
+  document.getElementById("gameVer").textContent =
+    "v" + conf("VERSION", "?") + " · data v" + conf("DATA_VERSION", "?");
+  /* The button's label is derived here rather than set by whoever toggled it —
+     there are two ways out of edit mode and one of them was leaving the header
+     saying "Reading" while the page was back to reading. */
+  document.getElementById("editBtn").textContent = EDIT.on ? "📖 Done editing" : "✏️ Edit";
+
+  const talents = (U.upgrades || []).map((u, i) => renderEntry(u, "talent", i, ctx)).join("");
+  const home = (U.home || []).map((u, i) => renderEntry(u, "home", i, ctx)).join("");
+  const cons = (U.consumables || []).map((u, i) => renderEntry(u, "consumable", i, ctx)).join("");
+
+  document.getElementById("out").innerHTML = `
+    ${work != null ? `<div class="workbanner">
+      <b>You are reading unsaved changes.</b> Everything below — the level tables, the star economy, the
+      health check — is derived from your edited <code>data/upgrades.json</code>, not from the file on
+      disk. Watching is paused so a poll cannot overwrite your work. <em>Save</em> writes it;
+      <em>Discard</em> puts the file back.</div>` : ""}
+    ${EDIT.on ? `<div class="workbanner" style="background:color-mix(in srgb,var(--gold) 14%,var(--panel));border-color:color-mix(in srgb,var(--gold) 45%,var(--wall))">
+      <b>Edit mode.</b> Editable fields are the boxed ones: name, emoji, description, level count, prices
+      and params — <code>data/upgrades.json</code> only. Ids, adding or removing entries, and every other
+      data file are read-only here, because each of those needs a matching change in
+      <code>js/config.js</code> that this page cannot check. Nothing is written until you press Save.</div>` : ""}
+    ${renderFindings()}
+    <section id="talents">
+      <h2>In-level talents <span class="count">${(U.upgrades||[]).length} talents · ${(U.upgrades||[]).reduce((n,u)=>n+maxLevel(u),0)} levels · drafted, then gone</span></h2>
+      <p class="lede">Drafted during a run and lost when it ends. The line these sit on: a talent changes
+        <strong>what you know</strong> about the house in front of you, where a permanent upgrade changes
+        <strong>how you play</strong>. Only the second is safe to make permanent — carrying Sixth Sense
+        between levels would gut the taxonomy the game is about.</p>
+      ${talents}
+    </section>
+    <section id="home">
+      <h2>Permanent upgrades <span class="count">${(U.home||[]).length} upgrades · ${num((U.home||[]).reduce((n,u)=>n+totalCost(u),0))} ⭐ to max everything</span></h2>
+      <p class="lede">Bought at the main menu with ⭐ and kept forever. <code>cost</code> is per level taken:
+        an array prices each level separately, a number prices them all the same.</p>
+      ${home}
+    </section>
+    <section id="consumables">
+      <h2>Consumables <span class="count">${(U.consumables||[]).length} one-offs · back-fill only</span></h2>
+      <p class="lede">Not a third catalogue so much as padding: these appear in a draft only when there are
+        not enough unmaxed talents left to fill the grid.</p>
+      ${cons}
+    </section>
+    ${renderWhen()}
+    ${renderEconomy()}
+    ${renderDraft()}
+    ${renderSources()}`;
+
+  if (state.changed.length){
+    const nav = document.getElementById("out");
+    nav.classList.remove("flash"); void nav.offsetWidth; nav.classList.add("flash");
+  }
+  wireEditors();
+  renderSaveBar();
+}
+
+/* ============================================================
+   8b. THE SAVE BAR
+
+   Four ways out, in the order they escalate:
+
+     Apply in page  patch in memory and repaint. NOTHING is written, and every
+                    derived number on the page now reflects the change — which
+                    is the actual point of the whole exercise: see what moving
+                    a price does to the economy panel before committing to it.
+     Preview        the exact lines that would change.
+     Copy / Download  for when the browser cannot write to the repo.
+     Save to file   File System Access. You pick data/upgrades.json once and
+                    it writes in place after that.
+
+   The file is in git, so the real undo is `git diff` and `git checkout`. That
+   is said on screen rather than assumed, because a tool that writes to a
+   source tree owes the reader that sentence.
+============================================================ */
+function renderSaveBar(){
+  const old = document.getElementById("savebar");
+  if (old) old.remove();
+  document.body.classList.toggle("editing", EDIT.on);
+  if (!EDIT.on) return;
+
+  const canWrite = "showOpenFilePicker" in window;
+  const bar = el("div");
+  bar.id = "savebar";
+  bar.className = "savebar";
+  bar.innerHTML = `
+    <span class="n" id="saveCount"></span>
+    <button id="applyBtn">Apply in page</button>
+    <button id="previewBtn">Preview diff</button>
+    <button id="copyBtn">Copy JSON</button>
+    <button id="dlBtn">Download</button>
+    <button id="saveBtn" class="primary"
+      title="${canWrite ? "Write data/upgrades.json in place" : "This browser has no File System Access API — use Copy or Download"}">Save to file</button>
+    <button id="discardBtn">Discard</button>
+    <button id="exitBtn">Done editing</button>
+    <span class="msg" id="saveMsg">${canWrite
+      ? "The file is in git — <code>git diff</code> shows exactly what a save changed."
+      : "No File System Access API here. Copy or Download, then paste over the file."}</span>
+    <div id="previewHost" style="flex-basis:100%"></div>`;
+  document.body.appendChild(bar);
+  updateSaveBar();
+
+  const built = () => {
+    if (!edits.size) return { text: work, json: workJson, errors: [] };
+    return applyEdits();
+  };
+
+  document.getElementById("applyBtn").addEventListener("click", () => {
+    const r = applyEdits();
+    if (r.errors.length) return msg(r.errors.map(esc).join("<br>"), "bad");
+    work = r.text; workJson = r.json; edits.clear();
+    render();                                   /* rebuilds the bar, so msg() after */
+    msg("Applied in the page. Every number above is now derived from your edit — including the health " +
+        "check and the economy. Nothing has been written to disk.", "good");
+  });
+
+  document.getElementById("previewBtn").addEventListener("click", () => {
+    const r = built();
+    if (r.errors && r.errors.length) return msg(r.errors.map(esc).join("<br>"), "bad");
+    const v = validateEdit(r.json);
+    const host = document.getElementById("previewHost");
+    host.innerHTML =
+      `<div class="diffbox">${diffLines(state.raw[EDIT.target], r.text)}</div>` +
+      (v.errors.length || v.warnings.length
+        ? `<ul class="vlist">${v.errors.map(e => `<li class="e">${esc(e)}</li>`).join("")}
+           ${v.warnings.map(w => `<li class="w">${esc(w)}</li>`).join("")}</ul>`
+        : `<ul class="vlist"><li>✅ Nothing to flag — it parses, the patch landed where it was aimed, and every check passes.</li></ul>`);
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    const r = built();
+    if (r.errors && r.errors.length) return msg(r.errors.map(esc).join("<br>"), "bad");
+    try { await navigator.clipboard.writeText(r.text); msg("Whole file copied — paste it over <code>data/upgrades.json</code>.", "good"); }
+    catch (e){ msg("Clipboard refused (" + esc(e.message) + "). Use Download.", "bad"); }
+  });
+
+  document.getElementById("dlBtn").addEventListener("click", () => {
+    const r = built();
+    if (r.errors && r.errors.length) return msg(r.errors.map(esc).join("<br>"), "bad");
+    const a = el("a");
+    a.href = URL.createObjectURL(new Blob([r.text], { type: "application/json" }));
+    a.download = "upgrades.json";
+    a.click(); URL.revokeObjectURL(a.href);
+    msg("Downloaded as <code>upgrades.json</code> — move it over <code>data/upgrades.json</code>.", "good");
+  });
+
+  document.getElementById("saveBtn").addEventListener("click", async () => {
+    const r = built();
+    if (r.errors && r.errors.length) return msg(r.errors.map(esc).join("<br>"), "bad");
+    const v = validateEdit(r.json);
+    if (v.errors.length)
+      return msg("Not saved — " + v.errors.length + " thing" + (v.errors.length === 1 ? "" : "s") +
+        " would break the game:<br>" + v.errors.map(esc).join("<br>"), "bad");
+    try {
+      if (!fileHandle){
+        /* The picker IS the permission model: the browser cannot write
+           anywhere the user has not personally pointed at. */
+        [fileHandle] = await window.showOpenFilePicker({
+          id: "tidy-upgrades",
+          types: [{ description: "upgrades.json", accept: { "application/json": [".json"] } }],
+        });
+      }
+      const name = fileHandle.name;
+      if (name !== "upgrades.json" && !confirm(
+        `That file is called “${name}”, not upgrades.json. Write to it anyway?`)) return;
+      const w = await fileHandle.createWritable();
+      await w.write(r.text); await w.close();
+      work = null; workJson = null; edits.clear();
+      msg(`Written to <code>${esc(name)}</code>. Watching resumes — the next read will show it back from
+        disk, which is the round trip proving it landed. <code>git diff</code> to see it.`, "good");
+      tick(true);
+    } catch (e){
+      if (e.name === "AbortError") return msg("Save cancelled — nothing written.");
+      msg("Could not write (" + esc(e.message) + "). Nothing written; use Copy or Download.", "bad");
+    }
+  });
+
+  document.getElementById("discardBtn").addEventListener("click", () => {
+    if (!confirm("Throw away every unsaved change and read the file back from disk?")) return;
+    work = null; workJson = null; edits.clear();
+    render();
+  });
+
+  document.getElementById("exitBtn").addEventListener("click", () => {
+    if (dirty() && !confirm("You have unsaved changes. Leave edit mode and throw them away?")) return;
+    work = null; workJson = null; edits.clear();
+    EDIT.on = false;
+    render(); schedule();
+  });
+}
+
+/* The bar's live half. Kept separate from building it so a keystroke updates
+   a count instead of replacing the element the user is looking at — rebuilding
+   it on every input threw away the diff preview and stole focus. */
+function msg(t, cls){
+  const m = document.getElementById("saveMsg");
+  if (!m) return;
+  m.className = "msg" + (cls ? " " + cls : "");
+  m.innerHTML = t;
+}
+function updateSaveBar(){
+  const bar = document.getElementById("savebar");
+  if (!bar) return;
+  const n = edits.size, has = n > 0 || work != null;
+  const canWrite = "showOpenFilePicker" in window;
+  bar.querySelector("#saveCount").textContent =
+    n ? n + " field" + (n === 1 ? "" : "s") + " changed"
+      : work != null ? "changes applied, not saved" : "no changes";
+  const set = (id, ok) => { const b = bar.querySelector("#" + id); if (b) b.disabled = !ok; };
+  set("applyBtn", n > 0);
+  set("previewBtn", has);
+  set("copyBtn", has);
+  set("dlBtn", has);
+  set("saveBtn", has && canWrite);
+  set("discardBtn", has);
+}
+
+/* Inputs record straight into `edits` — no debounce, because a keystroke here
+   costs a Map.set and nothing else. Deriving the page from it is a separate,
+   explicit act (Apply in page), so typing never fights a repaint for focus.
+
+   An edit typed back to the value it started at is REMOVED rather than stored
+   as a no-op, so "3 fields changed" is a count of real changes and the diff
+   never shows a line replaced by itself. */
+function wireEditors(){
+  /* EVERY PATH MUST ADDRESS EXACTLY ONE INPUT. Two inputs on one key is a bug
+     that hides — both look right, and whichever you did not type into silently
+     wins on the next repaint. Cheap to check, so checked. */
+  const seen = new Map();
+  for (const inp of document.querySelectorAll("#out [data-path]"))
+    seen.set(inp.dataset.path, (seen.get(inp.dataset.path) || 0) + 1);
+  const dupes = [...seen].filter(([, n]) => n > 1).map(([p]) => p);
+  if (dupes.length){
+    console.error("[talents editor] duplicate data-path:", dupes);
+    setTimeout(() => msg("Editor bug — " + dupes.length +
+      " key(s) are bound to more than one input: " + dupes.map(esc).join(", ") +
+      ". Editing those is unsafe; fix the call site before saving.", "bad"), 0);
+  }
+  for (const inp of document.querySelectorAll("#out .fe")){
+    inp.addEventListener("input", () => {
+      const path = inp.dataset.path;
+      const current = String(readPath(baseText(), path) ?? "");
+      if (inp.value === current) edits.delete(path);
+      else edits.set(path, inp.value);
+      inp.classList.toggle("dirty", edits.has(path));
+      updateSaveBar();
+    });
+  }
+}
+/* Read a path's current value out of a raw text, for the "did it actually
+   change" test above. Cheap enough to parse each time; the file is 8 kB. */
+function readPath(raw, path){
+  try {
+    const m = path.match(/^upgrades\.(upgrades|home|consumables)\[(\d+)\]\.(.+)$/);
+    if (!m) return undefined;
+    const o = JSON.parse(raw);
+    const entry = (o[m[1]] || [])[Number(m[2])];
+    if (!entry) return undefined;
+    const rest = m[3];
+    let mm;
+    if ((mm = rest.match(/^params\.(\w+)$/))) return (entry.params || {})[mm[1]];
+    if ((mm = rest.match(/^cost\[(\d+)\]$/)))
+      return Array.isArray(entry.cost) ? entry.cost[Number(mm[1])] : entry.cost;
+    return entry[rest];
+  } catch (e){ return undefined; }
+}
+
+function showError(e){
+  document.getElementById("out").innerHTML = `<div class="err">
+    <h2>Could not read the game's files</h2>
+    <p>${esc(e.message)}</p>
+    <p style="margin-top:10px">This page fetches <code>../data/*.json</code> and <code>../js/*.js</code>,
+      which needs a web server — <code>fetch()</code> is blocked under <code>file://</code>, exactly like the
+      game itself.</p>
+    <pre>python -m http.server 8000
+http://localhost:8000/tidy-adventures/tools/talents.html</pre>
+  </div>`;
+}
+
+/* ============================================================
+   9. THE WATCH LOOP
+============================================================ */
+const dot = document.getElementById("watchDot");
+const txt = document.getElementById("watchTxt");
+const lastRead = document.getElementById("lastRead");
+let timer = null, busy = false, lastChange = null;
+
+async function tick(manual){
+  if (busy) return;
+  /* UNSAVED WORK WINS OVER A FRESH READ. A poll that repainted the page would
+     throw away whatever is half-typed in an input, which is the one way this
+     tool could lose work that was never on disk. So while anything is dirty
+     the loop stops entirely rather than reading and not rendering — reading
+     would also move the change baseline out from under the diff. */
+  if (dirty() && !manual){
+    dot.className = "dot off";
+    txt.innerHTML = "watching paused — <b>unsaved changes</b>";
+    return;
+  }
+  busy = true;
+  try {
+    await readAll();
+    if (state.firstLoad || state.changed.length || manual){
+      render();
+      state.firstLoad = false;
+    }
+    lastRead.textContent = state.lastRead.toLocaleTimeString();
+    /* THE NOTE IS STICKY. It used to clear on the next clean tick, which meant
+       a change you did not happen to be looking at left no trace — the whole
+       point of watching is that you can look away. */
+    if (state.changed.length){
+      lastChange = {
+        at: state.lastRead,
+        files: state.changed.map(k => FILES[k].split("/").pop()),
+      };
+    }
+    dot.className = "dot" + (state.changed.length ? " hit" : Number(sel.value) ? "" : " off");
+    txt.innerHTML = lastChange
+      ? `reloaded <b>${lastChange.at.toLocaleTimeString()}</b> — ${lastChange.files.join(", ")}`
+      : (Number(sel.value) ? "watching for changes" : "manual refresh only");
+  } catch (e){
+    dot.className = "dot off";
+    txt.textContent = "read failed";
+    if (state.firstLoad) showError(e);
+    else console.error("[talents report]", e);
+  } finally { busy = false; }
+}
+
+const sel = document.getElementById("ivl");
+function schedule(){
+  if (timer) clearInterval(timer);
+  const ms = Number(sel.value);
+  if (ms) timer = setInterval(() => tick(false), ms);
+  if (lastChange) return;                       /* don't wipe a change note */
+  dot.className = "dot" + (ms ? "" : " off");
+  txt.textContent = ms ? "watching for changes" : "manual refresh only";
+}
+sel.addEventListener("change", schedule);
+document.getElementById("refresh").addEventListener("click", () => {
+  if (dirty() && !confirm("A refresh reads the file back and throws away your unsaved changes. Go ahead?")) return;
+  work = null; workJson = null; edits.clear();
+  tick(true);
+});
+document.getElementById("editBtn").addEventListener("click", () => {
+  if (EDIT.on){
+    if (dirty() && !confirm("You have unsaved changes. Leave edit mode and throw them away?")) return;
+    work = null; workJson = null; edits.clear();
+    EDIT.on = false;
+    render(); schedule();
+  } else {
+    EDIT.on = true;
+    render();
+  }
+});
+/* Coming back to the tab is the other moment you want a fresh read: you have
+   almost certainly just been editing a file in the other window. Not while
+   dirty — tick() guards that, and this is the path that would hit it most. */
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(false); });
+/* The browser's own last line of defence for work that is only in this tab. */
+window.addEventListener("beforeunload", e => {
+  if (!dirty()) return;
+  e.preventDefault(); e.returnValue = "";
+});
+
+tick(true).then(schedule);
+</script>
+</body>
+</html>

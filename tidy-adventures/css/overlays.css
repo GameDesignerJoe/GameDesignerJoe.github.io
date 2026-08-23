@@ -26,7 +26,7 @@
    instead of `white-space:nowrap`, so a real sentence is readable on a
    phone. See say() in js/feedback.js for the queue. */
 #toast{
-  position:fixed;left:50%;top:calc(var(--hud-h) + 6px);
+  position:fixed;left:50%;top:calc(var(--hud-h) + env(safe-area-inset-top, 0px) + 6px);
   transform:translateX(-50%) translateY(-8px);
   max-width:min(88vw, 460px);
   background:var(--panel);color:var(--ink);
@@ -166,7 +166,7 @@
 /* ---------- one person's row of houses ---------- */
 .fpchar{margin-bottom:10px}
 .fpwho{display:flex;align-items:center;gap:7px;margin:0 2px 5px}
-.fpface{font-size:22px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.fpface{font-size:22px;line-height:1;text-shadow:0 2px 2px rgba(0,0,0,.5)}
 .fpname{font-size:12.5px;font-weight:800;letter-spacing:.04em;color:var(--ink)}
 .fpcp{
   margin-left:auto;font-style:normal;
@@ -472,7 +472,7 @@
 .jobcard .njface{
   flex:0 0 auto;
   font-size:40px;line-height:1;
-  filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));
+  text-shadow:0 2px 3px rgba(0,0,0,.25);
 }
 .jobcard .njtext{display:block;min-width:0;flex:1 1 auto}
 .jobcard .njname{
@@ -565,7 +565,7 @@
   box-shadow:none;cursor:pointer;text-align:center;
   transition:background .15s, border-color .15s;
 }
-.hface{font-size:clamp(30px, 10vw, 44px);line-height:1.05;filter:drop-shadow(0 3px 3px rgba(0,0,0,.5))}
+.hface{font-size:clamp(30px, 10vw, 44px);line-height:1.05;text-shadow:0 3px 3px rgba(0,0,0,.5)}
 .hname{font-size:11.5px;font-weight:800;letter-spacing:.02em;color:var(--ink);line-height:1.15}
 .hjobs{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--ink-dim)}
 .hprice{
