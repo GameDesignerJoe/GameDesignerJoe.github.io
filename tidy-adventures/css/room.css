@@ -264,26 +264,62 @@
 /* ---------- DOOR LABELS ---------- */
 /* --fit is set per room in buildRoomEl(). Everything sized in px inside a
    room divides by it, so the camera's auto-fit doesn't make furniture-scale
-   chrome balloon in small rooms. */
+   chrome balloon in small rooms.
+
+   WHY THESE MOVE THEMSELVES.
+
+   The obvious fix for a label landing on a furniture name plate is to put it
+   outside the room, on the dark background beside its door, where nothing
+   competes for the pixels. There is nowhere to put it: the camera's auto-fit
+   exists to make the room fill the stage, and measured across all 407 rooms
+   the game can generate, the widest gap between the room's edge and the
+   stage's is 13px. A label needs about 45.
+
+   So they stay inside and dodge instead. It was not bad luck that they
+   collided — the anchors in data/furniture.json are a fixed grid, and the old
+   flat 34px inset dropped the N label straight onto the `soft` grid's first
+   anchor (33,12) and the E label onto its fourth (56,41), in every round room
+   in the game. placeDoorLabels() in js/main.js measures the real boxes after
+   layout and nudges each label to the nearest clear spot near its door, via
+   the two custom properties below. The CSS still owns the default position;
+   JS only ever contributes an offset, so a label with no room to dodge into
+   sits exactly where it always did. */
 .doorlab{
-  position:absolute;z-index:6;pointer-events:none;
+  position:absolute;
+  /* ABOVE THE CLUTTER. Items are z-index 6 and are appended after the labels,
+     so at the same index DOM order handed every tie to the clutter — a label
+     reading "...NICS" with an emoji sitting on the rest of it. The dodge
+     deliberately does NOT treat floor items as obstacles: there are up to 170
+     of them, they move on every pickup, and a label that re-homed itself
+     every time you tidied something would be worse than one you occasionally
+     cannot read. Paint order is the right tool for clutter, the dodge is for
+     the furniture, which does not move. 8 clears items and stays under
+     nothing except doors, which the dodge already avoids. pointer-events:none
+     means the item underneath is still perfectly pickable through it. */
+  z-index:8;pointer-events:none;
   font-size:calc(clamp(6px, 1.1vmin, 10px) / var(--fit,1));
   font-weight:800;letter-spacing:.18em;text-transform:uppercase;
   color:rgba(255,255,255,.8);
   text-shadow:0 1px 3px rgba(0,0,0,.7);
   white-space:nowrap;
-  /* Its own plate. In a small round room the furniture sits close to the wall
-     and this landed straight on top of a furniture name — two labels sharing
-     the same pixels, neither readable. A backing pill separates them without
-     moving anything. */
+  /* Its own plate, and now an opaque one. At .42 alpha a label that did land
+     on something read as a smudge over it rather than as a sign in front of
+     it — and the dodge cannot always win, so the fallback has to be legible
+     on its own. */
   padding:calc(2px / var(--fit,1)) calc(6px / var(--fit,1));
   border-radius:999px;
-  background:rgba(20,14,8,.42);
+  background:rgba(16,11,6,.86);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);
 }
-.doorlab.N{top:calc(34px / var(--fit,1));left:50%;transform:translateX(-50%)}
-.doorlab.S{bottom:calc(34px / var(--fit,1));left:50%;transform:translateX(-50%)}
-.doorlab.E{right:calc(36px / var(--fit,1));top:50%;transform:translateY(-50%)}
-.doorlab.W{left:calc(36px / var(--fit,1));top:50%;transform:translateY(-50%)}
+/* --nx / --ny are the dodge, in room px, written by placeDoorLabels(). */
+.doorlab.N{top:calc(34px / var(--fit,1));left:50%;
+  transform:translateX(-50%) translate(var(--nx,0px), var(--ny,0px))}
+.doorlab.S{bottom:calc(34px / var(--fit,1));left:50%;
+  transform:translateX(-50%) translate(var(--nx,0px), var(--ny,0px))}
+.doorlab.E{right:calc(36px / var(--fit,1));top:50%;
+  transform:translateY(-50%) translate(var(--nx,0px), var(--ny,0px))}
+.doorlab.W{left:calc(36px / var(--fit,1));top:50%;
+  transform:translateY(-50%) translate(var(--nx,0px), var(--ny,0px))}
 
 /* ---------- DOORS ---------- */
 .door{

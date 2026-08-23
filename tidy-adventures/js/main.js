@@ -915,6 +915,121 @@ function buildRoomEl(room){
   return el;
 }
 
+/* WHERE A DOOR LABEL ACTUALLY GOES.
+
+   A door label names the room on the other side of that door, and it used to
+   sit at a flat inset from the wall — 34px in for N/S, 36px for E/W. That is
+   fine until you notice the furniture anchors in data/furniture.json are a
+   FIXED grid, at which point the collisions stop looking like bad luck: in
+   every round and hex room in the game the `soft` grid puts a container at
+   (56,41), and the E label landed on it every single time. The label was
+   printed across a furniture name plate, and neither could be read.
+
+   The obvious fix is to put the label outside the room, on the background
+   beside its door, where nothing competes for the pixels. There is nowhere to
+   put it. The camera's whole job is to make the room fill the stage, and
+   measured across all 407 rooms this game can generate, the largest gap
+   between the room's edge and the stage's is 13px. A label needs about 45.
+
+   So it stays inside and moves out of the way instead. Measure the real boxes
+   once the room is laid out, then walk a grid of offsets — along the wall, and
+   in and out from it — and take the one with no overlap that sits nearest its
+   own door. Nearest-its-door rather than nearest-its-default is deliberate:
+   it means the label ends up tucked against the wall beside the doorway, which
+   is where a sign naming the next room belongs, instead of floating a third of
+   the way into the floor.
+
+   Furniture, caches, every door and every label already placed all count as
+   obstacles. If nothing is clear the label stays exactly where the CSS put it
+   — the dodge is an offset on top of the CSS position (--nx / --ny in
+   css/room.css), never a replacement for it, so the worst case is the
+   behaviour we shipped before, now with an opaque plate under it.
+
+   Cost is one batch of reads and one batch of writes per room render. Every
+   getBoundingClientRect() below happens BEFORE any style is written, because
+   interleaving them would force a fresh layout per label. */
+const LAB_PERP  = [0, 1, 2, 3, 4, -1, -2, -3];          /* + is toward the wall */
+const LAB_ALONG = [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6];
+const DIR_KEYS  = ["N", "S", "E", "W"];
+
+const labRect = el => {
+  const r = el.getBoundingClientRect();
+  return { x:r.left, y:r.top, w:r.width, h:r.height };
+};
+function boxOverlap(a, b){
+  const ox = Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x);
+  const oy = Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y);
+  return (ox > 0 && oy > 0) ? ox*oy : 0;
+}
+
+function placeDoorLabels(room){
+  if(!room) return;
+  const labs = [...room.querySelectorAll(".doorlab")];
+  if(!labs.length) return;
+  /* ---- READS ---- */
+  const rr = room.getBoundingClientRect();
+  if(!rr.width || !rr.height) return;
+  const blockers = [...room.querySelectorAll(".furn,.cache,.door")].map(labRect);
+  const doorBox = {};
+  for(const d of room.querySelectorAll(".door")){
+    const dir = DIR_KEYS.find(k => d.classList.contains(k));
+    if(dir) doorBox[dir] = labRect(d);
+  }
+  const plan = labs.map(l => ({
+    lab: l,
+    dir: DIR_KEYS.find(k => l.classList.contains(k)) || "N",
+    box: labRect(l),
+    dx: 0, dy: 0,
+  }));
+
+  /* ---- SOLVE ---- */
+  const inside = b =>
+    b.x >= rr.left - 0.5 && b.y >= rr.top - 0.5 &&
+    b.x + b.w <= rr.right + 0.5 && b.y + b.h <= rr.bottom + 0.5;
+  const placed = [];
+  for(const p of plan){
+    const { box, dir } = p;
+    /* N/S doors sit in a wall that runs left-right, so "along" is horizontal
+       for them and vertical for E/W. "Toward the wall" is up for N, left for
+       W, and the other way for the other two. */
+    const flat   = (dir === "N" || dir === "S");
+    const toWall = (dir === "N" || dir === "W") ? -1 : 1;
+    const perpU  = box.h * 0.95;
+    const alongU = flat ? box.w * 0.8 : box.h * 1.3;
+    const door   = doorBox[dir];
+    const aimX = door ? door.x + door.w/2 : box.x + box.w/2;
+    const aimY = door ? door.y + door.h/2 : box.y + box.h/2;
+    let best = null;
+    for(const pn of LAB_PERP) for(const al of LAB_ALONG){
+      const d = pn * perpU * toWall, a = al * alongU;
+      const dx = flat ? a : d, dy = flat ? d : a;
+      const cand = { x:box.x+dx, y:box.y+dy, w:box.w, h:box.h };
+      if(!inside(cand)) continue;
+      let ov = 0;
+      for(const b of blockers) ov += boxOverlap(cand, b);
+      for(const b of placed)   ov += boxOverlap(cand, b);
+      /* Overlap outranks distance by so much that a clear spot on the far
+         side of the room still beats a covered one next to the door. */
+      const score = ov*1e6
+        + Math.hypot(cand.x + cand.w/2 - aimX, cand.y + cand.h/2 - aimY);
+      if(!best || score < best.score) best = { score, dx, dy, cand };
+    }
+    p.dx = best ? best.dx : 0;
+    p.dy = best ? best.dy : 0;
+    placed.push(best ? best.cand : box);
+  }
+
+  /* ---- WRITES ---- */
+  /* Screen px back into room px: the offset goes into a transform inside the
+     room, and the camera has already scaled everything in there. */
+  const t = camScale() || 1;
+  for(const p of plan){
+    if(!p.dx && !p.dy) continue;
+    p.lab.style.setProperty("--nx", (p.dx / t).toFixed(2) + "px");
+    p.lab.style.setProperty("--ny", (p.dy / t).toFixed(2) + "px");
+  }
+}
+
 /* #roomHost > .cam > .room — the camera owns zoom/pan, the room owns the
    slide and bounce animations. They shared one transform in v3, which is why
    bounce() had to repair the camera afterwards.
@@ -930,6 +1045,9 @@ function renderRoom(){
   cam.appendChild(buildRoomEl(G.rooms[G.current]));
   host.appendChild(cam);
   applyCam();
+  /* Has to run after applyCam(), because it measures real boxes and the
+     camera's scale is part of where they are. */
+  placeDoorLabels(roomEl());
   /* Measure this room's glyphs while the browser is idle, so the cost never
      lands on the first tap. Cheap and idempotent — masks are cached by emoji,
      so re-entering a room measures nothing. See js/hit.js. */
@@ -979,6 +1097,11 @@ function slideTo(dir,newId){
   neu.style.transition="none";
   neu.style.transform=`translate(${px}px, ${py}px)`;
   camEl().appendChild(neu);
+  /* The room being slid in is parked off to one side, which is a pure
+     translate — every box inside it is displaced by the same amount, so the
+     overlap arithmetic is unaffected and this can be solved before the slide
+     rather than after it. */
+  placeDoorLabels(neu);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     old.style.transition="transform .32s ease";
     neu.style.transition="transform .32s ease";
@@ -1043,44 +1166,22 @@ function renderHUD(){
   $("#shopBtn").textContent = G.mode==="campaign"
     ? "⭐ "+G.points
     : (G.picksMax ? "✨ "+G.picksTaken+"/"+G.picksMax : "✨");
-  drawMinimap();
   scheduleSave();
 }
 
 
-function drawMinimap(){
-  const cv=$("#minimap canvas"), ctx=cv.getContext("2d");
-  ctx.clearRect(0,0,cv.width,cv.height);
-  const cell=14, pad=3;
-  ctx.strokeStyle="#5a4a33"; ctx.lineWidth=3;
-  for(const r of G.rooms) for(const [dir,to] of Object.entries(r.doors)) if(to!==null){
-    const t=G.rooms[to];
-    ctx.beginPath();
-    ctx.moveTo(pad+r.gx*cell+cell/2, pad+r.gy*cell+cell/2);
-    ctx.lineTo(pad+t.gx*cell+cell/2, pad+t.gy*cell+cell/2);
-    ctx.stroke();
-  }
-  for(const l of G.locks) if(!l.open){
-    const a=G.rooms[l.a], b=G.rooms[l.b];
-    const mx=pad+(a.gx+b.gx)/2*cell+cell/2, my=pad+(a.gy+b.gy)/2*cell+cell/2;
-    ctx.fillStyle="#17110b";
-    ctx.fillRect(mx-3,my-3,6,6);
-    ctx.strokeStyle="#f5c542"; ctx.lineWidth=1;
-    ctx.strokeRect(mx-3,my-3,6,6);
-    ctx.strokeStyle="#5a4a33"; ctx.lineWidth=3;
-  }
-  for(const r of G.rooms){
-    ctx.fillStyle = roomComplete(r) ? "#f5c542" : (G.visited.has(r.id)?"#b9a88d":"#5a4a33");
-    ctx.beginPath();
-    ctx.roundRect(pad+r.gx*cell+2, pad+r.gy*cell+2, cell-4, cell-4, 3);
-    ctx.fill();
-    if(r.id===G.current){
-      ctx.strokeStyle="#f3e9d8"; ctx.lineWidth=2;
-      ctx.strokeRect(pad+r.gx*cell+1, pad+r.gy*cell+1, cell-2, cell-2);
-      ctx.strokeStyle="#5a4a33"; ctx.lineWidth=3;
-    }
-  }
-}
+/* THE MINIMAP IS GONE.
+
+   It was a 48px canvas painting the house's 3x3 room grid, and it lost its
+   argument for existing on two counts. It was the tallest thing in the HUD and
+   the only square one, so it was what made that row feel packed — and it was
+   answering a question the game answers better elsewhere: the door labels name
+   the room through every door, and the doors into rooms you have not been in
+   yet beckon (.door.unvisited in css/room.css). Wayfinding lives on the walls,
+   where you are already looking, rather than in a 48px diagram you have to
+   look away to read. G.rooms[].gx/gy are still what generate.js uses to lay
+   the house out and to decide which walls get doors; nothing else read them.
+*/
 
 function renderInv(){
   const bar=$("#invBar");

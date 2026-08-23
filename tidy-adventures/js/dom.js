@@ -24,7 +24,6 @@ export const toastEl   = $("#toast");
 export const roomName  = $("#roomName");
 export const remaining = $("#remaining");
 export const shopBtn   = $("#shopBtn");
-export const minimap   = $("#minimap canvas");
 
 export const el = (tag, cls, text) => {
   const n = document.createElement(tag);

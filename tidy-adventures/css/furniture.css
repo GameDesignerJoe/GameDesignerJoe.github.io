@@ -59,7 +59,12 @@
         that is still legible; three lines is one more word for free, and the
         plate is small enough that the extra line costs the furniture nothing.
      3. The plate wasted 8% of the face on margins and another 8% on its own
-        padding. 4% and 5% now — the same visual inset, half the cost.
+        padding. 1% and 3% now — the same visual inset, a fraction of the
+        cost. It is that tight because of exactly one label: "Unexplained" is
+        the only word in the game long enough that the plate could not hold it
+        whole, and it was being sliced as "UNEXPLAINE / D". Two percent more
+        plate is cheaper than making every label in the game smaller to fix
+        one of them.
      4. letter-spacing .03em on a plate this narrow is a whole character every
         two lines. Gone, and the leading is tighter with it.
 
@@ -69,11 +74,11 @@
 .furn .flabel{
   position:relative;z-index:3;
   margin-bottom:5cqh;
-  max-width:96%;
+  max-width:99%;
   font-size:clamp(4px, min(15cqh, 13cqi), 8.5px);
   font-weight:800;letter-spacing:0;text-transform:uppercase;
   text-align:center;line-height:1.05;
-  padding:1.5cqh 2.5%;
+  padding:1.5cqh 1.5%;
   border-radius:2px;
   color:rgba(255,255,255,.94);
   background:rgba(0,0,0,.34);

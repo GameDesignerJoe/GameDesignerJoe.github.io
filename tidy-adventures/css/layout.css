@@ -8,8 +8,8 @@
 
    height was a flat 56px and the safe-area inset was padding INSIDE it, so on
    any phone with a status bar to clear (~47-59px) the content box was down to
-   single digits: the room name, the counter, the minimap and the two buttons
-   were all shoved against the top of the screen and spilled out of the band
+   single digits: the room name, the counter and the buttons beside them were
+   all shoved against the top of the screen and spilled out of the band
    into the stage. The inset is now ADDITIVE — the band grows to clear the
    status bar and still has its full 64px for the row — plus real padding on
    both sides of the content so nothing is glued to the clock above it or the
@@ -49,17 +49,19 @@
   background:var(--panel);padding:6px 11px;border-radius:999px;white-space:nowrap;
   flex:0 0 auto;
 }
-/* The canvas is drawn at 48x48 (drawMinimap() in js/main.js paints a 3x3 grid
-   of 14px cells into it); it is DISPLAYED smaller so it stops being the
-   tallest thing in the row by a third, and it gets the extra pixels as
-   sharpness on a 3x screen. */
-#minimap{flex:0 0 auto}
-#minimap canvas{display:block;width:38px;height:38px;border-radius:8px;background:var(--panel)}
-/* 38px, up from 34: still under Apple's 44pt guidance, but these two sit at
-   the very edge of the screen where the miss rate is worst. */
+/* 38px drawn, 46px tappable. Apple asks for 44pt and these sit at the very
+   edge of the screen, where the miss rate is worst — but a 46px disc of
+   panel colour would crowd the row and read as heavy. So the visible chip
+   stays 38 and an invisible ::after carries the target out past it. It has to
+   be a child rather than padding on the button, because padding would grow
+   the chip too. */
 .hudbtn{
   width:38px;height:38px;border-radius:999px;border:0;background:var(--panel);
   color:var(--ink-dim);font-size:16px;font-weight:700;flex:0 0 auto;cursor:pointer;
+  position:relative;
+}
+.hudbtn::after{
+  content:"";position:absolute;inset:-4px;border-radius:inherit;
 }
 /* SETTINGS IS ALWAYS REACHABLE.
 
