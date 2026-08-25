@@ -380,7 +380,7 @@ const FILES = {
   config:    "js/config.js",
   main:      "js/main.js",
   talents:   "js/talents.js",
-  home:      "js/home.js",
+  store:     "js/store.js",
   generate:  "js/generate.js",
   questsjs:  "js/quests.js",
 };
@@ -489,93 +489,6 @@ const MECH = {
 
   /* ---------------- IN-LEVEL TALENTS ---------------- */
 
-  sense: {
-    fires: "Continuously, while a slot in your hands is selected.",
-    perLevel: () => "Held item names its home in the hand label; that home glows if it is in this room.",
-    rules: [
-      ["The hand label gains an arrow: <code>→ Chest of Drawers</code>, plus <code>(Attic)</code> when the home is in another room.", "js/main.js — senseSuffix()"],
-      ["Keys read <code>→ a lock</code>, coins <code>→ a coin slot</code>, and the old key 🗝️ reads <code>→ one specific lock</code> — a token never names a container.", "js/main.js — senseSuffix()"],
-      ["The container itself gets a glow, but only when the held item's home is <em>in the room you are standing in</em>.", "js/main.js — buildRoomEl()"],
-      ["Tapping a different hand slot repaints the room, so the glow follows the selection rather than going stale.", "js/main.js — tapSlot()"],
-      ["Also drives the loupe: long-pressing an item shows the same suffix and lights the same furniture.", "js/main.js — the loupe"],
-    ],
-    watch: [
-      ["No glow on a <strong>locked</strong> or <strong>already finished</strong> container — deliberate, since neither can take the item, but it means a held item can correctly have no glow anywhere.", "js/main.js — the !locked && !done guard in buildRoomEl()"],
-      ["The text half still names a locked container. Only the glow is suppressed, so the two halves of one talent disagree in that case.", "js/main.js — senseSuffix() has no lock check"],
-    ],
-    anchors: [
-      { file:"main", label:"glow on the home container", needle:'if(G.up.sense && !locked && !done' },
-      { file:"main", label:"the hand label suffix",       needle:'function senseSuffix(it){' },
-      { file:"main", label:"repaint when you change hands", needle:'function tapSlot(i){' },
-    ],
-  },
-
-  magnet: {
-    fires: "On a correct put-away, inside cascade(). Never on pick-up, and never on a wrong drop.",
-    perLevel: (lvl, p) => `Pulls ${lvl * (p.pull ?? 1)} more of the same kind off this room's floor into the same home.`,
-    rules: [
-      ["Budget is <code>level × pull</code> items per correct placement.", "js/main.js — cascade()"],
-      ["Only the <em>same emoji type</em> as the thing you just filed, and only from the floor of the room you are in.", "js/main.js — cascade()"],
-      ["Nearest to the room's centre first, so what flies is what you could plausibly see.", "js/main.js — sorted on distance from 50,50"],
-      ["Stops silently the moment the container has no free cell left.", "js/main.js — <code>if(!put(o)) break</code>"],
-      ["Everything it files goes through the same judgeToss/afterMutation path as a hand placement, so rows it completes pay out and celebrate normally.", "js/main.js — put() in cascade()"],
-    ],
-    watch: [
-      ["It sorts by distance from the room centre, not from you or from the container. In a wide room the two are not the same thing.", "js/main.js — cascade()"],
-      ["Fires per placement, so One Trip's cascade does not re-trigger it — one correct tap is one magnet budget, however many items One Trip moved.", "js/main.js — cascade() runs once"],
-      ["It used to fire on pick-up with a 14% radius, which was true 8.1% of the time. If you are reading old notes, that is the version they describe.", "data/upgrades.json — _readme"],
-    ],
-    anchors: [{ file:"main", label:"the pull, inside cascade()", needle:'if(G.up.magnet){' }],
-  },
-
-  oneTrip: {
-    fires: "On a correct put-away, inside cascade().",
-    perLevel: (lvl) => lvl >= 2
-      ? "Also files anything else in your hands that lives in this container — not just the same kind."
-      : "Also files the other items in your hands of the same kind that live in this container.",
-    rules: [
-      ["Level 1 is <em>and the others like it</em>: same emoji type, and it must live here.", "js/main.js — cascade()"],
-      ["Level 2 is <em>and everything else that lives in this drawer</em>: any type whose home is this container.", "js/main.js — <code>G.up.oneTrip>=2</code>"],
-      ["Keys, coins and notes are always skipped — they are not cargo.", "js/main.js — cascade()"],
-      ["Selection is repaired afterwards: the first remaining full slot becomes the held one, or null if your hands emptied.", "js/main.js — cascade()"],
-    ],
-    watch: [
-      ["Level 1 exists mainly so the talent has somewhere to grow from. If the draft offers it at level 1 and you never see level 2, it overlaps heavily with Magnet Fingers.", "data/upgrades.json — the desc says so"],
-      ["Stops on the first item that will not fit, rather than skipping it and trying the next — a nearly full container can leave sortable items in your hands.", "js/main.js — <code>if(!put(o)) break</code>"],
-    ],
-    anchors: [{ file:"main", label:"out of your hands, inside cascade()", needle:'if(G.up.oneTrip){' }],
-  },
-
-  homesick: {
-    fires: "On every room repaint, for the room you are standing in.",
-    perLevel: () => "Every floor item in this room whose home is also in this room glows.",
-    rules: [
-      ["Three conditions, all required: the item's home is in <em>this</em> room, that container is unlocked, and it has a free cell.", "js/main.js — homesick()"],
-      ["Keys, coins, notes and buried tokens never glow — they have no container home.", "js/main.js — homesick()"],
-      ["Roughly a quarter of any given floor lights up; the useful reading is the inverse — the other 75% is stuff you will have to carry.", "data/upgrades.json — measured over 180 rooms"],
-    ],
-    watch: [
-      ["\"Can take it right now\" is literal. Fill the home container and the glow goes out even though the item still lives there — correct, but it looks like the talent switching itself off.", "js/main.js — <code>bestSpot(c, it.type)</code>"],
-      ["Only ever the current room. It is not a house-wide answer.", "js/main.js — called from buildRoomEl()"],
-    ],
-    anchors: [{ file:"main", label:"which floor items glow", needle:'function homesick(room, it){' }],
-  },
-
-  keyring: {
-    fires: "On every room repaint, for the room you are standing in.",
-    perLevel: () => "Every 🔑 and 🪙 still loose on this room's floor renders un-buried.",
-    rules: [
-      ["Rides the same <code>.revealed</code> class the debug reveal uses — one look meaning one thing.", "js/main.js — buildRoomEl()"],
-      ["Only tokens (keys and coins). Ordinary items are untouched.", "js/main.js — <code>it.token</code>"],
-      ["Permanent for the run, where the debug button is a five-second flash across the whole house.", "js/config.js — REVEAL_MS"],
-    ],
-    watch: [
-      ["Current room only, on purpose: burial is the feature, and un-burying the house would delete the hunt.", "js/main.js — the comment above it"],
-      ["Cosmetic. It changes nothing about reachability — a key under a pile is still under the pile, it is just visible.", "css/items.css — .revealed"],
-    ],
-    anchors: [{ file:"main", label:"the class on a floor item", needle:'sp.className="item"+(it.token?" buried":"")', lines:2 }],
-  },
-
   label: {
     fires: "On every room repaint, on each container in the room.",
     perLevel: (lvl, p) => `Each container shows ${(p.show ?? 2) + (lvl - 1)} of the types it is still waiting for.`,
@@ -591,117 +504,22 @@ const MECH = {
     anchors: [{ file:"main", label:"the greyed-out want badges", needle:'if(G.up.label){' }],
   },
 
-  skeleton: {
-    fires: "Once, the instant you learn it. It is not a rule read later.",
-    perLevel: (lvl) => `Every lock still shut that needs more than one key wants one fewer${lvl >= 2 ? " — a second time, so a 3-key door ends at 1" : ""}.`,
-    rules: [
-      ["Runs over both lock registries: door locks in <code>G.locks</code>, and container locks on every room's containers.", "js/main.js — the skeleton() callback"],
-      ["<strong>Floored at one.</strong> A lock needing zero keys is a lock already open, and opening the house off one card is not a talent.", "js/main.js — <code>l.need &gt; 1</code>"],
-      ["Taken twice is two passes, so a door needing four keys ends up needing two.", "js/main.js — one decrement per take"],
-      ["Reaches the world through a callback handed in by main.js, because talents.js may not import the rules tier.", "js/talents.js — initTalents()"],
-    ],
-    watch: [
-      ["<strong>It can never touch a container lock.</strong> Container locks are generated with <code>need: 1</code> whenever furniture.json defines the old key 🗝️, and the floor at one excludes them. In practice this talent only ever weakens the one locked door.", "js/generate.js — contLocks"],
-      ["On a level with <code>doorKeys: 0</code> or <code>doorKeys: 1</code> it does nothing at all, and it is drafted anyway. See the level table below for which ones.", "js/generate.js — <code>need: cfg.doorKeys</code>"],
-      ["Fires on learning, so taking it after the locked door is already open is wasted. There is nothing that stops it being offered then.", "js/talents.js — choose()"],
-    ],
-    anchors: [{ file:"main", label:"fires once, on learning it", needle:'  skeleton(){' }],
-  },
-
-  /* ---------------- PERMANENT UPGRADES ---------------- */
-
   hands: {
     fires: "Applied once at the start of every run, and re-applied on resume.",
     perLevel: (lvl, p, ctx) => `${ctx.invSize + lvl} hand slots (base ${ctx.invSize} + ${lvl}).`,
     rules: [
-      ["Slots are <em>appended</em>, not resized, so anything already held keeps the slot it was in.", "js/main.js — applyHome()"],
-      ["Re-applied on resume by padding up to <code>INV_SIZE + level</code>, because the saved <code>inv</code> comes back at whatever length it was written.", "js/main.js — resumeHome()"],
+      ["Slots are <em>appended</em>, not resized, so anything already held keeps the slot it was in.", "js/main.js — applyStore()"],
+      ["Re-applied on resume by padding up to <code>INV_SIZE + level</code>, because the saved <code>inv</code> comes back at whatever length it was written.", "js/main.js — resumeStore()"],
       ["Priced steeply and separately per level — the only upgrade whose cost array climbs this hard.", "data/upgrades.json — cost[]"],
     ],
     watch: [
       ["This lived in the in-level talent pool once. Anything describing Bigger Hands as a draftable talent is out of date.", "data/upgrades.json — _readme"],
-      ["Buying it mid-run does not widen your hands until the next start or resume — <code>applyHome()</code> is not re-run on a purchase.", "js/main.js — applyHome() call sites"],
+      ["Buying it mid-run does not widen your hands until the next start or resume — <code>applyStore()</code> is not re-run on a purchase.", "js/main.js — applyStore() call sites"],
     ],
     anchors: [
-      { file:"main", label:"applied at run start", needle:'function applyHome(){' },
-      { file:"main", label:"re-applied on resume", needle:'function resumeHome(){' },
+      { file:"main", label:"applied at run start", needle:'function applyStore(){' },
+      { file:"main", label:"re-applied on resume", needle:'function resumeStore(){' },
     ],
-  },
-
-  picks: {
-    fires: "Read at run start, when the house works out how many talents it teaches.",
-    perLevel: (lvl) => `+${lvl} talent to learn per house, on top of the level's own rewards — still capped at rooms − 1.`,
-    rules: [
-      ["<code>picksFor()</code> is <code>min(level.rewards + picks, rooms − 1)</code>, floored at 0.", "js/main.js — picksFor()"],
-      ["The cap exists because a pick is granted on a <em>room completion</em>, and the last room completing is the level completing — a draft must not land on the ending.", "js/talents.js — the header"],
-      ["Derived at run start rather than saved, so buying it takes effect on the house you are already standing in when you resume.", "js/main.js — picksFor() call sites"],
-    ],
-    watch: [
-      ["<strong>The cap eats it on a lot of levels.</strong> Any level already promising rooms − 1 gets nothing from this, and the shop does not say so. The table below counts exactly how many levels each of the two purchased levels is dead on.", "js/main.js — picksFor()"],
-      ["Free-play bands carry their own <code>rewards</code>, so this applies there too — but free play mints no stars, so it can never be paid for out of free play.", "data/sizes.json — bands[] and _starsNote"],
-    ],
-    anchors: [{ file:"main", label:"how many picks a house owes", needle:'function picksFor(cfg, rooms){' }],
-  },
-
-  wage: {
-    fires: "On every room completion.",
-    perLevel: (lvl, p) => `+${lvl * (p.each ?? 1)} ⭐ every time a whole room comes clean.`,
-    rules: [
-      ["Paid at the single place a room can complete, alongside the gold ripple.", "js/main.js — afterMutation()"],
-      ["Banked to the wallet immediately via <code>addStars()</code>, not held until the win screen.", "js/main.js — afterMutation()"],
-      ["The only permanent upgrade that touches the rate stars are earned at, which is what makes it the one that compounds.", "data/upgrades.json — _homeNote"],
-    ],
-    watch: [
-      ["<strong>Campaign only.</strong> <code>G.mode === \"campaign\"</code> gates it, so on the 215-house free-play board it pays nothing at all.", "js/main.js — afterMutation()"],
-      ["Pays per room, so its value tracks a house's room count, not its item count. A Mega free-play house is worth zero and a 7-room campaign level is worth 7 × level.", "js/main.js — afterMutation()"],
-    ],
-    anchors: [{ file:"main", label:"paid on room completion", needle:'const bonus = homeLevel("wage")', lines:5 }],
-  },
-
-  cards: {
-    fires: "Every time a client's price is displayed or paid.",
-    perLevel: (lvl) => `Clients cost ${Math.round((1 - Math.pow(0.8, lvl)) * 100)}% less (0.8^${lvl}).`,
-    rules: [
-      ["Multiplicative, not additive: <code>0.8^level</code>. Two levels is 36% off, not 40%.", "js/home.js — priceOf()"],
-      ["Stacks with the referral discount, which is a separate <code>×0.6</code> for having already met whoever refers them.", "js/home.js — REFERRED_OFF"],
-      ["Final price is <code>max(1, round(base × referral × cards))</code>, so nothing is ever free.", "js/home.js — priceOf()"],
-    ],
-    watch: [
-      ["<strong>Clients only.</strong> It does not discount the permanent upgrades, including itself.", "js/home.js — upgradeCost() ignores it"],
-      ["It has to pay for itself out of the clients you have <em>left</em> to buy. Bought late it cannot; the payback table below is the actual sum.", "js/home.js — priceOf()"],
-    ],
-    anchors: [{ file:"home", label:"the price a client asks", needle:'export function priceOf(client) {' }],
-  },
-
-  spare: {
-    fires: "Once, at the start of every run. Deliberately not on resume.",
-    perLevel: () => "Start every house holding one old key 🗝️.",
-    rules: [
-      ["A real item in a real slot, so every path that already knows what to do with a key needs no special case — it can be dropped, misfiled at the wrong lock, or carried around forgotten.", "js/main.js — applyHome()"],
-      ["Container locks want exactly one old key, so this is one locked container opened for free, anywhere in the house.", "js/generate.js — contLocks"],
-      ["Explicitly <em>not</em> re-granted by <code>resumeHome()</code>: the saved inventory already holds it, and re-granting would mint a fresh key on every Continue.", "js/main.js — resumeHome()"],
-    ],
-    watch: [
-      ["It occupies a hand slot from the moment the house starts, so at 5 slots you begin every run with 4 usable ones until you spend it.", "js/main.js — applyHome()"],
-      ["On a level with <code>contLocks: 0</code> there is nothing for it to open, and it still takes the slot.", "data/levels.json — contLocks"],
-      ["Silently does nothing if the old key token is missing from furniture.json or there is no free slot.", "js/main.js — the skel && slot!==-1 guard in applyHome()"],
-    ],
-    anchors: [{ file:"main", label:"the key you start holding", needle:'if(homeLevel("spare")){' }],
-  },
-
-  /* ---------------- CONSUMABLES ---------------- */
-
-  stars3: {
-    fires: "Immediately, when the card is chosen.",
-    perLevel: () => "One-off.",
-    rules: [
-      ["Back-fill only: consumables are shown when there are not enough unmaxed talents left to fill the three-card grid.", "js/talents.js — pool()"],
-      ["Adds to the run's displayed <code>G.points</code> and to <code>G.starsEarned</code>.", "js/talents.js — applyConsumable()"],
-    ],
-    watch: [
-      ["<strong>It never reaches the wallet.</strong> <code>applyConsumable()</code> does not call <code>addStars()</code>, so the +3 shows in the HUD for the rest of the run and is gone at the win screen. See the health check.", "js/talents.js — <code>case \"stars\"</code>"],
-    ],
-    anchors: [{ file:"talents", label:"consumables", needle:'function applyConsumable(c) {' }],
   },
 
   armful: {
@@ -728,7 +546,7 @@ const MECH = {
 const SYSTEM_ANCHORS = {
   _draft: [
     { file:"talents",  label:"which three cards you are shown", needle:'function pool() {' },
-    { file:"talents",  label:"a room came clean — is that a pick?", needle:'export function roomFinished() {' },
+    { file:"talents",  label:"a row landed on a threshold — is that a pick?", needle:'export function grantPick() {' },
     { file:"talents",  label:"the empty-pool payout", needle:'  if (!cards.length) {' },
     { file:"talents",  label:"consumables", needle:'function applyConsumable(c) {' },
   ],
@@ -904,11 +722,31 @@ function rowsFor(cfg){
   });
   return (cfg.rooms || 1) * perRoom.reduce((a, b) => a + b, 0) / perRoom.length;
 }
-/* js/main.js — picksFor(). */
-function picksFor(cfg, rooms, repLevel){
+/* js/main.js — picksFor(). DERIVED FROM ROWS NOW, not from a per-level
+   `rewards` count and not clamped to rooms-1: a house's size decides how many
+   talents it teaches, and `rewards` survives only as an optional override.
+   rowsFor() above is the estimate of the same total main.js measures off the
+   generated house, so this is a floor rather than an exact figure. */
+function picksFor(cfg){
   if (!cfg) return 0;
-  const asked = (cfg.rewards ?? 0) + repLevel;
-  return Math.max(0, Math.min(asked, Math.max(0, (rooms || 0) - 1)));
+  if (Number.isInteger(cfg.rewards)) return Math.max(0, cfg.rewards);
+  const rows = Math.round(rowsFor(cfg));
+  for (const t of (UPG().picks?.tiers || [])) {
+    if (t.upTo == null || rows <= t.upTo) return Math.max(0, t.picks | 0);
+  }
+  return 0;
+}
+/* js/main.js — pickRowsFor(). Which completed-row counts buy a talent. */
+function pickRowsFor(n, rows){
+  const at = (UPG().picks?.at || [])[n];
+  if (!at || !n || !rows) return [];
+  const out = [];
+  for (const f of at) {
+    let r = Math.max(1, Math.round(rows * f));
+    while (out.includes(r)) r++;
+    if (r <= rows) out.push(r);
+  }
+  return out.sort((a, b) => a - b);
 }
 /* js/home.js — priceOf(). */
 function priceOf(client, cardsLevel, referred){
@@ -964,7 +802,7 @@ function arcs(){
    The obvious way to write a changed value back is JSON.parse, mutate,
    JSON.stringify. It is also the one thing that must not happen to this
    project's data files. upgrades.json is two thirds prose: a _readme that
-   argues for the split between the two catalogues, a _homeNote that explains
+   argues for the split between the two catalogues, a _storeNote that explains
    what the prices are balanced against, war stories about knobs that were
    deleted for doing nothing. stringify keeps the keys and destroys the
    authoring — every group re-flowed, every deliberate blank line gone. The
@@ -1194,7 +1032,7 @@ function validateEdit(json){
   const errors = [], warnings = [];
   const all = [
     ...(json.upgrades || []).map(u => ["talent", u]),
-    ...(json.home || []).map(u => ["home", u]),
+    ...(json.store || []).map(u => ["home", u]),
     ...(json.consumables || []).map(u => ["consumable", u]),
   ];
   for (const [kind, u] of all){
@@ -1263,10 +1101,10 @@ function findings(){
 
   /* ---- wiring, both directions, same as validate.js ---- */
   const talentIds = confList("TALENT_IDS");
-  const homeIds = confList("HOME_IDS");
+  const homeIds = confList("STORE_IDS");
   const effects = confList("CONSUMABLE_EFFECTS");
   const dataTalents = (U.upgrades || []).map(u => u.id);
-  const dataHome = (U.home || []).map(u => u.id);
+  const dataHome = (U.store || []).map(u => u.id);
 
   const missA = dataTalents.filter(id => !talentIds.includes(id));
   const missB = talentIds.filter(id => !dataTalents.includes(id));
@@ -1276,8 +1114,8 @@ function findings(){
     add("bad", "A catalogue entry and its code list disagree",
       [missA.length ? `In upgrades.json but not TALENT_IDS: <code>${missA.join(", ")}</code> — a card that animates, names itself, raises a level and does nothing.` : "",
        missB.length ? `In TALENT_IDS but not upgrades.json: <code>${missB.join(", ")}</code>.` : "",
-       missC.length ? `In home[] but not HOME_IDS: <code>${missC.join(", ")}</code> — this one also takes the player's money.` : "",
-       missD.length ? `In HOME_IDS but not home[]: <code>${missD.join(", ")}</code>.` : ""].filter(Boolean).join(" "),
+       missC.length ? `In home[] but not STORE_IDS: <code>${missC.join(", ")}</code> — this one also takes the player's money.` : "",
+       missD.length ? `In STORE_IDS but not home[]: <code>${missD.join(", ")}</code>.` : ""].filter(Boolean).join(" "),
       "data/upgrades.json ↔ js/config.js");
   } else {
     add("ok", "Every entry is wired up in both directions",
@@ -1292,7 +1130,7 @@ function findings(){
        a rule read where it is used       G.up.sense
        an action fired when it is granted c.id === "skeleton"
        a tuned number                     upgradeParam("magnet", "pull")
-     A home upgrade is always homeLevel("id"). An id matching NONE of these is
+     A home upgrade is always storeLevel("id"). An id matching NONE of these is
      the failure worth shouting about: a card that animates and does nothing. */
   const wiring = {};
   const src = state.raw.main + "\n" + state.raw.talents + "\n" + state.raw.home;
@@ -1305,7 +1143,7 @@ function findings(){
   }
   for (const id of dataHome){
     const forms = [];
-    if (src.includes('homeLevel("' + id + '")')) forms.push('homeLevel("' + id + '")');
+    if (src.includes('storeLevel("' + id + '")')) forms.push('storeLevel("' + id + '")');
     if (src.includes('upgradeParam("' + id + '"')) forms.push('upgradeParam("' + id + '")');
     wiring[id] = forms;
   }
@@ -1325,7 +1163,7 @@ function findings(){
 
   /* ---- descriptions and their tokens ---- */
   const bad = [];
-  for (const u of [...(U.upgrades || []), ...(U.home || []), ...(U.consumables || [])]){
+  for (const u of [...(U.upgrades || []), ...(U.store || []), ...(U.consumables || [])]){
     const miss = unresolved(u.desc || "", u.params || {});
     if (miss.length) bad.push(`<code>${u.id}</code> → {${miss.join("}, {")}}`);
   }
@@ -1334,7 +1172,7 @@ function findings(){
 
   /* ---- unused params ---- */
   const unusedParams = [];
-  for (const u of [...(U.upgrades || []), ...(U.home || [])]){
+  for (const u of [...(U.upgrades || []), ...(U.store || [])]){
     for (const k of Object.keys(u.params || {})){
       const inDesc = (u.desc || "").includes("{" + k);
       const inCode = state.raw.main.includes(`upgradeParam("${u.id}", "${k}"`) ||
@@ -1352,17 +1190,24 @@ function findings(){
   if (supply < cards) add("bad", "A draft can never fill its grid",
     `${supply} things to offer, <code>draftCards: ${cards}</code>.`, "data/upgrades.json");
 
-  /* ---- rewards vs. the rooms-1 cap ---- */
-  const over = levels.filter(l => (l.rewards ?? 0) > Math.max(0, (l.rooms || 1) - 1));
-  if (over.length) add("bad", "A level promises more talents than it can grant",
-    `${over.map(l => `<code>${l.id}</code> (${l.rewards} promised, ${Math.max(0,(l.rooms||1)-1)} possible)`).join(", ")}. The extra is silently never handed out.`,
-    "data/levels.json — rewards vs. rooms");
+  /* ---- a house too small to teach anything ----
+     The rooms-1 cap is gone with the room-completion model. What can still go
+     wrong is the opposite: a level whose house is under the first tier's floor
+     teaches nothing at all, which is correct for Mom and a mistake anywhere
+     else. */
+  {
+    const silent = levels.filter(l => picksFor(l) === 0);
+    if (silent.length > 2) add("warn", "More than two houses teach no talents at all",
+      `<code>${silent.map(l => l.id).join("</code>, <code>")}</code> — each is under the first tier in
+       <code>picks.tiers</code>. Two is the intended number: Mom's prologue.`,
+      "data/upgrades.json — picks.tiers · data/levels.json — rooms/cont/types");
+  }
 
   /* ---- SKELETON KEY vs. container locks ---- */
   const hasSkel = !!(state.json.furniture.tokens || {}).skel;
   const skelEntry = (U.upgrades || []).find(u => u.id === "skeleton");
   if (hasSkel && skelEntry){
-    const teaching = levels.filter(l => (l.rewards ?? 0) > 0);
+    const teaching = levels.filter(l => picksFor(l) > 0);
     const dead = teaching.filter(l => skelSaving(l, 1) === 0);
     const l2helps = teaching.filter(l => skelSaving(l, 2) > skelSaving(l, 1));
     add("warn", "Skeleton Key cannot touch a container lock, and its description implies it can",
@@ -1389,9 +1234,9 @@ function findings(){
   }
 
   /* ---- Reputation vs. the cap ---- */
-  const repEntry = (U.home || []).find(u => u.id === "picks");
+  const repEntry = (U.store || []).find(u => u.id === "picks");
   if (repEntry){
-    const teaching = levels.filter(l => (l.rewards ?? 0) > 0);
+    const teaching = levels.filter(l => picksFor(l) > 0);
     const wasted = lvl => teaching.filter(l =>
       picksFor(l, l.rooms, lvl) === picksFor(l, l.rooms, lvl - 1));
     const gain = lvl => teaching.reduce((n, l) =>
@@ -1399,7 +1244,7 @@ function findings(){
     const rows = [];
     for (let lvl = 1; lvl <= maxLevel(repEntry); lvl++){
       const w = wasted(lvl), g = gain(lvl);
-      rows.push(`<p><strong>Level ${lvl}</strong> (${ro(costAt(repEntry, lvl - 1) ?? "?", "upgrades.home[" + (U.home||[]).findIndex(x=>x.id==="picks") + "].cost[" + (lvl-1) + "]")} ⭐) —
+      rows.push(`<p><strong>Level ${lvl}</strong> (${ro(costAt(repEntry, lvl - 1) ?? "?", "upgrades.store[" + (U.store||[]).findIndex(x=>x.id==="picks") + "].cost[" + (lvl-1) + "]")} ⭐) —
         dead on <strong>${w.length} of ${teaching.length}</strong> talent-teaching levels, and buys
         <strong>${g}</strong> extra pick${g === 1 ? "" : "s"} across the whole campaign${
           g === 0 ? ". It cannot pay for itself in the campaign at any price" :
@@ -1430,7 +1275,7 @@ function findings(){
       "Reputation makes levels teach talents that were authored to teach none",
       `<p><code>picksFor()</code> is <code>min(rewards + picks, rooms − 1)</code> — it <em>adds</em> before
         it clamps, so <code>rewards: 0</code> is not a floor. With one level of Reputation,
-        <strong>${silent.length}</strong> of the ${levels.filter(l => (l.rewards ?? 0) === 0).length} levels
+        <strong>${silent.length}</strong> of the ${levels.filter(l => picksFor(l) === 0).length} levels
         that deliberately teach nothing start handing out picks:
         ${silent.map(l => "<code>" + l.id + "</code>").join(", ")}.</p>
        <p>Most of those are the tutorial. Every level before 5-1 used to carry <code>"talents": false</code>
@@ -1536,7 +1381,7 @@ function renderEntry(u, kind, idx, ctx){
   const m = MECH[u.id];
   const max = maxLevel(u);
   const params = u.params || {};
-  const root = kind === "talent" ? "upgrades.upgrades" : kind === "home" ? "upgrades.home" : "upgrades.consumables";
+  const root = kind === "talent" ? "upgrades.upgrades" : kind === "home" ? "upgrades.store" : "upgrades.consumables";
   const p = k => `${root}[${idx}].${k}`;
   const resolved = tokenise(u.desc || "", params);
   const isHome = kind === "home";
@@ -1628,11 +1473,11 @@ function unlockText(u, kind, ctx){
     return `Never bought. Shown in a draft only as <strong>back-fill</strong>, when fewer than
       ${UPG().draftCards ?? 3} talents remain unmaxed.`;
   }
-  const teaching = (state.json.levels.levels || []).filter(l => (l.rewards ?? 0) > 0);
+  const teaching = (state.json.levels.levels || []).filter(l => picksFor(l) > 0);
   const firstL = teaching[0];
   return `Drafted in-level, from the first pick onward — <strong>no talent is gated to a level</strong>.
     The earliest draft in the campaign is <code>${firstL ? esc(firstL.id) : "—"}</code>${firstL ? " “" + esc(firstL.name) + "”" : ""},
-    which teaches ${firstL ? firstL.rewards : 0}. Unowned talents are weighted <strong>×3</strong> in the
+    which teaches ${firstL ? picksFor(firstL) : 0}. Unowned talents are weighted <strong>×3</strong> in the
     three-card pool, so a first draft is far more likely to show something new. <em>Gone when the run ends.</em>`;
 }
 
@@ -1640,28 +1485,31 @@ function unlockText(u, kind, ctx){
 function renderWhen(){
   const levels = state.json.levels.levels || [];
   const bands = state.json.sizes.bands || [];
-  const teaching = levels.filter(l => (l.rewards ?? 0) > 0);
-  const totalPicks = levels.reduce((n, l) => n + (l.rewards ?? 0), 0);
-  const rep = (UPG().home || []).find(u => u.id === "picks");
+  const teaching = levels.filter(l => picksFor(l) > 0);
+  const totalPicks = levels.reduce((n, l) => n + picksFor(l), 0);
+  const rep = (UPG().store || []).find(u => u.id === "picks");
   const repMax = rep ? maxLevel(rep) : 0;
 
   const rows = levels.map((l, i) => {
-    const cap = Math.max(0, (l.rooms || 1) - 1);
     const s = lockShape(l);
-    const cols = [];
-    for (let r = 0; r <= repMax; r++) cols.push(picksFor(l, l.rooms, r));
-    const dead1 = cols[1] === cols[0], dead2 = repMax > 1 && cols[2] === cols[1];
+    const rws = Math.round(rowsFor(l));
+    const n = picksFor(l);
+    const at = pickRowsFor(n, rws);
+    /* The FIRST pick as a percentage of the house is the number this whole
+       change was about: a talent that arrives at 80% of a small house has
+       nothing left to be spent on. */
+    const firstPct = at.length ? Math.round(100 * at[0] / rws) : null;
     return `<tr>
       <td class="mono">${esc(l.id)}</td>
       <td>${esc(l.name)}</td>
       <td class="num">${ro(l.rooms, `levels.levels[${i}].rooms`)}</td>
-      <td class="num">${ro(l.rewards ?? 0, `levels.levels[${i}].rewards`)}</td>
-      <td class="num muted">${cap}</td>
-      ${cols.slice(1).map((v, k) => `<td class="num" style="color:${(k===0?dead1:dead2)?"var(--warn)":"var(--good)"}">${v}${(k===0?dead1:dead2)?" ✗":""}</td>`).join("")}
+      <td class="num">${rws}</td>
+      <td class="num" style="color:${n?"var(--good)":"var(--muted)"}">${n}${l.rewards!=null?" *":""}</td>
+      <td class="num mono">${at.length ? at.join(", ") : "—"}</td>
+      <td class="num ${firstPct!=null && firstPct>50 ? "" : "muted"}"
+          style="${firstPct!=null && firstPct>50 ? "color:var(--warn)" : ""}">${firstPct!=null ? firstPct+"%" : "—"}</td>
       <td class="num">${s.doorLocks ? s.doorLocks + " × " + s.doorKeys + " 🔑" : "—"}</td>
       <td class="num">${s.contLocks ? s.contLocks + " × 1 🗝️" : "—"}</td>
-      <td class="num" style="color:${skelSaving(l,1)?"var(--good)":"var(--warn)"}">${skelSaving(l,1) || "0 ✗"}</td>
-      <td class="num" style="color:${skelSaving(l,2)>skelSaving(l,1)?"var(--good)":"var(--warn)"}">${skelSaving(l,2)}</td>
     </tr>`;
   }).join("");
 
@@ -1684,18 +1532,21 @@ function renderWhen(){
     </div>
     <div class="wrapscroll"><table class="grid">
       <thead><tr>
-        <th>Level</th><th>Name</th><th class="num">Rooms</th><th class="num">rewards</th><th class="num">cap</th>
-        ${Array.from({length:repMax},(_, r)=>`<th class="num">Rep ${r+1}</th>`).join("")}
+        <th>Level</th><th>Name</th><th class="num">Rooms</th><th class="num">Rows</th>
+        <th class="num">Picks</th><th class="num">Granted at row</th><th class="num">First at</th>
         <th class="num">Locked doors</th><th class="num">Locked chests</th>
-        <th class="num">Skel 1</th><th class="num">Skel 2</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <p class="lede" style="margin-top:10px">
-      <strong>Rep 1 / Rep 2</strong> — picks this level would actually grant with that many levels of Reputation;
-      ✗ means the <code>rooms − 1</code> cap ate it. Note the top of the table: a level authored
-      <code>rewards: 0</code> still hands out picks once Reputation is bought, because
-      <code>picksFor()</code> adds before it clamps.
+      <strong>Rows</strong> is this house's total row count, estimated the way <code>rowsFor()</code>
+      estimates it — the game measures the real generated house, so treat it as a floor.
+      <strong>Picks</strong> is what <code>picks.tiers</code> gives a house that size; a <code>*</code>
+      means the level overrode it with <code>rewards</code>.
+      <strong>Granted at row</strong> is the completed-row count that buys each one, and
+      <strong>First at</strong> is that first threshold as a percentage of the house — the number this
+      whole model exists for. Anything over 50% is amber: a talent arriving that late has most of a
+      house behind it and little left to be spent on.
       <strong>Locked doors / chests</strong> — <em>count × keys each</em>, as <code>generate.js</code> builds
       them. A chest is always one key.
       <strong>Skel 1 / Skel 2</strong> — keys Skeleton Key actually removes from this house at that talent
@@ -1712,10 +1563,10 @@ function renderEconomy(){
   let rows = 0, caches = 0, rooms = 0;
   for (const l of levels){ rows += rowsFor(l); caches += (l.caches || 0); rooms += (l.rooms || 0); }
   rows = Math.round(rows);
-  const wageEach = ((U.home || []).find(u => u.id === "wage")?.params?.each) ?? 1;
-  const wageMax = maxLevel((U.home || []).find(u => u.id === "wage") || { levels:0 });
+  const wageEach = ((U.store || []).find(u => u.id === "wage")?.params?.each) ?? 1;
+  const wageMax = maxLevel((U.store || []).find(u => u.id === "wage") || { levels:0 });
 
-  const homeAll = (U.home || []).reduce((n, u) => n + totalCost(u), 0);
+  const homeAll = (U.store || []).reduce((n, u) => n + totalCost(u), 0);
   const castCold = (state.json.clients.clients || []).reduce((n, c) => n + (c.cost || 0), 0);
   const castReferred = A.reduce((n, a) =>
     n + priceOf(a.client, 0, !!(a.client.needs)), 0);
@@ -1725,7 +1576,7 @@ function renderEconomy(){
   let bank = 0;
   const arcRows = A.map(a => {
     let inc = 0, picks = 0;
-    for (const s of a.stages){ if (!s.level) continue; inc += rowsFor(s.level) + (s.level.caches || 0); picks += s.level.rewards ?? 0; }
+    for (const s of a.stages){ if (!s.level) continue; inc += rowsFor(s.level) + (s.level.caches || 0); picks += picksFor(s.level); }
     const price = priceOf(a.client, 0, !!a.client.needs);
     bank += inc;
     return `<tr>
@@ -1739,7 +1590,7 @@ function renderEconomy(){
     </tr>`;
   }).join("");
 
-  const cardsU = (U.home || []).find(u => u.id === "cards");
+  const cardsU = (U.store || []).find(u => u.id === "cards");
   let cardRows = "";
   if (cardsU){
     for (let lvl = 1; lvl <= maxLevel(cardsU); lvl++){
@@ -1788,7 +1639,7 @@ function renderEconomy(){
           ${A.filter(a => !a.client.cost).length} of ${A.length} clients are free, so you cannot reach most of
           those rows until you have paid for the person who owns them. The arc table below is the honest
           version — income unlocked per client, banked as you go.</p>
-        <span class="src">js/main.js — afterMutation() · data/upgrades.json — _homeNote</span>
+        <span class="src">js/main.js — afterMutation() · data/upgrades.json — _storeNote</span>
       </div>
     </div>
     <h4 style="margin:18px 0 8px">What each client is worth, in board order</h4>
@@ -1838,7 +1689,7 @@ function renderDraft(){
     <p class="lede" style="margin-top:8px">Share is that talent's slice of the weighted bag on a single
       draw — the real chance of appearing in a grid is higher, since ${cards} distinct ids are taken.
       With ${ups.length} talents and ${ups.reduce((n,u)=>n+maxLevel(u),0)} levels between them, the deepest
-      house in the game (${Math.max(...(state.json.levels.levels||[]).map(l=>l.rewards??0))} picks +
+      house in the game (${Math.max(...(state.json.levels.levels||[]).map(l=>picksFor(l)))} picks +
       Reputation) still cannot drain the pool, so the consumable back-fill should never be seen in the
       campaign.</p>
     <details class="code" open><summary>The draft, read live</summary>
@@ -1869,7 +1720,7 @@ function renderSources(){
       <code>DATA_VERSION ${esc(conf("DATA_VERSION","?"))}</code> ·
       <code>INV_SIZE ${esc(conf("INV_SIZE","?"))}</code> ·
       TALENT_IDS <code>${confList("TALENT_IDS").join(", ")}</code> ·
-      HOME_IDS <code>${confList("HOME_IDS").join(", ")}</code></p>
+      STORE_IDS <code>${confList("STORE_IDS").join(", ")}</code></p>
   </section>`;
 }
 
@@ -1884,7 +1735,7 @@ function render(){
   document.getElementById("editBtn").textContent = EDIT.on ? "📖 Done editing" : "✏️ Edit";
 
   const talents = (U.upgrades || []).map((u, i) => renderEntry(u, "talent", i, ctx)).join("");
-  const home = (U.home || []).map((u, i) => renderEntry(u, "home", i, ctx)).join("");
+  const home = (U.store || []).map((u, i) => renderEntry(u, "home", i, ctx)).join("");
   const cons = (U.consumables || []).map((u, i) => renderEntry(u, "consumable", i, ctx)).join("");
 
   document.getElementById("out").innerHTML = `
@@ -1908,7 +1759,7 @@ function render(){
       ${talents}
     </section>
     <section id="home">
-      <h2>Permanent upgrades <span class="count">${(U.home||[]).length} upgrades · ${num((U.home||[]).reduce((n,u)=>n+totalCost(u),0))} ⭐ to max everything</span></h2>
+      <h2>Permanent upgrades <span class="count">${(U.store||[]).length} upgrades · ${num((U.store||[]).reduce((n,u)=>n+totalCost(u),0))} ⭐ to max everything</span></h2>
       <p class="lede">Bought at the main menu with ⭐ and kept forever. <code>cost</code> is per level taken:
         an array prices each level separately, a number prices them all the same.</p>
       ${home}

@@ -39,30 +39,33 @@ import { play as sfx } from './audio.js';
 
 let onGrant = () => {};
 let onFileHands = () => 0;
-let onSkeleton = () => {};
 /* main.js owns rendering AND the rules; it hands us callbacks so this module
    never has to import either tier (which would be a cycle). A consumable that
-   moves items has to reach the rules, so it reaches them through here — and so
-   does Skeleton Key, which is the one talent that acts on the world the moment
-   it is learned rather than changing a rule that is read later. */
-export function initTalents({ grant, fileHands, skeleton }) {
+   moves items has to reach the rules, so it reaches them through here.
+
+   There used to be a third, `skeleton`, for the one talent that acted on the
+   WORLD the moment it was learned rather than changing a rule read later. It
+   is cut, and the seam went with it — but the shape is worth remembering,
+   because the next talent that changes the house on the spot will want it. */
+export function initTalents({ grant, fileHands }) {
   onGrant = grant;
   onFileHands = fileHands;
-  onSkeleton = skeleton || (() => {});
 }
 
-/* A ROOM IS FINISHED — is that worth a talent?
+/* A ROW JUST LANDED ON ONE OF THIS HOUSE'S THRESHOLDS — owe a pick.
 
-   Called from afterMutation's room-complete branch, which is already the one
-   place that knows a room has just come clean and already fires exactly once
-   per room (`G.roomFxDone` guards it). So this needs no guard of its own: it
-   is called once per room per run, and it hands out a pick while the level has
-   any left to give.
+   Called from afterMutation's row-award branch, which is the one place that
+   knows a row has just been completed for the FIRST time (`G.awarded` guards
+   it), so this needs no guard of its own beyond the ceiling.
 
-   `G.picksMax` is the level's authored `rewards`, plus the Reputation upgrade,
-   clamped to rooms-1 — computed once at run start by main.js, because it
-   depends on the home layer and this module must not import it. */
-export function roomFinished() {
+   It used to be `roomFinished()`, called once per room. Rows instead, because a
+   room completes too late to be worth a talent — and on a small house the first
+   room completing is already most of the level.
+
+   `G.picksMax` and `G.pickAtRow` are both derived at run start by syncPicks()
+   in main.js, because they depend on the store layer and this module must not
+   import it. */
+export function grantPick() {
   if (G.picksTaken + G.pendingDrafts >= G.picksMax) return;
   G.pendingDrafts++;
   /* The ⭐ button appears the exact moment it means something. */
@@ -133,15 +136,23 @@ function cardForUpgrade(u) {
 export function openDraft() {
   const cards = pool();
   if (!cards.length) {
-    /* Nothing left to choose — every talent maxed. Never open a modal with no
-       decision in it; pay out in the currency that still means something and
-       move on. `onGrant(null)` is what banks it, because ⭐ is a wallet in
-       js/home.js now and this module deliberately cannot see it. */
+    /* NOTHING LEFT TO CHOOSE, which should be impossible: a house grants at
+       most three picks and the pool is deeper than that, so reaching here means
+       the catalogue and the tier table disagree.
+
+       It used to pay +3 ⭐ instead, on the grounds that a modal with no decision
+       in it should never open. Two things were wrong with that. It never called
+       addStars(), so the chip flew at a wallet that did not move — the tool's
+       leak detector had been reporting it for as long as it existed. And ⭐ is
+       minted by ROOMS now, deliberately and scarcely; a talent draft quietly
+       printing money is the exact thing the starved economy is meant to stop.
+
+       So it consumes the pick and says so, loudly, because it is a
+       configuration bug rather than a game event. */
+    console.warn("[Tidy Adventures] a talent was owed but the draft pool is empty — " +
+      "check TALENT_IDS against upgrades.json and picks.tiers.");
     G.pendingDrafts--;
     G.picksTaken++;
-    G.points += 3; G.starsEarned += 3;
-    onGrant({ kind: "consumable", effect: "stars", amount: 3, icon: "⭐", name: "Lucky Find" });
-    flyReward(shopBtn, "+3 ⭐");
     return;
   }
 
@@ -193,11 +204,10 @@ function choose(c, cardEl, grid) {
 
   if (c.kind === "upgrade") {
     G.up[c.id] = (G.up[c.id] || 0) + 1;
-    /* `hands` used to be handled here; it is a HOME upgrade now and is applied
-       once at run start instead. Every talent left in this list is read where
-       it is used, so there is nothing to do at grant time except two that fire
-       immediately rather than changing a rule: */
-    if (c.id === "skeleton") onSkeleton();
+    /* NOTHING TO DO AT GRANT TIME. Every talent in the list is read where it is
+       used, so taking one only has to raise its level. `hands` was handled here
+       once (it is a store upgrade now, applied at run start) and so was
+       Skeleton Key, which acted on the world immediately; both are gone. */
   } else {
     applyConsumable(c);
   }
@@ -219,7 +229,9 @@ function choose(c, cardEl, grid) {
    and doing nothing at all. */
 function applyConsumable(c) {
   switch (c.effect) {
-    case "stars":     G.points += c.amount; G.starsEarned += c.amount; break;
+    /* `stars` used to be here, granting the run's counter without ever banking
+       to the wallet. Gone with Lucky Find itself: see the note in
+       upgrades.json's consumables block. */
     case "fileHands": onFileHands(); break;
     default:
       /* Unreachable if validation ran, which is exactly why it is worth saying

@@ -6,7 +6,7 @@
    input tiers still live here. See docs/CLAUDE.md for the target graph.
 ============================================================ */
 import {
-  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, LEGACY_ORDER,
+  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, LEGACY_ORDER, ID_MAP,
   FREE_KEY,
   TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START, REVEAL_MS,
@@ -38,13 +38,12 @@ import {
   resetPan, resetZoom, isZoomed, camScale, setCamSmooth, fitScale,
 } from './camera.js';
 import {
-  initTalents, drainDrafts, renderTalents, openDraft, roomFinished, picksLeft,
+  initTalents, drainDrafts, renderTalents, openDraft, grantPick, picksLeft,
 } from './talents.js';
 import {
-  initHome, openHome, stars, addStars, homeLevel, castHas, castUnlocked,
-  peekNewHire, takeNewHire, wasReferred, priceOf, clearHome, grantStars, homeState,
-  hireAll, maxHome, homeSummary,
-} from './home.js';
+  initStore, openStore, stars, addStars, storeLevel, clearStore, grantStars,
+  storeState, maxStore, storeSummary, respec,
+} from './store.js';
 import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted,
          playMusic, nowPlayingMusic, musicDebug } from './audio.js';
 import {
@@ -81,7 +80,27 @@ const NAMES    = LOOKUP.names;
 function doneIds(){
   try{
     const raw=localStorage.getItem(DONE_KEY);
-    if(raw!=null) return new Set(JSON.parse(raw));
+    if(raw!=null){
+      const stored=JSON.parse(raw);
+      /* THE ID RENAME LANDS HERE. This set holds level IDS, so a save written
+         before `1-1` became `MOM-1` would match nothing and read as "you have
+         played none of it" — a silent, total progress wipe. Map anything the
+         old scheme knew about, keep anything it did not (a current id passes
+         straight through), and write the result back so this costs one pass per
+         save rather than one per call. Idempotent: mapping twice is mapping
+         once, because no new id is also an old one. */
+      const out=new Set(), migrated=[];
+      for(const id of stored){
+        const to=ID_MAP[id];
+        if(to){ out.add(to); migrated.push(id+"->"+to); } else out.add(id);
+      }
+      if(migrated.length){
+        saveDone(out);
+        console.info("[Tidy Adventures] migrated "+migrated.length+
+          " finished level id(s) to the new scheme: "+migrated.join(", "));
+      }
+      return out;
+    }
   }catch(e){}
   /* Nothing under the new key: migrate the old integer through the frozen
      order the campaign had when it was written. Reading it against TODAY's
@@ -139,24 +158,18 @@ function setDebugUnlock(on){
    `frontier` is how far you've ever got; `now` is the earliest job you have
    not finished, which after an insertion is the new one. */
 /* ============================================================
-   PROGRESS — and why the board had to become dynamic
+   PROGRESS — ONE GATE
 
-   Two gates now, not one. The FRONTIER is how far you have got; HIRING is
-   whether you have a client at all. The campaign is no longer all there at the
-   start: you get Mom and Marguerite and buy the rest at home, so two players
-   twenty levels in can have completely different casts, and the board cannot
-   promise "the one after next" the way it used to.
+   The frontier, and nothing else. It was briefly two: the cast was bought at
+   Home, so a level also needed a client you owned, and the board could not
+   promise "the one after next" because two players twenty levels in could have
+   completely different casts. That is gone — every client is `cost: 0` and the
+   campaign is linear again, in the order levels.json lists them.
 
-   `hired` is the set of level ids whose client you own. Everything downstream
-   — the tile states, the faces, `now`, the win screen's next-job card — reads
-   it rather than each working it out, which is the same discipline the debug
-   unlock override already follows.
-
-   THE NEW HIRE JUMPS THE QUEUE. Buying somebody should hand you that person,
-   not leave you to find them in a grid of thirty-four, so `now` points at
-   their first job. Everything you skipped to get there sits behind you as
-   `open` — playable-but-unplayed — which the done-set-plus-frontier model was
-   built for when levels became insertable.
+   The `hired` set, the `unhired` tile state and the new-hire queue jump all
+   went with it. `open` — playable, unplayed, not the next one up — stays,
+   because it is what a level INSERTED behind an existing player's frontier
+   looks like, which is still a thing that happens.
 ============================================================ */
 function progress(){
   const done=doneIds();
@@ -168,36 +181,9 @@ function progress(){
   const unlocked=debugUnlocked();
   if(unlocked) frontier=LEVELS.length;
 
-  /* Which levels you have somebody for. Unlock-all also unlocks the cast —
-     otherwise the button that exists to let you look at any level would open a
-     board of silhouettes. */
-  const cast=castUnlocked();
-  const hired=new Set(LEVELS.filter((lv,i)=>{
-    const job=jobAt(i);
-    return unlocked || (job && cast.has(job.client.id));
-  }).map(lv=>lv.id));
-
-  const playable=(lv,i)=> i<=frontier && hired.has(lv.id);
-  let now=LEVELS.findIndex((lv,i)=> playable(lv,i) && !done.has(lv.id));
-
-  /* Just hired somebody? Their first job IS what you bought, so it is next
-     until you have played it — not until you have looked at the board. Cleared
-     the moment it is honoured, which makes this safe to call from anywhere. */
-  const fresh=peekNewHire();
-  if(fresh){
-    /* THEIR FIRST STAGE, not their next unplayed one. The promise is "the very
-       next job you get", singular — hijacking `now` for a client's whole arc
-       would make every purchase override the normal earliest-unfinished rule
-       for three levels, which is a different and much bigger promise. */
-    const at=LEVELS.findIndex((lv,i)=>{
-      const job=jobAt(i);
-      return job && job.client.id===fresh && job.stageNo===1;
-    });
-    if(at!==-1 && hired.has(LEVELS[at].id) && !done.has(LEVELS[at].id)) now=at;
-    else takeNewHire();          /* played, or unreachable: promise discharged */
-  }
+  let now=LEVELS.findIndex((lv,i)=> i<=frontier && !done.has(lv.id));
   if(now===-1) now=Math.min(frontier, LEVELS.length);
-  return { done, frontier, now, hired, count:done.size, unlocked };
+  return { done, frontier, now, count:done.size, unlocked };
 }
 /* ============================================================
    FREE-PLAY PROGRESS
@@ -488,9 +474,10 @@ function loadGame(){
       rooms:d.rooms, items:d.items, typeHome:d.typeHome, locks:d.locks,
       rowLen:d.rowLen||5, theme:d.theme||DATA.themes.defaultTheme,
       tips:(lv?.tips||[]).map(t=>({...t})),
-      /* Derived, never saved — see saveGame. A run resumed after buying
-         Reputation gets the extra pick immediately. */
-      picksMax: picksFor(lv, d.rooms?.length || 0),
+      /* Derived, never saved — see saveGame. syncPicks() fills picksMax,
+         totalRows and pickAtRow from the rebuilt rooms, via resumeStore() a few
+         lines below; it cannot run here because the rooms are not in G yet. */
+      picksMax: 0,
       tipsDone:new Set(d.tipsDone||[]),
       tipShown:new Set(d.tipsDone||[]),
       events:new Set(d.events||[]),
@@ -532,9 +519,9 @@ function loadGame(){
        and throwing the run away. */
     unstickFloorItems(G.rooms, G.items);
     /* Home upgrades are not in the save — they are bought outside a run and
-       read live, so a resume picks up anything bought since. resumeHome()
-       rather than applyHome() because the two differ on the one-shot: see it. */
-    resumeHome();
+       read live, so a resume picks up anything bought since. resumeStore()
+       rather than applyStore() because the two differ on the one-shot: see it. */
+    resumeStore();
     return true;
   }catch(e){ return false; }
 }
@@ -658,10 +645,14 @@ function openCache(cacheIdx, it, fromSlot){
     const s=nearestFloorSpot(room, cx+Math.cos(a)*d, cy+Math.sin(a)*d, {padName:"toss"});
     o.loc={kind:"floor",room:room.id,x:s.x,y:s.y,rot:spin(25)};
   }
-  G.points++; G.starsEarned++;
+  /* NO ⭐ FOR OPENING A CACHE. It used to pay 1 — a star that never reached the
+     wallet, because this site never called addStars(), so the chip was a lie
+     the whole time. Not fixed but removed: a cache is a lock and a key that
+     makes you look at the room a different way, and its reward is the stash.
+     It does not need paying for, and paying for it was odd twice over, since
+     the burst ADDS three to five items to file. */
   sfx("cacheOpen"); aside("cache");
   renderRoom(); renderHUD();
-  flyStar(host.querySelector(`.cache[data-cache="${cacheIdx}"]`) || host, "+1 ⭐");
   return true;
 }
 
@@ -722,7 +713,11 @@ function insertContainerKey(contIdx, it, fromSlot){
    "Could take it right now" is the literal reading, and the honest one: a
    locked chest or a full one glows for nothing, because you cannot act on it. */
 function homesick(room, it){
-  if(!G.up.homesick) return false;
+  /* INTUITION RUNG 1. The glow is the cheapest true thing the game can say —
+     "this lives in here" — and it is what the whole ladder is built on: rung 2
+     names the room, rung 3 names the furniture. Any level of the talent lights
+     the floor, because taking a higher rung must never take the glow away. */
+  if(!G.up.intuit) return false;
   if(it.isKey||it.isCoin||it.isNote||it.token) return false;
   const h=G.typeHome[it.type];
   if(!h || h.room!==room.id) return false;
@@ -785,7 +780,9 @@ function buildRoomEl(room){
     /* Don't point at a container that's locked or already finished — there's
        nothing you can do with the hint, and on a finished one it competes
        with the gold that means "done". */
-    if(G.up.sense && !locked && !done && G.sel!==null && G.inv[G.sel]!==null){
+    /* INTUITION RUNG 3 lights the furniture itself. Rung 2 only names the room,
+       so pointing at the exact container here would hand out rung 3 early. */
+    if(G.up.intuit>=3 && !locked && !done && G.sel!==null && G.inv[G.sel]!==null){
       const held=G.items[G.inv[G.sel]];
       if(!held.isKey && !held.isCoin && !held.isNote){
         const home=G.typeHome[held.type];
@@ -843,7 +840,7 @@ function buildRoomEl(room){
          box, and a container with twelve types would push the real badges off
          the end of it. */
       if(G.up.label){
-        const show=(upgradeParam("label","show",2)||2) + (G.up.label - 1);
+        const show=(upgradeParam("label","show",1)||1) + (G.up.label - 1);
         let n=0;
         for(const [t,h] of Object.entries(G.typeHome)){
           if(n>=show) break;
@@ -903,7 +900,7 @@ function buildRoomEl(room){
        across the whole house, the talent is permanent and only ever renders
        the room you are standing in, because burial IS the feature (see bury()
        in generate.js) and un-burying the house would delete the hunt. */
-    sp.className="item"+(it.token?" buried":"")+((G.reveal||G.up.keyring)&&it.token?" revealed":"")
+    sp.className="item"+(it.token?" buried":"")+(G.reveal&&it.token?" revealed":"")
       +(homesick(room, it)?" homesick":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
@@ -1206,15 +1203,31 @@ function renderInv(){
   }else lbl.textContent="";
 }
 
+/* WHAT THE THING IN YOUR HAND ADMITS TO — rungs 2 and 3 of Intuition.
+
+   Rung 1 is the floor glow (see homesick) and says nothing here: knowing an
+   item lives in THIS room is already on screen, and repeating it in the label
+   would make the second rung feel like nothing. So:
+
+     rung 2  the room, and only the room — "→ the Attic". In the room you are
+             standing in that is "→ in here", which is worth saying out loud
+             rather than leaving blank, because blank reads as broken.
+     rung 3  the furniture, with the room in brackets when it is elsewhere.
+             This is what the single old `sense` talent did from its one and
+             only level. */
 function senseSuffix(it){
-  if(!G.up.sense) return "";
+  const lv=G.up.intuit|0;
+  if(lv<2) return "";
   if(it.token==="skel") return " → one specific lock";
   if(it.isKey) return " → a lock";
   if(it.isCoin) return " → a coin slot";
   const home=G.typeHome[it.type];
+  if(!home) return "";
   const hr=G.rooms[home.room];
+  const here=home.room===G.current;
+  if(lv<3) return here ? " → in here" : " → "+hr.name;
   const hc=hr.containers[home.cont];
-  return " → "+hc.name+(home.room!==G.current?" ("+hr.name+")":"");
+  return " → "+hc.name+(here?"":" ("+hr.name+")");
 }
 
 function renderContainer(flashRows){
@@ -1317,23 +1330,29 @@ function afterMutation(room, c, changedRows, opts={}){
   let earned=0;
   for(const r of newly){
     const k=room.id+"|"+c.id+"|"+r;
-    if(!G.awarded.has(k)){ G.awarded.add(k); G.points++; earned++; }
+    if(!G.awarded.has(k)){
+      G.awarded.add(k); earned++;
+      /* A ROW IS WHAT BUYS A TALENT — and nothing else. It used to pay 1 ⭐ as
+         well, which at 2,055 rows across the campaign minted more money than
+         the whole shop cost, twice over. ⭐ comes from ROOMS now; a row buys
+         talents and a room buys upgrades, so the two currencies have different
+         textures and neither can inflate the other.
+
+         Inside the dedupe branch and not off `newly`, because `newly` is "rows
+         that are complete right now" — a second tap in a finished container
+         would re-offer a pick already paid for. G.awarded.size IS the
+         completed-row count, so no separate counter exists to drift from it.
+         One pick per row even if two thresholds collide: pickRowsFor() already
+         de-duplicates them, so this can afford to be a plain lookup. */
+      if(G.pickAtRow.includes(G.awarded.size)) grantPick();
+    }
   }
   const contDone=containerComplete(c);
-  G.starsEarned+=earned;
 
-  /* Rewards fly to the ⭐ rather than printing a sentence: it reads without
-     reading, and it teaches where stars accumulate. The gold flash on the
-     container is already saying "complete". Immediate, not queued — this one
-     is the receipt for the tap that just happened. */
-  if(earned){
-    const fe=host.querySelector(`.furn[data-cont="${c.id}"]`) || contGrid;
-    flyStar(fe, "+"+earned+" ⭐");
-    /* BANKED AS THEY LAND, not at the win screen. ⭐ is money and quitting a
-       house half way through a phone call must not cost you the money you
-       already earned. Free play mints none — see the note in sizes.json. */
-    if(G.mode==="campaign") addStars(earned);
-  }
+  /* NO ⭐ RECEIPT HERE ANY MORE. A completed row used to fly a "+N ⭐" chip at
+     the wallet from the container that just filled. The row's own gold flash is
+     still saying "complete", which was always the larger half of the feedback;
+     what is gone is the money, because rows do not mint it. */
   if(contDone){
     celebrate({key:"cont", ms:620, run(){ sfx("contComplete"); }});
     fire("contComplete", {container:c.short||c.name});
@@ -1347,8 +1366,13 @@ function afterMutation(room, c, changedRows, opts={}){
       if(G.openCont===c.id && G.current===room.id) closeCont();
     }});
   }
-  else if(newly.length) celebrate({key:"row", ms:280, run(){ sfx("rowComplete"); }});
-  if(newly.length) fire("rowComplete", {container:c.short||c.name});
+  /* `earned`, not `newly.length`. `newly` is every row that is complete right
+     now, so re-opening a finished container and tapping in it re-fired the
+     chime and the rowComplete event on work that was already done. `earned`
+     counts only rows crossing into completion for the first time — it is what
+     the ⭐ receipt used to be spent on, and it is the honest signal. */
+  else if(earned) celebrate({key:"row", ms:280, run(){ sfx("rowComplete"); }});
+  if(earned) fire("rowComplete", {container:c.short||c.name});
 
   /* Room completion is the biggest moment in the game and v3 marked it with
      a 1400ms toast. Now the gold visibly travels outward from the centre —
@@ -1356,17 +1380,31 @@ function afterMutation(room, c, changedRows, opts={}){
   if(roomComplete(room) && !G.roomFxDone.has(room.id)){
     G.roomFxDone.add(room.id);
     fire("roomComplete", {room:room.name});
-    /* A WHOLE ROOM IS WHAT BUYS A TALENT NOW. Outside the celebration beat on
-       purpose: the beat is a 1.5s animation and the pick is deferred to the
-       next safe moment anyway, so queueing the grant behind the ripple would
-       only make it land later for no reason. roomFinished() is idempotent per
-       room because this branch is guarded by G.roomFxDone. */
-    roomFinished();
-    /* And Good Name pays a bonus for it — the one home upgrade that touches
-       the star rate, applied at the single place a room can complete. */
-    const bonus = homeLevel("wage") * (upgradeParam("wage", "each", 1));
-    if(bonus && G.mode==="campaign"){
-      G.points += bonus; G.starsEarned += bonus; addStars(bonus);
+    /* A ROOM NO LONGER BUYS A TALENT — a row does, up in the award loop. Room
+       completion was the wrong beat: it is the biggest moment the game has, but
+       it arrives late, and on a small house the FIRST room finishing is already
+       most of the way through the level, so the talent landed with nothing left
+       to spend it on.
+
+       A ROOM IS WHERE ⭐ COMES FROM, and this is the single place one can
+       complete, so it is the single place money is minted. One star, flat. Good
+       Name used to add +1/2/3 on top of it and is cut: a star-rate multiplier
+       is the last thing an economy being deliberately starved needs.
+
+       ONCE PER LEVEL, EVER. `G.awarded` only stops a row paying twice inside
+       one run, and a finished tile stays clickable, so replaying the campaign
+       used to re-pay every star in it without limit. A level is worth what it
+       is worth the first time you finish it and nothing after that — which is
+       what makes 136 rooms a real budget rather than a rate. Free play mints
+       none at all, as before: it is 215 houses and would be an unbounded farm.
+
+       Deliberately NOT `G.mode==="campaign" && !done` computed once at run
+       start: a level completed DURING this run must keep paying for its
+       remaining rooms, and doneIds() does not gain this level's id until the
+       win screen writes it. */
+    const paid = G.mode==="campaign" && !doneIds().has(currentCfg()?.id);
+    if(paid){
+      G.points++; G.starsEarned++; addStars(1);
     }
     celebrate({key:"room"+room.id, ms:1500, inRoom:true, run(){
       /* Repaint FIRST so the walls are gold and the element is the one that
@@ -1375,7 +1413,7 @@ function afterMutation(room, c, changedRows, opts={}){
       renderRoom();
       sfx("roomComplete");
       roomCompleteFX(roomEl());
-      if(bonus) flyStar(roomEl(), "+"+bonus+" ⭐");
+      if(paid) flyStar(roomEl(), "+1 ⭐");
       aside("room", {room:room.name}, {key:"room"+room.id});
     }});
   }
@@ -1440,26 +1478,31 @@ function tapSlot(i){
   if(G.inv[i]===null) return;
   G.sel = (G.sel===i) ? null : i;
   renderInv();
-  if(G.up.sense) renderRoom();
+  if(G.up.intuit) renderRoom();   /* the furniture glow follows the selection */
 }
 
 /* ============================================================
-   THE CASCADE — One Trip and Magnet Fingers
+   THE CASCADE — Tidy Hands
 
-   Both talents answer the same complaint from the notes doc: filing is done
-   one item at a time even when the next five are obviously the same errand.
-   They fire at the same moment (a correct placement) and differ only in where
-   they reach:
+   ONE TALENT, TWO REACHES. This was two: One Trip took things out of your
+   HANDS and Magnet Fingers pulled them off the FLOOR. They fired at the same
+   moment, on the same condition, in this same function, and drafting either one
+   felt like nothing had happened — because each moved one or two items,
+   silently, inside an action the player had already committed to. Two ids for
+   one idea, each too small to notice. Merged.
 
-     One Trip       your HANDS. Level 1 takes the same kind, level 2 takes
-                    anything you're carrying that lives in this container.
-     Magnet Fingers the FLOOR of this room, `pull` items of the filed kind per
-                    level.
+     level 1   `pull` of the filed kind, from your hands AND this floor
+     level 2   and anything else in your hands that lives in this container
+     level 3   more of both
 
    Only on a CORRECT placement, deliberately. A wrong drop is information — the
    grey shake is how the game teaches where things live — and cascading five
    more items into the wrong home would turn one mistake into six, then make
    the player undo all of them. Getting it right is what pays.
+
+   STILL TO DO (see the _note in upgrades.json): this needs real magnitude and
+   a sound of its own. Merging the ids stops it being two invisible talents; it
+   does not by itself stop it being one.
 
    Returns how many extra items it filed, so the caller can say so.
 ============================================================ */
@@ -1479,27 +1522,32 @@ function cascade(room, c, contIdx, type){
     return h && h.room===room.id && h.cont===contIdx;
   };
 
-  /* ---- One Trip: out of your hands ---- */
-  if(G.up.oneTrip){
-    for(let s=0;s<G.inv.length;s++){
-      const id=G.inv[s];
-      if(id===null) continue;
-      const o=G.items[id];
-      if(o.isKey||o.isCoin||o.isNote) continue;
-      /* Level 1 is "and the others like it"; level 2 is "and everything else
-         that lives in this drawer". Level 2 is the one the doc asked for;
-         level 1 exists so the talent has somewhere to grow from. */
-      const want = G.up.oneTrip>=2 ? livesHere(o) : (o.type===type && livesHere(o));
-      if(!want) continue;
-      if(!put(o)) break;
-      G.inv[s]=null;
-    }
-    G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
-  }
+  const lv=G.up.tidyHands|0;
+  if(!lv) return filed;
+  /* One budget shared across both reaches, so a level is worth the same number
+     of items however they happen to be spread between your hands and the
+     floor. Two independent budgets made the talent quietly twice as strong in
+     a room you had already picked over. */
+  let budget=lv*upgradeParam("tidyHands","pull",1);
 
-  /* ---- Magnet Fingers: off the floor of this room ---- */
-  if(G.up.magnet){
-    const budget=G.up.magnet*upgradeParam("magnet","pull",1);
+  /* ---- out of your hands ---- */
+  for(let s=0;s<G.inv.length && budget>0;s++){
+    const id=G.inv[s];
+    if(id===null) continue;
+    const o=G.items[id];
+    if(o.isKey||o.isCoin||o.isNote) continue;
+    /* Level 1 is "and the others like it"; level 2 is "and everything else
+       that lives in this drawer". */
+    const want = lv>=2 ? livesHere(o) : (o.type===type && livesHere(o));
+    if(!want) continue;
+    if(!put(o)) break;
+    G.inv[s]=null;
+    budget--;
+  }
+  G.sel=G.inv.findIndex(v=>v!==null); if(G.sel===-1)G.sel=null;
+
+  /* ---- off the floor of this room ---- */
+  if(budget>0){
     const loose=Object.values(G.items)
       .filter(o=>o.loc.kind==="floor" && o.loc.room===room.id && o.type===type)
       /* Nearest first, so what flies home is what you could see — the talent
@@ -1787,17 +1835,14 @@ function moveWithinContainer(fromRow,fromCol,toRow,toCol){
    deliberately cannot see the render tier or the rules. So the two things it
    needs from up here are handed in, exactly as initTalents() does it.
 ============================================================ */
-initHome({
+initStore({
   /* A PURCHASE CHANGES TWO SCREENS AT ONCE. The title screen shows the wallet
      on its Home button and the Continue card reads the cast; and if a run is
      already going, buying Reputation has to add its pick to the house you are
      standing in rather than the one after it. */
   change(){
     refreshTitle();
-    if(G.active){
-      G.picksMax = picksFor(currentCfg(), G.rooms.length);
-      renderHUD();
-    }
+    if(G.active){ syncPicks(); renderHUD(); }
   },
   back(){ showTitle(); },
 });
@@ -1812,21 +1857,6 @@ initTalents({
      this room. Reuses the same bestSpot/afterMutation path a hand placement
      takes, so a row it completes celebrates and pays out exactly like one you
      filed yourself. */
-  /* SKELETON KEY acts on the world the moment it is learned rather than
-     changing a rule that is read later, so it needs the rules tier — which
-     talents.js cannot import. Every lock still shut wants one key fewer,
-     FLOORED AT ONE: a lock needing zero keys is a lock that is already open,
-     and opening every door in the house off one talent card is not a talent,
-     it is an end to the level. */
-  skeleton(){
-    let n=0;
-    for(const l of G.locks){ if(!l.open && l.need>1){ l.need--; n++; } }
-    for(const r of G.rooms) for(const c of r.containers){
-      if(c.lock && !c.lock.open && c.lock.need>1){ c.lock.need--; n++; }
-    }
-    renderRoom(); renderHUD();
-    return n;
-  },
   fileHands(){
     if(!G.active) return 0;
     const room=G.rooms[G.current];
@@ -1988,16 +2018,16 @@ function nextJobCard(idx, onGo){
      Falling back to the level blurb keeps this card from ever rendering an
      empty gap.
 
-     WARM OR COLD. A first stage's hook is a REFERRAL — "Your name reached me
-     through the small green thing that has been measuring my tower" — and the
-     cast is bought in any order now, so that line can arrive before the person
-     it names. `hookCold` is the version for having found them another way, and
-     it is only ever right on a FIRST stage: a later hook is about what working
-     for you once has changed, which needs no referrer. Clients whose referrer
-     is part of the free opening carry no cold line at all and boot validation
-     warns if one is authored, because it could never be shown. */
-  const cold = next.stageNo===1 && !wasReferred(next.client) && next.stage.hookCold;
-  const hook = cold || next.stage.hook || next.level.blurb || "";
+     ALWAYS WARM NOW. A first stage's hook is a REFERRAL — "Your name reached me
+     through the small green thing that has been measuring my tower" — and while
+     the cast was buyable in any order that line could arrive before the person
+     it named, so every such client carried a `hookCold` for having found them
+     another way. The campaign is linear again, so a referral can never outrun
+     its referrer and the cold lines can never be reached. They are LEFT IN
+     clients.json rather than deleted: they are good writing, they cost nothing
+     dormant, and they are exactly what is needed if out-of-order acquisition
+     ever comes back. Boot validation knows they are parked. */
+  const hook = next.stage.hook || next.level.blurb || "";
   /* NO LEVEL NAME, only the id. The card carries two lines of the client's own
      voice, and the level title is a THIRD headline competing with them — on
      eleven of the thirty-four stages it also repeats a word the card has already
@@ -2059,14 +2089,15 @@ function showWin(){
     /* markDone above ran BEFORE this, which matters: the card asks the
        finished-set whether you have worked for the next client, and the job you
        just finished has to be in it. */
-    /* THE NEXT JOB YOU CAN ACTUALLY PLAY, which is no longer just the next
-       index: the level after this one may belong to somebody you have not
-       hired. Walk forward to the first unfinished job whose client you own, and
-       offer nothing rather than offering a locked door. */
+    /* THE NEXT JOB, which with a linear campaign is the next index you have not
+       already finished. It briefly had to skip levels belonging to a client you
+       had not hired; the cast is free now, so the only thing to walk past is
+       work you have already done — which happens when you replay an old level.
+       Offer nothing rather than offering nothing to do. */
     const p2=progress();
     let nx=-1;
     for(let i=G.levelIdx+1;i<LEVELS.length;i++){
-      if(p2.hired.has(LEVELS[i].id) && !p2.done.has(LEVELS[i].id)){ nx=i; break; }
+      if(!p2.done.has(LEVELS[i].id)){ nx=i; break; }
     }
     const card = nx!==-1
       ? nextJobCard(nx, ()=>{ $("#winOverlay").classList.remove("open"); startCampaign(nx); })
@@ -2076,6 +2107,23 @@ function showWin(){
        (0,1,1) outranks `.menubtn` (0,1,0), so a plain one comes out gold and the
        card stops being the obvious thing to press. */
     mk("Job board", card?"ghost":"primary", ()=>{ $("#winOverlay").classList.remove("open"); openCampaignMenu(); });
+    /* THE STORE, WHERE THE MONEY JUST LANDED. Until now the only door into it
+       was the title screen, which is the one place a player is not standing
+       when they have just been paid — you finish a house, the wallet goes up,
+       and the next thing offered is another house. The label carries the
+       balance for the same reason the title button does: an unpriced door is
+       easy to walk past, and "Store · 7 ⭐" is an invitation.
+
+       Only when there is something in the wallet. A 0 ⭐ store reached from a
+       win screen is the "⭐ 0 over an all-unaffordable list" mistake the old
+       in-level talent shop already made once; the title screen is the place
+       that has to teach the store exists at zero. */
+    if(stars()>0) mk("Store  ·  "+stars()+" ⭐","ghost",()=>{
+      $("#winOverlay").classList.remove("open");
+      /* Back comes back HERE, not to the title: the next-job card is what the
+         player was reading, and spending stars should not cost them their place. */
+      openStore(()=>{ $("#winOverlay").classList.add("open"); });
+    });
     mk("Main menu","ghost",()=>{ $("#winOverlay").classList.remove("open"); showTitle(); });
   }else{
     /* FREE PLAY HAS AN ENDING NOW. It used to be a generic ✨ over "All tidy."
@@ -2181,9 +2229,11 @@ function showLoupe(it,el,ptype){
   loupe.querySelector(".lname").textContent=(NAMES[it.type]||"")+senseSuffix(it);
   loupe.style.display="flex";
   moveLoupe(el);
-  if(G.up.sense && !it.isKey){
+  /* Rung 3 again: the loupe may point at the exact piece of furniture only
+     once the talent names furniture at all. */
+  if(G.up.intuit>=3 && !it.isKey){
     const home=G.typeHome[it.type];
-    if(home.room===G.current){
+    if(home && home.room===G.current){
       const fe=host.querySelector(`.furn[data-cont="${home.cont}"]`);
       if(fe) fe.classList.add("sense");
     }
@@ -2819,10 +2869,10 @@ function nowPlaying(){
 function syncGear(note=null){
   const m=$("#gearMeta");
   if(m){
-    const h=homeSummary();
+    const h=storeSummary();
     const bought=h.bought.length ? h.bought.join(" · ") : "nothing bought";
     m.innerHTML =
-      `<b>${h.stars} ⭐</b> to spend · ${h.hired} of ${h.total} hired · ${bought}` +
+      `<b>${h.stars} ⭐</b> to spend · ${bought}` +
       (G.active ? ` · this house teaches ${G.picksTaken}/${G.picksMax}` : "") +
       (note ? `<i>${note}</i>` : "");
   }
@@ -2830,17 +2880,9 @@ function syncGear(note=null){
      never changes leaves you guessing which way you left it. Same rule the
      unlock toggle already follows. */
   const st=$("#debugStars"); if(st) st.textContent="+500 ⭐";
-  const hb=$("#debugHire");
-  if(hb){
-    const h=homeSummary();
-    const all=h.hired>=h.total;
-    hb.textContent = all ? "All hired ✓" : "Hire all";
-    hb.disabled = all;
-    hb.classList.toggle("dbgon", all);
-  }
-  const mx=$("#debugMaxHome");
+  const mx=$("#debugMaxStore");
   if(mx){
-    const maxed=(DATA.upgrades.home||[]).every(u=>homeLevel(u.id)>=maxLevel(u));
+    const maxed=(DATA.upgrades.store||[]).every(u=>storeLevel(u.id)>=maxLevel(u));
     mx.textContent = maxed ? "Maxed ✓" : "Max out";
     mx.disabled = maxed;
     mx.classList.toggle("dbgon", maxed);
@@ -3021,23 +3063,18 @@ $("#debugStars").addEventListener("click",()=>{
   refreshTitle();
   syncGear("+500 ⭐ — " + stars() + " in the wallet");
 });
-$("#debugHire").addEventListener("click",()=>{
-  const n=hireAll();
-  refreshTitle();
-  syncGear("hired all " + n + " — every job on the board is playable");
-});
-$("#debugMaxHome").addEventListener("click",()=>{
-  maxHome();
+$("#debugMaxStore").addEventListener("click",()=>{
+  maxStore();
   refreshTitle();
   /* Reputation changes how many talents the CURRENT house teaches, and hand
      slots apply to a run already going, so a live run has to be told. */
-  if(G.active){ G.picksMax=picksFor(currentCfg(), G.rooms.length); resumeHome(); renderHUD(); renderInv(); }
+  if(G.active){ resumeStore(); renderHUD(); renderInv(); }
   syncGear("every permanent upgrade maxed");
 });
-$("#debugHomeClear").addEventListener("click",()=>{
-  clearHome();
+$("#debugStoreClear").addEventListener("click",()=>{
+  clearStore();
   refreshTitle();
-  if(G.active){ G.picksMax=picksFor(currentCfg(), G.rooms.length); renderHUD(); }
+  if(G.active){ syncPicks(); renderHUD(); }
   syncGear("wallet emptied, upgrades un-bought, cast back to the opening two");
 });
 $("#debugFreeClear").addEventListener("click",()=>{
@@ -3178,7 +3215,7 @@ function showTitle(){
 
 /* Everything on the title screen that the meta layer can change. Split out of
    showTitle() because a purchase changes it WITHOUT the screen being reopened:
-   js/home.js closes over this through initHome's `change`. */
+   js/home.js closes over this through initStore's `change`. */
 function refreshTitle(){
   const save=peekSave();
   setHidden($("#btnContinue"), !save);
@@ -3194,13 +3231,15 @@ function refreshTitle(){
      new player has no way to find out the meta layer exists — which is exactly
      what happened the first time somebody opened the build.
 
-     At zero stars the screen is still doing a job: it says there IS a currency,
-     what it buys, and that nine of the eleven people in this game are somebody
-     you have to go and hire. That is a reason to play, not a dead end. */
+     At zero stars the screen is still doing a job: it says there IS a currency
+     and what it buys. It used to say more than that — nine of the eleven people
+     in the game were somebody you had to go and hire — and that half is gone
+     with the cast, so the store leans harder on the upgrades being worth
+     wanting. That is the argument for pricing them as a real chase. */
   const wallet=stars();
-  const btn=$("#btnHome");
+  const btn=$("#btnStore");
   setHidden(btn, false);
-  btn.textContent = wallet>0 ? "Home  ·  " + wallet + " ⭐" : "Home";
+  btn.textContent = wallet>0 ? "Store  ·  " + wallet + " ⭐" : "Store";
 }
 
 /* Which track this run wants. Free play and anyone without a theme of their
@@ -3321,8 +3360,7 @@ function startFree(freeId){
   closeMenus();
   endCeremony();
   setRun(generate(job.cfg), {mode:"free", freeId, levelIdx:null});
-  G.picksMax=picksFor(job.cfg, G.rooms.length);
-  applyHome();
+  applyStore();
   resetZoom();
   setHidden(shopBtn, false);   /* always available in free play */
   render();
@@ -3345,8 +3383,7 @@ function startCampaign(i){
   endCeremony();
   const lv=LEVELS[i];
   setRun(generate(lv), {mode:"campaign", levelIdx:i});
-  G.picksMax=picksFor(lv, G.rooms.length);
-  applyHome();
+  applyStore();
   /* A level starts with nothing learned — see clearTalents() above. The key
      is purged rather than ignored so a save written by the carry-over build
      can't come back later. */
@@ -3394,37 +3431,75 @@ function startCampaign(i){
    Derived at run start rather than saved, so buying Reputation takes effect on
    the house you are already standing in — same reasoning as tips.
 ============================================================ */
+/* EVERY ROW IN THE HOUSE. `cells.length` and not the container's original
+   `types.length`, because growContainer() can add rows during generation and
+   the grid is the only thing that knows the final shape. */
+function totalRowsIn(rooms){
+  let n=0;
+  for(const r of rooms||[]) for(const c of r.containers||[]) n+=(c.cells||[]).length;
+  return n;
+}
+
+/* HOW MANY TALENTS A HOUSE TEACHES — derived from how big it actually is.
+
+   A level may still author `rewards: N` to override its tier, for a house that
+   should defy its size. Nothing in the campaign does; free play authors none at
+   all and is covered by exactly the same rule, which is the point of deriving. */
 function picksFor(cfg, rooms){
-  if(!cfg) return 0;
-  const asked=(cfg.rewards ?? 0) + homeLevel("picks");
-  return Math.max(0, Math.min(asked, Math.max(0, (rooms||0) - 1)));
+  const rows=totalRowsIn(rooms);
+  if(cfg && Number.isInteger(cfg.rewards)) return Math.max(0, cfg.rewards);
+  const tiers=DATA.upgrades.picks?.tiers||[];
+  for(const t of tiers) if(t.upTo==null || rows<=t.upTo) return Math.max(0, t.picks|0);
+  return 0;
+}
+
+/* WHERE each pick lands: the completed-row count that buys it.
+
+   Front-loaded (see _picksNote) so the first arrives with a house still left to
+   spend it on. Floored at 1 — a fraction of a small house rounds to 0, and a
+   pick owed at "zero rows done" would fire before the player had touched
+   anything. De-duplicated and sorted for the same reason: two picks owed at the
+   same row would make the second unreachable, since only one fires per row. */
+function pickRowsFor(n, rows){
+  const at=(DATA.upgrades.picks?.at||[])[n];
+  if(!at || !n || !rows) return [];
+  const out=[];
+  for(const f of at){
+    let r=Math.max(1, Math.round(rows*f));
+    while(out.includes(r)) r++;
+    if(r<=rows) out.push(r);
+  }
+  return out.sort((a,b)=>a-b);
+}
+
+/* The one place both numbers are set. Called from applyStore() and resumeStore(),
+   so every path that starts or resumes a run goes through it, and the pick
+   thresholds are frozen for the life of the run. */
+function syncPicks(){
+  G.picksMax=picksFor(currentCfg(), G.rooms);
+  G.totalRows=totalRowsIn(G.rooms);
+  G.pickAtRow=pickRowsFor(G.picksMax, G.totalRows);
 }
 
 /* ---------- what you bought, applied to the run in front of you ----------
    Called immediately after setRun() on every path that starts or resumes a
    run. One function so a new home upgrade has one place to land, rather than
    being remembered at startCampaign, startFree and loadGame separately. */
-function applyHome(){
+function applyStore(){
+  syncPicks();
   /* Bigger Hands. blankRun() gives INV_SIZE slots; each level bought adds one.
      Appended rather than resized so anything already held keeps its slot. */
-  for(let i=0;i<homeLevel("hands");i++) G.inv.push(null);
-  /* Spare Set: start holding an old key. A real item in a real slot, so every
-     path that already knows what to do with a key needs no special case — it
-     can be dropped, tossed at the wrong lock, or carried around forgotten. */
-  if(homeLevel("spare")){
-    const skel=LOOKUP.tokenById.skel;
-    const slot=G.inv.indexOf(null);
-    if(skel && slot!==-1){
-      const id="spare";
-      G.items[id]={ id, type:skel.emoji, isKey:true, token:"skel", judged:true,
-                    loc:{kind:"inv",slot} };
-      G.inv[slot]=id;
-      if(G.sel===null) G.sel=slot;
-    }
-  }
+  for(let i=0;i<storeLevel("hands");i++) G.inv.push(null);
+  /* SPARE SET USED TO LIVE HERE and was an anti-upgrade. It minted a real key
+     into a real hand slot at run start, which was the elegant part — every path
+     that knew what to do with a key needed no special case. But it also meant
+     you played with one slot fewer until you spent it, and on the eight
+     campaign levels with `contLocks: 0` there was no lock for it at all, so
+     55 ⭐ bought you four usable slots out of five for a whole house. It was
+     also a key manipulator, and those are all parked. */
 }
 
-/* RESUMING IS applyHome() MINUS THE ONE-SHOT, and the difference is the whole
+/* RESUMING IS applyStore() MINUS THE ONE-SHOT, and the difference is the whole
    reason there are two functions.
 
    Hand slots must be re-applied: `inv` comes back from the save at whatever
@@ -3435,8 +3510,9 @@ function applyHome(){
    this run was ever given one, so applying it again mints a second key on
    every Continue — the same shape as the talent draft that re-owed itself on
    every resume, and the reason that bug is worth remembering. */
-function resumeHome(){
-  const want=INV_SIZE + homeLevel("hands");
+function resumeStore(){
+  syncPicks();
+  const want=INV_SIZE + storeLevel("hands");
   while(G.inv.length < want) G.inv.push(null);
 }
 
@@ -3597,13 +3673,12 @@ setChatterGate(() => isSpeaking() || !!document.querySelector(".overlay.open"));
    you can play, have not played, and which is not the next one up — which is
    what a level dropped in behind an existing player's frontier looks like. It
    needs no styling of its own; it is simply not dimmed and not ringed. */
-/* FIVE states now. "unhired" is the one the meta layer added: the job exists,
-   you may even be past it in level order, and you simply have not taken this
-   person on. It is not the same as "locked" — locked is "not yet", unhired is
-   "go and buy them", and a tile that cannot tell you which is unhelpful. */
+/* BACK TO FOUR. There was briefly a fifth, "unhired" — the job exists, you may
+   even be past it in level order, and you had not bought this person yet. The
+   cast is not for sale any more, so a tile is only ever done, now, open or
+   not-yet. */
 const stageState = (idx, p) =>
   p.done.has(LEVELS[idx].id)  ? "done"
-  : !p.hired.has(LEVELS[idx].id) ? "unhired"
   : idx === p.now             ? "now"
   : idx <= p.frontier         ? "open"
   : "locked";
@@ -3617,18 +3692,19 @@ function jobTile(job, idx, p){
      can't have them yet. Everything past that is a silhouette. Showing a
      client's whole arc at once spent the arrival of every one of their jobs
      the moment you met them. */
-  /* FACES ARE RATIONED DIFFERENTLY NOW, because the tease moved. It used to be
-     "one job ahead is greyed, the rest are silhouettes" — which only works when
-     everybody knows what comes next. With a bought cast, what comes next is
-     your decision, and the place to be tempted by a person is the shop, where
-     their face IS the price tag. So: anyone you have HIRED shows their face
-     wherever their jobs are, and anyone you have not is a silhouette with a
-     price. The tease is "you could have them", not "you can't". */
-  const seen=p.hired.has(job.level.id) && idx<=p.frontier;
-  const peek=p.hired.has(job.level.id);
+  /* RATIONED BY THE FRONTIER AGAIN. For a while the rule was "anyone you have
+     hired shows their face, anyone you have not is a silhouette with a price",
+     because the tease had moved to the shop. With the cast free there is no
+     shop to be tempted in, so this goes back to the original: everything you
+     have reached shows its client, exactly ONE job ahead is a greyed tease so
+     you can see who is coming, and the rest are silhouettes. Showing a whole
+     arc at once spends the arrival of every one of their jobs the moment you
+     meet them. */
+  const seen=idx<=p.frontier;
+  const peek=idx===p.frontier+1;
   const b=document.createElement("button");
   b.className="jtile "+st+(seen?"":peek?" next":" unknown");
-  b.disabled = st==="locked" || st==="unhired";
+  b.disabled = st==="locked";
   /* Who hired you goes above the head, the job itself goes below it: the name
      is a label on the face, the title is what the tile is actually offering. */
   b.appendChild(mkEl("span","jname",seen||peek?job.client.name:(S.lockedTile||"???")));
@@ -3643,15 +3719,9 @@ function jobTile(job, idx, p){
      Hidden on a job you have not met, along with the face and the name; how
      big somebody's house is is part of meeting them. */
   const pip = seen||peek ? (sizeBand(job.level)||{}).pip : null;
-  /* An unhired tile shows the PRICE instead of the id, because the id is not
-     the useful thing about a job you cannot start: what you want to know is
-     what it costs to be able to. */
-  b.appendChild(mkEl("span","jid", st==="unhired"
-    ? priceOf(job.client) + " ⭐"
-    : job.level.id + (pip ? " " + pip : "")));
+  b.appendChild(mkEl("span","jid", job.level.id + (pip ? " " + pip : "")));
   if(st==="done") b.appendChild(mkEl("span","jmark","✅"));
-  if(st==="unhired") b.appendChild(mkEl("span","jmark","🔒"));
-  if(st!=="locked" && st!=="unhired") b.addEventListener("click",()=>startCampaign(idx));
+  if(st!=="locked") b.addEventListener("click",()=>startCampaign(idx));
   return b;
 }
 
@@ -3742,7 +3812,7 @@ $("#btnCampaign").addEventListener("click",openCampaignMenu);
 /* HOME. Hidden until you have a star or have bought something — a shop button
    over an empty wallet on a fresh save is the "⭐ 0 over an all-unaffordable
    list" mistake the original talent shop was deleted for. */
-$("#btnHome").addEventListener("click",openHome);
+$("#btnStore").addEventListener("click",openStore);
 $("#btnFree").addEventListener("click",openFreeMenu);
 /* Every overlay shares z-index 120, so DOM order decides who paints on top
    and #titleOverlay is declared last. Opening help without closing the title
@@ -3930,7 +4000,7 @@ window.tidy = {
      draft a player had already taken, one per container they closed. There was
      no way to exercise it from here, which is a large part of why it survived
      as long as it did. */
-  saveGame, loadGame, clearSave, maybeDraft, finishJob, roomFinished, picksLeft,
+  saveGame, loadGame, clearSave, maybeDraft, finishJob, grantPick, picksLeft,
   /* `tidy.unlockAll()` / `tidy.unlockAll(false)` / `tidy.progress()`. The gear
      button is the same call; this is here because "open every job" is a thing
      you want mid-thought without hunting for a panel. */
@@ -3952,12 +4022,12 @@ window.tidy = {
      "what is on screen and what is queued behind it", which is the question to
      ask when two lines look like they stepped on each other. */
   chatter, aside, chatterState, clearChatter, welcomeBack,
-  /* THE META LAYER. `tidy.home()` opens the shop, `tidy.homeState()` prints the
-     wallet, what is bought and who is hired — which is the thing to look at
-     when a board tile is locked and you do not know why. `tidy.give(n)` is the
-     only way to test a 160-⭐ purchase without playing to it. */
-  home:openHome, homeState, give:grantStars, wipeHome:clearHome, nextJobCard, castHas,
-  picksFor, applyHome,
+  /* THE META LAYER. `tidy.store()` opens it, `tidy.storeState()` prints the
+     wallet and what is bought, `tidy.refund()` hands it all back. `tidy.give(n)`
+     is the only way to test an expensive purchase without playing to it. */
+  store:openStore, storeState, give:grantStars, wipeStore:clearStore, refund:respec,
+  nextJobCard,
+  picksFor, applyStore,
   /* How big is this job — the same two calls the card and the board tiles make. */
   jobSize, sizeBand, contCap,
   itemAt, underAt, onInk, maskStats,

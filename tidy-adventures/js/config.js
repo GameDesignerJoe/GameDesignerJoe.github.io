@@ -42,11 +42,11 @@ export const FREE_KEY = "tidy-free-done-v1";
                 a reversal: ⭐ used to be lifetime score that was never spent,
                 and upgrades.json had a costs[] array deleted for that reason.
                 Prices are read now. Do not re-delete them.
-     HOME_KEY   {id: level} for the permanent upgrades bought at home.
+     STORE_KEY   {id: level} for the permanent upgrades bought at home.
      CAST_KEY   the client ids you have unlocked. The campaign is not all there
                 at the start: you get Mom and Marguerite, and buy the rest. */
 export const STARS_KEY = "tidy-stars-v1";
-export const HOME_KEY  = "tidy-home-v1";
+export const STORE_KEY  = "tidy-home-v1";
 export const CAST_KEY  = "tidy-cast-v1";
 /* Debug: show every job on the board regardless of progress. Deliberately its
    OWN key rather than a value written into DONE_KEY — see debugUnlocked() in
@@ -56,9 +56,42 @@ export const UNLOCK_KEY   = "tidy-debug-unlock";
    way to read an old save correctly is to know what index 7 MEANT, so this
    list must never be reordered or edited — it is a historical record, not a
    config. New levels go in levels.json; they never go here. */
+/* THE OLD ID SCHEME, and the map off it. Level ids used to be `1-1`, `D-2`,
+   `Z-5`: a difficulty tier and a stage number. The tier drifted until it meant
+   nothing — Delta Tau Chi spanned 3-1, 3-2, 4-2, 5-2 and 6-1, and `Z-*` was
+   shared by TWO clients (odd numbers were the parrot, even were the gorilla).
+   "Which client, which stage" was unreadable, which is exactly what a bug
+   report needs to say. They are `MAR-2`, `GOR-3` now: three letters of client,
+   then the stage.
+
+   ID_MAP EXISTS FOR SAVED DATA, not for the game. DONE_KEY holds level IDS, so
+   without it every player's campaign progress would silently reset — the
+   done-set would simply match nothing. Applied on read and written back, so it
+   runs once per save and is idempotent. Do not delete it: a player who has not
+   opened the game since the rename still has old ids in localStorage.
+
+   The IN-FLIGHT save needs nothing: it stores `levelIdx` as well as `levelId`
+   and prefers the id only when the id resolves, so an old save falls back to
+   the index — which still points at the same level, because the ORDER did not
+   change. */
+export const ID_MAP = {
+  "1-1": "MOM-1", "1-2": "MOM-2",
+  "2-1": "MAR-1", "2-2": "MAR-2", "6-2": "MAR-3",
+  "3-1": "DEL-1", "3-2": "DEL-2", "4-2": "DEL-3", "5-2": "DEL-4", "6-1": "DEL-5",
+  "4-1": "ZOR-1", "5-1": "ZOR-2", "5-3": "ZOR-3",
+  "D-1": "DRM-1", "D-2": "DRM-2", "D-3": "DRM-3",
+  "T-1": "NET-1", "T-2": "NET-2", "T-3": "NET-3",
+  "Z-1": "CAP-1", "Z-3": "CAP-2", "Z-5": "CAP-3",
+  "Z-2": "GOR-1", "Z-4": "GOR-2", "Z-6": "GOR-3",
+  "7-1": "UNI-1", "7-2": "UNI-2", "7-3": "UNI-3",
+  "8-1": "SAM-1", "8-2": "SAM-2", "8-3": "SAM-3",
+  "9-1": "ASH-1", "9-2": "ASH-2", "9-3": "ASH-3",
+};
+
 export const LEGACY_ORDER = [
-  "1-1","1-2","2-1","2-2","3-1","3-2","4-1","4-2","5-1","5-2","5-3",
-  "6-1","6-2","7-1","8-1","7-2","9-1","8-2","7-3","9-2","8-3","9-3",
+  "MOM-1", "MOM-2", "MAR-1", "MAR-2", "DEL-1", "DEL-2", "ZOR-1", "DEL-3",
+  "ZOR-2", "DEL-4", "ZOR-3", "DEL-5", "MAR-3", "UNI-1", "SAM-1", "UNI-2",
+  "ASH-1", "SAM-2", "UNI-3", "ASH-2", "SAM-3", "ASH-3",
 ];
 export const TALENTS_KEY  = "tidy-campaign-talents";
 export const SAVE_DEBOUNCE = 400;
@@ -100,23 +133,61 @@ export const REVEAL_MS = 5000;
    js/validate.js and js/talents.js can see, and boot validation compares this
    list against the data in both directions. Adding either half without the
    other is a named error on a black screen instead of a quiet nothing. */
-/* IN-LEVEL talents: drafted during a run, gone when it ends. These change
-   WHAT YOU KNOW about the house in front of you, which is why they cannot be
-   permanent — a level authored to teach locked doors must not be playable with
-   the answers already in hand. `hands` used to be here and is a HOME upgrade
-   now; the three at the end were added when it left, because a five-pick house
-   drained a four-talent pool. */
-export const TALENT_IDS = [
-  "sense", "magnet", "oneTrip", "homesick", "keyring", "label", "skeleton",
-];
+/* IN-LEVEL talents: drafted during a run, gone when it ends.
+
+   TWO AXES, and they are the whole test for whether a new talent belongs here.
+   Either ITEMS MOVE THEMSELVES (`hands`… the house tidying itself a little, in
+   a direction you chose) or YOU LEARN WHERE THINGS GO (`intuit`, `label`). The
+   game has no timer and no fail state, so nothing is scarce except attention:
+   a talent that grants the player an ABILITY — more reach, less risk — is
+   invisible within thirty seconds, because the baseline resets and there was
+   never any pressure for it to relieve. One that makes the WORLD move is felt
+   immediately.
+
+   `intuit` is `sense` and `homesick` merged into one three-rung ladder (glows
+   in this room -> names the room -> names the container). One talent used to do
+   all three at once, which spent the discovery on a single card and left
+   nowhere to scale. `tidyHands` is `magnet` and `oneTrip` merged: filing help
+   from the floor and filing help from your hands are one talent with two
+   flavours, and as two ids they overlapped so heavily that neither felt like
+   anything.
+
+   GONE, AND NOT BY ACCIDENT: `keyring` and `skeleton`. Both manipulated keys,
+   and everything touching keys, coins or the ⭐ rate is parked until the base
+   is worth building on. Skeleton Key was also near-null — it floored a lock's
+   `need` at 1 while the generator gives every CONTAINER lock exactly 1, so it
+   could only ever weaken a door, and keys spawn exactly-enough-never-more so
+   decrementing a need turned an already-spawned key into undroppable ballast. */
+export const TALENT_IDS = ["intuit", "tidyHands", "label"];
 
 /* HOME upgrades: bought with ⭐, kept forever. These change HOW YOU PLAY rather
    than what you know, which is the line that decides which list a thing goes
    in. Same both-directions boot check as TALENT_IDS: an id here with no code
-   reading it is a card that animates, charges you and does nothing. */
-export const HOME_IDS = ["hands", "picks", "wage", "cards", "spare"];
+   reading it is a card that animates, charges you and does nothing.
 
-export const CONSUMABLE_EFFECTS = ["stars", "fileHands"];
+   FOUR OF THE FIVE WERE CUT, and the store is deliberately thin until it earns
+   its way back:
+     `picks`  (Reputation)     +1 talent per house. The strongest buy in any
+                               such store and it compounds; its level 2 was
+                               also dead on most levels, because it added
+                               BEFORE the old rooms-1 clamp. It also broke
+                               authoring intent: `rewards: 0` stopped being a
+                               floor, so levels written to teach nothing did.
+     `cards`  (Business Cards) discounted CLIENTS, who are free now. Its level
+                               2 never paid for itself even when they were not.
+     `spare`  (Spare Set)      started you holding a key — in a hand slot, so
+                               on the eight campaign levels with no container
+                               lock you paid 55 ⭐ to play with four slots of
+                               five. An anti-upgrade.
+     `wage`   (Good Name)      paid ⭐ per room. A star-rate manipulator, parked
+                               with the rest of them, and it fought the whole
+                               point of starving the economy. */
+export const STORE_IDS = ["hands"];
+
+/* `stars` was here and is gone with Lucky Find: a consumable that raised the
+   run's counter and never banked to the wallet. ⭐ is minted by finishing rooms
+   and nothing else. */
+export const CONSUMABLE_EFFECTS = ["fileHands"];
 
 export const DIRS = { N:[0,-1], S:[0,1], W:[-1,0], E:[1,0] };
 export const OPP  = { N:"S", S:"N", W:"E", E:"W" };

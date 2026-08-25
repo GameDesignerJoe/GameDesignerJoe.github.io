@@ -37,7 +37,7 @@
     "desc supports {token} and {token|sec} (milliseconds -> seconds), resolved",
     "against that entry's params. An unresolvable token is a boot error.",
     "",
-    "EVERY id HERE MUST BE IMPLEMENTED. TALENT_IDS and HOME_IDS in js/config.js",
+    "EVERY id HERE MUST BE IMPLEMENTED. TALENT_IDS and STORE_IDS in js/config.js",
     "are the lists the code actually reads, and boot validation compares them",
     "against this file IN BOTH DIRECTIONS. Adding an entry here and nowhere else",
     "used to give you a card that animated, said its name, incremented a level",
@@ -62,35 +62,68 @@
     "  once-a-second interval and a consumable to refresh it."
   ],
 
-  "draftCards": 3,
+  "draftCards": 2,
+
+  "_picksNote": [
+    "WHEN A HOUSE TEACHES A TALENT, and how many.",
+    "",
+    "It used to be ROOM completions: a level authored `rewards: N` and got a pick",
+    "on each of its first N rooms. That was too late, and worst exactly where it",
+    "hurt most — a small house finishes its first room most of the way through",
+    "itself, so the talent arrived with nothing left to use it on. And 11 of the",
+    "34 campaign levels authored 0, so the first talent a new player ever saw was",
+    "on the TWELFTH level.",
+    "",
+    "Now it is ROWS, and the numbers are DERIVED from the size of the house that",
+    "actually generated rather than authored per level. A row is the same unit the",
+    "⭐ economy already counts, it fires often enough to place a pick anywhere in a",
+    "run, and deriving means the 215 procedural free-play houses are covered by",
+    "the same rule with nothing to author.",
+    "",
+    "  tiers — how many picks, by the house's total row count. Read in order; the",
+    "          first `upTo` the house does not exceed wins. `upTo: null` is the",
+    "          last one and catches everything above.",
+    "  at    — WHERE in the house each pick lands, as fractions of total rows,",
+    "          indexed by how many picks there are. FRONT-LOADED on purpose: the",
+    "          first should arrive while there is still a house to use it on, and",
+    "          the last stops well short of the end so it never lands on top of",
+    "          the client's outro and the win screen. Nothing fires at 100%.",
+    "",
+    "A level may still author `rewards: N` to override its tier — for a house that",
+    "should defy its size. Nothing in the campaign does today.",
+    "",
+    "TWO CARDS, NOT THREE. `draftCards` was 3, which with a small pool meant every",
+    "draft was a survey of nearly everything rather than a decision. Two makes the",
+    "choice real and is meant to be played against a pool that is deliberately",
+    "small and well understood."
+  ],
+  "picks": {
+    "tiers": [
+      { "upTo": 4,    "picks": 0 },
+      { "upTo": 24,   "picks": 1 },
+      { "upTo": 70,   "picks": 2 },
+      { "upTo": null, "picks": 3 }
+    ],
+    "at": [ [], [0.25], [0.20, 0.50], [0.15, 0.40, 0.65] ]
+  },
+
 
   "upgrades": [
-    { "id": "sense",  "name": "Sixth Sense",   "icon": "🔮", "levels": 1,
-      "desc": "Held items whisper where they live — and their home glows if it's in the room." },
+    { "_note": "INTUITION IS A LADDER, and it used to be one card. `sense` told you the room AND the container the moment you took it, and `homesick` was the glow on its own — so between them the taxonomy the game is about was answered in one pick, with nowhere left to scale. Split into the three rungs it always had: it glows, then it names the room, then it names the container.",
+      "id": "intuit", "name": "Intuition",    "icon": "🔮", "levels": 3,
+      "desc": "Level 1: anything on this floor that lives in this room glows. Level 2: what you're holding tells you which room. Level 3: and which piece of furniture." },
 
-    { "id": "magnet", "name": "Magnet Fingers", "icon": "🧲", "levels": 3,
+    { "_note": "MAGNET FINGERS AND ONE TRIP WERE THE SAME TALENT. One helped from the floor, one from your hands, they sat in the same function, and drafting either felt like nothing happened — because each moved one or two items, silently, inside an action you were already performing. Merged, and the levels are meant to be felt: give it real magnitude and its own sound, or it will read as nothing again.",
+      "id": "tidyHands", "name": "Tidy Hands", "icon": "🫳", "levels": 3,
       "params": { "pull": 1 },
-      "desc": "Putting something away tugs {pull} more of its kind off the floor and into the same home. One more per level." },
-
-    { "id": "oneTrip", "name": "One Trip",     "icon": "🫳", "levels": 2,
-      "desc": "Put one thing away and the rest of the armful goes with it — its own kind at first, then anything in your hands that lives there." },
-
-    { "id": "homesick", "name": "Homesick",    "icon": "🏡", "levels": 1,
-      "desc": "Anything on this floor with a home in this room gives off a soft glow." },
-
-    { "_note": "Written when `hands` moved home and the pool dropped to four talents. All three are INFORMATION or FRICTION inside one run, which is what keeps them on this side of the line.",
-      "id": "keyring", "name": "Keyring",      "icon": "🔑", "levels": 1,
-      "desc": "Every key and coin still loose in the room you're standing in rings, and lifts above the clutter." },
+      "desc": "Putting something away takes {pull} more of its kind with it — from your hands and off this floor. Level 2 sends anything in your hands that lives there too. More per level." },
 
     { "id": "label",  "name": "Label Maker",   "icon": "🏷️", "levels": 2,
-      "params": { "show": 2 },
-      "desc": "Furniture shows {show} of the things it's still waiting for, greyed out beside what's already inside. One more per level." },
-
-    { "id": "skeleton", "name": "Skeleton Key", "icon": "🗝️", "levels": 2,
-      "desc": "Every lock still shut in this house wants one key fewer. Takes effect the moment you learn it." }
+      "params": { "show": 1 },
+      "desc": "Furniture owns up to {show} thing it is still completely missing. One more per level." }
   ],
 
-  "_homeNote": [
+  "_storeNote": [
     "HOME. Bought with ⭐ at the main menu, kept forever, and the reason to keep",
     "playing past the room in front of you.",
     "",
@@ -110,42 +143,32 @@
     "authored. It is capped by the level's own room count either way — a house",
     "cannot grant a pick for a room it does not have."
   ],
-  "home": [
-    { "id": "hands", "name": "Bigger Hands", "icon": "🙌", "levels": 4,
-      "cost": [12, 26, 48, 80],
-      "desc": "+1 hand slot, in every house, forever. Haul more per trip." },
-
-    { "id": "picks", "name": "Reputation",   "icon": "📣", "levels": 2,
-      "cost": [40, 110],
-      "desc": "+1 talent to learn per house, on top of what the job offers. Never more than the house has rooms." },
-
-    { "id": "wage",  "name": "Good Name",    "icon": "💫", "levels": 3,
-      "cost": [30, 70, 140],
-      "params": { "each": 1 },
-      "desc": "+{each} ⭐ every time you finish a whole room. One more per level." },
-
-    { "id": "cards", "name": "Business Cards", "icon": "📇", "levels": 2,
-      "cost": [45, 100],
-      "desc": "Every client costs 20% less to take on. Stacks with the discount for being referred." },
-
-    { "id": "spare", "name": "Spare Set",    "icon": "🔐", "levels": 1,
-      "cost": [55],
-      "desc": "Start every house already holding an old key. One lock is somebody else's problem." }
+  "store": [
+    { "_note": "THE ONE THING IN THE STORE, and priced to be the long chase. The complaint was never the size of the effect — it was that the intro alone paid for three extra slots. It is the most powerful and most wanted upgrade in the game, so maxing it is now most of everything a whole campaign pays (120 of ~136 ⭐). Same four levels, five slots to nine.",
+      "id": "hands", "name": "Bigger Hands", "icon": "🙌", "levels": 4,
+      "cost": [10, 20, 35, 55],
+      "desc": "+1 hand slot, in every house, forever. Haul more per trip." }
   ],
 
   "_consumableNote": [
-    "One-offs, used to back-fill a draft when there aren't three talents left to",
-    "offer. `effect` must be in CONSUMABLE_EFFECTS (js/config.js).",
+    "One-offs, used to back-fill a draft when there aren't `draftCards` talents",
+    "left to offer. `effect` must be in CONSUMABLE_EFFECTS (js/config.js).",
     "",
-    "Two of the three that used to live here — Second Wind and X-Ray Eyes — set a",
-    "field on the run that NOTHING EVER READ. They were drafted, animated, named",
-    "and had no effect at all. X-Ray's idea was worth keeping, so it is a real",
-    "talent now (Homesick); Second Wind went with the Whirlwind it refreshed."
+    "CURRENTLY UNREACHABLE, and that is fine. A house grants at most three picks",
+    "and the talent pool is deeper than three levels, so the back-fill has nothing",
+    "to do until the pool shrinks or a house teaches far more. Kept because the",
+    "path is written and tested and the next pool change could need it.",
+    "",
+    "THREE HAVE BEEN DELETED FOR THE SAME REASON, and it is the reason to be",
+    "suspicious of anything in this list. Second Wind and X-Ray Eyes set a field",
+    "on the run that NOTHING EVER READ — drafted, animated, named, no effect.",
+    "Lucky Find paid +3 ⭐ that never reached the wallet, because this module",
+    "cannot see js/store.js and nobody noticed the missing addStars() for as long",
+    "as it existed. X-Ray's idea was worth keeping and became a real talent (the",
+    "glow that is now Intuition rung 1); the other two were noise."
   ],
   "consumables": [
-    { "id": "stars3", "name": "Lucky Find", "icon": "⭐", "effect": "stars", "amount": 3,
-      "desc": "+3 ⭐ right now." },
-    { "id": "armful", "name": "Drop Everything", "icon": "🧺", "effect": "fileHands",
+        { "id": "armful", "name": "Drop Everything", "icon": "🧺", "effect": "fileHands",
       "desc": "Right now: everything in your hands that lives in this room goes home." }
   ]
 }

@@ -206,24 +206,17 @@
       </div>
       <div class="shoprow">
         <div class="sinfo">
-          <div class="sname">Hire everybody</div>
-          <div class="sdesc" id="dbgHireDesc">Takes on the whole cast for free, so the job board and every client's arc are reachable. Leaves the wallet alone — "can I afford them" and "what does the board look like with all of them" are different questions.</div>
-        </div>
-        <button id="debugHire">Hire all</button>
-      </div>
-      <div class="shoprow">
-        <div class="sinfo">
           <div class="sname">Max permanent upgrades</div>
           <div class="sdesc" id="dbgMaxDesc">Every Home upgrade at its top level, free. Takes effect on the next house you start; hand slots apply to a resumed one too.</div>
         </div>
-        <button id="debugMaxHome">Max out</button>
+        <button id="debugMaxStore">Max out</button>
       </div>
       <div class="shoprow">
         <div class="sinfo">
           <div class="sname">Clear Home</div>
           <div class="sdesc">Empties the wallet, un-buys every permanent upgrade and fires everybody except the two you start with. Campaign and free-play ticks are left alone.</div>
         </div>
-        <button id="debugHomeClear">Clear</button>
+        <button id="debugStoreClear">Clear</button>
       </div>
       <div class="shoprow">
         <div class="sinfo">
@@ -283,7 +276,7 @@
       <!-- Always present, at 0 ⭐ included: it is the entrance to half the
            progression and hiding it made the meta layer undiscoverable. The
            `hidden` here is only for the frame before refreshTitle() runs. -->
-      <button class="menubtn" id="btnHome" hidden>Home</button>
+      <button class="menubtn" id="btnStore" hidden>Store</button>
       <button class="menubtn" id="btnFree">Free Play</button>
       <button class="menubtn ghost" id="btnHow">Instructions</button>
     </div>
@@ -292,21 +285,19 @@
   </div>
 </div>
 
-<!-- HOME — where ⭐ gets spent. Two sections: the cast you can take on, then
-     the permanent upgrades. The cast is first because it changes what the game
-     IS (a new person, their jobs, their voice) and the upgrades are numbers;
-     a player with forty stars should be looking at a face. See js/home.js. -->
-<div class="overlay" id="homeOverlay">
+<!-- HOME — where ⭐ gets spent. ONE section now. It used to open with the cast
+     you could take on, because a new person changes what the game IS and the
+     upgrades are only numbers. The cast is not for sale any more (every client
+     is cost: 0), so what is left is the numbers. See js/home.js. -->
+<div class="overlay" id="storeOverlay">
   <div class="card">
     <div class="big">🛋️</div>
-    <h1>Home</h1>
-    <p id="homeSub"></p>
-    <div id="homeStars">0 ⭐</div>
-    <h2 class="homehead">Who you work for</h2>
-    <div id="homeCast"></div>
-    <h2 class="homehead">What you have learned for good</h2>
-    <div id="homeUpgrades"></div>
-    <button class="menubtn ghost" id="homeClose">Back</button>
+    <h1>Store</h1>
+    <p id="storeSub"></p>
+    <div id="storeStars">0 ⭐</div>
+    <h2 class="storehead">What you have learned for good</h2>
+    <div id="storeUpgrades"></div>
+    <button class="menubtn ghost" id="storeClose">Back</button>
   </div>
 </div>
 

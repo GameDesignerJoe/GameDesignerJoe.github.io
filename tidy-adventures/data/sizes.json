@@ -96,11 +96,11 @@
   ],
 
   "bands": [
-    { "id": "cosy",     "label": "Small",  "rooms": 3, "items": 220,  "rewards": 1, "pip": "●" },
-    { "id": "roomy",    "label": "Medium", "rooms": 5, "items": 450,  "rewards": 2, "pip": "●●" },
-    { "id": "grand",    "label": "Large",  "rooms": 7, "items": 750,  "rewards": 3, "pip": "●●●" },
-    { "id": "vast",     "label": "Huge",   "rooms": 8, "items": 1100, "rewards": 4, "pip": "●●●●" },
-    { "id": "colossal", "label": "Mega",   "rooms": 9, "items": 1800, "rewards": 5, "pip": "●●●●●" }
+    { "id": "cosy",     "label": "Small",  "rooms": 3, "items": 220,  "pip": "●" },
+    { "id": "roomy",    "label": "Medium", "rooms": 5, "items": 450,  "pip": "●●" },
+    { "id": "grand",    "label": "Large",  "rooms": 7, "items": 750,  "pip": "●●●" },
+    { "id": "vast",     "label": "Huge",   "rooms": 8, "items": 1100, "pip": "●●●●" },
+    { "id": "colossal", "label": "Mega",   "rooms": 9, "items": 1800, "pip": "●●●●●" }
   ],
 
   "housesPerBand": 5,

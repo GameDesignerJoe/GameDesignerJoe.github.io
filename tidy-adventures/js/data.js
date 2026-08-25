@@ -220,9 +220,12 @@ function buildFreeBoard() {
             rooms: f.rooms,
             targetTypes: f.targetTypes,
             rowLen: f.rowLen,
-            /* The band's talent count, carried onto the config so free play and
-               a campaign level present the same field to picksFor(). */
-            rewards: band.rewards ?? 0,
+            /* NO `rewards` HERE, deliberately. Bands used to author a talent
+               count that was carried onto the config so free play and a campaign
+               level presented the same field to picksFor(). Picks are derived
+               from the generated house's row count now, so free play needs
+               nothing authored — and setting `rewards: 0` here would be read as
+               an explicit override and teach free play nothing at all. */
             doorLocks: at(V.doorLocks) || 0,
             doorKeys:  at(V.doorKeys)  || 0,
             contLocks: at(V.contLocks) || 0,

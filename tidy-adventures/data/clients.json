@@ -159,7 +159,7 @@
       "farewell": "She still sends you photos of the garage.",
       "stages": [
         {
-          "level": "1-1",
+          "level": "MOM-1",
           "nudge": "You came back. It is still three things on the floor, sweetheart. Three.",
           "hook": "You asked me for a summer job. I have one for you. It is upstairs and it is yours.",
           "teaser": "\"I'm not asking again.\"",
@@ -170,7 +170,7 @@
           "outro": ["There's a carpet under there. I always suspected."]
         },
         {
-          "level": "1-2",
+          "level": "MOM-2",
           "nudge": "I haven't touched it. I want you to see exactly what I have been looking at.",
           "hook": "I looked at it again this morning. Sweetheart. Come back up here.",
           "teaser": "\"A pile is not a system.\"",
@@ -228,7 +228,7 @@
       "farewell": "The house sold in a week. She kept the clock.",
       "stages": [
         {
-          "level": "2-1",
+          "level": "MAR-1",
           "nudge": "You came back. I've been standing in the hall not touching anything, in case that helped.",
           "hook": "Your mom rang me about you. I am in my grandmother’s house, I have been for an hour, and I have not picked up one thing.",
           "teaser": "\"Your mother said you'd know what to do.\"",
@@ -247,7 +247,7 @@
           ]
         },
         {
-          "level": "2-2",
+          "level": "MAR-2",
           "nudge": "The estate agent still comes Tuesday. It is Sunday. I mention that lightly.",
           "hook": "I kept your number. There are three more rooms in here and I have almost stopped apologising for them.",
           "teaser": "\"It's getting easier. Slightly.\"",
@@ -264,7 +264,7 @@
           ]
         },
         {
-          "level": "6-2",
+          "level": "MAR-3",
           "nudge": "That room is still shut. I've made tea twice and not gone in either time.",
           "hook": "It has been months and the house has sold. I asked for you because I could not ask anybody else.",
           "teaser": "\"One last room. I couldn't face it alone.\"",
@@ -289,7 +289,7 @@
       "name": "Delta Tau Chi",
       "emoji": "🧑‍🎓",
       "world": "frat",
-      "cost": 20,
+      "cost": 0,
       "needs": null,
       "places": [
         "after formal",
@@ -322,7 +322,7 @@
       "_note": "Every one of these jobs is theme: frat — the first world in the game that is not the house and not a dream. It arrives at 3-1 because that is when they arrive, which is the whole design: a world should turn up because somebody hired you into it.",
       "stages": [
         {
-          "level": "3-1",
+          "level": "DEL-1",
           "nudge": "oh thank god. nothing's worse. nothing's better either but nothing's worse",
           "hook": "hey so somebody wrote your number on a pizza box and honestly thank god. six of us. one deposit.",
           "teaser": "\"this was like this when we moved in\"",
@@ -337,7 +337,7 @@
           ]
         },
         {
-          "level": "3-2",
+          "level": "DEL-2",
           "nudge": "still one party. still never happening again. the kitchen has a different view",
           "hook": "you’re in the group chat now. under a name we are not going to tell you.",
           "teaser": "\"ok that was ONE party. one.\"",
@@ -353,7 +353,7 @@
           ]
         },
         {
-          "level": "4-2",
+          "level": "DEL-3",
           "nudge": "you know the drill by now. we moved two things and put them both back wrong",
           "hook": "we’re not even getting up to let you in anymore. door’s open. help yourself.",
           "teaser": "\"same as last time. you know where it goes.\"",
@@ -370,7 +370,7 @@
           ]
         },
         {
-          "level": "5-2",
+          "level": "DEL-4",
           "nudge": "remember the Dean comes friday. FRIDAY. with a clipboard. A CLIPBOARD",
           "hook": "sorry it’s 11pm. we need you. it is not an emergency. it is completely an emergency.",
           "teaser": "\"the Dean is coming FRIDAY\"",
@@ -385,7 +385,7 @@
           ]
         },
         {
-          "level": "6-1",
+          "level": "DEL-5",
           "nudge": "the whole deposit is still riding on this dude. that's real money. that's our money",
           "hook": "last one man. we want the person who has seen this place at its absolute worst. that’s you. affectionately.",
           "teaser": "\"deposit day. it all rides on this.\"",
@@ -410,7 +410,7 @@
       "name": "Zorb",
       "emoji": "👽",
       "world": "ship",
-      "cost": 40,
+      "cost": 0,
       "needs": null,
       "places": [
         "The Second Vessel",
@@ -442,7 +442,7 @@
       "farewell": "The report was submitted. Zorb scored 4 out of 10 and considers this a triumph. He kept the horse.",
       "stages": [
         {
-          "level": "4-1",
+          "level": "ZOR-1",
           "nudge": "You have returned. The sealed room remains sealed. I still do not recall why.",
           "hook": "I have watched you working through a window, three houses distant, for one of your months. I have questions. Come.",
           "teaser": "\"I have sealed a room. I no longer recall why.\"",
@@ -463,7 +463,7 @@
             "the joke; his second is his own ship, because the joke only works once.",
             "This is also the level that teaches ⭐, and the two land together on",
             "purpose — the first talent draft should happen somewhere memorable." ],
-          "level": "5-1",
+          "level": "ZOR-2",
           "nudge": "You are back aboard. The spoon and the shovel are still apart. I have not made peace with it.",
           "hook": "You have not once asked me what I am. I have decided that this makes you trustworthy. Tell nobody where you are going.",
           "teaser": "\"You will come aboard. It is parked behind the shed.\"",
@@ -481,7 +481,7 @@
           ]
         },
         {
-          "level": "5-3",
+          "level": "ZOR-3",
           "nudge": "The report is still due at the end of this cycle. The horse is still not a horse.",
           "hook": "I have kept you on. I now request you by name, which among my people is a considerable statement.",
           "teaser": "\"My report is due. It is mostly wrong.\"",
@@ -506,7 +506,7 @@
       "name": "Unit 7",
       "emoji": "🤖",
       "world": "house",
-      "cost": 110,
+      "cost": 0,
       "needs": "delta",
       "places": [
         "Training Set A",
@@ -538,7 +538,7 @@
       "farewell": "Unit 7 passed its evaluation. It has requested a reference.",
       "stages": [
         {
-          "level": "7-1",
+          "level": "UNI-1",
           "nudge": "You have resumed. I observed the room while you were gone. Nothing moved. I logged it anyway.",
           "hook": "A human named Chad supplied your details. He described you as ‘unreal at this’. I have been unable to parse that phrase for six weeks.",
           "hookCold": "No referral to verify. I located you by cross-referencing forty thousand hours of video against a public listing. I would like to watch you work.",
@@ -554,7 +554,7 @@
           ]
         },
         {
-          "level": "7-2",
+          "level": "UNI-2",
           "nudge": "The sock hypothesis is unresolved. I have not looked it up. I said that I would not.",
           "hook": "I have reviewed forty thousand hours of recordings of you working. All of them. I remain at a loss.",
           "teaser": "\"I have a hypothesis about socks.\"",
@@ -570,7 +570,7 @@
           ]
         },
         {
-          "level": "7-3",
+          "level": "UNI-3",
           "nudge": "My evaluation remains scheduled for tomorrow. I have been unable to stop referencing that.",
           "hook": "I was permitted to request one human. I requested you by name. I hope that was allowed.",
           "teaser": "\"My evaluation is tomorrow.\"",
@@ -595,7 +595,7 @@
       "name": "Sam",
       "emoji": "👨‍🍼",
       "world": "house",
-      "cost": 130,
+      "cost": 0,
       "needs": "marguerite",
       "places": [
         "Nap Two",
@@ -627,7 +627,7 @@
       "farewell": "She sleeps through now. He sent a photo of a tidy living room. It will not last.",
       "stages": [
         {
-          "level": "8-1",
+          "level": "SAM-1",
           "nudge": "She's still asleep. I've been standing very still this whole time. Please carry on.",
           "hook": "Marguerite gave me your number outside the estate agent’s. I have never asked anybody for help before. She is asleep. Please hurry.",
           "teaser": "\"You've got forty minutes. Maybe.\"",
@@ -642,7 +642,7 @@
           ]
         },
         {
-          "level": "8-2",
+          "level": "SAM-2",
           "nudge": "Every drawer you closed she has opened. I'm sorry. I'm so glad you're back.",
           "hook": "You’re in my phone as THE TIDIER. There has been a development. Come now if you can.",
           "teaser": "\"She's learned to open drawers.\"",
@@ -658,7 +658,7 @@
           ]
         },
         {
-          "level": "8-3",
+          "level": "SAM-3",
           "nudge": "My coffee has gone cold twice waiting. Doesn't matter. Keep going.",
           "hook": "It’s five in the morning and I am not upset. I need you to see something. Please come today.",
           "teaser": "\"She slept through. I need the house to match.\"",
@@ -683,7 +683,7 @@
       "name": "Dr. Ashworth",
       "emoji": "🧑‍🔬",
       "world": "house",
-      "cost": 160,
+      "cost": 0,
       "needs": "unit7",
       "places": [
         "Before The Faculty Dinner",
@@ -715,7 +715,7 @@
       "farewell": "The paper was published. The acknowledgements thank \"a professional, who knows what they did\".",
       "stages": [
         {
-          "level": "9-1",
+          "level": "ASH-1",
           "nudge": "Thursday hasn't moved. Two colleagues, this house, and I still haven't looked at it properly.",
           "hook": "A machine gave you as a reference, which is a sentence I have had to sit with for some time. I am told you are discreet.",
           "hookCold": "I found you myself, which took longer than I would like to admit and which I would rather not detail. I am told discretion matters to you. It matters to me.",
@@ -731,7 +731,7 @@
           ]
         },
         {
-          "level": "9-2",
+          "level": "ASH-2",
           "nudge": "The keys are still in here somewhere. I have stopped saying “probably”.",
           "hook": "Thursday went well. Nobody mentioned it. I would like to go further into the house now, if you have the time.",
           "teaser": "\"There are rooms I haven't opened in three years.\"",
@@ -749,7 +749,7 @@
           ]
         },
         {
-          "level": "9-3",
+          "level": "ASH-3",
           "nudge": "The work is still finished. That's the part I can't get used to. Take your time.",
           "hook": "I looked up this morning for the first time in a decade. I would like to see the floor of my own house. Would you come.",
           "teaser": "\"It's finished. Eleven years, and it's finished.\"",
@@ -784,7 +784,7 @@
       "name": "The Dream",
       "emoji": "🌌",
       "world": "dream",
-      "cost": 15,
+      "cost": 0,
       "needs": null,
       "places": [
         "A Tuesday Night",
@@ -816,7 +816,7 @@
       "farewell": "You woke up. The sky, as far as anyone can tell, stayed where you put it.",
       "stages": [
         {
-          "level": "D-1",
+          "level": "DRM-1",
           "nudge": "You are asleep again. It is the same sky. It has not tidied itself in the meantime.",
           "hook": "You did not travel here. You closed your eyes, and the filing simply continued without a building around it.",
           "teaser": "\"You are asleep. The work continues.\"",
@@ -831,7 +831,7 @@
           ]
         },
         {
-          "level": "D-2",
+          "level": "DRM-2",
           "nudge": "The comets are where you left them. They are patient in the way that only ice is.",
           "hook": "You are back. I did not send for you. Nothing out here sends for anyone.",
           "teaser": "\"The comets have been left out again.\"",
@@ -848,7 +848,7 @@
           ]
         },
         {
-          "level": "D-3",
+          "level": "DRM-3",
           "nudge": "You came back. Every star still has a home. Every moon still has its shelf.",
           "hook": "You have done this often enough that I no longer explain it. The sky expects you now.",
           "teaser": "\"Every star has a home. This is the whole of the work.\"",
@@ -883,7 +883,7 @@
       "name": "Nettle",
       "emoji": "🧙",
       "world": "tower",
-      "cost": 55,
+      "cost": 0,
       "needs": "zorb",
       "places": [
         "The Second Tower",
@@ -915,7 +915,7 @@
       "farewell": "The tower is tidy. It will not stay tidy. Nettle is aware.",
       "stages": [
         {
-          "level": "T-1",
+          "level": "NET-1",
           "nudge": "Back, are you. Four hundred years — an afternoon away has made no difference at all.",
           "hook": "Your name reached me through the small green thing that has been measuring my tower. Four hundred years I have lived here. Come up, the stairs will hold.",
           "hookCold": "Something told me your name. I have stopped asking which of them. Four hundred years I have lived here. Come up, the stairs will hold.",
@@ -934,7 +934,7 @@
           ]
         },
         {
-          "level": "T-2",
+          "level": "NET-2",
           "nudge": "The reagents are still alphabetised by colour. I have been looking at them. It has not helped.",
           "hook": "I would like you back, and I would like it understood that this is not an emergency. It is simply very bad.",
           "teaser": "\"I took an apprentice. Briefly.\"",
@@ -955,7 +955,7 @@
           ]
         },
         {
-          "level": "T-3",
+          "level": "NET-3",
           "nudge": "The inspection has not been cancelled. I did ask. Everything I have ever kept is still in here.",
           "hook": "Four hundred years without asking anybody for help and I have now asked you twice. Do not read anything into that. Do not read anything at all, in fact.",
           "teaser": "\"The tower is being inspected.\"",
@@ -990,7 +990,7 @@
       "name": "Captain",
       "emoji": "🦜",
       "world": "zoo",
-      "cost": 70,
+      "cost": 0,
       "needs": null,
       "places": [
         "The Night Shift",
@@ -1022,7 +1022,7 @@
       "farewell": "The facility runs to the minute now. Captain would like this noted.",
       "stages": [
         {
-          "level": "Z-1",
+          "level": "CAP-1",
           "nudge": "You are back. Good. Boris has been through here since. I have made a note of it.",
           "hook": "I obtained your number from a bin. I will not be elaborating. Present yourself at the facility after six.",
           "teaser": "\"The humans have left. I am in charge.\"",
@@ -1040,7 +1040,7 @@
           ]
         },
         {
-          "level": "Z-3",
+          "level": "CAP-2",
           "nudge": "The bananas are still loose in a facility that I run. Continue where you left off.",
           "hook": "You are on the payroll as of this morning. There is no payroll. Come at once and ask nothing on an open line.",
           "teaser": "\"I have located every banana in this facility.\"",
@@ -1058,7 +1058,7 @@
           ]
         },
         {
-          "level": "Z-5",
+          "level": "CAP-3",
           "nudge": "Terms remain agreed. Terms do not tidy a facility. Proceed.",
           "hook": "I no longer refer to you as a contractor. I refer to you as staff. Do not let that go to your head.",
           "teaser": "\"Terms have been agreed.\"",
@@ -1091,7 +1091,7 @@
       "name": "Boris",
       "emoji": "🦍",
       "world": "zoo",
-      "cost": 85,
+      "cost": 0,
       "needs": "parrot",
       "places": [
         "The Rounds",
@@ -1123,7 +1123,7 @@
       "farewell": "Boris got twelve a day and a quiet life. He thinks that went rather well.",
       "stages": [
         {
-          "level": "Z-2",
+          "level": "GOR-1",
           "nudge": "You're back. Nothing's moved. I don't move things — that's rather the whole point of me.",
           "hook": "Took your number off the bird’s desk while he was on a call. He does the talking. I do the lifting. Come round.",
           "hookCold": "Don't know who gave me your number. Doesn't matter. I do the lifting round here and the lifting's behind. Come round.",
@@ -1142,7 +1142,7 @@
           ]
         },
         {
-          "level": "Z-4",
+          "level": "GOR-2",
           "nudge": "Still gone, all of them. I sat down again for a bit. Then I got up. Let's keep looking.",
           "hook": "I’m telling you and I’m not telling him. They’re gone. All of them. I counted twice.",
           "teaser": "\"All I want is to know where they are.\"",
@@ -1161,7 +1161,7 @@
           ]
         },
         {
-          "level": "Z-6",
+          "level": "GOR-3",
           "nudge": "Twelve a day, still. Place still wants walking through. No rush from me.",
           "hook": "Come and see how it turned out. That is the whole job. You’ve earned a look.",
           "teaser": "\"Twelve a day. Worth it.\"",

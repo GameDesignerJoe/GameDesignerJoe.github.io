@@ -52,13 +52,25 @@ export function blankRun() {
     awarded: new Set(),       // "room|cont|row" of rows already paid out
     points: 0,                // ⭐ earned in THIS run, for the HUD
     starsEarned: 0,           // same, kept separate because points is displayed
-    /* HOW MANY TALENTS THIS HOUSE TEACHES. `picksMax` is the level's authored
-       `rewards` plus the Reputation upgrade, clamped to rooms-1, computed once
-       at run start; `picksTaken` counts them off. It replaced `draftsTaken`
-       against lifetime-⭐ thresholds and the per-level `talents: false`
-       override that existed to work around them — see the header of
-       js/talents.js. Zero is a legal and common value: the tutorial teaches
-       nothing, and that is now something a level says rather than a flag. */
+    /* HOW MANY TALENTS THIS HOUSE TEACHES, AND WHERE THEY LAND.
+
+       `totalRows` is every row in the generated house — the same unit ⭐ counts.
+       `picksMax` is derived from it by the tier table in upgrades.json, and
+       `pickAtRow` is the completed-row count at which each pick fires, FROZEN at
+       run start so a container growing mid-run cannot shuffle the thresholds
+       under a player. `picksTaken` counts them off.
+
+       All three are DERIVED, never saved: recomputed on every start and resume
+       by syncPicks() in main.js, because they depend on the store layer and this
+       module must not import it.
+
+       This replaced granting on ROOM completion (too late, and worst on small
+       houses), which itself replaced lifetime-⭐ `draftSteps` and the per-level
+       `talents: false` flag that existed to work around them. Zero picks is
+       still legal and still happens: Mom's two one-room jobs teach nothing, and
+       that now falls out of their size rather than being authored. */
+    totalRows: 0,
+    pickAtRow: [],
     picksMax: 0,
     picksTaken: 0,
     pendingDrafts: 0,

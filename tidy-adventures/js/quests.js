@@ -19,12 +19,11 @@
 
    Imports: dom, data, state, util, geometry, feedback, chatter, audio.
 ============================================================ */
-import { $, el, host } from './dom.js';
+import { $, el } from './dom.js';
 import { DATA, LOOKUP, nameOf, jobAt, freeJobAt } from './data.js';
 import { G } from './state.js';
 import { tokenise, shuffle } from './util.js';
 import { findFloorSpot, spin } from './geometry.js';
-import { flyStar } from './feedback.js';
 import { chatter, CHAT } from './chatter.js';
 import { play as sfx } from './audio.js';
 
@@ -236,13 +235,15 @@ export function checkQuests() {
 }
 
 export function completeQuest(q) {
-  G.points++; G.starsEarned++;
-  const room = G.rooms[q.room];
-  const fe = host.querySelector(".furn");
-  /* Finishing someone's errand was the one reward in the game that made no
-     sound at all — it flew a ⭐ and said a line into silence. */
+  /* NO ⭐ FOR AN ERRAND. It paid 1 and, like the coin cache, never called
+     addStars() — so the chip that flew at the wallet was decorative and the
+     wallet never moved. ⭐ comes from finishing ROOMS now, full stop, and the
+     reward for an errand is the client answering you back, which is the part
+     that was worth having.
+
+     The sound stays: finishing someone's errand was the one reward in the game
+     that made no noise at all, and that was the actual complaint. */
   sfx("star");
-  flyStar(fe || host, "+1 ⭐");
   /* The reply used to be a say() with the signature stapled onto the end of it,
      which is a note read out by the narrator and then attributed. It is the
      client answering you back, so they say it — and once their FACE is on the

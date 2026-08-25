@@ -40,9 +40,11 @@ can be edited without touching JavaScript:
 | hint text, and when hints appear | `tips` in `data/levels.json` |
 | how many levels a talent has | `levels` in `data/upgrades.json` |
 | what a talent DOES | `TALENT_IDS` in `js/config.js` + the code that reads it |
-| **how many talents a house teaches** | `rewards` on a level, or on a free-play band |
-| **the permanent upgrades, and their prices** | `home` in `data/upgrades.json` + `HOME_IDS` in `js/config.js` |
-| **what it costs to take a client on** | `cost` / `needs` on a client in `data/clients.json` |
+| **how many talents a house teaches** | `picks.tiers` in `data/upgrades.json` — by row count, not authored per level |
+| **when in a house each talent lands** | `picks.at` in `data/upgrades.json` — fractions of the house's rows |
+| **how many cards a draft offers** | `draftCards` in `data/upgrades.json` |
+| **the permanent upgrades, and their prices** | `store` in `data/upgrades.json` + `STORE_IDS` in `js/config.js` |
+| **how much ⭐ a house pays** | one per room, once per level ever — the room-complete branch in `afterMutation` |
 | item names in the loupe | `data/names.json` |
 | room shapes, which rooms a theme uses | `data/themes.json` |
 | furniture size, anchors, keep-out padding, key/coin emoji | `data/furniture.json` |
@@ -97,7 +99,7 @@ Each tier imports only from strictly lower tiers. There are no cycles.
 ```
 0  config · util · dom · validate · audio · hit
 1  data · toast/feedback · chatter
-2  state · geometry · client · home
+2  state · geometry · client · store
 3  save · rules · generate
 4  render · hud · inventory · containerView · tips · camera · talents · quests
 5  actions · locks · win · menus
@@ -406,89 +408,30 @@ nothing ever read. So `TALENT_IDS` and `CONSUMABLE_EFFECTS` live in
 boot validation compares them against the data **in both directions**. Adding
 either half without the other is a named error, not a quiet nothing.
 
-**The talents, and why these ones.** Measured over 180 generated rooms and
-10,272 floor items:
+> **HISTORICAL — the ninety lines that used to be here described the pre-wallet
+> game and were two models out of date.** They documented Bigger Hands as a
+> five-level *talent*, `draftSteps` lifetime-⭐ thresholds, a per-level
+> `talents: false` flag, and "⭐ is score and is never spent". All four are
+> deleted. The measured generation numbers in that table were the only place
+> they were written down and are kept below; everything else lives in
+> *The meta layer* further down, which is the current design.
+>
+> What was worth keeping out of it:
+>
+> - Over 180 generated rooms and 10,272 floor items, **71.7% of items have a
+>   duplicate loose in the same room**, but scattered — which is what makes a
+>   floor-reaching cascade (now Tidy Hands) worth having at all.
+> - A pick-up-time magnet was cut after measuring: a 14% radius was true only
+>   **8.1%** of the time, so four times out of five it would have done nothing
+>   and read as broken.
+> - **Tidy Whirlwind** was cut for costing a HUD button, a cooldown, an interval
+>   and a consumable while moving no number the player could see.
 
-| talent | levels | what it does | how often it can fire |
-|---|---|---|---|
-| Bigger Hands | 5 | +1 hand slot | always |
-| Sixth Sense | 1 | held item names its home; the home glows | always |
-| Magnet Fingers | 3 | a correct put-away tugs N more of that kind off this floor | 71.7% |
-| One Trip | 2 | …and takes the armful with it: L1 same kind, L2 anything that lives there | ~31% blind, more if you load up on purpose |
-| Homesick | 1 | everything on this floor with an open home in this room glows | lights ~24% of a floor |
+**A talent is still half data and half code**, which is the paragraph above and
+the reason `TALENT_IDS` / `STORE_IDS` / `CONSUMABLE_EFFECTS` are boot-checked in
+both directions. That has not changed and is the single most useful guard in the
+file.
 
-The two cascade talents fire at the same moment — a **correct** placement, in
-`cascade()` next to `tossInto()`. Deliberately not on a wrong one: the grey
-shake is how the game teaches where things live, and cascading five more items
-into the wrong home turns one mistake into six the player then has to undo.
-They ride *before* `afterMutation`, so rows they finish land in the same batch
-as the row you finished by hand — one gold flash, one chip, one celebration.
-
-Two talents were cut and should not be reinvented. **Magnet Fingers used to
-fire on pick-up**, needing a match within 14% of the room: true 8.1% of the
-time, so it did nothing in 92 pick-ups out of 100. The fantasy was right and
-the moment was wrong — duplicates exist, they are just never *near* each other.
-**Tidy Whirlwind** re-sorted the items already inside containers, so it never
-moved the only number the player watches, and it cost a HUD button, a cooldown
-ticker, a once-a-second interval and a consumable to refresh it.
-
-**`levels`, not `costs`.** ⭐ is score and is never spent, so the price list
-nothing read is gone. Only its length ever meant anything.
-
-**A reward gate must travel with the score that earns it.** `checkDraftThreshold()`
-computes `owed = draftsEarnedFor(starsEarned) - draftsTaken - pendingDrafts`,
-and for a while the save wrote `points` but not `draftsTaken`. So every
-**Continue** restored "you have 30 lifetime stars" beside "you have never
-drafted", the run was owed every draft the player had already taken, and they
-arrived one per safe moment — which in practice is **one every time you close a
-container**, until the backlog drained. Four free talents, silently, on every
-resume. All three counters are saved now, and a save written before they were is
-settled with `draftsTaken = draftsEarnedFor(starsEarned)` on load: the honest
-reading of an old save is "they took what their stars earned", and they are
-holding the talents to prove it.
-
-**Three more sets were read on the way in and dropped on the way out**, which
-is the same half-finished shape and hid for the same reason: an empty `Set`
-behaves like a fresh run rather than throwing. `loadGame()` has always restored
-`d.taught`, `d.events` and `d.roomFxDone`; `saveGame()` never wrote any of
-them. So `taught` — the "say this sentence the first time the player hits this
-rule" record — was reset by every **Continue**, and the whole game re-taught
-itself from scratch; `events` is what tip `when`/`until` conditions watch, so a
-dismissed tip could come back; `roomFxDone` is what stops a room playing its
-gold ripple twice.
-
-It matters more now that `misfileHint()` puts `misfile:<emoji>` keys in
-`taught` to name a home once and not again — without the write, "once" meant
-"once per sitting". Additive, so no `SAVE_VERSION` bump: `loadGame()` already
-defaulted each to an empty set, and an older build ignores fields it never
-reads. **When you add a field to `loadGame()`, add it to `saveGame()` in the
-same change** — that is the same rule as "if you add a field to `clients.json`,
-render it in the same change", and this file now has three examples of it.
-
-The reason this survived so long is that **the save round-trip was not reachable
-from `window.tidy`**. `saveGame`, `loadGame`, `clearSave` and
-`checkDraftThreshold` are on the console handle now. Continue is the one entry
-point that restores state rather than generating it, so it is where state that
-was never written shows up at all.
-
-**Talents do not survive a level.** Campaign levels used to reload the previous
-level's talents from `tidy-campaign-talents`, which meant the levels authored to
-teach locks were played with Sixth Sense already in hand. `up` still rides in
-the run save, so continuing mid-level keeps what you drafted.
-
-**⭐ does not exist until 5-1 teaches it.** `"talents": false` in `levels.json`
-turns the whole reward layer off for a level: no chips fly, and no draft opens
-however many rows you finish. It is set on every level before 5-1 "Talent
-Show", which is the one that explains stars — before this, the first threshold
-(4 ⭐) was crossed on the *last item of 1-2*, and a modal asked the player to
-choose between three talents they had never heard of, five levels early.
-
-The gate is a single `if (!G.talents) return` at the top of
-`checkDraftThreshold()`, and payouts go through `flyStar()` rather than
-`flyReward()` — one condition in one place each, rather than a flag remembered
-at four call sites. Stars are still *counted* while suppressed, so switching a
-level's talents on needs no migration. `G.talents` is read from `levels.json`
-on load rather than saved, for the same reason tips are.
 
 **Tips are `kind` / `target` / `when` / `until`.** `when` makes a tip appear in
 response to an event; `until` dismisses it. A tip is only marked learned if it
@@ -1172,182 +1115,203 @@ above.
 
 ---
 
-## The meta layer — ⭐ is money now
+## The meta layer — ⭐ is money, and rows are talents
 
-Nothing used to exist past the room in front of you. A level handed out
-talents, the win screen took them away again (deliberately — see *talents do
-not survive a level*), and ⭐ was lifetime score that could not be spent on
-anything at all. **Finishing a house was the entire reward for finishing a
-house.**
+Nothing used to exist past the room in front of you: a level handed out talents,
+the win screen took them away, and ⭐ was lifetime score that could not be spent.
+**Finishing a house was the entire reward for finishing a house.**
 
-Two changes, and they are separable on purpose:
+The layer that fixed that has since been rebuilt, because the first version got
+several things wrong at once. This is the current shape; the reasoning for each
+change is what the rest of this section is for.
 
-### 1. A LEVEL says how many talents it teaches
+| | then | now |
+|---|---|---|
+| what buys a talent | a **room** completing | a **row** completing, at front-loaded thresholds |
+| how many per house | authored `rewards: N` per level | **derived** from the house's row count |
+| where ⭐ comes from | every row, plus Good Name per room | **one per room, once per level ever** |
+| the cast | nine of eleven clients bought with ⭐ | **free.** The campaign is linear again |
+| the store | 5 upgrades, 756 ⭐ | 1 upgrade, 120 ⭐, and a free refund |
 
-Drafts used to be granted by crossing lifetime-⭐ thresholds
-(`draftSteps: [4,10,18,28,40,55,72]`). That put the reward rate entirely
-outside a level's control — how many talents a house handed out fell out of how
-many rows it happened to contain — and the first threshold was crossed **on the
-last item of 1-2**, which is why every level up to 5-1 carried
-`"talents": false`. That flag was a workaround for having no per-level control,
-and both it and `draftSteps` are **deleted**, not left dead.
+### 1. A ROW buys a talent, and the house's size says how many
 
-A level authors `rewards: N` and grants a pick on each of its first N **room
-completions**. Room completion because it is already the biggest moment the
-game has — its own celebration beat, the gold ripple — and because room count
-is a level's main size lever, so "mega house, five talents" is close to one per
-room.
+Three models deep now, and each replaced the one before for a reason worth
+keeping:
 
-**`rewards` is capped at rooms − 1**, and boot validation errors on an
-over-promise. The last room completing *is* the level completing, so a pick
-granted there would land on top of the client's outro and the win screen, which
-is the exact pile-up `celebrate()` exists to prevent. An over-promise is
-otherwise silent: the extra pick is simply never handed out.
+1. **Lifetime-⭐ thresholds** (`draftSteps: [4,10,18,28,40,55,72]`) put the reward
+   rate entirely outside a level's control, and the first threshold fired on the
+   **last item of 1-2** — which is why every level up to 5-1 carried
+   `"talents": false` to suppress it.
+2. **`rewards: N` on room completions** gave a level control and deleted that
+   flag. But room completion arrives *late*, and worst exactly where it hurts
+   most: on a small house the first room finishing is already most of the level,
+   so the talent landed with nothing left to spend it on. And 11 of the 34 levels
+   authored `0`, so the first talent a new player ever saw was on the **twelfth
+   level** — reproducing by hand the problem `"talents": false` existed for.
+3. **Row thresholds, derived from size.** Rows are the same unit ⭐ already
+   counted, they fire often enough to place a pick anywhere in a run, and
+   deriving from the *generated* house means the 215 procedural free-play houses
+   are covered by one rule with nothing to author.
 
-Free-play bands author `rewards` too. Free play keeps its picks and **mints no
-⭐ at all** — see the reasoning in `sizes.json`: it is 215 houses, and paying
-currency there would put an unbounded farm next to the campaign's pacing. Free
-play gives you a good afternoon; the campaign gives you money.
+`picks.tiers` in `upgrades.json` maps total rows to a pick count; `picks.at` says
+where each one lands, as fractions of the house. **Front-loaded on purpose**
+(0.15 / 0.40 / 0.65 for a three-pick house): the first should arrive while there
+is still a house to use it on, and the last stops well short of the end so it can
+never pile onto the client's outro and the win screen — the pile-up `celebrate()`
+exists to prevent, and the reason the old model needed a `rooms - 1` cap. Nothing
+fires at 100%.
 
-### 2. ⭐ is a wallet, spent at Home
+Marguerite's first house teaches a talent on its **second completed row**. Mom's
+two one-room jobs teach nothing, and that now falls out of their size rather than
+being authored — the smallest tier is `upTo: 4`, `picks: 0`.
 
-`js/home.js` owns three keys and a screen. It is a **leaf** on purpose: buying
-a client unlocks them, it does not play them, so nothing here imports a render
-tier and nothing here can make a cycle. `main.js` reads `homeLevel()` /
-`castHas()` and applies them, and hands two callbacks in through `initHome()` —
-the same shape as `initTalents()`.
+**The seams.** `totalRowsIn()` sums `container.cells.length` — the grid, not the
+original `types.length`, because `growContainer()` can add rows. `syncPicks()` is
+the one place `picksMax`, `totalRows` and `pickAtRow` are set, called from
+`applyStore()` and `resumeStore()` so every start and resume goes through it, and
+the thresholds are **frozen at run start** so a container growing mid-run cannot
+shuffle them under a player. The grant hangs inside the `G.awarded` dedupe
+branch, not off `newly`: `newly` is "rows complete right now", so a second tap in
+a finished container would re-offer a pick already paid for. `G.awarded.size`
+**is** the completed-row count, so there is no second counter to drift from it.
 
-**The Home button is on the title screen at 0 ⭐ and always has to be.** It
-shipped hidden until you had a star to spend, borrowing the lesson from the old
-in-level talent shop ("⭐ 0 over an all-unaffordable list"). That was the wrong
-lesson: THAT button sat in the HUD during play and taught people to ignore
-something they looked at forty times a level. This one is the entrance to half
-the progression, and hiding it means a new player has no way to learn the meta
-layer exists — which is exactly what happened the first time somebody opened
-the build. At zero stars the screen still says there is a currency, what it
-buys, and that nine of the eleven people in this game have to be hired. That is
-a reason to play, not a dead end.
+**`draftCards` is 2, not 3.** Three cards from a small pool made every draft a
+survey of nearly everything rather than a decision.
 
-| key | holds |
+### 2. ⭐ is a wallet — and a fixed lifetime budget
+
+`js/store.js` owns three keys and a screen, and is a **leaf** on purpose: nothing
+here imports a render tier, so nothing here can make a cycle. `main.js` reads
+`storeLevel()` and hands two callbacks in through `initStore()`.
+
+| key | holds | note |
+|---|---|---|
+| `STARS_KEY` | the balance, which **goes down** | |
+| `STARS_KEY + ":ever"` | lifetime earned, never spent | a total that decreases is not a total |
+| `STORE_KEY` | `{id: level}` of what is bought | the stored value is still `tidy-home-v1` |
+
+**One ⭐ per room, once per level, ever.** Three deliberate constraints:
+
+- **Rooms, not rows.** Rows minted 2,055 ⭐ across the campaign against a 1,441 ⭐
+  shop — the whole thing buyable 1.6x over in a single pass, while both design
+  notes claimed a "most of the cast *or* two or three upgrades, not both" tension
+  that did not exist. A row buys talents and a room buys upgrades, so the two
+  currencies have different textures and neither can inflate the other.
+- **Once ever.** `G.awarded` only stops a row paying twice *within* one run, and a
+  finished tile stays clickable, so replaying used to re-pay a level without
+  limit. Gated on `doneIds()` — deliberately re-read rather than computed at run
+  start, because a level completed *during* this run must keep paying for its
+  remaining rooms, and the done-set does not gain its id until the win screen.
+- **Free play mints none**, as before: 215 houses would be an unbounded farm.
+
+**So lifetime income is 136 ⭐ — the campaign's room count — and that is the
+entire budget** until new content ships or something repeatable is added. The
+store costs 120. Two consequences to hold onto:
+
+- **A wrong purchase would otherwise be permanent.** The old notes said
+  "replaying campaign levels is the way out of a corner"; that is gone. Hence
+  `respec()` — a **free** refund of everything, because charging for it just
+  makes the corner smaller. It writes the balance directly rather than through
+  `addStars()`, so `:ever` does not move.
+- **Four ⭐ sources were phantom** and are deleted rather than fixed: the coin
+  cache, the quest reply, Lucky Find and the empty-pool draft payout all raised
+  the run counter and flew a chip at a wallet that never moved, because none of
+  them called `addStars()`. `tools/talents.html` had been reporting this for as
+  long as they existed. Caches and errands are their own reward; the draft's
+  empty-pool branch now warns instead, because reaching it is a configuration
+  bug, not a game event.
+
+### 3. What is in each catalogue, and the two axes
+
+**The split is still the design**: `upgrades[]` is in-run talents, `store[]` is
+permanent, and the line is *a talent changes what you KNOW about the house in
+front of you; a store upgrade changes how you PLAY.* Only the second is safe to
+keep — Intuition permanently would gut the taxonomy the whole game is about.
+
+What is new is a test for whether a talent is worth writing at all. **Every
+talent that lands is on one of two axes:** either **items move themselves** (the
+house tidying itself a little, in a direction you chose) or **you learn where
+things go** (the taxonomy opening up). The game has no timer and no fail state,
+so nothing is scarce except attention: a talent granting the player an *ability*
+— more reach, less risk — is invisible within thirty seconds, because the
+baseline resets and there was never any pressure for it to relieve. One that
+makes the *world* move is felt immediately.
+
+That test also explains the merges:
+
+- **Intuition** = `sense` + `homesick`, three rungs. One card used to answer the
+  whole taxonomy at once — the glow, the room *and* the container — which spent
+  the discovery immediately and left nowhere to scale. Now: rung 1 the floor
+  glows, rung 2 names the room, rung 3 names the container and lights it. Higher
+  rungs never take the glow away. The whole room-vs-container decision lives in
+  one `senseSuffix()` return.
+- **Tidy Hands** = `magnet` + `oneTrip`. Filing help from your hands and filing
+  help from the floor fired at the same moment, on the same condition, in the
+  same function — two ids for one idea, each too small to notice. One shared
+  budget across both reaches, so a level is worth the same number of items
+  however they are spread. *It still needs real magnitude and its own sound;
+  merging the ids stops it being two invisible talents, not one.*
+
+**Cut, and why**, because each is a trap worth not re-setting:
+
+| cut | why |
 |---|---|
-| `STARS_KEY` | the balance, which **goes down** |
-| `HOME_KEY` | `{id: level}` for the permanent upgrades |
-| `CAST_KEY` | the client ids you have taken on |
+| `keyring`, `skeleton` | key manipulators — all of those are parked. Skeleton Key was near-null anyway: it floored a lock's `need` at 1 while the generator gives every *container* lock exactly 1, so it could only ever weaken a door; and keys spawn exactly-enough-never-more, so decrementing turned a spawned key into undroppable ballast |
+| `picks` (Reputation) | +1 talent per house is the strongest buy in any such store and it compounds. Its level 2 was dead on most levels, and it **added before the old clamp**, so `rewards: 0` stopped being a floor and levels written to teach nothing did |
+| `cards` (Business Cards) | discounted clients, who are free now — and its level 2 never paid for itself even when they were not |
+| `spare` (Spare Set) | an **anti-upgrade**: it minted a key into a hand *slot*, so on the eight levels with `contLocks: 0` you paid 55 ⭐ to play a whole house with four slots of five |
+| `wage` (Good Name) | a ⭐-rate multiplier, which is the last thing a deliberately starved economy needs |
 
-**This reverses a deliberate decision.** `upgrades.json` used to carry a
-`costs[]` array that was deleted on the grounds that "⭐ is score and is never
-spent", and its readme argued the point. Prices are read now. The readme argues
-the other way. Do not delete them again.
+### 4. The cast is free, and the board is linear again
 
-`stars` and `starsEarnedEver` are two numbers because **one of them has to be
-able to go down and the other must not** — a lifetime total that decreases is
-not a lifetime total. Stars bank **as they land**, not at the win screen, so
-quitting half way through a house for a phone call keeps what you earned.
+Nine of eleven clients were one-off ⭐ purchases priced by narrative distance. It
+was the wrong shape: it made ⭐ buy both **power and content** out of one wallet,
+and content always wins that fight. 48% of the shop was *permission to play
+levels that already existed*, so every star spent on an upgrade read as a
+deliberately delayed campaign — and the player who correctly bought all the
+content first arrived at a store with nothing left to want.
 
-**The split between the two catalogues is the design.** `upgrades[]` is in-level
-talents, `home[]` is permanent, and the line is: *a talent changes what you
-KNOW about the house in front of you; a home upgrade changes how you PLAY.*
-Only the second is safe to keep. Sixth Sense permanently would gut the taxonomy
-the whole game is about — and 4-2 was already being played with it in hand back
-when talents did carry over, which is why they stopped.
+`cost: 0` on every client is what says so, and it is still validated as a number
+so prices could come back as data. What went with it: the `hired` gate in
+`progress()`, the fifth `unhired` tile state, the new-hire queue jump, the shop's
+cast grid, `priceOf()`, `REFERRED_OFF`, and the win screen's walk past levels
+belonging to somebody you had not hired. Face rationing went back to the frontier
+rule — everything reached shows its client, exactly one job ahead is a greyed
+tease, the rest are silhouettes.
 
-`hands` moved to `home[]`, which dropped the in-level pool to four talents and
-seven picks — not enough for a five-pick house with `draftCards: 3`. So three
-were written to refill it, all of them information or friction inside one run:
-**Keyring** (loose tokens in *this* room ring — the same `.reveal` look the
-debug button uses, permanent but only where you are, because burial is the
-feature), **Label Maker** (furniture shows what it is still waiting for, greyed,
-after what is already in it — the furniture's half of what Sixth Sense tells you
-about the item), and **Skeleton Key** (every lock still shut wants one key
-fewer, floored at one, applied the moment it is learned — the one talent that
-acts on the world rather than changing a rule, so it reaches the rules tier
-through `initTalents({skeleton})`).
+**`hookCold` is parked, not dead.** Four clients carry a cold opening for having
+been found out of order. A linear campaign cannot reach them, but they are good
+writing that costs nothing dormant and is exactly what out-of-order acquisition
+would need — so boot validation deliberately does *not* warn about them, and the
+rule that used to demand them is gone. What replaced it is stricter and more
+useful: a referrer whose first job comes *later* than the client they refer is now
+a boot **error**, because nothing papers over it any more.
 
-`HOME_IDS` gets the same both-directions boot check as `TALENT_IDS`, and it
-matters more: an unimplemented talent draws a card that does nothing, and an
-unimplemented home upgrade does nothing **and takes the player's money**. An id
-may not be in both lists — `G.up` and `HOME_KEY` are separate records, so the
-same id in both is two different levels under one name.
+### 5. Ids say who, not how hard
 
-### The cast is bought, and the board had to become dynamic
+Level ids were `1-1`, `D-2`, `Z-5`: a difficulty tier and a stage number. The tier
+drifted until it meant nothing — Delta Tau Chi spanned `3-1, 3-2, 4-2, 5-2, 6-1`,
+and `Z-*` was shared by **two** clients (odd numbers the parrot, even the
+gorilla). They are `MAR-2`, `GOR-3` now: three letters of client, then the stage.
 
-The campaign is no longer all there at the start. You get Mom and Marguerite
-(`cost: 0` — data, not a hardcoded pair) and everybody else is a one-off
-purchase priced by narrative distance. Two players twenty levels in can have
-completely different casts, so **the board cannot promise "the one after next"
-any more.**
+**`ID_MAP` in `config.js` exists for saved data, not for the game.** `DONE_KEY`
+holds level *ids*, so without it every player's campaign progress would silently
+read as empty. Applied on read and written back — one pass per save, idempotent,
+because no new id is also an old one. **Do not delete it.** `LEGACY_ORDER` was
+rewritten through the same map: its *order* is what was frozen, the ids were only
+labels for positions. The in-flight save needs nothing — it stores `levelIdx`
+alongside `levelId` and prefers the id only when it resolves, so an old save falls
+back to the index, which still points at the same level because the order did not
+change.
 
-`progress()` gained a second gate: `frontier` is how far you have got, `hired`
-is whether you have anybody for this job. Everything downstream reads `hired`
-rather than working it out — same discipline the debug unlock override already
-follows, and *Unlock all jobs* unlocks the cast too, or the button that exists
-to let you look at any level would open a board of silhouettes.
+### Where the levers are
 
-**`stageState` has five states now.** `unhired` is the new one, and it is not
-`locked`: locked means *not yet*, unhired means *go and buy them*. A tile that
-cannot tell you which is unhelpful, so unhired keeps a full-strength silhouette
-and shows a **price** where the level id would be.
-
-**Face rationing moved.** The old rule was "one job ahead is greyed, the rest
-are silhouettes", which only works when everybody knows what comes next. Now
-anyone you have **hired** shows their face wherever their jobs are, and anyone
-you have not is a silhouette with a price — because the tease moved to the shop,
-where a face *is* the price tag. "??? — 90 ⭐" is not an offer.
-
-**A new hire jumps the queue, once.** Buying somebody should hand you that
-person, so `now` points at their first stage. Getting the bookkeeping right took
-three attempts and the wrong two are worth knowing:
-
-- *Consume inside `progress()`* — whichever of its four callers ran first ate
-  the pointer, so the board (the one screen that needs it) pointed at whatever
-  was next by level order.
-- *Consume when the board renders* — the promise lasted one glance. Close the
-  board, reopen it, and the person you had just paid for was no longer next.
-- **Clear it when it is HONOURED** — when their first stage is done. Idempotent,
-  so every `progress()` agrees and none of them has to be the one that spends
-  it. Their *first* stage, not their next unplayed one: "the very next job" is
-  singular, and hijacking `now` for a whole three-stage arc is a much bigger
-  promise than was made.
-
-### The referral chain pays instead of blocking
-
-Every first-stage hook is a referral, and the chain is the only thing that makes
-eleven clients feel like one world: Mom → Marguerite → Sam; a pizza box → the
-frat → Unit 7 → Dr. Ashworth; Zorb → Nettle; Captain → Boris. In a shop where
-anything is buyable in any order, nothing stops you starting with the gorilla —
-and then Nettle's opening line (*"Your name reached me through the small green
-thing that has been measuring my tower"*) names somebody you have never met.
-
-Gating purchases on the chain was the other option and it was rejected: a shop
-that hides most of itself is a worse shop. So **following the chain is cheaper**
-(`needs` + a 40% referral discount, stacking with Business Cards) and a client
-bought cold gets a different opening: **`hookCold`**.
-
-Two rules keep that honest, both boot-checked. A client whose `needs` points at
-somebody **buyable** must have a `hookCold` — otherwise their line can arrive
-before the person it names. A client whose referrer is part of the free opening
-must **not** have one, because it could never be shown and would be dead copy.
-And the swap only ever applies to a **first** stage: a later hook is about what
-working for you once has changed, which needs no referrer.
-
-### Prices, and where the levers are
-
-First pass, tuned against the campaign only (free play pays nothing). Roughly
-1 ⭐ per completed row plus whatever Good Name adds per room, so a first run
-through the campaign lands in the low four figures — enough to unlock most of
-the cast *or* max two or three upgrades, not both. **Choosing is the point;
-replaying campaign levels is the way out of a corner.**
-
-The chicken-and-egg is deliberate and is what makes the opening a ramp: you
-cannot earn a client's stars without buying them first, so Mom and Marguerite's
-four small jobs fund The Dream (15) or the frat (20), which fund the next one.
-
-Levers, cheapest to reach for first: `cost` on a client; `cost` on a home
-upgrade (an array prices each level separately); `params.each` on Good Name;
-`REFERRED_OFF` in `home.js`; `rewards` on a level if the problem is talents
-rather than money.
-
----
+Cheapest to reach for first: `picks.tiers` and `picks.at` in `upgrades.json` if
+the problem is *when* talents arrive; `draftCards` if it is how much choice each
+one offers; `cost` on a store upgrade (an array prices each level separately);
+`levels` on a talent if a ladder is too short. The ⭐ rate itself is one line at
+the room-complete branch in `afterMutation` — and note that changing it changes a
+**budget**, not a rate, because a level pays once.
 
 ## Add to Home Screen
 
@@ -1626,41 +1590,59 @@ Run through this after any change; it's what the browser tests cover.
   (`size: "mega"`, no `freeId`) and press Continue: it resumes, the card wears
   the world's icon instead of a face, and the gear's "New house" does not throw.
   That is the one path `houseVoice` in `strings.json` still exists for.
-- **A level teaches what it says it does.** `rewards: N` grants a pick on each
-  of the first N room completions and never on the last one. `tidy.roomFinished()`
-  fires a grant by hand; call it more times than the level allows and the extra
-  ones must do nothing. The draft subtitle counts "Talent 2 of 4", so a wrong
-  cap is visible without instrumenting anything.
-- **⭐ banks as it lands, and only in the campaign.** File one complete row: the
-  wallet goes up by one, immediately, before any win screen. Do the same in free
-  play and it must not move at all. Then quit mid-house and confirm the money
-  is still there — banking at the win screen was the thing this avoids.
-- **The three new talents actually do something.** Skeleton Key drops every
-  `lock.need > 1` by one and leaves the single-key locks alone; Label Maker adds
-  exactly `params.show + level - 1` greyed badges per container; Keyring rings
-  the tokens in the room you are standing in and **only** that room. All three
-  are checkable in one line each off `tidy.G`.
-- **Home upgrades survive a resume without duplicating.** Buy Bigger Hands and
-  Spare Set, start a house, save, Continue: the hand count must match what you
-  paid for and there must be exactly **one** spare key. Re-granting the one-shot
-  on every resume is the same shape as the talent draft that re-owed itself.
-- **The board is honest about who you have.** With a partial cast: hired clients
-  show faces and level ids, unhired show a silhouette and a price, and no
-  unhired tile is clickable. Buy somebody and confirm their first job becomes
-  `now` — then close and reopen the board (it must still be `now`), then play it
-  (it must stop being `now`).
-- **A cold client's opening does not name a stranger.** Buy Nettle without Zorb
-  and read the next-job card: it must be the `hookCold`. Buy Zorb too and it
-  must switch to the warm one. Check a *second* stage never swaps.
-- **`initHome()` and `initTalents()` are actually CALLED.** Both are imported
+- **A house teaches what its size says it does.** Picks come from `picks.tiers`
+  against the house's total row count, and land at the `picks.at` fractions of
+  it. `tidy.G.totalRows`, `tidy.G.picksMax` and `tidy.G.pickAtRow` are the three
+  numbers to read at run start; `tidy.grantPick()` fires a grant by hand, and
+  called more times than the house allows the extras must do nothing. The draft
+  subtitle counts "Talent 2 of 3", so a wrong count is visible without
+  instrumenting anything.
+- **The opening teaches early, and Mom teaches nothing.** `MOM-1` and `MOM-2`
+  must be `picksMax: 0`; `MAR-1` must be 1, owed at **row 2** of its 8. That
+  pair is the whole reason the model changed — check them before anything else.
+- **⭐ comes from rooms, once per level, ever.** Finish a room: the wallet goes up
+  by exactly one, immediately, before any win screen. Finish a *row* and it must
+  not move at all. Do either in free play and it must not move. Then finish a
+  level, replay it, and confirm the wallet stays put — `doneIds()` is the gate,
+  and a finished tile is still clickable on purpose. Quit mid-house and the money
+  earned so far must still be there.
+- **The talents actually do something.** Intuition is a ladder and each rung must
+  add exactly one thing: level 1 glows floor items that live in this room and
+  says nothing in the hand label; level 2 names the **room** ("→ in here" when it
+  is this one); level 3 names the **container** and lights it. A higher rung must
+  never take the glow away. Tidy Hands files `level x params.pull` extra items on
+  one correct placement, drawn from your hands *and* this floor against **one
+  shared budget** — two separate budgets was the bug that made it quietly twice
+  as strong in a picked-over room.
+- **Store upgrades survive a resume without duplicating.** Buy Bigger Hands,
+  start a house, save, Continue: the hand count must match what you paid for and
+  must not grow again. Re-granting on every resume is the same shape as the
+  talent draft that re-owed itself.
+- **The refund is free and does not inflate the lifetime total.** Buy everything,
+  press Refund: the balance returns to exactly what it was and `:ever` must not
+  move. A lifetime total that grows when you undo something is not a total.
+- **The board is linear and honest.** On a fresh save `MOM-1` is `now` and
+  clickable, `MOM-2` is a greyed one-ahead tease showing Mom's face, and
+  everything after is a silhouette. No tile shows a price and none carries a 🔒.
+- **The win screen opens, and its Store button comes back to it.** Finish a
+  house: the overlay must actually gain `.open` — it once rendered its whole
+  contents and then threw on the next line, so the symptom was a screen that
+  never appeared rather than an error anyone would notice. With ⭐ in the wallet
+  it offers a Store button, and closing the store must return to the win screen,
+  not to the title.
+- **An old save keeps its progress.** Put pre-rename ids in `DONE_KEY`
+  (`["1-1","D-1","Z-3"]`), reload, and `tidy.progress().done` must come back as
+  `MOM-1 / DRM-1 / CAP-2` with the mapped set written through. Run it twice: the
+  second pass must change nothing. This is the one destructive step in the whole
+  change — `DONE_KEY` holds ids, so a missing `ID_MAP` entry is a silent progress
+  wipe, and the first attempt at it covered only 22 of the 34 levels.
+- **`initStore()` and `initTalents()` are actually CALLED.** Both are imported
   into main.js and both hand callbacks to a leaf module, so forgetting the call
   is silent in a way that is hard to see: the module loads, its exports work,
   and only the callbacks are dead. It shipped that way once — the wallet never
-  refreshed the title screen's Home button, Back from Home left the screen
-  stale, and Skeleton Key drew a card and did nothing, which is the exact
-  failure mode `upgrades.json` carries two war stories about. Cheapest check:
-  buy something and watch the title button's ⭐ change without reopening the
-  screen, and draft Skeleton Key and watch a `lock.need` drop.
+  refreshed the title screen's Store button and Back from the Store left the
+  screen stale. Cheapest check: buy something and watch the title button's ⭐
+  change without reopening the screen.
 - Console clean throughout.
 
 ---
