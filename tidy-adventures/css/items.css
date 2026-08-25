@@ -133,3 +133,38 @@
   box-shadow:0 3px 8px rgba(0,0,0,.4);
   white-space:nowrap;
 }
+
+/* ---------- THE PET ----------
+   Positioned exactly like a floor item, but it TRANSITIONS between positions:
+   the tick moves it in discrete hops and the transition is the entire illusion
+   of something pottering about. Drawn above the clutter (see buildRoomEl) —
+   the one thing in a room that moves on its own must never be behind anything.
+   `pointer-events:auto` because the item it carries is a child, and the tap
+   that takes it has to land on the pet rather than on the emoji. */
+.pet{
+  position:absolute;
+  font-size:calc(var(--item-size) * 1.15);
+  line-height:1;
+  transform:translate(-50%,-50%);
+  transition:left .9s ease-in-out, top .9s ease-in-out;
+  z-index:6;
+  cursor:pointer;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));
+  animation:petbob 2.4s ease-in-out infinite;
+}
+/* Carrying something is worth seeing from across the room: that is when the
+   pet is interruptible, and the only time tapping it does anything. */
+.pet.carrying{ animation-duration:1.2s }
+.petload{
+  position:absolute;left:58%;top:-42%;
+  font-size:.62em;
+  transform:rotate(8deg);
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));
+}
+@keyframes petbob{
+  0%,100%{ transform:translate(-50%,-50%) }
+  50%    { transform:translate(-50%,-58%) }
+}
+@media (prefers-reduced-motion:reduce){
+  .pet{ animation:none; transition:none }
+}

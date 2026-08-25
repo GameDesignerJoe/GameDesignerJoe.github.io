@@ -43,6 +43,8 @@ can be edited without touching JavaScript:
 | **how many talents a house teaches** | `picks.tiers` in `data/upgrades.json` — by row count, not authored per level |
 | **when in a house each talent lands** | `picks.at` in `data/upgrades.json` — fractions of the house's rows |
 | **how many cards a draft offers** | `draftCards` in `data/upgrades.json` |
+| **when in a house a talent is offered** | `window` on a talent — `early`/`mid`/`late`/`any`, a lean not a gate |
+| **what the helper looks like** | `PET_SKIN_EMOJI` in `js/config.js` — boot-checked against every sortable emoji |
 | **the permanent upgrades, and their prices** | `store` in `data/upgrades.json` + `STORE_IDS` in `js/config.js` |
 | **how much ⭐ a house pays** | one per room, once per level ever — the room-complete branch in `afterMutation` |
 | item names in the loupe | `data/names.json` |
@@ -1262,7 +1264,140 @@ That test also explains the merges:
 | `spare` (Spare Set) | an **anti-upgrade**: it minted a key into a hand *slot*, so on the eight levels with `contLocks: 0` you paid 55 ⭐ to play a whole house with four slots of five |
 | `wage` (Good Name) | a ⭐-rate multiplier, which is the last thing a deliberately starved economy needs |
 
-### 4. The cast is free, and the board is linear again
+### 4. The pool, and what each thing is FOR
+
+Eight talents, twenty-two levels, drafted two cards at a time. Every one is on
+one of the two axes above, and every one carries a `window` saying when in a
+house it is worth having.
+
+| talent | lv | axis | window | what it is for |
+|---|---|---|---|---|
+| **Intuition** | 3 | know | any | the taxonomy, one rung at a time: glows → names the room → names the furniture |
+| **Tidy Hands** | 3 | move | any | one placement takes `pull` more with it, from your hands *and* this floor |
+| **Label Maker** | 2 | know | mid | furniture owns up to N things it is still completely missing, biggest job first |
+| **Go to your Room** | 3 | move | early | walk in and some of what lives elsewhere lets itself out |
+| **Bring to the Top** | 2 | move | early | hold something and its kind rises out of the clutter |
+| **The Holdall** | 3 | move | mid | the same 5–9 slots in every room; stow here, unpack there |
+| **Me Too** | 3 | move | late | finish a row and more of what belongs there comes to it |
+| **Helper** | 3 | move | any | something small potters about filing things, and never finishes any of them |
+
+And five store upgrades: **Bigger Hands** (4), **Cluster** (8), **Bigger
+Pockets** (3), **A Friend For It** (1) and **Something Else** (2, cosmetic) —
+273 ⭐ against a lifetime income of 136, so roughly half of it in a lifetime and
+the choice is permanent.
+
+**`window` is a LEAN, NOT A FILTER**, and that distinction is the design. A
+talent whose window matches the current third of the house is weighted ×3, an
+`any` talent ×2, a mismatch ×1 — multiplied by the existing ×3 for never having
+taken it. Hard-gating would mean a one-pick house, whose only draft fires at 25%
+of the way in, could never offer Label Maker or Me Too *at all*; with eight
+talents and two cards that turns a small pool into a tiny one. Sampled over 400
+drafts per phase, every talent still appears at every phase (minimum 11%) and
+each tagged one roughly triples in its own third.
+
+### 5. The three that move items on their own
+
+These are where the "items move themselves" axis actually lives, and all three
+needed the same thing to work: **something to notice**.
+
+**Cluster** (store, 8 levels) and **Go to your Room** (talent, 3) both fire on
+the FIRST entry to a room, which `G.entered` tracks — deliberately not
+`G.visited`, which is already true of the room the level opens in, so hanging
+this off `slideTo()` alone skipped the room the player spends longest in.
+`G.entered` is saved, because both move items and re-running them on every
+Continue is a farm.
+
+That first-entry timing is also what makes Cluster a *store upgrade rather than
+a talent*, and it is forced rather than chosen: a drafted version would be dead
+in every room already walked through. Bought, it is true from the first frame.
+
+Both are invisible without a sound, and for an unusual reason — they fire on a
+room you have never seen, so there is no before-picture to compare against. The
+effect is "this room happens to have less in it than it might have", which is
+indistinguishable from nothing at all. `whirlwind`, written for a talent that
+was cut and with no call site since, is exactly the sound of things sliding
+together.
+
+**Cluster fans its items into a ring, not onto a point.** `isClearFloor()` knows
+about walls, furniture, caches and doorways and has no idea another item is
+standing somewhere, so asking for the anchor's own spot handed every item in the
+group the identical coordinate and they stacked into what looked like one
+object. Golden-angle fan, widening slightly per item.
+
+**Go to your Room only ever sends into a room already visited.** Reachability is
+the whole risk: an item that walks itself through a locked door is worse than one
+you had to carry, because now you cannot get it at all. `G.visited` is proof
+rather than inference. It also gives the talent a natural curve — nearly nothing
+on the second room of a house, quite a lot on the seventh. The ranks hide their
+percentages (5 / 10 / 25) on purpose, and there is a hard cap of five per room:
+a percentage of a sixty-item room is a mass exodus that reads as the game playing
+itself.
+
+**Me Too** hangs off row completion, and is **deferred through a beat rather
+than called inline**. Two reasons: it re-enters `afterMutation()` to score what
+it completes, and doing that from inside `afterMutation`'s own loop mutates the
+row list underneath it; and fired inline it happens in the same frame as the row
+that caused it, so the two read as one event and the talent is invisible. The
+`fromMeToo` opt stops the pass it triggers from triggering another — one hop is
+a reward, a chain is the game finishing the container for you.
+
+### 6. The Helper, and the rule it is built around
+
+**It never completes a row, a container or a room.** Not rarely — never. Those
+three moments are the entire reward structure of the game: the gold flash, the
+ripple, the client's line. A helper that can take one of them is not a helper, it
+is the game playing itself while you watch.
+
+Enforced by `petWouldFinish()`, which **actually places the item, asks the three
+completion tests, and takes it back out**. Deliberately not by reasoning about
+counts: `rowIsComplete` / `containerComplete` / `roomComplete` already exist and
+are the only authority on what completion means, so a check that calls them
+cannot drift from it.
+
+The rest of its behaviour follows from being company rather than throughput:
+
+- **Slow.** 2000 / 1400 / 900 ms a tick by level. It never keeps up with you.
+- **It works where the mess is** — the messiest room under 75% done. Which is
+  also, usefully, the room where it is least likely to hit the never-finish rule
+  and stand there doing nothing.
+- **It stops while anyone is talking or a modal is open**, the same courtesy
+  `drainDrafts()` observes, and for the same reason: moving items under a draft
+  the player is reading is exactly the interruption that machinery exists to
+  prevent.
+- **You can take its item.** Tap it and the thing goes to your hands; it shrugs
+  and finds another. Without that it is an object holding something you want and
+  cannot have. Checked before the item branch in the tap handler, because what it
+  carries is drawn *inside* it.
+- **`petStop()` belongs in `endCeremony()`** for the same reason `clearBeats()`
+  does: it is a timer that outlives the thing it was animating, and a helper
+  still ticking over the title screen files items into a run that no longer
+  exists.
+
+**Its face may not be sortable clutter.** It is drawn on the floor and tapped
+like an item, so a skin that also appears in some room's `types` is a thing the
+player will try to file — and the honest reading of the resulting nothing is
+"this game is broken". `PET_SKIN_EMOJI` lives in `config.js` so `validate.js` can
+check it against every container in `rooms.json` without importing a render tier.
+That check earned its keep immediately: the first draft used 🐢, which is
+sortable.
+
+### 7. The Holdall is not just more pockets
+
+The obvious objection, and a fair one. The answer is friction: your hands are the
+current trip, and this is a staging area. Filling it costs a panel and two taps,
+so it is never the fast way to carry what you are carrying *now* — it is where
+the thing that lives four rooms away goes so you can get on with what is near
+you. Bigger Hands makes a trip carry more; this changes what a trip is *for*.
+
+Keeping it slower than your hands is the whole balance, which is why it wears the
+container panel's clothes rather than the inventory bar's. Items inside are
+`{kind:"holdall"}`, so `itemsLeft()` already counts them as outstanding — a house
+is not tidy because everything is in a bag — and nothing else had to learn a new
+location kind to agree about that. Keys, coins and notes are refused: they are
+how you open the house, not clutter to be sorted, and a key in a bag is a key you
+will forget you have.
+
+### 8. The cast is free, and the board is linear again
 
 Nine of eleven clients were one-off ⭐ purchases priced by narrative distance. It
 was the wrong shape: it made ⭐ buy both **power and content** out of one wallet,
@@ -1287,7 +1422,7 @@ rule that used to demand them is gone. What replaced it is stricter and more
 useful: a referrer whose first job comes *later* than the client they refer is now
 a boot **error**, because nothing papers over it any more.
 
-### 5. Ids say who, not how hard
+### 9. Ids say who, not how hard
 
 Level ids were `1-1`, `D-2`, `Z-5`: a difficulty tier and a stage number. The tier
 drifted until it meant nothing — Delta Tau Chi spanned `3-1, 3-2, 4-2, 5-2, 6-1`,
@@ -1307,9 +1442,13 @@ change.
 ### Where the levers are
 
 Cheapest to reach for first: `picks.tiers` and `picks.at` in `upgrades.json` if
-the problem is *when* talents arrive; `draftCards` if it is how much choice each
-one offers; `cost` on a store upgrade (an array prices each level separately);
-`levels` on a talent if a ladder is too short. The ⭐ rate itself is one line at
+the problem is *when* talents arrive; `window` on a talent if the right ones are
+arriving at the wrong time; `draftCards` if it is how much choice each one
+offers; `cost` on a store upgrade (an array prices each level separately);
+`levels` on a talent if a ladder is too short; `params` for a talent's
+magnitude — `pull` on Tidy Hands, `show` on Label Maker, `slots` on the Holdall.
+`PET_MS` and `PET_BUSY` in `main.js` are the helper's pace and its idea of a
+room worth being in. The ⭐ rate itself is one line at
 the room-complete branch in `afterMutation` — and note that changing it changes a
 **budget**, not a rate, because a level pays once.
 
@@ -1636,6 +1775,27 @@ Run through this after any change; it's what the browser tests cover.
   second pass must change nothing. This is the one destructive step in the whole
   change — `DONE_KEY` holds ids, so a missing `ID_MAP` entry is a silent progress
   wipe, and the first attempt at it covered only 22 of the 34 levels.
+- **The first-entry effects fire once, on every room, including the first.**
+  Start a house with Cluster bought: the room you open in must already be
+  tidier, not just the ones you walk into — `generate.js` pre-marks the start
+  room visited, which is the trap. Then walk out and back: nothing more happens.
+  Save and Continue: still nothing. `G.entered` is the guard and it is saved.
+- **Go to your Room never strands anything.** With one room visited it must move
+  nothing at all; with the whole house visited it moves at most five, and every
+  item that moved must land in a room already in `G.visited`. An item behind a
+  locked door it put there itself is unreachable, which is worse than not having
+  the talent.
+- **The helper never finishes anything.** Leave it running on a big house for a
+  minute, then walk the whole place: no complete row, no complete container, no
+  clean room. That is the rule the whole thing is built around, and it is
+  checkable in one pass off `tidy.G`. Also confirm it stops while a client is
+  talking, and that `tidy.showTitle()` leaves no timer behind still filing items.
+- **The helper's face is not clutter.** Boot errors if any of `PET_SKIN_EMOJI`
+  appears in a container's `types`. The first draft used 🐢 and it does.
+- **The Holdall is the same box everywhere, and does not launder the mess.** Stow
+  something in one room, walk two rooms, take it out. The `N left` counter must
+  not drop when something goes in — a house is not tidy because it is in a bag.
+  Keys are refused.
 - **`initStore()` and `initTalents()` are actually CALLED.** Both are imported
   into main.js and both hand callbacks to a leaf module, so forgetting the call
   is silent in a way that is hard to see: the module loads, its exports work,

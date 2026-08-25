@@ -49,6 +49,12 @@ export function blankRun() {
     /* progress + scoring */
     stats: { tosses: 0, firstGood: 0, start: 0 },
     visited: new Set(),
+    /* Rooms whose FIRST-ENTRY effects have run — Cluster and Go to your Room.
+       Deliberately not `visited`, which is also true of the room you start in
+       (generate.js pre-marks it) and would therefore skip the room the player
+       spends longest in. Saved, so a resume cannot re-run them: both move items,
+       and re-running on every Continue is a farm. */
+    entered: new Set(),
     awarded: new Set(),       // "room|cont|row" of rows already paid out
     points: 0,                // ⭐ earned in THIS run, for the HUD
     starsEarned: 0,           // same, kept separate because points is displayed
@@ -83,6 +89,20 @@ export function blankRun() {
 
     /* the note loop */
     quests: { notes: {}, dropped: [], completed: [], active: null },
+
+    /* THE PET, if this run has one. An array because petCount can buy a second.
+       Each is {room, x, y, holding} — `holding` is an item id or null, and the
+       item's own loc stays {kind:"pet"} while carried so nothing else tries to
+       draw it on the floor or count it as tidy. Saved, so a pet does not vanish
+       mid-errand on a Continue. */
+    pets: [],
+
+    /* THE HOLDALL — the same slots in every room. An array of item ids (or
+       null), length == its capacity, so "how big is it" and "what is in it" are
+       one fact. Items inside carry loc {kind:"holdall"}, which itemsLeft()
+       already counts as outstanding: a house is not tidy because everything is
+       in a bag. */
+    holdall: [],
 
     /* one-shot effects */
     roomFxDone: new Set(),

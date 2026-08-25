@@ -90,13 +90,38 @@ export function drainDrafts(isBusy) {
 /* ============================================================
    Building the three cards
 ============================================================ */
+/* HOW FAR THROUGH THE HOUSE YOU ARE, 0 to 1, by completed rows — the same
+   measure the pick thresholds use, so "when a talent arrives" and "what it is
+   worth when it arrives" are answered off one number. */
+function phase() {
+  if (!G.totalRows) return 0;
+  const p = G.awarded.size / G.totalRows;
+  return p < 0.33 ? "early" : p < 0.66 ? "mid" : "late";
+}
+
 function pool() {
   const avail = DATA.upgrades.upgrades.filter(u => G.up[u.id] < maxLevel(u));
   /* Weight the unowned so early drafts feel varied rather than showing the
      same talent at successive levels. */
+  /* AND weight by WHEN IN THE HOUSE this is. Every talent's worth decays or
+     grows across a run — Go to your Room is worth most on the first room and
+     nothing on the last, Me Too is the other way round — so the draft leans
+     toward what is useful right now.
+
+     A LEAN, NOT A FILTER, and that is the whole design of it. Hard-gating by
+     window would mean a one-pick house (its only draft at 25% of the way in)
+     could never offer Label Maker or Me Too at all, and with six talents and
+     two cards that turns a small pool into a tiny one. Weighting keeps
+     everything reachable and still makes the right thing likely.
+
+     `any` sits in the middle deliberately: it is never the wrong pick, so it
+     should never beat the talent that is exactly right, nor lose to the one
+     that is exactly wrong. */
+  const now = phase();
+  const fit = u => u.window === now ? 3 : (!u.window || u.window === "any") ? 2 : 1;
   const weighted = [];
   for (const u of avail) {
-    const times = G.up[u.id] === 0 ? 3 : 1;
+    const times = (G.up[u.id] === 0 ? 3 : 1) * fit(u);
     for (let i = 0; i < times; i++) weighted.push(u);
   }
   const picked = [];
@@ -108,8 +133,9 @@ function pool() {
     picked.push(cardForUpgrade(u));
     if (picked.length >= DATA.upgrades.draftCards) break;
   }
-  /* Fewer than three talents left? Back-fill with consumables that reuse
-     code that already exists, rather than showing a degraded one-card grid. */
+  /* Fewer than `draftCards` talents left? Back-fill with consumables that reuse
+     code that already exists, rather than showing a degraded one-card grid.
+     Unreachable at present — see the note in upgrades.json. */
   if (picked.length < DATA.upgrades.draftCards) {
     for (const c of shuffle([...DATA.upgrades.consumables])) {
       if (picked.length >= DATA.upgrades.draftCards) break;

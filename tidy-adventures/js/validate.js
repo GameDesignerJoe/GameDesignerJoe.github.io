@@ -9,7 +9,7 @@
 
    Imports: none. This is a leaf.
 ============================================================ */
-import { MAX_ROOMS, TALENT_IDS, STORE_IDS, CONSUMABLE_EFFECTS } from './config.js';
+import { MAX_ROOMS, TALENT_IDS, STORE_IDS, CONSUMABLE_EFFECTS, PET_SKIN_EMOJI } from './config.js';
 import { tokensIn, anchorPrefix, expectedItems, themeTypeCap } from './util.js';
 
 export class DataError extends Error {}
@@ -757,6 +757,39 @@ export function validateData(D) {
         "G.up is keyed by id, so the second would silently share the first's level."));
     }
     seenUp.add(u.id);
+    /* THE PET'S SKINS MUST NOT BE SORTABLE. It is drawn on the floor like an
+       item and tapped like one, so a skin that also appears as clutter in some
+       room is a thing the player will try to pick up and file — and the honest
+       reading of the resulting nothing is "this game is broken", not "that is
+       the helper". Checked against every container's type list in rooms.json,
+       which is where all sortable emoji ultimately come from. */
+    if (u.id === "pet" || u.id === "petSkin") {
+      const sortable = new Set();
+      for (const r of D.rooms?.rooms || []) {
+        for (const c of r.containers || []) for (const t of c.types || []) sortable.add(t);
+      }
+      const skins = new Set();
+      if (u.icon) skins.add(u.icon);
+      for (const k of PET_SKIN_EMOJI) skins.add(k);
+      for (const k of skins) {
+        if (sortable.has(k)) {
+          errors.push(at("upgrades.json",
+            `the helper's emoji ${k} is also a sortable item.`,
+            "It is drawn on the floor and tapped like an item, so a player will try to file it. " +
+            "Pick a creature that appears in no container's `types` in rooms.json."));
+        }
+      }
+    }
+
+    /* `window` is when in a house this talent is worth having, and the draft
+       leans toward whatever matches where the player is. A typo is silent
+       without this: an unrecognised value never matches any phase, so the
+       talent is quietly weighted DOWN for the whole run rather than erroring. */
+    if (u.window != null && !["early", "mid", "late", "any"].includes(u.window)) {
+      errors.push(at("upgrades.json",
+        `talent "${u.id}" has window: ${JSON.stringify(u.window)}.`,
+        'One of "early", "mid", "late", "any" — or leave it off, which reads as "any".'));
+    }
     if (!(Number.isInteger(u.levels) && u.levels > 0)) {
       errors.push(at("upgrades.json",
         `"${u.id}" has levels: ${JSON.stringify(u.levels)}, which is not a positive whole number.`,

@@ -111,16 +111,42 @@
   "upgrades": [
     { "_note": "INTUITION IS A LADDER, and it used to be one card. `sense` told you the room AND the container the moment you took it, and `homesick` was the glow on its own — so between them the taxonomy the game is about was answered in one pick, with nowhere left to scale. Split into the three rungs it always had: it glows, then it names the room, then it names the container.",
       "id": "intuit", "name": "Intuition",    "icon": "🔮", "levels": 3,
+      "window": "any",
       "desc": "Level 1: anything on this floor that lives in this room glows. Level 2: what you're holding tells you which room. Level 3: and which piece of furniture." },
 
-    { "_note": "MAGNET FINGERS AND ONE TRIP WERE THE SAME TALENT. One helped from the floor, one from your hands, they sat in the same function, and drafting either felt like nothing happened — because each moved one or two items, silently, inside an action you were already performing. Merged, and the levels are meant to be felt: give it real magnitude and its own sound, or it will read as nothing again.",
+    { "_note": "MAGNET FINGERS AND ONE TRIP WERE THE SAME TALENT. One helped from the floor, one from your hands, they sat in the same function, and drafting either felt like nothing happened — because each moved one or two items, silently, inside an action you were already performing. Merged, and then made loud enough to notice: `pull` is 2 rather than 1, so a level moves two extra things, and the cascade sounds its own delayed note instead of landing silently inside the tap that caused it. Merging the ids alone would only have turned two invisible talents into one.",
       "id": "tidyHands", "name": "Tidy Hands", "icon": "🫳", "levels": 3,
-      "params": { "pull": 1 },
+      "params": { "pull": 2 }, "window": "any",
       "desc": "Putting something away takes {pull} more of its kind with it — from your hands and off this floor. Level 2 sends anything in your hands that lives there too. More per level." },
 
-    { "id": "label",  "name": "Label Maker",   "icon": "🏷️", "levels": 2,
-      "params": { "show": 1 },
-      "desc": "Furniture owns up to {show} thing it is still completely missing. One more per level." }
+    { "_note": "IT ONLY NAMES A ROW NOTHING IS IN, and it names the biggest one first. The old version took whatever order the generator happened to register types in, so it would cheerfully point at the one thing in the room you had already worked out — which is why it was never worth picking. Ranking by how many are still loose points it at the largest job you have not started.",
+      "id": "label",  "name": "Label Maker",   "icon": "🏷️", "levels": 2,
+      "params": { "show": 1 }, "window": "mid",
+      "desc": "Furniture owns up to {show} thing it is still completely missing — the biggest job first. One more per level." },
+
+    { "_note": "The player sees Rank I/II/III and never the percentages, deliberately: a number is an invitation to count, and counting finds an answer that is disappointing in a small room and alarming in a big one. Capped at five per room per entry for the same reason. Only ever into a room you have already stood in — G.visited is proof of reachability rather than inference.",
+      "id": "goHome", "name": "Go to your Room", "icon": "🚪", "levels": 3,
+      "window": "early",
+      "desc": "Walk into a room and some of what does not live there lets itself out, straight to where it belongs. Rank I, then II, then III." },
+
+    { "id": "surface", "name": "Bring to the Top", "icon": "🫧", "levels": 2,
+      "window": "early",
+      "desc": "Hold something and its kind rises out of the clutter all over the room. Level 2 lifts anything else that lives in the same place." },
+
+    { "_note": "THE ONLY TALENT WORTH MORE AS THE HOUSE EMPTIES. Everything else in the pool pays most on the first pick and least on the last, which is why a final pick used to have nothing good to be. This one wants a house you have already half-solved.",
+      "id": "meToo", "name": "Me Too",         "icon": "🧲", "levels": 3,
+      "window": "late",
+      "desc": "Finish a row and more of what belongs in that same place comes to it. Level 2 reaches the rest of the house." },
+
+    { "_note": "IT NEVER COMPLETES A ROW, A CONTAINER OR A ROOM — not rarely, never. Those three moments are the entire reward structure of the game, and a helper that can take one of them is the game playing itself while you watch. Enforced by actually placing the item and asking the real completion tests, then taking it back out, so the rule cannot drift from what completion means. Slow on purpose: the fantasy is company, not throughput. Levels raise its pace; petCarry and petCount are in the store, and skins are cosmetic.",
+      "id": "pet", "name": "Helper",           "icon": "🦔", "levels": 3,
+      "window": "any",
+      "desc": "Something small moves in and starts putting things away, slowly, in whichever room is in the worst state. It never finishes anything — that part is yours. Tap it to take what it is carrying." },
+
+    { "_note": "NOT SIMPLY MORE HAND SLOTS, and the difference is the friction. Your hands are the current trip; this is a staging area for the thing that lives four rooms away, so you can get on with what is near you. Filling it costs a panel and two taps, so it is never the fast way to carry what you are carrying now — Bigger Hands makes a trip carry more, this changes what a trip is for. Items inside still count as untidy, so nothing is solved by hiding it in a bag.",
+      "id": "holdall", "name": "The Holdall",  "icon": "🧰", "levels": 3,
+      "params": { "slots": 5 }, "window": "mid",
+      "desc": "A box with {slots} slots that is somehow in every room at once. Stow something here, take it out wherever you end up. Two more slots per level." }
   ],
 
   "_storeNote": [
@@ -147,7 +173,25 @@
     { "_note": "THE ONE THING IN THE STORE, and priced to be the long chase. The complaint was never the size of the effect — it was that the intro alone paid for three extra slots. It is the most powerful and most wanted upgrade in the game, so maxing it is now most of everything a whole campaign pays (120 of ~136 ⭐). Same four levels, five slots to nine.",
       "id": "hands", "name": "Bigger Hands", "icon": "🙌", "levels": 4,
       "cost": [10, 20, 35, 55],
-      "desc": "+1 hand slot, in every house, forever. Haul more per trip." }
+      "desc": "+1 hand slot, in every house, forever. Haul more per trip." },
+
+    { "_note": "A STORE UPGRADE AND NOT A TALENT, and that is forced rather than chosen: it only fires on a FIRST entry to a room, so a drafted version would be dead in every room already walked through — including the one the level opens in. Bought, it is true from the first frame of every house. Each level widens both dials, one more KIND of thing and one more OF each, which is what makes eight levels worth climbing rather than eight of the same step.",
+      "id": "cluster", "name": "Cluster", "icon": "🌀", "levels": 8,
+      "cost": [3, 4, 5, 6, 8, 10, 12, 15],
+      "desc": "Walk into a room for the first time and matching things slide together. One more kind, and one more of each, per level." },
+
+    { "id": "petCarry", "name": "Bigger Pockets", "icon": "🎒", "levels": 3,
+      "cost": [6, 12, 20],
+      "desc": "Your helper carries one more thing per trip. Only useful in a house where you have one." },
+
+    { "id": "petCount", "name": "A Friend For It", "icon": "🐾", "levels": 1,
+      "cost": [30],
+      "desc": "A second helper. They do not talk to each other." },
+
+    { "_note": "COSMETIC, and the only thing in this store that is. A store that sells nothing but numbers has nothing in it to simply WANT, and a skin cannot unbalance anything — which is the argument for it and also the reason it must stay strictly appearance-only.",
+      "id": "petSkin", "name": "Something Else", "icon": "🦥", "levels": 2,
+      "cost": [8, 14],
+      "desc": "Your helper is a different creature. Changes nothing at all except your helper." }
   ],
 
   "_consumableNote": [

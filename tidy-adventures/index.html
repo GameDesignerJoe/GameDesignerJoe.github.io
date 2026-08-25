@@ -49,6 +49,9 @@
   <div id="roomName">Room<small>type</small></div>
   <div id="remaining">0 left</div>
   <button class="hudbtn" id="shopBtn" style="width:auto;padding:0 10px">⭐ 0</button>
+  <!-- THE HOLDALL. Hidden until the talent is taken, like the ⭐ button, so it
+       never sits in the HUD teaching people to ignore it. -->
+  <button class="hudbtn" id="bagBtn" hidden style="width:auto;padding:0 10px">🧰 0</button>
   <button class="hudbtn" id="helpBtn">?</button>
   <button class="hudbtn" id="gearBtn">⚙️</button>
 </div>
@@ -58,6 +61,18 @@
 <div id="invBar"><div id="handLabel"></div></div>
 <div id="dragGhost"></div>
 <div id="loupe"><div class="lemoji"></div><div class="lname"></div></div>
+
+<!-- THE HOLDALL — the same five-to-ten slots in every room. Not an overlay:
+     it is a working surface you tap between, like the inventory bar it sits
+     above, and an .overlay would both dim the room and block the talent draft's
+     "is anything else open" check. -->
+<div id="bagView" hidden>
+  <div id="bagPanel">
+    <div id="bagTitle"></div>
+    <div id="bagGrid"></div>
+  </div>
+  <button id="bagClose">Close</button>
+</div>
 
 <div id="contView">
   <div id="contPanel">

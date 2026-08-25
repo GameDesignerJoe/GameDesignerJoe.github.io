@@ -158,7 +158,9 @@ export const REVEAL_MS = 5000;
    `need` at 1 while the generator gives every CONTAINER lock exactly 1, so it
    could only ever weaken a door, and keys spawn exactly-enough-never-more so
    decrementing a need turned an already-spawned key into undroppable ballast. */
-export const TALENT_IDS = ["intuit", "tidyHands", "label"];
+export const TALENT_IDS = [
+  "intuit", "tidyHands", "label", "goHome", "surface", "meToo", "pet", "holdall",
+];
 
 /* HOME upgrades: bought with ⭐, kept forever. These change HOW YOU PLAY rather
    than what you know, which is the line that decides which list a thing goes
@@ -182,12 +184,19 @@ export const TALENT_IDS = ["intuit", "tidyHands", "label"];
      `wage`   (Good Name)      paid ⭐ per room. A star-rate manipulator, parked
                                with the rest of them, and it fought the whole
                                point of starving the economy. */
-export const STORE_IDS = ["hands"];
+export const STORE_IDS = ["hands", "cluster", "petCarry", "petCount", "petSkin"];
 
 /* `stars` was here and is gone with Lucky Find: a consumable that raised the
    run's counter and never banked to the wallet. ⭐ is minted by finishing rooms
    and nothing else. */
 export const CONSUMABLE_EFFECTS = ["fileHands"];
+
+/* THE HELPER'S FACES, here rather than in main.js so validate.js can check them
+   without importing the render tier. Every one of these is drawn on the floor
+   and tapped like an item, so none of them may also be sortable clutter —
+   boot validation compares this list against every container's `types` in
+   rooms.json and errors if one collides. */
+export const PET_SKIN_EMOJI = ["🦔", "🦥", "🦦"];
 
 export const DIRS = { N:[0,-1], S:[0,1], W:[-1,0], E:[1,0] };
 export const OPP  = { N:"S", S:"N", W:"E", E:"W" };

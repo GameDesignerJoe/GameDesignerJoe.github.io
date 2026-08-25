@@ -7,6 +7,7 @@
 ============================================================ */
 import {
   VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, LEGACY_ORDER, ID_MAP,
+  PET_SKIN_EMOJI,
   FREE_KEY,
   TALENTS_KEY, SAVE_DEBOUNCE,
   INV_SIZE, DIRS, CHEVRON, ZOOM_TAP, ZOOM_START, REVEAL_MS,
@@ -399,7 +400,9 @@ function saveGame(){
       theme:G.theme, rowLen:G.rowLen,
       current:G.current, inv:G.inv, sel:G.sel,
       stats:{tosses:G.stats.tosses, firstGood:G.stats.firstGood, elapsed:Date.now()-G.stats.start},
-      visited:[...G.visited], awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
+      pets:(G.pets||[]).map(p=>({...p})), holdall:[...(G.holdall||[])],
+      visited:[...G.visited], entered:[...(G.entered||new Set())],
+      awarded:[...G.awarded], tipsDone:[...(G.tipsDone||new Set())],
       /* THREE SETS THAT loadGame() HAS ALWAYS READ AND THIS HAS NEVER WRITTEN.
          `d.taught`, `d.events` and `d.roomFxDone` are all restored on the way
          in and were all silently dropped on the way out, which is the same
@@ -487,6 +490,13 @@ function loadGame(){
       inv:d.inv, sel:d.sel, openCont:null,
       stats:{tosses:d.stats.tosses, firstGood:d.stats.firstGood, start:Date.now()-d.stats.elapsed},
       visited:new Set(d.visited),
+      /* Missing on a save written before Cluster existed. Defaulting to the
+         VISITED set rather than empty is the safe direction: it means an old
+         save re-enters nothing, where an empty set would re-run every
+         first-entry effect in the house on the next Continue. */
+      entered:new Set(d.entered || d.visited || []),
+      pets:Array.isArray(d.pets) ? d.pets.map(p=>({...p})) : [],
+      holdall:Array.isArray(d.holdall) ? [...d.holdall] : [],
       awarded:new Set(d.awarded||[]),
       taught:new Set(d.taught||[]),
       roomFxDone:new Set(d.roomFxDone||[]),
@@ -831,29 +841,47 @@ function buildRoomEl(room){
         badges.appendChild(sp);
       }
       /* LABEL MAKER. The badge strip already says what is INSIDE; this adds
-         what the thing is still waiting for, greyed, after it. Which is the
-         one piece of information the game otherwise makes you learn by being
-         wrong — and unlike Sixth Sense it tells you about the FURNITURE rather
-         than about the item in your hand, so the two stack into "what lives
-         here" from both ends without either being redundant.
+         what the thing is still waiting for, greyed, after it. It tells you
+         about the FURNITURE where Intuition tells you about the item in your
+         hand, so the two stack into "what lives here" from both ends.
+
+         IT ONLY EVER NAMES A ROW NOTHING HAS BEEN PUT IN. A type with even one
+         of its kind already filed is a row you have solved, and spending the
+         badge on it is spending it on something you have just proved you know.
+
+         AND IT NAMES THE BIGGEST ONE FIRST. The old rule took whatever
+         `Object.entries(G.typeHome)` happened to yield, which is the order the
+         GENERATOR registered types in — arbitrary, and the reason this talent
+         was never worth picking: it would cheerfully point at the one thing in
+         the room you had already worked out. Ranking by how many of that type
+         are still loose points it at the largest job you have not started,
+         which is what makes it worth having on a big house late on.
+
          Capped, and capped low: the whole strip is one line above a 34%-wide
          box, and a container with twelve types would push the real badges off
          the end of it. */
       if(G.up.label){
         const show=(upgradeParam("label","show",1)||1) + (G.up.label - 1);
-        let n=0;
-        for(const [t,h] of Object.entries(G.typeHome)){
-          if(n>=show) break;
-          /* c.id is the container's INDEX in a live run (rooms are dealt and
-             the definition's string id is not carried), which is what
-             belongsIn() compares against too. */
-          if(h.room!==room.id || h.cont!==c.id) continue;
-          if(inside.has(t)) continue;
-          const sp=document.createElement("span");
-          sp.textContent=t;
-          sp.className="want";
-          badges.appendChild(sp);
-          n++;
+        /* c.id is the container's INDEX in a live run (rooms are dealt and the
+           definition's string id is not carried), which is what belongsIn()
+           compares against too. */
+        const wants=Object.entries(G.typeHome)
+          .filter(([t,h])=>h.room===room.id && h.cont===c.id && !inside.has(t))
+          .map(([t])=>t);
+        if(wants.length){
+          const loose=t=>Object.values(G.items)
+            .filter(o=>o.type===t && (o.loc.kind==="floor"||o.loc.kind==="inv")).length;
+          const rank=new Map(wants.map(t=>[t,loose(t)]));
+          /* Emoji as the tiebreak, so two types with the same count do not
+             swap places between repaints — a badge strip that reshuffles while
+             you look at it reads as a bug. */
+          wants.sort((a,b)=>(rank.get(b)-rank.get(a)) || (a<b?-1:a>b?1:0));
+          for(const t of wants.slice(0, show)){
+            const sp=document.createElement("span");
+            sp.textContent=t;
+            sp.className="want";
+            badges.appendChild(sp);
+          }
         }
       }
     }
@@ -900,7 +928,8 @@ function buildRoomEl(room){
        across the whole house, the talent is permanent and only ever renders
        the room you are standing in, because burial IS the feature (see bury()
        in generate.js) and un-burying the house would delete the hunt. */
-    sp.className="item"+(it.token?" buried":"")+(G.reveal&&it.token?" revealed":"")
+    sp.className="item"+(it.token?" buried":"")
+      +((G.reveal&&it.token)||surfaced(room, it, heldItem())?" revealed":"")
       +(homesick(room, it)?" homesick":"");
     sp.dataset.item=it.id;
     sp.textContent=it.type;
@@ -909,6 +938,27 @@ function buildRoomEl(room){
     sp.style.cssText=`left:${it.loc.x}%;top:${it.loc.y}%;transform:${itemTransform(it)};`;
     el.appendChild(sp);
   }
+
+  /* THE PET, and whatever it is carrying rides along on its back. Drawn last so
+     it is over the clutter — it is the one thing in the room that moves on its
+     own, and something that walks behind the furniture reads as a glitch. The
+     CSS transition on left/top is what turns two positions a tick apart into
+     something pottering about. */
+  (G.pets||[]).forEach((pt, i) => {
+    if(pt.room!==room.id) return;
+    const pe=document.createElement("div");
+    pe.className="pet"+(pt.holding!=null?" carrying":"");
+    pe.dataset.pet=i;
+    pe.textContent=petSkin();
+    if(pt.holding!=null && G.items[pt.holding]){
+      const bag=document.createElement("span");
+      bag.className="petload";
+      bag.textContent=G.items[pt.holding].type;
+      pe.appendChild(bag);
+    }
+    pe.style.cssText=`left:${pt.x}%;top:${pt.y}%;`;
+    el.appendChild(pe);
+  });
   return el;
 }
 
@@ -1085,6 +1135,7 @@ function slideTo(dir,newId){
   const hr=host.getBoundingClientRect();
   const px=dx*(hr.width+80), py=dy*(hr.height+80);
   G.current=newId; G.visited.add(newId);
+  enterRoom(newId);              /* guards itself — see G.entered */
   fire("door");
   sfx("door");
   /* Keep the player's zoom through a door; only recentre the pan. Resetting
@@ -1327,7 +1378,7 @@ function clearBeats(){ beats.length=0; beatBusy=false; }
 
 function afterMutation(room, c, changedRows, opts={}){
   const newly=changedRows.filter(r=>rowIsComplete(c,r));
-  let earned=0;
+  let earned=0, meTooRows=0;
   for(const r of newly){
     const k=room.id+"|"+c.id+"|"+r;
     if(!G.awarded.has(k)){
@@ -1345,7 +1396,27 @@ function afterMutation(room, c, changedRows, opts={}){
          One pick per row even if two thresholds collide: pickRowsFor() already
          de-duplicates them, so this can afford to be a plain lookup. */
       if(G.pickAtRow.includes(G.awarded.size)) grantPick();
+      meTooRows++;
     }
+  }
+  /* ME TOO. A row landing pulls more of what belongs in the SAME container to
+     it — the last-lap shuffle, done for you.
+
+     DEFERRED THROUGH A BEAT, not called inline, for two reasons. It has to
+     re-enter afterMutation() to score whatever it completes, and doing that
+     from inside afterMutation's own loop is a recursion with the row list being
+     mutated underneath it. And it wants to be WATCHED: fired inline it happens
+     in the same frame as the row that caused it, so the two read as one event
+     and the talent is invisible — which is the whole failure mode this pool has
+     been climbing out of.
+
+     `fromMeToo` stops the pass it triggers from triggering another. One hop is
+     a reward; a chain is the game finishing the container for you. */
+  if(meTooRows && !opts.fromMeToo && (G.up.meToo|0)){
+    celebrate({ms:420, run(){
+      const rows=meTooInto(room, c);
+      if(rows.length) afterMutation(room, c, rows, {fromMeToo:true});
+    }});
   }
   const contDone=containerComplete(c);
 
@@ -1478,7 +1549,9 @@ function tapSlot(i){
   if(G.inv[i]===null) return;
   G.sel = (G.sel===i) ? null : i;
   renderInv();
-  if(G.up.intuit) renderRoom();   /* the furniture glow follows the selection */
+  /* Both the furniture glow (Intuition 3) and the lift (Bring to the Top) key
+     off what is selected, so changing the selection has to redraw the room. */
+  if(G.up.intuit || G.up.surface) renderRoom();
 }
 
 /* ============================================================
@@ -1558,7 +1631,531 @@ function cascade(room, c, contIdx, type){
     for(const o of loose) if(!put(o)) break;
   }
 
+  /* AND IT HAS TO BE HEARD. The extra items landed silently inside the sound of
+     the tap that caused them, which is most of why two separate talents both
+     read as nothing happening. Delayed rather than immediate so it lands as a
+     follow-up — "and those too" — instead of doubling the placement sound into
+     one muddy thump. */
+  if(filed.length) setTimeout(()=>sfx("toss"), 90);
+
   return filed;
+}
+
+/* ============================================================
+   THE HOLDALL — the same few slots, in every room
+
+   Put something in it here, take it out there. It does not travel with you so
+   much as EXIST in all the rooms at once, which is the only way a fixed number
+   of slots can be a routing tool rather than just more pockets.
+
+   WHY IT IS NOT SIMPLY MORE HAND SLOTS, which is the obvious objection and a
+   fair one: your hands are the current trip and this is a staging area. Filling
+   it costs two taps and a panel, so it is never the fast way to carry the thing
+   you are carrying right now — it is where you put the thing that lives four
+   rooms away so you can get on with what is near you. Bigger Hands makes each
+   trip carry more; this changes what a trip is FOR. Keeping it slower than your
+   hands is the whole balance, which is why it wears the container panel's
+   clothes rather than the inventory bar's.
+
+   Items inside are {kind:"holdall", slot:n}, so itemsLeft() already counts them
+   as work outstanding — a house is not tidy because you hid everything in a
+   bag, and nothing else in the game has to learn a new location kind to agree
+   about that.
+============================================================ */
+function bagSize() {
+  const lv = G.up.holdall | 0;
+  return lv ? (upgradeParam("holdall", "slots", 5) || 5) + (lv - 1) * 2 : 0;
+}
+
+/* Trim to fit. The talent only ever grows, so this is really for a resume of a
+   save written at a higher level than the run now has — and for the one case
+   that matters, endRun() leaving a stale array behind. */
+function bagSync() {
+  if (!Array.isArray(G.holdall)) G.holdall = [];
+  const want = bagSize();
+  while (G.holdall.length > want) {
+    const id = G.holdall.pop();
+    if (id != null) bagSpill(id);
+  }
+  while (G.holdall.length < want) G.holdall.push(null);
+  setHidden($("#bagBtn"), !want);
+  renderBagBtn();
+}
+
+/* Something has to leave the bag and there is nowhere better: put it on the
+   floor of the room the player is standing in, which is always somewhere they
+   can reach. */
+function bagSpill(id) {
+  const o = G.items[id];
+  if (!o) return;
+  const room = G.rooms[G.current];
+  const sp = findFloorSpot(room, { avoidCaches: true });
+  o.loc = { kind: "floor", room: G.current, x: sp.x, y: sp.y, rot: spin(20) };
+}
+
+function bagCount() { return (G.holdall || []).filter(v => v !== null).length; }
+
+function renderBagBtn() {
+  const b = $("#bagBtn");
+  if (!b) return;
+  b.textContent = "🧰 " + bagCount() + "/" + bagSize();
+}
+
+function openBag() {
+  if (!bagSize()) return;
+  renderBag();
+  $("#bagView").hidden = false;
+  $("#bagView").classList.add("open");
+}
+function closeBag() {
+  $("#bagView").classList.remove("open");
+  $("#bagView").hidden = true;
+}
+
+function renderBag() {
+  const held = heldItem();
+  $("#bagTitle").textContent = held
+    ? "Tap a slot to stow " + held.type
+    : bagCount() ? "Tap something to take it" : "Empty — stow something for later";
+  const grid = $("#bagGrid");
+  grid.innerHTML = "";
+  (G.holdall || []).forEach((id, i) => {
+    const el = document.createElement("div");
+    el.className = "bagslot" + (id !== null ? " full" : "");
+    el.dataset.bag = i;
+    el.textContent = id !== null ? G.items[id].type : "";
+    grid.appendChild(el);
+  });
+  renderBagBtn();
+}
+
+/* One tap does whatever the slot affords: a full one hands its item back, an
+   empty one takes what you are holding. Two separate gestures for "in" and
+   "out" is a rule to remember about a box. */
+function bagTap(i) {
+  if (!Array.isArray(G.holdall)) return;
+  const id = G.holdall[i];
+  if (id !== null) {
+    const slot = G.inv.indexOf(null);
+    if (slot === -1) { bump($("#bagPanel"), "✋", "Your hands are full — put something away first", "handsFull"); sfx("locked"); return; }
+    G.holdall[i] = null;
+    G.items[id].loc = { kind: "inv", slot };
+    G.inv[slot] = id;
+    if (G.sel === null) G.sel = slot;
+    sfx("pickup");
+  } else {
+    const held = heldItem();
+    if (!held) { bump($("#bagPanel"), "👆", "Pick something up first, then tap a slot.", "bagEmpty"); return; }
+    /* Keys, coins and notes stay out of it for the same reason they stay out of
+       containers: they are not clutter to be sorted, they are how you open the
+       house, and a key in a bag is a key you will forget you have. */
+    if (held.isKey || held.isCoin || held.isNote) {
+      bump($("#bagPanel"), "🔑", "That's not something to put away for later.", "bagToken");
+      sfx("locked"); return;
+    }
+    G.inv[G.sel] = null;
+    G.holdall[i] = held.id;
+    held.loc = { kind: "holdall", slot: i };
+    G.sel = G.inv.findIndex(v => v !== null); if (G.sel === -1) G.sel = null;
+    sfx("dropFloor");
+  }
+  renderInv(); renderBag(); renderHUD(); scheduleSave();
+}
+
+/* ============================================================
+   THE PET — the house gets a helper, and it is never allowed to finish
+
+   The one rule everything here is built around: IT NEVER COMPLETES A ROW, A
+   CONTAINER OR A ROOM. Not "rarely", not "unless it has to" — never. Those
+   three moments are the entire reward structure of the game: the gold flash,
+   the ripple, the client's line. A helper that can take any of them is not a
+   helper, it is the game playing itself while you watch. Checked at the moment
+   of deposit by actually placing the item, asking, and taking it back out
+   (petWouldFinish) rather than by reasoning about counts — the three
+   completion tests already exist and are the only authority on the answer.
+
+   It is deliberately SLOW. The fantasy is company, not throughput: something
+   pottering about in the corner of a room you are working in. Levels make it
+   quicker and let it carry more, and it never gets fast enough to keep up.
+
+   IT PREFERS A ROOM THAT IS STILL A MESS (under PET_BUSY done) so it is where
+   the work is rather than fussing at the room you have nearly finished — which
+   is also the room where it would most often bump into the never-finish rule
+   and stand there doing nothing.
+
+   YOU CAN TAKE ITS ITEM. Tap it while it is carrying and the thing goes to
+   your hands; it shrugs and finds another. Without that it is an object that
+   holds something you want and cannot have.
+============================================================ */
+const PET_BUSY = 0.75;          /* a room this done is "tidy enough, go elsewhere" */
+const PET_MS = [0, 2000, 1400, 900];   /* tick by talent level */
+
+/* WHAT IT LOOKS LIKE. Bought skins are cosmetic and change nothing else, which
+   is the only kind of thing this store should ever sell twice. The default must
+   not collide with anything sortable — an emoji that also appears as clutter
+   would be tapped as clutter — so it is checked against every theme's item pool
+   at boot (see validate.js). */
+const PET_SKINS = PET_SKIN_EMOJI;
+function petSkin() {
+  return PET_SKINS[Math.min(storeLevel("petSkin"), PET_SKINS.length - 1)] || PET_SKINS[0];
+}
+
+function petCount() { return G.up.pet ? 1 + storeLevel("petCount") : 0; }
+function petCarry() { return 1 + storeLevel("petCarry"); }
+
+/* Spawn or despawn to match what the run owns. Called on grant and at run
+   start, so buying petCount mid-run adds one without restarting. */
+function petSync() {
+  if (!G.active) return;
+  const want = petCount();
+  if (!Array.isArray(G.pets)) G.pets = [];
+  while (G.pets.length > want) {
+    const p = G.pets.pop();
+    if (p && p.holding != null) petDrop(p);
+  }
+  while (G.pets.length < want) {
+    const room = G.rooms[G.current];
+    const sp = findFloorSpot(room, { avoidCaches: true });
+    G.pets.push({ room: G.current, x: sp.x, y: sp.y, holding: null });
+  }
+}
+
+/* How done is this room, 0..1, by cells filled correctly. */
+function roomTidiness(room) {
+  let total = 0, done = 0;
+  for (const c of room.containers) for (let r = 0; r < c.cells.length; r++) {
+    for (const id of c.cells[r]) { total++; if (id !== null) done++; }
+  }
+  return total ? done / total : 1;
+}
+
+/* WOULD PUTTING THIS HERE FINISH SOMETHING? Place it, ask the three questions
+   the game already knows how to answer, then put everything back exactly as it
+   was. Cheaper to reason about than to re-derive, and it cannot drift from the
+   real completion rules because it IS the real completion rules. */
+function petWouldFinish(room, c, spot, id) {
+  const was = c.cells[spot.row][spot.col];
+  c.cells[spot.row][spot.col] = id;
+  const bad = rowIsComplete(c, spot.row) || containerComplete(c) || roomComplete(room);
+  c.cells[spot.row][spot.col] = was;
+  return bad;
+}
+
+/* Put down whatever it is carrying, where it is standing. */
+function petDrop(p) {
+  if (p.holding == null) return;
+  const o = G.items[p.holding];
+  p.holding = null;
+  if (!o) return;
+  const room = G.rooms[p.room];
+  const sp = nearestFloorSpot(room, p.x, p.y, { padName: "toss" });
+  o.loc = { kind: "floor", room: p.room, x: sp.x, y: sp.y, rot: spin(20) };
+}
+
+/* Something in this room it could usefully carry: it has a home, that home is
+   reachable and open, and filing it would not finish anything. */
+function petFindWork(p) {
+  const room = G.rooms[p.room];
+  if (!room) return null;
+  const loose = Object.values(G.items).filter(o =>
+    o.loc.kind === "floor" && o.loc.room === p.room &&
+    !o.isKey && !o.isCoin && !o.isNote && !o.token);
+  for (const o of loose) {
+    const h = G.typeHome[o.type];
+    if (!h || h.room !== p.room) continue;      /* it only files within its room */
+    const c = room.containers[h.cont];
+    if (!c || (c.lock && !c.lock.open)) continue;
+    const spot = bestSpot(c, o.type);
+    if (!spot) continue;
+    if (petWouldFinish(room, c, spot, o.id)) continue;
+    return o;
+  }
+  return null;
+}
+
+/* Somewhere better to be: the messiest room that has work in it. */
+function petWander(p) {
+  const options = G.rooms
+    .filter(r => G.visited.has(r.id) && roomTidiness(r) < PET_BUSY)
+    .sort((a, b) => roomTidiness(a) - roomTidiness(b));
+  const to = options[0];
+  if (!to || to.id === p.room) return false;
+  p.room = to.id;
+  const sp = findFloorSpot(to, { avoidCaches: true });
+  p.x = sp.x; p.y = sp.y;
+  return true;
+}
+
+let petTimer = null;
+function petStop() { clearInterval(petTimer); petTimer = null; }
+function petStart() {
+  petStop();
+  const ms = PET_MS[Math.min(G.up.pet | 0, 3)];
+  if (!ms) return;
+  petTimer = setInterval(petTick, ms);
+}
+
+function petTick() {
+  if (!G.active || !(G.up.pet | 0)) { petStop(); return; }
+  /* Not while somebody is talking or a modal is up: the pet moving items under
+     a draft the player is reading is the same interruption drainDrafts() exists
+     to prevent, and it would repaint the room behind an overlay. */
+  if (document.querySelector(".overlay.open") || isSpeaking()) return;
+  let touched = false;
+  for (const p of G.pets) {
+    if (p.holding != null) { touched = petDeliver(p) || touched; continue; }
+    const work = petFindWork(p);
+    if (work) {
+      p.x = work.loc.x; p.y = work.loc.y;
+      work.loc = { kind: "pet" };
+      p.holding = work.id;
+      touched = true;
+    } else if (roomTidiness(G.rooms[p.room]) >= PET_BUSY || !petFindWork(p)) {
+      touched = petWander(p) || touched;
+    }
+  }
+  if (touched) renderRoom();
+}
+
+/* Carry it home. Files up to petCarry() things of the same kind in one go, so
+   the upgrade is felt as an armful rather than as a slightly shorter wait. */
+function petDeliver(p) {
+  const o = G.items[p.holding];
+  const room = G.rooms[p.room];
+  if (!o || !room) { p.holding = null; return false; }
+  const h = G.typeHome[o.type];
+  const c = h && h.room === p.room ? room.containers[h.cont] : null;
+  if (!c || (c.lock && !c.lock.open)) { petDrop(p); return true; }
+
+  const filed = [];
+  let carried = [o];
+  /* The rest of the armful comes off the floor as it passes. */
+  if (petCarry() > 1) {
+    carried = carried.concat(Object.values(G.items).filter(x =>
+      x.loc.kind === "floor" && x.loc.room === p.room && x.type === o.type)
+      .slice(0, petCarry() - 1));
+  }
+  for (const item of carried) {
+    const spot = bestSpot(c, item.type);
+    if (!spot || petWouldFinish(room, c, spot, item.id)) break;
+    c.cells[spot.row][spot.col] = item.id;
+    item.loc = { kind: "cell", room: p.room, cont: c.id, row: spot.row, col: spot.col };
+    judgeToss(item, p.room, c.id);
+    filed.push(spot.row);
+  }
+  p.holding = null;
+  if (!filed.length) { petDrop(p); return true; }
+  /* Stand at the furniture it just used, so the next frame shows it there. */
+  p.x = c.slot.x + c.slot.w / 2; p.y = c.slot.y + c.slot.h / 2;
+  sfx("toss");
+  afterMutation(room, c, [...new Set(filed)]);
+  return true;
+}
+
+/* The player takes the item off it. */
+function petTake(idx) {
+  const p = G.pets[idx];
+  if (!p || p.holding == null) return false;
+  const slot = G.inv.indexOf(null);
+  const o = G.items[p.holding];
+  if (slot === -1) { petDrop(p); renderRoom(); return true; }
+  p.holding = null;
+  o.loc = { kind: "inv", slot };
+  G.inv[slot] = o.id;
+  if (G.sel === null) G.sel = slot;
+  sfx("pickup");
+  renderInv(); renderRoom();
+  return true;
+}
+
+/* What is selected in your hands right now, or null. */
+function heldItem(){
+  if(G.sel===null) return null;
+  const id=G.inv[G.sel];
+  return id===null||id===undefined ? null : G.items[id];
+}
+
+/* ME TOO — what else was going in here anyway.
+
+   Reaches further as it levels: level 1 is this room's floor, level 2 and 3 add
+   the rest of the house and more of it. Hands are deliberately left alone —
+   Tidy Hands already empties those on a placement, and taking from both would
+   make the two talents feel like one.
+
+   THE ONLY TALENT WHOSE VALUE RISES AS THE HOUSE EMPTIES, which is why it
+   exists: everything else in the pool is worth most on the first pick and least
+   on the last, so a late pick had nothing good to be. This one wants a house you
+   have already half-solved. */
+function meTooInto(room, c){
+  const lv=G.up.meToo|0;
+  if(!lv) return [];
+  const budget=[0,2,3,5][Math.min(lv,3)] || 0;
+  const wide=lv>=2;
+  const loose=Object.values(G.items).filter(o=>{
+    if(o.loc.kind!=="floor") return false;
+    if(!wide && o.loc.room!==room.id) return false;
+    if(o.isKey||o.isCoin||o.isNote||o.token) return false;
+    return belongsIn(c, o.type);
+  });
+  const filed=[];
+  for(const o of loose.slice(0,budget)){
+    const spot=bestSpot(c, o.type);
+    if(!spot) break;                         /* container full: stop, quietly */
+    c.cells[spot.row][spot.col]=o.id;
+    o.loc={kind:"cell",room:room.id,cont:c.id,row:spot.row,col:spot.col};
+    judgeToss(o, room.id, c.id);
+    filed.push(spot.row);
+  }
+  if(filed.length){
+    sfx("toss");
+    renderRoom();
+    if(G.openCont===c.id && G.current===room.id) renderContainer(filed);
+  }
+  return [...new Set(filed)];
+}
+
+/* BRING TO THE TOP — hold something and its kind surfaces, wherever it is in
+   the pile. Reuses the `.revealed` lift the debug key-reveal already uses, so
+   the vocabulary for "this is above the clutter now" is one thing rather than
+   two.
+
+   Level 2 widens what MATCHES rather than where it looks: not just the same
+   emoji, but anything that lives in the same container. That is the difference
+   between "find the other forks" and "find everything for this trip", and it is
+   the one escalation here that is visible in the room you are standing in —
+   "the whole house" would not be, because only one room is ever drawn. */
+function surfaced(room, it, held){
+  const lv=G.up.surface|0;
+  if(!lv || !held) return false;
+  if(it.isKey||it.isCoin||it.isNote||it.token) return false;
+  if(it.type===held.type) return true;
+  if(lv<2) return false;
+  const a=G.typeHome[it.type], b=G.typeHome[held.type];
+  return !!(a && b && a.room===b.room && a.cont===b.cont);
+}
+
+/* ============================================================
+   WALKING IN — the two things that happen the FIRST time you see a room
+
+   Both are "items move themselves", which is the axis that actually lands (see
+   the meta layer notes). Both fire once per room per run and never again, which
+   is what stops them being farmed by walking back and forth through a door — no
+   timer, no cooldown, nothing to tune. `G.visited` already tracked exactly this
+   and was only being used to grey out a door glyph.
+
+   THE ROOM YOU START IN COUNTS. generate.js pre-marks it visited, so the naive
+   "fire from slideTo" version helped in every room except the one the player is
+   standing in when the level opens — the room they will spend the longest in.
+   enterRoom() is therefore called from applyStore() too, for G.current.
+============================================================ */
+function enterRoom(roomId){
+  const room=G.rooms[roomId];
+  if(!room || G.entered.has(roomId)) return;
+  G.entered.add(roomId);
+  const clustered=clusterRoom(room), sent=sendHomeFromRoom(room);
+  /* IT HAS TO MAKE A NOISE. Both of these rearrange a room the player is
+     walking into for the first time, so there is no before-picture to compare
+     against — without a sound the whole effect is "the room happens to be
+     tidier than it might have been", which is indistinguishable from nothing.
+     `whirlwind` was written for a talent that got cut and has had no call site
+     since; it is exactly the sound of things sliding together. */
+  if(clustered) sfx("whirlwind");
+  else if(sent) sfx("toss");
+  if((clustered||sent) && roomId===G.current) renderRoom();
+}
+
+/* CLUSTER — a store upgrade, not a talent, and that is forced rather than
+   chosen: it only ever fires on a first entry, so a talent version would be
+   dead in every room you had already walked through, including the one you
+   start in. Bought, it is true from the first frame of every house.
+
+   Each level widens BOTH dials, which is what makes the ladder worth climbing:
+   one more KIND of thing gathers, and one more OF each kind comes to it. */
+function clusterRoom(room){
+  const lv=storeLevel("cluster");
+  if(!lv) return 0;
+  const types=lv, per=Math.min(5, lv+1);
+  /* Most-numerous first: the pile that is worst to look at is the one worth
+     tidying, and it makes the effect visible rather than statistical. */
+  const byType=new Map();
+  for(const o of Object.values(G.items)){
+    if(o.loc.kind!=="floor" || o.loc.room!==room.id) continue;
+    if(o.isKey||o.isCoin||o.isNote||o.token) continue;
+    if(!byType.has(o.type)) byType.set(o.type, []);
+    byType.get(o.type).push(o);
+  }
+  const picked=[...byType.entries()]
+    .filter(([,list])=>list.length>1)
+    .sort((a,b)=>(b[1].length-a[1].length) || (a[0]<b[0]?-1:1))
+    .slice(0,types);
+  let moved=0;
+  for(const [,list] of picked){
+    /* The first one stays put and the rest come to IT, so the cluster forms
+       somewhere the items already were rather than at a computed centre the
+       player has no reason to be looking at. */
+    const anchor=list[0];
+    let k=0;
+    for(const o of list.slice(1,per)){
+      /* A RING, NOT THE POINT ITSELF. isClearFloor() only knows about walls,
+         furniture, caches and doorways — it has no idea another item is already
+         standing there — so asking for the anchor's own spot hands every item
+         in the group the identical coordinate and they stack into what looks
+         like one object. Fanned by the golden angle so a group of five does not
+         come out as a straight line, and widening slightly per item so the
+         cluster stays legible as it grows. */
+      const th=(k*2.39996), rad=7+k*2;
+      const sp=nearestFloorSpot(room,
+        anchor.loc.x+Math.cos(th)*rad, anchor.loc.y+Math.sin(th)*rad, {padName:"toss"});
+      o.loc={kind:"floor",room:room.id,x:sp.x,y:sp.y,rot:spin(20)};
+      moved++; k++;
+    }
+  }
+  return moved;
+}
+
+/* GO TO YOUR ROOM — a talent. Some of what is lying here and lives elsewhere
+   simply leaves, bypassing your hands entirely.
+
+   THE RANKS HIDE THEIR NUMBERS on purpose. "Rank II" is a promise that more
+   happens; "10% of loose items" is an invitation to count, and a player who
+   counts will find the honest answer disappointing on a small room and alarming
+   on a big one. The hard cap does the same job from the other side: a
+   percentage of a 60-item room is a mass exodus that reads as the game playing
+   itself. */
+function sendHomeFromRoom(room){
+  const lv=G.up.goHome|0;
+  if(!lv) return 0;
+  const pct=[0, 0.05, 0.10, 0.25][Math.min(lv,3)] || 0;
+  const away=Object.values(G.items).filter(o=>{
+    if(o.loc.kind!=="floor" || o.loc.room!==room.id) return false;
+    if(o.isKey||o.isCoin||o.isNote||o.token) return false;
+    const h=G.typeHome[o.type];
+    if(!h || h.room===room.id) return false;      /* it already lives here */
+    /* ONLY INTO A ROOM YOU HAVE ALREADY STOOD IN. Reachability is the whole
+       risk here — an item that walks itself through a locked door is worse than
+       one you had to carry, because now you cannot get it at all. `G.visited`
+       is proof rather than inference: you were there, so you can get back.
+       It also gives the talent a natural curve, doing almost nothing on the
+       second room of a house and quite a lot on the seventh. */
+    return G.visited.has(h.room) && G.rooms[h.room];
+  });
+  const n=Math.min(5, Math.floor(away.length*pct));
+  if(n<1) return 0;
+  let moved=0;
+  for(const o of away.slice(0,n)){
+    const h=G.typeHome[o.type];
+    const dest=G.rooms[h.room];
+    const sp=findFloorSpot(dest, {avoidCaches:true});
+    o.loc={kind:"floor",room:h.room,x:sp.x,y:sp.y,rot:spin(20)};
+    moved++;
+  }
+  /* IT HAS TO SAY SO. This fires on a FIRST entry, so the player never saw the
+     room with those items in it — the effect is, visually, a room that happens
+     to have less in it than it would have. Without a line there is nothing at
+     all to notice, which is the exact failure the merged talents were guilty
+     of. A departure animation would be better and is the real fix. */
+  if(moved) say(`${moved} thing${moved>1?"s":""} let themselves out.`);
+  return moved;
 }
 
 /* toss an item into a piece of furniture: first empty slot, no logic */
@@ -1849,7 +2446,14 @@ initStore({
 
 initTalents({
   grant(){
-    renderHUD(); renderInv();
+    /* A PET HAS TO TURN UP THE MOMENT YOU PICK IT, not on the next house — it
+       is the one talent whose whole point is visible company, and a card that
+       promises a creature and produces nothing for ten minutes is the worst
+       version of every problem this pool has had. petSync/petStart are
+       idempotent, so this is safe on every grant, not just that one. */
+    petSync(); petStart();
+    bagSync();
+    renderHUD(); renderInv(); renderRoom();
     fire("talentEarned");
     scheduleSave();
   },
@@ -2462,6 +3066,17 @@ host.addEventListener("pointerup",e=>{
   }
 
   const target=p.downTarget;
+  /* TAP THE PET TO TAKE WHAT IT IS HOLDING. Checked before the item branch
+     because the thing it carries is drawn INSIDE it — without this the tap
+     falls through to the pet's own element and does nothing, which reads as the
+     item being stuck to it. */
+  const petEl=target.closest(".pet");
+  if(petEl){
+    lastTap={t:0};
+    if(!petTake(+petEl.dataset.pet)) bump(petEl, petSkin(), "It hasn't got anything yet.", "petIdle");
+    return;
+  }
+
   const itemEl=p.itemEl;
   if(itemEl){
     const id=+itemEl.dataset.item;
@@ -3055,6 +3670,13 @@ $("#debugUnlock").addEventListener("click",()=>{
   openCampaignMenu();
 });
 
+$("#bagBtn").addEventListener("click",()=>{ sfx("openCont"); openBag(); });
+$("#bagClose").addEventListener("click",()=>{ sfx("closeCont"); closeBag(); });
+$("#bagGrid").addEventListener("click",e=>{
+  const slot=e.target.closest(".bagslot");
+  if(slot) bagTap(+slot.dataset.bag);
+});
+
 $("#debugStars").addEventListener("click",()=>{
   /* 500 rather than 100. The ask was "grant myself a large amount and see a
      number of things I could buy", and Home sells about 1,440 ⭐ of stuff, so a
@@ -3201,7 +3823,11 @@ function closeMenus(){
 /* A run ending takes its unfinished business with it: queued celebrations and
    queued messages both belong to the run that queued them, and a "Kitchen is
    all tidy ✨" arriving over the title screen belongs to nobody. */
-function endCeremony(){ clearBeats(); clearSay(); clearChatter(); hideClient(); stopReveal(false); }
+/* Everything that is mid-flight when a run ends or a screen takes over.
+   petStop() belongs here for the same reason clearBeats() does: it is a timer
+   that outlives the thing it was animating, and a pet still ticking over the
+   title screen would file items into a run that no longer exists. */
+function endCeremony(){ clearBeats(); clearSay(); clearChatter(); hideClient(); stopReveal(false); petStop(); closeBag(); }
 
 function showTitle(){
   closeMenus();
@@ -3487,6 +4113,14 @@ function syncPicks(){
    being remembered at startCampaign, startFree and loadGame separately. */
 function applyStore(){
   syncPicks();
+  /* The pet, if this run has one, and its clock. Both are idempotent so the
+     resume path can call them too. */
+  petSync(); petStart();
+  bagSync();
+  /* The room the level opens in gets its first-entry effects too. It is the one
+     the player spends longest in, and generate.js pre-marks it visited, so
+     hanging this off slideTo() alone skipped it entirely. */
+  if(G.active && G.rooms.length) enterRoom(G.current);
   /* Bigger Hands. blankRun() gives INV_SIZE slots; each level bought adds one.
      Appended rather than resized so anything already held keeps its slot. */
   for(let i=0;i<storeLevel("hands");i++) G.inv.push(null);
@@ -3512,6 +4146,8 @@ function applyStore(){
    every resume, and the reason that bug is worth remembering. */
 function resumeStore(){
   syncPicks();
+  petSync(); petStart();
+  bagSync();
   const want=INV_SIZE + storeLevel("hands");
   while(G.inv.length < want) G.inv.push(null);
 }
@@ -3993,6 +4629,10 @@ window.tidy = {
   dropNote:maybeDropNote, openNote, checkQuests, completeQuest,
   afterMutation, openContainer, closeCont,
   insertKey, insertContainerKey, flingToFloor, showWin, displaceAround,
+  /* First-entry effects, exposed so Cluster and Go to your Room can be re-run
+     on a room that has already had them — the only way to A/B either of them
+     against one generated house instead of two different ones. */
+  enterRoom, meTooInto,
   tossInto, cascade, pickUp, openDraft,
   /* The SAVE ROUND-TRIP. Continue is the one entry point that restores state
      rather than generating it, so it is where state that was never written
