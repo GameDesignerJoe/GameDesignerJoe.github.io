@@ -957,7 +957,22 @@ no caller to notice:
   which bought one cheap client and looked like nothing had happened. It is 500
   and repeatable.
 
-**Five debug buttons in the gear, and three of them matter.**
+**WIPE EVERYTHING is the destructive one**, and the only control in the game
+that can delete a real player's progress. It sweeps every localStorage key
+starting with `tidy` — **by prefix, not by list**, so a key added next month is
+covered by a button written today; a hardcoded list is the version of this that
+quietly stops being a full wipe the first time somebody forgets to update it.
+It takes the **audio preferences** too, deliberately: a fresh install has no
+preferences either, and a wipe that leaves something behind is not the thing it
+says it is.
+
+It is **armed, then fired** — one tap relabels, the second does it, and it
+disarms itself after four seconds or when the gear closes. Anything irreversible
+behind a single tap, in a panel otherwise full of harmless toggles, gets pressed
+by accident eventually. `tidy.wipeAll()` skips the arming, because typing it is
+already deliberate.
+
+**Six debug buttons in the gear, and four of them matter.**
 *Where are the keys* rings every loose token, lifts it above the clutter, and
 names the rooms holding one. It is the only way to tell a level that is
 *solvable* from one that is *findable* — generation buries keys deliberately,

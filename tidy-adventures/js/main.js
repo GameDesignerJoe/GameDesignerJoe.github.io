@@ -3534,7 +3534,10 @@ $("#helpClose").addEventListener("click",()=>{
   $("#helpOverlay").classList.remove("open");
   if(helpReturnsToTitle){ helpReturnsToTitle=false; showTitle(); }
 });
-$("#gearClose").addEventListener("click",()=>$("#gearOverlay").classList.remove("open"));
+/* Leaving the panel disarms the wipe: a gear closed and reopened an hour later
+   must not still be one tap from deleting everything. */
+$("#gearOverlay").addEventListener("click",e=>{ if(e.target.id==="gearOverlay") disarmWipe(); });
+$("#gearClose").addEventListener("click",()=>{ disarmWipe(); $("#gearOverlay").classList.remove("open"); });
 $("#shopClose").addEventListener("click",()=>$("#shopOverlay").classList.remove("open"));
 $("#noteClose").addEventListener("click",()=>{
   $("#noteOverlay").classList.remove("open");
@@ -3712,6 +3715,69 @@ function syncFreeBtn(){
   b.textContent = p.count ? "Clear ("+p.count+")" : "Clear";
   b.disabled = !p.count;
 }
+/* ============================================================
+   WIPE EVERYTHING — a fresh install, without reinstalling
+
+   The other three debug clears each take one slice: the wallet, the free-play
+   ticks, the job board. There was no way to get back to what a NEW PLAYER sees,
+   which is the state most worth testing and the one hardest to reach — you have
+   to remember four keys, in devtools, on whichever device is being awkward.
+
+   BY PREFIX, NOT BY LIST. Every key this game owns starts with `tidy`, and
+   sweeping the prefix means a key added next month is wiped by a button written
+   today. A hardcoded list is the version of this that quietly stops being a
+   full wipe the first time somebody adds a key and forgets this function.
+
+   IT TAKES THE SOUND SETTINGS TOO, which is a real choice and not an oversight:
+   a fresh install has no preferences either, and a "wipe" that leaves something
+   behind is not the thing it says it is. The row says so.
+
+   ARMED, THEN FIRED. One tap arms it and relabels; the second does it. Anything
+   irreversible behind a single tap in a panel full of harmless toggles gets
+   pressed by accident eventually — and this is the only control in the game
+   that can destroy a real player's progress. Disarms itself, so a gear opened
+   and forgotten is not left cocked.
+============================================================ */
+function wipeEverything(){
+  const doomed=[];
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k && k.startsWith("tidy")) doomed.push(k);
+    }
+    for(const k of doomed) localStorage.removeItem(k);
+  }catch(e){}
+  return doomed;
+}
+
+let wipeArmed=null;
+function disarmWipe(){
+  clearTimeout(wipeArmed); wipeArmed=null;
+  const b=$("#debugWipe");
+  if(b){ b.textContent="Wipe"; b.classList.remove("armed"); }
+}
+$("#debugWipe").addEventListener("click",()=>{
+  const b=$("#debugWipe");
+  if(!wipeArmed){
+    b.textContent="Really? Tap again";
+    b.classList.add("armed");
+    wipeArmed=setTimeout(disarmWipe, 4000);
+    syncGear("nothing wiped yet — tap again within four seconds");
+    return;
+  }
+  disarmWipe();
+  const gone=wipeEverything();
+  /* END THE RUN BEFORE LEAVING. showTitle() calls endRun() itself, but the
+     ceremony queue and the helper's timer are mid-flight and belong to a run
+     whose save has just been deleted — endCeremony() inside showTitle() is what
+     stops the helper filing items into it. */
+  $("#gearOverlay").classList.remove("open");
+  showTitle();
+  /* Said on the title screen rather than into the gear, because the gear is
+     closed by now and #toast is behind an .overlay anyway. */
+  say(gone.length+" key"+(gone.length===1?"":"s")+" gone — this is a fresh install.");
+});
+
 $("#debugRelock").addEventListener("click",()=>{
   clearDone();
   $("#gearOverlay").classList.remove("open");
@@ -4666,6 +4732,9 @@ window.tidy = {
      wallet and what is bought, `tidy.refund()` hands it all back. `tidy.give(n)`
      is the only way to test an expensive purchase without playing to it. */
   store:openStore, storeState, give:grantStars, wipeStore:clearStore, refund:respec,
+  /* The whole thing, from the console as well as the gear — the gear's version
+     is armed and this one is not, because a console call is already deliberate. */
+  wipeAll:()=>{ const g=wipeEverything(); showTitle(); return g; },
   nextJobCard,
   picksFor, applyStore,
   /* How big is this job — the same two calls the card and the board tiles make. */

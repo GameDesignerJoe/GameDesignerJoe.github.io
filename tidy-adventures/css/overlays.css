@@ -573,3 +573,14 @@
   display:block;font-style:normal;margin-top:3px;
   color:#8fd0a0;font-weight:800;letter-spacing:.06em;
 }
+
+/* The one debug row that cannot be undone. Red edging rather than a red button:
+   the button still has to read as pressable, and a row that looks different
+   from its neighbours is what stops a thumb landing on it by habit. */
+.shoprow.danger{
+  border:1px solid rgba(220,90,80,.38);
+  border-radius:12px;padding:8px 10px;margin-top:6px;
+  background:rgba(220,90,80,.07);
+}
+.shoprow.danger button{ background:rgba(220,90,80,.22);color:#ffd9d5 }
+.shoprow.danger button.armed{ background:#c0453c;color:#fff }
