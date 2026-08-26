@@ -135,18 +135,27 @@
 }
 
 /* ---------- THE PET ----------
-   Positioned exactly like a floor item, but it TRANSITIONS between positions:
-   the tick moves it in discrete hops and the transition is the entire illusion
-   of something pottering about. Drawn above the clutter (see buildRoomEl) —
-   the one thing in a room that moves on its own must never be behind anything.
-   `pointer-events:auto` because the item it carries is a child, and the tap
-   that takes it has to land on the pet rather than on the emoji. */
+   IT WALKS NOW, and this file is half of why it did not before. The transition
+   was .9s, matching an action tick that jumped it straight to its destination
+   — but renderRoom() destroys and rebuilds every element in the room, so there
+   was no previous value for the transition to run FROM. A CSS transition
+   cannot animate an element into existence. It appeared where it was going,
+   every time.
+
+   js/main.js now moves it about 1.5% of the room per 110ms step and repaints
+   only the pet (petRepaint), so the element survives between steps. The
+   transition here just has to be long enough to smooth one step into the next
+   and short enough not to lag behind it — a hair over the step interval,
+   linear, because eased steps read as limping.
+
+   Drawn above the clutter (see buildRoomEl) — the one thing in a room that
+   moves on its own must never be behind anything. */
 .pet{
   position:absolute;
   font-size:calc(var(--item-size) * 1.15);
   line-height:1;
   transform:translate(-50%,-50%);
-  transition:left .9s ease-in-out, top .9s ease-in-out;
+  transition:left .13s linear, top .13s linear;
   z-index:6;
   cursor:pointer;
   filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));
@@ -155,6 +164,10 @@
 /* Carrying something is worth seeing from across the room: that is when the
    pet is interruptible, and the only time tapping it does anything. */
 .pet.carrying{ animation-duration:1.2s }
+/* Actually going somewhere. The bob IS the gait — a faster one on the move and
+   a slow one standing about is the difference between walking and idling, and
+   it costs one class. */
+.pet.walking{ animation-duration:.42s }
 .petload{
   position:absolute;left:58%;top:-42%;
   font-size:.62em;
@@ -167,4 +180,32 @@
 }
 @media (prefers-reduced-motion:reduce){
   .pet{ animation:none; transition:none }
+}
+
+/* ---------- THE HELPER, IN YOUR HANDS ----------
+   Dressed as a hand slot because that is what it means, and deliberately NOT
+   one: every handler on #invBar reads .slot's dataset.slot as an index into
+   G.inv. See petPick() in js/main.js. Ringed, because it is the one thing in
+   that row that is not cargo. */
+.petchip{
+  width:56px;height:56px;border-radius:14px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  font-size:31px;line-height:1;cursor:pointer;
+  background:var(--slot);
+  border:2px solid #241c11;
+  /* .slot's own margin-top, so the chip sits on the same line as the hand
+     slots rather than floating above them (#handLabel needs that 14px). */
+  margin-top:14px;
+  box-shadow:inset 0 0 0 2px rgba(245,197,66,.55);
+  /* Its own keyframes, NOT petbob: that one bobs by rewriting the
+     translate(-50%,-50%) a floor pet is positioned with, and the chip is a
+     flex child with no such offset to preserve. */
+  animation:chipbob 1.6s ease-in-out infinite;
+}
+@keyframes chipbob{
+  0%,100%{ transform:translateY(0) }
+  50%    { transform:translateY(-4px) }
+}
+@media (prefers-reduced-motion:reduce){
+  .petchip{ animation:none }
 }

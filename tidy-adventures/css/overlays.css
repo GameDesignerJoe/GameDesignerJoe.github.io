@@ -422,6 +422,60 @@
   background:#7fd07f;
   color:#12300f;
 }
+#debugBench.dbgon{
+  background:#7fd07f;
+  color:#12300f;
+}
+
+/* ---------- THE TALENT BENCH (debug) ----------
+   Reuses .shoprow so it looks like the rest of the panels rather than like a
+   second design system. What it adds is the RANK STRIP: one button per rank,
+   plus a 0, because "give me this talent" and "give me this talent at rank 3"
+   are different questions and a plain +1 makes you press four times and watch
+   four toasts to ask the second one.
+
+   The 0 is the only way back off a talent. Without it the bench is one-way and
+   testing the next thing means re-rolling the house — which is most of what
+   makes waiting for a draft slow in the first place.
+
+   Specificity: `.overlay button` (0,1,1) makes every button in here a big gold
+   pill, so the strip needs at least that much to win. */
+/* A BENCH, NOT A MOMENT. The full-size ✨/h1 block is the beat before a
+   decision, and this panel has no decision in it — at 52px the ceremony was
+   costing three of the eight rows. Same trim the other list panels take
+   (#sizeOverlay, #campaignOverlay, #storeOverlay). */
+#benchOverlay .big{font-size:30px;margin-bottom:2px}
+#benchOverlay h1{font-size:24px;margin-bottom:4px}
+#benchSub{font-size:12.5px;line-height:1.4;margin-bottom:2px}
+#benchList{max-height:min(62vh, 560px);overflow-y:auto;margin-top:4px}
+.benchrow{padding:8px 11px;margin:6px 0}
+.benchrow .sdesc{font-size:11.5px;line-height:1.32}
+.benchrow .sname{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+/* Cosmetic, and the row's whole reason for existing on the ones that have it:
+   two talents change nothing until the player does something, so pressing them
+   and staring at an unchanged room reads as a broken button. */
+.benchwhen{
+  font-size:11px;font-weight:700;color:var(--gold);opacity:.75;
+  letter-spacing:.02em;margin-top:3px;
+}
+.benchranks{display:flex;gap:4px;flex:0 0 auto}
+.overlay .benchranks button{
+  margin:0;min-width:30px;
+  padding:7px 8px;font-size:12px;font-weight:800;letter-spacing:0;
+  background:var(--slot);color:var(--ink-dim);
+}
+/* Where the talent actually is right now — the answer to "did that press
+   land", which is otherwise only visible in the ⭐ panel behind this one. */
+.overlay .benchranks button.dbgon{background:#7fd07f;color:#12300f}
+.overlay .benchranks button:active{transform:scale(.92)}
+/* 320px: four rank buttons and a paragraph do not both fit on one line. The
+   text column drops to about 130px and every description turns into a ladder,
+   so the strip goes UNDER the text instead of beside it. Same narrow-phone
+   width the HUD already has a note about (css/layout.css). */
+@media (max-width:360px){
+  .benchrow{flex-wrap:wrap}
+  .benchranks{width:100%;justify-content:flex-end}
+}
 
 /* ---------- THE NEXT JOB CARD ----------
    Gold like .menubtn.primary, because it IS the primary action — but it is a

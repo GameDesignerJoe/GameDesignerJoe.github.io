@@ -52,6 +52,14 @@
   <!-- THE HOLDALL. Hidden until the talent is taken, like the ⭐ button, so it
        never sits in the HUD teaching people to ignore it. -->
   <button class="hudbtn" id="bagBtn" hidden style="width:auto;padding:0 10px">🧰 0</button>
+  <!-- THE TALENT BENCH (debug). In the HUD rather than under the inventory:
+       the inventory bar sits on the bottom edge of the viewport, where a phone's
+       home indicator, a desktop taskbar and the browser's own chrome all land,
+       and a button parked there is a button you cannot reliably hit. The HUD
+       already pads itself past the notch.
+       Hidden unless "Talent bench" is on in the gear AND a run is going — see
+       syncBenchBtn(). Ringed in gold so it never reads as shipping UI. -->
+  <button class="hudbtn" id="benchBtn" hidden>✨</button>
   <button class="hudbtn" id="helpBtn">?</button>
   <button class="hudbtn" id="gearBtn">⚙️</button>
 </div>
@@ -193,6 +201,13 @@
       </div>
       <div class="shoprow">
         <div class="sinfo">
+          <div class="sname">Talent bench</div>
+          <div class="sdesc">Puts a gold ✨ button in the HUD that hands you any talent at any rank, on the spot, instead of waiting for a draft to roll it. Stays on across reloads. Nothing else in the run changes — the house's own picks are untouched.</div>
+        </div>
+        <button id="debugBench">Off</button>
+      </div>
+      <div class="shoprow">
+        <div class="sinfo">
           <div class="sname">Finish this job</div>
           <div class="sdesc">Files everything instantly and lets the ending play: the room's gold, the client's thank-you, the win screen.</div>
         </div>
@@ -266,6 +281,23 @@
     <p id="shopPts"></p>
     <div id="shopList"></div>
     <button id="shopClose">Back to tidying</button>
+  </div>
+</div>
+
+<!-- THE TALENT BENCH — debug, and deliberately NOT the draft.
+     The draft is a forced pick of two weighted cards, which is the wrong tool
+     for "show me what Me Too looks like": you re-roll a house, finish rows
+     until it fires, and then it offers you the two talents you were not asking
+     about. This lists all of them and sets one to an exact rank.
+     Declared after #shopOverlay so it paints over it if both are somehow open;
+     it is in closeMenus() so it cannot survive into the title screen. -->
+<div class="overlay" id="benchOverlay">
+  <div class="card">
+    <div class="big">✨</div>
+    <h1>Talent bench</h1>
+    <p id="benchSub"></p>
+    <div id="benchList"></div>
+    <button id="benchClose">Close</button>
   </div>
 </div>
 

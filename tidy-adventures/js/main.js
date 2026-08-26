@@ -6,7 +6,8 @@
    input tiers still live here. See docs/CLAUDE.md for the target graph.
 ============================================================ */
 import {
-  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, LEGACY_ORDER, ID_MAP,
+  VERSION, SAVE_VERSION, SAVE_KEY, PROGRESS_KEY, DONE_KEY, UNLOCK_KEY, TALENT_DEBUG_KEY,
+  LEGACY_ORDER, ID_MAP,
   PET_SKIN_EMOJI,
   FREE_KEY,
   TALENTS_KEY, SAVE_DEBOUNCE,
@@ -20,7 +21,8 @@ import { rnd, pick, tokenise } from './util.js';
 import {
   $, host, invBar, contGrid, shopBtn, setHidden, el as mkEl,
 } from './dom.js';
-import { say, bump, flyStar, roomCompleteFX, clearSay } from './feedback.js';
+import { say, bump, flyStar, roomCompleteFX, clearSay,
+         flyToContainer, flyOut, clearFlights } from './feedback.js';
 import {
   DATA, LOOKUP, loadData, nameOf, maxLevel,
   itemCount, upgradeParam, upgradeDefaults, jobAt, jobSize, sizeBand, contCap,
@@ -31,7 +33,8 @@ import { chatter, clearChatter, chatterState, setChatterGate, CHAT } from './cha
 import { G, setRun, endRun } from './state.js';
 import { itemAt, underAt, onInk, warmMasks, maskStats } from './hit.js';
 import {
-  findFloorSpot, nearestFloorSpot, unstickFloorItems, inDoorway, spin,
+  findFloorSpot, nearestFloorSpot, unstickFloorItems, inDoorway, spin, roomDist,
+  inSlot, pad as furnPad,
 } from './geometry.js';
 import { generate } from './generate.js';
 import {
@@ -40,6 +43,7 @@ import {
 } from './camera.js';
 import {
   initTalents, drainDrafts, renderTalents, openDraft, grantPick, picksLeft,
+  debugGrant,
 } from './talents.js';
 import {
   initStore, openStore, stars, addStars, storeLevel, clearStore, grantStars,
@@ -939,13 +943,31 @@ function buildRoomEl(room){
     el.appendChild(sp);
   }
 
+  /* THE HOLDALL, if this run has one and this room has been given its spot.
+     Between the clutter and the pet on purpose: it is furniture, so nothing
+     should be able to bury it, but the one thing in the room that walks about
+     still goes over the top. */
+  const bagAt=bagSize() ? room.bagSlot : null;
+  if(bagAt){
+    const bb=document.createElement("div");
+    bb.className="bagbox";
+    bb.dataset.bag="1";
+    bb.innerHTML=`<span class="bagico">🧰</span><span class="bagpips"></span>`;
+    bb.querySelector(".bagpips").textContent=bagCount()+"/"+bagSize();
+    /* A rect in room %, exactly like .furn and .cache — it is a keep-out with
+       those same coordinates, so drawing it any other way would let what is on
+       screen drift from what the floor search believes is there. */
+    bb.style.cssText=`left:${bagAt.x}%;top:${bagAt.y}%;width:${bagAt.w}%;height:${bagAt.h}%;`;
+    el.appendChild(bb);
+  }
+
   /* THE PET, and whatever it is carrying rides along on its back. Drawn last so
      it is over the clutter — it is the one thing in the room that moves on its
      own, and something that walks behind the furniture reads as a glitch. The
      CSS transition on left/top is what turns two positions a tick apart into
      something pottering about. */
   (G.pets||[]).forEach((pt, i) => {
-    if(pt.room!==room.id) return;
+    if(pt.room!==room.id || pt.held) return;   /* held = he is in your hands */
     const pe=document.createElement("div");
     pe.className="pet"+(pt.holding!=null?" carrying":"");
     pe.dataset.pet=i;
@@ -1136,6 +1158,9 @@ function slideTo(dir,newId){
   const px=dx*(hr.width+80), py=dy*(hr.height+80);
   G.current=newId; G.visited.add(newId);
   enterRoom(newId);              /* guards itself — see G.entered */
+  /* Before buildRoomEl below, because placing it shoves the clutter aside and
+     that has to be in the item positions the new room is built from. */
+  bagEnsureHere();
   fire("door");
   sfx("door");
   /* Keep the player's zoom through a door; only recentre the pan. Resetting
@@ -1214,6 +1239,11 @@ function renderHUD(){
   $("#shopBtn").textContent = G.mode==="campaign"
     ? "⭐ "+G.points
     : (G.picksMax ? "✨ "+G.picksTaken+"/"+G.picksMax : "✨");
+  /* #benchBtn is in this band, so the function that owns the band decides
+     whether it is there. render() calls this on every start, resume and
+     mutation, which covers every way a run can begin or end without a list of
+     call sites to keep up to date. */
+  syncBenchBtn();
   scheduleSave();
 }
 
@@ -1234,6 +1264,10 @@ function renderHUD(){
 function renderInv(){
   const bar=$("#invBar");
   bar.querySelectorAll(".slot").forEach(s=>s.remove());
+  /* Deliberately its own class, not .slot: every handler on this bar reads
+     dataset.slot as an index into G.inv, and a chip that answered NaN to that
+     question reached G.items[undefined].type. See the note on petPick(). */
+  bar.querySelectorAll(".petchip").forEach(s=>s.remove());
   const n=G.inv.length;
   const size=n>6 ? Math.max(38, Math.floor((Math.min(window.innerWidth,760)-30-(n-1)*8)/n)) : 56;
   G.inv.forEach((id,i)=>{
@@ -1252,6 +1286,16 @@ function renderInv(){
     const it=G.items[G.inv[G.sel]];
     lbl.textContent=(NAMES[it.type]||"")+senseSuffix(it);
   }else lbl.textContent="";
+  /* THE HELPER, IF YOU ARE CARRYING HIM. Drawn as one of the hand slots
+     because that is what it means, without being one. */
+  (G.pets||[]).forEach((pt,i)=>{
+    if(!pt.held) return;
+    const s=document.createElement("div");
+    s.className="petchip";
+    s.dataset.pet=i;
+    s.textContent=petSkin();
+    bar.appendChild(s);
+  });
 }
 
 /* WHAT THE THING IN YOUR HAND ADMITS TO — rungs 2 and 3 of Intuition.
@@ -1537,6 +1581,10 @@ function pickUp(itemId){
   }
   G.inv[slot]=it.id;
   if(G.sel===null) G.sel=slot;
+  /* The helper staged this beside its box and the player has taken it, so it is
+     fair game for staging again wherever it ends up. The flag is the helper's
+     loop guard — see petFindWork(). */
+  it.staged=false;
   sfx(it.isKey||it.isCoin ? "keyPickup" : "pickup");
   fire("pickUp");
   /* Magnet Fingers used to fire here, sweeping up matching items within 14% of
@@ -1552,6 +1600,28 @@ function tapSlot(i){
   /* Both the furniture glow (Intuition 3) and the lift (Bring to the Top) key
      off what is selected, so changing the selection has to redraw the room. */
   if(G.up.intuit || G.up.surface) renderRoom();
+}
+
+/* PUTTING SOMETHING DOWN IN YOUR MIND — letting go of the selection without
+   letting go of the item.
+
+   Bring to the Top and Intuition 3 both read whatever is SELECTED, and there
+   was no way to select NOTHING while still carrying something. So the lift
+   stayed on for the rest of the level: every copy of the thing in your hands
+   ringed and pulsing, in every room, until you happened to file it. The two
+   gestures a player actually reaches for are the two wired to this — a tap on
+   bare floor, and a tap on an empty hand slot, which previously did nothing at
+   all. Tapping the FULL slot already toggled (tapSlot, above); it was the only
+   way, and nothing said so.
+
+   Returns whether it did anything, so a caller can decide whether to make a
+   noise about it. */
+function deselect(){
+  if(G.sel===null) return false;
+  G.sel=null;
+  renderInv();
+  if(G.up.intuit || G.up.surface) renderRoom();
+  return true;
 }
 
 /* ============================================================
@@ -1573,21 +1643,30 @@ function tapSlot(i){
    more items into the wrong home would turn one mistake into six, then make
    the player undo all of them. Getting it right is what pays.
 
-   STILL TO DO (see the _note in upgrades.json): this needs real magnitude and
-   a sound of its own. Merging the ids stops it being two invisible talents; it
-   does not by itself stop it being one.
+   IT IS PERFORMED NOW, and that was the last thing wrong with it. Merging the
+   ids stopped it being two invisible talents and did not by itself stop it
+   being one: two extra things appeared inside a container in the same frame as
+   the thing you filed by hand, with a delayed thump over the top. Each one now
+   lifts, crosses the room, hovers over the box, bumps, and is taken in — so
+   what came along is legible, and the count is something you watch rather than
+   read afterwards. See performIntake().
 
    Returns how many extra items it filed, so the caller can say so.
 ============================================================ */
 function cascade(room, c, contIdx, type){
   const filed=[];
-  const put=o=>{
+  /* WHERE EACH ONE CAME FROM, measured before it moves. The performance is a
+     ghost — see the note on flyToContainer() in js/feedback.js — so the origin
+     has to be read off the world that still has the item in it. */
+  const flights=[];
+  const put=(o,from)=>{
     const spot=bestSpot(c, o.type);
     if(!spot) return false;                 /* container full: stop, quietly */
     c.cells[spot.row][spot.col]=o.id;
     o.loc={kind:"cell",room:room.id,cont:c.id,row:spot.row,col:spot.col};
     judgeToss(o, room.id, contIdx);
     filed.push(spot.row);
+    if(from) flights.push({type:o.type, from});
     return true;
   };
   const livesHere=o=>{
@@ -1613,7 +1692,11 @@ function cascade(room, c, contIdx, type){
        that lives in this drawer". */
     const want = lv>=2 ? livesHere(o) : (o.type===type && livesHere(o));
     if(!want) continue;
-    if(!put(o)) break;
+    /* Out of the hand slot it was actually sitting in, so the flight starts at
+       the thing on screen that just emptied. */
+    const slotEl=invBar.querySelector(`.slot[data-slot="${s}"]`);
+    const sr=slotEl?slotEl.getBoundingClientRect():null;
+    if(!put(o, sr?{x:sr.left+sr.width/2, y:sr.top+sr.height/2}:null)) break;
     G.inv[s]=null;
     budget--;
   }
@@ -1628,15 +1711,17 @@ function cascade(room, c, contIdx, type){
          from a room-corner you have never looked at. */
       .sort((a,b)=>Math.hypot(a.loc.x-50,a.loc.y-50)-Math.hypot(b.loc.x-50,b.loc.y-50))
       .slice(0,budget);
-    for(const o of loose) if(!put(o)) break;
+    for(const o of loose) if(!put(o, floorScreenPoint(o.loc.x, o.loc.y))) break;
   }
 
-  /* AND IT HAS TO BE HEARD. The extra items landed silently inside the sound of
-     the tap that caused them, which is most of why two separate talents both
-     read as nothing happening. Delayed rather than immediate so it lands as a
-     follow-up — "and those too" — instead of doubling the placement sound into
-     one muddy thump. */
-  if(filed.length) setTimeout(()=>sfx("toss"), 90);
+  /* AND IT HAS TO BE SEEN, not just heard. A delayed sfx("toss") used to be the
+     whole of this, and a sound with nothing on screen under it is a sound the
+     player attributes to the tap they already made. Each item now lifts off the
+     floor (or out of the slot it was in), hovers over the box, bumps once so
+     you can see WHAT came along, and is taken in — and the thump moved to the
+     moment it goes in, one per item, so the count is audible as well as
+     visible. The whoosh of them all lifting is tossInto's `whirlwind`. */
+  performIntake(flights, contIdx);
 
   return filed;
 }
@@ -1678,7 +1763,17 @@ function bagSync() {
     if (id != null) bagSpill(id);
   }
   while (G.holdall.length < want) G.holdall.push(null);
+  /* The room you are standing in gets its box the moment the talent lands,
+     rather than the next time you walk through a door. */
+  bagEnsureHere();
   setHidden($("#bagBtn"), !want);
+  /* THE PANEL CAN BE OPEN WHILE THIS RUNS. Nothing in the game shrank a
+     holdall mid-run before — the talent only ever grows and a resume syncs
+     before anything is drawn — but the talent bench can set it back to 0 with
+     the bag on screen, which left a grid of slots the run no longer has,
+     tappable, over an item list that had already spilled onto the floor. */
+  if (!want) closeBag();
+  else if ($("#bagView").classList.contains("open")) renderBag();
   renderBagBtn();
 }
 
@@ -1695,28 +1790,177 @@ function bagSpill(id) {
 
 function bagCount() { return (G.holdall || []).filter(v => v !== null).length; }
 
+/* ============================================================
+   THE BOX ITSELF — the holdall is a thing in the room now
+
+   IT WAS A HUD BUTTON AND A PANEL, and nothing else. "A box with five slots
+   that is somehow in every room at once" described an object, and the object
+   did not exist: there was nothing on any floor to tap, nothing to drag onto,
+   and the only way in was 🧰 → panel → tap a slot. Reported, accurately, as
+   "I can't put anything in the portal box."
+
+   ONE SPOT PER ROOM, chosen the first time you are in that room with the talent
+   and then FROZEN for the run (`room.bagSlot`). Re-rolling per visit would move
+   the one piece of furniture in the house that is supposed to be the same box
+   every time — the whole fantasy is that it is one box, not five.
+
+   IT IS A KEEP-OUT, not a decal. The slot lives on the ROOM so js/geometry.js
+   can read it (onHoldall), which makes every placement path in the game avoid
+   it without one of them knowing it exists — and it rides in the saved `rooms`
+   with no save plumbing. See the note in geometry.js for what the first version
+   cost: painted over the floor with nothing reserving the space, 71% of the box
+   was covered by clutter that swallowed the tap.
+============================================================ */
+function bagEnsureSpot(roomId) {
+  if (!bagSize()) return null;
+  const room = G.rooms[roomId];
+  if (!room || room.bagSlot) return room ? room.bagSlot : null;
+  const size = DATA.furniture.holdallSlot || { w: 15, h: 9 };
+  /* Placed by its CENTRE and then stored as a rect, because a rect is what the
+     rest of the game understands: `room.bagSlot` is read by onHoldall() in
+     js/geometry.js and is therefore a keep-out from the moment it exists. */
+  const sp = findFloorSpot(room, { padName: "toss", margin: 12, span: 76, avoidCaches: true });
+  room.bagSlot = {
+    x: Math.max(2, Math.min(98 - size.w, sp.x - size.w / 2)),
+    y: Math.max(2, Math.min(98 - size.h, sp.y - size.h / 2)),
+    w: size.w, h: size.h,
+  };
+  /* EVICT, don't nudge. displaceAround() was the first version of this and it
+     pushes by a falloff — an item near the edge of the radius barely moves, so
+     71% of the box stayed covered and the thing was mostly untappable. Anything
+     standing inside the footprint is now MOVED OUT, and nearestFloorSpot()
+     cannot put it back because the slot above is already a keep-out. */
+  let moved = 0;
+  for (const o of Object.values(G.items)) {
+    if (o.loc.kind !== "floor" || o.loc.room !== roomId) continue;
+    if (!inSlot(room.bagSlot, o.loc.x, o.loc.y, furnPad("toss"))) continue;
+    const s = nearestFloorSpot(room, o.loc.x, o.loc.y, { padName: "toss" });
+    o.loc.x = s.x; o.loc.y = s.y; o.loc.rot = spin(20);
+    moved++;
+  }
+  if (moved) sfx("scatter");
+  return room.bagSlot;
+}
+
+/* Everywhere at once means everywhere you have been: a room you walk into
+   later gets its box placed then, not at generation. */
+function bagEnsureHere() { return bagEnsureSpot(G.current); }
+
+/* DRAGGED ONTO THE BOX, which is the same gesture as dragging onto a cupboard
+   and means the same thing. The TAP does not do this any more — it opens the
+   panel, like every other container in the house. See bagBoxTap(). */
+function bagStow(it, fromSlot) {
+  const be = host.querySelector(".bagbox");
+  if (!it) return false;
+  /* Same rule the panel enforces, for the same reason: keys and coins are how
+     you open the house, and one in a bag is one you will forget you have. */
+  if (it.isKey || it.isCoin || it.isNote) {
+    bump(be, it.isCoin ? "🪙" : "🔑", "That's not something to put away for later.", "bagToken");
+    sfx("locked");
+    return false;
+  }
+  const i = (G.holdall || []).indexOf(null);
+  if (i === -1) {
+    bump(be, "🧰", "The holdall is full — open it and take something out.", "bagFull");
+    sfx("locked");
+    return false;
+  }
+  if (fromSlot !== undefined && fromSlot !== null) {
+    G.inv[fromSlot] = null;
+    G.sel = G.inv.findIndex(v => v !== null); if (G.sel === -1) G.sel = null;
+  }
+  G.holdall[i] = it.id;
+  it.loc = { kind: "holdall", slot: i };
+  sfx("dropFloor");
+  render();
+  /* AFTER render(), because render() rebuilds the room and `be` above is the
+     element it just threw away — the same reason tossInto re-queries for its
+     gold flash. */
+  const fresh = host.querySelector(".bagbox");
+  if (fresh) { fresh.classList.remove("bagpop"); void fresh.offsetWidth; fresh.classList.add("bagpop"); }
+  scheduleSave();
+  return true;
+}
+
+/* A tap on the box. Holding something -> it goes in. Empty-handed -> open it,
+   which is the only way to get things back out. */
+/* IT OPENS, and that is all it does. Tapping it with something in your hands
+   used to put that thing straight in — which made it the one piece of furniture
+   in the house that takes an item and shows you nothing, and reads as the box
+   eating your inventory. Every container in the game opens on a single tap and
+   you work inside it; this one is no longer the exception. Dragging ONTO it
+   still stows, because that is what dragging onto a cupboard does too. */
+function bagBoxTap() {
+  sfx("openCont");
+  openBag();
+}
+
 function renderBagBtn() {
   const b = $("#bagBtn");
   if (!b) return;
   b.textContent = "🧰 " + bagCount() + "/" + bagSize();
 }
 
+/* ============================================================
+   THE PANEL — and it is a CONTAINER, not a special case
+
+   IT USED TO SWALLOW THINGS ON A TAP. Tapping the box with something in your
+   hands put that thing straight in, without opening anything: the one piece of
+   furniture in the game that takes an item and shows you nothing. Every other
+   container in the house opens and you work inside it, and the holdall now does
+   the same — open it, then move things between the panel and your hands.
+
+   So this panel answers the same five gestures #contView does, and the code
+   below is deliberately a mirror of the container's rather than a second
+   vocabulary: tap a slot, tap a hand slot, drag between slots, drag out to your
+   hands, drag out to the floor, and tap the backdrop to close.
+
+   ONE WORKING SURFACE AT A TIME. Opening one closes the other — two panels
+   stacked at the same z-index, each covering the room the other drops things
+   onto, is not a state worth supporting.
+============================================================ */
+/* When it opened, for the same reason contOpenedAt exists: a tap on the
+   backdrop closes the panel, so the second tap of a double-tap aimed at the
+   box would open it and shut it again in one gesture. */
+let bagOpenedAt = 0;
+const bagIsOpen = () => $("#bagView").classList.contains("open");
+
 function openBag() {
   if (!bagSize()) return;
+  /* Closed WITHOUT closeCont()'s tail. That calls maybeDraft(), and a talent
+     draft opening in the half-frame between the container closing and this
+     panel opening would land on top of the panel. */
+  if (G.openCont !== null) {
+    G.openCont = null;
+    $("#contView").classList.remove("open");
+    sfx("closeCont");
+    render();
+  }
   renderBag();
   $("#bagView").hidden = false;
   $("#bagView").classList.add("open");
+  bagOpenedAt = Date.now();
 }
 function closeBag() {
   $("#bagView").classList.remove("open");
   $("#bagView").hidden = true;
+}
+/* The player closing it, rather than a run ending or the talent being taken
+   away. Closing a working surface is a safe moment to interrupt, exactly as it
+   is for a container — closeCont() has done this since it was written. */
+function dismissBag() {
+  if (!bagIsOpen()) return;
+  sfx("closeCont");
+  closeBag();
+  playBeats();
+  maybeDraft();
 }
 
 function renderBag() {
   const held = heldItem();
   $("#bagTitle").textContent = held
     ? "Tap a slot to stow " + held.type
-    : bagCount() ? "Tap something to take it" : "Empty — stow something for later";
+    : bagCount() ? "Tap something to take it back" : "Empty — stow something for later";
   const grid = $("#bagGrid");
   grid.innerHTML = "";
   (G.holdall || []).forEach((id, i) => {
@@ -1729,37 +1973,105 @@ function renderBag() {
   renderBagBtn();
 }
 
+/* Everything below repaints the same three things, so it is one call. The box
+   on the floor wears its own count, which is why the ROOM has to be repainted
+   for a change made inside a panel covering it. */
+function bagRepaint() {
+  renderInv(); renderBag(); renderHUD();
+  if (host.querySelector(".bagbox")) renderRoom();
+  scheduleSave();
+}
+
+/* THE ONE RULE ABOUT WHAT GOES IN, in one place because three gestures now
+   reach it. Keys, coins and notes stay out for the same reason they stay out of
+   containers: they are not clutter to be sorted, they are how you open the
+   house, and a key in a bag is a key you will forget you have. */
+function bagRefuses(it, el) {
+  if (!it) return true;
+  if (it.isKey || it.isCoin || it.isNote) {
+    bump(el || $("#bagPanel"), it.isCoin ? "🪙" : "🔑",
+         "That's not something to put away for later.", "bagToken");
+    sfx("locked");
+    return true;
+  }
+  return false;
+}
+
+/* OUT OF A HAND SLOT AND INTO THE BOX. `bagIdx` names a slot when the player
+   aimed at one; otherwise it takes the first free one, which is what tapping a
+   hand slot with the panel open means (autoPlace does the same for a
+   container). */
+function bagPut(slotIdx, bagIdx = null) {
+  if (slotIdx === null || slotIdx === undefined) return false;
+  const id = G.inv[slotIdx];
+  if (id === null || id === undefined) return false;
+  const it = G.items[id];
+  if (bagRefuses(it)) return false;
+  const i = bagIdx !== null && G.holdall[bagIdx] === null ? bagIdx : G.holdall.indexOf(null);
+  if (i === -1) { bump($("#bagPanel"), "🧰", "The holdall is full — take something out first.", "bagFull"); sfx("locked"); return false; }
+  G.inv[slotIdx] = null;
+  G.holdall[i] = it.id;
+  it.loc = { kind: "holdall", slot: i };
+  G.sel = G.inv.findIndex(v => v !== null); if (G.sel === -1) G.sel = null;
+  sfx("dropFloor");
+  bagRepaint();
+  return true;
+}
+
+/* AND BACK AGAIN. */
+function bagTake(i) {
+  const id = G.holdall[i];
+  if (id === null || id === undefined) return false;
+  const slot = G.inv.indexOf(null);
+  if (slot === -1) { bump($("#bagPanel"), "✋", "Your hands are full — put something away first", "handsFull"); sfx("locked"); return false; }
+  G.holdall[i] = null;
+  G.items[id].loc = { kind: "inv", slot };
+  G.inv[slot] = id;
+  if (G.sel === null) G.sel = slot;
+  sfx("pickup");
+  bagRepaint();
+  return true;
+}
+
+/* OUT OF THE BOX AND ONTO THE FLOOR, where the player let go. The container's
+   version drops at a random clear spot because its panel is centred and you
+   cannot see the room behind it; this panel's backdrop is the room, dimmed, so
+   the aim is real and worth honouring. */
+function bagToFloor(i, cx, cy) {
+  const id = G.holdall[i];
+  if (id === null || id === undefined) return false;
+  const room = G.rooms[G.current];
+  const [px, py] = screenToRoomPct(cx, cy);
+  const sp = nearestFloorSpot(room, px, py, { padName: "toss" });
+  G.holdall[i] = null;
+  G.items[id].loc = { kind: "floor", room: room.id, x: sp.x, y: sp.y, rot: spin() };
+  sfx("dropFloor");
+  bagRepaint();
+  return true;
+}
+
+/* Swap two slots, so the panel can be tidied like a container's grid can. */
+function bagSwap(from, to) {
+  if (from === to) return;
+  const a = G.holdall[from], b = G.holdall[to];
+  G.holdall[from] = b; G.holdall[to] = a;
+  if (a != null) G.items[a].loc = { kind: "holdall", slot: to };
+  if (b != null) G.items[b].loc = { kind: "holdall", slot: from };
+  sfx("uiTap");
+  bagRepaint();
+}
+
 /* One tap does whatever the slot affords: a full one hands its item back, an
    empty one takes what you are holding. Two separate gestures for "in" and
    "out" is a rule to remember about a box. */
 function bagTap(i) {
   if (!Array.isArray(G.holdall)) return;
-  const id = G.holdall[i];
-  if (id !== null) {
-    const slot = G.inv.indexOf(null);
-    if (slot === -1) { bump($("#bagPanel"), "✋", "Your hands are full — put something away first", "handsFull"); sfx("locked"); return; }
-    G.holdall[i] = null;
-    G.items[id].loc = { kind: "inv", slot };
-    G.inv[slot] = id;
-    if (G.sel === null) G.sel = slot;
-    sfx("pickup");
-  } else {
-    const held = heldItem();
-    if (!held) { bump($("#bagPanel"), "👆", "Pick something up first, then tap a slot.", "bagEmpty"); return; }
-    /* Keys, coins and notes stay out of it for the same reason they stay out of
-       containers: they are not clutter to be sorted, they are how you open the
-       house, and a key in a bag is a key you will forget you have. */
-    if (held.isKey || held.isCoin || held.isNote) {
-      bump($("#bagPanel"), "🔑", "That's not something to put away for later.", "bagToken");
-      sfx("locked"); return;
-    }
-    G.inv[G.sel] = null;
-    G.holdall[i] = held.id;
-    held.loc = { kind: "holdall", slot: i };
-    G.sel = G.inv.findIndex(v => v !== null); if (G.sel === -1) G.sel = null;
-    sfx("dropFloor");
+  if (G.holdall[i] !== null) { bagTake(i); return; }
+  if (G.sel === null || G.inv[G.sel] === null) {
+    bump($("#bagPanel"), "👆", "Pick something up first, then tap a slot.", "bagEmpty");
+    return;
   }
-  renderInv(); renderBag(); renderHUD(); scheduleSave();
+  bagPut(G.sel, i);
 }
 
 /* ============================================================
@@ -1788,7 +2100,32 @@ function bagTap(i) {
    holds something you want and cannot have.
 ============================================================ */
 const PET_BUSY = 0.75;          /* a room this done is "tidy enough, go elsewhere" */
-const PET_MS = [0, 2000, 1400, 900];   /* tick by talent level */
+
+/* IT USED TO TELEPORT, and the reason is worth writing down because it is a
+   whole class of bug in this file. The tick assigned `p.x = target.x` in one
+   go, and `.pet` carried `transition:left .9s` to smooth it over. But
+   renderRoom() throws the room's DOM away and builds it again — so the element
+   the transition was supposed to run on did not exist by the time it would
+   have run, and every "step" was an instant jump to a brand-new element
+   already at its destination. A CSS transition cannot animate an element into
+   existence.
+
+   So the pet WALKS in real steps, on its own fast timer, and a step repaints
+   nothing but the pet (petRepaint). renderRoom() is now called only when items
+   actually move — which is both the fix and a large reduction in work: it was
+   rebuilding a 170-item floor on every action tick.
+
+   PET_SPEED is % of the room per step. At 110ms that is 10-20% of a room per
+   second, so crossing one takes three to seven seconds. Levels make it quicker
+   and it never gets fast enough to keep up with you, which is the point. */
+const PET_STEP_MS = 110;
+const PET_SPEED = [0, 1.1, 1.6, 2.2];
+const PET_ARRIVE = 1.7;         /* close enough to be "there", in room % */
+/* Already lying beside the box it belongs in, so not worth carrying there
+   again. The `staged` flag is what actually guarantees no loop — this is the
+   cheap version that also stops it fussing at things that happened to generate
+   next to their own furniture. */
+const STAGE_NEAR = 15;
 
 /* WHAT IT LOOKS LIKE. Bought skins are cosmetic and change nothing else, which
    is the only kind of thing this store should ever sell twice. The default must
@@ -1802,6 +2139,7 @@ function petSkin() {
 
 function petCount() { return G.up.pet ? 1 + storeLevel("petCount") : 0; }
 function petCarry() { return 1 + storeLevel("petCarry"); }
+function petSpeed() { return PET_SPEED[Math.min(G.up.pet | 0, 3)] || 0; }
 
 /* Spawn or despawn to match what the run owns. Called on grant and at run
    start, so buying petCount mid-run adds one without restarting. */
@@ -1816,8 +2154,49 @@ function petSync() {
   while (G.pets.length < want) {
     const room = G.rooms[G.current];
     const sp = findFloorSpot(room, { avoidCaches: true });
-    G.pets.push({ room: G.current, x: sp.x, y: sp.y, holding: null });
+    G.pets.push(petBlank(G.current, sp.x, sp.y));
   }
+}
+
+/* One place that knows the shape, so a save written before any of the walking
+   fields existed loads as a pet standing still that decides on its next tick
+   rather than as a pile of undefineds. */
+function petBlank(room, x, y) {
+  return {
+    room, x, y, holding: null,
+    /* Where it is walking and why. tx == null means "not going anywhere" —
+       decide on the next tick. */
+    tx: null, ty: null, mode: null, goal: null,
+    pause: 0,
+    /* THE ROOM YOU PUT HIM IN. Set by dropping him, cleared by dropping him
+       again in the same room. While set, petWander() will not take him out of
+       it. */
+    pinned: null,
+    /* In your hands. Not one of G.inv's slots — those are indices the whole
+       input tier reads as item ids — so it is a flag on the pet and a chip in
+       the bar beside them. */
+    held: false,
+  };
+}
+
+function petGoal(p, mode, goal, tx, ty) {
+  p.mode = mode; p.goal = goal;
+  p.tx = Math.max(3, Math.min(97, tx));
+  p.ty = Math.max(3, Math.min(97, ty));
+}
+function petClearGoal(p) { p.mode = null; p.goal = null; p.tx = null; p.ty = null; }
+const petHeldIndex = () => (G.pets || []).findIndex(p => p.held);
+
+/* THE FLOOR IN FRONT OF A BOX — where it stands to use one.
+
+   It used to walk to `c.slot.x + c.slot.w/2, c.slot.y + c.slot.h/2`, which is
+   the middle of the FURNITURE: the helper stood on top of the cupboard. That
+   is half of "he just stood on a container and didn't do anything" — the other
+   half was having nothing it was allowed to do (see petFindWork). */
+function petSpotAt(room, slot) {
+  const cx = slot.x + slot.w / 2;
+  const cy = Math.min(94, slot.y + slot.h + 4);
+  return nearestFloorSpot(room, cx, cy, { padName: "toss" });
 }
 
 /* How done is this room, 0..1, by cells filled correctly. */
@@ -1852,29 +2231,113 @@ function petDrop(p) {
   o.loc = { kind: "floor", room: p.room, x: sp.x, y: sp.y, rot: spin(20) };
 }
 
-/* Something in this room it could usefully carry: it has a home, that home is
-   reachable and open, and filing it would not finish anything. */
+/* IS THIS ALREADY BESIDE ITS OWN BOX? Cheap distance test, so it does not pick
+   up and re-place something that generated next to its own furniture. */
+function petStaged(c, o) {
+  const cx = c.slot.x + c.slot.w / 2, cy = c.slot.y + c.slot.h / 2;
+  return Math.hypot(o.loc.x - cx, o.loc.y - cy) < STAGE_NEAR;
+}
+
+/* SOMETHING IN THIS ROOM IT CAN DO, and there are now two kinds.
+
+   `file`  — it has a home here, that home is open, and putting it in would not
+             finish a row, a container or the room. The original job.
+   `stage` — it has a home here but filing it WOULD finish something, so it
+             carries it over and sets it down beside the box instead.
+
+   The second one is why this returns a mode rather than an item. Filing was the
+   only thing it knew how to do, so in a room where everything left would
+   complete something the helper had NOTHING to do — and petWander() cannot save
+   it either, because early in a run there is usually only one visited room to
+   wander to. It stood still. That is the "stood on a container and didn't do
+   anything" bug, and the fix is that there is always work: it is still not
+   allowed to finish anything, but it can put things where they go.
+
+   `file` is preferred over `stage` for every item before any `stage` is taken,
+   which is what keeps it useful rather than merely busy. */
+/* CAN IT PUT THIS AWAY, RIGHT NOW? A home in this room, that home open, room in
+   it, and filing it would not finish a row, a container or the room. Pulled out
+   of the loop below because the holdall asks the same question about items that
+   are not on any floor. */
+function petCanFile(room, o) {
+  const h = G.typeHome[o.type];
+  if (!h || h.room !== room.id) return false;   /* it only files within its room */
+  const c = room.containers[h.cont];
+  if (!c || (c.lock && !c.lock.open)) return false;
+  const spot = bestSpot(c, o.type);
+  return !!spot && !petWouldFinish(room, c, spot, o.id);
+}
+
 function petFindWork(p) {
   const room = G.rooms[p.room];
   if (!room) return null;
   const loose = Object.values(G.items).filter(o =>
     o.loc.kind === "floor" && o.loc.room === p.room &&
     !o.isKey && !o.isCoin && !o.isNote && !o.token);
+  let stage = null;
   for (const o of loose) {
     const h = G.typeHome[o.type];
     if (!h || h.room !== p.room) continue;      /* it only files within its room */
     const c = room.containers[h.cont];
     if (!c || (c.lock && !c.lock.open)) continue;
-    const spot = bestSpot(c, o.type);
-    if (!spot) continue;
-    if (petWouldFinish(room, c, spot, o.id)) continue;
-    return o;
+    if (petCanFile(room, o)) return { item: o, mode: "file" };
+    /* `staged` is the loop guard, and it has to be a flag rather than the
+       distance test: nearestFloorSpot() pushes the item clear of the furniture
+       pad, so where it actually lands can be further from the box than
+       STAGE_NEAR — and then it would be picked up and carried there again,
+       forever. Cleared when the player picks the thing up (see pickUp). */
+    if (!stage && !o.staged && !petStaged(c, o)) stage = { item: o, mode: "stage" };
   }
-  return null;
+
+  /* AND IT CAN REACH INTO THE HOLDALL. Stowing something is "deal with this
+     later, in the right room" — and the helper standing in the right room is
+     exactly that moment. It is the only thing it ever picks up that is not on a
+     floor.
+
+     FILE ONLY, never stage, and that asymmetry is the point. Staging a FLOOR
+     item is a strict improvement: it was lying about and now it is lying about
+     next to where it goes. Taking something OUT of the box and putting it on
+     the floor is the opposite — it undoes a deliberate decision of the
+     player's and adds to the visible mess. So if it cannot actually put the
+     thing away, it leaves it in the bag.
+
+     After the floor's `file` pass and before its `stage` pass: filing beats
+     staging wherever the item is, and the floor is what the player is looking
+     at, so the shorter errand goes first. */
+  if (room.bagSlot) {
+    for (const id of (G.holdall || [])) {
+      if (id === null || id === undefined) continue;
+      const o = G.items[id];
+      if (o && petCanFile(room, o)) return { item: o, mode: "bag" };
+    }
+  }
+  return stage;
 }
 
-/* Somewhere better to be: the messiest room that has work in it. */
+/* REACHING IN. Returns false if the player got there first — it has walked all
+   the way across the room to a box whose contents anyone can change, which is
+   the same race the floor version guards against. */
+function petTakeFromBag(p, id) {
+  const i = (G.holdall || []).indexOf(id);
+  if (i === -1) return false;
+  const o = G.items[id];
+  if (!o) return false;
+  G.holdall[i] = null;
+  o.loc = { kind: "pet" };
+  p.holding = id;
+  sfx("pickup");
+  /* The box wears its own count and so does the HUD button; renderRoom() (which
+     petTick calls for us) redraws the box, but the button and an OPEN panel are
+     neither of them in the room. */
+  renderBagBtn();
+  if (bagIsOpen()) renderBag();
+  return true;
+}
+
+/* Somewhere better to be: the messiest room that has work in it. Pinned pets
+   stay put — that is what dropping him somewhere MEANS. */
 function petWander(p) {
+  if (p.pinned != null) return false;
   const options = G.rooms
     .filter(r => G.visited.has(r.id) && roomTidiness(r) < PET_BUSY)
     .sort((a, b) => roomTidiness(a) - roomTidiness(b));
@@ -1883,6 +2346,22 @@ function petWander(p) {
   p.room = to.id;
   const sp = findFloorSpot(to, { avoidCaches: true });
   p.x = sp.x; p.y = sp.y;
+  petClearGoal(p);
+  return true;
+}
+
+/* IT CANNOT FILE THIS, SO IT PUTS IT WHERE IT GOES. Down at its feet, which is
+   the floor in front of the box (petSpotAt) — so the row you have to finish
+   yourself is at least all in one pile, next to the thing it belongs in. */
+function petStage(p) {
+  const o = G.items[p.holding];
+  p.holding = null;
+  if (!o) return false;
+  const room = G.rooms[p.room];
+  const sp = nearestFloorSpot(room, p.x, p.y, { padName: "toss" });
+  o.loc = { kind: "floor", room: p.room, x: sp.x, y: sp.y, rot: spin(20) };
+  o.staged = true;
+  sfx("dropFloor");
   return true;
 }
 
@@ -1890,9 +2369,97 @@ let petTimer = null;
 function petStop() { clearInterval(petTimer); petTimer = null; }
 function petStart() {
   petStop();
-  const ms = PET_MS[Math.min(G.up.pet | 0, 3)];
-  if (!ms) return;
-  petTimer = setInterval(petTick, ms);
+  if (!(G.up.pet | 0)) return;
+  petTimer = setInterval(petTick, PET_STEP_MS);
+}
+
+/* ONE STEP TOWARD ITS TARGET. Returns whether it is still travelling. */
+function petWalk(p) {
+  if (p.tx == null) return false;
+  const dx = p.tx - p.x, dy = p.ty - p.y;
+  const d = Math.hypot(dx, dy);
+  if (d <= PET_ARRIVE) { p.x = p.tx; p.y = p.ty; return false; }
+  const step = Math.min(d, petSpeed());
+  p.x += dx / d * step;
+  p.y += dy / d * step;
+  return true;
+}
+
+/* WHAT TO DO NEXT, asked only when it is not walking anywhere. */
+function petDecide(p) {
+  const room = G.rooms[p.room];
+  if (!room) return false;
+  if (p.holding != null) {
+    const o = G.items[p.holding];
+    const h = o && G.typeHome[o.type];
+    const c = (h && h.room === p.room) ? room.containers[h.cont] : null;
+    /* Its errand stopped making sense while it was walking — the door locked
+       behind it, or the player rearranged what was inside. */
+    if (!c || (c.lock && !c.lock.open)) { petDrop(p); return true; }
+    const spot = bestSpot(c, o.type);
+    const canFile = spot && !petWouldFinish(room, c, spot, o.id);
+    const at = petSpotAt(room, c.slot);
+    petGoal(p, canFile ? "home" : "beside", h.cont, at.x, at.y);
+    return false;
+  }
+  const work = petFindWork(p);
+  if (work) {
+    if (work.mode === "bag") {
+      /* The errand is the BOX, not the item — the item has no floor position
+         to walk to. Same spot it stands in to use a cupboard. */
+      const at = petSpotAt(room, room.bagSlot);
+      petGoal(p, "bag", work.item.id, at.x, at.y);
+    } else {
+      petGoal(p, work.mode === "file" ? "item" : "itemStage", work.item.id,
+              work.item.loc.x, work.item.loc.y);
+    }
+    return false;
+  }
+  if (petWander(p)) return true;
+  /* Nothing to do and nowhere better to be: potter about. Standing perfectly
+     still is what a broken helper looks like, and it is the state the old
+     version fell into and could not get out of. */
+  const sp = findFloorSpot(room, { avoidCaches: true });
+  petGoal(p, "idle", null, sp.x, sp.y);
+  return false;
+}
+
+/* IT GOT THERE. Returns whether items moved, i.e. whether the room needs a full
+   repaint rather than just the pet nudged along. */
+function petArrive(p) {
+  const mode = p.mode, goal = p.goal;
+  petClearGoal(p);
+  if (mode === "item" || mode === "itemStage") {
+    const o = G.items[goal];
+    /* It walked all the way over and the player got there first. */
+    if (!o || o.loc.kind !== "floor" || o.loc.room !== p.room) { p.pause = 2; return false; }
+    o.loc = { kind: "pet" };
+    p.holding = o.id;
+    p.pause = 3;
+    sfx("pickup");
+    return true;
+  }
+  if (mode === "bag")    { p.pause = 3; return petTakeFromBag(p, goal); }
+  if (mode === "home")   { p.pause = 4; return petDeliver(p); }
+  if (mode === "beside") { p.pause = 4; return petStage(p); }
+  /* idle: stand about for between half a second and two, so two helpers in one
+     room do not move in lockstep. */
+  p.pause = 4 + Math.floor(Math.random() * 14);
+  return false;
+}
+
+/* MOVING THE PET IS NOT REPAINTING THE ROOM. renderRoom() rebuilds every
+   element on the floor, which at 170 items is not a thing to do five times a
+   second — and rebuilding is exactly what stopped the old CSS transition from
+   ever running. A step writes left/top on the element that is already there. */
+function petRepaint() {
+  for (const el of host.querySelectorAll(".pet")) {
+    const p = G.pets[+el.dataset.pet];
+    if (!p) continue;
+    el.style.left = p.x + "%";
+    el.style.top = p.y + "%";
+    el.classList.toggle("walking", p.tx != null);
+  }
 }
 
 function petTick() {
@@ -1901,20 +2468,20 @@ function petTick() {
      a draft the player is reading is the same interruption drainDrafts() exists
      to prevent, and it would repaint the room behind an overlay. */
   if (document.querySelector(".overlay.open") || isSpeaking()) return;
-  let touched = false;
+  let heavy = false, awake = false;
   for (const p of G.pets) {
-    if (p.holding != null) { touched = petDeliver(p) || touched; continue; }
-    const work = petFindWork(p);
-    if (work) {
-      p.x = work.loc.x; p.y = work.loc.y;
-      work.loc = { kind: "pet" };
-      p.holding = work.id;
-      touched = true;
-    } else if (roomTidiness(G.rooms[p.room]) >= PET_BUSY || !petFindWork(p)) {
-      touched = petWander(p) || touched;
+    if (p.held) continue;                 /* in the player's hands */
+    awake = true;
+    if (p.pause > 0) { p.pause--; continue; }
+    if (p.tx != null) {
+      if (petWalk(p)) continue;           /* still on its way */
+      heavy = petArrive(p) || heavy;
+      continue;
     }
+    heavy = petDecide(p) || heavy;
   }
-  if (touched) renderRoom();
+  if (heavy) renderRoom();
+  else if (awake) petRepaint();
 }
 
 /* Carry it home. Files up to petCarry() things of the same kind in one go, so
@@ -1945,8 +2512,9 @@ function petDeliver(p) {
   }
   p.holding = null;
   if (!filed.length) { petDrop(p); return true; }
-  /* Stand at the furniture it just used, so the next frame shows it there. */
-  p.x = c.slot.x + c.slot.w / 2; p.y = c.slot.y + c.slot.h / 2;
+  /* It is ALREADY standing in front of the furniture — it walked there. The old
+     version teleported it to c.slot's centre at this point, which is the middle
+     of the cupboard, and left it standing on top of it. */
   sfx("toss");
   afterMutation(room, c, [...new Set(filed)]);
   return true;
@@ -1958,13 +2526,70 @@ function petTake(idx) {
   if (!p || p.holding == null) return false;
   const slot = G.inv.indexOf(null);
   const o = G.items[p.holding];
-  if (slot === -1) { petDrop(p); renderRoom(); return true; }
+  if (slot === -1) { petDrop(p); petClearGoal(p); renderRoom(); return true; }
   p.holding = null;
+  /* Its errand is over — otherwise it walks the rest of the way to a container
+     to deliver something it is no longer carrying. */
+  petClearGoal(p);
+  p.pause = 3;
   o.loc = { kind: "inv", slot };
   G.inv[slot] = o.id;
   if (G.sel === null) G.sel = slot;
+  o.staged = false;
   sfx("pickup");
   renderInv(); renderRoom();
+  return true;
+}
+
+/* ============================================================
+   CARRYING THE HELPER — pick him up, put him down, and he stays
+
+   THE ASK WAS "let me put him where I want him working", and it needs two
+   things: a way to move him, and for the move to MEAN something. So dropping
+   him PINS him to that room (petWander refuses to leave a pinned room), and
+   dropping him in the room he is already pinned to lets him roam again. One
+   gesture, both directions, and it reports which one just happened — the pin is
+   otherwise invisible until you notice he has not left in five minutes.
+
+   HE IS NOT AN INVENTORY SLOT. G.inv holds item ids and about a dozen call
+   sites read it that way — placeFromSlot, tossInto, autoPlace, cascade, the
+   three drag handlers. A sentinel value in there would have to be understood by
+   every one of them, and the first one that forgot would call
+   G.items[undefined].type. So he is a flag on the pet and a chip drawn beside
+   the slots, which is the part the player was actually asking for.
+============================================================ */
+function petPick(idx) {
+  const p = G.pets[idx];
+  if (!p || p.held) return false;
+  /* Carrying something? Then this tap is for the ITEM. That has always been
+     what tapping him does and it is the more common intention by far. */
+  if (p.holding != null) return petTake(idx);
+  p.held = true;
+  petClearGoal(p);
+  sfx("pickup");
+  say("Put him down where you want him working.", { key: "petHeld", priority: 1 });
+  renderInv(); renderRoom(); scheduleSave();
+  return true;
+}
+
+function petPlace(px, py) {
+  const idx = petHeldIndex();
+  if (idx < 0) return false;
+  const p = G.pets[idx];
+  const room = G.rooms[G.current];
+  const sp = nearestFloorSpot(room, px, py, { padName: "toss" });
+  const wasHere = p.pinned === G.current;
+  p.held = false;
+  p.room = G.current;
+  p.x = sp.x; p.y = sp.y;
+  petClearGoal(p);
+  p.pinned = wasHere ? null : G.current;
+  sfx("dropFloor");
+  say(p.pinned != null
+    ? "He'll stay in " + room.name + "."
+    : "He'll wander the house again.",
+    { key: p.pinned != null ? "petPin" : "petFree", priority: 1 });
+  renderInv(); renderRoom(); scheduleSave();
   return true;
 }
 
@@ -1998,18 +2623,31 @@ function meTooInto(room, c){
     return belongsIn(c, o.type);
   });
   const filed=[];
+  const flights=[];
   for(const o of loose.slice(0,budget)){
     const spot=bestSpot(c, o.type);
     if(!spot) break;                         /* container full: stop, quietly */
+    /* Read before the move, and only for the room on screen: level 2 reaches
+       the whole house, and a floor percentage in a room nobody is looking at
+       is not a point on the display. Those come in over the wall instead. */
+    const from = (o.loc.room===G.current && room.id===G.current)
+      ? floorScreenPoint(o.loc.x, o.loc.y)
+      : offRoomPoint();
     c.cells[spot.row][spot.col]=o.id;
     o.loc={kind:"cell",room:room.id,cont:c.id,row:spot.row,col:spot.col};
     judgeToss(o, room.id, c.id);
     filed.push(spot.row);
+    flights.push({type:o.type, from});
   }
   if(filed.length){
-    sfx("toss");
+    /* The whoosh of the row filling. The individual thumps are on the far end
+       of each flight, in performIntake(). */
+    sfx("whirlwind");
     renderRoom();
     if(G.openCont===c.id && G.current===room.id) renderContainer(filed);
+    /* Only the room you are standing in gets a performance — the other end of
+       a level-2 reach is a room that is not drawn. */
+    if(room.id===G.current) performIntake(flights, c.id);
   }
   return [...new Set(filed)];
 }
@@ -2059,8 +2697,9 @@ function enterRoom(roomId){
      tidier than it might have been", which is indistinguishable from nothing.
      `whirlwind` was written for a talent that got cut and has had no call site
      since; it is exactly the sound of things sliding together. */
+  /* Cluster only. The exodus plays its own whoosh when the flights start, a
+     second later, so doing it here too would fire before anything moved. */
   if(clustered) sfx("whirlwind");
-  else if(sent) sfx("toss");
   if((clustered||sent) && roomId===G.current) renderRoom();
 }
 
@@ -2142,18 +2781,33 @@ function sendHomeFromRoom(room){
   const n=Math.min(5, Math.floor(away.length*pct));
   if(n<1) return 0;
   let moved=0;
+  /* ROOM PERCENTAGES, NOT SCREEN PIXELS, and that is forced by when this runs:
+     enterRoom() is called from slideTo() BEFORE the new room element is built,
+     so there is nothing to measure against yet. performExodus() converts them
+     once the room is actually on screen. */
+  const flights=[];
   for(const o of away.slice(0,n)){
     const h=G.typeHome[o.type];
     const dest=G.rooms[h.room];
     const sp=findFloorSpot(dest, {avoidCaches:true});
+    flights.push({type:o.type, x:o.loc.x, y:o.loc.y, dir:exitDirToward(room, h.room)});
     o.loc={kind:"floor",room:h.room,x:sp.x,y:sp.y,rot:spin(20)};
     moved++;
   }
-  /* IT HAS TO SAY SO. This fires on a FIRST entry, so the player never saw the
-     room with those items in it — the effect is, visually, a room that happens
-     to have less in it than it would have. Without a line there is nothing at
-     all to notice, which is the exact failure the merged talents were guilty
-     of. A departure animation would be better and is the real fix. */
+  /* THE DEPARTURE IS THE WHOLE POINT, and for a long time there wasn't one.
+     This fires on a FIRST entry, so the player never saw the room with those
+     items in it: the effect was, visually, a room that happens to have less in
+     it than it might have — indistinguishable from nothing. A line of text was
+     the stopgap and the note here has said so since it was written.
+
+     Each one now lifts clear of the pile, swells so you can read what it is,
+     sails at the door that actually leads toward where it lives, and pops. The
+     line stays, because the flights are over in a second and a count is worth
+     having afterwards.
+
+     Waits for the room to arrive: slideTo() takes T.slide to bring it in, and a
+     flight measured against the room being slid OUT starts in the wrong place. */
+  performExodus(flights, room.id, T.slide+140);
   if(moved) say(`${moved} thing${moved>1?"s":""} let themselves out.`);
   return moved;
 }
@@ -2269,6 +2923,119 @@ function displaceAround(roomId,x,y,radius,push){
      "3-4 items clattering apart". */
   if(moved) sfx("scatter");
   return moved;
+}
+
+/* ============================================================
+   WHERE THINGS ARE ON SCREEN — the four measurements every talent
+   performance needs.
+
+   The flight clones live in #fxLayer, which is position:fixed and OUTSIDE the
+   camera: it cannot inherit the room's transform and it cannot inherit an
+   item's font size. So both are measured off real boxes here and handed over
+   as plain pixels, which is the only version of this that is automatically
+   correct at every zoom level and on every room shape.
+============================================================ */
+/* How big an item is actually PAINTED, camera and all. Measured rather than
+   derived: --item-size is 22px in css/base.css, the room carries its own fit
+   scale and the camera carries the player's zoom on top of that, and a
+   hardcoded 34px (which is what animateFlight has always used) is wrong at
+   both ends of that range. */
+function flySize(){
+  const el=host.querySelector(".item");
+  if(!el) return 28;
+  const fs=parseFloat(getComputedStyle(el).fontSize)||22;
+  const layout=el.offsetWidth||1;
+  const painted=el.getBoundingClientRect().width||layout;
+  return Math.max(15, Math.round(fs*(painted/layout)*1.1));
+}
+/* A floor point, in room %, as screen pixels. roomPctToScreen already does
+   this; named here so the performances read as one vocabulary. */
+function floorScreenPoint(x,y){ const [sx,sy]=roomPctToScreen(x,y); return {x:sx,y:sy}; }
+function furnScreenPoint(contIdx){
+  const fe=host.querySelector(`.furn[data-cont="${contIdx}"]`);
+  if(!fe) return null;
+  const r=fe.getBoundingClientRect();
+  return {x:r.left+r.width/2, y:r.top+r.height/2};
+}
+function doorScreenPoint(dir){
+  const de=host.querySelector(".door."+dir);
+  if(!de) return null;
+  const r=de.getBoundingClientRect();
+  return {x:r.left+r.width/2, y:r.top+r.height/2};
+}
+/* SOMETHING ARRIVING FROM ANOTHER ROOM has no on-screen origin — only one room
+   is ever drawn. It comes in over the wall instead, from a random bearing, so
+   a row filled from the rest of the house reads as things converging on the
+   house rather than materialising at the box. */
+function offRoomPoint(){
+  const el=roomEl();
+  if(!el) return {x:innerWidth/2, y:innerHeight/2};
+  const r=el.getBoundingClientRect();
+  const a=Math.random()*Math.PI*2;
+  const rad=Math.max(r.width,r.height)*0.72;
+  return {x:r.left+r.width/2+Math.cos(a)*rad, y:r.top+r.height/2+Math.sin(a)*rad};
+}
+
+/* WHICH DOOR SOMETHING LEAVES BY. The one that is actually the first step
+   toward where it lives, so a thing heading for the room next door goes out
+   that side and not out of whichever door happens to be listed first. Falls
+   back to any door at all, because a room with one exit is common and a room
+   whose only exit is locked still has to be able to play this. */
+function exitDirToward(room, destRoomId){
+  const dirs=Object.entries(room.doors||{}).filter(([,to])=>to!==null&&to!==undefined);
+  if(!dirs.length) return null;
+  let best=dirs[0][0], bestD=Infinity;
+  for(const [dir,to] of dirs){
+    const d = to===destRoomId ? 0 : roomDist(G.rooms, to, destRoomId);
+    if(d<bestD){ bestD=d; best=dir; }
+  }
+  return best;
+}
+
+/* ============================================================
+   THE PERFORMANCES
+
+   Both are deferred by a tick. Every caller mutates and then repaints, and the
+   target these fly at — a `.furn`, a `.door` — is an element that repaint has
+   just replaced. Measuring before it exists gave a flight to the top-left
+   corner of the screen, which is the same bug flyReward() has a note about.
+============================================================ */
+/* `flights` is [{type, from:{x,y}}], captured before the items moved. */
+function performIntake(flights, contIdx){
+  if(!flights.length) return;
+  const roomId=G.current;
+  setTimeout(()=>{
+    if(!G.active || G.current!==roomId) return;
+    const to=furnScreenPoint(contIdx);
+    if(!to) return;
+    const size=flySize();
+    flights.forEach((f,i)=>flyToContainer(f.type, f.from, to, {
+      size, delay:i*80,
+      /* One thump per item as it goes in, which is what turns "some number of
+         things happened" into a count you can hear. The whoosh of them lifting
+         is the caller's, and plays at the start. */
+      onLand:()=>sfx("toss"),
+    }));
+  },0);
+}
+
+/* `flights` is [{type, x, y, dir}] in ROOM PERCENTAGES, because this one runs
+   on a first entry: the room it measures against does not exist yet when the
+   items are picked. */
+function performExodus(flights, roomId, delay=0){
+  if(!flights.length) return;
+  setTimeout(()=>{
+    if(!G.active || G.current!==roomId) return;
+    const size=flySize();
+    sfx("whirlwind");
+    flights.forEach((f,i)=>{
+      const to=doorScreenPoint(f.dir) || offRoomPoint();
+      flyOut(f.type, floorScreenPoint(f.x,f.y), to, {
+        size, delay:i*110,
+        onPop:()=>sfx("fling"),
+      });
+    });
+  }, delay);
 }
 
 function animateFlight(type, fromX, fromY, toX, toY, done){
@@ -2946,7 +3713,7 @@ host.addEventListener("pointermove",e=>{
     const under=document.elementFromPoint(e.clientX,e.clientY);
     /* underAt, not under.closest: another item lying on the chest is drawn
        above it and used to swallow the drop. See js/hit.js. */
-    const cont=underAt(e.clientX,e.clientY,".furn, .door.locked, .cache");
+    const cont=underAt(e.clientX,e.clientY,".furn, .door.locked, .cache, .bagbox");
     if(ptr.hotCont && ptr.hotCont!==cont) ptr.hotCont.classList.remove("drophot");
     ptr.hotCont=cont||null;
     if(ptr.hotCont) ptr.hotCont.classList.add("drophot");
@@ -3002,6 +3769,8 @@ host.addEventListener("pointerup",e=>{
             if(fitsLock(G.locks[+p.hotCont.dataset.lock], it)){ insertKey(+p.hotCont.dataset.lock, it); return; }
             p.hotCont.classList.add("fullhit");
             bump(null, "🔑", "Only a key fits a lock.", "keyOnly");
+          }else if(p.hotCont.classList.contains("bagbox")){
+            if(bagStow(it)) return;
           }else if(p.hotCont.classList.contains("furn")){
             if(tossInto(it, +p.hotCont.dataset.cont)) return;
           }
@@ -3066,6 +3835,20 @@ host.addEventListener("pointerup",e=>{
   }
 
   const target=p.downTarget;
+
+  /* ---- CARRYING THE HELPER: this tap is where he goes ----
+     FIRST in the chain, because while he is in your hands a tap in the room can
+     only mean one thing — and "tap the bare floor" is a poor instruction on a
+     Mega floor with a hundred and seventy things on it, where bare floor is
+     what there is least of. The single exception is a DOOR: you have to be able
+     to carry him into the next room to put him down there. */
+  if(petHeldIndex()>=0 && !target.closest(".door")){
+    const [px,py]=screenToRoomPct(e.clientX,e.clientY);
+    petPlace(px,py);
+    lastTap={t:0,x:0,y:0};
+    return;
+  }
+
   /* TAP THE PET TO TAKE WHAT IT IS HOLDING. Checked before the item branch
      because the thing it carries is drawn INSIDE it — without this the tap
      falls through to the pet's own element and does nothing, which reads as the
@@ -3073,7 +3856,34 @@ host.addEventListener("pointerup",e=>{
   const petEl=target.closest(".pet");
   if(petEl){
     lastTap={t:0};
-    if(!petTake(+petEl.dataset.pet)) bump(petEl, petSkin(), "It hasn't got anything yet.", "petIdle");
+    /* Carrying something -> take the item. Empty-handed -> pick HIM up, which
+       used to be a bump saying "it hasn't got anything yet" — true, and not
+       what anyone was asking. See petPick(). */
+    petPick(+petEl.dataset.pet);
+    return;
+  }
+
+  /* THE BOX, BEFORE THE ITEM BRANCH — but only against a HALO.
+
+     itemAt() answers in two passes (js/hit.js): the topmost glyph whose actual
+     ink is under the point, and failing that the topmost padded BOX. Pass 2 is
+     a deliberate fat-finger target, 10px on every side of a 22px glyph, and it
+     is what made the holdall almost untappable: measured over 25 generated
+     rooms, 65% of the box's surface and 57% of its exact centre belonged to the
+     invisible halo of an item sitting beside it, with nothing visible there at
+     all. Reserving the floor under the box (onHoldall in js/geometry.js) keeps
+     items from STANDING on it and does nothing about what leans over it.
+
+     So the rule is the one hit.js already argues for, applied one level up: a
+     halo may not outrank a real target underneath it. Point at a glyph lying on
+     the box and you get the glyph; point at the box and you get the box.
+     Deliberately not extended to .furn in the same breath — a cupboard is 34x16
+     of the room where this is 15x9, so its middle is nowhere near anyone's
+     halo, and that is long-standing behaviour to leave alone. */
+  const bagEl=underAt(e.clientX,e.clientY,".bagbox");
+  if(bagEl && !(p.itemEl && onInk(p.itemEl, e.clientX, e.clientY))){
+    lastTap={t:0};
+    bagBoxTap();
     return;
   }
 
@@ -3122,6 +3932,13 @@ host.addEventListener("pointerup",e=>{
     return;
   }
 
+  /* ---- bare floor: let go of the selection ----
+     Deliberately does NOT return: the double-tap zoom below is on the same
+     gesture, and the player is nearly always carrying something, so eating the
+     tap here would mean zoom only worked with empty hands. First tap drops the
+     selection and arms the double-tap; second tap zooms. */
+  if(deselect()) sfx("uiTap");
+
   /* ---- double-tap the bare floor: zoom in, and back out ----
      This is BARE FLOOR ONLY, which is what makes it safe. It was removed
      because a mis-tap between small furniture and the floor beside it flipped
@@ -3154,7 +3971,8 @@ host.addEventListener("pointerup",e=>{
    the queue for its whole speech — but each call site defends itself, and the
    intro is not a beat at all. */
 const busy = () =>
-  !!ptr || !!invDrag || !!cellPtr || G.openCont!==null || celebrating() || isSpeaking();
+  !!ptr || !!invDrag || !!cellPtr || !!bagPtr ||
+  G.openCont!==null || bagIsOpen() || celebrating() || isSpeaking();
 function maybeDraft(){ return drainDrafts(busy); }
 
 /* When the panel opened. A tap on the backdrop closes the panel, so the
@@ -3176,6 +3994,9 @@ function openContainer(idx, contEl){
     }
     return;
   }
+  /* One working surface at a time. Both panels are z-index 50 and both cover
+     the room the other drops things onto. */
+  closeBag();
   G.openCont=idx;
   contOpenedAt=Date.now();
   sfx("openCont");
@@ -3251,7 +4072,12 @@ invBar.addEventListener("pointermove",e=>{
       hotCell = (cell && !cell.textContent) ? cell : null;
       if(hotCell) hotCell.classList.add("hot");
     }else{
-      const cont=under && under.closest(".furn, .door.locked, .cache");
+      /* underAt, not under.closest: an item lying on a chest is drawn above it
+         and the raw hit test returns the ITEM, whose closest(".furn") is null —
+         so the target under your finger never lit up. Same reason the floor-item
+         drag has used underAt since it was written (see js/hit.js); this half
+         of the input tier was still on the naive version. */
+      const cont=underAt(e.clientX,e.clientY,".furn, .door.locked, .cache, .bagbox, #bagPanel");
       if(invHotCont && invHotCont!==cont) invHotCont.classList.remove("drophot");
       invHotCont=cont||null;
       if(invHotCont) invHotCont.classList.add("drophot");
@@ -3267,8 +4093,18 @@ function endInvDrag(e){
   clearInvHots();
 
   if(!d.moved){
-    if(G.inv[d.idx]===null) return;
+    if(G.inv[d.idx]===null){
+      /* AN EMPTY SLOT DID NOTHING WHATSOEVER, and it is the thing a player
+         reaches for to mean "never mind, put that idea down" — reported as
+         "I tried selecting an inventory item and we don't allow that". It is
+         the deselect. See deselect(). */
+      if(deselect()) sfx("uiTap");
+      return;
+    }
     if(G.openCont!==null){ autoPlace(d.idx); return; }
+    /* The holdall's version of autoPlace: a panel is open, so a tap on a hand
+       slot means "put that in there" rather than "select it". */
+    if(bagIsOpen()){ bagPut(d.idx); return; }
     const now=Date.now();
     if(now-lastSlotTap.t<330 && lastSlotTap.idx===d.idx){
       lastSlotTap={t:0,idx:-1};
@@ -3294,7 +4130,16 @@ function endInvDrag(e){
       else{ bump(plate, "🔑", "Only a key fits a lock.", "keyOnly"); }
       return;
     }
-    const cont=under && under.closest(".furn");
+    /* underAt for both, for the reason in the pointermove handler above: the
+       clutter lies ON the furniture, so a drop aimed squarely at a cupboard —
+       or at the holdall, which is small and sits in the middle of the floor —
+       was being swallowed by whatever emoji happened to be drawn over it. */
+    const box=underAt(e.clientX,e.clientY,".bagbox");
+    if(box && G.inv[d.idx]!==null){
+      bagStow(G.items[G.inv[d.idx]], d.idx);
+      return;
+    }
+    const cont=underAt(e.clientX,e.clientY,".furn");
     if(cont && G.inv[d.idx]!==null){
       tossInto(G.items[G.inv[d.idx]], +cont.dataset.cont, d.idx);
       return;
@@ -3308,8 +4153,13 @@ function endInvDrag(e){
        The bounds test is the stage rather than the room rect, so a release
        just past a small room's wall still puts the item down (clamped inward)
        instead of silently doing nothing. */
+    /* THE HOLDALL PANEL IS OPEN OVER THE ROOM. Landing on the panel stows;
+       landing on the dimmed room around it is a drop onto the floor you can
+       see through it, and #bagView is not inside #stage so the test below
+       would otherwise refuse it and the drag would silently do nothing. */
+    if(under && under.closest("#bagPanel")){ bagPut(d.idx); return; }
     const rEl=roomEl();
-    if(rEl && under && under.closest("#stage")){
+    if(rEl && under && (under.closest("#stage") || under.closest("#bagView"))){
       dropOnFloor(d.idx,e.clientX,e.clientY,rEl.getBoundingClientRect());
     }
     return;
@@ -3320,6 +4170,12 @@ function endInvDrag(e){
     placeFromSlot(d.idx,+cell.dataset.row,+cell.dataset.col);
   }
 }
+/* The chip is not a slot, so invBar's own pointerdown ignores it (it bails on
+   anything without .slot) and it needs its own tap. */
+invBar.addEventListener("pointerup",e=>{
+  const chip=e.target.closest(".petchip");
+  if(chip) say("Tap the floor and he'll set up there.", {key:"petHeldHow", priority:1});
+});
 invBar.addEventListener("pointerup",endInvDrag);
 invBar.addEventListener("pointercancel",e=>{
   if(invDrag&&e.pointerId===invDrag.id){
@@ -3435,8 +4291,9 @@ $("#contView").addEventListener("pointerup",e=>{
 window.addEventListener("keydown",e=>{
   if(isSpeaking()) return;   /* js/client.js owns the keyboard while they talk */
   const k={ArrowUp:"N",ArrowDown:"S",ArrowLeft:"W",ArrowRight:"E"}[e.key];
-  if(k && G.openCont===null) tryMove(k);
+  if(k && G.openCont===null && !bagIsOpen()) tryMove(k);
   if(e.key==="Escape" && G.openCont!==null) closeCont();
+  else if(e.key==="Escape" && bagIsOpen()) dismissBag();
 });
 
 /* Where "Got it" should return to: the title screen if help was opened from
@@ -3509,12 +4366,21 @@ function syncGear(note=null){
   }
   syncFreeBtn();
   syncUnlockBtn();
+  syncBenchBtn();
 }
 
 $("#gearBtn").addEventListener("click",()=>{
   const gear=$("#gearOverlay");
   /* The button floats above its own panel now, so it has to close it too. */
   if(gear.classList.contains("open")){ gear.classList.remove("open"); return; }
+  /* THE GEAR IS THE ONLY THING THAT CAN OPEN OVER THE BENCH — #gearBtn is
+     z-index 130 and every other route to a panel is under the bench's own
+     backdrop — and two debug panels stacked is not a state worth supporting.
+     It is also the exact shape of the bug that made "Finish this job" close
+     the gear itself: pressed from up here with the bench still open behind,
+     the client's outro beat holds for a tap the bench's backdrop is eating,
+     and the ending never arrives. */
+  $("#benchOverlay").classList.remove("open");
   nowPlaying();
   syncGear();
   /* Reachable from the title screen and the job board, where there is no run:
@@ -3674,10 +4540,84 @@ $("#debugUnlock").addEventListener("click",()=>{
 });
 
 $("#bagBtn").addEventListener("click",()=>{ sfx("openCont"); openBag(); });
-$("#bagClose").addEventListener("click",()=>{ sfx("closeCont"); closeBag(); });
-$("#bagGrid").addEventListener("click",e=>{
+$("#bagClose").addEventListener("click",dismissBag);
+
+/* ============================================================
+   INPUT — the holdall panel, gesture for gesture with the container's
+
+   Deliberately a mirror of the #contGrid block above rather than a second
+   vocabulary for the same object. The one difference is where a dragged-out
+   item lands: the container drops at a random clear spot because its panel is
+   centred over a room you cannot see, and this panel's backdrop IS the room.
+============================================================ */
+let bagPtr=null, bagHot=null;
+const bagGrid=$("#bagGrid");
+
+bagGrid.addEventListener("pointerdown",e=>{
   const slot=e.target.closest(".bagslot");
-  if(slot) bagTap(+slot.dataset.bag);
+  if(!slot) return;
+  bagPtr={slot, i:+slot.dataset.bag, x:e.clientX, y:e.clientY, id:e.pointerId,
+          hasItem:!!slot.textContent, dragging:false};
+  try{ bagGrid.setPointerCapture(e.pointerId); }catch(err){}
+});
+
+bagGrid.addEventListener("pointermove",e=>{
+  if(!bagPtr||e.pointerId!==bagPtr.id) return;
+  const dist=Math.hypot(e.clientX-bagPtr.x,e.clientY-bagPtr.y);
+  if(!bagPtr.dragging && bagPtr.hasItem && dist>12){
+    bagPtr.dragging=true;
+    ghost.textContent=bagPtr.slot.textContent;
+    ghost.style.display="block";
+    bagPtr.slot.style.opacity=.35;
+  }
+  if(bagPtr.dragging){
+    ghost.style.left=e.clientX+"px";
+    ghost.style.top=e.clientY+"px";
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    const target=under && under.closest(".bagslot");
+    if(bagHot && bagHot!==target) bagHot.classList.remove("hot");
+    bagHot=(target && target!==bagPtr.slot)?target:null;
+    if(bagHot) bagHot.classList.add("hot");
+  }
+});
+
+function endBagPtr(e){
+  if(!bagPtr||e.pointerId!==bagPtr.id) return;
+  const p=bagPtr; bagPtr=null;
+  ghost.style.display="none";
+  p.slot.style.opacity="";
+  if(bagHot){ bagHot.classList.remove("hot"); bagHot=null; }
+
+  if(p.dragging){
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    const target=under && under.closest(".bagslot");
+    if(target && target!==p.slot){ bagSwap(p.i, +target.dataset.bag); return; }
+    /* Released off the grid: into your hands, or onto the floor. */
+    const overInv=under && under.closest("#invBar");
+    const inPanel=under && under.closest("#bagPanel");
+    if(overInv){ bagTake(p.i); return; }
+    if(!inPanel) bagToFloor(p.i, e.clientX, e.clientY);
+    return;
+  }
+  if(Math.hypot(e.clientX-p.x,e.clientY-p.y)<=14) bagTap(p.i);
+}
+bagGrid.addEventListener("pointerup",endBagPtr);
+bagGrid.addEventListener("pointercancel",e=>{
+  if(bagPtr&&e.pointerId===bagPtr.id){
+    ghost.style.display="none";
+    bagPtr.slot.style.opacity="";
+    if(bagHot){ bagHot.classList.remove("hot"); bagHot=null; }
+    bagPtr=null;
+  }
+});
+
+/* Tap the dimmed room around the panel to put it away. Same grace window as the
+   container's: without it the second tap of a double-tap aimed at the box opens
+   the panel and closes it again in one gesture. */
+$("#bagView").addEventListener("pointerup",e=>{
+  if(e.target.id!=="bagView") return;
+  if(Date.now()-bagOpenedAt<PANEL_GRACE) return;
+  dismissBag();
 });
 
 $("#debugStars").addEventListener("click",()=>{
@@ -3859,6 +4799,169 @@ $("#debugStar").addEventListener("click",()=>{
      silently do nothing from in here. */
   if(!drainDrafts(()=>false)) syncGear("no talents left to offer");
 });
+
+/* ============================================================
+   DEBUG: THE TALENT BENCH
+
+   THE PROBLEM IT SOLVES. There was no way to look at a talent on purpose. The
+   draft deals two cards out of eight, weighted by how far through the house
+   you are, and it only opens when a house that teaches anything reaches a row
+   threshold — so "what does Me Too actually look like" was: roll a house big
+   enough to teach, tidy to 20% of it, and take whichever two it felt like
+   offering. "Free talent" in the gear forces the draft; it does not choose.
+
+   THE TOGGLE IS SEPARATE FROM THE BUTTON, and it is the reason this is two
+   controls rather than one. The bench belongs under the inventory, next to the
+   room it changes — but the inventory bar is the one strip of UI that is on
+   screen for the entire game, and a debug button parked there permanently is a
+   debug button that ends up in a screenshot. So the gear owns whether it
+   exists and the bar owns pressing it.
+
+   Persisted (TALENT_DEBUG_KEY), same as the unlock toggle and for the same
+   reason: what you are testing usually needs a reload, and a toggle that
+   forgets itself across one is a toggle you re-find every time.
+============================================================ */
+function benchOn(){
+  try{ return localStorage.getItem(TALENT_DEBUG_KEY)==="1"; }catch(e){ return false; }
+}
+function setBench(on){
+  try{
+    if(on) localStorage.setItem(TALENT_DEBUG_KEY,"1");
+    else localStorage.removeItem(TALENT_DEBUG_KEY);
+  }catch(e){}
+  return benchOn();
+}
+/* Both halves at once: the gear button says which way you left it (the rule
+   every debug toggle here follows), and the bar button is there or it is not.
+   The bar one needs a run as well as the toggle — G.up is a run's talents, and
+   a bench over the title screen would be writing into a house that does not
+   exist. */
+function syncBenchBtn(){
+  const b=$("#debugBench");
+  if(b){
+    const on=benchOn();
+    b.textContent = on ? "On ✓" : "Off";
+    b.classList.toggle("dbgon", on);
+  }
+  const show = G.active && benchOn();
+  setHidden($("#benchBtn"), !show);
+  /* A sixth control in the HUD comes out of #roomName, which is the only thing
+     in that row that can lose characters. `benched` tightens the rest of the
+     row while the button is up, so the name keeps roughly the width it had
+     without it — see css/layout.css. */
+  document.body.classList.toggle("benched", show);
+}
+$("#debugBench").addEventListener("click",()=>{
+  setBench(!benchOn());
+  /* Reports into #gearMeta, not say(): #toast is z-index 95 and the gear is
+     125, so a message said from in here lands behind the panel you are reading
+     it from. And the thing that changed is under the inventory, which the gear
+     is currently painted over — so it has to be described rather than shown. */
+  syncGear(benchOn()
+    ? "talent bench on — the ✨ button is in the HUD"
+    : "talent bench off");
+});
+
+/* COSMETIC ONLY, and deliberately not a second TALENT_IDS.
+   Two talents change nothing until the player does something, and pressing one
+   of those and watching an unchanged room is indistinguishable from a broken
+   button — which is the whole failure this tool exists to avoid. An id missing
+   from here loses a hint; an id here that no longer exists is never read. Both
+   degrade to nothing, so this is allowed to drift where the real contract in
+   js/config.js is not. */
+const BENCH_WHEN = {
+  tidyHands: "Waits for your next put-away.",
+  meToo:     "Waits for the next row you finish.",
+  surface:   "Hold something to see it.",
+  goHome:    "Only ever fires on the way into a room — the bench re-runs it for this one.",
+};
+
+function renderBench(){
+  $("#benchSub").textContent = G.active
+    ? "Every talent, at any rank. Picking one closes this and applies it to the house you are in."
+    : "No house open — the bench writes into a run's talents, so start one first.";
+  const list=$("#benchList");
+  list.innerHTML="";
+  for(const u of DATA.upgrades.upgrades){
+    const max=maxLevel(u), lvl=G.up[u.id]|0;
+    const row=mkEl("div","shoprow benchrow");
+    const info=mkEl("div","sinfo");
+    const name=mkEl("div","sname");
+    name.appendChild(mkEl("span",null,`${u.icon||""} ${u.name}`));
+    name.appendChild(mkEl("span","slvl", max>1 ? `rank ${lvl}/${max}` : (lvl?"on":"off")));
+    info.appendChild(name);
+    info.appendChild(mkEl("div","sdesc", tokenise(u.desc, u.params||{})));
+    if(BENCH_WHEN[u.id]) info.appendChild(mkEl("div","benchwhen", BENCH_WHEN[u.id]));
+    row.appendChild(info);
+
+    /* A STRIP OF RANKS, NOT A +1. "Give me this at rank 3" is the question you
+       came here with, and stepping it four times means four grants, four
+       sounds and four toasts to ask it once. 0 is included because it is the
+       only way back off a talent — without it the bench is one-way and the
+       second thing you test is tested through the first one.
+
+       EVERY talent in upgrades.json has levels > 1 today, so the single-button
+       branch is currently unreachable. It is written anyway: `levels` is the
+       one knob the file says is the whole knob, and a talent authored at 1
+       would otherwise render a bare "0 1" that reads like a broken rank. */
+    const ranks=mkEl("div","benchranks");
+    if(max>1){
+      for(let n=0;n<=max;n++){
+        const b=mkEl("button",null,String(n));
+        b.dataset.id=u.id; b.dataset.lvl=String(n);
+        if(n===lvl) b.classList.add("dbgon");
+        ranks.appendChild(b);
+      }
+    }else{
+      const b=mkEl("button",null, lvl ? "On ✓" : "Give");
+      b.dataset.id=u.id; b.dataset.lvl = lvl ? "0" : "1";
+      if(lvl) b.classList.add("dbgon");
+      ranks.appendChild(b);
+    }
+    row.appendChild(ranks);
+    list.appendChild(row);
+  }
+}
+
+/* CLOSES FIRST, THEN GRANTS, and the order is the point of the feature: what
+   you pressed the button to see happens in the room, and the room is behind
+   this overlay. It also puts the talent's own say() line in front of a panel
+   rather than behind one — #toast is z-index 95 and every .overlay is 120. */
+function benchApply(id, lvl){
+  $("#benchOverlay").classList.remove("open");
+  if(!G.active) return null;
+  const now=debugGrant(id, lvl);
+  if(now===null){ say("No such talent: "+id); return null; }
+  /* GO TO YOUR ROOM IS THE ONE THAT WOULD LOOK BROKEN. It fires on a FIRST
+     entry only (G.entered), and the room you are standing in has already had
+     its — so granting it and stopping there does nothing at all, in the one
+     room you are looking at, which is the exact failure this whole tool is for.
+     Re-run it by hand rather than through enterRoom(), which would also re-run
+     Cluster: that is a store upgrade and has nothing to do with the button you
+     just pressed.
+
+     AND IT CAN LEGITIMATELY MOVE NOTHING, which looks identical. It only sends
+     things into rooms you have already STOOD IN (G.visited is its proof of
+     reachability), so in the room a house opens in — the room you are most
+     likely to be standing in when you reach for the bench — there is usually
+     nowhere for anything to go yet. The talent is right to do nothing and the
+     bench has to say which nothing this is. */
+  if(id==="goHome" && now && !sendHomeFromRoom(G.rooms[G.current])){
+    say("Nothing to send yet — it only moves things into rooms you have already been in.",
+        {priority:2});
+  }
+  render();
+  scheduleSave();
+  return now;
+}
+
+$("#benchBtn").addEventListener("click",()=>{ sfx("uiTap"); renderBench(); $("#benchOverlay").classList.add("open"); });
+$("#benchClose").addEventListener("click",()=>{ sfx("uiTap"); $("#benchOverlay").classList.remove("open"); });
+$("#benchList").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-id]");
+  if(b) benchApply(b.dataset.id, +b.dataset.lvl);
+});
+
 $("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#shopOverlay").classList.add("open"); });
 
 /* ---- audio settings ---- */
@@ -3881,7 +4984,8 @@ $("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#
 
 /* ============================================================ */
 function closeMenus(){
-  ["titleOverlay","campaignOverlay","sizeOverlay","winOverlay","helpOverlay","gearOverlay","shopOverlay"]
+  ["titleOverlay","campaignOverlay","sizeOverlay","winOverlay","helpOverlay","gearOverlay",
+   "shopOverlay","benchOverlay"]
     .forEach(id=>document.getElementById(id).classList.remove("open"));
   $("#contView").classList.remove("open");
 }
@@ -3893,13 +4997,16 @@ function closeMenus(){
    petStop() belongs here for the same reason clearBeats() does: it is a timer
    that outlives the thing it was animating, and a pet still ticking over the
    title screen would file items into a run that no longer exists. */
-function endCeremony(){ clearBeats(); clearSay(); clearChatter(); hideClient(); stopReveal(false); petStop(); closeBag(); }
+function endCeremony(){ clearBeats(); clearSay(); clearChatter(); hideClient(); stopReveal(false); petStop(); closeBag(); clearFlights(); }
 
 function showTitle(){
   closeMenus();
   endCeremony();
   endRun();
   applyTheme();          /* endRun cleared G.active — drop back to house colours */
+  /* Nothing repaints the HUD on the way out, so the bench's row-tightening
+     class would ride to the title screen and into the next run's first frame. */
+  syncBenchBtn();
   refreshTitle();
   $("#titleOverlay").classList.add("open");
   playMusic("menu");
@@ -4699,6 +5806,15 @@ window.tidy = {
      on a room that has already had them — the only way to A/B either of them
      against one generated house instead of two different ones. */
   enterRoom, meTooInto,
+  /* THE HELPER. `tidy.petWork()` answers "what does it think there is to do
+     here", which is the question to ask when it looks idle — the answer is
+     either an item and a mode, or null, and null is the state that used to
+     freeze it. `tidy.petPick(0)` / `tidy.petPlace(x,y)` are the carry loop
+     without having to hit a 30px target. */
+  petWork:()=>{ const p=G.pets[0]; return p ? petFindWork(p) : null; },
+  petPick, petPlace, petTick,
+  /* Where the box is standing in each room, and its footprint. */
+  bagSlots:()=>G.rooms.map(r=>r.bagSlot||null),
   tossInto, cascade, pickUp, openDraft,
   /* The SAVE ROUND-TRIP. Continue is the one entry point that restores state
      rather than generating it, so it is where state that was never written
@@ -4707,6 +5823,13 @@ window.tidy = {
      no way to exercise it from here, which is a large part of why it survived
      as long as it did. */
   saveGame, loadGame, clearSave, maybeDraft, finishJob, grantPick, picksLeft,
+  /* THE TALENT BENCH, from the console as well as the bar. `tidy.give` is
+     already the wallet, so this is `talent`: `tidy.talent("meToo", 2)` sets a
+     rank, `tidy.talent("meToo", 0)` takes it away, and `tidy.bench()` opens the
+     panel without needing the toggle on — a console call is already deliberate,
+     the same argument wipeAll() makes for skipping its arming. */
+  talent:benchApply, bench:()=>{ renderBench(); $("#benchOverlay").classList.add("open"); },
+  talentBench:on=>{ const v=setBench(on!==false); syncBenchBtn(); return v; },
   /* `tidy.unlockAll()` / `tidy.unlockAll(false)` / `tidy.progress()`. The gear
      button is the same call; this is here because "open every job" is a thing
      you want mid-thought without hunting for a panel. */

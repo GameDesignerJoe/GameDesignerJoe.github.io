@@ -120,6 +120,53 @@
   border-color:rgba(245,197,66,.9);
 }
 .furn.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.75), 0 6px 12px rgba(0,0,0,.4)}
+
+/* ---------- THE HOLDALL BOX ----------
+   The one piece of furniture in the room that is not part of the house. It
+   stands on the floor like everything else, placed once per room and shoving
+   the clutter aside as it lands (bagEnsureSpot in js/main.js), and it is a drop
+   target and a tap target exactly like a cupboard.
+
+   SIZED IN ROOM PERCENTAGES, like .furn and .cache, because `room.bagSlot` is
+   a KEEP-OUT with those exact coordinates (onHoldall in js/geometry.js) and a
+   box drawn at some other size would drift from the rectangle the floor search
+   believes is reserved. It was a fixed pixel size at first, painted over the
+   floor rather than standing in it — and 71% of it was covered by clutter that
+   swallowed the tap.
+
+   `container-type:size` so the icon and the count scale with the box, the same
+   trick .cache uses: the room's own fit scale means a percentage box is a
+   different number of pixels in a small room.
+
+   Blue, and the only blue thing on any floor. It shares the panel's colours
+   (css/layout.css #bagPanel) so the box you tap and the panel it opens are
+   visibly the same object — every other container in the game is wood. */
+.bagbox{
+  position:absolute;z-index:5;cursor:pointer;
+  container-type:size;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2cqh;
+  background:linear-gradient(#4a5a6e,#33404f);
+  border:2px solid #26303b;border-radius:8px;
+  box-shadow:0 4px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.14);
+}
+.bagbox .bagico{font-size:clamp(11px, 46cqh, 26px);line-height:1}
+.bagbox .bagpips{
+  font-size:clamp(7px, 20cqh, 12px);line-height:1;
+  font-weight:800;letter-spacing:.04em;color:var(--gold);opacity:.95;
+}
+.bagbox.drophot{box-shadow:0 0 0 3px rgba(245,197,66,.8), 0 4px 8px rgba(0,0,0,.45)}
+.bagbox.fullhit{animation:furnfull .4s}
+/* Something went in. The lid-thump equivalent of .furn's gold flash — this box
+   has no notion of right or wrong, so it acknowledges rather than judges. */
+.bagbox.bagpop{animation:bagpop .38s ease-out}
+@keyframes bagpop{
+  0%  {transform:scale(1)}
+  40% {transform:scale(1.12)}
+  100%{transform:scale(1)}
+}
+@media (prefers-reduced-motion:reduce){
+  .bagbox.bagpop{animation:none}
+}
 .furn.goldhit{animation:furngold .9s}
 @keyframes furngold{20%{box-shadow:0 0 26px 9px rgba(245,197,66,.95)}}
 .furn.pophit{animation:furnpop .28s}

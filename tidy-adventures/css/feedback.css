@@ -33,6 +33,69 @@
 .hudbtn.pop, #roomName.pop{animation:fxpop .45s ease-out}
 @keyframes fxpop{40%{transform:scale(1.22)}}
 
+/* ---------- A TALENT DOING SOMETHING ----------
+   Three talents moved items silently and instantly: Tidy Hands pulled two more
+   things off the floor, Me Too filled a row from the rest of the house, Go to
+   your Room emptied a stranger's belongings out of a room. All three were a
+   REPAINT — the item was in one place and the next frame it was in another —
+   which is indistinguishable from a talent you misunderstood, and is most of
+   why the pool has needed three passes to feel like anything.
+
+   The clone is position:fixed in #fxLayer, OUTSIDE the camera, so its size has
+   to be told to it (flySize() in js/main.js measures a real item, camera scale
+   and all) rather than inherited. Deltas come in as custom properties, which
+   is what lets one keyframe set serve every item on screen. */
+.fxfly{
+  position:fixed;z-index:151;pointer-events:none;
+  line-height:1;
+  transform:translate(-50%,-50%);
+  /* text-shadow, not filter:drop-shadow — see the note on .item in
+     css/items.css. */
+  text-shadow:0 8px 11px rgba(0,0,0,.45);
+  will-change:transform,opacity;
+}
+
+/* INTO A CONTAINER — Tidy Hands and Me Too. It arrives ABOVE the furniture,
+   bumps once so you can see what it is, and is then taken in. The straight
+   line into the box was the first attempt and it read as the item being
+   deleted: at the size items are drawn, something crossing a cluttered floor
+   in 400ms and vanishing is a flicker. The hover is what makes it an event. */
+@keyframes fxtocont{
+  0%  { transform:translate(-50%,-50%) scale(1) }
+  34% { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.35) }
+  46% { transform:translate(-50%,-50%) translate(var(--dx),calc(var(--dy) - 9px)) scale(1.55) }
+  58% { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1.3) }
+  68% { transform:translate(-50%,-50%) translate(var(--dx),calc(var(--dy) - 4px)) scale(1.4) }
+  100%{ transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(.1);opacity:0 }
+}
+
+/* OUT OF THE ROOM — Go to your Room. It lifts clear of the pile it was in,
+   gets BIGGER (so it is legible for the half-second it is the subject), then
+   sails at a door and pops. Fires on a first entry, so the player never saw
+   the room with these things in it: without the flight there is nothing to
+   notice at all, which is what the note on sendHomeFromRoom() has said since
+   it was written. */
+@keyframes fxexit{
+  0%  { transform:translate(-50%,-50%) scale(1) }
+  18% { transform:translate(-50%,-50%) translate(0,-13px) scale(1.6) }
+  30% { transform:translate(-50%,-50%) translate(0,-13px) scale(1.6) }
+  84% { transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(1.15) }
+  100%{ transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(.15);opacity:0 }
+}
+/* The pop itself, at the doorway. A ring rather than a glyph: the item is
+   still mid-shrink under it and two things reading "gone" in the same 120ms
+   is mush. */
+.fxpop{
+  position:fixed;z-index:150;pointer-events:none;
+  width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  border:2px solid var(--gold);
+  animation:fxpopring .38s ease-out forwards;
+}
+@keyframes fxpopring{
+  0%  {opacity:.95;transform:scale(.3)}
+  100%{opacity:0;transform:scale(2.2)}
+}
+
 /* ---------- room complete ---------- */
 .ripple{
   position:absolute;left:50%;top:50%;

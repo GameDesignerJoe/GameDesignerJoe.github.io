@@ -39,6 +39,25 @@ export const onFurniture = (room, x, y, p = pad("tight")) =>
 export const onCache = (room, x, y, p = pad("cache")) =>
   (room.caches || []).some(k => inSlot(k.slot, x, y, p));
 
+/* THE HOLDALL IS FURNITURE. It is a box standing on the floor, so it gets a
+   slot and a keep-out exactly like a cupboard or a coin box — and then every
+   placement path in the game avoids it for free: generation, tossing, flinging,
+   the flick, the pet putting something down, and both spot searches below.
+
+   It was drawn OVER the floor instead of IN it at first, at a fixed pixel size
+   with nothing reserving the space. Measured across 25 generated rooms, 71% of
+   the box's surface was covered by an item you had to move before you could tap
+   it, and its centre was blocked 56% of the time. Shoving the clutter aside
+   once when it lands is not enough, because everything that lands afterwards
+   lands on it again.
+
+   `room.bagSlot` rather than a lookup keyed by room id, for the same reason
+   `c.slot` lives on the container: this module is a leaf that cannot see G, the
+   room is the argument every one of these functions already takes, and it rides
+   in the saved `rooms` with no save plumbing at all. */
+export const onHoldall = (room, x, y, p = pad("tight")) =>
+  !!room.bagSlot && inSlot(room.bagSlot, x, y, p);
+
 /* ============================================================
    DOORWAYS — the one piece of room furniture items must never land under.
 
@@ -80,6 +99,7 @@ export function isClearFloor(room, x, y, {
 } = {}) {
   if (!inShape(room, x, y)) return false;
   if (onFurniture(room, x, y, pad(padName))) return false;
+  if (onHoldall(room, x, y, pad(padName))) return false;
   if (avoidCaches && onCache(room, x, y)) return false;
   if (avoidDoors && inDoorway(room, x, y)) return false;
   return true;

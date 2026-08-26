@@ -248,6 +248,45 @@ function choose(c, cardEl, grid) {
   }, 620);
 }
 
+/* ============================================================
+   DEBUG: THE BENCH — set a talent to an exact rank, no draft.
+
+   IT GOES THROUGH choose()'s TAIL, not around it. The tempting version is
+   `G.up[id] = n` from main.js and a repaint, and it is wrong in three ways
+   that all look like "the talent is broken": the ⭐ button stays hidden so
+   there is no way to check what you own, the pet never turns up and the
+   holdall never sizes itself (both are onGrant's job, not the draft's), and
+   the next thing added to onGrant would be missing here with nothing to say
+   so. One grant path, one place to add to.
+
+   IT DOES NOT TOUCH picksTaken OR pendingDrafts. A bench grant is not one of
+   the house's picks — spending one would mean testing a talent costs you the
+   draft you were going to test it against, and the ✨ counter in free play's
+   HUD would start lying about how far through its offer you are.
+
+   RANK 0 IS A REAL ARGUMENT: it is how you take a talent back off. Every
+   downward path is already written and already needed — bagSync() spills a
+   holdall that shrank, petSync() retires a pet — because a resume can load a
+   save written at a higher level than the run now has.
+============================================================ */
+export function debugGrant(id, lvl) {
+  const u = DATA.upgrades.upgrades.find(x => x.id === id);
+  if (!u) return null;
+  const max = maxLevel(u);
+  const want = Math.max(0, Math.min(max, lvl | 0));
+  G.up[id] = want;
+  /* The ⭐ panel is what you own, and its button is hidden until a house has
+     taught you something. grantPick() un-hides it for the same reason. */
+  if (want) setHidden(shopBtn, false);
+  sfx("talent");
+  /* say() rather than the gear's #gearMeta rule: the bench closes itself before
+     this lands, so #toast (z-index 95) is not behind anything. */
+  say(`${u.icon || "✨"} ${u.name}${max > 1 ? " — rank " + want : (want ? "" : " — off")}`,
+      { priority: 2 });
+  onGrant({ kind: "upgrade", id, name: u.name, icon: u.icon, lvl: want, max });
+  return want;
+}
+
 /* EVERY case here must appear in CONSUMABLE_EFFECTS (js/config.js), and every
    name in that list must appear here. Boot validation checks the data against
    the list; this comment is the other half. Two consumables used to ship with

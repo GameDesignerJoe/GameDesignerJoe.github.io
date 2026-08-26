@@ -77,6 +77,69 @@
    a back door out of the only choice the game ever insists on. */
 body.drafting #gearBtn{display:none}
 
+/* DEBUG: the talent bench. A plain .hudbtn — NOT the gear's z-index 130 —
+   because it is hidden by an overlay for the same reason ⭐ and 🧰 are, and a
+   debug button floating over the win screen (where the run is still `active`)
+   would be the one thing on that screen you did not put there.
+
+   It lived under the inventory first, which was wrong twice: the bottom edge of
+   the viewport is where a phone's home indicator, a desktop taskbar and the
+   browser's own chrome all land, and the HUD already does the arithmetic to
+   clear the notch at the other end.
+
+   Ringed in gold rather than filled, so a screenshot with it on is obviously a
+   screenshot with a debug tool on. Same signal the debug drawer's summary uses
+   (css/overlays.css). */
+#benchBtn{
+  color:var(--gold);
+  box-shadow:inset 0 0 0 2px rgba(245,197,66,.45);
+}
+
+/* THE ROW HAS TO SURVIVE 320px WITH EVERYTHING IN IT.
+
+   The band is a fixed-width control every time something is added to it, and
+   two things have been: 🧰 when the holdall shipped, and ✨ with the bench. At
+   320px with the holdall taken, #roomName was already squeezed to ZERO and
+   #gearBtn's right edge landed at 326 on a 320px screen — off the edge, which
+   is the one thing the gear is not allowed to be (see the note above). The
+   bench added another 47px to a row that had already run out.
+
+   So the whole row tightens on a narrow phone rather than any one control
+   being hidden: smaller discs, tighter gaps, less pill padding. Nothing
+   reflows and nothing disappears — a HUD that rearranges itself by width is a
+   HUD you have to re-learn on every device. 32px is under Apple's 44pt, which
+   .hudbtn's invisible ::after target already carries past the drawn edge. */
+@media (max-width:400px){
+  #hud{gap:5px;padding-left:8px;padding-right:8px}
+  .hudbtn{width:32px;height:32px;font-size:14px}
+  .hudbtn::after{inset:-7px}
+  #remaining{font-size:11px;padding:4px 8px}
+  #shopBtn,#bagBtn{font-size:12px;padding:0 7px!important}
+  #roomName{font-size:13px}
+  #roomName small{font-size:9px}
+}
+
+/* AND THE BENCH PAYS FOR ITS OWN SEAT. #roomName is the only thing in the row
+   that can lose characters, so a sixth control comes out of the room name and
+   nothing else — at 414 with the holdall taken it went from "THE RE…" to "T…".
+   Rather than tighten the row for every phone in a change that is about a debug
+   button, the row tightens only while that button is on screen, which claws
+   back about what the button costs. Set by syncBenchBtn(), so it is on exactly
+   when #benchBtn is.
+
+   Bounded to min-width:401px so it cannot fight the block above. A media query
+   adds no specificity, so `body.benched .hudbtn` (0,2,1) would quietly win over
+   the narrow query's `.hudbtn` (0,1,0) whatever order they are written in — the
+   phone would get the 34px discs meant for the roomy case. Below 401px the
+   narrow rules already tighten everything this does, harder. */
+@media (min-width:401px){
+  body.benched #hud{gap:6px}
+  body.benched .hudbtn{width:34px;height:34px;font-size:15px}
+  body.benched .hudbtn::after{inset:-6px}
+  body.benched #shopBtn,
+  body.benched #bagBtn{padding:0 7px!important}
+}
+
 /* ---------- STAGE ---------- */
 #stage{
   flex:1 1 auto;position:relative;overflow:hidden;
@@ -166,6 +229,11 @@ body.drafting #gearBtn{display:none}
 }
 .bagslot.full{ background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.22) }
 .bagslot:active{ transform:scale(.94) }
+/* Dragging one slot onto another to reorder, and dragging out of a hand slot
+   onto the panel. The same two signals the container grid uses (.cell.hot,
+   .furn.drophot), because they are the same two gestures. */
+.bagslot.hot{ box-shadow:0 0 0 3px rgba(245,197,66,.85) }
+#bagPanel.drophot{ box-shadow:0 0 0 3px rgba(245,197,66,.8), 0 24px 60px rgba(0,0,0,.6) }
 #bagClose{
   border:0;background:var(--panel);color:var(--ink);
   font-size:14px;font-weight:700;letter-spacing:.1em;

@@ -972,7 +972,7 @@ behind a single tap, in a panel otherwise full of harmless toggles, gets pressed
 by accident eventually. `tidy.wipeAll()` skips the arming, because typing it is
 already deliberate.
 
-**Six debug buttons in the gear, and four of them matter.**
+**Seven debug buttons in the gear, and five of them matter.**
 *Where are the keys* rings every loose token, lifts it above the clutter, and
 names the rooms holding one. It is the only way to tell a level that is
 *solvable* from one that is *findable* — generation buries keys deliberately,
@@ -1018,10 +1018,292 @@ a week later. Same reasoning as `nowPlaying()`.
 From the console: `tidy.unlockAll()`, `tidy.unlockAll(false)`, `tidy.progress()`,
 `tidy.relockAll()`.
 
+### The talent bench
+
+**There was no way to look at a talent on purpose.** The draft deals two cards
+out of eight, weighted by how far through the house you are, and only fires when
+a house that teaches anything crosses a row threshold. So "what does Me Too
+actually do" was: roll a house big enough to teach, tidy to 20% of it, and take
+whichever two it felt like offering. *Free talent* forces the draft; it does not
+choose. The bench lists all eight and sets one to an exact rank.
+
+**Two controls, deliberately.** The gear owns whether the button exists
+(`TALENT_DEBUG_KEY`, persisted like `UNLOCK_KEY`, because what you are testing
+usually needs a reload); the HUD owns pressing it. `#benchBtn` is hidden unless
+the toggle is on **and** a run is going — `G.up` is a run's talents, and a bench
+over the title screen writes into a house that does not exist.
+
+**IT GOES IN THE HUD, NOT UNDER THE INVENTORY**, and the first version got that
+wrong. Tucked into the strip of dead space below the inventory slots it cost no
+layout at all, which was the whole argument for it — but the bottom edge of the
+viewport is where a phone's home indicator, a desktop taskbar and the browser's
+own chrome all land, and it came out half-eaten by the Windows taskbar. The HUD
+already does the arithmetic to clear the notch at the other end
+(`env(safe-area-inset-top)`, additive — see css/layout.css), so a button there is
+reachable on every device the game runs on.
+
+It is a plain `.hudbtn`, deliberately NOT given the gear's z-index 130: it should
+be covered by an overlay for the same reason ⭐ and 🧰 are, and a debug button
+floating over the win screen — where the run is still `active` — is the one thing
+on that screen nobody put there. It is ringed in gold rather than filled, the
+same signal the debug drawer's summary uses, so a screenshot with it on is
+obviously a screenshot with a debug tool on.
+
+**It grants through `choose()`'s tail** (`debugGrant()` in `js/talents.js`), not
+around it. Setting `G.up[id]` from main.js and repainting is wrong in three ways
+that all look like a broken talent: the ⭐ button stays hidden so you cannot check
+what you own, the pet never turns up and the holdall never sizes itself (both are
+`onGrant`'s job, not the draft's), and the next thing added to `onGrant` would be
+missing here with nothing to say so.
+
+**It does not spend a pick.** `picksTaken` and `pendingDrafts` are untouched —
+otherwise testing a talent costs you the draft you were going to test it against,
+and free play's ✨ counter starts lying about how far through its offer you are.
+
+**Rank 0 is a real argument**, and the only way back off a talent. Without it the
+bench is one-way and the second thing you test is tested through the first. Every
+downward path was already written and already needed: `bagSync()` spills a
+holdall that shrank, `petSync()` retires a pet. `bagSync()` gained one thing for
+this — it closes or repaints an OPEN `#bagView`, because nothing could shrink a
+holdall mid-run before and the bench left a grid of slots the run no longer had.
+
+**Two talents needed special handling, and both for the same reason: a press that
+does nothing is indistinguishable from a press that broke.**
+
+- *Go to your Room* fires on a FIRST entry only (`G.entered`), and the room you
+  are standing in has already had its — so granting it and stopping there does
+  nothing at all, in the one room you are looking at. `benchApply()` re-runs
+  `sendHomeFromRoom()` by hand rather than calling `enterRoom()`, which would
+  also re-run Cluster: that is a store upgrade and has nothing to do with the
+  button you pressed. It can also legitimately move nothing — it only sends
+  things into rooms you have already stood in, which in an opening room is
+  usually none of them — so the bench says which nothing that is.
+- *Tidy Hands* and *Me Too* cannot show anything until the player acts. Their
+  rows carry a line saying so (`BENCH_WHEN`, cosmetic and allowed to drift — a
+  missing id loses a hint, a stale one is never read).
+
+**The gear closes the bench.** `#gearBtn` is z-index 130 and every other route to
+a panel is under the bench's own backdrop, so the gear is the only thing that can
+open over it. Two debug panels stacked is the exact shape of the bug that made
+*Finish this job* close the gear itself: pressed from up there with the bench
+still open behind, the client's outro beat holds for a tap the bench's backdrop
+is eating, and the ending never arrives.
+
+From the console: `tidy.talent("meToo", 2)`, `tidy.talent("meToo", 0)`,
+`tidy.bench()` (opens it without the toggle), `tidy.talentBench(true|false)`.
+
 **The note is in the client's hand too.** `voice()` in `quests.js` resolves the
 signature and any stage-authored note copy; the signature is baked into the note
 when it drops, not read live. Free play has no client, which is what "— M" now
 means: the hand a house writes in when nobody hired you.
+
+## Selling a talent — the performance pass
+
+**Three talents moved items by REPAINTING.** Tidy Hands pulled two more things
+off the floor, Me Too filled a row from the rest of the house, Go to your Room
+emptied a stranger's belongings out of a room — and in all three the item was in
+one place and the next frame it was in another. That is indistinguishable from a
+talent you misunderstood, which is why the pool needed three passes before any of
+them felt like anything, and why each pass reached for a louder SOUND. A sound
+with nothing on screen under it is a sound the player attributes to the tap they
+already made.
+
+**The data moves first and the performance is a ghost.** Every caller mutates
+`loc` and repaints exactly as it did before, then hands `flyToContainer()` /
+`flyOut()` (js/feedback.js) the screen point the item CAME FROM. So there is no
+half-moved state to hit-test against, no item you can tap in mid-air, and a
+flight interrupted by a room change, a reload or a win screen loses an animation
+rather than an item. `endCeremony()` sweeps any that are still in the air.
+
+**Screen pixels, not room percentages, and measured rather than derived.**
+`#fxLayer` is `position:fixed` and lives outside the camera: it can neither read
+the room's transform nor inherit an item's font size. `flySize()` measures a real
+`.item` — computed font size times painted-width over layout-width — which is the
+only version of this that is right at every zoom level and in every room shape.
+`animateFlight()`, the older helper the fling still uses, hardcodes 34px and is
+wrong at both ends of that range.
+
+- **Into a box** (Tidy Hands, Me Too): rise, hover a glyph and a half ABOVE the
+  furniture, bump twice, then shrink in. The straight line into the box was the
+  first attempt and read as the item being deleted — at the size items are drawn,
+  something crossing a cluttered floor in 400ms and vanishing is a flicker. One
+  thump per item as it lands, so the count is audible as well as visible; the
+  whoosh of them all lifting is the caller's.
+- **Out of a door** (Go to your Room): lift clear of the pile, SWELL so it is
+  legible for the half-second it is the subject, sail at the doorway that is
+  actually the first step toward where it lives (`exitDirToward`, off `roomDist`),
+  and pop with a ring. This one had a note asking for it since it was written:
+  it fires on a FIRST entry, so the player never saw the room with those things in
+  it and the whole effect was a room that happens to have less in it than it
+  might have. It waits `T.slide + 140` for the room to finish sliding in, and
+  checks it is still the room on screen before it plays.
+- Both take **room percentages where the room does not exist yet** — `enterRoom()`
+  is called from `slideTo()` before `buildRoomEl()` — and convert at play time.
+  An item arriving from ANOTHER room (Me Too level 2) has no on-screen origin at
+  all, so it comes in over the wall from a random bearing.
+
+**Reduced motion gets the callbacks and not the clones**, on the same schedule,
+so the sounds and the counts are identical and only the movement is missing.
+
+## Selecting nothing
+
+Bring to the Top and Intuition 3 both read whatever is SELECTED, and there was no
+way to select nothing while still carrying something — so the lift stayed on for
+the rest of the level, every copy of the thing in your hands ringed and pulsing in
+every room until you happened to file it. Tapping the FULL slot already toggled
+(`tapSlot`), it was the only way, and nothing said so.
+
+`deselect()` is now on the two gestures a player actually reaches for: a tap on
+**bare floor**, and a tap on an **empty hand slot**, which previously did nothing
+whatsoever. The floor one deliberately does NOT swallow the tap — the double-tap
+zoom is on the same gesture and the player is nearly always carrying something, so
+eating it would mean zoom only worked with empty hands. First tap drops the
+selection and arms the double-tap; second tap zooms.
+
+## The helper — it walks, it stages, and you can move it
+
+**IT TELEPORTED, and the reason is a whole class of bug in this file.** The tick
+assigned `p.x = target.x` in one go and `.pet` carried `transition:left .9s` to
+smooth it over. But `renderRoom()` throws the room's DOM away and builds it again,
+so the element the transition was meant to run on did not exist by the time it
+would have run: every "step" was an instant jump to a brand-new element already at
+its destination. **A CSS transition cannot animate an element into existence.**
+
+It walks in real steps now, on its own `PET_STEP_MS` (110ms) timer, about 1-2% of
+the room per step by level. A step calls `petRepaint()`, which writes `left`/`top`
+on the element that is already there and touches nothing else — so `renderRoom()`
+is called only when items actually move. That is both the fix and a large
+reduction in work: it was rebuilding a 170-item floor on every action tick.
+
+**IT USED TO FREEZE, and "stood on a container and didn't do anything" was two
+bugs in one sentence.** It walked to `c.slot`'s centre — the middle of the
+cupboard — so it stood on top of the furniture (`petSpotAt()` now takes it to the
+floor in front). And filing was the only thing it knew how to do, so in a room
+where everything left would complete a row it had NOTHING to do; `petWander()`
+cannot save it either, because early in a run there is usually only one visited
+room to wander to.
+
+So `petFindWork()` returns a MODE. `file` is the original job. `stage` is new: it
+carries the thing over and sets it down beside the box anyway. Still not allowed
+to finish anything — that rule is untouched and still enforced by placing the item
+and asking the real completion tests — but there is always work. `file` is
+preferred for every item before any `stage` is taken, which is what keeps it
+useful rather than merely busy. And when there is genuinely nothing, it picks a
+spot and potters, because standing perfectly still is what a broken helper looks
+like.
+
+The loop guard is a **flag** (`o.staged`), not the distance test, and it has to
+be: `nearestFloorSpot()` pushes the item clear of the furniture pad, so where it
+actually lands can be further from the box than `STAGE_NEAR` — and then it would
+be picked up and carried there again, forever. `pickUp()` clears it.
+
+**It reaches into the holdall too**, which is the only thing it ever picks up
+that is not on a floor. Stowing something means "deal with this later, in the
+right room", and the helper standing in the right room is exactly that moment.
+`mode: "bag"` walks it to the box (`petSpotAt` off `room.bagSlot` — the same spot
+it stands in to use a cupboard, which is why that helper takes a slot rather than
+a container now), and the next decision carries the thing to its home as usual.
+
+**FILE ONLY, never stage, and the asymmetry is the point.** Staging a FLOOR item
+is a strict improvement — it was lying about and now it is lying about next to
+where it goes. Taking something OUT of the box and putting it on the floor is the
+opposite: it undoes a deliberate decision of the player's and adds to the visible
+mess. So if it cannot actually put the thing away, it leaves it in the bag.
+
+Ordering is floor-`file` -> box-`file` -> floor-`stage`: filing beats staging
+wherever the item is, and the floor is what the player is looking at, so the
+shorter errand goes first. `petTakeFromBag` re-checks that the item is still in
+the box when it arrives, because it has walked across a room to something anyone
+can change — the same race the floor version guards. It repaints the HUD button
+and an open panel by hand: `renderRoom()` redraws the box's own face, and neither
+of those is in the room.
+
+**You can carry him.** Tapping him empty-handed picks him up (carrying something,
+the tap still takes the ITEM — that is the commoner intention by far); the next tap
+in the room puts him down. That tap is FIRST in the chain, ahead of items and
+furniture, because while he is in your hands a tap can only mean one thing — and
+"tap the bare floor" is a poor instruction on a Mega floor where bare floor is what
+there is least of. The one exception is a door: you have to be able to carry him
+into the next room.
+
+Dropping him **pins** him to that room (`petWander` refuses to leave one), and
+dropping him in the room he is already pinned to lets him roam again. One gesture,
+both directions, and it says which one just happened — the pin is otherwise
+invisible until you notice he has not left in five minutes.
+
+**He is not an inventory slot.** `G.inv` holds item ids and about a dozen call
+sites read it that way — `placeFromSlot`, `tossInto`, `autoPlace`, `cascade`, the
+three drag handlers. A sentinel in there would have to be understood by every one
+of them and the first one that forgot would reach `G.items[undefined].type`. He is
+a flag on the pet and a `.petchip` drawn beside the slots, which is the part the
+player was asking for.
+
+## The holdall is a box in the room
+
+It was a HUD button and a panel and nothing else, which meant the object its own
+description promises did not exist: nothing on any floor to tap, nothing to drag
+onto, and the only way in was a button, a panel and a slot. Reported, accurately,
+as "I can't put anything in the portal box."
+
+**One spot per room, chosen the first time you are there with the talent and then
+frozen for the run.** Re-rolling per visit would move the one piece of furniture in
+the house whose whole point is being the same box every time.
+
+**IT IS FURNITURE, NOT A DECAL, and the first version was the decal.** It was
+painted over the floor at a fixed pixel size with nothing reserving the space
+underneath. Measured across 25 generated rooms: **71% of the box's surface and 56%
+of its exact centre** were covered by clutter that swallowed the tap. Shoving
+things aside once when it lands (`displaceAround`) is not enough, because
+everything that lands afterwards lands on it again — and the falloff means an item
+near the edge of the radius barely moves at all.
+
+So the slot lives on the ROOM (`room.bagSlot`, a `{x,y,w,h}` in room % from
+`holdallSlot` in furniture.json) and `onHoldall()` in js/geometry.js reads it out
+of `isClearFloor`. That one line makes every placement path in the game avoid it
+without any of them knowing it exists: generation, tossing, flinging, the flick,
+the pet setting something down, and both spot searches. It rides in the saved
+`rooms` with no save plumbing, which is also why it belongs there rather than in a
+lookup keyed by room id — same argument as `c.slot` living on the container. When
+it lands it **evicts** anything standing in its footprint through
+`nearestFloorSpot`, which cannot put them back because the slot is already a
+keep-out.
+
+**And a halo may not outrank a real target underneath it.** Reserving the floor
+stops items STANDING on the box and does nothing about what leans over it:
+`itemAt()` answers in two passes (js/hit.js) and pass 2 is the topmost padded BOX
+— a deliberate 10px fat-finger halo around a 22px glyph. That halo was still
+taking 65% of the box's surface with nothing visible there at all. The tap chain
+now asks for the box first, but only when the item that would have won has no
+**ink** under the point. Point at a glyph lying on the box and you get the glyph.
+Measured again after both fixes: **3% of the surface, 0% of the centre** — and the
+3% is a real glyph, where the item is the right answer. Deliberately not extended
+to `.furn` in the same breath: a cupboard is 34x16 of the room where this is 15x9,
+so its middle is nowhere near anyone's halo.
+
+**The panel is a container, gesture for gesture.** Tapping the box used to stow
+whatever you were holding, which made it the one piece of furniture in the game
+that takes an item and shows you nothing. It opens now, like everything else, and
+`#bagView` answers the same five gestures `#contView` does — tap a slot, tap a hand
+slot (the holdall's `autoPlace`), drag between slots to reorder, drag out to your
+hands, drag out to the floor, tap the backdrop to close. Escape closes it and the
+arrow keys will not walk you out from under it. Opening one panel closes the other:
+both are z-index 50 and each covers the room the other drops things onto.
+
+The one deliberate difference from the container's code: a dragged-out item lands
+**where you let go**. The container drops at a random clear spot because its panel
+is centred over a room you cannot see; this panel's backdrop IS the room, dimmed,
+so the aim is real and worth honouring. That backdrop is also why dragging out of a
+hand slot has to accept `#bagView` as well as `#stage` — it is not inside the
+stage, so the old bounds test refused the drop and the drag silently did nothing.
+
+Dragging ONTO the box still stows, because that is what dragging onto a cupboard
+does. Keys, coins and notes are refused wherever they are offered, the same rule
+the panel already enforced.
+
+Blue, and the only blue thing on any floor: it shares the panel's colours so the
+box you tap and the panel it opens are visibly one object, where every other
+container in the game is wood.
+
 
 ## Free play — a board, not a menu
 
@@ -1562,8 +1844,38 @@ Run through this after any change; it's what the browser tests cover.
 - Magnet Fingers at level N files N extra of that kind; One Trip at level 2
   empties the whole armful into one container. Drop something in the WRONG
   container with both maxed and exactly one item moves.
+- Tidy Hands, Me Too and Go to your Room each PERFORM: you can see what came
+  along and where it went. Check at both ends of the zoom range and in a round
+  room — the clones live outside the camera and measure it rather than inherit
+  it. Walk out of the room mid-flight: the animation is dropped, the items are
+  not. Turn on reduce-motion and the sounds and counts are unchanged.
+- Carry something with Bring to the Top on, then tap bare floor: the lift stops
+  and the item stays in your hands. Tap an empty hand slot: same. Double-tap
+  bare floor still zooms.
+- The helper walks rather than jumps, potters when there is nothing to do, and
+  in a room where filing anything would complete a row it carries things over
+  and leaves them beside the right furniture instead of standing still — and
+  still finishes nothing. With the holdall taken it also empties the box of
+  anything that lives in the room it is standing in, but only what it can
+  actually FILE: it must never take something out just to drop it on the floor. Tap it empty-handed to pick it up, tap the room to put
+  it down, and it stays in that room until you drop it there again.
+- The holdall is a box on the floor of every room you have been in, never on a
+  piece of furniture and never with clutter standing on it. Tapping it OPENS it
+  whether or not you are carrying something. Then: tap a hand slot to stow, tap
+  a full slot to take it back, drag between slots to reorder, drag out to your
+  hands, drag out onto the dimmed room to drop it on the floor, drag a hand slot
+  out through the panel onto the floor, tap the backdrop or press Escape to
+  close. Opening a cupboard closes it and vice versa. Dragging onto the box from
+  the floor or from a hand slot still stows. Its spot survives a Continue, and
+  the same contents show in every room.
 - Homesick lights roughly a quarter of a floor, and an item whose home is
   locked or full stops glowing.
+- Talent bench: gear → Debug tools → *Talent bench* → On; a gold ✨ appears in
+  the HUD, and the row still fits on a 320px phone. Every talent at every rank,
+  then back to 0 — the pet arrives and leaves, the 🧰 button appears and its
+  panel closes with anything inside it back on the floor, and `picksTaken` never
+  moves. Toggle off mid-run and the button goes; reload and the toggle is still
+  where you left it.
 - A talent draft never interrupts a drag or an open container; talents and
   hand slots are gone again at the start of the next campaign level, and
   survive quitting to the menu and continuing the same level.

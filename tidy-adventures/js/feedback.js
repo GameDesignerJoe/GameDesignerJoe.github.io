@@ -136,6 +136,91 @@ export function flyStar(fromEl, text = "+1 ⭐") {
 }
 
 /* ============================================================
+   Channel D — A TALENT DOING SOMETHING, performed
+
+   Tidy Hands, Me Too and Go to your Room all moved items by REPAINTING: the
+   thing was on the floor, and the next frame it was not. There is no way to
+   tell that from a talent you misunderstood, which is why all three read as
+   nothing happening however loud their sound was.
+
+   THE DATA MOVES FIRST AND THE PERFORMANCE IS A GHOST. Every caller mutates
+   `loc` and repaints exactly as it always did, then hands us the screen point
+   the item CAME FROM. So there is no half-moved state to hit-test against, no
+   item you can tap in mid-air, and a flight interrupted by a room change, a
+   reload or a win screen loses an animation rather than an item.
+
+   Screen coordinates, not room percentages: #fxLayer is position:fixed and
+   lives outside the camera, so it can neither read the room's transform nor
+   inherit its font size. main.js measures both and passes them in — which is
+   also why these work unchanged at any zoom.
+============================================================ */
+const FLY_IN_MS = 780;
+const FLY_OUT_MS = 820;
+/* A phone that asks for less motion gets none of this: the caller's callbacks
+   still fire, on the same schedule, so the SOUNDS and the counts are identical
+   and only the clone is missing. */
+const stillness = () =>
+  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function flyClone(type, x, y, size) {
+  const n = document.createElement("div");
+  n.className = "fxfly";
+  n.textContent = type;
+  n.style.left = x + "px";
+  n.style.top = y + "px";
+  n.style.fontSize = size + "px";
+  fxLayer.appendChild(n);
+  return n;
+}
+
+/* INTO A PIECE OF FURNITURE — the item rises, hovers above the box, bumps,
+   and is taken in. `onLand` fires as it goes in, which is where the caller
+   puts its thump. */
+export function flyToContainer(type, from, to, { size = 28, delay = 0, onLand = null } = {}) {
+  const land = () => onLand && onLand();
+  if (stillness()) { setTimeout(land, delay + FLY_IN_MS); return null; }
+  const n = flyClone(type, from.x, from.y, size);
+  /* The hover sits a glyph and a half above the target, so the pause reads as
+     "over the box" rather than "on the box". */
+  n.style.setProperty("--dx", (to.x - from.x) + "px");
+  n.style.setProperty("--dy", (to.y - from.y - size * 1.5) + "px");
+  n.style.setProperty("--tx", (to.x - from.x) + "px");
+  n.style.setProperty("--ty", (to.y - from.y) + "px");
+  n.style.animation = `fxtocont ${FLY_IN_MS}ms cubic-bezier(.3,.7,.4,1) ${delay}ms forwards`;
+  setTimeout(land, delay + Math.round(FLY_IN_MS * 0.9));
+  setTimeout(() => n.remove(), delay + FLY_IN_MS + 60);
+  return n;
+}
+
+/* OUT OF THE ROOM — lift, swell, sail at the doorway, pop. `onPop` fires at
+   the pop rather than at the end, because the sound is the pop. */
+export function flyOut(type, from, to, { size = 28, delay = 0, onPop = null } = {}) {
+  const pop = () => {
+    if (onPop) onPop();
+    if (stillness()) return;
+    const ring = document.createElement("div");
+    ring.className = "fxpop";
+    ring.style.left = to.x + "px";
+    ring.style.top = to.y + "px";
+    fxLayer.appendChild(ring);
+    setTimeout(() => ring.remove(), 420);
+  };
+  if (stillness()) { setTimeout(pop, delay + FLY_OUT_MS); return null; }
+  const n = flyClone(type, from.x, from.y, size);
+  n.style.setProperty("--tx", (to.x - from.x) + "px");
+  n.style.setProperty("--ty", (to.y - from.y) + "px");
+  n.style.animation = `fxexit ${FLY_OUT_MS}ms cubic-bezier(.35,.05,.5,1) ${delay}ms forwards`;
+  setTimeout(pop, delay + Math.round(FLY_OUT_MS * 0.84));
+  setTimeout(() => n.remove(), delay + FLY_OUT_MS + 60);
+  return n;
+}
+
+/* A run ending mid-flight leaves clones sailing across the title screen. */
+export function clearFlights() {
+  fxLayer.querySelectorAll(".fxfly, .fxpop").forEach(n => n.remove());
+}
+
+/* ============================================================
    Room completion — the game's biggest moment.
    v3 marked it with a 1400ms toast.
 ============================================================ */

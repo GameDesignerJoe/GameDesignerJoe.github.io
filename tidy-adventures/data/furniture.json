@@ -126,5 +126,19 @@
 
   "doorZone": { "depth": 11, "spread": 36 },
 
+  "_holdallNote": [
+    "THE HOLDALL'S FOOTPRINT, in room %. It is furniture — see onHoldall() in",
+    "js/geometry.js — so it gets a slot like a cupboard (34x16) and a coin box",
+    "(9x4.2) do, and every placement path in the game keeps clear of it for",
+    "free. It was drawn at a fixed pixel size at first, over the floor rather",
+    "than in it, and 71% of its surface was covered by clutter you could not",
+    "move: an item lying on it swallowed the tap, and there was no keep-out to",
+    "stop one landing there.",
+    "",
+    "Between a cache and a cupboard on purpose: big enough to hit with a thumb,",
+    "small enough that dropping one into every room does not eat the floor."
+  ],
+  "holdallSlot": { "w": 15, "h": 9 },
+
   "cacheSlot": { "w": 9, "h": 4.2 }
 }

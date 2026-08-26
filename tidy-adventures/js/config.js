@@ -13,7 +13,7 @@
    only way to tell, on a home-screen install, whether the thing in your hand
    is the thing you just pushed. Bump DATA_VERSION with it if any data/*.json
    changed. */
-export const VERSION = "2.0.0";
+export const VERSION = "2.3.1";
 
 /* ---------- persistence ---------- */
 export const SAVE_VERSION = 4;
@@ -52,6 +52,13 @@ export const CAST_KEY  = "tidy-cast-v1";
    OWN key rather than a value written into DONE_KEY — see debugUnlocked() in
    js/main.js for why unlocking must not mark anything finished. */
 export const UNLOCK_KEY   = "tidy-debug-unlock";
+/* Debug: show the talent bench — a button under the inventory that hands you
+   any talent at any rank on the spot, instead of waiting for a draft to offer
+   it. Its own key, and PERSISTED rather than a session flag, for the same
+   reason UNLOCK_KEY is: the thing you are testing usually needs a reload
+   (a fresh house, a new build) and a toggle that forgets itself across one is
+   a toggle you re-find every time. */
+export const TALENT_DEBUG_KEY = "tidy-debug-talents";
 /* The campaign as it stood when progress was still an index, frozen. The only
    way to read an old save correctly is to know what index 7 MEANT, so this
    list must never be reordered or edited — it is a historical record, not a
@@ -98,7 +105,7 @@ export const SAVE_DEBOUNCE = 400;
 
 /* Appended as ?v= to every data fetch. GitHub Pages caches assets for ten
    minutes; if you edit a JSON file, push, and don't see the change, bump this. */
-export const DATA_VERSION = 19;
+export const DATA_VERSION = 22;
 
 /* ---------- world ---------- */
 export const GRID = 3;              // houses grow on a GRID x GRID lattice
