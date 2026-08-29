@@ -271,6 +271,20 @@ export function clearStore() {
 /* Debug: give yourself money. */
 export function grantStars(n) { return addStars(n); }
 
+/* Debug: ONE permanent upgrade at an exact level, free. The talent bench's
+   version of the same question it asks of a talent — "give me this, at this
+   rank, now" — and the only way to look at Cluster on purpose, since it is a
+   home upgrade rather than a draftable talent and so is not in the other
+   catalogue at all. Clamped by the caller, which is the half that knows what
+   maxLevel() says. */
+export function setStoreLevel(id, n) {
+  const m = readMap(STORE_KEY);
+  if (n > 0) m[id] = n; else delete m[id];
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(m)); } catch (e) {}
+  onChange();
+  return storeLevel(id);
+}
+
 /* Debug: every permanent upgrade at max, free. */
 export function maxStore() {
   const m = {};

@@ -71,6 +71,21 @@
   .item.homesick{transition:text-shadow .25s ease}
 }
 
+/* JUST GATHERED — the tail of Cluster's slide (performCluster in js/main.js).
+   A brief flare as each one lands, so a room where thirty-two things moved at
+   once reads as thirty-two arrivals rather than a blur that has already
+   stopped. text-shadow rather than transform, for the same reason .homesick is:
+   the item's transform is set inline and carries its resting rotation, which a
+   keyframe would throw away. */
+.item.gathered{ animation:gathered .68s ease-out }
+@keyframes gathered{
+  0%  { text-shadow:0 0 6px #fff, 0 0 15px var(--gold), 0 0 28px var(--gold) }
+  100%{ text-shadow:0 2px 1.5px rgba(0,0,0,.35) }
+}
+@media (prefers-reduced-motion:reduce){
+  .item.gathered{ animation:none }
+}
+
 /* Debug: where is the key. Lifted above the clutter it is hiding under, ringed
    and pulsing, so it reads through a pile of forty other emoji. */
 .item.revealed{

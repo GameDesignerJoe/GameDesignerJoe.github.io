@@ -175,7 +175,7 @@
       "cost": [10, 20, 35, 55],
       "desc": "+1 hand slot, in every house, forever. Haul more per trip." },
 
-    { "_note": "A STORE UPGRADE AND NOT A TALENT, and that is forced rather than chosen: it only fires on a FIRST entry to a room, so a drafted version would be dead in every room already walked through — including the one the level opens in. Bought, it is true from the first frame of every house. Each level widens both dials, one more KIND of thing and one more OF each, which is what makes eight levels worth climbing rather than eight of the same step.",
+    { "_note": "A STORE UPGRADE AND NOT A TALENT, and that is forced rather than chosen: it only fires on a FIRST entry to a room, so a drafted version would be dead in every room already walked through — including the one the level opens in. Bought, it is true from the first frame of every house. Each level widens both dials, one more KIND of thing and one more OF each, which is what makes eight levels worth climbing rather than eight of the same step. AND IT IS PERFORMED NOW. It fires before the room has been drawn even once, so for a long time the whole effect was a room that happens to be tidier than it might have been — reported, inevitably, as 'it is at max level and I never see it'. The magnitude was never the problem: at level 8 it moves up to thirty-two things. The matching things visibly slide together as you walk in and flare as they land (performCluster in js/main.js).",
       "id": "cluster", "name": "Cluster", "icon": "🌀", "levels": 8,
       "cost": [3, 4, 5, 6, 8, 10, 12, 15],
       "desc": "Walk into a room for the first time and matching things slide together. One more kind, and one more of each, per level." },

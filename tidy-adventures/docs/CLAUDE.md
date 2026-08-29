@@ -1060,6 +1060,27 @@ missing here with nothing to say so.
 otherwise testing a talent costs you the draft you were going to test it against,
 and free play's ✨ counter starts lying about how far through its offer you are.
 
+**It lists BOTH catalogues.** Cluster is a home upgrade, so it was in no list the
+bench showed and there was no way to look at it on purpose at all — you bought it
+at the shop, started a house, and watched a room you had never seen before be
+slightly tidier than it might have been. The home upgrades are a second group
+under a labelled rule, because they are PERMANENT where the talents are not:
+pressing one writes localStorage, survives the run and is still there next house.
+`benchApplyStore()` tells the live run (`resumeStore()` — hand slots, the pet's
+clock and the holdall all read the store at start-up), and for Cluster
+specifically re-runs the gather in the room you are standing in.
+
+Unlike the talent half it does **not** need a run — a permanent upgrade is
+meaningful with no house open, which is the whole point of one. What it must not
+do is repaint a house that does not exist: it threw reading `.shape` off
+`undefined`, the same shape as the gear's own note about "+1 ⭐" repainting a HUD
+with no rooms in it.
+
+A ladder of five rungs or more (`benchRow` adds `.wide`) drops under the text
+rather than sitting beside it. Cluster has nine buttons, which next to a
+paragraph leaves the description about fifty pixels wide and turns it into one
+word per line.
+
 **Rank 0 is a real argument**, and the only way back off a talent. Without it the
 bench is one-way and the second thing you test is tested through the first. Every
 downward path was already written and already needed: `bagSync()` spills a
@@ -1144,6 +1165,38 @@ wrong at both ends of that range.
 
 **Reduced motion gets the callbacks and not the clones**, on the same schedule,
 so the sounds and the counts are identical and only the movement is missing.
+
+### Cluster — the same bug, and the opposite technique
+
+**Cluster is a HOME upgrade, and it had exactly the problem the talents had.** It
+fires on a first entry, before the room has been drawn even once, so the whole
+effect was a room that happens to be tidier than it might have been. Reported the
+way that always gets reported: *"it is at max level and I never see it."* The
+magnitude was never wrong — at level 8 it moves up to thirty-two things — it was
+simply invisible.
+
+**FLIP, not clones.** These items STAY on the floor and are the same objects
+afterwards, so `performCluster()` moves the real elements: the data has already
+moved (every caller mutates first, the rule everywhere in this file), the room
+paints them gathered, and then each element is snapped back to where it started,
+the layout forced, and let go. There is no half-moved state at any point, and an
+item grabbed mid-slide is simply an item where the data says it is. It has to
+clear its own inline `transition` afterwards, or the next DRAG of that item
+animates at 640ms — dragging writes `left`/`top` the same way this does.
+
+640ms rather than a talent flight's 400: thirty-two emoji crossing a floor in
+400ms is a blur that has already stopped. Each one flares as it lands
+(`.item.gathered`) so a big gather reads as thirty-two arrivals.
+
+**The two first-entry effects are SEQUENCED.** Things converging and things
+leaving are different sentences and play as noise on top of each other, so
+`enterRoom()` runs the gather at `T.slide + 120` and holds the exodus until it
+has landed. That is also why `sendHomeFromRoom()` takes its delay as an argument
+now.
+
+**Buying it mid-run does not retro-fire**, and should not: `G.entered` is what
+stops both first-entry effects being farmed by walking back and forth. The way to
+look at it on purpose is the bench, below.
 
 ## Selecting nothing
 
@@ -1870,8 +1923,14 @@ Run through this after any change; it's what the browser tests cover.
   the same contents show in every room.
 - Homesick lights roughly a quarter of a floor, and an item whose home is
   locked or full stops glowing.
+- Cluster at any level above 0: walk into a room you have not been in and the
+  matching things visibly slide together and flare as they land, ~340ms after
+  the door. With Go to your Room as well, the gather finishes before anything
+  starts leaving. Walk straight out mid-slide and nothing is left half-animated.
 - Talent bench: gear → Debug tools → *Talent bench* → On; a gold ✨ appears in
-  the HUD, and the row still fits on a 320px phone. Every talent at every rank,
+  the HUD, and the row still fits on a 320px phone. The list has both
+  catalogues — pressing a *Home* row works with no house open at all, pressing
+  Cluster re-runs the gather where you are standing. Every talent at every rank,
   then back to 0 — the pet arrives and leaves, the 🧰 button appears and its
   panel closes with anything inside it back on the floor, and `picksTaken` never
   moves. Toggle off mid-run and the button goes; reload and the toggle is still

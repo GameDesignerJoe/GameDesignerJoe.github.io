@@ -47,7 +47,7 @@ import {
 } from './talents.js';
 import {
   initStore, openStore, stars, addStars, storeLevel, clearStore, grantStars,
-  storeState, maxStore, storeSummary, respec,
+  storeState, maxStore, setStoreLevel, storeSummary, respec,
 } from './store.js';
 import { initAudio, play as sfx, settings as audioSettings, setVolume, setMuted,
          playMusic, nowPlayingMusic, musicDebug } from './audio.js';
@@ -2690,16 +2690,22 @@ function enterRoom(roomId){
   const room=G.rooms[roomId];
   if(!room || G.entered.has(roomId)) return;
   G.entered.add(roomId);
-  const clustered=clusterRoom(room), sent=sendHomeFromRoom(room);
+  /* SEQUENCED, not simultaneous. Things converging and things leaving are two
+     different sentences, and played on top of each other they are noise — so
+     the gather runs first and the exodus waits for it to land. Both are
+     deferred past the door slide, because slideTo() calls this BEFORE the new
+     room element exists and a flight has nothing to measure against yet. */
+  const clustered=clusterRoom(room, T.slide+120);
+  const sent=sendHomeFromRoom(room,
+    T.slide+140 + (clustered ? CLUSTER_MS+160 : 0));
   /* IT HAS TO MAKE A NOISE. Both of these rearrange a room the player is
      walking into for the first time, so there is no before-picture to compare
      against — without a sound the whole effect is "the room happens to be
      tidier than it might have been", which is indistinguishable from nothing.
      `whirlwind` was written for a talent that got cut and has had no call site
      since; it is exactly the sound of things sliding together. */
-  /* Cluster only. The exodus plays its own whoosh when the flights start, a
-     second later, so doing it here too would fire before anything moved. */
-  if(clustered) sfx("whirlwind");
+  /* Both play their own sound at the moment they actually move something.
+     Anything said here would fire a second before anything happened. */
   if((clustered||sent) && roomId===G.current) renderRoom();
 }
 
@@ -2710,10 +2716,60 @@ function enterRoom(roomId){
 
    Each level widens BOTH dials, which is what makes the ladder worth climbing:
    one more KIND of thing gathers, and one more OF each kind comes to it. */
-function clusterRoom(room){
+/* HOW LONG THE GATHER TAKES. Slower than a talent flight on purpose: up to
+   thirty-two things move at once at level 8, and a room full of emoji all
+   crossing the floor in 400ms is a flicker rather than an event. */
+const CLUSTER_MS = 640;
+
+/* THE GATHER, PERFORMED. Same trick as the talent flights and the opposite
+   technique, because these items STAY on the floor and are the same objects
+   afterwards: no clones, the real elements move.
+
+   FLIP. The data has already moved — every caller mutates first, which is the
+   rule everywhere in this file — so the room paints them already gathered. This
+   snaps each element back to where it started, forces the layout, and lets it
+   travel forward. There is no half-moved state at any point, and an item the
+   player grabs mid-slide is simply an item that is where the data says it is.
+
+   The room is rebuilt by renderRoom(), so this can only run on elements that
+   are already on screen — a repaint mid-flight loses the animation and keeps
+   the result, which is the right way round. */
+function performCluster(moves, roomId, delay){
+  if(!moves.length) return;
+  setTimeout(()=>{
+    if(!G.active || G.current!==roomId) return;
+    sfx("whirlwind");
+    for(const m of moves){
+      const el=host.querySelector(`.item[data-item="${m.id}"]`);
+      const o=G.items[m.id];
+      if(!el || !o || o.loc.kind!=="floor") continue;
+      el.style.transition="none";
+      el.style.left=m.x+"%";
+      el.style.top=m.y+"%";
+      void el.offsetWidth;                       /* commit the rewind */
+      el.style.transition=`left ${CLUSTER_MS}ms cubic-bezier(.34,.8,.32,1), `+
+                          `top ${CLUSTER_MS}ms cubic-bezier(.34,.8,.32,1)`;
+      el.style.left=o.loc.x+"%";
+      el.style.top=o.loc.y+"%";
+      setTimeout(()=>{
+        /* Clear the inline transition or the next DRAG of this item animates
+           at 640ms — dragging writes left/top the same way this does. */
+        el.style.transition="";
+        el.classList.add("gathered");
+        setTimeout(()=>el.classList.remove("gathered"), 700);
+      }, CLUSTER_MS);
+    }
+    /* One thump for the whole thing landing, not thirty-two. */
+    setTimeout(()=>sfx("scatter"), CLUSTER_MS - 60);
+  }, delay);
+}
+
+function clusterRoom(room, delay=0){
   const lv=storeLevel("cluster");
   if(!lv) return 0;
   const types=lv, per=Math.min(5, lv+1);
+  /* Where each one started, read before it moves — see performCluster. */
+  const moves=[];
   /* Most-numerous first: the pile that is worst to look at is the one worth
      tidying, and it makes the effect visible rather than statistical. */
   const byType=new Map();
@@ -2745,10 +2801,17 @@ function clusterRoom(room){
       const th=(k*2.39996), rad=7+k*2;
       const sp=nearestFloorSpot(room,
         anchor.loc.x+Math.cos(th)*rad, anchor.loc.y+Math.sin(th)*rad, {padName:"toss"});
+      moves.push({id:o.id, x:o.loc.x, y:o.loc.y});
       o.loc={kind:"floor",room:room.id,x:sp.x,y:sp.y,rot:spin(20)};
       moved++; k++;
     }
   }
+  /* IT WAS INVISIBLE, AND THE MAGNITUDE WAS NEVER THE PROBLEM. At level 8 this
+     moves up to thirty-two things — but it fires on a FIRST entry, before the
+     room has been drawn even once, so the whole effect was a room that happens
+     to be tidier than it might have been. Exactly the failure Go to your Room
+     had, reported the same way: "Cluster is at max and I never see it". */
+  performCluster(moves, room.id, delay);
   return moved;
 }
 
@@ -2761,7 +2824,7 @@ function clusterRoom(room){
    on a big one. The hard cap does the same job from the other side: a
    percentage of a 60-item room is a mass exodus that reads as the game playing
    itself. */
-function sendHomeFromRoom(room){
+function sendHomeFromRoom(room, delay=T.slide+140){
   const lv=G.up.goHome|0;
   if(!lv) return 0;
   const pct=[0, 0.05, 0.10, 0.25][Math.min(lv,3)] || 0;
@@ -2807,7 +2870,7 @@ function sendHomeFromRoom(room){
 
      Waits for the room to arrive: slideTo() takes T.slide to bring it in, and a
      flight measured against the room being slid OUT starts in the wrong place. */
-  performExodus(flights, room.id, T.slide+140);
+  performExodus(flights, room.id, delay);
   if(moved) say(`${moved} thing${moved>1?"s":""} let themselves out.`);
   return moved;
 }
@@ -4874,52 +4937,94 @@ const BENCH_WHEN = {
   meToo:     "Waits for the next row you finish.",
   surface:   "Hold something to see it.",
   goHome:    "Only ever fires on the way into a room — the bench re-runs it for this one.",
+  cluster:   "Only ever fires on the way into a room — the bench re-runs it for this one.",
+  petCarry:  "Only useful in a house where you have a helper.",
+  petCount:  "Only useful in a house where you have a helper.",
+  petSkin:   "Only useful in a house where you have a helper.",
 };
+
+/* ONE ROW, whichever catalogue it came from. `kind` rides on the buttons so
+   the click handler knows whether it is writing a run's talents or the
+   permanent store — the two look identical and are stored nowhere near each
+   other. */
+function benchRow(u, kind, lvl, max){
+  /* A LONG LADDER GOES UNDER THE TEXT. Cluster has eight levels, so nine
+     buttons, which beside a paragraph leaves the description about fifty pixels
+     wide and turns it into one word per line. Keyed off the button count rather
+     than the viewport: the 320px rule below does the same thing for the same
+     reason, and a nine-rung row is too wide on any phone. */
+  const row=mkEl("div","shoprow benchrow"+(max>=5?" wide":""));
+  const info=mkEl("div","sinfo");
+  const name=mkEl("div","sname");
+  name.appendChild(mkEl("span",null,`${u.icon||""} ${u.name}`));
+  name.appendChild(mkEl("span","slvl", max>1
+    ? (kind==="store" ? `level ${lvl}/${max}` : `rank ${lvl}/${max}`)
+    : (lvl?"on":"off")));
+  info.appendChild(name);
+  info.appendChild(mkEl("div","sdesc", tokenise(u.desc, u.params||{})));
+  if(BENCH_WHEN[u.id]) info.appendChild(mkEl("div","benchwhen", BENCH_WHEN[u.id]));
+  row.appendChild(info);
+
+  /* A STRIP OF RANKS, NOT A +1. "Give me this at rank 3" is the question you
+     came here with, and stepping it four times means four grants, four sounds
+     and four toasts to ask it once. 0 is included because it is the only way
+     back off one — without it the bench is one-way and the second thing you
+     test is tested through the first one.
+
+     EVERY entry in either catalogue has levels > 1 today, so the single-button
+     branch is currently unreachable. It is written anyway: `levels` is the one
+     knob upgrades.json says is the whole knob, and something authored at 1
+     would otherwise render a bare "0 1" that reads like a broken rank. */
+  const ranks=mkEl("div","benchranks");
+  if(max>1){
+    for(let n=0;n<=max;n++){
+      const b=mkEl("button",null,String(n));
+      b.dataset.id=u.id; b.dataset.lvl=String(n); b.dataset.kind=kind;
+      if(n===lvl) b.classList.add("dbgon");
+      ranks.appendChild(b);
+    }
+  }else{
+    const b=mkEl("button",null, lvl ? "On ✓" : "Give");
+    b.dataset.id=u.id; b.dataset.lvl = lvl ? "0" : "1"; b.dataset.kind=kind;
+    if(lvl) b.classList.add("dbgon");
+    ranks.appendChild(b);
+  }
+  row.appendChild(ranks);
+  return row;
+}
 
 function renderBench(){
   $("#benchSub").textContent = G.active
-    ? "Every talent, at any rank. Picking one closes this and applies it to the house you are in."
-    : "No house open — the bench writes into a run's talents, so start one first.";
+    ? "Everything either catalogue can give you, at any level. Picking one closes this and applies it to the house you are in."
+    /* Half true is worse than either: the talents need a run and the permanent
+       upgrades genuinely do not, so say which is which. */
+    : "No house open. The talents need one — the permanent upgrades at the bottom don't.";
   const list=$("#benchList");
   list.innerHTML="";
   for(const u of DATA.upgrades.upgrades){
-    const max=maxLevel(u), lvl=G.up[u.id]|0;
-    const row=mkEl("div","shoprow benchrow");
-    const info=mkEl("div","sinfo");
-    const name=mkEl("div","sname");
-    name.appendChild(mkEl("span",null,`${u.icon||""} ${u.name}`));
-    name.appendChild(mkEl("span","slvl", max>1 ? `rank ${lvl}/${max}` : (lvl?"on":"off")));
-    info.appendChild(name);
-    info.appendChild(mkEl("div","sdesc", tokenise(u.desc, u.params||{})));
-    if(BENCH_WHEN[u.id]) info.appendChild(mkEl("div","benchwhen", BENCH_WHEN[u.id]));
-    row.appendChild(info);
+    list.appendChild(benchRow(u, "talent", G.up[u.id]|0, maxLevel(u)));
+  }
 
-    /* A STRIP OF RANKS, NOT A +1. "Give me this at rank 3" is the question you
-       came here with, and stepping it four times means four grants, four
-       sounds and four toasts to ask it once. 0 is included because it is the
-       only way back off a talent — without it the bench is one-way and the
-       second thing you test is tested through the first one.
+  /* THE OTHER CATALOGUE, and it is here because of Cluster.
 
-       EVERY talent in upgrades.json has levels > 1 today, so the single-button
-       branch is currently unreachable. It is written anyway: `levels` is the
-       one knob the file says is the whole knob, and a talent authored at 1
-       would otherwise render a bare "0 1" that reads like a broken rank. */
-    const ranks=mkEl("div","benchranks");
-    if(max>1){
-      for(let n=0;n<=max;n++){
-        const b=mkEl("button",null,String(n));
-        b.dataset.id=u.id; b.dataset.lvl=String(n);
-        if(n===lvl) b.classList.add("dbgon");
-        ranks.appendChild(b);
-      }
-    }else{
-      const b=mkEl("button",null, lvl ? "On ✓" : "Give");
-      b.dataset.id=u.id; b.dataset.lvl = lvl ? "0" : "1";
-      if(lvl) b.classList.add("dbgon");
-      ranks.appendChild(b);
+     Cluster is a HOME upgrade, not a draftable talent, so it was in no list the
+     bench showed and there was no way to look at it on purpose at all — you
+     bought it at the shop, started a house, and watched a room you had never
+     seen before be slightly tidier than it might have been. "It is at max and I
+     never see it" is the only report that could ever come out of that.
+
+     Separated and labelled, because these are PERMANENT and the talents above
+     are not: pressing one here writes localStorage, survives the run, and is
+     still there on the next house. */
+  const store=DATA.upgrades.store||[];
+  if(store.length){
+    const head=mkEl("div","benchhead");
+    head.appendChild(mkEl("span",null,"Home — permanent"));
+    head.appendChild(mkEl("i",null,"kept between houses"));
+    list.appendChild(head);
+    for(const u of store){
+      list.appendChild(benchRow(u, "store", storeLevel(u.id), maxLevel(u)));
     }
-    row.appendChild(ranks);
-    list.appendChild(row);
   }
 }
 
@@ -4957,9 +5062,47 @@ function benchApply(id, lvl){
 
 $("#benchBtn").addEventListener("click",()=>{ sfx("uiTap"); renderBench(); $("#benchOverlay").classList.add("open"); });
 $("#benchClose").addEventListener("click",()=>{ sfx("uiTap"); $("#benchOverlay").classList.remove("open"); });
+/* PERMANENT, and the differences from benchApply() are all downstream of that.
+   It writes localStorage rather than the run, it does not need a run to be
+   meaningful, and the run has to be TOLD — hand slots, the pet's clock and the
+   holdall all read the store at start-up and would otherwise not notice until
+   the next house. */
+function benchApplyStore(id, lvl){
+  $("#benchOverlay").classList.remove("open");
+  const u=(DATA.upgrades.store||[]).find(x=>x.id===id);
+  if(!u) return null;
+  const max=maxLevel(u);
+  const now=setStoreLevel(id, Math.max(0, Math.min(max, lvl|0)));
+  refreshTitle();
+  if(G.active){ resumeStore(); renderHUD(); renderInv(); }
+  sfx("talent");
+  say(`${u.icon||"✨"} ${u.name} — level ${now}, kept`, {priority:2});
+  /* CLUSTER ONLY EVER FIRES ON A FIRST ENTRY, so setting its level and stopping
+     there does nothing in the room you are looking at — the same shape as Go to
+     your Room, and the reason this row exists at all. Run it here by hand rather
+     than through enterRoom(): that is guarded by G.entered and clearing the
+     guard would re-arm the exodus too, which is a different talent that has
+     already had its turn in this room. */
+  if(id==="cluster" && now && G.active){
+    if(!clusterRoom(G.rooms[G.current], 60)){
+      say("Nothing to gather — no two loose things of a kind on this floor.",
+          {priority:2});
+    }
+  }
+  /* A PERMANENT UPGRADE DOES NOT NEED A RUN — that is the whole difference
+     between this and benchApply(), which refuses without one. What it must not
+     do is repaint a house that does not exist: render() walks G.rooms[G.current]
+     and threw reading `.shape` off undefined, which is the same shape as the
+     gear's own note about "+1 ⭐" repainting a HUD with no rooms in it. */
+  if(G.active){ render(); scheduleSave(); }
+  return now;
+}
+
 $("#benchList").addEventListener("click",e=>{
   const b=e.target.closest("button[data-id]");
-  if(b) benchApply(b.dataset.id, +b.dataset.lvl);
+  if(!b) return;
+  if(b.dataset.kind==="store") benchApplyStore(b.dataset.id, +b.dataset.lvl);
+  else benchApply(b.dataset.id, +b.dataset.lvl);
 });
 
 $("#shopBtn").addEventListener("click",()=>{ fire("shop"); renderTalents(); $("#shopOverlay").classList.add("open"); });
@@ -5828,7 +5971,8 @@ window.tidy = {
      rank, `tidy.talent("meToo", 0)` takes it away, and `tidy.bench()` opens the
      panel without needing the toggle on — a console call is already deliberate,
      the same argument wipeAll() makes for skipping its arming. */
-  talent:benchApply, bench:()=>{ renderBench(); $("#benchOverlay").classList.add("open"); },
+  talent:benchApply, home:benchApplyStore, cluster:()=>clusterRoom(G.rooms[G.current], 60),
+  bench:()=>{ renderBench(); $("#benchOverlay").classList.add("open"); },
   talentBench:on=>{ const v=setBench(on!==false); syncBenchBtn(); return v; },
   /* `tidy.unlockAll()` / `tidy.unlockAll(false)` / `tidy.progress()`. The gear
      button is the same call; this is here because "open every job" is a thing
