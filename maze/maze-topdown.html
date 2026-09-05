@@ -12,6 +12,9 @@
   canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
   #hud { position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:16px; right:16px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
   #hud span { pointer-events:auto; }
+  #stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:150px; height:150px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
+  #knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
+  #stick.on #knob { background:rgba(185,180,168,.32); }
   #msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:rgba(13,15,16,.72); }
   #msg.show { display:grid; }
   #msg h1 { font-weight:400; font-size:28px; margin:0 0 6px; color:#e8e3d6; }
@@ -22,12 +25,13 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud"><span id="seedLbl"></span><span id="stepLbl"></span></div>
+<div id="stick"><div id="knob"></div></div>
 <div id="msg"><div><h1>You found the way out.</h1><p id="msgStats"></p><small>Tap for a new maze</small></div></div>
 
 <script>
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
-// Touch anywhere: the block heads toward your finger. Hold to steer, tap to send.
+// Joystick: push a direction and the block steps a tile at a time that way while held.
 // ?seed=1234 in the URL locks the maze.  ` (backtick) or triple-tap
 // the top-right corner toggles the full-map debug view.
 // ───────────────────────────────────────────────────────────────
@@ -37,7 +41,8 @@ const CONFIG = {
   tilePx: 60,          // zoom: screen pixels per tile. 60 ≈ 6 tiles across a phone
   viewRadius: 1.0,     // cells of visibility around you
   fogSoftness: 1.4,    // how many tiles the light takes to fade to black
-  speed: 3.6,          // tiles per second
+  stepMs: 110,         // how long one tile-step takes
+  holdRepeatMs: 40,    // pause between steps while holding
   playerSize: 0.46,    // fraction of a tile
   braid: 0.0,          // 0 = perfect maze (one solution). 0.1 knocks out 10% of dead ends → loops
   cameraLag: 0.14,     // 0 = locked on player, higher = floatier
@@ -99,89 +104,81 @@ function generate(seed) {
 
 // ── state ───────────────────────────────────────────────────────
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let player, cam, target = null, steps = 0, t0 = 0, solved = false, debugMap = false;
-let lastTile = null;
+let player, cam, steps = 0, t0 = 0, solved = false, debugMap = false;
 function reset(seed) {
   SEED = seed;
   try { history.replaceState(null, '', '?seed=' + SEED); } catch (e) { /* sandboxed preview: URL can't be changed, seed still shown in HUD */ }
   generate(SEED);
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = performance.now(); solved = false; lastTile = null;
+  steps = 0; t0 = performance.now(); solved = false; tween = null; held = null;
   document.getElementById('seedLbl').textContent = 'seed ' + SEED;
   document.getElementById('msg').classList.remove('show');
 }
 
-// ── input: tap / hold to move ───────────────────────────────────
-let pointerDown = false, downAt = 0, stuckFor = 0, lastPos = null;
+// ── input: joystick → grid direction ────────────────────────────
+let taps = [];
+let held = null;   // {dx,dy} while the stick is pushed past the deadzone
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;   // set each frame by draw()
-function toWorld(cx, cy) { return { x: (cx - viewOx) / viewS, y: (cy - viewOy) / viewS }; }
+const stickEl = document.getElementById('stick'), knob = document.getElementById('knob');
+const KNOB_MAX = 46, DEADZONE = 0.25;
+let stickId = null;
+function stickCenter() { const b = stickEl.getBoundingClientRect(); return { x: b.left + b.width/2, y: b.top + b.height/2 }; }
+function setStick(clientX, clientY) {
+  const c = stickCenter(); const dx = clientX - c.x, dy = clientY - c.y;
+  const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
+  knob.style.transform = `translate(${dx/len*k}px, ${dy/len*k}px)`;
+  if (len / KNOB_MAX < DEADZONE) { held = null; return; }
+  held = Math.abs(dx) > Math.abs(dy) ? { dx: Math.sign(dx), dy: 0 } : { dx: 0, dy: Math.sign(dy) };
+}
+function clearStick() { held = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
+stickEl.addEventListener('pointerdown', e => { stickId = e.pointerId; stickEl.classList.add('on'); stickEl.setPointerCapture(e.pointerId); setStick(e.clientX, e.clientY); e.preventDefault(); });
+stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
+stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
+
+// triple-tap top-right = debug map (mobile)
 cv.addEventListener('pointerdown', e => {
-  if (e.clientX > innerWidth - 90 && e.clientY < 90) return;   // debug corner
-  pointerDown = true; downAt = performance.now(); target = toWorld(e.clientX, e.clientY); stuckFor = 0;
-  cv.setPointerCapture(e.pointerId); e.preventDefault();
+  if (e.clientX > innerWidth - 90 && e.clientY < 90) { const n = performance.now(); taps = taps.filter(t => n - t < 700); taps.push(n); if (taps.length >= 3) { debugMap = !debugMap; taps = []; } }
 });
-cv.addEventListener('pointermove', e => { if (pointerDown) target = toWorld(e.clientX, e.clientY); });
-function release() { if (!pointerDown) return; pointerDown = false; if (performance.now() - downAt > 220) target = null; }
-cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
-function clearStick() { target = null; pointerDown = false; }
 
 // keyboard for desktop testing
 const keys = {};
 addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') debugMap = !debugMap; });
 addEventListener('keyup', e => keys[e.key] = false);
 
-// triple-tap top-right = debug map (mobile)
-let taps = [];
-cv.addEventListener('pointerdown', e => {
-  if (e.clientX > innerWidth - 90 && e.clientY < 90) { const n = performance.now(); taps = taps.filter(t => n - t < 700); taps.push(n); if (taps.length >= 3) { debugMap = !debugMap; taps = []; } }
-});
 document.getElementById('msg').addEventListener('pointerdown', () => reset((Math.random()*1e9)|0));
 
-// ── physics: circle vs tile AABB, axis-separated so you slide along walls ──
-function solid(tx, ty) { return !(tiles[ty]?.[tx]); }
-function moveAxis(axis, d) {
-  const r = CONFIG.playerSize / 2;
-  player[axis] += d;
-  const minX = Math.floor(player.x - r), maxX = Math.floor(player.x + r);
-  const minY = Math.floor(player.y - r), maxY = Math.floor(player.y + r);
-  for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-    if (!solid(tx, ty)) continue;
-    // nearest point on tile to player center
-    const nx = Math.max(tx, Math.min(player.x, tx+1)), ny = Math.max(ty, Math.min(player.y, ty+1));
-    const dx = player.x - nx, dy = player.y - ny, dist = Math.hypot(dx, dy);
-    if (dist < r) {
-      if (axis === 'x') player.x = d > 0 ? tx - r : tx + 1 + r;
-      else               player.y = d > 0 ? ty - r : ty + 1 + r;
-    }
-  }
+// ── movement: one tile at a time, tweened ───────────────────────
+let tween = null;   // {fx,fy,tx,ty,t0}
+let nextStepAt = 0;
+function tryStep(d) {
+  if (solved || tween || !d || (!d.dx && !d.dy)) return false;
+  const cx = Math.floor(player.x), cy = Math.floor(player.y);
+  const nx = cx + d.dx, ny = cy + d.dy;
+  if (!tiles[ny]?.[nx]) return false;                 // wall
+  tween = { fx: cx + 0.5, fy: cy + 0.5, tx: nx + 0.5, ty: ny + 0.5, t0: performance.now() };
+  steps++; document.getElementById('stepLbl').textContent = steps + ' tiles';
+  return true;
 }
 
 // ── update ──────────────────────────────────────────────────────
 let last = performance.now();
 function update(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  let ix = 0, iy = 0;
-  if (target) {
-    const dx = target.x - player.x, dy = target.y - player.y, d = Math.hypot(dx, dy);
-    if (d < 0.08) target = pointerDown ? target : null;
-    else { const m = Math.min(1, d / 0.6); ix = dx / d * m; iy = dy / d * m; }   // ease in the last half-tile
+  // keyboard
+  const kd = (keys.ArrowLeft||keys.a) ? {dx:-1,dy:0} : (keys.ArrowRight||keys.d) ? {dx:1,dy:0}
+           : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
+  if (tween) {
+    let k = Math.min(1, (now - tween.t0) / CONFIG.stepMs);
+    const e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;   // ease in-out
+    player.x = tween.fx + (tween.tx - tween.fx) * e;
+    player.y = tween.fy + (tween.ty - tween.fy) * e;
+    if (k >= 1) { tween = null; nextStepAt = now + CONFIG.holdRepeatMs; }
+  } else if (now >= nextStepAt) {
+    tryStep(held || kd);
   }
-  if (keys.ArrowLeft || keys.a) ix -= 1; if (keys.ArrowRight || keys.d) ix += 1;
-  if (keys.ArrowUp || keys.w) iy -= 1; if (keys.ArrowDown || keys.s) iy += 1;
-  const m = Math.hypot(ix, iy); if (m > 1) { ix /= m; iy /= m; }
-  if (!solved && (ix || iy)) {
-    const before = { x: player.x, y: player.y };
-    moveAxis('x', ix * CONFIG.speed * dt);
-    moveAxis('y', iy * CONFIG.speed * dt);
-    // tapped into a wall: give up after a moment instead of grinding
-    if (Math.hypot(player.x - before.x, player.y - before.y) < 0.002) { stuckFor += dt; if (stuckFor > 0.25 && !pointerDown) target = null; }
-    else stuckFor = 0;
-  }
-  const tile = (player.x|0) + ',' + (player.y|0);
-  if (tile !== lastTile) { if (lastTile) steps++; lastTile = tile; document.getElementById('stepLbl').textContent = steps + ' tiles'; }
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
-  if (!solved && (player.x|0) === exit.x && (player.y|0) === exit.y) {
+  if (!solved && !tween && (player.x|0) === exit.x && (player.y|0) === exit.y) {
     solved = true; clearStick();
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     document.getElementById('msgStats').textContent = `${steps} tiles in ${secs}s · seed ${SEED}`;
@@ -201,7 +198,7 @@ function draw() {
 
   let S = CONFIG.tilePx, ox, oy;
   if (debugMap) { S = Math.min(vw / W, (vh - 200) / H); ox = (vw - W*S)/2; oy = (vh - H*S)/2 - 60; }
-  else { ox = vw/2 - cam.x*S; oy = vh/2 - cam.y*S; }
+  else { ox = vw/2 - cam.x*S; oy = vh*0.42 - cam.y*S; }
   viewS = S; viewOx = ox; viewOy = oy;
 
   // visible tile range
