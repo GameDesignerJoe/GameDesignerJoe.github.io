@@ -47,7 +47,7 @@
   #title .ver { margin-top:14px; text-align:center; font-size:12px; opacity:.4; }
   #fade { position:fixed; inset:0; background:#0d0f10; pointer-events:none; opacity:0; }
   #fade.in { opacity:1; }
-  #fade.out { opacity:0; transition:opacity 1.4s ease-out; }
+  #fade.out { opacity:0; transition:opacity 3.2s ease-in-out; }
   #msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:rgba(13,15,16,.72); }
   #msg.show { display:grid; }
   #msg h1 { font-weight:400; font-size:32px; margin:0 0 18px; color:#e8e3d6; }
@@ -71,6 +71,7 @@
   <label><input type="checkbox" id="optArrow"> Point to end</label>
   <label><input type="checkbox" id="optPath"> Show path</label>
   <label><input type="checkbox" id="optMap"> Full map</label>
+  <label><input type="checkbox" id="optSound" checked> Sound</label>
   <button id="update">Update app</button>
   <div class="ver" id="verDbg"></div>
 </div>
@@ -101,7 +102,7 @@
 <div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Get lost</button></div></div>
 
 <script>
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -143,8 +144,12 @@ const CONFIG = {
 
   // narrator
   narratorEverySec: 120,// seconds between lines
-  narratorFirstSec: 45, // first line arrives sooner
+  narratorFirstSec: 2.5,// first line arrives just after the fade
   narratorHoldSec: 6,   // how long a line stays readable (plus fades)
+
+  sound: true,          // ambient drone + effects (toggle in the gear panel)
+  musicVolume: 0.35,
+  sfxVolume: 0.8,
 
   colors: {
     bg:    '#0d0f10',
@@ -286,6 +291,73 @@ function generate(seed) {
   }
 }
 
+
+// ── audio: synthesized, no files ────────────────────────────────
+const AUDIO = (() => {
+  let ac, master, musicBus, sfxBus, drone = null, enabled = CONFIG.sound;
+  function ensure() {
+    if (ac) return true;
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
+    master = ac.createGain(); master.connect(ac.destination);
+    musicBus = ac.createGain(); musicBus.gain.value = CONFIG.musicVolume; musicBus.connect(master);
+    sfxBus = ac.createGain(); sfxBus.gain.value = CONFIG.sfxVolume; sfxBus.connect(master);
+    master.gain.value = enabled ? 1 : 0;
+    return true;
+  }
+  function noiseBuffer(sec) { const b = ac.createBuffer(1, ac.sampleRate * sec, ac.sampleRate), d = b.getChannelData(0); for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1; return b; }
+  function startDrone() {
+    if (drone || !ensure()) return;
+    drone = { nodes: [] };
+    const out = ac.createGain(); out.gain.value = 0; out.connect(musicBus);
+    out.gain.linearRampToValueAtTime(1, ac.currentTime + 6);
+    // three slow detuned pads a fifth and an octave apart, filtered
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7; lp.connect(out);
+    [[55, 0], [82.4, 0.6], [110, -0.4], [164.8, 0.3]].forEach(([f, det], i) => {
+      const o = ac.createOscillator(); o.type = i % 2 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = det * 8;
+      const g = ac.createGain(); g.gain.value = i === 0 ? 0.35 : 0.18;
+      const lfo = ac.createOscillator(); lfo.frequency.value = 0.05 + i * 0.023; const lg = ac.createGain(); lg.gain.value = g.gain.value * 0.6;
+      lfo.connect(lg); lg.connect(g.gain); o.connect(g); g.connect(lp); o.start(); lfo.start();
+      drone.nodes.push(o, lfo);
+    });
+    // slow filter sweep so it breathes
+    const flfo = ac.createOscillator(); flfo.frequency.value = 0.017; const fg = ac.createGain(); fg.gain.value = 180; flfo.connect(fg); fg.connect(lp.frequency); flfo.start(); drone.nodes.push(flfo);
+    // wind: filtered noise, very quiet
+    const n = ac.createBufferSource(); n.buffer = noiseBuffer(4); n.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 0.5;
+    const ng = ac.createGain(); ng.gain.value = 0.05; const wl = ac.createOscillator(); wl.frequency.value = 0.09; const wg = ac.createGain(); wg.gain.value = 0.03;
+    wl.connect(wg); wg.connect(ng.gain); n.connect(bp); bp.connect(ng); ng.connect(out); n.start(); wl.start(); drone.nodes.push(n, wl);
+  }
+  function tone(freq, dur, { type = 'sine', vol = 0.3, attack = 0.005, slide = null, bus = null } = {}) {
+    if (!ensure()) return; const t = ac.currentTime;
+    const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus || sfxBus); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(dur, { vol = 0.3, freq = 1500, q = 1, type = 'bandpass' } = {}) {
+    if (!ensure()) return; const t = ac.currentTime;
+    const n = ac.createBufferSource(); n.buffer = noiseBuffer(dur + 0.1);
+    const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t + dur + 0.1);
+  }
+  return {
+    unlock() { if (ensure() && ac.state === 'suspended') ac.resume(); },
+    begin() { this.unlock(); startDrone(); },
+    setEnabled(on) { enabled = on; if (ensure()) master.gain.linearRampToValueAtTime(on ? 1 : 0, ac.currentTime + 0.3); },
+    step(inTunnel) { noise(0.06, { vol: inTunnel ? 0.05 : 0.09, freq: inTunnel ? 400 : 900 + Math.random()*300, q: 2 }); },
+    bump() { tone(70, 0.12, { type: 'triangle', vol: 0.25, slide: 40 }); },
+    chalkDown() { noise(0.18, { vol: 0.22, freq: 3200, q: 0.8, type: 'highpass' }); },
+    chalkUp() { noise(0.1, { vol: 0.15, freq: 2400, q: 1 }); tone(660, 0.12, { vol: 0.08 }); },
+    chalkEmpty() { tone(140, 0.1, { type: 'square', vol: 0.06 }); },
+    pickup() { tone(523, 0.18, { vol: 0.14 }); setTimeout(() => tone(784, 0.3, { vol: 0.14 }), 90); },
+    pickupChalk() { tone(440, 0.12, { vol: 0.1 }); noise(0.08, { vol: 0.1, freq: 2600 }); },
+    key() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.35, { vol: 0.12 }), i * 110)); },
+    locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
+    narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
+    exit() { [261, 329, 392, 523, 659].forEach((f, i) => setTimeout(() => tone(f, 1.4, { vol: 0.12, attack: 0.05 }), i * 160)); },
+  };
+})();
+
 // ── state ───────────────────────────────────────────────────────
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 let player, cam, steps = 0, t0 = 0, solved = false, debugMap = false, started = false;
@@ -306,9 +378,9 @@ function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.togg
 function useChalk() {
   if (solved || !started) return;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
-  if (marks.has(key)) { marks.delete(key); chalk++; }
-  else if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; }
-  else { chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); }
+  if (marks.has(key)) { marks.delete(key); chalk++; AUDIO.chalkUp(); }
+  else if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; AUDIO.chalkDown(); }
+  else { AUDIO.chalkEmpty(); chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); }
   updateChalk();
 }
 function reset(seed) {
@@ -349,6 +421,8 @@ chalkEl.addEventListener('pointerdown', e => { e.stopPropagation(); useChalk(); 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
 $('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
 opt.map.addEventListener('change', () => debugMap = opt.map.checked);
+$('optSound').checked = CONFIG.sound;
+$('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').checked));
 $('update').addEventListener('click', async () => {
   $('update').textContent = 'Updating…';
   try { await fetch(location.href, { cache: 'reload' }); } catch (e) {}
@@ -359,8 +433,9 @@ const keys = {};
 addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') { debugMap = !debugMap; opt.map.checked = debugMap; } });
 addEventListener('keyup', e => keys[e.key] = false);
 
-$('again').addEventListener('click', () => reset((Math.random()*1e9)|0));
+$('again').addEventListener('click', () => { reset((Math.random()*1e9)|0); narrNext = performance.now() + CONFIG.narratorFirstSec * 1000; });
 $('begin').addEventListener('click', () => {
+  AUDIO.begin();
   const fade = $('fade'); fade.className = 'in'; $('title').classList.add('hide');
   requestAnimationFrame(() => requestAnimationFrame(() => { fade.className = 'out'; started = true; t0 = performance.now(); narrNext = t0 + CONFIG.narratorFirstSec * 1000; }));
 });
@@ -372,7 +447,7 @@ function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(play
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 function snapPerp(d) { if (d.dx) player.y = Math.floor(player.y) + 0.5; else player.x = Math.floor(player.x) + 0.5; }
 
-function narrate(text) { narrEl.textContent = text; narrEl.classList.add('show'); narrHideAt = performance.now() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
+function narrate(text) { AUDIO.narrator(); narrEl.textContent = text; narrEl.classList.add('show'); narrHideAt = performance.now() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
 
 let last = performance.now();
 function update(now) {
@@ -382,7 +457,7 @@ function update(now) {
   const want = (solved || !started) ? null : (held || kd);
 
   if (want) {
-    if (!dir) { if (canGo(want)) dir = want; else if (CONFIG.keyGate && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) narrate("Locked. It wants a key."); }
+    if (!dir) { if (canGo(want)) dir = want; else if (CONFIG.keyGate && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
   }
@@ -395,24 +470,25 @@ function update(now) {
     const p = player[axis], n = p + sgn * step;
     const blocked = !passable(Math.floor(cx) + dir.dx, Math.floor(cy) + dir.dy);
     const crossesCenter = (p - c) * sgn <= 0 && (n - c) * sgn >= 0;
-    if (crossesCenter && (blocked || !want)) { player.x = cx; player.y = cy; dir = null; }
+    if (crossesCenter && (blocked || !want)) { player.x = cx; player.y = cy; dir = null; if (blocked && want) AUDIO.bump(); }
     else if (blocked && (p - c) * sgn >= 0) { player.x = cx; player.y = cy; dir = null; }
     else player[axis] = n;
   }
 
   const prevKey = lastTileKey;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
-  if (key !== lastTileKey) { if (lastTileKey) steps++; lastTileKey = key; $('stepLbl').textContent = steps + ' tiles'; }
+  if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; $('stepLbl').textContent = steps + ' tiles'; }
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
     if (DIRS.filter(([dx,dy]) => isOpen(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEndsEntered++;
-    if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); }
+    if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); AUDIO.pickupChalk(); }
     if (pickups.has(key)) {
       const kind = pickups.get(key); pickups.delete(key);
       if (kind === 'pointer') { pointerUntil = now + CONFIG.pointerSeconds * 1000; pointerUses++; }
       else { pathUntil = now + CONFIG.pathSeconds * 1000; pathUses++; }
+      AUDIO.pickup();
     }
-    if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); }
+    if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); AUDIO.key(); }
   }
 
   const fx = [];
@@ -429,7 +505,7 @@ function update(now) {
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   if (!solved && started && (player.x|0) === exit.x && (player.y|0) === exit.y) {
-    solved = true; clearStick(); dir = null; narrEl.classList.remove('show');
+    solved = true; clearStick(); dir = null; narrEl.classList.remove('show'); AUDIO.exit();
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     const optimal = solutionPath.length - 1, ratio = (steps / optimal).toFixed(2);
     const rows = [
