@@ -16,6 +16,9 @@
   #chalk.empty { color:#7d786d; } #chalk.empty i { background:#5a564f; }
   #chalk.shake { animation:shake .3s; }
   @keyframes shake { 25%{transform:translateX(calc(-50% - 5px))} 75%{transform:translateX(calc(-50% + 5px))} }
+  #fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }
+  #fx span { padding:3px 10px; border-radius:14px; font-size:13px; color:#0d0f10; }
+  #fx .ptr { background:#c9b98a; } #fx .pth { background:#6f9c7c; }
   #gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#b9b4a8; font-size:18px; line-height:34px; text-align:center; }
   #dbg { position:fixed; top:calc(env(safe-area-inset-top) + 52px); left:10px; display:none; flex-direction:column; gap:10px; padding:12px 14px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.25); border-radius:8px; }
   #dbg.show { display:flex; }
@@ -24,6 +27,20 @@
   #stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
   #knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
   #stick.on #knob { background:rgba(185,180,168,.32); }
+  #title { position:fixed; inset:0; display:grid; place-items:center; background:rgba(13,15,16,.9); padding:24px; }
+  #title.hide { display:none; }
+  #title .card { max-width:360px; }
+  #title h1 { font-weight:400; font-size:52px; letter-spacing:.06em; margin:0 0 6px; color:#e8e3d6; }
+  #title .sub { margin:0 0 26px; font-size:16px; color:#8d887c; }
+  #title .row { display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; font-size:17px; line-height:1.5; color:#d8d3c6; }
+  #title .row svg { flex:none; width:44px; height:44px; }
+  #title .row b { font-weight:400; color:#ece7da; }
+  #title .row p { margin:0; }
+  #begin { margin-top:10px; padding:14px 0; width:100%; font:inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
+  #begin:active { background:#ece7da; }
+  #fade { position:fixed; inset:0; background:#0d0f10; pointer-events:none; opacity:0; }
+  #fade.in { opacity:1; }
+  #fade.out { opacity:0; transition:opacity 1.4s ease-out; }
   #msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:rgba(13,15,16,.72); }
   #msg.show { display:grid; }
   #msg h1 { font-weight:400; font-size:32px; margin:0 0 18px; color:#e8e3d6; }
@@ -40,12 +57,35 @@
 <div id="hud"><span id="seedLbl"></span><span id="stepLbl"></span></div>
 <div id="gear">⚙</div>
 <div id="chalk"><i></i><span id="chalkN">0</span></div>
+<div id="fx"></div>
 <div id="dbg">
   <label><input type="checkbox" id="optArrow"> Point to end</label>
   <label><input type="checkbox" id="optPath"> Show path</label>
   <label><input type="checkbox" id="optMap"> Full map</label>
 </div>
 <div id="stick"><div id="knob"></div></div>
+<div id="title"><div class="card">
+  <h1>Maze</h1>
+  <p class="sub">Find your way out.</p>
+  <div class="row">
+    <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="none" stroke="#8d887c" stroke-width="1.5"/><circle cx="22" cy="22" r="9" fill="#b9b4a8"/><path d="M22 6l-4 5h8zM22 38l-4-5h8zM6 22l5-4v8zM38 22l-5-4v8z" fill="#8d887c"/></svg>
+    <p><b>Move</b> with the stick at the bottom. Hold a direction and you'll glide; push another way and you'll take the next turn there.</p>
+  </div>
+  <div class="row">
+    <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="11" fill="#a89f8c"/><circle cx="22" cy="22" r="5" fill="#1b1f21"/></svg>
+    <p><b>Find the exit</b>. It's a ring in one of the far corners. You start in the bottom-left.</p>
+  </div>
+  <div class="row">
+    <svg viewBox="0 0 44 44"><rect x="14" y="19" width="22" height="7" rx="2" fill="#ece7da" transform="rotate(-35 22 22)"/></svg>
+    <p><b>Chalk</b> is your memory. You start with 3. The counter at the top shows what's left. Loose pieces lie in dead ends — walk over one to take it.</p>
+  </div>
+  <div class="row">
+    <svg viewBox="0 0 44 44"><path d="M13 13l18 18M31 13L13 31" stroke="#ece7da" stroke-width="3.5" stroke-linecap="round"/></svg>
+    <p><b>Mark the floor</b> by tapping your block (or the counter). One chalk, one X. Stand on an X and tap again to pick the chalk back up.</p>
+  </div>
+  <button id="begin">Begin</button>
+</div></div>
+<div id="fade"></div>
 <div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Get lost</button></div></div>
 
 <script>
@@ -54,7 +94,8 @@
 // Joystick: push a direction; the block glides and takes the turn at the
 // next opening in that direction. Tap the block (or the chalk counter) to spend
 // a chalk on an X mark; tap again on that X to pick the chalk back up.
-// ?seed=1234 in the URL locks the maze. Gear (top-left) = debug options.
+// Refresh = new maze. Add ?seed=1234 to the URL to replay a specific one.
+// Gear (top-left) = debug options.
 // ───────────────────────────────────────────────────────────────
 const CONFIG = {
   cols: 14,             // maze cells across (passages). Tile grid = cols*2+1
@@ -67,8 +108,13 @@ const CONFIG = {
   stickDeadzone: 0.22,  // fraction of stick travel that reads as "not pushing"
   playerSize: 0.46,     // fraction of a tile
   chalkStart: 3,        // chalk you begin with
-  chalkPerPickup: 2,    // marks each found piece is worth
+  chalkPerPickup: 1,    // marks each found piece is worth
   chalkSpawnRate: 0.2,  // fraction of dead ends holding a piece of chalk
+  pointerSpawnRate: 0.15,// fraction of dead ends holding a pointer (arrow to the exit). At least 1, at most pickupMax of each.
+  pathSpawnRate: 0.15,  // fraction of dead ends holding a path reveal
+  pickupMax: 2,         // cap per type per maze
+  pointerSeconds: 30,   // how long the pointer stays on after pickup
+  pathSeconds: 15,      // how long the path stays on after pickup
   braid: 0.0,           // 0 = perfect maze (one solution). 0.1 knocks out 10% of dead ends → loops
   cameraLag: 0.14,      // 0 = locked on player, higher = floatier
   colors: {
@@ -83,6 +129,8 @@ const CONFIG = {
     path:  '#4f7a5a',
     arrow: '#c9b98a',
     chalk: '#ece7da',
+    pointerPickup: '#c9b98a',
+    pathPickup: '#6f9c7c',
   },
 };
 
@@ -94,7 +142,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0
 
 // ── maze generation (recursive backtracker → tile grid) ─────────
 // tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
-let W, H, tiles, start, exit, solutionPath = [], chalkSpots = new Set();
+let W, H, tiles, start, exit, solutionPath = [], chalkSpots = new Set(), pickups = new Map();   // pickups: 'x,y' → 'pointer' | 'path'
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 function generate(seed) {
   const R = rng(seed);
@@ -119,41 +167,57 @@ function generate(seed) {
       if (cands.length) { const [dx,dy] = cands[R()*cands.length|0]; tiles[y+dy][x+dx] = 1; }
     }
   }
-  // start bottom-left; exit = farthest cell by BFS; record the path
+  // start bottom-left; exit in one of the other three corners; BFS for the path
   start = { x: 1.5, y: H - 1.5 };
+  const corners = [[1, 1], [W-2, 1], [W-2, H-2]];
+  const [exX, exY] = corners[R() * 3 | 0];
+  exit = { x: exX, y: exY };
   const dist = Array.from({ length: H }, () => new Int32Array(W).fill(-1));
   const prev = new Map();
-  const q = [[1, H-2]]; dist[H-2][1] = 0; let far = [1, H-2];
+  const q = [[1, H-2]]; dist[H-2][1] = 0;
   while (q.length) {
     const [x, y] = q.shift();
-    for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy; if (tiles[ny]?.[nx] && dist[ny][nx] < 0) { dist[ny][nx] = dist[y][x]+1; prev.set(nx+','+ny, [x,y]); q.push([nx,ny]); if (dist[ny][nx] > dist[far[1]][far[0]]) far = [nx,ny]; } }
+    for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy; if (tiles[ny]?.[nx] && dist[ny][nx] < 0) { dist[ny][nx] = dist[y][x]+1; prev.set(nx+','+ny, [x,y]); q.push([nx,ny]); } }
   }
-  exit = { x: far[0], y: far[1] };
-  solutionPath = []; let cur = far;
+  solutionPath = []; let cur = [exX, exY];
   while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
   solutionPath.reverse();
   // chalk at some dead ends (not start, not exit)
-  chalkSpots = new Set();
+  chalkSpots = new Set(); pickups = new Map();
+  const deadEndKeys = [];
   for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
     const exits = DIRS.filter(([dx,dy]) => tiles[y+dy]?.[x+dx]).length;
     const isStart = x === 1 && y === H-2, isExit = x === exit.x && y === exit.y;
-    if (exits === 1 && !isStart && !isExit && R() < CONFIG.chalkSpawnRate) chalkSpots.add(x+','+y);
+    if (exits !== 1 || isStart || isExit) continue;
+    const r = R(), k = x+','+y; deadEndKeys.push(k);
+    const count = kind => [...pickups.values()].filter(v => v === kind).length;
+    if (r < CONFIG.chalkSpawnRate) chalkSpots.add(k);
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.pointerSpawnRate) { if (count('pointer') < CONFIG.pickupMax) pickups.set(k, 'pointer'); }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (count('path') < CONFIG.pickupMax) pickups.set(k, 'path'); }
   }
+  // guarantee at least one of each, using an empty dead end
+  const free = () => deadEndKeys.filter(k => !chalkSpots.has(k) && !pickups.has(k));
+  const has = kind => [...pickups.values()].includes(kind);
+  for (const kind of ['pointer', 'path']) if (!has(kind)) { const f = free(); if (f.length) pickups.set(f[R()*f.length|0], kind); }
+  if (!chalkSpots.size) { const f = free(); if (f.length) chalkSpots.add(f[R()*f.length|0]); }
 }
 
 // ── state ───────────────────────────────────────────────────────
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let player, cam, steps = 0, t0 = 0, solved = false, debugMap = false;
+let player, cam, steps = 0, t0 = 0, solved = false, debugMap = false, started = false;
 let marks = new Set();     // 'x,y' tiles carrying an X
 let chalk = 0, chalkUsed = 0, chalkFound = 0, deadEnds = 0;
+let pointerUntil = 0, pathUntil = 0;   // performance.now() timestamps
+let pointerUses = 0, pathUses = 0;
 let dir = null;            // direction currently gliding {dx,dy}
+let facing = -Math.PI/2, facingShown = -Math.PI/2;   // radians; starts pointing up
 let held = null;           // direction the stick is pushed {dx,dy}
 let lastTileKey = '';
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;   // set each frame by draw()
-const chalkEl = document.getElementById('chalk');
+const chalkEl = document.getElementById('chalk'), fxEl = document.getElementById('fx');
 function updateChalk() { document.getElementById('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
 function useChalk() {
-  if (solved) return;
+  if (solved || !started) return;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   if (marks.has(key)) { marks.delete(key); chalk++; }
   else if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; }
@@ -162,10 +226,9 @@ function useChalk() {
 }
 function reset(seed) {
   SEED = seed;
-  try { history.replaceState(null, '', '?seed=' + SEED); } catch (e) {}
   generate(SEED);
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEnds = 0; updateChalk();
+  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; facing = facingShown = -Math.PI/2; marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEnds = 0; pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; updateChalk();
   document.getElementById('seedLbl').textContent = 'seed ' + SEED;
   document.getElementById('stepLbl').textContent = '';
   document.getElementById('msg').classList.remove('show');
@@ -207,6 +270,12 @@ addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') { debu
 addEventListener('keyup', e => keys[e.key] = false);
 
 document.getElementById('again').addEventListener('click', () => reset((Math.random()*1e9)|0));
+document.getElementById('begin').addEventListener('click', () => {
+  const fade = document.getElementById('fade');
+  fade.className = 'in';
+  document.getElementById('title').classList.add('hide');
+  requestAnimationFrame(() => requestAnimationFrame(() => { fade.className = 'out'; started = true; t0 = performance.now(); }));
+});
 
 // ── movement: glide along the grid, turn at the next opening ────
 const open = (tx, ty) => !!(tiles[ty]?.[tx]);
@@ -223,7 +292,7 @@ function update(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const kd = (keys.ArrowLeft||keys.a) ? {dx:-1,dy:0} : (keys.ArrowRight||keys.d) ? {dx:1,dy:0}
            : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
-  const want = solved ? null : (held || kd);
+  const want = (solved || !started) ? null : (held || kd);
 
   if (want) {
     if (!dir) { if (canGo(want)) dir = want; }
@@ -231,6 +300,8 @@ function update(now) {
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }   // buffered turn
   }
 
+  if (dir) facing = Math.atan2(dir.dy, dir.dx);
+  { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
   if (dir) {
     const step = CONFIG.speed * dt;
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
@@ -247,6 +318,16 @@ function update(now) {
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   if (key !== lastTileKey) { if (lastTileKey) steps++; lastTileKey = key; document.getElementById('stepLbl').textContent = steps + ' tiles'; }
   if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); }
+  if (pickups.has(key)) {
+    const kind = pickups.get(key); pickups.delete(key);
+    // picking up another just resets the clock
+    if (kind === 'pointer') { pointerUntil = now + CONFIG.pointerSeconds * 1000; pointerUses++; }
+    else { pathUntil = now + CONFIG.pathSeconds * 1000; pathUses++; }
+  }
+  const fx = [];
+  if (pointerUntil > now) fx.push(`<span class="ptr">pointer ${Math.ceil((pointerUntil-now)/1000)}s</span>`);
+  if (pathUntil > now) fx.push(`<span class="pth">path ${Math.ceil((pathUntil-now)/1000)}s</span>`);
+  const fxHtml = fx.join(''); if (fxEl.innerHTML !== fxHtml) fxEl.innerHTML = fxHtml;
   if (key !== prevKey) { const [tx, ty] = key.split(',').map(Number); if (DIRS.filter(([dx,dy]) => open(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEnds++; }
 
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
@@ -259,6 +340,7 @@ function update(now) {
       ['Tiles walked', steps], ['Shortest route', optimal + ' tiles'], ['Wandering', ratio + '× the shortest route'],
       ['Time', secs + 's'], ['Dead ends entered', deadEnds],
       ['Chalk used', chalkUsed], ['Chalk found', chalkFound], ['Marks left behind', marks.size],
+      ['Pointers used', pointerUses], ['Paths used', pathUses],
     ];
     document.getElementById('msgStats').innerHTML = rows.map(([k,v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
     document.getElementById('msgSeed').textContent = 'seed ' + SEED;
@@ -307,6 +389,18 @@ function draw() {
     ctx.save(); ctx.translate(px, py); ctx.rotate(-0.6); ctx.fillRect(-S*0.18, -S*0.055, S*0.36, S*0.11); ctx.restore();
   }
 
+  // pointer / path pickups
+  for (const [k, kind] of pickups) {
+    const [mx, my] = k.split(',').map(Number); const px = ox + mx*S + S/2, py = oy + my*S + S/2;
+    if (kind === 'pointer') {   // small compass needle
+      ctx.fillStyle = C.pointerPickup; ctx.beginPath(); ctx.moveTo(px, py - S*0.2); ctx.lineTo(px + S*0.1, py + S*0.14); ctx.lineTo(px, py + S*0.06); ctx.lineTo(px - S*0.1, py + S*0.14); ctx.closePath(); ctx.fill();
+    } else {                    // coiled thread
+      ctx.strokeStyle = C.pathPickup; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.beginPath();
+      for (let i=0; i<=40; i++) { const t = i/40, a = t*Math.PI*5, r = S*0.05 + t*S*0.14; const x = px + Math.cos(a)*r, y = py + Math.sin(a)*r; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
+      ctx.stroke();
+    }
+  }
+
   // X marks
   ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.lineCap = 'round';
   for (const k of marks) {
@@ -315,16 +409,23 @@ function draw() {
   }
 
   // debug: solution path (under the fog)
-  if (opt.path.checked && solutionPath.length) {
+  const nowMs = performance.now();
+  if ((opt.path.checked || pathUntil > nowMs) && solutionPath.length) {
     ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12); ctx.lineJoin = 'round'; ctx.globalAlpha = 0.8;
     ctx.beginPath();
     solutionPath.forEach(([x,y], i) => { const px = ox + x*S + S/2, py = oy + y*S + S/2; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
     ctx.stroke(); ctx.globalAlpha = 1;
   }
-  // player
-  ctx.fillStyle = C.player;
-  const ps = CONFIG.playerSize * S * 0.92;
-  ctx.fillRect(ox + player.x*S - ps/2, oy + player.y*S - ps/2, ps, ps);
+  // player: triangle, front corner black
+  {
+    const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown);
+    ctx.fillStyle = C.player; ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = C.wall; ctx.beginPath();   // nose
+    ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 
   // fog
   if (!debugMap) {
@@ -336,7 +437,7 @@ function draw() {
   }
 
   // debug: arrow beside the player, pointing at the exit
-  if (opt.arrow.checked && !solved) {
+  if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
     const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
     const px = ox + player.x*S, py = oy + player.y*S, d = S*0.75;
     ctx.save(); ctx.translate(px + Math.cos(ang)*d, py + Math.sin(ang)*d); ctx.rotate(ang);
