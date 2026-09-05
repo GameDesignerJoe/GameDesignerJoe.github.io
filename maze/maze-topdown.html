@@ -23,6 +23,8 @@
   #fx .ptr { background:#c9b98a; } #fx .pth { background:#6f9c7c; }
   #narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#ddd7c8; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 8px #0d0f10, 0 0 22px #0d0f10; }
   #narr.show { opacity:1; }
+  #narr.journal { color:#9a968c; font-style:normal; font-size:17px; }
+  #narr.journal small { display:block; margin-top:8px; font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.6; }
   #gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#b9b4a8; font-size:18px; line-height:34px; text-align:center; }
   #dbg { position:fixed; top:calc(env(safe-area-inset-top) + 52px); left:10px; display:none; flex-direction:column; gap:10px; padding:12px 14px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.25); border-radius:8px; }
   #dbg.show { display:flex; }
@@ -99,10 +101,10 @@
   <div class="ver" id="verTitle"></div>
 </div></div>
 <div id="fade"></div>
-<div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Get lost</button></div></div>
+<div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button></div></div>
 
 <script>
-const VERSION = '0.7.2';
+const VERSION = '0.8.0';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -143,6 +145,8 @@ const CONFIG = {
   pickupExitBuffer: 6,  // dead ends within this many cells (walking) of the exit never hold pickups
   keyGate: true,        // exit is locked; a key waits in some dead end
 
+  journalHoldSec: 9,    // how long a found journal page stays readable
+
   // narrator
   narratorEverySec: 120,// seconds between lines
   narratorFirstSec: 2.5,// first line arrives just after the fade
@@ -169,6 +173,7 @@ const CONFIG = {
     pointerPickup: '#c9b98a',
     pathPickup: '#6f9c7c',
     key:   '#e0c98a',
+    journal:'#b8b0a0',
   },
 };
 
@@ -189,6 +194,46 @@ const NARRATOR = [
   "I keep expecting to meet myself coming the other way.",
 ];
 
+
+// Five past selves. Each maze picks one; its pages are scattered through the rooms, in order.
+const CAST = [
+  { name: 'The Child', pages: [
+    "i dont no this place. the man said wait here and he wud come back. i am waiting.",
+    "i made a X on the floor so the man can find me. i made lots of X. now i am out of chalk.",
+    "the walls are warm if you put your face on them. i think the maze is sleeping.",
+    "i am not scared any more. i think the man is not coming. thats ok. i am ok.",
+    "if you find this you are doing good. keep going. i left the light on for you.",
+  ]},
+  { name: 'The Cartographer', pages: [
+    "Day 1. Grid established from the entrance. Every corridor can be indexed. Every index can be walked. This is a solvable place.",
+    "Day 4. Sector C does not match yesterday's survey. I have checked my instruments twice. I am confident in the instruments.",
+    "Day 9. I followed someone's twine for an hour. It led back to my own first marks. The handwriting was not mine. It was very nearly mine.",
+    "Day 16. The map is finished. It is beautiful. It is wrong. I am no longer certain which of those matters.",
+    "I have stopped correcting it. Whoever comes next: the map is a portrait, not a plan. Read it that way.",
+  ]},
+  { name: 'The Soldier', pages: [
+    "Inventory: water, four days. Rations, six. Chalk, one stick. Discipline, sufficient. Mark every junction. Move at first light.",
+    "Rations, two. The chalk ran out before the corridors did. I have started marking with what I have. I do not recommend it.",
+    "Rested in a wide room. Rooms are dangerous; they make you feel found. Kept moving.",
+    "No supplies. Learned something: this place is not the enemy. It does not want anything. That is harder.",
+    "Things I will not see again: the river behind the barracks. My mother's kitchen. Rain on a tent. Whoever reads this — see them for me.",
+  ]},
+  { name: 'The Priest', pages: [
+    "I came here to be emptied. The corridors are patient teachers. I take each turning as it is given.",
+    "Fasted three days. The dark has a texture now, like cloth. I believe I am being held.",
+    "Marked no junctions today. To mark is to doubt. To doubt is to carry. I have put down the chalk.",
+    "There is a room at the center. I have not found it. I feel it the way the blind feel a window.",
+    "And the walls said: you were never lost, only unwilling. And I said yes. And the way was open.",
+  ]},
+  { name: 'The Criminal', pages: [
+    "Don't know who built this. Don't care. Walked in on purpose. Better than what was behind me.",
+    "Found a kid's chalk marks. Dozens of them. Whoever left a child down here deserves worse than this place.",
+    "Kicked a wall for an hour. Wall won. Everything wins against me eventually. That's the whole story.",
+    "Tired. Not the sleeping kind. The kind where you stop arguing with the floor about who's right.",
+    "If anyone finds this: I did it. All of it. Nobody put me here. That's the first true thing I've written.",
+  ]},
+];
+
 // ── seed ────────────────────────────────────────────────────────
 let SEED = 0;
 try { SEED = parseInt(new URLSearchParams(location.search).get('seed')) || 0; } catch (e) {}
@@ -198,6 +243,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0
 // ── maze generation ─────────────────────────────────────────────
 // tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
 let W, H, tiles, tunnelTiles, start, exit, solutionPath = [], chalkSpots = new Set(), pickups = new Map(), keySpot = null;
+let journals = new Map(), character = null, journalIdx = 0;   // journals: 'x,y' → page index
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 const isOpen = (x, y) => !!(tiles[y]?.[x]);
 function generate(seed) {
@@ -224,13 +270,21 @@ function generate(seed) {
       if (c.length) { const [dx,dy] = c[R()*c.length|0]; tiles[y+dy][x+dx] = 1; }
     }
   }
-  // rooms: open a rectangle of tiles, away from the corners
+  // rooms: open a rectangle of tiles, away from the corners; remember centers for journals
+  const roomCenters = [];
   for (let i = 0; i < CONFIG.rooms; i++) {
     const cells = CONFIG.roomCells[0] + (R() * (CONFIG.roomCells[1] - CONFIG.roomCells[0] + 1) | 0);
     const tw = cells * 2 - 1;
-    const cx0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0), cy0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0);
+    let cx0, cy0, tries = 0;
+    do { cx0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0); cy0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0); }
+    while (++tries < 20 && roomCenters.some(([rx, ry]) => Math.abs(rx - (cx0*2+1+(tw>>1))) < tw + 2 && Math.abs(ry - (cy0*2+1+(tw>>1))) < tw + 2));   // keep rooms apart
     for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[cy0*2+1+y][cx0*2+1+x] = 1;
+    roomCenters.push([cx0*2+1 + (tw>>1), cy0*2+1 + (tw>>1)]);
   }
+  // one past self per maze; spread their pages across the rooms (first page first, last page last)
+  character = CAST[R() * CAST.length | 0]; journalIdx = 0; journals = new Map();
+  const n = roomCenters.length, P = character.pages.length;
+  roomCenters.forEach(([x, y], i) => journals.set(x+','+y, n === 1 ? P-1 : Math.round(i * (P-1) / (n-1))));
 
   // start bottom-left; exit in another corner
   start = { x: 1.5, y: H - 1.5 };
@@ -357,8 +411,10 @@ const AUDIO = (() => {
     pickup() { tone(523, 0.18, { vol: 0.14 }); setTimeout(() => tone(784, 0.3, { vol: 0.14 }), 90); },
     pickupChalk() { tone(440, 0.12, { vol: 0.1 }); noise(0.08, { vol: 0.1, freq: 2600 }); },
     key() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.35, { vol: 0.12 }), i * 110)); },
+    gate() { noise(0.3, { vol: 0.25, freq: 600, q: 2 }); tone(90, 0.5, { type: 'triangle', vol: 0.2, slide: 60 }); },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
+    journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
     exit() { [261, 329, 392, 523, 659].forEach((f, i) => setTimeout(() => tone(f, 1.4, { vol: 0.12, attack: 0.05 }), i * 160)); },
   };
 })();
@@ -374,7 +430,7 @@ let dir = null, held = null;
 let facing = -Math.PI/2, facingShown = -Math.PI/2;
 let lastTileKey = '';
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
-let narrNext = 0, narrHideAt = 0, narrQueue = [];
+let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0;
 const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
 $('verTitle').textContent = 'v' + VERSION; $('verDbg').textContent = 'v' + VERSION;
@@ -393,7 +449,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; facing = facingShown = -Math.PI/2;
   marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; keyEl.classList.remove('show');
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; journalsRead = 0; keyEl.classList.remove('show');
   narrQueue = NARRATOR.slice(0, 3).concat(NARRATOR.slice(3).sort(() => Math.random() - 0.5));
   narrNext = performance.now() + CONFIG.narratorFirstSec * 1000; narrEl.classList.remove('show');
   updateChalk();
@@ -452,7 +508,13 @@ function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(play
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 function snapPerp(d) { if (d.dx) player.y = Math.floor(player.y) + 0.5; else player.x = Math.floor(player.x) + 0.5; }
 
-function narrate(text) { AUDIO.narrator(); narrEl.textContent = text; narrEl.classList.add('show'); narrHideAt = performance.now() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
+function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; narrHideAt = performance.now() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
+function showJournal(text) {
+  AUDIO.journal(); narrEl.className = 'show journal'; narrEl.textContent = text;
+  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who);
+  narrHideAt = performance.now() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
+  narrNext = Math.max(narrNext, narrHideAt + 20000);   // give the narrator a breather after a page
+}
 
 let last = performance.now();
 function update(now) {
@@ -494,6 +556,7 @@ function update(now) {
       AUDIO.pickup();
     }
     if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); AUDIO.key(); }
+    if (journals.has(key)) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(character.pages[pg]); }
   }
 
   const fx = [];
@@ -510,14 +573,14 @@ function update(now) {
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   if (!solved && started && (player.x|0) === exit.x && (player.y|0) === exit.y) {
-    solved = true; clearStick(); dir = null; narrEl.classList.remove('show'); AUDIO.exit();
+    solved = true; clearStick(); dir = null; narrEl.classList.remove('show'); AUDIO.gate(); setTimeout(() => AUDIO.exit(), 350);
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
     const optimal = solutionPath.length - 1, ratio = (steps / optimal).toFixed(2);
     const rows = [
       ['Tiles walked', steps], ['Shortest route', optimal + ' tiles'], ['Wandering', ratio + '× the shortest route'],
       ['Time', secs + 's'], ['Dead ends entered', deadEndsEntered],
       ['Chalk used', chalkUsed], ['Chalk found', chalkFound], ['Marks left behind', marks.size],
-      ['Pointers used', pointerUses], ['Paths used', pathUses],
+      ['Pointers used', pointerUses], ['Paths used', pathUses], ['Pages found', journalsRead + ' of ' + (journalsRead + journals.size)],
     ];
     $('msgStats').innerHTML = rows.map(([k,v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
     $('msgSeed').textContent = 'seed ' + SEED;
@@ -559,7 +622,7 @@ function draw() {
   { const [ex, ey] = T(exit.x, exit.y);
     ctx.fillStyle = C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
-    if (CONFIG.keyGate && !hasKey) {   // bars across the exit tile
+    if (CONFIG.keyGate && !solved) {   // bars stay up until you reach them with the key
       ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
       for (let i = -1; i <= 1; i++) { ctx.moveTo(ex + i*S*0.26, ey - S*0.42); ctx.lineTo(ex + i*S*0.26, ey + S*0.42); }
       ctx.moveTo(ex - S*0.4, ey - S*0.1); ctx.lineTo(ex + S*0.4, ey - S*0.1); ctx.stroke();
@@ -584,6 +647,10 @@ function draw() {
     else { ctx.strokeStyle = C.pathPickup; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.beginPath();
       for (let i=0; i<=40; i++) { const t = i/40, a = t*Math.PI*5, r = S*0.05 + t*S*0.14; const x = px + Math.cos(a)*r, y = py + Math.sin(a)*r; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); } ctx.stroke(); }
   }
+  // journals: a small open book
+  for (const k of journals.keys()) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.fillStyle = C.journal; ctx.beginPath(); ctx.moveTo(px - S*0.22, py - S*0.14); ctx.lineTo(px, py - S*0.08); ctx.lineTo(px + S*0.22, py - S*0.14); ctx.lineTo(px + S*0.22, py + S*0.14); ctx.lineTo(px, py + S*0.2); ctx.lineTo(px - S*0.22, py + S*0.14); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.wall; ctx.lineWidth = Math.max(1, S*0.025); ctx.beginPath(); ctx.moveTo(px, py - S*0.08); ctx.lineTo(px, py + S*0.2); ctx.stroke(); }
   // key
   if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
