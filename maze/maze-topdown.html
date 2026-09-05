@@ -10,50 +10,79 @@
   html, body { margin:0; height:100%; background:#0d0f10; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; }
   body { font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; color:#b9b4a8; }
   canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
-  #hud { position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:16px; right:16px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
-  #hud span { pointer-events:auto; }
-  #stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:150px; height:150px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
+  #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:16px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
+  #chalk { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; padding:6px 12px 6px 10px; border-radius:20px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:15px; }
+  #chalk i { display:block; width:18px; height:6px; border-radius:2px; background:#ece7da; transform:rotate(-35deg); }
+  #chalk.empty { color:#7d786d; } #chalk.empty i { background:#5a564f; }
+  #chalk.shake { animation:shake .3s; }
+  @keyframes shake { 25%{transform:translateX(calc(-50% - 5px))} 75%{transform:translateX(calc(-50% + 5px))} }
+  #gear { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:10px; width:36px; height:36px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#b9b4a8; font-size:18px; line-height:34px; text-align:center; }
+  #dbg { position:fixed; top:calc(env(safe-area-inset-top) + 52px); left:10px; display:none; flex-direction:column; gap:10px; padding:12px 14px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.25); border-radius:8px; }
+  #dbg.show { display:flex; }
+  #dbg label { display:flex; align-items:center; gap:10px; color:#d8d3c6; }
+  #dbg input { width:18px; height:18px; accent-color:#a89f8c; }
+  #stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
   #knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
   #stick.on #knob { background:rgba(185,180,168,.32); }
   #msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:rgba(13,15,16,.72); }
   #msg.show { display:grid; }
-  #msg h1 { font-weight:400; font-size:28px; margin:0 0 6px; color:#e8e3d6; }
-  #msg p { margin:0; opacity:.75; }
-  #msg small { display:block; margin-top:22px; opacity:.55; }
+  #msg h1 { font-weight:400; font-size:32px; margin:0 0 18px; color:#e8e3d6; }
+  #msg ul { list-style:none; margin:0 auto; padding:0; text-align:left; font-size:18px; line-height:1.9; color:#d8d3c6; display:inline-block; }
+  #msg li { display:flex; justify-content:space-between; gap:28px; }
+  #msg li b { font-weight:400; color:#ece7da; }
+  #msg .seed { margin-top:14px; font-size:15px; opacity:.55; }
+  #again { margin-top:26px; padding:14px 34px; font: inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
+  #again:active { background:#ece7da; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="hud"><span id="seedLbl"></span><span id="stepLbl"></span></div>
+<div id="gear">⚙</div>
+<div id="chalk"><i></i><span id="chalkN">0</span></div>
+<div id="dbg">
+  <label><input type="checkbox" id="optArrow"> Point to end</label>
+  <label><input type="checkbox" id="optPath"> Show path</label>
+  <label><input type="checkbox" id="optMap"> Full map</label>
+</div>
 <div id="stick"><div id="knob"></div></div>
-<div id="msg"><div><h1>You found the way out.</h1><p id="msgStats"></p><small>Tap for a new maze</small></div></div>
+<div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Get lost</button></div></div>
 
 <script>
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
-// Joystick: push a direction and the block steps a tile at a time that way while held.
-// ?seed=1234 in the URL locks the maze.  ` (backtick) or triple-tap
-// the top-right corner toggles the full-map debug view.
+// Joystick: push a direction; the block glides and takes the turn at the
+// next opening in that direction. Tap the block (or the chalk counter) to spend
+// a chalk on an X mark; tap again on that X to pick the chalk back up.
+// ?seed=1234 in the URL locks the maze. Gear (top-left) = debug options.
 // ───────────────────────────────────────────────────────────────
 const CONFIG = {
-  cols: 14,            // maze cells across (passages). Tile grid = cols*2+1
-  rows: 20,            // maze cells down
-  tilePx: 60,          // zoom: screen pixels per tile. 60 ≈ 6 tiles across a phone
-  viewRadius: 1.0,     // cells of visibility around you
-  fogSoftness: 1.4,    // how many tiles the light takes to fade to black
-  stepMs: 110,         // how long one tile-step takes
-  holdRepeatMs: 40,    // pause between steps while holding
-  playerSize: 0.46,    // fraction of a tile
-  braid: 0.0,          // 0 = perfect maze (one solution). 0.1 knocks out 10% of dead ends → loops
-  cameraLag: 0.14,     // 0 = locked on player, higher = floatier
+  cols: 14,             // maze cells across (passages). Tile grid = cols*2+1
+  rows: 20,             // maze cells down
+  tilePx: 60,           // zoom: screen pixels per tile
+  viewRadius: 1.0,      // cells of visibility around you
+  fogSoftness: 1.4,     // how many tiles the light takes to fade to black
+  speed: 4.2,           // tiles per second while the stick is held
+  turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
+  stickDeadzone: 0.22,  // fraction of stick travel that reads as "not pushing"
+  playerSize: 0.46,     // fraction of a tile
+  chalkStart: 3,        // chalk you begin with
+  chalkPerPickup: 2,    // marks each found piece is worth
+  chalkSpawnRate: 0.2,  // fraction of dead ends holding a piece of chalk
+  braid: 0.0,           // 0 = perfect maze (one solution). 0.1 knocks out 10% of dead ends → loops
+  cameraLag: 0.14,      // 0 = locked on player, higher = floatier
   colors: {
     bg:    '#0d0f10',
     wall:  '#1b1f21',
     floor: '#6e6a62',
-    grout: '#585450',   // subtle floor seam lines
+    grout: '#585450',
     player:'#ece7da',
     exit:  '#a89f8c',
     start: '#3b3a37',
+    mark:  '#ece7da',
+    path:  '#4f7a5a',
+    arrow: '#c9b98a',
+    chalk: '#ece7da',
   },
 };
 
@@ -65,69 +94,93 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0
 
 // ── maze generation (recursive backtracker → tile grid) ─────────
 // tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
-let W, H, tiles, start, exit;
+let W, H, tiles, start, exit, solutionPath = [], chalkSpots = new Set();
+const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 function generate(seed) {
   const R = rng(seed);
   W = CONFIG.cols * 2 + 1; H = CONFIG.rows * 2 + 1;
   tiles = Array.from({ length: H }, () => new Uint8Array(W));
   const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
   const stack = [[0, 0]]; visited[0][0] = 1; tiles[1][1] = 1;
-  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
   while (stack.length) {
     const [cx, cy] = stack[stack.length - 1];
-    const opts = dirs.map(([dx,dy]) => [cx+dx, cy+dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
+    const opts = DIRS.map(([dx,dy]) => [cx+dx, cy+dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
     if (!opts.length) { stack.pop(); continue; }
     const [nx, ny] = opts[R() * opts.length | 0];
     visited[ny][nx] = 1;
     tiles[ny*2+1][nx*2+1] = 1;
-    tiles[cy+ny+1][cx+nx+1] = 1;      // the wall tile between the two cells
+    tiles[cy+ny+1][cx+nx+1] = 1;
     stack.push([nx, ny]);
   }
-  // optional braiding: open some dead ends so the maze has loops
   if (CONFIG.braid > 0) for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
-    const open = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy]) => tiles[y+dy]?.[x+dx]);
-    if (open.length === 1 && R() < CONFIG.braid) {
-      const cands = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy]) => !tiles[y+dy]?.[x+dx] && tiles[y+dy*2]?.[x+dx*2] !== undefined);
+    const openN = DIRS.filter(([dx,dy]) => tiles[y+dy]?.[x+dx]);
+    if (openN.length === 1 && R() < CONFIG.braid) {
+      const cands = DIRS.filter(([dx,dy]) => !tiles[y+dy]?.[x+dx] && tiles[y+dy*2]?.[x+dx*2] !== undefined);
       if (cands.length) { const [dx,dy] = cands[R()*cands.length|0]; tiles[y+dy][x+dx] = 1; }
     }
   }
-  // start bottom-left cell, exit = farthest cell by BFS (so it's always a real journey)
+  // start bottom-left; exit = farthest cell by BFS; record the path
   start = { x: 1.5, y: H - 1.5 };
   const dist = Array.from({ length: H }, () => new Int32Array(W).fill(-1));
+  const prev = new Map();
   const q = [[1, H-2]]; dist[H-2][1] = 0; let far = [1, H-2];
   while (q.length) {
     const [x, y] = q.shift();
-    for (const [dx,dy] of dirs) { const nx=x+dx, ny=y+dy; if (tiles[ny]?.[nx] && dist[ny][nx] < 0) { dist[ny][nx] = dist[y][x]+1; q.push([nx,ny]); if (dist[ny][nx] > dist[far[1]][far[0]]) far = [nx,ny]; } }
+    for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy; if (tiles[ny]?.[nx] && dist[ny][nx] < 0) { dist[ny][nx] = dist[y][x]+1; prev.set(nx+','+ny, [x,y]); q.push([nx,ny]); if (dist[ny][nx] > dist[far[1]][far[0]]) far = [nx,ny]; } }
   }
   exit = { x: far[0], y: far[1] };
+  solutionPath = []; let cur = far;
+  while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
+  solutionPath.reverse();
+  // chalk at some dead ends (not start, not exit)
+  chalkSpots = new Set();
+  for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
+    const exits = DIRS.filter(([dx,dy]) => tiles[y+dy]?.[x+dx]).length;
+    const isStart = x === 1 && y === H-2, isExit = x === exit.x && y === exit.y;
+    if (exits === 1 && !isStart && !isExit && R() < CONFIG.chalkSpawnRate) chalkSpots.add(x+','+y);
+  }
 }
 
 // ── state ───────────────────────────────────────────────────────
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 let player, cam, steps = 0, t0 = 0, solved = false, debugMap = false;
+let marks = new Set();     // 'x,y' tiles carrying an X
+let chalk = 0, chalkUsed = 0, chalkFound = 0, deadEnds = 0;
+let dir = null;            // direction currently gliding {dx,dy}
+let held = null;           // direction the stick is pushed {dx,dy}
+let lastTileKey = '';
+let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;   // set each frame by draw()
+const chalkEl = document.getElementById('chalk');
+function updateChalk() { document.getElementById('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
+function useChalk() {
+  if (solved) return;
+  const key = Math.floor(player.x) + ',' + Math.floor(player.y);
+  if (marks.has(key)) { marks.delete(key); chalk++; }
+  else if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; }
+  else { chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); }
+  updateChalk();
+}
 function reset(seed) {
   SEED = seed;
-  try { history.replaceState(null, '', '?seed=' + SEED); } catch (e) { /* sandboxed preview: URL can't be changed, seed still shown in HUD */ }
+  try { history.replaceState(null, '', '?seed=' + SEED); } catch (e) {}
   generate(SEED);
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = performance.now(); solved = false; tween = null; held = null;
+  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEnds = 0; updateChalk();
   document.getElementById('seedLbl').textContent = 'seed ' + SEED;
+  document.getElementById('stepLbl').textContent = '';
   document.getElementById('msg').classList.remove('show');
 }
 
 // ── input: joystick → grid direction ────────────────────────────
-let taps = [];
-let held = null;   // {dx,dy} while the stick is pushed past the deadzone
-let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;   // set each frame by draw()
 const stickEl = document.getElementById('stick'), knob = document.getElementById('knob');
-const KNOB_MAX = 46, DEADZONE = 0.25;
+const KNOB_MAX = 54;
 let stickId = null;
 function stickCenter() { const b = stickEl.getBoundingClientRect(); return { x: b.left + b.width/2, y: b.top + b.height/2 }; }
 function setStick(clientX, clientY) {
   const c = stickCenter(); const dx = clientX - c.x, dy = clientY - c.y;
   const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
   knob.style.transform = `translate(${dx/len*k}px, ${dy/len*k}px)`;
-  if (len / KNOB_MAX < DEADZONE) { held = null; return; }
+  if (len / KNOB_MAX < CONFIG.stickDeadzone) { held = null; return; }
   held = Math.abs(dx) > Math.abs(dy) ? { dx: Math.sign(dx), dy: 0 } : { dx: 0, dy: Math.sign(dy) };
 }
 function clearStick() { held = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
@@ -135,53 +188,80 @@ stickEl.addEventListener('pointerdown', e => { stickId = e.pointerId; stickEl.cl
 stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
 stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
 
-// triple-tap top-right = debug map (mobile)
+// tap the block → toggle an X mark on its tile
 cv.addEventListener('pointerdown', e => {
-  if (e.clientX > innerWidth - 90 && e.clientY < 90) { const n = performance.now(); taps = taps.filter(t => n - t < 700); taps.push(n); if (taps.length >= 3) { debugMap = !debugMap; taps = []; } }
+  const wx = (e.clientX - viewOx) / viewS, wy = (e.clientY - viewOy) / viewS;
+  if (Math.hypot(wx - player.x, wy - player.y) < 1.1) useChalk();
 });
+chalkEl.addEventListener('pointerdown', e => { e.stopPropagation(); useChalk(); });
+
+// debug panel
+const dbg = document.getElementById('dbg');
+const opt = { arrow: document.getElementById('optArrow'), path: document.getElementById('optPath'), map: document.getElementById('optMap') };
+document.getElementById('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
+opt.map.addEventListener('change', () => debugMap = opt.map.checked);
 
 // keyboard for desktop testing
 const keys = {};
-addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') debugMap = !debugMap; });
+addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') { debugMap = !debugMap; opt.map.checked = debugMap; } });
 addEventListener('keyup', e => keys[e.key] = false);
 
-document.getElementById('msg').addEventListener('pointerdown', () => reset((Math.random()*1e9)|0));
+document.getElementById('again').addEventListener('click', () => reset((Math.random()*1e9)|0));
 
-// ── movement: one tile at a time, tweened ───────────────────────
-let tween = null;   // {fx,fy,tx,ty,t0}
-let nextStepAt = 0;
-function tryStep(d) {
-  if (solved || tween || !d || (!d.dx && !d.dy)) return false;
-  const cx = Math.floor(player.x), cy = Math.floor(player.y);
-  const nx = cx + d.dx, ny = cy + d.dy;
-  if (!tiles[ny]?.[nx]) return false;                 // wall
-  tween = { fx: cx + 0.5, fy: cy + 0.5, tx: nx + 0.5, ty: ny + 0.5, t0: performance.now() };
-  steps++; document.getElementById('stepLbl').textContent = steps + ' tiles';
-  return true;
+// ── movement: glide along the grid, turn at the next opening ────
+const open = (tx, ty) => !!(tiles[ty]?.[tx]);
+function canGo(d) { return open(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
+function offCenter(d) {   // distance from the centerline you'd need to travel along d
+  const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
+  return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx);
 }
+function snapPerp(d) { if (d.dx) player.y = Math.floor(player.y) + 0.5; else player.x = Math.floor(player.x) + 0.5; }
 
 // ── update ──────────────────────────────────────────────────────
 let last = performance.now();
 function update(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  // keyboard
   const kd = (keys.ArrowLeft||keys.a) ? {dx:-1,dy:0} : (keys.ArrowRight||keys.d) ? {dx:1,dy:0}
            : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
-  if (tween) {
-    let k = Math.min(1, (now - tween.t0) / CONFIG.stepMs);
-    const e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;   // ease in-out
-    player.x = tween.fx + (tween.tx - tween.fx) * e;
-    player.y = tween.fy + (tween.ty - tween.fy) * e;
-    if (k >= 1) { tween = null; nextStepAt = now + CONFIG.holdRepeatMs; }
-  } else if (now >= nextStepAt) {
-    tryStep(held || kd);
+  const want = solved ? null : (held || kd);
+
+  if (want) {
+    if (!dir) { if (canGo(want)) dir = want; }
+    else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;   // same axis: continue or reverse instantly
+    else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }   // buffered turn
   }
+
+  if (dir) {
+    const step = CONFIG.speed * dt;
+    const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
+    const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;
+    const p = player[axis], n = p + sgn * step;
+    const blocked = !open(Math.floor(cx) + dir.dx, Math.floor(cy) + dir.dy);
+    const crossesCenter = (p - c) * sgn <= 0 && (n - c) * sgn >= 0;
+    if (crossesCenter && (blocked || !want)) { player.x = cx; player.y = cy; dir = null; }           // stop at center: wall ahead or stick released
+    else if (blocked && (p - c) * sgn >= 0) { player.x = cx; player.y = cy; dir = null; }            // at/past center facing a wall
+    else player[axis] = n;
+  }
+
+  const prevKey = lastTileKey;
+  const key = Math.floor(player.x) + ',' + Math.floor(player.y);
+  if (key !== lastTileKey) { if (lastTileKey) steps++; lastTileKey = key; document.getElementById('stepLbl').textContent = steps + ' tiles'; }
+  if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); }
+  if (key !== prevKey) { const [tx, ty] = key.split(',').map(Number); if (DIRS.filter(([dx,dy]) => open(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEnds++; }
+
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
-  if (!solved && !tween && (player.x|0) === exit.x && (player.y|0) === exit.y) {
-    solved = true; clearStick();
+  if (!solved && (player.x|0) === exit.x && (player.y|0) === exit.y) {
+    solved = true; clearStick(); dir = null;
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
-    document.getElementById('msgStats').textContent = `${steps} tiles in ${secs}s · seed ${SEED}`;
+    const optimal = solutionPath.length - 1, ratio = (steps / optimal).toFixed(2);
+    const rows = [
+      ['Tiles walked', steps], ['Shortest route', optimal + ' tiles'], ['Wandering', ratio + '× the shortest route'],
+      ['Time', secs + 's'], ['Dead ends entered', deadEnds],
+      ['Chalk used', chalkUsed], ['Chalk found', chalkFound], ['Marks left behind', marks.size],
+    ];
+    document.getElementById('msgStats').innerHTML = rows.map(([k,v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
+    document.getElementById('msgSeed').textContent = 'seed ' + SEED;
     document.getElementById('msg').classList.add('show');
   }
 }
@@ -197,20 +277,17 @@ function draw() {
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
 
   let S = CONFIG.tilePx, ox, oy;
-  if (debugMap) { S = Math.min(vw / W, (vh - 200) / H); ox = (vw - W*S)/2; oy = (vh - H*S)/2 - 60; }
+  if (debugMap) { S = Math.min(vw / W, (vh - 260) / H); ox = (vw - W*S)/2; oy = (vh - H*S)/2 - 80; }
   else { ox = vw/2 - cam.x*S; oy = vh*0.42 - cam.y*S; }
   viewS = S; viewOx = ox; viewOy = oy;
 
-  // visible tile range
   const x0 = Math.max(0, Math.floor(-ox/S) - 1), x1 = Math.min(W-1, Math.ceil((vw-ox)/S) + 1);
   const y0 = Math.max(0, Math.floor(-oy/S) - 1), y1 = Math.min(H-1, Math.ceil((vh-oy)/S) + 1);
 
-  // floor
+  // floor + seams
   ctx.fillStyle = C.floor;
   for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++) if (tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);
-  // grout lines: faint seams so movement reads even in a long straight corridor
-  ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
-  ctx.beginPath();
+  ctx.strokeStyle = C.grout; ctx.lineWidth = 1; ctx.beginPath();
   for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++) if (tiles[y][x]) { ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S+S, oy+y*S); ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S, oy+y*S+S); }
   ctx.stroke();
   // walls
@@ -219,24 +296,53 @@ function draw() {
 
   // start & exit
   ctx.fillStyle = C.start; ctx.fillRect(ox + (start.x-0.5)*S + S*0.3, oy + (start.y-0.5)*S + S*0.3, S*0.4, S*0.4);
-  ctx.fillStyle = C.exit;
   const ex = ox + exit.x*S + S/2, ey = oy + exit.y*S + S/2;
-  ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
 
+  // chalk pickups: a short stick lying on the floor
+  ctx.fillStyle = C.chalk;
+  for (const k of chalkSpots) {
+    const [mx, my] = k.split(',').map(Number); const px = ox + mx*S + S/2, py = oy + my*S + S/2;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(-0.6); ctx.fillRect(-S*0.18, -S*0.055, S*0.36, S*0.11); ctx.restore();
+  }
+
+  // X marks
+  ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1.5, S*0.05); ctx.lineCap = 'round';
+  for (const k of marks) {
+    const [mx, my] = k.split(',').map(Number); const px = ox + mx*S + S/2, py = oy + my*S + S/2, a = S*0.16;
+    ctx.beginPath(); ctx.moveTo(px-a, py-a); ctx.lineTo(px+a, py+a); ctx.moveTo(px+a, py-a); ctx.lineTo(px-a, py+a); ctx.stroke();
+  }
+
+  // debug: solution path (under the fog)
+  if (opt.path.checked && solutionPath.length) {
+    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12); ctx.lineJoin = 'round'; ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    solutionPath.forEach(([x,y], i) => { const px = ox + x*S + S/2, py = oy + y*S + S/2; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
   // player
   ctx.fillStyle = C.player;
   const ps = CONFIG.playerSize * S * 0.92;
   ctx.fillRect(ox + player.x*S - ps/2, oy + player.y*S - ps/2, ps, ps);
 
-  // fog: everything beyond viewRadius cells fades to bg
+  // fog
   if (!debugMap) {
     const px = ox + player.x*S, py = oy + player.y*S;
-    const inner = CONFIG.viewRadius * 2 * S;             // cells → tiles (a cell is 2 tiles of pitch)
-    const outer = inner + CONFIG.fogSoftness * S;
+    const inner = CONFIG.viewRadius * 2 * S, outer = inner + CONFIG.fogSoftness * S;
     const g = ctx.createRadialGradient(px, py, inner, px, py, outer);
     g.addColorStop(0, 'rgba(13,15,16,0)'); g.addColorStop(1, 'rgba(13,15,16,1)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+  }
+
+  // debug: arrow beside the player, pointing at the exit
+  if (opt.arrow.checked && !solved) {
+    const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
+    const px = ox + player.x*S, py = oy + player.y*S, d = S*0.75;
+    ctx.save(); ctx.translate(px + Math.cos(ang)*d, py + Math.sin(ang)*d); ctx.rotate(ang);
+    ctx.fillStyle = C.arrow; ctx.beginPath();
+    ctx.moveTo(S*0.22, 0); ctx.lineTo(-S*0.12, -S*0.14); ctx.lineTo(-S*0.05, 0); ctx.lineTo(-S*0.12, S*0.14); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 }
 
