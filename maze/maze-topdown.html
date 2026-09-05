@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0f10">
+<title>Labyrinth — top-down proto</title>
+<style>
+  html, body { margin:0; height:100%; background:#0d0f10; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; }
+  body { font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; color:#b9b4a8; }
+  canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
+  #hud { position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:16px; right:16px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
+  #hud span { pointer-events:auto; }
+  #msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:rgba(13,15,16,.72); }
+  #msg.show { display:grid; }
+  #msg h1 { font-weight:400; font-size:28px; margin:0 0 6px; color:#e8e3d6; }
+  #msg p { margin:0; opacity:.75; }
+  #msg small { display:block; margin-top:22px; opacity:.55; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><span id="seedLbl"></span><span id="stepLbl"></span></div>
+<div id="msg"><div><h1>You found the way out.</h1><p id="msgStats"></p><small>Tap for a new maze</small></div></div>
+
+<script>
+// ───────────────────────────────────────────────────────────────
+// CONFIG — edit these, refresh, get a different feel.
+// Touch anywhere: the block heads toward your finger. Hold to steer, tap to send.
+// ?seed=1234 in the URL locks the maze.  ` (backtick) or triple-tap
+// the top-right corner toggles the full-map debug view.
+// ───────────────────────────────────────────────────────────────
+const CONFIG = {
+  cols: 14,            // maze cells across (passages). Tile grid = cols*2+1
+  rows: 20,            // maze cells down
+  tilePx: 60,          // zoom: screen pixels per tile. 60 ≈ 6 tiles across a phone
+  viewRadius: 1.0,     // cells of visibility around you
+  fogSoftness: 1.4,    // how many tiles the light takes to fade to black
+  speed: 3.6,          // tiles per second
+  playerSize: 0.46,    // fraction of a tile
+  braid: 0.0,          // 0 = perfect maze (one solution). 0.1 knocks out 10% of dead ends → loops
+  cameraLag: 0.14,     // 0 = locked on player, higher = floatier
+  colors: {
+    bg:    '#0d0f10',
+    wall:  '#1b1f21',
+    floor: '#6e6a62',
+    grout: '#585450',   // subtle floor seam lines
+    player:'#ece7da',
+    exit:  '#a89f8c',
+    start: '#3b3a37',
+  },
+};
+
+// ── seed ────────────────────────────────────────────────────────
+let SEED = 0;
+try { SEED = parseInt(new URLSearchParams(location.search).get('seed')) || 0; } catch (e) {}
+if (!SEED) SEED = (Math.random() * 1e9 | 0);
+function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// ── maze generation (recursive backtracker → tile grid) ─────────
+// tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
+let W, H, tiles, start, exit;
+function generate(seed) {
+  const R = rng(seed);
+  W = CONFIG.cols * 2 + 1; H = CONFIG.rows * 2 + 1;
+  tiles = Array.from({ length: H }, () => new Uint8Array(W));
+  const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
+  const stack = [[0, 0]]; visited[0][0] = 1; tiles[1][1] = 1;
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  while (stack.length) {
+    const [cx, cy] = stack[stack.length - 1];
+    const opts = dirs.map(([dx,dy]) => [cx+dx, cy+dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
+    if (!opts.length) { stack.pop(); continue; }
+    const [nx, ny] = opts[R() * opts.length | 0];
+    visited[ny][nx] = 1;
+    tiles[ny*2+1][nx*2+1] = 1;
+    tiles[cy+ny+1][cx+nx+1] = 1;      // the wall tile between the two cells
+    stack.push([nx, ny]);
+  }
+  // optional braiding: open some dead ends so the maze has loops
+  if (CONFIG.braid > 0) for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
+    const open = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy]) => tiles[y+dy]?.[x+dx]);
+    if (open.length === 1 && R() < CONFIG.braid) {
+      const cands = [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy]) => !tiles[y+dy]?.[x+dx] && tiles[y+dy*2]?.[x+dx*2] !== undefined);
+      if (cands.length) { const [dx,dy] = cands[R()*cands.length|0]; tiles[y+dy][x+dx] = 1; }
+    }
+  }
+  // start bottom-left cell, exit = farthest cell by BFS (so it's always a real journey)
+  start = { x: 1.5, y: H - 1.5 };
+  const dist = Array.from({ length: H }, () => new Int32Array(W).fill(-1));
+  const q = [[1, H-2]]; dist[H-2][1] = 0; let far = [1, H-2];
+  while (q.length) {
+    const [x, y] = q.shift();
+    for (const [dx,dy] of dirs) { const nx=x+dx, ny=y+dy; if (tiles[ny]?.[nx] && dist[ny][nx] < 0) { dist[ny][nx] = dist[y][x]+1; q.push([nx,ny]); if (dist[ny][nx] > dist[far[1]][far[0]]) far = [nx,ny]; } }
+  }
+  exit = { x: far[0], y: far[1] };
+}
+
+// ── state ───────────────────────────────────────────────────────
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let player, cam, target = null, steps = 0, t0 = 0, solved = false, debugMap = false;
+let lastTile = null;
+function reset(seed) {
+  SEED = seed;
+  try { history.replaceState(null, '', '?seed=' + SEED); } catch (e) { /* sandboxed preview: URL can't be changed, seed still shown in HUD */ }
+  generate(SEED);
+  player = { ...start }; cam = { ...start };
+  steps = 0; t0 = performance.now(); solved = false; lastTile = null;
+  document.getElementById('seedLbl').textContent = 'seed ' + SEED;
+  document.getElementById('msg').classList.remove('show');
+}
+
+// ── input: tap / hold to move ───────────────────────────────────
+let pointerDown = false, downAt = 0, stuckFor = 0, lastPos = null;
+let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;   // set each frame by draw()
+function toWorld(cx, cy) { return { x: (cx - viewOx) / viewS, y: (cy - viewOy) / viewS }; }
+cv.addEventListener('pointerdown', e => {
+  if (e.clientX > innerWidth - 90 && e.clientY < 90) return;   // debug corner
+  pointerDown = true; downAt = performance.now(); target = toWorld(e.clientX, e.clientY); stuckFor = 0;
+  cv.setPointerCapture(e.pointerId); e.preventDefault();
+});
+cv.addEventListener('pointermove', e => { if (pointerDown) target = toWorld(e.clientX, e.clientY); });
+function release() { if (!pointerDown) return; pointerDown = false; if (performance.now() - downAt > 220) target = null; }
+cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', release);
+function clearStick() { target = null; pointerDown = false; }
+
+// keyboard for desktop testing
+const keys = {};
+addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') debugMap = !debugMap; });
+addEventListener('keyup', e => keys[e.key] = false);
+
+// triple-tap top-right = debug map (mobile)
+let taps = [];
+cv.addEventListener('pointerdown', e => {
+  if (e.clientX > innerWidth - 90 && e.clientY < 90) { const n = performance.now(); taps = taps.filter(t => n - t < 700); taps.push(n); if (taps.length >= 3) { debugMap = !debugMap; taps = []; } }
+});
+document.getElementById('msg').addEventListener('pointerdown', () => reset((Math.random()*1e9)|0));
+
+// ── physics: circle vs tile AABB, axis-separated so you slide along walls ──
+function solid(tx, ty) { return !(tiles[ty]?.[tx]); }
+function moveAxis(axis, d) {
+  const r = CONFIG.playerSize / 2;
+  player[axis] += d;
+  const minX = Math.floor(player.x - r), maxX = Math.floor(player.x + r);
+  const minY = Math.floor(player.y - r), maxY = Math.floor(player.y + r);
+  for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+    if (!solid(tx, ty)) continue;
+    // nearest point on tile to player center
+    const nx = Math.max(tx, Math.min(player.x, tx+1)), ny = Math.max(ty, Math.min(player.y, ty+1));
+    const dx = player.x - nx, dy = player.y - ny, dist = Math.hypot(dx, dy);
+    if (dist < r) {
+      if (axis === 'x') player.x = d > 0 ? tx - r : tx + 1 + r;
+      else               player.y = d > 0 ? ty - r : ty + 1 + r;
+    }
+  }
+}
+
+// ── update ──────────────────────────────────────────────────────
+let last = performance.now();
+function update(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  let ix = 0, iy = 0;
+  if (target) {
+    const dx = target.x - player.x, dy = target.y - player.y, d = Math.hypot(dx, dy);
+    if (d < 0.08) target = pointerDown ? target : null;
+    else { const m = Math.min(1, d / 0.6); ix = dx / d * m; iy = dy / d * m; }   // ease in the last half-tile
+  }
+  if (keys.ArrowLeft || keys.a) ix -= 1; if (keys.ArrowRight || keys.d) ix += 1;
+  if (keys.ArrowUp || keys.w) iy -= 1; if (keys.ArrowDown || keys.s) iy += 1;
+  const m = Math.hypot(ix, iy); if (m > 1) { ix /= m; iy /= m; }
+  if (!solved && (ix || iy)) {
+    const before = { x: player.x, y: player.y };
+    moveAxis('x', ix * CONFIG.speed * dt);
+    moveAxis('y', iy * CONFIG.speed * dt);
+    // tapped into a wall: give up after a moment instead of grinding
+    if (Math.hypot(player.x - before.x, player.y - before.y) < 0.002) { stuckFor += dt; if (stuckFor > 0.25 && !pointerDown) target = null; }
+    else stuckFor = 0;
+  }
+  const tile = (player.x|0) + ',' + (player.y|0);
+  if (tile !== lastTile) { if (lastTile) steps++; lastTile = tile; document.getElementById('stepLbl').textContent = steps + ' tiles'; }
+  cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
+  cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
+  if (!solved && (player.x|0) === exit.x && (player.y|0) === exit.y) {
+    solved = true; clearStick();
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    document.getElementById('msgStats').textContent = `${steps} tiles in ${secs}s · seed ${SEED}`;
+    document.getElementById('msg').classList.add('show');
+  }
+}
+
+// ── render ──────────────────────────────────────────────────────
+let dpr = 1;
+function resize() { dpr = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+addEventListener('resize', resize); resize();
+
+function draw() {
+  const C = CONFIG.colors, vw = innerWidth, vh = innerHeight;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
+
+  let S = CONFIG.tilePx, ox, oy;
+  if (debugMap) { S = Math.min(vw / W, (vh - 200) / H); ox = (vw - W*S)/2; oy = (vh - H*S)/2 - 60; }
+  else { ox = vw/2 - cam.x*S; oy = vh/2 - cam.y*S; }
+  viewS = S; viewOx = ox; viewOy = oy;
+
+  // visible tile range
+  const x0 = Math.max(0, Math.floor(-ox/S) - 1), x1 = Math.min(W-1, Math.ceil((vw-ox)/S) + 1);
+  const y0 = Math.max(0, Math.floor(-oy/S) - 1), y1 = Math.min(H-1, Math.ceil((vh-oy)/S) + 1);
+
+  // floor
+  ctx.fillStyle = C.floor;
+  for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++) if (tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);
+  // grout lines: faint seams so movement reads even in a long straight corridor
+  ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++) if (tiles[y][x]) { ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S+S, oy+y*S); ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S, oy+y*S+S); }
+  ctx.stroke();
+  // walls
+  ctx.fillStyle = C.wall;
+  for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++) if (!tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);
+
+  // start & exit
+  ctx.fillStyle = C.start; ctx.fillRect(ox + (start.x-0.5)*S + S*0.3, oy + (start.y-0.5)*S + S*0.3, S*0.4, S*0.4);
+  ctx.fillStyle = C.exit;
+  const ex = ox + exit.x*S + S/2, ey = oy + exit.y*S + S/2;
+  ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
+
+  // player
+  ctx.fillStyle = C.player;
+  const ps = CONFIG.playerSize * S * 0.92;
+  ctx.fillRect(ox + player.x*S - ps/2, oy + player.y*S - ps/2, ps, ps);
+
+  // fog: everything beyond viewRadius cells fades to bg
+  if (!debugMap) {
+    const px = ox + player.x*S, py = oy + player.y*S;
+    const inner = CONFIG.viewRadius * 2 * S;             // cells → tiles (a cell is 2 tiles of pitch)
+    const outer = inner + CONFIG.fogSoftness * S;
+    const g = ctx.createRadialGradient(px, py, inner, px, py, outer);
+    g.addColorStop(0, 'rgba(13,15,16,0)'); g.addColorStop(1, 'rgba(13,15,16,1)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+  }
+}
+
+function frame(now) { update(now); draw(); requestAnimationFrame(frame); }
+reset(SEED);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
