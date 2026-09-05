@@ -10,7 +10,7 @@
   html, body { margin:0; height:100%; background:#0d0f10; overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none; }
   body { font: 13px/1.4 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; color:#b9b4a8; }
   canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
-  #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:16px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
+  #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
   #chalk { position:fixed; top:calc(env(safe-area-inset-top) + 8px); left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; padding:6px 12px 6px 10px; border-radius:20px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:15px; }
   #chalk i { display:block; width:18px; height:6px; border-radius:2px; background:#ece7da; transform:rotate(-35deg); }
   #chalk.empty { color:#7d786d; } #chalk.empty i { background:#5a564f; }
@@ -93,7 +93,7 @@
   </div>
   <div class="row">
     <svg viewBox="0 0 44 44"><path d="M13 13l18 18M31 13L13 31" stroke="#ece7da" stroke-width="3.5" stroke-linecap="round"/></svg>
-    <p><b>Mark the floor</b> by tapping your block (or the counter). One chalk, one X. Stand on an X and tap again to pick the chalk back up.</p>
+    <p><b>Mark the floor</b> by tapping your block (or the counter). One chalk, one X. Marks are permanent, so choose your junctions.</p>
   </div>
   <button id="begin">Begin</button>
   <div class="ver" id="verTitle"></div>
@@ -102,12 +102,12 @@
 <div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Get lost</button></div></div>
 
 <script>
-const VERSION = '0.7.0';
+const VERSION = '0.7.2';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
 // next opening in that direction. Tap the block (or the chalk counter) to spend
-// a chalk on an X mark; tap again on that X to pick the chalk back up.
+// a chalk on an X mark. Marks are permanent.
 // Refresh = new maze. Add ?seed=1234 to the URL to replay a specific one.
 // Gear (top-left) = debug options + "Update app" (hard refresh).
 // ───────────────────────────────────────────────────────────────
@@ -134,12 +134,13 @@ const CONFIG = {
   // pickups (dead ends only)
   chalkStart: 3,        // chalk you begin with
   chalkPerPickup: 1,    // marks each found piece is worth
-  chalkSpawnRate: 0.2,  // fraction of dead ends holding a piece of chalk
+  chalkSpawnRate: 0.15, // fraction of dead ends holding a piece of chalk
   pointerSpawnRate: 0.15,// fraction of dead ends holding a pointer (arrow to the exit). At least 1, at most pickupMax.
   pathSpawnRate: 0.15,  // fraction of dead ends holding a path reveal
   pickupMax: 2,         // cap per type per maze
   pointerSeconds: 30,   // how long the pointer stays on after pickup
   pathSeconds: 15,      // how long the path stays on after pickup
+  pickupExitBuffer: 6,  // dead ends within this many cells (walking) of the exit never hold pickups
   keyGate: true,        // exit is locked; a key waits in some dead end
 
   // narrator
@@ -243,12 +244,16 @@ function generate(seed) {
   while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
   solutionPath.reverse();
 
-  // dead ends (excluding start/exit)
+  // walking distance from the exit, in tiles
+  const distExit = new Map([[exX+','+exY, 0]]); const q2 = [[exX, exY]];
+  while (q2.length) { const [x,y] = q2.shift(); const d = distExit.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !distExit.has(k)) { distExit.set(k, d+1); q2.push([nx,ny]); } } }
+  // dead ends (excluding start/exit and anything too close to the exit)
   const deadEnds = [];
   for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
     if (!isOpen(x,y)) continue;
     const n = DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
-    if (n === 1 && !(x===1 && y===H-2) && !(x===exX && y===exY)) deadEnds.push(x+','+y);
+    const nearExit = (distExit.get(x+','+y) ?? Infinity) <= CONFIG.pickupExitBuffer * 2;
+    if (n === 1 && !(x===1 && y===H-2) && !(x===exX && y===exY) && !nearExit) deadEnds.push(x+','+y);
   }
   const taken = new Set();
   const free = () => deadEnds.filter(k => !taken.has(k));
@@ -378,8 +383,8 @@ function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.togg
 function useChalk() {
   if (solved || !started) return;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
-  if (marks.has(key)) { marks.delete(key); chalk++; AUDIO.chalkUp(); }
-  else if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; AUDIO.chalkDown(); }
+  if (marks.has(key)) return;   // already marked
+  if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; AUDIO.chalkDown(); }
   else { AUDIO.chalkEmpty(); chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); }
   updateChalk();
 }
