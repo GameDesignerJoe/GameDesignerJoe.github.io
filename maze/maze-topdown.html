@@ -130,7 +130,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.9.1';
+const VERSION = '0.9.2';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -600,7 +600,7 @@ function showJournal(pg) {
   const text = character.pages[pg];
   const arr = SAVE.collected[character.name] || (SAVE.collected[character.name] = []); arr[pg] = true; persist();
   AUDIO.journal(); narrEl.className = 'show journal'; narrEl.textContent = text;
-  const who = document.createElement('small'); who.textContent = `${character.name} · page ${pg+1} of ${character.pages.length} · ${collectedCount(character.name)} collected`; narrEl.appendChild(who);
+  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who);
   narrHideAt = performance.now() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
   narrNext = Math.max(narrNext, narrHideAt + 20000);   // give the narrator a breather after a page
 }
