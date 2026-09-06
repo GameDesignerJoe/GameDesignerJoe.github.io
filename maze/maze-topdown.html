@@ -47,6 +47,22 @@
   #begin { margin-top:10px; padding:14px 0; width:100%; font:inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
   #begin:active { background:#ece7da; }
   #title .ver { margin-top:14px; text-align:center; font-size:12px; opacity:.4; }
+  .ghost { margin-top:12px; padding:12px 0; width:100%; font:inherit; font-size:16px; color:#b9b4a8; background:transparent; border:1px solid rgba(185,180,168,.3); border-radius:8px; }
+  .ghost:active { background:rgba(185,180,168,.1); }
+  #msg .ghost { width:auto; padding:10px 22px; display:block; margin:12px auto 0; }
+  #stories { position:fixed; inset:0; display:none; background:rgba(13,15,16,.96); padding:calc(env(safe-area-inset-top) + 20px) 22px 40px; overflow-y:auto; touch-action:pan-y; }
+  #stories.show { display:block; }
+  #stories h1 { font-weight:400; font-size:30px; letter-spacing:.04em; margin:0 0 4px; color:#e8e3d6; }
+  #stories .sub { margin:0 0 22px; color:#8d887c; font-size:15px; }
+  #stories .who { margin-bottom:22px; }
+  #stories .who .name { display:flex; justify-content:space-between; font-size:18px; color:#d8d3c6; margin-bottom:8px; }
+  #stories .who .name span:last-child { color:#8d887c; font-size:15px; }
+  #stories .boxes { display:flex; gap:8px; }
+  #stories .box { flex:1; height:36px; border-radius:6px; background:#1f2224; border:1px solid rgba(185,180,168,.12); }
+  #stories .box.got { background:#b8b0a0; border-color:#b8b0a0; }
+  #stories .page { margin-top:10px; padding:12px 14px; font-size:16px; line-height:1.5; color:#b8b0a0; background:rgba(185,180,168,.06); border-radius:6px; display:none; }
+  #stories .page.show { display:block; }
+  #storiesClose { position:fixed; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
   #fade { position:fixed; inset:0; background:#0d0f10; pointer-events:none; opacity:0; }
   #fade.in { opacity:1; }
   #fade.out { opacity:0; transition:opacity 3.2s ease-in-out; }
@@ -74,6 +90,7 @@
   <label><input type="checkbox" id="optPath"> Show path</label>
   <label><input type="checkbox" id="optMap"> Full map</label>
   <label><input type="checkbox" id="optSound" checked> Sound</label>
+  <button class="storiesBtn">Stories</button>
   <button id="update">Update app</button>
   <div class="ver" id="verDbg"></div>
 </div>
@@ -98,13 +115,15 @@
     <p><b>Mark the floor</b> by tapping your block (or the counter). One chalk, one X. Marks are permanent, so choose your junctions.</p>
   </div>
   <button id="begin">Begin</button>
+  <button class="ghost storiesBtn">Stories</button>
   <div class="ver" id="verTitle"></div>
 </div></div>
 <div id="fade"></div>
-<div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button></div></div>
+<div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button><button class="ghost storiesBtn">Stories</button></div></div>
+<div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it.</p><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.8.2';
+const VERSION = '0.9.0';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -234,6 +253,14 @@ const CAST = [
   ]},
 ];
 
+
+// ── persistence (local storage; silently off where unavailable) ──
+const SAVE_KEY = 'maze.save.v1';
+let SAVE = { collected: {}, charCycle: [], narrPlayed: [] };
+try { const raw = localStorage.getItem(SAVE_KEY); if (raw) SAVE = Object.assign(SAVE, JSON.parse(raw)); } catch (e) {}
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
+function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boolean).length; }
+
 // ── seed ────────────────────────────────────────────────────────
 let SEED = 0;
 try {
@@ -246,31 +273,33 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0
 
 // ── maze generation ─────────────────────────────────────────────
 // tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
-let W, H, tiles, tunnelTiles, start, exit, solutionPath = [], chalkSpots = new Set(), pickups = new Map(), keySpot = null;
+const P = 2;   // wall margin around the cell grid; the exit alley is carved into it
+let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], chalkSpots = new Set(), pickups = new Map(), keySpot = null;
 let journals = new Map(), character = null, journalIdx = 0;   // journals: 'x,y' → page index
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 const isOpen = (x, y) => !!(tiles[y]?.[x]);
 function generate(seed) {
   const R = rng(seed);
-  W = CONFIG.cols * 2 + 1; H = CONFIG.rows * 2 + 1;
+  W = CONFIG.cols * 2 + 1 + 2*P; H = CONFIG.rows * 2 + 1 + 2*P;
+  const TX = c => c*2 + 1 + P;   // cell index → tile index
   tiles = Array.from({ length: H }, () => new Uint8Array(W));
 
   // growing tree: pick newest cell (backtracker) or a random one (Prim-ish) per branchiness
   const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
-  const active = [[0, 0]]; visited[0][0] = 1; tiles[1][1] = 1;
+  const active = [[0, 0]]; visited[0][0] = 1; tiles[TX(0)][TX(0)] = 1;
   while (active.length) {
     const idx = R() < CONFIG.branchiness ? (R() * active.length | 0) : active.length - 1;
     const [cx, cy] = active[idx];
     const opts = DIRS.map(([dx,dy]) => [cx+dx, cy+dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
     if (!opts.length) { active.splice(idx, 1); continue; }
     const [nx, ny] = opts[R() * opts.length | 0];
-    visited[ny][nx] = 1; tiles[ny*2+1][nx*2+1] = 1; tiles[cy+ny+1][cx+nx+1] = 1;
+    visited[ny][nx] = 1; tiles[TX(ny)][TX(nx)] = 1; tiles[cy+ny+1+P][cx+nx+1+P] = 1;
     active.push([nx, ny]);
   }
   // braid
-  if (CONFIG.braid > 0) for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
+  if (CONFIG.braid > 0) for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
     if (DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < CONFIG.braid) {
-      const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && tiles[y+dy*2]?.[x+dx*2] !== undefined);
+      const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && x+dx*2 >= TX(0) && x+dx*2 < W-P && y+dy*2 >= TX(0) && y+dy*2 < H-P);
       if (c.length) { const [dx,dy] = c[R()*c.length|0]; tiles[y+dy][x+dx] = 1; }
     }
   }
@@ -281,22 +310,31 @@ function generate(seed) {
     const tw = cells * 2 - 1;
     let cx0, cy0, tries = 0;
     do { cx0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0); cy0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0); }
-    while (++tries < 20 && roomCenters.some(([rx, ry]) => Math.abs(rx - (cx0*2+1+(tw>>1))) < tw + 2 && Math.abs(ry - (cy0*2+1+(tw>>1))) < tw + 2));   // keep rooms apart
-    for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[cy0*2+1+y][cx0*2+1+x] = 1;
-    roomCenters.push([cx0*2+1 + (tw>>1), cy0*2+1 + (tw>>1)]);
+    while (++tries < 20 && roomCenters.some(([rx, ry]) => Math.abs(rx - (TX(cx0)+(tw>>1))) < tw + 2 && Math.abs(ry - (TX(cy0)+(tw>>1))) < tw + 2));   // keep rooms apart
+    for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
+    roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
   }
   // one past self per maze; spread their pages across the rooms (first page first, last page last)
-  character = CAST[R() * CAST.length | 0]; journalIdx = 0; journals = new Map();
-  const n = roomCenters.length, P = character.pages.length;
-  roomCenters.forEach(([x, y], i) => journals.set(x+','+y, n === 1 ? P-1 : Math.round(i * (P-1) / (n-1))));
+  // cycle through the cast before repeating; remembered between visits
+  let pool = CAST.filter(c => !SAVE.charCycle.includes(c.name));
+  if (!pool.length) { SAVE.charCycle = []; pool = CAST.slice(); }
+  character = pool[R() * pool.length | 0]; SAVE.charCycle.push(character.name); persist();
+  journalIdx = 0; journals = new Map();
+  const n = roomCenters.length, PG = character.pages.length;
+  roomCenters.forEach(([x, y], i) => journals.set(x+','+y, n === 1 ? PG-1 : Math.round(i * (PG-1) / (n-1))));
 
   // start bottom-left; exit in another corner
-  start = { x: 1.5, y: H - 1.5 };
-  const corners = [[1, 1], [W-2, 1], [W-2, H-2]];
-  const [exX, exY] = corners[R() * 3 | 0]; exit = { x: exX, y: exY };
+  const sx = TX(0), sy = TX(CONFIG.rows-1);
+  start = { x: sx + 0.5, y: sy + 0.5 };
+  // exit gets its own alley: corner cell → one walkway tile → exit tile, carved outward into the margin
+  const cornerCells = [[TX(0), TX(0), -1], [TX(CONFIG.cols-1), TX(0), 1], [TX(CONFIG.cols-1), TX(CONFIG.rows-1), 1]];
+  const [ccx, ccy, side] = cornerCells[R() * 3 | 0];
+  exitAlley = [[ccx + side, ccy]]; const exX = ccx + side*2, exY = ccy;
+  tiles[ccy][ccx + side] = 1; tiles[exY][exX] = 1;
+  exit = { x: exX, y: exY };
 
   // BFS from start for the solution path
-  const prev = new Map(); const seen = new Set(['1,'+(H-2)]); const q = [[1, H-2]];
+  const prev = new Map(); const seen = new Set([sx+','+sy]); const q = [[sx, sy]];
   while (q.length) { const [x,y] = q.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); prev.set(k,[x,y]); q.push([nx,ny]); } } }
   solutionPath = []; let cur = [exX, exY];
   while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
@@ -307,11 +345,11 @@ function generate(seed) {
   while (q2.length) { const [x,y] = q2.shift(); const d = distExit.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !distExit.has(k)) { distExit.set(k, d+1); q2.push([nx,ny]); } } }
   // dead ends (excluding start/exit and anything too close to the exit)
   const deadEnds = [];
-  for (let y=1; y<H; y+=2) for (let x=1; x<W; x+=2) {
+  for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
     if (!isOpen(x,y)) continue;
     const n = DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const nearExit = (distExit.get(x+','+y) ?? Infinity) <= CONFIG.pickupExitBuffer * 2;
-    if (n === 1 && !(x===1 && y===H-2) && !(x===exX && y===exY) && !nearExit) deadEnds.push(x+','+y);
+    if (n === 1 && !(x===sx && y===sy) && !nearExit) deadEnds.push(x+','+y);
   }
   const taken = new Set();
   const free = () => deadEnds.filter(k => !taken.has(k));
@@ -342,7 +380,7 @@ function generate(seed) {
       let run = [];
       for (let b = 1; b < (horiz ? W : H); b++) {
         const x = horiz ? b : a, y = horiz ? a : b;
-        const straight = isOpen(x,y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
+        const straight = isOpen(x,y) && !(x===exit.x && y===exit.y) && !exitAlley.some(([ax,ay]) => ax===x && ay===y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
         if (straight) run.push(x+','+y); else { if (run.length >= CONFIG.tunnelMinTiles) runs.push(run); run = []; }
       }
       if (run.length >= CONFIG.tunnelMinTiles) runs.push(run);
@@ -454,7 +492,9 @@ function reset(seed) {
   steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; facing = facingShown = -Math.PI/2;
   marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
   pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; journalsRead = 0; keyEl.classList.remove('show');
-  narrQueue = NARRATOR.slice(0, 3).concat(NARRATOR.slice(3).sort(() => Math.random() - 0.5));
+  let fresh = NARRATOR.filter(l => !SAVE.narrPlayed.includes(l));
+  if (fresh.length < 2) { SAVE.narrPlayed = []; fresh = NARRATOR.slice(); }
+  narrQueue = fresh.sort(() => Math.random() - 0.5);
   narrNext = performance.now() + CONFIG.narratorFirstSec * 1000; narrEl.classList.remove('show');
   updateChalk();
   $('seedLbl').textContent = 'seed ' + SEED; $('stepLbl').textContent = '';
@@ -496,6 +536,27 @@ $('update').addEventListener('click', () => {
     .then(() => location.replace(location.pathname + '?u=' + Date.now()));
 });
 
+
+// ── stories screen ──────────────────────────────────────────────
+const storiesEl = $('stories'), storiesClose = $('storiesClose');
+function renderStories() {
+  $('storiesList').innerHTML = CAST.map((c, ci) => {
+    const got = SAVE.collected[c.name] || [];
+    const boxes = c.pages.map((_, i) => `<div class="box ${got[i] ? 'got' : ''}" data-c="${ci}" data-p="${i}"></div>`).join('');
+    return `<div class="who"><div class="name"><span>${c.name}</span><span>${collectedCount(c.name)} of ${c.pages.length}</span></div><div class="boxes">${boxes}</div><div class="page" id="page-${ci}"></div></div>`;
+  }).join('');
+}
+function openStories() { renderStories(); storiesEl.classList.add('show'); storiesClose.style.display = 'block'; }
+function closeStories() { storiesEl.classList.remove('show'); storiesClose.style.display = 'none'; }
+document.querySelectorAll('.storiesBtn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); openStories(); }));
+storiesClose.addEventListener('click', closeStories);
+storiesEl.addEventListener('click', e => {
+  const box = e.target.closest('.box.got'); if (!box) return;
+  const c = CAST[+box.dataset.c], pageEl = $('page-' + box.dataset.c);
+  const same = pageEl.classList.contains('show') && pageEl.dataset.p === box.dataset.p;
+  pageEl.textContent = c.pages[+box.dataset.p]; pageEl.dataset.p = box.dataset.p; pageEl.classList.toggle('show', !same);
+});
+
 const keys = {};
 addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') { debugMap = !debugMap; opt.map.checked = debugMap; } });
 addEventListener('keyup', e => keys[e.key] = false);
@@ -515,9 +576,11 @@ function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(p
 function snapPerp(d) { if (d.dx) player.y = Math.floor(player.y) + 0.5; else player.x = Math.floor(player.x) + 0.5; }
 
 function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; narrHideAt = performance.now() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
-function showJournal(text) {
+function showJournal(pg) {
+  const text = character.pages[pg];
+  const arr = SAVE.collected[character.name] || (SAVE.collected[character.name] = []); arr[pg] = true; persist();
   AUDIO.journal(); narrEl.className = 'show journal'; narrEl.textContent = text;
-  const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who);
+  const who = document.createElement('small'); who.textContent = `${character.name} · page ${pg+1} of ${character.pages.length} · ${collectedCount(character.name)} collected`; narrEl.appendChild(who);
   narrHideAt = performance.now() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
   narrNext = Math.max(narrNext, narrHideAt + 20000);   // give the narrator a breather after a page
 }
@@ -562,7 +625,7 @@ function update(now) {
       AUDIO.pickup();
     }
     if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); AUDIO.key(); }
-    if (journals.has(key)) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(character.pages[pg]); }
+    if (journals.has(key)) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); }
   }
 
   const fx = [];
@@ -572,7 +635,11 @@ function update(now) {
 
   // narrator
   if (started && !solved) {
-    if (now >= narrNext) { narrate(narrQueue.length ? narrQueue.shift() : NARRATOR[Math.random()*NARRATOR.length|0]); narrNext = now + CONFIG.narratorEverySec * 1000; }
+    if (now >= narrNext) {
+      if (!narrQueue.length) { SAVE.narrPlayed = []; narrQueue = NARRATOR.slice().sort(() => Math.random() - 0.5); }
+      const line = narrQueue.shift(); SAVE.narrPlayed.push(line); persist();
+      narrate(line); narrNext = now + CONFIG.narratorEverySec * 1000;
+    }
     if (narrHideAt && now > narrHideAt) { narrEl.classList.remove('show'); narrHideAt = 0; }
   }
 
