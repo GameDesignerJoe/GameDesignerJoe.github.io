@@ -130,7 +130,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.10.1';
+const VERSION = '0.10.2';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -329,15 +329,19 @@ function generate(seed) {
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
   }
   // one past self per maze; spread their pages across the rooms (first page first, last page last)
-  // cycle through the cast before repeating; remembered between visits
-  let pool = CAST.filter(c => !SAVE.charCycle.includes(c.name));
-  if (!pool.length) { SAVE.charCycle = []; pool = CAST.slice(); }
-  character = pool[R() * pool.length | 0]; SAVE.charCycle.push(character.name); persist();
-  journalIdx = 0; journals = new Map();
-  const n = roomCenters.length, PG = character.pages.length;
-  roomCenters.forEach(([x, y], i) => journals.set(x+','+y, n === 1 ? PG-1 : Math.round(i * (PG-1) / (n-1))));
+  // pick a character who still has pages you haven't found; cycle through them before repeating
+  const uncollected = c => c.pages.map((_, i) => i).filter(i => !(SAVE.collected[c.name] || [])[i]);
+  let pool = CAST.filter(c => uncollected(c).length && !SAVE.charCycle.includes(c.name));
+  if (!pool.length) { SAVE.charCycle = []; pool = CAST.filter(c => uncollected(c).length); }
+  journalIdx = 0; journals = new Map(); character = null;
+  if (pool.length) {
+    character = pool[R() * pool.length | 0]; SAVE.charCycle.push(character.name); persist();
+    // lay out only pages you don't have, in story order, spread across the rooms
+    const avail = uncollected(character), n = Math.min(roomCenters.length, avail.length);
+    const chosen = n === avail.length ? avail : Array.from({ length: n }, (_, i) => avail[Math.round(i * (avail.length - 1) / (n - 1))]);
+    chosen.forEach((pg, i) => { const [x, y] = roomCenters[i]; journals.set(x+','+y, pg); });
+  }
 
-  // start bottom-left; exit in another corner
   // shifting cells: seal a dead end E into a pocket; the cell D two tiles away (through the wall) becomes a slider aimed at E
   sliders = []; pockets = [];
   const sx = TX(0), sy = TX(CONFIG.rows-1);
@@ -729,7 +733,7 @@ function update(now) {
       AUDIO.pickup();
     }
     if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); AUDIO.key(); }
-    if (journals.has(key)) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); }
+    if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); }
   }
 
   const fx = [];
