@@ -60,8 +60,15 @@
   #stories .boxes { display:flex; gap:8px; }
   #stories .box { flex:1; height:36px; border-radius:6px; background:#1f2224; border:1px solid rgba(185,180,168,.12); }
   #stories .box.got { background:#b8b0a0; border-color:#b8b0a0; }
-  #stories .page { margin-top:10px; padding:12px 14px; font-size:16px; line-height:1.5; color:#b8b0a0; background:rgba(185,180,168,.06); border-radius:6px; display:none; }
-  #stories .page.show { display:block; }
+  #reader { min-height:90px; margin:0 0 24px; padding:14px 16px; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.12); border-radius:8px; }
+  #reader .hint { color:#6f6b62; font-size:15px; font-style:italic; }
+  #reader .who { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:10px; }
+  #reader p { margin:0 0 12px; font-size:16px; line-height:1.55; color:#c8c1b2; }
+  #reader p:last-child { margin-bottom:0; }
+  #reader p.missing { color:#4f4c46; font-style:italic; }
+  #stories .who .name span:first-child { text-decoration:underline dotted rgba(185,180,168,.35); text-underline-offset:4px; }
+  #stories .box.got { cursor:pointer; }
+  #stories .box.sel { outline:2px solid #ece7da; outline-offset:2px; }
   #storiesClose { position:fixed; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
   #fade { position:fixed; inset:0; background:#0d0f10; pointer-events:none; opacity:0; }
   #fade.in { opacity:1; }
@@ -120,10 +127,10 @@
 </div></div>
 <div id="fade"></div>
 <div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button><button class="ghost storiesBtn">Stories</button></div></div>
-<div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it.</p><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
+<div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.9.0';
+const VERSION = '0.9.1';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -543,18 +550,31 @@ function renderStories() {
   $('storiesList').innerHTML = CAST.map((c, ci) => {
     const got = SAVE.collected[c.name] || [];
     const boxes = c.pages.map((_, i) => `<div class="box ${got[i] ? 'got' : ''}" data-c="${ci}" data-p="${i}"></div>`).join('');
-    return `<div class="who"><div class="name"><span>${c.name}</span><span>${collectedCount(c.name)} of ${c.pages.length}</span></div><div class="boxes">${boxes}</div><div class="page" id="page-${ci}"></div></div>`;
+    return `<div class="who"><div class="name"><span data-c="${ci}">${c.name}</span><span>${collectedCount(c.name)} of ${c.pages.length}</span></div><div class="boxes">${boxes}</div></div>`;
   }).join('');
 }
-function openStories() { renderStories(); storiesEl.classList.add('show'); storiesClose.style.display = 'block'; }
+function readPage(ci, pi) {
+  const c = CAST[ci];
+  $('reader').innerHTML = `<div class="who">${c.name} · page ${pi+1} of ${c.pages.length}</div><p>${c.pages[pi]}</p>`;
+  storiesEl.querySelectorAll('.box.sel').forEach(b => b.classList.remove('sel'));
+  storiesEl.querySelector(`.box[data-c="${ci}"][data-p="${pi}"]`)?.classList.add('sel');
+  storiesEl.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function readAll(ci) {
+  const c = CAST[ci], got = SAVE.collected[c.name] || [];
+  if (!collectedCount(c.name)) { $('reader').innerHTML = `<div class="who">${c.name}</div><p class="missing">You haven't found any of these pages yet.</p>`; }
+  else $('reader').innerHTML = `<div class="who">${c.name} · ${collectedCount(c.name)} of ${c.pages.length} pages</div>` +
+    c.pages.map((t, i) => got[i] ? `<p>${t}</p>` : `<p class="missing">— page ${i+1} not yet found —</p>`).join('');
+  storiesEl.querySelectorAll('.box.sel').forEach(b => b.classList.remove('sel'));
+  storiesEl.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function openStories() { renderStories(); $('reader').innerHTML = '<div class="hint">Nothing selected.</div>'; storiesEl.classList.add('show'); storiesClose.style.display = 'block'; }
 function closeStories() { storiesEl.classList.remove('show'); storiesClose.style.display = 'none'; }
 document.querySelectorAll('.storiesBtn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); openStories(); }));
 storiesClose.addEventListener('click', closeStories);
 storiesEl.addEventListener('click', e => {
-  const box = e.target.closest('.box.got'); if (!box) return;
-  const c = CAST[+box.dataset.c], pageEl = $('page-' + box.dataset.c);
-  const same = pageEl.classList.contains('show') && pageEl.dataset.p === box.dataset.p;
-  pageEl.textContent = c.pages[+box.dataset.p]; pageEl.dataset.p = box.dataset.p; pageEl.classList.toggle('show', !same);
+  const box = e.target.closest('.box.got'); if (box) return readPage(+box.dataset.c, +box.dataset.p);
+  const name = e.target.closest('.name span[data-c]'); if (name) return readAll(+name.dataset.c);
 });
 
 const keys = {};
