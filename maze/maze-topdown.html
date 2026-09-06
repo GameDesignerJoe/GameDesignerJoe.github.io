@@ -130,7 +130,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.9.2';
+const VERSION = '0.10.1';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -158,6 +158,10 @@ const CONFIG = {
   roomCells: [2, 3],    // room size range, in cells (2 = 3×3 tiles, 3 = 5×5 tiles)
   tunnels: 4,           // roofed corridor runs that hide the floor (you show through as a ghost)
   tunnelMinTiles: 5,    // shortest straight run that can become a tunnel
+  sliders: [3, 4],      // shifting cells per maze (min, max). Push against the thick wall to slide the cell into a sealed pocket.
+  sliderSeconds: 0.8,   // how long the slide takes
+  sliderKeyChance: 0.5, // chance the key hides in a pocket instead of a dead end
+  sliderOnPath: true,   // one slider sits on the solution route; the maze can't be finished without it
 
   // pickups (dead ends only)
   chalkStart: 3,        // chalk you begin with
@@ -186,6 +190,7 @@ const CONFIG = {
     bg:    '#0d0f10',
     wall:  '#1b1f21',
     tunnel:'#26292b',
+    thick: '#1b1f21',   // same as wall: the edge reads as a sliver of wall on the floor
     floor: '#6e6a62',
     grout: '#585450',
     player:'#ece7da',
@@ -282,7 +287,9 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0
 // tiles[y][x]: 0 = wall, 1 = floor. Cells live at odd coordinates.
 const P = 2;   // wall margin around the cell grid; the exit alley is carved into it
 let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], chalkSpots = new Set(), pickups = new Map(), keySpot = null;
-let journals = new Map(), character = null, journalIdx = 0;   // journals: 'x,y' → page index
+let journals = new Map(), character = null, journalIdx = 0;
+let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
+let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 const isOpen = (x, y) => !!(tiles[y]?.[x]);
 function generate(seed) {
@@ -331,7 +338,33 @@ function generate(seed) {
   roomCenters.forEach(([x, y], i) => journals.set(x+','+y, n === 1 ? PG-1 : Math.round(i * (PG-1) / (n-1))));
 
   // start bottom-left; exit in another corner
+  // shifting cells: seal a dead end E into a pocket; the cell D two tiles away (through the wall) becomes a slider aimed at E
+  sliders = []; pockets = [];
   const sx = TX(0), sy = TX(CONFIG.rows-1);
+  {
+    const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
+    const cornerTiles = [[TX(0),TX(0)], [TX(CONFIG.cols-1),TX(0)], [TX(CONFIG.cols-1),TX(CONFIG.rows-1)], [sx,sy]];
+    const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y);
+    const want = CONFIG.sliders[0] + (R() * (CONFIG.sliders[1] - CONFIG.sliders[0] + 1) | 0);
+    const used = new Set();
+    const cands = [];
+    for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) if (isOpen(x,y) && nOpen(x,y) === 1 && !isCorner(x,y)) cands.push([x,y]);
+    cands.sort(() => R() - 0.5);
+    for (const [ex, ey] of cands) {
+      if (sliders.length >= want) break;
+      if (used.has(ex+','+ey)) continue;
+      const [bx, by] = DIRS.find(([dx,dy]) => isOpen(ex+dx, ey+dy));   // toward parent
+      const opts = DIRS.filter(([dx,dy]) => !(dx===bx && dy===by) && !(dx===-bx && dy===-by))   // perpendicular to the entry
+        .map(([dx,dy]) => [dx,dy, ex+dx*2, ey+dy*2])
+        .filter(([dx,dy,Dx,Dy]) => Dx>=TX(0) && Dx<W-P && Dy>=TX(0) && Dy<H-P && isOpen(Dx,Dy) && nOpen(Dx,Dy) <= 2 && !isCorner(Dx,Dy) && !used.has(Dx+','+Dy) && !isOpen(ex+dx, ey+dy));
+      if (!opts.length) continue;
+      opts.sort((a, b) => nOpen(a[2], a[3]) - nOpen(b[2], b[3]));   // prefer a dead-end slider
+      const [dx, dy, Dx, Dy] = opts[0];
+      tiles[ey+by][ex+bx] = 0;                                       // seal the pocket
+      pockets.push([ex, ey]); used.add(ex+','+ey); used.add(Dx+','+Dy);
+      sliders.push({ x: Dx, y: Dy, dx: -dx, dy: -dy, shifted: false });  // slider pushes toward the pocket
+    }
+  }
   start = { x: sx + 0.5, y: sy + 0.5 };
   // exit gets its own alley: corner cell → one walkway tile → exit tile, carved outward into the margin
   const cornerCells = [[TX(0), TX(0), -1], [TX(CONFIG.cols-1), TX(0), 1], [TX(CONFIG.cols-1), TX(CONFIG.rows-1), 1]];
@@ -347,6 +380,29 @@ function generate(seed) {
   while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
   solutionPath.reverse();
 
+  // a slider on the main route: seal the gap ahead of a corridor cell and make that cell push into it
+  if (CONFIG.sliderOnPath) {
+    const isCell = ([x,y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
+    const usedT = new Set([...sliders.map(sl => sl.x+','+sl.y), ...pockets.map(([x,y]) => x+','+y), ...sliders.map(sl => (sl.x+sl.dx*2)+','+(sl.y+sl.dy*2))]);
+    const idxs = [];
+    for (let i = 4; i < solutionPath.length - 6; i++) {
+      const c = solutionPath[i], g = solutionPath[i+1], n = solutionPath[i+2];
+      if (!isCell(c) || !n || !isCell(n) || nOpen(c[0], c[1]) !== 2 || nOpen(n[0], n[1]) > 3) continue;
+      if (usedT.has(c.join(',')) || usedT.has(n.join(','))) continue;
+      idxs.push(i);
+    }
+    const reachesExit = () => { const seen = new Set([sx+','+sy]), q2 = [[sx, sy]]; while (q2.length) { const [x,y] = q2.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); q2.push([nx,ny]); } } } return seen.has(exX+','+exY); };
+    idxs.sort(() => R() - 0.5);
+    for (const i of idxs) {   // only a gap whose sealing truly severs start from exit (rooms add loops)
+      const c = solutionPath[i], g = solutionPath[i+1], n = solutionPath[i+2];
+      tiles[g[1]][g[0]] = 0;
+      if (reachesExit()) { tiles[g[1]][g[0]] = 1; continue; }
+      sliders.push({ x: c[0], y: c[1], dx: n[0] - c[0] > 0 ? 1 : n[0] - c[0] < 0 ? -1 : 0, dy: n[1] - c[1] > 0 ? 1 : n[1] - c[1] < 0 ? -1 : 0, shifted: false, onPath: true });
+      break;
+    }
+  }
+
   // walking distance from the exit, in tiles
   const distExit = new Map([[exX+','+exY, 0]]); const q2 = [[exX, exY]];
   while (q2.length) { const [x,y] = q2.shift(); const d = distExit.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !distExit.has(k)) { distExit.set(k, d+1); q2.push([nx,ny]); } } }
@@ -356,7 +412,7 @@ function generate(seed) {
     if (!isOpen(x,y)) continue;
     const n = DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const nearExit = (distExit.get(x+','+y) ?? Infinity) <= CONFIG.pickupExitBuffer * 2;
-    if (n === 1 && !(x===sx && y===sy) && !nearExit) deadEnds.push(x+','+y);
+    if (n === 1 && !(x===sx && y===sy) && !nearExit && !sliders.some(sl => sl.x===x && sl.y===y)) deadEnds.push(x+','+y);
   }
   const taken = new Set();
   const free = () => deadEnds.filter(k => !taken.has(k));
@@ -364,7 +420,11 @@ function generate(seed) {
 
   // key first, so it always exists
   keySpot = null;
-  if (CONFIG.keyGate) { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
+  const pocketKeys = pockets.map(([x,y]) => x+','+y);
+  if (CONFIG.keyGate) {
+    if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
+    else { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
+  }
 
   // pickups: one roll per dead end, capped
   chalkSpots = new Set(); pickups = new Map();
@@ -376,6 +436,7 @@ function generate(seed) {
     else if (r < CONFIG.chalkSpawnRate + CONFIG.pointerSpawnRate) { if (count('pointer') < CONFIG.pickupMax) { pickups.set(k, 'pointer'); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (count('path') < CONFIG.pickupMax) { pickups.set(k, 'path'); taken.add(k); } }
   }
+  for (const k of pocketKeys) { const r = R(); if (r < 0.5) chalkSpots.add(k); else if (r < 0.75 && count('pointer') < CONFIG.pickupMax) pickups.set(k, 'pointer'); else if (count('path') < CONFIG.pickupMax) pickups.set(k, 'path'); else chalkSpots.add(k); }
   for (const kind of ['pointer', 'path']) if (!count(kind)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
   if (!chalkSpots.size) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
 
@@ -387,7 +448,7 @@ function generate(seed) {
       let run = [];
       for (let b = 1; b < (horiz ? W : H); b++) {
         const x = horiz ? b : a, y = horiz ? a : b;
-        const straight = isOpen(x,y) && !(x===exit.x && y===exit.y) && !exitAlley.some(([ax,ay]) => ax===x && ay===y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
+        const straight = isOpen(x,y) && !sliders.some(sl => sl.x===x && sl.y===y) && !(x===exit.x && y===exit.y) && !exitAlley.some(([ax,ay]) => ax===x && ay===y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
         if (straight) run.push(x+','+y); else { if (run.length >= CONFIG.tunnelMinTiles) runs.push(run); run = []; }
       }
       if (run.length >= CONFIG.tunnelMinTiles) runs.push(run);
@@ -461,6 +522,8 @@ const AUDIO = (() => {
     pickupChalk() { tone(440, 0.12, { vol: 0.1 }); noise(0.08, { vol: 0.1, freq: 2600 }); },
     key() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.35, { vol: 0.12 }), i * 110)); },
     gate() { noise(0.3, { vol: 0.25, freq: 600, q: 2 }); tone(90, 0.5, { type: 'triangle', vol: 0.2, slide: 60 }); },
+    slideStart() { noise(CONFIG.sliderSeconds, { vol: 0.35, freq: 220, q: 1.2, type: 'lowpass' }); tone(48, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.25, attack: 0.1, slide: 42 }); },
+    slideEnd() { tone(60, 0.25, { type: 'triangle', vol: 0.3, slide: 30 }); noise(0.1, { vol: 0.2, freq: 500, q: 2 }); },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
     journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
@@ -478,6 +541,7 @@ let hasKey = false;
 let dir = null, held = null;
 let facing = -Math.PI/2, facingShown = -Math.PI/2;
 let lastTileKey = '';
+let sliding = null;   // {sl, from:[x,y], to:[x,y], t0}
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
 let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0;
 const $ = id => document.getElementById(id);
@@ -486,7 +550,7 @@ $('verTitle').textContent = 'v' + VERSION; $('verDbg').textContent = 'v' + VERSI
 
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
 function useChalk() {
-  if (solved || !started) return;
+  if (solved || !started || sliding) return;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   if (marks.has(key)) return;   // already marked
   if (chalk > 0) { marks.add(key); chalk--; chalkUsed++; AUDIO.chalkDown(); }
@@ -496,7 +560,7 @@ function useChalk() {
 function reset(seed) {
   SEED = seed; generate(SEED);
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; facing = facingShown = -Math.PI/2;
+  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; sliding = null; facing = facingShown = -Math.PI/2;
   marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
   pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; journalsRead = 0; keyEl.classList.remove('show');
   let fresh = NARRATOR.filter(l => !SAVE.narrPlayed.includes(l));
@@ -612,8 +676,28 @@ function update(now) {
            : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
   const want = (solved || !started) ? null : (held || kd);
 
-  if (want) {
-    if (!dir) { if (canGo(want)) dir = want; else if (CONFIG.keyGate && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
+  if (sliding) {
+    const k = Math.min(1, (now - sliding.t0) / (CONFIG.sliderSeconds * 1000));
+    const e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
+    player.x = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e;
+    player.y = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e;
+    if (k >= 1) {
+      const [tx, ty] = sliding.to; tiles[ty][tx] = 1; sliding.sl.shifted = !sliding.sl.shifted;
+      const fromKey = sliding.from.join(','), toKey = sliding.to.join(',');
+      if (marks.has(fromKey)) { marks.delete(fromKey); marks.add(toKey); }
+      lastTileKey = toKey; sliding = null; AUDIO.slideEnd();
+    }
+  } else if (want) {
+    if (!dir) {
+      const cx = Math.floor(player.x), cy = Math.floor(player.y);
+      const sl = sliders.find(s => (s.shifted ? s.x + s.dx : s.x) === cx && (s.shifted ? s.y + s.dy : s.y) === cy);
+      const pushDir = sl && (sl.shifted ? { dx: -sl.dx, dy: -sl.dy } : { dx: sl.dx, dy: sl.dy });
+      if (sl && want.dx === pushDir.dx && want.dy === pushDir.dy && !canGo(want)) {
+        const to = [cx + want.dx, cy + want.dy];
+        tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
+        sliding = { sl, from: [cx, cy], to, t0: now }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart();
+      }
+      else if (canGo(want)) dir = want; else if (CONFIG.keyGate && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
   }
@@ -709,6 +793,19 @@ function draw() {
   // walls
   ctx.fillStyle = C.wall;
   for (let y=y0; y<=y1; y++) for (let x=x0; x<=x1; x++) if (!tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);
+
+  // sliding tile in flight
+  if (sliding) { ctx.fillStyle = C.floor; ctx.fillRect(ox + (player.x-0.5)*S, oy + (player.y-0.5)*S, S+0.5, S+0.5); }
+  // thick wall on the pushable side of each slider
+  ctx.fillStyle = C.thick;
+  for (const sl of sliders) {
+    if (sliding && sliding.sl === sl) continue;
+    const tx = sl.shifted ? sl.x + sl.dx : sl.x, ty = sl.shifted ? sl.y + sl.dy : sl.y;
+    const dx = sl.shifted ? -sl.dx : sl.dx, dy = sl.shifted ? -sl.dy : sl.dy, w = S*0.08;
+    const px = ox + tx*S, py = oy + ty*S;
+    if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
+    else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w);
+  }
 
   // start & exit (+ gate)
   ctx.fillStyle = C.start; ctx.fillRect(ox + (start.x-0.5)*S + S*0.3, oy + (start.y-0.5)*S + S*0.3, S*0.4, S*0.4);
