@@ -17,10 +17,16 @@
   #chalk i { display:block; width:18px; height:6px; border-radius:2px; background:#ece7da; transform:rotate(-35deg); }
   #chalk.empty { color:#7d786d; } #chalk.empty i { background:#5a564f; }
   #chalk.shake { animation:shake .3s; }
+  .pulse { animation:pulse .7s ease-out; }
+  @keyframes pulse { 0%{ box-shadow:0 0 0 0 rgba(236,231,218,0); border-color:rgba(185,180,168,.25); } 20%{ box-shadow:0 0 0 6px rgba(236,231,218,.35); border-color:#ece7da; background:rgba(236,231,218,.18); } 100%{ box-shadow:0 0 0 0 rgba(236,231,218,0); } }
+  #key.pulse { animation:keypulse .7s ease-out; }
+  @keyframes keypulse { 20%{ transform:scale(1.5); filter:drop-shadow(0 0 8px #e0c98a); } 100%{ transform:scale(1); } }
+  #mapBtn.beckon { animation:beckon 1.8s ease-in-out infinite; }
+  @keyframes beckon { 0%,100%{ box-shadow:0 0 0 0 rgba(201,185,138,0); border-color:rgba(185,180,168,.3); } 50%{ box-shadow:0 0 0 7px rgba(201,185,138,.18); border-color:#c9b98a; } }
   @keyframes shake { 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
   #charcoal { display:flex; align-items:center; gap:8px; padding:8px 14px 8px 12px; border-radius:22px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:16px; }
   #charcoal.paused { border-color:rgba(201,185,138,.5); color:#c9b98a; } #charcoal.paused i { background:#6a5f45; border-color:#c9b98a; }
-  #charcoal i { display:block; width:14px; height:14px; border-radius:3px; background:#3a3d3f; border:1px solid #6b6a66; }
+  #charcoal i { display:block; width:20px; height:8px; border-radius:1.5px; background:#3a3d3f; border:1px solid #a89f8c; transform:rotate(28deg); }
   #charcoal.active { border-color:#c9b98a; color:#c9b98a; } #charcoal.active i { background:#c9b98a; border-color:#c9b98a; }
   #charcoal.empty { color:#7d786d; } #charcoal.empty i { background:#2a2c2e; border-color:#3c3b38; }
   #charcoal.shake { animation:shakeL .3s; }
@@ -36,6 +42,7 @@
   #key { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
   #key.show { display:block; }
   #fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }
+  #fx { border-radius:16px; }
   #fx span { padding:3px 10px; border-radius:14px; font-size:13px; color:#0d0f10; }
   #fx .ptr { background:#c9b98a; } #fx .pth { background:#b9b4a8; }
   #narr { position:fixed; top:calc(env(safe-area-inset-top) + 92px); left:28px; right:28px; text-align:center; font-size:19px; font-style:italic; line-height:1.45; color:#ddd7c8; pointer-events:none; opacity:0; transition:opacity .9s ease; text-shadow:0 1px 8px #0d0f10, 0 0 22px #0d0f10; }
@@ -165,7 +172,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.12.1';
+const VERSION = '0.12.2';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -639,6 +646,7 @@ const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
 $('verTitle').textContent = 'v' + VERSION; $('verDbg').textContent = 'v' + VERSION;
 
+function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
 function updateCharcoal() {
   $('charcoalN').textContent = charcoalLeft > 0 ? charcoalLeft : charcoal;
@@ -762,6 +770,7 @@ const mapEl = $('map'), mapCv = $('mapCv'), mctx = mapCv.getContext('2d');
 let mapOpen = false, mapView = { cx: 0, cy: 0, S: 22 };   // world tile at screen center, px per tile
 const mapPtrs = new Map(); let mapPinch = null;
 function openMap() {
+  $('mapBtn').classList.remove('beckon');
   mapOpen = true; mapEl.classList.add('show'); clearStick();
   mapCv.width = innerWidth * dpr; mapCv.height = innerHeight * dpr;
   mapView.cx = player.x; mapView.cy = player.y; mapView.S = 22;
@@ -788,7 +797,7 @@ function drawMap() {
   mctx.fillStyle = C.bg; mctx.fillRect(0, 0, vw, vh);
   const ox = vw/2 - mapView.cx*S, oy = vh/2 - mapView.cy*S;
   const T = (x, y) => [ox + x*S + S/2, oy + y*S + S/2];
-  if (!mapped.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText('Nothing mapped yet. Tap the charcoal to begin.', vw/2, vh/2); return; }
+  if (!mapped.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText('A blank canvas, waiting for charcoal.', vw/2, vh/2 - 12); mctx.font = '14px "Iowan Old Style", Palatino, Georgia, serif'; mctx.fillText('Tap the charcoal to begin mapping as you walk.', vw/2, vh/2 + 16); return; }
   // tiles
   for (const [k, kind] of mapped) { const [x, y] = k.split(',').map(Number);
     mctx.fillStyle = kind === 'wall' ? C.mapWall : kind === 'tunnel' ? C.tunnel : C.mapFloor; mctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5); }
@@ -825,7 +834,7 @@ $('again').addEventListener('click', () => { reset((Math.random()*1e9)|0); narrN
 $('begin').addEventListener('click', () => {
   AUDIO.begin();
   const fade = $('fade'); fade.className = 'in'; $('title').classList.add('hide');
-  requestAnimationFrame(() => requestAnimationFrame(() => { fade.className = 'out'; started = true; t0 = performance.now(); narrNext = t0 + CONFIG.narratorFirstSec * 1000; $('tools').classList.add('show'); }));
+  requestAnimationFrame(() => requestAnimationFrame(() => { fade.className = 'out'; started = true; t0 = performance.now(); narrNext = t0 + CONFIG.narratorFirstSec * 1000; $('tools').classList.add('show'); $('mapBtn').classList.add('beckon'); }));
 });
 
 // ── movement ────────────────────────────────────────────────────
@@ -898,16 +907,16 @@ function update(now) {
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
     if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); } } }
-    if (charcoalSpots.has(key)) { charcoalSpots.delete(key); charcoal++; charcoalFound++; updateCharcoal(); AUDIO.pickupChalk(); }
+    if (charcoalSpots.has(key)) { charcoalSpots.delete(key); charcoal++; charcoalFound++; updateCharcoal(); pulse(charcoalEl); AUDIO.pickupChalk(); }
     if (DIRS.filter(([dx,dy]) => isOpen(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEndsEntered++;
-    if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); AUDIO.pickupChalk(); }
+    if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); pulse(chalkEl); AUDIO.pickupChalk(); }
     if (pickups.has(key)) {
       const kind = pickups.get(key); pickups.delete(key);
       if (kind === 'pointer') { pointerUntil = now + CONFIG.pointerSeconds * 1000; pointerUses++; }
       else { pathUntil = now + CONFIG.pathSeconds * 1000; pathUses++; }
-      AUDIO.pickup();
+      AUDIO.pickup(); pulse(fxEl);
     }
-    if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); AUDIO.key(); }
+    if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); }
     if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); }
   }
 
