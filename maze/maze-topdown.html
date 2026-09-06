@@ -165,7 +165,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.12.0';
+const VERSION = '0.12.1';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -197,7 +197,10 @@ const CONFIG = {
   sliderSeconds: 0.8,   // how long the slide takes
   sliderKeyChance: 0.5, // chance the key hides in a pocket instead of a dead end
   sliderOnPath: true,   // one slider sits on the solution route; the maze can't be finished without it
-  sliderAtStart: true,  // you begin sealed in the start cell; pushing its wall is the first thing you learn
+  sliderAtStart: true,  // you begin sealed in a small room; pushing its wall is the first thing you learn
+  startRoomCells: 2,    // size of the sealed start room, in cells (2 = 3×3 tiles)
+  hintIdleSec: 2.5,     // stand still this long and the first slider's edge starts to shimmer
+  hintColor: '#c9b98a',
 
   // pickups (dead ends only)
   chalkStart: 3,        // chalk you begin with
@@ -390,7 +393,7 @@ function generate(seed) {
   {
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const cornerTiles = [[TX(0),TX(0)], [TX(CONFIG.cols-1),TX(0)], [TX(CONFIG.cols-1),TX(CONFIG.rows-1)], [sx,sy]];
-    const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y) || (Math.abs(x-sx) + Math.abs(y-sy) <= 2);   // also the cells beside the start
+    const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y) || (x <= sx + CONFIG.startRoomCells*2 && y >= sy - CONFIG.startRoomCells*2);   // also the start room and its neighbours
     const want = CONFIG.sliders[0] + (R() * (CONFIG.sliders[1] - CONFIG.sliders[0] + 1) | 0);
     const used = new Set();
     const cands = [];
@@ -412,22 +415,37 @@ function generate(seed) {
     }
   }
   start = { x: sx + 0.5, y: sy + 0.5 };
-  // the start cell as a slider: seal it off, aim it at one neighbour, reconnect anything orphaned
+  let startGap = null;
+  // the start room: open a small room in the corner, seal every way out, and make one edge tile the slider
   if (CONFIG.sliderAtStart) {
-    const gaps = DIRS.filter(([dx,dy]) => isOpen(sx+dx, sy+dy));
-    const [ax, ay] = gaps[R() * gaps.length | 0];
-    for (const [dx,dy] of gaps) tiles[sy+dy][sx+dx] = 0;
+    const rc = CONFIG.startRoomCells, tw = rc*2 - 1;
+    const x0 = sx, y0 = sy - tw + 1, x1 = sx + tw - 1, y1 = sy;            // room tile bounds
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) tiles[y][x] = 1;
+    // gaps leading out of the room: right side (x1+1) on cell rows, top side (y0-1) on cell columns
+    const gaps = [];
+    for (let y = y0; y <= y1; y += 2) if (isOpen(x1+1, y)) gaps.push([x1+1, y, 1, 0]);
+    for (let x = x0; x <= x1; x += 2) if (isOpen(x, y0-1)) gaps.push([x, y0-1, 0, -1]);
+    // make sure there is at least one way out to aim at
+    if (!gaps.length) { const y = y1; tiles[y][x1+1] = 1; gaps.push([x1+1, y, 1, 0]); }
+    const [gx, gy, ax, ay] = gaps[R() * gaps.length | 0];
+    for (const [x, y] of gaps) tiles[y][x] = 0;
     const comp = (x0, y0) => { const seen = new Set([x0+','+y0]), q2 = [[x0,y0]]; while (q2.length) { const [x,y] = q2.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); q2.push([nx,ny]); } } } return seen; };
-    const main = comp(sx + ax*2, sy + ay*2);
-    for (const [dx,dy] of gaps) {
-      if (dx === ax && dy === ay) continue;
-      const nx = sx + dx*2, ny = sy + dy*2; if (main.has(nx+','+ny)) continue;
-      // orphaned: open one wall between its region and the main region
-      const orphan = comp(nx, ny), bridges = [];
-      for (const k of orphan) { const [x,y] = k.split(',').map(Number); for (const [ex,ey] of DIRS) { const gx=x+ex, gy=y+ey, fx=x+ex*2, fy=y+ey*2; if (!isOpen(gx,gy) && main.has(fx+','+fy) && !(fx===sx && fy===sy) && fx>=TX(0) && fx<W-P && fy>=TX(0) && fy<H-P) bridges.push([gx,gy]); } }
-      if (bridges.length) { const [gx,gy] = bridges[R() * bridges.length | 0]; tiles[gy][gx] = 1; }
+    const inRoom = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    let main = comp(gx + ax, gy + ay);
+    // bridge each orphaned region back into the main one; repeat, since an orphan may only touch another orphan
+    for (let pass = 0; pass < gaps.length + 1; pass++) {
+      let progressed = false;
+      for (const [x, y, dx, dy] of gaps) {
+        if (x === gx && y === gy) continue;
+        const nx = x + dx, ny = y + dy; if (main.has(nx+','+ny)) continue;
+        const orphan = comp(nx, ny), bridges = [];
+        for (const k of orphan) { const [ox, oy] = k.split(',').map(Number); for (const [ex,ey] of DIRS) { const bx=ox+ex, by=oy+ey, fx=ox+ex*2, fy=oy+ey*2; if (!isOpen(bx,by) && main.has(fx+','+fy) && !inRoom(fx,fy) && fx>=TX(0) && fx<W-P && fy>=TX(0) && fy<H-P) bridges.push([bx,by]); } }
+        if (bridges.length) { const [bx,by] = bridges[R() * bridges.length | 0]; tiles[by][bx] = 1; main = comp(gx + ax, gy + ay); progressed = true; }
+      }
+      if (!progressed) break;
     }
-    sliders.push({ x: sx, y: sy, dx: ax, dy: ay, shifted: false, atStart: true });
+    sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
+    startGap = [gx, gy];
   }
 
   // exit gets its own alley: corner cell → one walkway tile → exit tile, carved outward into the margin
@@ -437,7 +455,8 @@ function generate(seed) {
   tiles[ccy][ccx + side] = 1; tiles[exY][exX] = 1;
   exit = { x: exX, y: exY };
 
-  // BFS from start for the solution path
+  // BFS from start for the solution path (with the start room's door temporarily open)
+  if (startGap) tiles[startGap[1]][startGap[0]] = 1;
   const prev = new Map(); const seen = new Set([sx+','+sy]); const q = [[sx, sy]];
   while (q.length) { const [x,y] = q.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k)) { seen.add(k); prev.set(k,[x,y]); q.push([nx,ny]); } } }
   solutionPath = []; let cur = [exX, exY];
@@ -466,6 +485,8 @@ function generate(seed) {
       break;
     }
   }
+
+  if (startGap) tiles[startGap[1]][startGap[0]] = 0;   // seal the start room again
 
   // walking distance from the exit, in tiles
   const distExit = new Map([[exX+','+exY, 0]]); const q2 = [[exX, exY]];
@@ -611,6 +632,7 @@ let dir = null, held = null;
 let facing = -Math.PI/2, facingShown = -Math.PI/2;
 let lastTileKey = '';
 let sliding = null;   // {sl, from:[x,y], to:[x,y], t0}
+let idleSince = 0, firstPushDone = false;
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
 let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0;
 const $ = id => document.getElementById(id);
@@ -651,7 +673,7 @@ function useChalk() {
 function reset(seed) {
   SEED = seed; generate(SEED);
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; sliding = null; facing = facingShown = -Math.PI/2;
+  steps = 0; t0 = performance.now(); solved = false; dir = null; held = null; sliding = null; idleSince = performance.now(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
   pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); updateCharcoal(); keyEl.classList.remove('show');
@@ -849,7 +871,7 @@ function update(now) {
       if (sl && want.dx === pushDir.dx && want.dy === pushDir.dy && !canGo(want)) {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, t0: now }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart();
+        sliding = { sl, from: [cx, cy], to, t0: now }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) firstPushDone = true;
       }
       else if (canGo(want)) dir = want; else if (CONFIG.keyGate && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
@@ -870,6 +892,7 @@ function update(now) {
   }
 
   const prevKey = lastTileKey;
+  if (dir || sliding || want) idleSince = now;
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; $('stepLbl').textContent = steps + ' tiles'; }
   if (key !== prevKey) {
@@ -962,6 +985,15 @@ function draw() {
     const px = ox + tx*S, py = oy + ty*S;
     if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
     else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w);
+    // hint: the first slider glints if you've been standing still and haven't pushed it yet
+    if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < CONFIG.viewRadius * 2 + 1) {
+      const t = (nowMs - idleSince - CONFIG.hintIdleSec * 1000) / 1000;
+      const a = Math.min(1, t / 1.5) * (0.22 + 0.18 * Math.sin(t * 2.2));
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = CONFIG.hintColor;
+      if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
+      else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w);
+      ctx.restore(); ctx.fillStyle = C.thick;
+    }
   }
 
   // start & exit (+ gate)
