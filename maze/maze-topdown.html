@@ -15,7 +15,7 @@
   #tools.show { display:flex; }
   #lamp { display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); }
   #lamp.show { display:flex; }
-  #lamp svg { width:22px; height:22px; }
+  #lamp svg { width:16px; height:16px; }
   #lamp.on { border-color:#e8d9a0; box-shadow:0 0 14px rgba(232,217,160,.35); } #lamp.on svg path { fill:#e8d9a0; stroke:#e8d9a0; }
   #chalk { display:flex; align-items:center; gap:8px; padding:8px 14px 8px 12px; border-radius:22px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:16px; }
   #chalk i { display:block; width:18px; height:6px; border-radius:2px; background:#ece7da; transform:rotate(-35deg); }
@@ -203,7 +203,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.16.2';
+const VERSION = '0.17.0';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -218,7 +218,7 @@ const CONFIG = {
   tilePx: 60,           // zoom: screen pixels per tile
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
-  speed: 4.2,           // tiles per second while the stick is held
+  speed: 3.8,           // tiles per second while the stick is held
   turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
   stickDeadzone: 0.22,  // fraction of stick travel that reads as "not pushing"
   playerSize: 0.46,     // fraction of a tile
@@ -243,7 +243,7 @@ const CONFIG = {
   // pickups (dead ends only)
   chalkStart: 0,        // chalk you begin with (none: the first piece you find teaches it)
   chalkPerPickup: 1,    // marks each found piece is worth
-  chalkSpawnRate: 0.15, // fraction of dead ends holding a piece of chalk
+  chalkSpawnRate: 0.11, // fraction of dead ends holding a piece of chalk
   pointerSpawnRate: 0.15,// fraction of dead ends holding a pointer (arrow to the exit). At least 1, at most pickupMax.
   pathSpawnRate: 0.15,  // fraction of dead ends holding a path reveal
   pickupMax: 2,         // cap per type per maze
@@ -252,14 +252,16 @@ const CONFIG = {
   pickupExitBuffer: 6,  // dead ends within this many cells (walking) of the exit never hold pickups
   charcoalStart: 0,     // mapping pieces you begin with
   charcoalTiles: 40,    // floor tiles each piece adds to the map
-  charcoalSpawnRate: 0.075,// fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
+  charcoalSpawnRate: 0.095,// fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
   startRoomChalk: 2,    // pieces of chalk lying in the start room
-  darkness: 0.25,       // fraction of the maze's floor swallowed by darkness (one region, away from the start)
+  darknessChance: 0.3,  // share of mazes that have any darkness
+  darknessSizes: [0.25, 0.4, 0.6],   // when there is darkness, one of these shares of the floor, equally likely
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
   coneDeg: 70,          // lamp cone width
   coneTiles: 3.6,       // lamp cone reach
-  keyGate: true,        // exit is locked; a key waits in some dead end
+  keyGate: true,        // allow the locked exit at all
+  keyChance: 0.5,       // share of mazes whose exit is actually locked
 
   journalHoldSec: 9,    // how long a found journal page stays readable
 
@@ -300,6 +302,13 @@ const CONFIG = {
   },
 };
 
+const SHELF_LINES = [
+  "A collection of notes. Where did these come from?",
+  "Someone has been keeping these. I don't remember starting.",
+  "Five shelves. I know the hands that filled them, and I don't.",
+  "Pages stacked with care. Not mine. Almost mine.",
+  "The books are arranged the way I would arrange them. That should worry me more than it does.",
+];
 const NARRATOR = [
   "How did I get here?",
   "Why is this so familiar?",
@@ -360,7 +369,7 @@ const CAST = [
 
 // ── persistence (local storage; silently off where unavailable) ──
 const SAVE_KEY = 'maze.save.v1';
-let SAVE = { collected: {}, charCycle: [], narrPlayed: [], tutorials: [] };
+let SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [] };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) SAVE = Object.assign(SAVE, JSON.parse(raw)); } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
 function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boolean).length; }
@@ -380,6 +389,7 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) | 0
 const P = 2;   // wall margin around the cell grid; the exit alley is carved into it
 let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], chalkSpots = new Set(), charcoalSpots = new Set(), pickups = new Map(), keySpot = null;
 let journals = new Map(), character = null, journalIdx = 0;
+let gated = false;   // this maze's exit is locked
 let startRoom = null;   // {x0,y0,x1,y1} tile bounds of the sealed start room
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
 let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
@@ -556,9 +566,9 @@ function generate(seed) {
   const pickFree = () => { const f = free(); return f.length ? f[R()*f.length|0] : null; };
 
   // key first, so it always exists
-  keySpot = null;
+  keySpot = null; gated = CONFIG.keyGate && R() < CONFIG.keyChance;
   const pocketKeys = pockets.map(([x,y]) => x+','+y);
-  if (CONFIG.keyGate) {
+  if (gated) {
     if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
     else { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
   }
@@ -582,7 +592,8 @@ function generate(seed) {
 
   // darkness: one region grown from a far tile until it holds the configured share of the floor; never the start room or its ring
   darkTiles = new Set(); darkFringe = new Map(); lampSpot = null;
-  if (CONFIG.darkness > 0) {
+  const darkShare = R() < CONFIG.darknessChance ? CONFIG.darknessSizes[R() * CONFIG.darknessSizes.length | 0] : 0;
+  if (darkShare > 0) {
     const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     // distances from the room door, with the door open
     const door = startGap ? [startGap[0] + (startGap[0] > startRoom.x1 ? 1 : 0), startGap[1] - (startGap[1] < startRoom.y0 ? 1 : 0)] : [sx, sy];
@@ -591,7 +602,7 @@ function generate(seed) {
     const dist = new Map([[door.join(','), 0]]); const qd = [door];
     while (qd.length) { const [x,y] = qd.shift(); const d = dist.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k) && !roomZone(nx,ny)) { dist.set(k, d+1); qd.push([nx,ny]); } } }
     const openAll = [...dist.keys()], maxD = Math.max(...dist.values());
-    const target = Math.floor(openAll.length * CONFIG.darkness);
+    const target = Math.floor(openAll.length * darkShare);
     const seeds = openAll.filter(k => dist.get(k) >= maxD * 0.5);
     const seed = seeds[R() * seeds.length | 0];
     const qg = [seed]; darkTiles.add(seed);
@@ -731,7 +742,7 @@ let lastTileKey = '';
 let sliding = null;   // {sl, from:[x,y], to:[x,y], t0}
 let idleSince = 0, firstPushDone = false;
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
-let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0;
+let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, leftRoom = false, shelfSaid = false;
 const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
 $('verTitle').textContent = 'v' + VERSION; $('verDbg').textContent = 'v' + VERSION;
@@ -775,7 +786,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; hasKey = false; hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); updateCharcoal(); keyEl.classList.remove('show');
   let fresh = NARRATOR.filter(l => !SAVE.narrPlayed.includes(l));
   if (fresh.length < 2) { SAVE.narrPlayed = []; fresh = NARRATOR.slice(); }
@@ -814,7 +825,7 @@ $('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').ch
 $('resetSave').addEventListener('click', () => {
   const b = $('resetSave');
   if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to erase'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Reset save'; }, 3000); return; }
-  SAVE = { collected: {}, charCycle: [], narrPlayed: [], tutorials: [] }; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [] }; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   b.dataset.armed = ''; b.textContent = 'Save erased';
   setTimeout(() => b.textContent = 'Reset save', 1500);
 });
@@ -971,7 +982,7 @@ function enterMaze() {
   const fade = $('fade'); fade.className = 'in';
   $('title').classList.add('hide'); $('msg').classList.remove('show');
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    fade.className = 'out'; started = true; t0 = gameNow(); narrNext = t0 + CONFIG.narratorFirstSec * 1000;
+    fade.className = 'out'; started = true; t0 = gameNow(); narrNext = Infinity;   // the narrator waits until you've left the room
     $('tools').classList.add('show'); $('mapBtn').classList.add('beckon');
   }));
 }
@@ -980,7 +991,7 @@ $('begin').addEventListener('click', () => { AUDIO.begin(); enterMaze(); });
 
 // ── movement ────────────────────────────────────────────────────
 // the exit tile counts as a wall until you hold the key
-const passable = (x, y) => isOpen(x, y) && !(CONFIG.keyGate && !hasKey && x === exit.x && y === exit.y);
+const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y);
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 function snapPerp(d) { if (d.dx) player.y = Math.floor(player.y) + 0.5; else player.x = Math.floor(player.x) + 0.5; }
@@ -1024,7 +1035,7 @@ function update(wall) {
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
         sliding = { sl, from: [cx, cy], to, t0: now }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) firstPushDone = true;
       }
-      else if (canGo(want)) dir = want; else if (CONFIG.keyGate && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
+      else if (canGo(want)) dir = want; else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
   }
@@ -1048,6 +1059,17 @@ function update(wall) {
   if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; $('stepLbl').textContent = steps + ' tiles'; }
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
+    if (startRoom) {
+      const inRoom = tx >= startRoom.x0 && tx <= startRoom.x1 && ty >= startRoom.y0 && ty <= startRoom.y1;
+      if (!inRoom && !leftRoom) { leftRoom = true; narrNext = now + CONFIG.narratorFirstSec * 1000; }
+      // stepping up to the shelves, once per maze
+      const shelfSpots = [[startRoom.x0, startRoom.y0+1],[startRoom.x0, startRoom.y0+2],[startRoom.x0, startRoom.y0+3],[startRoom.x0+1, startRoom.y1],[startRoom.x0+2, startRoom.y1]];
+      if (!shelfSaid && inRoom && shelfSpots.some(([x,y]) => x===tx && y===ty)) {
+        shelfSaid = true;
+        let fresh = SHELF_LINES.filter(l => !SAVE.shelfPlayed.includes(l)); if (!fresh.length) { SAVE.shelfPlayed = []; fresh = SHELF_LINES.slice(); }
+        const line = fresh[Math.random() * fresh.length | 0]; SAVE.shelfPlayed.push(line); persist(); narrate(line);
+      }
+    }
     if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); } } }
     if (charcoalSpots.has(key)) { charcoalSpots.delete(key); charcoal++; charcoalFound++; updateCharcoal(); pulse(charcoalEl); AUDIO.pickupChalk(); tutorial('charcoal'); }
     if (DIRS.filter(([dx,dy]) => isOpen(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEndsEntered++;
@@ -1081,7 +1103,7 @@ function update(wall) {
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   if (!solved && started && (player.x|0) === exit.x && (player.y|0) === exit.y) {
-    solved = true; clearStick(); dir = null; narrEl.classList.remove('show'); AUDIO.gate(); setTimeout(() => AUDIO.exit(), 350);
+    solved = true; clearStick(); dir = null; narrEl.classList.remove('show'); if (gated) { AUDIO.gate(); setTimeout(() => AUDIO.exit(), 350); } else AUDIO.exit();
     const secs = ((gameNow() - t0) / 1000).toFixed(1);
     const optimal = solutionPath.length - 1, ratio = (steps / optimal).toFixed(2);
     const rows = [
@@ -1174,7 +1196,7 @@ function draw() {
   { const [ex, ey] = T(exit.x, exit.y);
     ctx.fillStyle = C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
-    if (CONFIG.keyGate && !solved) {   // bars stay up until you reach them with the key
+    if (gated && !solved) {   // bars stay up until you reach them with the key
       ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
       for (let i = -1; i <= 1; i++) { ctx.moveTo(ex + i*S*0.26, ey - S*0.42); ctx.lineTo(ex + i*S*0.26, ey + S*0.42); }
       ctx.moveTo(ex - S*0.4, ey - S*0.1); ctx.lineTo(ex + S*0.4, ey - S*0.1); ctx.stroke();
@@ -1209,9 +1231,10 @@ function draw() {
   // the lamp
   if (lampSpot) { const [mx, my] = lampSpot.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.lamp; ctx.lineWidth = Math.max(1.2, S*0.035); ctx.lineJoin = 'round'; ctx.beginPath();
-    ctx.moveTo(px - S*0.1, py - S*0.24); ctx.lineTo(px + S*0.1, py - S*0.24); ctx.lineTo(px + S*0.18, py - S*0.04); ctx.lineTo(px - S*0.18, py - S*0.04); ctx.closePath();
-    ctx.moveTo(px - S*0.12, py - S*0.04); ctx.lineTo(px - S*0.08, py + S*0.1); ctx.lineTo(px + S*0.08, py + S*0.1); ctx.lineTo(px + S*0.12, py - S*0.04);
-    ctx.moveTo(px - S*0.06, py + S*0.1); ctx.lineTo(px - S*0.08, py + S*0.24); ctx.lineTo(px + S*0.08, py + S*0.24); ctx.lineTo(px + S*0.06, py + S*0.1); ctx.stroke(); }
+    const k = 0.75;
+    ctx.moveTo(px - S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.18*k, py - S*0.04*k); ctx.lineTo(px - S*0.18*k, py - S*0.04*k); ctx.closePath();
+    ctx.moveTo(px - S*0.12*k, py - S*0.04*k); ctx.lineTo(px - S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.12*k, py - S*0.04*k);
+    ctx.moveTo(px - S*0.06*k, py + S*0.1*k); ctx.lineTo(px - S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.06*k, py + S*0.1*k); ctx.stroke(); }
   // key
   if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
