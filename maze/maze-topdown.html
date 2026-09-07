@@ -13,6 +13,10 @@
   #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
   #tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 224px); display:none; justify-content:center; align-items:center; gap:14px; }
   #tools.show { display:flex; }
+  #lamp { display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); }
+  #lamp.show { display:flex; }
+  #lamp svg { width:22px; height:22px; }
+  #lamp.on { border-color:#e8d9a0; box-shadow:0 0 14px rgba(232,217,160,.35); } #lamp.on svg path { fill:#e8d9a0; stroke:#e8d9a0; }
   #chalk { display:flex; align-items:center; gap:8px; padding:8px 14px 8px 12px; border-radius:22px; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); color:#e8e3d6; font-size:16px; }
   #chalk i { display:block; width:18px; height:6px; border-radius:2px; background:#ece7da; transform:rotate(-35deg); }
   #chalk.empty { color:#7d786d; } #chalk.empty i { background:#5a564f; }
@@ -146,6 +150,7 @@
   <div id="mapBtn"><svg viewBox="0 0 26 26" fill="none" stroke="#b9b4a8" stroke-width="1.6" stroke-linejoin="round"><path d="M3 6l7-3 6 3 7-3v17l-7 3-6-3-7 3z"/><path d="M10 3v17M16 6v17"/></svg></div>
   <div id="chalk"><i></i><span id="chalkN">0</span></div>
   <div id="charcoal"><i></i><span id="charcoalN">0</span></div>
+  <div id="lamp"><svg viewBox="0 0 24 24"><path d="M9 3h6l2 6H7zM8 9h8v2l-1.5 2H9.5L8 11zM10 13h4v4h-4zM10.5 17h3l.5 3h-4z" fill="none" stroke="#b9b4a8" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
 </div>
 <div id="map"><canvas id="mapCv"></canvas><h1>Map</h1><button id="mapClose">✕</button><div class="hint">Drag to pan · pinch to zoom</div></div>
 <svg id="key" viewBox="0 0 32 32"><circle cx="11" cy="16" r="6" fill="none" stroke="#e0c98a" stroke-width="3"/><path d="M17 16h12M25 16v5M29 16v4" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"/></svg>
@@ -198,7 +203,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.15.1';
+const VERSION = '0.16.2';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -250,6 +255,10 @@ const CONFIG = {
   charcoalSpawnRate: 0.075,// fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
   startRoomChalk: 2,    // pieces of chalk lying in the start room
+  darkness: 0.25,       // fraction of the maze's floor swallowed by darkness (one region, away from the start)
+  darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
+  coneDeg: 70,          // lamp cone width
+  coneTiles: 3.6,       // lamp cone reach
   keyGate: true,        // exit is locked; a key waits in some dead end
 
   journalHoldSec: 9,    // how long a found journal page stays readable
@@ -283,6 +292,7 @@ const CONFIG = {
     pointerPickup: '#c9b98a',
     pathPickup: '#b9b4a8',
     key:   '#e0c98a',
+    lamp:  '#e8d9a0',
     charcoal: '#3a3d3f',
     mapFloor: '#5a5750',
     mapWall: '#23262a',
@@ -371,6 +381,7 @@ const P = 2;   // wall margin around the cell grid; the exit alley is carved int
 let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], chalkSpots = new Set(), charcoalSpots = new Set(), pickups = new Map(), keySpot = null;
 let journals = new Map(), character = null, journalIdx = 0;
 let startRoom = null;   // {x0,y0,x1,y1} tile bounds of the sealed start room
+let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
 let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
 let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
 const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
@@ -426,7 +437,7 @@ function generate(seed) {
   }
 
   // shifting cells: seal a dead end E into a pocket; the cell D two tiles away (through the wall) becomes a slider aimed at E
-  sliders = []; pockets = []; startRoom = null;
+  sliders = []; pockets = []; startRoom = null; sealedGaps = [];
   const sx = TX(0), sy = TX(CONFIG.rows-1);
   {
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
@@ -447,7 +458,7 @@ function generate(seed) {
       if (!opts.length) continue;
       opts.sort((a, b) => nOpen(a[2], a[3]) - nOpen(b[2], b[3]));   // prefer a dead-end slider
       const [dx, dy, Dx, Dy] = opts[0];
-      tiles[ey+by][ex+bx] = 0;                                       // seal the pocket
+      tiles[ey+by][ex+bx] = 0; sealedGaps.push([ex+bx, ey+by]);        // seal the pocket
       pockets.push([ex, ey]); used.add(ex+','+ey); used.add(Dx+','+Dy);
       sliders.push({ x: Dx, y: Dy, dx: -dx, dy: -dy, shifted: false });  // slider pushes toward the pocket
     }
@@ -521,6 +532,7 @@ function generate(seed) {
       const c = solutionPath[i], g = solutionPath[i+1], n = solutionPath[i+2];
       tiles[g[1]][g[0]] = 0;
       if (reachesExit()) { tiles[g[1]][g[0]] = 1; continue; }
+      sealedGaps.push([g[0], g[1]]);
       sliders.push({ x: c[0], y: c[1], dx: n[0] - c[0] > 0 ? 1 : n[0] - c[0] < 0 ? -1 : 0, dy: n[1] - c[1] > 0 ? 1 : n[1] - c[1] < 0 ? -1 : 0, shifted: false, onPath: true });
       break;
     }
@@ -567,6 +579,45 @@ function generate(seed) {
   if (!chalkSpots.size) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider
   if (startRoom) { const { x0, y0 } = startRoom; [[x0+1, y0+1], [x0+3, y0+3], [x0+3, y0+1], [x0+1, y0+3]].slice(0, CONFIG.startRoomChalk).forEach(([x, y]) => chalkSpots.add(x+','+y)); }
+
+  // darkness: one region grown from a far tile until it holds the configured share of the floor; never the start room or its ring
+  darkTiles = new Set(); darkFringe = new Map(); lampSpot = null;
+  if (CONFIG.darkness > 0) {
+    const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    // distances from the room door, with the door open
+    const door = startGap ? [startGap[0] + (startGap[0] > startRoom.x1 ? 1 : 0), startGap[1] - (startGap[1] < startRoom.y0 ? 1 : 0)] : [sx, sy];
+    const reopen = sealedGaps.filter(([x, y]) => !(startGap && x === startGap[0] && y === startGap[1]));
+    for (const [x, y] of reopen) tiles[y][x] = 1;   // let the darkness reach across sliders and into pockets
+    const dist = new Map([[door.join(','), 0]]); const qd = [door];
+    while (qd.length) { const [x,y] = qd.shift(); const d = dist.get(x+','+y); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k) && !roomZone(nx,ny)) { dist.set(k, d+1); qd.push([nx,ny]); } } }
+    const openAll = [...dist.keys()], maxD = Math.max(...dist.values());
+    const target = Math.floor(openAll.length * CONFIG.darkness);
+    const seeds = openAll.filter(k => dist.get(k) >= maxD * 0.5);
+    const seed = seeds[R() * seeds.length | 0];
+    const qg = [seed]; darkTiles.add(seed);
+    while (qg.length && darkTiles.size < target) {
+      const idx = R() < 0.3 ? (R() * qg.length | 0) : 0;                    // mostly breadth-first, a little ragged at the edge
+      const [x,y] = qg.splice(idx, 1)[0].split(',').map(Number);
+      for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !darkTiles.has(k) && !roomZone(nx,ny) && (dist.get(k) ?? Infinity) >= CONFIG.darkBufferTiles && darkTiles.size < target) { darkTiles.add(k); qg.push(k); } }
+    }
+    // the lamp: a dead end you can reach without crossing darkness, else any lit reachable tile
+    const litReach = new Set([door.join(',')]); const ql = [door];
+    while (ql.length) { const [x,y] = ql.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !litReach.has(k) && !darkTiles.has(k) && !roomZone(nx,ny)) { litReach.add(k); ql.push([nx,ny]); } } }
+    const litDead = deadEnds.filter(k => !taken.has(k) && litReach.has(k));
+    if (litDead.length) lampSpot = litDead[R() * litDead.length | 0];
+    else { const any = [...litReach].filter(k => { const [x,y] = k.split(',').map(Number); return (x-P)%2===1 && (y-P)%2===1 && !taken.has(k) && !chalkSpots.has(k) && !pickups.has(k) && k !== keySpot && !journals.has(k) && !charcoalSpots.has(k); }); lampSpot = any.length ? any[R() * any.length | 0] : null; }
+    if (lampSpot) taken.add(lampSpot);
+    for (const [x, y] of reopen) tiles[y][x] = 0;   // reseal
+    for (const [x, y] of reopen) darkTiles.delete(x+','+y);
+    // the drop-off: two rings of open tiles around the darkness get progressively dimmer
+    darkFringe = new Map();
+    let ring = [...darkTiles];
+    for (let level = 2; level >= 1; level--) {
+      const next = [];
+      for (const k of ring) { const [x,y] = k.split(',').map(Number); for (const [dx,dy] of DIRS) { const nk = (x+dx)+','+(y+dy); if (isOpen(x+dx, y+dy) && !darkTiles.has(nk) && !darkFringe.has(nk)) { darkFringe.set(nk, level); next.push(nk); } } }
+      ring = next;
+    }
+  }
 
   // tunnels: straight interior runs of corridor (exactly two opposite neighbors), roofed over
   tunnelTiles = new Set();
@@ -656,6 +707,8 @@ const AUDIO = (() => {
     charcoalEnd() { noise(0.12, { vol: 0.12, freq: 700, q: 1 }); tone(220, 0.3, { vol: 0.06, slide: 160 }); },
     paper() { noise(0.12, { vol: 0.1, freq: 2600, q: 0.7, type: 'highpass' }); },
     unfold() { noise(0.45, { vol: 0.14, freq: 1400, q: 0.5, type: 'bandpass' }); },
+    lampOn() { noise(0.08, { vol: 0.15, freq: 3000, q: 1, type: 'highpass' }); tone(523, 0.5, { vol: 0.07, attack: 0.02 }); tone(784, 0.7, { vol: 0.04, attack: 0.1 }); },
+    lampOff() { tone(392, 0.25, { vol: 0.06, slide: 300 }); },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
     journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
@@ -671,7 +724,7 @@ let chalk = 0, chalkUsed = 0, chalkFound = 0, deadEndsEntered = 0;
 let charcoal = 0, charcoalLeft = 0, charcoalUsed = 0, charcoalFound = 0, charcoalOn = false;   // charcoalLeft: tiles of mapping remaining on the active piece
 let mapped = new Map();   // 'x,y' → 'floor' | 'wall' | 'tunnel' — everything the map knows
 let pointerUntil = 0, pathUntil = 0, pointerUses = 0, pathUses = 0;
-let hasKey = false;
+let hasKey = false, hasLamp = false, lampOn = false;
 let dir = null, held = null;
 let facing = -Math.PI/2, facingShown = -Math.PI/2;
 let lastTileKey = '';
@@ -722,7 +775,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Set(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; journalsRead = 0;
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; hasKey = false; hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); updateCharcoal(); keyEl.classList.remove('show');
   let fresh = NARRATOR.filter(l => !SAVE.narrPlayed.includes(l));
   if (fresh.length < 2) { SAVE.narrPlayed = []; fresh = NARRATOR.slice(); }
@@ -751,6 +804,7 @@ stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('poi
 
 chalkEl.addEventListener('pointerdown', e => { e.stopPropagation(); useChalk(); });
 charcoalEl.addEventListener('pointerdown', e => { e.stopPropagation(); useCharcoal(); });
+$('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLamp || paused || solved) return; lampOn = !lampOn; $('lamp').classList.toggle('on', lampOn); lampOn ? AUDIO.lampOn() : AUDIO.lampOff(); });
 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
 $('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
@@ -818,6 +872,7 @@ const ICONS = {
   path:     '<svg viewBox="0 0 44 44" fill="none" stroke="#b9b4a8" stroke-width="2"><path d="M22 22m-2 0a2 2 0 1 0 4 0a4 4 0 1 0-8 0a6 6 0 1 0 12 0a8 8 0 1 0-16 0a10 10 0 1 0 20 0a12 12 0 1 0-24 0"/></svg>',
   key:      '<svg viewBox="0 0 44 44" fill="none" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"><circle cx="15" cy="22" r="7"/><path d="M22 22h14M31 22v6M36 22v5"/></svg>',
   page:     '<svg viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>',
+  lamp:     '<svg viewBox="0 0 44 44"><path d="M17 6h10l4 11H13zM15 17h14v4l-3 4H18l-3-4zM19 25h6v7h-6zM19.5 32h5l1 6h-7z" fill="none" stroke="#e8d9a0" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   slider:   '<svg viewBox="0 0 44 44"><rect x="8" y="8" width="28" height="28" fill="#6e6a62"/><rect x="33" y="8" width="3" height="28" fill="#1b1f21"/><path d="M18 22h10m-4-4l4 4-4 4" fill="none" stroke="#ece7da" stroke-width="2" stroke-linecap="round"/></svg>',
 };
 const TUTORIALS = {
@@ -826,6 +881,7 @@ const TUTORIALS = {
   pointer:  { title: 'A compass needle', why: "It knows where the way out is. It doesn't know the way.", how: "It will point for a while, straight as a bird flies, and then it will stop. The corridors don't care where it points." },
   path:     { title: 'A spool of thread', why: "Somebody measured this place once and left the measure on the floor.", how: "I can see it now, laid along the stones wherever my light falls — the shortest way out. It won't stay visible long. It never does." },
   key:      { title: 'A key', why: "The way out was barred long before I arrived.", how: "There's a gate over the exit, a ring in one of the far corners. I carry this to it and push through." },
+  lamp:     { title: 'A lamp', why: "There are places here the walls have swallowed the light entirely.", how: "Lit, it throws a cone ahead of me, the way I'm facing, and a little warmth at my feet. I can douse it and light it again from the lamp beside my tools. In the dark, without it, I would see only myself." },
   page:     { title: 'A page', why: "I am not the first here. I won't be the last.", how: "Someone wrote this down before they moved on. I'll keep what I find. The pages gather in Stories, where I can read them together." },
 };
 let paused = false, pauseStart = 0, pausedTotal = 0;
@@ -881,7 +937,7 @@ function drawMap() {
   if (!mapped.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText('A blank canvas, waiting for charcoal.', vw/2, vh/2 - 12); mctx.font = '14px "Iowan Old Style", Palatino, Georgia, serif'; mctx.fillText('Tap the charcoal to begin mapping as you walk.', vw/2, vh/2 + 16); return; }
   // tiles
   for (const [k, kind] of mapped) { const [x, y] = k.split(',').map(Number);
-    mctx.fillStyle = kind === 'wall' ? C.mapWall : kind === 'tunnel' ? C.tunnel : C.mapFloor; mctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5); }
+    mctx.fillStyle = kind === 'wall' ? C.mapWall : kind === 'tunnel' ? C.tunnel : darkTiles.has(k) ? '#3a3834' : C.mapFloor; mctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5); }
   // seams on floor
   mctx.strokeStyle = 'rgba(13,15,16,.35)'; mctx.lineWidth = 1; mctx.beginPath();
   for (const [k, kind] of mapped) { if (kind === 'wall') continue; const [x, y] = k.split(',').map(Number); mctx.rect(ox + x*S, oy + y*S, S, S); }
@@ -1002,6 +1058,7 @@ function update(wall) {
       else { pathUntil = now + CONFIG.pathSeconds * 1000; pathUses++; }
       AUDIO.pickup(); pulse(fxEl); tutorial(kind);
     }
+    if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
     if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); }
     if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); }
   }
@@ -1149,6 +1206,12 @@ function draw() {
   for (const k of journals.keys()) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.fillStyle = C.journal; ctx.beginPath(); ctx.moveTo(px - S*0.22, py - S*0.14); ctx.lineTo(px, py - S*0.08); ctx.lineTo(px + S*0.22, py - S*0.14); ctx.lineTo(px + S*0.22, py + S*0.14); ctx.lineTo(px, py + S*0.2); ctx.lineTo(px - S*0.22, py + S*0.14); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = C.wall; ctx.lineWidth = Math.max(1, S*0.025); ctx.beginPath(); ctx.moveTo(px, py - S*0.08); ctx.lineTo(px, py + S*0.2); ctx.stroke(); }
+  // the lamp
+  if (lampSpot) { const [mx, my] = lampSpot.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.strokeStyle = C.lamp; ctx.lineWidth = Math.max(1.2, S*0.035); ctx.lineJoin = 'round'; ctx.beginPath();
+    ctx.moveTo(px - S*0.1, py - S*0.24); ctx.lineTo(px + S*0.1, py - S*0.24); ctx.lineTo(px + S*0.18, py - S*0.04); ctx.lineTo(px - S*0.18, py - S*0.04); ctx.closePath();
+    ctx.moveTo(px - S*0.12, py - S*0.04); ctx.lineTo(px - S*0.08, py + S*0.1); ctx.lineTo(px + S*0.08, py + S*0.1); ctx.lineTo(px + S*0.12, py - S*0.04);
+    ctx.moveTo(px - S*0.06, py + S*0.1); ctx.lineTo(px - S*0.08, py + S*0.24); ctx.lineTo(px + S*0.08, py + S*0.24); ctx.lineTo(px + S*0.06, py + S*0.1); ctx.stroke(); }
   // key
   if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
@@ -1170,6 +1233,53 @@ function draw() {
     ctx.fillStyle = C.player; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
     ctx.restore(); }
+
+  // darkness: dark tiles are painted out entirely, then the lamp cuts a cone and a foot-glow back in
+  if (darkTiles.size && !debugMap) {
+    if (!draw.dark) draw.dark = document.createElement('canvas');
+    const dk = draw.dark; if (dk.width !== cv.width || dk.height !== cv.height) { dk.width = cv.width; dk.height = cv.height; }
+    const d = dk.getContext('2d'); d.setTransform(dpr, 0, 0, dpr, 0, 0); d.globalCompositeOperation = 'source-over'; d.clearRect(0, 0, vw, vh);
+    const inDark = darkTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
+    const paintTile = (mx, my, alpha) => { d.globalAlpha = alpha; d.fillRect(ox + mx*S - 1, oy + my*S - 1, S + 2, S + 2);
+      for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) if (!isOpen(mx+dx, my+dy)) d.fillRect(ox + (mx+dx)*S - 1, oy + (my+dy)*S - 1, S + 2, S + 2); };
+    d.fillStyle = C.bg;
+    if (inDark) { d.globalAlpha = 1; d.fillRect(0, 0, vw, vh); }   // in the dark, the lit halls elsewhere are gone too
+    else {
+      for (const k of darkTiles) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ - 1 || mx > x1_ + 1 || my < y0_ - 1 || my > y1_ + 1) continue; paintTile(mx, my, 1); }
+      for (const [k, level] of darkFringe) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ - 1 || mx > x1_ + 1 || my < y0_ - 1 || my > y1_ + 1) continue; paintTile(mx, my, level === 2 ? 0.72 : 0.42); }
+    }
+    d.globalAlpha = 1;
+    if (hasLamp && lampOn) {
+      const px = ox + player.x*S, py = oy + player.y*S, reach = CONFIG.coneTiles * S, half = CONFIG.coneDeg * Math.PI / 360;
+      d.globalCompositeOperation = 'destination-out';
+      const g = d.createRadialGradient(px, py, S*0.2, px, py, reach); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.75, 'rgba(0,0,0,0.9)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      // occluded cone: march rays through the tile grid and stop at the first wall (plus a sliver so the wall face shows)
+      d.fillStyle = g; d.beginPath(); d.moveTo(px, py);
+      const rays = 72, stepT = 0.08, maxT = CONFIG.coneTiles;
+      for (let i = 0; i <= rays; i++) {
+        const a = facingShown - half + (2 * half) * i / rays, ca = Math.cos(a), sa = Math.sin(a);
+        let t = 0, hit = false;
+        while (t < maxT) { const wx = player.x + ca * t, wy = player.y + sa * t; if (!isOpen(Math.floor(wx), Math.floor(wy))) { hit = true; break; } t += stepT; }
+        const tt = hit ? Math.min(maxT, t + 0.22) : maxT;
+        d.lineTo(px + ca * tt * S, py + sa * tt * S);
+      }
+      d.closePath(); d.fill();
+      const f = d.createRadialGradient(px, py, 0, px, py, S*0.7); f.addColorStop(0, 'rgba(0,0,0,0.9)'); f.addColorStop(1, 'rgba(0,0,0,0)');
+      d.fillStyle = f; d.beginPath(); d.arc(px, py, S*0.7, 0, Math.PI*2); d.fill();
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dk, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // in the dark you can see yourself only by your own lamp
+    if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62;
+      ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y)) ? 0.35 : 1;
+      ctx.fillStyle = C.player; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  }
+  // lit lamp outside the dark: same reach, brighter floor
+  if (hasLamp && lampOn && !debugMap) {
+    const px = ox + player.x*S, py = oy + player.y*S, rr = CONFIG.viewRadius * 2 * S;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, rr); g.addColorStop(0, 'rgba(232,217,160,0.16)'); g.addColorStop(1, 'rgba(232,217,160,0)');
+    ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr*2, rr*2);
+  }
 
   // fog
   if (!debugMap) {
