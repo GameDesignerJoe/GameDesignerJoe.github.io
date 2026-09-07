@@ -18,7 +18,7 @@
   #glyphs div { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(185,180,168,.2); }
   #glyphs div:active { background:rgba(236,231,218,.15); }
   #glyphs svg { width:22px; height:22px; }
-  @media (orientation: landscape) { #glyphs { left:auto; right:26px; transform:none; bottom:calc(env(safe-area-inset-bottom) + 246px); flex-wrap:wrap; width:150px; justify-content:center; } body.stick-left #glyphs { right:auto; left:26px; } }
+  @media (orientation: landscape) { #glyphs { left:26px; right:auto; transform:none; bottom:calc(env(safe-area-inset-bottom) + 80px); flex-wrap:wrap; width:150px; justify-content:center; } body.stick-left #glyphs { left:auto; right:26px; } }
   #lamp { display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); }
   #lamp.show { display:flex; }
   #lamp svg { width:16px; height:16px; }
@@ -52,6 +52,8 @@
   #map .hint { position:absolute; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 24px); text-align:center; color:#6f6b62; font-size:14px; font-style:italic; pointer-events:none; }
   #map h1 { position:absolute; top:calc(env(safe-area-inset-top) + 14px); left:20px; margin:0; font-weight:400; font-size:24px; letter-spacing:.06em; color:#e8e3d6; pointer-events:none; }
   #mapClose { position:absolute; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
+  #stone { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
+  #stone.show { display:block; }
   #key { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
   #key.show { display:block; }
   #fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }
@@ -94,7 +96,7 @@
   body.pre #hud, body.pre #gear, body.pre #key, body.pre #fx { opacity:0; transform:translateY(-24px); }
   body.pre #tools { opacity:0; transform:translateY(40px); }
   body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); }
-  @media (orientation: landscape) { body.pre #tools, body.pre #stick, body.pre #glyphs { transform:translateX(40px); } body.pre.stick-left #tools, body.pre.stick-left #stick, body.pre.stick-left #glyphs { transform:translateX(-40px); } }
+  @media (orientation: landscape) { body.pre #stick { transform:translateX(40px); } body.pre #tools, body.pre #glyphs { transform:translateX(-40px); } body.pre.stick-left #stick { transform:translateX(-40px); } body.pre.stick-left #tools, body.pre.stick-left #glyphs { transform:translateX(40px); } }
   .ghost { margin-top:12px; padding:12px 0; width:100%; font:inherit; font-size:16px; color:#b9b4a8; background:transparent; border:1px solid rgba(185,180,168,.3); border-radius:8px; }
   .ghost:active { background:rgba(185,180,168,.1); }
   .storiesBtn { display:flex; align-items:center; justify-content:center; gap:10px; }
@@ -134,14 +136,29 @@
   #tutClose { display:block; margin:22px auto 0; padding:6px 10px 2px; font:inherit; font-size:20px; font-style:italic; letter-spacing:.06em; color:#ece7da; background:none; border:0; position:relative; }
   #tutClose svg { position:absolute; left:0; right:0; bottom:-6px; width:100%; height:12px; }
   #tutClose:active { opacity:.6; }
+  #pool { position:fixed; inset:0; z-index:6; display:none; background:#141a1d; padding:0 26px; }
+  #pool.show { display:grid; grid-template-rows:1fr auto 1fr; }
+  #pool .water { align-self:end; justify-self:center; width:min(78vw, 360px); height:min(22vh, 150px); border-radius:50%; background:#1f2a30; border:1px solid rgba(111,136,147,.35); position:relative; overflow:hidden; transition:background 1.6s; }
+  #pool .water::after { content:''; position:absolute; left:20%; right:20%; top:45%; height:1px; background:rgba(111,136,147,.35); }
+  #pool.clear .water { background:#2c3d46; }
+  #pool .stone { position:absolute; left:50%; top:52%; width:34px; height:24px; margin:-12px 0 0 -17px; border-radius:50%; background:#8a857a; transition:transform 1.2s cubic-bezier(.4,0,.8,.4), opacity 1.2s; }
+  #pool.clear .stone { transform:translateY(60px) scale(.6); opacity:0; }
+  #pool .talk { padding:28px 0 12px; max-width:380px; margin:0 auto; text-align:center; }
+  #pool .who { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:12px; }
+  #pool .say { font-size:19px; line-height:1.55; color:#d8d3c6; font-style:italic; min-height:3.2em; }
+  #pool .choices { display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+  #pool .choices button { font:inherit; font-size:16px; font-style:italic; color:#ece7da; background:transparent; border:1px solid rgba(185,180,168,.3); border-radius:8px; padding:12px 14px; }
+  #pool .choices button.chalk { border:0; text-decoration:underline; text-underline-offset:6px; text-decoration-color:rgba(236,231,218,.5); font-size:19px; }
+  #pool .keeper { align-self:start; text-align:center; padding-top:18px; font-size:13px; color:#5f6b70; font-style:italic; }
   #fade { position:fixed; inset:0; background:#0d0f10; pointer-events:none; opacity:0; z-index:4; }
   #fade.in { opacity:1; }
   #fade.out { opacity:0; transition:opacity 3.2s ease-in-out; }
   @media (orientation: landscape) {
-    #stick { left:auto; right:26px; bottom:calc(env(safe-area-inset-bottom) + 22px); transform:none; width:150px; height:150px; }
-    #tools { left:auto; right:26px; bottom:calc(env(safe-area-inset-bottom) + 186px); width:150px; flex-wrap:wrap; gap:8px; }
-    body.stick-left #stick { right:auto; left:26px; }
-    body.stick-left #tools { right:auto; left:26px; }
+    #stick { left:auto; right:22px; bottom:calc(env(safe-area-inset-bottom) + 10px); transform:none; width:150px; height:150px; }
+    #tools { left:26px; right:auto; bottom:calc(env(safe-area-inset-bottom) + 18px); width:150px; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
+    body.stick-left #stick { right:auto; left:22px; }
+    body.stick-left #tools { left:auto; right:26px; justify-content:flex-end; }
+    #dbg { z-index:8; }
     #narr { top:calc(env(safe-area-inset-top) + 56px); left:15%; right:15%; }
   }
   #msg { position:fixed; inset:0; display:none; place-items:center; text-align:center; background:#0d0f10; z-index:5; }
@@ -150,6 +167,11 @@
   #msg ul { list-style:none; margin:0 auto; padding:0; text-align:left; font-size:18px; line-height:1.9; color:#d8d3c6; display:inline-block; }
   #msg li { display:flex; justify-content:space-between; gap:28px; }
   #msg li b { font-weight:400; color:#ece7da; }
+  #msg li.pages { display:block; text-align:left; max-width:340px; }
+  #msg .whose { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:12px; text-align:center; }
+  #msg .page { margin:0 0 14px; font-size:16px; line-height:1.55; color:#b8b0a0; font-style:italic; }
+  #msg .page.none { color:#6f6b62; }
+  #msg li.stat { display:block; margin-top:8px; font-size:13px; color:#4f4c46; text-align:center; }
   #msg .seed { margin-top:14px; font-size:15px; opacity:.55; }
   #again { margin-top:26px; padding:14px 34px; font: inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
   #again:active { background:#ece7da; }
@@ -174,6 +196,7 @@
   <div id="lamp"><svg viewBox="0 0 24 24"><path d="M9 3h6l2 6H7zM8 9h8v2l-1.5 2H9.5L8 11zM10 13h4v4h-4zM10.5 17h3l.5 3h-4z" fill="none" stroke="#b9b4a8" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
 </div>
 <div id="map"><canvas id="mapCv"></canvas><h1>Map</h1><button id="mapClose">✕</button><div class="hint">Drag to pan · pinch to zoom</div></div>
+<svg id="stone" class="hud-el" viewBox="0 0 32 32"><ellipse cx="16" cy="17" rx="11" ry="8" fill="#8a857a"/><ellipse cx="13" cy="14" rx="4" ry="2.5" fill="#a29d92"/></svg>
 <svg id="key" class="hud-el" viewBox="0 0 32 32"><circle cx="11" cy="16" r="6" fill="none" stroke="#e0c98a" stroke-width="3"/><path d="M17 16h12M25 16v5M29 16v4" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"/></svg>
 <div id="fx" class="hud-el"></div>
 <div id="narr"></div>
@@ -182,7 +205,9 @@
   <label><input type="checkbox" id="optPath"> Show path</label>
   <label><input type="checkbox" id="optMap"> Full map</label>
   <label><input type="checkbox" id="optSound" checked> Sound</label>
-  <label>Size <select id="optSize"><option value="sm">Small</option><option value="md" selected>Medium</option><option value="lg">Large</option><option value="xl">X-Large</option></select></label>
+  <label>Phase <select id="optPhase"></select></label>
+  <label>Stones <select id="optStones"></select></label>
+  <label>Size <select id="optSize"><option value="auto" selected>Auto</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">X-Large</option></select></label>
   <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
   <button class="storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
   <button id="update">Update app</button>
@@ -214,12 +239,13 @@
   </div>
   </div></div></div>
 <div id="tut"><div class="card"><div id="tutIcon"></div><h1 id="tutTitle"></h1><p class="why" id="tutWhy"></p><p id="tutHow"></p><button id="tutClose">Close<svg viewBox="0 0 100 12" preserveAspectRatio="none"><path d="M2 7c14-3 22 3 34 1s20-5 30-2 20 4 32 0" fill="none" stroke="#ece7da" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="26 2 18 3 30 2 40" opacity=".85"/></svg></button></div></div>
+<div id="pool"><div class="talk"><div class="who" id="poolWho"></div><div class="say" id="poolSay"></div><div class="choices" id="poolChoices"></div></div><div class="water"><div class="stone" id="poolStone"></div></div><div class="keeper" id="poolKeeper"></div></div>
 <div id="fade" class="in"></div>
-<div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button><button class="ghost storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button></div></div>
+<div id="msg"><div><h1>Out, for now.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button><button class="ghost storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button></div></div>
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.20.6';
+const VERSION = '0.24.0';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -326,6 +352,19 @@ const CONFIG = {
   },
 };
 
+// what the shelves and the basin say, in the voice of the self whose pages you're finding.
+// index climbs with how many of their pages you hold: little truth, some, most.
+const ROOM_LINES = {
+  'The Child':          { shelf: ["books. i cant reach the top ones.", "somebody put these here for me maybe.", "i think i know who wrote these. i dont want to say."], basin: ["rocks in a bowl. heavy ones.", "i tried to pick one up. its stuck to me.", "the man gave me these to hold. i think i can put them down now."] },
+  'The Cartographer':   { shelf: ["Shelving. Someone indexed this place before me.", "The spines are ordered. Not by author — by need.", "These are surveys of the same territory. Mine included. All of them wrong in the same way."], basin: ["Seven stones. Weight, catalogued.", "A stone for each survey that failed. That is a reading, not a fact.", "I have been carrying the map's mistakes as if they were mine."] },
+  'The Soldier':        { shelf: ["Inventory: shelves, five. Contents, unknown.", "Field notes from other units. Same terrain.", "Every one of them was me on a different rotation. I would follow any of them."], basin: ["Ballast. Something to steady a hand.", "You don't put down what keeps you upright. That's what I was taught.", "What I was taught was wrong. These aren't ballast. They're what I couldn't set down in front of anyone."] },
+  'The Archivist':      { shelf: ["The shelving is sound. I know because I built it.", "Filed by hand. Not my hand. Nearly.", "I have read every page in this room. I know whose they are. I am not ready to file that."], basin: ["Seven items, stone, unlabelled. Unusual for me.", "I have never catalogued these. I think I refused to.", "Entry: each stone is a thing I recorded instead of felt."] },
+  'The Priest':         { shelf: ["Scripture, or something like it. Written by the lost.", "Each of these gave themselves to something. Only one of them to God.", "The same soul on every shelf, praying in different words."], basin: ["An offering bowl. The offerings were never made.", "I fasted rather than set these down. It felt like devotion.", "What I called devotion was a way to keep holding on."] },
+  'The Criminal':       { shelf: ["Books. Somebody's confession, probably. Everyone's got one.", "I read a page. Kid's handwriting. I put it back fast.", "They're all mine. Every shelf. I don't know how to be sorry to that many people."], basin: ["Rocks. Fine. I'll carry rocks.", "Heavier than they look. Like most things I did.", "Nobody handed me these. I picked every one of them up myself."] },
+  'The One Who Stayed': { shelf: ["I dust these. I have for years.", "I know the order they go in. I know why.", "I have read them so many times I could have written them. I did write them."], basin: ["I keep the stones here. It's tidy.", "Some days I take one out and hold it. Then I put it back.", "There is no reason to keep them except that keeping them means staying."] },
+  'You':                { shelf: ["I wrote these.", "I wrote these.", "I wrote these."], basin: ["It's empty. It's just water.", "It's empty. It's just water.", "It's empty. It's just water."] },
+};
+const LIGHTER = ["Feels lighter now.", "One fewer. I can tell.", "I set something down. I remember doing it.", "The pile is smaller. So am I, somehow.", "Lighter. Not light. Lighter.", "Almost nothing left to carry.", "The water. I can see the water."];
 const EMPTY_SHELF = [
   "An empty shelf. What is its purpose?",
   "Nothing here. Not yet, or not anymore.",
@@ -339,6 +378,18 @@ const SHELF_LINES = [
   "Pages stacked with care. Not mine. Almost mine.",
   "The books are arranged the way I would arrange them. That should worry me more than it does.",
 ];
+
+// what each self says to themselves while walking (the timed narrator). No repeats until all have played.
+const SELF_LINES = {
+  'The Child':          ["is anybody there?", "i counted to a hundred. then i counted again.", "the walls are warm if you put your face on them.", "im not scared. im not.", "if i keep walking the man will see me walking and be sad.", "i left a mark so i can find me later."],
+  'The Cartographer':   ["Grid holds. For now.", "This corridor was not here yesterday. I am confident in the instruments.", "A map is a promise the ground doesn't have to keep.", "I have indexed this junction twice. It has two different numbers.", "If I cannot map it, I can at least describe how it refuses."],
+  'The Soldier':        ["Water, half. Light, failing. Discipline, holding.", "Mark the junction. Move. Don't think about the count.", "Rooms make you feel found. Keep moving.", "The place isn't the enemy. That's harder.", "Things I will see again: nothing yet. Keep walking."],
+  'The Archivist':      ["Entry: corridor, unremarkable. Cross-reference pending.", "I have not read them for meaning. I keep telling myself that.", "Procedure is a way of not standing still long enough to notice.", "Note to file: I stood here longer than the entry required.", "Everything is catalogued. Nothing is understood."],
+  'The Priest':         ["I take each turning as it is given.", "The dark has a texture. Like cloth.", "I believe I am being held. I have to believe it.", "To mark is to doubt. I have marked anyway.", "There is a room at the center. I feel it the way the blind feel a window."],
+  'The Criminal':       ["Walked in on purpose. Remember that.", "Wall won. Wall always wins.", "Kid's marks again. Whoever left a child down here.", "Nobody's coming. Good. Nobody should.", "Tired. Not the sleeping kind."],
+  'The One Who Stayed': ["I know this turn. I know the next one.", "It's quiet. Nothing asked of me. That used to be the point.", "Someone is still waiting. I have made a room out of their waiting.", "I sweep these halls. Whose halls did I think they were?", "The way out is that way. It has always been that way."],
+  'You':                ["I know this room.", "I know these halls. I walked them as everyone.", "There is nothing left to carry.", "The door is open. It has been for a while."],
+};
 const NARRATOR = [
   "How did I get here?",
   "Why is this so familiar?",
@@ -359,50 +410,141 @@ const NARRATOR = [
 
 // Five past selves. Each maze picks one; its pages are scattered through the rooms, in order.
 const CAST = [
-  { name: 'The Child', summary: 'Hope someone came back for them.', pages: [
+  { name: 'The Child', summary: 'Hope someone came back for them.', wake: "the man said wait here.", leave: "but i didnt.", pages: [
     "i dont no this place. the man said wait here and he wud come back. i am waiting.",
     "i made a X on the floor so the man can find me. i made lots of X. now i am out of chalk.",
     "the walls are warm if you put your face on them. i think the maze is sleeping.",
     "i am not scared any more. i think the man is not coming. thats ok. i am ok.",
     "if you find this you are doing good. keep going. i left the light on for you.",
   ]},
-  { name: 'The Cartographer', summary: 'Hope she found the map she was looking for.', pages: [
+  { name: 'The Cartographer', summary: 'Hope she found the map she was looking for.', wake: "This is a solvable place.", pages: [
     "Day 1. Grid established from the entrance. Every corridor can be indexed. Every index can be walked. This is a solvable place.",
     "Day 4. Sector C does not match yesterday's survey. I have checked my instruments twice. I am confident in the instruments.",
     "Day 9. I followed someone's twine for an hour. It led back to my own first marks. The handwriting was not mine. It was very nearly mine.",
     "Day 16. The map is finished. It is beautiful. It is wrong. I am no longer certain which of those matters.",
     "I have stopped correcting it. Whoever comes next: the map is a portrait, not a plan. Read it that way.",
   ]},
-  { name: 'The Soldier', summary: 'He counted everything. Hope the count came out.', pages: [
+  { name: 'The Soldier', summary: 'He counted everything. Hope the count came out.', wake: "Mark every junction. Move at first light.", pages: [
     "Inventory: water, four days. Rations, six. Chalk, one stick. Discipline, sufficient. Mark every junction. Move at first light.",
     "Rations, two. The chalk ran out before the corridors did. I have started marking with what I have. I do not recommend it.",
     "Rested in a wide room. Rooms are dangerous; they make you feel found. Kept moving.",
     "No supplies. Learned something: this place is not the enemy. It does not want anything. That is harder.",
     "Things I will not see again: the river behind the barracks. My mother's kitchen. Rain on a tent. Whoever reads this — see them for me.",
   ]},
-  { name: 'The Priest', summary: 'Hope the emptiness was worth it.', pages: [
+  { name: 'The Archivist', summary: 'He wrote everything down. Hope he read it back.', wake: "Item: one man, waking. Condition: unknown.", pages: [
+    "Catalogue, entry 1. Five shelves in the first room. I built them. Whoever comes after will need somewhere to put what they find.",
+    "Entry 40. The Cartographer's sheets, 31 pages, water-damaged. The Soldier's list, one page, folded eleven times. Filed by author. I have not read them for meaning. Meaning is not my department.",
+    "Entry 112. A child's marks in chalk, corridor C-9 through C-14. Cross-referenced. Note: I stood at C-14 for some time. This is not procedure.",
+    "Last entry. I have read them. All of them. I know whose they are now. I am going to put this pen down and sit with that for as long as it takes.",
+  ]},
+  { name: 'The Priest', summary: 'Hope the emptiness was worth it.', wake: "I came here to be emptied.", pages: [
     "I came here to be emptied. The corridors are patient teachers. I take each turning as it is given.",
     "Fasted three days. The dark has a texture now, like cloth. I believe I am being held.",
     "Marked no junctions today. To mark is to doubt. To doubt is to carry. I have put down the chalk.",
     "There is a room at the center. I have not found it. I feel it the way the blind feel a window.",
     "And the walls said: you were never lost, only unwilling. And I said yes. And the way was open.",
   ]},
-  { name: 'The Criminal', summary: 'Hope he made peace with it. Hope that was enough.', pages: [
+  { name: 'The Criminal', summary: 'Hope he made peace with it. Hope that was enough.', wake: "Don't know who built this. Don't care.", pages: [
     "Don't know who built this. Don't care. Walked in on purpose. Better than what was behind me.",
     "Found a kid's chalk marks. Dozens of them. Whoever left a child down here deserves worse than this place.",
     "Kicked a wall for an hour. Wall won. Everything wins against me eventually. That's the whole story.",
     "Tired. Not the sleeping kind. The kind where you stop arguing with the floor about who's right.",
     "If anyone finds this: I did it. All of it. Nobody put me here. That's the first true thing I've written.",
   ]},
+  { name: 'The One Who Stayed', summary: 'He knew the way out. He knew everyone here.', wake: "I have been here longer than I have been anywhere.", pages: [
+    "I know where the exit is. I have known for a long time. The child, the mapmaker, the soldier, the clerk, the monk, the thief — I've read them all. I sweep their halls.",
+    "It is quiet here and the walls ask nothing. Out there someone is still waiting, and I have made them wait so long that the waiting has become a room of its own.",
+    "I am going to write my name. Not here. At the door.",
+  ]},
+  { name: 'You', summary: '', wake: "I know this room.", pages: [] },
 ];
 
 
 // ── persistence (local storage; silently off where unavailable) ──
 const SAVE_KEY = 'maze.save.v1';
-let SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: {} };
+let SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: {}, phase: 0, stones: 0, poolPending: false, finished: false };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) SAVE = Object.assign(SAVE, JSON.parse(raw)); } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch (e) {} }
 function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boolean).length; }
+
+
+// ── phases: what the maze allows and what you carry, per self ──
+// features: which existing systems are switched on. burden lifts are applied by count of stones put down (SAVE.stones).
+const PHASES = [
+  { who: 'The Child',          size: 'sm', f: { signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0 } },
+  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, braid: 0.06 } },
+  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  braid: 0.06 } },
+  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  braid: 0.06, rooms: 1.6 } },
+  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, braid: 0.06 } },
+  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, braid: 0.06 } },
+  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, braid: 0.06 } },
+  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, braid: 0.06 } },
+];
+// the seven stones, in the order they are put down; each lifts one restriction a little, for good
+const STONES = ['Sight', 'Pace', 'Memory', 'Fear', 'Direction', 'Shame', 'Scale'];
+function phase() { return PHASES[Math.min(SAVE.phase || 0, PHASES.length - 1)]; }
+function has(stoneIdx) { return (SAVE.stones || 0) > stoneIdx; }
+const B = {   // burden-adjusted values
+  viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1),
+  speed:      () => CONFIG.speed * (has(1) ? 1.08 : 1),
+  charcoal:   () => Math.round(CONFIG.charcoalTiles * (has(2) ? 1.25 : 1)),
+  darkChance: () => CONFIG.darknessChance * (has(3) ? 0.6 : 1),
+  fringe:     () => has(3) ? 0.7 : 1,
+  pointerSec: () => CONFIG.pointerSeconds * (has(4) ? 1.5 : 1),
+  pathSec:    () => CONFIG.pathSeconds * (has(4) ? 1.5 : 1),
+  keyChance:  () => CONFIG.keyChance * (has(5) ? 0.5 : 1),
+};
+
+
+// ── the pools: between phases. One stone, one gate, one person who loves you. Caretaker hosts. ──
+// index = stone being put down. Each exchange: they speak, you choose, they answer. Then you set the stone in the water.
+const POOLS = [
+  { who: 'Father', stone: 'Sight', approach: ["He said wait here. I waited. That is the whole of what I did wrong.", "If he's at the water I don't know if I'll go to him or hit him."],
+    open: "I told you to wait. I was going to come back. I want to say that first, because it's true, and it doesn't matter.",
+    ex: [ { say: "You did nothing wrong. Hear me. Nothing. I left a child in the dark and called it a minute.", choices: ["I hate you.", "Why didn't you come back?"], reply: ["Good. Say it as long as you need. I'll still be here when you're done.", "Because I was a coward, and then because I was ashamed, and then because too much time had gone. None of those were you."] },
+          { say: "You've been standing where I put you for a very long time.", choices: ["I thought if I moved you'd never find me.", "I stopped waiting for you years ago."], reply: ["I know. That's the part I'll carry. Not you. Me.", "Then you were the brave one. Let me be the one who came anyway."] } ],
+    close: "It was never you. It was me. You can see a little further now." },
+  { who: 'Wife', stone: 'Pace', approach: ["Every plan I drew for us had a line through it by the second year.", "She is going to ask why I needed the map. I don't have an answer that isn't the map."], open: "You drew me a map once, of how our life would go. It was beautiful. It was wrong.",
+    ex: [ { say: "Every turn you couldn't plan, you took as a failure. Mine too.", choices: ["I wanted it to hold still.", "I was afraid of getting it wrong."], reply: ["Nothing holds still. You knew that. You loved that, before.", "You did get it wrong. So did I. We were still here."] },
+          { say: "What would you do if you didn't have the map?", choices: ["Walk anyway.", "Ask you."], reply: ["Then walk. I'll keep up.", "Then ask. I've been waiting to be asked."] } ],
+    close: "Slower isn't safer. You can move now." },
+  { who: 'Brother', stone: 'Memory', approach: ["I put him on the list. Things I won't see again. He was alive when I wrote it.", "Rations, none. Discipline, none. Just this hall and whatever's at the end."], open: "You made a list of everything you'd never see again. I was on it. I'm right here.",
+    ex: [ { say: "You rationed everything. Even the parts of you I wanted.", choices: ["I thought discipline would get me out.", "I didn't know how else to be."], reply: ["It got you far. It didn't get you home.", "You knew once. You were the kid who laughed too loud."] },
+          { say: "Tell me one thing you'd put back on the list. The good one.", choices: ["Rain on a tent.", "Mom's kitchen."], reply: ["I'll take you camping. Bring nothing.", "Sunday. She's already cooking."] } ],
+    close: "You don't have to hold it all in your head. Some of it we hold for you." },
+  { who: 'Daughter', stone: 'Fear', approach: ["Entry: the year she stopped calling. I filed it. I did not call back.", "I have every fact about her and I could not tell you what she wanted from me."], open: "Dad. You wrote everything down and read none of it. I read it. All of it.",
+    ex: [ { say: "You catalogued me too. Height, grades, the year I stopped calling.", choices: ["I didn't know what else to do with it.", "I was afraid of what it meant."], reply: ["You could have asked me what it meant.", "It meant I missed you. That's all it ever meant."] },
+          { say: "What's the one entry you never filed?", choices: ["That I was proud of you.", "That I was sorry."], reply: ["File it now. Out loud.", "Filed. Received. Come on."] } ],
+    close: "It's less dark than you kept telling yourself." },
+  { who: 'Father', stone: 'Direction', approach: ["I prayed for an hour every night in the room next to his and never once knocked.", "He taught me the kneeling. I taught myself the silence."], open: "You gave yourself to everything but the people in the room. I know. I taught you that.",
+    ex: [ { say: "I prayed instead of talking too. You learned it from watching.", choices: ["I thought it made me good.", "It was easier than looking at you."], reply: ["It made you quiet. Those aren't the same.", "I know. I'm looking at you now."] },
+          { say: "If you could ask for one thing and have it, right here.", choices: ["To be told I'm enough.", "To go home."], reply: ["You're enough. You always were. I should have said it.", "Then go. The way's shorter than you think."] } ],
+    close: "You'll hold a direction a little longer now." },
+  { who: 'Oldest friend', stone: 'Shame', approach: ["He knows what I did. He knew before the others. He's the one I never let say it back.", "There is a sentence I have been serving that no one handed down. I set the term myself."], open: "Nobody put you here. I know. You've said it. Now hear the rest.",
+    ex: [ { say: "You did the thing. It's done. You've been serving a sentence no one else handed down.", choices: ["Someone should have.", "I couldn't forgive it."], reply: ["Maybe. But not forever. Not this.", "Then let me. I do. I did years ago."] },
+          { say: "What do you want, if you stop carrying it?", choices: ["To be let back in.", "I don't know how to stop."], reply: ["You were never out. You just wouldn't come to the door.", "You put it down. Like anything else. Like this."] } ],
+    close: "Fewer doors will be locked against you." },
+  { who: 'Wife', stone: 'Scale', approach: ["I have known the way out for years. I have known she was standing at it for years.", "It's not that I couldn't leave. It's that leaving meant admitting how long I stayed."], open: "You know the way out. You've known for years. I've been standing at it.",
+    ex: [ { say: "It got comfortable in there. I understand. Quiet. Nothing asked of you.", choices: ["I made you wait too long.", "I didn't think you'd still be there."], reply: ["You did. I'm still here. Both are true.", "I'm here. Let's not make it a habit."] },
+          { say: "How big does it have to be, this place, before it's enough?", choices: ["It was never going to be enough.", "It can be small now."], reply: ["No. Come home instead.", "Small enough to walk out of."] } ],
+    close: "The place is smaller than it was. Small enough." },
+];
+
+
+// ── music: one preset per self. The composer below plays these forever without repeating itself. ──
+// root: Hz · scale: semitones · bpm · density: chance a beat carries a note · motif: scale degrees played every few bars (null = none)
+// inst: musicbox | pluck | organ | pad | bass | tick · rests: chance of a silent bar · drone: level of the shared bed
+const MUSIC = {
+  'The Child':          { root: 523.3, scale: [0,2,4,7,9],       bpm: 54, density: 0.35, motif: [0,2,4,2,0,-3],       motifEvery: 4, inst: 'musicbox', rests: 0.25, drone: 0.25, echo: 0.5 },
+  'The Cartographer':   { root: 293.7, scale: [0,2,4,5,7,9,11],  bpm: 96, density: 0.6,  motif: [0,4,7,11,7,4],       motifEvery: 3, inst: 'pluck',    rests: 0.1,  drone: 0.3,  echo: 0.35, slip: 0.12 },
+  'The Soldier':        { root: 110,   scale: [0,3,5,7,10],      bpm: 72, density: 0.3,  motif: [0,0,-5,0],           motifEvery: 2, inst: 'bass',     rests: 0.35, drone: 0.35, echo: 0.2, pulse: true },
+  'The Archivist':      { root: 220,   scale: [0,2,3,5,7,8,10],  bpm: 84, density: 0.45, motif: null,                  motifEvery: 0, inst: 'tick',     rests: 0.15, drone: 0.2,  echo: 0.15 },
+  'The Priest':         { root: 146.8, scale: [0,2,3,5,7,9,10],  bpm: 40, density: 0.5,  motif: [0,2,3,2,0,-2,0],     motifEvery: 2, inst: 'organ',    rests: 0.1,  drone: 0.55, echo: 0.7 },
+  'The Criminal':       { root: 82.4,  scale: [0,1,3,6,7,10],    bpm: 60, density: 0.35, motif: [0,1,0,-6],            motifEvery: 3, inst: 'bass',     rests: 0.4,  drone: 0.4,  echo: 0.3, detune: 18, grit: true },
+  'The One Who Stayed': { root: 220,   scale: [0,2,3,7,8],       bpm: 48, density: 0.3,  motif: [0,3,2,0],             motifEvery: 2, inst: 'pad',      rests: 0.2,  drone: 0.5,  echo: 0.6, exact: true },
+  'You':                { root: 523.3, scale: [0,2,4,7,9],       bpm: 58, density: 0.4,  motif: [0,2,4,2,0,-3,0],     motifEvery: 3, inst: 'musicbox', rests: 0.15, drone: 0.25, echo: 0.5 },
+  pool:                 { root: 261.6, scale: [0,4,7,11,14],     bpm: 44, density: 0.55, motif: [0,2,4,2],             motifEvery: 2, inst: 'pad',      rests: 0.05, drone: 0.15, echo: 0.8, bright: true },
+};
 
 // ── seed ────────────────────────────────────────────────────────
 let SEED = 0;
@@ -420,6 +562,7 @@ const P = 2;   // wall margin around the cell grid; the exit alley is carved int
 let W, H, tiles, tunnelTiles, start, exit, exitAlley = [], solutionPath = [], chalkSpots = new Set(), charcoalSpots = new Set(), pickups = new Map(), keySpot = null;
 let journals = new Map(), character = null, journalIdx = 0;
 let gated = false;   // this maze's exit is locked
+let poolMode = false;   // this run is a pool level: small, lit, one stone, one gate
 let startRoom = null;   // {x0,y0,x1,y1} tile bounds of the sealed start room
 let scrapSpots = new Set();
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
@@ -429,7 +572,10 @@ const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 const isOpen = (x, y) => !!(tiles[y]?.[x]);
 function generate(seed) {
   const R = rng(seed);
-  [CONFIG.cols, CONFIG.rows] = SIZES[CONFIG.size] || SIZES.md;
+  poolMode = !!SAVE.poolPending;
+  const F = poolMode ? { signs: phase().f.signs, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: true, tunnels: false, pockets: false, pathSlider: false, braid: 0 } : phase().f;
+  const sizeKey = poolMode ? 'sm' : (SAVE.ui.size && SAVE.ui.size !== 'auto') ? SAVE.ui.size : (has(6) && phase().who !== 'You' ? 'lg' : phase().size);
+  [CONFIG.cols, CONFIG.rows] = SIZES[sizeKey] || SIZES.md;
   const AREA = (CONFIG.cols * CONFIG.rows) / (14 * 20);   // 1 at medium; feature counts scale with it
   const N = base => Math.max(1, Math.round(base * AREA));
   W = CONFIG.cols * 2 + 1 + 2*P; H = CONFIG.rows * 2 + 1 + 2*P;
@@ -449,15 +595,16 @@ function generate(seed) {
     active.push([nx, ny]);
   }
   // braid
-  if (CONFIG.braid > 0) for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
-    if (DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < CONFIG.braid) {
+  const braid = F.braid || 0;
+  if (braid > 0) for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
+    if (DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < braid) {
       const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && x+dx*2 >= TX(0) && x+dx*2 < W-P && y+dy*2 >= TX(0) && y+dy*2 < H-P);
       if (c.length) { const [dx,dy] = c[R()*c.length|0]; tiles[y+dy][x+dx] = 1; }
     }
   }
   // rooms: open a rectangle of tiles, away from the corners; remember centers for journals
   const roomCenters = [];
-  for (let i = 0; i < N(CONFIG.rooms); i++) {
+  for (let i = 0; i < N(CONFIG.rooms * (F.rooms || 1)); i++) {
     const cells = CONFIG.roomCells[0] + (R() * (CONFIG.roomCells[1] - CONFIG.roomCells[0] + 1) | 0);
     const tw = cells * 2 - 1;
     let cx0, cy0, tries = 0;
@@ -468,17 +615,14 @@ function generate(seed) {
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
   }
   // one past self per maze; spread their pages across the rooms (first page first, last page last)
-  // pick a character who still has pages you haven't found; cycle through them before repeating
+  // the self of this phase; lay out their next unfound pages in order
   const uncollected = c => c.pages.map((_, i) => i).filter(i => !(SAVE.collected[c.name] || [])[i]);
-  let pool = CAST.filter(c => uncollected(c).length && !SAVE.charCycle.includes(c.name));
-  if (!pool.length) { SAVE.charCycle = []; pool = CAST.filter(c => uncollected(c).length); }
-  journalIdx = 0; journals = new Map(); character = null;
-  if (pool.length) {
-    character = pool[R() * pool.length | 0]; SAVE.charCycle.push(character.name); persist();
-    // lay out the next pages you don't have, in story order — the first uncollected page always leads
-    const chosen = uncollected(character).slice(0, roomCenters.length);
-    chosen.forEach((pg, i) => { const [x, y] = roomCenters[i]; journals.set(x+','+y, pg); });
-  }
+  character = CAST.find(c => c.name === phase().who) || CAST[0];
+  journalIdx = 0; journals = new Map();
+  const chosen = poolMode ? [] : uncollected(character).slice(0, roomCenters.length);
+  roomCenters.forEach(([x, y], i) => { if (chosen[i] !== undefined) journals.set(x+','+y, chosen[i]); });
+  // (re-ordered below so the first page sits in the room nearest the solution route)
+  const pendingPages = chosen;
 
   // shifting cells: seal a dead end E into a pocket; the cell D two tiles away (through the wall) becomes a slider aimed at E
   sliders = []; pockets = []; startRoom = null; sealedGaps = [];
@@ -487,7 +631,7 @@ function generate(seed) {
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const cornerTiles = [[TX(0),TX(0)], [TX(CONFIG.cols-1),TX(0)], [TX(CONFIG.cols-1),TX(CONFIG.rows-1)], [sx,sy]];
     const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y) || (x <= sx + CONFIG.startRoomCells*2 && y >= sy - CONFIG.startRoomCells*2);   // also the start room and its neighbours
-    const want = N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0);
+    const want = F.pockets ? N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0) : 0;
     const used = new Set();
     const cands = [];
     for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) if (isOpen(x,y) && nOpen(x,y) === 1 && !isCorner(x,y)) cands.push([x,y]);
@@ -511,6 +655,7 @@ function generate(seed) {
   let startGap = null;
   // the start room: open a small room in the corner, seal every way out, and make one edge tile the slider
   if (CONFIG.sliderAtStart) {
+    const openDoor = !F.pockets && !F.pathSlider;   // early phases: the room is simply open
     const rc = CONFIG.startRoomCells, tw = rc*2 - 1;
     const x0 = sx, y0 = sy - tw + 1, x1 = sx + tw - 1, y1 = sy;            // room tile bounds
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) tiles[y][x] = 1;
@@ -539,16 +684,28 @@ function generate(seed) {
       }
       if (!progressed) break;
     }
-    sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
+    if (openDoor) tiles[gy][gx] = 1; else sliders.push({ x: gx - ax, y: gy - ay, dx: ax, dy: ay, shifted: false, atStart: true });
     startGap = [gx, gy];
   }
 
+  if (poolMode) {   // no maze: the start room, a straight hall north, and the water at its end
+    for (let y = 0; y < H; y++) tiles[y].fill(0);
+    const { x0, y0, x1, y1 } = startRoom;
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) tiles[y][x] = 1;
+    const hx = x0 + 2, hallLen = Math.max(6, Math.min(14, y0 - P - 2));
+    for (let y = y0 - 1; y >= y0 - hallLen; y--) tiles[y][hx] = 1;
+    sliders = []; pockets = []; sealedGaps = []; startGap = [hx, y0 - 1];
+    exit = { x: hx, y: y0 - hallLen }; exitAlley = [[hx, y0 - hallLen + 1]];
+  }
   // exit gets its own alley: corner cell → one walkway tile → exit tile, carved outward into the margin
-  const cornerCells = [[TX(0), TX(0), -1], [TX(CONFIG.cols-1), TX(0), 1], [TX(CONFIG.cols-1), TX(CONFIG.rows-1), 1]];
-  const [ccx, ccy, side] = cornerCells[R() * 3 | 0];
-  exitAlley = [[ccx + side, ccy]]; const exX = ccx + side*2, exY = ccy;
-  tiles[ccy][ccx + side] = 1; tiles[exY][exX] = 1;
-  exit = { x: exX, y: exY };
+  let exX, exY;
+  if (!poolMode) {
+    const cornerCells = [[TX(0), TX(0), -1], [TX(CONFIG.cols-1), TX(0), 1], [TX(CONFIG.cols-1), TX(CONFIG.rows-1), 1]];
+    const [ccx, ccy, side] = cornerCells[R() * 3 | 0];
+    exitAlley = [[ccx + side, ccy]]; exX = ccx + side*2; exY = ccy;
+    tiles[ccy][ccx + side] = 1; tiles[exY][exX] = 1;
+    exit = { x: exX, y: exY };
+  } else { exX = exit.x; exY = exit.y; }
 
   // BFS from start for the solution path (with the start room's door temporarily open)
   if (startGap) tiles[startGap[1]][startGap[0]] = 1;
@@ -558,8 +715,16 @@ function generate(seed) {
   while (cur) { solutionPath.push(cur); cur = prev.get(cur[0]+','+cur[1]); }
   solutionPath.reverse();
 
+  // the first unfound page goes in the room closest to the route; the rest in the others
+  if (pendingPages.length && roomCenters.length) {
+    const onPath = new Set(solutionPath.map(([x,y]) => x+','+y));
+    const distToPath = ([cx, cy]) => { const seen = new Set([cx+','+cy]), q3 = [[cx, cy, 0]]; while (q3.length) { const [x,y,d] = q3.shift(); if (onPath.has(x+','+y)) return d; for (const [dx,dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx,y+dy) && !seen.has(k)) { seen.add(k); q3.push([x+dx, y+dy, d+1]); } } } return 1e9; };
+    const ordered = roomCenters.slice().sort((a, b) => distToPath(a) - distToPath(b));
+    journals = new Map(); pendingPages.forEach((pg, i) => { const [x, y] = ordered[i]; journals.set(x+','+y, pg); });
+  }
+
   // a slider on the main route: seal the gap ahead of a corridor cell and make that cell push into it
-  if (CONFIG.sliderOnPath) {
+  if (CONFIG.sliderOnPath && F.pathSlider) {
     const isCell = ([x,y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const usedT = new Set([...sliders.map(sl => sl.x+','+sl.y), ...pockets.map(([x,y]) => x+','+y), ...sliders.map(sl => (sl.x+sl.dx*2)+','+(sl.y+sl.dy*2))]);
@@ -582,7 +747,7 @@ function generate(seed) {
     }
   }
 
-  if (startGap) tiles[startGap[1]][startGap[0]] = 0;   // seal the start room again
+  if (startGap && sliders.some(sl => sl.atStart)) tiles[startGap[1]][startGap[0]] = 0;   // seal the start room again (unless the door is simply open)
 
   // walking distance from the exit, in tiles
   const distExit = new Map([[exX+','+exY, 0]]); const q2 = [[exX, exY]];
@@ -600,9 +765,10 @@ function generate(seed) {
   const pickFree = () => { const f = free(); return f.length ? f[R()*f.length|0] : null; };
 
   // key first, so it always exists
-  keySpot = null; gated = CONFIG.keyGate && R() < CONFIG.keyChance;
+  keySpot = null; gated = poolMode || (CONFIG.keyGate && F.gate && R() < B.keyChance());
   const pocketKeys = pockets.map(([x,y]) => x+','+y);
-  if (gated) {
+  if (gated && poolMode) keySpot = (startRoom.x0 + 3) + ',' + (startRoom.y0 + 3);
+  else if (gated) {
     if (pocketKeys.length && R() < CONFIG.sliderKeyChance) keySpot = pocketKeys.shift();
     else { keySpot = pickFree(); if (keySpot) taken.add(keySpot); }
   }
@@ -613,24 +779,24 @@ function generate(seed) {
   for (const k of deadEnds) {
     if (taken.has(k)) continue;
     const r = R();
-    if (r < CONFIG.chalkSpawnRate) { chalkSpots.add(k); taken.add(k); }
-    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate) { if (charcoalSpots.size < MAXP) { charcoalSpots.add(k); taken.add(k); } }
-    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (count('pointer') < MAXP) { pickups.set(k, 'pointer'); taken.add(k); } }
-    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
+    if (r < CONFIG.chalkSpawnRate) { if (!poolMode) { chalkSpots.add(k); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate) { if (F.charcoal && charcoalSpots.size < MAXP) { charcoalSpots.add(k); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (F.compass && count('pointer') < MAXP) { pickups.set(k, 'pointer'); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (F.thread && count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
   }
   for (const k of pocketKeys) { const r = R(); if (r < 0.3) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && count('pointer') < CONFIG.pickupMax) pickups.set(k, 'pointer'); else if (count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
-  for (const kind of ['pointer', 'path']) if (!count(kind)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
-  if (!chalkSpots.size) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
+  for (const kind of ['pointer', 'path']) if (!count(kind) && (kind === 'pointer' ? F.compass : F.thread)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
+  if (!chalkSpots.size && !poolMode) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider
-  if (startRoom) { const { x0, y0 } = startRoom; [[x0+1, y0+1], [x0+3, y0+3], [x0+3, y0+1], [x0+1, y0+3]].slice(0, CONFIG.startRoomChalk).forEach(([x, y]) => chalkSpots.add(x+','+y)); }
+  if (startRoom && !poolMode) { const { x0, y0 } = startRoom; [[x0+1, y0+1], [x0+3, y0+3], [x0+3, y0+1], [x0+1, y0+3]].slice(0, CONFIG.startRoomChalk).forEach(([x, y]) => chalkSpots.add(x+','+y)); }
 
   // map scraps in free dead ends
   scrapSpots = new Set();
-  for (let i = 0; i < N(CONFIG.mapScraps); i++) { const k = pickFree(); if (k) { scrapSpots.add(k); taken.add(k); } }
+  if (F.scraps) for (let i = 0; i < N(CONFIG.mapScraps); i++) { const k = pickFree(); if (k) { scrapSpots.add(k); taken.add(k); } }
 
   // darkness: one region grown from a far tile until it holds the configured share of the floor; never the start room or its ring
   darkTiles = new Set(); darkFringe = new Map(); lampSpot = null;
-  const darkShare = R() < CONFIG.darknessChance ? CONFIG.darknessSizes[R() * CONFIG.darknessSizes.length | 0] : 0;
+  const darkShare = (F.darkness && F.lamp && R() < B.darkChance()) ? F.darkness[R() * F.darkness.length | 0] : 0;
   if (darkShare > 0) {
     const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     // distances from the room door, with the door open
@@ -682,7 +848,7 @@ function generate(seed) {
       if (run.length >= CONFIG.tunnelMinTiles) runs.push(run);
     }
   }
-  for (let i = 0; i < N(CONFIG.tunnels) && runs.length; i++) {
+  for (let i = 0; i < (F.tunnels ? N(CONFIG.tunnels) : 0) && runs.length; i++) {
     const run = runs.splice(R() * runs.length | 0, 1)[0];
     run.forEach(k => tunnelTiles.add(k));
   }
@@ -691,7 +857,7 @@ function generate(seed) {
 
 // ── audio: synthesized, no files ────────────────────────────────
 const AUDIO = (() => {
-  let ac, master, musicBus, sfxBus, drone = null, enabled = CONFIG.sound;
+  let ac, master, musicBus, sfxBus, drone = null, enabled = CONFIG.sound, currentMusic = 'The Child';
   function ensure() {
     if (ac) return true;
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
@@ -708,7 +874,8 @@ const AUDIO = (() => {
     const out = ac.createGain(); out.gain.value = 0; out.connect(musicBus);
     out.gain.linearRampToValueAtTime(1, ac.currentTime + 6);
     // three slow detuned pads a fifth and an octave apart, filtered
-    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7; lp.connect(out);
+    const padG = ac.createGain(); padG.gain.value = 0.35; padG.connect(out);
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7; lp.connect(padG);
     [[55, 0], [82.4, 0.6], [110, -0.4], [164.8, 0.3]].forEach(([f, det], i) => {
       const o = ac.createOscillator(); o.type = i % 2 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = det * 8;
       const g = ac.createGain(); g.gain.value = i === 0 ? 0.35 : 0.18;
@@ -718,18 +885,45 @@ const AUDIO = (() => {
     });
     // slow filter sweep so it breathes
     const flfo = ac.createOscillator(); flfo.frequency.value = 0.017; const fg = ac.createGain(); fg.gain.value = 180; flfo.connect(fg); fg.connect(lp.frequency); flfo.start(); drone.nodes.push(flfo);
-    // distant notes: a slow, sparse pentatonic line through a long echo
+    // the composer: reads the current preset each bar, so a change of self changes the music without a cut
     const echo = ac.createDelay(2.0); echo.delayTime.value = 0.62; const fb = ac.createGain(); fb.gain.value = 0.45; const ef = ac.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = 900;
     echo.connect(fb); fb.connect(ef); ef.connect(echo); const eg = ac.createGain(); eg.gain.value = 0.7; echo.connect(eg); eg.connect(out);
-    const scale = [220, 261.6, 293.7, 329.6, 392, 440, 523.3, 587.3];   // A minor pentatonic-ish, two octaves
-    const noteLoop = () => { if (!drone) return;
-      const f = scale[Math.random() * scale.length | 0], t = ac.currentTime, dur = 2.5 + Math.random() * 2;
-      const o = ac.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 6;
-      const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.045, t + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g); g.connect(out); g.connect(echo); o.start(t); o.stop(t + dur + 0.1);
-      drone.noteTimer = setTimeout(noteLoop, 5000 + Math.random() * 9000);
+    drone.padGain = padG; drone.echoGain = eg;
+    let bar = 0;
+    const play = (freq, dur, preset, vol) => {
+      const t = ac.currentTime, g = ac.createGain(); g.connect(out); g.connect(echo);
+      const mk = (type, f, det, gain, a, d, lpf) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det || 0; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lpf; const gg = ac.createGain(); gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(gain, t + a); gg.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(lp); lp.connect(gg); gg.connect(g); o.start(t); o.stop(t + d + 0.1); };
+      switch (preset.inst) {
+        case 'musicbox': mk('sine', freq, 0, vol, 0.005, dur * 0.9, 6000); mk('sine', freq * 3, 0, vol * 0.18, 0.005, dur * 0.35, 8000); mk('triangle', freq * 2, 0, vol * 0.12, 0.005, dur * 0.5, 6000); break;
+        case 'pluck':    mk('triangle', freq, 0, vol, 0.004, dur * 0.7, 2600); mk('sine', freq * 2, 0, vol * 0.25, 0.004, dur * 0.3, 4000); break;
+        case 'organ':    mk('sine', freq, 0, vol * 0.7, dur * 0.35, dur * 1.6, 1800); mk('sine', freq * 1.5, 0, vol * 0.45, dur * 0.4, dur * 1.5, 1800); mk('sine', freq * 2, 0, vol * 0.3, dur * 0.45, dur * 1.4, 1800); break;
+        case 'pad':      mk('sine', freq, -4, vol * 0.7, dur * 0.5, dur * 2.2, preset.bright ? 3000 : 1200); mk('triangle', freq, 5, vol * 0.35, dur * 0.6, dur * 2, 1000); break;
+        case 'bass':     mk(preset.grit ? 'sawtooth' : 'triangle', freq, preset.detune || 0, vol * 0.9, 0.02, dur * 1.1, preset.grit ? 380 : 500); if (preset.grit) mk('sawtooth', freq, -(preset.detune || 0), vol * 0.5, 0.02, dur, 300); break;
+        case 'tick':     mk('square', freq, 0, vol * 0.5, 0.002, 0.09, 2200); mk('sine', freq, 0, vol * 0.35, 0.002, dur * 0.45, 3000); break;
+      }
     };
-    drone.noteTimer = setTimeout(noteLoop, 4000);
+    const beat = () => {
+      if (!drone) return;
+      const preset = MUSIC[currentMusic] || MUSIC['You'];
+      const spb = 60 / preset.bpm, bars = 4;
+      drone.padGain.gain.setTargetAtTime(preset.drone, ac.currentTime, 2); drone.echoGain.gain.setTargetAtTime(preset.echo, ac.currentTime, 2);
+      const inMotif = preset.motif && preset.motifEvery && bar % preset.motifEvery === 0, restBar = !inMotif && Math.random() < preset.rests;
+      for (let i = 0; i < bars; i++) setTimeout(() => {
+        if (!drone) return;
+        let deg = null;
+        if (inMotif && i < preset.motif.length) deg = preset.motif[i];
+        else if (!restBar && !inMotif && Math.random() < preset.density) deg = preset.exact ? [0, 2, 1, 0][i] : Math.floor(Math.random() * preset.scale.length) - 1;   // 'exact' selves never vary
+        if (deg === null) { if (preset.pulse && i % 2 === 0) noise(0.05, { vol: 0.08, freq: 160, q: 1.5, type: 'lowpass' }); return; }
+        const n = preset.scale.length, oct = Math.floor(deg / n), st = preset.scale[((deg % n) + n) % n] + 12 * oct;
+        let f = preset.root * Math.pow(2, st / 12);
+        if (preset.slip && Math.random() < preset.slip) { f *= Math.pow(2, 1 / 12); setTimeout(() => play(f / Math.pow(2, 1 / 12), spb * 1.2, preset, 0.045), spb * 400); }   // a wrong note, then the correction
+        play(f, spb * (preset.inst === 'organ' || preset.inst === 'pad' ? 2.2 : 1.4), preset, preset.inst === 'bass' ? 0.07 : 0.05);
+        if (preset.pulse && i % 2 === 0) noise(0.05, { vol: 0.08, freq: 160, q: 1.5, type: 'lowpass' });
+      }, i * spb * 1000);
+      bar++;
+      drone.noteTimer = setTimeout(beat, bars * spb * 1000);
+    };
+    drone.noteTimer = setTimeout(beat, 2500);
     // wind: filtered noise, very quiet
     const n = ac.createBufferSource(); n.buffer = noiseBuffer(4); n.loop = true;
     const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 0.5;
@@ -752,6 +946,7 @@ const AUDIO = (() => {
   return {
     unlock() { if (ensure() && ac.state === 'suspended') ac.resume(); },
     begin() { this.unlock(); startDrone(); },
+    setMusic(name) { currentMusic = name; },
     setEnabled(on) { enabled = on; if (ensure()) master.gain.linearRampToValueAtTime(on ? 1 : 0, ac.currentTime + 0.3); },
     step(inTunnel) { noise(0.06, { vol: inTunnel ? 0.05 : 0.09, freq: inTunnel ? 400 : 900 + Math.random()*300, q: 2 }); },
     bump() { tone(70, 0.12, { type: 'triangle', vol: 0.25, slide: 40 }); },
@@ -771,6 +966,9 @@ const AUDIO = (() => {
     lampOn() { noise(0.08, { vol: 0.15, freq: 3000, q: 1, type: 'highpass' }); tone(523, 0.5, { vol: 0.07, attack: 0.02 }); tone(784, 0.7, { vol: 0.04, attack: 0.1 }); },
     lampOff() { tone(392, 0.25, { vol: 0.06, slide: 300 }); },
     wake() { tone(196, 1.6, { vol: 0.08, attack: 0.4 }); setTimeout(() => tone(294, 1.8, { vol: 0.06, attack: 0.5 }), 700); },
+    stone() { tone(110, 0.3, { type: 'triangle', vol: 0.15, slide: 80 }); noise(0.08, { vol: 0.12, freq: 600, q: 2 }); },
+    stoneDrop() { noise(0.5, { vol: 0.25, freq: 900, q: 0.8, type: 'lowpass' }); tone(146, 1.2, { vol: 0.1, attack: 0.02, slide: 98 }); setTimeout(() => tone(392, 2.4, { vol: 0.05, attack: 0.6 }), 400); },
+    poolEnter() { [261.6, 329.6, 392].forEach((f, i) => setTimeout(() => tone(f, 3.5, { vol: 0.05, attack: 0.8 }), i * 500)); },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
     journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
@@ -798,7 +996,7 @@ let idleSince = 0, firstPushDone = false;
 let zoomS = 150, intro = null, introWalk = null;   // intro: {t0} while zooming out; introWalk: scripted first step
 let darkAmt = 0;   // 0 lit … 1 fully in the dark; eased per frame
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
-let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, leftRoom = false, shelfSaid = false, shelfStandKey = '', shelfStandAt = 0, shelfShown = '';
+let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, pagesThisRun = [], leftRoom = false, shelfSaid = false, shelfStandKey = '', shelfStandAt = 0, shelfShown = '';
 const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
 $('verDbg').textContent = 'v' + VERSION; $('verTitle').textContent = 'v' + VERSION;
@@ -806,8 +1004,10 @@ $('verDbg').textContent = 'v' + VERSION; $('verTitle').textContent = 'v' + VERSI
 function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
 function updateCharcoal() {
+  charcoalEl.style.display = phase().f.charcoal ? '' : 'none';
+  $('mapBtn').style.display = (phase().f.charcoal || phase().f.scraps) && !poolMode ? '' : 'none';
   // while a piece is in hand the stick itself drains; otherwise show how many whole pieces you carry
-  charcoalEl.querySelector('i').style.setProperty('--fill', (charcoalLeft > 0 ? charcoalLeft / CONFIG.charcoalTiles * 100 : 100) + '%');
+  charcoalEl.querySelector('i').style.setProperty('--fill', (charcoalLeft > 0 ? charcoalLeft / B.charcoal() * 100 : 100) + '%');
   $('charcoalN').textContent = charcoalLeft > 0 ? (charcoal > 0 ? '+' + charcoal : '') : String(charcoal);
   charcoalEl.classList.toggle('active', charcoalOn && charcoalLeft > 0);
   charcoalEl.classList.toggle('paused', !charcoalOn && charcoalLeft > 0);
@@ -816,7 +1016,7 @@ function updateCharcoal() {
 function useCharcoal() {
   if (solved || !started || sliding || paused) return;
   if (charcoalLeft > 0) { charcoalOn = !charcoalOn; if (charcoalOn) { charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); } else AUDIO.charcoalEnd(); }   // pause / resume the piece in hand
-  else if (charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = CONFIG.charcoalTiles; charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }
+  else if (charcoal > 0) { charcoal--; charcoalUsed++; charcoalLeft = B.charcoal(); charcoalOn = true; charcoalLeft = Math.max(0, charcoalLeft - mapHere()); AUDIO.charcoalStart(); }
   else { AUDIO.chalkEmpty(); charcoalEl.classList.remove('shake'); void charcoalEl.offsetWidth; charcoalEl.classList.add('shake'); }
   updateCharcoal();
 }
@@ -843,20 +1043,21 @@ function useChalk(glyph) {
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   if (marks.has(key)) return;   // already marked
   if (chalk <= 0) { AUDIO.chalkEmpty(); chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); return; }
-  if (!glyph) { $('glyphs').classList.toggle('show'); return; }   // first tap opens the choice
+  if (!glyph) { if (!phase().f.signs) glyph = 'x'; else { $('glyphs').classList.toggle('show'); return; } }   // early on, chalk only makes an X
   marks.set(key, glyph); chalk--; chalkUsed++; AUDIO.chalkDown(); $('glyphs').classList.remove('show');
   updateChalk();
 }
 function reset(seed) {
-  SEED = seed; generate(SEED); started = false; zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
+  SEED = seed; generate(SEED); started = false; AUDIO.setMusic(poolMode ? 'pool' : character.name); zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; hasKey = false; hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal(); keyEl.classList.remove('show');
-  let fresh = NARRATOR.filter(l => !SAVE.narrPlayed.includes(l));
-  if (fresh.length < 2) { SAVE.narrPlayed = []; fresh = NARRATOR.slice(); }
-  narrQueue = fresh.sort(() => Math.random() - 0.5);
+  { const mine = SELF_LINES[character.name] || SELF_LINES['You'];
+    let fresh = mine.filter(l => !SAVE.narrPlayed.includes(l));
+    if (fresh.length < 2) { SAVE.narrPlayed = SAVE.narrPlayed.filter(l => !mine.includes(l)); fresh = mine.slice(); }
+    narrQueue = fresh.sort(() => Math.random() - 0.5); }
   narrNext = gameNow() + CONFIG.narratorFirstSec * 1000; narrEl.classList.remove('show');
   updateChalk();
   $('seedLbl').textContent = 'seed ' + SEED; $('stepLbl').textContent = '';
@@ -875,7 +1076,7 @@ function setStick(clientX, clientY) {
   held = Math.abs(dx) > Math.abs(dy) ? { dx: Math.sign(dx), dy: 0 } : { dx: 0, dy: Math.sign(dy) };
 }
 function clearStick() { held = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
-stickEl.addEventListener('pointerdown', e => { stickId = e.pointerId; stickEl.classList.add('on'); stickEl.setPointerCapture(e.pointerId); setStick(e.clientX, e.clientY); e.preventDefault(); });
+stickEl.addEventListener('pointerdown', e => { if ($('dbg').classList.contains('show')) return; stickId = e.pointerId; stickEl.classList.add('on'); stickEl.setPointerCapture(e.pointerId); setStick(e.clientX, e.clientY); e.preventDefault(); });
 stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
 stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
 
@@ -887,9 +1088,16 @@ $('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLa
 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
 $('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
+document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) dbg.classList.remove('show'); }, true);
+dbg.addEventListener('pointerdown', e => e.stopPropagation());
 opt.map.addEventListener('change', () => debugMap = opt.map.checked);
-CONFIG.size = SAVE.ui.size || CONFIG.size; $('optSize').value = CONFIG.size;
-$('optSize').addEventListener('change', () => { CONFIG.size = $('optSize').value; SAVE.ui.size = CONFIG.size; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optSize').value = SAVE.ui.size || 'auto';
+$('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+PHASES.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + p.who; $('optPhase').appendChild(o); });
+for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
+$('optPhase').value = SAVE.phase || 0; $('optStones').value = SAVE.stones || 0;
+$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
 function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
 $('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
 $('optSound').checked = CONFIG.sound;
@@ -897,7 +1105,7 @@ $('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').ch
 $('resetSave').addEventListener('click', () => {
   const b = $('resetSave');
   if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to erase'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Reset save'; }, 3000); return; }
-  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui }; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui, phase: 0, stones: 0, poolPending: false, finished: false }; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   b.dataset.armed = ''; b.textContent = 'Save erased';
   setTimeout(() => b.textContent = 'Reset save', 1500);
 });
@@ -914,7 +1122,7 @@ $('update').addEventListener('click', () => hardRefresh($('update')));
 // ── stories screen ──────────────────────────────────────────────
 const storiesEl = $('stories'), storiesClose = $('storiesClose');
 function renderStories() {
-  $('storiesList').innerHTML = CAST.map((c, ci) => {
+  $('storiesList').innerHTML = CAST.map((c, ci) => { if (!c.pages.length) return '';
     const got = SAVE.collected[c.name] || [];
     const boxes = c.pages.map((_, i) => `<div class="box ${got[i] ? 'got' : ''}" data-c="${ci}" data-p="${i}"></div>`).join('');
     return `<div class="who"><div class="name"><span data-c="${ci}">${c.name}</span><span>${collectedCount(c.name)} of ${c.pages.length}</span></div><div class="boxes">${boxes}</div></div>`;
@@ -986,6 +1194,36 @@ $('tutClose').addEventListener('click', () => {
   pausedTotal += performance.now() - pauseStart; paused = false;
 });
 
+
+
+// ── pool scene ──────────────────────────────────────────────────
+let poolStep = 0, poolScript = null;
+function poolSet(say, choices, onPick) {
+  $('poolSay').textContent = say; const box = $('poolChoices'); box.innerHTML = '';
+  choices.forEach(([label, cls], i) => { const b = document.createElement('button'); if (cls) b.className = cls; b.textContent = label; b.addEventListener('click', () => onPick(i)); box.appendChild(b); });
+}
+function startPool() {
+  const idx = Math.min(SAVE.stones || 0, POOLS.length - 1); poolScript = POOLS[idx]; poolStep = 0;
+  $('pool').classList.remove('clear'); $('poolWho').textContent = poolScript.who; $('poolKeeper').textContent = 'The Caretaker sits at the edge and says nothing.';
+  $('pool').classList.add('show'); AUDIO.poolEnter();
+  poolSet(poolScript.open, [['…', 'chalk']], () => poolExchange(0));
+}
+function poolExchange(i) {
+  const ex = poolScript.ex[i];
+  if (!ex) return poolSet('Put the stone down.', [['I put it down.', 'chalk']], poolDrop);
+  poolSet(ex.say, ex.choices.map(c => [c]), pick => poolSet(ex.reply[pick], [['…', 'chalk']], () => poolExchange(i + 1)));
+}
+function poolDrop() {
+  $('pool').classList.add('clear'); AUDIO.stoneDrop();
+  const stoneName = STONES[Math.min(SAVE.stones || 0, STONES.length - 1)];
+  setTimeout(() => {
+    $('poolKeeper').textContent = 'The Caretaker nods once.';
+    poolSet(poolScript.close, [['Wake', 'chalk']], () => {
+      SAVE.stones = Math.min(STONES.length, (SAVE.stones || 0) + 1); SAVE.phase = Math.min(PHASES.length - 1, (SAVE.phase || 0) + 1); SAVE.poolPending = false; persist();
+      $('pool').classList.remove('show'); reset((Math.random()*1e9)|0); enterMaze();
+    });
+  }, 1500);
+}
 
 // ── map screen ──────────────────────────────────────────────────
 const mapEl = $('map'), mapCv = $('mapCv'), mctx = mapCv.getContext('2d');
@@ -1066,6 +1304,7 @@ function wake() {   // the zoom-out: HUD slides in, then the figure gets up
   setTimeout(() => {
     $('title').classList.add('hide'); started = true; t0 = gameNow(); narrNext = Infinity; $('mapBtn').classList.add('beckon');
     introWalk = { dx: 0, dy: -1 };   // and stands up off the mat
+    if (character.leave && !(SAVE.wakeSaid || []).includes(character.name) && !poolMode) setTimeout(() => narrate(character.wake), 900);
   }, CONFIG.introSeconds * 1000);
 }
 cv.addEventListener('pointerdown', e => {
@@ -1076,8 +1315,10 @@ cv.addEventListener('pointerdown', e => {
 });
 $('howBtn').addEventListener('click', () => { const o = $('howPanel').classList.toggle('open'); $('howBtn').classList.toggle('open', o); AUDIO.paper(); });
 $('refreshBtn').addEventListener('click', () => hardRefresh({ set textContent(v) {} }));
-$('again').addEventListener('click', () => { reset((Math.random()*1e9)|0); enterMaze(); });
+$('again').addEventListener('click', () => { if (SAVE.finished && phase().who === 'You') { SAVE.phase = 0; SAVE.stones = 0; SAVE.finished = false; SAVE.collected = {}; SAVE.wakeSaid = []; persist(); } reset((Math.random()*1e9)|0); enterMaze(); });
 
+// shelf positions: left wall (4) and bottom wall (3) — never the top row or right column, where the slider lives
+const SHELF_SPOTS = (x0, y0, y1) => [ [x0, y0+1, 'v'], [x0, y0+2, 'v'], [x0, y0+3, 'v'], [x0, y1, 'v'], [x0+1, y1, 'h'], [x0+2, y1, 'h'], [x0+3, y1, 'h'] ];
 // draw a chalk glyph centered at px,py with half-size a
 function drawGlyph(c, g, px, py, a, lw) {
   c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
@@ -1099,6 +1340,7 @@ function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.tex
 function showJournal(pg) {
   const text = character.pages[pg];
   const arr = SAVE.collected[character.name] || (SAVE.collected[character.name] = []); arr[pg] = true; persist();
+  pagesThisRun.push(pg);
   AUDIO.journal(); narrEl.className = 'show journal'; narrEl.textContent = text;
   const who = document.createElement('small'); who.textContent = character.name; narrEl.appendChild(who);
   narrHideAt = gameNow() + (CONFIG.journalHoldSec + text.length / 30) * 1000;
@@ -1140,14 +1382,14 @@ function update(wall) {
         sliding = { sl, from: [cx, cy], to, t0: now }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) firstPushDone = true; pushHeldSince = 0;
         }
       }
-      else if (canGo(want)) dir = want; else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
+      else if (canGo(want)) dir = want; else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate(poolMode ? "Not yet. I'm still carrying it." : "Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
   }
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
   if (dir) {
-    const step = CONFIG.speed * dt;
+    const step = B.speed() * dt;
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
     const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;
     const p = player[axis], n = p + sgn * step;
@@ -1164,11 +1406,20 @@ function update(wall) {
   // standing on a shelf for a second brings up whose it is
   if (startRoom && !dir && !sliding) {
     const cx = Math.floor(player.x), cy = Math.floor(player.y), { x0, y0, y1 } = startRoom;
-    const spots = [[x0, y0+1],[x0, y0+2],[x0, y0+3],[x0+1, y1],[x0+2, y1]];
+    const spots = SHELF_SPOTS(x0, y0, y1).map(([x,y]) => [x,y]);
     const idx = spots.findIndex(([x,y]) => x===cx && y===cy);
-    const k = idx >= 0 ? idx + '' : '';
+    const onBasin = cx === startRoom.x0 + 3 && cy === startRoom.y0 + 3;
+    const k = idx >= 0 ? idx + '' : onBasin ? 'basin' : '';
     if (k !== shelfStandKey) { shelfStandKey = k; shelfStandAt = now; }
-    else if (k && now - shelfStandAt > 1000 && shelfShown !== k) { shelfShown = k; const c = CAST[idx]; narrate(collectedCount(c.name) ? `${c.name}… ${c.summary}` : EMPTY_SHELF[Math.random() * EMPTY_SHELF.length | 0]); }
+    else if (k && k !== 'basin' && now - shelfStandAt > 1000 && shelfShown !== k) { shelfShown = k;
+      const c = CAST.filter(c => c.pages.length)[idx];
+      if (c && !collectedCount(c.name)) narrate(EMPTY_SHELF[Math.random() * EMPTY_SHELF.length | 0]);
+      else if (c) { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).shelf, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
+    // the basin: first visit after putting a stone down says so; otherwise the self speaks of the stones
+    if (onBasin && now - shelfStandAt > 700 && shelfShown !== 'basin') { shelfShown = 'basin';
+      if ((SAVE.basinSeen || 0) < (SAVE.stones || 0)) { SAVE.basinSeen = SAVE.stones; persist(); narrate(LIGHTER[Math.min(LIGHTER.length - 1, (SAVE.stones || 0) - 1)]); }
+      else if (poolMode) narrate("One stone. I'll carry it as far as the water.");
+      else { const L = (ROOM_LINES[character.name] || ROOM_LINES['You']).basin, t = collectedCount(character.name) / Math.max(1, character.pages.length); narrate(L[t >= 0.8 ? 2 : t >= 0.4 ? 1 : 0]); } }
   } else shelfStandKey = '';
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
@@ -1178,10 +1429,10 @@ function update(wall) {
     const [tx, ty] = key.split(',').map(Number);
     if (startRoom) {
       const inRoom = tx >= startRoom.x0 && tx <= startRoom.x1 && ty >= startRoom.y0 && ty <= startRoom.y1;
-      if (!inRoom && !leftRoom) { leftRoom = true; narrNext = now + CONFIG.narratorFirstSec * 1000; }
+      if (!inRoom && !leftRoom) { leftRoom = true; narrNext = poolMode ? now + 1200 : now + CONFIG.narratorFirstSec * 1000; if (poolMode) narrQueue = POOLS[Math.min(SAVE.stones || 0, POOLS.length - 1)].approach.slice(); if (!(SAVE.wakeSaid || []).includes(character.name) && character.wake && !poolMode) { if (character.leave) { narrate(character.leave); narrNext = now + CONFIG.narratorEverySec * 1000; } else narrQueue.unshift(character.wake); (SAVE.wakeSaid = SAVE.wakeSaid || []).push(character.name); persist(); } }
       // stepping up to the shelves, once per maze
-      const shelfSpots = [[startRoom.x0, startRoom.y0+1],[startRoom.x0, startRoom.y0+2],[startRoom.x0, startRoom.y0+3],[startRoom.x0+1, startRoom.y1],[startRoom.x0+2, startRoom.y1]];
-      if (!shelfSaid && inRoom && CAST.some(c => collectedCount(c.name)) && shelfSpots.some(([x,y]) => x===tx && y===ty)) {
+      const shelfSpots = SHELF_SPOTS(startRoom.x0, startRoom.y0, startRoom.y1);
+      if (false && !shelfSaid && inRoom && CAST.some(c => collectedCount(c.name)) && shelfSpots.some(([x,y]) => x===tx && y===ty)) {
         shelfSaid = true;
         let fresh = SHELF_LINES.filter(l => !SAVE.shelfPlayed.includes(l)); if (!fresh.length) { SAVE.shelfPlayed = []; fresh = SHELF_LINES.slice(); }
         const line = fresh[Math.random() * fresh.length | 0]; SAVE.shelfPlayed.push(line); persist(); narrate(line);
@@ -1193,14 +1444,15 @@ function update(wall) {
     if (chalkSpots.has(key)) { chalkSpots.delete(key); chalk += CONFIG.chalkPerPickup; chalkFound++; updateChalk(); pulse(chalkEl); AUDIO.pickupChalk(); tutorial('chalk'); }
     if (pickups.has(key)) {
       const kind = pickups.get(key); pickups.delete(key);
-      if (kind === 'pointer') { pointerUntil = now + CONFIG.pointerSeconds * 1000; pointerUses++; }
-      else { pathUntil = now + CONFIG.pathSeconds * 1000; pathUses++; }
+      if (kind === 'pointer') { pointerUntil = now + B.pointerSec() * 1000; pointerUses++; }
+      else { pathUntil = now + B.pathSec() * 1000; pathUses++; }
       AUDIO.pickup(); pulse(fxEl); tutorial(kind);
     }
     if (scrapSpots.has(key)) { scrapSpots.delete(key); revealAround(tx, ty); pulse($('mapBtn')); AUDIO.pickup(); tutorial('scrap'); }
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
-    if (keySpot === key) { keySpot = null; hasKey = true; keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); }
-    if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); }
+    if (keySpot === key) { keySpot = null; hasKey = true; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
+    if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg);
+      if (collectedCount(character.name) >= character.pages.length && (SAVE.phase || 0) < PHASES.length - 1 && !SAVE.poolPending) { SAVE.poolPending = true; persist(); } }
   }
 
   const fx = [];
@@ -1210,15 +1462,15 @@ function update(wall) {
   // narrator
   if (started && !solved) {
     if (now >= narrNext) {
-      if (!narrQueue.length) { SAVE.narrPlayed = []; narrQueue = NARRATOR.slice().sort(() => Math.random() - 0.5); }
-      const line = narrQueue.shift(); SAVE.narrPlayed.push(line); persist();
-      narrate(line); narrNext = now + CONFIG.narratorEverySec * 1000;
+      if (!narrQueue.length && !poolMode) { const mine = SELF_LINES[character.name] || SELF_LINES['You']; SAVE.narrPlayed = SAVE.narrPlayed.filter(l => !mine.includes(l)); narrQueue = mine.slice().sort(() => Math.random() - 0.5); }
+      if (!narrQueue.length) narrNext = Infinity;
+      else { const line = narrQueue.shift(); if (!poolMode) { SAVE.narrPlayed.push(line); persist(); } narrate(line); narrNext = now + (poolMode ? 7000 : CONFIG.narratorEverySec * 1000); }
     }
     if (narrHideAt && now > narrHideAt) { narrEl.classList.remove('show'); narrHideAt = 0; }
   }
 
   { const k = Math.floor(player.x) + ',' + Math.floor(player.y);
-    const target = darkTiles.has(k) ? 1 : darkFringe.get(k) === 2 ? 0.72 : darkFringe.get(k) === 1 ? 0.42 : 0;
+    const target = darkTiles.has(k) ? 1 : darkFringe.get(k) === 2 ? 0.72 * B.fringe() : darkFringe.get(k) === 1 ? 0.42 * B.fringe() : 0;
     darkAmt += (target - darkAmt) * Math.min(1, dt * 3.2); }
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
@@ -1233,7 +1485,14 @@ function update(wall) {
       ['Charcoal used', charcoalUsed], ['Charcoal found', charcoalFound], ['Tiles mapped', [...mapped.values()].filter(v => v !== 'wall').length],
       ['Pointers used', pointerUses], ['Paths used', pathUses], ['Pages found', journalsRead + ' of ' + (journalsRead + journals.size)],
     ];
-    $('msgStats').innerHTML = rows.map(([k,v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
+    if (poolMode) { setTimeout(startPool, 900); return; }
+    if (phase().who === 'You' && !SAVE.finished) { $('msgStats').innerHTML = `<li><span>You walked out into the color.</span></li>`; $('msgSeed').textContent = ''; $('again').textContent = 'Begin again'; SAVE.finished = true; persist(); $('msg').classList.add('show'); return; }
+    const total = character ? character.pages.length : 0, held = character ? collectedCount(character.name) : 0;
+    const pagesHtml = pagesThisRun.length
+      ? pagesThisRun.map(pg => `<p class="page">${character.pages[pg]}</p>`).join('')
+      : `<p class="page none">I found nothing of theirs this time. Their pages are still out there.</p>`;
+    const whose = character ? `<div class="whose">${character.name} · ${held} of ${total} pages</div>` : '';
+    $('msgStats').innerHTML = `<li class="pages">${whose}${pagesHtml}</li><li class="stat">${steps} tiles · ${secs}s · ${ratio}× the shortest way</li>`;
     $('msgSeed').textContent = 'seed ' + SEED;
     $('msg').classList.add('show');
   }
@@ -1254,7 +1513,7 @@ function draw() {
   else {
     const landscape = vw > vh, leftStick = document.body.classList.contains('stick-left');
     const pre = !started && !intro;   // asleep: dead center, no HUD to make room for
-    const ax = pre ? 0.5 : landscape ? (leftStick ? 0.58 : 0.42) : 0.5, ay = pre ? 0.47 : landscape ? 0.5 : 0.42;
+    const ax = 0.5, ay = pre ? 0.47 : landscape ? 0.5 : 0.42;
     ox = vw*ax - cam.x*S; oy = vh*ay - cam.y*S;
   }
   viewS = S; viewOx = ox; viewOy = oy;
@@ -1276,9 +1535,9 @@ function draw() {
   // shelves in the start room: one per character, five slots each; a white spine for every page you hold
   if (startRoom) {
     const { x0, y0, x1, y1 } = startRoom;
-    const spots = [ [x0, y0+1, 'v'], [x0, y0+2, 'v'], [x0, y0+3, 'v'], [x0+1, y1, 'h'], [x0+2, y1, 'h'] ];   // left wall and bottom wall only — the slider is always on the right or top
-    CAST.forEach((c, ci) => {
-      const [tx, ty, o] = spots[ci]; if (!o || tx < x0_ || tx > x1_ || ty < y0_ || ty > y1_) return;
+    const spots = SHELF_SPOTS(x0, y0, y1);
+    CAST.filter(c => c.pages.length).forEach((c, ci) => {
+      const [tx, ty, o] = spots[ci] || []; if (!o || tx < x0_ || tx > x1_ || ty < y0_ || ty > y1_) return;
       const got = SAVE.collected[c.name] || [];
       const px = ox + tx*S, py = oy + ty*S, inset = S*0.14, len = S*0.72, start = (S - len) / 2;
       ctx.strokeStyle = C.shelf; ctx.lineWidth = 1; ctx.beginPath();
@@ -1290,6 +1549,18 @@ function draw() {
         else { ctx.fillStyle = C.shelf; if (o === 'v') ctx.fillRect(px + inset + S*0.04, py + t - S*0.01, S*0.02, S*0.02); else ctx.fillRect(px + t - S*0.01, py + S - inset - S*0.06, S*0.02, S*0.02); }
       }
     });
+  }
+
+  // the basin: the stones you carry, heaped where the water should be. One fewer each time you put one down.
+  if (startRoom) {
+    const bx = ox + (startRoom.x0 + 3) * S + S/2, by = oy + (startRoom.y0 + 3) * S + S/2, r = S*0.3;
+    const left = STONES.length - (SAVE.stones || 0) - (poolMode ? 1 : 0);
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = (left > 0 || (poolMode && keySpot)) ? '#2a2c2e' : '#3d4a52'; ctx.beginPath(); ctx.arc(bx, by, r*0.82, 0, Math.PI*2); ctx.fill();   // water shows once the stones are gone
+    if (!left) { ctx.strokeStyle = '#6f8893'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, r*0.45, 0, Math.PI*2); ctx.stroke(); }
+    const pos = [[0,0],[-.3,-.22],[.3,-.2],[-.28,.24],[.3,.25],[0,-.42],[0,.42]];
+    ctx.fillStyle = '#8a857a';
+    for (let i = 0; i < left; i++) { const [px, py] = pos[i]; ctx.beginPath(); ctx.ellipse(bx + px*r, by + py*r, r*0.22, r*0.17, i*0.7, 0, Math.PI*2); ctx.fill(); }
   }
 
   // the name, set into the tile above the mat: architectural capitals in chalk white
@@ -1318,7 +1589,7 @@ function draw() {
     if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
     else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w);
     // hint: the first slider glints if you've been standing still and haven't pushed it yet
-    if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < CONFIG.viewRadius * 2 + 1) {
+    if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < B.viewRadius() * 2 + 1) {
       const t = (nowMs - idleSince - CONFIG.hintIdleSec * 1000) / 1000;
       const a = Math.min(1, t / 1.5) * (0.22 + 0.18 * Math.sin(t * 2.2));
       ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = CONFIG.hintColor;
@@ -1333,8 +1604,8 @@ function draw() {
     ctx.fillStyle = C.start; ctx.fillRect(mx + S*0.24, my + S*0.10, S*0.52, S*0.80);
     ctx.fillStyle = C.grout; ctx.fillRect(mx + S*0.32, my + S*0.15, S*0.36, S*0.13); }   // pillow at the top
   { const [ex, ey] = T(exit.x, exit.y);
-    ctx.fillStyle = C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = poolMode ? '#6f8893' : C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = poolMode ? '#3d4a52' : C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
     if (gated && !solved) {   // bars stay up until you reach them with the key
       ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
       for (let i = -1; i <= 1; i++) { ctx.moveTo(ex + i*S*0.26, ey - S*0.42); ctx.lineTo(ex + i*S*0.26, ey + S*0.42); }
@@ -1344,7 +1615,7 @@ function draw() {
 
   // debug/timed path (under fog)
   if ((opt.path.checked || pathUntil > nowMs) && solutionPath.length) {
-    const fade = opt.path.checked ? 1 : Math.min(1, (pathUntil - nowMs) / (CONFIG.pathSeconds * 1000));   // bright when found, gone when spent
+    const fade = opt.path.checked ? 1 : Math.min(1, (pathUntil - nowMs) / (B.pathSec() * 1000));   // bright when found, gone when spent
     ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(2, S*0.12); ctx.lineJoin = 'round'; ctx.globalAlpha = 0.9 * fade; ctx.beginPath();
     solutionPath.forEach(([x,y], i) => { const [px, py] = T(x, y); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
     ctx.stroke(); ctx.globalAlpha = 1;
@@ -1379,8 +1650,9 @@ function draw() {
     ctx.moveTo(px - S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.18*k, py - S*0.04*k); ctx.lineTo(px - S*0.18*k, py - S*0.04*k); ctx.closePath();
     ctx.moveTo(px - S*0.12*k, py - S*0.04*k); ctx.lineTo(px - S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.12*k, py - S*0.04*k);
     ctx.moveTo(px - S*0.06*k, py + S*0.1*k); ctx.lineTo(px - S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.06*k, py + S*0.1*k); ctx.stroke(); }
-  // key
-  if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
+  // key (or, at a pool level, the stone)
+  if (keySpot && poolMode) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my); ctx.fillStyle = '#8a857a'; ctx.beginPath(); ctx.ellipse(px, py + S*0.03, S*0.2, S*0.14, 0.3, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#a29d92'; ctx.beginPath(); ctx.ellipse(px - S*0.06, py - S*0.04, S*0.07, S*0.04, 0.3, 0, Math.PI*2); ctx.fill(); }
+  else if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(px - S*0.14, py, S*0.1, 0, Math.PI*2); ctx.moveTo(px - S*0.04, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke(); }
 
@@ -1447,7 +1719,7 @@ function draw() {
   }
   // lit lamp outside the dark: same reach, brighter floor
   if (hasLamp && lampOn && !debugMap) {
-    const px = ox + player.x*S, py = oy + player.y*S, rr = CONFIG.viewRadius * 2 * S;
+    const px = ox + player.x*S, py = oy + player.y*S, rr = B.viewRadius() * 2 * S;
     const g = ctx.createRadialGradient(px, py, 0, px, py, rr); g.addColorStop(0, 'rgba(232,217,160,0.16)'); g.addColorStop(1, 'rgba(232,217,160,0)');
     ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr*2, rr*2);
   }
@@ -1456,7 +1728,7 @@ function draw() {
   if (!debugMap) {
     const px = ox + player.x*S, py = oy + player.y*S;
     const shrink = 1 - 0.55 * darkAmt;
-    const inner = CONFIG.viewRadius * 2 * S * shrink, outer = inner + CONFIG.fogSoftness * S * shrink;
+    const inner = B.viewRadius() * 2 * S * shrink, outer = inner + CONFIG.fogSoftness * S * shrink;
     const g = ctx.createRadialGradient(px, py, inner, px, py, outer);
     g.addColorStop(0, 'rgba(13,15,16,0)'); g.addColorStop(1, 'rgba(13,15,16,1)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
