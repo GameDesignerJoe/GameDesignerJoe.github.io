@@ -12,7 +12,7 @@
   canvas { display:block; position:fixed; inset:0; width:100vw; height:100vh; }
   #hud { position:fixed; top:calc(env(safe-area-inset-top) + 16px); left:56px; right:56px; display:flex; justify-content:space-between; pointer-events:none; letter-spacing:.02em; opacity:.7; }
   #tools { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 224px); display:none; justify-content:center; align-items:center; gap:14px; }
-  #tools.show { display:flex; }
+  #tools { display:flex; }
   #glyphs { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 282px); display:none; gap:8px; padding:8px; border-radius:26px; background:rgba(13,15,16,.92); border:1px solid rgba(185,180,168,.3); }
   #glyphs.show { display:flex; }
   #glyphs div { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(185,180,168,.2); }
@@ -74,32 +74,33 @@
   #stick { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 34px); transform:translateX(-50%); width:170px; height:170px; border-radius:50%; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.22); }
   #knob { position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px; border-radius:50%; background:rgba(185,180,168,.18); border:1px solid rgba(185,180,168,.45); transition:background .12s; }
   #stick.on #knob { background:rgba(185,180,168,.32); }
-  #title { position:fixed; inset:0; display:block; background:#0d0f10; z-index:5; padding:calc(env(safe-area-inset-top) + 56px) 24px 48px; overflow-y:auto; touch-action:pan-y; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
-  #title::-webkit-scrollbar { display:none; }
+  #title { position:fixed; inset:0; z-index:5; pointer-events:none; }
   #title.hide { display:none; }
-  #title .card { max-width:360px; margin:0 auto; position:relative; }
-  #title h1 { font-weight:400; font-size:50px; letter-spacing:.06em; margin:0 0 6px; color:#e8e3d6; }
-  #title .sub { margin:0 0 30px; font-size:16px; color:#8d887c; font-style:italic; }
-  #howto { margin-top:26px; }
-  #howto summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-top:1px solid rgba(185,180,168,.18); border-bottom:1px solid rgba(185,180,168,.18); font-size:17px; color:#d8d3c6; letter-spacing:.02em; }
-  #howto summary::-webkit-details-marker { display:none; }
-  #howto summary::after { content:'+'; font-size:22px; color:#8d887c; }
-  #howto[open] summary::after { content:'–'; }
-  #howto .rows { padding-top:20px; }
-  #title .row { display:flex; gap:16px; align-items:flex-start; margin-bottom:20px; font-size:17px; line-height:1.5; color:#d8d3c6; }
-  #title .row svg { flex:none; width:44px; height:44px; }
-  #title .row b { font-weight:400; color:#ece7da; }
-  #title .row p { margin:0; }
-  #begin { margin-top:10px; padding:14px 0; width:100%; font:inherit; font-size:19px; color:#0d0f10; background:#d8d3c6; border:0; border-radius:8px; }
-  #begin:active { background:#ece7da; }
-  #title .link { margin:22px auto 0; text-align:center; font-size:14px; color:#8d887c; text-decoration:underline; text-underline-offset:4px; text-decoration-color:rgba(185,180,168,.4); cursor:pointer; }
-  #title .ver { margin-top:14px; text-align:center; font-size:12px; opacity:.4; }
+  #titleBar { position:fixed; left:0; right:0; bottom:0; height:calc(env(safe-area-inset-bottom) + 56px); padding:0 22px env(safe-area-inset-bottom); display:flex; align-items:center; justify-content:space-between; background:#0d0f10; border-top:1px solid rgba(185,180,168,.12); pointer-events:auto; transition:transform .7s cubic-bezier(.2,.7,.2,1); }
+  #title.leaving #titleBar { transform:translateY(100%); }
+  #titleBar span:first-child { font-size:12px; color:#4f4c46; font-style:italic; }
+  #howBtn { font-size:22px; font-style:italic; color:#8d887c; padding:6px 18px; }
+  #howBtn.open { color:#ece7da; }
+  #refreshBtn { width:22px; height:22px; }
+  #howPanel { position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 56px); max-height:0; overflow:hidden; background:#1b1f21; transition:max-height .55s cubic-bezier(.2,.7,.2,1); pointer-events:auto; }
+  #howPanel.open { max-height:70vh; overflow-y:auto; scrollbar-width:none; }
+  #howPanel::-webkit-scrollbar { display:none; }
+  #howPanel .rows { padding:18px 24px 28px; max-width:380px; margin:0 auto; }
+  #howPanel .row { display:flex; gap:16px; align-items:flex-start; margin-bottom:18px; font-size:16px; line-height:1.5; color:#d8d3c6; font-style:italic; }
+  #howPanel .row svg { flex:none; width:40px; height:40px; }
+  #howPanel .row b { font-weight:400; font-style:normal; color:#ece7da; }
+  #howPanel .row p { margin:0; }
+  .hud-el { transition:transform .8s cubic-bezier(.2,.7,.2,1), opacity .8s; }
+  body.pre #hud, body.pre #gear, body.pre #key, body.pre #fx { opacity:0; transform:translateY(-24px); }
+  body.pre #tools { opacity:0; transform:translateY(40px); }
+  body.pre #stick, body.pre #glyphs { opacity:0; transform:translate(-50%, 40px); }
+  @media (orientation: landscape) { body.pre #tools, body.pre #stick, body.pre #glyphs { transform:translateX(40px); } body.pre.stick-left #tools, body.pre.stick-left #stick, body.pre.stick-left #glyphs { transform:translateX(-40px); } }
   .ghost { margin-top:12px; padding:12px 0; width:100%; font:inherit; font-size:16px; color:#b9b4a8; background:transparent; border:1px solid rgba(185,180,168,.3); border-radius:8px; }
   .ghost:active { background:rgba(185,180,168,.1); }
   .storiesBtn { display:flex; align-items:center; justify-content:center; gap:10px; }
   .storiesBtn .book { width:22px; height:22px; flex:none; }
   #dbg .storiesBtn { justify-content:flex-start; } #dbg .storiesBtn .book { width:18px; height:18px; }
-  #msg .ghost { width:auto; padding:10px 22px; display:block; margin:12px auto 0; }
+  #msg .ghost { width:auto; padding:10px 22px; display:flex; margin:12px auto 0; }
   #stories { position:fixed; inset:0; z-index:6; display:none; background:rgba(13,15,16,.96); padding:calc(env(safe-area-inset-top) + 20px) 22px 40px; overflow-y:auto; touch-action:pan-y; }
   #stories.show { display:block; }
   #stories h1 { font-weight:400; font-size:30px; letter-spacing:.04em; margin:0 0 4px; color:#e8e3d6; }
@@ -107,24 +108,22 @@
   #stories .who { margin-bottom:22px; }
   #stories .who .name { display:flex; justify-content:space-between; font-size:18px; color:#d8d3c6; margin-bottom:8px; }
   #stories .who .name span:last-child { color:#8d887c; font-size:15px; }
+  #stories .who .name span:first-child { text-decoration:underline dotted rgba(185,180,168,.35); text-underline-offset:4px; }
   #stories .boxes { display:flex; gap:8px; }
   #stories .box { flex:1; height:36px; border-radius:6px; background:#1f2224; border:1px solid rgba(185,180,168,.12); }
-  #stories .box.got { background:#b8b0a0; border-color:#b8b0a0; }
+  #stories .box.got { background:#b8b0a0; border-color:#b8b0a0; cursor:pointer; }
+  #stories .box.sel { outline:2px solid #ece7da; outline-offset:2px; }
   #reader { min-height:90px; margin:0 0 24px; padding:14px 16px; background:rgba(185,180,168,.06); border:1px solid rgba(185,180,168,.12); border-radius:8px; }
   #reader .hint { color:#6f6b62; font-size:15px; font-style:italic; }
   #reader .who { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#8d887c; margin-bottom:10px; }
   #reader p { margin:0 0 12px; font-size:16px; line-height:1.55; color:#c8c1b2; }
   #reader p:last-child { margin-bottom:0; }
   #reader p.missing { color:#4f4c46; font-style:italic; }
-  #stories .who .name span:first-child { text-decoration:underline dotted rgba(185,180,168,.35); text-underline-offset:4px; }
-  #stories .box.got { cursor:pointer; }
-  #stories .box.sel { outline:2px solid #ece7da; outline-offset:2px; }
   #storiesClose { position:fixed; z-index:7; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
   #tut { position:fixed; inset:0; z-index:6; display:none; place-items:center; background:rgba(13,15,16,.7); padding:28px; perspective:900px; }
   #tut.show { display:grid; }
-  #tut .card { max-width:340px; width:100%; padding:26px 26px 22px; background:#141618; border:1px solid rgba(185,180,168,.18); box-shadow:0 30px 60px rgba(0,0,0,.6); transform-origin:50% 50%; }
+  #tut .card { position:relative; max-width:340px; width:100%; padding:26px 26px 22px; background:#141618; border:1px solid rgba(185,180,168,.18); box-shadow:0 30px 60px rgba(0,0,0,.6); transform-origin:50% 50%; }
   #tut .card::before { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg, rgba(0,0,0,.18) 0%, transparent 12%, transparent 30%, rgba(0,0,0,.22) 33.5%, transparent 37%, transparent 63%, rgba(0,0,0,.22) 66.5%, transparent 70%, transparent 88%, rgba(0,0,0,.18) 100%); }
-  #tut .card { position:relative; }
   #tut.show .card { animation:unfold .9s cubic-bezier(.2,.7,.2,1) both; }
   #tut.fold .card { animation:refold .55s cubic-bezier(.6,0,.8,.4) both; }
   @keyframes unfold { 0%{ clip-path:inset(0 50% 0 50%); transform:rotateX(18deg) scaleY(.92); opacity:0; } 35%{ clip-path:inset(0 33.4% 0 33.4%); transform:rotateX(8deg) scaleY(.98); opacity:1; } 55%{ clip-path:inset(0 33.4% 0 33.4%); } 100%{ clip-path:inset(0 0 0 0); transform:none; opacity:1; } }
@@ -158,9 +157,9 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="hud"><span></span><span id="stepLbl"></span></div>
-<div id="gear"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
-<div id="glyphs">
+<div id="hud" class="hud-el"><span></span><span id="stepLbl"></span></div>
+<div id="gear" class="hud-el"><svg viewBox="0 0 24 24" fill="none" stroke="#b9b4a8" stroke-width="1.5" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"/></svg></div>
+<div id="glyphs" class="hud-el">
   <div data-g="up"><svg viewBox="0 0 24 24"><path d="M12 19V5m-6 6l6-6 6 6" fill="none" stroke="#ece7da" stroke-width="2.2" stroke-linecap="round"/></svg></div>
   <div data-g="right"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6l6 6-6 6" fill="none" stroke="#ece7da" stroke-width="2.2" stroke-linecap="round"/></svg></div>
   <div data-g="down"><svg viewBox="0 0 24 24"><path d="M12 5v14m-6-6l6 6 6-6" fill="none" stroke="#ece7da" stroke-width="2.2" stroke-linecap="round"/></svg></div>
@@ -168,15 +167,15 @@
   <div data-g="x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="#ece7da" stroke-width="2.4" stroke-linecap="round"/></svg></div>
   <div data-g="?"><svg viewBox="0 0 24 24"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4M12 18h.01" fill="none" stroke="#ece7da" stroke-width="2.2" stroke-linecap="round"/></svg></div>
 </div>
-<div id="tools">
+<div id="tools" class="hud-el">
   <div id="mapBtn"><svg viewBox="0 0 26 26" fill="none" stroke="#b9b4a8" stroke-width="1.6" stroke-linejoin="round"><path d="M3 6l7-3 6 3 7-3v17l-7 3-6-3-7 3z"/><path d="M10 3v17M16 6v17"/></svg></div>
   <div id="chalk"><i></i><span id="chalkN">0</span></div>
   <div id="charcoal"><i></i><span id="charcoalN">0</span></div>
   <div id="lamp"><svg viewBox="0 0 24 24"><path d="M9 3h6l2 6H7zM8 9h8v2l-1.5 2H9.5L8 11zM10 13h4v4h-4zM10.5 17h3l.5 3h-4z" fill="none" stroke="#b9b4a8" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
 </div>
 <div id="map"><canvas id="mapCv"></canvas><h1>Map</h1><button id="mapClose">✕</button><div class="hint">Drag to pan · pinch to zoom</div></div>
-<svg id="key" viewBox="0 0 32 32"><circle cx="11" cy="16" r="6" fill="none" stroke="#e0c98a" stroke-width="3"/><path d="M17 16h12M25 16v5M29 16v4" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"/></svg>
-<div id="fx"></div>
+<svg id="key" class="hud-el" viewBox="0 0 32 32"><circle cx="11" cy="16" r="6" fill="none" stroke="#e0c98a" stroke-width="3"/><path d="M17 16h12M25 16v5M29 16v4" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"/></svg>
+<div id="fx" class="hud-el"></div>
 <div id="narr"></div>
 <div id="dbg">
   <label><input type="checkbox" id="optArrow"> Point to end</label>
@@ -190,14 +189,9 @@
   <button id="resetSave" style="color:#b07a6a; border-color:rgba(176,122,106,.45)">Reset save</button>
   <div class="ver"><span id="seedLbl"></span> · <span id="verDbg"></span></div>
 </div>
-<div id="stick"><div id="knob"></div></div>
-<div id="title"><div class="card">
-  <h1>The Maze</h1>
-  <p class="sub">The only way out is through.</p>
-  <button id="begin">Begin</button>
-  <button class="ghost storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
-  <div class="link" id="updateTitle">Refresh app</div>
-  <details id="howto"><summary>How to play</summary><div class="rows">
+<div id="stick" class="hud-el"><div id="knob"></div></div>
+<div id="title"><div id="titleBar"><span id="verTitle"></span><span id="howBtn">?</span><svg id="refreshBtn" viewBox="0 0 24 24" fill="none" stroke="#6f6b62" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12a7 7 0 1 1 -2.2 -5.1"/><path d="M17 3v4h-4"/></svg></div><div id="howPanel"><div class="rows">
+
 <div class="row">
     <svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="none" stroke="#8d887c" stroke-width="1.5"/><circle cx="22" cy="22" r="9" fill="#b9b4a8"/><path d="M22 6l-4 5h8zM22 38l-4-5h8zM6 22l5-4v8zM38 22l-5-4v8z" fill="#8d887c"/></svg>
     <p><b>Move</b> with the stick at the bottom. Hold a direction and you'll glide; push another way and you'll take the next turn there.</p>
@@ -218,16 +212,14 @@
     <svg viewBox="0 0 44 44"><rect x="10" y="18" width="24" height="9" rx="1.5" fill="#3a3d3f" stroke="#a89f8c" stroke-width="1.2" transform="rotate(28 22 22)"/></svg>
     <p><b>Charcoal</b> draws a map as you walk. Tap it to begin; the stick wears down as it draws; ground you've already mapped costs nothing. Tap it again to pause. The map button beside it shows what you've drawn.</p>
   </div>
-    </div></details>
-  <div class="ver" id="verTitle"></div>
-</div></div>
+  </div></div></div>
 <div id="tut"><div class="card"><div id="tutIcon"></div><h1 id="tutTitle"></h1><p class="why" id="tutWhy"></p><p id="tutHow"></p><button id="tutClose">Close<svg viewBox="0 0 100 12" preserveAspectRatio="none"><path d="M2 7c14-3 22 3 34 1s20-5 30-2 20 4 32 0" fill="none" stroke="#ece7da" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="26 2 18 3 30 2 40" opacity=".85"/></svg></button></div></div>
-<div id="fade"></div>
+<div id="fade" class="in"></div>
 <div id="msg"><div><h1>You found the way out.</h1><ul id="msgStats"></ul><div class="seed" id="msgSeed"></div><button id="again">Find yourself</button><button class="ghost storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button></div></div>
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.18.2';
+const VERSION = '0.20.6';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -242,9 +234,11 @@ const CONFIG = {
   cols: 14,             // set from size at generation
   rows: 20,
   tilePx: 60,           // zoom: screen pixels per tile
+  titleTilePx: 150,     // zoom while asleep on the title screen
+  introSeconds: 2.8,    // zoom-out when you tap the sleeper
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
-  speed: 3.42,          // tiles per second while the stick is held
+  speed: 3.08,          // tiles per second while the stick is held
   pushHoldMs: 260,      // lean into a slider's edge this long before it moves
   turnBufferMs: 400,    // a perpendicular push is remembered this long and taken at the next opening
   turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
@@ -276,12 +270,12 @@ const CONFIG = {
   pathSpawnRate: 0.15,  // fraction of dead ends holding a path reveal
   pickupMax: 2,         // cap per type per maze
   mapScraps: 2,         // torn pieces of map, each revealing about a quarter of the maze around where it lay
-  mapScrapShare: 0.25,
+  mapScrapShare: 0.2,
   pointerSeconds: 30,   // how long the pointer stays on after pickup
   pathSeconds: 15,      // how long the path stays on after pickup
   pickupExitBuffer: 6,  // dead ends within this many cells (walking) of the exit never hold pickups
   charcoalStart: 0,     // mapping pieces you begin with
-  charcoalTiles: 40,    // floor tiles each piece adds to the map
+  charcoalTiles: 50,    // floor tiles each piece adds to the map
   charcoalSpawnRate: 0.19, // fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
   startRoomChalk: 1,    // pieces of chalk lying in the start room
@@ -309,7 +303,7 @@ const CONFIG = {
     wall:  '#1b1f21',
     tunnel:'#26292b',
     thick: '#1b1f21',
-    shelf: '#7d7970',
+    shelf: '#a29d92',
     book:  '#ece7da',   // same as wall: the edge reads as a sliver of wall on the floor
     floor: '#6e6a62',
     grout: '#585450',
@@ -624,7 +618,7 @@ function generate(seed) {
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (count('pointer') < MAXP) { pickups.set(k, 'pointer'); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
   }
-  for (const k of pocketKeys) { const r = R(); if (r < 0.35) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && count('pointer') < CONFIG.pickupMax) pickups.set(k, 'pointer'); else if (count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
+  for (const k of pocketKeys) { const r = R(); if (r < 0.3) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && count('pointer') < CONFIG.pickupMax) pickups.set(k, 'pointer'); else if (count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
   for (const kind of ['pointer', 'path']) if (!count(kind)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
   if (!chalkSpots.size) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider
@@ -776,6 +770,7 @@ const AUDIO = (() => {
     unfold() { noise(0.45, { vol: 0.14, freq: 1400, q: 0.5, type: 'bandpass' }); },
     lampOn() { noise(0.08, { vol: 0.15, freq: 3000, q: 1, type: 'highpass' }); tone(523, 0.5, { vol: 0.07, attack: 0.02 }); tone(784, 0.7, { vol: 0.04, attack: 0.1 }); },
     lampOff() { tone(392, 0.25, { vol: 0.06, slide: 300 }); },
+    wake() { tone(196, 1.6, { vol: 0.08, attack: 0.4 }); setTimeout(() => tone(294, 1.8, { vol: 0.06, attack: 0.5 }), 700); },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
     journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
@@ -800,12 +795,13 @@ let sliding = null;   // {sl, from:[x,y], to:[x,y], t0}
 let pushHeldSince = 0;
 let pendingTurn = null;   // {dx,dy,until}: a perpendicular push that wasn't possible yet   // how long you've leaned into a slider's edge
 let idleSince = 0, firstPushDone = false;
+let zoomS = 150, intro = null, introWalk = null;   // intro: {t0} while zooming out; introWalk: scripted first step
 let darkAmt = 0;   // 0 lit … 1 fully in the dark; eased per frame
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
 let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, leftRoom = false, shelfSaid = false, shelfStandKey = '', shelfStandAt = 0, shelfShown = '';
 const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
-$('verTitle').textContent = 'v' + VERSION; $('verDbg').textContent = 'v' + VERSION;
+$('verDbg').textContent = 'v' + VERSION; $('verTitle').textContent = 'v' + VERSION;
 
 function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
@@ -852,7 +848,7 @@ function useChalk(glyph) {
   updateChalk();
 }
 function reset(seed) {
-  SEED = seed; generate(SEED); started = false;
+  SEED = seed; generate(SEED); started = false; zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
@@ -913,7 +909,6 @@ function hardRefresh(btn) {
     .then(() => location.replace(location.pathname + '?u=' + Date.now()));
 }
 $('update').addEventListener('click', () => hardRefresh($('update')));
-$('updateTitle').addEventListener('click', () => hardRefresh($('updateTitle')));
 
 
 // ── stories screen ──────────────────────────────────────────────
@@ -969,7 +964,7 @@ const TUTORIALS = {
   pointer:  { title: 'A compass needle', why: "It knows where the way out is. It doesn't know the way.", how: "It will point for a while, straight as a bird flies, and then it will stop. The corridors don't care where it points." },
   path:     { title: 'A spool of thread', why: "Somebody measured this place once and left the measure on the floor.", how: "I can see it now, laid along the stones wherever my light falls — the shortest way out. It won't stay visible long. It never does." },
   key:      { title: 'A key', why: "The way out was barred long before I arrived.", how: "There's a gate over the exit, a ring in one of the far corners. I carry this to it and push through." },
-  scrap:    { title: 'A scrap of map', why: "Torn from something larger. The hand that drew it was steady.", how: "It shows the halls around where it lay — a quarter of this place, near enough — and I've laid it into my own map. The rest is still mine to walk." },
+  scrap:    { title: 'A scrap of map', why: "Torn from something larger. The hand that drew it was steady.", how: "It shows the halls around where it lay — a fifth of this place, near enough — and I've laid it into my own map. The rest is still mine to walk." },
   lamp:     { title: 'A lamp', why: "There are places here the walls have swallowed the light entirely.", how: "Lit, it throws a cone ahead of me, the way I'm facing, and a little warmth at my feet. I can douse it and light it again from the lamp beside my tools. In the dark, without it, I would see only myself." },
   page:     { title: 'A page', why: "I am not the first here. I won't be the last.", how: "Someone wrote this down before they moved on. I'll keep what I find. The pages gather in Stories, where I can read them together." },
 };
@@ -990,6 +985,7 @@ $('tutClose').addEventListener('click', () => {
   setTimeout(() => { tut.classList.remove('show', 'fold'); }, 560);
   pausedTotal += performance.now() - pauseStart; paused = false;
 });
+
 
 // ── map screen ──────────────────────────────────────────────────
 const mapEl = $('map'), mapCv = $('mapCv'), mctx = mapCv.getContext('2d');
@@ -1057,16 +1053,30 @@ const keys = {};
 addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') { debugMap = !debugMap; opt.map.checked = debugMap; } });
 addEventListener('keyup', e => keys[e.key] = false);
 
-function enterMaze() {
-  const fade = $('fade'); fade.className = 'in';
-  $('title').classList.add('hide'); $('msg').classList.remove('show');
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    fade.className = 'out'; started = true; t0 = gameNow(); narrNext = Infinity;   // the narrator waits until you've left the room
-    $('tools').classList.add('show'); $('mapBtn').classList.add('beckon');
-  }));
+function enterMaze() {   // fade from black into the room, asleep; tapping the sleeper begins the run
+  const fade = $('fade'); fade.className = 'in'; $('msg').classList.remove('show');
+  requestAnimationFrame(() => requestAnimationFrame(() => { fade.className = 'out'; }));
 }
+function wake() {   // the zoom-out: HUD slides in, then the figure gets up
+  if (intro || started) return;
+  AUDIO.begin(); AUDIO.wake();
+  intro = { t0: performance.now(), from: zoomS };
+  $('title').classList.add('leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
+  setTimeout(() => document.body.classList.remove('pre'), CONFIG.introSeconds * 400);
+  setTimeout(() => {
+    $('title').classList.add('hide'); started = true; t0 = gameNow(); narrNext = Infinity; $('mapBtn').classList.add('beckon');
+    introWalk = { dx: 0, dy: -1 };   // and stands up off the mat
+  }, CONFIG.introSeconds * 1000);
+}
+cv.addEventListener('pointerdown', e => {
+  if (started || intro || $('title').classList.contains('hide')) return;
+  const px = viewOx + player.x * viewS, py = viewOy + player.y * viewS;
+  if (Math.hypot(e.clientX - px, e.clientY - py) < viewS * 0.9) { wake(); return; }
+  if ($('howPanel').classList.contains('open')) { $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open'); }
+});
+$('howBtn').addEventListener('click', () => { const o = $('howPanel').classList.toggle('open'); $('howBtn').classList.toggle('open', o); AUDIO.paper(); });
+$('refreshBtn').addEventListener('click', () => hardRefresh({ set textContent(v) {} }));
 $('again').addEventListener('click', () => { reset((Math.random()*1e9)|0); enterMaze(); });
-$('begin').addEventListener('click', () => { AUDIO.begin(); enterMaze(); });
 
 // draw a chalk glyph centered at px,py with half-size a
 function drawGlyph(c, g, px, py, a, lw) {
@@ -1101,7 +1111,9 @@ function update(wall) {
   const now = gameNow();
   const kd = (keys.ArrowLeft||keys.a) ? {dx:-1,dy:0} : (keys.ArrowRight||keys.d) ? {dx:1,dy:0}
            : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
-  const want = (solved || !started || mapOpen || paused) ? null : (held || kd);
+  if (intro) { const k = Math.min(1, (performance.now() - intro.t0) / (CONFIG.introSeconds * 1000)); const e = 1 - Math.pow(1 - k, 3); zoomS = intro.from + (CONFIG.tilePx - intro.from) * e; if (k >= 1) intro = null; }
+  else zoomS = started ? CONFIG.tilePx : CONFIG.titleTilePx;
+  const want = (solved || !started || mapOpen || paused) ? null : (introWalk || held || kd);
 
   if (sliding) {
     const k = Math.min(1, (now - sliding.t0) / (CONFIG.sliderSeconds * 1000));
@@ -1160,6 +1172,7 @@ function update(wall) {
   } else shelfStandKey = '';
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
+  if (introWalk && key !== lastTileKey) introWalk = null;
   if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; $('stepLbl').textContent = steps + ' tiles'; }
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
@@ -1236,11 +1249,12 @@ function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
 
-  let S = CONFIG.tilePx, ox, oy;
+  let S = zoomS, ox, oy;
   if (debugMap) { S = Math.min(vw / W, (vh - 260) / H); ox = (vw - W*S)/2; oy = (vh - H*S)/2 - 80; }
   else {
     const landscape = vw > vh, leftStick = document.body.classList.contains('stick-left');
-    const ax = landscape ? (leftStick ? 0.58 : 0.42) : 0.5, ay = landscape ? 0.5 : 0.42;
+    const pre = !started && !intro;   // asleep: dead center, no HUD to make room for
+    const ax = pre ? 0.5 : landscape ? (leftStick ? 0.58 : 0.42) : 0.5, ay = pre ? 0.47 : landscape ? 0.5 : 0.42;
     ox = vw*ax - cam.x*S; oy = vh*ay - cam.y*S;
   }
   viewS = S; viewOx = ox; viewOy = oy;
@@ -1278,6 +1292,20 @@ function draw() {
     });
   }
 
+  // the name, set into the tile above the mat: architectural capitals in chalk white
+  if (startRoom && (!started || intro)) {
+    const fadeT = intro ? Math.max(0, 1 - (performance.now() - intro.t0) / 900) : 1;
+    const tx = startRoom.x0 + 2, ty = startRoom.y0 + 1, px = ox + tx*S + S/2, py = oy + ty*S + S/2;
+    ctx.save(); ctx.globalAlpha = fadeT; ctx.fillStyle = C.mark; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `500 ${S*0.13}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('T H E', px, py - S*0.26);
+    ctx.font = `700 ${S*0.34}px Futura, "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif`; ctx.fillText('M A Z E', px, py + S*0.06);
+    ctx.restore();
+  }
+  if (!started && !intro) {   // asleep: a slow breath of light around the mat
+    const glow = 0.5 + 0.5 * Math.sin(performance.now() / 900), px = ox + player.x*S, py = oy + player.y*S;
+    ctx.fillStyle = CONFIG.hintColor; ctx.globalAlpha = 0.05 + 0.09 * glow; ctx.beginPath(); ctx.arc(px, py, S*0.7, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+
   // sliding tile in flight
   if (sliding) { ctx.fillStyle = C.floor; ctx.fillRect(ox + (player.x-0.5)*S, oy + (player.y-0.5)*S, S+0.5, S+0.5); }
   // thick wall on the pushable side of each slider
@@ -1303,7 +1331,7 @@ function draw() {
   // start & exit (+ gate)
   { const mx = ox + (start.x-0.5)*S, my = oy + (start.y-0.5)*S;   // a thin sleeping mat, with a slightly lighter fold at the head
     ctx.fillStyle = C.start; ctx.fillRect(mx + S*0.24, my + S*0.10, S*0.52, S*0.80);
-    ctx.fillStyle = C.grout; ctx.fillRect(mx + S*0.32, my + S*0.72, S*0.36, S*0.13); }   // pillow at the foot end (bottom)
+    ctx.fillStyle = C.grout; ctx.fillRect(mx + S*0.32, my + S*0.15, S*0.36, S*0.13); }   // pillow at the top
   { const [ex, ey] = T(exit.x, exit.y);
     ctx.fillStyle = C.exit; ctx.beginPath(); ctx.arc(ex, ey, S*0.22, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.arc(ex, ey, S*0.1, 0, Math.PI*2); ctx.fill();
@@ -1444,8 +1472,8 @@ function draw() {
   }
 }
 
-function frame(now) { update(now); if (started) draw(); else { ctx.setTransform(dpr,0,0,dpr,0,0); ctx.fillStyle = CONFIG.colors.bg; ctx.fillRect(0,0,innerWidth,innerHeight); } requestAnimationFrame(frame); }
-reset(SEED);
+function frame(now) { update(now); draw(); requestAnimationFrame(frame); }
+reset(SEED); enterMaze();
 requestAnimationFrame(frame);
 </script>
 </body>
