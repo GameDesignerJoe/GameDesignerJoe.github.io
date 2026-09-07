@@ -245,7 +245,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.24.0';
+const VERSION = '0.27.4';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -254,7 +254,7 @@ const VERSION = '0.24.0';
 // Refresh = new maze. Add ?seed=1234 to the URL to replay a specific one.
 // Gear (top-left) = debug options + "Update app" (hard refresh).
 // ───────────────────────────────────────────────────────────────
-const SIZES = { sm: [10, 14], md: [14, 20], lg: [20, 28], xl: [28, 40] };   // cells across × down; each step doubles the area
+const SIZES = { xs: [7, 10], sm: [10, 14], md: [14, 20], lg: [20, 28], xl: [28, 40] };   // cells across × down; each step doubles the area
 const CONFIG = {
   size: 'md',           // sm | md | lg | xl  (debug menu)
   cols: 14,             // set from size at generation
@@ -304,7 +304,13 @@ const CONFIG = {
   charcoalTiles: 50,    // floor tiles each piece adds to the map
   charcoalSpawnRate: 0.19, // fraction of dead ends holding charcoal — rare on purpose; no guaranteed spawn
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
-  startRoomChalk: 1,    // pieces of chalk lying in the start room
+  startRoomChalk: 1,
+  crawlGaps: 3,         // low gaps in walls only the Child fits through (per medium-sized maze; scales with area)
+  swings: 1,            // tiles that slide back and forth on their own
+  swingSeconds: 4.5,    // how long a swing rests at each end
+  squeezeSlow: 0.4,     // speed inside a crawl gap
+  squeezeReach: 1.1,    // how far (tiles) from the gap's center the squeeze extends into each corridor
+  figureSpots: 6,       // where the father stands in a Child maze (one is always just past the door)    // pieces of chalk lying in the start room
   darknessChance: 0.3,  // share of mazes that have any darkness
   darknessSizes: [0.25, 0.4, 0.6],   // when there is darkness, one of these shares of the floor, equally likely
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
@@ -471,7 +477,7 @@ function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boole
 // ── phases: what the maze allows and what you carry, per self ──
 // features: which existing systems are switched on. burden lifts are applied by count of stones put down (SAVE.stones).
 const PHASES = [
-  { who: 'The Child',          size: 'sm', f: { signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0 } },
+  { who: 'The Child',          size: 'sm', bodyScale: 0.85, f: { signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
   { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, braid: 0.06 } },
   { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  braid: 0.06 } },
   { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  braid: 0.06, rooms: 1.6 } },
@@ -565,6 +571,12 @@ let gated = false;   // this maze's exit is locked
 let poolMode = false;   // this run is a pool level: small, lit, one stone, one gate
 let startRoom = null;   // {x0,y0,x1,y1} tile bounds of the sealed start room
 let scrapSpots = new Set();
+let crawlGaps = new Set();   // 'x,y' wall gaps a child can crawl through (open only when the phase allows)
+let crawlCells = new Set();  // open cells that sit between two gaps of one squeeze — drawn narrow too
+let hopscotch = [];          // ordered tiles of a hopscotch court
+let ticTacToe = null;        // {x,y,cells} a 3×3 chalk board on a room floor, mid-game
+let figures = [];            // the father, placed like pickups: [{x,y,alpha,seen,gone}]
+let startGap = null;
 let darkTiles = new Set(), darkFringe = new Map(), lampSpot = null, sealedGaps = [];   // darkFringe: tile → 1 (dim) or 2 (dimmer), the drop-off around the dark
 let sliders = [];   // {x,y,dx,dy,shifted}  x,y = home tile; slides one tile along d
 let pockets = [];   // sealed dead-end tiles reachable only via a slider   // journals: 'x,y' → page index
@@ -578,6 +590,7 @@ function generate(seed) {
   [CONFIG.cols, CONFIG.rows] = SIZES[sizeKey] || SIZES.md;
   const AREA = (CONFIG.cols * CONFIG.rows) / (14 * 20);   // 1 at medium; feature counts scale with it
   const N = base => Math.max(1, Math.round(base * AREA));
+  const N0 = base => Math.round(base * AREA);   // may be zero
   W = CONFIG.cols * 2 + 1 + 2*P; H = CONFIG.rows * 2 + 1 + 2*P;
   const TX = c => c*2 + 1 + P;   // cell index → tile index
   tiles = Array.from({ length: H }, () => new Uint8Array(W));
@@ -631,7 +644,7 @@ function generate(seed) {
     const nOpen = (x, y) => DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length;
     const cornerTiles = [[TX(0),TX(0)], [TX(CONFIG.cols-1),TX(0)], [TX(CONFIG.cols-1),TX(CONFIG.rows-1)], [sx,sy]];
     const isCorner = (x,y) => cornerTiles.some(([cx,cy]) => cx===x && cy===y) || (x <= sx + CONFIG.startRoomCells*2 && y >= sy - CONFIG.startRoomCells*2);   // also the start room and its neighbours
-    const want = F.pockets ? N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0) : 0;
+    const want = F.pockets ? N(CONFIG.sliders[0]) + (R() * (N(CONFIG.sliders[1]) - N(CONFIG.sliders[0]) + 1) | 0) : F.swing ? (typeof F.swing === 'number' ? F.swing : N(CONFIG.swings)) : 0;
     const used = new Set();
     const cands = [];
     for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) if (isOpen(x,y) && nOpen(x,y) === 1 && !isCorner(x,y)) cands.push([x,y]);
@@ -644,7 +657,7 @@ function generate(seed) {
         .map(([dx,dy]) => [dx,dy, ex+dx*2, ey+dy*2])
         .filter(([dx,dy,Dx,Dy]) => Dx>=TX(0) && Dx<W-P && Dy>=TX(0) && Dy<H-P && isOpen(Dx,Dy) && nOpen(Dx,Dy) <= 2 && !isCorner(Dx,Dy) && !used.has(Dx+','+Dy) && !isOpen(ex+dx, ey+dy));
       if (!opts.length) continue;
-      opts.sort((a, b) => nOpen(a[2], a[3]) - nOpen(b[2], b[3]));   // prefer a dead-end slider
+      opts.sort((a, b) => F.pockets ? nOpen(a[2], a[3]) - nOpen(b[2], b[3]) : nOpen(b[2], b[3]) - nOpen(a[2], a[3]));   // pushable sliders prefer dead ends; swings prefer corridors
       const [dx, dy, Dx, Dy] = opts[0];
       tiles[ey+by][ex+bx] = 0; sealedGaps.push([ex+bx, ey+by]);        // seal the pocket
       pockets.push([ex, ey]); used.add(ex+','+ey); used.add(Dx+','+Dy);
@@ -652,7 +665,7 @@ function generate(seed) {
     }
   }
   start = { x: sx + 0.5, y: sy + 0.5 };
-  let startGap = null;
+  startGap = null;
   // the start room: open a small room in the corner, seal every way out, and make one edge tile the slider
   if (CONFIG.sliderAtStart) {
     const openDoor = !F.pockets && !F.pathSlider;   // early phases: the room is simply open
@@ -688,6 +701,38 @@ function generate(seed) {
     startGap = [gx, gy];
   }
 
+  // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
+  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null;
+  if (!poolMode) {
+    const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const cands2 = [];
+    for (let y = TX(0); y < H - P; y += 2) for (let x = TX(0); x < W - P; x += 2) {
+      for (const [dx, dy] of [[1,0],[0,1]]) { const gx = x + dx, gy = y + dy, fx = x + dx*2, fy = y + dy*2;
+        if (fx >= W - P || fy >= H - P || isOpen(gx, gy) || !isOpen(x, y) || !isOpen(fx, fy) || roomRing(gx, gy)) continue;
+        if (pockets.some(([px,py]) => (px===x&&py===y) || (px===fx&&py===fy))) continue;
+        if (sliders.some(sl => (sl.x===x&&sl.y===y) || (sl.x===fx&&sl.y===fy))) continue;
+        cands2.push([gx, gy]); }
+    }
+    cands2.sort(() => R() - 0.5);
+    const wantGaps = F.crawl ? (typeof F.crawl === 'number' ? F.crawl : Math.max(2, N0(CONFIG.crawlGaps))) : N0(CONFIG.crawlGaps);
+    const usedCells = new Set();
+    for (const g of cands2) {
+      if (crawlGaps.size >= wantGaps) break;
+      const [gx, gy] = g; if (crawlGaps.has(g.join(','))) continue;
+      // the two cells either side
+      const horiz = isOpen(gx-1, gy) && isOpen(gx+1, gy);
+      const A = horiz ? [gx-1, gy] : [gx, gy-1], Bc = horiz ? [gx+1, gy] : [gx, gy+1];
+      if (usedCells.has(A.join(',')) || usedCells.has(Bc.join(','))) continue;
+      crawlGaps.add(g.join(',')); if (F.crawl) tiles[gy][gx] = 1; usedCells.add(A.join(',')); usedCells.add(Bc.join(','));
+      // sometimes it keeps going: from the far cell, a second gap in another direction makes an L (or a straight run)
+      if (F.crawl && R() < 0.45) {
+        const opts = DIRS.map(([dx,dy]) => [Bc[0]+dx, Bc[1]+dy, Bc[0]+dx*2, Bc[1]+dy*2]).filter(([hx,hy,cx,cy]) => !(hx===gx&&hy===gy) && !isOpen(hx,hy) && isOpen(cx,cy) && cx>=TX(0) && cx<W-P && cy>=TX(0) && cy<H-P && !roomRing(hx,hy) && !usedCells.has(cx+','+cy) && !pockets.some(([px,py])=>px===cx&&py===cy) && !sliders.some(sl=>sl.x===cx&&sl.y===cy) && !sliders.some(sl=>sl.x===Bc[0]&&sl.y===Bc[1]));
+        if (opts.length) { const [hx, hy, cx, cy] = opts[R() * opts.length | 0]; crawlGaps.add(hx+','+hy); tiles[hy][hx] = 1; crawlCells.add(Bc.join(',')); usedCells.add(cx+','+cy); }
+      }
+    }
+    // swings: a pocket slider that moves on its own
+    if (F.swing) for (const sl of sliders.filter(sl => !sl.atStart && !sl.onPath).slice(0, typeof F.swing === 'number' ? F.swing : N(CONFIG.swings))) { sl.auto = true; sl.nextAt = 0; }
+  }
   if (poolMode) {   // no maze: the start room, a straight hall north, and the water at its end
     for (let y = 0; y < H; y++) tiles[y].fill(0);
     const { x0, y0, x1, y1 } = startRoom;
@@ -784,7 +829,7 @@ function generate(seed) {
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (F.compass && count('pointer') < MAXP) { pickups.set(k, 'pointer'); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (F.thread && count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
   }
-  for (const k of pocketKeys) { const r = R(); if (r < 0.3) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && count('pointer') < CONFIG.pickupMax) pickups.set(k, 'pointer'); else if (count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
+  for (const k of pocketKeys) { const r = R(); if (r < 0.3 || (!F.charcoal && r < 0.5)) chalkSpots.add(k); else if (r < 0.5) charcoalSpots.add(k); else if (r < 0.75 && F.compass && count('pointer') < MAXP) pickups.set(k, 'pointer'); else if (F.thread && count('path') < MAXP) pickups.set(k, 'path'); else chalkSpots.add(k); }
   for (const kind of ['pointer', 'path']) if (!count(kind) && (kind === 'pointer' ? F.compass : F.thread)) { const k = pickFree(); if (k) { pickups.set(k, kind); taken.add(k); } }
   if (!chalkSpots.size && !poolMode) { const k = pickFree(); if (k) { chalkSpots.add(k); taken.add(k); } }
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider
@@ -834,6 +879,41 @@ function generate(seed) {
     }
   }
 
+  // the father: fixed spots you walk into. First just outside the door; the rest spaced along the way and at junctions.
+  figures = [];
+  if (F.figure && !poolMode) {
+    const spots = [];
+    if (startRoom) {   // across the room's wall: visible from inside, a long way round on foot
+      const { x0, y0, x1, y1 } = startRoom, cxr = x0 + 2, cyr = y0 + 2;
+      const dist = new Map([[cxr+','+cyr, 0]]), q0 = [[cxr, cyr]];
+      while (q0.length) { const [cx, cy] = q0.shift(); const d = dist.get(cx+','+cy); if (d >= 9) continue; for (const [dx,dy] of DIRS) { const nx=cx+dx, ny=cy+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k)) { dist.set(k, d+1); q0.push([nx,ny]); } } }
+      const near = [];
+      for (let y = y0 - 3; y <= y1 + 3; y++) for (let x = x0 - 3; x <= x1 + 3; x++) {
+        if (!isOpen(x, y) || (x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1) || dist.has(x+','+y)) continue;   // outside the ring, not walkable in 9
+        if (startGap && Math.abs(x - startGap[0]) + Math.abs(y - startGap[1]) <= 2) continue;                              // not the doorway
+        if (solutionPath.some(([rx, ry]) => rx === x && ry === y)) continue;                                                   // not on your way
+        near.push([x, y]); }
+      if (near.length) spots.push(near[R() * near.length | 0]);
+    }
+    const tooClose = (x, y) => spots.some(([sx2, sy2]) => Math.abs(sx2 - x) + Math.abs(sy2 - y) < 6);
+    const roomZone2 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    // vantage spots: a tile you can see across a wall (within ~2.5 tiles as the crow flies) but not walk to in under 10 steps.
+    // Prefer spots whose vantage tiles lie on the solution route, so you actually pass them.
+    const onRoute = new Set(solutionPath.map(([x, y]) => x+','+y));
+    const scored = [];
+    for (let y = TX(0); y < H - P; y += 2) for (let x = TX(0); x < W - P; x += 2) {
+      if (!isOpen(x, y) || roomZone2(x, y) || onRoute.has(x+','+y) || journals.has(x+','+y) || taken.has(x+','+y) || sliders.some(sl => sl.x===x&&sl.y===y) || (x === exit.x && y === exit.y)) continue;
+      const dist = new Map([[x+','+y, 0]]), q2 = [[x, y]];
+      while (q2.length) { const [cx, cy] = q2.shift(); const d = dist.get(cx+','+cy); if (d >= 10) continue; for (const [dx,dy] of DIRS) { const nx=cx+dx, ny=cy+dy, k=nx+','+ny; if (isOpen(nx,ny) && !dist.has(k)) { dist.set(k, d+1); q2.push([nx,ny]); } } }
+      let vantage = 0, routeVantage = 0;
+      for (let vy = y - 3; vy <= y + 3; vy++) for (let vx = x - 3; vx <= x + 3; vx++) { if (!isOpen(vx, vy) || roomZone2(vx, vy)) continue; const e = Math.hypot(vx - x, vy - y); if (e < 1.5 || e > 2.6) continue; if (!dist.has(vx+','+vy)) { vantage++; if (onRoute.has(vx+','+vy)) routeVantage++; } }
+      if (vantage >= 2) scored.push([x, y, routeVantage * 3 + vantage]);
+    }
+    scored.sort((a, b) => b[2] - a[2] + (R() - 0.5) * 2);
+    for (const [x, y] of scored) { if (spots.length >= CONFIG.figureSpots) break; if (!tooClose(x, y)) spots.push([x, y]); }
+    figures = spots.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, alpha: 1, seen: false, gone: false }));
+  }
+
   // tunnels: straight interior runs of corridor (exactly two opposite neighbors), roofed over
   tunnelTiles = new Set();
   const runs = [];
@@ -851,6 +931,18 @@ function generate(seed) {
   for (let i = 0; i < (F.tunnels ? N(CONFIG.tunnels) : 0) && runs.length; i++) {
     const run = runs.splice(R() * runs.length | 0, 1)[0];
     run.forEach(k => tunnelTiles.add(k));
+  }
+  // tic-tac-toe: a board chalked on a room floor, abandoned mid-game (X was winning)
+  if (F.hopscotch && !poolMode && roomCenters.length) {
+    const spots = roomCenters.filter(([x, y]) => !journals.has(x+','+y));
+    const [cx, cy] = (spots.length ? spots : roomCenters)[R() * (spots.length ? spots.length : roomCenters.length) | 0];
+    const games = [['x','o','x', '', 'x','', 'o','',''], ['o','','x', '','x','', '','','o'], ['x','x','', 'o','o','', '','','x']];
+    ticTacToe = { x: journals.has(cx+','+cy) && isOpen(cx+1, cy) ? cx + 1 : cx, y: cy, cells: games[R() * games.length | 0] };
+  }
+  // hopscotch: chalked squares down a straight run, numbered; step them in order
+  if (F.hopscotch && !poolMode) {
+    const ok = runs.filter(r => r.length >= 5 && !r.some(k => crawlGaps.has(k) || crawlCells.has(k) || journals.has(k) || chalkSpots.has(k)));
+    if (ok.length) { const run = ok[R() * ok.length | 0]; hopscotch = run.slice(0, Math.min(8, run.length)); if (R() < 0.5) hopscotch.reverse(); }
   }
 }
 
@@ -969,6 +1061,10 @@ const AUDIO = (() => {
     stone() { tone(110, 0.3, { type: 'triangle', vol: 0.15, slide: 80 }); noise(0.08, { vol: 0.12, freq: 600, q: 2 }); },
     stoneDrop() { noise(0.5, { vol: 0.25, freq: 900, q: 0.8, type: 'lowpass' }); tone(146, 1.2, { vol: 0.1, attack: 0.02, slide: 98 }); setTimeout(() => tone(392, 2.4, { vol: 0.05, attack: 0.6 }), 400); },
     poolEnter() { [261.6, 329.6, 392].forEach((f, i) => setTimeout(() => tone(f, 3.5, { vol: 0.05, attack: 0.8 }), i * 500)); },
+    swing() { noise(CONFIG.sliderSeconds, { vol: 0.12, freq: 260, q: 1.5, type: 'lowpass' }); tone(70, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.08, attack: 0.2, slide: 90 }); },
+    hop(n) { tone(440 * Math.pow(2, (n % 8) / 12), 0.15, { vol: 0.08 }); },
+    squeeze(entering) { noise(0.35, { vol: 0.14, freq: entering ? 700 : 1100, q: 1, type: 'bandpass' }); tone(entering ? 90 : 120, 0.25, { type: 'triangle', vol: 0.08, slide: entering ? 70 : 150 }); },
+    farSteps() { for (let i = 0; i < 6; i++) setTimeout(() => noise(0.05, { vol: 0.07 * (1 - i / 7), freq: 700 - i * 40, q: 2 }), i * 380 + Math.random() * 60); },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
     journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
@@ -992,9 +1088,10 @@ let lastTileKey = '';
 let sliding = null;   // {sl, from:[x,y], to:[x,y], t0}
 let pushHeldSince = 0;
 let pendingTurn = null;   // {dx,dy,until}: a perpendicular push that wasn't possible yet   // how long you've leaned into a slider's edge
-let idleSince = 0, firstPushDone = false;
+let idleSince = 0, firstPushDone = false, crawlSaid = false, hopIdx = 0, hopSaid = false, tttSaid = false;
 let zoomS = 150, intro = null, introWalk = null;   // intro: {t0} while zooming out; introWalk: scripted first step
 let darkAmt = 0;   // 0 lit … 1 fully in the dark; eased per frame
+let inSqueeze = false, camBump = 0;   // camBump: a small vertical kick, decays
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
 let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, pagesThisRun = [], leftRoom = false, shelfSaid = false, shelfStandKey = '', shelfStandAt = 0, shelfShown = '';
 const $ = id => document.getElementById(id);
@@ -1052,7 +1149,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; figureLinesSaid = 0; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal(); keyEl.classList.remove('show');
   { const mine = SELF_LINES[character.name] || SELF_LINES['You'];
     let fresh = mine.filter(l => !SAVE.narrPlayed.includes(l));
@@ -1195,6 +1292,28 @@ $('tutClose').addEventListener('click', () => {
 });
 
 
+
+
+// ── the father, placed ──────────────────────────────────────────
+const FIGURE_LINES = ["was that him?", "wait—", "dad?", "he didnt see me.", "hes right there. he wont look."];
+let figureLinesSaid = 0;
+function walkable(x0, y0, x1, y1, maxSteps) {   // can you walk from tile (x0,y0) to (x1,y1) in maxSteps or fewer?
+  const seen = new Set([x0+','+y0]), q = [[x0, y0, 0]];
+  while (q.length) { const [x, y, d] = q.shift(); if (x === x1 && y === y1) return true; if (d >= maxSteps) continue;
+    for (const [dx, dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx, y+dy) && !seen.has(k)) { seen.add(k); q.push([x+dx, y+dy, d+1]); } } }
+  return false;
+}
+function updateFigures(now, dt) {
+  const lit = B.viewRadius() * 2 + CONFIG.fogSoftness;
+  for (const f of figures) {
+    if (f.gone) continue;
+    const d = Math.hypot(f.x - player.x, f.y - player.y);
+    if (!f.seen && d < lit) { f.seen = true; AUDIO.farSteps(); if (character.name === 'The Child' && figureLinesSaid < 3 && Math.random() < 0.6) { figureLinesSaid++; narrate(FIGURE_LINES[Math.random() * FIGURE_LINES.length | 0]); } }
+    // he only goes when you've actually come for him: near, and nothing but floor between you
+    if (d < 2.6 && walkable(Math.floor(player.x), Math.floor(player.y), Math.floor(f.x), Math.floor(f.y), 4)) f.fading = true;
+    if (f.fading) { f.alpha -= dt * 3; if (f.alpha <= 0) { f.gone = true; f.alpha = 0; } }
+  }
+}
 
 // ── pool scene ──────────────────────────────────────────────────
 let poolStep = 0, poolScript = null;
@@ -1357,21 +1476,35 @@ function update(wall) {
   else zoomS = started ? CONFIG.tilePx : CONFIG.titleTilePx;
   const want = (solved || !started || mapOpen || paused) ? null : (introWalk || held || kd);
 
+  // swings move on their own; you ride if you're standing on one
+  if (!sliding && started && !paused) for (const sl of sliders) {
+    if (!sl.auto) continue;
+    if (!sl.nextAt) sl.nextAt = now + CONFIG.swingSeconds * 1000 * (0.5 + Math.random());
+    if (now < sl.nextAt) continue;
+    const cx = sl.shifted ? sl.x + sl.dx : sl.x, cy = sl.shifted ? sl.y + sl.dy : sl.y;
+    const d = sl.shifted ? { dx: -sl.dx, dy: -sl.dy } : { dx: sl.dx, dy: sl.dy }, to = [cx + d.dx, cy + d.dy];
+    const carry = Math.floor(player.x) === cx && Math.floor(player.y) === cy;
+    if (!carry && Math.floor(player.x) === to[0] && Math.floor(player.y) === to[1]) { sl.nextAt = now + 800; continue; }   // never slide into you
+    tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
+    sliding = { sl, from: [cx, cy], to, t0: now, carry }; if (carry) { dir = null; clearStick(); }
+    AUDIO.swing(); sl.nextAt = now + CONFIG.sliderSeconds * 1000 + CONFIG.swingSeconds * 1000;
+    break;
+  }
   if (sliding) {
     const k = Math.min(1, (now - sliding.t0) / (CONFIG.sliderSeconds * 1000));
     const e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
-    player.x = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e;
-    player.y = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e;
+    if (sliding.carry !== false) { player.x = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; player.y = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
     if (k >= 1) {
       const [tx, ty] = sliding.to; tiles[ty][tx] = 1; sliding.sl.shifted = !sliding.sl.shifted;
       const fromKey = sliding.from.join(','), toKey = sliding.to.join(',');
       if (marks.has(fromKey)) { const g = marks.get(fromKey); marks.delete(fromKey); marks.set(toKey, g); }
-      lastTileKey = toKey; sliding = null; AUDIO.slideEnd();
+      if (sliding.carry !== false) lastTileKey = toKey; const wasAuto = sliding.sl.auto; sliding = null; if (!wasAuto) AUDIO.slideEnd();
     }
-  } else if (want) {
+  }
+  if (want && !(sliding && sliding.carry !== false)) {
     if (!dir) {
       const cx = Math.floor(player.x), cy = Math.floor(player.y);
-      const sl = sliders.find(s => (s.shifted ? s.x + s.dx : s.x) === cx && (s.shifted ? s.y + s.dy : s.y) === cy);
+      const sl = sliders.find(s => !s.auto && (s.shifted ? s.x + s.dx : s.x) === cx && (s.shifted ? s.y + s.dy : s.y) === cy);
       const pushDir = sl && (sl.shifted ? { dx: -sl.dx, dy: -sl.dy } : { dx: sl.dx, dy: sl.dy });
       if (sl && want.dx === pushDir.dx && want.dy === pushDir.dy && !canGo(want)) {
         if (!pushHeldSince) pushHeldSince = now;
@@ -1389,7 +1522,9 @@ function update(wall) {
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
   if (dir) {
-    const step = B.speed() * dt;
+    const sqz = phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
+    if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -0.18 : 0.18; AUDIO.squeeze(sqz); }
+    const step = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : 1) * dt;
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
     const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;
     const p = player[axis], n = p + sgn * step;
@@ -1438,6 +1573,15 @@ function update(wall) {
         const line = fresh[Math.random() * fresh.length | 0]; SAVE.shelfPlayed.push(line); persist(); narrate(line);
       }
     }
+    if (ticTacToe && !tttSaid && tx === ticTacToe.x && ty === ticTacToe.y) { tttSaid = true; narrate(character.name === 'The Child' ? "its my turn. he never took his." : "Someone left a game half-played."); }
+    if (!phase().f.crawl && !crawlSaid && DIRS.some(([dx,dy]) => crawlGaps.has((tx+dx)+','+(ty+dy)))) { crawlSaid = true; narrate("I used to fit through here."); }
+    // hopscotch: in order, one square at a time
+    if (hopscotch.length && !hopSaid) {
+      const hi = hopscotch.indexOf(key);
+      if (hi === hopIdx) { hopIdx++; AUDIO.hop(hopIdx); if (hopIdx === hopscotch.length) { hopSaid = true; narrate(character.name === 'The Child' ? "…ready or not." : "I remember this game."); } }
+      else if (hi === -1 && hopIdx > 0 && !hopscotch.includes(prevKey)) hopIdx = 0;
+      else if (hi >= 0 && hi !== hopIdx && hi !== hopIdx - 1) hopIdx = hi === 0 ? 1 : 0;
+    }
     if (charcoalOn && charcoalLeft > 0) { const added = mapHere(); if (added) { charcoalLeft = Math.max(0, charcoalLeft - added); updateCharcoal(); if (charcoalLeft === 0) { charcoalOn = false; AUDIO.charcoalEnd(); } } }
     if (charcoalSpots.has(key)) { charcoalSpots.delete(key); charcoal++; charcoalFound++; updateCharcoal(); pulse(charcoalEl); AUDIO.pickupChalk(); tutorial('charcoal'); }
     if (DIRS.filter(([dx,dy]) => isOpen(tx+dx, ty+dy)).length === 1 && key !== exit.x+','+exit.y) deadEndsEntered++;
@@ -1472,6 +1616,8 @@ function update(wall) {
   { const k = Math.floor(player.x) + ',' + Math.floor(player.y);
     const target = darkTiles.has(k) ? 1 : darkFringe.get(k) === 2 ? 0.72 * B.fringe() : darkFringe.get(k) === 1 ? 0.42 * B.fringe() : 0;
     darkAmt += (target - darkAmt) * Math.min(1, dt * 3.2); }
+  if (started && !poolMode && figures.length) updateFigures(now, dt);
+  camBump *= Math.pow(0.02, dt);   // the bump settles fast
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   if (!solved && started && (player.x|0) === exit.x && (player.y|0) === exit.y) {
@@ -1514,7 +1660,7 @@ function draw() {
     const landscape = vw > vh, leftStick = document.body.classList.contains('stick-left');
     const pre = !started && !intro;   // asleep: dead center, no HUD to make room for
     const ax = 0.5, ay = pre ? 0.47 : landscape ? 0.5 : 0.42;
-    ox = vw*ax - cam.x*S; oy = vh*ay - cam.y*S;
+    ox = vw*ax - cam.x*S; oy = vh*ay - (cam.y + camBump) * S;
   }
   viewS = S; viewOx = ox; viewOy = oy;
   const T = (x, y) => [ox + x*S + S/2, oy + y*S + S/2];
@@ -1577,12 +1723,46 @@ function draw() {
     ctx.fillStyle = CONFIG.hintColor; ctx.globalAlpha = 0.05 + 0.09 * glow; ctx.beginPath(); ctx.arc(px, py, S*0.7, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
   }
 
+  // crawl gaps: the wall tile stays wall-coloured, with a narrow strip of floor squeezed through the middle
+  for (const k of crawlGaps) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+    const px = ox + mx*S, py = oy + my*S, horiz = isOpen(mx-1, my) && isOpen(mx+1, my), open = phase().f.crawl, w = 0.28;
+    ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
+    ctx.fillStyle = open ? C.floor : '#151819';
+    if (horiz) ctx.fillRect(px, py + S*(0.5 - w/2), S+0.5, S*w); else ctx.fillRect(px + S*(0.5 - w/2), py, S*w, S+0.5);
+    if (open) { ctx.fillStyle = C.thick; if (horiz) { ctx.fillRect(px, py + S*(0.5 - w/2) - 1, S+0.5, 1.5); ctx.fillRect(px, py + S*(0.5 + w/2) - 0.5, S+0.5, 1.5); } else { ctx.fillRect(px + S*(0.5 - w/2) - 1, py, 1.5, S+0.5); ctx.fillRect(px + S*(0.5 + w/2) - 0.5, py, 1.5, S+0.5); } } }
+  // between-cells of a multi-section squeeze: wall-coloured, with strips running to each of its gaps
+  if (phase().f.crawl) for (const k of crawlCells) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+    const px = ox + mx*S, py = oy + my*S, w = 0.28, lo = 0.5 - w/2, hi = 0.5 + w/2;
+    ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
+    ctx.fillStyle = C.floor; ctx.fillRect(px + S*lo, py + S*lo, S*w, S*w);   // the hub
+    for (const [dx, dy] of DIRS) if (crawlGaps.has((mx+dx)+','+(my+dy)) || (isOpen(mx+dx, my+dy) && !crawlGaps.has((mx+dx)+','+(my+dy)) && !crawlCells.has((mx+dx)+','+(my+dy)))) {
+      if (dx === 1) ctx.fillRect(px + S*hi, py + S*lo, S*(1-hi) + 0.5, S*w); else if (dx === -1) ctx.fillRect(px, py + S*lo, S*lo, S*w);
+      else if (dy === 1) ctx.fillRect(px + S*lo, py + S*hi, S*w, S*(1-hi) + 0.5); else ctx.fillRect(px + S*lo, py, S*w, S*lo); } }
+  // tic-tac-toe, chalked on the floor
+  if (ticTacToe) { const [px, py] = T(ticTacToe.x, ticTacToe.y), g = S*0.26; ctx.save(); ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S*0.03); ctx.lineCap = 'round'; ctx.beginPath();
+    ctx.moveTo(px - g/2, py - g*1.5); ctx.lineTo(px - g/2, py + g*1.5); ctx.moveTo(px + g/2, py - g*1.5); ctx.lineTo(px + g/2, py + g*1.5);
+    ctx.moveTo(px - g*1.5, py - g/2); ctx.lineTo(px + g*1.5, py - g/2); ctx.moveTo(px - g*1.5, py + g/2); ctx.lineTo(px + g*1.5, py + g/2); ctx.stroke();
+    ticTacToe.cells.forEach((c, i) => { const cx = px + ((i % 3) - 1) * g, cy = py + (Math.floor(i / 3) - 1) * g, a = g*0.28; ctx.lineWidth = Math.max(1.2, S*0.035); ctx.beginPath();
+      if (c === 'x') { ctx.moveTo(cx-a, cy-a); ctx.lineTo(cx+a, cy+a); ctx.moveTo(cx+a, cy-a); ctx.lineTo(cx-a, cy+a); } else if (c === 'o') ctx.arc(cx, cy, a, 0, Math.PI*2); ctx.stroke(); });
+    ctx.restore(); }
+  // hopscotch: chalk numbers down the corridor
+  if (hopscotch.length) { ctx.fillStyle = C.mark; ctx.globalAlpha = 0.85; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${S*0.34}px "Iowan Old Style", Palatino, Georgia, serif`;
+    hopscotch.forEach((k, i) => { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my); ctx.strokeStyle = C.mark; ctx.lineWidth = 1; ctx.strokeRect(px - S*0.3, py - S*0.3, S*0.6, S*0.6); ctx.fillText(String(i + 1), px, py + 1); });
+    ctx.globalAlpha = 1; }
+  // swing rails: two faint lines between where the tile rests and where it swings to
+  ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
+  for (const sl of sliders) if (sl.auto) { const px = ox + sl.x*S, py = oy + sl.y*S, qx = px + sl.dx*S, qy = py + sl.dy*S;
+    ctx.beginPath(); if (sl.dx) { ctx.moveTo(px, py + S*0.2); ctx.lineTo(qx + S, qy + S*0.2); ctx.moveTo(px, py + S*0.8); ctx.lineTo(qx + S, qy + S*0.8); } else { ctx.moveTo(px + S*0.2, py); ctx.lineTo(qx + S*0.2, qy + S); ctx.moveTo(px + S*0.8, py); ctx.lineTo(qx + S*0.8, qy + S); } ctx.stroke(); }
+
   // sliding tile in flight
-  if (sliding) { ctx.fillStyle = C.floor; ctx.fillRect(ox + (player.x-0.5)*S, oy + (player.y-0.5)*S, S+0.5, S+0.5); }
+  if (sliding) { let fx = player.x, fy = player.y;
+    if (sliding.carry === false) { const k = Math.min(1, (nowMs - sliding.t0) / (CONFIG.sliderSeconds * 1000)), e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2; fx = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; fy = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
+    ctx.fillStyle = C.floor; ctx.fillRect(ox + (fx-0.5)*S, oy + (fy-0.5)*S, S+0.5, S+0.5); }
   // thick wall on the pushable side of each slider
   ctx.fillStyle = C.thick;
   for (const sl of sliders) {
-    if (sliding && sliding.sl === sl) continue;
+    if (sl.auto || (sliding && sliding.sl === sl)) continue;
     const tx = sl.shifted ? sl.x + sl.dx : sl.x, ty = sl.shifted ? sl.y + sl.dy : sl.y;
     const dx = sl.shifted ? -sl.dx : sl.dx, dy = sl.shifted ? -sl.dy : sl.dy, w = S*0.08;
     const px = ox + tx*S, py = oy + ty*S;
@@ -1669,9 +1849,9 @@ function draw() {
   for (const k of tunnelTiles) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; ctx.fillRect(ox + mx*S, oy + my*S, S+0.5, S+0.5); }
 
   // player: arrowhead, black nose; ghosted inside a tunnel
-  { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62;
+  { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
     const inTunnel = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
-    ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : 1;
+    ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : inSqueeze ? 0.7 : 1;
     ctx.fillStyle = C.player; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
     ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
     ctx.restore(); }
@@ -1712,7 +1892,7 @@ function draw() {
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dk, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // in the dark you can see yourself only by your own lamp
-    if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62;
+    if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
       ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y)) ? 0.35 : 1;
       ctx.fillStyle = C.player; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
       ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill(); ctx.restore(); }
@@ -1723,6 +1903,15 @@ function draw() {
     const g = ctx.createRadialGradient(px, py, 0, px, py, rr); g.addColorStop(0, 'rgba(232,217,160,0.16)'); g.addColorStop(1, 'rgba(232,217,160,0)');
     ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr*2, rr*2);
   }
+
+  // the father: the same figure as you, full-sized, facing away — under the fog like everything else
+  for (const f of figures) { if (f.gone) continue; const px = ox + f.x*S, py = oy + f.y*S, r = CONFIG.playerSize * S * 0.62 * 1.1;
+    if (px < -S || px > vw + S || py < -S || py > vh + S) continue;
+    const ang = Math.atan2(f.y - player.y, f.x - player.x);
+    ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.globalAlpha = f.alpha * 0.9;
+    ctx.fillStyle = '#cfcabd'; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
+    ctx.restore(); }
 
   // fog
   if (!debugMap) {
