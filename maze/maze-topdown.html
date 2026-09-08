@@ -250,7 +250,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.31.1';
+const VERSION = '0.31.2';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -871,12 +871,17 @@ function generate(seed) {
       const sealed = new Set(picks.slice(i).map(([x, y]) => x+','+y));
       const side = reach(sx3, sy3, sealed);
       const section = [...side].filter(k => !prevSide.has(k));
-      const cellsIn = section.filter(k => { const [x, y] = k.split(',').map(Number); return (x-P)%2===1 && (y-P)%2===1 && !roomRing3(x, y) && !taken.has(k) && !journals.has(k) && !innerKeys.has(k) && !sliders.some(sl => sl.x===x&&sl.y===y) && !(x===exit.x&&y===exit.y); });
-      const deadIn = cellsIn.filter(k => deadEnds.includes(k));
-      const pool = deadIn.length ? deadIn : cellsIn.filter(k => !solutionPath.some(([x, y]) => x+','+y === k));
-      if (!pool.length) break;   // no room for this key: stop the chain here
+      const routeSet = new Set(solutionPath.map(([x, y]) => x+','+y));
+      const pocketSet = new Set(pockets.map(([x, y]) => x+','+y));
+      const cellsIn = section.filter(k => { const [x, y] = k.split(',').map(Number); return (x-P)%2===1 && (y-P)%2===1 && !roomRing3(x, y) && !journals.has(k) && !innerKeys.has(k) && !sliders.some(sl => sl.x===x&&sl.y===y) && !(x===exit.x&&y===exit.y) && !routeSet.has(k) && (!taken.has(k) || pocketSet.has(k)); });
+      if (!cellsIn.length) break;
+      // hide it: deep in the section, far from the route, far from its door; a sealed pocket (behind a slider or swing) is best of all
+      const dRoute = new Map(); { const q = solutionPath.filter(([x,y]) => side.has(x+','+y)).map(([x,y]) => [x,y]); q.forEach(([x,y]) => dRoute.set(x+','+y, 0)); while (q.length) { const [x,y] = q.shift(); const d = dRoute.get(x+','+y); for (const [dx,dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx,y+dy) && side.has(k) && !dRoute.has(k)) { dRoute.set(k, d+1); q.push([x+dx,y+dy]); } } } }
+      const dDoor = new Map(); { const q = [picks[i]]; dDoor.set(picks[i].join(','), 0); while (q.length) { const [x,y] = q.shift(); const d = dDoor.get(x+','+y); for (const [dx,dy] of DIRS) { const k = (x+dx)+','+(y+dy); if (isOpen(x+dx,y+dy) && !dDoor.has(k) && (side.has(k) || k === picks[i].join(','))) { dDoor.set(k, d+1); q.push([x+dx,y+dy]); } } } }
+      const scored = cellsIn.map(k => [k, (dRoute.get(k) ?? 30) * 2 + Math.min(30, dDoor.get(k) ?? 30) + (pocketSet.has(k) ? 40 : 0) + (deadEnds.includes(k) ? 8 : 0) + R() * 6]).sort((a, b) => b[1] - a[1]);
+      const pool = scored.slice(0, Math.max(1, Math.ceil(scored.length * 0.2))).map(([k]) => k);   // the best fifth, then chance
       const kk = pool[R() * pool.length | 0], shape = KEY_SHAPES[i % KEY_SHAPES.length];
-      innerKeys.set(kk, shape); taken.add(kk);
+      innerKeys.set(kk, shape); taken.add(kk); chalkSpots.delete(kk); charcoalSpots.delete(kk); pickups.delete(kk); scrapSpots.delete(kk);   // the key replaces whatever loot lay there
       doors.push({ x: picks[i][0], y: picks[i][1], shape, open: false, onRoute: true });
       prevSide = side;
     }
