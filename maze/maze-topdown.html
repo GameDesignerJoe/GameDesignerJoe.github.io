@@ -54,6 +54,8 @@
   #mapClose { position:absolute; top:calc(env(safe-area-inset-top) + 8px); right:12px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(185,180,168,.3); background:rgba(13,15,16,.8); color:#d8d3c6; font-size:20px; }
   #stone { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
   #stone.show { display:block; }
+  #keys { position:fixed; top:calc(env(safe-area-inset-top) + 50px); right:14px; display:flex; gap:6px; }
+  #keys svg { width:22px; height:22px; }
   #key { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:14px; width:32px; height:32px; display:none; }
   #key.show { display:block; }
   #fx { position:fixed; top:calc(env(safe-area-inset-top) + 50px); left:50%; transform:translateX(-50%); display:flex; gap:8px; pointer-events:none; }
@@ -199,6 +201,7 @@
 <svg id="stone" class="hud-el" viewBox="0 0 32 32"><ellipse cx="16" cy="17" rx="11" ry="8" fill="#8a857a"/><ellipse cx="13" cy="14" rx="4" ry="2.5" fill="#a29d92"/></svg>
 <svg id="key" class="hud-el" viewBox="0 0 32 32"><circle cx="11" cy="16" r="6" fill="none" stroke="#e0c98a" stroke-width="3"/><path d="M17 16h12M25 16v5M29 16v4" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"/></svg>
 <div id="fx" class="hud-el"></div>
+<div id="keys" class="hud-el"></div>
 <div id="narr"></div>
 <div id="dbg">
   <label><input type="checkbox" id="optArrow"> Point to end</label>
@@ -247,7 +250,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.30.5';
+const VERSION = '0.31.1';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -480,13 +483,13 @@ function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boole
 // features: which existing systems are switched on. burden lifts are applied by count of stones put down (SAVE.stones).
 const PHASES = [
   { who: 'The Child',          size: 'sm', bodyScale: 0.85, f: { signs: false, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: false, pathSlider: false, braid: 0, rooms: 1.4, crawl: 5, swing: 3, figure: true, hopscotch: true } },
-  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, braid: 0.06 } },
-  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  braid: 0.06 } },
-  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  braid: 0.06, rooms: 1.6 } },
-  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, braid: 0.06 } },
-  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, braid: 0.06 } },
-  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, braid: 0.06 } },
-  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, braid: 0.06 } },
+  { who: 'The Cartographer',   size: 'md', f: { signs: false, charcoal: true,  compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: false, pockets: true,  pathSlider: false, doors: 1, braid: 0.06 } },
+  { who: 'The Soldier',        size: 'md', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: false, lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, braid: 0.06 } },
+  { who: 'The Archivist',      size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: false, scraps: true,  lamp: false, darkness: false, gate: false, tunnels: true,  pockets: true,  pathSlider: true,  doors: 2, braid: 0.06, rooms: 1.6 } },
+  { who: 'The Priest',         size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 3, braid: 0.06 } },
+  { who: 'The Criminal',       size: 'lg', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: true, tunnels: true, pockets: true, pathSlider: true, doors: 3, braid: 0.06 } },
+  { who: 'The One Who Stayed', size: 'xl', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: [0.25, 0.4, 0.6], gate: false, tunnels: true, pockets: true, pathSlider: true, doors: 3, braid: 0.06 } },
+  { who: 'You',                size: 'sm', f: { signs: true,  charcoal: true,  compass: true,  thread: true,  scraps: true,  lamp: true,  darkness: false, gate: false, tunnels: true, pockets: true, pathSlider: false, doors: 1, braid: 0.06 } },
 ];
 // the seven stones, in the order they are put down; each lifts one restriction a little, for good
 const STONES = ['Sight', 'Pace', 'Memory', 'Fear', 'Direction', 'Shame', 'Scale'];
@@ -574,6 +577,10 @@ let poolMode = false;   // this run is a pool level: small, lit, one stone, a do
 let poolDoor = null;    // {x,y,openAt} the grey door in the room's doorway; slides away once you hold the stone
 let startRoom = null;   // {x0,y0,x1,y1} tile bounds of the sealed start room
 let scrapSpots = new Set();
+let doors = [];              // locked doors inside the maze: {x,y,shape,open}
+let innerKeys = new Map();   // 'x,y' → shape of the key lying there
+let heldKeys = new Set();    // shapes you carry
+const KEY_SHAPES = ['circle', 'triangle', 'square'];
 let crawlGaps = new Set();   // 'x,y' wall gaps a child can crawl through (open only when the phase allows)
 let crawlCells = new Set();  // open cells that sit between two gaps of one squeeze — drawn narrow too
 let hopscotch = [];          // ordered tiles of a hopscotch court
@@ -840,6 +847,42 @@ function generate(seed) {
   // chalk in the start room, on interior tiles clear of the mat, shelves and slider
   if (startRoom && !poolMode) { const { x0, y0 } = startRoom; [[x0+1, y0+1], [x0+3, y0+3], [x0+3, y0+1], [x0+1, y0+3]].slice(0, CONFIG.startRoomChalk).forEach(([x, y]) => chalkSpots.add(x+','+y)); }
 
+  // locked doors as a chain along the route: door 1 splits the maze, its key lies in the part you start in;
+  // door 2 is further along, its key lies between door 1 and door 2; and so on. The exit is behind the last door.
+  doors = []; innerKeys = new Map();
+  if (F.doors && !poolMode && solutionPath.length > 20) {
+    const roomRing3 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const isGap = (x, y) => isOpen(x, y) && ((x - P) % 2 === 0) !== ((y - P) % 2 === 0);
+    const okGap = (x, y) => isGap(x, y) && !roomRing3(x, y) && !crawlGaps.has(x+','+y) && !sliders.some(sl => (sl.x+sl.dx===x&&sl.y+sl.dy===y) || (sl.x===x&&sl.y===y)) && !exitAlley.some(([ax,ay])=>ax===x&&ay===y) && !(startGap && x===startGap[0] && y===startGap[1]) && !sealedGaps.some(([gx,gy]) => gx===x&&gy===y);
+    // treat everything you can slide through as open while planning
+    const reopened = [...sealedGaps, ...(startGap ? [startGap] : [])].filter(([x, y]) => !isOpen(x, y)); for (const [x, y] of reopened) tiles[y][x] = 1;
+    const reach = (sx0, sy0, sealed) => { const seen = new Set([sx0+','+sy0]), q = [[sx0, sy0]]; while (q.length) { const [x,y] = q.shift(); for (const [dx,dy] of DIRS) { const nx=x+dx, ny=y+dy, k=nx+','+ny; if (isOpen(nx,ny) && !seen.has(k) && !sealed.has(k)) { seen.add(k); q.push([nx,ny]); } } } return seen; };
+    const sx3 = Math.floor(start.x), sy3 = Math.floor(start.y);
+    const n = F.doors, L = solutionPath.length;
+    // door positions: spread along the route, snapped to the nearest usable passage tile
+    const picks = [];
+    const severs = (x, y) => !reach(sx3, sy3, new Set([...picks.map(([px,py]) => px+','+py), x+','+y])).has(exit.x+','+exit.y);   // loops mustn't route around it
+    for (let i = 1; i <= n; i++) { const target = Math.floor(L * i / (n + 1)); let best = null;
+      for (let off = 0; off < L / (2 * (n + 1)) && !best; off++) for (const idx of [target + off, target - off]) { const t = solutionPath[idx]; if (t && idx > 6 && idx < L - 4 && okGap(t[0], t[1]) && !picks.some(([px,py]) => px===t[0]&&py===t[1]) && severs(t[0], t[1])) { best = t; break; } }
+      if (best) picks.push(best); }
+    // keys: each in the section opened by the previous door and closed by this one
+    let prevSide = new Set();
+    for (let i = 0; i < picks.length; i++) {
+      const sealed = new Set(picks.slice(i).map(([x, y]) => x+','+y));
+      const side = reach(sx3, sy3, sealed);
+      const section = [...side].filter(k => !prevSide.has(k));
+      const cellsIn = section.filter(k => { const [x, y] = k.split(',').map(Number); return (x-P)%2===1 && (y-P)%2===1 && !roomRing3(x, y) && !taken.has(k) && !journals.has(k) && !innerKeys.has(k) && !sliders.some(sl => sl.x===x&&sl.y===y) && !(x===exit.x&&y===exit.y); });
+      const deadIn = cellsIn.filter(k => deadEnds.includes(k));
+      const pool = deadIn.length ? deadIn : cellsIn.filter(k => !solutionPath.some(([x, y]) => x+','+y === k));
+      if (!pool.length) break;   // no room for this key: stop the chain here
+      const kk = pool[R() * pool.length | 0], shape = KEY_SHAPES[i % KEY_SHAPES.length];
+      innerKeys.set(kk, shape); taken.add(kk);
+      doors.push({ x: picks[i][0], y: picks[i][1], shape, open: false, onRoute: true });
+      prevSide = side;
+    }
+    for (const [x, y] of reopened) tiles[y][x] = 0;
+  }
+
   // map scraps in free dead ends
   scrapSpots = new Set();
   if (F.scraps) for (let i = 0; i < N(CONFIG.mapScraps); i++) { const k = pickFree(); if (k) { scrapSpots.add(k); taken.add(k); } }
@@ -927,7 +970,7 @@ function generate(seed) {
       let run = [];
       for (let b = 1; b < (horiz ? W : H); b++) {
         const x = horiz ? b : a, y = horiz ? a : b;
-        const straight = isOpen(x,y) && !sliders.some(sl => sl.x===x && sl.y===y) && !(x===exit.x && y===exit.y) && !exitAlley.some(([ax,ay]) => ax===x && ay===y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
+        const straight = isOpen(x,y) && !doors.some(d => d.x===x && d.y===y) && !crawlGaps.has(x+','+y) && !crawlCells.has(x+','+y) && !sliders.some(sl => sl.x===x && sl.y===y) && !(x===exit.x && y===exit.y) && !exitAlley.some(([ax,ay]) => ax===x && ay===y) && (horiz ? (isOpen(x-1,y) && isOpen(x+1,y) && !isOpen(x,y-1) && !isOpen(x,y+1)) : (isOpen(x,y-1) && isOpen(x,y+1) && !isOpen(x-1,y) && !isOpen(x+1,y)));
         if (straight) run.push(x+','+y); else { if (run.length >= CONFIG.tunnelMinTiles) runs.push(run); run = []; }
       }
       if (run.length >= CONFIG.tunnelMinTiles) runs.push(run);
@@ -1105,6 +1148,8 @@ const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = 
 $('verDbg').textContent = 'v' + VERSION; $('verTitle').textContent = 'v' + VERSION;
 
 function pulse(el) { el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
+function keyGlyph(shape, color) { const c = color || '#e0c98a'; return shape === 'circle' ? `<circle cx="11" cy="11" r="6" fill="none" stroke="${c}" stroke-width="2.4"/>` : shape === 'triangle' ? `<path d="M11 4l7 13H4z" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round"/>` : `<rect x="5" y="5" width="12" height="12" fill="none" stroke="${c}" stroke-width="2.4"/>`; }
+function renderKeys() { $('keys').innerHTML = [...heldKeys].map(sh => `<svg viewBox="0 0 22 22">${keyGlyph(sh)}</svg>`).join(''); }
 function updateChalk() { $('chalkN').textContent = chalk; chalkEl.classList.toggle('empty', chalk === 0); }
 function updateCharcoal() {
   charcoalEl.style.display = phase().f.charcoal ? '' : 'none';
@@ -1155,8 +1200,9 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; figureLinesSaid = 0; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
-  charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal(); keyEl.classList.remove('show');
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; figureLinesSaid = 0; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();
+  if (startRoom) { const { x0, y0, x1, y1 } = startRoom; for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mapped.set(x+','+y, isOpen(x, y) ? 'floor' : 'wall'); }   // home is always on the map keyEl.classList.remove('show');
   { const mine = SELF_LINES[character.name] || SELF_LINES['You'];
     let fresh = mine.filter(l => !SAVE.narrPlayed.includes(l));
     if (fresh.length < 2) { SAVE.narrPlayed = SAVE.narrPlayed.filter(l => !mine.includes(l)); fresh = mine.slice(); }
@@ -1275,7 +1321,7 @@ function serializeRun() {
     hasKey, keySpot, hasLamp, lampOn, lampSpot, gated, doorOpen: !!(poolDoor && poolDoor.openAt),
     chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
     pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pointerUses, pathUses, journalsRead,
-    sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone),
+    sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone), doorsOpen: doors.map(d => d.open), innerKeys: [...innerKeys.entries()], heldKeys: [...heldKeys],
     hopIdx, hopSaid, tttSaid, crawlSaid, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
   };
 }
@@ -1297,6 +1343,7 @@ function restoreRun(run) {
   pointerUses = run.pointerUses; pathUses = run.pathUses; journalsRead = run.journalsRead;
   run.sliders.forEach((sh, i) => { const sl = sliders[i]; if (!sl || sl.shifted === sh) return; const fx = sl.x, fy = sl.y, tx = sl.x + sl.dx, ty = sl.y + sl.dy; tiles[fy][fx] = sh ? 0 : 1; tiles[ty][tx] = sh ? 1 : 0; sl.shifted = sh; });
   run.figures.forEach((g, i) => { if (figures[i] && g) { figures[i].gone = true; figures[i].alpha = 0; } });
+  (run.doorsOpen || []).forEach((o, i) => { if (doors[i]) doors[i].open = o; }); if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
   hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; narrQueue = run.narrQueue || narrQueue;
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
   updateChalk(); updateCharcoal();
@@ -1317,6 +1364,7 @@ const ICONS = {
   key:      '<svg viewBox="0 0 44 44" fill="none" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"><circle cx="15" cy="22" r="7"/><path d="M22 22h14M31 22v6M36 22v5"/></svg>',
   page:     '<svg viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>',
   scrap:    '<svg viewBox="0 0 44 44"><path d="M10 12l18-4 6 20-14 6-8-6z" fill="#5a5750"/><path d="M16 18h10M18 25h12" stroke="#1b1f21" stroke-width="1.4"/></svg>',
+  door:     '<svg viewBox="0 0 44 44" fill="none" stroke="#e0c98a" stroke-width="3" stroke-linecap="round"><circle cx="14" cy="22" r="6"/><path d="M20 22h14M31 22v5"/></svg>',
   lamp:     '<svg viewBox="0 0 44 44"><path d="M17 6h10l4 11H13zM15 17h14v4l-3 4H18l-3-4zM19 25h6v7h-6zM19.5 32h5l1 6h-7z" fill="none" stroke="#e8d9a0" stroke-width="1.6" stroke-linejoin="round"/></svg>',
   slider:   '<svg viewBox="0 0 44 44"><rect x="8" y="8" width="28" height="28" fill="#6e6a62"/><rect x="33" y="8" width="3" height="28" fill="#1b1f21"/><path d="M18 22h10m-4-4l4 4-4 4" fill="none" stroke="#ece7da" stroke-width="2" stroke-linecap="round"/></svg>',
 };
@@ -1328,6 +1376,7 @@ const TUTORIALS = {
   key:      { title: 'A key', why: "The way out was barred long before I arrived.", how: "There's a gate over the exit, a ring in one of the far corners. I carry this to it and push through." },
   scrap:    { title: 'A scrap of map', why: "Torn from something larger. The hand that drew it was steady.", how: "It shows the halls around where it lay — a fifth of this place, near enough — and I've laid it into my own map. The rest is still mine to walk." },
   lamp:     { title: 'A lamp', why: "There are places here the walls have swallowed the light entirely.", how: "Lit, it throws a cone ahead of me, the way I'm facing, and a little warmth at my feet. I can douse it and light it again from the lamp beside my tools. In the dark, without it, I would see only myself." },
+  door:     { title: 'A key', why: "Somewhere in here is a door with this shape on it. I've passed it, or I will.", how: "Doors like that don't open for anyone without the matching key. When I find one I can't open, I should leave a mark — I'll be coming back to it." },
   page:     { title: 'A page', why: "I am not the first here. I won't be the last.", how: "Someone wrote this down before they moved on. I'll keep what I find. The pages gather in Stories, where I can read them together." },
 };
 let paused = false, pauseStart = 0, pausedTotal = 0;
@@ -1449,6 +1498,8 @@ function drawMap() {
   // key, pages, chalk & charcoal pickups still lying where you saw them
   mctx.lineCap = 'round';
   if (keySpot && seen(keySpot)) { const [x, y] = keySpot.split(',').map(Number); const [px, py] = T(x, y); mctx.strokeStyle = C.key; mctx.lineWidth = Math.max(1.5, S*0.09); mctx.beginPath(); mctx.arc(px - S*0.12, py, S*0.12, 0, Math.PI*2); mctx.moveTo(px, py); mctx.lineTo(px + S*0.28, py); mctx.stroke(); }
+  for (const d of doors) if (!d.open && seen(d.x+','+d.y)) { const [px, py] = T(d.x, d.y); drawShape(mctx, d.shape, px, py, S*0.22, C.gate, Math.max(1.5, S*0.08)); }
+  for (const [k, shape] of innerKeys) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawShape(mctx, shape, px, py, S*0.18, C.key, Math.max(1.5, S*0.08)); }
   for (const k of journals.keys()) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.journal; mctx.fillRect(px - S*0.22, py - S*0.16, S*0.44, S*0.32); }
   for (const k of chalkSpots) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.chalk; mctx.fillRect(px - S*0.18, py - S*0.06, S*0.36, S*0.12); }
   for (const k of scrapSpots) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = C.mapFloor; mctx.strokeStyle = C.wall; mctx.lineWidth = 1; mctx.fillRect(px - S*0.18, py - S*0.14, S*0.36, S*0.28); mctx.strokeRect(px - S*0.18, py - S*0.14, S*0.36, S*0.28); }
@@ -1495,6 +1546,10 @@ $('again').addEventListener('click', () => { if (SAVE.finished && phase().who ==
 
 // shelf positions: left wall (4) and bottom wall (3) — never the top row or right column, where the slider lives
 const SHELF_SPOTS = (x0, y0, y1) => [ [x0, y0+1, 'v'], [x0, y0+2, 'v'], [x0, y0+3, 'v'], [x0, y1, 'v'], [x0+1, y1, 'h'], [x0+2, y1, 'h'], [x0+3, y1, 'h'] ];
+// a lock/key shape
+function drawShape(c, shape, px, py, r, color, lw) { c.strokeStyle = color; c.lineWidth = lw; c.lineJoin = 'round'; c.beginPath();
+  if (shape === 'circle') c.arc(px, py, r, 0, Math.PI*2); else if (shape === 'triangle') { c.moveTo(px, py - r); c.lineTo(px + r*0.95, py + r*0.7); c.lineTo(px - r*0.95, py + r*0.7); c.closePath(); } else c.rect(px - r*0.85, py - r*0.85, r*1.7, r*1.7);
+  c.stroke(); }
 // draw a chalk glyph centered at px,py with half-size a
 function drawGlyph(c, g, px, py, a, lw) {
   c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
@@ -1507,7 +1562,8 @@ function drawGlyph(c, g, px, py, a, lw) {
 
 // ── movement ────────────────────────────────────────────────────
 // the exit tile counts as a wall until you hold the key
-const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoor && !hasKey && x === poolDoor.x && y === poolDoor.y);
+const doorAt = (x, y) => doors.find(d => d.x === x && d.y === y && !d.open);
+const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoor && !hasKey && x === poolDoor.x && y === poolDoor.y) && !(doorAt(x, y) && !heldKeys.has(doorAt(x, y).shape));
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 let recenter = null;   // after a turn, the perpendicular offset is eased out instead of snapped
@@ -1574,6 +1630,7 @@ function update(wall) {
         }
       }
       else if (canGo(want)) dir = want;
+      else if (doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy)) { const d = doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy); if (now > narrHideAt) { narrate(`Locked. The lock is a ${d.shape}.`); AUDIO.locked(); } }
       else if (poolDoor && !hasKey && Math.floor(player.x) + want.dx === poolDoor.x && Math.floor(player.y) + want.dy === poolDoor.y) { if (now > narrHideAt) { narrate("It won't move. Not without a stone."); AUDIO.locked(); } }
       else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
@@ -1658,6 +1715,8 @@ function update(wall) {
     }
     if (scrapSpots.has(key)) { scrapSpots.delete(key); revealAround(tx, ty); pulse($('mapBtn')); AUDIO.pickup(); tutorial('scrap'); }
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
+    { const d = doors.find(d => d.x === tx && d.y === ty && !d.open); if (d) { d.open = true; AUDIO.gate(); saveRun(true); } }
+    if (innerKeys.has(key)) { const shape = innerKeys.get(key); innerKeys.delete(key); heldKeys.add(shape); renderKeys(); AUDIO.key(); narrate(`A key. Its head is a ${shape}.`); tutorial('door'); saveRun(true); }
     if (keySpot === key) { keySpot = null; hasKey = true; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) { poolDoor.openAt = now; AUDIO.doorSlide(); } } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
     if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg);
       if (collectedCount(character.name) >= character.pages.length && (SAVE.phase || 0) < PHASES.length - 1 && !SAVE.poolPending) { SAVE.poolPending = true; persist(); } }
@@ -1900,6 +1959,15 @@ function draw() {
     ctx.moveTo(px - S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.1*k, py - S*0.24*k); ctx.lineTo(px + S*0.18*k, py - S*0.04*k); ctx.lineTo(px - S*0.18*k, py - S*0.04*k); ctx.closePath();
     ctx.moveTo(px - S*0.12*k, py - S*0.04*k); ctx.lineTo(px - S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.08*k, py + S*0.1*k); ctx.lineTo(px + S*0.12*k, py - S*0.04*k);
     ctx.moveTo(px - S*0.06*k, py + S*0.1*k); ctx.lineTo(px - S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.08*k, py + S*0.24*k); ctx.lineTo(px + S*0.06*k, py + S*0.1*k); ctx.stroke(); }
+  // inner doors: bars across the passage with the lock's shape; shaped keys lying in dead ends
+  for (const d of doors) { if (d.open) continue; const [px, py] = T(d.x, d.y), horiz = isOpen(d.x-1, d.y) && isOpen(d.x+1, d.y);
+    ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
+    for (let i = -1; i <= 1; i++) { if (horiz) { ctx.moveTo(px, py + i*S*0.26); ctx.lineTo(px, py + i*S*0.26); ctx.moveTo(px - S*0.06, py + i*S*0.26); ctx.lineTo(px + S*0.06, py + i*S*0.26); } else { ctx.moveTo(px + i*S*0.26, py - S*0.06); ctx.lineTo(px + i*S*0.26, py + S*0.06); } }
+    if (horiz) { ctx.moveTo(px, py - S*0.42); ctx.lineTo(px, py + S*0.42); } else { ctx.moveTo(px - S*0.42, py); ctx.lineTo(px + S*0.42, py); }
+    ctx.stroke(); drawShape(ctx, d.shape, px, py, S*0.13, C.gate, Math.max(1.5, S*0.045)); }
+  for (const [k, shape] of innerKeys) { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my);
+    ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(px - S*0.02, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke();
+    drawShape(ctx, shape, px - S*0.13, py, S*0.1, C.key, Math.max(2, S*0.06)); }
   // key (or, at a pool level, the stone)
   if (keySpot && poolMode) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my); ctx.fillStyle = '#8a857a'; ctx.beginPath(); ctx.ellipse(px, py + S*0.03, S*0.2, S*0.14, 0.3, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#a29d92'; ctx.beginPath(); ctx.ellipse(px - S*0.06, py - S*0.04, S*0.07, S*0.04, 0.3, 0, Math.PI*2); ctx.fill(); }
   else if (keySpot) { const [mx, my] = keySpot.split(',').map(Number); const [px, py] = T(mx, my);
