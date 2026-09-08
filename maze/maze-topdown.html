@@ -207,6 +207,8 @@
   <label><input type="checkbox" id="optSound" checked> Sound</label>
   <label>Phase <select id="optPhase"></select></label>
   <label>Stones <select id="optStones"></select></label>
+  <label>Branching <select id="optBranch"><option value="auto" selected>Auto</option><option value="0.05">Long halls</option><option value="0.15">Few forks</option><option value="0.35">Default</option><option value="0.6">Busy</option><option value="0.9">Shrub</option></select></label>
+  <label>Loops <select id="optBraid"><option value="auto" selected>Auto</option><option value="0">None</option><option value="0.1">Few</option><option value="0.2">Some</option><option value="0.35">Many</option></select></label>
   <label>Size <select id="optSize"><option value="auto" selected>Auto</option><option value="sm">Small</option><option value="md">Medium</option><option value="lg">Large</option><option value="xl">X-Large</option></select></label>
   <label>Stick <select id="optStick"><option value="right">Right</option><option value="left">Left</option></select></label>
   <button class="storiesBtn"><svg class="book" viewBox="0 0 44 44"><path d="M8 13l14 5 14-5v18l-14 5-14-5z" fill="#b8b0a0"/><path d="M22 18v18" stroke="#0d0f10" stroke-width="1.6"/></svg>Stories</button>
@@ -245,7 +247,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.29.3';
+const VERSION = '0.30.5';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -309,7 +311,7 @@ const CONFIG = {
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 4.5,    // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
-  squeezeReach: 1.1,    // how far (tiles) from the gap's center the squeeze extends into each corridor
+  squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
   figureSpots: 6,       // where the father stands in a Child maze (one is always just past the door)    // pieces of chalk lying in the start room
   darknessChance: 0.3,  // share of mazes that have any darkness
   darknessSizes: [0.25, 0.4, 0.6],   // when there is darkness, one of these shares of the floor, equally likely
@@ -600,7 +602,8 @@ function generate(seed) {
   const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
   const active = [[0, 0]]; visited[0][0] = 1; tiles[TX(0)][TX(0)] = 1;
   while (active.length) {
-    const idx = R() < CONFIG.branchiness ? (R() * active.length | 0) : active.length - 1;
+    const branch = (SAVE.ui.branch && SAVE.ui.branch !== 'auto') ? +SAVE.ui.branch : (F.branch !== undefined ? F.branch : CONFIG.branchiness);
+    const idx = R() < branch ? (R() * active.length | 0) : active.length - 1;
     const [cx, cy] = active[idx];
     const opts = DIRS.map(([dx,dy]) => [cx+dx, cy+dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
     if (!opts.length) { active.splice(idx, 1); continue; }
@@ -609,7 +612,7 @@ function generate(seed) {
     active.push([nx, ny]);
   }
   // braid
-  const braid = F.braid || 0;
+  const braid = (SAVE.ui.braid && SAVE.ui.braid !== 'auto') ? +SAVE.ui.braid : (F.braid || 0);
   if (braid > 0) for (let y=TX(0); y<H-P; y+=2) for (let x=TX(0); x<W-P; x+=2) {
     if (DIRS.filter(([dx,dy]) => isOpen(x+dx, y+dy)).length === 1 && R() < braid) {
       const c = DIRS.filter(([dx,dy]) => !isOpen(x+dx, y+dy) && x+dx*2 >= TX(0) && x+dx*2 < W-P && y+dy*2 >= TX(0) && y+dy*2 < H-P);
@@ -1194,7 +1197,9 @@ setInterval(() => saveRun(true), 6000);
 document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) dbg.classList.remove('show'); }, true);
 dbg.addEventListener('pointerdown', e => e.stopPropagation());
 opt.map.addEventListener('change', () => debugMap = opt.map.checked);
-$('optSize').value = SAVE.ui.size || 'auto';
+$('optSize').value = SAVE.ui.size || 'auto'; $('optBranch').value = SAVE.ui.branch || 'auto'; $('optBraid').value = SAVE.ui.braid || 'auto';
+$('optBranch').addEventListener('change', () => { SAVE.ui.branch = $('optBranch').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optBraid').addEventListener('change', () => { SAVE.ui.braid = $('optBraid').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 PHASES.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + p.who; $('optPhase').appendChild(o); });
 for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
@@ -1263,7 +1268,7 @@ storiesEl.addEventListener('click', e => {
 function serializeRun() {
   if (!started || solved || !player) return null;
   return {
-    seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', v: VERSION,
+    seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', branch: SAVE.ui.branch || 'auto', braid: SAVE.ui.braid || 'auto', v: VERSION,
     px: player.x, py: player.y, facing, t: gameNow() - t0, steps, deadEndsEntered, leftRoom, pagesThisRun,
     marks: [...marks.entries()], mapped: [...mapped.entries()], visited: [...visited],
     chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalUsed, charcoalFound,
@@ -1428,7 +1433,7 @@ function drawMap() {
   mctx.fillStyle = C.bg; mctx.fillRect(0, 0, vw, vh);
   const ox = vw/2 - mapView.cx*S, oy = vh/2 - mapView.cy*S;
   const T = (x, y) => [ox + x*S + S/2, oy + y*S + S/2];
-  if (!mapped.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText('A blank canvas, waiting for charcoal.', vw/2, vh/2 - 12); mctx.font = '14px "Iowan Old Style", Palatino, Georgia, serif'; mctx.fillText('Tap the charcoal to begin mapping as you walk.', vw/2, vh/2 + 16); return; }
+  if (!mapped.size && !marks.size) { mctx.fillStyle = '#6f6b62'; mctx.font = 'italic 17px "Iowan Old Style", Palatino, Georgia, serif'; mctx.textAlign = 'center'; mctx.fillText('A blank canvas, waiting for charcoal.', vw/2, vh/2 - 12); mctx.font = '14px "Iowan Old Style", Palatino, Georgia, serif'; mctx.fillText('Tap the charcoal to begin mapping as you walk.', vw/2, vh/2 + 16); return; }
   // tiles
   for (const [k, kind] of mapped) { const [x, y] = k.split(',').map(Number);
     mctx.fillStyle = kind === 'wall' ? C.mapWall : kind === 'tunnel' ? C.tunnel : darkTiles.has(k) ? '#3a3834' : C.mapFloor; mctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5); }
@@ -1451,7 +1456,7 @@ function drawMap() {
   for (const [k, kind] of pickups) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); mctx.fillStyle = kind === 'pointer' ? C.pointerPickup : C.pathPickup; mctx.beginPath(); mctx.arc(px, py, S*0.18, 0, Math.PI*2); mctx.fill(); }
   // chalk marks
   mctx.strokeStyle = C.mark;
-  for (const [k, g] of marks) if (seen(k)) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawGlyph(mctx, g, px, py, S*0.22, Math.max(1.5, S*0.09)); }
+  for (const [k, g] of marks) { const [x, y] = k.split(',').map(Number); const [px, py] = T(x, y); drawGlyph(mctx, g, px, py, S*0.22, Math.max(1.5, S*0.09)); }
   // you
   { const [px, py] = T(Math.floor(player.x), Math.floor(player.y)), r = S*0.36;
     mctx.save(); mctx.translate(px, py); mctx.rotate(facing); mctx.fillStyle = C.player; mctx.beginPath(); mctx.moveTo(r, 0); mctx.lineTo(-r*0.8, -r*0.75); mctx.lineTo(-r*0.45, 0); mctx.lineTo(-r*0.8, r*0.75); mctx.closePath(); mctx.fill();
@@ -1576,17 +1581,21 @@ function update(wall) {
   }
   if (dir) facing = Math.atan2(dir.dy, dir.dx);
   { let d = facing - facingShown; d = Math.atan2(Math.sin(d), Math.cos(d)); facingShown += d * Math.min(1, dt * 18); }
+  // the axis you're not travelling along always eases to the corridor's centerline (rounded corners, no pop)
+  { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
+    if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax]; if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; } else { const mv = Math.min(Math.abs(diff), Math.max(0.02, B.speed() * 1.6 * dt)); player[ax] += Math.sign(diff) * mv; } } }
+  { const sqz = started && phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
+    if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -0.18 : 0.18; AUDIO.squeeze(sqz); } }
   if (dir) {
-    const sqz = phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
-    if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -0.18 : 0.18; AUDIO.squeeze(sqz); }
     const step = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
     const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;
     const p = player[axis], n = p + sgn * step;
     const blocked = !passable(Math.floor(cx) + dir.dx, Math.floor(cy) + dir.dy);
     const crossesCenter = (p - c) * sgn <= 0 && (n - c) * sgn >= 0;
-    if (crossesCenter && (blocked || !want)) { player.x = cx; player.y = cy; dir = null; if (blocked && want) AUDIO.bump(); }
-    else if (blocked && (p - c) * sgn >= 0) { player.x = cx; player.y = cy; dir = null; }
+    // stopping only settles the axis you were travelling on; the other keeps easing in, so no pop
+    if (crossesCenter && (blocked || !want)) { player[axis] = c; recenter = axis === 'x' ? 'y' : 'x'; dir = null; if (blocked && want) AUDIO.bump(); }
+    else if (blocked && (p - c) * sgn >= 0) { player[axis] = c; recenter = axis === 'x' ? 'y' : 'x'; dir = null; }
     else player[axis] = n;
   }
 
@@ -1805,11 +1814,6 @@ function draw() {
   if (hopscotch.length) { ctx.fillStyle = C.mark; ctx.globalAlpha = 0.85; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${S*0.34}px "Iowan Old Style", Palatino, Georgia, serif`;
     hopscotch.forEach((k, i) => { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my); ctx.strokeStyle = C.mark; ctx.lineWidth = 1; ctx.strokeRect(px - S*0.3, py - S*0.3, S*0.6, S*0.6); ctx.fillText(String(i + 1), px, py + 1); });
     ctx.globalAlpha = 1; }
-  // swing rails: two faint lines between where the tile rests and where it swings to
-  ctx.strokeStyle = C.grout; ctx.lineWidth = 1;
-  for (const sl of sliders) if (sl.auto) { const px = ox + sl.x*S, py = oy + sl.y*S, qx = px + sl.dx*S, qy = py + sl.dy*S;
-    ctx.beginPath(); if (sl.dx) { ctx.moveTo(px, py + S*0.2); ctx.lineTo(qx + S, qy + S*0.2); ctx.moveTo(px, py + S*0.8); ctx.lineTo(qx + S, qy + S*0.8); } else { ctx.moveTo(px + S*0.2, py); ctx.lineTo(qx + S*0.2, qy + S); ctx.moveTo(px + S*0.8, py); ctx.lineTo(qx + S*0.8, qy + S); } ctx.stroke(); }
-
   // sliding tile in flight
   if (sliding) { let fx = player.x, fy = player.y;
     if (sliding.carry === false) { const k = Math.min(1, (nowMs - sliding.t0) / sliding.dur), e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2; fx = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; fy = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
@@ -1989,6 +1993,10 @@ function draw() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
   }
 
+  // your chalk shows through the dark a little — a mark is a beacon you left yourself
+  if (!debugMap) { ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.35;
+    for (const [k, g] of marks) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; const [px, py] = T(mx, my); if (Math.hypot(px - (ox + player.x*S), py - (oy + player.y*S)) < B.viewRadius() * 2 * S) continue; drawGlyph(ctx, g, px, py, S*0.16, Math.max(1.5, S*0.05)); }
+    ctx.globalAlpha = 1; }
   // pointer arrow (over fog)
   if ((opt.arrow.checked || pointerUntil > nowMs) && !solved) {
     const ang = Math.atan2(exit.y + 0.5 - player.y, exit.x + 0.5 - player.x);
@@ -2001,7 +2009,7 @@ function draw() {
 
 function frame(now) { update(now); draw(); requestAnimationFrame(frame); }
 { const run = SAVE.run;
-  if (run && run.phase === (SAVE.phase || 0) && run.stones === (SAVE.stones || 0) && run.pool === !!SAVE.poolPending && (run.size || 'auto') === (SAVE.ui.size || 'auto')) {
+  if (run && run.phase === (SAVE.phase || 0) && run.stones === (SAVE.stones || 0) && run.pool === !!SAVE.poolPending && (run.size || 'auto') === (SAVE.ui.size || 'auto') && (run.branch || 'auto') === (SAVE.ui.branch || 'auto') && (run.braid || 'auto') === (SAVE.ui.braid || 'auto')) {
     try { restoreRun(run); } catch (e) { console.warn('resume failed', e); delete SAVE.run; persist(); reset(SEED); }
   } else reset(SEED);
   enterMaze(); }
