@@ -18,7 +18,7 @@
   #glyphs div { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; border:1px solid rgba(185,180,168,.2); }
   #glyphs div:active { background:rgba(236,231,218,.15); }
   #glyphs svg { width:22px; height:22px; }
-  @media (orientation: landscape) { #glyphs { left:26px; right:auto; transform:none; bottom:calc(env(safe-area-inset-bottom) + 80px); flex-wrap:wrap; width:150px; justify-content:center; } body.stick-left #glyphs { left:auto; right:26px; } }
+  @media (orientation: landscape) { #glyphs { left:14px; right:auto; transform:none; bottom:calc(env(safe-area-inset-bottom) + 140px); flex-wrap:wrap; width:200px; justify-content:flex-start; } body.stick-left #glyphs { left:auto; right:14px; justify-content:flex-end; } }
   #lamp { display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; border:1px solid rgba(185,180,168,.25); background:rgba(13,15,16,.6); }
   #lamp.show { display:flex; }
   #lamp svg { width:16px; height:16px; }
@@ -155,9 +155,9 @@
   #fade.out { opacity:0; transition:opacity 3.2s ease-in-out; }
   @media (orientation: landscape) {
     #stick { left:auto; right:22px; bottom:calc(env(safe-area-inset-bottom) + 10px); transform:none; width:150px; height:150px; }
-    #tools { left:26px; right:auto; bottom:calc(env(safe-area-inset-bottom) + 18px); width:150px; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
+    #tools { left:14px; right:auto; bottom:calc(env(safe-area-inset-bottom) + 26px); width:200px; flex-wrap:wrap; gap:8px; justify-content:flex-start; }
     body.stick-left #stick { right:auto; left:22px; }
-    body.stick-left #tools { left:auto; right:26px; justify-content:flex-end; }
+    body.stick-left #tools { left:auto; right:14px; justify-content:flex-end; }
     #dbg { z-index:8; }
     #narr { top:calc(env(safe-area-inset-top) + 56px); left:15%; right:15%; }
   }
@@ -245,7 +245,7 @@
 <div id="stories"><h1>Stories</h1><p class="sub">Pages left behind by those who walked here before you. Tap a page to read it, or a name to read everything you have of theirs.</p><div id="reader"><div class="hint">Nothing selected.</div></div><div id="storiesList"></div></div><button id="storiesClose" style="display:none">✕</button>
 
 <script>
-const VERSION = '0.28.0';
+const VERSION = '0.29.3';
 // ───────────────────────────────────────────────────────────────
 // CONFIG — edit these, refresh, get a different feel.
 // Joystick: push a direction; the block glides and takes the turn at the
@@ -827,7 +827,7 @@ function generate(seed) {
     if (taken.has(k)) continue;
     const r = R();
     if (r < CONFIG.chalkSpawnRate) { if (!poolMode) { chalkSpots.add(k); taken.add(k); } }
-    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate) { if (F.charcoal && charcoalSpots.size < MAXP) { charcoalSpots.add(k); taken.add(k); } }
+    else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate) { if (F.charcoal) { charcoalSpots.add(k); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate) { if (F.compass && count('pointer') < MAXP) { pickups.set(k, 'pointer'); taken.add(k); } }
     else if (r < CONFIG.chalkSpawnRate + CONFIG.charcoalSpawnRate + CONFIG.pointerSpawnRate + CONFIG.pathSpawnRate) { if (F.thread && count('path') < MAXP) { pickups.set(k, 'path'); taken.add(k); } }
   }
@@ -1144,13 +1144,13 @@ function useChalk(glyph) {
   if (marks.has(key)) return;   // already marked
   if (chalk <= 0) { AUDIO.chalkEmpty(); chalkEl.classList.remove('shake'); void chalkEl.offsetWidth; chalkEl.classList.add('shake'); return; }
   if (!glyph) { if (!phase().f.signs) glyph = 'x'; else { $('glyphs').classList.toggle('show'); return; } }   // early on, chalk only makes an X
-  marks.set(key, glyph); chalk--; chalkUsed++; AUDIO.chalkDown(); $('glyphs').classList.remove('show');
+  marks.set(key, glyph); chalk--; chalkUsed++; AUDIO.chalkDown(); $('glyphs').classList.remove('show'); saveRun(true);
   updateChalk();
 }
 function reset(seed) {
   SEED = seed; generate(SEED); started = false; AUDIO.setMusic(poolMode ? 'pool' : character.name); zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   player = { ...start }; cam = { ...start };
-  steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
+  steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
   pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; figureLinesSaid = 0; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal(); keyEl.classList.remove('show');
@@ -1188,15 +1188,18 @@ $('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLa
 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
 $('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveRun(true); });
+addEventListener('pagehide', () => saveRun(true));
+setInterval(() => saveRun(true), 6000);
 document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) dbg.classList.remove('show'); }, true);
 dbg.addEventListener('pointerdown', e => e.stopPropagation());
 opt.map.addEventListener('change', () => debugMap = opt.map.checked);
 $('optSize').value = SAVE.ui.size || 'auto';
-$('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 PHASES.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + p.who; $('optPhase').appendChild(o); });
 for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
 $('optPhase').value = SAVE.phase || 0; $('optStones').value = SAVE.stones || 0;
-$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
 function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
 $('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
@@ -1205,7 +1208,7 @@ $('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').ch
 $('resetSave').addEventListener('click', () => {
   const b = $('resetSave');
   if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to erase'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Reset save'; }, 3000); return; }
-  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui, phase: 0, stones: 0, poolPending: false, finished: false }; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui, phase: 0, stones: 0, poolPending: false, finished: false }; delete SAVE.run; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   b.dataset.armed = ''; b.textContent = 'Save erased';
   setTimeout(() => b.textContent = 'Reset save', 1500);
 });
@@ -1253,6 +1256,52 @@ storiesEl.addEventListener('click', e => {
 });
 
 
+
+
+// ── run persistence: the maze in progress, restored exactly where you left it ──
+// The maze itself is rebuilt from its seed; everything that changed during the run is stored here.
+function serializeRun() {
+  if (!started || solved || !player) return null;
+  return {
+    seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', v: VERSION,
+    px: player.x, py: player.y, facing, t: gameNow() - t0, steps, deadEndsEntered, leftRoom, pagesThisRun,
+    marks: [...marks.entries()], mapped: [...mapped.entries()], visited: [...visited],
+    chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalUsed, charcoalFound,
+    hasKey, keySpot, hasLamp, lampOn, lampSpot, gated, doorOpen: !!(poolDoor && poolDoor.openAt),
+    chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
+    pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pointerUses, pathUses, journalsRead,
+    sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone),
+    hopIdx, hopSaid, tttSaid, crawlSaid, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
+  };
+}
+let lastRunSave = 0;
+function saveRun(force) {
+  const now = performance.now(); if (!force && now - lastRunSave < 2500) return; lastRunSave = now;
+  const run = serializeRun(); if (run) { SAVE.run = run; persist(); }
+}
+function clearRun() { if (SAVE.run) { delete SAVE.run; persist(); } }
+function restoreRun(run) {
+  reset(run.seed);   // same seed, same phase and stones → same maze
+  player.x = run.px; player.y = run.py; cam.x = run.px; cam.y = run.py; facing = facingShown = run.facing;
+  steps = run.steps; deadEndsEntered = run.deadEndsEntered; leftRoom = run.leftRoom; pagesThisRun = run.pagesThisRun || [];
+  marks = new Map(run.marks); mapped = new Map(run.mapped); visited = new Set(run.visited);
+  chalk = run.chalk; chalkUsed = run.chalkUsed; chalkFound = run.chalkFound; charcoal = run.charcoal; charcoalLeft = run.charcoalLeft; charcoalOn = run.charcoalOn; charcoalUsed = run.charcoalUsed; charcoalFound = run.charcoalFound;
+  hasKey = run.hasKey; keySpot = run.keySpot; hasLamp = run.hasLamp; lampOn = run.lampOn; lampSpot = run.lampSpot; gated = run.gated;
+  if (poolDoor && run.doorOpen) poolDoor.openAt = 1;
+  chalkSpots = new Set(run.chalkSpots); charcoalSpots = new Set(run.charcoalSpots); scrapSpots = new Set(run.scrapSpots); pickups = new Map(run.pickups); journals = new Map(run.journals);
+  pointerUses = run.pointerUses; pathUses = run.pathUses; journalsRead = run.journalsRead;
+  run.sliders.forEach((sh, i) => { const sl = sliders[i]; if (!sl || sl.shifted === sh) return; const fx = sl.x, fy = sl.y, tx = sl.x + sl.dx, ty = sl.y + sl.dy; tiles[fy][fx] = sh ? 0 : 1; tiles[ty][tx] = sh ? 1 : 0; sl.shifted = sh; });
+  run.figures.forEach((g, i) => { if (figures[i] && g) { figures[i].gone = true; figures[i].alpha = 0; } });
+  hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; narrQueue = run.narrQueue || narrQueue;
+  lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
+  updateChalk(); updateCharcoal();
+  if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }
+  // straight into the maze, no title: the fade lifts on you where you stood
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); zoomS = CONFIG.tilePx; started = true;
+  const g0 = gameNow(); t0 = g0 - run.t; pointerUntil = run.pointerLeft ? g0 + run.pointerLeft : 0; pathUntil = run.pathLeft ? g0 + run.pathLeft : 0; narrNext = leftRoom ? g0 + Math.max(4000, run.narrLeft) : Infinity;
+  $('stepLbl').textContent = steps + ' tiles';
+  setTimeout(() => narrate(poolMode ? "…the water. I was going to the water." : "…where was I."), 2200);
+}
 
 // ── first-find tutorials ────────────────────────────────────────
 const ICONS = {
@@ -1456,7 +1505,8 @@ function drawGlyph(c, g, px, py, a, lw) {
 const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoor && !hasKey && x === poolDoor.x && y === poolDoor.y);
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
-function snapPerp(d) { if (d.dx) player.y = Math.floor(player.y) + 0.5; else player.x = Math.floor(player.x) + 0.5; }
+let recenter = null;   // after a turn, the perpendicular offset is eased out instead of snapped
+function snapPerp(d) { recenter = d.dx ? 'y' : 'x'; }
 
 function narrate(text) { AUDIO.narrator(); narrEl.className = 'show'; narrEl.textContent = text; narrHideAt = gameNow() + (CONFIG.narratorHoldSec + text.length / 40) * 1000; }
 function showJournal(pg) {
@@ -1515,7 +1565,7 @@ function update(wall) {
         else {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000 }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) firstPushDone = true; pushHeldSince = 0;
+        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000 }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) firstPushDone = true; pushHeldSince = 0; recenter = null;
         }
       }
       else if (canGo(want)) dir = want;
@@ -1529,7 +1579,7 @@ function update(wall) {
   if (dir) {
     const sqz = phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
     if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -0.18 : 0.18; AUDIO.squeeze(sqz); }
-    const step = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : 1) * dt;
+    const step = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
     const axis = dir.dx ? 'x' : 'y', sgn = dir.dx || dir.dy, c = axis === 'x' ? cx : cy;
     const p = player[axis], n = p + sgn * step;
@@ -1564,7 +1614,7 @@ function update(wall) {
   const key = Math.floor(player.x) + ',' + Math.floor(player.y);
   visited.add(key);
   if (introWalk && key !== lastTileKey) introWalk = null;
-  if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; $('stepLbl').textContent = steps + ' tiles'; }
+  if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; saveRun(false); $('stepLbl').textContent = steps + ' tiles'; }
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
     if (startRoom) {
@@ -1626,7 +1676,7 @@ function update(wall) {
   cam.x += (player.x - cam.x) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   cam.y += (player.y - cam.y) * (1 - Math.pow(CONFIG.cameraLag, dt * 10));
   if (!solved && started && (player.x|0) === exit.x && (player.y|0) === exit.y) {
-    solved = true; clearStick(); dir = null; narrEl.classList.remove('show'); if (gated) { AUDIO.gate(); setTimeout(() => AUDIO.exit(), 350); } else AUDIO.exit();
+    solved = true; clearRun(); clearStick(); dir = null; narrEl.classList.remove('show'); if (gated) { AUDIO.gate(); setTimeout(() => AUDIO.exit(), 350); } else AUDIO.exit();
     const secs = ((gameNow() - t0) / 1000).toFixed(1);
     const optimal = solutionPath.length - 1, ratio = (steps / optimal).toFixed(2);
     const rows = [
@@ -1787,12 +1837,12 @@ function draw() {
   // the pool level's door: a grey panel filling the doorway, unlike the hairline edge of a push block
   if (poolDoor) { const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / 650) : 0;
     if (open < 1) { const px = ox + poolDoor.x*S, py = oy + poolDoor.y*S, horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
-      const e = open * open, off = e * S;   // slides along the wall line
+      // a thin panel across the middle of the doorway; the wall tile behind it stays wall-coloured
+      const th = S*0.2, e = open * open, off = e * S;
       ctx.save(); ctx.beginPath(); ctx.rect(px, py, S, S); ctx.clip();
-      const dx = horiz ? 0 : off, dy = horiz ? off : 0;
-      ctx.fillStyle = '#4a4e52'; ctx.fillRect(px + dx, py + dy, S, S);
-      ctx.fillStyle = '#3a3e42'; if (horiz) ctx.fillRect(px + dx, py + dy + S*0.46, S, S*0.08); else ctx.fillRect(px + dx + S*0.46, py + dy, S*0.08, S);
-      ctx.strokeStyle = '#5c6165'; ctx.lineWidth = 1; ctx.strokeRect(px + dx + 0.5, py + dy + 0.5, S - 1, S - 1);
+      ctx.fillStyle = '#4a4e52'; ctx.strokeStyle = '#5c6165'; ctx.lineWidth = 1;
+      if (horiz) { ctx.fillRect(px + off, py + S/2 - th/2, S, th); ctx.strokeRect(px + off + 0.5, py + S/2 - th/2 + 0.5, S - 1, th - 1); }
+      else { ctx.fillRect(px + S/2 - th/2, py + off, th, S); ctx.strokeRect(px + S/2 - th/2 + 0.5, py + off + 0.5, th - 1, S - 1); }
       ctx.restore(); } }
 
   // start & exit (+ gate)
@@ -1950,7 +2000,11 @@ function draw() {
 }
 
 function frame(now) { update(now); draw(); requestAnimationFrame(frame); }
-reset(SEED); enterMaze();
+{ const run = SAVE.run;
+  if (run && run.phase === (SAVE.phase || 0) && run.stones === (SAVE.stones || 0) && run.pool === !!SAVE.poolPending && (run.size || 'auto') === (SAVE.ui.size || 'auto')) {
+    try { restoreRun(run); } catch (e) { console.warn('resume failed', e); delete SAVE.run; persist(); reset(SEED); }
+  } else reset(SEED);
+  enterMaze(); }
 requestAnimationFrame(frame);
 </script>
 </body>
