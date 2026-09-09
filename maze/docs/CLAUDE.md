@@ -20,11 +20,34 @@ Read in this order: `HANDOFF.md`, then `PROGRESSION.md`, then `NOTES.md`.
 All three Maze docs are snapshots of live Google Docs that Joe edits from his
 phone. Drive is newer than these copies; the game is newer than Drive.
 
+## Layout
+
+```
+maze/
+├── maze-topdown.html   the engine — canvas, input, generation, render
+├── data/               tuning and text; see data/README.md
+│   ├── config.js         SIZES, CONFIG
+│   ├── phases.js         PHASES, STONES
+│   ├── text.js           every line the player reads
+│   └── music.js          MUSIC
+├── docs/               this folder
+└── tools/              the verification pass; see tools/README.md
+```
+
+The data files load as plain `<script src>` before the engine, so they are the
+same consts the game has always had. **No build step, no modules, no fetch** —
+the game still opens straight off the filesystem. They are `.js` and not
+`.json` because `CONFIG`'s comments are design intent and JSON cannot hold
+them.
+
+Split in v0.32.0. Generation is bit-identical across it: the harness finds the
+same 10 soft-locked seeds before and after.
+
 ## What the game is — read from the source
 
-A single self-contained HTML file: a top-down maze for mobile web. Canvas, no
-build step, no dependencies, deployed from a phone. `VERSION` (title bar and
-menu) says which build is running; bump it on every hand-off.
+A top-down maze for mobile web. Canvas, no build step, no dependencies,
+deployed from a phone. `VERSION` (title bar and menu) says which build is
+running; bump it on every hand-off.
 
 - **Eight selves, one maze each.** `PHASES` — The Child, The Cartographer, The
   Soldier, The Archivist, The Priest, The Criminal, The One Who Stayed, You.
@@ -47,11 +70,12 @@ menu) says which build is running; bump it on every hand-off.
 - **Progress persists** in `SAVE` → `localStorage['maze.save.v1']`: phase,
   stones, collected pages, played narration, UI prefs. Runs resume in place;
   reload is never a way out.
-- **`CONFIG`** near the top is every tunable, commented. Its comments are design
-  intent — read them before changing values. `?seed=1234` replays a maze.
-- **All player-facing text lives in data blocks** at the top: CAST, SELF_LINES,
-  ROOM_LINES, FIGURE_LINES, POOLS, TUTORIALS, MUSIC. Engine code holds no prose.
-  Joe rewrites text without touching logic — keep it that way.
+- **`CONFIG`** in `data/config.js` is every tunable, commented. Its comments are
+  design intent — read them before changing values. `?seed=1234` replays a maze.
+- **All player-facing text lives in `data/text.js`**: CAST, SELF_LINES,
+  ROOM_LINES, SHELF_LINES, EMPTY_SHELF, LIGHTER, NARRATOR, FIGURE_LINES, POOLS,
+  TUTORIALS. Engine code holds no prose. Joe rewrites text without touching
+  logic — keep it that way, and put new text in `data/text.js`, never inline.
 
 ## Working rules
 

@@ -88,3 +88,13 @@ node maze/tools/diagnose.mjs --phase 3 --seed 175218 --stones 0
 
 Not fixed — the fix belongs in `generate()`, and HANDOFF §1 says to propose
 rather than presume.
+
+## After the v0.32.0 data split
+
+`config.js`, `phases.js`, `text.js` and `music.js` now live in `maze/data/` and
+load before the engine. The harness needed no changes: the data files declare
+the same consts in the same global lexical scope, so `page.evaluate()` still
+reaches `CONFIG`, `PHASES` and the rest by name.
+
+The split was verified by re-running the sweep and confirming it finds the same
+10 soft-locked seeds it found before — generation is bit-identical.
