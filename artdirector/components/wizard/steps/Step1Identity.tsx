@@ -22,7 +22,7 @@ export default function Step1Identity() {
           type="text"
           value={s.gameTitle}
           onChange={(e) => s.set('gameTitle', e.target.value)}
-          placeholder="e.g. Endeavor, Project Nova, Hollow Sun…"
+          placeholder="e.g. Ironwake, Project Nova, Hollow Sun…"
         />
       </Field>
 

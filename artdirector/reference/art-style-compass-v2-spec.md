@@ -862,5 +862,5 @@ The v2 build is complete when a user can:
 - **Team sharing:** Share a style session URL with a collaborator (read-only view)
 - **PPTX export:** Generate a skeleton pitch deck with images placed in template slides
 - **Prompt history:** Per-shot generation history with ability to revert
-- **Style profiles:** Save a named style ("Endeavor v3 direction") and reload it
+- **Style profiles:** Save a named style ("Ironwake v3 direction") and reload it
 
