@@ -109,6 +109,24 @@ check('every referenced script exists, and none is left unloaded', absent.length
   `${absent.length ? 'missing: ' + absent.join(', ') + '; ' : ''}`
   + `${orphans.length ? 'on disk but never loaded: ' + orphans.join(', ') : 'no orphans'}`);
 
+// ── 2c. the stylesheet actually loaded ──────────────────────────
+// Since v0.34.0 the CSS is an external file. A 404 on it leaves the game
+// unstyled — canvas still renders, every other check here still passes, and
+// nothing says why it looks wrong. So check the sheet is attached and full.
+const sheet = await page.evaluate(() => {
+  const link = [...document.querySelectorAll('link[rel=stylesheet]')].map((l) => l.getAttribute('href'));
+  let rules = 0, external = 0;
+  for (const s of document.styleSheets) {
+    if (s.href) external++;
+    try { rules += s.cssRules.length; } catch (e) { /* unreadable over file:// */ }
+  }
+  return { link, external, rules, bodyBg: getComputedStyle(document.body).backgroundColor };
+});
+check('the external stylesheet loaded and parsed', 
+  sheet.link.includes('css/style.css') && sheet.external === 1 && sheet.rules > 150,
+  `link ${JSON.stringify(sheet.link)}, ${sheet.external} external sheet(s), `
+  + `${sheet.rules} rules, body background ${sheet.bodyBg}`);
+
 // ── 3. movement knobs are present and sane ──────────────────────
 // The recentering incident: a block silently failed to insert and the values
 // vanished. Assert they exist and are in the range the settled design needs.

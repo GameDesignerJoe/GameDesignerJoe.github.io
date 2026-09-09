@@ -24,7 +24,8 @@ phone. Drive is newer than these copies; the game is newer than Drive.
 
 ```
 maze/
-├── maze-topdown.html   the shell — CSS, markup, script tags. 273 lines
+├── maze-topdown.html   the shell — markup and tags only. 102 lines
+├── css/style.css       the whole look, 170 rules
 ├── data/               tuning and text; see data/README.md
 │   ├── config.js         SIZES, CONFIG
 │   ├── phases.js         PHASES, STONES
@@ -52,9 +53,15 @@ statements run at parse time, so a statement cannot reach forward to something
 not yet defined. The tag order in the shell matches the old top-to-bottom order;
 `tools/smoke.mjs` asserts it. Add a new file where its code would have gone.
 
-Data came out in v0.32.0, the engine in v0.33.0. Generation is bit-identical
-across both: the harness finds the same 10 soft-locked seeds before and after
-each split.
+Data came out in v0.32.0, the engine in v0.33.0, the stylesheet in v0.34.0.
+Generation is bit-identical across all three — the harness finds the same 10
+soft-locked seeds each time — and the CSS move was verified against the
+browser's parsed CSSOM and a pixel-identical render, not just by eye.
+
+**The markup stays in the shell**, and should. Moving it out would need `fetch`
+(which breaks `file://`) or JS string injection (worse to edit, and the DOM
+would no longer exist when the early scripts run). 102 lines of markup *is* the
+thin shell.
 
 ## What the game is — read from the source
 

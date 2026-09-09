@@ -89,7 +89,7 @@ node maze/tools/diagnose.mjs --phase 3 --seed 175218 --stones 0
 Not fixed — the fix belongs in `generate()`, and HANDOFF §1 says to propose
 rather than presume.
 
-## After the v0.32.0 and v0.33.0 splits
+## After the v0.32.0, v0.33.0 and v0.34.0 splits
 
 Data moved to `maze/data/` and the engine to `maze/js/`, all as plain scripts
 loaded in order. The harness needed no changes at all: the pieces still declare
@@ -104,6 +104,18 @@ first and then the engine in the exact expected order, and every referenced file
 must exist with none left on disk unloaded. Order is load-bearing now, and a
 reordered tag is not something a glance at the page would reveal.
 
-`split-data.mjs`, `split-engine.mjs` and `analyze-engine.mjs` are the tools that
-did the splits and surveyed the file. Kept because they record exactly what was
-moved and how it was checked.
+v0.34.0 moved the stylesheet to `css/style.css`. That one could not be checked
+byte-for-byte, because the rules were dedented on the way out of the `<style>`
+block, so it was verified two better ways instead: every rule the browser parses
+(`cssText`, in order) and the computed style of all 65 elements with an id, plus
+a pixel-identical screenshot of the rendered page. `smoke.mjs` gained a check
+that the sheet is attached and full — a 404 on it would leave the game unstyled
+while every other check still passed.
+
+One wrinkle worth knowing: `#fade` computes a different opacity on every run,
+because it is the fade-in overlay mid-animation. Capturing the same build twice
+shows the same difference, which is how it was ruled out.
+
+`split-data.mjs`, `split-engine.mjs`, `split-css.mjs` and `analyze-engine.mjs`
+are the tools that did the splits and surveyed the file. Kept because they
+record exactly what was moved and how it was checked.
