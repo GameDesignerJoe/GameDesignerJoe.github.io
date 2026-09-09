@@ -1,102 +1,89 @@
-# The Maze — orientation
+# The Maze — read this first
 
-Read this first. It tells you what is actually in this folder, how it relates
-to the design docs beside it, and where the two disagree.
+**The game is the source of truth.** `../maze-topdown.html` outranks every
+document in this folder, including this one. When a doc and the game disagree,
+the game is right and the doc is history or inspiration. Fix the doc to match
+the game; never change the game to match a doc.
 
-## Two things share this folder
+## What the game is — from the source, not the docs
 
-**`../maze-topdown.html` — the playable prototype.** A 2D, top-down maze in a
-single self-contained HTML file: canvas rendering, no build step, no
-dependencies. Mobile-first (safe-area insets, standalone PWA meta, a
-swappable-side virtual stick). Title screen reads "THE MAZE". Roughly thirty
-commits of steady feature layering: push blocks, map, darkness, progression,
-doors and locks, keys.
+A 2D, top-down maze in one self-contained HTML file: canvas rendering, no build
+step, no dependencies. Mobile-first and shipped as a PWA. Everything below is
+read from the code.
 
-**`01`–`06` — the Labyrinth design docs.** The larger game this prototype is
-exploring toward: first-person, node-based, hex-grid, real 3D (Three.js), with
-a remnant-based narrative where every past traveler is a prior life of the
-player. Imported from Joe's Drive folder on 2026-09-09. They are the design
-record; they are not a description of the file above.
+- **Eight selves, one maze each.** `PHASES` — The Child, The Cartographer, The
+  Soldier, The Archivist, The Priest, The Criminal, The One Who Stayed, You.
+  Each phase sets the maze size and which tools and hazards exist (`f: {…}`):
+  signs, charcoal, compass, thread, scraps, lamp, darkness, gate, tunnels,
+  pockets, path sliders, doors, crawl gaps, the swing, hopscotch, the figure.
+- **Seven stones, the burdens.** `STONES` — Sight, Pace, Memory, Fear,
+  Direction, Shame, Scale. Setting one down permanently lifts a restriction,
+  through `B` (burden-adjusted values): view radius, speed, charcoal length,
+  darkness, pointer time, key chance.
+- **The pools, between phases.** `POOLS` — the Caretaker hosts; one person who
+  loves you per stone: Father (Sight), Wife (Pace), Brother (Memory), Daughter
+  (Fear), Father again (Direction), Oldest friend (Shame), Wife again (Scale). Written branching dialogue: they speak, you choose, they
+  answer; then you set the stone in the water.
+- **A narrator per self**, in that self's voice. The Child's lines are lowercase
+  and misspelled on purpose ("the man said wait here." / "but i didnt.").
+- **The figure** (`figure: true` on the Child) is the man walking away — the
+  Dad spawns in Joe's notes.
+- **Progress persists** in `SAVE`, written to `localStorage` under
+  `maze.save.v1` (`phase`, `stones`, collected books, played narration…), so a
+  run carries across sessions on the same device.
+- **`VERSION`** (a constant near the top, shown on the title bar) is how to
+  tell which build is on the phone.
+- **`CONFIG`** near the top is every tunable. Its comments are design intent,
+  not just values — read them before changing anything. `?seed=1234` replays a
+  maze.
 
-The prototype and the docs share a vocabulary — chalk, charcoal, signs, dead-end
-pickups, darkness and the lamp, "the only way out is through" — but they are
-different artifacts at different stages. Do not assume a feature in the docs
-exists in the prototype, or vice versa.
+## The docs in this folder
 
-## What's not here
+**`NOTES.md` — Joe's working notes.** The list at the top is the real backlog.
+The rest is thoughts, ideas, and the narrative spine. This is a snapshot; the
+Drive doc is live and Joe edits it from his phone. When they differ, Drive is
+newer — but the game still wins over both.
 
-The 3D work the docs describe (the slider hallway, the hub-loop prototype) is
-**not in this repository**. It lived in a separate chat and on Vercel. Don't go
-looking for a Three.js scene in this repo; there isn't one.
+**`01`–`06` — the Labyrinth docs.** Written for a *different project*: a
+first-person, hex-grid, Three.js game meant for a React/Vite/TypeScript build
+on Vercel. Keep them for reference and inspiration; that is what they are for.
 
-## The docs
+The narrative frame was carried from those docs into this game wholesale — the
+cast in `01` is the `PHASES` array, burdens became the stones, the Caretaker
+hosts the pools, "the tall shape that recedes" is the figure. So `01` is the
+best account of *why* the game is shaped the way it is.
 
-| File | What it is |
-| --- | --- |
-| `01-vision-and-narrative.md` | Why the game exists. The cast, the Caretaker, burdens, tone. Read this before touching anything narrative. |
-| `02-game-design.md` | Systems: hex grid, biomes, tools and charges, chalk legend, manual map, puzzles, UI, controls, audio. |
-| `03-technical-design.md` | Stack, architecture, the dumb-box geometry rule, `labyrinth.config.json`, asset pipeline. |
-| `04-prototype-log.md` | What was tried and what failed. **Read this before proposing an approach** — several dead ends are documented so they aren't repeated. |
-| `05-roadmap.md` | Phased milestones, standalone tools, parking lot, naming candidates. |
-| `06-build-handoff.md` | The other chat's CLAUDE.md for the 3D production build. Kept verbatim. See the note below about why it lives here and not at the repo root. |
+The mechanics and stack in those docs were **not** carried over and should not
+be: hex grid, first-person camera, tap zones instead of a stick, Three.js,
+Vite. Do not port anything into the maze because a Labyrinth doc says so.
+`06` asks to be placed at the repo root as CLAUDE.md; it describes that other
+stack, so it stays here.
 
-## About `06-build-handoff.md`
+## Working rules
 
-It opens with "Drop this into the repo root as CLAUDE.md." Don't. That doc
-describes a React + Vite + TypeScript + Three.js project deployed to Vercel.
-This repository is a flat static GitHub Pages site — many small projects, no
-build step, `main` is what's served. A root-level CLAUDE.md written for a
-Vite/TS game would mislead every session that touches the portfolio or any
-other project here. Project docs in this repo live in `<project>/docs/`
-(see `cartographer/docs/`, `killcode/docs/`, `tidy-adventures/docs/`), so
-that is where it sits.
-
-Its stack section is specific to the 3D build. Its working rules are not, and
-they apply to work on the prototype too:
-
-- Everything tunable lives in config, never hardcoded. The prototype already
-  does this — see the `CONFIG` block near the top of `maze-topdown.html`; the
-  comments there are design intent, not just values.
-- Ask before building when a spec is ambiguous; make reasonable calls on minor
+- Every tunable lives in `CONFIG`. Never hardcode a value that a designer would
+  want to change. The game already does this — keep it so.
+- Ask before building when a spec is ambiguous. Make reasonable calls on minor
   details and say what you assumed.
-- Own bugs openly. Say what broke and why.
+- Own bugs openly. Say what broke and why; don't silently patch.
+- Joe tests on his phone. A change isn't done until it works there.
 
-## Where the prototype and the docs disagree
-
-Flagged, not resolved — these are Joe's calls.
-
-- **Input.** The docs say "tap zones, not joysticks" for mobile. The prototype
-  uses a virtual stick with glide-and-turn-at-the-next-opening steering, and a
-  lot of tuning has gone into it (`speed`, `turnBufferMs`, `turnForgiveness`,
-  `stickDeadzone`). Which wins for the 2D game is open.
-- **Grid.** Docs: hex, six exits. Prototype: square grid, four directions.
-- **Map.** Docs: manual cartography, nothing auto-revealed. Prototype: charcoal
-  draws the map *as you walk* while it lasts — a different tradeoff.
-
-## Running the prototype
+## Running it
 
 ```
 python -m http.server 8000
 ```
 → http://localhost:8000/maze/maze-topdown.html
 
-It works over `file://` too (no modules, no fetch), but the server matches how
-the rest of the repo is run. `?seed=1234` replays a specific maze.
-
 ## Repo facts that bite
 
-- **GitHub Pages serves `main`.** A commit on any other branch is on GitHub
-  but not on the live site.
-- **`../Index.html` is a one-byte stub with a capital I.** Pages looks for
-  lowercase `index.html`, so `/maze/` does not resolve to the game. Link to
-  `maze/maze-topdown.html` by its full name (the front-page tile does).
+- **GitHub Pages serves `main`.** A commit on another branch is on GitHub but
+  not on the live site.
+- **`../Index.html` is a one-byte stub with a capital I**, so `/maze/` does not
+  resolve to the game. Link to `maze/maze-topdown.html` by its full name (the
+  front-page tile does).
 - The root `service-worker.js` is network-first as of 2026-09-09. Before that
-  it served `index.html` cache-first forever, which is why the front page
-  looked permanently stale on phones. If the portfolio page ever looks stale
-  again, start there.
-
-## Source of truth
-
-The Drive folder is where Joe edits these docs. This copy is a snapshot so a
-session can read them without Drive access. If the two drift, Drive wins;
-re-import rather than editing the design docs here.
+  it served `index.html` cache-first forever, which is why the front page looked
+  permanently stale on phones. If that ever recurs, start there.
+- Other projects in this repo keep their docs in `<project>/docs/` too
+  (`cartographer/`, `killcode/`, `tidy-adventures/`). Same convention here.
