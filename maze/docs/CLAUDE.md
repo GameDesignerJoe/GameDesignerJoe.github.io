@@ -1,72 +1,77 @@
 # The Maze — read this first
 
 **The game is the source of truth.** `../maze-topdown.html` outranks every
-document in this folder, including this one. When a doc and the game disagree,
-the game is right and the doc is history or inspiration. Fix the doc to match
-the game; never change the game to match a doc.
+document here, including this one. When a doc and the game disagree, the game
+is right and the doc is history. Fix the doc; never change the game to match a
+doc.
 
-## What the game is — from the source, not the docs
+Read in this order: `HANDOFF.md`, then `PROGRESSION.md`, then `NOTES.md`.
+`labyrinth/` is a different project — reference only.
 
-A 2D, top-down maze in one self-contained HTML file: canvas rendering, no build
-step, no dependencies. Mobile-first and shipped as a PWA. Everything below is
-read from the code.
+## The docs
+
+| File | What it is |
+| --- | --- |
+| **`HANDOFF.md`** | **Start here.** Written for whoever picks up the file next, against v0.31.2 — the current build. Why things are the way they are, what was tried and rejected, engineering habits that keep it from breaking. §6 is a list of settled decisions: don't re-propose them without new reasons. |
+| **`PROGRESSION.md`** | The arc: eight phases, seven stones, the pool levels, and why each stone maps to the knob it does. Written against v0.20, so parts are behind; the file ends with a list of exactly where. |
+| **`NOTES.md`** | Joe's running notes. The list at the top is the live backlog. |
+| `labyrinth/01`–`06` | The **other** project: first-person, hex-grid, Three.js, React/Vite/TypeScript on Vercel. Reference and inspiration. |
+
+All three Maze docs are snapshots of live Google Docs that Joe edits from his
+phone. Drive is newer than these copies; the game is newer than Drive.
+
+## What the game is — read from the source
+
+A single self-contained HTML file: a top-down maze for mobile web. Canvas, no
+build step, no dependencies, deployed from a phone. `VERSION` (title bar and
+menu) says which build is running; bump it on every hand-off.
 
 - **Eight selves, one maze each.** `PHASES` — The Child, The Cartographer, The
   Soldier, The Archivist, The Priest, The Criminal, The One Who Stayed, You.
-  Each phase sets the maze size and which tools and hazards exist (`f: {…}`):
-  signs, charcoal, compass, thread, scraps, lamp, darkness, gate, tunnels,
-  pockets, path sliders, doors, crawl gaps, the swing, hopscotch, the figure.
+  Each sets a size and which features exist (`f: {…}`): signs, charcoal,
+  compass, thread, scraps, lamp, darkness, gate, tunnels, pockets, path
+  sliders, doors (1–3), crawl gaps, swings, hopscotch, the figure.
+- **Five sizes.** `SIZES` — xs 7×10, sm 10×14, md 14×20, lg 20×28, xl 28×40.
+  Each step doubles area; feature counts scale with area, except doors.
 - **Seven stones, the burdens.** `STONES` — Sight, Pace, Memory, Fear,
-  Direction, Shame, Scale. Setting one down permanently lifts a restriction,
-  through `B` (burden-adjusted values): view radius, speed, charcoal length,
-  darkness, pointer time, key chance.
+  Direction, Shame, Scale. Each is a restriction the player has felt all along;
+  setting one down at a pool lifts it permanently, through `B`.
 - **The pools, between phases.** `POOLS` — the Caretaker hosts; one person who
-  loves you per stone: Father (Sight), Wife (Pace), Brother (Memory), Daughter
-  (Fear), Father again (Direction), Oldest friend (Shame), Wife again (Scale). Written branching dialogue: they speak, you choose, they
-  answer; then you set the stone in the water.
+  loves him per stone: Father (Sight), Wife (Pace), Brother (Memory), Daughter
+  (Fear), Father again (Direction), Oldest friend (Shame), Wife again (Scale).
+  Approach lines, an opening, two branching exchanges, a close.
 - **A narrator per self**, in that self's voice. The Child's lines are lowercase
   and misspelled on purpose ("the man said wait here." / "but i didnt.").
-- **The figure** (`figure: true` on the Child) is the man walking away — the
-  Dad spawns in Joe's notes.
-- **Progress persists** in `SAVE`, written to `localStorage` under
-  `maze.save.v1` (`phase`, `stones`, collected books, played narration…), so a
-  run carries across sessions on the same device.
-- **`VERSION`** (a constant near the top, shown on the title bar) is how to
-  tell which build is on the phone.
-- **`CONFIG`** near the top is every tunable. Its comments are design intent,
-  not just values — read them before changing anything. `?seed=1234` replays a
-  maze.
-
-## The docs in this folder
-
-**`NOTES.md` — Joe's working notes.** The list at the top is the real backlog.
-The rest is thoughts, ideas, and the narrative spine. This is a snapshot; the
-Drive doc is live and Joe edits it from his phone. When they differ, Drive is
-newer — but the game still wins over both.
-
-**`01`–`06` — the Labyrinth docs.** Written for a *different project*: a
-first-person, hex-grid, Three.js game meant for a React/Vite/TypeScript build
-on Vercel. Keep them for reference and inspiration; that is what they are for.
-
-The narrative frame was carried from those docs into this game wholesale — the
-cast in `01` is the `PHASES` array, burdens became the stones, the Caretaker
-hosts the pools, "the tall shape that recedes" is the figure. So `01` is the
-best account of *why* the game is shaped the way it is.
-
-The mechanics and stack in those docs were **not** carried over and should not
-be: hex grid, first-person camera, tap zones instead of a stick, Three.js,
-Vite. Do not port anything into the maze because a Labyrinth doc says so.
-`06` asks to be placed at the repo root as CLAUDE.md; it describes that other
-stack, so it stays here.
+- **The figure** (`figure: true`, Child phase) is the father — abandonment made
+  visible. Placed at generation, six per maze, at vantage spots.
+- **Progress persists** in `SAVE` → `localStorage['maze.save.v1']`: phase,
+  stones, collected pages, played narration, UI prefs. Runs resume in place;
+  reload is never a way out.
+- **`CONFIG`** near the top is every tunable, commented. Its comments are design
+  intent — read them before changing values. `?seed=1234` replays a maze.
+- **All player-facing text lives in data blocks** at the top: CAST, SELF_LINES,
+  ROOM_LINES, FIGURE_LINES, POOLS, TUTORIALS, MUSIC. Engine code holds no prose.
+  Joe rewrites text without touching logic — keep it that way.
 
 ## Working rules
 
-- Every tunable lives in `CONFIG`. Never hardcode a value that a designer would
-  want to change. The game already does this — keep it so.
-- Ask before building when a spec is ambiguous. Make reasonable calls on minor
-  details and say what you assumed.
-- Own bugs openly. Say what broke and why; don't silently patch.
-- Joe tests on his phone. A change isn't done until it works there.
+From `HANDOFF.md` §1, and they are not optional:
+
+- **Build the tool, not the content.** New text goes in a data block, never
+  inline.
+- **Everything tunable is a `CONFIG` knob**, commented. Add knobs with features.
+- **Ask before building when the design is ambiguous.** Joe prefers 2–3
+  tappable options over open questions. Otherwise build and list the calls you
+  made.
+- **Own bugs openly.** Say what broke and why. No silent fixes.
+- **Bump `VERSION`** on every hand-off.
+- **Nothing new is assumed.** Things are missing for reasons. Propose; don't
+  presume.
+- **Test behaviour, not just render.** The movement recentering was silently
+  broken for two versions because an insert anchor moved. `HANDOFF.md` §9 has
+  the verification habit and the generation order — read it before editing
+  `generate()`.
+- **Joe tests on his phone.** A change isn't done until it works there.
 
 ## Running it
 
@@ -82,8 +87,8 @@ python -m http.server 8000
 - **`../Index.html` is a one-byte stub with a capital I**, so `/maze/` does not
   resolve to the game. Link to `maze/maze-topdown.html` by its full name (the
   front-page tile does).
-- The root `service-worker.js` is network-first as of 2026-09-09. Before that
-  it served `index.html` cache-first forever, which is why the front page looked
-  permanently stale on phones. If that ever recurs, start there.
-- Other projects in this repo keep their docs in `<project>/docs/` too
-  (`cartographer/`, `killcode/`, `tidy-adventures/`). Same convention here.
+- The root `service-worker.js` is network-first as of 2026-09-09. Before that it
+  served `index.html` cache-first forever, which is why the front page looked
+  permanently stale on phones. If that recurs, start there.
+- Other projects here keep docs in `<project>/docs/` too (`cartographer/`,
+  `killcode/`, `tidy-adventures/`). Same convention.
