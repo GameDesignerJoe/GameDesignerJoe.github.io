@@ -89,12 +89,21 @@ node maze/tools/diagnose.mjs --phase 3 --seed 175218 --stones 0
 Not fixed — the fix belongs in `generate()`, and HANDOFF §1 says to propose
 rather than presume.
 
-## After the v0.32.0 data split
+## After the v0.32.0 and v0.33.0 splits
 
-`config.js`, `phases.js`, `text.js` and `music.js` now live in `maze/data/` and
-load before the engine. The harness needed no changes: the data files declare
-the same consts in the same global lexical scope, so `page.evaluate()` still
-reaches `CONFIG`, `PHASES` and the rest by name.
+Data moved to `maze/data/` and the engine to `maze/js/`, all as plain scripts
+loaded in order. The harness needed no changes at all: the pieces still declare
+the same names in the same global lexical scope, so `page.evaluate()` reaches
+`CONFIG`, `generate`, `tiles` and the rest exactly as before.
 
-The split was verified by re-running the sweep and confirming it finds the same
-10 soft-locked seeds it found before — generation is bit-identical.
+Both splits were verified by re-running the sweep and confirming it finds the
+same 10 soft-locked seeds — generation is bit-identical across each.
+
+`smoke.mjs` gained two checks for the new shape: the script tags must load data
+first and then the engine in the exact expected order, and every referenced file
+must exist with none left on disk unloaded. Order is load-bearing now, and a
+reordered tag is not something a glance at the page would reveal.
+
+`split-data.mjs`, `split-engine.mjs` and `analyze-engine.mjs` are the tools that
+did the splits and surveyed the file. Kept because they record exactly what was
+moved and how it was checked.

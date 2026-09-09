@@ -24,24 +24,37 @@ phone. Drive is newer than these copies; the game is newer than Drive.
 
 ```
 maze/
-├── maze-topdown.html   the engine — canvas, input, generation, render
+├── maze-topdown.html   the shell — CSS, markup, script tags. 273 lines
 ├── data/               tuning and text; see data/README.md
 │   ├── config.js         SIZES, CONFIG
 │   ├── phases.js         PHASES, STONES
 │   ├── text.js           every line the player reads
 │   └── music.js          MUSIC
+├── js/                 the engine, in run order; see js/README.md
+│   ├── core.js           version, save file, seed
+│   ├── generate.js       the maze itself (34 KB, the big one)
+│   ├── audio.js  state.js  input.js  stories.js  run-save.js
+│   ├── tutorials.js  pool.js  map.js
+│   ├── movement.js       the glide, turns, sliders, pickups
+│   ├── render.js         every frame
+│   └── boot.js           frame loop, resume-or-reset, go
 ├── docs/               this folder
 └── tools/              the verification pass; see tools/README.md
 ```
 
-The data files load as plain `<script src>` before the engine, so they are the
-same consts the game has always had. **No build step, no modules, no fetch** —
-the game still opens straight off the filesystem. They are `.js` and not
-`.json` because `CONFIG`'s comments are design intent and JSON cannot hold
-them.
+Everything loads as plain `<script src>`, data first, then the engine in the
+order it used to run. **No build step, no modules, no bundler, no fetch** — the
+game still opens straight off the filesystem. Data files are `.js` and not
+`.json` because `CONFIG`'s comments are design intent and JSON cannot hold them.
 
-Split in v0.32.0. Generation is bit-identical across it: the harness finds the
-same 10 soft-locked seeds before and after.
+**Load order is load-bearing.** The pieces share one global scope and 52
+statements run at parse time, so a statement cannot reach forward to something
+not yet defined. The tag order in the shell matches the old top-to-bottom order;
+`tools/smoke.mjs` asserts it. Add a new file where its code would have gone.
+
+Data came out in v0.32.0, the engine in v0.33.0. Generation is bit-identical
+across both: the harness finds the same 10 soft-locked seeds before and after
+each split.
 
 ## What the game is — read from the source
 

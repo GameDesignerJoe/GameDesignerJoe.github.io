@@ -1,0 +1,65 @@
+// The Maze — the stick, chalk, charcoal, lamp, gear
+//
+// Part of the engine, loaded as a plain script in the order it used to appear
+// in maze-topdown.html. Everything shares one global scope, exactly as before.
+
+// ── input ───────────────────────────────────────────────────────
+const stickEl = $('stick'), knob = $('knob');
+const KNOB_MAX = 54; let stickId = null;
+function stickCenter() { const b = stickEl.getBoundingClientRect(); return { x: b.left + b.width/2, y: b.top + b.height/2 }; }
+function setStick(clientX, clientY) {
+  const c = stickCenter(); const dx = clientX - c.x, dy = clientY - c.y;
+  const len = Math.hypot(dx, dy) || 1, k = Math.min(len, KNOB_MAX);
+  knob.style.transform = `translate(${dx/len*k}px, ${dy/len*k}px)`;
+  if (len / KNOB_MAX < CONFIG.stickDeadzone) { held = null; return; }
+  held = Math.abs(dx) > Math.abs(dy) ? { dx: Math.sign(dx), dy: 0 } : { dx: 0, dy: Math.sign(dy) };
+}
+function clearStick() { held = null; stickId = null; stickEl.classList.remove('on'); knob.style.transform = ''; }
+stickEl.addEventListener('pointerdown', e => { if ($('dbg').classList.contains('show')) return; stickId = e.pointerId; stickEl.classList.add('on'); stickEl.setPointerCapture(e.pointerId); setStick(e.clientX, e.clientY); e.preventDefault(); });
+stickEl.addEventListener('pointermove', e => { if (e.pointerId === stickId) setStick(e.clientX, e.clientY); });
+stickEl.addEventListener('pointerup', clearStick); stickEl.addEventListener('pointercancel', clearStick);
+
+chalkEl.addEventListener('pointerdown', e => { e.stopPropagation(); useChalk(); });
+$('glyphs').addEventListener('pointerdown', e => { e.stopPropagation(); const g = e.target.closest('[data-g]'); if (g) useChalk(g.dataset.g); });
+cv.addEventListener('pointerdown', () => $('glyphs').classList.remove('show'));
+charcoalEl.addEventListener('pointerdown', e => { e.stopPropagation(); useCharcoal(); });
+$('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLamp || paused || solved) return; lampOn = !lampOn; $('lamp').classList.toggle('on', lampOn); lampOn ? AUDIO.lampOn() : AUDIO.lampOff(); });
+
+const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
+$('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveRun(true); });
+addEventListener('pagehide', () => saveRun(true));
+setInterval(() => saveRun(true), 6000);
+document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) dbg.classList.remove('show'); }, true);
+dbg.addEventListener('pointerdown', e => e.stopPropagation());
+opt.map.addEventListener('change', () => debugMap = opt.map.checked);
+$('optSize').value = SAVE.ui.size || 'auto'; $('optBranch').value = SAVE.ui.branch || 'auto'; $('optBraid').value = SAVE.ui.braid || 'auto';
+$('optBranch').addEventListener('change', () => { SAVE.ui.branch = $('optBranch').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optBraid').addEventListener('change', () => { SAVE.ui.braid = $('optBraid').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+PHASES.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + p.who; $('optPhase').appendChild(o); });
+for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
+$('optPhase').value = SAVE.phase || 0; $('optStones').value = SAVE.stones || 0;
+$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
+function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
+$('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
+$('optSound').checked = CONFIG.sound;
+$('optSound').addEventListener('change', () => AUDIO.setEnabled($('optSound').checked));
+$('resetSave').addEventListener('click', () => {
+  const b = $('resetSave');
+  if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Tap again to erase'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Reset save'; }, 3000); return; }
+  SAVE = { collected: {}, charCycle: [], narrPlayed: [], shelfPlayed: [], tutorials: [], ui: SAVE.ui, phase: 0, stones: 0, poolPending: false, finished: false }; delete SAVE.run; try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  b.dataset.armed = ''; b.textContent = 'Save erased';
+  setTimeout(() => b.textContent = 'Reset save', 1500);
+});
+function hardRefresh(btn) {
+  btn.textContent = 'Updating…';
+  // ask the network for a fresh copy (bounded), then reload with a cache-busting stamp that we strip again on load
+  const timeout = new Promise(r => setTimeout(r, 2500));
+  Promise.race([fetch(location.pathname, { cache: 'reload' }).catch(() => {}), timeout])
+    .then(() => location.replace(location.pathname + '?u=' + Date.now()));
+}
+$('update').addEventListener('click', () => hardRefresh($('update')));
+
+

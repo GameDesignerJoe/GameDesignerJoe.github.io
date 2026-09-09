@@ -15,7 +15,7 @@
 // Needs a static server on --port, e.g. python3 -m http.server 8765 from the repo root.
 
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 const arg = (n, d) => { const i = argv.indexOf('--' + n); return i === -1 ? d : argv[i + 1]; };
@@ -59,7 +59,12 @@ check('boots to the title screen, asleep', !boot.started && boot.hasTitle && !bo
   `started=${boot.started} pre=${boot.pre} zoom=${boot.zoom} (title zoom ${boot.titleZoom}) as ${boot.who}`);
 
 // ── 2. every id the script reaches for exists ───────────────────
-const src = readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8');
+// The engine lives in js/*.js since v0.33.0; the shell still holds the markup.
+const engineDir = new URL('../js/', import.meta.url);
+const src = [readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8')]
+  .concat(readdirSync(engineDir).filter((f) => f.endsWith('.js'))
+    .map((f) => readFileSync(new URL(f, engineDir), 'utf8')))
+  .join('\n');
 const ids = [...new Set([...src.matchAll(/\$\('([A-Za-z][\w-]*)'\)/g)].map((m) => m[1]))];
 const idReport = await page.evaluate((list) => {
   const rules = new Set();
@@ -76,6 +81,33 @@ check(`every $('id') in the script exists in the DOM (${ids.length} ids)`, missi
 const unstyled = idReport.filter((r) => r.exists && !r.styled);
 console.log(`          (${idReport.length - unstyled.length} of ${idReport.length} also have a CSS rule; `
   + `no rule for: ${unstyled.map((u) => u.id).join(', ') || 'none'})`);
+
+// ── 2b. the script tags load in the order the engine expects ────
+// 17 plain scripts sharing one global scope: order is load-bearing. Reordering
+// them, or dropping one, breaks the game in ways a glance at the page will not
+// show. Assert the sequence.
+const shell = readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8');
+const tagOrder = [...shell.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
+const EXPECTED = [
+  'data/config.js', 'data/phases.js', 'data/text.js', 'data/music.js',
+  'js/core.js', 'js/generate.js', 'js/audio.js', 'js/state.js', 'js/input.js',
+  'js/stories.js', 'js/run-save.js', 'js/tutorials.js', 'js/pool.js', 'js/map.js',
+  'js/movement.js', 'js/render.js', 'js/boot.js',
+];
+check('script tags load data first, then the engine in order',
+  JSON.stringify(tagOrder) === JSON.stringify(EXPECTED),
+  tagOrder.length === EXPECTED.length
+    ? `${tagOrder.length} tags, in order`
+    : `got ${tagOrder.length} tags: ${tagOrder.join(' ')}`);
+
+// Every file the shell references must actually be there.
+const onDisk = new Set([...readdirSync(new URL('../js/', import.meta.url)).map((f) => 'js/' + f),
+  ...readdirSync(new URL('../data/', import.meta.url)).map((f) => 'data/' + f)]);
+const absent = tagOrder.filter((t) => !onDisk.has(t));
+const orphans = [...onDisk].filter((f) => f.endsWith('.js') && !tagOrder.includes(f));
+check('every referenced script exists, and none is left unloaded', absent.length === 0 && orphans.length === 0,
+  `${absent.length ? 'missing: ' + absent.join(', ') + '; ' : ''}`
+  + `${orphans.length ? 'on disk but never loaded: ' + orphans.join(', ') : 'no orphans'}`);
 
 // ── 3. movement knobs are present and sane ──────────────────────
 // The recentering incident: a block silently failed to insert and the values
