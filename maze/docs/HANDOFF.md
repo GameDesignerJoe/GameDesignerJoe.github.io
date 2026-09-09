@@ -126,3 +126,24 @@ See the Progression doc for the full arc. In short: eight phases (Child → Cart
 CAST (pages, wake/leave lines, summaries) · SELF_LINES (wandering narrator per self) · ROOM_LINES (shelf and basin, per self, by pages held) · EMPTY_SHELF, LIGHTER, FIGURE_LINES · POOLS (approach lines, opening, two exchanges, close) · TUTORIALS (helper cards, player's voice) · MUSIC (presets) · PHASES, STONES, B (burden multipliers) · the how-to rows in the HTML.
 
 *Last word: the game is at its best when the maze is indifferent, the text is quiet, and the player is trusted to notice. When in doubt, take something off the screen.*
+
+---
+
+## Corrections since this snapshot
+
+The doc is a verbatim copy of Joe's Drive original; these are noted rather than
+edited into it.
+
+- **Deploy target.** §0 and §9 say the game is deployed to Vercel and "always
+  test on Vercel". Joe deploys this straight from GitHub Pages; Vercel is only
+  for projects that need an API key. So the live URL is
+  `gamedesignerjoe.github.io/maze/maze-topdown.html`, served over HTTPS from
+  `main`.
+- **The §9 harness.** It is described here as existing and as something to run
+  after every change, but it was not in the repository. Rebuilt on 2026-09-09
+  under `maze/tools/` — see the README there. It is Playwright-driven rather
+  than jsdom, because jsdom has no canvas and the movement checks need a real
+  one.
+- **What it found.** About 1.4% of mazes with locked doors are unfinishable: a
+  door's key can be placed in a sealed pocket behind that same door. Open; see
+  `maze/tools/README.md`.

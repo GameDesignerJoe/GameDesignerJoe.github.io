@@ -76,9 +76,30 @@ From `HANDOFF.md` §1, and they are not optional:
 ## Running it
 
 ```
-python -m http.server 8000
+python3 -m http.server 8000
 ```
 → http://localhost:8000/maze/maze-topdown.html
+
+Deployed straight from GitHub Pages — no Vercel, no build step, no Vite. The
+live URL is `gamedesignerjoe.github.io/maze/maze-topdown.html`.
+
+## Verifying a change
+
+`HANDOFF.md` §9 says to run the verification pass after every change. It lives
+in `../tools/` (it was missing from the repo; rebuilt 2026-09-09):
+
+```
+python3 -m http.server 8765          # in another terminal
+node maze/tools/harness.mjs          # generation invariants across ~1900 mazes
+node maze/tools/smoke.mjs            # boot, walk, mark, save/reload, pool
+node maze/tools/selftest.mjs         # proves the invariants can fail
+```
+
+None of it touches `maze-topdown.html`. See `../tools/README.md`.
+
+**Known open bug:** roughly 1.4% of mazes with locked doors are unfinishable —
+a door's key can land in a sealed pocket behind that same door. Reproduce with
+`node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7`.
 
 ## Repo facts that bite
 
