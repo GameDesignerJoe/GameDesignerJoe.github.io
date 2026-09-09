@@ -31,6 +31,10 @@
             min-height: 100vh;
             width: 100%;
             box-sizing: border-box;
+            /* Suppress the browser's own pull-to-refresh so the gesture below
+               is the one that runs — ours also clears the service worker cache,
+               which a plain reload does not. */
+            overscroll-behavior-y: contain;
             /* Extend to safe area */
             padding-top: env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
@@ -150,9 +154,74 @@
             padding: 20px;
             border-radius: 20px;
         }
+
+        /* Pull-to-refresh. The page is a PWA, so in standalone mode there is no
+           address bar and no reload button — dragging down is the only way to
+           get a fresh copy. */
+        #pull-indicator {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            z-index: 100;
+            display: grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            margin-left: -20px;
+            border-radius: 50%;
+            background-color: #23262a;
+            border: 1px solid rgba(241, 241, 241, 0.18);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+            /* Parked just off the top of the screen until a drag begins. */
+            transform: translateY(-56px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #pull-indicator.settling {
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+
+        #pull-indicator svg {
+            width: 20px;
+            height: 20px;
+            stroke: #9aa0a6;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+
+        /* Pulled far enough that releasing will refresh. */
+        #pull-indicator.armed {
+            border-color: rgba(241, 241, 241, 0.5);
+        }
+
+        #pull-indicator.armed svg {
+            stroke: #f1f1f1;
+        }
+
+        #pull-indicator.refreshing svg {
+            stroke: #f1f1f1;
+            animation: pull-spin 0.7s linear infinite;
+        }
+
+        @keyframes pull-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #pull-indicator.refreshing svg { animation-duration: 1.6s; }
+        }
     </style>
 </head>
 <body>
+
+    <div id="pull-indicator" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+            <path d="M20 12a8 8 0 1 1-2.5-5.8"></path>
+            <path d="M17.5 2.5v4h-4"></path>
+        </svg>
+    </div>
 
     <div class="header">
         <h1>GAME DESIGNER JOE</h1>
@@ -466,13 +535,146 @@
     </div>
 <script>
     if ('serviceWorker' in navigator) {
+        // Whether a worker was already driving this page when it loaded. Used
+        // below so the very first install doesn't trigger a pointless reload.
+        const hadController = !!navigator.serviceWorker.controller;
+        let reloadedForNewWorker = false;
+
+        // A newly activated worker calls clients.claim(), which fires this. The
+        // page in front of us was rendered by the old worker, so it may be the
+        // stale copy — swap it out once.
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!hadController || reloadedForNewWorker) return;
+            reloadedForNewWorker = true;
+            window.location.reload();
+        });
+
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/service-worker.js')
                 .then(reg => {
                     console.log('Service worker registered.', reg);
+                    // Ask for a fresh copy of the worker script on every visit,
+                    // so a deploy is picked up without waiting on the browser's
+                    // own update schedule.
+                    reg.update();
                 });
         });
     }
+</script>
+
+<script>
+    // Pull down from the top of the page to refresh.
+    //
+    // Not just a reload: the service worker caches this page, so a reload alone
+    // can be answered out of that cache. Purging first is what makes the
+    // gesture actually fetch the deployed version.
+    (function () {
+        const indicator = document.getElementById('pull-indicator');
+        if (!indicator) return;
+
+        const TRIGGER_DISTANCE = 70;   // px of pull needed to arm the refresh
+        const MAX_PULL = 110;          // px the indicator can travel
+        const RESISTANCE = 0.5;        // drag feels weighted rather than 1:1
+
+        let startY = 0;
+        let pull = 0;
+        let tracking = false;
+        let refreshing = false;
+
+        function atTop() {
+            return (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+        }
+
+        function moveIndicator(distance) {
+            // Rotate the arrow through most of a turn as it is dragged down.
+            const progress = Math.min(1, distance / TRIGGER_DISTANCE);
+            indicator.style.transform =
+                'translateY(' + (distance - 56) + 'px) rotate(' + (progress * 270) + 'deg)';
+            indicator.style.opacity = String(Math.min(1, distance / 32));
+            indicator.classList.toggle('armed', distance >= TRIGGER_DISTANCE);
+        }
+
+        function park() {
+            indicator.classList.add('settling');
+            indicator.classList.remove('armed');
+            indicator.style.transform = 'translateY(-56px)';
+            indicator.style.opacity = '0';
+        }
+
+        function refresh() {
+            refreshing = true;
+            indicator.classList.add('settling', 'refreshing');
+            indicator.classList.remove('armed');
+            indicator.style.transform = 'translateY(16px)';
+            indicator.style.opacity = '1';
+
+            // Reload no matter what: if the purge stalls or the worker never
+            // answers, the gesture still has to do something visible.
+            let done = false;
+            const reload = () => {
+                if (done) return;
+                done = true;
+                window.location.reload();
+            };
+            setTimeout(reload, 2500);
+
+            const worker = navigator.serviceWorker && navigator.serviceWorker.controller;
+            if (worker) {
+                navigator.serviceWorker.addEventListener('message', function onPurged(event) {
+                    if (!event.data || event.data.type !== 'CACHES_PURGED') return;
+                    navigator.serviceWorker.removeEventListener('message', onPurged);
+                    reload();
+                });
+                worker.postMessage({ type: 'PURGE_CACHES' });
+            } else if (window.caches) {
+                // No worker in charge, but caches may still be populated.
+                caches.keys()
+                    .then(names => Promise.all(names.map(n => caches.delete(n))))
+                    .then(reload, reload);
+            } else {
+                reload();
+            }
+        }
+
+        document.addEventListener('touchstart', (event) => {
+            if (refreshing || event.touches.length !== 1 || !atTop()) return;
+            startY = event.touches[0].clientY;
+            pull = 0;
+            tracking = true;
+            indicator.classList.remove('settling');
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (event) => {
+            if (!tracking || refreshing) return;
+
+            const delta = event.touches[0].clientY - startY;
+
+            // Scrolling up, or the page has scrolled away from the top: hand
+            // the gesture back to the browser.
+            if (delta <= 0 || !atTop()) {
+                if (pull > 0) park();
+                tracking = false;
+                pull = 0;
+                return;
+            }
+
+            // Damped, and eased down further as it approaches the limit.
+            pull = Math.min(MAX_PULL, delta * RESISTANCE);
+            event.preventDefault();
+            moveIndicator(pull);
+        }, { passive: false });
+
+        function endPull() {
+            if (!tracking || refreshing) return;
+            tracking = false;
+            if (pull >= TRIGGER_DISTANCE) refresh();
+            else if (pull > 0) park();
+            pull = 0;
+        }
+
+        document.addEventListener('touchend', endPull, { passive: true });
+        document.addEventListener('touchcancel', endPull, { passive: true });
+    })();
 </script>
 </body>
 </html>
