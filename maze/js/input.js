@@ -43,8 +43,20 @@ $('optSize').addEventListener('change', () => { SAVE.ui.size = $('optSize').valu
 PHASES.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + p.who; $('optPhase').appendChild(o); });
 for (let i = 0; i <= STONES.length; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + ' put down'; $('optStones').appendChild(o); }
 $('optPhase').value = SAVE.phase || 0; $('optStones').value = SAVE.stones || 0;
-$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
+$('optPhase').addEventListener('change', () => { SAVE.phase = +$('optPhase').value; SAVE.poolPending = false; $('optPool').value = -1; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optStones').addEventListener('change', () => { SAVE.stones = +$('optStones').value; persist(); });
+// Pool room: jump straight into the water level for any one of the stones. A pool is entered with
+// that stone still carried and the phase it comes after, so both are set together — the talk you
+// get at the water is chosen by the stone count, and the level itself by poolPending.
+{ const o0 = document.createElement('option'); o0.value = -1; o0.textContent = '—'; $('optPool').appendChild(o0);
+  STONES.forEach((name, i) => { const o = document.createElement('option'); o.value = i; o.textContent = i + ' · ' + name; $('optPool').appendChild(o); });
+  $('optPool').value = SAVE.poolPending ? Math.min(SAVE.stones || 0, STONES.length - 1) : -1; }
+$('optPool').addEventListener('change', () => {
+  const i = +$('optPool').value; if (i < 0) return;
+  SAVE.stones = i; SAVE.phase = Math.min(PHASES.length - 1, i); SAVE.poolPending = true;
+  $('optPhase').value = SAVE.phase; $('optStones').value = SAVE.stones;
+  delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze();
+});
 function applyStick() { document.body.classList.toggle('stick-left', (SAVE.ui.stick || 'right') === 'left'); $('optStick').value = SAVE.ui.stick || 'right'; }
 $('optStick').addEventListener('change', () => { SAVE.ui.stick = $('optStick').value; persist(); applyStick(); }); applyStick();
 // texture is pure paint — no reset, no new maze, so you can flick between them and look

@@ -441,8 +441,10 @@ function generate(seed) {
           tiles[way[1]][way[0]] = 1; crawlGaps.add(way.join(','));
           const inner = [];
           for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) inner.push([x0 + x, y0 + y]);
-          inner.sort((a, b) => (Math.abs(a[0] - way[0]) + Math.abs(a[1] - way[1])) - (Math.abs(b[0] - way[0]) + Math.abs(b[1] - way[1])));
-          secretSwitch = inner[0].join(',');            // the light is by the way in
+          const wayD = (p2) => Math.abs(p2[0] - way[0]) + Math.abs(p2[1] - way[1]);
+          inner.sort((a, b) => wayD(a) - wayD(b));
+          // a step in from the way in, never on it: the light only shows once you are inside
+          secretSwitch = (inner.find(p2 => wayD(p2) >= CONFIG.secretSwitchIn) || inner[0]).join(',');
           secretFather = inner[inner.length - 1].join(',');
           const glyphs2 = ['x', '?', 'up', 'down', 'left', 'right'];
           for (const k of secretTiles) { if (k === secretSwitch || k === secretFather) continue;
@@ -497,7 +499,9 @@ function generate(seed) {
         const cells = pick.piece.filter(k => { const [x, y] = k.split(',').map(Number); return (x - P) % 2 === 1 && (y - P) % 2 === 1; })
           .sort((a, b) => { const [ax, ay] = a.split(',').map(Number), [bx, by] = b.split(',').map(Number);
             return (Math.abs(ax - mx) + Math.abs(ay - my)) - (Math.abs(bx - mx) + Math.abs(by - my)); });
-        secretSwitch = cells[0] || null;   // by the way in, not deep inside: you should find it at once
+        // a step in from the mouth, never on it, and still nowhere near the back of the room
+        const mouthD = (k) => { const [x, y] = k.split(',').map(Number); return Math.abs(x - mx) + Math.abs(y - my); };
+        secretSwitch = cells.find(k => mouthD(k) >= CONFIG.secretSwitchIn) || cells[0] || null;
         // and a man walking away, chalked on the floor as far from the switch as it gets
         secretFather = cells.length > 2 ? cells[cells.length - 1] : null;
         const glyphs = ['x', '?', 'up', 'down', 'left', 'right'];

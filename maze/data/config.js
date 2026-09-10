@@ -156,6 +156,12 @@ const CONFIG = {
   secretMaxTiles: 64,   // and how big before it is really just more maze
   secretDark: true,     // it stays unlit until you find the switch on its floor and stand on it
   secretLightSec: 1.3,  // how long the lights take to stutter on once you do
+  secretGlow: 0.125,    // the breathing light in the floor: peak alpha of its halo. A quarter of what
+                        // it was — it was reading as a lamp, and it is meant to be barely there
+  secretGlowTiles: 0.38,// and how far that halo reaches, in tiles: half what it was
+  secretGlowCore: 0.25, // and the pinprick at the middle of it, as a share of its old brightness
+  secretSwitchIn: 2,    // how far into the room the switch sits, in tiles from the squeeze. Not on the
+                        // way in: you have to be inside the dark before there is anything to see
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap

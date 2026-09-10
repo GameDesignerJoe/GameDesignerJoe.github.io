@@ -187,6 +187,64 @@ const mixHex = (a, b, t) => {
   const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b), k = Math.max(0, Math.min(1, t));
   return `rgb(${Math.round(r1 + (r2 - r1) * k)},${Math.round(g1 + (g2 - g1) * k)},${Math.round(b1 + (b2 - b1) * k)})`;
 };
+// Chalk, the way a kid holds it: a line drawn in three wobbly bits rather than one straight one,
+// with the wobble fixed by where the line is so it never shimmers between frames.
+function chalkLine(x0, y0, x1, y1, jitter, mx_, my_, salt) {
+  const n = 3, nx = -(y1 - y0), ny = x1 - x0, len = Math.hypot(nx, ny) || 1;
+  ctx.moveTo(x0, y0);
+  for (let i = 1; i <= n; i++) {
+    const t = i / n, ax = x0 + (x1 - x0) * t, ay = y0 + (y1 - y0) * t;
+    const off = i === n ? 0 : (tileNoise(mx_, my_, salt + i) - 0.5) * jitter;
+    ctx.lineTo(ax + nx / len * off, ay + ny / len * off);
+  }
+}
+// The digits 1–8 as a child would chalk them: strokes, not a typeface, each in a 0–1 box.
+const CHALK_DIGITS = {
+  1: [[[0.34, 0.18], [0.52, 0.04], [0.5, 0.96]]],
+  2: [[[0.16, 0.26], [0.32, 0.04], [0.66, 0.06], [0.74, 0.32], [0.2, 0.94], [0.82, 0.92]]],
+  3: [[[0.16, 0.1], [0.62, 0.04], [0.76, 0.28], [0.44, 0.5], [0.78, 0.7], [0.58, 0.96], [0.14, 0.88]]],
+  4: [[[0.62, 0.04], [0.12, 0.66], [0.86, 0.62]], [[0.6, 0.04], [0.64, 0.96]]],
+  5: [[[0.78, 0.08], [0.26, 0.06], [0.2, 0.46], [0.56, 0.42], [0.78, 0.66], [0.58, 0.94], [0.18, 0.86]]],
+  6: [[[0.72, 0.06], [0.3, 0.3], [0.2, 0.66], [0.46, 0.96], [0.76, 0.74], [0.54, 0.5], [0.22, 0.62]]],
+  7: [[[0.14, 0.08], [0.84, 0.06], [0.38, 0.96]]],
+  8: [[[0.5, 0.04], [0.24, 0.2], [0.5, 0.46], [0.76, 0.22], [0.5, 0.04]], [[0.5, 0.46], [0.22, 0.72], [0.5, 0.96], [0.8, 0.7], [0.5, 0.46]]],
+};
+function chalkDigit(n, px, py, h, mx_, my_, salt) {
+  const paths = CHALK_DIGITS[n]; if (!paths) return;
+  const w = h * 0.62, tilt = (tileNoise(mx_, my_, salt) - 0.5) * 0.22;
+  ctx.save(); ctx.translate(px, py); ctx.rotate(tilt); ctx.beginPath();
+  for (const path of paths) {
+    path.forEach(([x, y], i) => { const ax = (x - 0.5) * w, ay = (y - 0.5) * h; i ? ctx.lineTo(ax, ay) : ctx.moveTo(ax, ay); });
+  }
+  ctx.stroke(); ctx.restore();
+}
+
+// A squeeze is drawn on the wall it goes through: the tile stays wall-coloured and a narrow
+// strip of floor is cut through the middle of it, with one arm reaching toward each side you can
+// actually walk to and a lip along the cut. It used to assume every squeeze ran straight through,
+// so a squeeze on a tile open three or four ways — they turn up in the exit gauntlet — showed a
+// single strip and then let you walk out of a side with nothing drawn on it at all.
+function drawSqueeze(px, py, S, mx, my, open) {
+  const C = CONFIG.colors, w = 0.28, lo = 0.5 - w/2, hi = 0.5 + w/2, t = 1.5;
+  const arm = DIRS.map(([dx, dy]) => isOpen(mx + dx, my + dy));   // DIRS order: right, left, down, up
+  ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
+  ctx.fillStyle = open ? C.floor : '#151819';
+  ctx.fillRect(px + S*lo, py + S*lo, S*w + 0.5, S*w + 0.5);
+  if (arm[0]) ctx.fillRect(px + S*hi, py + S*lo, S*lo + 0.5, S*w + 0.5);
+  if (arm[1]) ctx.fillRect(px, py + S*lo, S*lo, S*w + 0.5);
+  if (arm[2]) ctx.fillRect(px + S*lo, py + S*hi, S*w + 0.5, S*lo + 0.5);
+  if (arm[3]) ctx.fillRect(px + S*lo, py, S*w + 0.5, S*lo);
+  if (!open) return;
+  // the lip: along the flanks of each arm, and across the face of the hub where there is no arm
+  ctx.fillStyle = C.thick;
+  const flankH = (x, wd) => { ctx.fillRect(px + x, py + S*lo - 1, wd, t); ctx.fillRect(px + x, py + S*hi - 0.5, wd, t); };
+  const flankV = (y, ht) => { ctx.fillRect(px + S*lo - 1, py + y, t, ht); ctx.fillRect(px + S*hi - 0.5, py + y, t, ht); };
+  if (arm[0]) flankH(S*hi, S*lo + 0.5); else ctx.fillRect(px + S*hi - 0.5, py + S*lo - 1, t, S*w + 2);
+  if (arm[1]) flankH(0, S*lo); else ctx.fillRect(px + S*lo - 1, py + S*lo - 1, t, S*w + 2);
+  if (arm[2]) flankV(S*hi, S*lo + 0.5); else ctx.fillRect(px + S*lo - 1, py + S*hi - 0.5, S*w + 2, t);
+  if (arm[3]) flankV(0, S*lo); else ctx.fillRect(px + S*lo - 1, py + S*lo - 1, S*w + 2, t);
+}
+
 // A block is a whole tile of slab with a groove round it. The groove is stroked on the tile
 // boundary itself rather than inset, so two blocks side by side share one groove instead of
 // stacking two dark bands. It is the same slab wherever the block has got to and whatever it
@@ -292,21 +350,12 @@ function draw() {
     ctx.fillStyle = CONFIG.hintColor; ctx.globalAlpha = 0.05 + 0.09 * glow; ctx.beginPath(); ctx.arc(px, py, S*0.7, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
   }
 
-  // crawl gaps: the wall tile stays wall-coloured, with a narrow strip of floor squeezed through the middle
+  // squeezes, gaps and between-cells alike: one arm of floor toward each side you can actually
+  // pass to, so the drawing never promises a way that isn't there and never hides one that is
   for (const k of crawlGaps) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
-    const px = ox + mx*S, py = oy + my*S, horiz = isOpen(mx-1, my) && isOpen(mx+1, my), open = phase().f.crawl, w = 0.28;
-    ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
-    ctx.fillStyle = open ? C.floor : '#151819';
-    if (horiz) ctx.fillRect(px, py + S*(0.5 - w/2), S+0.5, S*w); else ctx.fillRect(px + S*(0.5 - w/2), py, S*w, S+0.5);
-    if (open) { ctx.fillStyle = C.thick; if (horiz) { ctx.fillRect(px, py + S*(0.5 - w/2) - 1, S+0.5, 1.5); ctx.fillRect(px, py + S*(0.5 + w/2) - 0.5, S+0.5, 1.5); } else { ctx.fillRect(px + S*(0.5 - w/2) - 1, py, 1.5, S+0.5); ctx.fillRect(px + S*(0.5 + w/2) - 0.5, py, 1.5, S+0.5); } } }
-  // between-cells of a multi-section squeeze: wall-coloured, with strips running to each of its gaps
+    drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, !!phase().f.crawl); }
   if (phase().f.crawl) for (const k of crawlCells) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
-    const px = ox + mx*S, py = oy + my*S, w = 0.28, lo = 0.5 - w/2, hi = 0.5 + w/2;
-    ctx.fillStyle = C.wall; ctx.fillRect(px, py, S+0.5, S+0.5);
-    ctx.fillStyle = C.floor; ctx.fillRect(px + S*lo, py + S*lo, S*w, S*w);   // the hub
-    for (const [dx, dy] of DIRS) if (crawlGaps.has((mx+dx)+','+(my+dy)) || (isOpen(mx+dx, my+dy) && !crawlGaps.has((mx+dx)+','+(my+dy)) && !crawlCells.has((mx+dx)+','+(my+dy)))) {
-      if (dx === 1) ctx.fillRect(px + S*hi, py + S*lo, S*(1-hi) + 0.5, S*w); else if (dx === -1) ctx.fillRect(px, py + S*lo, S*lo, S*w);
-      else if (dy === 1) ctx.fillRect(px + S*lo, py + S*hi, S*w, S*(1-hi) + 0.5); else ctx.fillRect(px + S*lo, py, S*w, S*lo); } }
+    drawSqueeze(ox + mx*S, oy + my*S, S, mx, my, true); }
   // tic-tac-toe, chalked on the floor
   if (ticTacToe) { const [px, py] = T(ticTacToe.x, ticTacToe.y), g = S*0.26; ctx.save(); ctx.globalAlpha = 0.85;
     ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S*0.03); ctx.lineCap = 'round'; ctx.beginPath();
@@ -315,10 +364,34 @@ function draw() {
     ticTacToe.cells.forEach((c, i) => { const cx = px + ((i % 3) - 1) * g, cy = py + (Math.floor(i / 3) - 1) * g, a = g*0.28; ctx.lineWidth = Math.max(1.2, S*0.035); ctx.beginPath();
       if (c === 'x') { ctx.moveTo(cx-a, cy-a); ctx.lineTo(cx+a, cy+a); ctx.moveTo(cx+a, cy-a); ctx.lineTo(cx-a, cy+a); } else if (c === 'o') ctx.arc(cx, cy, a, 0, Math.PI*2); ctx.stroke(); });
     ctx.restore(); }
-  // hopscotch: chalk numbers down the corridor
-  if (hopscotch.length) { ctx.fillStyle = C.mark; ctx.globalAlpha = 0.85; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${S*0.34}px "Iowan Old Style", Palatino, Georgia, serif`;
-    hopscotch.forEach((k, i) => { const [mx, my] = k.split(',').map(Number); const [px, py] = T(mx, my); ctx.strokeStyle = C.mark; ctx.lineWidth = 1; ctx.strokeRect(px - S*0.3, py - S*0.3, S*0.6, S*0.6); ctx.fillText(String(i + 1), px, py + 1); });
-    ctx.globalAlpha = 1; }
+  // hopscotch: one court chalked down the corridor, not a box per tile. The cells touch, the way
+  // a kid draws them, so the numbers sit close together instead of one big square per tile with a
+  // gap between each. Small numbers, wobbly lines, no typeface.
+  if (hopscotch.length) {
+    const first = hopscotch[0].split(',').map(Number), second = (hopscotch[1] || hopscotch[0]).split(',').map(Number);
+    const horiz = second[0] !== first[0], hw = S * 0.22;
+    ctx.save(); ctx.globalAlpha = 0.75; ctx.strokeStyle = C.mark; ctx.lineWidth = Math.max(1, S * 0.024);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const j = S * 0.05;
+    hopscotch.forEach((k, i) => {
+      const [mx, my] = k.split(',').map(Number), [px, py] = T(mx, my), half = S / 2;
+      ctx.beginPath();
+      if (horiz) {
+        chalkLine(px - half, py - hw, px + half, py - hw, j, mx, my, 61);   // the two rails
+        chalkLine(px - half, py + hw, px + half, py + hw, j, mx, my, 67);
+        chalkLine(px - half, py - hw, px - half, py + hw, j, mx, my, 71);   // the line off the cell before
+        if (i === hopscotch.length - 1) chalkLine(px + half, py - hw, px + half, py + hw, j, mx, my, 73);
+      } else {
+        chalkLine(px - hw, py - half, px - hw, py + half, j, mx, my, 61);
+        chalkLine(px + hw, py - half, px + hw, py + half, j, mx, my, 67);
+        chalkLine(px - hw, py - half, px + hw, py - half, j, mx, my, 71);
+        if (i === hopscotch.length - 1) chalkLine(px - hw, py + half, px + hw, py + half, j, mx, my, 73);
+      }
+      ctx.stroke();
+      chalkDigit(i + 1, px, py, S * 0.26, mx, my, 79);
+    });
+    ctx.restore();
+  }
   // sliding tile in flight
   if (sliding) { let fx = player.x, fy = player.y;
     if (sliding.carry === false) { const k = Math.min(1, (nowMs - sliding.t0) / sliding.dur), e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2; fx = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; fy = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
@@ -454,20 +527,25 @@ function draw() {
     if (secretOn) { const k = Math.min(1, (nowMs - secretLitAt) / secs);
       lit = k >= 1 ? 1 : Math.max(0, Math.min(1, k * 1.25 + (Math.sin(k * 47) * Math.sin(k * 19) > 0.25 ? -0.75 : 0))); }
     if (lit < 1) {
-      ctx.save(); ctx.fillStyle = C.bg; ctx.globalAlpha = 1 - lit;
+      // the same colour as the walls, not black: painted-out floor should read as more wall,
+      // not as a hole in the picture
+      ctx.save(); ctx.fillStyle = C.wall; ctx.globalAlpha = 1 - lit;
       for (const k of secretTiles) { const [mx, my] = k.split(',').map(Number);
         if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
         ctx.fillRect(ox + mx*S, oy + my*S, S + 0.5, S + 0.5); }
       ctx.restore();
-      if (secretSwitch && !secretOn) {   // a little light in the floor, breathing
+      // a little light in the floor, breathing — but only once you are actually inside. From the
+      // squeeze there is nothing to see; you have to commit to the dark before it shows you anything
+      const inside = secretTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
+      if (secretSwitch && !secretOn && inside) {
         const [bx, by] = secretSwitch.split(',').map(Number);
         if (bx >= x0_ && bx <= x1_ && by >= y0_ && by <= y1_) {
-          const [px, py] = T(bx, by), pulse2 = 0.6 + 0.4 * Math.sin(nowMs / 620);
-          const g = ctx.createRadialGradient(px, py, 0, px, py, S * 0.75);
-          g.addColorStop(0, `rgba(232,217,160,${(0.5 * pulse2).toFixed(3)})`); g.addColorStop(1, 'rgba(232,217,160,0)');
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, S * 0.75, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = C.lamp; ctx.globalAlpha = 0.35 + 0.5 * pulse2;
-          ctx.beginPath(); ctx.arc(px, py, S * 0.11, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+          const [px, py] = T(bx, by), pulse2 = 0.6 + 0.4 * Math.sin(nowMs / 620), rr = S * CONFIG.secretGlowTiles;
+          const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+          g.addColorStop(0, `rgba(232,217,160,${(CONFIG.secretGlow * pulse2).toFixed(3)})`); g.addColorStop(1, 'rgba(232,217,160,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = C.lamp; ctx.globalAlpha = (0.35 + 0.5 * pulse2) * CONFIG.secretGlowCore;
+          ctx.beginPath(); ctx.arc(px, py, S * 0.055, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
         }
       }
     }

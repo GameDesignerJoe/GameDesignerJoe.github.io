@@ -219,9 +219,36 @@ Worked through the list at the top of `NOTES.md`. The Child phase changed most:
   finding where the maze pinches instead.
 
   Inside it is dark. `CONFIG.secretDark` paints the floor out until you find
-  `secretSwitch`, a light in the floor **by the way in**, breathing until you
-  stand on it; then the lights stutter on over `secretMarks` and
-  `secretFather`, a man from behind, mid-stride, going away.
+  `secretSwitch`, a light in the floor breathing until you stand on it; then
+  the lights stutter on over `secretMarks` and `secretFather`, a man from
+  behind, mid-stride, going away.
+
+  Three things about that dark changed in v0.56.0, all Joe's notes. The paint
+  is `colors.wall`, not `colors.bg` — painted-out floor should read as more
+  wall, not as a hole in the picture. The breathing light is a quarter as
+  bright and half as wide (`secretGlow`, `secretGlowTiles`, `secretGlowCore`);
+  it was reading as a lamp. And it does not show at all until you are standing
+  on a tile of the room, so from the squeeze there is nothing to see: the
+  switch sits `secretSwitchIn` = 2 tiles in from the way in, never on it, so
+  you have to commit to the dark before it shows you anything.
+- **A squeeze is drawn from where it actually goes** (v0.56.0). `drawSqueeze()`
+  fills the tile with wall, cuts a hub in the middle of it and reaches one arm
+  toward each side you can walk to. It used to assume every squeeze ran
+  straight through — one strip, its axis guessed from the two side neighbours.
+  32 squeezes in 925 are tees or crosses, nearly all of them in the exit
+  gauntlet, and those showed a single strip and then let you walk out of a side
+  with nothing drawn on it at all. Joe: "I'm able to push into the squeeze
+  though here even though there's no path. Maybe because the whole tile is a
+  squeeze and we don't look at what direction you are coming from?" For a
+  straight-through squeeze the drawing is pixel-for-pixel what it was.
+- **The hopscotch is one court, not a box per tile** (v0.56.0). The cells touch,
+  the way a kid chalks them: two rails down the run, a line between each cell,
+  and a small wobbly number in each. It was a 0.6-tile box per tile with a gap
+  between each, twice the size it should be and the numbers far apart.
+  `chalkLine()` draws in three wobbly bits with the wobble fixed by tile
+  position, so it never shimmers as you walk; `CHALK_DIGITS` holds 1–8 as
+  strokes rather than a typeface. The mechanic is untouched — still one tile
+  per number, stepped in order.
 - **The Child's map is medium and sparse** as of v0.50.0 — `f.turns` lets a
   phase name a Turns preset, and the Child names `sparse`. Twice the area, a
   quarter of it wall. It needs the room, and it suits the level.
@@ -405,6 +432,12 @@ replays a particular maze. Three ways to change it:
   generation.
 - **Any debug dropdown** already rerolls as a side effect of applying itself.
 - **Update app** keeps your maze, unless the build changed.
+- **Pool room** (v0.56.0) drops you into the water level for any one of the
+  seven stones. A pool is entered carrying that stone and standing in the phase
+  it comes after, so the select sets `SAVE.stones`, `SAVE.phase` and
+  `SAVE.poolPending` together and the Phase select clears it again. The talk at
+  the water is chosen by the stone count (`POOLS[stones]`), the level itself by
+  `poolPending`, so this is the whole pool sequence and not a piece of it.
 
 That last one is new. A run stores only its seed and what you did; the maze is
 rebuilt by `generate()` on load. So a run can only be resumed by the build that
