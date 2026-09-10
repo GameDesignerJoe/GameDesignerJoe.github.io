@@ -67,6 +67,10 @@ const CONFIG = {
   protoSize: [7, 9],    // the island grid, in cells
   protoPath: 9,         // how many islands the way out runs through
   protoDecoyChance: 0.8,// chance a block on that way also offers one that goes nowhere
+  protoStraightBias: 1, // of those, how often it goes straight through (up/down, left/right)
+                        // rather than round an elbow, when there is room for either. Straight needs
+                        // the square behind the block to be free and often it is not, so at 1 they
+                        // still only come out about a third of the two-way blocks
   protoTries: 60,       // layouts to try before settling for one that is merely finishable
 
   // maze shape
@@ -195,6 +199,7 @@ const CONFIG = {
     wall:  '#1b1f21',
     tunnel:'#26292b',
     thick: '#1b1f21',
+    blockWay:'#5d584f',         // the notch on each side a block can still be shoved
     shelf: '#a29d92',
     book:  '#ece7da',   // same as wall: the edge reads as a sliver of wall on the floor
     floor: '#6e6a62',

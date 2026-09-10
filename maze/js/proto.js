@@ -79,7 +79,12 @@ function buildProto(seed, kind) {
       && inGrid(cx + dx, cy + dy) && !onPath.has(key(cx + dx, cy + dy)) && !taken.has(key(cx + dx, cy + dy)));
     const ways = [onward];
     if (decoys.length && R() < CONFIG.protoDecoyChance) {
-      const d = decoys[R() * decoys.length | 0];
+      // straight through or round an elbow. Two of the three other sides are perpendicular, so
+      // left to chance the elbows win two to one; this evens them up.
+      const back = decoys.filter(([dx, dy]) => dx === -onward[0] && dy === -onward[1]);
+      const bent = decoys.filter(([dx, dy]) => !(dx === -onward[0] && dy === -onward[1]));
+      const pool = (back.length && (!bent.length || R() < CONFIG.protoStraightBias)) ? back : bent;
+      const d = pool[R() * pool.length | 0];
       ways.push(d); taken.add(key(cx + d[0], cy + d[1]));
     }
     ways.sort(() => R() - 0.5);

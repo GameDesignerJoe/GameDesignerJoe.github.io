@@ -330,6 +330,20 @@ only come back, so a wrong turn costs the walk back rather than the level.
 `blockAt()` and `blockWays()` in `js/movement.js` generalise the one-way slider;
 a slider without `ways` behaves exactly as it always did.
 
+**A block is drawn as a slab** — `blockEdge()` in `js/render.js` — a thick edge
+the whole way round with a pale notch on every side it can still be shoved. It
+used to draw that edge only on the movable sides, which was fine while every
+block had exactly one: a two-way block looked like a narrow bar at home and
+grew into a full tile once it had gone one way and could only come back. The
+slab is the same size wherever it is and whatever it can still do. Plain floor
+has no edge at all, so a block reads as an object and the ground reads as
+ground.
+
+**What a level holds**, per prototype: about 8 blocks and 55 fixed islands.
+Of the blocks, roughly 3 one-way, 1 straight (up/down or left/right) and 4
+elbow. Straight ones need the square behind the block to be free and often it
+is not, which is why `protoStraightBias` is 1 and they are still the minority.
+
 The level is a grid of islands with **no bridges at all**. A line of blocks runs
 from where you wake to the way out, and most of them also offer a way that goes
 nowhere: which of the two goes on is the whole question.
