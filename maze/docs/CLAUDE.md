@@ -334,6 +334,19 @@ The level is a grid of islands with **no bridges at all**. A line of blocks runs
 from where you wake to the way out, and most of them also offer a way that goes
 nowhere: which of the two goes on is the whole question.
 
+**Two bugs the prototype flushed out**, both in the main game as well:
+
+- The scripted first step off the mat (`introWalk`) outranks the stick in
+  `want` and only clears when you change tile. Facing a wall it never cleared,
+  so the stick stayed dead for the whole run. It now gives up if the step is
+  not possible.
+- The glint that hints at the start block redraws that block's sliver in the
+  hint colour. When the sliver became a loop over `blockWays()`, the glint was
+  left referencing the loop variable — a `ReferenceError` inside `draw()`,
+  every frame, and a throw there never re-queues `requestAnimationFrame`, so
+  the game froze. It hit the Cartographer onward after 2.5s of standing still.
+  Both now have smoke checks, because both only bite after a delay.
+
 `protoSolvable()` is the test Joe asked for. It walks every state the level can
 be in — where you are standing, and where each block has got to — and looks for
 the way out. Generation tries up to `protoTries` layouts and keeps the first

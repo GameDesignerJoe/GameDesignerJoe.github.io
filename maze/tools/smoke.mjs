@@ -561,6 +561,46 @@ check('an ordinary waking is exactly as it was',
   !plainWake.lift && plainWake.g0 === 1 && plainWake.glow === 1 && plainWake.started && plainWake.done,
   `no lift, light held at ${plainWake.glow} throughout, awake after ${await page.evaluate(() => CONFIG.introSeconds)}s`);
 
+// ── 8g. the glint on the start block, and a first step with nowhere to go ──
+// Two things that only bite after a delay, so nothing catches them by accident. The glint draws
+// the block's sliver again in the hint colour; when that stopped sharing the sliver code it threw
+// every frame, and a throw inside draw() never re-queues the frame loop — the game simply froze.
+const glint = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; delete SAVE.pushLearned; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const sl = sliders.find((s) => s.atStart);
+  if (!sl) return { skip: true };
+  player.x = sl.x + 0.5; player.y = sl.y + 0.5; firstPushDone = false; idleSince = gameNow() - CONFIG.hintIdleSec * 1000 - 2000;
+  const before = { frames: 0 };
+  let n = 0; const t0 = performance.now();
+  await new Promise((r) => { const step = () => { n++; if (performance.now() - t0 > 900) return r(); requestAnimationFrame(step); }; step(); });
+  return { frames: n, hint: CONFIG.hintIdleSec, ways: blockWays(sl).length, at: [sl.x, sl.y] };
+});
+check('the start block can glint without stopping the game',
+  !glint.skip && glint.frames > 20,
+  glint.skip ? 'no start block on this phase' :
+  `stood still past ${glint.hint}s on the block at ${glint.at}; ${glint.frames} frames drawn while it glinted, ${glint.ways} sliver(s) on it`);
+
+// The scripted step off the mat outranks the stick and only clears when you change tile. Facing a
+// wall it never cleared, and the stick stayed dead for the rest of the run.
+const boxedIn = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  // wall him in on all four sides, then hand him the scripted step
+  const cx = Math.floor(player.x), cy = Math.floor(player.y), was = [];
+  for (const [dx, dy] of DIRS) { was.push([cx + dx, cy + dy, tiles[cy + dy][cx + dx]]); tiles[cy + dy][cx + dx] = 0; }
+  introWalk = { dx: 0, dy: -1 }; held = { dx: 1, dy: 0 };
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const cleared = introWalk === null;
+  for (const [x, y, v] of was) tiles[y][x] = v;
+  held = null;
+  return { cleared };
+});
+check('a scripted first step with nowhere to go gives up instead of holding the stick',
+  boxedIn.cleared, 'walled in on all four sides, introWalk cleared itself on the next frame');
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

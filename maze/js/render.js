@@ -316,17 +316,17 @@ function draw() {
     if (sl.auto || (sliding && sliding.sl === sl)) continue;
     const [tx, ty] = blockAt(sl), w = S*0.08;
     const px = ox + tx*S, py = oy + ty*S;
-    for (const [dx, dy] of blockWays(sl)) {   // one sliver per way it can still go
-      if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
-      else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w);
-    }
+    const ways = blockWays(sl);
+    // one sliver per way it can still go, so a two-way block wears two
+    const sliver = ([dx, dy]) => { if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
+      else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w); };
+    for (const way of ways) sliver(way);
     // hint: the first slider glints if you've been standing still and haven't pushed it yet
     if (sl.atStart && !firstPushDone && started && !solved && nowMs - idleSince > CONFIG.hintIdleSec * 1000 && Math.hypot(tx + 0.5 - player.x, ty + 0.5 - player.y) < B.viewRadius() * 2 + 1) {
       const t = (nowMs - idleSince - CONFIG.hintIdleSec * 1000) / 1000;
       const a = Math.min(1, t / 1.5) * (0.22 + 0.18 * Math.sin(t * 2.2));
       ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = CONFIG.hintColor;
-      if (dx === 1) ctx.fillRect(px + S - w, py, w, S); else if (dx === -1) ctx.fillRect(px, py, w, S);
-      else if (dy === 1) ctx.fillRect(px, py + S - w, S, w); else ctx.fillRect(px, py, S, w);
+      for (const way of ways) sliver(way);
       ctx.restore(); ctx.fillStyle = C.thick;
     }
   }

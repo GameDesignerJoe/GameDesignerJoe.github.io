@@ -83,7 +83,9 @@ function buildProto(seed, kind) {
       ways.push(d); taken.add(key(cx + d[0], cy + d[1]));
     }
     ways.sort(() => R() - 0.5);
-    sliders.push({ x: TXc(cx), y: TXc(cy), dx: ways[0][0], dy: ways[0][1], ways, at: 0, shifted: false, onPath: i === 0 });
+    // the first one glints if you stand still, the way the start-room block does, so the one
+    // thing you have to learn here teaches itself. It does not spend the real game's first push.
+    sliders.push({ x: TXc(cx), y: TXc(cy), dx: ways[0][0], dy: ways[0][1], ways, at: 0, shifted: false, atStart: i === 0 });
   }
 
   const last = path[path.length - 1];

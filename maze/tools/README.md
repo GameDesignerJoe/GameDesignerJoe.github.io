@@ -47,7 +47,7 @@ are the only thing it changed about generation.
 Every failure prints the phase, stone count and seed, plus the exact command to
 reproduce it.
 
-As of v0.48.0 the sweep runs **20 checks** and `smoke.mjs` **29**.
+As of v0.53.0 the sweep runs **20 checks** and `smoke.mjs` **31**.
 
 **`checks.mjs`** holds the invariants. They deliberately do not call the game's
 own `isOpen()` or `walkable()` — a bug in those should not be able to hide

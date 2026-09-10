@@ -55,6 +55,11 @@ function update(wall) {
     zoomS = intro.from + (CONFIG.tilePx - intro.from) * e;
     if (k >= 1) intro = null; }
   else zoomS = started ? CONFIG.tilePx : CONFIG.titleTilePx;
+  // The scripted first step off the mat. If there is nothing to step into, it has to give up:
+  // `want` prefers it over anything you do, and it only clears when you change tile — which you
+  // cannot do — so the stick stays dead for the rest of the run. A prototype that starts you on
+  // an island with no bridges did exactly that.
+  if (introWalk && !sliding && !canGo(introWalk)) introWalk = null;
   const want = (solved || !started || mapOpen || paused) ? null : (introWalk || held || kd);
 
   // swings move on their own; you ride if you're standing on one
@@ -94,7 +99,7 @@ function update(wall) {
         else {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
+        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned && !protoMode) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
         }
       }
       else if (canGo(want)) dir = want;
