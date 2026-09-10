@@ -76,6 +76,12 @@ would join two pruned cells and leave a floor tile walled in on both sides, in
 5 of 576 Sparse mazes. Auto never had it, because a full grid has no pruned
 cells to join.
 
+`smoke.mjs` also covers the Full map debug view since v0.39.0: that a tap
+stands you where you tapped and brings the camera with it, that a drag pans
+instead of teleporting, that zoom holds its anchor point and stops at both
+ends, and that with Full map off a tap on the maze does nothing at all. Telling
+a tap from a drag is the part that would rot silently.
+
 **`selftest.mjs`** breaks a known-good maze eleven ways and asserts the right
 check notices each one. A check that can never fail is worse than no check, so
 run this after editing `checks.mjs`.

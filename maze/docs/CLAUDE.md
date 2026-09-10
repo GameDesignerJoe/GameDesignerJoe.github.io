@@ -179,6 +179,33 @@ result: on X-Large, Least uses about 59% of the grid, cuts turns-plus-junctions
 from ~700 to ~180 and dead ends from ~170 to ~12, and the mean straight run
 goes from 3 cells to about 7.
 
+## The Full map debug view (v0.39.0)
+
+With **Full map** ticked in the debug menu, the whole maze is drawn fitted to
+the screen. It is now something you can work in rather than only look at:
+
+- **Tap a spot to stand there.** Tap a wall and it takes the nearest floor
+  within `CONFIG.debugTapReach` tiles, because at the fitted scale a tile is a
+  few pixels wide and a fingertip is not. The exit tile is never a target — a
+  stray tap should not end the run — so tapping it puts you beside it instead.
+  Arriving fires the normal tile-entry logic, so pickups and pages are
+  collected exactly as they would be on foot and the run stays one you could
+  have walked. It will happily drop you behind a locked door; tap your way back
+  out.
+- **Pinch, scroll or drag** to zoom and pan, between `debugMapMinZoom` (a
+  multiple of the fitted scale) and `debugMapMaxZoom` pixels per tile. Zoom
+  holds the point under your fingers still.
+
+`dbgView` is null until you pan or zoom, and null means fitted, which is what
+the view has always been. Untick and tick Full map, or start a new maze, to
+refit. `render.js` asks `dbgFrame()` in `js/map.js` for the camera so both the
+drawing and the hit-testing agree exactly; hit-testing off the last frame's
+numbers would drift during a pinch.
+
+One wrinkle worth knowing: the debug panel closes on a tap outside itself, in a
+capture-phase listener that runs before the canvas sees the tap. `dbgClosedAt`
+records that, so the tap that dismisses the panel does not also teleport you.
+
 ## Districts (v0.38.0)
 
 Patches of maze with a character of their own, so a map does not feel the same

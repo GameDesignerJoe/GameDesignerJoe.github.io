@@ -24,6 +24,7 @@ let zoomS = 150, intro = null, introWalk = null;   // intro: {t0} while zooming 
 let darkAmt = 0;   // 0 lit … 1 fully in the dark; eased per frame
 let inSqueeze = false, camBump = 0;   // camBump: a small vertical kick, decays
 let viewS = CONFIG.tilePx, viewOx = 0, viewOy = 0;
+let dbgView = null;   // the Full map debug view once you pan or zoom it: {cx, cy, S}. null = fitted to the screen
 let narrNext = 0, narrHideAt = 0, narrQueue = [], journalsRead = 0, pagesThisRun = [], leftRoom = false, shelfSaid = false, shelfStandKey = '', shelfStandAt = 0, shelfShown = '';
 const $ = id => document.getElementById(id);
 const chalkEl = $('chalk'), charcoalEl = $('charcoal'), fxEl = $('fx'), keyEl = $('key'), narrEl = $('narr');
@@ -78,7 +79,7 @@ function useChalk(glyph) {
   updateChalk();
 }
 function reset(seed) {
-  SEED = seed; generate(SEED); started = false; AUDIO.setMusic(poolMode ? 'pool' : character.name); zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
+  SEED = seed; generate(SEED); started = false; dbgView = null; AUDIO.setMusic(poolMode ? 'pool' : character.name); zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;

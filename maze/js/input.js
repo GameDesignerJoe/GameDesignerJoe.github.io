@@ -26,13 +26,14 @@ charcoalEl.addEventListener('pointerdown', e => { e.stopPropagation(); useCharco
 $('lamp').addEventListener('pointerdown', e => { e.stopPropagation(); if (!hasLamp || paused || solved) return; lampOn = !lampOn; $('lamp').classList.toggle('on', lampOn); lampOn ? AUDIO.lampOn() : AUDIO.lampOff(); });
 
 const dbg = $('dbg'), opt = { arrow: $('optArrow'), path: $('optPath'), map: $('optMap') };
+let dbgClosedAt = 0;   // when a tap outside the panel dismissed it. That same tap must not also teleport you
 $('gear').addEventListener('pointerdown', e => { e.stopPropagation(); dbg.classList.toggle('show'); });
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveRun(true); });
 addEventListener('pagehide', () => saveRun(true));
 setInterval(() => saveRun(true), 6000);
-document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) dbg.classList.remove('show'); }, true);
+document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) { dbg.classList.remove('show'); dbgClosedAt = performance.now(); } }, true);
 dbg.addEventListener('pointerdown', e => e.stopPropagation());
-opt.map.addEventListener('change', () => debugMap = opt.map.checked);
+opt.map.addEventListener('change', () => setDebugMap(opt.map.checked));   // always opens fitted, so untick and tick to get the fit back
 $('optSize').value = SAVE.ui.size || 'auto'; $('optBranch').value = SAVE.ui.branch || 'auto'; $('optBraid').value = SAVE.ui.braid || 'auto'; $('optTurns').value = SAVE.ui.turns || 'auto'; $('optClusters').value = SAVE.ui.clusters || 'auto';
 $('optTurns').addEventListener('change', () => { SAVE.ui.turns = $('optTurns').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optClusters').addEventListener('change', () => { SAVE.ui.clusters = $('optClusters').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });

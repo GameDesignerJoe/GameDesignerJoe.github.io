@@ -67,8 +67,79 @@ function drawMap() {
     mctx.fillStyle = C.wall; mctx.beginPath(); mctx.moveTo(r, 0); mctx.lineTo(r*0.3, -r*0.29); mctx.lineTo(r*0.3, r*0.29); mctx.closePath(); mctx.fill(); mctx.restore(); }
 }
 
+
+// ── the Full map debug view: tap to stand there, pinch or scroll to zoom ─────
+// Live only while the debug menu's Full map is ticked. `dbgView` stays null until
+// you pan or zoom, and null means "fitted to the screen", which is what the view
+// has always been. Untick and tick Full map, or start a new maze, to get the fit
+// back. render.js asks dbgFrame() for the camera so both agree exactly — working
+// off the last frame's numbers instead would drift during a pinch.
+const dbgFit = () => Math.min(innerWidth / W, (innerHeight - 260) / H);
+function dbgFrame() {
+  const vw = innerWidth, vh = innerHeight;
+  if (!dbgView) { const S = dbgFit(); return { S, ox: (vw - W*S)/2, oy: (vh - H*S)/2 - 80 }; }
+  const S = dbgView.S; return { S, ox: vw/2 - dbgView.cx*S, oy: vh/2 - dbgView.cy*S };
+}
+function setDebugMap(on) { debugMap = on; opt.map.checked = on; dbgView = null; }
+function dbgHold() {   // take the fitted view as the starting point the first time you touch it
+  if (!dbgView) { const f = dbgFrame(); dbgView = { cx: (innerWidth/2 - f.ox) / f.S, cy: (innerHeight/2 - f.oy) / f.S, S: f.S }; }
+  return dbgView;
+}
+function dbgPan(dx, dy) { const v = dbgHold(); v.cx -= dx / v.S; v.cy -= dy / v.S; dbgClamp(); }
+function dbgClamp() { dbgView.cx = Math.max(0, Math.min(W, dbgView.cx)); dbgView.cy = Math.max(0, Math.min(H, dbgView.cy)); }
+function dbgZoomAt(want, px, py) {   // the world point under your fingers stays under them
+  const v = dbgHold(), f = dbgFrame();
+  const wx = (px - f.ox) / f.S, wy = (py - f.oy) / f.S;
+  v.S = Math.max(dbgFit() * CONFIG.debugMapMinZoom, Math.min(CONFIG.debugMapMaxZoom, want));
+  v.cx = wx + (innerWidth/2 - px) / v.S; v.cy = wy + (innerHeight/2 - py) / v.S;
+  dbgClamp();
+}
+// stand where you tapped. A wall takes the nearest floor within reach, because at the
+// fitted scale a tile is a few pixels wide and a fingertip is not. Never the exit tile:
+// a stray tap should not end the run. Pickups and pages fire as they would on foot,
+// since arriving is arriving — the run stays a run you could have walked.
+function dbgTeleport(clientX, clientY) {
+  if (!started || solved || sliding) return;
+  const f = dbgFrame();
+  const tx = Math.floor((clientX - f.ox) / f.S), ty = Math.floor((clientY - f.oy) / f.S);
+  const R2 = CONFIG.debugTapReach;
+  let best = null, bd = Infinity;
+  for (let dy = -R2; dy <= R2; dy++) for (let dx = -R2; dx <= R2; dx++) {
+    const x = tx + dx, y = ty + dy, d = dx*dx + dy*dy;
+    if (d >= bd || !isOpen(x, y) || (x === exit.x && y === exit.y)) continue;
+    bd = d; best = [x, y];
+  }
+  if (!best) return;
+  player.x = best[0] + 0.5; player.y = best[1] + 0.5; cam.x = player.x; cam.y = player.y;
+  dir = null; recenter = null; pendingTurn = null; pushHeldSince = 0; clearStick();
+  AUDIO.step(tunnelTiles.has(best.join(',')));
+}
+const dbgPtrs = new Map(); let dbgPinch = null, dbgPress = null;
+cv.addEventListener('pointerdown', e => {
+  if (!debugMap || !started || dbg.classList.contains('show') || performance.now() - dbgClosedAt < 100) return;   // the panel closes on this same tap, in an earlier capture-phase listener
+  dbgPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  cv.setPointerCapture(e.pointerId);
+  if (dbgPtrs.size === 1) dbgPress = { id: e.pointerId, moved: 0 };
+  else { dbgPress = null; const [a, b] = [...dbgPtrs.values()]; dbgPinch = { d: Math.hypot(a.x-b.x, a.y-b.y) || 1, S: dbgHold().S }; }
+});
+cv.addEventListener('pointermove', e => {
+  const prev = dbgPtrs.get(e.pointerId); if (!prev) return;
+  const cur = { x: e.clientX, y: e.clientY };
+  if (dbgPtrs.size === 1) dbgPan(cur.x - prev.x, cur.y - prev.y);
+  if (dbgPress && e.pointerId === dbgPress.id) dbgPress.moved += Math.hypot(cur.x - prev.x, cur.y - prev.y);
+  dbgPtrs.set(e.pointerId, cur);
+  if (dbgPtrs.size === 2 && dbgPinch) { const [a, b] = [...dbgPtrs.values()];
+    dbgZoomAt(dbgPinch.S * Math.hypot(a.x-b.x, a.y-b.y) / dbgPinch.d, (a.x+b.x)/2, (a.y+b.y)/2); }
+});
+const dbgUp = e => {
+  if (e.type === 'pointerup' && dbgPress && e.pointerId === dbgPress.id && dbgPtrs.size === 1 && dbgPress.moved < CONFIG.debugTapSlop) dbgTeleport(e.clientX, e.clientY);
+  dbgPtrs.delete(e.pointerId); if (dbgPtrs.size < 2) dbgPinch = null; if (!dbgPtrs.size) dbgPress = null;
+};
+cv.addEventListener('pointerup', dbgUp); cv.addEventListener('pointercancel', dbgUp);
+cv.addEventListener('wheel', e => { if (!debugMap || !started) return; dbgZoomAt(dbgHold().S * (e.deltaY < 0 ? 1.12 : 0.89), e.clientX, e.clientY); });
+
 const keys = {};
-addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') { debugMap = !debugMap; opt.map.checked = debugMap; } });
+addEventListener('keydown', e => { keys[e.key] = true; if (e.key === '`') setDebugMap(!debugMap); });
 addEventListener('keyup', e => keys[e.key] = false);
 
 function enterMaze() {   // fade from black into the room, asleep; tapping the sleeper begins the run

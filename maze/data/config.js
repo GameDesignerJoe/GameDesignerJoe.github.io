@@ -20,6 +20,11 @@ const CONFIG = {
   size: 'md',           // sm | md | lg | xl  (debug menu)
   cols: 14,             // set from size at generation
   rows: 20,
+  // the debug menu's Full map view: tap a spot to stand there, pinch or scroll to zoom
+  debugMapMinZoom: 0.6, // how far below the fitted scale you may zoom out, as a multiple of it
+  debugMapMaxZoom: 64,  // how far in you may zoom, in screen pixels per tile
+  debugTapSlop: 10,     // a press that travels less than this many pixels is a tap, not a drag
+  debugTapReach: 2,     // tap a wall and it takes the nearest floor within this many tiles
   tilePx: 60,           // zoom: screen pixels per tile
   titleTilePx: 150,     // zoom while asleep on the title screen
   introSeconds: 2.8,    // zoom-out when you tap the sleeper

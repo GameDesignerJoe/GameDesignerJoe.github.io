@@ -341,6 +341,70 @@ check('a swing fades with distance and goes silent out of earshot',
   + falloff.rows.map(([d, v]) => `${d}:${v}`).join(' ')
   + `${reachedRange ? '' : ' — corridor too short to reach the range limit'}`);
 
+// ── 8c. the Full map debug view: tap to stand there, pinch to zoom ──
+// A tap has to be told apart from a drag, and the zoom has to hold the point
+// under your fingers still, or panning a big maze on a phone is unusable.
+await page.evaluate(() => { setDebugMap(true); });
+await page.waitForTimeout(150);
+
+const target = await page.evaluate(() => {
+  const f = dbgFrame(), here = [Math.floor(player.x), Math.floor(player.y)];
+  let best = null, bd = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!isOpen(x, y) || (x === exit.x && y === exit.y)) continue;
+    const d = Math.abs(x - here[0]) + Math.abs(y - here[1]);
+    if (d > bd) { bd = d; best = [x, y]; }
+  }
+  return { tile: best, from: here, fitted: dbgView === null, px: f.ox + best[0] * f.S + f.S / 2, py: f.oy + best[1] * f.S + f.S / 2 };
+});
+await touch('touchStart', target.px, target.py);
+await page.waitForTimeout(40);
+await touch('touchEnd', target.px, target.py);
+await page.waitForTimeout(150);
+const landed = await page.evaluate(() => ({ x: Math.floor(player.x), y: Math.floor(player.y), cam: cam.x, solved }));
+check('a tap on the Full map stands you there',
+  target.fitted && landed.x === target.tile[0] && landed.y === target.tile[1]
+    && Math.abs(landed.cam - (landed.x + 0.5)) < 0.01 && !landed.solved,
+  `opened fitted; from ${target.from} tapped ${target.tile}, landed ${landed.x},${landed.y}, camera snapped with it`);
+
+const held = await page.evaluate(() => ({ x: player.x, y: player.y }));
+await touch('touchStart', 200, 400);
+for (const dx of [12, 30, 52, 78]) { await touch('touchMove', 200 + dx, 400); await page.waitForTimeout(30); }
+await touch('touchEnd', 278, 400);
+await page.waitForTimeout(120);
+const dragged = await page.evaluate(() => ({ x: player.x, y: player.y, v: dbgView && { cx: +dbgView.cx.toFixed(2), cy: +dbgView.cy.toFixed(2) } }));
+check('a drag pans the Full map instead of teleporting',
+  dragged.x === held.x && dragged.y === held.y && !!dragged.v,
+  `player unmoved at ${held.x.toFixed(1)},${held.y.toFixed(1)}; view centre ${JSON.stringify(dragged.v)}`);
+
+const zoom = await page.evaluate(() => {
+  const px = 300, py = 500, f0 = dbgFrame();
+  const w0 = [(px - f0.ox) / f0.S, (py - f0.oy) / f0.S];
+  for (let i = 0; i < 6; i++) dbgZoomAt(dbgHold().S * 1.12, px, py);
+  const f1 = dbgFrame(), w1 = [(px - f1.ox) / f1.S, (py - f1.oy) / f1.S];
+  for (let i = 0; i < 80; i++) dbgZoomAt(dbgHold().S * 1.3, px, py);
+  const capped = dbgFrame().S;
+  for (let i = 0; i < 120; i++) dbgZoomAt(dbgHold().S * 0.8, px, py);
+  const floored = dbgFrame().S;
+  return { S0: f0.S, S1: f1.S, drift: Math.hypot(w1[0] - w0[0], w1[1] - w0[1]), capped, floored,
+    max: CONFIG.debugMapMaxZoom, min: Math.min(innerWidth / W, (innerHeight - 260) / H) * CONFIG.debugMapMinZoom };
+});
+check('Full map zoom holds its anchor and stops at both ends',
+  zoom.S1 > zoom.S0 * 1.5 && zoom.drift < 0.01
+    && Math.abs(zoom.capped - zoom.max) < 0.01 && Math.abs(zoom.floored - zoom.min) < 0.01,
+  `${zoom.S0.toFixed(1)} → ${zoom.S1.toFixed(1)} px/tile, anchor drift ${zoom.drift.toExponential(1)} tiles; `
+  + `in stops at ${zoom.capped.toFixed(1)} (cap ${zoom.max}), out at ${zoom.floored.toFixed(2)} (floor ${zoom.min.toFixed(2)})`);
+
+const offNow = await page.evaluate(() => { setDebugMap(false); return { x: player.x, y: player.y, v: dbgView }; });
+await touch('touchStart', 120, 300);
+await page.waitForTimeout(40);
+await touch('touchEnd', 120, 300);
+await page.waitForTimeout(120);
+const offAfter = await page.evaluate(() => ({ x: player.x, y: player.y, v: dbgView }));
+check('with Full map off, a tap on the maze does nothing',
+  offNow.x === offAfter.x && offNow.y === offAfter.y && offNow.v === null && offAfter.v === null,
+  `player still ${offAfter.x.toFixed(1)},${offAfter.y.toFixed(1)}; view reset to fitted on untick`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

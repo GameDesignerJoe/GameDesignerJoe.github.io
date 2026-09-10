@@ -5,7 +5,7 @@ see the change. Nothing needs building.
 
 | File | What's in it | You'd come here to… |
 | --- | --- | --- |
-| `config.js` | `SIZES`, `CONFIG` | change how the maze feels — light radius, speed, how branchy it is, how straight the halls run and how much of the grid they fill (`hallStraightness`, `hallFill`, `turnsPresets`), what the districts are made of (`clusters`, `clusterCells`, `clusterHearts`), how much chalk, how dark, how many doors |
+| `config.js` | `SIZES`, `CONFIG` | change how the maze feels — light radius, speed, how branchy it is, how straight the halls run and how much of the grid they fill (`hallStraightness`, `hallFill`, `turnsPresets`), what the districts are made of (`clusters`, `clusterCells`, `clusterHearts`), how the Full map debug view zooms (`debugMapMinZoom`, `debugMapMaxZoom`, `debugTapReach`), how much chalk, how dark, how many doors |
 | `phases.js` | `PHASES`, `STONES` | change which self gets which features, or the order of the seven stones |
 | `text.js` | every line the player reads | rewrite the prose |
 | `music.js` | `MUSIC` | change a generative preset |

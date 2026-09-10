@@ -14,7 +14,7 @@ function draw() {
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
 
   let S = zoomS, ox, oy;
-  if (debugMap) { S = Math.min(vw / W, (vh - 260) / H); ox = (vw - W*S)/2; oy = (vh - H*S)/2 - 80; }
+  if (debugMap) { const f = dbgFrame(); S = f.S; ox = f.ox; oy = f.oy; }
   else {
     const landscape = vw > vh, leftStick = document.body.classList.contains('stick-left');
     const pre = !started && !intro;   // asleep: dead center, no HUD to make room for
