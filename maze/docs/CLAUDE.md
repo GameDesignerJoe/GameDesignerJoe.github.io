@@ -183,13 +183,23 @@ goes from 3 cells to about 7.
 
 Worked through the list at the top of `NOTES.md`. The Child phase changed most:
 
-- **The way out is the hardest part.** `CONFIG.exitGauntlet` turns the last few
-  cells before the exit into a warren: `exitGauntletSqueeze` of the passages in
-  there become squeezes and `exitGauntletHoles` of the blank walls get a hole
-  knocked through them. About 97% of the run-in is squeeze. Only links are added
-  and open passages relabelled, never anything closed, so reaching the exit
-  cannot break — it just has to be crawled. Every hole is also another way
-  round, which is why the hole rate is the number to be careful with.
+- **The way out is a tree of squeezes.** `CONFIG.exitGauntlet` takes the last
+  stretch of the route and turns it into one: a single mouth in, forks along
+  the way, one branch that goes on and the rest that end in nothing. Pass-
+  through cells are marked as `crawlCells` so they draw narrow and read as
+  tunnel rather than a room you step into; the forks stay as chambers. About
+  18 cells and 3 places to choose per tree.
+
+  The wrong branches are not invented. Lift the trunk out of the maze and what
+  is left falls into pieces: one big one, the maze you came from, and small
+  ones hanging off the trunk. Those are already dead ends — that is what makes
+  them small — so absorbing one whole costs nothing and cuts nothing. Only the
+  trunk's links back to the big piece are shut, one at a time and only while
+  every floor tile stays walkable. Every trunk length is built, measured and
+  unbuilt, and the best kept: it must be the only way to the exit, and among
+  those the one that makes you choose most often wins. **`the squeeze tree is
+  the only way to the exit`** is an invariant — shut the mouth and the exit
+  must be gone. 1920 for 1920.
 - **A squeeze you cannot go round.** `CONFIG.crawlOnPath` puts one crawl gap on
   the solution route whose sealing would cut start from exit, so getting out
   means getting down. The tile was already open, so nothing about the maze

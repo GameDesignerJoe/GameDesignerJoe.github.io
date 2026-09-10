@@ -147,6 +147,17 @@ const CHECKS = [
     return s.secretTiles.some((k) => !noCrawl.has(k)) ? null : 'the secret place can be walked into without squeezing';
   }],
 
+  ['the squeeze tree is the only way to the exit', (s) => {
+    // The point of it is that you cannot walk round it. Shut the one mouth and the exit must be
+    // gone. Sliders stay as generated here: a pocket you would have to be standing in already is
+    // not a way round anything.
+    if (!s.exitTree || !s.exitTree.length || !s.exitTreeMouth) return null;
+    const open = openTiles(s, { slidersShifted: false });
+    if (!open.has(s.exitTreeMouth)) return `the mouth ${s.exitTreeMouth} is not open floor`;
+    const shut = flood(open, s.W, s.H, s.start.x, s.start.y, new Set([s.exitTreeMouth]));
+    return shut.has(K(s.exit.x, s.exit.y)) ? 'the exit can be reached without going through the tree' : null;
+  }],
+
   ['no corridor is cut off', (s) => {
     // Every floor tile must be walkable from the mat. Dead space is closed tiles, and a
     // pocket counts because its slider can be pushed and pulled back, so anything left

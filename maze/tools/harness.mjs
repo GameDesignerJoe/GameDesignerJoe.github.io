@@ -73,6 +73,7 @@ const snapshotInPage = (phaseIdx, stones, pool, seed, turns, clusterOpt) => {
     pockets: pockets.map(([x, y]) => [x, y]),
     sliders: sliders.map((sl) => ({ x: sl.x, y: sl.y, dx: sl.dx, dy: sl.dy, atStart: !!sl.atStart, onPath: !!sl.onPath, auto: !!sl.auto })),
     crawlGaps: [...crawlGaps], crawlCells: [...crawlCells], secretTiles: [...secretTiles],
+    exitTree: [...exitTree], exitTreeMouth,
     // figures hold tile centres (x.5, y.5), like `start` does
     figures: figures.map((f) => ({ x: Math.floor(f.x), y: Math.floor(f.y) })),
     darkTiles: [...darkTiles],

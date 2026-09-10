@@ -123,12 +123,14 @@ const CONFIG = {
   startRoomChalk: 1,
   crawlGaps: 3,         // low gaps in walls only the Child fits through (per medium-sized maze; scales with area)
   crawlOnPath: 2,       // squeezes on the way out that cannot be walked round. Child phases only
-  exitGauntlet: 5,      // and the last stretch before the way out is a warren: this many cells back
-                        // from the exit, nearly every wall has a hole in it and nearly every passage
-                        // is a squeeze. The final struggle of the map. 0 = off. Child phases only
-  exitGauntletSqueeze: 0.85,  // share of the passages in there that become squeezes
-  exitGauntletHoles: 0.35,    // and of the blank walls that get a hole knocked through them. Every hole is
-                        // another way round, so too many and no single squeeze is unavoidable any more
+  // the last stretch before the way out: a tree of squeezes, sealed off but for one mouth, where
+  // the only question is which branch goes on. The final struggle of the map. 0 = off. Child only
+  exitGauntlet: 12,      // cells of the way out that the tree covers, counting back from the exit
+  exitGauntletBranch: 16,     // biggest wrong branch it will take in whole. Bigger than this and the
+                        // branch is really more maze, so it is left outside and the tree keeps its shape
+  exitGauntletMaxCells: 44,   // and the whole tree stops here, trunk included
+  exitGauntletTunnel: 0.6,    // share of the pass-through cells drawn as tunnel rather than a room you
+                        // step into, so some of it is just crawling, elbows and all
   secretRooms: 1,       // a room sealed off behind a squeeze, covered in someone else's chalk. Child only
   secretRoomChalk: 0.3, // how thickly that room is drawn on: chance per floor tile
   swings: 1,            // tiles that slide back and forth on their own

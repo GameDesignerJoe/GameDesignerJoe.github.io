@@ -17,6 +17,8 @@ let doors = [];              // locked doors inside the maze: {x,y,shape,open}
 let innerKeys = new Map();   // 'x,y' → shape of the key lying there
 let heldKeys = new Set();    // shapes you carry
 const KEY_SHAPES = ['circle', 'triangle', 'square'];
+let exitTree = new Set();    // cells of the squeeze tree guarding the way out
+let exitTreeMouth = null;    // 'x,y' of its one entrance, the squeeze you go in by
 let secretTiles = new Set(); // tiles of the secret place: a room walled up, or a dead-end passage, behind one squeeze
 let secretMarks = new Map(); // 'x,y' → glyph: somebody else's chalk, in that room
 let crawlGaps = new Set();   // 'x,y' wall gaps a child can crawl through (open only when the phase allows)
@@ -316,7 +318,7 @@ function generate(seed) {
   }
 
   // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
-  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map();
+  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map(); exitTree = new Set(); exitTreeMouth = null;
   if (!poolMode) {
     const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     const cands2 = [];
@@ -502,42 +504,135 @@ function generate(seed) {
     }
   }
 
-  // The way out should be the hardest part of it. The last stretch before the exit becomes a
-  // warren: nearly every passage in there is a squeeze, and holes are knocked through half the
-  // blank walls so it is a knot rather than a corridor. Only links are added and open passages
-  // relabelled, never anything closed, so nothing about reaching the exit can break — it just
-  // has to be crawled. Child phases only: for everyone after, a crawl gap is drawn shut.
+  // The way out is the last thing between him and out, so it should be a decision, not a corridor.
+  // The final stretch becomes a tree of squeezes: one mouth in, forks along the way, one branch
+  // that goes on and the rest that end in nothing. Some of it is chambers you step into and choose
+  // from; the rest is drawn as tunnel, so it is just crawling, elbows and all.
+  //
+  // The wrong branches are not invented. Take the last stretch of the way out and lift it out of
+  // the maze, and what is left falls into pieces: one big piece, the maze you came from, and a
+  // handful of small ones hanging off the stretch. Those small ones are already dead ends — that
+  // is what makes them small — so absorbing one whole costs nothing and cuts nothing. Only the
+  // trunk's own links back to the big piece are shut, one at a time and only while every floor
+  // tile in the maze is still walkable.
+  //
+  // How long a trunk to take is not obvious, so every length is built and measured and the best
+  // one kept: it has to be the only way to the exit, and among those, the one that makes you
+  // choose most often wins. Building is deterministic given the length, so the winner is simply
+  // built again. Child phases only: for everyone after, a crawl gap is drawn shut and this would
+  // wall the exit away.
   if (F.crawl && CONFIG.exitGauntlet && !poolMode) {
     const isCell = (x, y) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
-    const nearRoom2 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
-    const offLimits = (x, y) => exitAlley.some(([ax, ay]) => ax === x && ay === y) || (x === exX && y === exY)
-      || (startGap && x === startGap[0] && y === startGap[1]) || nearRoom2(x, y)
-      || sealedGaps.some(([gx, gy]) => gx === x && gy === y)
+    const inGrid = (x, y) => x >= TX(0) && x < W - P && y >= TX(0) && y < H - P;
+    const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 2 && x <= startRoom.x1 + 2 && y >= startRoom.y0 - 2 && y <= startRoom.y1 + 2;
+    const sealedKeys2 = new Set(sealedGaps.map(([x, y]) => x + ',' + y));
+    const busy = (x, y) => sealedKeys2.has(x + ',' + y) || secretTiles.has(x + ',' + y)
       || sliders.some(sl => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y))
-      || secretTiles.has(x + ',' + y);
-    // the zone: cells within reach of the exit, walking outward through the maze
-    const zone = new Set(); {
-      const q = [[exX, exY, 0]]; const seen = new Set([exX + ',' + exY]);
-      while (q.length) {
-        const [x, y, d] = q.shift();
-        if (isCell(x, y)) { zone.add(x + ',' + y); if (d >= CONFIG.exitGauntlet) continue; }
-        for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
-          if (!isOpen(nx, ny) || seen.has(k)) continue; seen.add(k); q.push([nx, ny, d + (isCell(nx, ny) ? 1 : 0)]); }
+      || pockets.some(([px, py]) => px === x && py === y);
+    const nbrs = (x, y) => DIRS.map(([dx, dy]) => [x + dx * 2, y + dy * 2, x + dx, y + dy])
+      .filter(([nx, ny, gx, gy]) => inGrid(nx, ny) && isOpen(gx, gy) && isOpen(nx, ny));
+    const walkAll = () => {
+      const s0 = Math.floor(start.x), t0 = Math.floor(start.y);
+      const seen = new Set([s0 + ',' + t0]), q2 = [[s0, t0]];
+      while (q2.length) { const [x, y] = q2.shift(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (seen.has(k) || !(isOpen(nx, ny) || sealedKeys2.has(k))) continue; seen.add(k); q2.push([nx, ny]); } }
+      return seen;
+    };
+    const nothingStranded = () => { const seen = walkAll();
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x] && !seen.has(x + ',' + y)) return false;
+      return true; };
+
+    const pathCells = solutionPath.filter(([x, y]) => isCell(x, y) && inGrid(x, y));
+
+    // Build a tree of the given trunk length and leave it standing. Returns what it is worth.
+    const build = (want) => {
+      const trunk = pathCells.slice(-want);
+      const before = pathCells[pathCells.length - want - 1];
+      const mouth = trunk[0];
+      const entrance = ((before[0] + mouth[0]) / 2) + ',' + ((before[1] + mouth[1]) / 2);
+      const trunkSet = new Set(trunk.map(c => c.join(',')));
+
+      // lift the trunk out and see what the maze falls into
+      const seenCell = new Set(trunkSet), pieces = [];
+      for (const c of trunk) for (const [nx, ny] of nbrs(c[0], c[1])) {
+        const k0 = nx + ',' + ny;
+        if (seenCell.has(k0)) continue;
+        const piece = new Set([k0]), q2 = [[nx, ny]]; seenCell.add(k0);
+        let touchesBefore = false;
+        while (q2.length) {
+          const [x, y] = q2.shift();
+          if (x === before[0] && y === before[1]) touchesBefore = true;
+          for (const [ax, ay] of nbrs(x, y)) { const k = ax + ',' + ay;
+            if (trunkSet.has(k) || piece.has(k)) continue; piece.add(k); seenCell.add(k); q2.push([ax, ay]); }
+        }
+        pieces.push({ piece, touchesBefore });
       }
+      // take every hanging piece that will fit, not a chosen few: one left out is a plain corridor
+      // off the tree, which spoils the look of it and cannot be shut either, because whatever is
+      // down there would be stranded
+      const G = new Set(trunkSet);
+      const fits = pieces
+        .filter(p => !p.touchesBefore && p.piece.size <= CONFIG.exitGauntletBranch
+          && ![...p.piece].some(k => { const [x, y] = k.split(',').map(Number); return roomZone(x, y); }))
+        .sort((a, b) => b.piece.size - a.piece.size);
+      let budget = CONFIG.exitGauntletMaxCells - trunk.length;
+      for (const b of fits) { if (b.piece.size > budget) continue; for (const k of b.piece) G.add(k); budget -= b.piece.size; }
+
+      // shut the ways back into the maze you came from, keeping the one you came in by
+      const shut = [];
+      for (const k of G) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const [dx, dy] of DIRS) {
+          const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
+          if (!isOpen(gx, gy) || gx + ',' + gy === entrance) continue;
+          if (!inGrid(nx, ny)) continue;                       // the exit alley: that is the way out
+          if (G.has(nx + ',' + ny) || busy(gx, gy)) continue;
+          tiles[gy][gx] = 0;
+          if (nothingStranded()) shut.push([gx, gy]); else tiles[gy][gx] = 1;
+        }
+      }
+      // with the mouth shut, is the exit gone?
+      const [mgx, mgy] = entrance.split(',').map(Number);
+      const wasMouth = tiles[mgy][mgx]; tiles[mgy][mgx] = 0;
+      const only = !walkAll().has(exX + ',' + exY);
+      tiles[mgy][mgx] = wasMouth;
+      // and how often does it make you choose?
+      let forks = 0;
+      for (const k of G) { const [cx, cy] = k.split(',').map(Number);
+        if (nbrs(cx, cy).filter(([nx, ny]) => G.has(nx + ',' + ny)).length >= 3) forks++; }
+      return { G, shut, entrance, mouth, only, forks };
+    };
+    const unbuild = (r) => { for (const [gx, gy] of r.shut) tiles[gy][gx] = 1; };
+
+    const lengths = [];
+    for (let n = CONFIG.exitGauntlet; n >= 4; n -= 2) { const m = Math.min(n, pathCells.length - 3); if (m >= 4 && !lengths.includes(m)) lengths.push(m); }
+    let best = null;
+    for (const want of lengths) {
+      const r = build(want);
+      if (!best || (r.only && !best.only) || (r.only === best.only && r.forks > best.forks)) { unbuild(r); best = { want, only: r.only, forks: r.forks }; }
+      else unbuild(r);
     }
-    for (const k of zone) {
-      const [cx, cy] = k.split(',').map(Number);
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
-        if (nx < TX(0) || nx >= W - P || ny < TX(0) || ny >= H - P) continue;
-        if (!zone.has(nx + ',' + ny) && !isOpen(nx, ny)) continue;
-        if (offLimits(gx, gy) || crawlGaps.has(gx + ',' + gy)) continue;
-        if (isOpen(gx, gy)) { if (R() < CONFIG.exitGauntletSqueeze) crawlGaps.add(gx + ',' + gy); }        // a passage becomes a squeeze
-        else if (isOpen(nx, ny) && R() < CONFIG.exitGauntletHoles) { tiles[gy][gx] = 1; crawlGaps.add(gx + ',' + gy); }   // a wall gets a hole
+    if (best) {
+      const r = build(best.want);
+      const G = r.G;
+      // every passage in the tree is a squeeze, the mouth included
+      for (const k of G) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const [dx, dy] of [[1, 0], [0, 1]]) {
+          const gx = cx + dx, gy = cy + dy, nx = cx + dx * 2, ny = cy + dy * 2;
+          if (G.has(nx + ',' + ny) && isOpen(gx, gy) && !busy(gx, gy)) crawlGaps.add(gx + ',' + gy);
+        }
       }
+      { const [ex2, ey2] = r.entrance.split(',').map(Number); if (isOpen(ex2, ey2) && !busy(ex2, ey2)) crawlGaps.add(r.entrance); }
+      // and the pass-through cells are drawn narrow, so they read as tunnel rather than a room
+      for (const k of G) {
+        const [cx, cy] = k.split(',').map(Number);
+        if (k === r.mouth.join(',') || busy(cx, cy)) continue;
+        if (DIRS.filter(([dx, dy]) => isOpen(cx + dx, cy + dy)).length === 2 && R() < CONFIG.exitGauntletTunnel) crawlCells.add(k);
+      }
+      exitTree = G; exitTreeMouth = r.entrance;
     }
   }
-
 
   // a squeeze on the way out that you cannot go round: a gap on the route whose sealing would cut
   // start from exit, turned into a crawl gap. The tile is already open, so nothing about the maze
