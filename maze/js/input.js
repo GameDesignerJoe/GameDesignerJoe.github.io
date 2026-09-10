@@ -68,6 +68,10 @@ function hardRefresh(btn) {
   Promise.race([fetch(location.pathname, { cache: 'reload' }).catch(() => {}), timeout])
     .then(() => location.replace(location.pathname + '?u=' + Date.now()));
 }
+// Reroll the maze without touching what you have done. Same phase, same stones, same pages
+// found — a new seed. Every dropdown here already rerolls; this is the one that changes
+// nothing else. `?seed=1234` in the URL replays a particular maze.
+$('newMaze').addEventListener('click', () => { delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('update').addEventListener('click', () => hardRefresh($('update')));
 // A resumed run skips the title and its tap, so nothing has unlocked the audio
 // context or started the drone — every reload used to come back silent. Take

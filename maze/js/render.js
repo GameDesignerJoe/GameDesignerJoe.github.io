@@ -14,7 +14,10 @@ function draw() {
   ctx.fillStyle = C.bg; ctx.fillRect(0, 0, vw, vh);
 
   let S = zoomS, ox, oy;
-  if (debugMap) { const f = dbgFrame(); S = f.S; ox = f.ox; oy = f.oy; }
+  // Full map only once the run is going. On the title screen it drew the whole maze over
+  // the sleeping figure, and since the HUD is hidden there and the figure was a few pixels
+  // wide, changing Size with it ticked left you looking at a map you could not leave.
+  if (debugMap && started) { const f = dbgFrame(); S = f.S; ox = f.ox; oy = f.oy; }
   else {
     const landscape = vw > vh, leftStick = document.body.classList.contains('stick-left');
     const pre = !started && !intro;   // asleep: dead center, no HUD to make room for

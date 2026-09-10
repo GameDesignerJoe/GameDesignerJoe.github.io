@@ -82,6 +82,12 @@ instead of teleporting, that zoom holds its anchor point and stops at both
 ends, and that with Full map off a tap on the maze does nothing at all. Telling
 a tap from a drag is the part that would rot silently.
 
+v0.40.0 added four more: that a debug option applied with Full map ticked
+leaves a title screen you can actually tap, that the map returns once you are
+awake, that **New maze** rerolls the seed while keeping phase, stones and
+pages, and that a run saved by a different build is discarded rather than
+restored onto a maze that build never carved.
+
 **`selftest.mjs`** breaks a known-good maze eleven ways and asserts the right
 check notices each one. A check that can never fail is worse than no check, so
 run this after editing `checks.mjs`.

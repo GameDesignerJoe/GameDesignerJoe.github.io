@@ -179,6 +179,26 @@ result: on X-Large, Least uses about 59% of the grid, cuts turns-plus-junctions
 from ~700 to ~180 and dead ends from ~170 to ~12, and the mean straight run
 goes from 3 cells to about 7.
 
+## Getting a different maze (v0.40.0)
+
+The seed is shown in the debug panel next to the version, and `?seed=1234`
+replays a particular maze. Three ways to change it:
+
+- **New maze** in the debug panel rerolls the seed and changes nothing else —
+  same phase, same stones, same pages found. This is the one for reviewing
+  generation.
+- **Any debug dropdown** already rerolls as a side effect of applying itself.
+- **Update app** keeps your maze, unless the build changed.
+
+That last one is new. A run stores only its seed and what you did; the maze is
+rebuilt by `generate()` on load. So a run can only be resumed by the build that
+made it — restoring marks, sliders and doors by index onto a maze a different
+version carved is nonsense, and quietly wrong rather than loudly broken.
+`js/boot.js` now requires `run.v === VERSION` alongside the rest of the
+signature, so **updating to a new build starts a fresh maze**. Phase, stones
+and collected pages live outside the run and are kept. An ordinary reload on
+the same build still resumes exactly where you stood.
+
 ## The Full map debug view (v0.39.0)
 
 With **Full map** ticked in the debug menu, the whole maze is drawn fitted to
@@ -195,6 +215,10 @@ the screen. It is now something you can work in rather than only look at:
 - **Pinch, scroll or drag** to zoom and pan, between `debugMapMinZoom` (a
   multiple of the fitted scale) and `debugMapMaxZoom` pixels per tile. Zoom
   holds the point under your fingers still.
+- **It only draws once the run is going.** Fixed in v0.40.0: it used to cover
+  the title screen too, and since the HUD is hidden there and the sleeper was a
+  few pixels wide, changing Size with Full map ticked left you looking at a map
+  with no way back to the menu. Reloading was the only way out.
 
 `dbgView` is null until you pan or zoom, and null means fitted, which is what
 the view has always been. Untick and tick Full map, or start a new maze, to

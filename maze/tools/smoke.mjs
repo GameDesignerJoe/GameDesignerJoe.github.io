@@ -405,6 +405,61 @@ check('with Full map off, a tap on the maze does nothing',
   offNow.x === offAfter.x && offNow.y === offAfter.y && offNow.v === null && offAfter.v === null,
   `player still ${offAfter.x.toFixed(1)},${offAfter.y.toFixed(1)}; view reset to fitted on untick`);
 
+// ── 8d. getting a different maze, and not resuming into the wrong one ──
+// Changing a debug option restarts on the title screen. With Full map ticked the
+// whole maze used to be drawn over that screen, where the HUD is hidden and the
+// sleeper is a few pixels wide, so there was no way back to the menu at all.
+await page.evaluate(() => { setDebugMap(true); });
+await page.waitForTimeout(150);
+await page.evaluate(() => { const el = $('optSize'); el.value = 'lg'; el.dispatchEvent(new Event('change')); });
+await page.waitForTimeout(800);
+const onTitle = await page.evaluate(() => ({
+  started, debugMap, pre: document.body.classList.contains('pre'),
+  titleShown: !$('title').classList.contains('hide'),
+  S: Math.round(viewS), titleZoom: CONFIG.titleTilePx,
+  px: viewOx + player.x * viewS, py: viewOy + player.y * viewS,
+}));
+check('a debug option with Full map on leaves a title screen you can tap',
+  onTitle.titleShown && onTitle.pre && !onTitle.started && onTitle.debugMap && onTitle.S === onTitle.titleZoom,
+  `Full map still ticked, view is the title's ${onTitle.S}px/tile, sleeper at ${Math.round(onTitle.px)},${Math.round(onTitle.py)}`);
+
+await touch('touchStart', onTitle.px, onTitle.py);
+await page.waitForTimeout(40);
+await touch('touchEnd', onTitle.px, onTitle.py);
+await page.waitForTimeout(3600);
+const woke = await page.evaluate(() => ({ started, S: Math.round(viewS), fitted: Math.round(dbgFrame().S), gear: getComputedStyle($('gear')).opacity }));
+check('and the Full map comes back the moment you are awake',
+  woke.started && woke.S === woke.fitted && woke.gear === '1',
+  `awake, fitted to ${woke.S}px/tile, gear visible again`);
+
+const preNew = await page.evaluate(() => { SAVE.stones = 3; SAVE.collected = { 'The Child': [true] }; persist();
+  return { seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones, collected: JSON.stringify(SAVE.collected) }; });
+await page.evaluate(() => $('newMaze').click());
+await page.waitForTimeout(700);
+const postNew = await page.evaluate(() => ({ seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones,
+  collected: JSON.stringify(SAVE.collected), label: $('seedLbl').textContent, titleShown: !$('title').classList.contains('hide') }));
+check('New maze rerolls the seed and keeps everything you have done',
+  postNew.seed !== preNew.seed && postNew.phase === preNew.phase && postNew.stones === preNew.stones
+    && postNew.collected === preNew.collected && postNew.titleShown,
+  `seed ${preNew.seed} → ${postNew.seed}; phase ${postNew.phase}, ${postNew.stones} stones, pages kept; panel reads "${postNew.label}"`);
+
+// A run is rebuilt from its seed, so only the build that made it can resume it.
+const stale = await page.evaluate(() => {
+  $('title').classList.add('hide'); document.body.classList.remove('pre'); started = true;
+  parked = false;   // the Update-app check above froze saving; thaw it so this run is written
+  saveRun(true);
+  const mine = SAVE.run.seed;
+  SAVE.run.v = '0.0.1-not-this-build'; persist();
+  parked = true;   // pagehide autosaves on reload and would stamp the live version straight back
+  return { mine };
+});
+await page.reload({ waitUntil: 'load' });
+await page.waitForTimeout(900);
+const afterStale = await page.evaluate(() => ({ seed: SEED, stones: SAVE.stones, pages: JSON.stringify(SAVE.collected) }));
+check('a run saved by another build starts a fresh maze instead of resuming',
+  afterStale.seed !== stale.mine && afterStale.stones === 3 && afterStale.pages.includes('The Child'),
+  `run from another build dropped (seed ${stale.mine}), now on ${afterStale.seed}; stones and pages kept`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');
