@@ -561,6 +561,51 @@ function generate(seed) {
     }
   }
 
+  // The way out of a phase that pushes blocks is a run of them, each one load-bearing, clustered
+  // at the end of the route. The Child has to squeeze its way out; everyone who has learned to
+  // shove a wall should have to shove their way out. A block only counts if sealing its gap really
+  // does cut start from exit — and the ones already placed are treated as passable while testing
+  // that, because you can push those too, so the second block has to be load-bearing on its own.
+  if (F.pockets && !F.crawl && CONFIG.exitPushBlocks && !poolMode) {
+    const isCell2 = ([x, y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nOpen2 = (x, y) => DIRS.filter(([dx, dy]) => isOpen(x + dx, y + dy)).length;
+    const usedT2 = new Set([...sliders.map(sl => sl.x + ',' + sl.y), ...pockets.map(([x, y]) => x + ',' + y),
+      ...sliders.map(sl => (sl.x + sl.dx * 2) + ',' + (sl.y + sl.dy * 2)), ...sliders.map(sl => (sl.x + sl.dx) + ',' + (sl.y + sl.dy))]);
+    const roomRing5 = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const placed = [];
+    const reaches = () => {
+      for (const [x, y] of placed) tiles[y][x] = 1;                 // you can push the ones already there
+      const s0 = Math.floor(start.x), t0 = Math.floor(start.y);
+      const seen = new Set([s0 + ',' + t0]), q2 = [[s0, t0]];
+      while (q2.length) { const [x, y] = q2.shift(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (isOpen(nx, ny) && !seen.has(k)) { seen.add(k); q2.push([nx, ny]); } } }
+      for (const [x, y] of placed) tiles[y][x] = 0;
+      return seen.has(exX + ',' + exY);
+    };
+    const idxs = [];
+    for (let i = 4; i < solutionPath.length - 6; i++) {
+      const c = solutionPath[i], g = solutionPath[i + 1], n = solutionPath[i + 2];
+      if (!isCell2(c) || !n || !isCell2(n) || nOpen2(c[0], c[1]) !== 2 || nOpen2(n[0], n[1]) > 3) continue;
+      if (usedT2.has(c.join(',')) || usedT2.has(n.join(',')) || roomRing5(c[0], c[1])) continue;
+      if (exitAlley.some(([ax, ay]) => ax === g[0] && ay === g[1])) continue;
+      idxs.push(i);
+    }
+    // the last stretch first, and only fall back to earlier ground if that will not yield enough:
+    // this is meant to be the end of the level, not something you meet halfway
+    const tailFrom = solutionPath.length * (1 - CONFIG.exitPushTail);
+    idxs.sort((a, b) => (a >= tailFrom ? 0 : 1) - (b >= tailFrom ? 0 : 1) || b - a);
+    for (const i of idxs) {
+      if (placed.length >= CONFIG.exitPushBlocks) break;
+      const c = solutionPath[i], g = solutionPath[i + 1], n = solutionPath[i + 2];
+      if (usedT2.has(c.join(',')) || usedT2.has(n.join(','))) continue;
+      tiles[g[1]][g[0]] = 0;
+      if (reaches()) { tiles[g[1]][g[0]] = 1; continue; }           // you could walk round it
+      sealedGaps.push([g[0], g[1]]); placed.push([g[0], g[1]]);
+      sliders.push({ x: c[0], y: c[1], dx: Math.sign(n[0] - c[0]), dy: Math.sign(n[1] - c[1]), shifted: false, onPath: true });
+      usedT2.add(c.join(',')); usedT2.add(n.join(',')); usedT2.add(g.join(','));
+    }
+  }
+
   // The way out is the last thing between him and out, so it should be a decision, not a corridor.
   // The final stretch becomes a tree of squeezes: one mouth in, forks along the way, one branch
   // that goes on and the rest that end in nothing. Some of it is chambers you step into and choose

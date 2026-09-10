@@ -313,6 +313,28 @@ runs a longer pull-out (`liftIntroSeconds`) with the light opening from
 `liftGlow` multiplies `B.viewRadius()` and is 1 at every other moment. An
 ordinary waking is untouched.
 
+## The end of a level (v0.48.0–v0.51.0)
+
+Every phase should have to earn the way out, using whatever mechanic that
+phase brought in.
+
+- **The Child squeezes.** `CONFIG.exitGauntlet` — see above.
+- **Everyone who pushes, pushes.** `CONFIG.exitPushBlocks` puts a run of load-
+  bearing push blocks along the end of the route on any phase with pockets. A
+  block only counts if sealing its gap really does cut start from exit, and the
+  blocks already placed are treated as *passable* while testing the next one,
+  because you can push those too — so each has to be load-bearing on its own.
+  About 2.5 per maze on the Cartographer, 3.2 on the Archivist, every one of
+  them required. `exitPushTail` biases them to the last stretch, but topology
+  has the final say: a maze with no single passage whose sealing severs the
+  route has nowhere to put one, and about one in five gets none.
+
+Not built, and Joe called it out as worth prototyping: the *grid* of push
+blocks where you work out which ones go where, and a block that can be pushed
+two ways. Both are new mechanics rather than new arrangements of this one —
+today a "push block" is a tile of floor that slides into a sealed pocket, not
+a crate you shove around a room.
+
 ## Getting a different maze (v0.40.0)
 
 The seed is shown in the debug panel next to the version, and `?seed=1234`

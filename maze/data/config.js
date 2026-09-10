@@ -99,6 +99,10 @@ const CONFIG = {
   sliderSeconds: 0.8,   // how long the slide takes
   sliderKeyChance: 0.5, // chance the key hides in a pocket instead of a dead end
   sliderOnPath: true,   // one slider sits on the solution route; the maze can't be finished without it
+  exitPushTail: 0.4,    // the share of the route counted as "the end of it", where they go first
+  exitPushBlocks: 3,    // and the way out of a phase that pushes blocks is guarded by a run of them,
+                        // each one load-bearing, clustered near the exit: the Child squeezes its way
+                        // out, so everyone who pushes should have to push their way out
   sliderAtStart: true,  // you begin sealed in a small room; pushing its wall is the first thing you learn
   startRoomCells: 3,    // size of the sealed start room, in cells (3 = 5×5 tiles)
   hintIdleSec: 2.5,     // stand still this long and the first slider's edge starts to shimmer
