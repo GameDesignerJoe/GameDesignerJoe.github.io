@@ -109,14 +109,14 @@ console.log(`          (${idReport.length - unstyled.length} of ${idReport.lengt
   + `no rule for: ${unstyled.map((u) => u.id).join(', ') || 'none'})`);
 
 // ── 2b. the script tags load in the order the engine expects ────
-// 17 plain scripts sharing one global scope: order is load-bearing. Reordering
+// 18 plain scripts sharing one global scope: order is load-bearing. Reordering
 // them, or dropping one, breaks the game in ways a glance at the page will not
 // show. Assert the sequence.
 const shell = readFileSync(new URL('../maze-topdown.html', import.meta.url), 'utf8');
 const tagOrder = [...shell.matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => m[1]);
 const EXPECTED = [
   'data/config.js', 'data/phases.js', 'data/text.js', 'data/music.js',
-  'js/core.js', 'js/generate.js', 'js/audio.js', 'js/state.js', 'js/input.js',
+  'js/core.js', 'js/generate.js', 'js/proto.js', 'js/audio.js', 'js/state.js', 'js/input.js',
   'js/stories.js', 'js/run-save.js', 'js/tutorials.js', 'js/pool.js', 'js/map.js',
   'js/movement.js', 'js/render.js', 'js/boot.js',
 ];

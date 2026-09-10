@@ -24,7 +24,7 @@ phone. Drive is newer than these copies; the game is newer than Drive.
 
 ```
 maze/
-├── maze-topdown.html   the shell — markup and tags only. 102 lines
+├── maze-topdown.html   the shell — markup and tags only
 ├── css/style.css       the whole look, 170 rules
 ├── data/               tuning and text; see data/README.md
 │   ├── config.js         SIZES, CONFIG
@@ -33,7 +33,8 @@ maze/
 │   └── music.js          MUSIC
 ├── js/                 the engine, in run order; see js/README.md
 │   ├── core.js           version, save file, seed
-│   ├── generate.js       the maze itself (34 KB, the big one)
+│   ├── generate.js       the maze itself (the big one)
+│   ├── proto.js          prototype levels, from the Prototype debug menu
 │   ├── audio.js  state.js  input.js  stories.js  run-save.js
 │   ├── tutorials.js  pool.js  map.js
 │   ├── movement.js       the glide, turns, sliders, pickups
@@ -312,6 +313,32 @@ runs a longer pull-out (`liftIntroSeconds`) with the light opening from
 `liftGlowFrom` to full as it goes, over a major figure (`AUDIO.lifted()`).
 `liftGlow` multiplies `B.viewRadius()` and is 1 at every other moment. An
 ordinary waking is untouched.
+
+## Prototypes (v0.52.0)
+
+`js/proto.js` and a **Prototype** dropdown in the debug menu. A prototype
+replaces the maze outright: `buildProto()` sets every global `generate()` would
+have set and `generate()` returns, so nothing downstream needs to know one is
+running. `protoMode` widens the light so the whole idea is visible.
+
+**Two-way blocks.** A block is the floor you stand on; shove it and it slides
+one step into the wall beside you, bridging to the next island, and stays there
+once you have ridden across. A plain slider has one way to go. These have two —
+in line (a square either side) or round an elbow (two at right angles) — so
+three squares in all. From home it takes either; once it has gone one way it can
+only come back, so a wrong turn costs the walk back rather than the level.
+`blockAt()` and `blockWays()` in `js/movement.js` generalise the one-way slider;
+a slider without `ways` behaves exactly as it always did.
+
+The level is a grid of islands with **no bridges at all**. A line of blocks runs
+from where you wake to the way out, and most of them also offer a way that goes
+nowhere: which of the two goes on is the whole question.
+
+`protoSolvable()` is the test Joe asked for. It walks every state the level can
+be in — where you are standing, and where each block has got to — and looks for
+the way out. Generation tries up to `protoTries` layouts and keeps the first
+that passes. It has teeth: leave every block only one way and it reports the
+level cannot be done.
 
 ## The end of a level (v0.48.0–v0.51.0)
 

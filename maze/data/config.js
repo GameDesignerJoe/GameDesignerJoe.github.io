@@ -63,6 +63,12 @@ const CONFIG = {
                         // thing that keeps him findable. 0 = none, and he starts truly invisible
   cameraLag: 0.14,      // 0 = locked on player, higher = floatier
 
+  // prototypes: small purpose-built levels, from the Prototype dropdown in the debug menu
+  protoSize: [7, 9],    // the island grid, in cells
+  protoPath: 9,         // how many islands the way out runs through
+  protoDecoyChance: 0.8,// chance a block on that way also offers one that goes nowhere
+  protoTries: 60,       // layouts to try before settling for one that is merely finishable
+
   // maze shape
   branchiness: 0.35,    // 0 = long winding corridors (backtracker). 1 = many short branches and junctions (Prim-like). Play with this.
   braid: 0.0,           // 0 = perfect maze. 0.1 opens 10% of dead ends into loops

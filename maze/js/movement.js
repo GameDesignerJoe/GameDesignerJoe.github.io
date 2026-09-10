@@ -5,6 +5,15 @@
 
 // ── movement ────────────────────────────────────────────────────
 // the exit tile counts as a wall until you hold the key
+// Where a block is now, and which way it can be shoved from there. A plain slider has one home
+// and one place to go. A prototype block has `ways`: from home it can take any of them, and from
+// wherever it has gone it can only come back — three places in all, in a line or round an elbow.
+const blockAt = (s) => s.ways
+  ? (s.at ? [s.x + s.ways[s.at - 1][0], s.y + s.ways[s.at - 1][1]] : [s.x, s.y])
+  : [s.shifted ? s.x + s.dx : s.x, s.shifted ? s.y + s.dy : s.y];
+const blockWays = (s) => s.ways
+  ? (s.at ? [[-s.ways[s.at - 1][0], -s.ways[s.at - 1][1]]] : s.ways)
+  : [[s.shifted ? -s.dx : s.dx, s.shifted ? -s.dy : s.dy]];
 const doorAt = (x, y) => doors.find(d => d.x === x && d.y === y && !d.open);
 const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoor && !hasKey && x === poolDoor.x && y === poolDoor.y) && !(doorAt(x, y) && !heldKeys.has(doorAt(x, y).shape));
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
@@ -67,7 +76,8 @@ function update(wall) {
     const e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
     if (sliding.carry !== false) { player.x = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; player.y = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
     if (k >= 1) {
-      const [tx, ty] = sliding.to; tiles[ty][tx] = 1; sliding.sl.shifted = !sliding.sl.shifted;
+      const [tx, ty] = sliding.to; tiles[ty][tx] = 1;
+      if (sliding.sl.ways) sliding.sl.at = sliding.toAt; else sliding.sl.shifted = !sliding.sl.shifted;
       const fromKey = sliding.from.join(','), toKey = sliding.to.join(',');
       if (marks.has(fromKey)) { const g = marks.get(fromKey); marks.delete(fromKey); marks.set(toKey, g); }
       if (sliding.carry !== false) lastTileKey = toKey; const wasAuto = sliding.sl.auto; sliding = null; if (!wasAuto) AUDIO.slideEnd();
@@ -76,15 +86,15 @@ function update(wall) {
   if (want && !(sliding && sliding.carry !== false)) {
     if (!dir) {
       const cx = Math.floor(player.x), cy = Math.floor(player.y);
-      const sl = sliders.find(s => !s.auto && (s.shifted ? s.x + s.dx : s.x) === cx && (s.shifted ? s.y + s.dy : s.y) === cy);
-      const pushDir = sl && (sl.shifted ? { dx: -sl.dx, dy: -sl.dy } : { dx: sl.dx, dy: sl.dy });
-      if (sl && want.dx === pushDir.dx && want.dy === pushDir.dy && !canGo(want)) {
+      const sl = sliders.find(s => { const [bx, by] = blockAt(s); return !s.auto && bx === cx && by === cy; });
+      const pushDir = sl && blockWays(sl).find(([dx, dy]) => want.dx === dx && want.dy === dy);
+      if (sl && pushDir && !canGo(want)) {
         if (!pushHeldSince) pushHeldSince = now;
         if (now - pushHeldSince < CONFIG.pushHoldMs) { /* leaning… */ }
         else {
         const to = [cx + want.dx, cy + want.dy];
         tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
-        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000 }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
+        sliding = { sl, from: [cx, cy], to, t0: now, dur: CONFIG.sliderSeconds * 1000, toAt: sl.ways ? (sl.at ? 0 : 1 + sl.ways.findIndex(([dx, dy]) => dx === want.dx && dy === want.dy)) : undefined }; facing = Math.atan2(want.dy, want.dx); AUDIO.slideStart(); if (sl.atStart) { firstPushDone = true; startArrow = null; if (!SAVE.pushLearned) { SAVE.pushLearned = true; persist(); } } pushHeldSince = 0; recenter = null;
         }
       }
       else if (canGo(want)) dir = want;

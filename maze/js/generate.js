@@ -39,6 +39,12 @@ const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 const isOpen = (x, y) => !!(tiles[y]?.[x]);
 function generate(seed) {
   const R = rng(seed);
+  protoMode = false;
+  // a prototype replaces the maze outright: it sets everything this would have set, and returns
+  if (!SAVE.poolPending && SAVE.ui.proto && SAVE.ui.proto !== 'off') {
+    for (let i = 0; i < CONFIG.protoTries; i++) if (buildProto(seed + i * 7919, SAVE.ui.proto)) return;
+    buildProto(seed, SAVE.ui.proto); return;   // settle for the last one rather than no level at all
+  }
   poolMode = !!SAVE.poolPending;
   const F = poolMode ? { signs: phase().f.signs, charcoal: false, compass: false, thread: false, scraps: false, lamp: false, darkness: false, gate: true, tunnels: false, pockets: false, pathSlider: false, braid: 0 } : phase().f;
   const sizeKey = poolMode ? 'sm' : (SAVE.ui.size && SAVE.ui.size !== 'auto') ? SAVE.ui.size : (has(6) && phase().who !== 'You' ? 'lg' : phase().size);

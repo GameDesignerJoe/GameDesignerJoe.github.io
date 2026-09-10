@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.51.0';
+const VERSION = '0.52.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -16,9 +16,10 @@ function collectedCount(name) { return (SAVE.collected[name] || []).filter(Boole
 
 function phase() { return PHASES[Math.min(SAVE.phase || 0, PHASES.length - 1)]; }
 function has(stoneIdx) { return (SAVE.stones || 0) > stoneIdx; }
+let protoMode = false;   // a prototype level is running instead of a maze
 let liftGlow = 1;   // 1 normally. On the walk-in after a burden is put down the light blooms from dim to this
 const B = {   // burden-adjusted values
-  viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1) * liftGlow,
+  viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1) * (protoMode ? 4 : 1) * liftGlow,
   speed:      () => CONFIG.speed * (has(1) ? 1.08 : 1),
   charcoal:   () => Math.round(CONFIG.charcoalTiles * (has(2) ? 1.25 : 1)),
   darkChance: () => CONFIG.darknessChance * (has(3) ? 0.6 : 1),
