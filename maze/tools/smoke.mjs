@@ -633,6 +633,46 @@ check('the gauntlet floor slides out of the way and comes back',
   gswing.skip ? 'no gauntlet swing in 40 Child mazes' :
   `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back — floor ${gswing.seen.home} frames, hole ${gswing.seen.away}`);
 
+// ── 8i. the pool room's gate ──────────────────────────────────────
+// It used to slide aside the moment you picked the stone up. Now you have to carry the stone to
+// it and shove — and the way stays shut for the whole grind, which is twice as long as it was.
+const gate = await page.evaluate(async () => {
+  SAVE.stones = 0; SAVE.phase = 0; SAVE.poolPending = true; SAVE.ui = {};
+  delete SAVE.run; persist(); reset(4242);
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const out = { secs: CONFIG.poolDoorSeconds, hold: CONFIG.pushHoldMs, slow: CONFIG.stoneSlow };
+  // walk up to the gate empty-handed: it should not budge
+  player.x = poolDoor.x + 0.5; player.y = poolDoor.y + 1.5; cam.x = player.x; cam.y = player.y;
+  held = { dx: 0, dy: -1 };
+  await new Promise((r) => setTimeout(r, 500));
+  out.shutEmptyHanded = !poolDoor.openAt && Math.floor(player.y) === poolDoor.y + 1;
+  // take the stone. That alone must not open it
+  held = null;
+  const [kx, ky] = keySpot.split(',').map(Number);
+  out.plainSpeed = B.speed();
+  player.x = kx + 0.5; player.y = ky + 0.5;
+  await new Promise((r) => setTimeout(r, 250));
+  out.hasStone = hasKey; out.shutOnPickup = !poolDoor.openAt;
+  out.stoneSpeed = B.speed();
+  // now shove it
+  player.x = poolDoor.x + 0.5; player.y = poolDoor.y + 1.5;
+  held = { dx: 0, dy: -1 };
+  await new Promise((r) => setTimeout(r, 600));
+  out.shoved = !!poolDoor.openAt;
+  await new Promise((r) => setTimeout(r, CONFIG.poolDoorSeconds * 1000 * 0.5));
+  out.shutMidGrind = poolDoorShut() && Math.floor(player.y) === poolDoor.y + 1;
+  await new Promise((r) => setTimeout(r, CONFIG.poolDoorSeconds * 1000 * 0.6 + 700));
+  out.openAfter = !poolDoorShut(); out.through = player.y < poolDoor.y + 1;
+  held = null;
+  return out;
+});
+check('the pool gate waits to be shoved with the stone, and grinds the whole way',
+  gate.shutEmptyHanded && gate.hasStone && gate.shutOnPickup && gate.shoved && gate.shutMidGrind && gate.openAfter && gate.through,
+  `empty-handed it held; picking the stone up left it shut; a ${gate.hold}ms lean started it; still shut halfway through the ${gate.secs}s grind; open and walked through after`);
+check('a stone in your arms costs you 30% of your speed',
+  Math.abs(gate.stoneSpeed / gate.plainSpeed - gate.slow) < 0.001,
+  `${gate.plainSpeed.toFixed(2)} tiles/s empty-handed, ${gate.stoneSpeed.toFixed(2)} carrying the stone (x${gate.slow})`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

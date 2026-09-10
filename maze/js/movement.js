@@ -15,7 +15,10 @@ const blockWays = (s) => s.ways
   ? (s.at ? [[-s.ways[s.at - 1][0], -s.ways[s.at - 1][1]]] : s.ways)
   : [[s.shifted ? -s.dx : s.dx, s.shifted ? -s.dy : s.dy]];
 const doorAt = (x, y) => doors.find(d => d.x === x && d.y === y && !d.open);
-const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoor && !hasKey && x === poolDoor.x && y === poolDoor.y) && !(doorAt(x, y) && !heldKeys.has(doorAt(x, y).shape));
+// The pool room's gate: shut until it has been shoved with the stone and has finished grinding.
+// A restored run stores openAt as 1, which is long enough ago to count as open.
+const poolDoorShut = () => !!poolDoor && (!poolDoor.openAt || gameNow() - poolDoor.openAt < CONFIG.poolDoorSeconds * 1000);
+const passable = (x, y) => isOpen(x, y) && !(gated && !hasKey && x === exit.x && y === exit.y) && !(poolDoorShut() && x === poolDoor.x && y === poolDoor.y) && !(doorAt(x, y) && !heldKeys.has(doorAt(x, y).shape));
 function canGo(d) { return passable(Math.floor(player.x) + d.dx, Math.floor(player.y) + d.dy); }
 function offCenter(d) { const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5; return d.dx ? Math.abs(player.y - cy) : Math.abs(player.x - cx); }
 let recenter = null;   // after a turn, the perpendicular offset is eased out instead of snapped
@@ -111,7 +114,15 @@ function update(wall) {
       }
       else if (canGo(want)) dir = want;
       else if (doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy)) { const d = doorAt(Math.floor(player.x) + want.dx, Math.floor(player.y) + want.dy); if (now > narrHideAt) { narrate(`Locked. The lock is a ${d.shape}.`); AUDIO.locked(); } }
-      else if (poolDoor && !hasKey && Math.floor(player.x) + want.dx === poolDoor.x && Math.floor(player.y) + want.dy === poolDoor.y) { if (now > narrHideAt) { narrate("It won't move. Not without a stone."); AUDIO.locked(); } }
+      else if (poolDoor && poolDoorShut() && Math.floor(player.x) + want.dx === poolDoor.x && Math.floor(player.y) + want.dy === poolDoor.y) {
+        // the gate does not open because you are holding the stone; it opens because you shove it
+        // with the stone. Lean on it as long as you would lean on a block, and it starts to give.
+        if (!hasKey) { if (now > narrHideAt) { narrate("It won't move. Not without a stone."); AUDIO.locked(); } }
+        else if (!poolDoor.openAt) {
+          if (!pushHeldSince) pushHeldSince = now;
+          else if (now - pushHeldSince >= CONFIG.pushHoldMs) { poolDoor.openAt = now; AUDIO.doorSlide(); pushHeldSince = 0; saveRun(true); if (now > narrHideAt) narrate("…it gives."); }
+        }
+      }
       else if (gated && !hasKey && isOpen(Math.floor(player.x)+want.dx, Math.floor(player.y)+want.dy) && now > narrHideAt) { narrate("Locked. It wants a key."); AUDIO.locked(); } }
     else if ((want.dx !== 0) === (dir.dx !== 0)) dir = want;
     else if (canGo(want) && offCenter(want) <= CONFIG.turnForgiveness) { snapPerp(want); dir = want; }
@@ -203,7 +214,7 @@ function update(wall) {
     if (lampSpot === key) { lampSpot = null; hasLamp = true; lampOn = true; $('lamp').classList.add('show', 'on'); pulse($('lamp')); AUDIO.lampOn(); tutorial('lamp'); }
     { const d = doors.find(d => d.x === tx && d.y === ty && !d.open); if (d) { d.open = true; AUDIO.gate(); saveRun(true); } }
     if (innerKeys.has(key)) { const shape = innerKeys.get(key); innerKeys.delete(key); heldKeys.add(shape); renderKeys(); AUDIO.key(); narrate(`A key. Its head is a ${shape}.`); tutorial('door'); saveRun(true); }
-    if (keySpot === key) { keySpot = null; hasKey = true; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) { poolDoor.openAt = now; AUDIO.doorSlide(); } } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
+    if (keySpot === key) { keySpot = null; hasKey = true; if (poolMode) { $('stone').classList.add('show'); pulse($('stone')); AUDIO.stone(); if (poolDoor) narrate("The stone. Now the gate."); } else { keyEl.classList.add('show'); pulse(keyEl); AUDIO.key(); tutorial('key'); } }
     if (journals.has(key) && character) { const pg = journals.get(key); journals.delete(key); journalsRead++; showJournal(pg); updateBooks();
       if (collectedCount(character.name) >= character.pages.length && (SAVE.phase || 0) < PHASES.length - 1 && !SAVE.poolPending) { SAVE.poolPending = true; persist(); } }
   }

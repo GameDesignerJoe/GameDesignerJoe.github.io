@@ -3,7 +3,7 @@
 // Part of the engine, loaded as a plain script in the order it used to appear
 // in maze-topdown.html. Everything shares one global scope, exactly as before.
 
-const VERSION = '0.57.0';
+const VERSION = '0.58.0';
 
 
 // ── persistence (local storage; silently off where unavailable) ──
@@ -20,7 +20,9 @@ let protoMode = false;   // a prototype level is running instead of a maze
 let liftGlow = 1;   // 1 normally. On the walk-in after a burden is put down the light blooms from dim to this
 const B = {   // burden-adjusted values
   viewRadius: () => CONFIG.viewRadius * (has(0) ? 1 : 0.6) * (poolMode ? 2.2 : 1) * (protoMode ? 4 : 1) * liftGlow,
-  speed:      () => CONFIG.speed * (has(1) ? 1.08 : 1),
+  // a stone in your arms slows you down. Only in a pool level: everywhere else hasKey is the
+  // exit key, which is small enough to put in a pocket
+  speed:      () => CONFIG.speed * (has(1) ? 1.08 : 1) * (poolMode && hasKey ? CONFIG.stoneSlow : 1),
   charcoal:   () => Math.round(CONFIG.charcoalTiles * (has(2) ? 1.25 : 1)),
   darkChance: () => CONFIG.darknessChance * (has(3) ? 0.6 : 1),
   fringe:     () => has(3) ? 0.7 : 1,

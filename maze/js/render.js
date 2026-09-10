@@ -410,14 +410,25 @@ function draw() {
     }
   }
 
-  // the pool level's door: a grey panel filling the doorway, unlike the hairline edge of a push block
-  // the pool level's door: the same barred gate as a locked door inside the maze, but what it
-  // wants is not a shape. It is the stone, so the stone is what is drawn on it.
+  // The pool level's gate: the same barred panel as a locked door inside the maze, but what it
+  // wants is not a shape. It is the stone, so the stone is what is drawn on it. It sits on the
+  // edge of its tile nearest the room, flush with the wall the doorway is cut through — in the
+  // middle of the tile it floated in the passage — and it grinds sideways into that wall.
   if (poolDoor) { const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / (CONFIG.poolDoorSeconds * 1000)) : 0;
     if (open < 1) { const [px, py] = T(poolDoor.x, poolDoor.y), horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
+      const inRoom = (x, y) => !!startRoom && x >= startRoom.x0 && x <= startRoom.x1 && y >= startRoom.y0 && y <= startRoom.y1;
+      const toRoom = horiz ? (inRoom(poolDoor.x - 1, poolDoor.y) ? -1 : inRoom(poolDoor.x + 1, poolDoor.y) ? 1 : 0)
+                           : (inRoom(poolDoor.x, poolDoor.y - 1) ? -1 : inRoom(poolDoor.x, poolDoor.y + 1) ? 1 : 0);
       const off = open * S;   // a steady grind, not a spring
-      ctx.save(); ctx.beginPath(); ctx.rect(px - S/2, py - S/2, S, S); ctx.clip();
-      ctx.translate(horiz ? off : 0, horiz ? 0 : off);
+      ctx.save();
+      // clipped to the tile across the passage, so the panel disappears into the wall as it goes,
+      // and a little way past it toward the room, so sitting flush does not cut the panel in half
+      const lip = S * 0.3;
+      ctx.beginPath();
+      if (horiz) ctx.rect(px - S/2 - (toRoom < 0 ? lip : 0), py - S/2, S + lip, S);
+      else ctx.rect(px - S/2, py - S/2 - (toRoom < 0 ? lip : 0), S, S + lip);
+      ctx.clip();
+      ctx.translate(horiz ? toRoom * S/2 : off, horiz ? off : toRoom * S/2);
       ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
       for (let i = -1; i <= 1; i++) { if (horiz) { ctx.moveTo(px - S*0.06, py + i*S*0.26); ctx.lineTo(px + S*0.06, py + i*S*0.26); } else { ctx.moveTo(px + i*S*0.26, py - S*0.06); ctx.lineTo(px + i*S*0.26, py + S*0.06); } }
       if (horiz) { ctx.moveTo(px, py - S*0.42); ctx.lineTo(px, py + S*0.42); } else { ctx.moveTo(px - S*0.42, py); ctx.lineTo(px + S*0.42, py); }

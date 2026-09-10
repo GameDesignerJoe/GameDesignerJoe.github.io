@@ -326,6 +326,22 @@ Texture is pure paint: changing it does not reset the maze, so you can flick
 between them on the same corridor and look. `CONFIG.textureAmount` sets how
 strong whichever is on.
 
+**The pool room's gate (v0.58.0).** Four of Joe's notes, all about weight.
+
+- It sits on the edge of its tile nearest the room, flush with the wall the
+  doorway is cut through, and grinds sideways into that wall. Drawn in the
+  middle of the tile it floated in the passage.
+- It opens when you *shove* it, not when you pick the stone up. Lean into it
+  with the stone for `CONFIG.pushHoldMs` — the same lean a push block wants —
+  and it starts to give. Empty-handed it still says "It won't move. Not without
+  a stone."
+- `poolDoorSeconds` is 4.8, twice what it was, and `passable()` keeps the
+  doorway shut for the whole grind rather than only until the stone is in hand
+  (`poolDoorShut()`), so the wait is real and the sound has time to finish.
+- Carrying a stone costs 30% of your speed: `B.speed()` multiplies by
+  `CONFIG.stoneSlow` when `poolMode && hasKey`. Only in a pool level — outside
+  one `hasKey` is the exit key, which is small enough to pocket.
+
 **The waking after a pool (v0.44.0, rebuilt in v0.50.0).** Putting a burden
 down makes the maze easier — the first one nearly doubles your light — and
 nothing used to say so. It now happens in two beats. You wake in the light you

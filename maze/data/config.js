@@ -184,8 +184,10 @@ const CONFIG = {
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
   coneDeg: 70,          // lamp cone width
   coneTiles: 3.6,       // lamp cone reach
-  poolDoorSeconds: 2.4, // how long the pool room's gate takes to grind aside. It is stone and it
-                        // is heavy, and 0.65s read as a shutter
+  poolDoorSeconds: 4.8, // how long the pool room's gate takes to grind aside once you have shoved it
+                        // with the stone. It is stone and it is heavy: 0.65s read as a shutter, and
+                        // 2.4s still read as a door rather than a weight
+  stoneSlow: 0.7,       // how fast you walk with a stone in your arms. It is a burden; it should cost
   keyGate: true,        // allow the locked exit at all
   keyChance: 0.5,       // share of mazes whose exit is actually locked
 
