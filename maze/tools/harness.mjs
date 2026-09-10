@@ -37,19 +37,20 @@ const ONE_SEED = arg('seed', null);
 const POOL_ONLY = flag('pool');
 const PORT = Number(arg('port', 8765));
 const VERBOSE = flag('verbose');
+const TURNS = arg('turns', null);   // 'fewer' | 'least' — the Turns debug preset
 const URL = `http://127.0.0.1:${PORT}/maze/maze-topdown.html`;
 
 import { K, flood, openTiles, CHECKS } from './checks.mjs';
 
 // ── run ──────────────────────────────────────────────────────────
-const snapshotInPage = (phaseIdx, stones, pool, seed) => {
+const snapshotInPage = (phaseIdx, stones, pool, seed, turns) => {
   // Runs inside the page. Sets up SAVE the way a fresh run would, generates,
   // then hands back a plain-JSON picture of the maze.
   SAVE.phase = phaseIdx;
   SAVE.stones = stones;
   SAVE.poolPending = pool;
   SAVE.collected = {};
-  SAVE.ui = {};
+  SAVE.ui = turns ? { turns } : {};
   generate(seed);
   return {
     seed, phaseIdx, stones,
@@ -105,7 +106,7 @@ let cases = 0, withDoors = 0, doorTotal = 0;
 console.log(`The Maze — generation harness`);
 console.log(`  game v${version} at ${URL}`);
 console.log(`  ${phases.length} phase(s) × ${stoneSets.length} stone set(s) × ${seedList.length} seed(s)`
-  + (POOL_ONLY ? ', pool levels only' : ''));
+  + (POOL_ONLY ? ', pool levels only' : '') + (TURNS ? `, Turns = ${TURNS}` : ''));
 console.log('');
 
 for (const phaseIdx of phases) {
@@ -115,8 +116,8 @@ for (const phaseIdx of phases) {
         let snap;
         try {
           snap = await page.evaluate(
-            ([p, st, po, sd, src]) => new Function('return ' + src)()(p, st, po, sd),
-            [phaseIdx, stones, pool, seed, snapshotInPage.toString()],
+            ([p, st, po, sd, tu, src]) => new Function('return ' + src)()(p, st, po, sd, tu),
+            [phaseIdx, stones, pool, seed, TURNS, snapshotInPage.toString()],
           );
         } catch (e) {
           console.log(`  GENERATE THREW  phase ${phaseIdx} stones ${stones} pool ${pool} seed ${seed}`);

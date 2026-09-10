@@ -156,6 +156,23 @@ silence at `sfxRangeTiles`, measured in tiles walked rather than line of sight.
 Only `AUDIO.swing()` uses it — every other sound is triggered by the player and
 so is always at their feet. Give any new autonomous sound its tile.
 
+**The Turns debug menu (v0.37.0)** — Auto / Fewer / Least — is an experiment
+in whether longer halls with fewer forks make players reach for chalk. Two new
+`CONFIG` knobs drive it, both off in Auto so generation there is bit-identical
+to v0.36.0: `hallStraightness` biases the carver to carry on in the direction it
+arrived from instead of turning, and `hallFill` carves the whole grid and then
+prunes dead-end leaves back until only that share is corridor, leaving the rest
+solid wall. `turnsPresets` holds the two menu presets (Fewer 0.85 / 1.0, Least
+0.95 / 0.55); each also sets a branchiness used when Branching is Auto, so
+Least no longer needs Long halls to be picked alongside it. Pruning never
+touches the start block and its ring or the three exit corners, and rooms are
+re-rolled until they touch corridor, so the invariants hold — the harness runs
+with `--turns least` to prove it. The chosen mode is part of the run signature,
+so switching it starts a fresh maze. `tools/hall-metrics.mjs` measures the
+result: on X-Large, Least uses about 59% of the grid, cuts turns-plus-junctions
+from ~700 to ~180 and dead ends from ~170 to ~12, and the mean straight run
+goes from 3 cells to about 7.
+
 **Known open bug:** roughly 1.4% of mazes with locked doors are unfinishable —
 a door's key can land in a sealed pocket behind that same door. Reproduce with
 `node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7`.

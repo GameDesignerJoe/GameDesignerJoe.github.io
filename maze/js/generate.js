@@ -41,18 +41,53 @@ function generate(seed) {
   const TX = c => c*2 + 1 + P;   // cell index → tile index
   tiles = Array.from({ length: H }, () => new Uint8Array(W));
 
+  // Turns (debug menu): a preset for straighter, sparser halls. Off, everything below is exactly as before —
+  // the preset path is the only one that touches the random stream, so Auto seeds are unchanged.
+  const T = (SAVE.ui.turns && SAVE.ui.turns !== 'auto') ? CONFIG.turnsPresets[SAVE.ui.turns] : null;
+  const straight = T ? T.straight : CONFIG.hallStraightness;
+  const fill = T ? T.fill : CONFIG.hallFill;
+
   // growing tree: pick newest cell (backtracker) or a random one (Prim-ish) per branchiness
   const visited = Array.from({ length: CONFIG.rows }, () => new Uint8Array(CONFIG.cols));
+  const cameFrom = Array.from({ length: CONFIG.rows }, () => new Array(CONFIG.cols).fill(null));   // direction each cell was carved in
   const active = [[0, 0]]; visited[0][0] = 1; tiles[TX(0)][TX(0)] = 1;
   while (active.length) {
-    const branch = (SAVE.ui.branch && SAVE.ui.branch !== 'auto') ? +SAVE.ui.branch : (F.branch !== undefined ? F.branch : CONFIG.branchiness);
+    const branch = (SAVE.ui.branch && SAVE.ui.branch !== 'auto') ? +SAVE.ui.branch
+      : (T && T.branch !== undefined) ? T.branch
+      : (F.branch !== undefined ? F.branch : CONFIG.branchiness);
     const idx = R() < branch ? (R() * active.length | 0) : active.length - 1;
     const [cx, cy] = active[idx];
-    const opts = DIRS.map(([dx,dy]) => [cx+dx, cy+dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
+    const opts = DIRS.map(([dx,dy]) => [cx+dx, cy+dy, dx, dy]).filter(([nx,ny]) => nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && !visited[ny][nx]);
     if (!opts.length) { active.splice(idx, 1); continue; }
-    const [nx, ny] = opts[R() * opts.length | 0];
-    visited[ny][nx] = 1; tiles[TX(ny)][TX(nx)] = 1; tiles[cy+ny+1+P][cx+nx+1+P] = 1;
+    // carry straight on when we can and the dice say so; otherwise as before. No dice rolled when straightness is 0.
+    const ahead = cameFrom[cy][cx];
+    const onward = ahead && opts.find(([,, dx, dy]) => dx === ahead[0] && dy === ahead[1]);
+    const [nx, ny, dx, dy] = (straight > 0 && onward && R() < straight) ? onward : opts[R() * opts.length | 0];
+    visited[ny][nx] = 1; tiles[TX(ny)][TX(nx)] = 1; tiles[cy+ny+1+P][cx+nx+1+P] = 1; cameFrom[ny][nx] = [dx, dy];
     active.push([nx, ny]);
+  }
+  // dead space: prune dead-end branches back, leaf by leaf, until only `fill` of the grid is corridor.
+  // Pruning a leaf can never disconnect anything, and the start room's block (with its ring of
+  // neighbours, so a doorway always has somewhere to open onto) and all three candidate exit
+  // corners are kept, so start and exit stay joined whichever corner the exit lands in.
+  if (fill < 1) {
+    const rc = CONFIG.startRoomCells;
+    const keep = (cx, cy) => (cx <= rc && cy >= CONFIG.rows - 1 - rc)                       // start block + ring
+      || (cx === 0 && cy === 0) || (cx === CONFIG.cols - 1 && cy === 0) || (cx === CONFIG.cols - 1 && cy === CONFIG.rows - 1);
+    const linked = (ax, ay, bx, by) => !!tiles[ay+by+1+P][ax+bx+1+P];
+    const degree = (cx, cy) => DIRS.filter(([dx,dy]) => { const nx=cx+dx, ny=cy+dy; return nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && visited[ny][nx] && linked(cx,cy,nx,ny); }).length;
+    let open = CONFIG.cols * CONFIG.rows; const target = Math.round(open * fill);
+    for (let pass = 0; open > target && pass < 400; pass++) {
+      const leaves = [];
+      for (let cy = 0; cy < CONFIG.rows; cy++) for (let cx = 0; cx < CONFIG.cols; cx++) if (visited[cy][cx] && !keep(cx, cy) && degree(cx, cy) === 1) leaves.push([cx, cy]);
+      if (!leaves.length) break;
+      leaves.sort(() => R() - 0.5);
+      for (const [cx, cy] of leaves.slice(0, Math.max(1, Math.min(leaves.length, open - target)))) {
+        if (degree(cx, cy) !== 1) continue;   // a neighbour's removal this pass may have changed it
+        const [dx, dy] = DIRS.find(([dx,dy]) => { const nx=cx+dx, ny=cy+dy; return nx>=0 && ny>=0 && nx<CONFIG.cols && ny<CONFIG.rows && visited[ny][nx] && linked(cx,cy,nx,ny); });
+        visited[cy][cx] = 0; tiles[TX(cy)][TX(cx)] = 0; tiles[cy+(cy+dy)+1+P][cx+(cx+dx)+1+P] = 0; open--;
+      }
+    }
   }
   // braid
   const braid = (SAVE.ui.braid && SAVE.ui.braid !== 'auto') ? +SAVE.ui.braid : (F.braid || 0);
@@ -70,7 +105,8 @@ function generate(seed) {
     let cx0, cy0, tries = 0;
     do { cx0 = 1 + (R() * (CONFIG.cols - cells - 1) | 0); cy0 = 1 + (R() * (CONFIG.rows - cells - 1) | 0); }
     while (++tries < 20 && (roomCenters.some(([rx, ry]) => Math.abs(rx - (TX(cx0)+(tw>>1))) < tw + 2 && Math.abs(ry - (TX(cy0)+(tw>>1))) < tw + 2)   // keep rooms apart
-      || (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells)));   // and out of the start-room corner
+      || (cx0 <= CONFIG.startRoomCells && cy0 + cells >= CONFIG.rows - CONFIG.startRoomCells)   // and out of the start-room corner
+      || !(() => { for (let y = 0; y < cells; y++) for (let x = 0; x < cells; x++) if (isOpen(TX(cx0+x), TX(cy0+y))) return true; return false; })()));   // and on corridor, never an island in dead space
     for (let y = 0; y < tw; y++) for (let x = 0; x < tw; x++) tiles[TX(cy0)+y][TX(cx0)+x] = 1;
     roomCenters.push([TX(cx0) + (tw>>1), TX(cy0) + (tw>>1)]);
   }

@@ -32,7 +32,12 @@ many seeds, in both normal and pool mode, and checks the invariants in
 node maze/tools/harness.mjs --seeds 40             # bigger sweep
 node maze/tools/harness.mjs --phase 2 --seed 1000  # reproduce one maze
 node maze/tools/harness.mjs --pool                 # pool levels only
+node maze/tools/harness.mjs --turns least          # with a Turns debug preset
 ```
+
+`--turns fewer|least` sets `SAVE.ui.turns` before generating, exactly as the
+Turns menu does, so the pruned, straightened carver is swept by the same checks.
+Without it the sweep is Auto and must still find the same 10 soft-locked seeds.
 
 Every failure prints the phase, stone count and seed, plus the exact command to
 reproduce it.
@@ -119,6 +124,19 @@ shows the same difference, which is how it was ruled out.
 `split-data.mjs`, `split-engine.mjs`, `split-css.mjs` and `analyze-engine.mjs`
 are the tools that did the splits and surveyed the file. Kept because they
 record exactly what was moved and how it was checked.
+
+## Corridor shape
+
+`hall-metrics.mjs` measures what the Turns presets actually do to the maze at
+cell level — share of the grid used, turns and junctions, dead ends, mean and
+longest straight run, route length — averaged over seeds, for Auto, Fewer and
+Least side by side. `--shot least out.png` also captures the game's own Full
+map view of one seed, so a number can be checked against the picture.
+
+```
+node maze/tools/hall-metrics.mjs --size xl --seeds 8
+node maze/tools/hall-metrics.mjs --size xl --shot least least.png
+```
 
 ## Audio tools
 

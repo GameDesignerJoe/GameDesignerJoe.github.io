@@ -36,6 +36,15 @@ const CONFIG = {
   // maze shape
   branchiness: 0.35,    // 0 = long winding corridors (backtracker). 1 = many short branches and junctions (Prim-like). Play with this.
   braid: 0.0,           // 0 = perfect maze. 0.1 opens 10% of dead ends into loops
+  hallStraightness: 0,  // when carving, chance of carrying straight on rather than turning. 0 = today's snaking.
+                        // 0.9 = long straight halls that only turn when they must
+  hallFill: 1.0,        // share of the grid the maze is allowed to use. 1 = fill every cell (today).
+                        // 0.55 = carve, then prune dead-end branches back until only 55% is corridor —
+                        // the rest is solid wall. Fewer branches, longer runs, real dead space
+  turnsPresets: {       // the Turns debug menu. Each may also set branch, used when Branching is Auto
+    fewer: { straight: 0.85, fill: 1.0,  branch: 0.05 },
+    least: { straight: 0.95, fill: 0.55, branch: 0.02 },
+  },
   rooms: 3,             // open spaces carved into the maze
   roomCells: [2, 3],    // room size range, in cells (2 = 3×3 tiles, 3 = 5×5 tiles)
   tunnels: 4,           // roofed corridor runs that hide the floor (you show through as a ghost)

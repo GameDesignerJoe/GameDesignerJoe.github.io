@@ -8,7 +8,7 @@
 function serializeRun() {
   if (!started || solved || !player) return null;
   return {
-    seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', branch: SAVE.ui.branch || 'auto', braid: SAVE.ui.braid || 'auto', v: VERSION,
+    seed: SEED, phase: SAVE.phase || 0, stones: SAVE.stones || 0, pool: poolMode, size: SAVE.ui.size || 'auto', branch: SAVE.ui.branch || 'auto', braid: SAVE.ui.braid || 'auto', turns: SAVE.ui.turns || 'auto', v: VERSION,
     px: player.x, py: player.y, facing, t: gameNow() - t0, steps, deadEndsEntered, leftRoom, pagesThisRun,
     marks: [...marks.entries()], mapped: [...mapped.entries()], visited: [...visited],
     chalk, chalkUsed, chalkFound, charcoal, charcoalLeft, charcoalOn, charcoalUsed, charcoalFound,
