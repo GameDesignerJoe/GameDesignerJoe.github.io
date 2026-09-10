@@ -26,6 +26,9 @@ function poolDrop() {
   setTimeout(() => {
     $('poolKeeper').textContent = 'The Caretaker nods once.';
     poolSet(poolScript.close, [['Wake', 'chalk']], () => {
+      // remember that one just came off, so the next waking can show it: the light opens and
+      // the pull-out takes its time. Without that the upgrade never reads — you simply play on.
+      SAVE.lifted = SAVE.stones || 0;
       SAVE.stones = Math.min(STONES.length, (SAVE.stones || 0) + 1); SAVE.phase = Math.min(PHASES.length - 1, (SAVE.phase || 0) + 1); SAVE.poolPending = false; persist();
       $('pool').classList.remove('show'); reset((Math.random()*1e9)|0); enterMaze();
     });

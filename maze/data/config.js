@@ -28,6 +28,9 @@ const CONFIG = {
   tilePx: 60,           // zoom: screen pixels per tile
   titleTilePx: 150,     // zoom while asleep on the title screen
   introSeconds: 2.8,    // zoom-out when you tap the sleeper
+  liftIntroSeconds: 5,  // and the one after a burden is put down: slower, and the light opens with it,
+                        // because otherwise nothing tells you the maze got easier — you just play on
+  liftGlowFrom: 0.55,   // how dim that one starts, as a fraction of the light you now have
   viewRadius: 1.0,      // cells of visibility around you
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
   markGhostAlpha: 0,    // how brightly your own chalk shows through the fog. 0 = not at all, which is

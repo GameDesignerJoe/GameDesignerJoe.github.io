@@ -91,7 +91,7 @@ function useChalk(glyph) {
   updateChalk();
 }
 function reset(seed) {
-  SEED = seed; generate(SEED); started = false; dbgView = null; AUDIO.setMusic(poolMode ? 'pool' : character.name); zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
+  SEED = seed; generate(SEED); started = false; dbgView = null; AUDIO.setMusic(poolMode ? 'pool' : character.name); zoomS = CONFIG.titleTilePx; intro = null; introWalk = null; liftGlow = 1; document.body.classList.add('pre'); $('title').classList.remove('hide', 'leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;

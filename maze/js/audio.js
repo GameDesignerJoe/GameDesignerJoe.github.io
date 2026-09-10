@@ -141,6 +141,9 @@ const AUDIO = (() => {
     lampOn() { noise(0.08, { vol: 0.15, freq: 3000, q: 1, type: 'highpass' }); tone(523, 0.5, { vol: 0.07, attack: 0.02 }); tone(784, 0.7, { vol: 0.04, attack: 0.1 }); },
     lampOff() { tone(392, 0.25, { vol: 0.06, slide: 300 }); },
     wake() { tone(196, 1.6, { vol: 0.08, attack: 0.4 }); setTimeout(() => tone(294, 1.8, { vol: 0.06, attack: 0.5 }), 700); },
+    // waking up one burden lighter: the same low swell, with a major figure opening over it
+    lifted() { tone(196, 2.2, { vol: 0.07, attack: 0.5 }); tone(294, 2.6, { vol: 0.05, attack: 0.8 });
+      [392, 493.9, 587.3, 784].forEach((f, i) => setTimeout(() => tone(f, 2.6 - i * 0.3, { vol: 0.075 - i * 0.008, attack: 0.25 }), 500 + i * 420)); },
     stone() { tone(110, 0.3, { type: 'triangle', vol: 0.15, slide: 80 }); noise(0.08, { vol: 0.12, freq: 600, q: 2 }); },
     stoneDrop() { noise(0.5, { vol: 0.25, freq: 900, q: 0.8, type: 'lowpass' }); tone(146, 1.2, { vol: 0.1, attack: 0.02, slide: 98 }); setTimeout(() => tone(392, 2.4, { vol: 0.05, attack: 0.6 }), 400); },
     poolEnter() { [261.6, 329.6, 392].forEach((f, i) => setTimeout(() => tone(f, 3.5, { vol: 0.05, attack: 0.8 }), i * 500)); },

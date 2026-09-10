@@ -148,15 +148,18 @@ function enterMaze() {   // fade from black into the room, asleep; tapping the s
 }
 function wake() {   // the zoom-out: HUD slides in, then the figure gets up
   if (intro || started) return;
-  AUDIO.begin(); AUDIO.wake();
-  intro = { t0: performance.now(), from: zoomS };
+  AUDIO.begin();
+  const lift = SAVE.lifted != null;   // you put a burden down at the last pool; this waking says so
+  if (lift) { delete SAVE.lifted; persist(); AUDIO.lifted(); liftGlow = CONFIG.liftGlowFrom; } else AUDIO.wake();
+  const secs = lift ? CONFIG.liftIntroSeconds : CONFIG.introSeconds;
+  intro = { t0: performance.now(), from: zoomS, lift };
   $('title').classList.add('leaving'); $('howPanel').classList.remove('open'); $('howBtn').classList.remove('open');
-  setTimeout(() => document.body.classList.remove('pre'), CONFIG.introSeconds * 400);
+  setTimeout(() => document.body.classList.remove('pre'), secs * 400);
   setTimeout(() => {
     $('title').classList.add('hide'); started = true; t0 = gameNow(); narrNext = Infinity; $('mapBtn').classList.add('beckon');
     introWalk = { dx: 0, dy: -1 };   // and stands up off the mat
     if (character.leave && !(SAVE.wakeSaid || []).includes(character.name) && !poolMode) setTimeout(() => narrate(character.wake), 900);
-  }, CONFIG.introSeconds * 1000);
+  }, secs * 1000);
 }
 cv.addEventListener('pointerdown', e => {
   if (started || intro || $('title').classList.contains('hide')) return;

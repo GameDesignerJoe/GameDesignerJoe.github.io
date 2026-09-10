@@ -217,6 +217,14 @@ caught something geometry could not: a room opens its corner tiles, and one of
 those can touch a corridor running alongside, so hiddenness is settled with a
 flood rather than by counting doorways.
 
+**The waking after a pool (v0.44.0).** Putting a burden down makes the maze
+easier — the first one doubles your light — and nothing used to say so; you
+simply played on. `poolDrop()` now records `SAVE.lifted`, and the next `wake()`
+runs a longer pull-out (`liftIntroSeconds`) with the light opening from
+`liftGlowFrom` to full as it goes, over a major figure (`AUDIO.lifted()`).
+`liftGlow` multiplies `B.viewRadius()` and is 1 at every other moment. An
+ordinary waking is untouched.
+
 ## Getting a different maze (v0.40.0)
 
 The seed is shown in the debug panel next to the version, and `?seed=1234`

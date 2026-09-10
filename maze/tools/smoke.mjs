@@ -508,6 +508,52 @@ check('the father waits where he stands, then walks away and is gone',
   `seen at ${dad.d0.toFixed(1)} tiles, still for ${dad.movedAt.toFixed(1)}s (linger ${dad.linger}s), `
   + `walked out to ${dad.d1.toFixed(1)} and faded by ${dad.secs.toFixed(1)}s`);
 
+// ── 8f. putting a burden down, and the waking that says so ───────
+// The upgrade after a pool is a bigger light, and nothing used to tell you: you just
+// played on. Now the next waking is slower and the light opens as it pulls out.
+await page.evaluate(() => {
+  SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = true; SAVE.collected = {}; SAVE.ui = {};
+  delete SAVE.run; delete SAVE.lifted; persist(); reset(4242); startPool();
+});
+let poolTaps = 0;
+for (let i = 0; i < 30; i++) {
+  const st = await page.evaluate(() => ({ shown: $('pool').classList.contains('show'), btn: !!document.querySelector('#poolChoices button') }));
+  if (!st.shown) break;
+  if (st.btn) { await page.evaluate(() => document.querySelector('#poolChoices button').click()); poolTaps++; }
+  await page.waitForTimeout(300);
+}
+const dropped = await page.evaluate(() => ({ stones: SAVE.stones, lifted: SAVE.lifted, phase: SAVE.phase }));
+const lift = await page.evaluate(async () => {
+  wake();
+  const first = { lift: !!intro.lift, glow: +liftGlow.toFixed(3), radius: +B.viewRadius().toFixed(3) };
+  const seen = [];
+  const t0 = performance.now();
+  await new Promise((r) => { const step = () => { seen.push(+liftGlow.toFixed(4));
+    if (performance.now() - t0 > (CONFIG.liftIntroSeconds + 0.6) * 1000) return r(); requestAnimationFrame(step); }; step(); });
+  const mid = seen[Math.floor(seen.length * CONFIG.introSeconds / CONFIG.liftIntroSeconds) + 2];
+  return { first, mid, rising: seen.every((g, i) => i === 0 || g >= seen[i - 1] - 1e-6),
+    endGlow: liftGlow, endRadius: +B.viewRadius().toFixed(3), done: !intro, started,
+    secs: CONFIG.liftIntroSeconds, normal: CONFIG.introSeconds, from: CONFIG.liftGlowFrom };
+});
+check('a burden put down makes the next waking slower, with the light opening',
+  dropped.lifted === 0 && dropped.stones === 1 && dropped.phase === 1
+    && lift.first.lift && Math.abs(lift.first.glow - lift.from) < 0.02 && lift.rising
+    && lift.mid < 1 && lift.endGlow === 1 && lift.done && lift.started,
+  `${poolTaps} taps through the pool, stone 0 down, phase ${dropped.phase}; `
+  + `waking opens from ${lift.first.glow} of full light to ${lift.endGlow} over ${lift.secs}s `
+  + `(an ordinary one is ${lift.normal}s at full light); radius ${lift.first.radius} → ${lift.endRadius} tiles`);
+
+const plainWake = await page.evaluate(async () => {
+  SAVE.phase = 2; SAVE.stones = 1; SAVE.poolPending = false; delete SAVE.lifted; delete SAVE.run; persist();
+  reset(4242); wake();
+  const lift = !!intro.lift, g0 = liftGlow;
+  await new Promise((r) => setTimeout(r, (CONFIG.introSeconds + 0.5) * 1000));
+  return { lift, g0, glow: liftGlow, started, done: !intro };
+});
+check('an ordinary waking is exactly as it was',
+  !plainWake.lift && plainWake.g0 === 1 && plainWake.glow === 1 && plainWake.started && plainWake.done,
+  `no lift, light held at ${plainWake.glow} throughout, awake after ${await page.evaluate(() => CONFIG.introSeconds)}s`);
+
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,
   pageErrors.length ? [...new Set(pageErrors)].slice(0, 3).map((e) => e.split('\n')[0]).join(' | ') : '');

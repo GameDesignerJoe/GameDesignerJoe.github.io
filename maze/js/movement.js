@@ -29,7 +29,11 @@ function update(wall) {
   const now = gameNow();
   const kd = (keys.ArrowLeft||keys.a) ? {dx:-1,dy:0} : (keys.ArrowRight||keys.d) ? {dx:1,dy:0}
            : (keys.ArrowUp||keys.w) ? {dx:0,dy:-1} : (keys.ArrowDown||keys.s) ? {dx:0,dy:1} : null;
-  if (intro) { const k = Math.min(1, (performance.now() - intro.t0) / (CONFIG.introSeconds * 1000)); const e = 1 - Math.pow(1 - k, 3); zoomS = intro.from + (CONFIG.tilePx - intro.from) * e; if (k >= 1) intro = null; }
+  if (intro) { const secs = intro.lift ? CONFIG.liftIntroSeconds : CONFIG.introSeconds;
+    const k = Math.min(1, (performance.now() - intro.t0) / (secs * 1000)); const e = 1 - Math.pow(1 - k, 3);
+    zoomS = intro.from + (CONFIG.tilePx - intro.from) * e;
+    if (intro.lift) liftGlow = CONFIG.liftGlowFrom + (1 - CONFIG.liftGlowFrom) * e;
+    if (k >= 1) { intro = null; liftGlow = 1; } }
   else zoomS = started ? CONFIG.tilePx : CONFIG.titleTilePx;
   const want = (solved || !started || mapOpen || paused) ? null : (introWalk || held || kd);
 
