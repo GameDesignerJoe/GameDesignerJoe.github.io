@@ -38,6 +38,9 @@ const CONFIG = {
   turnForgiveness: 0.5, // how far off a tile center you can still take a turn (0.5 = anywhere in the tile)
   stickDeadzone: 0.22,  // fraction of stick travel that reads as "not pushing"
   playerSize: 0.46,     // fraction of a tile
+  playerOutline: 0.13,  // a pale edge round the body, as a fraction of its radius. Carrying every
+                        // stone he is nearly black, and on a dark floor the outline is the only
+                        // thing that keeps him findable. 0 = none, and he starts truly invisible
   cameraLag: 0.14,      // 0 = locked on player, higher = floatier
 
   // maze shape
@@ -102,6 +105,9 @@ const CONFIG = {
   tutorials: true,      // pause and explain each kind of thing the first time you find it (remembered between visits)
   startRoomChalk: 1,
   crawlGaps: 3,         // low gaps in walls only the Child fits through (per medium-sized maze; scales with area)
+  crawlOnPath: 1,       // squeezes on the way out that cannot be walked round. Child phases only
+  secretRooms: 1,       // a room sealed off behind a squeeze, covered in someone else's chalk. Child only
+  secretRoomChalk: 0.3, // how thickly that room is drawn on: chance per floor tile
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
@@ -146,6 +152,8 @@ const CONFIG = {
     floor: '#6e6a62',
     grout: '#585450',
     player:'#ece7da',
+    playerBurdened:'#2c2a26',   // what he is before a stone is put down. Each one lights another
+                                // band of him, tail to nose, until he is the pale colour above
     exit:  '#a89f8c',
     gate:  '#d8b36a',
     start: '#4a4741',

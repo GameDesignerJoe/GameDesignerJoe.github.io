@@ -17,6 +17,8 @@ let doors = [];              // locked doors inside the maze: {x,y,shape,open}
 let innerKeys = new Map();   // 'x,y' → shape of the key lying there
 let heldKeys = new Set();    // shapes you carry
 const KEY_SHAPES = ['circle', 'triangle', 'square'];
+let secretTiles = new Set(); // tiles of the secret place: a room walled up, or a dead-end passage, behind one squeeze
+let secretMarks = new Map(); // 'x,y' → glyph: somebody else's chalk, in that room
 let crawlGaps = new Set();   // 'x,y' wall gaps a child can crawl through (open only when the phase allows)
 let crawlCells = new Set();  // open cells that sit between two gaps of one squeeze — drawn narrow too
 let hopscotch = [];          // ordered tiles of a hopscotch court
@@ -314,7 +316,7 @@ function generate(seed) {
   }
 
   // crawl gaps: closed walls between two open cells; open for the Child, drawn sealed for everyone after
-  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null;
+  crawlGaps = new Set(); crawlCells = new Set(); hopscotch = []; ticTacToe = null; secretTiles = new Set(); secretMarks = new Map();
   if (!poolMode) {
     const roomRing = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
     const cands2 = [];
@@ -350,6 +352,96 @@ function generate(seed) {
     }
     // swings: a pocket slider that moves on its own
     if (F.swing) for (const sl of sliders.filter(sl => !sl.atStart && !sl.onPath).slice(0, typeof F.swing === 'number' ? F.swing : N(CONFIG.swings))) { sl.auto = true; sl.nextAt = 0; }
+
+    // A secret place: somewhere small, sealed off, that only a squeeze gets into, covered in
+    // somebody else's chalk. Two ways to find one, in order of how much of a room it is:
+    //
+    //   a room, walled up until one doorway is left — but a room is usually a hub with five or
+    //   six ways in, and most of those turn out to be the only route to something, so openings
+    //   are sealed one at a time and only while the whole maze stays walkable;
+    //
+    //   failing that, a dead-end passage, whose mouth simply becomes the squeeze. Nothing is
+    //   sealed at all there, so it cannot go wrong; it is a hiding place rather than a room.
+    //
+    // Child only. For every phase after, a crawl gap is drawn shut, and this would wall it away.
+    if (F.crawl && CONFIG.secretRooms) {
+      const sealedKeys = new Set(sealedGaps.map(([x, y]) => x + ',' + y));
+      const busy = (x, y) => sealedKeys.has(x + ',' + y) || sliders.some(sl => (sl.x === x && sl.y === y) || (sl.x + sl.dx === x && sl.y + sl.dy === y)) || pockets.some(([px, py]) => px === x && py === y);
+      const roomZone = (x, y) => startRoom && x >= startRoom.x0 - 2 && x <= startRoom.x1 + 2 && y >= startRoom.y0 - 2 && y <= startRoom.y1 + 2;
+      // a pocket's tile is open with its gap sealed; count it walkable, the slider goes both ways
+      const walkSeen = () => {
+        const s0 = Math.floor(start.x), t0 = Math.floor(start.y);
+        const seen = new Set([s0 + ',' + t0]), q2 = [[s0, t0]];
+        while (q2.length) { const [x, y] = q2.shift(); for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+          if (seen.has(k) || !(isOpen(nx, ny) || sealedKeys.has(k))) continue; seen.add(k); q2.push([nx, ny]); } }
+        return seen;
+      };
+      const allWalkable = () => { const seen = walkSeen();
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (tiles[y][x] && !seen.has(x + ',' + y)) return false;
+        return true; };
+      // The squeeze has to be the ONLY way in, and geometry alone will not tell you that: a room
+      // opens its corner tiles, and one of those can touch a corridor running alongside. So shut
+      // the mouth, flood, and insist none of it can be reached.
+      const onlyWayIn = (mouth, area) => {
+        const [mx, my] = mouth; const was = tiles[my][mx];
+        tiles[my][mx] = 0; const seen = walkSeen(); tiles[my][mx] = was;
+        return !area.some((k) => seen.has(k));
+      };
+      const tilesOf = (x0, y0, x1, y1) => { const out = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push(x + ',' + y); return out; };
+
+      const order = roomRects.slice(); order.sort(() => R() - 0.5);
+      for (const [rx0, ry0, rx1, ry1] of order) {
+        const x0 = TX(rx0), y0 = TX(ry0), x1 = TX(rx1), y1 = TX(ry1);
+        const ways = [];
+        for (let y = y0; y <= y1; y += 2) { if (isOpen(x0 - 1, y)) ways.push([x0 - 1, y]); if (isOpen(x1 + 1, y)) ways.push([x1 + 1, y]); }
+        for (let x = x0; x <= x1; x += 2) { if (isOpen(x, y0 - 1)) ways.push([x, y0 - 1]); if (isOpen(x, y1 + 1)) ways.push([x, y1 + 1]); }
+        if (!ways.length || ways.some(([x, y]) => busy(x, y) || roomZone(x, y))) continue;
+        ways.sort(() => R() - 0.5);
+        const shut = [];
+        for (const [x, y] of ways) {                       // one at a time, and only if nothing is stranded
+          if (ways.length - shut.length <= 1) break;
+          tiles[y][x] = 0;
+          if (allWalkable()) shut.push([x, y]); else tiles[y][x] = 1;
+        }
+        const left = ways.filter(([x, y]) => isOpen(x, y));
+        const area = tilesOf(x0, y0, x1, y1);
+        if (left.length !== 1 || !onlyWayIn(left[0], area)) { for (const [x, y] of shut) tiles[y][x] = 1; continue; }
+        crawlGaps.add(left[0].join(','));
+        secretTiles = new Set(area);
+        break;
+      }
+
+      if (!secretTiles.size) {   // no room would take it: find a dead-end passage instead
+        const deg = (x, y) => DIRS.filter(([dx, dy]) => isOpen(x + dx, y + dy)).length;
+        const corners = [[TX(0), TX(0)], [TX(CONFIG.cols - 1), TX(0)], [TX(CONFIG.cols - 1), TX(CONFIG.rows - 1)]];
+        const found = [];
+        for (let y = TX(0); y < H - P; y += 2) for (let x = TX(0); x < W - P; x += 2) {
+          if (!isOpen(x, y) || deg(x, y) !== 1 || roomZone(x, y) || busy(x, y)) continue;
+          if (corners.some(([cx, cy]) => cx === x && cy === y)) continue;
+          const chain = [x + ',' + y]; let cx = x, cy = y, back = null, mouth = null;
+          for (let step = 0; step < 40; step++) {
+            const d = DIRS.find(([dx, dy]) => isOpen(cx + dx, cy + dy) && !(back && dx === -back[0] && dy === -back[1]));
+            if (!d) break;
+            const gx = cx + d[0], gy = cy + d[1], nx = cx + d[0] * 2, ny = cy + d[1] * 2;
+            if (!isOpen(nx, ny)) break;
+            if (deg(nx, ny) !== 2 || roomZone(nx, ny) || busy(nx, ny)) { mouth = [gx, gy]; break; }
+            chain.push(gx + ',' + gy, nx + ',' + ny); back = d; cx = nx; cy = ny;
+          }
+          if (mouth && chain.length >= 3 && !crawlGaps.has(mouth.join(',')) && onlyWayIn(mouth, chain)) found.push({ chain, mouth });
+        }
+        if (found.length) {
+          found.sort((a, b) => b.chain.length - a.chain.length || R() - 0.5);   // the deepest hiding place there is
+          const pick = found[0];
+          crawlGaps.add(pick.mouth.join(','));
+          secretTiles = new Set(pick.chain);
+        }
+      }
+
+      if (secretTiles.size) {
+        const glyphs = ['x', '?', 'up', 'down', 'left', 'right'];
+        for (const k of secretTiles) if (R() < CONFIG.secretRoomChalk) secretMarks.set(k, glyphs[R() * glyphs.length | 0]);
+      }
+    }
   }
   if (poolMode) {   // no maze: the start room, a straight hall north, and the water at its end
     for (let y = 0; y < H; y++) tiles[y].fill(0);
@@ -407,6 +499,38 @@ function generate(seed) {
       sealedGaps.push([g[0], g[1]]);
       sliders.push({ x: c[0], y: c[1], dx: n[0] - c[0] > 0 ? 1 : n[0] - c[0] < 0 ? -1 : 0, dy: n[1] - c[1] > 0 ? 1 : n[1] - c[1] < 0 ? -1 : 0, shifted: false, onPath: true });
       break;
+    }
+  }
+
+  // a squeeze on the way out that you cannot go round: a gap on the route whose sealing would cut
+  // start from exit, turned into a crawl gap. The tile is already open, so nothing about the maze
+  // changes except that getting through it means getting down. Child only — for everyone after, a
+  // crawl gap is drawn shut, and this one would wall the exit off.
+  if (F.crawl && CONFIG.crawlOnPath && !poolMode) {
+    const isCell = ([x, y]) => (x - P) % 2 === 1 && (y - P) % 2 === 1;
+    const nearRoom = (x, y) => startRoom && x >= startRoom.x0 - 1 && x <= startRoom.x1 + 1 && y >= startRoom.y0 - 1 && y <= startRoom.y1 + 1;
+    const sx4 = Math.floor(start.x), sy4 = Math.floor(start.y);
+    const joined = () => { const seen = new Set([sx4+','+sy4]), q2 = [[sx4, sy4]];
+      while (q2.length) { const [x, y] = q2.shift(); for (const [dx, dy] of DIRS) { const nx = x+dx, ny = y+dy, k = nx+','+ny;
+        if (isOpen(nx, ny) && !seen.has(k)) { seen.add(k); q2.push([nx, ny]); } } } return seen.has(exX + ',' + exY); };
+    const idxs = [];
+    for (let i = 4; i < solutionPath.length - 4; i++) {
+      const g = solutionPath[i];
+      if (isCell(g) || crawlGaps.has(g.join(',')) || nearRoom(g[0], g[1])) continue;
+      if (exitAlley.some(([ax, ay]) => ax === g[0] && ay === g[1])) continue;
+      if (startGap && g[0] === startGap[0] && g[1] === startGap[1]) continue;
+      if (sealedGaps.some(([gx, gy]) => gx === g[0] && gy === g[1])) continue;
+      if (sliders.some(sl => (sl.x === g[0] && sl.y === g[1]) || (sl.x + sl.dx === g[0] && sl.y + sl.dy === g[1]))) continue;
+      idxs.push(i);
+    }
+    idxs.sort(() => R() - 0.5);
+    let made = 0;
+    for (const i of idxs) {
+      if (made >= CONFIG.crawlOnPath) break;
+      const g = solutionPath[i];
+      tiles[g[1]][g[0]] = 0; const roundAbout = joined(); tiles[g[1]][g[0]] = 1;
+      if (roundAbout) continue;                       // you could walk round it, so squeezing would be optional
+      crawlGaps.add(g.join(',')); made++;
     }
   }
 

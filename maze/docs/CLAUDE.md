@@ -179,6 +179,44 @@ result: on X-Large, Least uses about 59% of the grid, cuts turns-plus-junctions
 from ~700 to ~180 and dead ends from ~170 to ~12, and the mean straight run
 goes from 3 cells to about 7.
 
+## The Child's maze (v0.41.0–v0.43.0)
+
+Worked through the list at the top of `NOTES.md`. The Child phase changed most:
+
+- **A squeeze you cannot go round.** `CONFIG.crawlOnPath` puts one crawl gap on
+  the solution route whose sealing would cut start from exit, so getting out
+  means getting down. The tile was already open, so nothing about the maze
+  changes except how you pass it.
+- **A secret place.** `CONFIG.secretRooms` finds somewhere sealed off but for a
+  single squeeze and covers it in somebody else's chalk (`secretMarks`, drawn
+  fainter than yours; `SECRET_LINES` for the line you think on the way in).
+  First choice is a room, walled up one doorway at a time and only while the
+  whole maze stays walkable — a room is usually a hub with five or six ways in
+  and most turn out to be the only route to something, so this rarely takes.
+  The fallback is the deepest dead-end passage, whose mouth simply becomes the
+  squeeze; nothing is sealed there at all. Every Child maze gets one.
+- **Both are Child-only**, gated on `F.crawl`. For every phase after, a crawl
+  gap is drawn shut, so either would wall something away for good.
+- **No push blocks.** A shifting district used to ask for extra sliders on any
+  phase with pockets *or* swings, and on a swing-only phase the surplus came
+  out pushable. Shifting now needs real pockets.
+- **One father at a time**, and he leaves: seen, he waits `figureLingerSec`,
+  then walks straight away from you and fades, through whatever is in the way.
+
+**The character fills in as the burdens go down.** `drawPlayerBody()` in
+`js/render.js` clips the arrow and paints seven bands tail to nose, one per
+stone: `colors.playerBurdened` while still carried, `colors.player` once put
+down. `CONFIG.playerOutline` keeps a pale edge on him — carrying everything he
+is nearly black, and on a dark floor that edge is the only thing that keeps him
+findable. Set it to 0 for Joe's literal "completely black".
+
+Two invariants came out of this: **a swing-only phase carries no pushable
+blocks**, and **the secret place is behind a squeeze, and behind nothing else**
+— walkable, and not walkable once crawling is off the table. That second one
+caught something geometry could not: a room opens its corner tiles, and one of
+those can touch a corridor running alongside, so hiddenness is settled with a
+flood rather than by counting doorways.
+
 ## Getting a different maze (v0.40.0)
 
 The seed is shown in the debug panel next to the version, and `?seed=1234`

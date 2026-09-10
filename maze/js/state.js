@@ -19,7 +19,7 @@ let lastTileKey = '';
 let sliding = null;   // {sl, from:[x,y], to:[x,y], t0}
 let pushHeldSince = 0;
 let pendingTurn = null;   // {dx,dy,until}: a perpendicular push that wasn't possible yet   // how long you've leaned into a slider's edge
-let idleSince = 0, firstPushDone = false, crawlSaid = false, hopIdx = 0, hopSaid = false, tttSaid = false;
+let idleSince = 0, firstPushDone = false, crawlSaid = false, hopIdx = 0, hopSaid = false, tttSaid = false, secretSaid = false;
 let zoomS = 150, intro = null, introWalk = null;   // intro: {t0} while zooming out; introWalk: scripted first step
 let darkAmt = 0;   // 0 lit … 1 fully in the dark; eased per frame
 let inSqueeze = false, camBump = 0;   // camBump: a small vertical kick, decays
@@ -95,7 +95,7 @@ function reset(seed) {
   player = { ...start }; cam = { ...start };
   steps = 0; t0 = gameNow(); solved = false; dir = null; held = null; sliding = null; recenter = null; darkAmt = 0; idleSince = gameNow(); firstPushDone = false; facing = facingShown = -Math.PI/2;
   marks = new Map(); lastTileKey = ''; chalk = CONFIG.chalkStart; chalkUsed = chalkFound = deadEndsEntered = 0;
-  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; figureLinesSaid = 0; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
+  pointerUntil = pathUntil = 0; pointerUses = pathUses = 0; leftRoom = false; shelfSaid = false; pagesThisRun = []; heldKeys = new Set(); renderKeys(); crawlSaid = false; hopIdx = 0; hopSaid = false; tttSaid = false; secretSaid = false; figureLinesSaid = 0; hasKey = false; $('stone').classList.remove('show'); hasLamp = false; lampOn = false; $('lamp').classList.remove('show', 'on'); journalsRead = 0;
   charcoal = CONFIG.charcoalStart; charcoalLeft = 0; charcoalOn = false; charcoalUsed = charcoalFound = 0; mapped = new Map(); visited = new Set(); updateCharcoal();
   if (startRoom) { const { x0, y0, x1, y1 } = startRoom; for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) mapped.set(x+','+y, isOpen(x, y) ? 'floor' : 'wall'); }   // home is always on the map keyEl.classList.remove('show');
   { const mine = SELF_LINES[character.name] || SELF_LINES['You'];

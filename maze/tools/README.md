@@ -47,6 +47,8 @@ are the only thing it changed about generation.
 Every failure prints the phase, stone count and seed, plus the exact command to
 reproduce it.
 
+As of v0.43.0 the sweep runs **19 checks** and `smoke.mjs` **27**.
+
 **`checks.mjs`** holds the invariants. They deliberately do not call the game's
 own `isOpen()` or `walkable()` — a bug in those should not be able to hide
 itself from the checks. The flood fills are ours.
@@ -101,7 +103,7 @@ node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7
 
 ## Known failure
 
-`harness.mjs` reports **40 unfinishable mazes in 1920** as shipped, and **10 in
+`harness.mjs` reports **40 unfinishable mazes in 1920** as shipped, and **11 in
 1920** with `--clusters off`. The key for a door is sometimes placed in a sealed
 pocket that lies behind that same door, so the door can never be opened and the
 exit can never be reached.

@@ -133,6 +133,20 @@ const CHECKS = [
     return n > s.config.pointerMax ? `${n} pointers in one maze, cap is ${s.config.pointerMax}` : null;
   }],
 
+  ['the secret place is behind a squeeze, and behind nothing else', (s) => {
+    // If a maze has one, it must be walkable — a hiding place you cannot get into is a bug, not
+    // a secret — and it must stop being walkable the moment crawling is off the table, or it is
+    // not hidden at all. Both halves matter; the first is the one that would ruin a run.
+    if (!s.secretTiles || !s.secretTiles.length) return null;
+    const reach = flood(openTiles(s), s.W, s.H, s.start.x, s.start.y);
+    const lost = s.secretTiles.filter((k) => !reach.has(k));
+    if (lost.length) return `${lost.length} secret tile(s) unreachable, e.g. ${lost[0]}`;
+    // Hiddenness is asked of the grid as it stands, not with every slider union-opened: the way
+    // in must be the squeeze, but a pocket you would have to be standing in already is not a way.
+    const noCrawl = flood(openTiles(s, { slidersShifted: false }), s.W, s.H, s.start.x, s.start.y, new Set(s.crawlGaps));
+    return s.secretTiles.some((k) => !noCrawl.has(k)) ? null : 'the secret place can be walked into without squeezing';
+  }],
+
   ['no corridor is cut off', (s) => {
     // Every floor tile must be walkable from the mat. Dead space is closed tiles, and a
     // pocket counts because its slider can be pushed and pulled back, so anything left

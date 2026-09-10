@@ -165,3 +165,7 @@ const TUTORIALS = {
 
 // ── the father, placed ──────────────────────────────────────────
 const FIGURE_LINES = ["was that him?", "wait—", "dad?", "he didnt see me.", "hes right there. he wont look."];
+
+// the secret room: someone small was in here a long time, and left it covered in chalk
+const SECRET_LINES = ["where am i without you?", "somebody was in here. for a long time.",
+  "all this chalk. all these arrows. none of them go out.", "i think i drew these.", "he waited in here too."];

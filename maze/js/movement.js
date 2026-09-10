@@ -126,6 +126,10 @@ function update(wall) {
   if (key !== lastTileKey) { if (lastTileKey) { steps++; AUDIO.step(tunnelTiles.has(key)); } lastTileKey = key; saveRun(false); $('stepLbl').textContent = steps + ' tiles'; }
   if (key !== prevKey) {
     const [tx, ty] = key.split(',').map(Number);
+    // the secret room: nobody tells you it is there, so the only line is the one you think on the way in
+    if (!secretSaid && secretTiles.has(key)) {
+      secretSaid = true; narrate(SECRET_LINES[Math.random() * SECRET_LINES.length | 0]);
+    }
     if (startRoom) {
       const inRoom = tx >= startRoom.x0 && tx <= startRoom.x1 && ty >= startRoom.y0 && ty <= startRoom.y1;
       if (!inRoom && !leftRoom) { leftRoom = true; narrNext = poolMode ? now + 1200 : now + CONFIG.narratorFirstSec * 1000; if (poolMode) narrQueue = POOLS[Math.min(SAVE.stones || 0, POOLS.length - 1)].approach.slice(); if (!(SAVE.wakeSaid || []).includes(character.name) && character.wake && !poolMode) { if (character.leave) { narrate(character.leave); narrNext = now + CONFIG.narratorEverySec * 1000; } else narrQueue.unshift(character.wake); (SAVE.wakeSaid = SAVE.wakeSaid || []).push(character.name); persist(); } }

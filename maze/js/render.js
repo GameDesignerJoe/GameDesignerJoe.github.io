@@ -8,6 +8,20 @@ let dpr = 1;
 function resize() { dpr = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
 addEventListener('resize', resize); resize();
 
+// The body, drawn into an already translated and rotated context. Seven bands from tail to
+// nose, one per stone: dark while it is still carried, pale once it has been put down. He
+// starts as a shape you can barely see and ends the pale arrow he always used to be.
+function drawPlayerBody(c, r) {
+  const C = CONFIG.colors, n = STONES.length;
+  c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -r*0.75); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, r*0.75); c.closePath();
+  c.save(); c.clip();
+  const x0 = -r*0.8, span = r*1.8;
+  for (let i = 0; i < n; i++) { c.fillStyle = has(i) ? C.player : C.playerBurdened; c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2); }
+  c.restore();
+  if (CONFIG.playerOutline > 0) { c.strokeStyle = C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
+  c.fillStyle = C.wall; c.beginPath(); c.moveTo(r, 0); c.lineTo(r*0.3, -r*0.29); c.lineTo(r*0.3, r*0.29); c.closePath(); c.fill();
+}
+
 function draw() {
   const C = CONFIG.colors, vw = innerWidth, vh = innerHeight, nowMs = gameNow();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -217,6 +231,13 @@ function draw() {
     ctx.strokeStyle = C.key; ctx.lineWidth = Math.max(2, S*0.06); ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(px - S*0.14, py, S*0.1, 0, Math.PI*2); ctx.moveTo(px - S*0.04, py); ctx.lineTo(px + S*0.22, py); ctx.moveTo(px + S*0.12, py); ctx.lineTo(px + S*0.12, py + S*0.09); ctx.moveTo(px + S*0.2, py); ctx.lineTo(px + S*0.2, py + S*0.07); ctx.stroke(); }
 
+  // someone else's chalk, all over the secret room's floor. Fainter than yours: it is old.
+  if (secretMarks.size) { ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.42;
+    for (const [k, g] of secretMarks) { const [mx, my] = k.split(',').map(Number);
+      if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+      const [px, py] = T(mx, my); drawGlyph(ctx, g, px, py, S*0.19, Math.max(1, S*0.055)); }
+    ctx.restore(); }
+
   // chalk marks (a mark on a sliding tile rides with it)
   ctx.strokeStyle = C.mark;
   for (const [k, g] of marks) {
@@ -233,8 +254,7 @@ function draw() {
   { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
     const inTunnel = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y));
     ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = inTunnel ? 0.35 : inSqueeze ? 0.7 : 1;
-    ctx.fillStyle = C.player; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill();
+    drawPlayerBody(ctx, r);
     ctx.restore(); }
 
   // darkness: dark tiles are painted out entirely, then the lamp cuts a cone and a foot-glow back in
@@ -275,8 +295,7 @@ function draw() {
     // in the dark you can see yourself only by your own lamp
     if (!inDark || (hasLamp && lampOn)) { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
       ctx.save(); ctx.translate(px, py); ctx.rotate(facingShown); ctx.globalAlpha = tunnelTiles.has(Math.floor(player.x) + ',' + Math.floor(player.y)) ? 0.35 : 1;
-      ctx.fillStyle = C.player; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r*0.8, -r*0.75); ctx.lineTo(-r*0.45, 0); ctx.lineTo(-r*0.8, r*0.75); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = C.wall; ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(r*0.3, -r*0.29); ctx.lineTo(r*0.3, r*0.29); ctx.closePath(); ctx.fill(); ctx.restore(); }
+      drawPlayerBody(ctx, r); ctx.restore(); }
   }
   // lit lamp outside the dark: same reach, brighter floor
   if (hasLamp && lampOn && !debugMap) {
