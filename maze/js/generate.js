@@ -727,6 +727,34 @@ function generate(seed) {
     if (best) {
       const r = build(best.want);
       const G = r.G;
+      // Auto-moving floor on the way out. A few cells of the trunk slide sideways into the dead
+      // wall beside them and back, on a clock, so finding the right branch is not the whole of
+      // it: you also have to wait for the floor. Joe wanted the gauntlet to make you think about
+      // the choice, and a hole that comes and goes is what makes you stand still long enough to.
+      //
+      // Nothing is carved. The cell is trunk floor already and the alcove it steps into stays
+      // wall until the tile gets there, so the tree is still the only way to the exit and there
+      // is no new ground to stand on. Placed before the squeezes go in, so busy() keeps them off
+      // the swing's own cell and its alcove.
+      if (F.swing && CONFIG.exitGauntletSwings) {
+        const trunk = pathCells.slice(-best.want);
+        const picked = [];
+        for (const [cx, cy] of trunk) {
+          if (picked.length >= CONFIG.exitGauntletSwings) break;
+          if (busy(cx, cy) || (cx === r.mouth[0] && cy === r.mouth[1])) continue;
+          if (picked.some(([px, py]) => Math.abs(px - cx) + Math.abs(py - cy) < 6)) continue;
+          // straight through, so the hole it leaves is a hole in a corridor and not in a junction
+          const ways = DIRS.filter(([dx, dy]) => isOpen(cx + dx, cy + dy));
+          if (ways.length !== 2 || ways[0][0] !== -ways[1][0] || ways[0][1] !== -ways[1][1]) continue;
+          // and an alcove beside it: dead wall two tiles deep, so opening it joins nothing
+          const side = DIRS.filter(([dx, dy]) => !isOpen(cx + dx, cy + dy) && !busy(cx + dx, cy + dy)
+            && inGrid(cx + dx * 2, cy + dy * 2) && !isOpen(cx + dx * 2, cy + dy * 2));
+          if (!side.length) continue;
+          const [dx, dy] = side[R() * side.length | 0];
+          sliders.push({ x: cx, y: cy, dx, dy, shifted: false, auto: true, gauntlet: true, nextAt: 0 });
+          picked.push([cx, cy]);
+        }
+      }
       // every passage in the tree is a squeeze, the mouth included
       for (const k of G) {
         const [cx, cy] = k.split(',').map(Number);

@@ -136,6 +136,16 @@ const MUTATIONS = [
 
   ['grid dimensions lied about', 'grid dimensions match tiles', (s) => { s.H = s.H + 3; }],
 
+  ['a gauntlet swing that slides into a corridor', 'a gauntlet swing opens no new ground', (s) => {
+    // One on the route, but with open floor beside it: sliding into that joins the trunk to
+    // whatever the floor belongs to, which is a way round the tree.
+    const mid = s.solutionPath[Math.floor(s.solutionPath.length / 2)];
+    const rows = s.tiles.map((r) => r.split(''));
+    rows[mid[1]][mid[0]] = '1'; rows[mid[1] + 1][mid[0]] = '1';
+    s.tiles = rows.map((r) => r.join(''));
+    s.sliders = [...s.sliders, { x: mid[0], y: mid[1], dx: 0, dy: 1, auto: true, gauntlet: true }];
+  }],
+
   ['a pool level missing its stone', 'pool level has its stone and its door', (s) => {
     s.poolMode = true; s.poolDoor = { x: 1, y: 1 }; s.keySpot = null;
     s.startGap = [1, 1]; s.journals = [];

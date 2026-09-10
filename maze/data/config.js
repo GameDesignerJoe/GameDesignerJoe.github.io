@@ -162,6 +162,9 @@ const CONFIG = {
   secretGlowCore: 0.25, // and the pinprick at the middle of it, as a share of its old brightness
   secretSwitchIn: 2,    // how far into the room the switch sits, in tiles from the squeeze. Not on the
                         // way in: you have to be inside the dark before there is anything to see
+  exitGauntletSwings: 2,// cells of the gauntlet's trunk that slide out of the way on a clock, so the
+                        // right branch has to be timed as well as found. Nothing is carved for them:
+                        // the alcove they step into stays wall until the tile gets there
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap

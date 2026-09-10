@@ -201,6 +201,23 @@ Worked through the list at the top of `NOTES.md`. The Child phase changed most:
   those the one that makes you choose most often wins. **`the squeeze tree is
   the only way to the exit`** is an invariant — shut the mouth and the exit
   must be gone. 1920 for 1920.
+- **The floor moves on the way out** (v0.57.0). `CONFIG.exitGauntletSwings` puts
+  two cells of the trunk on a clock: they slide sideways into the dead wall
+  beside them and back, so the way on is a hole half the time and finding the
+  right branch is not the whole of it. Joe asked for "auto moving floor tiles"
+  in the gauntlet, and a hole that comes and goes is what makes you stand still
+  long enough to think about the choice.
+
+  Nothing is carved for them. The cell is trunk floor already and the alcove is
+  dead wall until the tile gets there, so the tree is still the only way out and
+  there is no new ground to stand on. They are chosen before the squeezes go in,
+  so `busy()` keeps the squeeze passes off the swing's own cell. Only
+  straight-through cells qualify — a hole in a junction would be a hole in three
+  ways at once — and the alcove must be wall two tiles deep, or sliding into it
+  would join the trunk to whatever is on the other side. 87 Child mazes in 120
+  get both, 26 get one. **`a gauntlet swing opens no new ground`** is an
+  invariant. You can ride one into its alcove and ride it back out; there is no
+  way to be left there.
 - **A squeeze you cannot go round.** `CONFIG.crawlOnPath` puts one crawl gap on
   the solution route whose sealing would cut start from exit, so getting out
   means getting down. The tile was already open, so nothing about the maze

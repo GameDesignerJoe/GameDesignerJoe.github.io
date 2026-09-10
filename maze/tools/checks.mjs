@@ -118,6 +118,22 @@ const CHECKS = [
     return bad.length ? bad.slice(0, 4).join(', ') + (bad.length > 4 ? ` (+${bad.length - 4})` : '') : null;
   }],
 
+  ['a gauntlet swing opens no new ground', (s) => {
+    // A swing on the gauntlet's trunk is meant to take the floor out from under the way on and
+    // give it back, not to lead anywhere. So it must sit on the route it interrupts, and the
+    // alcove it steps into must be dead wall two tiles deep — one tile deep and sliding into it
+    // would join the trunk to whatever is on the other side, which is a way round the tree.
+    const bad = [];
+    for (const sl of s.sliders.filter((x) => x.gauntlet)) {
+      const at = (x, y) => (y >= 0 && y < s.H && x >= 0 && x < s.W ? s.tiles[y][x] === '1' : false);
+      const onRoute = s.solutionPath.some(([x, y]) => x === sl.x && y === sl.y);
+      if (!onRoute) bad.push(`${K(sl.x, sl.y)} is not on the route`);
+      else if (at(sl.x + sl.dx, sl.y + sl.dy)) bad.push(`${K(sl.x, sl.y)} steps into open floor`);
+      else if (at(sl.x + sl.dx * 2, sl.y + sl.dy * 2)) bad.push(`${K(sl.x, sl.y)} would open onto ${K(sl.x + sl.dx * 2, sl.y + sl.dy * 2)}`);
+    }
+    return bad.length ? bad.slice(0, 4).join(', ') : null;
+  }],
+
   ['a swing-only phase carries no pushable blocks', (s) => {
     // The Child has swings — blocks that move on their own — but has not been taught to push
     // anything yet. A phase with swings and no pockets must have every slider on a clock.

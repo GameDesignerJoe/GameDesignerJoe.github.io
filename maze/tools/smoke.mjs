@@ -249,7 +249,7 @@ check('reload resumes the run in place', samePos && sameMarks && post.seed === p
 // ── 8. a pool level lays out and its stone opens the door ───────
 const pool = await page.evaluate(() => {
   SAVE.poolPending = true;
-  generate(99);
+  generate(99); sliding = null;   // the world is swapped by hand here; a slide in flight belongs to the old one
   const r = {
     poolMode, hasDoor: !!poolDoor, stone: keySpot,
     room: startRoom, pages: journals.size, dark: darkTiles.size,
@@ -600,6 +600,38 @@ const boxedIn = await page.evaluate(async () => {
 });
 check('a scripted first step with nowhere to go gives up instead of holding the stick',
   boxedIn.cleared, 'walled in on all four sides, introWalk cleared itself on the next frame');
+
+// ── 8h. the gauntlet's auto-moving floor ──────────────────────────
+// A cell of the exit tree's trunk slides out of the way on a clock and comes back, so the way on
+// is a hole half the time. It must actually take the floor with it, and it must always give it
+// back — a hole that stayed would be a soft lock on the only route out.
+const gswing = await page.evaluate(async () => {
+  let sl = null;
+  for (let s = 0; s < 40 && !sl; s++) {
+    SAVE.phase = 0; SAVE.stones = 0; SAVE.poolPending = false; SAVE.ui = {};
+    delete SAVE.run; persist(); reset(7000 + s * 11);
+    sl = sliders.find((x) => x.gauntlet) || null;
+  }
+  if (!sl) return { skip: true };
+  document.body.classList.remove('pre'); $('title').classList.add('hide'); started = true;
+  const side = DIRS.find(([dx, dy]) => isOpen(sl.x + dx, sl.y + dy));
+  player.x = sl.x + side[0] + 0.5; player.y = sl.y + side[1] + 0.5;   // waiting at the squeeze beside it
+  const wasSec = CONFIG.swingSeconds; CONFIG.swingSeconds = 0.35; sl.nextAt = 0;
+  const seen = { home: 0, away: 0 };
+  const t0 = performance.now();
+  await new Promise((r) => { const step = () => {
+    if (tiles[sl.y][sl.x]) seen.home++;
+    if (tiles[sl.y + sl.dy][sl.x + sl.dx]) seen.away++;
+    if (performance.now() - t0 > 2200) return r();
+    requestAnimationFrame(step); }; step(); });
+  CONFIG.swingSeconds = wasSec;
+  return { at: [sl.x, sl.y], into: [sl.dx, sl.dy], seen,
+    onRoute: solutionPath.some(([x, y]) => x === sl.x && y === sl.y) };
+});
+check('the gauntlet floor slides out of the way and comes back',
+  gswing.skip || (gswing.seen.home > 5 && gswing.seen.away > 5 && gswing.onRoute),
+  gswing.skip ? 'no gauntlet swing in 40 Child mazes' :
+  `the cell at ${gswing.at} is on the route out; it left toward ${gswing.into} and came back — floor ${gswing.seen.home} frames, hole ${gswing.seen.away}`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

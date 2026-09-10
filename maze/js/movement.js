@@ -81,11 +81,18 @@ function update(wall) {
     const e = k < 0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2, 3)/2;
     if (sliding.carry !== false) { player.x = sliding.from[0] + 0.5 + (sliding.to[0] - sliding.from[0]) * e; player.y = sliding.from[1] + 0.5 + (sliding.to[1] - sliding.from[1]) * e; }
     if (k >= 1) {
-      const [tx, ty] = sliding.to; tiles[ty][tx] = 1;
-      if (sliding.sl.ways) sliding.sl.at = sliding.toAt; else sliding.sl.shifted = !sliding.sl.shifted;
-      const fromKey = sliding.from.join(','), toKey = sliding.to.join(',');
-      if (marks.has(fromKey)) { const g = marks.get(fromKey); marks.delete(fromKey); marks.set(toKey, g); }
-      if (sliding.carry !== false) lastTileKey = toKey; const wasAuto = sliding.sl.auto; sliding = null; if (!wasAuto) AUDIO.slideEnd();
+      const [tx, ty] = sliding.to;
+      // A slide can outlive the world it started in — a debug generate(), a new Size mid-flight —
+      // and then its destination is off the end of the new grid. Drop it rather than throw: a
+      // throw inside update() never re-queues the frame loop, and the game simply stops.
+      if (!tiles[ty] || tiles[ty][tx] === undefined) { sliding = null; }
+      else {
+        tiles[ty][tx] = 1;
+        if (sliding.sl.ways) sliding.sl.at = sliding.toAt; else sliding.sl.shifted = !sliding.sl.shifted;
+        const fromKey = sliding.from.join(','), toKey = sliding.to.join(',');
+        if (marks.has(fromKey)) { const g = marks.get(fromKey); marks.delete(fromKey); marks.set(toKey, g); }
+        if (sliding.carry !== false) lastTileKey = toKey; const wasAuto = sliding.sl.auto; sliding = null; if (!wasAuto) AUDIO.slideEnd();
+      }
     }
   }
   if (want && !(sliding && sliding.carry !== false)) {
