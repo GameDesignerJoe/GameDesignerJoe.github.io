@@ -91,6 +91,33 @@ const AUDIO = (() => {
     const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t + dur + 0.1);
   }
+  // How loud something standing at tile (x,y) should be from where the player is.
+  // Walking distance, not line of sight: a swing three tiles away through a wall
+  // is as far off as the walk around to it. Bounded by sfxRangeTiles, so the
+  // search is small and costs nothing at the rate these fire.
+  function earshot(x, y) {
+    const near = CONFIG.sfxNearTiles, far = CONFIG.sfxRangeTiles;
+    const px = Math.floor(player.x), py = Math.floor(player.y);
+    if (px === x && py === y) return 1;
+    const fall = (d) => (d <= near ? 1 : Math.max(0, 1 - (d - near) / (far - near)));
+    const seen = new Set([px + ',' + py]);
+    let edge = [[px, py]];
+    for (let d = 1; d <= far && edge.length; d++) {
+      const next = [];
+      for (const [cx, cy] of edge) {
+        for (const [dx, dy] of DIRS) {
+          const nx = cx + dx, ny = cy + dy, k = nx + ',' + ny;
+          // the target itself may be shut mid-slide, so reach it before the wall test
+          if (nx === x && ny === y) return fall(d);
+          if (seen.has(k) || !isOpen(nx, ny)) continue;
+          seen.add(k); next.push([nx, ny]);
+        }
+      }
+      edge = next;
+    }
+    return 0;   // out of earshot, or nothing open leads to it
+  }
+
   return {
     unlock() { if (ensure() && ac.state === 'suspended') ac.resume(); },
     begin() { this.unlock(); startDrone(); },
@@ -117,7 +144,15 @@ const AUDIO = (() => {
     stone() { tone(110, 0.3, { type: 'triangle', vol: 0.15, slide: 80 }); noise(0.08, { vol: 0.12, freq: 600, q: 2 }); },
     stoneDrop() { noise(0.5, { vol: 0.25, freq: 900, q: 0.8, type: 'lowpass' }); tone(146, 1.2, { vol: 0.1, attack: 0.02, slide: 98 }); setTimeout(() => tone(392, 2.4, { vol: 0.05, attack: 0.6 }), 400); },
     poolEnter() { [261.6, 329.6, 392].forEach((f, i) => setTimeout(() => tone(f, 3.5, { vol: 0.05, attack: 0.8 }), i * 500)); },
-    swing() { noise(CONFIG.sliderSeconds * 0.5, { vol: 0.12, freq: 260, q: 1.5, type: 'lowpass' }); tone(70, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.08, attack: 0.2, slide: 90 }); },
+    // Swings move on their own, anywhere in the maze, so this is the one sound
+    // that is usually not at your feet. Carry: 1 right next to you, 0 out of
+    // earshot. Distance takes the top off it as well as the volume.
+    swing(x, y) {
+      const carry = (x === undefined) ? 1 : earshot(x, y);
+      if (carry <= 0) return;
+      noise(CONFIG.sliderSeconds * 0.5, { vol: 0.12 * carry, freq: 200 + 60 * carry, q: 1.5, type: 'lowpass' });
+      tone(70, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.08 * carry, attack: 0.2, slide: 90 });
+    },
     hop(n) { tone(440 * Math.pow(2, (n % 8) / 12), 0.15, { vol: 0.08 }); },
     squeeze(entering) { noise(0.35, { vol: 0.14, freq: entering ? 700 : 1100, q: 1, type: 'bandpass' }); tone(entering ? 90 : 120, 0.25, { type: 'triangle', vol: 0.08, slide: entering ? 70 : 150 }); },
     farSteps() { for (let i = 0; i < 6; i++) setTimeout(() => noise(0.05, { vol: 0.07 * (1 - i / 7), freq: 700 - i * 40, q: 2 }), i * 380 + Math.random() * 60); },

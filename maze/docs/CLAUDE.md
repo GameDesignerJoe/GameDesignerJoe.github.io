@@ -141,6 +141,12 @@ node maze/tools/selftest.mjs         # proves the invariants can fail
 
 None of it touches `maze-topdown.html`. See `../tools/README.md`.
 
+**Sound carries by walking distance** since v0.35.0. `earshot()` in
+`js/audio.js` fades a sound in the world from full volume at `sfxNearTiles` to
+silence at `sfxRangeTiles`, measured in tiles walked rather than line of sight.
+Only `AUDIO.swing()` uses it — every other sound is triggered by the player and
+so is always at their feet. Give any new autonomous sound its tile.
+
 **Known open bug:** roughly 1.4% of mazes with locked doors are unfinishable —
 a door's key can land in a sealed pocket behind that same door. Reproduce with
 `node maze/tools/diagnose.mjs --phase 1 --seed 301922 --stones 7`.

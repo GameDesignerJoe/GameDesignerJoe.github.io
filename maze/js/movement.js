@@ -44,7 +44,7 @@ function update(wall) {
     if (!carry && Math.floor(player.x) === to[0] && Math.floor(player.y) === to[1]) { sl.nextAt = now + 800; continue; }   // never slide into you
     tiles[cy][cx] = 0; tiles[to[1]][to[0]] = 0;
     sliding = { sl, from: [cx, cy], to, t0: now, carry, dur: CONFIG.sliderSeconds * 500 }; if (carry) { dir = null; clearStick(); }
-    AUDIO.swing(); sl.nextAt = now + CONFIG.sliderSeconds * 500 + CONFIG.swingSeconds * 1000;
+    AUDIO.swing(cx, cy); sl.nextAt = now + CONFIG.sliderSeconds * 500 + CONFIG.swingSeconds * 1000;
     break;
   }
   if (sliding) {

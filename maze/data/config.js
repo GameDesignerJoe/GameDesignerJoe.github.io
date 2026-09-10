@@ -90,6 +90,9 @@ const CONFIG = {
   sound: true,          // ambient drone + effects (toggle in the gear panel)
   musicVolume: 0.35,
   sfxVolume: 0.8,
+  sfxNearTiles: 2,      // a thing in the world this close sounds at full volume
+  sfxRangeTiles: 9,     // and fades to nothing by here — measured in tiles walked, not line of sight,
+                        // so a swing on the far side of a wall is as distant as the walk around it
 
   colors: {
     bg:    '#0d0f10',

@@ -37,6 +37,29 @@ const browser = await chromium.launch({
 const ctx = await browser.newContext({
   viewport: { width: 430, height: 900 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2,
 });
+
+// Watch the loudest gain any node is set to, so the swing falloff (v0.35.0)
+// can be measured from outside the audio module.
+await ctx.addInitScript(() => {
+  window.__peak = 0;
+  const Native = window.AudioContext || window.webkitAudioContext;
+  if (!Native) return;
+  class Probed extends Native {
+    constructor(...a) {
+      super(...a);
+      const g = this.createGain.bind(this);
+      this.createGain = (...b) => {
+        const n = g(...b);
+        for (const m of ['setValueAtTime', 'linearRampToValueAtTime']) {
+          const o = n.gain[m].bind(n.gain);
+          n.gain[m] = (v, ...r) => { if (v > window.__peak) window.__peak = v; return o(v, ...r); };
+        }
+        return n;
+      };
+    }
+  }
+  window.AudioContext = Probed; window.webkitAudioContext = Probed;
+});
 const page = await ctx.newPage();
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(String(e)));
@@ -235,6 +258,49 @@ const pool = await page.evaluate(() => {
 check('a pool level lays out with its stone and door', pool.poolMode && pool.hasDoor && !!pool.stone && pool.pages === 0,
   `door=${pool.hasDoor} stone=${pool.stone} pages=${pool.pages} dark=${pool.dark}; `
   + `${pool.pools} pools, this one hosts ${pool.whoAtThisStone}`);
+
+// ── 8b. a swing you are nowhere near does not thump in your ear ──
+// Swings move on their own anywhere in the maze. Before v0.35.0 every one of
+// them played at full volume wherever you stood — on the Child level that was
+// a low boom every 1.6s from something 25 tiles of walking away, loud enough
+// to bury the music. Assert the falloff, not just that a sound happens.
+const falloff = await page.evaluate(async () => {
+  const home = { x: Math.floor(player.x), y: Math.floor(player.y) };
+  const tilesAt = [[0, [home.x, home.y]]];
+  const seen = new Set([home.x + ',' + home.y]);
+  let edge = [[home.x, home.y]];
+  for (let n = 1; n <= CONFIG.sfxRangeTiles + 2 && edge.length; n++) {
+    const next = [];
+    for (const [cx, cy] of edge) for (const [dx, dy] of DIRS) {
+      const ax = cx + dx, ay = cy + dy, k = ax + ',' + ay;
+      if (seen.has(k) || !isOpen(ax, ay)) continue;
+      seen.add(k); next.push([ax, ay]);
+    }
+    edge = next;
+    if (edge.length) tilesAt.push([n, edge[0]]);
+  }
+  const was = { x: player.x, y: player.y };
+  const rows = [];
+  for (const [d, [tx, ty]] of tilesAt) {
+    player.x = tx + 0.5; player.y = ty + 0.5;
+    window.__peak = 0;
+    AUDIO.swing(home.x, home.y);          // read synchronously; swing builds its nodes in this tick
+    rows.push([d, +window.__peak.toFixed(4)]);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  player.x = was.x; player.y = was.y;
+  return { rows, near: CONFIG.sfxNearTiles, far: CONFIG.sfxRangeTiles };
+});
+const vols = falloff.rows.map(([, v]) => v);
+const loudClose = vols[0] > 0.1;
+const silentFar = falloff.rows.filter(([d]) => d >= falloff.far).every(([, v]) => v === 0);
+const monotonic = vols.every((v, i) => i === 0 || v <= vols[i - 1] + 1e-9);
+const reachedRange = falloff.rows.some(([d]) => d >= falloff.far);
+check('a swing fades with distance and goes silent out of earshot',
+  loudClose && silentFar && monotonic && reachedRange,
+  `near=${falloff.near} far=${falloff.far}; `
+  + falloff.rows.map(([d, v]) => `${d}:${v}`).join(' ')
+  + `${reachedRange ? '' : ' — corridor too short to reach the range limit'}`);
 
 // ── 9. no page errors throughout ─────────────────────────────────
 check('no page errors', pageErrors.length === 0,

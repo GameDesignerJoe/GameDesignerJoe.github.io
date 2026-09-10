@@ -119,3 +119,23 @@ shows the same difference, which is how it was ruled out.
 `split-data.mjs`, `split-engine.mjs`, `split-css.mjs` and `analyze-engine.mjs`
 are the tools that did the splits and surveyed the file. Kept because they
 record exactly what was moved and how it was checked.
+
+## Audio tools
+
+`audio-probe.mjs` wraps Web Audio before any page script runs and logs every
+node, gain and start, so two builds can be compared. `audio-ab.mjs` counts
+`AUDIO.*` calls on a scripted run without disabling the autoplay policy, which
+is what a phone does.
+
+```
+node maze/tools/audio-ab.mjs --port 8765 --phase 0
+```
+
+Together they settled a report that the sound had regressed after the splits.
+It had not — `AUDIO` and `MUSIC` were byte-identical and both builds produced
+the same call profile. What the probes found instead was that
+`AUDIO.swing()` played at full volume regardless of where the player stood: on
+the Child level, a low boom every 1.6s from a swing 25 tiles of walking away,
+about nine times a musicbox note, burying the music. Fixed in v0.35.0 with
+`earshot()` and the `sfxNearTiles` / `sfxRangeTiles` knobs; `smoke.mjs` now
+asserts the falloff curve.
