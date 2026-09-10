@@ -42,7 +42,7 @@ const CONFIG = {
   floorGrime: 0.6,      // how much dirt gathers along the wall edges and in the corners. 0 = off
   floorLights: 0.55,    // ceiling fixtures pooling light on the floor. 0 = off
   floorLightSpacing: 6, // cells between them
-  floorLightBad: 0.3,   // share of them with something wrong, that stutter and drop out
+  floorLightBad: 0.5,   // share of them with something wrong, that stutter and drop out
   textureAmount: 0.55,  // how strongly Damp and Dust are laid over the picture
   textureGrain: 0.28,   // Grain has its own, at half: it covers every pixel, so it counts double
   textureDamp: 26,      // blotches per maze in Damp mode, placed from the seed so they hold still
@@ -132,11 +132,17 @@ const CONFIG = {
   exitGauntletTunnel: 0.6,    // share of the pass-through cells drawn as tunnel rather than a room you
                         // step into, so some of it is just crawling, elbows and all
   secretRooms: 1,       // a room sealed off behind a squeeze, covered in someone else's chalk. Child only
-  secretRoomChalk: 0.3, // how thickly that room is drawn on: chance per floor tile
+  secretRoomChalk: 0.5, // how thickly that room is drawn on: chance per floor tile
+  secretMinTiles: 9,   // how small a chunk of maze will do as a hiding place, in tiles
+  secretMaxTiles: 64,   // and how big before it is really just more maze
+  secretDark: true,     // it stays unlit until you find the switch on its floor and stand on it
+  secretLightSec: 1.3,  // how long the lights take to stutter on once you do
   swings: 1,            // tiles that slide back and forth on their own
   swingSeconds: 2.25,   // how long a swing rests at each end
   squeezeSlow: 0.4,     // speed inside a crawl gap
   squeezeReach: 0.85,   // how far (tiles) from the gap's center the squeeze extends into each corridor
+  squeezeBump: 0.09,    // the camera's kick going into and out of a squeeze, in tiles. It is a shoulder
+                        // catching a wall, not a collision — 0.18 read as being hit
   journalFloat: 0.05,   // how far a book lifts and settles, as a fraction of a tile. 0 = still
   journalFloatSec: 2.6, // one rise and fall
   figureLingerSec: 2.5, // how long the father stands there once you have seen him, before he leaves
@@ -150,6 +156,8 @@ const CONFIG = {
   darkBufferTiles: 8,   // darkness never comes closer than this (walking) to the start-room door
   coneDeg: 70,          // lamp cone width
   coneTiles: 3.6,       // lamp cone reach
+  poolDoorSeconds: 2.4, // how long the pool room's gate takes to grind aside. It is stone and it
+                        // is heavy, and 0.65s read as a shutter
   keyGate: true,        // allow the locked exit at all
   keyChance: 0.5,       // share of mazes whose exit is actually locked
 
@@ -177,6 +185,8 @@ const CONFIG = {
     floor: '#6e6a62',
     grout: '#585450',
     player:'#ece7da',
+    playerEdge:'#8b867a',       // the edge that keeps him findable while he is still dark. Pale enough
+                                // to see, dull enough not to look freshly painted
     playerBurdened:'#2c2a26',   // what he is before a stone is put down. Each one lights another
                                 // band of him, tail to nose, until he is the pale colour above
     exit:  '#a89f8c',

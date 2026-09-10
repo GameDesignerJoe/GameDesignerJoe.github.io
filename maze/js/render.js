@@ -119,11 +119,11 @@ function drawLights(S, ox, oy, vw, vh, nowMs) {
   ctx.restore();
 }
 function drawFloorTexture(S, ox, oy, vw, vh, x0_, x1_, y0_, y1_, nowMs) {
-  const f = SAVE.ui.floor || 'off';
+  const f = SAVE.ui.floor || 'wornlights';   // the two that carry it, on by default
   if (f === 'off') return;
-  const all = f === 'all';
-  if ((all || f === 'worn') && CONFIG.floorWorn > 0) drawWorn(S, ox, oy, x0_, x1_, y0_, y1_);
-  if ((all || f === 'lights') && CONFIG.floorLights > 0) drawLights(S, ox, oy, vw, vh, nowMs);
+  const all = f === 'all', pair = f === 'wornlights';
+  if ((all || pair || f === 'worn') && CONFIG.floorWorn > 0) drawWorn(S, ox, oy, x0_, x1_, y0_, y1_);
+  if ((all || pair || f === 'lights') && CONFIG.floorLights > 0) drawLights(S, ox, oy, vw, vh, nowMs);
   if ((all || f === 'grime') && CONFIG.floorGrime > 0) drawGrime(S, ox, oy, x0_, x1_, y0_, y1_);
 }
 
@@ -162,9 +162,14 @@ function drawGrain(vw, vh, nowMs) {
   ctx.fillStyle = ctx.createPattern(grainPattern(), 'repeat');
   ctx.fillRect(0, 0, vw + 128, vh + 128); ctx.restore();
 }
-function drawDust(vw, vh, dt) {
+function drawDust(vw, vh, dt, S, ox, oy, x0_, x1_, y0_, y1_) {
   if (!motes) { motes = []; for (let i = 0; i < CONFIG.textureMotes; i++) motes.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.012, vy: -0.004 - Math.random() * 0.012, r: 0.6 + Math.random() * 1.7, a: 0.1 + Math.random() * 0.4 }); }
-  ctx.save(); ctx.fillStyle = '#ece7da';
+  ctx.save();
+  // clipped to the floor, so it hangs in the rooms and the halls rather than over the stone
+  ctx.beginPath();
+  for (let y = y0_; y <= y1_; y++) for (let x = x0_; x <= x1_; x++) if (tiles[y][x]) ctx.rect(ox + x*S, oy + y*S, S + 0.5, S + 0.5);
+  ctx.clip();
+  ctx.fillStyle = '#ece7da';
   for (const m of motes) {
     m.x += m.vx * dt; m.y += m.vy * dt;
     if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); } if (m.x < -0.02) m.x = 1.02; if (m.x > 1.02) m.x = -0.02;
@@ -184,7 +189,7 @@ function drawPlayerBody(c, r) {
   const x0 = -r*0.8, span = r*1.8;
   for (let i = 0; i < n; i++) { c.fillStyle = has(i) ? C.player : C.playerBurdened; c.fillRect(x0 + span*i/n - 0.5, -r*1.1, span/n + 1, r*2.2); }
   c.restore();
-  if (CONFIG.playerOutline > 0) { c.strokeStyle = C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
+  if (CONFIG.playerOutline > 0) { c.strokeStyle = C.playerEdge || C.player; c.lineWidth = r * CONFIG.playerOutline; c.lineJoin = 'round'; c.stroke(); }
 }
 
 function draw() {
@@ -319,9 +324,9 @@ function draw() {
   // the pool level's door: a grey panel filling the doorway, unlike the hairline edge of a push block
   // the pool level's door: the same barred gate as a locked door inside the maze, but what it
   // wants is not a shape. It is the stone, so the stone is what is drawn on it.
-  if (poolDoor) { const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / 650) : 0;
+  if (poolDoor) { const open = poolDoor.openAt ? Math.min(1, (nowMs - poolDoor.openAt) / (CONFIG.poolDoorSeconds * 1000)) : 0;
     if (open < 1) { const [px, py] = T(poolDoor.x, poolDoor.y), horiz = isOpen(poolDoor.x-1, poolDoor.y) && isOpen(poolDoor.x+1, poolDoor.y);
-      const off = open * open * S;
+      const off = open * S;   // a steady grind, not a spring
       ctx.save(); ctx.beginPath(); ctx.rect(px - S/2, py - S/2, S, S); ctx.clip();
       ctx.translate(horiz ? off : 0, horiz ? 0 : off);
       ctx.strokeStyle = C.gate; ctx.lineWidth = Math.max(2, S*0.07); ctx.lineCap = 'round'; ctx.beginPath();
@@ -404,6 +409,10 @@ function draw() {
       const [px, py] = T(mx, my); drawGlyph(ctx, g, px, py, S*0.19, Math.max(1, S*0.055)); }
     ctx.restore(); }
 
+  if (secretFather) { const [mx, my] = secretFather.split(',').map(Number);
+    if (mx >= x0_ && mx <= x1_ && my >= y0_ && my <= y1_) { const [px, py] = T(mx, my);
+      ctx.save(); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.5; drawChalkMan(ctx, px, py, S * 0.4, Math.max(1, S * 0.05)); ctx.restore(); } }
+
   // chalk marks (a mark on a sliding tile rides with it)
   ctx.strokeStyle = C.mark;
   for (const [k, g] of marks) {
@@ -415,6 +424,34 @@ function draw() {
   // tunnel roofs (over floor, marks and pickups; under the player)
   ctx.fillStyle = C.tunnel;
   for (const k of tunnelTiles) { const [mx, my] = k.split(',').map(Number); if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue; ctx.fillRect(ox + mx*S, oy + my*S, S+0.5, S+0.5); }
+
+  // The secret place is unlit. From outside all there is to see is the squeeze; inside, the
+  // floor is painted back out and the only thing showing is the switch, until you stand on it
+  // and the lights argue their way on over everything somebody drew in here.
+  if (!debugMap && CONFIG.secretDark && secretTiles.size) {
+    const secs = CONFIG.secretLightSec * 1000;
+    let lit = 0;
+    if (secretOn) { const k = Math.min(1, (nowMs - secretLitAt) / secs);
+      lit = k >= 1 ? 1 : Math.max(0, Math.min(1, k * 1.25 + (Math.sin(k * 47) * Math.sin(k * 19) > 0.25 ? -0.75 : 0))); }
+    if (lit < 1) {
+      ctx.save(); ctx.fillStyle = C.bg; ctx.globalAlpha = 1 - lit;
+      for (const k of secretTiles) { const [mx, my] = k.split(',').map(Number);
+        if (mx < x0_ || mx > x1_ || my < y0_ || my > y1_) continue;
+        ctx.fillRect(ox + mx*S, oy + my*S, S + 0.5, S + 0.5); }
+      ctx.restore();
+      if (secretSwitch && !secretOn) {   // a little light in the floor, breathing
+        const [bx, by] = secretSwitch.split(',').map(Number);
+        if (bx >= x0_ && bx <= x1_ && by >= y0_ && by <= y1_) {
+          const [px, py] = T(bx, by), pulse2 = 0.6 + 0.4 * Math.sin(nowMs / 620);
+          const g = ctx.createRadialGradient(px, py, 0, px, py, S * 0.75);
+          g.addColorStop(0, `rgba(232,217,160,${(0.5 * pulse2).toFixed(3)})`); g.addColorStop(1, 'rgba(232,217,160,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, S * 0.75, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = C.lamp; ctx.globalAlpha = 0.35 + 0.5 * pulse2;
+          ctx.beginPath(); ctx.arc(px, py, S * 0.11, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
 
   // player: arrowhead, black nose; ghosted inside a tunnel
   { const px = ox + player.x*S, py = oy + player.y*S, r = CONFIG.playerSize * S * 0.62 * (phase().bodyScale || 1);
@@ -487,7 +524,7 @@ function draw() {
   if (!debugMap) {
     const tex = SAVE.ui.texture || 'off';
     if (tex === 'grain') drawGrain(vw, vh, nowMs);
-    else if (tex === 'dust') drawDust(vw, vh, Math.min(0.05, (nowMs - (draw.lastMs || nowMs)) / 1000));
+    else if (tex === 'dust') drawDust(vw, vh, Math.min(0.05, (nowMs - (draw.lastMs || nowMs)) / 1000), S, ox, oy, x0_, x1_, y0_, y1_);
   }
   draw.lastMs = nowMs;
 

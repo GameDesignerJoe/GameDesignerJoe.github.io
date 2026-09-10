@@ -184,6 +184,17 @@ function drawStone(c, px, py, r, color) {
   c.beginPath(); c.ellipse(px - r*0.3, py - r*0.22, r*0.3, r*0.17, 0.22, 0, Math.PI*2); c.stroke();
   c.restore();
 }
+// somebody drew a man, from behind, mid-stride, going away. Chalk, a child's hand.
+function drawChalkMan(c, px, py, a, lw) {
+  c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
+  c.arc(px, py - a * 0.62, a * 0.26, 0, Math.PI * 2);                       // head
+  c.moveTo(px, py - a * 0.36); c.lineTo(px, py + a * 0.18);                 // body
+  c.moveTo(px - a * 0.34, py - a * 0.14); c.lineTo(px, py - a * 0.28);      // arms, both swung back
+  c.moveTo(px + a * 0.34, py - a * 0.06); c.lineTo(px, py - a * 0.28);
+  c.moveTo(px - a * 0.3, py + a * 0.78); c.lineTo(px, py + a * 0.18);       // legs, mid-stride
+  c.lineTo(px + a * 0.26, py + a * 0.8);
+  c.stroke();
+}
 // draw a chalk glyph centered at px,py with half-size a
 function drawGlyph(c, g, px, py, a, lw) {
   c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();

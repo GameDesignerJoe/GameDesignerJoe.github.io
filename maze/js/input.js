@@ -34,7 +34,7 @@ setInterval(() => saveRun(true), 6000);
 document.addEventListener('pointerdown', e => { if (dbg.classList.contains('show') && !dbg.contains(e.target) && !$('gear').contains(e.target)) { dbg.classList.remove('show'); dbgClosedAt = performance.now(); } }, true);
 dbg.addEventListener('pointerdown', e => e.stopPropagation());
 opt.map.addEventListener('change', () => setDebugMap(opt.map.checked));   // always opens fitted, so untick and tick to get the fit back
-$('optSize').value = SAVE.ui.size || 'auto'; $('optBranch').value = SAVE.ui.branch || 'auto'; $('optBraid').value = SAVE.ui.braid || 'auto'; $('optTurns').value = SAVE.ui.turns || 'auto'; $('optClusters').value = SAVE.ui.clusters || 'auto'; $('optTexture').value = SAVE.ui.texture || 'off'; $('optFloor').value = SAVE.ui.floor || 'off';
+$('optSize').value = SAVE.ui.size || 'auto'; $('optBranch').value = SAVE.ui.branch || 'auto'; $('optBraid').value = SAVE.ui.braid || 'auto'; $('optTurns').value = SAVE.ui.turns || 'auto'; $('optClusters').value = SAVE.ui.clusters || 'auto'; $('optTexture').value = SAVE.ui.texture || 'off'; $('optFloor').value = SAVE.ui.floor || 'wornlights';
 $('optTurns').addEventListener('change', () => { SAVE.ui.turns = $('optTurns').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optClusters').addEventListener('change', () => { SAVE.ui.clusters = $('optClusters').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });
 $('optBranch').addEventListener('change', () => { SAVE.ui.branch = $('optBranch').value; delete SAVE.run; persist(); reset((Math.random()*1e9)|0); dbg.classList.remove('show'); enterMaze(); });

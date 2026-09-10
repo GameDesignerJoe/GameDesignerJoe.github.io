@@ -89,7 +89,7 @@ function update(wall) {
   { const ax = dir ? (dir.dx ? 'y' : 'x') : recenter;
     if (ax) { const c = Math.floor(player[ax]) + 0.5, diff = c - player[ax]; if (Math.abs(diff) < 0.004) { player[ax] = c; if (!dir) recenter = null; } else { const mv = Math.min(Math.abs(diff), Math.max(0.02, B.speed() * 1.6 * dt)); player[ax] += Math.sign(diff) * mv; } } }
   { const sqz = started && phase().f.crawl && [...crawlGaps, ...crawlCells].some(k => { const [gx, gy] = k.split(',').map(Number); return Math.abs(player.x - gx - 0.5) + Math.abs(player.y - gy - 0.5) < CONFIG.squeezeReach; });
-    if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -0.18 : 0.18; AUDIO.squeeze(sqz); } }
+    if (sqz !== inSqueeze) { inSqueeze = sqz; camBump = sqz ? -CONFIG.squeezeBump : CONFIG.squeezeBump; AUDIO.squeeze(sqz); } }
   if (dir) {
     const step = B.speed() * (inSqueeze ? CONFIG.squeezeSlow : introWalk ? 0.35 : 1) * dt;
     const cx = Math.floor(player.x) + 0.5, cy = Math.floor(player.y) + 0.5;
@@ -134,6 +134,8 @@ function update(wall) {
     if (!secretSaid && secretTiles.has(key)) {
       secretSaid = true; narrate(SECRET_LINES[Math.random() * SECRET_LINES.length | 0]);
     }
+    // the switch on its floor: stand on it and the lights stutter on over everything somebody drew
+    if (!secretOn && secretSwitch === key) { secretOn = true; secretLitAt = now; AUDIO.secretLights(); saveRun(true); }
     if (startRoom) {
       const inRoom = tx >= startRoom.x0 && tx <= startRoom.x1 && ty >= startRoom.y0 && ty <= startRoom.y1;
       if (!inRoom && !leftRoom) { leftRoom = true; narrNext = poolMode ? now + 1200 : now + CONFIG.narratorFirstSec * 1000; if (poolMode) narrQueue = POOLS[Math.min(SAVE.stones || 0, POOLS.length - 1)].approach.slice(); if (!(SAVE.wakeSaid || []).includes(character.name) && character.wake && !poolMode) { if (character.leave) { narrate(character.leave); narrNext = now + CONFIG.narratorEverySec * 1000; } else narrQueue.unshift(character.wake); (SAVE.wakeSaid = SAVE.wakeSaid || []).push(character.name); persist(); } }

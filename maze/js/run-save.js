@@ -16,7 +16,7 @@ function serializeRun() {
     chalkSpots: [...chalkSpots], charcoalSpots: [...charcoalSpots], scrapSpots: [...scrapSpots], pickups: [...pickups.entries()], journals: [...journals.entries()],
     pointerLeft: Math.max(0, pointerUntil - gameNow()), pathLeft: Math.max(0, pathUntil - gameNow()), pointerUses, pathUses, journalsRead,
     sliders: sliders.map(sl => sl.shifted), figures: figures.map(f => f.gone), doorsOpen: doors.map(d => d.open), innerKeys: [...innerKeys.entries()], heldKeys: [...heldKeys],
-    hopIdx, hopSaid, tttSaid, crawlSaid, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
+    hopIdx, hopSaid, tttSaid, crawlSaid, secretOn, narrQueue, narrLeft: Math.max(0, narrNext - gameNow()), wakeDone: true,
   };
 }
 let lastRunSave = 0;
@@ -51,7 +51,7 @@ function restoreRun(run) {
   run.sliders.forEach((sh, i) => { const sl = sliders[i]; if (!sl || sl.shifted === sh) return; const fx = sl.x, fy = sl.y, tx = sl.x + sl.dx, ty = sl.y + sl.dy; tiles[fy][fx] = sh ? 0 : 1; tiles[ty][tx] = sh ? 1 : 0; sl.shifted = sh; });
   run.figures.forEach((g, i) => { if (figures[i] && g) { figures[i].gone = true; figures[i].alpha = 0; } });
   (run.doorsOpen || []).forEach((o, i) => { if (doors[i]) doors[i].open = o; }); if (run.innerKeys) innerKeys = new Map(run.innerKeys); heldKeys = new Set(run.heldKeys || []); renderKeys();
-  hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; narrQueue = run.narrQueue || narrQueue;
+  hopIdx = run.hopIdx; hopSaid = run.hopSaid; tttSaid = run.tttSaid; crawlSaid = run.crawlSaid; secretOn = !!run.secretOn; secretLitAt = secretOn ? -1e9 : 0; narrQueue = run.narrQueue || narrQueue;
   lastTileKey = Math.floor(player.x) + ',' + Math.floor(player.y);
   updateChalk(); updateCharcoal(); updateBooks();
   if (hasKey) (poolMode ? $('stone') : keyEl).classList.add('show'); if (hasLamp) { $('lamp').classList.add('show'); $('lamp').classList.toggle('on', lampOn); }

@@ -207,14 +207,21 @@ Worked through the list at the top of `NOTES.md`. The Child phase changed most:
   gauntlet so the severing test sees the final grid. 29 Child mazes in 30 get
   at least one, 2.5 on average; a very loopy maze can get none, and there the
   warren carries it instead.
-- **A secret place.** `CONFIG.secretRooms` finds somewhere sealed off but for a
-  single squeeze and covers it in somebody else's chalk (`secretMarks`, drawn
-  fainter than yours; `SECRET_LINES` for the line you think on the way in).
-  First choice is a room, walled up one doorway at a time and only while the
-  whole maze stays walkable — a room is usually a hub with five or six ways in
-  and most turn out to be the only route to something, so this rarely takes.
-  The fallback is the deepest dead-end passage, whose mouth simply becomes the
-  squeeze; nothing is sealed there at all. Every Child maze gets one.
+- **A secret place.** Found by looking for where the maze pinches: shut one
+  passage, see what falls off the back of it, and take the biggest chunk that
+  comes away within reason. That passage becomes the squeeze you get in by.
+  Nothing is carved and nothing is sealed — the pinch was already there, it is
+  only relabelled — so this cannot go wrong. The chunk is then opened out into
+  a room, because a pinch usually comes away as a winding passage and a child's
+  room is a room; only links with both ends already inside are opened, and the
+  place is sealed but for its one squeeze, so that changes nothing about
+  getting in or out.
+
+  Inside, it is dark. `CONFIG.secretDark` paints the floor back out until you
+  find `secretSwitch`, a light in the floor a little way in that breathes until
+  you stand on it, and then the lights stutter on over everything somebody drew
+  in here (`secretMarks`, and `secretFather` — a man, from behind, mid-stride,
+  going away). 29 Child mazes in 30 get one, about 15 tiles.
 - **Both are Child-only**, gated on `F.crawl`. For every phase after, a crawl
   gap is drawn shut, so either would wall something away for good.
 - **No push blocks.** A shifting district used to ask for extra sliders on any

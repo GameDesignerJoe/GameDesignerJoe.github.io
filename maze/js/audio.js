@@ -139,6 +139,14 @@ const AUDIO = (() => {
     paper() { noise(0.12, { vol: 0.1, freq: 2600, q: 0.7, type: 'highpass' }); },
     unfold() { noise(0.45, { vol: 0.14, freq: 1400, q: 0.5, type: 'bandpass' }); },
     lampOn() { noise(0.08, { vol: 0.15, freq: 3000, q: 1, type: 'highpass' }); tone(523, 0.5, { vol: 0.07, attack: 0.02 }); tone(784, 0.7, { vol: 0.04, attack: 0.1 }); },
+    // a switch under your foot, then a tube arguing with itself before it holds
+    secretLights() {
+      noise(0.05, { vol: 0.22, freq: 2200, q: 3, type: 'highpass' });
+      tone(180, 0.08, { type: 'square', vol: 0.06 });
+      const secs = CONFIG.secretLightSec;
+      for (let i = 0; i < 5; i++) setTimeout(() => { noise(0.05, { vol: 0.1, freq: 900 + Math.random() * 1400, q: 2 }); tone(120, 0.05, { type: 'square', vol: 0.04 }); }, 140 + i * (secs * 700) / 5 + Math.random() * 60);
+      setTimeout(() => { tone(100, 2.4, { vol: 0.035, attack: 0.3 }); tone(150.5, 2.4, { vol: 0.022, attack: 0.4 }); }, secs * 900);
+    },
     lampOff() { tone(392, 0.25, { vol: 0.06, slide: 300 }); },
     wake() { tone(196, 1.6, { vol: 0.08, attack: 0.4 }); setTimeout(() => tone(294, 1.8, { vol: 0.06, attack: 0.5 }), 700); },
     // waking up one burden lighter: the same low swell, with a major figure opening over it
@@ -157,9 +165,26 @@ const AUDIO = (() => {
       tone(70, CONFIG.sliderSeconds, { type: 'triangle', vol: 0.08 * carry, attack: 0.2, slide: 90 });
     },
     hop(n) { tone(440 * Math.pow(2, (n % 8) / 12), 0.15, { vol: 0.08 }); },
-    squeeze(entering) { noise(0.35, { vol: 0.14, freq: entering ? 700 : 1100, q: 1, type: 'bandpass' }); tone(entering ? 90 : 120, 0.25, { type: 'triangle', vol: 0.08, slide: entering ? 70 : 150 }); },
+    // Cloth and shoulder against concrete, not a knock. Three soft scrapes staggered a little
+    // apart rather than one hit, and never quite the same twice, so it reads as movement.
+    squeeze(entering) {
+      const base = entering ? 520 : 900;
+      for (let i = 0; i < 3; i++) setTimeout(() => noise(0.16 + Math.random() * 0.14, {
+        vol: (0.075 - i * 0.017) * (0.8 + Math.random() * 0.4),
+        freq: base * (0.85 + Math.random() * 0.5) + i * 120, q: 0.7, type: 'bandpass',
+      }), i * (55 + Math.random() * 70));
+      tone(entering ? 72 : 96, 0.32, { type: 'triangle', vol: 0.045, attack: 0.05, slide: entering ? 58 : 126 });
+    },
     farSteps() { for (let i = 0; i < 6; i++) setTimeout(() => noise(0.05, { vol: 0.07 * (1 - i / 7), freq: 700 - i * 40, q: 2 }), i * 380 + Math.random() * 60); },
-    doorSlide() { noise(0.6, { vol: 0.18, freq: 500, q: 1, type: 'lowpass' }); tone(80, 0.6, { type: 'triangle', vol: 0.08, slide: 60 }); },
+    // stone on stone, and heavy: a long grinding drag with the grit audible in it
+    doorSlide() {
+      const secs = CONFIG.poolDoorSeconds;
+      noise(secs, { vol: 0.2, freq: 300, q: 0.9, type: 'lowpass' });
+      noise(secs * 0.9, { vol: 0.1, freq: 1400, q: 0.6, type: 'bandpass' });
+      tone(52, secs, { type: 'triangle', vol: 0.13, attack: 0.25, slide: 44 });
+      for (let i = 0; i < 7; i++) setTimeout(() => noise(0.07, { vol: 0.05 + Math.random() * 0.05, freq: 700 + Math.random() * 900, q: 2 }), 180 + i * (secs * 1000 - 400) / 7 + Math.random() * 120);
+      setTimeout(() => { tone(60, 0.4, { type: 'triangle', vol: 0.12, slide: 34 }); noise(0.2, { vol: 0.14, freq: 420, q: 1.4 }); }, secs * 1000);
+    },
     locked() { tone(180, 0.15, { type: 'square', vol: 0.08 }); setTimeout(() => noise(0.12, { vol: 0.15, freq: 900, q: 3 }), 40); },
     narrator() { tone(880, 0.6, { vol: 0.05, attack: 0.15 }); },
     journal() { noise(0.25, { vol: 0.12, freq: 1800, q: 0.6, type: 'highpass' }); setTimeout(() => tone(392, 0.8, { vol: 0.05, attack: 0.2 }), 120); },
