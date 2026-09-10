@@ -217,6 +217,24 @@ caught something geometry could not: a room opens its corner tiles, and one of
 those can touch a corridor running alongside, so hiddenness is settled with a
 flood rather than by counting doorways.
 
+**The floor (v0.46.0).** A separate **Floor** debug menu from the screen
+overlay, because these are marks in the concrete rather than effects on the
+glass: fixed by the seed and by the shape of the maze, so they are in the same
+place every time you come back. That is the point — the Child has lived here
+his whole life, and the room should show it.
+
+| Option | What it is |
+| --- | --- |
+| **Worn paths** | The floor polishes along the ways people actually walk. Traffic is distance out from the route (`floorWearReach`), stroked along the corridor rather than dabbed per tile, so it reads as one worn track; junctions come out brighter because more feet crossed there. |
+| **Grime** | Dirt along the foot of every wall, twice over in a corner, with a per-tile roll so it is not uniform. |
+| **Flickering lights** | Ceiling fixtures every `floorLightSpacing` cells pooling light on the floor. `floorLightBad` of them have something wrong and stutter, always, not in response to anything. |
+| **All three** | Which is probably the answer. |
+
+Off by default. The distinction worth keeping: grime and decay are the texture
+of an abandoned *building*, nobody here for years. The Child was left in a
+corridor somebody still mops. Worn paths carry that better than dirt does —
+they are evidence of other people, and of their absence.
+
 **Texture (v0.45.0).** Three overlays behind a **Texture** debug menu, off by
 default: **Grain** lays film-and-paper noise over the whole picture, **Damp**
 puts seeded blotches on the floor under the fog, so a stain stays where it is

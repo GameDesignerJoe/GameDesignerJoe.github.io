@@ -8,9 +8,115 @@ let dpr = 1;
 function resize() { dpr = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
 addEventListener('resize', resize); resize();
 
-// The body, drawn into an already translated and rotated context. Seven bands from tail to
-// nose, one per stone: dark while it is still carried, pale once it has been put down. He
-// starts as a shape you can barely see and ends the pale arrow he always used to be.
+// ── the floor ───────────────────────────────────────────────────
+// Marks in the concrete, not effects on the screen. Everything here is fixed by the seed and
+// the shape of the maze, so it is in the same place every time you come back to it: this is a
+// room somebody has lived in their whole life, not a filter over the picture.
+const tileNoise = (x, y, salt) => {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(salt, 2246822519)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+
+// how much of the maze's traffic passes over each tile, as distance out from the way through.
+// Feet polish the routes people actually take; nothing walks a dead end but you.
+let wearMap = null, wearSeed = -1;
+function floorWear() {
+  if (wearSeed === SEED && wearMap) return wearMap;
+  const d = new Map(), q = [];
+  for (const [x, y] of solutionPath) { const k = x + ',' + y; if (!d.has(k)) { d.set(k, 0); q.push([x, y]); } }
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i], n = d.get(x + ',' + y);
+    if (n >= CONFIG.floorWearReach) continue;
+    for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+      if (!isOpen(nx, ny) || d.has(k)) continue; d.set(k, n + 1); q.push([nx, ny]); }
+  }
+  wearSeed = SEED; wearMap = d; return d;
+}
+function drawWorn(S, ox, oy, x0_, x1_, y0_, y1_) {
+  // Stroked along the corridor rather than dabbed on each tile, so it reads as one worn track
+  // running through the place instead of a row of spots. Two passes, a soft wide one and a
+  // narrower brighter one, and the overlap at a junction comes out brighter — which is right,
+  // because a junction is where more feet crossed.
+  const wear = floorWear(), reach = CONFIG.floorWearReach;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (let y = y0_; y <= y1_; y++) for (let x = x0_; x <= x1_; x++) {
+    if (!tiles[y][x]) continue;
+    const n = wear.get(x + ',' + y);
+    if (n === undefined) continue;
+    const w = (1 - n / reach) * (0.7 + 0.3 * tileNoise(x, y, 11));
+    if (w <= 0.02) continue;
+    const px = ox + x * S + S / 2, py = oy + y * S + S / 2;
+    for (const [width, k] of [[0.66, 0.1], [0.33, 0.13]]) {
+      ctx.strokeStyle = `rgba(186,181,170,${(w * CONFIG.floorWorn * k).toFixed(3)})`;
+      ctx.lineWidth = S * width; ctx.beginPath();
+      let any = false;
+      for (const [dx, dy] of DIRS) { if (!isOpen(x + dx, y + dy)) continue; any = true; ctx.moveTo(px, py); ctx.lineTo(px + dx * S * 0.55, py + dy * S * 0.55); }
+      if (!any) { ctx.moveTo(px, py); ctx.lineTo(px + 0.01, py); }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+// dirt gathers where the mop never reaches: along the foot of every wall, and twice over in a corner
+function drawGrime(S, ox, oy, x0_, x1_, y0_, y1_) {
+  const reach = 0.42;
+  ctx.save();
+  for (let y = y0_; y <= y1_; y++) for (let x = x0_; x <= x1_; x++) {
+    if (!tiles[y][x]) continue;
+    const px = ox + x * S, py = oy + y * S;
+    const a = CONFIG.floorGrime * (0.55 + 0.75 * tileNoise(x, y, 23));
+    for (const [dx, dy] of DIRS) {
+      if (isOpen(x + dx, y + dy)) continue;
+      const x1 = dx > 0 ? px + S : dx < 0 ? px : px, y1 = dy > 0 ? py + S : dy < 0 ? py : py;
+      const g = ctx.createLinearGradient(x1, y1, x1 - dx * S * reach, y1 - dy * S * reach);
+      g.addColorStop(0, `rgba(22,23,24,${(0.55 * a).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(22,23,24,0)');
+      ctx.fillStyle = g; ctx.fillRect(px, py, S + 0.5, S + 0.5);
+    }
+  }
+  ctx.restore();
+}
+// strip lights overhead. Most of them work.
+let lampGrid = null, lampSeed = -1;
+function ceilingLights() {
+  if (lampSeed === SEED && lampGrid) return lampGrid;
+  const out = [], step = CONFIG.floorLightSpacing * 2;
+  for (let cy = P + 1; cy < H; cy += step) for (let cx = P + 1; cx < W; cx += step) {
+    const n = tileNoise(cx, cy, 41), m = tileNoise(cx, cy, 57);
+    out.push({ x: cx + (n - 0.5) * 3, y: cy + (m - 0.5) * 3, r: 3.1 + n * 1.8, bad: m < CONFIG.floorLightBad, ph: n * 40 });
+  }
+  lampSeed = SEED; lampGrid = out; return out;
+}
+function drawLights(S, ox, oy, vw, vh, nowMs) {
+  const t = nowMs / 1000;
+  ctx.save();
+  for (const L of ceilingLights()) {
+    const px = ox + L.x * S, py = oy + L.y * S, r = L.r * S;
+    if (px + r < 0 || px - r > vw || py + r < 0 || py - r > vh) continue;
+    let lit = 0.86 + 0.14 * Math.sin(t * 1.7 + L.ph);
+    if (L.bad) {
+      const s = Math.sin(t * 17.3 + L.ph) * Math.sin(t * 5.1 + L.ph * 2) * Math.sin(t * 31.7);
+      if (s > 0.5) lit *= 0.15;                       // the stutter
+      else if (s > 0.35) lit *= 0.6;
+    }
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r);
+    g.addColorStop(0, `rgba(226,222,206,${(lit * CONFIG.floorLights * 0.22).toFixed(3)})`);
+    g.addColorStop(0.55, `rgba(226,222,206,${(lit * CONFIG.floorLights * 0.09).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(226,222,206,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawFloorTexture(S, ox, oy, vw, vh, x0_, x1_, y0_, y1_, nowMs) {
+  const f = SAVE.ui.floor || 'off';
+  if (f === 'off') return;
+  const all = f === 'all';
+  if ((all || f === 'worn') && CONFIG.floorWorn > 0) drawWorn(S, ox, oy, x0_, x1_, y0_, y1_);
+  if ((all || f === 'lights') && CONFIG.floorLights > 0) drawLights(S, ox, oy, vw, vh, nowMs);
+  if ((all || f === 'grime') && CONFIG.floorGrime > 0) drawGrime(S, ox, oy, x0_, x1_, y0_, y1_);
+}
+
 // ── texture ─────────────────────────────────────────────────────
 // Three ways to age the concrete, so the look can be picked by eye rather than argued about.
 // Damp lies on the floor and goes under the fog, because a stain is a thing in the room. Grain
@@ -58,6 +164,9 @@ function drawDust(vw, vh, dt) {
   ctx.restore();
 }
 
+// The body, drawn into an already translated and rotated context. Seven bands from tail to
+// nose, one per stone: dark while it is still carried, pale once it has been put down. He
+// starts as a shape you can barely see and ends the pale arrow he always used to be.
 function drawPlayerBody(c, r) {
   const C = CONFIG.colors, n = STONES.length;
   c.beginPath(); c.moveTo(r, 0); c.lineTo(-r*0.8, -r*0.75); c.lineTo(-r*0.45, 0); c.lineTo(-r*0.8, r*0.75); c.closePath();
@@ -97,6 +206,7 @@ function draw() {
   ctx.strokeStyle = C.grout; ctx.lineWidth = 1; ctx.beginPath();
   for (let y=y0_; y<=y1_; y++) for (let x=x0_; x<=x1_; x++) if (tiles[y][x]) { ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S+S, oy+y*S); ctx.moveTo(ox+x*S, oy+y*S); ctx.lineTo(ox+x*S, oy+y*S+S); }
   ctx.stroke();
+  if (!debugMap) drawFloorTexture(S, ox, oy, vw, vh, x0_, x1_, y0_, y1_, nowMs);
   // walls
   ctx.fillStyle = C.wall;
   for (let y=y0_; y<=y1_; y++) for (let x=x0_; x<=x1_; x++) if (!tiles[y][x]) ctx.fillRect(ox + x*S, oy + y*S, S+0.5, S+0.5);

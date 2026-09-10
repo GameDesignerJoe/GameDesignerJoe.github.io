@@ -35,6 +35,14 @@ const CONFIG = {
   fogSoftness: 1.4,     // how many tiles the light takes to fade to black
   // texture: an overlay to age the concrete. The Texture debug menu picks one; off by default,
   // because which one the maze wants is a look to be chosen by eye, not a value to tune.
+  // the floor itself: the room the Child grew up in. Not a screen effect — these are marks in
+  // the concrete, in the same place every time you come back, because he has always lived here.
+  floorWorn: 0.55,      // how much the floor polishes along the ways people actually walk. 0 = off
+  floorWearReach: 7,    // how many tiles either side of the main route still show that traffic
+  floorGrime: 0.6,      // how much dirt gathers along the wall edges and in the corners. 0 = off
+  floorLights: 0.55,    // ceiling fixtures pooling light on the floor. 0 = off
+  floorLightSpacing: 6, // cells between them
+  floorLightBad: 0.3,   // share of them with something wrong, that stutter and drop out
   textureAmount: 0.55,  // how strongly whichever one is on is laid over the picture
   textureDamp: 26,      // blotches per maze in Damp mode, placed from the seed so they hold still
   textureMotes: 46,     // drifting motes in Dust mode
